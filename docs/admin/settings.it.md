@@ -12,7 +12,7 @@ La pagina **Impostazioni** sotto **Admin → Impostazioni** (`/admin/settings`) 
 | **Integrazioni** | `/admin/settings?tab=integrations` | Sincronizzazione ServiceNow e integrazioni aggiunte dalle estensioni | [Integrazione ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Interruttori specifici di TurboLens, normative abilitate, polling delle analisi | Vedi sezione [Impostazioni TurboLens](#impostazioni-turbolens) sotto |
 | **Migrazione** | `/admin/settings?tab=migration` | Importazioni da altre piattaforme EA e trasferimento completo del workspace tra istanze Turbo EA | [Migrazione di piattaforma](migration.md) |
-| **Registro di audit** | `/admin/settings?tab=audit-log` | Registro delle modifiche — chi ha cambiato cosa e se proviene dall'interfaccia web, dall'API o da uno strumento IA | — |
+| **Registro di audit** | `/admin/settings?tab=audit-log` | **Modifiche**: il registro dei batch di modifiche — chi ha cambiato cosa e se proviene dall'interfaccia web, dall'API, da uno strumento IA o da un'estensione. **Sicurezza e amministrazione**: accessi, tentativi falliti, blocchi e altri eventi di sicurezza | [Registro di audit](audit-log.md) |
 | **Risorse** | `/admin/settings?tab=resources` | Tutti i file e i collegamenti allegati a una scheda, con statistiche di archiviazione e pulizia in massa | [Risorse](resources.md) |
 
 Il resto di questa pagina copre la scheda **Generale**.
@@ -81,6 +81,10 @@ Quando una scheda viene archiviata, è nascosta dall'inventario, dai report e da
 | **Conserva le schede archiviate a tempo indeterminato** | Se attivata (conservazione impostata su **0**), le schede archiviate non vengono mai eliminate automaticamente e vengono conservate — con la loro cronologia — a tempo indeterminato. |
 
 L'eliminazione viene eseguita ogni ora e rilegge questa impostazione a ogni esecuzione, quindi le modifiche hanno effetto senza riavviare l'applicazione. I banner di archiviazione e le finestre di conferma riflettono automaticamente il periodo configurato.
+
+### Conservazione del registro di sicurezza
+
+Il campo **Conservazione del registro di sicurezza** stabilisce per quanti giorni vengono conservate le voci della sotto-scheda **Sicurezza e amministrazione** del [Registro di audit](audit-log.md): **365** per impostazione predefinita, fino a **3650**, oppure **0** per conservarle per sempre. Le voci più vecchie vengono eliminate ogni notte; nient'altro elimina mai una voce.
 
 ## Email
 

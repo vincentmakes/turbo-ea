@@ -12,7 +12,7 @@ La página de **Configuración** en **Administrador → Configuración** (`/admi
 | **Integraciones** | `/admin/settings?tab=integrations` | Sincronización ServiceNow e integraciones añadidas por extensiones | [Integración con ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Interruptores específicos de TurboLens, regulaciones habilitadas, sondeo de análisis | Ver la sección [Configuración de TurboLens](#configuracion-de-turbolens) más abajo |
 | **Migración** | `/admin/settings?tab=migration` | Importaciones desde otras plataformas EA y transferencia completa del espacio de trabajo entre instancias de Turbo EA | [Migración de plataforma](migration.md) |
-| **Registro de auditoría** | `/admin/settings?tab=audit-log` | Registro de cambios — quién cambió qué y si provino de la interfaz web, la API o una herramienta de IA | — |
+| **Registro de auditoría** | `/admin/settings?tab=audit-log` | **Cambios**: el registro de lotes de mutación — quién cambió qué y si provino de la interfaz web, la API, una herramienta de IA o una extensión. **Seguridad y administración**: inicios de sesión, intentos fallidos, bloqueos y otros eventos de seguridad | [Registro de auditoría](audit-log.md) |
 | **Recursos** | `/admin/settings?tab=resources` | Todos los archivos y enlaces adjuntos a una tarjeta, con estadísticas de almacenamiento y limpieza masiva | [Recursos](resources.md) |
 
 El resto de esta página cubre la pestaña **General**.
@@ -81,6 +81,10 @@ Cuando una ficha se archiva, queda oculta en el inventario, los informes y las r
 | **Conservar las fichas archivadas indefinidamente** | Cuando se activa (retención establecida en **0**), las fichas archivadas nunca se eliminan automáticamente y se conservan —con su historial— indefinidamente. |
 
 La purga se ejecuta cada hora y vuelve a leer este ajuste en cada ejecución, por lo que los cambios surten efecto sin reiniciar la aplicación. Los avisos de archivado y los cuadros de diálogo de confirmación reflejan automáticamente el período configurado.
+
+### Retención del registro de seguridad
+
+El campo **Retención del registro de seguridad** fija cuántos días se conservan las entradas de la subpestaña **Seguridad y administración** del [Registro de auditoría](audit-log.md): **365** por defecto, hasta **3650**, o **0** para conservarlas indefinidamente. Las entradas más antiguas se eliminan cada noche; nada más elimina nunca una entrada.
 
 ## Correo Electrónico
 

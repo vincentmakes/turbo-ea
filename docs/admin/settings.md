@@ -12,7 +12,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 | **Integrations** | `/admin/settings?tab=integrations` | ServiceNow sync and integrations added by extensions | [ServiceNow Integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-specific toggles, enabled regulations, analysis polling | See section [TurboLens settings](#turbolens-settings) below |
 | **Migration** | `/admin/settings?tab=migration` | Imports from other EA platforms, and full workspace transfer between Turbo EA instances | [Platform Migration](migration.md) |
-| **Audit log** | `/admin/settings?tab=audit-log` | Mutation-batch ledger — who changed what, and whether it came from the web UI, the API, or an AI tool | — |
+| **Audit log** | `/admin/settings?tab=audit-log` | **Changes**: the mutation-batch ledger — who changed what, and whether it came from the web UI, the API, an AI tool or an extension. **Security & admin**: sign-ins, failed attempts, lockouts and other security events | [Audit Log](audit-log.md) |
 | **Resources** | `/admin/settings?tab=resources` | Every file and link attached to a card, with storage statistics and bulk clean-up | [Resources](resources.md) |
 
 The rest of this page covers the **General** tab.
@@ -81,6 +81,10 @@ When a card is archived it is hidden from the inventory, reports, and relations,
 | **Keep archived cards indefinitely** | When enabled (retention set to **0**), archived cards are never auto-deleted and are retained — with their history — indefinitely. |
 
 The purge job runs hourly and re-reads this setting on each run, so changes take effect without restarting the application. Archive banners and confirmation dialogs reflect the configured period automatically.
+
+### Security log retention
+
+The **Security log retention** field sets how many days entries of the [Audit log](audit-log.md)'s **Security & admin** tab are kept: **365** by default, up to **3650**, or **0** to keep them forever. Entries older than the window are deleted once a night; nothing else ever deletes one.
 
 ## Email
 

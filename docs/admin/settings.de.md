@@ -12,7 +12,7 @@ Die **Einstellungen**-Seite unter **Admin → Einstellungen** (`/admin/settings`
 | **Integrationen** | `/admin/settings?tab=integrations` | ServiceNow-Sync und durch Erweiterungen hinzugefügte Integrationen | [ServiceNow-Integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-spezifische Schalter, aktivierte Regulierungen, Analyse-Polling | Siehe Abschnitt [TurboLens-Einstellungen](#turbolens-einstellungen) unten |
 | **Migration** | `/admin/settings?tab=migration` | Importe aus anderen EA-Plattformen sowie vollständiger Workspace-Transfer zwischen Turbo-EA-Instanzen | [Plattform-Migration](migration.md) |
-| **Audit-Log** | `/admin/settings?tab=audit-log` | Änderungsprotokoll — wer was geändert hat und ob es aus der Weboberfläche, der API oder einem KI-Werkzeug stammt | — |
+| **Audit-Log** | `/admin/settings?tab=audit-log` | **Änderungen**: das Änderungsprotokoll — wer was geändert hat und ob es aus der Weboberfläche, der API, einem KI-Werkzeug oder einer Erweiterung stammt. **Sicherheit & Administration**: Anmeldungen, Fehlversuche, Sperrungen und weitere Sicherheitsereignisse | [Audit-Log](audit-log.md) |
 | **Ressourcen** | `/admin/settings?tab=resources` | Alle an Karten angehängten Dateien und Links, mit Speicherstatistiken und Massenbereinigung | [Ressourcen](resources.md) |
 
 Der Rest dieser Seite behandelt den **Allgemein**-Reiter.
@@ -81,6 +81,10 @@ Wenn eine Karte archiviert wird, ist sie im Inventar, in Berichten und in Bezieh
 | **Archivierte Karten unbegrenzt aufbewahren** | Wenn aktiviert (Aufbewahrung auf **0** gesetzt), werden archivierte Karten nie automatisch gelöscht und – mitsamt ihrer Historie – unbegrenzt aufbewahrt. |
 
 Die Bereinigung läuft stündlich und liest diese Einstellung bei jedem Durchlauf neu, sodass Änderungen ohne Neustart der Anwendung wirksam werden. Archiv-Banner und Bestätigungsdialoge zeigen die konfigurierte Dauer automatisch an.
+
+### Aufbewahrung des Sicherheitsprotokolls
+
+Das Feld **Aufbewahrung des Sicherheitsprotokolls** legt fest, wie viele Tage die Einträge der Unterregisterkarte **Sicherheit & Administration** im [Audit-Log](audit-log.md) aufbewahrt werden: standardmäßig **365**, höchstens **3650**, oder **0**, um sie unbegrenzt zu behalten. Einträge, die älter sind, werden einmal pro Nacht gelöscht; sonst löscht nichts jemals einen Eintrag.
 
 ## E-Mail
 

@@ -12,7 +12,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 | **Intégrations** | `/admin/settings?tab=integrations` | Synchronisation ServiceNow et intégrations ajoutées par des extensions | [Intégration ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Bascules spécifiques à TurboLens, réglementations activées, sondage d'analyses | Voir la section [Paramètres TurboLens](#parametres-turbolens) ci-dessous |
 | **Migration** | `/admin/settings?tab=migration` | Imports depuis d'autres plateformes EA, et transfert complet d'espace de travail entre instances Turbo EA | [Migration de plateforme](migration.md) |
-| **Journal d'audit** | `/admin/settings?tab=audit-log` | Registre des modifications — qui a changé quoi, et si cela provient de l'interface web, de l'API ou d'un outil IA | — |
+| **Journal d'audit** | `/admin/settings?tab=audit-log` | **Modifications** : le registre des lots de mutations — qui a changé quoi, et si cela provient de l'interface web, de l'API, d'un outil IA ou d'une extension. **Sécurité et administration** : connexions, tentatives échouées, verrouillages et autres événements de sécurité | [Journal d'audit](audit-log.md) |
 | **Ressources** | `/admin/settings?tab=resources` | Tous les fichiers et liens attachés à une fiche, avec statistiques de stockage et nettoyage en masse | [Ressources](resources.md) |
 
 Le reste de cette page couvre l'onglet **Général**.
@@ -81,6 +81,10 @@ Lorsqu'une fiche est archivée, elle est masquée de l'inventaire, des rapports 
 | **Conserver les fiches archivées indéfiniment** | Lorsque cette option est activée (conservation définie sur **0**), les fiches archivées ne sont jamais supprimées automatiquement et sont conservées — avec leur historique — indéfiniment. |
 
 La purge s'exécute toutes les heures et relit ce paramètre à chaque passage, de sorte que les modifications prennent effet sans redémarrer l'application. Les bannières d'archivage et les boîtes de dialogue de confirmation reflètent automatiquement la durée configurée.
+
+### Conservation du journal de sécurité
+
+Le champ **Conservation du journal de sécurité** fixe le nombre de jours pendant lesquels les entrées du sous-onglet **Sécurité et administration** du [Journal d'audit](audit-log.md) sont conservées : **365** par défaut, **3650** au maximum, ou **0** pour les conserver indéfiniment. Les entrées plus anciennes sont supprimées chaque nuit ; rien d'autre ne supprime jamais une entrée.
 
 ## E-mail
 

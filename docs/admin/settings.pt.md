@@ -12,7 +12,7 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 | **Integrações** | `/admin/settings?tab=integrations` | Sincronização ServiceNow e integrações adicionadas por extensões | [Integração com ServiceNow](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | Alternâncias específicas de TurboLens, regulamentações habilitadas, polling de análises | Veja a seção [Configurações do TurboLens](#configuracoes-do-turbolens) abaixo |
 | **Migração** | `/admin/settings?tab=migration` | Importações de outras plataformas EA e transferência completa do espaço de trabalho entre instâncias do Turbo EA | [Migração de plataforma](migration.md) |
-| **Registro de auditoria** | `/admin/settings?tab=audit-log` | Registro de alterações — quem mudou o quê e se veio da interface web, da API ou de uma ferramenta de IA | — |
+| **Registro de auditoria** | `/admin/settings?tab=audit-log` | **Alterações**: o registro de lotes de mutação — quem mudou o quê e se veio da interface web, da API, de uma ferramenta de IA ou de uma extensão. **Segurança e administração**: entradas, tentativas com falha, bloqueios e outros eventos de segurança | [Registro de auditoria](audit-log.md) |
 | **Recursos** | `/admin/settings?tab=resources` | Todos os arquivos e links anexados a um cartão, com estatísticas de armazenamento e limpeza em massa | [Recursos](resources.md) |
 
 O restante desta página cobre a aba **Geral**.
@@ -81,6 +81,10 @@ Quando uma ficha é arquivada, ela fica oculta no inventário, nos relatórios e
 | **Manter fichas arquivadas indefinidamente** | Quando ativado (retenção definida como **0**), as fichas arquivadas nunca são excluídas automaticamente e são mantidas — com o seu histórico — indefinidamente. |
 
 A purga é executada de hora em hora e relê esta configuração a cada execução, portanto as alterações entram em vigor sem reiniciar a aplicação. Os avisos de arquivamento e as caixas de diálogo de confirmação refletem automaticamente o período configurado.
+
+### Retenção do registro de segurança
+
+O campo **Retenção do registro de segurança** define por quantos dias as entradas da subaba **Segurança e administração** do [Registro de auditoria](audit-log.md) são mantidas: **365** por padrão, até **3650**, ou **0** para mantê-las para sempre. As entradas mais antigas são excluídas toda noite; nada mais exclui uma entrada.
 
 ## E-mail
 

@@ -179,6 +179,42 @@ docker compose exec -T db psql -U turboea -d turboea -c \
 !!! note "这是「不要直接编辑数据库」的唯一许可例外"
     直接编辑数据库在其他场合都是一个坑，这是有道理的。此处的做法之所以安全，是因为它只更新 `users` 表中某一行的少数几列：不改动任何模式，因而不会与未来的迁移冲突；而且从定义上讲，这正是界面和 API 无法自行修复的唯一状态——你需要访问权限才能恢复访问权限。
 
+## 日志与审计流 { #logging-and-the-audit-stream }
+
+Turbo EA 的每个容器都把日志写到标准输出，不会写自己的日志文件，因此应查看 `docker compose logs <service>`——或 `kubectl logs`，或您平台的日志查看器。需要关注三个数据流：
+
+| 数据流 | 容器 | 内容 |
+|--------|------|------|
+| **应用日志** | `backend` | 启动、迁移、后台任务、警告和错误。在非开发环境（`ENVIRONMENT` 设为 `development` 以外的任何值）中，每一行都是一个带有 `timestamp`、`level`、`logger` 和 `message` 的 JSON 对象，可直接供日志聚合器使用；在开发环境中则是便于阅读的文本。后端不会记录每个请求——这由边缘 nginx 负责 |
+| **审计流** | `backend` | [审计日志](audit-log.md)中**安全与管理**子标签页的每一条条目，在存储的同一时刻通过日志记录器 `turbo_ea.audit` 写为一行 JSON。按该日志记录器名称筛选即可将其与其他日志分开 |
+| **访问日志** | `nginx` | 每个 HTTP 请求一行，采用 nginx 标准的 `combined` 格式——客户端地址、时间、请求行、状态、响应大小、引用页和用户代理——另有 nginx 的错误日志 |
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit   # 仅审计流
+docker compose logs -f nginx                            # 每个 HTTP 请求
+```
+
+### 将日志发送到 SIEM
+
+Turbo EA 没有内置的 SIEM 连接器，也不需要：像收集任何其他工作负载那样收集它的容器输出，并在接收端筛选或路由 `turbo_ea.audit` 行。
+
+- **Docker Compose。** 针对 Docker 日志文件运行您的 SIEM 提供的采集器（Fluent Bit、Vector，或 Elastic、Splunk、Datadog 的代理），或在 compose 覆盖文件中为 `backend` 和 `nginx` 服务指定一个[日志驱动](https://docs.docker.com/engine/logging/configure/)：
+
+    ```yaml
+    services:
+      backend:
+        logging:
+          driver: syslog
+          options:
+            syslog-address: "tcp://siem.example.internal:514"
+            tag: "turbo-ea-backend"
+    ```
+
+- **Kubernetes。** 集群的日志采集器（例如 Fluent Bit 这样的 DaemonSet）已经在读取 Pod 输出；无需修改 [Helm chart](kubernetes.md)。
+- **托管容器服务。** Azure Container Apps 把容器输出发送到 Log Analytics，Cloud Run 发送到 Cloud Logging，Fargate 上的 ECS 发送到 CloudWatch Logs（参见[托管容器服务](managed-containers.md)）；从那里转发即可。
+
+Docker 默认的 `json-file` 驱动只会把容器日志保留到日志轮转或容器被删除为止，因此 SIEM 中的副本才是持久的那一份。数据库会在[保留期限](audit-log.md#retention)内（默认 365 天）保留审计条目的自身副本。
+
 ## 环境与发布治理
 
 对大多数组织而言，**两套环境**（预发 + 生产）就足够了，因为升级用的是厂商发布的镜像，而不是自定义构建——你在做验证，不是在做开发。只有在构建自定义扩展或重度集成时，完整的 Dev/SIT/UAT/Prod 链路才更有价值。

@@ -179,6 +179,42 @@ To ting mere, der er værd at vide:
 !!! note "Den tilladte undtagelse fra «redigér ikke databasen»"
     At redigere databasen direkte er ellers en faldgrube, og med god grund. Denne fremgangsmåde er sikker, fordi den opdaterer nogle få kolonner i én enkelt `users`-række: den ændrer intet skema og kan derfor ikke kollidere med en fremtidig migrering, og det er den ene tilstand, som brugerfladen og API'et per definition ikke kan reparere — du skal have adgang for at gendanne adgang.
 
+## Logning og revisionsstrømmen { #logging-and-the-audit-stream }
+
+Hver container i Turbo EA logger til standard output og skriver ingen egne logfiler, så det er `docker compose logs <service>` — eller `kubectl logs` eller din platforms logviser — du skal kigge i. Tre strømme er vigtige:
+
+| Strøm | Container | Hvad den indeholder |
+|-------|-----------|---------------------|
+| **Applikationslog** | `backend` | Opstart, migreringer, baggrundsjob, advarsler og fejl. Uden for udvikling (`ENVIRONMENT` sat til andet end `development`) er hver linje et JSON-objekt med `timestamp`, `level`, `logger` og `message`, klar til en logaggregator; under udvikling er linjerne læsbare for mennesker. Backend logger ikke hver anmodning — det gør edge-nginx |
+| **Revisionsstrøm** | `backend` | Hver post fra underfanen **Sikkerhed og administration** i [Revisionsloggen](audit-log.md), skrevet som én JSON-linje på loggeren `turbo_ea.audit` i det øjeblik, den gemmes. Filtrér på det loggernavn for at skille den fra resten |
+| **Adgangslog** | `nginx` | Én linje pr. HTTP-anmodning i nginx' standardformat `combined` — klientadresse, tidspunkt, anmodningslinje, status, svarstørrelse, referrer og user agent — plus nginx' fejllog |
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit   # kun revisionsstrømmen
+docker compose logs -f nginx                            # hver HTTP-anmodning
+```
+
+### Send logs til et SIEM
+
+Turbo EA har ingen indbygget SIEM-connector og har ikke brug for en: Indsaml containeroutputtet på samme måde som for enhver anden arbejdsbelastning, og filtrér eller rout `turbo_ea.audit`-linjerne på modtagersiden.
+
+- **Docker Compose.** Kør den collector, dit SIEM leverer (Fluent Bit, Vector eller agenten fra Elastic, Splunk eller Datadog), mod Dockers logfiler, eller giv tjenesterne `backend` og `nginx` en [logging-driver](https://docs.docker.com/engine/logging/configure/) i en compose-override:
+
+    ```yaml
+    services:
+      backend:
+        logging:
+          driver: syslog
+          options:
+            syslog-address: "tcp://siem.example.internal:514"
+            tag: "turbo-ea-backend"
+    ```
+
+- **Kubernetes.** Klyngens logcollector (et DaemonSet som Fluent Bit) læser allerede pod-outputtet; [Helm-chartet](kubernetes.md) skal ikke ændres.
+- **Administrerede containertjenester.** Azure Container Apps sender containeroutput til Log Analytics, Cloud Run til Cloud Logging og ECS på Fargate til CloudWatch Logs (se [Administrerede containertjenester](managed-containers.md)); videresend derfra.
+
+Dockers standarddriver `json-file` gemmer kun en containers logs, indtil de roteres, eller containeren fjernes, så det er kopien i dit SIEM, der er varig. Databasen gemmer sin egen kopi af revisionsposterne i [opbevaringsperioden](audit-log.md#retention) (365 dage som standard).
+
 ## Miljøer og udgivelsesstyring
 
 For de fleste organisationer er **to miljøer** (staging + produktion) nok, fordi opgraderinger er leverandørudgivne images, ikke egne builds — I validerer, I udvikler ikke. En fuld Dev/SIT/UAT/Prod-kæde giver primært værdi, hvis I bygger egne udvidelser eller tunge integrationer.

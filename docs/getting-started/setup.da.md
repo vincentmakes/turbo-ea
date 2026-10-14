@@ -181,6 +181,7 @@ Turbo EA rummer et kort over hele dit IT-landskab (applikationer, leverandører,
 - **Hold det væk fra det åbne internet.** Udgiv det på dit private netværk eller bag en intern load balancer eller ingress i stedet for på en offentlig adresse.
 - **Giv kun godkendte virksomhedsenheder adgang.** Tilgå det via din VPN eller en zero trust-adgangsgateway (for eksempel Cloudflare Access foran en Cloudflare Tunnel, Microsoft Entra Private Access eller Zscaler Private Access), og kræv en administreret, kompatibel enhed i din identitetsudbyders politik for betinget adgang.
 - **Behold single sign-on.** Netværksbegrænsninger supplerer [SSO](../admin/sso.md) og roller; de erstatter dem ikke.
+- **Hold øje med, hvem der logger på.** [Revisionsloggen](../admin/audit-log.md) registrerer hvert login, mislykket forsøg og spærring med klientens IP-adresse — det spor, en gennemgang af insidertrusler eller kompromitterede konti begynder med.
 
 Nogle funktioner findes netop for at nå personer uden for den grænse: et [publiceret diagram](../guide/diagrams.md), der er indlejret på et eksternt websted, en offentlig [webportal](../admin/web-portals.md) og en AI-assistent, der forbinder til [MCP-serveren](../admin/mcp.md) fra sin leverandørs cloud. Hver af dem kræver en vej til Turbo EA, så slå dem bevidst til: hold dem på det interne netværk, hvor du kan, og eksponér ellers kun det, de har brug for.
 

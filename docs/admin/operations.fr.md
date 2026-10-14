@@ -179,6 +179,42 @@ Deux points supplémentaires à connaître :
 !!! note "L'exception admise à « ne modifiez pas la base de données »"
     Modifier directement la base de données est par ailleurs un piège, et à juste titre. Cette procédure est sûre parce qu'elle met à jour quelques colonnes d'une seule ligne `users` : elle ne change aucun schéma, elle ne peut donc pas entrer en conflit avec une future migration, et c'est le seul état que l'interface et l'API ne peuvent par définition pas réparer — il faut un accès pour rétablir l'accès.
 
+## Journalisation et flux d'audit { #logging-and-the-audit-stream }
+
+Chaque conteneur de Turbo EA journalise sur la sortie standard et n'écrit aucun fichier de journal qui lui soit propre : c'est donc `docker compose logs <service>` — ou `kubectl logs`, ou la visionneuse de journaux de votre plateforme — qu'il faut consulter. Trois flux comptent :
+
+| Flux | Conteneur | Contenu |
+|------|-----------|---------|
+| **Journal applicatif** | `backend` | Démarrage, migrations, tâches d'arrière-plan, avertissements et erreurs. Hors développement (`ENVIRONMENT` défini sur toute autre valeur que `development`), chaque ligne est un objet JSON avec `timestamp`, `level`, `logger` et `message`, prêt pour un agrégateur de journaux ; en développement, les lignes sont lisibles par un humain. Le backend ne journalise pas chaque requête — le nginx de bordure s'en charge |
+| **Flux d'audit** | `backend` | Chaque entrée du sous-onglet **Sécurité et administration** du [Journal d'audit](audit-log.md), écrite sous forme d'une ligne JSON sur le logger `turbo_ea.audit` au moment où elle est enregistrée. Filtrez sur ce nom de logger pour l'isoler du reste |
+| **Journal d'accès** | `nginx` | Une ligne par requête HTTP au format standard `combined` de nginx — adresse du client, heure, ligne de requête, statut, taille de la réponse, référent et agent utilisateur —, plus le journal d'erreurs de nginx |
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit   # le flux d'audit seul
+docker compose logs -f nginx                            # chaque requête HTTP
+```
+
+### Expédier les journaux vers un SIEM
+
+Turbo EA n'a pas de connecteur SIEM intégré, et n'en a pas besoin : collectez la sortie de ses conteneurs comme celle de n'importe quelle autre charge de travail, et filtrez ou aiguillez les lignes `turbo_ea.audit` côté réception.
+
+- **Docker Compose.** Exécutez le collecteur fourni par votre SIEM (Fluent Bit, Vector, ou l'agent Elastic, Splunk ou Datadog) sur les fichiers de journaux Docker, ou attribuez aux services `backend` et `nginx` un [pilote de journalisation](https://docs.docker.com/engine/logging/configure/) dans un fichier d'override Compose :
+
+    ```yaml
+    services:
+      backend:
+        logging:
+          driver: syslog
+          options:
+            syslog-address: "tcp://siem.example.internal:514"
+            tag: "turbo-ea-backend"
+    ```
+
+- **Kubernetes.** Le collecteur de journaux du cluster (un DaemonSet comme Fluent Bit) lit déjà la sortie des pods ; aucune modification du [chart Helm](kubernetes.md) n'est nécessaire.
+- **Services de conteneurs managés.** Azure Container Apps envoie la sortie des conteneurs vers Log Analytics, Cloud Run vers Cloud Logging et ECS sur Fargate vers CloudWatch Logs (voir [Services de conteneurs managés](managed-containers.md)) ; transférez-les à partir de là.
+
+Le pilote par défaut de Docker, `json-file`, ne conserve les journaux d'un conteneur que jusqu'à leur rotation ou la suppression du conteneur : la copie durable est donc celle de votre SIEM. La base de données conserve sa propre copie des entrées d'audit pendant la [durée de conservation](audit-log.md#retention) (365 jours par défaut).
+
 ## Environnements et gouvernance des versions
 
 Pour la plupart des organisations, **deux environnements** (Staging + Production) suffisent, car les mises à niveau sont des images publiées par l'éditeur, pas des builds personnalisés — vous validez, vous ne développez pas. Une chaîne complète Dev/SIT/UAT/Prod n'apporte de la valeur que si vous construisez des extensions personnalisées ou des intégrations lourdes.

@@ -1,0 +1,159 @@
+# Registro de auditoría
+
+El **Registro de auditoría**, en **Admin → Configuración → Registro de auditoría** (`/admin/settings?tab=audit-log`), responde a las dos preguntas que una revisión de seguridad plantea a una instancia que contiene el mapa de todo el panorama de TI: *qué ha cambiado en él* y *quién ha iniciado sesión y cómo*. Se divide en dos subpestañas:
+
+| Subpestaña | URL | Qué registra |
+|------------|-----|--------------|
+| **Cambios** | `/admin/settings?tab=audit-log` | Cada escritura en el panorama — fichas, relaciones, riesgos, etiquetas, roles de partes interesadas, borradores de decisión —, agrupada en lotes de mutación, con un diff por evento y un **Revertir (Rollback)** |
+| **Seguridad y administración** | `/admin/settings?tab=audit-log&view=security` | Inicios y cierres de sesión, intentos fallidos, bloqueos, sesiones SSO y de proxy, eventos de contraseña y suplantación de rol |
+
+Las dos están separadas a propósito. **Cambios** es una herramienta de trabajo — existe para que pueda ver y deshacer una escritura errónea — y conserva un historial corto. **Seguridad y administración** es un rastro de evidencias: sus entradas no se pueden editar ni eliminar, y se conserva un año por defecto.
+
+## Quién puede verlo
+
+Ambas subpestañas requieren el permiso **`admin.events`** («Ver el rastro de auditoría y el flujo de eventos»), que por defecto solo tiene el rol **Admin**. Para dar acceso de lectura a un responsable de seguridad o cumplimiento sin hacerlo administrador, cree un rol con `admin.events` en [Usuarios y roles](users.md#roles) y asígneselo.
+
+## Cambios
+
+La subpestaña **Cambios** es el registro de lotes de mutación. Cada escritura que modifica datos llega aquí como un lote, junto con quién la hizo y de dónde vino:
+
+| Origen | Significado |
+|--------|-------------|
+| **Web** | La interfaz web de Turbo EA |
+| **API** | Una llamada directa a la API REST (un script, una integración) |
+| **Herramienta de IA** | Un asistente de IA conectado a través del [servidor MCP](mcp.md) |
+| **Extensión** | Una [extensión](extensions.md) instalada, registrada como lote `ext:<key>` |
+
+Haga clic en un lote para abrir su panel: el diff por evento muestra el valor anterior y el nuevo de cada campo, y **Revertir** deshace las escrituras en fichas, relaciones, riesgos, roles de partes interesadas, etiquetas y borradores de decisión que realizó.
+
+Los lotes se conservan **`MUTATION_BATCH_RETENTION_DAYS`** días (una variable de entorno, **15** por defecto) y después se purgan automáticamente. Los eventos en sí permanecen en la pestaña **Historial** de cada ficha cuando el lote ya ha desaparecido.
+
+## Seguridad y administración
+
+![Registro de seguridad y administración](../assets/img/es/62_admin_registro_auditoria_seguridad.png)
+
+La subpestaña **Seguridad y administración** muestra una entrada por cada acción relevante para la seguridad, las más recientes primero:
+
+- inicios y cierres de sesión, con contraseña, SSO o a través de un proxy inverso de confianza;
+- intentos de inicio de sesión fallidos, cada uno con un **código de motivo** que indica por qué falló;
+- bloqueos de cuenta tras fallos repetidos;
+- registros de cuentas, y contraseñas establecidas, restablecidas o cambiadas;
+- suplantación de rol — un administrador que inicia y detiene **Ver como rol…**;
+- exportaciones de este mismo registro.
+
+!!! note "En la próxima versión"
+    Las **acciones administrativas** — cambios en usuarios, roles, configuración, el metamodelo, extensiones, importaciones e integraciones — y las **exportaciones de datos** (exportaciones CSV/JSON del inventario, exportaciones de workspace y de migración) se registrarán en este mismo registro en la próxima versión.
+
+### Columnas
+
+| Columna | Descripción |
+|---------|-------------|
+| **Cuándo** | Fecha y hora de la acción |
+| **Categoría** | `auth` (autenticación), `admin` (acciones administrativas) o `access` (exportaciones y otros accesos a datos) |
+| **Acción** | Qué ocurrió, por ejemplo `auth.login.failed` — consulte el [catálogo de acciones](#action-catalogue) |
+| **Resultado** | **Éxito** o **Fallo** |
+| **Actor** | El usuario con sesión iniciada que realizó la acción. Vacío cuando nadie había iniciado sesión — en un inicio de sesión fallido, por ejemplo |
+| **Sujeto** | La cuenta a la que se refería la acción — la dirección de correo escrita en un inicio de sesión fallido, o el usuario cuya contraseña se restableció |
+| **Destino** | El objeto sobre el que se actuó, si lo hay — por ejemplo, el rol elegido al iniciar una suplantación |
+| **IP** | La dirección IP del cliente (consulte [Dirección IP del cliente](#client-ip-address)) |
+| **Origen** | De dónde vino la solicitud: web, API, herramienta de IA, extensión, ops o sistema |
+| **Rol suplantado** | Cuando un administrador estaba viendo la aplicación como otro rol, ese rol. El actor sigue siendo el administrador real |
+
+Las columnas se pueden mostrar, ocultar, reordenar y fijar como en cualquier otra tabla de datos; **Cuándo** y **Acción** se muestran siempre.
+
+### Filtros
+
+La barra lateral de filtros de la izquierda acota la lista por **categoría**, **resultado**, **acción**, **actor**, **dirección IP** y un **intervalo de fechas**. Cada encabezado de sección indica cuántos valores hay seleccionados, y la barra contraída muestra el número de filtros activos. La pestaña **Columnas** de la misma barra muestra, oculta y fija columnas. Sus filtros y la disposición de columnas se recuerdan en este navegador.
+
+Una búsqueda por dirección de correo coincide con el actor, el sujeto y el destino, de modo que escribir una sola dirección encuentra tanto lo que hizo esa persona como lo que se intentó contra su cuenta.
+
+### Detalles de una entrada
+
+Haga clic en una fila para abrir el panel de la entrada. Muestra todos sus campos, incluido el agente de usuario del navegador y los **detalles** registrados con ella — el código de motivo de un inicio de sesión fallido, la hora en que termina un bloqueo, el proveedor de identidad de un inicio de sesión SSO. Cuando una entrada registra un cambio, los detalles se muestran como una tabla de valores anteriores y nuevos. Los secretos nunca se almacenan: una contraseña, un token o un secreto de cliente se sustituye por `***` antes de escribir la entrada.
+
+El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
+
+### Exportar CSV
+
+**Exportar CSV**, en la barra de herramientas, descarga las entradas que coinciden con los filtros actuales como archivo CSV, hasta 50 000 filas. La exportación también se registra, como `access.audit_log.exported`, de modo que exportar el registro de seguridad siempre deja rastro en él.
+
+## Catálogo de acciones { #action-catalogue }
+
+| Acción | Se registra cuando |
+|--------|--------------------|
+| `auth.login.succeeded` | un usuario inicia sesión con correo y contraseña |
+| `auth.login.failed` | se rechaza un inicio de sesión con contraseña. El **código de motivo** indica por qué (véase más abajo) |
+| `auth.login.locked` | el quinto intento fallido seguido bloquea la cuenta durante 15 minutos. Los detalles indican la hora en que termina el bloqueo |
+| `auth.logout` | un usuario con sesión iniciada cierra sesión. Un cierre de sesión sin una sesión válida no registra nada |
+| `auth.sso.succeeded` | un usuario inicia sesión a través de un proveedor SSO. Los detalles indican el proveedor, el sujeto del proveedor de identidad y si la cuenta se creó con este inicio de sesión |
+| `auth.sso.failed` | se rechaza un inicio de sesión SSO — un dominio no permitido, una dirección de correo ausente, una cuenta local con el mismo correo, una cuenta inactiva. Los detalles indican el proveedor y el motivo |
+| `auth.proxy_session.succeeded` | un usuario inicia sesión a través de un [proxy inverso](sso.md#autenticacion-mediante-proxy-inverso) de confianza |
+| `auth.proxy_session.failed` | se rechaza un inicio de sesión a través del proxy inverso |
+| `auth.register` | un usuario crea una cuenta mediante el autorregistro |
+| `auth.password.set` | un usuario invitado establece su primera contraseña |
+| `auth.password.reset_requested` | alguien solicita un correo de restablecimiento de contraseña. Siempre se registra como un éxito y solo con la dirección escrita, de modo que el registro nunca revela si esa cuenta existe |
+| `auth.password.reset` | se cambia una contraseña mediante un enlace de restablecimiento |
+| `auth.password.changed` | un usuario con sesión iniciada cambia su propia contraseña |
+| `auth.impersonation.started` | un administrador inicia **Ver como rol…**. El destino es el rol elegido |
+| `auth.impersonation.stopped` | el administrador vuelve a su propio rol |
+| `access.audit_log.exported` | alguien exporta el registro de seguridad a CSV |
+
+**Códigos de motivo** de `auth.login.failed`:
+
+| Motivo | Significado |
+|--------|-------------|
+| `unknown_user` | Ninguna cuenta tiene esa dirección de correo |
+| `sso_account` | La cuenta inicia sesión por SSO y no tiene contraseña |
+| `no_password` | La cuenta aún no tiene contraseña — una invitación que nunca se aceptó |
+| `locked` | La cuenta está bloqueada tras fallos repetidos |
+| `bad_password` | La contraseña es incorrecta |
+| `inactive` | La cuenta está desactivada |
+
+Una ráfaga de fallos `unknown_user` desde una misma dirección IP es el aspecto de un ataque de *password spraying*; una serie de `bad_password` contra una cuenta seguida de `auth.login.locked` es un intento de adivinar la contraseña de esa cuenta.
+
+## Qué no se registra
+
+- **La renovación del token.** La aplicación web renueva su sesión de forma periódica, así que cada pestaña abierta añadiría entradas y ninguna significaría nada.
+- **Las solicitudes rechazadas por un token de sesión caducado o no válido.** Ocurren cada vez que una sesión termina de forma natural.
+- **Las lecturas de feeds OData.** Excel y Power BI consultan el feed OData de una vista guardada de forma programada, así que cada actualización añadiría una entrada.
+- **El simple acceso de lectura** — abrir una ficha, ejecutar un informe, buscar en el inventario.
+
+## Retención { #retention }
+
+Las entradas se conservan **365 días** por defecto. Cámbielo en **Admin → Configuración → General → Gestión de datos → Retención del registro de seguridad**: cualquier número de días hasta 3650, o **0** para conservar las entradas indefinidamente. Una tarea elimina cada noche las entradas más antiguas que ese periodo y vuelve a leer la configuración en cada ejecución, de modo que un cambio surte efecto sin reiniciar.
+
+Esa tarea de retención es lo único que elimina una entrada. No existe ninguna acción de edición ni de eliminación en la interfaz ni en la API, para ningún rol.
+
+El registro **no** forma parte, a propósito, de la [Transferencia de workspace](workspace-transfer.md): es el historial de seguridad de esta instancia, no contenido del workspace, y clonar una instancia no lo copia.
+
+## El flujo de auditoría JSON
+
+El backend también escribe cada entrada como **una línea JSON** en el logger **`turbo_ea.audit`**, en el mismo momento en que se almacena. El backend registra en la salida estándar, así que el flujo llega a lo que ya recoja los registros de sus contenedores — `docker compose logs backend`, la recopilación de registros de Kubernetes o cualquier agente de envío a un SIEM —, sin configuración en Turbo EA:
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit
+```
+
+Cada línea lleva los mismos campos que la entrada:
+
+| Campo | Contenido |
+|-------|-----------|
+| `audit_id`, `created_at` | El identificador de la entrada y el momento en que se escribió |
+| `category`, `action`, `outcome` | Qué ocurrió y si tuvo éxito |
+| `actor_user_id`, `actor_email` | Quién lo hizo |
+| `subject_email` | La cuenta afectada |
+| `target_type`, `target_id`, `target_label` | Sobre qué actuó |
+| `ip`, `user_agent` | El cliente |
+| `origin` | web, api, mcp, ext, ops o system |
+| `impersonator_user_id`, `impersonated_role` | Se rellenan mientras un administrador ve la aplicación como otro rol |
+| `details` | Códigos de motivo y valores anteriores/nuevos, con los secretos ya enmascarados |
+
+Enviar el flujo a un almacén central de registros guarda una copia fuera de la instancia, lejos del alcance de quien pueda administrarla — que es lo que necesita una revisión de amenazas internas. Consulte [Registros y flujo de auditoría](operations.md#logging-and-the-audit-stream) para recopilarlo.
+
+## Dirección IP del cliente { #client-ip-address }
+
+La columna **IP** registra la dirección del cliente, no la del proxy situado delante del backend. El nginx de borde incluido establece la cabecera `X-Real-IP` con la dirección desde la que recibió la conexión, y el backend lee esa cabecera porque la imagen publicada del backend define **`TRUST_PROXY_HEADERS=true`**. Un valor que no es una dirección IP válida se descarta en lugar de registrarse.
+
+- **Deje `TRUST_PROXY_HEADERS` activado** mientras cada solicitud llegue al backend a través del nginx incluido — la pila por defecto, el [chart de Helm](kubernetes.md) y las [plantillas de contenedores gestionados](managed-containers.md) funcionan así.
+- **Desactívelo** (`TRUST_PROXY_HEADERS=false`) si expone directamente el contenedor del backend, sin el nginx incluido delante: un cliente podría entonces enviar su propio `X-Real-IP` y elegir la dirección que se registra.
+- **Detrás de otro balanceador de carga**, el nginx incluido ve la dirección de ese balanceador, y todas las entradas la registran. Una opción que permita a nginx confiar en la dirección de cliente reenviada por su balanceador de carga (`NGINX_TRUSTED_PROXIES`) está prevista para una versión posterior.

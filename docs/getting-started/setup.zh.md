@@ -179,6 +179,7 @@ Turbo EA 保存着您整个 IT 版图的全景（应用、供应商、成本和�
 - **不要将其暴露在公共互联网上。** 将其发布在您的私有网络中，或置于内部负载均衡器或 Ingress 之后，而不是公网地址上。
 - **仅允许经批准的企业设备访问。** 通过您的 VPN 或零信任访问网关访问它（例如位于 Cloudflare Tunnel 之前的 Cloudflare Access、Microsoft Entra Private Access 或 Zscaler Private Access），并在身份提供商的条件访问策略中要求使用受管理且合规的设备。
 - **保留单点登录。** 网络限制是对 [SSO](../admin/sso.md) 和角色的补充，而不是替代。
+- **审查谁在登录。** [审计日志](../admin/audit-log.md)会连同客户端 IP 地址记录每一次登录、失败的尝试和账户锁定——这是内部威胁或账户被盗评审的起点。
 
 有些功能本就是为了触达该边界之外的人：嵌入外部网站的[已发布图表](../guide/diagrams.md)、公开的[门户网站](../admin/web-portals.md)，以及从其厂商云端连接 [MCP 服务器](../admin/mcp.md)的 AI 助手。它们都需要一条通往 Turbo EA 的路径，因此请审慎启用：能留在内部网络的就留在内部网络，否则只开放它们所需的部分。
 

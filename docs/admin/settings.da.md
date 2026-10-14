@@ -12,7 +12,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 | **Integrationer** | `/admin/settings?tab=integrations` | ServiceNow-synkronisering og integrationer tilføjet af udvidelser | [ServiceNow-integration](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens-specifikke kontakter, aktiverede reguleringer, analysepolling | Se afsnittet [TurboLens-indstillinger](#turbolens-indstillinger) nedenfor |
 | **Migrering** | `/admin/settings?tab=migration` | Import fra andre EA-platforme og fuld overførsel af arbejdsområde mellem Turbo EA-instanser | [Platformsmigrering](migration.md) |
-| **Revisionslog** | `/admin/settings?tab=audit-log` | Ændringsregister — hvem der ændrede hvad, og om det kom fra webgrænsefladen, API'et eller et AI-værktøj | — |
+| **Revisionslog** | `/admin/settings?tab=audit-log` | **Ændringer**: ændringsregisteret — hvem der ændrede hvad, og om det kom fra webgrænsefladen, API'et, et AI-værktøj eller en udvidelse. **Sikkerhed og administration**: logins, mislykkede forsøg, spærringer og andre sikkerhedshændelser | [Revisionslog](audit-log.md) |
 | **Ressourcer** | `/admin/settings?tab=resources` | Alle filer og links, der er vedhæftet et kort, med lagerstatistik og masseoprydning | [Ressourcer](resources.md) |
 
 Resten af denne side dækker fanebladet **Generelt**.
@@ -81,6 +81,10 @@ Når et kort arkiveres, skjules det fra oversigten, rapporter og relationer, men
 | **Behold arkiverede kort på ubestemt tid** | Når aktiveret (opbevaring sat til **0**), slettes arkiverede kort aldrig automatisk og opbevares — med deres historik — på ubestemt tid. |
 
 Udrensningen kører hver time og genindlæser denne indstilling ved hver kørsel, så ændringer træder i kraft uden at genstarte applikationen. Arkiveringsbannere og bekræftelsesdialoger afspejler automatisk den konfigurerede periode.
+
+### Opbevaring af sikkerhedslog
+
+Feltet **Opbevaring af sikkerhedslog** angiver, hvor mange dage posterne under underfanen **Sikkerhed og administration** i [Revisionsloggen](audit-log.md) gemmes: **365** som standard, højst **3650**, eller **0** for at gemme dem for altid. Ældre poster slettes én gang hver nat; intet andet sletter nogensinde en post.
 
 ## E-mail
 

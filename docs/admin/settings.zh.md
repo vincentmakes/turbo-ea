@@ -12,7 +12,7 @@
 | **集成** | `/admin/settings?tab=integrations` | ServiceNow 同步及扩展添加的集成 | [ServiceNow 集成](servicenow.md) |
 | **TurboLens** | `/admin/settings?tab=turbolens` | TurboLens 特定开关、已启用的法规、分析轮询 | 见下方[TurboLens 设置](#turbolens-1) |
 | **迁移** | `/admin/settings?tab=migration` | 从其他 EA 平台导入，以及在 Turbo EA 实例之间完整传输工作区 | [平台迁移](migration.md) |
-| **审计日志** | `/admin/settings?tab=audit-log` | 变更记录账本——谁改了什么，以及变更来自 Web 界面、API 还是 AI 工具 | — |
+| **审计日志** | `/admin/settings?tab=audit-log` | **变更**：变更批次台账——谁改了什么，以及变更来自 Web 界面、API、AI 工具还是扩展。**安全与管理**：登录、失败的尝试、账户锁定及其他安全事件 | [审计日志](audit-log.md) |
 | **资源** | `/admin/settings?tab=resources` | 附加到卡片的所有文件和链接，含存储统计与批量清理 | [资源](resources.md) |
 
 本页的其余部分介绍 **常规** 标签页。
@@ -81,6 +81,10 @@
 | **无限期保留已归档卡片** | 启用后（保留期限设为 **0**），已归档卡片永远不会被自动删除，并将连同其历史记录一起无限期保留。 |
 
 清除任务每小时运行一次，并在每次运行时重新读取此设置，因此更改无需重启应用程序即可生效。归档横幅和确认对话框会自动反映所配置的期限。
+
+### 安全日志保留期限
+
+**安全日志保留期限**字段设置[审计日志](audit-log.md)中**安全与管理**子标签页的条目保留多少天：默认 **365**，最多 **3650**，设为 **0** 则永久保留。超出期限的条目每晚删除一次；除此之外没有任何机制会删除条目。
 
 ## 电子邮件
 

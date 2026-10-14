@@ -1830,6 +1830,24 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Audit log → Security & admin sub-tab (sign-ins, failures, lockouts) ──
+  {
+    id: "62_admin_audit_log_security",
+    route: "/admin/settings?tab=audit-log&view=security",
+    waitFor: ".ag-root",
+    actions: [{ type: "wait", ms: 900 }],
+    filenames: {
+      en: "62_admin_audit_log_security",
+      de: "62_admin_audit_log_sicherheit",
+      fr: "62_admin_journal_audit_securite",
+      es: "62_admin_registro_auditoria_seguridad",
+      it: "62_admin_registro_audit_sicurezza",
+      pt: "62_admin_registro_auditoria_seguranca",
+      zh: "62_admin_audit_log_security",
+      ru: "62_admin_zhurnal_audita_bezopasnost",
+    },
+  },
+
   // ── Inventory cell context menu (Show matching / Filter out) ────────────
   {
     id: "62_inventory_cell_menu",

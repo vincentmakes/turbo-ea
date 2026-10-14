@@ -181,6 +181,7 @@ O Turbo EA contém um mapa de todo o seu cenário de TI (aplicações, fornecedo
 - **Mantenha-o fora da internet aberta.** Publique-o na sua rede privada, ou atrás de um balanceador de carga ou ingress internos, em vez de em um endereço público.
 - **Permita apenas dispositivos corporativos aprovados.** Acesse-o pela sua VPN ou por um gateway de acesso zero trust (por exemplo, Cloudflare Access na frente de um Cloudflare Tunnel, Microsoft Entra Private Access ou Zscaler Private Access) e exija um dispositivo gerenciado e em conformidade na política de acesso condicional do seu provedor de identidade.
 - **Mantenha o login único.** As restrições de rede se somam ao [SSO](../admin/sso.md) e aos papéis; não os substituem.
+- **Revise quem entra.** O [Registro de auditoria](../admin/audit-log.md) registra cada entrada, tentativa com falha e bloqueio com o endereço IP do cliente — a trilha por onde começa uma revisão de ameaças internas ou de contas comprometidas.
 
 Algumas funcionalidades existem justamente para alcançar pessoas fora desse perímetro: um [diagrama publicado](../guide/diagrams.md) incorporado em um site externo, um [portal web](../admin/web-portals.md) público e um assistente de IA que se conecta ao [servidor MCP](../admin/mcp.md) a partir da nuvem do fornecedor dele. Cada uma precisa de uma rota até o Turbo EA, então ative-as de forma deliberada: mantenha-as na rede interna sempre que possível e, caso contrário, exponha apenas o que elas precisam.
 

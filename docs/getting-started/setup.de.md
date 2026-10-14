@@ -181,6 +181,7 @@ Turbo EA enthält eine Karte Ihrer gesamten IT-Landschaft (Anwendungen, Anbieter
 - **Halten Sie es vom offenen Internet fern.** Stellen Sie es in Ihrem privaten Netzwerk oder hinter einem internen Load Balancer bzw. Ingress bereit, nicht unter einer öffentlichen Adresse.
 - **Lassen Sie nur freigegebene Firmengeräte zu.** Greifen Sie über Ihr VPN oder ein Zero-Trust-Zugangsgateway darauf zu (zum Beispiel Cloudflare Access vor einem Cloudflare Tunnel, Microsoft Entra Private Access oder Zscaler Private Access), und verlangen Sie in der Richtlinie für bedingten Zugriff Ihres Identitätsanbieters ein verwaltetes, konformes Gerät.
 - **Behalten Sie Single Sign-on bei.** Netzwerkbeschränkungen ergänzen [SSO](../admin/sso.md) und Rollen, sie ersetzen sie nicht.
+- **Prüfen Sie, wer sich anmeldet.** Das [Audit-Log](../admin/audit-log.md) zeichnet jede Anmeldung, jeden Fehlversuch und jede Sperrung mit der IP-Adresse des Clients auf — die Spur, mit der eine Prüfung auf Insider-Bedrohungen oder kompromittierte Konten beginnt.
 
 Einige Funktionen sind gerade dafür da, Personen außerhalb dieser Grenze zu erreichen: ein [veröffentlichtes Diagramm](../guide/diagrams.md), das in eine externe Website eingebettet ist, ein öffentliches [Web-Portal](../admin/web-portals.md) und ein KI-Assistent, der sich aus der Cloud seines Anbieters mit dem [MCP-Server](../admin/mcp.md) verbindet. Jede davon braucht einen Weg zu Turbo EA. Aktivieren Sie sie deshalb bewusst: Halten Sie sie, wo möglich, im internen Netz, und geben Sie andernfalls nur frei, was sie benötigen.
 

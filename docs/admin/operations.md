@@ -179,6 +179,42 @@ Two more things worth knowing:
 !!! note "The sanctioned exception to «don't edit the database»"
     Editing the database directly is otherwise a pitfall, and for good reason. This procedure is safe because it updates a few columns on a single `users` row: it changes no schema, so it cannot collide with a future migration, and it is the one state the UI and the API cannot repair by definition — you need access in order to restore access.
 
+## Logging and the audit stream
+
+Every Turbo EA container logs to standard output and writes no log files of its own, so `docker compose logs <service>` — or `kubectl logs`, or your platform's log viewer — is where to look. Three streams matter:
+
+| Stream | Container | What it carries |
+|--------|-----------|-----------------|
+| **Application log** | `backend` | Startup, migrations, background jobs, warnings and errors. Outside development (`ENVIRONMENT` set to anything but `development`) each line is a JSON object with `timestamp`, `level`, `logger` and `message`, ready for a log aggregator; in development the lines are human-readable. The backend does not log every request — the edge nginx does |
+| **Audit stream** | `backend` | Every entry of the [Audit log](audit-log.md)'s **Security & admin** tab, written as one JSON line on the logger `turbo_ea.audit` at the moment it is stored. Filter on that logger name to separate it from the rest |
+| **Access log** | `nginx` | One line per HTTP request in nginx's standard `combined` format — client address, time, request line, status, response size, referrer and user agent — plus nginx's error log |
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit   # the audit stream only
+docker compose logs -f nginx                            # every HTTP request
+```
+
+### Shipping logs to a SIEM
+
+Turbo EA has no built-in SIEM connector, and does not need one: collect its container output the way you collect any other workload's, and filter or route the `turbo_ea.audit` lines on the receiving side.
+
+- **Docker Compose.** Run the collector your SIEM ships (Fluent Bit, Vector, or the Elastic, Splunk or Datadog agent) against the Docker log files, or give the `backend` and `nginx` services a [logging driver](https://docs.docker.com/engine/logging/configure/) in a compose override:
+
+    ```yaml
+    services:
+      backend:
+        logging:
+          driver: syslog
+          options:
+            syslog-address: "tcp://siem.example.internal:514"
+            tag: "turbo-ea-backend"
+    ```
+
+- **Kubernetes.** The cluster's log collector (a DaemonSet such as Fluent Bit) already reads pod output; no change to the [Helm chart](kubernetes.md) is needed.
+- **Managed container services.** Azure Container Apps sends container output to Log Analytics, Cloud Run to Cloud Logging and ECS on Fargate to CloudWatch Logs (see [Managed container services](managed-containers.md)); forward from there.
+
+Docker's default `json-file` driver keeps a container's logs only until they are rotated or the container is removed, so the copy in your SIEM is the durable one. The database keeps its own copy of the audit entries for the [retention window](audit-log.md#retention) (365 days by default).
+
 ## Environments and release governance
 
 For most organizations, **two environments** (Staging + Production) are enough, because upgrades are vendor-released images, not custom builds — you're validating, not developing. A full Dev/SIT/UAT/Prod chain adds value mainly if you build custom extensions or heavy integrations.

@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.159.0] - 2026-10-14
+
+### Added
+- **Security & admin audit log** ([#1185](https://github.com/vincentmakes/turbo-ea/discussions/1185)): a new tab under Admin → Settings → Audit log records every sign-in and sign-out, failed sign-in attempt with the reason it failed, account lockout, SSO and reverse-proxy session, registration, password set, reset and change, and role impersonation, with the user, the account targeted and the client IP address; entries can be filtered, opened for their details and exported to CSV, and cannot be edited or deleted.
+- **Security log retention** setting under Admin → Settings → General → Data management: entries are kept 365 days by default, up to 3650, or forever with 0.
+- **JSON audit stream**: every security log entry is also written as one JSON line on the backend's `turbo_ea.audit` logger, so `docker compose logs`, Kubernetes log collection or a SIEM shipper picks it up with no extra configuration.
+- The security log records the real client IP address behind the bundled nginx instead of the proxy's.
+
+### Fixed
+- The dashboard's Recent Activity no longer lists system events that are not about a card.
+
 ## [2.158.13] - 2026-10-14
 
 ### Fixed

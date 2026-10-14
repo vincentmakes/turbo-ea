@@ -179,6 +179,42 @@ Zwei weitere Punkte, die man wissen sollte:
 !!! note "Die zulässige Ausnahme von «die Datenbank nicht direkt bearbeiten»"
     Die Datenbank direkt zu bearbeiten ist ansonsten ein Fallstrick, und das aus gutem Grund. Dieses Vorgehen ist unbedenklich, weil es einige Spalten einer einzigen `users`-Zeile aktualisiert: Es ändert kein Schema und kann daher nicht mit einer künftigen Migration kollidieren, und es ist der eine Zustand, den UI und API per Definition nicht reparieren können — Sie brauchen Zugang, um Zugang wiederherzustellen.
 
+## Protokollierung und der Audit-Stream { #logging-and-the-audit-stream }
+
+Jeder Container von Turbo EA protokolliert auf die Standardausgabe und schreibt keine eigenen Logdateien, daher ist `docker compose logs <service>` — oder `kubectl logs` oder der Log-Viewer Ihrer Plattform — der Ort zum Nachsehen. Drei Streams sind relevant:
+
+| Stream | Container | Inhalt |
+|--------|-----------|--------|
+| **Anwendungslog** | `backend` | Start, Migrationen, Hintergrundjobs, Warnungen und Fehler. Außerhalb der Entwicklung (`ENVIRONMENT` auf einen anderen Wert als `development` gesetzt) ist jede Zeile ein JSON-Objekt mit `timestamp`, `level`, `logger` und `message`, bereit für einen Log-Aggregator; in der Entwicklung sind die Zeilen menschenlesbar. Das Backend protokolliert nicht jede Anfrage — das übernimmt der Edge-nginx |
+| **Audit-Stream** | `backend` | Jeder Eintrag der Unterregisterkarte **Sicherheit & Administration** im [Audit-Log](audit-log.md), geschrieben als eine JSON-Zeile über den Logger `turbo_ea.audit` im Moment seiner Speicherung. Filtern Sie nach diesem Loggernamen, um ihn vom Rest zu trennen |
+| **Zugriffslog** | `nginx` | Eine Zeile pro HTTP-Anfrage im Standardformat `combined` von nginx — Client-Adresse, Zeit, Anfragezeile, Status, Antwortgröße, Referrer und User-Agent — sowie das Fehlerlog von nginx |
+
+```bash
+docker compose logs -f backend | grep turbo_ea.audit   # nur der Audit-Stream
+docker compose logs -f nginx                            # jede HTTP-Anfrage
+```
+
+### Logs an ein SIEM weiterleiten
+
+Turbo EA hat keinen eingebauten SIEM-Konnektor und braucht auch keinen: Erfassen Sie die Container-Ausgabe so, wie Sie die jeder anderen Arbeitslast erfassen, und filtern oder leiten Sie die `turbo_ea.audit`-Zeilen auf der Empfängerseite.
+
+- **Docker Compose.** Betreiben Sie den Collector, den Ihr SIEM mitbringt (Fluent Bit, Vector oder den Agent von Elastic, Splunk oder Datadog), auf den Docker-Logdateien, oder geben Sie den Diensten `backend` und `nginx` in einem Compose-Override einen [Logging-Treiber](https://docs.docker.com/engine/logging/configure/):
+
+    ```yaml
+    services:
+      backend:
+        logging:
+          driver: syslog
+          options:
+            syslog-address: "tcp://siem.example.internal:514"
+            tag: "turbo-ea-backend"
+    ```
+
+- **Kubernetes.** Der Log-Collector des Clusters (ein DaemonSet wie Fluent Bit) liest die Pod-Ausgabe bereits; am [Helm-Chart](kubernetes.md) ist nichts zu ändern.
+- **Verwaltete Container-Dienste.** Azure Container Apps sendet die Container-Ausgabe an Log Analytics, Cloud Run an Cloud Logging und ECS auf Fargate an CloudWatch Logs (siehe [Verwaltete Container-Dienste](managed-containers.md)); leiten Sie sie von dort weiter.
+
+Der Standardtreiber `json-file` von Docker bewahrt die Logs eines Containers nur auf, bis sie rotiert werden oder der Container entfernt wird; die dauerhafte Kopie ist also die in Ihrem SIEM. Die Datenbank hält ihre eigene Kopie der Audit-Einträge für den [Aufbewahrungszeitraum](audit-log.md#retention) vor (standardmäßig 365 Tage).
+
 ## Umgebungen und Release-Governance
 
 Für die meisten Organisationen reichen **zwei Umgebungen** (Staging + Produktion), denn Upgrades sind vom Anbieter veröffentlichte Images, keine eigenen Builds — Sie validieren, Sie entwickeln nicht. Eine vollständige Dev/SIT/UAT/Prod-Kette lohnt sich vor allem, wenn Sie eigene Erweiterungen oder umfangreiche Integrationen bauen.
