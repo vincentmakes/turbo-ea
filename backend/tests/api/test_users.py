@@ -1137,7 +1137,7 @@ async def test_unlock_requires_admin_users(client, db, users_env):
     assert users_env["viewer"].failed_login_attempts == 5
 
 
-@pytest.mark.parametrize("user_id", [str(uuid.uuid4()), "not-a-uuid"])
+@pytest.mark.parametrize("user_id", ["00000000-0000-4000-8000-000000000000", "not-a-uuid"])
 async def test_unlock_unknown_user_is_404(client, db, users_env, user_id):
     resp = await client.post(
         f"/api/v1/users/{user_id}/unlock", headers=auth_headers(users_env["admin"])
