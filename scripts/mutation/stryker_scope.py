@@ -266,6 +266,16 @@ def inputs_digest(frontend: Path = FRONTEND) -> str:
     return digest.hexdigest()
 
 
+def _measured_on(state: Path, shard: str, chunk: int, inputs: str) -> bool:
+    """Whether the chunk's report was written by a run over the tree ``inputs`` hashes."""
+    recorded = _inputs_path(state, shard, chunk)
+    return (
+        _report_path(state, shard, chunk).exists()
+        and recorded.exists()
+        and recorded.read_text() == inputs
+    )
+
+
 def _run_chunk(
     files: list[str], incremental: Path, timeout: float, frontend: Path
 ) -> tuple[str, str]:
@@ -391,11 +401,7 @@ def nightly(
     failed = []
     for chunk in order:
         recorded = _inputs_path(state, shard, chunk)
-        if (
-            _report_path(state, shard, chunk).exists()
-            and recorded.exists()
-            and recorded.read_text() == inputs
-        ):
+        if _measured_on(state, shard, chunk, inputs):
             print(f"chunk {chunk} ({len(groups[chunk])} files): unchanged")
             continue
         remaining = deadline - clock()
@@ -489,12 +495,22 @@ def merged_report(
 def collect_state(
     state: Path, shard: str, frontend: Path = FRONTEND, config_path: Path = CONFIG
 ) -> list[dict]:
-    mine = shard_files(shard, frontend, config_path)
     report = merged_report(state, shard, frontend, config_path)
     records = collect(report, None, frontend)
     measured = {r["file"] for r in records}
-    for rel in mine:
-        if f"frontend/{rel}" not in measured and rel not in report["files"]:
+    inputs = inputs_digest(frontend)
+    chunk_of_file = {
+        rel: chunk
+        for chunk, files in shard_chunks(shard, frontend, config_path).items()
+        for rel in files
+    }
+    for rel in sorted(chunk_of_file):
+        if f"frontend/{rel}" in measured or rel in report["files"]:
+            continue
+        # Stryker's report lists a file only when it holds a mutant, so a
+        # type-only module or a re-export barrel never appears in one: once its
+        # chunk has run over this very tree, there is nothing left to measure.
+        if not _measured_on(state, shard, chunk_of_file[rel], inputs):
             records.append(
                 {
                     "suite": "frontend",

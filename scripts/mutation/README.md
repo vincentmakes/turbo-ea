@@ -74,7 +74,11 @@ just new lines.
   record (`gate.UNMEASURED_FILE`) standing for an unknown number of mutants,
   so progress counts such files apart from the mutants still to test and
   gives no percentage while any is left (a floored one otherwise, so it never
-  reads 100% early). It names files whose score fell since the previous night.
+  reads 100% early). Stryker names a file in its report only when it holds a
+  mutant, so a type-only module or a re-export barrel gets no placeholder once
+  its chunk has run over the current tree (`_measured_on`); otherwise it would
+  keep the baseline from ever reading complete. It names files whose score fell
+  since the previous night.
 - It keeps one open issue, **Mutation nightly: survivors by module**. It opens
   with a status block (each suite's score against its floor or its baseline
   progress, the critical modules, the files whose score fell since the previous

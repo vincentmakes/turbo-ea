@@ -1874,10 +1874,12 @@ if any("broken" in f for f in files):
 if any("crash" in f for f in files):
     print("Error: ENOENT")
     sys.exit(1)
+# Stryker lists a file only when it holds a mutant, so an "empty" one (a
+# type-only module, a re-export barrel) is left out of the report entirely
 report = {"files": {f: {"source": "x\\n", "mutants": [
     {"id": "1", "mutatorName": "M", "replacement": "y", "status": "Killed",
      "location": {"start": {"line": 1, "column": 1}, "end": {"line": 1, "column": 2}}}
-]} for f in files}}
+]} for f in files if "empty" not in f}}
 out = pathlib.Path("reports/mutation/mutation.json")
 out.parent.mkdir(parents=True, exist_ok=True)
 out.write_text(json.dumps(report))
@@ -2014,6 +2016,53 @@ class TestStrykerNightly:
             f"frontend/src/{n}.ts" for n in ("a", "b", "c", "d")
         ]
         assert {r["status"] for r in records} == {"killed"}
+
+    def test_a_file_with_nothing_to_mutate_is_not_pending(self, frontend_repo, tmp_path):
+        # Stryker never names such a file in a report, so once its chunk has run
+        # over the current tree a placeholder would keep the baseline from ever
+        # reading complete (six type-only modules and barrels did, in run 33).
+        fe, config = frontend_repo
+        (fe / "src" / "empty.ts").write_text("export type T = string;\n")
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        assert sorted(r["file"] for r in records) == [
+            f"frontend/src/{n}.ts" for n in ("a", "b", "c", "d")
+        ]
+        assert {r["status"] for r in records} == {"killed"}
+
+    def test_a_file_with_nothing_to_mutate_waits_for_its_chunk(self, frontend_repo, tmp_path):
+        # no record of which tree the chunk ran over (a cache from before the
+        # digest, or a report copied by hand): nothing vouches for the file
+        fe, config = frontend_repo
+        (fe / "src" / "empty.ts").write_text("export type T = string;\n")
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        (state / f"chunk-1-{stryker_scope.chunk_of('src/empty.ts')}.inputs").unlink()
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        empty = [r for r in records if r["file"] == "frontend/src/empty.ts"]
+        assert [(r["status"], r["raw_status"]) for r in empty] == [
+            ("pending", "not measured yet (whole file)")
+        ]
+
+    def test_a_new_file_in_a_chunk_measured_on_an_older_tree_is_pending(
+        self, frontend_repo, tmp_path
+    ):
+        # the chunk's report predates the file, so its absence from that report
+        # says nothing about it: it waits for the chunk's next run
+        fe, config = frontend_repo
+        state = tmp_path / "state"
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        (fe / "src" / "empty.ts").write_text("export type T = string;\n")
+        assert (state / f"chunk-1-{stryker_scope.chunk_of('src/empty.ts')}.mutation.json").exists()
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        empty = [r for r in records if r["file"] == "frontend/src/empty.ts"]
+        assert [(r["status"], r["raw_status"]) for r in empty] == [
+            ("pending", "not measured yet (whole file)")
+        ]
+        assert stryker_scope.nightly("1/1", 30, state, fe, config) == 0
+        records = stryker_scope.collect_state(state, "1/1", fe, config)
+        assert "frontend/src/empty.ts" not in {r["file"] for r in records}
 
     def test_files_no_chunk_has_measured_are_pending(self, frontend_repo, tmp_path):
         fe, config = frontend_repo
