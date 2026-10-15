@@ -637,10 +637,27 @@ def test_items_may_be_any_sequence():
 
 def test_is_secret_key_spares_names_that_say_where_a_credential_is_used():
     # The stem ``token`` is in ``token_endpoint``; an auditor needs the URL an
-    # SSO change points at, so a location suffix wins over the stem.
-    for name in ("token_endpoint", "oauth_token_endpoint", "jwks_uri", "issuer_url"):
+    # SSO change points at, so exactly the two endpoint keys win over the stem.
+    for name in (
+        "token_endpoint",
+        "oauth_token_endpoint",
+        "jwks_uri",
+        "issuer_url",
+        "authorization_endpoint",
+        "instance_url",
+    ):
         assert audit_log.is_secret_key(name) is False, name
     for name in ("token", "access_token", "smtp_password", "oauth_client_secret"):
+        assert audit_log.is_secret_key(name) is True, name
+    # Not a suffix rule: any other location-shaped name carrying a stem may
+    # embed a credential (``https://user:pass@host/…``) and stays masked.
+    for name in (
+        "webhook_token_url",
+        "oauth_token_url",
+        "secret_uri",
+        "password_endpoint",
+        "TOKEN_ENDPOINT",
+    ):
         assert audit_log.is_secret_key(name) is True, name
     # A workspace-transfer secret path or an extension secret still masks,
     # whatever its suffix.
@@ -650,9 +667,15 @@ def test_is_secret_key_spares_names_that_say_where_a_credential_is_used():
 def test_redact_keeps_an_endpoint_change_readable():
     changes = {
         "token_endpoint": {"old": "https://a/token", "new": "https://b/token"},
+        "oauth_token_endpoint": {"old": None, "new": "https://c/token"},
         "client_secret": {"old": "x", "new": "y"},
+        "webhook_token_url": {"old": None, "new": "https://user:pass@hook/x"},
+        "oauth_token_url": {"old": "https://u:p@a/t", "new": None},
     }
     assert audit_log.redact(changes) == {
         "token_endpoint": {"old": "https://a/token", "new": "https://b/token"},
+        "oauth_token_endpoint": {"old": None, "new": "https://c/token"},
         "client_secret": {"old": "***", "new": "***"},
+        "webhook_token_url": {"old": None, "new": "***"},
+        "oauth_token_url": {"old": "***", "new": None},
     }

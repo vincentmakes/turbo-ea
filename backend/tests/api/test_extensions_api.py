@@ -2156,5 +2156,9 @@ class TestExtensionAudit:
         assert refreshed.details == {"context": {"refreshed": False}}
         assert installed.action == "admin.extension.store.installed"
         assert (installed.target_id, installed.target_label) == ("sample-ext", "Sample Extension")
-        assert installed.details == {"context": {"version": "1.0.0", "file_size": len(raw)}}
+        # The upload's id ties this row to the apply / discard rows, which
+        # target the extension key.
+        assert installed.details == {
+            "context": {"version": "1.0.0", "file_size": len(raw), "reference": res.json()["id"]}
+        }
         _never_leaks([refreshed, installed], RENEWAL_KEY)

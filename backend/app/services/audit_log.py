@@ -137,12 +137,17 @@ _WIDTHS = {
 }
 
 
-# A key that names WHERE a credential is used rather than the credential: the
-# SSO ``token_endpoint``, the e-mail ``oauth_token_endpoint``, ``jwks_uri``.
-# The stem pattern would mask them, and an auditor reading an SSO change needs
-# the endpoint it now points at. A workspace-transfer secret path or an
-# extension secret (``ext.<key>.secret.*``) still masks whatever its suffix.
-_LOCATION_SUFFIX = re.compile(r"(_endpoint|_url|_uri)$", re.IGNORECASE)
+# The keys that name WHERE a credential is used rather than the credential —
+# the SSO ``token_endpoint`` and the e-mail ``oauth_token_endpoint`` — yet carry
+# the ``token`` stem the pattern above masks. An auditor reading an SSO change
+# needs the endpoint it now points at, so exactly these two stay readable. An
+# allowlist, not a suffix rule: a future ``webhook_token_url`` could carry
+# ``https://user:pass@host/…`` and must stay masked. The other endpoint keys
+# (``jwks_uri``, ``authorization_endpoint``, ``issuer_url``, ``instance_url``,
+# ``provider_url``, ``search_url``, ``app_base_url``) match no stem and need no
+# exemption. A workspace-transfer secret path or an extension secret
+# (``ext.<key>.secret.*``) is checked first and masks whatever its name.
+_READABLE_LOCATION_KEYS: frozenset[str] = frozenset({"token_endpoint", "oauth_token_endpoint"})
 
 
 def is_secret_key(key: Any) -> bool:
@@ -151,7 +156,7 @@ def is_secret_key(key: Any) -> bool:
         return False
     if key in _SECRET_LEAF_KEYS or is_extension_secret_key(key):
         return True
-    if _LOCATION_SUFFIX.search(key):
+    if key in _READABLE_LOCATION_KEYS:
         return False
     return bool(_SECRET_KEY_PATTERN.search(key))
 

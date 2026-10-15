@@ -112,6 +112,17 @@ async def test_update_records_rekey_and_permission_diff(client, db, env):
     }
 
 
+async def test_no_op_update_records_nothing(client, db, env):
+    resp = await client.patch(
+        f"{BASE}/responsible",
+        json={"label": "Responsible", "permissions": {"card.view": True, "card.edit": True}},
+        headers=env["h"],
+    )
+    assert resp.status_code == 200
+
+    assert await _rows(db) == []
+
+
 async def test_update_records_plain_fields_and_a_revoked_permission(client, db, env):
     resp = await client.patch(
         f"{BASE}/responsible",

@@ -566,6 +566,24 @@ class TestRoleAudit:
             ],
         }
 
+    async def test_no_op_update_records_nothing(self, client, db):
+        _, headers = await self._admin(db)
+        await create_role(
+            db,
+            key="auditor",
+            label="Auditor",
+            is_system=False,
+            permissions={"inventory.view": True},
+        )
+        resp = await client.patch(
+            "/api/v1/roles/auditor",
+            json={"label": "Auditor", "permissions": {"inventory.view": True}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        assert await _role_rows(db) == []
+
     async def test_granting_the_wildcard_records_a_wildcard_item(self, client, db):
         _, headers = await self._admin(db)
         await create_role(

@@ -140,6 +140,16 @@ class TestRenderedDirectives:
             "2001:db8::/129",
             "12345::1",
             "deadbeef",
+            # IPv4-mapped IPv6: the quad is held to the IPv4 rules, and a zone
+            # id never reaches the config.
+            "::ffff:10.0.0/112",
+            "::ffff:10.0.0.1%eth0",
+            "::ffff:300.1.1.1",
+            "::ffff:10.0.0.1.5",
+            "ffff:10.0.0.1",
+            "::ffff:10.0.0.1/129",
+            "::1.2.3.4:5",
+            "1:2:3:4:5:6:7:10.0.0.1",
         ],
     )
     def test_a_malformed_address_or_prefix_is_refused(self, value):
@@ -163,6 +173,10 @@ class TestRenderedDirectives:
             "::1",
             "fd00::/8",
             "2001:db8:0:0:0:0:0:1/128",
+            # IPv4-mapped IPv6, which set_real_ip_from accepts.
+            "::ffff:10.0.0.1",
+            "::ffff:10.244.0.0/112",
+            "0:0:0:0:0:ffff:192.168.1.5/128",
         ],
     )
     def test_a_well_formed_address_or_range_is_accepted(self, value):

@@ -656,43 +656,45 @@ def test_attributes_schema_items():
 # ── section_config ────────────────────────────────────────────────────────
 
 
-NAMES = ["__description", "Finance", "Ops"]
+# What ``custom:N`` indexes: the custom sections only — ``__description`` is
+# not one of them (it renders inside Description).
+NAMES = ["Finance", "Ops"]
 
 
 def test_section_config_no_change_is_empty():
-    cfg = {"__order": ["description", "custom:1"], "custom:1": {"hidden": True}}
+    cfg = {"__order": ["description", "custom:0"], "custom:0": {"hidden": True}}
     assert section_config_items(cfg, copy.deepcopy(cfg), NAMES) == []
     assert section_config_items(None, "x", None) == []
 
 
 def test_section_config_order_resolves_custom_sections():
-    old = {"__order": ["description", "custom:1", "custom:2", "relations"]}
+    old = {"__order": ["description", "custom:0", "custom:1", "relations"]}
     new = {
-        "__order": ["custom:2", "description", "custom:1", "relations", "custom:3", "custom:x", 7]
+        "__order": ["custom:1", "description", "custom:0", "relations", "custom:2", "custom:x", 7]
     }
     assert section_config_items(old, new, NAMES) == [
         {
             "kind": "layout.reordered",
             "old": ["description", "Finance", "Ops", "relations"],
-            "new": ["Ops", "description", "Finance", "relations", "custom:3", "custom:x", 7],
+            "new": ["Ops", "description", "Finance", "relations", "custom:2", "custom:x", 7],
         }
     ]
 
 
 def test_section_config_order_appearing_for_the_first_time():
     assert section_config_items({}, {"__order": ["custom:0", "lifecycle"]}, NAMES) == [
-        {"kind": "layout.reordered", "old": None, "new": ["__description", "lifecycle"]}
+        {"kind": "layout.reordered", "old": None, "new": ["Finance", "lifecycle"]}
     ]
 
 
 def test_section_config_section_flags_and_quality_weights():
     old = {
-        "custom:2": {"hidden": False, "defaultExpanded": True},
+        "custom:1": {"hidden": False, "defaultExpanded": True},
         "lifecycle": {"hidden": True},
         "__dataQuality": {"lifecycle": 1, "description": 1},
     }
     new = {
-        "custom:2": {"hidden": True, "defaultExpanded": True},
+        "custom:1": {"hidden": True, "defaultExpanded": True},
         "lifecycle": {},
         "tags": {"defaultExpanded": False},
         "__dataQuality": {"lifecycle": 0, "description": 1, "tags": 2},
@@ -716,11 +718,78 @@ def test_section_config_section_flags_and_quality_weights():
             "kind": "section.changed",
             "section": "tags",
             "property": "defaultExpanded",
-            "old": None,
+            "old": True,
             "new": False,
         },
         {"kind": "quality_weight.changed", "component": "lifecycle", "old": 1, "new": 0},
         {"kind": "quality_weight.changed", "component": "tags", "old": None, "new": 2},
+    ]
+
+
+def test_section_config_absent_default_expanded_reads_as_expanded():
+    # The first Card Layout save writes defaultExpanded / hidden explicitly for
+    # every section; writing the rendered defaults is no change.
+    old = {"custom:0": {}, "lifecycle": {}, "relations": {}}
+    new = {
+        "custom:0": {"defaultExpanded": True, "hidden": False},
+        "lifecycle": {"defaultExpanded": True, "hidden": False},
+        "relations": {"defaultExpanded": False, "hidden": False},
+    }
+    assert section_config_items(old, new, NAMES) == []
+
+
+def test_section_config_absent_default_expanded_to_false_is_one_item():
+    assert section_config_items({}, {"custom:0": {"defaultExpanded": False}}, NAMES) == [
+        {
+            "kind": "section.changed",
+            "section": "Finance",
+            "property": "defaultExpanded",
+            "old": True,
+            "new": False,
+        }
+    ]
+
+
+def test_section_config_explicit_true_to_false_is_one_item():
+    old = {"lifecycle": {"defaultExpanded": True}}
+    new = {"lifecycle": {"defaultExpanded": False}}
+    assert section_config_items(old, new, NAMES) == [
+        {
+            "kind": "section.changed",
+            "section": "lifecycle",
+            "property": "defaultExpanded",
+            "old": True,
+            "new": False,
+        }
+    ]
+
+
+def test_section_config_relations_starts_collapsed():
+    # Relations is the one section whose rendered default is collapsed.
+    assert section_config_items({}, {"relations": {"defaultExpanded": True}}, NAMES) == [
+        {
+            "kind": "section.changed",
+            "section": "relations",
+            "property": "defaultExpanded",
+            "old": False,
+            "new": True,
+        }
+    ]
+
+
+def test_fields_schema_section_defaults_are_no_change():
+    old = [_section("S", _field("f"))]
+    new = [_section("S", _field("f"), defaultExpanded=True, hidden=False)]
+    assert fields_schema_items(old, new) == []
+    collapsed = [_section("S", _field("f"), defaultExpanded=False)]
+    assert fields_schema_items(old, collapsed) == [
+        {
+            "kind": "section.changed",
+            "section": "S",
+            "property": "defaultExpanded",
+            "old": True,
+            "new": False,
+        }
     ]
 
 

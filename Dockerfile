@@ -295,8 +295,30 @@ nginx_real_ip_lines=''
 # Shape check for one entry: an IPv4 dotted quad (four octets of 1-3 digits,
 # each at most 255) or an IPv6 address (hex and colons only, at least two and at
 # most seven colons, at most one "::", groups of at most four hex digits), with
-# an optional "/prefix" of digits at most 32 or 128. The value lands unquoted in
-# the generated config, so anything else is refused rather than passed through.
+# an optional "/prefix" of digits at most 32 or 128. An IPv6 address may end in
+# a dotted quad in place of its last two groups (the IPv4-mapped form
+# "::ffff:10.0.0.1", which set_real_ip_from accepts); the quad is checked as an
+# IPv4 address and the rest as IPv6 with "0:0" in its place. A zone id
+# ("%eth0") is refused. The value lands unquoted in the generated config, so
+# anything else is refused rather than passed through.
+turboea_valid_ipv4() {
+    case "$1" in
+        *.*.*.*.*) return 1 ;;
+        *.*.*.*) ;;
+        *) return 1 ;;
+    esac
+    tp_ifs=$IFS
+    IFS=.
+    set -- $1
+    IFS=$tp_ifs
+    for tp_octet in "$@"; do
+        case "$tp_octet" in
+            ''|*[!0-9]*|????*) return 1 ;;
+        esac
+        [ "$tp_octet" -le 255 ] || return 1
+    done
+    return 0
+}
 turboea_valid_proxy() {
     tp_entry=$1
     case "$tp_entry" in
@@ -312,6 +334,12 @@ turboea_valid_proxy() {
                 *) return 1 ;;
             esac
             case "$tp_addr" in
+                *.*)
+                    turboea_valid_ipv4 "${tp_addr##*:}" || return 1
+                    tp_addr="${tp_addr%:*}:0:0"
+                    ;;
+            esac
+            case "$tp_addr" in
                 *[!0-9A-Fa-f:]*|*:::*|*::*::*) return 1 ;;
                 *[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]*) return 1 ;;
             esac
@@ -320,23 +348,10 @@ turboea_valid_proxy() {
             ;;
         *)
             tp_max=32
-            case "$tp_addr" in
-                *.*.*.*.*) return 1 ;;
-                *.*.*.*) ;;
-                *) return 1 ;;
-            esac
-            tp_ifs=$IFS
-            IFS=.
-            set -- $tp_addr
-            IFS=$tp_ifs
-            for tp_octet in "$@"; do
-                case "$tp_octet" in
-                    ''|*[!0-9]*|????*) return 1 ;;
-                esac
-                [ "$tp_octet" -le 255 ] || return 1
-            done
+            turboea_valid_ipv4 "$tp_addr" || return 1
             ;;
     esac
+    tp_addr=${tp_entry%%/*}
     if [ "$tp_entry" != "$tp_addr" ]; then
         tp_prefix=${tp_entry#*/}
         case "$tp_prefix" in

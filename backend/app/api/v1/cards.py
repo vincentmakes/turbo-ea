@@ -70,6 +70,7 @@ from app.schemas.card import (
     TagRef,
 )
 from app.services import (
+    audit_labels,
     audit_log,
     card_approval,
     card_lifecycle,
@@ -3058,12 +3059,7 @@ async def _audit_cards_export(
     of them), recorded by label in ``context.card_type``; the target names the
     card type only when the export covered exactly one.
     """
-    labels: dict[str, str] = {}
-    if type_keys:
-        result = await db.execute(
-            select(CardType.key, CardType.label).where(CardType.key.in_(type_keys))
-        )
-        labels = {key: label or key for key, label in result.all()}
+    labels = await audit_labels.card_type_labels(db, type_keys)
     type_labels = [labels.get(k) or k[:_EXPORT_TYPE_DETAIL_WIDTH] for k in type_keys]
     target = None
     if len(type_keys) == 1:

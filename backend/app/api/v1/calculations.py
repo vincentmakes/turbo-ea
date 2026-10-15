@@ -14,7 +14,7 @@ from app.models.calculation import Calculation
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.user import User
-from app.services import audit_log
+from app.services import audit_labels, audit_log
 from app.services.calculation_engine import (
     MAX_FORMULA_LENGTH,
     detect_cycles,
@@ -340,14 +340,15 @@ async def update_calculation(
                 f"Formula update would create a dependency cycle: {' -> '.join(cycle)}",
             )
 
-    await audit_log.record(
-        db,
-        action="admin.calculation.updated",
-        category="admin",
-        actor=user,
-        target=("calculation", str(calc.id), calc.name),
-        changes=changes,
-    )
+    if changes:
+        await audit_log.record(
+            db,
+            action="admin.calculation.updated",
+            category="admin",
+            actor=user,
+            target=("calculation", str(calc.id), calc.name),
+            changes=changes,
+        )
     await db.commit()
     await db.refresh(calc)
     return _to_response(calc)
@@ -371,7 +372,7 @@ async def delete_calculation(
         actor=user,
         target=("calculation", str(calc.id), calc.name),
         context={
-            "target_type": (await _type_label_and_schema(db, calc.target_type_key))[0],
+            "target_type": await audit_labels.card_type_label(db, calc.target_type_key),
             "was_active": calc.is_active,
         },
     )
@@ -514,7 +515,7 @@ async def recalculate_type(
         action="admin.calculation.recalculated",
         category="admin",
         actor=user,
-        target=("card_type", type_key, (await _type_label_and_schema(db, type_key))[0]),
+        target=("card_type", type_key, await audit_labels.card_type_label(db, type_key)),
         context={
             "cards": report["cards_processed"],
             "succeeded": report["calculations_succeeded"],

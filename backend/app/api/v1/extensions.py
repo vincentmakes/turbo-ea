@@ -1171,7 +1171,13 @@ async def install_from_store(
         category="admin",
         actor=user,
         target=("extension", payload.key, str(item.get("name") or payload.key)),
-        context={"version": item.get("version"), "file_size": install.file_size},
+        # The apply / discard rows target the extension key, not this upload,
+        # so the upload's id is the reference that ties them to this row.
+        context={
+            "version": item.get("version"),
+            "file_size": install.file_size,
+            "reference": str(install.id),
+        },
     )
     await db.commit()
     background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))

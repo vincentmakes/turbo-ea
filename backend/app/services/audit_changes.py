@@ -112,6 +112,16 @@ _OPTION_PROPS = ("color", "hidden")
 # report a no-op "— → No" every time an editor wrote the default explicitly.
 _BOOLEAN_PROPS = frozenset({"required", "readonly", "hidden"})
 
+# Props whose absence means a rendered default other than ``False``, read the
+# same way: a section with no ``defaultExpanded`` starts expanded, so the first
+# Card Layout save writing ``defaultExpanded: true`` for every section is no
+# change. Relations is the one section that starts collapsed
+# (``SECTION_DEFAULT_EXPANDED`` in ``frontend/src/features/cards/sectionConfig.ts``).
+_PROP_DEFAULTS: Mapping[str, Any] = {"defaultExpanded": True}
+_SECTION_PROP_DEFAULTS: Mapping[str, Mapping[str, Any]] = {
+    "relations": {"defaultExpanded": False},
+}
+
 _ORDER_KEY = "__order"
 _QUALITY_KEY = "__dataQuality"
 _CUSTOM_PREFIX = "custom:"
@@ -170,10 +180,12 @@ def _same(old: Any, new: Any) -> bool:
     )
 
 
-def _prop(entry: Mapping[str, Any], prop: str) -> Any:
+def _prop(entry: Mapping[str, Any], prop: str, defaults: Mapping[str, Any] = _PROP_DEFAULTS) -> Any:
     value = entry.get(prop)
     if prop in _BOOLEAN_PROPS:
         return bool(value)
+    if value is None:
+        return defaults.get(prop)
     return value
 
 
@@ -275,11 +287,14 @@ def _property_items(
     was: Mapping[str, Any],
     now: Mapping[str, Any],
     props: Iterable[str],
+    defaults: Mapping[str, Any] = _PROP_DEFAULTS,
 ) -> list[dict[str, Any]]:
-    """``kind`` items {**names, property, old, new} for each prop that differs."""
+    """``kind`` items {**names, property, old, new} for each prop that differs,
+    an absent prop read as its rendered default (``_BOOLEAN_PROPS``,
+    ``defaults``)."""
     out = []
     for prop in props:
-        a, b = _prop(was, prop), _prop(now, prop)
+        a, b = _prop(was, prop, defaults), _prop(now, prop, defaults)
         if _same(a, b):
             continue
         if prop == "config":
@@ -533,6 +548,7 @@ def section_config_items(old: Any, new: Any, section_names: Any) -> list[dict[st
             was,
             now,
             ("hidden", "defaultExpanded"),
+            {**_PROP_DEFAULTS, **_SECTION_PROP_DEFAULTS.get(key, {})},
         )
 
     old_weights, new_weights = _as_dict(before.get(_QUALITY_KEY)), _as_dict(after.get(_QUALITY_KEY))

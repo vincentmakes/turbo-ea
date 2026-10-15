@@ -31,7 +31,7 @@ from app.models.web_portal import WebPortal
 from app.schemas.bpm_public import BpmPublicFlow, BpmPublicProcessMap
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.schemas.ppm_public import PpmPublicPortfolio
-from app.services import audit_changes, audit_log, portal_visibility, sso_service
+from app.services import audit_changes, audit_labels, audit_log, portal_visibility, sso_service
 from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import process_map_service as process_map
 from app.services.card_search import card_search_filter, card_search_rank
@@ -207,7 +207,6 @@ _PORTAL_AUDIT_FIELDS = (
     "allowed_email_domains",
 )
 _PORTAL_AUDIT_BLOBS = ("filters", "display_fields", "card_config")
-_AUDIT_TEXT_LIMIT = 500
 
 
 def _portal_audit_snapshot(portal: WebPortal) -> dict:
@@ -219,11 +218,8 @@ def _portal_audit_snapshot(portal: WebPortal) -> dict:
 
 
 def _clip_text(value: object) -> object:
-    """A long text clipped to ``_AUDIT_TEXT_LIMIT`` characters, the last one an
-    ellipsis; anything else as it is."""
-    if isinstance(value, str) and len(value) > _AUDIT_TEXT_LIMIT:
-        return value[: _AUDIT_TEXT_LIMIT - 1] + "…"
-    return value
+    """A long string clipped (``audit_labels.clip_text``); anything else as is."""
+    return audit_labels.clip_text(value) if isinstance(value, str) else value
 
 
 @dataclass
@@ -484,15 +480,20 @@ async def update_portal(
     audit_after = _portal_audit_snapshot(portal)
     labels = await _portal_audit_labels(db, audit_before, audit_after)
     changes, items = _portal_audit_changes(audit_before, audit_after, labels)
-    await audit_log.record(
-        db,
-        action="admin.web_portal.updated",
-        category="admin",
-        actor=user,
-        target=("web_portal", str(portal.id), portal.name),
-        changes=changes,
-        items=items,
-    )
+    if changes or items:
+        await audit_log.record(
+            db,
+            action="admin.web_portal.updated",
+            category="admin",
+            actor=user,
+            target=("web_portal", str(portal.id), portal.name),
+            changes=changes,
+            items=items,
+            # The portal's current slug and publication state: the two facts a
+            # reviewer needs to judge what the change exposed — whether it hit
+            # a live portal — even when the edit left them alone.
+            context={"slug": portal.slug, "is_published": portal.is_published},
+        )
     await db.commit()
     await db.refresh(portal)
     return _portal_to_dict(portal)

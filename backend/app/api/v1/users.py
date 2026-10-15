@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import uuid
-from collections.abc import Iterable
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,7 +20,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
-from app.services import audit_changes, audit_log
+from app.services import audit_changes, audit_labels, audit_log
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
@@ -127,20 +126,16 @@ def _user_target(u: User) -> tuple[str, str, str]:
     return ("user", str(u.id), u.email)
 
 
-async def role_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str, str]:
-    """``{role key: role label}`` for ``keys`` in one query, so an audit row names
-    a role the way the Users screen does. A key with no role maps to itself;
-    ``None`` is skipped."""
-    wanted = {k for k in keys if k}
-    rows = await db.execute(select(Role.key, Role.label).where(Role.key.in_(wanted)))
-    found = dict(rows.tuples().all())
-    return {key: found.get(key, key) for key in wanted}
+async def _role_label(db: AsyncSession, key: str | None) -> str | None:
+    """A role named the way the Users screen names it, for an audit row; the key
+    itself when no role (or label) answers to it, ``None`` for ``None``."""
+    return (await audit_labels.role_labels(db, [key])).get(key, key) if key else key
 
 
 def _labelled_role_change(change: dict, labels: dict[str, str]) -> dict:
     """An ``{"old", "new"}`` role change with each side's key replaced by its label
-    (``labels`` from ``role_labels``, which maps every key it was given)."""
-    return {side: labels.get(change[side]) for side in ("old", "new")}
+    (``labels`` from ``audit_labels.role_labels``; an unknown key reads as itself)."""
+    return {side: labels.get(change[side], change[side]) for side in ("old", "new")}
 
 
 def _user_response_lite(u: User) -> dict:
@@ -322,7 +317,7 @@ async def delete_invitation(
         actor=current_user,
         subject_email=inv.email,
         target=("invitation", str(inv.id), inv.email),
-        context={"role": (await role_labels(db, [inv.role])).get(inv.role)},
+        context={"role": await _role_label(db, inv.role)},
     )
     await db.delete(inv)
     await db.commit()
@@ -528,7 +523,7 @@ async def bulk_update_users(
     # Re-applying values every selected user already holds changes nothing,
     # and "nothing changed" is not an audit event.
     if changed:
-        labels = await role_labels(
+        labels = await audit_labels.role_labels(
             db,
             [
                 side
@@ -786,7 +781,7 @@ async def create_user(
         subject_email=email,
         target=_user_target(u),
         context={
-            "role": (await role_labels(db, [body.role])).get(body.role),
+            "role": await _role_label(db, body.role),
             "auth_provider": auth_provider,
             "invited": body.send_email,
         },
@@ -977,7 +972,9 @@ async def update_user(
     if changes and is_admin:
         if "role" in changes:
             # Named the way the Users screen names them, not by key.
-            labels = await role_labels(db, [changes["role"]["old"], changes["role"]["new"]])
+            labels = await audit_labels.role_labels(
+                db, [changes["role"]["old"], changes["role"]["new"]]
+            )
             changes["role"] = _labelled_role_change(changes["role"], labels)
         await audit_log.record(
             db,
@@ -1083,7 +1080,7 @@ async def delete_user(
         subject_email=u.email,
         target=_user_target(u),
         context={
-            "role": (await role_labels(db, [u.role])).get(u.role),
+            "role": await _role_label(db, u.role),
             "display_name": u.display_name,
         },
     )

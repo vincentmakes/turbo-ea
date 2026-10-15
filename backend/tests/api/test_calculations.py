@@ -782,6 +782,29 @@ class TestCalculationAudit:
             "context": {"target_type": "IT Component", "was_active": False}
         }
 
+    async def test_no_op_update_records_nothing(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        created = await client.post(
+            "/api/v1/calculations",
+            json={
+                "name": "Total Cost",
+                "target_type_key": "Application",
+                "target_field_key": "costTotalAnnual",
+                "formula": "42",
+            },
+            headers=headers,
+        )
+        calc_id = created.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/calculations/{calc_id}",
+            json={"name": "Total Cost", "formula": "42"},
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+
+        rows = await _audit_rows(db, "admin.calculation.")
+        assert [r.action for r in rows] == ["admin.calculation.created"]
+
     async def test_recalculating_an_unknown_type_names_it_by_key(self, client, db, calc_env):
         headers = auth_headers(calc_env["admin"])
         resp = await client.post("/api/v1/calculations/recalculate/Nowhere", headers=headers)

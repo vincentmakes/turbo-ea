@@ -655,7 +655,8 @@ class TestAudit:
             headers=headers,
         )
         assert resp.status_code == 200, resp.text
-        # The masked placeholder the UI echoes back is not a credential change.
+        # The masked placeholder the UI echoes back is not a credential change,
+        # so that save changed nothing and records nothing.
         resp = await client.patch(
             f"{BASE}/connections/{conn_id}", json={"password": "--------"}, headers=headers
         )
@@ -679,7 +680,6 @@ class TestAudit:
         assert [r.action.rsplit(".", 1)[1] for r in rows] == [
             "created",  # the fixture's connection
             "updated",
-            "updated",
             "created",
             "deleted",
         ]
@@ -690,9 +690,8 @@ class TestAudit:
             "changes": {"name": {"old": "SNOW", "new": "SNOW prod"}},
             "context": {"credentials_changed": True},
         }
-        assert rows[2].details == {"context": {"credentials_changed": False}}
-        assert rows[3].details == {"context": {"instance_url": INSTANCE, "auth_type": "oauth2"}}
-        assert rows[4].details == {"context": {"instance_url": INSTANCE}}
+        assert rows[2].details == {"context": {"instance_url": INSTANCE, "auth_type": "oauth2"}}
+        assert rows[3].details == {"context": {"instance_url": INSTANCE}}
         for row in rows:
             dumped = repr((row.details, row.target_label, row.target_id, row.subject_email))
             assert NEW_PASSWORD not in dumped
@@ -739,6 +738,27 @@ class TestAudit:
             }
         }
         assert deleted.details == {"context": {"connection": "SNOW"}}
+
+    async def test_credentials_only_update_is_recorded(self, client, db, env):
+        resp = await client.patch(
+            f"{BASE}/connections/{env['conn_id']}",
+            json={"password": NEW_PASSWORD},
+            headers=env["headers"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        [updated] = await _audit_rows(db, "admin.servicenow.connection.updated")
+        assert updated.details == {"context": {"credentials_changed": True}}
+
+    async def test_no_op_mapping_update_records_nothing(self, client, db, env):
+        resp = await client.patch(
+            f"{BASE}/mappings/{env['mapping_id']}",
+            json={"sync_mode": "conservative", "snow_table": "cmdb_ci_appl"},
+            headers=env["headers"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        assert await _audit_rows(db, "admin.servicenow.mapping.updated") == []
 
     async def test_mapping_rows_name_the_card_type_by_label(self, client, db, env):
         await create_card_type(db, key="ITComponent", label="IT Component")

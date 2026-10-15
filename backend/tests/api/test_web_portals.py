@@ -315,6 +315,8 @@ class TestPortalAudit:
             "items": [
                 {"kind": "portal_filter.changed", "filter": "subtypes", "old": [], "new": ["x"]}
             ],
+            # Whether the change hit a live portal, even when it left these alone.
+            "context": {"slug": "app-catalog", "is_published": False},
         }
 
         assert deleted.action == "admin.web_portal.deleted"
@@ -339,7 +341,8 @@ class TestPortalAudit:
         created, updated = await _audit_rows(db)
         assert created.details["context"]["card_type"] == "IT Component"
         assert updated.details == {
-            "changes": {"card_type": {"old": "IT Component", "new": "Application"}}
+            "changes": {"card_type": {"old": "IT Component", "new": "Application"}},
+            "context": {"slug": "catalog", "is_published": False},
         }
 
     async def test_description_is_recorded_as_clipped_text(self, client, db, portals_env):
@@ -371,14 +374,16 @@ class TestPortalAudit:
             r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"
         ]
         assert first.details == {
-            "changes": {"description": {"old": "Teh catalog", "new": "The catalog"}}
+            "changes": {"description": {"old": "Teh catalog", "new": "The catalog"}},
+            "context": {"slug": "catalog", "is_published": False},
         }
         clipped = second.details["changes"]["description"]["new"]
         assert clipped == "a" * 499 + "…"
         assert len(clipped) == 500
         assert second.details["changes"]["description"]["old"] == "The catalog"
         assert third.details == {
-            "changes": {"description": {"old": "a" * 499 + "…", "new": "b" * 500}}
+            "changes": {"description": {"old": "a" * 499 + "…", "new": "b" * 500}},
+            "context": {"slug": "catalog", "is_published": False},
         }
 
     async def test_subtype_and_tag_filters_are_recorded_by_label(self, client, db, portals_env):
@@ -441,7 +446,8 @@ class TestPortalAudit:
                     "old": ["Finance"],
                     "new": ["Sales"],
                 },
-            ]
+            ],
+            "context": {"slug": "catalog", "is_published": False},
         }
 
     async def test_toggles_and_display_fields_are_recorded_by_label(self, client, db, portals_env):
@@ -531,6 +537,7 @@ class TestPortalAudit:
                     "new": False,
                 },
             ],
+            "context": {"slug": "catalog", "is_published": False},
         }
 
     async def test_unchanged_blob_is_not_reported(self, client, db, portals_env):
@@ -549,7 +556,27 @@ class TestPortalAudit:
         assert resp.status_code == 200
 
         [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
-        assert updated.details == {"changes": {"name": {"old": "Catalog", "new": "Catalogue"}}}
+        assert updated.details == {
+            "changes": {"name": {"old": "Catalog", "new": "Catalogue"}},
+            "context": {"slug": "catalog", "is_published": False},
+        }
+
+    async def test_no_op_update_records_nothing(self, client, db, portals_env):
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "Catalog", "slug": "catalog", "card_type": "Application"},
+            headers=headers,
+        )
+        portal = resp.json()
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal['id']}",
+            json={"name": "Catalog", "filters": portal["filters"]},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        assert [r.action for r in await _audit_rows(db)] == ["admin.web_portal.created"]
 
     async def test_viewer_is_refused_and_nothing_is_recorded(self, client, db, portals_env):
         resp = await client.post(

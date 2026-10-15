@@ -24,7 +24,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserResponse,
 )
-from app.services import audit_log, email_service, proxy_auth_service, sso_service
+from app.services import audit_labels, audit_log, email_service, proxy_auth_service, sso_service
 
 # SSO / OIDC machinery lives in ``app.services.sso_service`` so more than one
 # route module can reuse it (user login here, SSO-gated portals in
@@ -95,10 +95,7 @@ _PROVISION_REASONS = {409: "local_account", 403: "no_account"}
 async def _role_label(db: AsyncSession, key: str) -> str:
     """The label a role is shown under, for an audit row; the key itself when no
     role (or no label) answers to it."""
-    from app.models.role import Role
-
-    label = (await db.execute(select(Role.label).where(Role.key == key))).scalar_one_or_none()
-    return label or key
+    return (await audit_labels.role_labels(db, [key])).get(key, key)
 
 
 async def _fail(

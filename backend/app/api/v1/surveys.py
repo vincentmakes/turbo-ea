@@ -17,7 +17,13 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.survey import Survey, SurveyResponse
 from app.models.user import User
-from app.services import audit_log, notification_service, stakeholder_service, survey_service
+from app.services import (
+    audit_labels,
+    audit_log,
+    notification_service,
+    stakeholder_service,
+    survey_service,
+)
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.relation_orientation import direction_for
@@ -512,14 +518,6 @@ async def preview_survey(
     }
 
 
-async def _audit_type_label(db: AsyncSession, type_key: str) -> str:
-    """The card type's label for the Security log, its key when it has none."""
-    label = (
-        await db.execute(select(CardType.label).where(CardType.key == type_key))
-    ).scalar_one_or_none()
-    return label or type_key
-
-
 async def _audit_role_labels(
     db: AsyncSession, type_key: str, role_keys: list[str] | None
 ) -> list[str]:
@@ -579,7 +577,7 @@ async def send_survey(
         actor=user,
         target=("survey", str(survey.id), survey.name),
         context={
-            "card_type": await _audit_type_label(db, survey.target_type_key),
+            "card_type": await audit_labels.card_type_label(db, survey.target_type_key),
             "roles": await _audit_role_labels(db, survey.target_type_key, survey.target_roles),
             "matched_cards": len(matched),
             "cards": len(targets),
@@ -632,7 +630,7 @@ async def close_survey(
         category="admin",
         actor=user,
         target=("survey", str(survey.id), survey.name),
-        context={"card_type": await _audit_type_label(db, survey.target_type_key)},
+        context={"card_type": await audit_labels.card_type_label(db, survey.target_type_key)},
     )
     await db.commit()
     result = await db.execute(

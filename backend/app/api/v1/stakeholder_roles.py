@@ -23,7 +23,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
-from app.services import audit_changes, audit_log
+from app.services import audit_changes, audit_labels, audit_log
 from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
@@ -44,14 +44,6 @@ def _srd_target(
     return ("stakeholder_role", f"{type_key}:{srd.key}", f"{srd.label or srd.key} ({type_label})")
 
 
-async def _card_type_label(db: AsyncSession, type_key: str) -> str:
-    """The card type's label, its key when it has none."""
-    label = (
-        await db.execute(select(CardType.label).where(CardType.key == type_key))
-    ).scalar_one_or_none()
-    return label or type_key
-
-
 async def _audit_srd(
     db: AsyncSession,
     user: User,
@@ -66,7 +58,7 @@ async def _audit_srd(
     """Record one ``admin.stakeholder_role.<action>`` row. Every row carries
     ``context.card_type`` (the type's label) so the type stays readable even
     where only the target id is shown."""
-    type_label = await _card_type_label(db, type_key)
+    type_label = await audit_labels.card_type_label(db, type_key)
     await audit_log.record(
         db,
         action=f"admin.stakeholder_role.{action}",
@@ -575,15 +567,9 @@ async def update_stakeholder_role(
     changes = audit_log.diff(before, srd, keys=SRD_AUDIT_FIELDS)
     if new_key:
         changes["key"] = {"old": role_key, "new": new_key}
-    await _audit_srd(
-        db,
-        user,
-        "updated",
-        type_key,
-        srd,
-        changes=changes,
-        items=audit_changes.permission_items(permissions_before, srd.permissions),
-    )
+    items = audit_changes.permission_items(permissions_before, srd.permissions)
+    if changes or items:
+        await _audit_srd(db, user, "updated", type_key, srd, changes=changes, items=items)
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)

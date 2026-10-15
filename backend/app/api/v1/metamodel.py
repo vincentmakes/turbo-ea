@@ -4,7 +4,6 @@ import copy
 import logging
 import re
 import uuid
-from collections.abc import Iterable
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -28,7 +27,7 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
-from app.services import audit_changes, audit_log, card_reference
+from app.services import audit_changes, audit_labels, audit_log, card_reference
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -110,7 +109,6 @@ _PRINCIPLE_TEXT_FIELDS = ("description", "rationale", "implications")
 # ``translations`` (``{locale: label}``) are reported as items instead.
 _CATALOGUE_AUDIT_SCALARS = ("label", "description", "is_enabled", "sort_order")
 _RESOURCE_TYPE_AUDIT_SCALARS = ("label", "description", "icon", "is_enabled", "sort_order")
-_AUDIT_TEXT_LIMIT = 500
 
 
 def _audit_snapshot(obj: object, fields: tuple[str, ...]) -> dict:
@@ -119,10 +117,50 @@ def _audit_snapshot(obj: object, fields: tuple[str, ...]) -> dict:
 
 
 def _section_names(fields_schema: object) -> list:
-    """The section names of a ``fields_schema``, in order — what ``custom:N``
-    in ``section_config.__order`` indexes into."""
+    """The custom section names of a ``fields_schema``, in order — what
+    ``custom:N`` in ``section_config.__order`` indexes into. That index skips
+    the ``__description`` pseudo-section (it renders inside Description, not as
+    a section of its own), exactly as ``customSectionsOf`` on the frontend and
+    ``_reindex_section_order`` in ``services/extensions/field_contributions``."""
     sections = fields_schema if isinstance(fields_schema, list) else []
-    return [s.get("section") for s in sections if isinstance(s, dict)]
+    return [
+        s.get("section")
+        for s in sections
+        if isinstance(s, dict) and s.get("section") != "__description"
+    ]
+
+
+def _field_labels(*fields_schemas: object) -> dict[str, str]:
+    """``{field key: label}`` across ``fields_schemas``; the first schema that
+    labels a key wins (pass the after-side first so a renamed field reads under
+    its new label)."""
+    out: dict[str, str] = {}
+    for schema in fields_schemas:
+        for section in schema if isinstance(schema, list) else []:
+            if not isinstance(section, dict):
+                continue
+            for field in section.get("fields") or []:
+                if isinstance(field, dict) and field.get("key") and field.get("label"):
+                    out.setdefault(field["key"], field["label"])
+    return out
+
+
+def _labelled_hidden_fields(items: list, field_labels: dict[str, str]) -> list:
+    """``items`` with each ``subtype.changed`` ``hidden_fields`` side mapped from
+    field keys to field labels (an absent list read as empty); an item whose
+    sides then agree — absent vs. ``[]`` — is dropped as no change."""
+    out = []
+    for entry in items:
+        if entry.get("kind") == "subtype.changed" and entry.get("property") == "hidden_fields":
+            old, new = (
+                [field_labels.get(k, k) for k in (entry.get(side) or []) if isinstance(k, str)]
+                for side in ("old", "new")
+            )
+            if old == new:
+                continue
+            entry = {**entry, "old": old, "new": new}
+        out.append(entry)
+    return out
 
 
 def _normalised_reference_config(cfg: object) -> dict:
@@ -161,11 +199,14 @@ def _type_audit_changes(
             after["section_config"],
             _section_names(after["fields_schema"]),
         )
-        + audit_changes.keyed_list_items(
-            before["subtypes"],
-            after["subtypes"],
-            noun="subtype",
-            props=("color", "hidden_fields"),
+        + _labelled_hidden_fields(
+            audit_changes.keyed_list_items(
+                before["subtypes"],
+                after["subtypes"],
+                noun="subtype",
+                props=("color", "hidden_fields"),
+            ),
+            _field_labels(after["fields_schema"], before["fields_schema"]),
         )
         + audit_changes.keyed_list_items(
             before["hierarchy_labels"],
@@ -210,26 +251,9 @@ def _type_label(labels: dict[str, str], key: str | None) -> str | None:
     return labels.get(key) or key
 
 
-async def _type_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str, str]:
-    """``{type key: label}`` for the given card-type keys, in one query."""
-    wanted = {k for k in keys if k}
-    if not wanted:
-        return {}
-    rows = await db.execute(select(CardType.key, CardType.label).where(CardType.key.in_(wanted)))
-    return {key: label for key, label in rows.all() if label}
-
-
-async def _role_labels(db: AsyncSession) -> dict[str, str]:
-    """``{role key: label}`` for every role, so a permission cell names its role."""
-    rows = await db.execute(select(Role.key, Role.label))
-    return {key: label for key, label in rows.all() if label}
-
-
 def _clip_text(value: object) -> object:
-    """A long string cut to ``_AUDIT_TEXT_LIMIT`` characters (with an ellipsis)."""
-    if isinstance(value, str) and len(value) > _AUDIT_TEXT_LIMIT:
-        return value[: _AUDIT_TEXT_LIMIT - 1] + "…"
-    return value
+    """A long string clipped (``audit_labels.clip_text``); anything else as is."""
+    return audit_labels.clip_text(value) if isinstance(value, str) else value
 
 
 def _clipped(changes: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -1267,7 +1291,13 @@ async def update_type(
 
     audit_after = _audit_snapshot(t, audit_fields)
     role_labels = (
-        await _role_labels(db)
+        await audit_labels.role_labels(
+            db,
+            [
+                *(audit_before["role_permissions"] or {}),
+                *(audit_after["role_permissions"] or {}),
+            ],
+        )
         if audit_before["role_permissions"] != audit_after["role_permissions"]
         else {}
     )
@@ -1571,7 +1601,7 @@ async def create_relation_type(
         target_mandatory=body.get("target_mandatory", False),
     )
     db.add(rt)
-    labels = await _type_labels(db, (rt.source_type_key, rt.target_type_key))
+    labels = await audit_labels.card_type_labels(db, (rt.source_type_key, rt.target_type_key))
     await audit_log.record(
         db,
         action="admin.metamodel.relation_type.created",
@@ -1661,7 +1691,7 @@ async def update_relation_type(
         audit_before[f] != audit_after[f] for f in ("source_type_key", "target_type_key")
     )
     type_labels = (
-        await _type_labels(
+        await audit_labels.card_type_labels(
             db,
             (
                 audit_before["source_type_key"],

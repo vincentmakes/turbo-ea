@@ -26,7 +26,7 @@ from app.models.servicenow import (
     SnowSyncRun,
 )
 from app.models.user import User
-from app.services import audit_log
+from app.services import audit_labels, audit_log
 from app.services.permission_service import PermissionService
 from app.services.servicenow_service import (
     ServiceNowClient,
@@ -349,23 +349,16 @@ def _connection_target(conn: SnowConnection) -> tuple[str, str, str]:
     return ("servicenow_connection", str(conn.id), conn.name)
 
 
-async def _type_label(db: AsyncSession, type_key: str | None) -> str | None:
-    """A card type's label for the Security log; its key when it has none."""
-    if not type_key:
-        return type_key
-    label = (
-        await db.execute(select(CardType.label).where(CardType.key == type_key))
-    ).scalar_one_or_none()
-    return label or type_key
-
-
-async def _mapping_target(db: AsyncSession, mapping: SnowMapping) -> tuple[str, str, str]:
-    """``("servicenow_mapping", id, "<snow_table> → <card type label>")``."""
-    return (
-        "servicenow_mapping",
-        str(mapping.id),
-        f"{mapping.snow_table} → {await _type_label(db, mapping.card_type_key)}",
-    )
+async def _mapping_target(
+    db: AsyncSession, mapping: SnowMapping, type_labels: dict[str, str] | None = None
+) -> tuple[str, str, str]:
+    """``("servicenow_mapping", id, "<snow_table> → <card type label>")``.
+    ``type_labels`` (from ``audit_labels.card_type_labels``) spares the lookup
+    when the caller already resolved the mapping's type."""
+    if type_labels is None:
+        type_labels = await audit_labels.card_type_labels(db, [mapping.card_type_key])
+    label = type_labels.get(mapping.card_type_key, mapping.card_type_key)
+    return ("servicenow_mapping", str(mapping.id), f"{mapping.snow_table} → {label}")
 
 
 async def _connection_name(db: AsyncSession, connection_id: uuid.UUID) -> str | None:
@@ -374,11 +367,12 @@ async def _connection_name(db: AsyncSession, connection_id: uuid.UUID) -> str | 
     ).scalar_one_or_none()
 
 
-async def _mapping_audit_values(db: AsyncSession, values: dict) -> dict:
+def _mapping_audit_values(values: dict, type_labels: dict[str, str]) -> dict:
     """A mapping's audited columns with the card type as ``card_type`` (its
-    label) instead of ``card_type_key``."""
+    label from ``type_labels``, else its key) instead of ``card_type_key``."""
     out = {k: v for k, v in values.items() if k != "card_type_key"}
-    return {"card_type": await _type_label(db, values.get("card_type_key")), **out}
+    key = values.get("card_type_key")
+    return {"card_type": type_labels.get(key, key) if key else key, **out}
 
 
 # What a sync run's ``stats`` / an apply's counts may contribute to an audit
@@ -536,17 +530,20 @@ async def update_connection(
     changes: dict = audit_log.diff(
         audit_before, {f: getattr(conn, f) for f in _CONNECTION_AUDIT_FIELDS}
     )
-    await audit_log.record(
-        db,
-        action="admin.servicenow.connection.updated",
-        category="admin",
-        actor=user,
-        target=_connection_target(conn),
-        # Whether the credentials moved is context, never a value: they are
-        # never diffed.
-        changes=changes,
-        context={"credentials_changed": existing_creds != creds_before},
-    )
+    credentials_changed = existing_creds != creds_before
+    # A new credential is a change too, though never a diffed value.
+    if changes or credentials_changed:
+        await audit_log.record(
+            db,
+            action="admin.servicenow.connection.updated",
+            category="admin",
+            actor=user,
+            target=_connection_target(conn),
+            # Whether the credentials moved is context, never a value: they are
+            # never diffed.
+            changes=changes,
+            context={"credentials_changed": credentials_changed},
+        )
     await db.commit()
     await db.refresh(conn)
     return _conn_to_out(conn)
@@ -735,16 +732,17 @@ async def create_mapping(
 
     await _persist_field_mappings(db, mapping, body.field_mappings)
 
+    type_labels = await audit_labels.card_type_labels(db, [mapping.card_type_key])
     await audit_log.record(
         db,
         action="admin.servicenow.mapping.created",
         category="admin",
         actor=user,
-        target=await _mapping_target(db, mapping),
+        target=await _mapping_target(db, mapping, type_labels),
         context={
             "connection": await _connection_name(db, mapping.connection_id),
-            **await _mapping_audit_values(
-                db, {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}
+            **_mapping_audit_values(
+                {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}, type_labels
             ),
             "field_mappings": len(body.field_mappings),
         },
@@ -826,22 +824,28 @@ async def update_mapping(
         # Create new (coerces default values against the target field type)
         await _persist_field_mappings(db, mapping, body.field_mappings)
 
+    audit_after = {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}
+    # Both sides' card types in one lookup, shared by the diff and the target.
+    type_labels = await audit_labels.card_type_labels(
+        db, [audit_before["card_type_key"], audit_after["card_type_key"]]
+    )
     changes: dict = audit_log.diff(
-        await _mapping_audit_values(db, audit_before),
-        await _mapping_audit_values(db, {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}),
+        _mapping_audit_values(audit_before, type_labels),
+        _mapping_audit_values(audit_after, type_labels),
     )
     # Recorded whenever the set was replaced, even at the same size: the count
     # is the only trace of a replacement whose rows are not diffed.
     if body.field_mappings is not None:
         changes["field_mappings"] = {"old": old_field_mappings, "new": len(body.field_mappings)}
-    await audit_log.record(
-        db,
-        action="admin.servicenow.mapping.updated",
-        category="admin",
-        actor=user,
-        target=await _mapping_target(db, mapping),
-        changes=changes,
-    )
+    if changes:
+        await audit_log.record(
+            db,
+            action="admin.servicenow.mapping.updated",
+            category="admin",
+            actor=user,
+            target=await _mapping_target(db, mapping, type_labels),
+            changes=changes,
+        )
     await db.commit()
 
     # Reload. ``populate_existing`` is what makes this a reload: the mapping

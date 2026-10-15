@@ -1968,6 +1968,91 @@ class TestMetamodelAudit:
             ]
         }
 
+    async def test_section_names_skip_the_description_pseudo_section(
+        self, client, db, metamodel_env
+    ):
+        # ``custom:N`` indexes fields_schema WITHOUT ``__description``: custom:0
+        # is Finance here, not the Description fields.
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            fields_schema=[
+                {
+                    "section": "__description",
+                    "fields": [{"key": "alias", "label": "Alias", "type": "text"}],
+                },
+                {
+                    "section": "Finance",
+                    "fields": [{"key": "cost", "label": "Cost", "type": "cost"}],
+                },
+                {"section": "Ops", "fields": [{"key": "sla", "label": "SLA", "type": "text"}]},
+            ],
+            section_config={"__order": ["description", "custom:0", "custom:1"]},
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {
+                "section_config": {
+                    "__order": ["description", "custom:1", "custom:0"],
+                    "custom:1": {"hidden": True},
+                }
+            },
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "layout.reordered",
+                    "old": ["description", "Finance", "Ops"],
+                    "new": ["description", "Ops", "Finance"],
+                },
+                {
+                    "kind": "section.changed",
+                    "section": "Ops",
+                    "property": "hidden",
+                    "old": False,
+                    "new": True,
+                },
+            ]
+        }
+
+    async def test_subtype_hidden_fields_are_named_by_label(self, client, db, metamodel_env):
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            fields_schema=[
+                {
+                    "section": "Finance",
+                    "fields": [{"key": "costTotalAnnual", "label": "Annual cost", "type": "cost"}],
+                }
+            ],
+            subtypes=[{"key": "saas", "label": "SaaS"}],
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"subtypes": [{"key": "saas", "label": "SaaS", "hidden_fields": ["costTotalAnnual"]}]},
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "subtype.changed",
+                    "label": "SaaS",
+                    "property": "hidden_fields",
+                    "old": [],
+                    "new": ["Annual cost"],
+                }
+            ]
+        }
+
     async def test_subtype_rename_and_recolour(self, client, db, metamodel_env):
         await create_card_type(
             db, key="Gizmo", label="Gizmo", subtypes=[{"key": "saas", "label": "SaaS"}]
@@ -2501,6 +2586,10 @@ class TestAuditHelpers:
         from app.api.v1.metamodel import _section_names
 
         assert _section_names([{"section": "A"}, "junk", {"section": "B"}]) == ["A", "B"]
+        # ``custom:N`` skips the Description pseudo-section.
+        assert _section_names(
+            [{"section": "__description"}, {"section": "A"}, {"section": "B"}]
+        ) == ["A", "B"]
         assert _section_names(None) == []
 
     def test_type_audit_changes_caps_items(self):

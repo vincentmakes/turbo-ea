@@ -22,7 +22,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
-from app.services import audit_changes, audit_log
+from app.services import audit_changes, audit_labels, audit_log
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.bedrock import is_valid_region
@@ -221,8 +221,7 @@ def setting_changes(key: str, old: Any, new: Any) -> dict[str, dict[str, Any]]:
 async def _type_labels(db: AsyncSession, keys: Iterable[str]) -> list[str]:
     """Card-type labels for ``keys``, in order; a key with no type is kept as it is."""
     keys = list(keys)
-    rows = await db.execute(select(CardType.key, CardType.label).where(CardType.key.in_(keys)))
-    labels = dict(rows.tuples().all())
+    labels = await audit_labels.card_type_labels(db, keys)
     return [labels.get(key, key) for key in keys]
 
 

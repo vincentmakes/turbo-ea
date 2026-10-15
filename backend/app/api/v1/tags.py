@@ -10,11 +10,10 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.card_type import CardType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
-from app.services import audit_log
+from app.services import audit_labels, audit_log
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 from app.services.tag_service import publish_tag_event as _publish_tag_event
@@ -26,8 +25,7 @@ async def _type_labels(db: AsyncSession, keys: list[str] | None) -> list[str] | 
     stays ``None``."""
     if keys is None:
         return None
-    rows = await db.execute(select(CardType.key, CardType.label).where(CardType.key.in_(keys)))
-    labels = dict(rows.tuples().all())
+    labels = await audit_labels.card_type_labels(db, keys)
     return [labels.get(key, key) for key in keys]
 
 

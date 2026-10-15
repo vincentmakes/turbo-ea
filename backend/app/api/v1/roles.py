@@ -317,15 +317,16 @@ async def update_role(
         setattr(role, field, value)
 
     changes, items = role_changes(before, _role_snapshot(role))
-    await audit_log.record(
-        db,
-        action="admin.role.updated",
-        category="admin",
-        actor=user,
-        target=_role_target(role),
-        changes=changes,
-        items=items,
-    )
+    if changes or items:
+        await audit_log.record(
+            db,
+            action="admin.role.updated",
+            category="admin",
+            actor=user,
+            target=_role_target(role),
+            changes=changes,
+            items=items,
+        )
     await db.commit()
     await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
