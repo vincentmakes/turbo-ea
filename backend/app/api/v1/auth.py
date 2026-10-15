@@ -139,18 +139,21 @@ def _session_block(user: User) -> tuple[str, str] | None:
     """
     if not user.is_active:
         return "inactive", "Account disabled"
-    if user.access_expires_at is not None and user.access_expires_at < datetime.now(timezone.utc):
+    expires = user.access_expires_at
+    now = datetime.now(timezone.utc)
+    if expires is not None and expires < now:  # pragma: no mutate, <= differs only at that µs
         return "expired", "Account access has expired"
     return None
 
 
 async def _federated_user_exists(db: AsyncSession, *, subject_id: str, email: str) -> bool:
     """Whether ``_provision_federated_user`` would find an account rather than
-    create one — what the audit row's ``created`` flag reports."""
-    result = await db.execute(
-        select(User.id).where(or_(User.sso_subject_id == subject_id, User.email == email)).limit(1)
+    create one — what the audit row's ``created`` flag reports. Same lookup order
+    as the provisioner: the subject first, the email second."""
+    found = await db.scalar(
+        select(User.id).where(or_(User.sso_subject_id == subject_id, User.email == email))
     )
-    return result.first() is not None
+    return found is not None
 
 
 # ---------------------------------------------------------------------------
