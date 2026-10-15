@@ -404,6 +404,40 @@ class TestSso:
         assert row.actor_user_id == uid
         assert row.details == {"provider": "microsoft", "subject": "known-oid", "created": False}
 
+    async def test_sso_success_matched_by_subject_alone_is_not_created(
+        self, client, db, sso_roles, monkeypatch
+    ):
+        """An account the IdP renamed is still found by its subject, so the row
+        says ``created: False`` even though no user carries the new email."""
+        user = await create_user(db, email="old.name@acme.com", role="member")
+        user.auth_provider, user.sso_subject_id = "sso", "renamed-oid"
+        await db.flush()
+        uid = user.id
+        _exchange(monkeypatch, {"oid": "renamed-oid", "email": "new.name@acme.com"})
+
+        assert (await client.post(SSO_CALLBACK, json=SSO_BODY)).status_code == 200
+
+        [row] = await _committed(db)
+        assert row.actor_user_id == uid
+        assert row.details == {"provider": "microsoft", "subject": "renamed-oid", "created": False}
+
+    async def test_sso_success_beside_another_federated_account_is_created(
+        self, client, db, sso_roles, monkeypatch
+    ):
+        """A stranger's sign-in is ``created: True`` even when another federated
+        account exists: neither its subject nor its email matches."""
+        other = await create_user(db, email="other@acme.com", role="member")
+        other.auth_provider, other.sso_subject_id = "sso", "other-oid"
+        await db.flush()
+        other_id = other.id
+        _exchange(monkeypatch, {"oid": "fresh-oid", "email": "fresh@acme.com"})
+
+        assert (await client.post(SSO_CALLBACK, json=SSO_BODY)).status_code == 200
+
+        [row] = await _committed(db)
+        assert row.actor_user_id not in (None, other_id)
+        assert row.details == {"provider": "microsoft", "subject": "fresh-oid", "created": True}
+
 
 # ---------------------------------------------------------------------------
 # Trusted reverse proxy
