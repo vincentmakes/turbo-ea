@@ -63,6 +63,21 @@ export const STATUS_COLORS = {
   neutral: "#9e9e9e",
 } as const;
 
+// ── Field facets (reports colour-by) ────────────────────────────────────
+
+/** Yes / No colours for a boolean field used as a report's colour-by or
+ *  filter facet. "No" is a blue-grey, deliberately distinct from the Not-set
+ *  grey (`STATUS_COLORS.neutral`), from `MULTIPLE_VALUE_COLOR`, and from the
+ *  error red — a `false` answer is an answer, not a problem. */
+export const BOOLEAN_COLORS = {
+  true: STATUS_COLORS.success,
+  false: "#78909c",
+} as const;
+
+/** Neutral colour for a card that carries several values at once (a
+ *  multi-select field, or relations with differing subtype values). */
+export const MULTIPLE_VALUE_COLOR = "#607d8b";
+
 // ── Approval status (cards) ─────────────────────────────────────────────
 
 export const APPROVAL_STATUS_COLORS = {

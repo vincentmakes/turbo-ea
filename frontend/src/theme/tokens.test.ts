@@ -38,6 +38,7 @@ describe("colour tokens", () => {
     const t = await freshTokens();
     const groups = {
       STATUS_COLORS: t.STATUS_COLORS,
+      BOOLEAN_COLORS: t.BOOLEAN_COLORS,
       SEVERITY_COLORS: t.SEVERITY_COLORS,
       COMPLIANCE_LIFECYCLE_COLORS: t.COMPLIANCE_LIFECYCLE_COLORS,
       CARD_TYPE_COLORS: t.CARD_TYPE_COLORS,
