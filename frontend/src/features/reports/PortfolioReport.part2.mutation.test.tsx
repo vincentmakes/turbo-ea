@@ -766,7 +766,7 @@ describe("legend", () => {
     expect(legend().textContent).toBe("apps1 applications");
   });
 
-  it("has no key for a field whose options carry no colours", async () => {
+  it("keys an uncoloured option with its palette colour", async () => {
     mockApi.on("get", "/reports/app-portfolio*", {
       ...PAYLOAD,
       fields_schema: [
@@ -778,7 +778,12 @@ describe("legend", () => {
     });
     await renderLoaded("Standalone Tool");
     expect(printParams()).toContain("Color by: Plain");
-    expect(legend().textContent).toBe("apps4 applicationswarning1 with EOL4 ungrouped");
+    expect(legend().textContent).toBe("apps4 applicationswarning1 with EOL4 ungroupedPlain:ANot set");
+    // The uncoloured option takes the first palette colour, not the Not-set grey.
+    const colours = Array.from(legend().querySelectorAll("*")).map(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect(colours).toContain("rgb(25, 118, 210)");
   });
 });
 

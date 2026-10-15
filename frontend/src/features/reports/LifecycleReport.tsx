@@ -33,6 +33,14 @@ import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveL
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import {
+  defaultColorField,
+  facetBucket,
+  facetLegend,
+  isFacetField,
+  resolveFacetField,
+  type FacetBucket,
+} from "@/lib/fieldFacets";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -195,6 +203,7 @@ export default function LifecycleReport() {
     const dFields: FieldDef[] = [];
     const sFields: FieldDef[] = [];
     if (!selectedType) return { dateFields: dFields, selectFields: sFields };
+    const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
     for (const section of selectedType.fields_schema) {
       for (const f of section.fields) {
         const resolved: FieldDef = {
@@ -206,11 +215,24 @@ export default function LifecycleReport() {
           })),
         };
         if (f.type === "date") dFields.push(resolved);
-        if (f.type === "single_select" && f.options && f.options.length > 0) sFields.push(resolved);
+        // Every facet field — selects with options and yes/no fields — can
+        // colour the date-range bars.
+        if (isFacetField(f)) sFields.push(resolveFacetField(resolved, yesNo));
       }
     }
     return { dateFields: dFields, selectFields: sFields };
-  }, [selectedType, fieldLabel, optLabel]);
+  }, [selectedType, fieldLabel, optLabel, t]);
+
+  // The labels a bar's colour bucket is named with.
+  const colorLabels = useMemo(
+    () => ({
+      yes: t("common:labels.yes"),
+      no: t("common:labels.no"),
+      notSet: t("lifecycle.notSet"),
+      multiple: t("portfolio.multiple"),
+    }),
+    [t],
+  );
 
   // A type supports custom date mode if it has at least 2 date fields
   const hasDateFields = dateFields.length >= 2;
@@ -223,7 +245,7 @@ export default function LifecycleReport() {
     return { startDateKey: startField.key, endDateKey: endField.key };
   }, [dateFields]);
 
-  // Color-by options for custom date mode: all single_select fields
+  // Color-by options for custom date mode: every facet field
   const colorByOptions = useMemo(() => {
     return selectFields.map((f) => ({ key: f.key, label: f.label }));
   }, [selectFields]);
@@ -231,7 +253,7 @@ export default function LifecycleReport() {
   // Apply default customColorBy when switching to a type with select fields
   useEffect(() => {
     if (colorByOptions.length > 0 && !colorByOptions.find((o) => o.key === customColorBy)) {
-      setCustomColorBy(colorByOptions[0].key);
+      setCustomColorBy(defaultColorField(selectFields));
     }
   }, [colorByOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -328,9 +350,12 @@ export default function LifecycleReport() {
   const customColorLegend = useMemo(() => {
     if (!useCustomDates || !customColorBy) return null;
     const fd = selectFields.find((f) => f.key === customColorBy);
-    if (!fd?.options) return null;
-    return fd.options.filter((o) => o.color).map((o) => ({ label: o.label, color: o.color! }));
-  }, [useCustomDates, customColorBy, selectFields]);
+    if (!fd) return null;
+    const anyMultiple = items.some(
+      (d) => facetBucket(fd, d.attributes?.[customColorBy], colorLabels).kind === "multiple",
+    );
+    return facetLegend(fd, colorLabels, anyMultiple).map(({ label, color }) => ({ label, color }));
+  }, [useCustomDates, customColorBy, selectFields, colorLabels, items]);
 
   // Scroll so the +/-5yr viewport is visible (viewMin at left edge)
   useLayoutEffect(() => {
@@ -376,28 +401,31 @@ export default function LifecycleReport() {
     if (sortK === "eol") return ((a.lifecycle.endOfLife || "z").localeCompare(b.lifecycle.endOfLife || "z")) * d;
     if (sortK === "startDate") return ((a.attributes?.[startDateKey] as string || "z").localeCompare(b.attributes?.[startDateKey] as string || "z")) * d;
     if (sortK === "endDate") return ((a.attributes?.[endDateKey] as string || "z").localeCompare(b.attributes?.[endDateKey] as string || "z")) * d;
-    if (sortK === "status") return ((a.attributes?.[customColorBy] as string || "z").localeCompare(b.attributes?.[customColorBy] as string || "z")) * d;
+    if (sortK === "status") {
+      // By the label the column shows (Yes / No for a yes/no field, whose raw
+      // value `localeCompare` cannot take), with unset after every value.
+      const ba = getCustomBucket(a);
+      const bb = getCustomBucket(b);
+      if (ba.kind === "unset" || bb.kind === "unset") {
+        return ((ba.kind === "unset" ? 1 : 0) - (bb.kind === "unset" ? 1 : 0)) * d;
+      }
+      return ba.label.localeCompare(bb.label) * d;
+    }
     return 0;
   });
 
-  function getCustomBarColor(item: RoadmapItem): string {
-    if (!customColorBy) return UNSET_BAR_COLOR;
-    const val = item.attributes?.[customColorBy] as string | undefined;
-    if (!val) return UNSET_BAR_COLOR;
+  function getCustomBucket(item: RoadmapItem): FacetBucket {
     const fd = selectFields.find((f) => f.key === customColorBy);
-    const opt = fd?.options?.find((o) => o.key === val);
-    return opt?.color ?? UNSET_BAR_COLOR;
+    if (!fd) return { kind: "unset", key: "", label: colorLabels.notSet, color: null };
+    return facetBucket(fd, item.attributes?.[customColorBy], colorLabels);
+  }
+
+  function getCustomBarColor(item: RoadmapItem): string {
+    return getCustomBucket(item).color ?? UNSET_BAR_COLOR;
   }
 
   function getCustomColorLabel(item: RoadmapItem): string {
-    if (!customColorBy) return t("lifecycle.notSet");
-    const val = item.attributes?.[customColorBy] as string | undefined;
-    if (!val) return t("lifecycle.notSet");
-    const fd = selectFields.find((f) => f.key === customColorBy);
-    if (!fd) return t("lifecycle.notSet");
-    // Stryker disable next-line OptionalChaining: defensive; a select field always carries options
-    const opt = fd.options?.find((o) => o.key === val);
-    return opt?.label ?? val;
+    return getCustomBucket(item).label;
   }
 
   return (

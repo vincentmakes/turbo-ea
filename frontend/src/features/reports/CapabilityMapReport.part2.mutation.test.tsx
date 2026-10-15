@@ -706,7 +706,7 @@ describe("CapabilityMapReport legend", () => {
     expect(within(legend()).getByText("Not set")).toBeInTheDocument();
   });
 
-  it("draws no colour legend for a field none of whose options carry a colour", async () => {
+  it("keys a field none of whose options carry a colour in palette colours", async () => {
     h.config = { showApps: true, colorBy: "tier" };
     heatmapRoute({
       ...MAIN,
@@ -726,8 +726,9 @@ describe("CapabilityMapReport legend", () => {
     });
     renderMap();
     await loaded();
-    expect(within(legend()).queryByText("Tier:")).not.toBeInTheDocument();
-    expect(within(legend()).queryByText("Not set")).not.toBeInTheDocument();
+    expect(within(legend()).getByText("Tier:")).toBeInTheDocument();
+    expect(within(legend()).getByText("Gold")).toBeInTheDocument();
+    expect(within(legend()).getByText("Not set")).toBeInTheDocument();
   });
 });
 

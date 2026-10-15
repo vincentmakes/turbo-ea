@@ -358,14 +358,15 @@ describe("application colours", () => {
     expect(pillColors()).toEqual({ alpha: APP_HEX, beta: APP_HEX, gamma: APP_HEX, delta: APP_HEX });
   });
 
-  it("colours by the chosen field's option, greying unset, unknown and colourless values", async () => {
+  it("colours by the chosen field's option, greying unset and unknown values", async () => {
     serve(COLOURED);
     ctl.config = { colorBy: "criticality" };
     renderMap();
     await loaded("Pool");
     expect(pillColors()).toEqual({
       alpha: "#ff0000",
-      beta: UNSET,
+      // A colourless option takes the palette colour of its position (third).
+      beta: "#00897b",
       gamma: UNSET,
       delta: UNSET,
     });
@@ -402,7 +403,7 @@ describe("application colours", () => {
     renderMap();
     await loaded("Pool");
     expect(bg(within(chart()).getByLabelText("Alpha — High Crit"))).toBe("rgb(255, 0, 0)");
-    expect(bg(within(chart()).getByLabelText("Beta — Plain Crit"))).toBe(UNSET);
+    expect(bg(within(chart()).getByLabelText("Beta — Plain Crit"))).toBe("rgb(0, 137, 123)");
     expect(bg(within(chart()).getByLabelText("Gamma"))).toBe(UNSET);
   });
 
@@ -415,7 +416,7 @@ describe("application colours", () => {
     expect(bg(within(chart()).getByLabelText("Alpha"))).toBe("rgb(15, 126, 181)");
   });
 
-  it("offers only the single-select fields as colour-by options", async () => {
+  it("offers only the select fields that carry options as colour-by options", async () => {
     serve(COLOURED);
     ctl.config = { showApps: true };
     renderMap();
@@ -426,7 +427,6 @@ describe("application colours", () => {
       "No color",
       "Hosting",
       "Criticality",
-      "No Options",
     ]);
   });
 });
@@ -989,5 +989,104 @@ describe("mark-click spotlight", () => {
     await waitFor(() => expect(getComputedStyle(box("Hub")).animation).toBe(PULSE));
     expect(getComputedStyle(box("Spoke")).animation).toBe(PULSE);
     expect(getComputedStyle(box("Quiet")).animation).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Yes/no and multi-select fields (#1256)
+// ---------------------------------------------------------------------------
+
+describe("yes/no and multi-select fields", () => {
+  const FACET_SCHEMA = [
+    {
+      section: "Tech",
+      fields: [
+        { key: "notes", label: "Notes", type: "text" },
+        { key: "isCloud", label: "Cloud Hosted", type: "boolean" },
+        {
+          key: "regions",
+          label: "Regions",
+          type: "multiple_select",
+          options: [
+            { key: "eu", label: "EU", color: "#0000ff" },
+            { key: "us", label: "US" },
+          ],
+        },
+      ],
+    },
+  ];
+  const facetPayload = (items: ReturnType<typeof app>[]) =>
+    payload([cap("pool", "Pool", null, items)], { fields_schema: FACET_SCHEMA });
+  const YES = app("yes", "Yes App", { attributes: { isCloud: true, regions: ["eu"] } });
+  const NO = app("no", "No App", { attributes: { isCloud: false, regions: ["eu", "us"] } });
+  const NONE = app("none", "None App", { attributes: { regions: [] } });
+
+  it("offers a yes/no and a multi-select field as colour-by options", async () => {
+    serve(facetPayload([YES]));
+    ctl.config = { showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(await openSelect(/color apps by/i)).toEqual(["No color", "Cloud Hosted", "Regions"]);
+  });
+
+  it("colours by a yes/no field, true and false apart from unset", async () => {
+    serve(facetPayload([YES, NO, NONE]));
+    ctl.config = { colorBy: "isCloud", showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(pillColors()).toEqual({ yes: "#4caf50", no: "#78909c", none: UNSET });
+    expect(bg(within(chart()).getByLabelText("Yes App — Yes"))).toBe("rgb(76, 175, 80)");
+    expect(bg(within(chart()).getByLabelText("No App — No"))).toBe("rgb(120, 144, 156)");
+    expect(bg(within(chart()).getByLabelText("None App"))).toBe(UNSET);
+    const legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("Cloud Hosted:")).toBeInTheDocument();
+    expect(within(legend).getByText("Yes")).toBeInTheDocument();
+    expect(within(legend).getByText("No")).toBeInTheDocument();
+    expect(within(legend).getByText("Not set")).toBeInTheDocument();
+  });
+
+  it("puts a card with two values of a multi-select in the Multiple bucket", async () => {
+    serve(facetPayload([YES, NO, NONE]));
+    ctl.config = { colorBy: "regions", showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(pillColors()).toEqual({ yes: "#0000ff", no: "#607d8b", none: UNSET });
+    expect(within(chart()).getByLabelText("No App — Multiple")).toBeInTheDocument();
+    expect(within(chart()).getByLabelText("Yes App — EU")).toBeInTheDocument();
+    const legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("EU")).toBeInTheDocument();
+    // The uncoloured option is keyed too, in its palette colour.
+    expect(within(legend).getByText("US")).toBeInTheDocument();
+    expect(within(legend).getByText("Multiple")).toBeInTheDocument();
+  });
+
+  it("keys no Multiple swatch when every card carries one value at most", async () => {
+    serve(facetPayload([YES, NONE]));
+    ctl.config = { colorBy: "regions", showApps: true };
+    renderMap();
+    await loaded("Pool");
+    const legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("US")).toBeInTheDocument();
+    expect(within(legend).queryByText("Multiple")).not.toBeInTheDocument();
+  });
+
+  it("filters by a yes/no field and by one value of a multi-select", async () => {
+    serve(facetPayload([YES, NO, NONE]));
+    ctl.config = { showApps: true, attrFilters: { isCloud: ["false"] } };
+    const first = renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Yes App", "No App", "None App"])).toEqual(["No App"]);
+    first.unmount();
+
+    ctl.config = { showApps: true, attrFilters: { regions: ["us"] } };
+    const second = renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Yes App", "No App", "None App"])).toEqual(["No App"]);
+    second.unmount();
+
+    ctl.config = { showApps: true, attrFilters: { isCloud: ["__empty__"] } };
+    renderMap();
+    await loaded("Pool");
+    expect(chipNames(["Yes App", "No App", "None App"])).toEqual(["None App"]);
   });
 });

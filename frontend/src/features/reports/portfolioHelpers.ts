@@ -7,6 +7,15 @@
 /* ------------------------------------------------------------------ */
 
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import {
+  MULTIPLE_COLOR,
+  MULTIPLE_KEY,
+  facetBucket,
+  facetLegend,
+  isFacetField,
+  matchesFacet,
+  rawValues,
+} from "@/lib/fieldFacets";
 import { parseSideKey } from "@/lib/relationSort";
 
 /* ------------------------------------------------------------------ */
@@ -120,6 +129,11 @@ export interface FilterState {
   /** Keyed by RelSubtype.composite. */
   relSubtypeFilters: Record<string, string[]>;
   relSubtypes: RelSubtype[];
+  /** The card's own facet fields (`pickSelectFields`). An `attributeFilters`
+   *  key naming one is matched through the shared facet rule — so a boolean
+   *  reads `"true"` / `"false"` and a multi-select matches any one value.
+   *  Absent, or a key it does not name, keeps the plain scalar comparison. */
+  facetFields?: FieldDef[];
   /** Flat list of selected tag ids (bucketed by group at filter time) */
   tagFilterIds: string[];
   tagGroups: TagGroupDef[];
@@ -134,8 +148,8 @@ export interface FilterState {
 export const UNSET_COLOR = "#9e9e9e";
 export const DEFAULT_APP_COLOR = "#0f7eb5";
 /** Neutral colour for a card whose matching relations carry differing
- * subtype values (the "Multiple" bucket). */
-export const MULTIPLE_COLOR = "#607d8b";
+ * subtype values (the "Multiple" bucket). Owned by the shared facet helper. */
+export { MULTIPLE_COLOR };
 
 /** Color By option-key prefix that marks a relation-subtype selection,
  * distinguishing it from a card's own field key. */
@@ -145,11 +159,13 @@ export const REL_SUBTYPE_PREFIX = "rel:";
 /*  Schema helpers                                                    */
 /* ------------------------------------------------------------------ */
 
+/** The card's own fields that can colour and filter the report: selects with
+ *  options and booleans (see `isFacetField`). */
 export function pickSelectFields(schema: SectionDef[]): FieldDef[] {
   const out: FieldDef[] = [];
   for (const s of schema)
     for (const f of s.fields)
-      if (f.type === "single_select") out.push(f);
+      if (isFacetField(f)) out.push(f);
   return out;
 }
 
@@ -241,6 +257,9 @@ export type ColorResolution =
 export interface ColorLabels {
   notSet: string;
   multiple: string;
+  /** A boolean field's two values. */
+  yes: string;
+  no: string;
 }
 
 export interface ColorBucket {
@@ -297,10 +316,13 @@ export function appColorBucket(
     return { key: "__none__", color: DEFAULT_APP_COLOR, label: "", isUnset: false };
   }
   if (res.kind === "field") {
-    const val = (app.attributes || {})[res.field.key] as string | undefined;
-    if (!val) return { key: "__unset__", color: UNSET_COLOR, label: labels.notSet, isUnset: true };
-    const opt = res.field.options?.find((o) => o.key === val);
-    return { key: val, color: opt?.color || UNSET_COLOR, label: opt?.label || val, isUnset: false };
+    const b = facetBucket(res.field, (app.attributes || {})[res.field.key], labels);
+    return {
+      key: b.key,
+      color: b.color ?? UNSET_COLOR,
+      label: b.label,
+      isUnset: b.kind === "unset",
+    };
   }
   const values = relSubtypeValues(app, res.sub, memberId);
   if (values.length === 0) {
@@ -353,6 +375,24 @@ export function buildColorSegments(
   return Array.from(counts.values());
 }
 
+/** The label a card's own attribute renders as in the report table: the
+ * option label for a facet field (Yes / No for a boolean), the raw value(s)
+ * for any other key, and `""` when the card has no value. Sorting compares
+ * these, so the order matches what the reader sees — and a boolean value is
+ * never handed to `localeCompare`. */
+export function attributeLabel(
+  app: AppData,
+  key: string,
+  fields: FieldDef[],
+  labels: ColorLabels,
+): string {
+  const raw = (app.attributes || {})[key];
+  const field = fields.find((f) => f.key === key);
+  if (!field) return rawValues(raw).join(", ");
+  const b = facetBucket(field, raw, labels);
+  return b.kind === "unset" ? "" : b.label;
+}
+
 /** Build the colour legend swatches. For a relation subtype, append a
  * "Multiple" swatch only when at least one card actually carries differing
  * subtype values. */
@@ -363,10 +403,12 @@ export function buildColorLegend(
 ): { label: string; color: string }[] | null {
   if (res.kind === "none") return null;
   if (res.kind === "field") {
-    if (!res.field.options) return null;
-    return res.field.options
-      .filter((o) => o.color)
-      .map((o) => ({ label: o.label, color: o.color! }));
+    const field = res.field;
+    if (!isFacetField(field)) return null;
+    const anyMultiple =
+      field.type === "multiple_select" &&
+      apps.some((a) => appColorBucket(a, res, labels).key === MULTIPLE_KEY);
+    return facetLegend(field, labels, anyMultiple).map(({ label, color }) => ({ label, color }));
   }
   const out = res.sub.options
     .filter((o) => o.color)
@@ -429,6 +471,11 @@ export function matchesStaticFilters(
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {
     if (vals.length === 0) continue;
+    const facet = filters.facetFields?.find((f) => f.key === key);
+    if (facet) {
+      if (matchesFacet(facet, attrs[key], vals, EMPTY_FILTER_KEY)) continue;
+      return false;
+    }
     const v = attrs[key] as string | undefined;
     const isEmpty = v === undefined || v === null || v === "";
     const wantEmpty = vals.includes(EMPTY_FILTER_KEY);

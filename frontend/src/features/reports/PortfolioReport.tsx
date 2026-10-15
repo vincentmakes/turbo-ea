@@ -68,7 +68,15 @@ import {
 import { useAiStatus } from "@/hooks/useAiStatus";
 import type { PortfolioInsightsResponse, StructuredInsight } from "@/types";
 import {
+  defaultColorField,
+  facetValues,
+  isGroupableField,
+  rawValues,
+  resolveFacetField,
+} from "@/lib/fieldFacets";
+import {
   appColorBucket,
+  attributeLabel,
   buildColorLegend,
   buildColorSegments,
   extractRelSubtypes,
@@ -188,7 +196,8 @@ function groupApps(
 
     for (const opt of options) buckets.set(opt.key, []);
     for (const app of apps) {
-      const val = (app.attributes || {})[mode.fieldKey] as string | undefined;
+      const raw = (app.attributes || {})[mode.fieldKey];
+      const val = field ? facetValues(field, raw)[0] : undefined;
       if (val && buckets.has(val)) {
         buckets.get(val)!.push(app);
       } else {
@@ -817,18 +826,27 @@ export default function PortfolioReport({
     setDefaultsApplied(false);
   }, [cardType]);
 
-  // Derived data — resolve field & option labels for the current locale
+  // Derived data — resolve field & option labels for the current locale. Every
+  // facet field (selects with options and booleans) is resolved once here:
+  // a boolean gains Yes / No options and an uncoloured option its palette
+  // colour, so everything downstream reads `options` the same way.
   const selectFields = useMemo(() => {
     const raw = data ? pickSelectFields(data.fields_schema) : [];
-    return raw.map((f) => ({
-      ...f,
-      label: fieldLabel(f),
-      options: f.options?.map((o) => ({
-        ...o,
-        label: optLabel(o),
-      })),
-    }));
-  }, [data, fieldLabel, optLabel]);
+    const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    return raw.map((f) =>
+      resolveFacetField(
+        {
+          ...f,
+          label: fieldLabel(f),
+          options: f.options?.map((o) => ({
+            ...o,
+            label: optLabel(o),
+          })),
+        },
+        yesNo,
+      ),
+    );
+  }, [data, fieldLabel, optLabel, t]);
 
   // Relation subtypes — single_select attributes on relation types touching
   // the current card type (e.g. "is used by · Usage Type"), tagged with the
@@ -863,9 +881,10 @@ export default function PortfolioReport({
     if (!data) return [];
     const opts: { key: string; label: string; icon: string }[] = [];
 
-    // Attribute-based grouping (single_select fields)
+    // Attribute-based grouping (single_select and boolean fields — a
+    // multi-select cannot put a card in exactly one group)
     for (const f of selectFields) {
-      if (f.options && f.options.length > 0) {
+      if (isGroupableField(f)) {
         opts.push({ key: `attr:${f.key}`, label: f.label, icon: "tune" });
       }
     }
@@ -913,7 +932,7 @@ export default function PortfolioReport({
       setGroupByRaw(groupByOptions[0].key);
     }
     if (!colorBy && selectFields.length > 0) {
-      setColorBy(selectFields[0].key);
+      setColorBy(defaultColorField(selectFields));
     }
     setDefaultsApplied(true);
   }, [data, dataCardType, cardType, groupByOptions, selectFields, defaultsApplied]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -990,7 +1009,7 @@ export default function PortfolioReport({
       colorBy.startsWith(REL_SUBTYPE_PREFIX) &&
       !relSubtypes.some((s) => `${REL_SUBTYPE_PREFIX}${s.composite}` === colorBy)
     ) {
-      setColorBy(selectFields[0]?.key ?? "");
+      setColorBy(defaultColorField(selectFields));
     }
   }, [relSubtypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1002,7 +1021,7 @@ export default function PortfolioReport({
     if (dataCardType !== cardType) return;
     if (!colorBy || colorBy.startsWith(REL_SUBTYPE_PREFIX)) return;
     if (selectFields.some((f) => f.key === colorBy)) return;
-    setColorBy(selectFields[0]?.key ?? "");
+    setColorBy(defaultColorField(selectFields));
   }, [dataCardType, cardType, colorBy, selectFields]);
 
   // Timeline range
@@ -1034,6 +1053,7 @@ export default function PortfolioReport({
   const staticFilters = useMemo<Omit<FilterState, "timelineDate">>(
     () => ({
       attributeFilters: attrFilters,
+      facetFields: selectFields,
       relationFilters,
       relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
@@ -1042,7 +1062,7 @@ export default function PortfolioReport({
       tagGroups: data?.tag_groups || [],
       search,
     }),
-    [attrFilters, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
+    [attrFilters, selectFields, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -1051,7 +1071,12 @@ export default function PortfolioReport({
     [colorBy, selectFields, relSubtypes],
   );
   const colorLabels = useMemo<ColorLabels>(
-    () => ({ notSet: t("portfolio.notSet"), multiple: t("portfolio.multiple") }),
+    () => ({
+      notSet: t("portfolio.notSet"),
+      multiple: t("portfolio.multiple"),
+      yes: t("common:labels.yes"),
+      no: t("common:labels.no"),
+    }),
     [t],
   );
   // When colouring by a relation subtype the report is, by construction,
@@ -1212,8 +1237,9 @@ export default function PortfolioReport({
       for (const f of selectFields) {
         const counts: Record<string, number> = {};
         for (const app of filteredApps) {
-          const v = (app.attributes || {})[f.key] as string | undefined;
-          const k = v || "Not set";
+          // Option keys, as before; `rawValues` keeps a boolean `false`
+          // from reading as "Not set" and a multi-select list readable.
+          const k = rawValues((app.attributes || {})[f.key]).join(", ") || "Not set";
           counts[k] = (counts[k] || 0) + 1;
         }
         attrDist[f.label] = counts;
@@ -1386,12 +1412,13 @@ export default function PortfolioReport({
             subtypeLabel(cardType, b.subtype),
           ) * dir
         );
-      // Attribute column
-      const av = ((a.attributes || {})[sortK] as string) || "";
-      const bv = ((b.attributes || {})[sortK] as string) || "";
+      // Attribute column — by its rendered label (Yes / No for a boolean,
+      // whose raw value `localeCompare` cannot take).
+      const av = attributeLabel(a, sortK, selectFields, colorLabels);
+      const bv = attributeLabel(b, sortK, selectFields, colorLabels);
       return av.localeCompare(bv) * dir;
     });
-  }, [filteredApps, sortK, sortD, cardType, subtypeLabel]);
+  }, [filteredApps, sortK, sortD, cardType, subtypeLabel, selectFields, colorLabels]);
 
   const groupByLabel =
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
@@ -1870,7 +1897,7 @@ export default function PortfolioReport({
             )}
 
             {/* Own Fields section */}
-            {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+            {selectFields.length > 0 && (
               <Box
                 sx={{
                   display: "flex",
@@ -1889,23 +1916,21 @@ export default function PortfolioReport({
                 >
                   {t("portfolio.fields")}
                 </Typography>
-                {selectFields
-                  .filter((f) => f.options && f.options.length > 0)
-                  .map((f) => (
-                    <FilterSelect
-                      key={f.key}
-                      label={f.label}
-                      options={(f.options || []).map((o) => ({
-                        key: o.key,
-                        label: o.label,
-                        color: o.color,
-                      }))}
-                      value={attrFilters[f.key] || []}
-                      onChange={(v) =>
-                        setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                      }
-                    />
-                  ))}
+                {selectFields.map((f) => (
+                  <FilterSelect
+                    key={f.key}
+                    label={f.label}
+                    options={(f.options || []).map((o) => ({
+                      key: o.key,
+                      label: o.label,
+                      color: o.color,
+                    }))}
+                    value={attrFilters[f.key] || []}
+                    onChange={(v) =>
+                      setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                    }
+                  />
+                ))}
               </Box>
             )}
 
@@ -2345,20 +2370,10 @@ export default function PortfolioReport({
             </TableHead>
             <TableBody>
               {tableSorted.map((app) => {
-                const attrs = app.attributes || {};
                 const groupVal =
                   groupByMode.kind === "attribute"
-                    ? (() => {
-                        const val = attrs[groupByMode.fieldKey] as string;
-                        const fd = selectFields.find(
-                          (f) => f.key === groupByMode.fieldKey,
-                        );
-                        return (
-                          fd?.options?.find((o) => o.key === val)?.label ||
-                          val ||
-                          "\u2014"
-                        );
-                      })()
+                    ? attributeLabel(app, groupByMode.fieldKey, selectFields, colorLabels) ||
+                      "\u2014"
                     : app.relations
                         .filter(
                           (r) =>

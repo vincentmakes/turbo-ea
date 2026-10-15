@@ -120,6 +120,7 @@ import {
   IT_COMPONENT_TYPE,
   makeCardType,
   makeField,
+  makeOption,
   makeRelationType,
   makeSection,
 } from "@/test/fixtures/metamodel";
@@ -1060,11 +1061,12 @@ describe("CostReport reset", () => {
 /* ------------------------------------------------------------------ */
 
 describe("CostReport toolbar", () => {
-  it("offers None plus each single-select field as a grouping, in table view only", async () => {
+  it("offers None plus each single-select and yes/no field as a grouping, in table view only", async () => {
     saved.config = { view: "table" };
     renderCost();
     await screen.findByRole("table");
-    expect(await optionsOf(/group by/i)).toEqual(["None", "Business Criticality"]);
+    // The multi-select Regions cannot put a card in one group, so it is not offered.
+    expect(await optionsOf(/group by/i)).toEqual(["None", "Business Criticality", "Cloud Hosted"]);
 
     fireEvent.click(screen.getByRole("button", { name: /chart view/i }));
     await screen.findByTestId("treemap");
@@ -1089,14 +1091,19 @@ describe("CostReport toolbar", () => {
     );
   });
 
-  it("groups by a single-select field that has no options by raw value", async () => {
+  it("groups a value no option names by its raw value", async () => {
     const SVC = makeCardType({
       key: "Svc",
       label: "Service",
       fields_schema: [
         makeSection({
           fields: [
-            makeField({ key: "tier", label: "Tier", type: "single_select" }),
+            makeField({
+              key: "tier",
+              label: "Tier",
+              type: "single_select",
+              options: [makeOption({ key: "silver", label: "Silver" })],
+            }),
             makeField({ key: "svcCost", label: "Service Cost", type: "cost" }),
           ],
         }),
@@ -1119,6 +1126,44 @@ describe("CostReport toolbar", () => {
         "Unspecified(1)$1025.0%",
       ]),
     );
+  });
+
+  it("groups by a yes/no field as Yes / No / Unspecified", async () => {
+    const SVC = makeCardType({
+      key: "Svc",
+      label: "Service",
+      fields_schema: [
+        makeSection({
+          fields: [
+            makeField({ key: "tier", label: "Tier", type: "single_select" }),
+            makeField({ key: "managed", label: "Managed", type: "boolean" }),
+            makeField({ key: "svcCost", label: "Service Cost", type: "cost" }),
+          ],
+        }),
+      ],
+    });
+    withMetamodel([APPLICATION_TYPE, SVC], []);
+    saved.config = { cardTypeKey: "Svc", view: "table", groupBy: "managed" };
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [
+        { id: "y", name: "Managed One", cost: 50, attributes: { managed: true } },
+        { id: "f", name: "Self Run", cost: 30, attributes: { managed: false } },
+        { id: "l", name: "Legacy Yes", cost: 10, attributes: { managed: "Yes" } },
+        { id: "n", name: "No Attributes", cost: 10 },
+      ],
+      total: 100,
+    });
+    renderCost();
+    await screen.findByRole("table");
+    await waitFor(() =>
+      expect(rowTexts().filter((r) => /\(\d\)/.test(r))).toEqual([
+        "Yes(2)$6060.0%",
+        "No(1)$3030.0%",
+        "Unspecified(1)$1010.0%",
+      ]),
+    );
+    // A single-select with no options cannot group: only the yes/no field is offered.
+    expect(await optionsOf(/group by/i)).toEqual(["None", "Managed"]);
   });
 
   it("offers each related type's cost field once, never through hidden, unrelated or unknown types", async () => {

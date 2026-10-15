@@ -10,7 +10,7 @@ import {
 import type { GroupEntry, GroupMember, GroupNode } from "./portfolioGrouping";
 import type { AppData, ColorResolution, RelSubtype } from "./portfolioHelpers";
 
-const LABELS = { notSet: "Not set", multiple: "Multiple" };
+const LABELS = { notSet: "Not set", multiple: "Multiple", yes: "Yes", no: "No" };
 const TYPE = "BusinessCapability";
 
 function member(id: string, name: string, parentId?: string, ancestorOnly?: boolean): GroupMember {

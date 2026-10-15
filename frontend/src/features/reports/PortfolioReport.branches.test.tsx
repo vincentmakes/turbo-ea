@@ -639,3 +639,98 @@ describe("PortfolioReport shell actions", () => {
     expect(state.setSaveDialogOpen).toHaveBeenCalledWith(false);
   });
 });
+
+describe("PortfolioReport boolean field (#1256)", () => {
+  const cloudField = { key: "isCloud", label: "Cloud Hosted", type: "boolean" };
+  const BOOL_PAYLOAD = {
+    ...PAYLOAD,
+    fields_schema: [
+      { section: "Details", fields: [...PAYLOAD.fields_schema[0].fields, cloudField] },
+    ],
+    items: ITEMS.map((it) => ({
+      ...it,
+      attributes: {
+        ...it.attributes,
+        ...({ erp: { isCloud: true }, crm: { isCloud: false }, zeta: { isCloud: "yes" } } as Record<
+          string,
+          Record<string, unknown>
+        >)[it.id],
+      },
+    })),
+  };
+  // The labelled box is the stacked bar; its one segment carries the colour.
+  const bg = (el: Element) => getComputedStyle(el.firstElementChild as Element).backgroundColor;
+
+  beforeEach(() => {
+    mockApi.on("get", "/reports/app-portfolio*", BOOL_PAYLOAD);
+  });
+
+  it("groups and colours by a yes/no field with a Yes / No key", async () => {
+    state.config = { groupByRaw: "attr:isCloud", colorBy: "isCloud" };
+    renderPortfolio();
+    await loaded();
+    expect(within(legend()).getByText("Cloud Hosted:")).toBeInTheDocument();
+    expect(within(legend()).getByText("Yes")).toBeInTheDocument();
+    expect(within(legend()).getByText("No")).toBeInTheDocument();
+    expect(within(legend()).getByText("Not set")).toBeInTheDocument();
+    // The legacy "yes" string on Zeta reads as Yes beside SAP ERP's true.
+    const yes = within(chart()).getByLabelText("Yes: 2 (100%)");
+    const no = within(chart()).getByLabelText("No: 1 (100%)");
+    expect(bg(yes)).toBe("rgb(76, 175, 80)");
+    expect(bg(no)).toBe("rgb(120, 144, 156)");
+    expect(bg(within(chart()).getByLabelText("Not set: 1 (100%)"))).toBe("rgb(158, 158, 158)");
+
+    fireEvent.click(within(chart()).getAllByText("Yes")[0]);
+    const panel = await screen.findByRole("presentation");
+    const href = within(panel).getByRole("link", { name: /view in inventory/i }).getAttribute("href");
+    expect(href).toContain("group_by=attr_isCloud");
+    expect(href).toContain("expand_group=true");
+  });
+
+  it("offers Yes / No / (empty) as a field filter and carries it into the inventory", async () => {
+    const user = userEvent.setup();
+    state.config = { groupByRaw: "rel:Organization", colorBy: "isCloud" };
+    renderPortfolio();
+    await within(document.body).findAllByText("Salesforce");
+    await user.click(within(toolbar()).getByRole("combobox", { name: "Cloud Hosted" }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "(empty)",
+      "Yes",
+      "No",
+    ]);
+    await user.click(within(listbox).getByRole("option", { name: "Yes" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(state.persistConfig).toHaveBeenLastCalledWith(
+        expect.objectContaining({ attrFilters: { isCloud: ["true"] } }),
+      ),
+    );
+    await waitFor(() => expect(within(chart()).queryByText("Salesforce")).not.toBeInTheDocument());
+    fireEvent.click(within(chart()).getByText("Finance HQ"));
+    const panel = await screen.findByRole("presentation");
+    expect(within(panel).getByRole("link", { name: /view in inventory/i }).getAttribute("href"))
+      .toContain("attr_isCloud=true");
+  });
+
+  it("renders and sorts a yes/no column by its label", async () => {
+    const user = userEvent.setup();
+    state.config = { view: "table", groupByRaw: "attr:isCloud", colorBy: "isCloud" };
+    renderPortfolio();
+    await screen.findByRole("table");
+    const cells = (name: RegExp) =>
+      within(screen.getByRole("row", { name })).getAllByRole("cell").map((c) => c.textContent);
+    expect(cells(/^SAP ERP/)).toEqual(["SAP ERP", "Business Application", "Yes", "Yes"]);
+    expect(cells(/^Salesforce/)).toEqual(["Salesforce", "Microservice", "No", "No"]);
+    expect(cells(/^Standalone/)).toEqual(["Standalone Tool", "—", "—", "—"]);
+    const names = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => within(r).getAllByRole("cell")[0].textContent);
+    await user.click(screen.getAllByRole("button", { name: "Cloud Hosted" })[0]);
+    expect(names()).toEqual(["Standalone Tool", "Salesforce", "SAP ERP", "Zeta"]);
+    await user.click(screen.getAllByRole("button", { name: "Cloud Hosted" })[0]);
+    expect(names()).toEqual(["SAP ERP", "Zeta", "Salesforce", "Standalone Tool"]);
+  });
+});

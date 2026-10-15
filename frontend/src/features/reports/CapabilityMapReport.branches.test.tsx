@@ -256,7 +256,7 @@ describe("CapabilityMapReport metrics", () => {
 });
 
 describe("CapabilityMapReport application chips", () => {
-  it("colours chips by a field, with a legend of coloured options and Not set", async () => {
+  it("colours chips by a field, with a legend of every option and Not set", async () => {
     const user = userEvent.setup();
     renderMap();
     await loaded();
@@ -269,7 +269,8 @@ describe("CapabilityMapReport application chips", () => {
     expect(within(legend()).getByText("Criticality:")).toBeInTheDocument();
     expect(within(legend()).getByText("High Crit")).toBeInTheDocument();
     expect(within(legend()).getByText("Low Crit")).toBeInTheDocument();
-    expect(within(legend()).queryByText("Plain")).not.toBeInTheDocument();
+    // An uncoloured option is keyed too, in its palette colour.
+    expect(within(legend()).getByText("Plain")).toBeInTheDocument();
     expect(within(legend()).getByText("Not set")).toBeInTheDocument();
     expect(within(chart()).getAllByLabelText("Alpha — High Crit").length).toBeGreaterThan(0);
     // A stored key the field does not define is named raw.

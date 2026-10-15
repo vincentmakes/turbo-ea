@@ -52,6 +52,17 @@ import {
 import { api, isAbortError } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { readableTextColor } from "@/lib/color";
+import {
+  MULTIPLE_KEY,
+  facetBucket,
+  facetLegend,
+  matchesFacet,
+  pickFacetFields,
+  rawValues,
+  resolveFacetField,
+  type BucketLabels,
+  type FacetLabels,
+} from "@/lib/fieldFacets";
 import { CARD_TYPE_COLORS } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -166,11 +177,21 @@ const LEGACY_NO_COLOR = "none";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function pickSelectFields(schema: SectionDef[]): FieldDef[] {
-  const out: FieldDef[] = [];
-  for (const s of schema)
-    for (const f of s.fields) if (f.type === "single_select") out.push(f);
-  return out;
+/** Labels for a facet field's Yes / No options and its two non-option buckets. */
+type ColorLabels = FacetLabels & BucketLabels;
+
+/** The labels an app's colour bucket is named with, in the current locale. */
+function useColorLabels(): ColorLabels {
+  const { t } = useTranslation(["reports", "common"]);
+  return useMemo(
+    () => ({
+      yes: t("common:labels.yes"),
+      no: t("common:labels.no"),
+      notSet: t("capabilityMap.notSet"),
+      multiple: t("portfolio.multiple"),
+    }),
+    [t],
+  );
 }
 
 function nodeMetric(node: CapNode, metric: Metric): number {
@@ -205,27 +226,27 @@ function getAppColor(
   app: AppData,
   colorBy: string,
   selectFields: FieldDef[],
+  labels: ColorLabels,
   defaultColor: string = CARD_TYPE_COLORS.Application,
 ): string {
   if (!colorBy) return defaultColor;
-  const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return UNSET_COLOR;
   const fd = selectFields.find((f) => f.key === colorBy);
-  const opt = fd?.options?.find((o) => o.key === val);
-  return opt?.color || UNSET_COLOR;
+  if (!fd) return UNSET_COLOR;
+  return facetBucket(fd, (app.attributes || {})[colorBy], labels).color ?? UNSET_COLOR;
 }
 
 function getAppColorLabel(
   app: AppData,
   colorBy: string,
   selectFields: FieldDef[],
+  labels: ColorLabels,
 ): string | null {
   if (!colorBy) return null;
-  const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return null;
+  const raw = (app.attributes || {})[colorBy];
   const fd = selectFields.find((f) => f.key === colorBy);
-  const opt = fd?.options?.find((o) => o.key === val);
-  return opt?.label || val;
+  if (!fd) return rawValues(raw).join(", ") || null;
+  const bucket = facetBucket(fd, raw, labels);
+  return bucket.kind === "unset" ? null : bucket.label;
 }
 
 /**
@@ -244,11 +265,19 @@ function matchesFilters(
    *  told apart from one keyed by a card type. Absent = all card types, which
    *  is how every saved report written before this behaves. */
   relTypeKeys?: ReadonlySet<string>,
+  /** The card's own facet fields: a filter on one of them goes through the
+   *  shared facet rule (Yes / No for a boolean, any-of for a multi-select). */
+  fields: FieldDef[] = [],
 ): boolean {
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(attrFilters)) {
     if (vals.length === 0) continue;
+    const facet = fields.find((f) => f.key === key);
+    if (facet) {
+      if (matchesFacet(facet, attrs[key], vals, EMPTY_FILTER_KEY)) continue;
+      return false;
+    }
     const v = attrs[key] as string | undefined;
     const isEmpty = v === undefined || v === null || v === "";
     const wantEmpty = vals.includes(EMPTY_FILTER_KEY);
@@ -322,12 +351,13 @@ function buildTree(
    *  to point at. */
   revealedForPulse: Set<string>,
   relTypeKeys?: ReadonlySet<string>,
+  fields: FieldDef[] = [],
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
     const filteredApps = item.apps.filter(
       (a) =>
-        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys) &&
+        matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, relTypeKeys, fields) &&
         (isAliveAtDate(a.lifecycle, timelineDate) || revealedForPulse.has(a.id)),
     );
     nodeMap.set(item.id, {
@@ -457,8 +487,9 @@ function AppChip({
   // Metamodel Application color (admin-editable) when not coloring by field.
   const { getType } = useMetamodel();
   const appDefault = getType("Application")?.color || CARD_TYPE_COLORS.Application;
-  const color = getAppColor(app, colorBy, selectFields, appDefault);
-  const colorLabel = getAppColorLabel(app, colorBy, selectFields);
+  const labels = useColorLabels();
+  const color = getAppColor(app, colorBy, selectFields, labels, appDefault);
+  const colorLabel = getAppColorLabel(app, colorBy, selectFields, labels);
   const light = readableTextColor(color) === "#000000";
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
@@ -855,18 +886,26 @@ export default function CapabilityMapReport() {
     setFiltersCollapsed(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Derived: select fields from schema — resolve labels for the current locale
+  // Derived: the facet fields (selects with options, booleans) — labels
+  // resolved for the current locale, a boolean given Yes / No options and an
+  // uncoloured option its palette colour.
+  const colorLabels = useColorLabels();
   const selectFields = useMemo(() => {
-    const raw = pickSelectFields(fieldsSchema);
-    return raw.map((f) => ({
-      ...f,
-      label: fieldLabel(f),
-      options: f.options?.map((o) => ({
-        ...o,
-        label: optLabel(o),
-      })),
-    }));
-  }, [fieldsSchema, fieldLabel, optLabel]);
+    const raw = pickFacetFields(fieldsSchema);
+    return raw.map((f) =>
+      resolveFacetField(
+        {
+          ...f,
+          label: fieldLabel(f),
+          options: f.options?.map((o) => ({
+            ...o,
+            label: optLabel(o),
+          })),
+        },
+        colorLabels,
+      ),
+    );
+  }, [fieldsSchema, fieldLabel, optLabel, colorLabels]);
 
   // The field the apps are coloured by, or "" — the picker's no-colour value,
   // which no field key can collide with.
@@ -875,7 +914,7 @@ export default function CapabilityMapReport() {
       ? ""
       : colorBy;
 
-  // Color-by options: "no colour" + all single_select fields
+  // Color-by options: "no colour" + every facet field
   const colorByOptions = useMemo(() => {
     const opts: { key: string; label: string }[] = [
       { key: "", label: t("capabilityMap.noColor") },
@@ -990,7 +1029,7 @@ export default function CapabilityMapReport() {
       .map((a) => {
         const parts: string[] = [];
         if (coloured) {
-          const label = getAppColorLabel(a, colorKey, selectFields);
+          const label = getAppColorLabel(a, colorKey, selectFields, colorLabels);
           if (label) parts.push(label);
         }
         if (a.lifecycle?.endOfLife) {
@@ -1000,11 +1039,11 @@ export default function CapabilityMapReport() {
           id: a.id,
           name: a.name,
           secondary: parts.join(" · ") || undefined,
-          dotColor: coloured ? getAppColor(a, colorKey, selectFields) : undefined,
+          dotColor: coloured ? getAppColor(a, colorKey, selectFields, colorLabels) : undefined,
           warn: !!a.lifecycle?.endOfLife,
         };
       });
-  }, [drawer, colorKey, selectFields, formatDate, t]);
+  }, [drawer, colorKey, selectFields, colorLabels, formatDate, t]);
 
   /** Scoped capabilities as picker options, so chips label instantly. */
   const scopeOptions = useMemo<CardScopeOption[]>(() => {
@@ -1039,13 +1078,14 @@ export default function CapabilityMapReport() {
         if (
           matchesFilters(
             app, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys,
+            selectFields,
           )
         )
           byId.set(app.id, app);
       }
     }
     return [...byId.values()];
-  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys]);
+  }, [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, allRelTypeKeys, selectFields]);
 
   const milestones = useMemo(
     () => computeTimelineMilestones(milestoneScope.map((a) => a.lifecycle)),
@@ -1067,9 +1107,11 @@ export default function CapabilityMapReport() {
   const milestoneCardColor = useCallback(
     (id: string) => {
       const app = milestoneById.get(id);
-      return app ? getAppColor(app, colorKey, selectFields, appDefaultColor) : undefined;
+      return app
+        ? getAppColor(app, colorKey, selectFields, colorLabels, appDefaultColor)
+        : undefined;
     },
-    [milestoneById, colorKey, selectFields, appDefaultColor],
+    [milestoneById, colorKey, selectFields, colorLabels, appDefaultColor],
   );
 
   const {
@@ -1098,8 +1140,8 @@ export default function CapabilityMapReport() {
   }, [milestoneScope, tl.timelineDate, tl.todayMs]);
 
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -1217,11 +1259,15 @@ export default function CapabilityMapReport() {
     // Stryker disable next-line ConditionalExpression: no field has an empty key, so the next guard returns null too
     if (!colorKey) return null;
     const fd = selectFields.find((f) => f.key === colorKey);
-    if (!fd?.options) return null;
-    return fd.options
-      .filter((o) => o.color)
-      .map((o) => ({ label: o.label, color: o.color! }));
-  }, [colorKey, selectFields]);
+    if (!fd) return null;
+    // Multiple only when a multi-select card in scope carries several values.
+    const anyMultiple =
+      fd.type === "multiple_select" &&
+      milestoneScope.some(
+        (a) => facetBucket(fd, (a.attributes || {})[fd.key], colorLabels).key === MULTIPLE_KEY,
+      );
+    return facetLegend(fd, colorLabels, anyMultiple).map(({ label, color }) => ({ label, color }));
+  }, [colorKey, selectFields, colorLabels, milestoneScope]);
 
   const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
   const printParams = useMemo(() => {
@@ -1500,7 +1546,7 @@ export default function CapabilityMapReport() {
               )}
 
               {/* Own Fields section */}
-              {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+              {selectFields.length > 0 && (
                 <Box
                   sx={{
                     display: "flex",
@@ -1519,23 +1565,21 @@ export default function CapabilityMapReport() {
                   >
                     {t("capabilityMap.fields")}
                   </Typography>
-                  {selectFields
-                    .filter((f) => f.options && f.options.length > 0)
-                    .map((f) => (
-                      <FilterSelect
-                        key={f.key}
-                        label={f.label}
-                        options={(f.options || []).map((o) => ({
-                          key: o.key,
-                          label: o.label,
-                          color: o.color,
-                        }))}
-                        value={attrFilters[f.key] || []}
-                        onChange={(v) =>
-                          setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                        }
-                      />
-                    ))}
+                  {selectFields.map((f) => (
+                    <FilterSelect
+                      key={f.key}
+                      label={f.label}
+                      options={(f.options || []).map((o) => ({
+                        key: o.key,
+                        label: o.label,
+                        color: o.color,
+                      }))}
+                      value={attrFilters[f.key] || []}
+                      onChange={(v) =>
+                        setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                      }
+                    />
+                  ))}
                 </Box>
               )}
             </ReportFilterSection>

@@ -4,6 +4,7 @@ import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import * as relationSort from "@/lib/relationSort";
 import {
   appColorBucket,
+  attributeLabel,
   buildColorLegend,
   buildColorSegments,
   DEFAULT_APP_COLOR,
@@ -28,7 +29,7 @@ import {
 } from "./portfolioHelpers";
 import type { AppData, FieldDef, FilterState, RelSubtype, RelTypeDef } from "./portfolioHelpers";
 
-const LABELS = { notSet: "Not set", multiple: "Multiple" };
+const LABELS = { notSet: "Not set", multiple: "Multiple", yes: "Yes", no: "No" };
 
 /* ----- fixtures ----- */
 
@@ -422,15 +423,26 @@ describe("relation facets on a self-referencing type", () => {
 /* ----- exact answers: every branch states its full result ----- */
 
 describe("pickSelectFields / extractRelSubtypes / parseDate", () => {
-  it("keeps only single_select fields, in schema order, across sections", () => {
-    const tier: FieldDef = { key: "tier", label: "Tier", type: "single_select", options: [] };
-    const risk: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: [] };
+  it("keeps every facet field (selects with options, booleans), in schema order", () => {
+    const opts = [{ key: "a", label: "A" }];
+    const tier: FieldDef = { key: "tier", label: "Tier", type: "single_select", options: opts };
+    const risk: FieldDef = { key: "risk", label: "Risk", type: "single_select", options: opts };
+    const cloud: FieldDef = { key: "cloud", label: "Cloud", type: "boolean" };
+    const regions: FieldDef = { key: "r", label: "R", type: "multiple_select", options: opts };
     const schema = [
-      { section: "A", fields: [{ key: "n", label: "N", type: "number" }, tier] },
+      { section: "A", fields: [{ key: "n", label: "N", type: "number" }, tier, cloud] },
       { section: "B", fields: [] },
-      { section: "C", fields: [risk, { key: "t", label: "T", type: "multiple_select" }] },
+      {
+        section: "C",
+        fields: [
+          risk,
+          { key: "t", label: "T", type: "multiple_select" },
+          { key: "e", label: "E", type: "single_select", options: [] },
+          regions,
+        ],
+      },
     ];
-    expect(pickSelectFields(schema)).toEqual([tier, risk]);
+    expect(pickSelectFields(schema)).toEqual([tier, cloud, risk, regions]);
     expect(pickSelectFields([])).toEqual([]);
   });
 
@@ -491,10 +503,11 @@ describe("resolveColorBy / appColorBucket exact buckets", () => {
       label: "Gold",
       isUnset: false,
     });
-    // An option without a colour, and a value no option knows.
+    // An option without a colour takes its palette colour (index 1); a value
+    // no option knows stays grey under its raw key.
     expect(appColorBucket(withTier("bare"), fieldRes, LABELS)).toEqual({
       key: "bare",
-      color: UNSET_COLOR,
+      color: "#7b1fa2",
       label: "Bare",
       isUnset: false,
     });
@@ -572,7 +585,7 @@ describe("buildColorSegments / buildColorLegend exact output", () => {
     expect(buildColorSegments(apps, { kind: "none" }, LABELS)).toEqual([]);
   });
 
-  it("lists coloured options, and Multiple only when a card needs it", () => {
+  it("lists every option coloured, and Multiple only when a card needs it", () => {
     const field: FieldDef = {
       key: "tier",
       label: "Tier",
@@ -585,6 +598,7 @@ describe("buildColorSegments / buildColorLegend exact output", () => {
     expect(buildColorLegend({ kind: "none" }, LABELS, [])).toBeNull();
     expect(buildColorLegend({ kind: "field", field }, LABELS, [])).toEqual([
       { label: "Gold", color: "#ffd700" },
+      { label: "Bare", color: "#7b1fa2" },
     ]);
     expect(
       buildColorLegend({ kind: "field", field: { ...field, options: undefined } }, LABELS, []),
@@ -810,5 +824,139 @@ describe("exported constants", () => {
       vi.doUnmock("@/lib/relationSort");
       vi.resetModules();
     }
+  });
+});
+
+/* ----- boolean and multi-select own fields (#1256) ----- */
+
+describe("boolean and multi-select own fields", () => {
+  const cloud: FieldDef = {
+    key: "isCloud",
+    label: "Cloud",
+    type: "boolean",
+    options: [
+      { key: "true", label: "Yes", color: "#4caf50" },
+      { key: "false", label: "No", color: "#78909c" },
+    ],
+  };
+  const regions: FieldDef = {
+    key: "regions",
+    label: "Regions",
+    type: "multiple_select",
+    options: [
+      { key: "eu", label: "EU", color: "#123456" },
+      { key: "us", label: "US" },
+    ],
+  };
+  const withAttrs = (id: string, attributes: Record<string, unknown>): AppData => ({
+    ...app(id),
+    attributes,
+  });
+
+  it("buckets true, false and a missing boolean apart", () => {
+    const res = { kind: "field" as const, field: cloud };
+    expect(appColorBucket(withAttrs("a", { isCloud: true }), res, LABELS)).toEqual({
+      key: "true",
+      color: "#4caf50",
+      label: "Yes",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("b", { isCloud: false }), res, LABELS)).toEqual({
+      key: "false",
+      color: "#78909c",
+      label: "No",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("c", {}), res, LABELS)).toEqual({
+      key: "__unset__",
+      color: UNSET_COLOR,
+      label: "Not set",
+      isUnset: true,
+    });
+  });
+
+  it("buckets a multi-select card with two values as Multiple", () => {
+    const res = { kind: "field" as const, field: regions };
+    expect(appColorBucket(withAttrs("a", { regions: ["eu", "us"] }), res, LABELS)).toEqual({
+      key: "__multiple__",
+      color: MULTIPLE_COLOR,
+      label: "Multiple",
+      isUnset: false,
+    });
+    expect(appColorBucket(withAttrs("b", { regions: ["us"] }), res, LABELS)).toEqual({
+      key: "us",
+      color: "#7b1fa2",
+      label: "US",
+      isUnset: false,
+    });
+  });
+
+  it("adds Multiple to a multi-select legend only when a card carries several values", () => {
+    const res = { kind: "field" as const, field: regions };
+    const one = [withAttrs("a", { regions: ["eu"] })];
+    const two = [...one, withAttrs("b", { regions: ["eu", "us"] })];
+    expect(buildColorLegend(res, LABELS, one)).toEqual([
+      { label: "EU", color: "#123456" },
+      { label: "US", color: "#7b1fa2" },
+    ]);
+    expect(buildColorLegend(res, LABELS, two)).toEqual([
+      { label: "EU", color: "#123456" },
+      { label: "US", color: "#7b1fa2" },
+      { label: "Multiple", color: MULTIPLE_COLOR },
+    ]);
+    expect(buildColorLegend({ kind: "field", field: cloud }, LABELS, two)).toEqual([
+      { label: "Yes", color: "#4caf50" },
+      { label: "No", color: "#78909c" },
+    ]);
+    // A single_select never shows Multiple, whatever a card stores.
+    const single: FieldDef = { ...regions, type: "single_select" };
+    expect(buildColorLegend({ kind: "field", field: single }, LABELS, two)).toHaveLength(2);
+    expect(
+      buildColorLegend({ kind: "field", field: { ...regions, options: [] } }, LABELS, two),
+    ).toBeNull();
+  });
+
+  it("filters a boolean through the facet rule when its field is known", () => {
+    const yes = withAttrs("y", { isCloud: true });
+    const no = withAttrs("n", { isCloud: false });
+    const none = withAttrs("x", {});
+    const f = (vals: string[]) =>
+      baseFilters({ attributeFilters: { isCloud: vals }, facetFields: [cloud] });
+    expect(matchesStaticFilters(yes, f(["true"]))).toBe(true);
+    expect(matchesStaticFilters(no, f(["true"]))).toBe(false);
+    expect(matchesStaticFilters(no, f(["false"]))).toBe(true);
+    expect(matchesStaticFilters(none, f(["true"]))).toBe(false);
+    expect(matchesStaticFilters(none, f([EMPTY_FILTER_KEY]))).toBe(true);
+    expect(matchesStaticFilters(no, f([EMPTY_FILTER_KEY]))).toBe(false);
+    // Without the field list the plain comparison stays: a boolean never
+    // equals the string "true".
+    expect(
+      matchesStaticFilters(yes, baseFilters({ attributeFilters: { isCloud: ["true"] } })),
+    ).toBe(false);
+  });
+
+  it("filters a multi-select by any one of its values", () => {
+    const both = withAttrs("b", { regions: ["eu", "us"] });
+    const f = (vals: string[]) =>
+      baseFilters({ attributeFilters: { regions: vals }, facetFields: [regions, cloud] });
+    expect(matchesStaticFilters(both, f(["us"]))).toBe(true);
+    expect(matchesStaticFilters(both, f(["apac"]))).toBe(false);
+    expect(matchesStaticFilters(both, f([]))).toBe(true);
+  });
+
+  it("labels an attribute the way the table renders it", () => {
+    const fields = [cloud, regions];
+    expect(attributeLabel(withAttrs("a", { isCloud: true }), "isCloud", fields, LABELS)).toBe("Yes");
+    expect(attributeLabel(withAttrs("a", { isCloud: false }), "isCloud", fields, LABELS)).toBe("No");
+    expect(attributeLabel(withAttrs("a", {}), "isCloud", fields, LABELS)).toBe("");
+    expect(
+      attributeLabel(withAttrs("a", { regions: ["eu", "us"] }), "regions", fields, LABELS),
+    ).toBe("Multiple");
+    // A key no facet field names reads its raw value(s).
+    expect(attributeLabel(withAttrs("a", { other: ["x", "y"] }), "other", fields, LABELS)).toBe(
+      "x, y",
+    );
+    expect(attributeLabel(withAttrs("a", { other: true }), "other", fields, LABELS)).toBe("true");
+    expect(attributeLabel({ ...app("a"), attributes: undefined }, "other", fields, LABELS)).toBe("");
   });
 });

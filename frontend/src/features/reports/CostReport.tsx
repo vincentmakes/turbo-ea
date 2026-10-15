@@ -36,6 +36,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { CardType, FieldDef, RelationType } from "@/types";
 
@@ -329,18 +330,23 @@ export default function CostReport() {
     setScopeIds([]);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const groupableFields = useMemo(() => {
+  // The table's group-by: single selects with options and yes/no fields (a
+  // multi-select cannot put a card in exactly one group). A yes/no field is
+  // given Yes / No options, so its groups are named rather than "true".
+  const groupableFields = useMemo<FieldDef[]>(() => {
     if (!typeDef) return [];
-    const out: FieldDef[] = [];
-    for (const s of typeDef.fields_schema) for (const f of s.fields) {
-      if (f.type === "single_select") out.push({
-        ...f,
-        label: fieldLabel(f),
-        options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
-      });
-    }
-    return out;
-  }, [typeDef, fieldLabel, optLabel]);
+    const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    return pickGroupableFields(typeDef.fields_schema).map((f) =>
+      resolveFacetField(
+        {
+          ...f,
+          label: fieldLabel(f),
+          options: f.options?.map((o) => ({ ...o, label: optLabel(o) })),
+        },
+        yesNo,
+      ),
+    );
+  }, [typeDef, fieldLabel, optLabel, t]);
 
   // Aggregate options: every (related-type, cost-field) pair reachable via any relation
   // type involving the current card type. The relation label is intentionally NOT shown —
@@ -483,7 +489,8 @@ export default function CostReport() {
     for (const o of groupedField.options ?? []) optionMap.set(o.key, o.label);
     const map = new Map<string, { label: string; items: CostItem[]; cost: number }>();
     for (const item of items) {
-      const val = String((item.attributes as Record<string, unknown>)?.[groupBy] ?? "");
+      const raw = (item.attributes as Record<string, unknown> | undefined)?.[groupBy];
+      const val = facetValues(groupedField, raw)[0] ?? "";
       const label = optionMap.get(val) || val || t("cost.unspecified");
       const g = map.get(label) || { label, items: [], cost: 0 };
       g.items.push(item);

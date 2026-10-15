@@ -711,13 +711,13 @@ describe("LifecycleReport current phase and phase table", () => {
 // ---------------------------------------------------------------------------
 
 describe("LifecycleReport date-range mode", () => {
-  it("offers only coloured single-selects to colour by, defaulting to the first", async () => {
+  it("offers every select with options to colour by, defaulting to the first single-select", async () => {
     storeConfig({ cardTypeKey: "Contract" });
     renderReport();
     await screen.findByText("Kilo One", undefined, LONG);
     fireEvent.click(rangeToggle());
     expect(await screen.findByRole("combobox", { name: /color by/i })).toHaveTextContent("Health");
-    expect(await listOptions(/color by/i)).toEqual(["Health", "Tier"]);
+    expect(await listOptions(/color by/i)).toEqual(["Regions", "Health", "Tier"]);
   });
 
   it("is not offered for a type with a single date field", async () => {
@@ -789,7 +789,8 @@ describe("LifecycleReport date-range mode", () => {
         .getAllByRole("cell")
         .map((c) => c.textContent);
     expect(cells("Kilo One")).toEqual(["Kilo One", "Supplier Contract", "2024-03-15", "2027-03-15", "Bad"]);
-    expect(cells("Kilo Three")).toEqual(["Kilo Three", "Supplier Contract", "—", "2025-10-15", "—"]);
+    // An uncoloured option has its palette colour, so it is named too.
+    expect(cells("Kilo Three")).toEqual(["Kilo Three", "Supplier Contract", "—", "2025-10-15", "Pending"]);
     expect(cells("Kilo Two")).toEqual(["Kilo Two", "Supplier Contract", "2022-08-15", "—", "Good"]);
 
     expect(sortHeader("Name")).toHaveClass("Mui-active");

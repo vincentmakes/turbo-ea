@@ -285,11 +285,12 @@ describe("LifecycleReport date-range mode", () => {
     expect(toggle).toBeChecked();
     expect(screen.getByRole("combobox", { name: /color by/i })).toHaveTextContent("Status");
 
-    // The date range bars replace the phase legend; options without a colour are skipped.
+    // The date range bars replace the phase legend; an option without a colour
+    // is keyed too, in its palette colour.
     const legend = document.querySelector(".report-legend") as HTMLElement;
     expect(within(legend).getByText("Running")).toBeInTheDocument();
     expect(within(legend).getByText("Retiring")).toBeInTheDocument();
-    expect(within(legend).queryByText("Colourless")).not.toBeInTheDocument();
+    expect(within(legend).getByText("Colourless")).toBeInTheDocument();
     expect(within(legend).getByText("Not set")).toBeInTheDocument();
 
     await user.click(toggle);
@@ -393,10 +394,11 @@ describe("LifecycleReport date-range mode", () => {
     expect(bodyRows()).toEqual(["Start Only", "Both Dates", "End Only", "No Dates"]);
     await user.click(screen.getByRole("button", { name: "Contract End" }));
     expect(bodyRows()).toEqual(["Both Dates", "End Only", "Start Only", "No Dates"]);
+    // By the label the column shows (Colourless < Running < unknown), unset last.
     await user.click(screen.getByRole("button", { name: "Status" }));
-    expect(bodyRows()).toEqual(["Both Dates", "End Only", "Start Only", "No Dates"]);
+    expect(bodyRows()).toEqual(["End Only", "Both Dates", "Start Only", "No Dates"]);
     await user.click(screen.getByRole("button", { name: "Status" }));
-    expect(bodyRows()).toEqual(["No Dates", "Start Only", "End Only", "Both Dates"]);
+    expect(bodyRows()).toEqual(["No Dates", "Start Only", "Both Dates", "End Only"]);
 
     await user.click(screen.getByRole("row", { name: /End Only/ }));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("end");
@@ -440,5 +442,74 @@ describe("LifecycleReport shell actions", () => {
     hookState.metamodel.loading = true;
     renderLifecycle();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  });
+});
+
+describe("LifecycleReport date-range mode with a yes/no field (#1256)", () => {
+  const LEASE = makeCardType({
+    key: "Lease",
+    label: "Lease",
+    fields_schema: [
+      makeSection({
+        section: "Terms",
+        fields: [
+          makeField({ key: "leaseStart", label: "Lease Start", type: "date" }),
+          makeField({ key: "leaseEnd", label: "Lease End", type: "date" }),
+          makeField({ key: "renewable", label: "Renewable", type: "boolean" }),
+        ],
+      }),
+    ],
+  });
+  const dates = { leaseStart: "2024-01-15", leaseEnd: "2025-01-15" };
+  const LEASES = [
+    { id: "l1", name: "Lease One", type: "Lease", lifecycle: {}, attributes: { ...dates, renewable: true } },
+    { id: "l2", name: "Lease Two", type: "Lease", lifecycle: {}, attributes: { ...dates, renewable: false } },
+    { id: "l3", name: "Lease Three", type: "Lease", lifecycle: {}, attributes: { ...dates } },
+    { id: "l4", name: "Lease Four", type: "Lease", lifecycle: {}, attributes: { ...dates, renewable: "no" } },
+  ];
+
+  beforeEach(() => {
+    withMetamodel([APP, ITC, PROJECT, LEASE]);
+    mockApi.on("get", "/reports/roadmap?type=Lease", { items: LEASES });
+  });
+
+  it("colours the bars Yes / No with a key", async () => {
+    saved.config = { cardTypeKey: "Lease" };
+    renderLifecycle();
+    await screen.findByText("Lease One");
+    await enableDateRange();
+    // The only facet field is the default colour.
+    expect(screen.getByRole("combobox", { name: /color by/i })).toHaveTextContent("Renewable");
+    const bar = (label: string) => screen.getByLabelText(`2024-01-15 → 2025-01-15 · ${label}`);
+    expect(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · Yes")).toHaveLength(1);
+    expect(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · No")).toHaveLength(2);
+    expect(getComputedStyle(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · No")[0]).backgroundColor)
+      .toBe("rgb(120, 144, 156)");
+    expect(getComputedStyle(bar("Yes")).backgroundColor).toBe("rgb(76, 175, 80)");
+    expect(getComputedStyle(bar("Not set")).backgroundColor).toBe("rgb(189, 189, 189)");
+    const legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("Yes")).toBeInTheDocument();
+    expect(within(legend).getByText("No")).toBeInTheDocument();
+    expect(within(legend).getByText("Not set")).toBeInTheDocument();
+  });
+
+  it("names and sorts the yes/no column by its label, unset last", async () => {
+    const user = userEvent.setup();
+    saved.config = { cardTypeKey: "Lease", view: "table" };
+    renderLifecycle();
+    await screen.findByText("Lease One");
+    await enableDateRange();
+    const status = (name: string) =>
+      within(screen.getByRole("row", { name: new RegExp(`^${name}`) })).getAllByRole("cell")[4]
+        .textContent;
+    expect(status("Lease One")).toBe("Yes");
+    expect(status("Lease Two")).toBe("No");
+    expect(status("Lease Three")).toBe("—");
+    expect(status("Lease Four")).toBe("No");
+
+    await user.click(screen.getByRole("button", { name: "Renewable" }));
+    expect(bodyRows()).toEqual(["Lease Two", "Lease Four", "Lease One", "Lease Three"]);
+    await user.click(screen.getByRole("button", { name: "Renewable" }));
+    expect(bodyRows()).toEqual(["Lease Three", "Lease One", "Lease Two", "Lease Four"]);
   });
 });
