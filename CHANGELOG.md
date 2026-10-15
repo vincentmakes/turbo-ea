@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.161.1] - 2026-10-15
+
+### Fixed
+- **Security & admin log**: a card type's section layout changes named the wrong section (the Description pseudo-section was counted), the first Card Layout save reported a spurious “expanded” change for every section, a subtype's hidden fields were listed by key instead of label, and re-saving a portal, role, stakeholder role, calculation or ServiceNow mapping without changing anything wrote an empty entry. A portal entry names the portal's slug and published state again, and an extension installed from the store keeps the reference to its upload like a manual install.
+- **Security & admin log**: only the SSO `token_endpoint` and the e-mail `oauth_token_endpoint` are exempt from credential masking; any other key containing “token”, “secret” or “password” is still masked whatever its suffix.
+- **`NGINX_TRUSTED_PROXIES`** accepts IPv4-mapped IPv6 addresses and ranges (`::ffff:10.244.0.0/112`), the form some Kubernetes networks report.
+
+### Changed
+- The administration manual explains what the per-client sign-in limit assumes: the backend is reached only through the edge nginx, as the bundled Compose file and the Helm chart arrange; an operator who exposes the backend turns `TRUST_PROXY_HEADERS` off.
+
 ## [2.161.0] - 2026-10-15
 
 ### Added
