@@ -324,6 +324,7 @@ describe("defaultColorField", () => {
   it("falls back to the first facet field", () => {
     expect(defaultColorField([text, multi, bool])).toBe("regions");
     expect(defaultColorField([{ ...single, options: [] }, bool])).toBe("isCloud");
+    expect(defaultColorField([{ ...single, options: undefined }, bool])).toBe("isCloud");
   });
 
   it("returns empty when there is none", () => {

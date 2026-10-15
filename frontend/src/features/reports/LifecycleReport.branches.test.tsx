@@ -513,3 +513,67 @@ describe("LifecycleReport date-range mode with a yes/no field (#1256)", () => {
     expect(bodyRows()).toEqual(["Lease Three", "Lease One", "Lease Two", "Lease Four"]);
   });
 });
+
+describe("LifecycleReport date-range mode with a multi-select field (#1256)", () => {
+  const PERMIT = makeCardType({
+    key: "Permit",
+    label: "Permit",
+    fields_schema: [
+      makeSection({
+        section: "Terms",
+        fields: [
+          makeField({ key: "permitStart", label: "Permit Start", type: "date" }),
+          makeField({ key: "permitEnd", label: "Permit End", type: "date" }),
+          makeField({
+            key: "regions",
+            label: "Regions",
+            type: "multiple_select",
+            options: [
+              makeOption({ key: "eu", label: "Europe", color: "#123456" }),
+              makeOption({ key: "us", label: "Americas" }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+  const dates = { permitStart: "2024-01-15", permitEnd: "2025-01-15" };
+  const permit = (id: string, regions?: string[]) => ({
+    id,
+    name: `Permit ${id}`,
+    type: "Permit",
+    lifecycle: {},
+    attributes: { ...dates, ...(regions ? { regions } : {}) },
+  });
+
+  beforeEach(() => {
+    withMetamodel([APP, ITC, PROJECT, PERMIT]);
+  });
+
+  it("colours a card with several values as Multiple, keyed only when one exists", async () => {
+    mockApi.on("get", "/reports/roadmap?type=Permit", {
+      items: [permit("A", ["eu"]), permit("B", ["eu", "us"]), permit("C")],
+    });
+    saved.config = { cardTypeKey: "Permit" };
+    const first = renderLifecycle();
+    await screen.findByText("Permit A");
+    await enableDateRange();
+    const multi = screen.getByLabelText("2024-01-15 → 2025-01-15 · Multiple");
+    expect(getComputedStyle(multi).backgroundColor).toBe("rgb(96, 125, 139)");
+    expect(getComputedStyle(screen.getByLabelText("2024-01-15 → 2025-01-15 · Europe")).backgroundColor)
+      .toBe("rgb(18, 52, 86)");
+    let legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("Europe")).toBeInTheDocument();
+    expect(within(legend).getByText("Americas")).toBeInTheDocument();
+    expect(within(legend).getByText("Multiple")).toBeInTheDocument();
+    first.unmount();
+
+    mockApi.on("get", "/reports/roadmap?type=Permit", { items: [permit("A", ["eu"]), permit("C")] });
+    renderLifecycle();
+    await screen.findByText("Permit A");
+    await enableDateRange();
+    legend = document.querySelector(".report-legend") as HTMLElement;
+    expect(within(legend).getByText("Americas")).toBeInTheDocument();
+    expect(within(legend).queryByText("Multiple")).not.toBeInTheDocument();
+  });
+});

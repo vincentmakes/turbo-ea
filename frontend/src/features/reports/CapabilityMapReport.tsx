@@ -1260,12 +1260,10 @@ export default function CapabilityMapReport() {
     if (!colorKey) return null;
     const fd = selectFields.find((f) => f.key === colorKey);
     if (!fd) return null;
-    // Multiple only when a multi-select card in scope carries several values.
-    const anyMultiple =
-      fd.type === "multiple_select" &&
-      milestoneScope.some(
-        (a) => facetBucket(fd, (a.attributes || {})[fd.key], colorLabels).key === MULTIPLE_KEY,
-      );
+    // Multiple only when a card in scope carries several values.
+    const anyMultiple = milestoneScope.some(
+      (a) => facetBucket(fd, (a.attributes || {})[fd.key], colorLabels).key === MULTIPLE_KEY,
+    );
     return facetLegend(fd, colorLabels, anyMultiple).map(({ label, color }) => ({ label, color }));
   }, [colorKey, selectFields, colorLabels, milestoneScope]);
 

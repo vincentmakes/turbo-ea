@@ -405,9 +405,8 @@ export function buildColorLegend(
   if (res.kind === "field") {
     const field = res.field;
     if (!isFacetField(field)) return null;
-    const anyMultiple =
-      field.type === "multiple_select" &&
-      apps.some((a) => appColorBucket(a, res, labels).key === MULTIPLE_KEY);
+    // Keyed only when a card on the report carries several values.
+    const anyMultiple = apps.some((a) => appColorBucket(a, res, labels).key === MULTIPLE_KEY);
     return facetLegend(field, labels, anyMultiple).map(({ label, color }) => ({ label, color }));
   }
   const out = res.sub.options

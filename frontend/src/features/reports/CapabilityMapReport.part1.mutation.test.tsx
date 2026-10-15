@@ -1070,6 +1070,14 @@ describe("yes/no and multi-select fields", () => {
     expect(within(legend).queryByText("Multiple")).not.toBeInTheDocument();
   });
 
+  it("names every raw value of a colour key no facet field defines", async () => {
+    serve(payload([cap("pool", "Pool", null, [app("odd", "Odd App", { attributes: { notes: ["one", "two"] } })])]));
+    ctl.config = { colorBy: "notes", showApps: true };
+    renderMap();
+    await loaded("Pool");
+    expect(bg(within(chart()).getByLabelText("Odd App — one, two"))).toBe(UNSET);
+  });
+
   it("filters by a yes/no field and by one value of a multi-select", async () => {
     serve(facetPayload([YES, NO, NONE]));
     ctl.config = { showApps: true, attrFilters: { isCloud: ["false"] } };

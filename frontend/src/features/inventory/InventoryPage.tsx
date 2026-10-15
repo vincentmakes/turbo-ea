@@ -1354,7 +1354,7 @@ export default function InventoryPage() {
               key: `attr_${f.key}`,
               label: fieldLabel(f),
               // single_select stores a scalar; a stray array groups by its first value.
-              groupKeyOf: (c) => facetValues(f, (c.attributes || {})[f.key])[0] ?? null,
+              groupKeyOf: (c) => facetValues(f, (c.attributes || {})[f.key])[0],
               vocab: facetOptions(localised, yesNo).map((o) => ({
                 key: o.key,
                 label: o.label,

@@ -908,9 +908,10 @@ describe("boolean and multi-select own fields", () => {
       { label: "Yes", color: "#4caf50" },
       { label: "No", color: "#78909c" },
     ]);
-    // A single_select never shows Multiple, whatever a card stores.
+    // A stray list on a single_select colours as Multiple too, so it is keyed.
     const single: FieldDef = { ...regions, type: "single_select" };
-    expect(buildColorLegend({ kind: "field", field: single }, LABELS, two)).toHaveLength(2);
+    expect(buildColorLegend({ kind: "field", field: single }, LABELS, two)).toHaveLength(3);
+    expect(buildColorLegend({ kind: "field", field: single }, LABELS, one)).toHaveLength(2);
     expect(
       buildColorLegend({ kind: "field", field: { ...regions, options: [] } }, LABELS, two),
     ).toBeNull();
