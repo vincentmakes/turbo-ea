@@ -203,6 +203,68 @@ class TestGate:
         assert code == 0
         assert "::warning::" in capsys.readouterr().out
 
+    def test_a_critical_module_holds_its_changed_lines_to_its_own_floor(self):
+        # 13 of 14 killed (93%) clears the 60% diff floor, but the critical
+        # module's 3 of 4 (75%) is under its 80%: the change fails (#1247).
+        records = [
+            *[rec("killed", line=n) for n in range(10)],
+            *[rec("killed", file="backend/app/critical.py", line=n) for n in (1, 2, 3)],
+            rec("survived", file="backend/app/critical.py", line=4),
+        ]
+        verdict = gate.judge(records, "backend", "diff", FLOORS)
+        assert not verdict.passed and not verdict.incomplete
+        assert "pass: 92.9% of 14 mutants on changed lines killed" in verdict.lines[2]
+        assert "| `backend/app/critical.py` | 3 of 4 (75.0%) | 80% | **FAIL** |" in verdict.lines
+        assert "### Critical modules on changed lines" in verdict.lines
+
+    def test_a_critical_module_at_its_floor_passes(self):
+        records = [
+            *[rec("killed", file="backend/app/critical.py", line=n) for n in range(4)],
+            rec("survived", file="backend/app/critical.py", line=5),
+        ]
+        verdict = gate.judge(records, "backend", "diff", FLOORS)
+        assert verdict.passed
+        assert "| `backend/app/critical.py` | 4 of 5 (80.0%) | 80% | ok |" in verdict.lines
+
+    def test_a_critical_module_has_no_min_mutants_threshold(self, tmp_path, capsys):
+        # one mutant, below min_mutants: anywhere else a warning, here a failure
+        records = [rec("survived", file="backend/app/critical.py")]
+        code = gate.main(
+            [
+                "--suite",
+                "backend",
+                "--scope",
+                "diff",
+                "--floors",
+                str(floors_file(tmp_path)),
+                "--records",
+                str(write(tmp_path, "r.json", records)),
+            ]
+        )
+        out = capsys.readouterr().out
+        assert code == 1
+        assert "| `backend/app/critical.py` | 0 of 1 (0.0%) | 80% | **FAIL** |" in out
+        assert "::error::mutation score under its floor" in out
+
+    def test_a_diff_that_touches_no_critical_module_lists_none(self):
+        floors = {**FLOORS, "modules": {**FLOORS["modules"], "frontend/src/c.ts": 99}}
+        records = [
+            *[rec("killed", line=n) for n in range(4)],
+            # excluded mutants alone put nothing in scope for the module
+            rec("excluded", file="backend/app/critical.py"),
+        ]
+        verdict = gate.judge(records, "backend", "diff", floors)
+        assert verdict.passed
+        assert "### Critical modules on changed lines" not in verdict.lines
+
+    def test_a_critical_module_of_another_suite_is_not_judged_here(self):
+        records = [{**rec("survived", file="frontend/src/c.ts"), "suite": "frontend"}]
+        floors = {**FLOORS, "modules": {"frontend/src/c.ts": 99}}
+        assert gate.changed_module_rows(records, "backend", floors) == []
+        assert gate.changed_module_rows(records, "frontend", floors) == [
+            (False, "| `frontend/src/c.ts` | 0 of 1 (0.0%) | 99% | **FAIL** |")
+        ]
+
     def test_a_pending_mutant_is_an_incomplete_run(self, tmp_path):
         records = [rec("killed"), rec("pending", raw="not checked")]
         args = ["--suite", "backend", "--scope", "suite", "--floors", str(floors_file(tmp_path))]
