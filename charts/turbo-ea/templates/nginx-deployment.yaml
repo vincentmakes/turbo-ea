@@ -62,6 +62,10 @@ spec:
             - name: NGINX_RESOLVER
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.nginx.trustedProxies }}
+            - name: NGINX_TRUSTED_PROXIES
+              value: {{ . | quote }}
+            {{- end }}
             # Fully-qualified Service names: nginx's resolver ignores the pod's
             # DNS search list, so the compose defaults (http://backend:8000)
             # would not resolve here.

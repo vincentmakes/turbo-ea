@@ -77,6 +77,7 @@
       "type": "object",
       "properties": {
         "image": { "$ref": "#/definitions/componentImage" },
+        "trustProxyHeaders": { "type": "boolean" },
         "extraEnv": { "type": "array" },
         "extraEnvFrom": { "type": "array" },
         "extraVolumes": { "type": "array" },
@@ -119,6 +120,7 @@
             },
             "enableIPv6": { "type": "boolean" },
             "resolver": { "type": "string" },
+            "trustedProxies": { "type": "string", "pattern": "^[0-9A-Fa-f.:/, ]*$" },
             "extraEnv": { "type": "array" }
           }
         }

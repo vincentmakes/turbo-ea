@@ -19,6 +19,8 @@ Tre konventioner gælder for alle fire:
 - **Databasen oprettes som standard, med en kontakt til din egen.** `create_database = false` sammen med `db_host` og `db_password` peger backenden mod en server, du allerede driver. Uanset hvor databasen kommer fra, ejer modulet objekterne i hemmelighedslageret (`SECRET_KEY` og databaseadgangskoden), så containerdefinitionen har én form.
 - **Netværket oprettes aldrig.** VPC-, VNet- og subnet-id'er er input; hvert moduls README lister, hvad de allerede skal levere.
 
+Hvert modul tager også **`nginx_trusted_proxies`**: adresserne på load balanceren eller ingress'en foran edge-nginx'en (på Kubernetes bliver den til chart-værdien `nginx.trustedProxies`). Sæt den, så [Sikkerhed og administration-loggen](audit-log.md#client-ip-address) og hastighedsbegrænsningen for login ser hver brugers egen adresse i stedet for load balancerens; [Bag en load balancer](audit-log.md#behind-a-load-balancer) forklarer, hvordan du finder værdien.
+
 ## Hurtig start
 
 ```bash

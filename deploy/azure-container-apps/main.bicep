@@ -63,6 +63,9 @@ param allowedOrigins string = ''
 @description('Sites allowed to embed published diagrams, comma-separated.')
 param embedAllowedOrigins string = ''
 
+@description('Addresses of the ingress in front of nginx whose X-Forwarded-For it may trust (comma-separated IPs or CIDR ranges, e.g. the infrastructure subnet), so the audit log records the real client. Empty = trust none.')
+param nginxTrustedProxies string = ''
+
 param logRetentionDays int = 30
 
 var mcpPublicUrl = '${publicUrl}/mcp'
@@ -143,6 +146,8 @@ var nginxContainer = {
     // what marks the session cookie secure.
     { name: 'TURBO_EA_TLS_ENABLED', value: 'false' }
     { name: 'TURBO_EA_EMBED_ALLOWED_ORIGINS', value: embedAllowedOrigins }
+    // Without it nginx records the Container Apps ingress as every client.
+    { name: 'NGINX_TRUSTED_PROXIES', value: nginxTrustedProxies }
     // The frontend sidecar owns 8080 on this replica, so the edge listens on 8920.
     { name: 'NGINX_HTTP_PORT', value: '8920' }
     { name: 'NGINX_BACKEND_UPSTREAM', value: 'http://127.0.0.1:8000' }

@@ -32,6 +32,7 @@ locals {
     # what marks the session cookie secure.
     TURBO_EA_TLS_ENABLED           = "false"
     TURBO_EA_EMBED_ALLOWED_ORIGINS = join(",", var.embed_allowed_origins)
+    NGINX_TRUSTED_PROXIES          = var.nginx_trusted_proxies
     # The frontend sidecar owns 8080 on this replica, so the edge listens on 8920.
     NGINX_HTTP_PORT         = "8920"
     NGINX_BACKEND_UPSTREAM  = "http://127.0.0.1:8000"

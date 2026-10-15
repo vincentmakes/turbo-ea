@@ -91,6 +91,8 @@ kubectl get ingress -n turbo-ea           # انتظر ظهور عنوان ثم 
 | `postgresql.pool.size` / `maxOverflow` | ميزانية اتصالات الخلفية، 20 + 10 افتراضيًا — قلّلها مع خطة مُدارة ذات سقف منخفض ([ميزانية الاتصالات](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | قائمة السماح لـ CORS؛ افتراضيًا أصل `publicUrl`. اضبطها عندما يكون للتطبيق عدة أسماء مضيفين. |
 | `embedAllowedOrigins` | المواقع المسموح لها بتضمين مخطط منشور (Confluence، ويكي). |
+| `nginx.trustedProxies` | عناوين وحدة تحكّم ingress أو موازن الحِمل أمام nginx (عناوين IP أو نطاقات CIDR مفصولة بفواصل، وعادةً نطاق CIDR للـ pods). يأخذ nginx عندئذٍ عنوان العميل من `X-Forwarded-For` على اتصالاتها، فيرى [سجل الأمان والإدارة](audit-log.md#client-ip-address) وحدّ معدل تسجيل الدخول كل مستخدم. القيمة الفارغة تسجّل عنوان ingress للجميع. |
+| `backend.trustProxyHeaders` | `true` افتراضيًا: يقرأ الخادم الخلفي عنوان العميل من الترويسة `X-Real-IP` التي يضبطها nginx. لا يصل إلى Service الخادم الخلفي سوى nginx، لذا أبقِه مفعّلًا. |
 | `backend.persistence.*` | وحدة التخزين `/app/data`: `size` و`storageClass`، أو `existingClaim` لإحضار وحدتك. تُحفَظ عند `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | أي متغير للخلفية من إعداد Compose — `SMTP_*` و`TURBO_EA_PROXY_AUTH_*` و`NVD_API_KEY` و`EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | نقطة نهاية LLM خارجية لاقتراحات الذكاء الاصطناعي. |

@@ -54,6 +54,8 @@ flowchart LR
 
 相同平台的 [Terraform](terraform.md) 模块会创建同样的公共端点，同样的设置也适用。
 
+**客户端地址。** 平台的 Ingress 或负载均衡器是位于边缘 nginx 之前的中间环节，因此在不做其他设置时，[安全与管理日志](audit-log.md#client-ip-address)会为每个用户记录它的地址。请将模板的可信代理参数——`nginxTrustedProxies`（Bicep）、`NGINX_TRUSTED_PROXIES`（Cloud Run 清单）、`NginxTrustedProxies`（CloudFormation）、`nginx_trusted_proxies`（Terraform）——设为该中间环节的地址；[位于负载均衡器之后](audit-log.md#behind-a-load-balancer)说明了如何找到这些地址。
+
 ## Azure Container Apps
 
 **前提条件。**

@@ -79,6 +79,7 @@ run "defaults" {
       TURBO_EA_TLS_ENABLED           = "false"
       TURBO_EA_PUBLIC_URL            = "https://ea.example.com"
       TURBO_EA_EMBED_ALLOWED_ORIGINS = ""
+      NGINX_TRUSTED_PROXIES          = ""
     }
     error_message = "the edge nginx environment must match deploy/cloud-run/service.yaml"
   }
@@ -162,7 +163,15 @@ run "no_load_balancer" {
 
 run "mcp" {
   variables {
-    deploy_mcp = true
+    deploy_mcp            = true
+    nginx_trusted_proxies = "10.0.0.0/8, 172.16.0.0/12"
+  }
+
+  assert {
+    condition = {
+      for e in [for c in google_cloud_run_v2_service.this.template[0].containers : c.env if c.name == "nginx"][0] : e.name => e.value
+    }["NGINX_TRUSTED_PROXIES"] == "10.0.0.0/8, 172.16.0.0/12"
+    error_message = "the trusted proxies reach the edge nginx as given"
   }
 
   assert {

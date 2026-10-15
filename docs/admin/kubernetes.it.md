@@ -91,6 +91,8 @@ L'elenco completo e commentato è nel [`values.yaml`](https://github.com/vincent
 | `postgresql.pool.size` / `maxOverflow` | Budget di connessioni del backend, 20 + 10 per impostazione predefinita; riducetelo con un piano gestito dal tetto basso ([budget di connessioni](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | Elenco CORS; per impostazione predefinita l'origine di `publicUrl`. Impostatelo quando l'app ha più nomi host. |
 | `embedAllowedOrigins` | Siti autorizzati a incorporare un diagramma pubblicato (Confluence, un wiki). |
+| `nginx.trustedProxies` | Indirizzi dell'ingress controller o del bilanciatore di carico davanti a nginx (IP o intervalli CIDR separati da virgole, di solito il CIDR dei pod). nginx prende allora l'indirizzo del client da `X-Forwarded-For` sulle loro connessioni, così il [registro Sicurezza e amministrazione](audit-log.md#client-ip-address) e il limite di frequenza degli accessi vedono ogni utente. Vuoto registra l'ingress per tutti. |
+| `backend.trustProxyHeaders` | `true` per impostazione predefinita: il backend legge l'indirizzo del client dall'intestazione `X-Real-IP` impostata da nginx. Solo nginx raggiunge il Service del backend, quindi lasciatelo attivo. |
 | `backend.persistence.*` | Il volume `/app/data`: `size`, `storageClass` oppure `existingClaim` per portarne uno vostro. Conservato con `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Qualsiasi variabile backend della configurazione Compose: `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Endpoint LLM esterno per i suggerimenti IA. |

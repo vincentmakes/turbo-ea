@@ -65,6 +65,7 @@ and `export TF_VAR_db_password='…'`.
 | `secret_key` | — | Sensitive; `openssl rand -base64 48` |
 | `deploy_mcp` | `false` | MCP server sidecar at `/mcp` |
 | `allowed_origins` / `embed_allowed_origins` | `[]` | CORS / iframe allow-lists |
+| `nginx_trusted_proxies` | `""` | load balancer addresses whose `X-Forwarded-For` nginx trusts (usually the VPC CIDR), so the audit log records each user's own address |
 | `db_pool_size` / `db_max_overflow` | `10` / `5` | Backend connection budget |
 | `vpc_id`, `public_subnet_ids`, `private_subnet_ids` | — | Existing network |
 | `certificate_arn` | — | ACM certificate |

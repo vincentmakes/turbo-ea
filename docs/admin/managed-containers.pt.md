@@ -54,6 +54,8 @@ Todos os modelos publicam um endpoint público para que uma primeira implantaç�
 
 Os módulos [Terraform](terraform.md) para as mesmas plataformas criam o mesmo endpoint público, e as mesmas configurações se aplicam.
 
+**Endereço do cliente.** O ingress ou o balanceador de carga da plataforma é o intermediário à frente do nginx de borda, então sem outras configurações o [registro de Segurança e administração](audit-log.md#client-ip-address) grava o endereço dele para todos os usuários. Defina o parâmetro de proxies confiáveis do modelo — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (manifesto do Cloud Run), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — com os endereços desse intermediário; [Atrás de um balanceador de carga](audit-log.md#behind-a-load-balancer) explica como encontrá-los.
+
 ## Azure Container Apps
 
 **Pré-requisitos.**

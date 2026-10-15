@@ -91,6 +91,8 @@ The full, commented list is in the chart's [`values.yaml`](https://github.com/vi
 | `postgresql.pool.size` / `maxOverflow` | The backend's connection budget, 20 + 10 by default — shrink it for a managed plan with a low cap ([connection budget](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | CORS allow-list; defaults to the origin of `publicUrl`. Set it when the app has several hostnames. |
 | `embedAllowedOrigins` | Sites allowed to frame a published diagram (Confluence, a wiki). |
+| `nginx.trustedProxies` | Addresses of the ingress controller or load balancer in front of nginx (comma-separated IPs or CIDR ranges, usually the pod CIDR). nginx then takes the client address from `X-Forwarded-For` on their connections, so the [Security & admin log](audit-log.md#client-ip-address) and the sign-in rate limit see each user. Empty records the ingress for everyone. |
+| `backend.trustProxyHeaders` | `true` by default: the backend reads the client address from the `X-Real-IP` header nginx sets. Only nginx reaches the backend Service, so leave it on. |
 | `backend.persistence.*` | The `/app/data` volume: `size`, `storageClass`, or `existingClaim` to bring your own. Kept on `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Any backend variable from the Compose setup — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | External LLM endpoint for AI suggestions. |

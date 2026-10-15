@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 import app.api.v1.workspace as workspace_api
 from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.audit_log import AuditLogEntry
 from app.models.workspace_transfer import WorkspaceTransfer
 from app.services.workspace_io import build_bundle
 from tests.conftest import (
@@ -205,6 +206,41 @@ class TestRoutes:
             'attachment; filename="workspace_export_'
         )
         assert resp.content[:2] == b"PK"
+
+    async def test_export_records_an_access_row(self, client, db, env):
+        admin_id = env["admin"].id
+        resp = await client.get(
+            "/api/v1/admin/workspace/export?include_archived=true",
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.content[:2] == b"PK"
+
+        # Committed by the route: still there once the session rolls back.
+        await db.rollback()
+        [row] = (
+            (
+                await db.execute(
+                    select(AuditLogEntry).where(AuditLogEntry.action == "access.export.workspace")
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert (row.category, row.outcome) == ("access", "success")
+        assert row.actor_user_id == admin_id and row.actor_email == "admin@test.com"
+        assert row.details == {"include_archived": True, "size_bytes": len(resp.content)}
+
+    async def test_refused_export_records_nothing(self, client, db, env):
+        resp = await client.get(
+            "/api/v1/admin/workspace/export", headers=auth_headers(env["viewer"])
+        )
+        assert resp.status_code == 403
+        await db.rollback()
+        rows = await db.execute(
+            select(AuditLogEntry.id).where(AuditLogEntry.action == "access.export.workspace")
+        )
+        assert rows.all() == []
 
     async def test_get_unknown_transfer_is_404(self, client, db, env):
         resp = await client.get(f"{IMPORT}/{uuid.uuid4()}", headers=auth_headers(env["admin"]))

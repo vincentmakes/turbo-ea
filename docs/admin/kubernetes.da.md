@@ -91,6 +91,8 @@ Den fulde, kommenterede liste findes i chartets [`values.yaml`](https://github.c
 | `postgresql.pool.size` / `maxOverflow` | Backendens forbindelsesbudget, 20 + 10 som standard — skru ned for en administreret plan med lavt loft ([forbindelsesbudget](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | CORS-tilladelsesliste; som standard origin af `publicUrl`. Sæt den, når appen har flere værtsnavne. |
 | `embedAllowedOrigins` | Websteder, der må indlejre et udgivet diagram (Confluence, en wiki). |
+| `nginx.trustedProxies` | Adresserne på ingress-controlleren eller load balanceren foran nginx (kommaseparerede IP'er eller CIDR-intervaller, som regel pod-CIDR'et). nginx tager så klientadressen fra `X-Forwarded-For` på deres forbindelser, så [Sikkerhed og administration-loggen](audit-log.md#client-ip-address) og hastighedsbegrænsningen for login ser hver bruger. Tom registrerer ingress'en for alle. |
+| `backend.trustProxyHeaders` | `true` som standard: backend læser klientadressen fra den `X-Real-IP`-header, nginx sætter. Kun nginx når backend-servicen, så lad den være slået til. |
 | `backend.persistence.*` | Volumenet `/app/data`: `size`, `storageClass` eller `existingClaim` for at medbringe dit eget. Bevares ved `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Enhver backend-variabel fra Compose-opsætningen — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Eksternt LLM-endpoint til AI-forslag. |

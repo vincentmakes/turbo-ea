@@ -54,6 +54,8 @@ Todas las plantillas publican un endpoint público para que un primer despliegue
 
 Los módulos de [Terraform](terraform.md) para las mismas plataformas crean el mismo endpoint público, y se aplican los mismos ajustes.
 
+**Dirección del cliente.** El ingress o el balanceador de carga de la plataforma es el intermediario situado delante del nginx perimetral, así que sin más ajustes el [registro de Seguridad y administración](audit-log.md#client-ip-address) registra su dirección para cada usuario. Defina el parámetro de proxies de confianza de la plantilla —`nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (manifiesto de Cloud Run), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform)— con las direcciones de ese intermediario; [Detrás de un balanceador de carga](audit-log.md#behind-a-load-balancer) explica cómo encontrarlas.
+
 ## Azure Container Apps
 
 **Requisitos previos.**

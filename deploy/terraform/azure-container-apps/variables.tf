@@ -94,6 +94,17 @@ variable "embed_allowed_origins" {
   default     = []
 }
 
+variable "nginx_trusted_proxies" {
+  description = "Addresses of the Container Apps ingress in front of the edge nginx whose X-Forwarded-For it may trust (comma- or space-separated IPs or CIDR ranges), so the Security & admin log and the sign-in rate limit see each user's own address. Empty = trust none: every client reads as the Container Apps ingress."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^[0-9A-Fa-f.:/, ]*$", var.nginx_trusted_proxies))
+    error_message = "nginx_trusted_proxies takes IP addresses or CIDR ranges, comma- or space-separated."
+  }
+}
+
 variable "db_pool_size" {
   description = "Backend DB_POOL_SIZE. With db_max_overflow this is the backend's whole connection budget."
   type        = number

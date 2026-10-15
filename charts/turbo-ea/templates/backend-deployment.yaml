@@ -84,6 +84,10 @@ spec:
               value: {{ .Values.environment | quote }}
             - name: ALLOWED_ORIGINS
               value: {{ include "turbo-ea.allowedOrigins" . | quote }}
+            # Only the edge nginx reaches this pod, and it overwrites X-Real-IP
+            # with the client address on every proxied location.
+            - name: TRUST_PROXY_HEADERS
+              value: {{ .Values.backend.trustProxyHeaders | quote }}
             - name: SEED_DEMO
               value: {{ .Values.seed.demo | quote }}
             - name: SEED_BPM

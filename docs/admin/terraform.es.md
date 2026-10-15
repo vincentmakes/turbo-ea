@@ -19,6 +19,8 @@ Tres convenciones rigen para los cuatro:
 - **La base de datos se crea por defecto, con un conmutador para traer la suya.** `create_database = false` junto con `db_host` y `db_password` apunta el backend a un servidor que ya opera. Sea cual sea el origen de la base, el módulo es dueño de los objetos del almacén de secretos (`SECRET_KEY` y la contraseña de la base), de modo que la definición del contenedor tiene una sola forma.
 - **La red nunca se crea.** Los identificadores de VPC, VNet y subredes son entradas; el README de cada módulo enumera lo que ya deben proporcionar.
 
+Cada módulo acepta además **`nginx_trusted_proxies`**: las direcciones del balanceador de carga o del ingress situado delante del nginx perimetral (en Kubernetes se convierte en el valor del chart `nginx.trustedProxies`). Defínalo para que el [registro de Seguridad y administración](audit-log.md#client-ip-address) y el límite de frecuencia del inicio de sesión vean la dirección de cada usuario en lugar de la del balanceador; [Detrás de un balanceador de carga](audit-log.md#behind-a-load-balancer) explica cómo encontrar el valor.
+
 ## Inicio rápido
 
 ```bash

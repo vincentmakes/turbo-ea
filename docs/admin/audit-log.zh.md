@@ -40,10 +40,7 @@
 - 注册，以及密码的设置、重置和修改；
 - 角色模拟——管理员开始和结束「以角色查看…」；
 - 管理操作——对用户、角色、设置、元模型、标签、计算、扩展、导入、集成、公开门户和已发布图表、调查以及运维访问的更改（参见[管理操作](#administrative-actions)）；
-- 对本日志本身的导出。
-
-!!! note "将在下一版本中提供"
-    **数据导出**（清单的 CSV/JSON 导出、工作区导出和迁移导出）将在下一版本中记录到同一日志中。
+- 数据导出——卡片的 CSV 和 JSON 导出、工作区导出以及面向其他 EA 平台的导出（参见[数据导出](#data-exports)）——以及对本日志本身的导出。
 
 ### 列
 
@@ -97,7 +94,6 @@
 | `auth.password.changed` | 已登录用户修改自己的密码 |
 | `auth.impersonation.started` | 管理员开始「以角色查看…」。目标是所选的角色 |
 | `auth.impersonation.stopped` | 管理员返回自己的角色 |
-| `access.audit_log.exported` | 有人将安全日志导出为 CSV |
 
 `auth.login.failed` 的**原因代码**：
 
@@ -147,11 +143,23 @@
 | **调查** | `admin.survey.sent`, `admin.survey.closed` | 发送给收件人或已关闭的调查 |
 | **运维访问** | `admin.ops.rescue_access.granted`, `.revoked` | 通过[运维 API](ops-api.md) 授予或撤销的救援访问，与现有的 `ops.*` 事件一同记录 |
 
+### 数据导出 { #data-exports }
+
+每当数据被批量带出实例时，都会有一条 `access` 条目记录是谁带走的、带走了多少以及以何种形式。条目在发送文件之前写入，因此即使某次导出的下载从未完成，它也会留在记录中。
+
+| 操作 | 记录时机 | 详情 |
+|------|----------|------|
+| `access.export.cards` | 通过 API 的 CSV 或 JSON 导出（`/cards/export/csv`、`/cards/export/json`）导出卡片时，脚本、集成和 AI 助手都是这样做的 | `format`（`csv` 或 `json`）、`type`（一个或多个卡片类型）和 `rows`（卡片数量）。当导出恰好只涵盖一个卡片类型时，目标即为该类型 |
+| `access.export.workspace` | 下载完整的[工作区包](workspace-transfer.md)时——来自「工作区迁移」，或由控制平面通过[运维 API](ops-api.md) 下载，后者不记录执行者，并记录 `requested_by: ops` | `include_archived` 和 `size_bytes` |
+| `access.export.migration` | 在 **管理 → 设置 → 迁移** 中为其他 EA 平台导出工作区时（参见[平台迁移](migration.md)） | 目标平台、`include_archived` 和 `size_bytes` |
+| `access.audit_log.exported` | 有人将安全日志导出为 CSV 时 | `rows` |
+
 ## 不记录的内容
 
 - **令牌刷新。** Web 应用按计时器续期会话，因此每个打开的标签页都会产生条目，而这些条目没有任何意义。
 - **因会话令牌过期或无效而被拒绝的请求。** 每当会话正常结束时都会出现。
 - **OData 数据源的读取。** Excel 和 Power BI 会按计划轮询已保存视图的 OData 数据源，每次刷新都会产生一条条目。
+- **在浏览器中生成的电子表格和演示文稿。** 清单和报表的 Excel 与 PowerPoint 下载由页面已经加载的数据生成，因此属于读取，而不是从服务器导出。
 - **单纯的读取访问**——打开卡片、运行报表、搜索清单。
 
 ## 保留期限 { #retention }
@@ -194,4 +202,23 @@ docker compose logs -f backend | grep turbo_ea.audit
 
 - **保持 `TRUST_PROXY_HEADERS` 开启**，只要每个请求都经由自带的 nginx 到达后端——默认堆栈、[Helm chart](kubernetes.md) 和[托管容器模板](managed-containers.md)都是如此。
 - **将其关闭**（`TRUST_PROXY_HEADERS=false`），如果您直接暴露后端容器而前面没有自带的 nginx：此时客户端可以发送自己的 `X-Real-IP`，自行决定被记录的地址。
-- **位于另一个负载均衡器之后**时，自带的 nginx 看到的是该负载均衡器的地址，因此每条条目记录的都是它。一个让 nginx 信任您的负载均衡器转发的客户端地址的设置（`NGINX_TRUSTED_PROXIES`）计划在后续版本中提供。
+- **位于负载均衡器、Ingress 控制器或 CDN 之后**时，自带的 nginx 收到的每个连接都来自这一中间环节，因此仅凭它自身，会为每个用户记录负载均衡器的地址。请按下文所述，在 nginx 容器上设置 **`NGINX_TRUSTED_PROXIES`**。
+
+### 位于负载均衡器之后 { #behind-a-load-balancer }
+
+`NGINX_TRUSTED_PROXIES` 列出位于自带 nginx 之前的中间环节的地址，可以是 IP 地址或 CIDR 范围，用逗号或空格分隔。随后 nginx 会从这些中间环节添加的 `X-Forwarded-For` 请求头中读取客户端地址——但仅限来自所列地址之一的连接——并跳过该请求头中每一个所列地址，因此一串代理最终解析为第一个不属于您的地址。该地址会替换连接的地址，后端读取的 `X-Real-IP` 请求头会原样携带它。留空（默认值）表示不信任任何人。
+
+要确定取值，请查看边缘 nginx 的访问日志（`docker compose logs nginx`、`kubectl logs deployment/turbo-ea-nginx` 或平台的日志查看器）：每行开头的地址就是需要信任的中间环节，最后一个带引号的字段是它发送的 `X-Forwarded-For` 请求头。
+
+| 部署方式 | 设置位置 | 典型取值 |
+|----------|----------|----------|
+| Docker Compose，浏览器直接访问 nginx | — | 留空 |
+| Docker Compose，位于您自己的反向代理之后 | `.env` 中的 `NGINX_TRUSTED_PROXIES` | nginx 所看到的反向代理地址 |
+| 位于 Ingress 控制器之后的 [Kubernetes](kubernetes.md) | chart 值 `nginx.trustedProxies` | 集群的 Pod CIDR，例如 `10.244.0.0/16` |
+| [AWS ECS Fargate](managed-containers.md#aws-ecs-fargate) | `NginxTrustedProxies` / Terraform `nginx_trusted_proxies` | 负载均衡器所在子网的 CIDR 范围 |
+| [Azure Container Apps](managed-containers.md#azure-container-apps) | `nginxTrustedProxies` / Terraform `nginx_trusted_proxies` | 环境的基础结构子网 |
+| [Google Cloud Run](managed-containers.md#google-cloud-run) | 清单中的 `NGINX_TRUSTED_PROXIES` / Terraform `nginx_trusted_proxies` | 访问日志中显示的地址 |
+
+列表应当与中间环节本身一样窄。每个所列地址在指明客户端时都会被采信，因此如果列入您的用户所连接的地址范围——例如在内部部署中列入整个 `10.0.0.0/8`——他们中的任何人都可以向日志写入另一个地址。不做设置时，该列显示的是负载均衡器：用处不大，但绝不会被伪造。
+
+登录速率限制按同一请求头中的客户端地址统计尝试次数，因此在负载均衡器之后，这一设置也能避免某个人的失败尝试拖慢其他所有人。

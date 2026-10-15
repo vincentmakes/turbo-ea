@@ -19,6 +19,8 @@ Three conventions hold across all four:
 - **The database is created by default, with a bring-your-own switch.** `create_database = false` together with `db_host` and `db_password` points the backend at a server you already run. Whichever way the database was obtained, the module owns the secret-store objects (`SECRET_KEY` and the database password), so the container definition has one shape.
 - **The network is never created.** VPC, VNet and subnet identifiers are inputs; each module's README lists what they must already provide.
 
+Every module also takes **`nginx_trusted_proxies`**: the addresses of the load balancer or ingress in front of the edge nginx (on Kubernetes it becomes the chart value `nginx.trustedProxies`). Set it so the [Security & admin log](audit-log.md#client-ip-address) and the sign-in rate limit see each user's own address instead of the load balancer's; [Behind a load balancer](audit-log.md#behind-a-load-balancer) explains how to find the value.
+
 ## Quick start
 
 ```bash

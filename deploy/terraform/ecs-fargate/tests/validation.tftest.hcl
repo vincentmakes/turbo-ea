@@ -72,3 +72,13 @@ run "short_secret_key" {
 
   expect_failures = [var.secret_key]
 }
+
+run "bad_trusted_proxies" {
+  command = plan
+
+  variables {
+    nginx_trusted_proxies = "10.0.0.0/8;evil"
+  }
+
+  expect_failures = [var.nginx_trusted_proxies]
+}

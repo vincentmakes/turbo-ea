@@ -77,6 +77,11 @@ Parameters:
     Type: String
     Default: ""
     Description: Sites allowed to embed published diagrams, comma-separated.
+  NginxTrustedProxies:
+    Type: String
+    Default: ""
+    AllowedPattern: "^[0-9A-Fa-f.:/, ]*$"
+    Description: Addresses of the load balancer whose X-Forwarded-For nginx may trust (comma-separated IPs or CIDR ranges, usually the VPC CIDR), so the audit log records the real client. Empty = trust none.
 
 Conditions:
   DeployMcpCond: !Equals [!Ref DeployMcp, "true"]
@@ -395,6 +400,8 @@ Resources:
             # what marks the session cookie secure.
             - { Name: TURBO_EA_TLS_ENABLED, Value: "false" }
             - { Name: TURBO_EA_EMBED_ALLOWED_ORIGINS, Value: !Ref EmbedAllowedOrigins }
+            # Without it nginx records the load balancer as every client.
+            - { Name: NGINX_TRUSTED_PROXIES, Value: !Ref NginxTrustedProxies }
             # The frontend sidecar owns 8080 in this task, so the edge listens on 8920.
             - { Name: NGINX_HTTP_PORT, Value: "8920" }
             - { Name: NGINX_BACKEND_UPSTREAM, Value: http://127.0.0.1:8000 }

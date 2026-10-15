@@ -54,6 +54,8 @@ Alle skabeloner udgiver et offentligt endpoint, så en første udrulning kan nå
 
 [Terraform](terraform.md)-modulerne til de samme platforme opretter det samme offentlige endpoint, og de samme indstillinger gælder.
 
+**Klientadresse.** Platformens ingress eller load balancer er mellemleddet foran edge-nginx'en, så uden yderligere indstillinger registrerer [Sikkerhed og administration-loggen](audit-log.md#client-ip-address) dens adresse for hver bruger. Sæt skabelonens parameter for betroede proxyer — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (Cloud Run-manifestet), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — til mellemleddets adresser; [Bag en load balancer](audit-log.md#behind-a-load-balancer) forklarer, hvordan du finder dem.
+
 ## Azure Container Apps
 
 **Forudsætninger.**

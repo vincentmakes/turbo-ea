@@ -19,6 +19,8 @@ Três convenções valem para os quatro:
 - **O banco de dados é criado por padrão, com uma chave para trazer o seu.** `create_database = false` junto com `db_host` e `db_password` aponta o backend para um servidor que você já opera. Seja qual for a origem do banco, o módulo é dono dos objetos do cofre de segredos (`SECRET_KEY` e a senha do banco), de modo que a definição do contêiner tem uma única forma.
 - **A rede nunca é criada.** Identificadores de VPC, VNet e sub-redes são entradas; o README de cada módulo lista o que elas já precisam fornecer.
 
+Cada módulo também aceita **`nginx_trusted_proxies`**: os endereços do balanceador de carga ou do ingress à frente do nginx de borda (no Kubernetes ele vira o valor do chart `nginx.trustedProxies`). Defina-o para que o [registro de Segurança e administração](audit-log.md#client-ip-address) e o limite de taxa de entrada vejam o endereço de cada usuário em vez do endereço do balanceador; [Atrás de um balanceador de carga](audit-log.md#behind-a-load-balancer) explica como encontrar o valor.
+
 ## Início rápido
 
 ```bash

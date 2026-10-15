@@ -19,6 +19,8 @@ Drei Konventionen gelten für alle vier:
 - **Die Datenbank wird standardmäßig erstellt, mit einem Schalter für eine eigene.** `create_database = false` zusammen mit `db_host` und `db_password` richtet das Backend auf einen bereits betriebenen Server aus. Unabhängig davon, woher die Datenbank stammt, gehören die Geheimnis-Objekte (`SECRET_KEY` und das Datenbankpasswort) dem Modul, sodass die Containerdefinition eine einzige Form hat.
 - **Das Netzwerk wird nie erstellt.** VPC-, VNet- und Subnetz-IDs sind Eingaben; die README jedes Moduls listet auf, was sie bereits bereitstellen müssen.
 
+Jedes Modul nimmt außerdem **`nginx_trusted_proxies`** entgegen: die Adressen des Load Balancers oder Ingress vor dem Edge-nginx (unter Kubernetes wird daraus der Chart-Wert `nginx.trustedProxies`). Setzen Sie es, damit das Protokoll [Sicherheit & Administration](audit-log.md#client-ip-address) und die Ratenbegrenzung der Anmeldung die Adresse jedes Benutzers statt der des Load Balancers sehen; [Hinter einem Load Balancer](audit-log.md#behind-a-load-balancer) erklärt, wie Sie den Wert finden.
+
 ## Schnellstart
 
 ```bash

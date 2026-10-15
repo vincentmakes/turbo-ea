@@ -40,10 +40,7 @@ La sotto-scheda **Sicurezza e amministrazione** elenca una voce per ogni azione 
 - registrazioni, e password impostate, reimpostate o cambiate;
 - assunzione di ruolo — un amministratore che avvia e interrompe **Visualizza come ruolo…**;
 - le azioni amministrative — modifiche a utenti, ruoli, impostazioni, metamodello, tag, calcoli, estensioni, importazioni, integrazioni, portali pubblici e diagrammi pubblicati, sondaggi e accesso dell'operatore (vedi [Azioni amministrative](#administrative-actions));
-- le esportazioni di questo stesso registro.
-
-!!! note "Nella prossima versione"
-    Le **esportazioni di dati** (esportazioni CSV/JSON dell'inventario, esportazioni del workspace e della migrazione) saranno registrate in questo stesso registro nella prossima versione.
+- le esportazioni di dati — le esportazioni CSV e JSON delle card, le esportazioni del workspace e quelle per un'altra piattaforma EA (vedi [Esportazioni di dati](#data-exports)) — e le esportazioni di questo stesso registro.
 
 ### Colonne
 
@@ -97,7 +94,6 @@ Il pannello non offre azioni. Le voci non si possono modificare né eliminare.
 | `auth.password.changed` | un utente connesso cambia la propria password |
 | `auth.impersonation.started` | un amministratore avvia **Visualizza come ruolo…**. La destinazione è il ruolo scelto |
 | `auth.impersonation.stopped` | l'amministratore torna al proprio ruolo |
-| `access.audit_log.exported` | qualcuno esporta il registro di sicurezza in CSV |
 
 **Codici di motivo** di `auth.login.failed`:
 
@@ -147,11 +143,23 @@ Ogni modifica che un amministratore apporta alla configurazione dell'istanza vie
 | **Sondaggi** | `admin.survey.sent`, `admin.survey.closed` | Un sondaggio inviato ai destinatari, o chiuso |
 | **Accesso dell'operatore** | `admin.ops.rescue_access.granted`, `.revoked` | Accesso di emergenza concesso o revocato tramite l'[API operativa](ops-api.md), registrato accanto agli eventi `ops.*` esistenti |
 
+### Esportazioni di dati { #data-exports }
+
+Ogni volta che i dati lasciano l'istanza in blocco, una voce `access` registra chi li ha presi, quanti e in quale forma. La voce viene scritta prima dell'invio del file, quindi anche un'esportazione il cui download non è mai terminato resta registrata.
+
+| Azione | Registrata quando | Dettagli |
+|--------|-------------------|----------|
+| `access.export.cards` | Le card vengono esportate tramite l'esportazione CSV o JSON dell'API (`/cards/export/csv`, `/cards/export/json`), come fanno script, integrazioni e assistenti IA | `format` (`csv` o `json`), `type` (il tipo o i tipi di card) e `rows` (il numero di card). La destinazione è il tipo di card quando l'esportazione ne copriva esattamente uno |
+| `access.export.workspace` | Viene scaricato un [pacchetto del workspace](workspace-transfer.md) completo — da **Trasferimento workspace**, oppure da un piano di controllo tramite l'[API operativa](ops-api.md), che non registra alcun attore e registra `requested_by: ops` | `include_archived` e `size_bytes` |
+| `access.export.migration` | Il workspace viene esportato per un'altra piattaforma EA in **Admin → Impostazioni → Migrazione** (vedi [Migrazione della piattaforma](migration.md)) | La piattaforma di destinazione, `include_archived` e `size_bytes` |
+| `access.audit_log.exported` | Qualcuno esporta il registro di sicurezza in CSV | `rows` |
+
 ## Che cosa non viene registrato
 
 - **Il rinnovo del token.** L'app web rinnova la sessione a intervalli regolari, quindi ogni scheda aperta aggiungerebbe voci e nessuna avrebbe significato.
 - **Le richieste rifiutate per un token di sessione scaduto o non valido.** Si verificano ogni volta che una sessione termina normalmente.
 - **Le letture dei feed OData.** Excel e Power BI interrogano il feed OData di una vista salvata secondo una pianificazione, quindi ogni aggiornamento aggiungerebbe una voce.
+- **Fogli di calcolo e presentazioni generati nel browser.** I download Excel e PowerPoint dell'inventario e dei report sono costruiti con dati che la pagina ha già caricato, quindi sono letture, non esportazioni dal server.
 - **Il semplice accesso in lettura** — aprire una scheda, eseguire un report, cercare nell'inventario.
 
 ## Conservazione { #retention }
@@ -194,4 +202,23 @@ La colonna **IP** registra l'indirizzo del client, non quello del proxy davanti 
 
 - **Lasciate `TRUST_PROXY_HEADERS` attivo** finché ogni richiesta raggiunge il backend attraverso l'nginx incluso — lo stack predefinito, il [chart Helm](kubernetes.md) e i [modelli per container gestiti](managed-containers.md) funzionano tutti così.
 - **Disattivatelo** (`TRUST_PROXY_HEADERS=false`) se esponete direttamente il container del backend, senza l'nginx incluso davanti: un client potrebbe allora inviare il proprio `X-Real-IP` e scegliere l'indirizzo registrato.
-- **Dietro un altro bilanciatore di carico**, l'nginx incluso vede l'indirizzo di quel bilanciatore, e ogni voce registra quello. Un'impostazione che permetta a nginx di fidarsi dell'indirizzo del client inoltrato dal vostro bilanciatore di carico (`NGINX_TRUSTED_PROXIES`) è prevista in una versione successiva.
+- **Dietro un bilanciatore di carico, un ingress controller o una CDN**, il nginx incluso riceve ogni connessione da quell'intermediario e, da solo, registra quindi l'indirizzo del bilanciatore per ogni utente. Impostate **`NGINX_TRUSTED_PROXIES`** sul container nginx, come descritto sotto.
+
+### Dietro un bilanciatore di carico { #behind-a-load-balancer }
+
+`NGINX_TRUSTED_PROXIES` elenca gli indirizzi degli intermediari davanti al nginx incluso, come indirizzi IP o intervalli CIDR separati da virgole o spazi. nginx legge allora l'indirizzo del client dall'intestazione `X-Forwarded-For` che quegli intermediari aggiungono — ma solo su una connessione proveniente da uno degli indirizzi elencati — e salta ogni indirizzo elencato in quell'intestazione, così una catena di proxy si risolve nel primo indirizzo che non è uno dei vostri. Quell'indirizzo sostituisce quello della connessione, e l'intestazione `X-Real-IP` letta dal backend lo trasporta invariato. Vuoto, il valore predefinito, non si fida di nessuno.
+
+Per trovare il valore, leggete il log di accesso del nginx perimetrale (`docker compose logs nginx`, `kubectl logs deployment/turbo-ea-nginx` o il visualizzatore di log della piattaforma): l'indirizzo all'inizio di ogni riga è l'intermediario di cui fidarsi, e l'ultimo campo tra virgolette è l'intestazione `X-Forwarded-For` che ha inviato.
+
+| Distribuzione | Dove impostarlo | Valore tipico |
+|---------------|-----------------|---------------|
+| Docker Compose, i browser raggiungono nginx direttamente | — | Lasciare vuoto |
+| Docker Compose dietro un vostro reverse proxy | `NGINX_TRUSTED_PROXIES` in `.env` | L'indirizzo del reverse proxy, come lo vede nginx |
+| [Kubernetes](kubernetes.md) dietro un ingress controller | Valore del chart `nginx.trustedProxies` | Il CIDR dei pod del cluster, ad esempio `10.244.0.0/16` |
+| [AWS ECS Fargate](managed-containers.md#aws-ecs-fargate) | `NginxTrustedProxies` / Terraform `nginx_trusted_proxies` | Gli intervalli CIDR delle subnet del bilanciatore di carico |
+| [Azure Container Apps](managed-containers.md#azure-container-apps) | `nginxTrustedProxies` / Terraform `nginx_trusted_proxies` | La subnet di infrastruttura dell'ambiente |
+| [Google Cloud Run](managed-containers.md#google-cloud-run) | `NGINX_TRUSTED_PROXIES` nel manifesto / Terraform `nginx_trusted_proxies` | Gli indirizzi che mostra il log di accesso |
+
+Mantenete l'elenco stretto quanto gli intermediari stessi. A ogni indirizzo elencato si crede quando indica il client, quindi un intervallo da cui si connettono i vostri utenti — tutto `10.0.0.0/8` in una distribuzione interna, per esempio — permetterebbe a ciascuno di loro di scrivere un indirizzo diverso nel registro. Senza impostazione, la colonna mostra il bilanciatore di carico: poco utile, ma mai falsificato.
+
+Il limite di frequenza degli accessi conta i tentativi per indirizzo del client dalla stessa intestazione, quindi dietro un bilanciatore di carico questa impostazione evita anche che i tentativi falliti di una persona rallentino tutti gli altri.

@@ -54,6 +54,8 @@ flowchart LR
 
 Модули [Terraform](terraform.md) для тех же платформ создают такую же публичную точку доступа, и к ним применимы те же настройки.
 
+**Адрес клиента.** Ingress или балансировщик нагрузки платформы — это промежуточный узел перед пограничным nginx, поэтому без дополнительной настройки [журнал «Безопасность и администрирование»](audit-log.md#client-ip-address) записывает его адрес для каждого пользователя. Задайте параметр доверенных прокси шаблона — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (манифест Cloud Run), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — равным адресам этого узла; [За балансировщиком нагрузки](audit-log.md#behind-a-load-balancer) объясняет, как их найти.
+
 ## Azure Container Apps
 
 **Предварительные требования.**

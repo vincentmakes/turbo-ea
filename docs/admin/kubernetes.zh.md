@@ -91,6 +91,8 @@ kubectl get ingress -n turbo-ea           # 等待出现地址，然后打开 pu
 | `postgresql.pool.size` / `maxOverflow` | 后端的连接预算，默认 20 + 10——托管套餐上限较低时请调小（[连接预算](operations.md#check-the-connection-limit)）。 |
 | `allowedOrigins` | CORS 允许列表；默认为 `publicUrl` 的源。应用有多个主机名时请设置。 |
 | `embedAllowedOrigins` | 允许嵌入已发布图表的站点（Confluence、wiki）。 |
+| `nginx.trustedProxies` | 位于 nginx 之前的 Ingress 控制器或负载均衡器的地址（以逗号分隔的 IP 或 CIDR 范围，通常为 Pod CIDR）。nginx 随后会在来自它们的连接上从 `X-Forwarded-For` 获取客户端地址，使[安全与管理日志](audit-log.md#client-ip-address)和登录速率限制能识别每个用户。留空则对所有人记录 Ingress 的地址。 |
+| `backend.trustProxyHeaders` | 默认为 `true`：后端从 nginx 设置的 `X-Real-IP` 请求头读取客户端地址。只有 nginx 能访问后端 Service，因此请保持开启。 |
 | `backend.persistence.*` | `/app/data` 卷：`size`、`storageClass`，或用 `existingClaim` 自带卷。`helm uninstall` 时保留。 |
 | `backend.extraEnv` / `extraEnvFrom` | Compose 配置中的任何后端变量——`SMTP_*`、`TURBO_EA_PROXY_AUTH_*`、`NVD_API_KEY`、`EXTENSION_*`。 |
 | `ai.providerUrl` / `ai.model` | 用于 AI 建议的外部 LLM 端点。 |

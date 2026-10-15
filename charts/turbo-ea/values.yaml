@@ -112,6 +112,12 @@ backend:
   # Recreate strategy and a fixed replica count of 1. Scale the frontend and
   # nginx instead; the backend is not the bottleneck for typical landscapes.
   #
+  # Read the client address from the X-Real-IP header the edge nginx sets (the
+  # Security & admin log and the sign-in rate limit key on it). The backend
+  # Service is only reachable through that nginx, so leave it on; false falls
+  # back to the socket peer, i.e. the nginx pod.
+  trustProxyHeaders: true
+  #
   # Extra environment for SMTP_*, TURBO_EA_PROXY_AUTH_*, NVD_API_KEY,
   # EXTENSION_*, … — the same names as docker-compose.yml.
   extraEnv: []
@@ -219,6 +225,13 @@ nginx:
   # Override the DNS resolver nginx uses for upstream lookups; empty reads the
   # cluster resolver from /etc/resolv.conf.
   resolver: ""
+  # Addresses of the hops in front of nginx whose X-Forwarded-For it may trust
+  # (comma- or space-separated IPs or CIDR ranges): the ingress controller's
+  # pods, or the cloud load balancer's ranges for a LoadBalancer Service. nginx
+  # then records the real client instead of that hop, so the Security & admin
+  # log and the sign-in rate limit see each user's own address. Usually the pod
+  # CIDR, e.g. "10.0.0.0/8". Empty trusts no one: the log shows the hop.
+  trustedProxies: ""
   extraEnv: []
   resources:
     requests:

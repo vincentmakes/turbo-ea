@@ -139,6 +139,16 @@ async def export_workspace(
 ):
     await PermissionService.require_permission(db, user, "admin.export_workspace")
     data = await build_bundle(db, include_archived=include_archived)
+    await audit_log.record(
+        db,
+        action="access.export.workspace",
+        category="access",
+        actor=user,
+        details={"include_archived": include_archived, "size_bytes": len(data)},
+    )
+    # Persist the record and hand the connection back before the response:
+    # nothing below touches the database.
+    await db.commit()
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
     filename = f"workspace_export_{ts}.zip"
     return StreamingResponse(

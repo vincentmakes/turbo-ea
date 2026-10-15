@@ -91,6 +91,8 @@ kubectl get ingress -n turbo-ea           # дождитесь адреса и �
 | `postgresql.pool.size` / `maxOverflow` | Бюджет соединений бэкенда, по умолчанию 20 + 10 — уменьшите для управляемого тарифа с низким лимитом ([бюджет соединений](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | Список CORS; по умолчанию — источник `publicUrl`. Задайте, если у приложения несколько имён хоста. |
 | `embedAllowedOrigins` | Сайты, которым разрешено встраивать опубликованную диаграмму (Confluence, wiki). |
+| `nginx.trustedProxies` | Адреса ingress-контроллера или балансировщика нагрузки перед nginx (IP или диапазоны CIDR через запятую, обычно CIDR подов). Тогда nginx берёт адрес клиента из `X-Forwarded-For` на их соединениях, и [журнал «Безопасность и администрирование»](audit-log.md#client-ip-address) и ограничение частоты входа видят каждого пользователя. Пустое значение записывает ingress для всех. |
+| `backend.trustProxyHeaders` | По умолчанию `true`: бэкенд читает адрес клиента из заголовка `X-Real-IP`, который выставляет nginx. До Service бэкенда доходит только nginx, поэтому оставьте его включённым. |
 | `backend.persistence.*` | Том `/app/data`: `size`, `storageClass` или `existingClaim` для своего тома. Сохраняется при `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Любая переменная бэкенда из настройки Compose — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Внешняя конечная точка LLM для ИИ-подсказок. |

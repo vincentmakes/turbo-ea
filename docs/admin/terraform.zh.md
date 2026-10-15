@@ -19,6 +19,8 @@
 - **默认创建数据库，并提供自带数据库的开关。** `create_database = false` 加上 `db_host` 与 `db_password` 即可让后端指向你已运行的服务器。无论数据库来自何处，密钥存储对象（`SECRET_KEY` 与数据库密码）都由模块拥有，因此容器定义只有一种形状。
 - **从不创建网络。** VPC、VNet 和子网标识均为输入；每个模块的 README 列出了它们必须事先具备的条件。
 
+每个模块还接受 **`nginx_trusted_proxies`**：位于边缘 nginx 之前的负载均衡器或 Ingress 的地址（在 Kubernetes 上它会成为 chart 值 `nginx.trustedProxies`）。设置它，可使[安全与管理日志](audit-log.md#client-ip-address)和登录速率限制看到每个用户自己的地址，而不是负载均衡器的地址；[位于负载均衡器之后](audit-log.md#behind-a-load-balancer)说明了如何找到该值。
+
 ## 快速开始
 
 ```bash

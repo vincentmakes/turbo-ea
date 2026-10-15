@@ -78,6 +78,7 @@ then set `public_url = "https://ea.example.com"` and apply again.
 | `secret_key` | — | Sensitive; `openssl rand -base64 48` |
 | `deploy_mcp` | `false` | MCP server sidecar at `/mcp` |
 | `allowed_origins` / `embed_allowed_origins` | `[]` | CORS / iframe allow-lists |
+| `nginx_trusted_proxies` | `""` | Container Apps ingress addresses whose `X-Forwarded-For` nginx trusts (e.g. the infrastructure subnet), so the audit log records each user's own address |
 | `db_pool_size` / `db_max_overflow` | `10` / `5` | Backend connection budget |
 | `infrastructure_subnet_id` | `null` | VNet integration |
 | `postgresql_delegated_subnet_id`, `postgresql_private_dns_zone_id` | `null` | Private database access (both or neither) |

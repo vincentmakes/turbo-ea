@@ -48,3 +48,13 @@ run "public_url_with_path" {
 
   expect_failures = [var.public_url]
 }
+
+run "bad_trusted_proxies" {
+  command = plan
+
+  variables {
+    nginx_trusted_proxies = "10.0.0.0/8;evil"
+  }
+
+  expect_failures = [var.nginx_trusted_proxies]
+}

@@ -63,6 +63,11 @@ run "defaults" {
     condition     = yamldecode(helm_release.this.values[0]).ingress.enabled == false
     error_message = "ingress is off by default"
   }
+
+  assert {
+    condition     = !contains(keys(yamldecode(helm_release.this.values[0])), "nginx")
+    error_message = "no nginx values unless trusted proxies are set, so older charts still render"
+  }
 }
 
 run "existing_secret" {
@@ -76,6 +81,13 @@ run "existing_secret" {
     db_password = null
     image_tag   = "2.141.1"
     deploy_mcp  = true
+
+    nginx_trusted_proxies = "10.0.0.0/8"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.this.values[0]).nginx.trustedProxies == "10.0.0.0/8"
+    error_message = "trusted proxies are renamed to the chart's key"
   }
 
   assert {

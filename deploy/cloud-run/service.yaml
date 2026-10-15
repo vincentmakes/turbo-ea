@@ -67,6 +67,12 @@ spec:
               value: http://127.0.0.1:8080
             - name: NGINX_MCP_UPSTREAM
               value: http://127.0.0.1:8001
+            # The hops in front of nginx (load balancer and Google front ends)
+            # whose X-Forwarded-For it may trust, comma-separated IPs or CIDR
+            # ranges, so the Security & admin log records each user's own
+            # address. Empty records the front end instead; see the guide.
+            - name: NGINX_TRUSTED_PROXIES
+              value: ""
           resources:
             limits:
               cpu: "0.5"

@@ -91,6 +91,8 @@ A lista completa e comentada está no [`values.yaml`](https://github.com/vincent
 | `postgresql.pool.size` / `maxOverflow` | Orçamento de conexões do backend, 20 + 10 por padrão — reduza em um plano gerenciado com teto baixo ([orçamento de conexões](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | Lista CORS; por padrão a origem de `publicUrl`. Defina quando o aplicativo tiver vários nomes de host. |
 | `embedAllowedOrigins` | Sites autorizados a incorporar um diagrama publicado (Confluence, uma wiki). |
+| `nginx.trustedProxies` | Endereços do controlador de ingress ou do balanceador de carga à frente do nginx (IPs ou faixas CIDR separados por vírgulas, normalmente o CIDR de pods). O nginx passa a obter o endereço do cliente de `X-Forwarded-For` nas conexões deles, de modo que o [registro de Segurança e administração](audit-log.md#client-ip-address) e o limite de taxa de entrada veem cada usuário. Vazio registra o ingress para todos. |
+| `backend.trustProxyHeaders` | `true` por padrão: o backend lê o endereço do cliente do cabeçalho `X-Real-IP` que o nginx define. Só o nginx chega ao Service do backend, então mantenha-o ativado. |
 | `backend.persistence.*` | O volume `/app/data`: `size`, `storageClass` ou `existingClaim` para trazer o seu. Mantido no `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Qualquer variável do backend da configuração Compose — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Endpoint LLM externo para sugestões de IA. |

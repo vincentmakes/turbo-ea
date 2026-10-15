@@ -24,3 +24,8 @@ param fileShareName = 'turbo-ea-data'
 param infrastructureSubnetId = ''
 
 param deployMcp = false
+
+// Addresses of the Container Apps ingress whose X-Forwarded-For nginx may
+// trust, e.g. the infrastructure subnet's CIDR, so the Security & admin log
+// records each user's own address. Empty records the ingress instead.
+param nginxTrustedProxies = ''

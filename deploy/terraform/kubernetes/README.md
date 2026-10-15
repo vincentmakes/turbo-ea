@@ -55,6 +55,7 @@ after the generated one, so anything the module does not expose
 | `db_pool_size` / `db_max_overflow` | `20` / `10` | Chart defaults |
 | `deploy_mcp` | `false` | |
 | `allowed_origins` / `embed_allowed_origins` | `[]` | |
+| `nginx_trusted_proxies` | `""` | chart `nginx.trustedProxies`: the ingress controller's addresses (usually the pod CIDR), so the audit log records each user's own address |
 | `storage_class`, `storage_size`, `existing_claim` | `""`, `10Gi`, `""` | Backend data volume |
 | `ingress` | `{ enabled = false }` | `class_name`, `annotations`, `hosts`, `tls` |
 | `extra_values` | `[]` | Extra values YAML documents |

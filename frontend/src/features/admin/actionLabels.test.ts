@@ -1,6 +1,7 @@
 /**
- * Contract test: every administrative action the backend records in the
- * Security & admin log has a label, in English and in every shipped locale.
+ * Contract test: every administrative action and data export the backend
+ * records in the Security & admin log has a label, in English and in every
+ * shipped locale.
  *
  * The list is hard-coded on purpose — it is the catalogue the backend writes
  * (`audit_log.record(action=...)`) and that `docs/admin/audit-log.md`
@@ -98,6 +99,9 @@ const ADMIN_ACTIONS = [
   "admin.survey.closed",
   "admin.ops.rescue_access.granted",
   "admin.ops.rescue_access.revoked",
+  "access.export.cards",
+  "access.export.workspace",
+  "access.export.migration",
 ] as const;
 
 describe("administrative action labels", () => {

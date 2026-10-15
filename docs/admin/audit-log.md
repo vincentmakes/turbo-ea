@@ -40,10 +40,7 @@ The **Security & admin** sub-tab lists one entry per security-relevant action, n
 - registrations, and passwords being set, reset or changed;
 - role impersonation — an administrator starting and stopping **View as role…**;
 - administrative actions — changes to users, roles, settings, the metamodel, tags, calculations, extensions, imports, integrations, public portals and published diagrams, surveys and operator access (see [Administrative actions](#administrative-actions));
-- exports of this log itself.
-
-!!! note "Coming in the next release"
-    **Data exports** (inventory CSV/JSON exports, workspace and migration exports) will be recorded in this same log in the next release.
+- data exports — the card CSV and JSON exports, workspace exports and exports for another EA platform (see [Data exports](#data-exports)) — and exports of this log itself.
 
 ### Columns
 
@@ -97,7 +94,6 @@ The drawer has no actions. Entries cannot be edited or deleted.
 | `auth.password.changed` | A signed-in user changes their own password |
 | `auth.impersonation.started` | An administrator starts **View as role…**. The target is the role chosen |
 | `auth.impersonation.stopped` | The administrator returns to their own role |
-| `access.audit_log.exported` | Someone exports the security log to CSV |
 
 **Reason codes** on `auth.login.failed`:
 
@@ -147,11 +143,23 @@ Every change an administrator makes to how the instance is configured is recorde
 | **Surveys** | `admin.survey.sent`, `admin.survey.closed` | A survey sent to its recipients, or closed |
 | **Operator access** | `admin.ops.rescue_access.granted`, `.revoked` | Rescue access granted or revoked through the [operations API](ops-api.md), recorded alongside the existing `ops.*` events |
 
+### Data exports
+
+Every time data leaves the instance in bulk, an `access` entry records who took it, how much and in which form. The entry is written before the file is sent, so an export whose download was never finished is still on the record.
+
+| Action | Recorded when | Details |
+|--------|---------------|---------|
+| `access.export.cards` | Cards are exported through the API's CSV or JSON export (`/cards/export/csv`, `/cards/export/json`), as scripts, integrations and AI assistants do | `format` (`csv` or `json`), `type` (the card type or types) and `rows` (the number of cards). The target is the card type when the export covered exactly one |
+| `access.export.workspace` | A full [workspace bundle](workspace-transfer.md) is downloaded — from **Workspace transfer**, or by a control plane through the [operations API](ops-api.md), which records no actor and `requested_by: ops` | `include_archived` and `size_bytes` |
+| `access.export.migration` | The workspace is exported for another EA platform under **Admin → Settings → Migration** (see [Platform migration](migration.md)) | The target platform, `include_archived` and `size_bytes` |
+| `access.audit_log.exported` | Someone exports the security log to CSV | `rows` |
+
 ## What is not recorded
 
 - **Token refresh.** The web app renews its session on a timer, so every open tab would add an entry and none of them would mean anything.
 - **Requests rejected for an expired or invalid session token.** These happen every time a session ends naturally.
 - **OData feed reads.** Excel and Power BI poll a saved view's OData feed on a schedule, so every refresh would add an entry.
+- **Spreadsheets and decks built in the browser.** The inventory's and the reports' Excel and PowerPoint downloads are made from data the page has already loaded, so they are reads, not exports from the server.
 - **Plain read access** — opening a card, running a report, searching the inventory.
 
 ## Retention
@@ -194,4 +202,23 @@ The **IP** column records the address of the client, not of the proxy in front o
 
 - **Leave `TRUST_PROXY_HEADERS` on** as long as every request reaches the backend through the bundled nginx — the default stack, the [Helm chart](kubernetes.md) and the [managed container templates](managed-containers.md) all work that way.
 - **Turn it off** (`TRUST_PROXY_HEADERS=false`) if you expose the backend container directly, without the bundled nginx in front of it: a client could then send its own `X-Real-IP` and choose the address that gets recorded.
-- **Behind another load balancer**, the bundled nginx sees that load balancer's address, so every entry records it. A setting that lets nginx trust the client address forwarded by your load balancer (`NGINX_TRUSTED_PROXIES`) is planned for a later release.
+- **Behind a load balancer, an ingress controller or a CDN**, the bundled nginx receives every connection from that hop, so on its own it records the load balancer's address for every user. Set **`NGINX_TRUSTED_PROXIES`** on the nginx container, as described below.
+
+### Behind a load balancer { #behind-a-load-balancer }
+
+`NGINX_TRUSTED_PROXIES` lists the addresses of the hops in front of the bundled nginx, as IP addresses or CIDR ranges separated by commas or spaces. nginx then reads the client address from the `X-Forwarded-For` header those hops add — but only on a connection that comes from one of the listed addresses — and skips every listed address in that header, so a chain of proxies resolves to the first address that is not one of yours. That address replaces the connection's, and the `X-Real-IP` header the backend reads carries it unchanged. Empty, the default, trusts no one.
+
+To find the value, read the edge nginx's access log (`docker compose logs nginx`, `kubectl logs deployment/turbo-ea-nginx`, or the platform's log viewer): the address at the start of each line is the hop to trust, and the last quoted field is the `X-Forwarded-For` header it sent.
+
+| Deployment | Where to set it | Typical value |
+|------------|-----------------|---------------|
+| Docker Compose, browsers reach nginx directly | — | Leave empty |
+| Docker Compose behind your own reverse proxy | `NGINX_TRUSTED_PROXIES` in `.env` | The reverse proxy's address, as nginx sees it |
+| [Kubernetes](kubernetes.md) behind an ingress controller | Chart value `nginx.trustedProxies` | The cluster's pod CIDR, for example `10.244.0.0/16` |
+| [AWS ECS Fargate](managed-containers.md#aws-ecs-fargate) | `NginxTrustedProxies` / Terraform `nginx_trusted_proxies` | The CIDR ranges of the load balancer's subnets |
+| [Azure Container Apps](managed-containers.md#azure-container-apps) | `nginxTrustedProxies` / Terraform `nginx_trusted_proxies` | The environment's infrastructure subnet |
+| [Google Cloud Run](managed-containers.md#google-cloud-run) | `NGINX_TRUSTED_PROXIES` in the manifest / Terraform `nginx_trusted_proxies` | The addresses the access log shows |
+
+Keep the list as narrow as the hops themselves. Every listed address is believed when it names the client, so a range your users connect from — all of `10.0.0.0/8` on an internal deployment, say — would let any of them write a different address into the log. With nothing set, the column shows the load balancer: not useful, but never forged.
+
+The sign-in rate limit counts attempts per client address from the same header, so behind a load balancer this setting is also what keeps one person's failed attempts from slowing everyone else down.

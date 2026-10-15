@@ -243,7 +243,7 @@ resolver_directive="resolver ${resolver_addr} valid=30s ipv6=off;"
 
 # Upstream service addresses. Docker resolves the bare compose service names through
 # its embedded DNS, but an orchestrator whose resolver ignores search domains
-# (Kubernetes: nginx's own `resolver` never consults /etc/resolv.conf search paths)
+# (Kubernetes: nginx's own 'resolver' never consults /etc/resolv.conf search paths)
 # needs fully-qualified names, e.g. http://turbo-ea-backend.turbo-ea.svc.cluster.local:8000.
 # The defaults are the compose service names, so an install that does not set
 # these is unchanged. Values land unquoted inside the generated nginx config, so
@@ -278,6 +278,38 @@ else
 fi
 export NGINX_EMBED_FRAME_ANCESTORS="$embed_ancestors"
 
+# Real client address behind a load balancer or ingress. With nothing set,
+# $remote_addr is whoever opened the TCP connection to this nginx: the browser
+# on a plain compose install, but the load balancer or ingress controller in
+# front of it everywhere else, so the security audit log and the per-client
+# sign-in rate limit would see one address for every user. NGINX_TRUSTED_PROXIES
+# names the addresses of those hops (comma- or space-separated IPs or CIDR
+# ranges); X-Forwarded-For is then honoured only when the connection comes from
+# one of them, and real_ip_recursive skips every trusted hop, so $remote_addr
+# becomes the first untrusted address, i.e. the client. The X-Real-IP header
+# every proxied location already sets from $remote_addr then carries it to the
+# backend unchanged. Empty (the default) emits nothing, so an install that does
+# not set it keeps its config as it was. The lines go into every server block
+# (redirect, HTTPS and plain HTTP) right after server_tokens.
+nginx_real_ip_lines=''
+trusted_proxies=$(printf '%s' "${NGINX_TRUSTED_PROXIES:-}" | tr ',' ' ')
+set -f
+for proxy in $trusted_proxies; do
+    case "$proxy" in
+        *[!0-9A-Fa-f.:/]*)
+            echo "Turbo EA nginx: NGINX_TRUSTED_PROXIES entries must be IP addresses or CIDR ranges, got: $proxy" >&2
+            exit 1
+            ;;
+    esac
+    nginx_real_ip_lines="${nginx_real_ip_lines}    set_real_ip_from ${proxy};
+"
+done
+set +f
+if [ -n "$nginx_real_ip_lines" ]; then
+    nginx_real_ip_lines="${nginx_real_ip_lines}    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;"
+fi
+
 export NGINX_SERVER_NAME="${NGINX_SERVER_NAME:-$public_host}"
 export NGINX_FORWARDED_PROTO="${NGINX_FORWARDED_PROTO:-$public_scheme}"
 
@@ -298,6 +330,7 @@ case "$tls_enabled" in
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
+${nginx_real_ip_lines}
     return 301 https://\$host:${NGINX_TLS_HOST_PORT}\$request_uri;
 }"
         export NGINX_HTTPS_SERVER_BLOCK="server {
@@ -306,6 +339,7 @@ ${nginx_https_ipv6_line}
     http2 on;
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
+${nginx_real_ip_lines}
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of
@@ -549,6 +583,7 @@ ${nginx_https_ipv6_line}
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     server_tokens off;
+${nginx_real_ip_lines}
     # Attachments are capped at 20 MB by the backend
     # (services/attachment_validation.py); the extra megabyte lets a slightly
     # oversized upload reach it, so the user gets its readable 400 instead of

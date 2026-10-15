@@ -54,6 +54,8 @@ Every template publishes a public endpoint so that a first deployment can be rea
 
 The [Terraform](terraform.md) modules for the same platforms create the same public endpoint, and the same settings apply.
 
+**Client address.** The platform ingress or load balancer is the hop in front of the edge nginx, so without further settings the [Security & admin log](audit-log.md#client-ip-address) records its address for every user. Set the template's trusted-proxies parameter — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (Cloud Run manifest), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — to that hop's addresses; [Behind a load balancer](audit-log.md#behind-a-load-balancer) explains how to find them.
+
 ## Azure Container Apps
 
 **Prerequisites.**

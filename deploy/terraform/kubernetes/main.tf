@@ -48,6 +48,8 @@ locals {
       }
     },
     var.image_tag == null ? {} : { image = { tag = var.image_tag } },
+    # Only when set, so an older chart_version without the key still renders.
+    var.nginx_trusted_proxies == "" ? {} : { nginx = { trustedProxies = var.nginx_trusted_proxies } },
   )
 }
 

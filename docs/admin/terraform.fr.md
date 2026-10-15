@@ -19,6 +19,8 @@ Trois conventions valent pour les quatre :
 - **La base de données est créée par défaut, avec un commutateur pour la vôtre.** `create_database = false` avec `db_host` et `db_password` pointe le backend vers un serveur que vous exploitez déjà. Quelle que soit l'origine de la base, le module possède les objets du coffre à secrets (`SECRET_KEY` et le mot de passe de la base), de sorte que la définition du conteneur n'a qu'une forme.
 - **Le réseau n'est jamais créé.** Les identifiants de VPC, VNet et sous-réseaux sont des entrées ; le README de chaque module liste ce qu'ils doivent déjà fournir.
 
+Chaque module accepte aussi **`nginx_trusted_proxies`** : les adresses du répartiteur de charge ou de l'ingress placé devant le nginx de bordure (sous Kubernetes, il devient la valeur du chart `nginx.trustedProxies`). Définissez-le pour que le [journal Sécurité et administration](audit-log.md#client-ip-address) et la limite de débit des connexions voient l'adresse de chaque utilisateur plutôt que celle du répartiteur ; [Derrière un répartiteur de charge](audit-log.md#behind-a-load-balancer) explique comment trouver la valeur.
+
 ## Démarrage rapide
 
 ```bash

@@ -233,6 +233,15 @@ async def ops_export(db: AsyncSession = Depends(get_db)):
         data={"size_bytes": len(payload)},
         db=db,
     )
+    # Dual-write beside the ``ops.*`` event docs/admin/ops-api.md promises:
+    # the Security & admin log lists every workspace that left the instance,
+    # whichever door it left by. No actor — the control plane is not a user.
+    await audit_log.record(
+        db,
+        action="access.export.workspace",
+        category="access",
+        details={"size_bytes": len(payload), "requested_by": "ops"},
+    )
     await db.commit()
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return Response(

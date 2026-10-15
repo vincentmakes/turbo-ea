@@ -54,6 +54,8 @@ Jede Vorlage veröffentlicht einen öffentlichen Endpunkt, damit eine erste Bere
 
 Die [Terraform](terraform.md)-Module für dieselben Plattformen legen denselben öffentlichen Endpunkt an; es gelten dieselben Einstellungen.
 
+**Client-Adresse.** Der Ingress oder Load Balancer der Plattform ist das Zwischenglied vor dem Edge-nginx, daher zeichnet das Protokoll [Sicherheit & Administration](audit-log.md#client-ip-address) ohne weitere Einstellung für jeden Benutzer dessen Adresse auf. Setzen Sie den Trusted-Proxies-Parameter der Vorlage — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (Cloud-Run-Manifest), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — auf die Adressen dieses Zwischenglieds; [Hinter einem Load Balancer](audit-log.md#behind-a-load-balancer) erklärt, wie Sie sie finden.
+
 ## Azure Container Apps
 
 **Voraussetzungen.**

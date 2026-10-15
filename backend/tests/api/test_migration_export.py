@@ -193,3 +193,65 @@ class TestExportRoute:
             "/api/v1/migration/sources", headers=auth_headers(export_env["admin"])
         )
         assert next(s for s in listed.json() if s["key"] == "readonly")["supports_export"] is False
+
+
+class TestExportAudit:
+    """The export records ``access.export.migration`` once the file is built.
+
+    Read after a rollback, so only what the route committed counts.
+    """
+
+    @staticmethod
+    async def _rows(db):
+        from sqlalchemy import select
+
+        from app.models.audit_log import AuditLogEntry
+
+        await db.rollback()
+        result = await db.execute(
+            select(AuditLogEntry).where(AuditLogEntry.action == "access.export.migration")
+        )
+        return list(result.scalars().all())
+
+    async def test_records_source_flag_and_size(self, client, db, export_env):
+        from app.services.migration.registry import get_source
+
+        exporter_id = export_env["exporter"].id
+        label = get_source("leanix").label
+        resp = await client.get(
+            "/api/v1/migration/export",
+            params={"source_key": "leanix", "include_archived": "true"},
+            headers=auth_headers(export_env["exporter"]),
+        )
+        assert resp.status_code == 200
+        with zipfile.ZipFile(BytesIO(resp.content)) as zf:
+            assert "ldif.json" in zf.namelist()  # the body is still the bundle
+
+        [row] = await self._rows(db)
+        assert (row.category, row.outcome) == ("access", "success")
+        assert row.actor_user_id == exporter_id and row.actor_email == "exporter@test.com"
+        assert (row.target_type, row.target_id, row.target_label) == (
+            "migration_source",
+            "leanix",
+            label,
+        )
+        assert row.details == {
+            "source_key": "leanix",
+            "include_archived": True,
+            "size_bytes": len(resp.content),
+        }
+
+    async def test_refused_and_rejected_exports_record_nothing(self, client, db, export_env):
+        refused = await client.get(
+            "/api/v1/migration/export",
+            params={"source_key": "leanix"},
+            headers=auth_headers(export_env["migrator"]),
+        )
+        assert refused.status_code == 403
+        unknown = await client.get(
+            "/api/v1/migration/export",
+            params={"source_key": "not-a-source"},
+            headers=auth_headers(export_env["admin"]),
+        )
+        assert unknown.status_code == 404
+        assert await self._rows(db) == []

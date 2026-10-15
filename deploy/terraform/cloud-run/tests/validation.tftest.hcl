@@ -51,3 +51,13 @@ run "bad_connect_mode" {
 
   expect_failures = [var.filestore_connect_mode]
 }
+
+run "bad_trusted_proxies" {
+  command = plan
+
+  variables {
+    nginx_trusted_proxies = "10.0.0.0/8;evil"
+  }
+
+  expect_failures = [var.nginx_trusted_proxies]
+}

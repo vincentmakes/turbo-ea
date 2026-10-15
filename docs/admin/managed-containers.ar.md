@@ -54,6 +54,8 @@ flowchart LR
 
 تنشئ وحدات [Terraform](terraform.md) للمنصات نفسها نقطة النهاية العامة نفسها، وتنطبق الإعدادات نفسها.
 
+**عنوان العميل.** إن ingress المنصة أو موازن الحِمل فيها هو الحلقة الوسيطة أمام nginx الطرفي، لذا يسجّل [سجل الأمان والإدارة](audit-log.md#client-ip-address) عنوانه لكل مستخدم ما لم تُضبط إعدادات أخرى. اضبط معامل الوكلاء الموثوقين في القالب — `nginxTrustedProxies` (Bicep) أو `NGINX_TRUSTED_PROXIES` (بيان Cloud Run) أو `NginxTrustedProxies` (CloudFormation) أو `nginx_trusted_proxies` (Terraform) — على عناوين تلك الحلقة؛ ويشرح [خلف موازن حِمل](audit-log.md#behind-a-load-balancer) كيفية العثور عليها.
+
 ## Azure Container Apps
 
 **المتطلبات الأساسية.**

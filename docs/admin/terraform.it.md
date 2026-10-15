@@ -19,6 +19,8 @@ Tre convenzioni valgono per tutti e quattro:
 - **Il database viene creato per impostazione predefinita, con un interruttore per il proprio.** `create_database = false` insieme a `db_host` e `db_password` punta il backend a un server che già gestisci. Comunque sia stato ottenuto il database, il modulo possiede gli oggetti dell'archivio segreti (`SECRET_KEY` e la password del database), così la definizione del container ha una sola forma.
 - **La rete non viene mai creata.** Gli identificativi di VPC, VNet e subnet sono input; il README di ogni modulo elenca ciò che devono già fornire.
 
+Ogni modulo accetta anche **`nginx_trusted_proxies`**: gli indirizzi del bilanciatore di carico o dell'ingress davanti al nginx perimetrale (su Kubernetes diventa il valore del chart `nginx.trustedProxies`). Impostatelo perché il [registro Sicurezza e amministrazione](audit-log.md#client-ip-address) e il limite di frequenza degli accessi vedano l'indirizzo di ogni utente invece di quello del bilanciatore; [Dietro un bilanciatore di carico](audit-log.md#behind-a-load-balancer) spiega come trovare il valore.
+
 ## Avvio rapido
 
 ```bash

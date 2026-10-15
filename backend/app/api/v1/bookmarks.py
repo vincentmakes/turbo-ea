@@ -386,6 +386,9 @@ async def bookmark_odata_feed(
     Requires authentication. Returns data matching the bookmark's saved filters,
     limited to the cards the *caller* may read — a shared bookmark never hands
     over a card type the reader is denied."""
+    # Deliberately not recorded in the audit log (unlike the CSV/JSON/workspace
+    # exports): Excel and Power BI poll this feed on a schedule, so a row per
+    # refresh would bury every deliberate export under connector noise.
     read_scope = await require_inventory_browse(db, user)
 
     bid = uuid.UUID(bm_id)

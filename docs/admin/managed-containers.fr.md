@@ -54,6 +54,8 @@ Chaque modèle publie un point de terminaison public afin qu'un premier déploie
 
 Les modules [Terraform](terraform.md) pour ces mêmes plateformes créent le même point de terminaison public, et les mêmes réglages s'appliquent.
 
+**Adresse du client.** L'ingress ou le répartiteur de charge de la plateforme est l'intermédiaire placé devant le nginx de bordure : sans autre réglage, le [journal Sécurité et administration](audit-log.md#client-ip-address) enregistre son adresse pour chaque utilisateur. Définissez le paramètre de proxys de confiance du modèle — `nginxTrustedProxies` (Bicep), `NGINX_TRUSTED_PROXIES` (manifeste Cloud Run), `NginxTrustedProxies` (CloudFormation), `nginx_trusted_proxies` (Terraform) — avec les adresses de cet intermédiaire ; [Derrière un répartiteur de charge](audit-log.md#behind-a-load-balancer) explique comment les trouver.
+
 ## Azure Container Apps
 
 **Prérequis.**

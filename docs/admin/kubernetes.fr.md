@@ -91,6 +91,8 @@ La liste complète et commentée se trouve dans le [`values.yaml`](https://githu
 | `postgresql.pool.size` / `maxOverflow` | Budget de connexions du backend, 20 + 10 par défaut — à réduire pour une offre managée plafonnée ([budget de connexions](operations.md#check-the-connection-limit)). |
 | `allowedOrigins` | Liste CORS ; par défaut l'origine de `publicUrl`. À définir quand l'application a plusieurs noms d'hôte. |
 | `embedAllowedOrigins` | Sites autorisés à encadrer un diagramme publié (Confluence, un wiki). |
+| `nginx.trustedProxies` | Adresses du contrôleur d'ingress ou du répartiteur de charge placé devant nginx (IP ou plages CIDR séparées par des virgules, en général le CIDR des pods). nginx prend alors l'adresse du client dans `X-Forwarded-For` sur leurs connexions, si bien que le [journal Sécurité et administration](audit-log.md#client-ip-address) et la limite de débit des connexions voient chaque utilisateur. Vide, l'ingress est enregistré pour tout le monde. |
+| `backend.trustProxyHeaders` | `true` par défaut : le backend lit l'adresse du client dans l'en-tête `X-Real-IP` que définit nginx. Seul nginx atteint le Service backend ; laissez-le donc activé. |
 | `backend.persistence.*` | Le volume `/app/data` : `size`, `storageClass`, ou `existingClaim` pour apporter le vôtre. Conservé au `helm uninstall`. |
 | `backend.extraEnv` / `extraEnvFrom` | Toute variable backend de la configuration Compose — `SMTP_*`, `TURBO_EA_PROXY_AUTH_*`, `NVD_API_KEY`, `EXTENSION_*`. |
 | `ai.providerUrl` / `ai.model` | Point de terminaison LLM externe pour les suggestions IA. |

@@ -296,6 +296,22 @@ async def export_workspace(
     # nothing below touches the database.
     await db.commit()
     data = await run_in_threadpool(source.export, snapshot)  # type: ignore[attr-defined]
+    # A short write after the serialisation, not a session held across it: the
+    # commit above released the connection, and this one checks it out again
+    # only for the insert.
+    await audit_log.record(
+        db,
+        action="access.export.migration",
+        category="access",
+        actor=user,
+        target=("migration_source", source.key, source.label),
+        details={
+            "source_key": source.key,
+            "include_archived": include_archived,
+            "size_bytes": len(data),
+        },
+    )
+    await db.commit()
 
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M")
     extension = getattr(source, "export_extension", ".bin")

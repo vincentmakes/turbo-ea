@@ -59,6 +59,10 @@ services:
       AI_SEARCH_URL: ${AI_SEARCH_URL:-}
       AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
       NVD_API_KEY: ${NVD_API_KEY:-}
+      # Read the client address from the X-Real-IP header the edge nginx sets
+      # (the security audit log and the sign-in rate limit key on it). Only
+      # turn it off if something other than that nginx can reach the backend.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
       # Trusted reverse-proxy authentication. Compose uses .env only to
       # interpolate this file, so every one of these has to be forwarded
       # explicitly — without the passthrough, setting them in .env leaves the
@@ -164,6 +168,7 @@ services:
       TURBO_EA_EMBED_ALLOWED_ORIGINS: ${TURBO_EA_EMBED_ALLOWED_ORIGINS:-}
       NGINX_ENABLE_IPV6: ${NGINX_ENABLE_IPV6:-false}
       NGINX_RESOLVER: ${NGINX_RESOLVER:-}
+      NGINX_TRUSTED_PROXIES: ${NGINX_TRUSTED_PROXIES:-}
       NGINX_TLS_HOST_PORT: ${TLS_HOST_PORT:-9443}
       TURBO_EA_TLS_CERT_FILE: ${TURBO_EA_TLS_CERT_FILE:-cert.pem}
       TURBO_EA_TLS_KEY_FILE: ${TURBO_EA_TLS_KEY_FILE:-key.pem}

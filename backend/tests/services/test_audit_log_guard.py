@@ -219,3 +219,82 @@ def test_scan_sees_only_router_write_verbs():
     )
     tree = ast.parse(source)
     assert [n.name for n in tree.body if _is_write_route(n)] == ["write", "remove"]
+
+
+# Read routes that hand data out of the instance (PR C of discussion #1185).
+# Each must record an ``access.export.*`` row, directly or through a module
+# helper. The OData bookmark feed is deliberately absent: Excel and Power BI
+# poll it on a schedule (see the comment on ``bookmark_odata_feed``).
+EXPORT_HANDLERS = {
+    "cards.py": ["export_json", "export_csv"],
+    "workspace.py": ["export_workspace"],
+    "migration.py": ["export_workspace"],
+    "ops.py": ["ops_export"],
+}
+
+
+def _is_get_route(node: ast.AST) -> bool:
+    if not isinstance(node, ast.AsyncFunctionDef):
+        return False
+    for dec in node.decorator_list:
+        func = dec.func if isinstance(dec, ast.Call) else dec
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "get"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "router"
+        ):
+            return True
+    return False
+
+
+def _read_routes(module: str) -> dict[str, bool]:
+    """``{handler name: records?}`` for every GET route in ``module``."""
+    source = (_V1 / module).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    helpers = recording_helpers(tree, source) - {
+        node.name for node in tree.body if _is_get_route(node)
+    }
+    return {
+        node.name: records(ast.get_source_segment(source, node) or "", helpers)
+        for node in tree.body
+        if _is_get_route(node)
+    }
+
+
+def test_every_export_route_records():
+    unrecorded = []
+    for module, names in EXPORT_HANDLERS.items():
+        routes = _read_routes(module)
+        for name in names:
+            assert name in routes, f"{module}::{name} is no longer a GET route; update the list"
+            if not routes[name]:
+                unrecorded.append(f"{module}::{name}")
+    assert not unrecorded, (
+        "These export routes hand data out of the instance without an "
+        "access.export.* audit row — call app.services.audit_log.record (or a "
+        f"module helper that does) and commit before building the response: {unrecorded}"
+    )
+
+
+def test_export_records_name_the_access_category():
+    for module, names in EXPORT_HANDLERS.items():
+        source = (_V1 / module).read_text(encoding="utf-8")
+        assert re.search(r'action="access\.export\.(cards|workspace|migration)"', source), module
+
+
+def test_odata_feed_is_deliberately_not_recorded():
+    routes = _read_routes("bookmarks.py")
+    assert routes["bookmark_odata_feed"] is False
+    source = (_V1 / "bookmarks.py").read_text(encoding="utf-8")
+    assert "Deliberately not recorded in the audit log" in source
+
+
+def test_scan_sees_only_router_get_verb():
+    source = (
+        "@router.get('/x')\nasync def read(): ...\n"
+        "@router.post('/x')\nasync def write(): ...\n"
+        "@other.get('/x')\nasync def elsewhere(): ...\n"
+    )
+    tree = ast.parse(source)
+    assert [n.name for n in tree.body if _is_get_route(n)] == ["read"]
