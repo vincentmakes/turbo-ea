@@ -13,7 +13,9 @@ O **Relatório de Portfólio** exibe um **gráfico de bolhas** (ou gráfico de d
 - **Eixo X** — Selecione qualquer campo numérico ou de seleção (ex.: Adequação Técnica)
 - **Eixo Y** — Selecione qualquer campo numérico ou de seleção (ex.: Criticidade de Negócio)
 - **Tamanho da bolha** — Mapeie para um campo numérico (ex.: Custo Anual)
-- **Cor da bolha** — Mapeie para um campo de seleção ou estado do ciclo de vida
+- **Cor da bolha** — Mapeie para um campo de seleção, de seleção múltipla ou sim/não, ou para o estado do ciclo de vida
+
+**Colorir e filtrar por campos sim/não e de seleção múltipla** — Qualquer campo de seleção, de seleção múltipla ou sim/não do tipo de card pode colorir os cards e filtrá-los — aqui, no Portfólio flexível, no Mapa de capacidades (*Colorir aplicações por*), na visão por intervalo de datas do Relatório de ciclo de vida e no menu *Colorir por* de um diagrama. Um campo sim/não aparece como **Sim** e **Não**, um card com vários valores de um campo de seleção múltipla aparece como **Múltiplos**, e uma opção que um administrador deixou sem cor recebe uma cor própria na legenda em vez do cinza de *Não definido*. Os campos sim/não também podem agrupar os cards — aqui, na tabela do Relatório de custos e no [Inventário](inventory.md); um campo de seleção múltipla não, porque um card com dois valores pertenceria a dois grupos.
 
 Isso é ideal para análise de portfólio — plotando aplicações por valor de negócio versus adequação técnica, por exemplo, para identificar candidatos a investimento, substituição ou aposentadoria.
 

@@ -130,7 +130,7 @@
   "legend.applied_other": "{{count}} cellules colorées",
   "legend.reset": "Revenir aux couleurs de fiche",
   "legend.noValue": "Aucune valeur",
-  "legend.multiple": "Plusieurs",
+  "legend.multiple": "Multiples",
   "editor.errors.restoreEdgeFailed": "Impossible de restaurer le lien — les extrémités ne sont plus sur le canevas.",
   "editor.noChildren": "Cette fiche n'a pas d'enfants à explorer.",
   "editor.deleteRelation.title": "Supprimer la relation ?",

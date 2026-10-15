@@ -130,7 +130,7 @@
   "legend.applied_other": "{{count}} células coloridas",
   "legend.reset": "Restaurar cores do cartão",
   "legend.noValue": "Sem valor",
-  "legend.multiple": "Vários",
+  "legend.multiple": "Múltiplos",
   "editor.errors.restoreEdgeFailed": "Não foi possível restaurar a aresta — as extremidades já não estão na tela.",
   "editor.noChildren": "Este cartão não tem filhos para explorar.",
   "editor.deleteRelation.title": "Excluir a relação?",

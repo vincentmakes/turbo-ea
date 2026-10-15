@@ -130,7 +130,7 @@
   "legend.applied_other": "{{count}} celdas coloreadas",
   "legend.reset": "Restaurar colores de tarjeta",
   "legend.noValue": "Sin valor",
-  "legend.multiple": "Varios",
+  "legend.multiple": "Múltiples",
   "editor.errors.restoreEdgeFailed": "No se pudo restaurar el borde — los extremos ya no están en el lienzo.",
   "editor.noChildren": "Esta tarjeta no tiene hijos para explorar.",
   "editor.deleteRelation.title": "¿Eliminar la relación?",

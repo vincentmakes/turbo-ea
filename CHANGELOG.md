@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.164.0] - 2026-10-15
+
+### Added
+- **Yes/no and multi-select fields in reports and diagrams** ([#1256](https://github.com/vincentmakes/turbo-ea/issues/1256)): every yes/no and multi-select field (such as *Has AI Features*) can now colour and filter the Portfolio, Flexible Portfolio, Capability Map and Lifecycle reports and colour a diagram, and a yes/no field can group the Portfolio, the Cost Report table and the Inventory. A yes/no field shows as Yes / No, and a card with several values of a multi-select field is shown as Multiple.
+
+### Changed
+- A select option an administrator left without a colour now gets its own colour and a row in the legend, instead of looking like *Not set*.
+
+### Fixed
+- Sorting a report table by a yes/no column no longer fails.
+
 ## [2.163.0] - 2026-10-15
 
 ### Added

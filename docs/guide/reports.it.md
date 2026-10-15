@@ -13,7 +13,9 @@ Il **Report Portfolio** mostra un **grafico a bolle** (o scatter plot) configura
 - **Asse X** — Selezionate qualsiasi campo numerico o di selezione (es. Idoneità Tecnica)
 - **Asse Y** — Selezionate qualsiasi campo numerico o di selezione (es. Criticità Aziendale)
 - **Dimensione bolla** — Mappate su un campo numerico (es. Costo Annuale)
-- **Colore bolla** — Mappate su un campo di selezione o stato del ciclo di vita
+- **Colore bolla** — Mappate su un campo di selezione, a selezione multipla o sì/no, oppure sullo stato del ciclo di vita
+
+**Colorare e filtrare per campi sì/no e a selezione multipla** — Ogni campo di selezione, a selezione multipla o sì/no del tipo di card può colorare le card e filtrarle — qui, nel Portfolio flessibile, nella Mappa delle capability (*Colora applicazioni per*), nella vista per intervallo di date del Report del ciclo di vita e nel menu *Colora per* di un diagramma. Un campo sì/no appare come **Sì** e **No**, una card con più valori di un campo a selezione multipla appare come **Multipli**, e un'opzione che un amministratore ha lasciato senza colore riceve un colore proprio nella legenda invece del grigio di *Non impostato*. I campi sì/no possono anche raggruppare le card — qui, nella tabella del Report dei costi e nell'[Inventario](inventory.md); un campo a selezione multipla no, perché una card con due valori apparterrebbe a due gruppi.
 
 Questo è ideale per l'analisi del portfolio — ad esempio, posizionare le applicazioni per valore aziendale vs. idoneità tecnica per identificare candidati per investimento, sostituzione o ritiro.
 

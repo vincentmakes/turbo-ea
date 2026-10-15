@@ -13,7 +13,9 @@ El **Informe de Portafolio** muestra un **gráfico de burbujas** (o diagrama de 
 - **Eje X** — Seleccione cualquier campo numérico o de selección (por ejemplo, Idoneidad Técnica)
 - **Eje Y** — Seleccione cualquier campo numérico o de selección (por ejemplo, Criticidad de Negocio)
 - **Tamaño de burbuja** — Asigne a un campo numérico (por ejemplo, Costo Anual)
-- **Color de burbuja** — Asigne a un campo de selección o estado del ciclo de vida
+- **Color de burbuja** — Asigne a un campo de selección, de selección múltiple o de sí/no, o al estado del ciclo de vida
+
+**Colorear y filtrar por campos de sí/no y de selección múltiple** — Cualquier campo de selección, de selección múltiple o de sí/no del tipo de ficha puede colorear las fichas y filtrarlas — aquí, en el Portafolio flexible, en el Mapa de capacidades (*Colorear apps por*), en la vista por rango de fechas del Informe de ciclo de vida y en el menú *Colorear por* de un diagrama. Un campo de sí/no se muestra como **Sí** y **No**, una ficha con varios valores de un campo de selección múltiple aparece como **Múltiples**, y una opción que un administrador dejó sin color recibe un color propio en la leyenda en lugar del gris de *No definido*. Los campos de sí/no también pueden agrupar las fichas — aquí, en la tabla del Informe de costos y en el [Inventario](inventory.md); un campo de selección múltiple no, porque una ficha con dos valores pertenecería a dos grupos.
 
 Esto es ideal para el análisis de portafolio — por ejemplo, representar aplicaciones por valor de negocio vs. aptitud técnica para identificar candidatos para inversión, reemplazo o retiro.
 

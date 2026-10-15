@@ -13,7 +13,9 @@ Der **Portfoliobericht** zeigt ein konfigurierbares **Blasendiagramm** (oder Str
 - **X-Achse** — Ein beliebiges numerisches oder Auswahlfeld wählen (z.B. Technische Eignung)
 - **Y-Achse** — Ein beliebiges numerisches oder Auswahlfeld wählen (z.B. Geschäftskritikalität)
 - **Blasengröße** — Einem numerischen Feld zuordnen (z.B. Jährliche Kosten)
-- **Blasenfarbe** — Einem Auswahlfeld oder Lebenszyklusstatus zuordnen
+- **Blasenfarbe** — Einem Auswahl-, Mehrfachauswahl- oder Ja/Nein-Feld oder dem Lebenszyklusstatus zuordnen
+
+**Färben und Filtern nach Ja/Nein- und Mehrfachauswahlfeldern** — Jedes Auswahl-, Mehrfachauswahl- und Ja/Nein-Feld des Kartentyps kann die Karten färben und filtern — hier, im Flexiblen Portfolio, in der Fähigkeitenkarte (*Apps einfärben nach*), in der Datumsbereichsansicht des Lebenszyklusberichts und im Menü *Färben nach* eines Diagramms. Ein Ja/Nein-Feld erscheint als **Ja** und **Nein**, eine Karte mit mehreren Werten eines Mehrfachauswahlfelds als **Mehrere**, und eine Option, der ein Administrator keine Farbe gegeben hat, erhält in der Legende eine eigene Farbe statt des Graus von *Nicht gesetzt*. Ja/Nein-Felder können die Karten auch gruppieren — hier, in der Tabelle des Kostenberichts und im [Inventar](inventory.md); ein Mehrfachauswahlfeld nicht, weil eine Karte mit zwei Werten zu zwei Gruppen gehören würde.
 
 Dies ist ideal für Portfolioanalysen — zum Beispiel Anwendungen nach Geschäftswert vs. technischer Eignung aufzutragen, um Kandidaten für Investition, Ablösung oder Stilllegung zu identifizieren.
 

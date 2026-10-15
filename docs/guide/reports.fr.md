@@ -13,7 +13,9 @@ Le **Rapport Portefeuille** affiche un **graphique à bulles** (ou nuage de poin
 - **Axe X** -- Sélectionnez n'importe quel champ numérique ou de sélection (par ex. Adéquation Technique)
 - **Axe Y** -- Sélectionnez n'importe quel champ numérique ou de sélection (par ex. Criticité Métier)
 - **Taille de la bulle** -- Associer à un champ numérique (par ex. Coût Annuel)
-- **Couleur de la bulle** -- Associer à un champ de sélection ou à l'état du cycle de vie
+- **Couleur de la bulle** -- Associer à un champ de sélection, de sélection multiple ou oui/non, ou à l'état du cycle de vie
+
+**Colorer et filtrer par des champs oui/non et à sélection multiple** -- Tout champ de sélection, de sélection multiple ou oui/non du type de fiche peut colorer les fiches et les filtrer -- ici, dans le Portefeuille flexible, dans la carte des capacités (*Colorier les applications par*), dans la vue par plage de dates du rapport de cycle de vie et dans le menu *Colorer par* d'un diagramme. Un champ oui/non s'affiche en **Oui** et **Non**, une fiche portant plusieurs valeurs d'un champ à sélection multiple apparaît comme **Multiples**, et une option qu'un administrateur a laissée sans couleur reçoit sa propre couleur dans la légende au lieu du gris de *Non défini*. Les champs oui/non peuvent aussi regrouper les fiches -- ici, dans le tableau du rapport de coûts et dans l'[inventaire](inventory.md) ; un champ à sélection multiple ne le peut pas, car une fiche à deux valeurs appartiendrait à deux groupes.
 
 C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les applications par valeur métier vs adéquation technique pour identifier les candidats à l'investissement, au remplacement ou au retrait.
 

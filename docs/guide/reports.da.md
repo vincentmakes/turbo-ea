@@ -13,7 +13,9 @@ Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det m
 - **X-akse** — Vælg et hvilket som helst numerisk eller select-felt (f.eks. Technical Suitability)
 - **Y-akse** — Vælg et hvilket som helst numerisk eller select-felt (f.eks. Business Criticality)
 - **Boblestørrelse** — Tildel et numerisk felt (f.eks. Annual Cost)
-- **Boblefarve** — Tildel et select-felt eller livscyklus­tilstand
+- **Boblefarve** — Tildel et select-, multi-select- eller ja/nej-felt eller livscyklus­tilstanden
+
+**Farvning og filtrering efter ja/nej- og multi-select-felter** — Ethvert select-, multi-select- og ja/nej-felt på korttypen kan farve kortene og filtrere dem — her, i den fleksible portefølje, på kapabilitetskortet (*Farvelæg apps efter*), i livscyklusrapportens datointervalvisning og i et diagrams *Farvelæg efter*-menu. Et ja/nej-felt vises som **Ja** og **Nej**, et kort med flere værdier i et multi-select-felt vises som **Flere**, og en mulighed, som en administrator har ladet være uden farve, får sin egen farve i forklaringen i stedet for gråtonen for *Ikke angivet*. Ja/nej-felter kan også gruppere kortene — her, i tabellen i omkostningsrapporten og i [inventaret](inventory.md); et multi-select-felt kan ikke, fordi et kort med to værdier ville høre til to grupper.
 
 Dette er ideelt til porteføljeanalyse — for eksempel at plotte applikationer efter forretningsværdi vs. teknisk egnethed for at identificere kandidater til investering, udskiftning eller pensionering.
 
