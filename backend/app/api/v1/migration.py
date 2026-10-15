@@ -761,9 +761,11 @@ async def update_field_mappings(
         category="admin",
         actor=user,
         target=_audit_target(m),
+        # ``context`` holds the plain values, so the top level stays old/new
+        # pairs the Security log renders as a table.
         details={
-            "types": sorted(cleaned),
             "mapped_fields": {"old": old_mapped, "new": _mapped_field_count(cleaned)},
+            "context": {"types": sorted(cleaned)},
         },
     )
     await db.commit()

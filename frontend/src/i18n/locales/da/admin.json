@@ -2136,6 +2136,7 @@
   "securityLog.entry.old": "Før",
   "securityLog.entry.new": "Efter",
   "securityLog.entry.noDetails": "Ingen yderligere detaljer registreret.",
+  "securityLog.entry.context": "Kontekst",
   "securityLog.entry.reason": "Årsag",
   "users.create.passwordOptionalLocalHelperText": "Lad feltet være tomt, så brugeren selv angiver adgangskoden ved første login.",
   "extensions.intro": "Tilføj kundespecifikke funktioner uden at ændre kernen. Installer leverandørsignerede udvidelser med ét klik fra den indbyggede Butik, eller upload udvidelses- og licensfilerne direkte — det filbaserede flow kræver ingen forbindelse til Butikken, så alt fungerer stadig på isolerede (air-gapped) installationer.",

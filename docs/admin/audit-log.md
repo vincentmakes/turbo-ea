@@ -72,6 +72,8 @@ A search for an email address matches the actor, the subject and the target, so 
 
 Click a row to open the entry drawer. It shows every field of the entry, including the browser's user agent and the **details** recorded with it — the reason code of a failed sign-in, the time a lockout ends, the identity provider of an SSO sign-in. Where an entry records a change, the details are shown as a table of old and new values. Secrets are never stored: a password, token or client secret is replaced with `***` before the entry is written.
 
+Facts that frame a change without being part of it — a portal's current address and whether it is published, whether a connection's credentials were replaced, the types a migration mapping covers — are listed under **Context** beneath the table.
+
 The drawer has no actions. Entries cannot be edited or deleted.
 
 ### Export CSV
@@ -133,6 +135,8 @@ Every change an administrator makes to how the instance is configured is recorde
 
 - **Secrets are masked.** An SMTP password, an SSO client secret, an AI provider key, a ServiceNow credential or any other secret value is written as `***`: the entry shows that it changed, never what it was or what it became.
 - **No license text or credential is ever stored.** An extension license is identified, not copied, and a password an administrator sets for a user is recorded as changed, never with its value.
+
+A save that changes nothing is not recorded, and neither is a user editing their own name or language in their profile. Large configuration — a card type's fields, translations or layout, a portal's filters — is summarised by its size rather than copied; when the size did not change, a short fingerprint of the content is added, so the entry still shows that something changed. A card type's per-role permission overrides are the exception: each cell that changed is listed with its old and new value, an empty value meaning the role's own permission applies.
 
 | Area | Actions | What is recorded |
 |------|---------|------------------|

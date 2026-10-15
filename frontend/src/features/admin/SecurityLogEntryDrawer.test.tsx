@@ -24,7 +24,7 @@ vi.mock("@/hooks/useDateFormat", async () => {
 });
 
 import SecurityLogEntryDrawer, { formatDetailValue } from "./SecurityLogEntryDrawer";
-import { isFieldDiff, type SecurityLogEntry } from "./SecurityLogTypes";
+import { isFieldDiff, splitDetails, type SecurityLogEntry } from "./SecurityLogTypes";
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`admin:${key}`, opts) as string;
 const EMPTY = "—";
@@ -150,6 +150,69 @@ describe("SecurityLogEntryDrawer", () => {
     expect(screen.getByText(t("securityLog.entry.noDetails"))).toBeInTheDocument();
   });
 
+  it("renders the diff pairs as the table and `context` beneath it as a list", () => {
+    renderDrawer(
+      entry({
+        category: "admin",
+        action: "admin.web_portal.updated",
+        outcome: "success",
+        details: {
+          is_published: { old: true, new: false },
+          filters: { old: "12 bytes · a1b2c3d4", new: "12 bytes · e5f6a7b8" },
+          context: { slug: "app-catalog", is_published: false },
+        },
+      }),
+    );
+    const table = screen.getByTestId("security-details-diff");
+    expect(within(table).getByText("is_published")).toBeInTheDocument();
+    expect(within(table).getByText("filters")).toBeInTheDocument();
+    expect(within(table).getByText("12 bytes · e5f6a7b8")).toBeInTheDocument();
+    // `context` is not a row of the table.
+    expect(within(table).queryByText("context")).not.toBeInTheDocument();
+    expect(within(table).queryByText("app-catalog")).not.toBeInTheDocument();
+
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText(t("securityLog.entry.context"))).toBeInTheDocument();
+    expect(within(ctx).getByText("slug")).toBeInTheDocument();
+    expect(within(ctx).getByText("app-catalog")).toBeInTheDocument();
+    expect(within(ctx).getByText("is_published")).toBeInTheDocument();
+    expect(within(ctx).getByText("false")).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
+  });
+
+  it("renders `context` alone when there is no diff", () => {
+    renderDrawer(entry({ details: { context: { credentials_changed: false } } }));
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText("credentials_changed")).toBeInTheDocument();
+    expect(within(ctx).getByText("false")).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
+  });
+
+  it("reads an empty `context` and nothing else as no details", () => {
+    renderDrawer(entry({ details: { reason: "x", context: {} } }));
+    expect(screen.getByText(t("securityLog.entry.noDetails"))).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-context")).not.toBeInTheDocument();
+  });
+
+  it("falls back to JSON, context included, when the rest is not a diff", () => {
+    const details = { count: 2, context: { slug: "x" } };
+    renderDrawer(entry({ details }));
+    expect(screen.getByTestId("security-details-json").textContent).toBe(
+      JSON.stringify(details, null, 2),
+    );
+    expect(screen.queryByTestId("security-details-context")).not.toBeInTheDocument();
+  });
+
+  it("falls back to JSON when `context` is not an object", () => {
+    const details = { a: { old: 1, new: 2 }, context: ["x"] };
+    renderDrawer(entry({ details }));
+    expect(screen.getByTestId("security-details-json").textContent).toBe(
+      JSON.stringify(details, null, 2),
+    );
+    expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
+  });
+
   it("ignores a non-string reason", () => {
     renderDrawer(entry({ details: { reason: 42 } }));
     expect(screen.queryByTestId("security-reason")).not.toBeInTheDocument();
@@ -172,6 +235,24 @@ describe("formatDetailValue", () => {
     [{ a: 1 }, '{"a":1}'],
   ])("%j → %s", (v, out) => {
     expect(formatDetailValue(v)).toBe(out);
+  });
+});
+
+describe("splitDetails", () => {
+  it("splits a plain-object `context` from the pairs", () => {
+    expect(splitDetails({ a: { old: 1, new: 2 }, context: { slug: "s" } })).toEqual({
+      pairs: { a: { old: 1, new: 2 } },
+      context: { slug: "s" },
+    });
+  });
+
+  it.each([[null], [["x"]], ["text"], [3]])("keeps a non-object context %j with the rest", (c) => {
+    const rest = { a: { old: 1, new: 2 }, context: c };
+    expect(splitDetails(rest)).toEqual({ pairs: rest, context: null });
+  });
+
+  it("returns no context when there is none", () => {
+    expect(splitDetails({ a: 1 })).toEqual({ pairs: { a: 1 }, context: null });
   });
 });
 

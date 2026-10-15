@@ -126,15 +126,33 @@ class TestEachKindOfSetting:
         _setting(row, "bpm-enabled", env)
         assert row.details == {"value": {"old": True, "new": False}}
 
-    async def test_unchanged_save_records_an_empty_diff(self, client, db, env):
+    async def test_unchanged_save_records_nothing(self, client, db, env):
         resp = await client.patch(
             "/api/v1/settings/currency", json={"currency": "USD"}, headers=env["h"]
         )
         assert resp.status_code == 200
+        assert await _rows(db) == []
+
+    async def test_unchanged_structured_save_records_nothing(self, client, db, env):
+        resp = await client.patch(
+            "/api/v1/settings/navbar-style",
+            json={"navbar_bg": "#1a1a2e", "navbar_fg": "#ffffff"},
+            headers=env["h"],
+        )
+        assert resp.status_code == 200
+        assert await _rows(db) == []
+
+    async def test_a_changed_save_after_a_no_op_is_recorded(self, client, db, env):
+        """The no-op skip is per save, not a latch."""
+        for currency in ("USD", "EUR"):
+            resp = await client.patch(
+                "/api/v1/settings/currency", json={"currency": currency}, headers=env["h"]
+            )
+            assert resp.status_code == 200
 
         [row] = await _rows(db)
         _setting(row, "currency", env)
-        assert row.details == {}
+        assert row.details == {"value": {"old": "USD", "new": "EUR"}}
 
     async def test_audit_log_retention_change_is_itself_recorded(self, client, db, env):
         resp = await client.patch(

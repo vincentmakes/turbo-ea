@@ -72,6 +72,8 @@ Eine Suche nach einer E-Mail-Adresse trifft Akteur, betroffenes Konto und Ziel, 
 
 Klicken Sie auf eine Zeile, um die Eintragsleiste zu öffnen. Sie zeigt jedes Feld des Eintrags, einschließlich des User-Agents des Browsers und der mit ihm aufgezeichneten **Details** — den Grundcode einer fehlgeschlagenen Anmeldung, den Zeitpunkt, zu dem eine Sperre endet, den Identitätsanbieter einer SSO-Anmeldung. Zeichnet ein Eintrag eine Änderung auf, erscheinen die Details als Tabelle mit alten und neuen Werten. Geheimnisse werden nie gespeichert: Ein Passwort, Token oder Client-Secret wird vor dem Schreiben des Eintrags durch `***` ersetzt.
 
+Angaben, die eine Änderung einordnen, ohne Teil von ihr zu sein — die aktuelle Adresse eines Portals und ob es veröffentlicht ist, ob die Zugangsdaten einer Verbindung ersetzt wurden, die Typen, die eine Migrationszuordnung abdeckt —, stehen unter **Kontext** unterhalb der Tabelle.
+
 Die Leiste bietet keine Aktionen. Einträge können weder bearbeitet noch gelöscht werden.
 
 ### CSV exportieren
@@ -133,6 +135,8 @@ Jede Änderung, die ein Administrator an der Konfiguration der Instanz vornimmt,
 
 - **Geheimnisse werden maskiert.** Ein SMTP-Passwort, ein SSO-Client-Secret, ein KI-Anbieterschlüssel, ein ServiceNow-Zugangsdatum oder jeder andere geheime Wert wird als `***` geschrieben: Der Eintrag zeigt, dass er sich geändert hat, aber nie, was er war oder geworden ist.
 - **Weder Lizenztext noch Zugangsdaten werden gespeichert.** Eine Erweiterungslizenz wird identifiziert, nicht kopiert, und ein Passwort, das ein Administrator für einen Benutzer setzt, wird als geändert erfasst, nie mit seinem Wert.
+
+Eine Speicherung, die nichts ändert, wird nicht erfasst, ebenso wenig wie ein Benutzer, der in seinem Profil den eigenen Namen oder die eigene Sprache ändert. Umfangreiche Konfiguration — die Felder, Übersetzungen oder das Layout eines Kartentyps, die Filter eines Portals — wird nach ihrer Größe zusammengefasst statt kopiert; ist die Größe gleich geblieben, kommt ein kurzer Fingerabdruck des Inhalts hinzu, sodass der Eintrag dennoch zeigt, dass sich etwas geändert hat. Die rollenbezogenen Berechtigungsüberschreibungen eines Kartentyps sind die Ausnahme: Jede geänderte Zelle wird mit altem und neuem Wert aufgeführt, wobei ein leerer Wert bedeutet, dass die eigene Berechtigung der Rolle gilt.
 
 | Bereich | Aktionen | Was erfasst wird |
 |------|---------|------------------|

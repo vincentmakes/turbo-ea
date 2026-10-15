@@ -2136,6 +2136,7 @@
   "securityLog.entry.old": "之前",
   "securityLog.entry.new": "之后",
   "securityLog.entry.noDetails": "未记录更多详情。",
+  "securityLog.entry.context": "上下文",
   "securityLog.entry.reason": "原因",
   "users.create.passwordOptionalLocalHelperText": "留空以让用户在首次登录时自行设置密码。",
   "extensions.intro": "在不更改核心的情况下添加客户专属功能。可从内置商店一键安装由供应商签名的扩展，也可直接上传扩展文件和许可证文件——基于文件的方式无需连接商店，因此在隔离（air-gapped）环境中同样可用。",

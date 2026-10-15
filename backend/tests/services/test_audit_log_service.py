@@ -382,6 +382,89 @@ def test_diff_of_equal_values_is_empty():
 # ── retention ─────────────────────────────────────────────────────────────
 
 
+def test_permission_changes_keeps_only_changed_keys():
+    assert audit_log.permission_changes(
+        {"a": True, "b": True, "c": False}, {"a": True, "b": False, "d": True}
+    ) == {"old": {"b": True, "d": False}, "new": {"b": False, "d": True}}
+
+
+def test_permission_changes_reads_an_absent_key_as_false():
+    assert audit_log.permission_changes({}, {"a": False}) == {}
+    assert audit_log.permission_changes(None, None) == {}
+    assert audit_log.permission_changes({"a": True}, None) == {
+        "old": {"a": True},
+        "new": {"a": False},
+    }
+
+
+def test_permission_changes_sorts_the_changed_keys():
+    result = audit_log.permission_changes({"z": True, "a": True}, {})
+    assert list(result["old"]) == ["a", "z"]
+    assert list(result["new"]) == ["a", "z"]
+
+
+def test_permission_changes_with_absent_none_tells_inherit_from_deny():
+    # A card type's override cells: absent inherits, False denies.
+    assert audit_log.permission_changes({"inventory.view": False}, {}, absent=None) == {
+        "old": {"inventory.view": False},
+        "new": {"inventory.view": None},
+    }
+    assert audit_log.permission_changes({}, {"inventory.view": False}, absent=None) == {
+        "old": {"inventory.view": None},
+        "new": {"inventory.view": False},
+    }
+    assert audit_log.permission_changes(None, {}, absent=None) == {}
+
+
+def test_canonical_json_ignores_key_order():
+    assert audit_log.canonical_json({"b": 1, "a": [1, 2]}) == audit_log.canonical_json(
+        {"a": [1, 2], "b": 1}
+    )
+    assert audit_log.canonical_json({"a": 1}) == '{"a": 1}'
+
+
+def test_fingerprint_is_eight_hex_chars_of_the_canonical_sha256():
+    import hashlib
+
+    value = {"b": 2, "a": 1}
+    expected = hashlib.sha256(b'{"a": 1, "b": 2}').hexdigest()[:8]
+    assert audit_log.fingerprint(value) == expected
+    assert audit_log.fingerprint({"a": 1, "b": 2}) == expected
+    assert audit_log.fingerprint({"a": 1, "b": 3}) != expected
+
+
+def _count(value):
+    return len(value) if isinstance(value, (list, dict)) else 0
+
+
+def test_summarised_change_is_none_for_identical_content():
+    assert audit_log.summarised_change({"a": 1, "b": 2}, {"b": 2, "a": 1}, measure=_count) is None
+    assert audit_log.summarised_change(None, None, measure=_count) is None
+
+
+def test_summarised_change_reports_sizes_when_they_differ():
+    assert audit_log.summarised_change([1], [1, 2], measure=_count) == {"old": 1, "new": 2}
+
+
+def test_summarised_change_fingerprints_an_equal_size_change():
+    old = {"label": {"de": "Gerat"}}
+    new = {"label": {"de": "Gerät"}}
+    result = audit_log.summarised_change(old, new, measure=_count)
+    assert result == {
+        "old": f"1 item · {audit_log.fingerprint(old)}",
+        "new": f"1 item · {audit_log.fingerprint(new)}",
+    }
+    assert result["old"] != result["new"]
+
+
+def test_summarised_change_pluralises_its_unit():
+    result = audit_log.summarised_change("ab", "cd", measure=len, unit="byte")
+    assert result is not None
+    assert result["old"].startswith("2 bytes · ")
+    zero = audit_log.summarised_change(None, {}, measure=_count)
+    assert zero is not None and zero["old"].startswith("0 items · ")
+
+
 def test_retention_defaults_and_bounds():
     assert audit_log.DEFAULT_RETENTION_DAYS == 365
     assert audit_log.MAX_RETENTION_DAYS == 3650

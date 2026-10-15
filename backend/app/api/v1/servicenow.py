@@ -507,7 +507,9 @@ async def update_connection(
         category="admin",
         actor=user,
         target=_connection_target(conn),
-        details={**changes, "credentials_changed": existing_creds != creds_before},
+        # Whether the credentials moved is context, never a value: they are
+        # not diffed, and ``context`` keeps the top level old/new pairs only.
+        details={**changes, "context": {"credentials_changed": existing_creds != creds_before}},
     )
     await db.commit()
     await db.refresh(conn)

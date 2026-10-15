@@ -123,36 +123,13 @@ def _role_response(role: Role, user_count: int | None = None, *, full: bool = Tr
 ROLE_AUDIT_FIELDS = ("label", "color", "permissions", "is_default", "sort_order")
 
 
-def permission_changes(
-    old: dict[str, bool] | None, new: dict[str, bool] | None
-) -> dict[str, dict[str, bool]]:
-    """``{"old": {...}, "new": {...}}`` restricted to the permission keys that changed.
-
-    A role's matrix has ~70 keys; an audit row that copied it whole on every
-    save would bury the one flag that moved. An absent key reads as ``False``
-    (that is how ``PermissionService`` evaluates it), so adding a key as
-    ``False`` is not a change. Empty when nothing changed.
-    """
-    old = old or {}
-    new = new or {}
-    changed = sorted(
-        k for k in set(old) | set(new) if bool(old.get(k, False)) != bool(new.get(k, False))
-    )
-    if not changed:
-        return {}
-    return {
-        "old": {k: bool(old.get(k, False)) for k in changed},
-        "new": {k: bool(new.get(k, False)) for k in changed},
-    }
-
-
 def role_changes(before: dict, after: dict) -> dict:
     """The ``details`` of an ``admin.role.updated`` row: a ``diff`` of the role's
     audited fields, with ``permissions`` narrowed to the keys that changed."""
     changes = audit_log.diff(
         before, after, keys=[k for k in ROLE_AUDIT_FIELDS if k != "permissions"]
     )
-    perms = permission_changes(before.get("permissions"), after.get("permissions"))
+    perms = audit_log.permission_changes(before.get("permissions"), after.get("permissions"))
     if perms:
         changes["permissions"] = perms
     return changes
@@ -328,8 +305,18 @@ async def update_role(
         existing_defaults = await db.execute(
             select(Role).where(Role.is_default == True, Role.key != key)  # noqa: E712
         )
+        # Only one role can be the default, so promoting this one demotes the
+        # others — each demotion is a change to that role and gets its own row.
         for r in existing_defaults.scalars().all():
             r.is_default = False
+            await audit_log.record(
+                db,
+                action="admin.role.updated",
+                category="admin",
+                actor=user,
+                target=_role_target(r),
+                details={"is_default": {"old": True, "new": False}},
+            )
 
     before = _role_snapshot(role)
     for field, value in data.items():

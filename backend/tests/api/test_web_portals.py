@@ -301,17 +301,68 @@ class TestPortalAudit:
         assert created.details["access_mode"] == "public"
 
         assert updated.action == "admin.web_portal.updated"
-        assert updated.details["slug"] == "app-catalog"
+        # The current slug and publication state ride along as ``context``,
+        # beside — never mixed into — the old/new pairs.
+        assert updated.details["context"] == {"slug": "app-catalog", "is_published": False}
+        assert "slug" not in updated.details
         assert updated.details["is_published"] == {"old": True, "new": False}
         # A configuration blob is summarised by size, not stored.
         assert set(updated.details["filters"]) == {"old", "new"}
         assert isinstance(updated.details["filters"]["new"], int)
+        assert all(set(v) == {"old", "new"} for k, v in updated.details.items() if k != "context")
 
         assert deleted.action == "admin.web_portal.deleted"
         assert deleted.details == {
             "slug": "app-catalog",
             "is_published": False,
             "access_mode": "public",
+        }
+
+    async def test_same_size_blob_change_carries_a_fingerprint(self, client, db, portals_env):
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Catalog",
+                "slug": "catalog",
+                "card_type": "Application",
+                "description": "Teh catalog",
+            },
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"description": "The catalog"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        old, new = updated.details["description"]["old"], updated.details["description"]["new"]
+        assert old.startswith("11 bytes · ") and new.startswith("11 bytes · ")
+        assert old != new
+        assert "catalog" not in old + new
+
+    async def test_unchanged_blob_is_not_reported(self, client, db, portals_env):
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "Catalog", "slug": "catalog", "card_type": "Application"},
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"name": "Catalogue", "filters": resp.json()["filters"]},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert updated.details == {
+            "name": {"old": "Catalog", "new": "Catalogue"},
+            "context": {"slug": "catalog", "is_published": False},
         }
 
     async def test_viewer_is_refused_and_nothing_is_recorded(self, client, db, portals_env):

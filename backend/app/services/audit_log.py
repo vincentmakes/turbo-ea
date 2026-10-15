@@ -43,11 +43,12 @@ Rules for callers:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -187,6 +188,81 @@ def diff(old: Any, new: Any, *, keys: Iterable[str] | None = None) -> dict[str, 
         if before != after:
             changes[key] = {"old": before, "new": after}
     return changes
+
+
+def permission_changes(
+    old: Mapping[str, Any] | None,
+    new: Mapping[str, Any] | None,
+    *,
+    absent: bool | None = False,
+) -> dict[str, dict[str, bool | None]]:
+    """``{"old": {...}, "new": {...}}`` restricted to the permission keys that changed.
+
+    A role's matrix has ~70 keys; an audit row that copied it whole on every
+    save would bury the one flag that moved. By default an absent key reads as
+    ``False`` (that is how ``PermissionService`` evaluates a role), so adding a
+    key as ``False`` is not a change. A map where absence means something else
+    passes ``absent=None``: a card type's per-role override cells, where an
+    absent cell *inherits* the role's grant and an explicit ``False`` denies, so
+    Deny → inherit must read ``False → None``, never ``False → False``. Empty
+    when nothing changed.
+    """
+    old = old or {}
+    new = new or {}
+
+    def read(source: Mapping[str, Any], key: str) -> bool | None:
+        return bool(source[key]) if key in source else absent
+
+    changed = sorted(k for k in set(old) | set(new) if read(old, k) != read(new, k))
+    if not changed:
+        return {}
+    return {
+        "old": {k: read(old, k) for k in changed},
+        "new": {k: read(new, k) for k in changed},
+    }
+
+
+def canonical_json(value: Any) -> str:
+    """``value`` as JSON with sorted keys: two values with the same content
+    always serialise the same, whatever their key order."""
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def fingerprint(value: Any) -> str:
+    """The first 8 hex characters of the SHA-256 of ``canonical_json(value)``.
+
+    Not a security measure: it lets a summarised audit entry show that a value
+    changed even when its size did not (a typo fixed in a translation)."""
+    return hashlib.sha256(canonical_json(value).encode()).hexdigest()[:8]
+
+
+def _plural(count: int, unit: str) -> str:
+    return f"{count} {unit}" if count == 1 else f"{count} {unit}s"
+
+
+def summarised_change(
+    old: Any,
+    new: Any,
+    *,
+    measure: Callable[[Any], int],
+    unit: str = "item",
+) -> dict[str, Any] | None:
+    """A compact ``{"old", "new"}`` for a value too large to store whole.
+
+    ``None`` when the two have the same content (``canonical_json`` equal), so
+    the caller drops the field. Otherwise each side is its size by ``measure``
+    — and when the sizes are equal, which would read as "nothing changed", the
+    size *plus a content fingerprint*: ``"9 items · a1b2c3d4"``.
+    """
+    if canonical_json(old) == canonical_json(new):
+        return None
+    before, after = measure(old), measure(new)
+    if before != after:
+        return {"old": before, "new": after}
+    return {
+        "old": f"{_plural(before, unit)} · {fingerprint(old)}",
+        "new": f"{_plural(after, unit)} · {fingerprint(new)}",
+    }
 
 
 def validate(category: str, outcome: str, action: str) -> None:

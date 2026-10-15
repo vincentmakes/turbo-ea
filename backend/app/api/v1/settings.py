@@ -195,14 +195,20 @@ async def _audit_setting(
     Called by every mutating handler in this module before its commit; the
     guard test ``tests/services/test_audit_log_guard.py`` counts a call to this
     helper as the handler's audit record. Never commits.
+
+    A save that changed nothing (the same value re-sent) records nothing:
+    "nothing changed" is not an audit event. ``record`` redacts the details.
     """
+    changes = setting_changes(old, new)
+    if not changes:
+        return
     await audit_log.record(
         db,
         action=action,
         category="admin",
         actor=user,
         target=("setting", key, key),
-        details=audit_log.redact(setting_changes(old, new)),
+        details=changes,
     )
 
 

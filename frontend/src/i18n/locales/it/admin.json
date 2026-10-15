@@ -2136,6 +2136,7 @@
   "securityLog.entry.old": "Prima",
   "securityLog.entry.new": "Dopo",
   "securityLog.entry.noDetails": "Nessun altro dettaglio registrato.",
+  "securityLog.entry.context": "Contesto",
   "securityLog.entry.reason": "Motivo",
   "users.create.passwordOptionalLocalHelperText": "Lascia vuoto per consentire all'utente di impostare la password al primo accesso.",
   "extensions.intro": "Aggiungi funzionalità specifiche del cliente senza modificare il core. Installa con un clic le estensioni firmate dal fornitore dallo Store integrato, oppure carica direttamente i file dell'estensione e della licenza — il flusso basato su file non richiede alcuna connessione allo Store, quindi tutto funziona anche su istanze isolate (air-gapped).",

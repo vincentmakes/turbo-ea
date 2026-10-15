@@ -2136,6 +2136,7 @@
   "securityLog.entry.old": "Antes",
   "securityLog.entry.new": "Después",
   "securityLog.entry.noDetails": "No se registraron más detalles.",
+  "securityLog.entry.context": "Contexto",
   "securityLog.entry.reason": "Motivo",
   "users.create.passwordOptionalLocalHelperText": "Déjalo en blanco para que el usuario establezca su contraseña en el primer inicio de sesión.",
   "extensions.intro": "Añada capacidades específicas del cliente sin cambiar el núcleo. Instale extensiones firmadas por el proveedor con un solo clic desde la Tienda integrada, o suba directamente los archivos de extensión y de licencia: el flujo basado en archivos no necesita conexión con la Tienda, por lo que todo sigue funcionando en instancias aisladas (air-gapped).",
