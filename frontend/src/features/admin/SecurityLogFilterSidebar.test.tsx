@@ -150,12 +150,13 @@ describe("filters tab", () => {
     expect(lastFilters(onFiltersChange).outcome).toBe("success");
   });
 
-  it("lists actions by translated label, with the raw key as secondary text", async () => {
+  it("lists actions by translated label only, falling back to the key", async () => {
     const { user, onFiltersChange } = setup();
     const label = t("securityLog.actionLabels.auth_login_failed");
     expect(screen.getByText(label)).toBeInTheDocument();
-    expect(screen.getByText("auth.login.failed")).toBeInTheDocument();
-    // An action with no label shows its key once, not twice.
+    // The stored key stays in the drawer and the CSV; the row shows the label alone.
+    expect(screen.queryByText("auth.login.failed")).not.toBeInTheDocument();
+    // An action with no label shows its key as the label, once.
     expect(screen.getAllByText("zz.unknown")).toHaveLength(1);
 
     await user.click(screen.getByText(label));
