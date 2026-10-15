@@ -549,7 +549,6 @@ export default function SecurityLogFilterSidebar({
                     items={actionItems.map((a) => ({
                       key: a.id,
                       label: a.label,
-                      secondary: a.label === a.id ? undefined : a.id,
                       icon: "bolt",
                       color: categoryColor(a.id.split(".")[0]),
                       checked: filters.action === a.id,
