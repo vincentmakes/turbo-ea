@@ -16,7 +16,7 @@ from app.services.extensions import sdk
 
 
 def test_sdk_version_is_current():
-    assert sdk.SDK_VERSION == "1.15"
+    assert sdk.SDK_VERSION == "1.16"
 
 
 def test_sdk_reexports_route_dependencies_verbatim():
@@ -207,13 +207,15 @@ def test_sdk_compatibility_is_major_only():
     assert sdk.sdk_compatible("1.13")
     assert sdk.sdk_compatible("1.14")
     assert sdk.sdk_compatible("1.15")
+    assert sdk.sdk_compatible("1.16")
     assert not sdk.sdk_compatible("2.0")
 
 
 def test_sdk_minor_newer_truth_table():
     # Newer minor on the same major → warn (still loads).
-    assert sdk.sdk_minor_newer("1.16")
+    assert sdk.sdk_minor_newer("1.17")
     # Same or older minor → no warning.
+    assert not sdk.sdk_minor_newer("1.16")
     assert not sdk.sdk_minor_newer("1.15")
     assert not sdk.sdk_minor_newer("1.14")
     assert not sdk.sdk_minor_newer("1.13")
@@ -475,8 +477,16 @@ def test_sdk_1_14_surface_exists():
         "requests",
         "targets",
     }
-    for name in ("get", "preview", "send"):
+    for name in ("get", "preview", "send", "list_surveys", "pending_responses"):
         assert callable(getattr(sdk.SurveysBridge, name))
+    # 1.16: the pending-request read model — ids and the request time only.
+    assert {f.name for f in dataclasses.fields(sdk.ExtSurveyResponse)} == {
+        "survey_id",
+        "card_id",
+        "user_id",
+        "status",
+        "requested_at",
+    }
     for name in ("close", "update", "delete", "apply"):
         assert not hasattr(sdk.SurveysBridge, name)
 

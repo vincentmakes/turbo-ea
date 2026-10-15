@@ -30,6 +30,7 @@ from app.services.extensions.sdk import (
     ExtensionPermissionError,
     ExtSurvey,
     ExtSurveyPreview,
+    ExtSurveyResponse,
 )
 from app.services.extensions.surveys_bridge import ExtensionSurveys
 from tests.conftest import create_card, create_card_type, create_stakeholder_role_def, create_user
@@ -355,3 +356,226 @@ class TestBatchJoin:
         load_registry(grants=["core.surveys.read"])
         assert await ExtensionSurveys(KEY).get("nope") is None
         assert await ExtensionSurveys(KEY).get(str(uuid.uuid4())) is None
+
+
+# -- SDK 1.16: survey reads -----------------------------------------------------
+
+
+async def _survey(db, *, name, status="active", target_type="Application", sent_at=None, **kw):
+    survey = Survey(
+        name=name,
+        status=status,
+        target_type_key=target_type,
+        target_filters=kw.pop("target_filters", {}),
+        target_roles=["responsible"],
+        fields=[],
+        sent_at=sent_at,
+        **kw,
+    )
+    db.add(survey)
+    await db.flush()
+    return survey
+
+
+async def _request(db, survey, card, user, *, status="pending", created_at=None):
+    row = SurveyResponse(survey_id=survey.id, card_id=card.id, user_id=user.id, status=status)
+    if created_at is not None:
+        row.created_at = created_at
+    db.add(row)
+    await db.flush()
+    return row
+
+
+@pytest.fixture
+async def surveyed(db, env):
+    """Two active Application surveys, one closed, one draft, one Interface
+    survey — and requests in every state on the first."""
+    other = await create_user(db, email="other@test.com", role="member", display_name="Other")
+    newest = await _survey(
+        db, name="Newest", sent_at=NOW, target_filters={"card_ids": ["x", "y", "z"]}
+    )
+    older = await _survey(db, name="Older", sent_at=NOW - timedelta(days=3))
+    await _survey(db, name="Closed", status="closed", sent_at=NOW - timedelta(days=9))
+    await _survey(db, name="Draft", status="draft")
+    await _survey(db, name="Iface", target_type="Interface", sent_at=NOW - timedelta(days=1))
+    t0 = NOW - timedelta(days=10)
+    await _request(db, newest, env["a"], env["owner"], created_at=t0 + timedelta(hours=2))
+    await _request(db, newest, env["b"], env["owner"], created_at=t0)
+    await _request(db, newest, env["a"], other, status="completed", created_at=t0)
+    await _request(db, newest, env["archived"], other, created_at=t0)
+    await _request(db, older, env["b"], other, created_at=t0)
+    return {**env, "other": other, "newest": newest, "older": older}
+
+
+class TestListSurveys:
+    async def test_needs_the_read_grant(self, db, surveyed):
+        load_registry(grants=["core.cards.write"])
+        bridge = ExtensionSurveys(KEY)
+        with pytest.raises(ExtensionPermissionError, match="core.surveys.read"):
+            await bridge.list_surveys()
+        with pytest.raises(ExtensionPermissionError, match="core.surveys.read"):
+            await bridge.pending_responses(str(surveyed["newest"].id))
+
+    async def test_active_surveys_newest_send_first_with_counts(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        out = await ExtensionSurveys(KEY).list_surveys()
+        assert [s.name for s in out] == ["Newest", "Iface", "Older"]
+        newest = out[0]
+        assert newest == ExtSurvey(
+            id=str(surveyed["newest"].id),
+            name="Newest",
+            status="active",
+            target_type="Application",
+            card_count=3,
+            targeted_card_count=3,
+            user_count=2,
+            response_count=4,
+            completed_count=1,
+            sent_at=NOW.isoformat(),
+            closed_at=None,
+        )
+        # A survey with no request rows reads as zeros, not as an error.
+        iface = out[1]
+        assert (iface.response_count, iface.completed_count, iface.user_count) == (0, 0, 0)
+        assert iface.targeted_card_count == 0 and iface.card_count == 0
+
+    async def test_status_and_type_filters(self, db, surveyed):
+        load_registry(grants=["core.surveys.write"])  # write implies read
+        bridge = ExtensionSurveys(KEY)
+        assert [s.name for s in await bridge.list_surveys(target_type="Application")] == [
+            "Newest",
+            "Older",
+        ]
+        assert [s.name for s in await bridge.list_surveys(status="closed")] == ["Closed"]
+        assert [s.name for s in await bridge.list_surveys(status="draft")] == ["Draft"]
+        assert await bridge.list_surveys(target_type="Nothing") == ()
+        with pytest.raises(ExtensionDataError) as refused:
+            await bridge.list_surveys(status="pending")
+        assert str(refused.value) == (
+            "Unknown survey status 'pending' (expected one of draft, active, closed)"
+        )
+
+    async def test_limit_is_clamped(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        bridge = ExtensionSurveys(KEY)
+        assert [s.name for s in await bridge.list_surveys(limit=1)] == ["Newest"]
+        assert len(await bridge.list_surveys(limit=0)) == 1  # floor of one
+        assert len(await bridge.list_surveys(limit=10_000)) == 3
+        assert bridge_mod.MAX_SURVEYS_PER_LIST == 200
+        with pytest.raises(ExtensionDataError, match="whole number"):
+            await bridge.list_surveys(limit="many")
+
+    async def test_get_reports_the_same_counts(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        bridge = ExtensionSurveys(KEY)
+        got = await bridge.get(str(surveyed["newest"].id))
+        (listed,) = await bridge.list_surveys(limit=1)
+        assert got == listed
+
+
+class TestPendingResponses:
+    async def test_pending_only_oldest_first_archived_left_out(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        out = await ExtensionSurveys(KEY).pending_responses(str(surveyed["newest"].id))
+        sid = str(surveyed["newest"].id)
+        owner = str(surveyed["owner"].id)
+        t0 = NOW - timedelta(days=10)
+        assert out == (
+            ExtSurveyResponse(
+                survey_id=sid,
+                card_id=str(surveyed["b"].id),
+                user_id=owner,
+                status="pending",
+                requested_at=t0.isoformat(),
+            ),
+            ExtSurveyResponse(
+                survey_id=sid,
+                card_id=str(surveyed["a"].id),
+                user_id=owner,
+                status="pending",
+                requested_at=(t0 + timedelta(hours=2)).isoformat(),
+            ),
+        )
+
+    async def test_card_filter(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        bridge = ExtensionSurveys(KEY)
+        sid = str(surveyed["newest"].id)
+        out = await bridge.pending_responses(sid, card_ids=[str(surveyed["a"].id)])
+        assert [r.card_id for r in out] == [str(surveyed["a"].id)]
+        assert await bridge.pending_responses(sid, card_ids=[]) == ()
+        assert await bridge.pending_responses(sid, card_ids=[str(surveyed["iface"].id)]) == ()
+        with pytest.raises(ExtensionDataError, match="Invalid card id"):
+            await bridge.pending_responses(sid, card_ids=["nope"])
+        with pytest.raises(ExtensionDataError, match="At most 500"):
+            await bridge.pending_responses(sid, card_ids=[str(uuid.uuid4()) for _ in range(501)])
+
+    async def test_scoped_to_one_survey_and_limit(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        bridge = ExtensionSurveys(KEY)
+        older = await bridge.pending_responses(str(surveyed["older"].id))
+        assert [(r.card_id, r.user_id) for r in older] == [
+            (str(surveyed["b"].id), str(surveyed["other"].id))
+        ]
+        first = await bridge.pending_responses(str(surveyed["newest"].id), limit=1)
+        assert [r.card_id for r in first] == [str(surveyed["b"].id)]
+        assert len(await bridge.pending_responses(str(surveyed["newest"].id), limit=-5)) == 1
+        assert bridge_mod.MAX_PENDING_PER_CALL == 5000
+
+    async def test_unknown_or_malformed_survey_is_empty(self, db, surveyed):
+        load_registry(grants=["core.surveys.read"])
+        bridge = ExtensionSurveys(KEY)
+        assert await bridge.pending_responses("not-a-uuid") == ()
+        assert await bridge.pending_responses(str(uuid.uuid4())) == ()
+
+
+class TestReadOrderingAndDefaults:
+    async def test_surveys_tie_break_on_creation_then_id(self, db, env):
+        load_registry(grants=["core.surveys.read"])
+        # Drafts have no send time: newest creation first. Inserted oldest
+        # first, so neither table order nor id order matches by chance.
+        drafts = [
+            await _survey(
+                db, name=f"Draft {i}", status="draft", created_at=NOW - timedelta(days=10 - i)
+            )
+            for i in range(5)
+        ]
+        created = NOW - timedelta(days=2)
+        same = [
+            await _survey(db, name=f"Same {i}", status="closed", sent_at=NOW, created_at=created)
+            for i in range(5)
+        ]
+        bridge = ExtensionSurveys(KEY)
+        listed = await bridge.list_surveys(status="draft")
+        assert [s.id for s in listed] == [str(d.id) for d in reversed(drafts)]
+        closed = await bridge.list_surveys(status="closed")
+        assert [s.id for s in closed] == sorted(str(s.id) for s in same)
+
+    async def test_pending_rows_tie_break_on_id(self, db, env):
+        load_registry(grants=["core.surveys.read"])
+        survey = await _survey(db, name="Tie", sent_at=NOW)
+        at = NOW - timedelta(days=4)
+        rows = []
+        for i in range(5):
+            person = await create_user(
+                db, email=f"tie{i}@test.com", role="member", display_name=f"Tie {i}"
+            )
+            rows.append(await _request(db, survey, env["a"], person, created_at=at))
+        out = await ExtensionSurveys(KEY).pending_responses(str(survey.id))
+        assert [r.user_id for r in out] == [
+            str(r.user_id) for r in sorted(rows, key=lambda r: str(r.id))
+        ]
+
+    def test_signature_defaults_match_the_protocol(self):
+        import inspect
+
+        from app.services.extensions.sdk import SurveysBridge
+
+        for cls in (SurveysBridge, ExtensionSurveys):
+            listing = inspect.signature(cls.list_surveys).parameters
+            assert listing["status"].default == "active"
+            assert listing["target_type"].default is None
+            assert listing["limit"].default == 200
+            pending = inspect.signature(cls.pending_responses).parameters
+            assert pending["card_ids"].default is None
+            assert pending["limit"].default == 5000

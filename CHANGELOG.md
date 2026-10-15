@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.162.0] - 2026-10-15
+## [2.163.0] - 2026-10-15
 
 ### Added
 - **Surveys**: a survey can ask about a card's lifecycle dates (Plan, Phase In, Active, Phase Out, End of Life) and about who holds each stakeholder role; applying an answer updates the dates and adds or removes the people in the role ([#1257](https://github.com/vincentmakes/turbo-ea/discussions/1257)).
@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - **Surveys**: applying an answer now goes through the same validation, calculated fields, data-quality score, approval break and notifications as an edit on the card; an answer the card refuses is reported for that response without blocking the others.
 - **Audit log**: rolling back a batch that applied survey answers restores the card's attributes, including answers applied before this release.
+
+## [2.162.0] - 2026-10-15
+
+### Added
+- **Extension SDK 1.16**: an extension holding the survey read grant can list surveys by status and card type, and read which requests of a survey are still waiting for an answer, so it can follow up on surveys whoever sent them. Requests about archived cards are left out.
 
 ## [2.161.1] - 2026-10-15
 

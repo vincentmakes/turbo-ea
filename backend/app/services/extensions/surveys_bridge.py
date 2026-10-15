@@ -3,7 +3,8 @@ surveys, SDK 1.14.
 
 Design invariants (mirroring ``risks_bridge`` and ``adr_bridge``):
 
-* **Grant-gated per call.** ``preview`` / ``get`` need ``core.surveys.read``
+* **Grant-gated per call.** ``preview`` / ``get`` / ``list_surveys`` /
+  ``pending_responses`` (SDK 1.16) need ``core.surveys.read``
   (or ``core.surveys.write``, which implies it); ``send`` needs
   ``core.surveys.write``. Access revokes the moment the extension is
   disabled, removed, pending restart, or its licence stops being usable.
@@ -62,6 +63,7 @@ from app.services.extensions.sdk import (
     ExtensionPermissionError,
     ExtSurvey,
     ExtSurveyPreview,
+    ExtSurveyResponse,
     SurveysBridge,
 )
 
@@ -71,6 +73,9 @@ WRITE_GRANT = "core.surveys.write"
 MAX_NAME_LENGTH = 500  # surveys.name column
 MAX_CARDS_PER_SURVEY = 500  # matches MAX_CARD_IDS_PER_QUERY on the data bridge
 NOTIFICATION_TYPE = "survey_request"
+SURVEY_STATUSES = ("draft", "active", "closed")
+MAX_SURVEYS_PER_LIST = 200
+MAX_PENDING_PER_CALL = 5000
 
 _T = TypeVar("_T")
 
@@ -82,27 +87,30 @@ def _parse_uuid(value: str, what: str) -> uuid.UUID:
         raise ExtensionDataError(f"Invalid {what}: {value!r}") from e
 
 
-async def _to_ext_survey(db: AsyncSession, survey: Survey) -> ExtSurvey:
-    total = (
-        await db.execute(
-            select(func.count(SurveyResponse.id)).where(SurveyResponse.survey_id == survey.id)
+async def _response_counts(
+    db: AsyncSession, survey_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, tuple[int, int, int, int]]:
+    """``{survey_id: (requests, answered, cards, people)}`` for every survey
+    in ``survey_ids``, in ONE grouped query — listing N surveys must not cost
+    N round-trips per count. A survey with no response rows is absent."""
+    if not survey_ids:
+        return {}
+    rows = await db.execute(
+        select(
+            SurveyResponse.survey_id,
+            func.count(),
+            func.count().filter(SurveyResponse.status == "completed"),
+            func.count(func.distinct(SurveyResponse.card_id)),
+            func.count(func.distinct(SurveyResponse.user_id)),
         )
-    ).scalar() or 0
-    completed = (
-        await db.execute(
-            select(func.count(SurveyResponse.id)).where(
-                SurveyResponse.survey_id == survey.id, SurveyResponse.status == "completed"
-            )
-        )
-    ).scalar() or 0
-    cards, users = (
-        await db.execute(
-            select(
-                func.count(func.distinct(SurveyResponse.card_id)),
-                func.count(func.distinct(SurveyResponse.user_id)),
-            ).where(SurveyResponse.survey_id == survey.id)
-        )
-    ).one()
+        .where(SurveyResponse.survey_id.in_(list(survey_ids)))
+        .group_by(SurveyResponse.survey_id)
+    )
+    return {row[0]: (int(row[1]), int(row[2]), int(row[3]), int(row[4])) for row in rows}
+
+
+def _build_ext_survey(survey: Survey, counts: tuple[int, int, int, int] | None) -> ExtSurvey:
+    total, completed, cards, users = counts or (0, 0, 0, 0)
     card_ids = (survey.target_filters or {}).get("card_ids") or []
     return ExtSurvey(
         id=str(survey.id),
@@ -110,12 +118,87 @@ async def _to_ext_survey(db: AsyncSession, survey: Survey) -> ExtSurvey:
         status=survey.status,
         target_type=survey.target_type_key,
         card_count=len(card_ids),
-        targeted_card_count=int(cards or 0),
-        user_count=int(users or 0),
-        response_count=int(total),
-        completed_count=int(completed),
+        targeted_card_count=cards,
+        user_count=users,
+        response_count=total,
+        completed_count=completed,
         sent_at=survey.sent_at.isoformat() if survey.sent_at else None,
         closed_at=survey.closed_at.isoformat() if survey.closed_at else None,
+    )
+
+
+async def _to_ext_survey(db: AsyncSession, survey: Survey) -> ExtSurvey:
+    counts = await _response_counts(db, [survey.id])
+    return _build_ext_survey(survey, counts.get(survey.id))
+
+
+def _clamp(value: int, upper: int) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError) as e:
+        raise ExtensionDataError(f"limit must be a whole number, got {value!r}") from e
+    return max(1, min(number, upper))
+
+
+async def _list_surveys(
+    db: AsyncSession, *, status: str, target_type: str | None, limit: int
+) -> tuple[ExtSurvey, ...]:
+    """The surveys in ``status`` (newest send first), optionally of one card
+    type. Drafts have no ``sent_at`` and sort by creation instead."""
+    if status not in SURVEY_STATUSES:
+        raise ExtensionDataError(
+            f"Unknown survey status {status!r} (expected one of {', '.join(SURVEY_STATUSES)})"
+        )
+    query = select(Survey).where(Survey.status == status)
+    if target_type is not None:
+        query = query.where(Survey.target_type_key == target_type)
+    query = query.order_by(
+        Survey.sent_at.desc().nulls_last(), Survey.created_at.desc(), Survey.id
+    ).limit(_clamp(limit, MAX_SURVEYS_PER_LIST))
+    surveys = list((await db.execute(query)).scalars().all())
+    counts = await _response_counts(db, [s.id for s in surveys])
+    return tuple(_build_ext_survey(s, counts.get(s.id)) for s in surveys)
+
+
+async def _pending_rows(
+    db: AsyncSession,
+    survey_id: uuid.UUID,
+    *,
+    card_ids: list[uuid.UUID] | None,
+    limit: int,
+) -> tuple[ExtSurveyResponse, ...]:
+    """The unanswered (card, person) requests of one survey, oldest first.
+    A request about an archived card is left out — nobody can answer it
+    from the card any more, and the data bridge hides archived cards too."""
+    query = (
+        select(
+            SurveyResponse.survey_id,
+            SurveyResponse.card_id,
+            SurveyResponse.user_id,
+            SurveyResponse.status,
+            SurveyResponse.created_at,
+        )
+        .join(Card)  # survey_responses has one foreign key to cards
+        .where(
+            SurveyResponse.survey_id == survey_id,
+            SurveyResponse.status == "pending",
+            Card.status != "ARCHIVED",
+        )
+    )
+    if card_ids is not None:
+        query = query.where(SurveyResponse.card_id.in_(card_ids))
+    query = query.order_by(SurveyResponse.created_at, SurveyResponse.id).limit(
+        _clamp(limit, MAX_PENDING_PER_CALL)
+    )
+    return tuple(
+        ExtSurveyResponse(
+            survey_id=str(row[0]),
+            card_id=str(row[1]),
+            user_id=str(row[2]),
+            status=row[3],
+            requested_at=row[4].isoformat(),
+        )
+        for row in await db.execute(query)
     )
 
 
@@ -205,6 +288,33 @@ class ExtensionSurveys(SurveysBridge):
             if survey is None:
                 return None
             return await _to_ext_survey(db, survey)
+
+    async def list_surveys(
+        self, *, status: str = "active", target_type: str | None = None, limit: int = 200
+    ) -> tuple[ExtSurvey, ...]:
+        """Surveys in ``status`` (``draft``, ``active`` or ``closed``), newest
+        send first, at most ``limit`` (capped at 200) — whoever sent them."""
+        self._require(write=False)  # pragma: no mutate, write=None reads as False
+        async with async_session() as db:
+            return await _list_surveys(db, status=status, target_type=target_type, limit=limit)
+
+    async def pending_responses(
+        self, survey_id: str, *, card_ids: Sequence[str] | None = None, limit: int = 5000
+    ) -> tuple[ExtSurveyResponse, ...]:
+        """The requests of one survey still waiting for an answer, oldest
+        first, optionally only about ``card_ids`` (at most 500; a malformed id
+        is refused). An unknown survey id answers ``()``, like ``get``
+        answers ``None``."""
+        self._require(write=False)  # pragma: no mutate, write=None reads as False
+        try:
+            sid = uuid.UUID(str(survey_id))
+        except (TypeError, ValueError):
+            return ()
+        if card_ids is not None and not list(card_ids):
+            return ()  # filtered to no cards: nothing can be pending
+        parsed = None if card_ids is None else self._parse_card_ids(card_ids)
+        async with async_session() as db:
+            return await _pending_rows(db, sid, card_ids=parsed, limit=limit)
 
     async def preview(
         self, *, target_type: str, card_ids: Sequence[str], roles: Sequence[str]
