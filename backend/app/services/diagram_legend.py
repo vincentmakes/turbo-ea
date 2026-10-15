@@ -83,8 +83,27 @@ def _trim_field(field: dict) -> dict:
     }
 
 
-def _is_missing(value: Any) -> bool:
-    return value is None or value == ""
+def _value_keys(value: Any) -> list[str]:
+    """A stored attribute value as option keys, whatever the field type.
+
+    Mirrors ``rawValues`` in ``frontend/src/lib/fieldFacets.ts``: nothing → no
+    keys, a boolean → ``"true"`` / ``"false"``, a list → each non-empty entry
+    once, anything else → its string form.
+    """
+    if value is None or value == "":
+        return []
+    if isinstance(value, bool):
+        return ["true" if value else "false"]
+    if isinstance(value, list):
+        out: list[str] = []
+        for v in value:
+            if v is None or v == "":
+                continue
+            key = "true" if v is True else "false" if v is False else str(v)
+            if key not in out:
+                out.append(key)
+        return out
+    return [str(value)]
 
 
 def legend_from_rows(
@@ -113,15 +132,26 @@ def legend_from_rows(
         if field is None:
             continue
         trimmed = _trim_field(field)
-        option_keys = {o["key"] for o in trimmed["options"]}
+        # A yes/no field has no stored options: its two values are the keys the
+        # canvas paints (Yes / No are synthesised client-side from `type`).
+        if trimmed["type"] == "boolean":
+            option_keys = {"true", "false"}
+        else:
+            option_keys = {o["key"] for o in trimmed["options"]}
         has_missing = False
+        has_multiple = False
         for card_type, _, attributes in cards:
             if card_type != ct.key:
                 continue
-            value = (attributes or {}).get(field_key)
-            if _is_missing(value):
+            keys = _value_keys((attributes or {}).get(field_key))
+            if not keys:
                 has_missing = True
-            elif str(value) in option_keys:
+            elif len(keys) > 1:
+                # Several values of a multi-select colour as one Multiple swatch.
+                if trimmed["type"] == "multiple_select":
+                    has_multiple = True
+                    coloured += 1
+            elif keys[0] in option_keys:
                 coloured += 1
         types.append(
             {
@@ -131,7 +161,14 @@ def legend_from_rows(
                 "fields_schema": [{"section": "", "fields": [trimmed]}],
             }
         )
-        rules.append({"type_key": ct.key, "field_key": field_key, "has_missing": has_missing})
+        rules.append(
+            {
+                "type_key": ct.key,
+                "field_key": field_key,
+                "has_missing": has_missing,
+                "has_multiple": has_multiple,
+            }
+        )
 
     if not rules:
         return None

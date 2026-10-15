@@ -130,6 +130,7 @@
   "legend.applied_other": "Окрашено ячеек: {{count}}",
   "legend.reset": "Вернуться к цветам карточек",
   "legend.noValue": "Нет значения",
+  "legend.multiple": "Несколько",
   "editor.errors.restoreEdgeFailed": "Не удалось восстановить связь — конечные точки больше не на холсте.",
   "editor.noChildren": "У этой карточки нет дочерних элементов для детализации.",
   "editor.deleteRelation.title": "Удалить связь?",

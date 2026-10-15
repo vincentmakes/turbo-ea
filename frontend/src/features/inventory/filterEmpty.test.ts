@@ -119,6 +119,35 @@ describe("normalizeSelectAttributeFilters", () => {
     expect(normalizeSelectAttributeFilters(attributes, fields)).toBe(attributes);
     expect(normalizeSelectAttributeFilters({}, fields)).toEqual({});
   });
+
+  describe("a yes/no field", () => {
+    const withBool = [...fields, { key: "isCloud", label: "Cloud", type: "boolean" }] as FieldDef[];
+
+    it("turns a one-value array into the scalar its Any / Yes / No select shows", () => {
+      const next = normalizeSelectAttributeFilters({ isCloud: ["true"], vendor: "sap" }, withBool);
+      expect(next).toEqual({ isCloud: "true", vendor: "sap" });
+      expect(normalizeSelectAttributeFilters({ isCloud: [EMPTY_VALUE] }, withBool)).toEqual({
+        isCloud: EMPTY_VALUE,
+      });
+    });
+
+    it("drops two or more values, which that select cannot show", () => {
+      const next = normalizeSelectAttributeFilters(
+        { isCloud: ["true", "false"], timeModel: ["invest"] },
+        withBool,
+      );
+      expect(next).toEqual({ timeModel: ["invest"] });
+      expect("isCloud" in next).toBe(false);
+      expect(normalizeSelectAttributeFilters({ isCloud: [] }, withBool)).toEqual({});
+    });
+
+    it("keeps a scalar as it is, returning the same reference", () => {
+      const attributes: Filters["attributes"] = { isCloud: "false" };
+      expect(normalizeSelectAttributeFilters(attributes, withBool)).toBe(attributes);
+      const none: Filters["attributes"] = { vendor: "x" };
+      expect(normalizeSelectAttributeFilters(none, withBool)).toBe(none);
+    });
+  });
 });
 
 describe("normalizeRelationFilterKeys", () => {

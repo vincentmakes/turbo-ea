@@ -4,7 +4,7 @@ frontend's `viewSource.ts` rules so the embedded key agrees with the app's."""
 from __future__ import annotations
 
 from app.models.card_type import CardType
-from app.services.diagram_legend import legend_from_rows, normalise_view
+from app.services.diagram_legend import _value_keys, legend_from_rows, normalise_view
 
 CRITICALITY = {
     "key": "criticality",
@@ -71,7 +71,12 @@ class TestLegendFromRows:
         assert legend["kind"] == "card_fields"
         assert legend["coloured"] == 1
         assert legend["rules"] == [
-            {"type_key": "Application", "field_key": "criticality", "has_missing": True}
+            {
+                "type_key": "Application",
+                "field_key": "criticality",
+                "has_missing": True,
+                "has_multiple": False,
+            }
         ]
         (t,) = legend["types"]
         (field,) = t["fields_schema"][0]["fields"]
@@ -105,3 +110,85 @@ class TestLegendFromRows:
 
     def test_card_type_view_has_no_legend(self):
         assert legend_from_rows(None, [_type("Application")], []) is None
+
+
+class TestValueKeys:
+    """Mirrors `rawValues` in frontend/src/lib/fieldFacets.ts."""
+
+    def test_nothing_is_no_keys(self):
+        assert _value_keys(None) == []
+        assert _value_keys("") == []
+        assert _value_keys([]) == []
+        assert _value_keys([None, ""]) == []
+
+    def test_a_boolean_is_lowercase_true_or_false(self):
+        assert _value_keys(True) == ["true"]
+        assert _value_keys(False) == ["false"]
+        assert _value_keys([True, False, True]) == ["true", "false"]
+
+    def test_a_list_is_each_entry_once(self):
+        assert _value_keys(["eu", "", "us", "eu", 3]) == ["eu", "us", "3"]
+
+    def test_a_scalar_is_its_string_form(self):
+        assert _value_keys("high") == ["high"]
+        assert _value_keys(0) == ["0"]
+        assert _value_keys(2.5) == ["2.5"]
+
+
+class TestFacetRules:
+    BOOL = {"key": "isCloud", "label": "Cloud", "type": "boolean"}
+    REGIONS = {
+        "key": "regions",
+        "label": "Regions",
+        "type": "multiple_select",
+        "options": [{"key": "eu", "label": "EU"}, {"key": "us", "label": "US"}],
+    }
+
+    def test_a_yes_no_rule_counts_true_and_false_as_coloured(self):
+        legend = legend_from_rows(
+            {"kind": "card_fields", "fields": {"Server": "isCloud"}},
+            [_type("Server", fields=[self.BOOL])],
+            [
+                ("Server", None, {"isCloud": True}),
+                ("Server", None, {"isCloud": False}),
+                ("Server", None, {}),
+                ("Server", None, {"isCloud": "maybe"}),
+            ],
+        )
+        assert legend["coloured"] == 2
+        assert legend["rules"] == [
+            {
+                "type_key": "Server",
+                "field_key": "isCloud",
+                "has_missing": True,
+                "has_multiple": False,
+            }
+        ]
+        (field,) = legend["types"][0]["fields_schema"][0]["fields"]
+        # No options travel: the page synthesises Yes / No from the type.
+        assert field["type"] == "boolean"
+        assert field["options"] == []
+
+    def test_a_multi_select_rule_counts_one_and_several_values(self):
+        legend = legend_from_rows(
+            {"kind": "card_fields", "fields": {"Server": "regions"}},
+            [_type("Server", fields=[self.REGIONS])],
+            [
+                ("Server", None, {"regions": ["eu"]}),
+                ("Server", None, {"regions": ["eu", "us"]}),
+                ("Server", None, {"regions": ["apac"]}),
+            ],
+        )
+        assert legend["coloured"] == 2
+        assert legend["rules"][0]["has_multiple"] is True
+        assert legend["rules"][0]["has_missing"] is False
+
+    def test_several_values_on_a_single_select_colour_nothing(self):
+        single = {**self.REGIONS, "type": "single_select"}
+        legend = legend_from_rows(
+            {"kind": "card_fields", "fields": {"Server": "regions"}},
+            [_type("Server", fields=[single])],
+            [("Server", None, {"regions": ["eu", "us"]}), ("Server", None, {"regions": "us"})],
+        )
+        assert legend["coloured"] == 1
+        assert legend["rules"][0]["has_multiple"] is False

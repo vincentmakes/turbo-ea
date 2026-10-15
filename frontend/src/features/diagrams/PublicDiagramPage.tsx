@@ -20,7 +20,14 @@ import {
   type PublicSsoConfig,
 } from "@/lib/publicSso";
 import DiagramViewLegend from "./DiagramViewLegend";
-import { colorKey, legendSections, type ViewResolvers, type ViewSource } from "./viewSource";
+import {
+  MULTI_VALUE,
+  NO_VALUE,
+  colorKey,
+  legendSections,
+  type ViewResolvers,
+  type ViewSource,
+} from "./viewSource";
 
 /**
  * The published, read-only render of a diagram — the page that gets iframed
@@ -263,15 +270,18 @@ export default function PublicDiagramPage() {
       kind: "card_fields",
       fields: Object.fromEntries(data.rules.map((rule) => [rule.type_key, rule.field_key])),
     };
-    const missing = new Set(
-      data.rules
-        .filter((rule) => rule.has_missing)
-        .map((rule) => colorKey(rule.type_key, rule.field_key, "")),
+    // The server says, per rule, whether a card had no value / several values;
+    // only then does the matching swatch show, as in the app.
+    const present = new Set(
+      data.rules.flatMap((rule) => [
+        ...(rule.has_missing ? [colorKey(rule.type_key, rule.field_key, NO_VALUE)] : []),
+        ...(rule.has_multiple ? [colorKey(rule.type_key, rule.field_key, MULTI_VALUE)] : []),
+      ]),
     );
     const sections = legendSections(
       view,
       data.types,
-      (typeKey, fieldKey) => missing.has(colorKey(typeKey, fieldKey, "")),
+      (typeKey, fieldKey, value) => present.has(colorKey(typeKey, fieldKey, value)),
       r,
     );
     return { sections, coloured: data.coloured };

@@ -223,8 +223,14 @@ export function tagsToFilterText(tags?: { name: string }[]): string {
  * arrays. URL deep-links (`?attr_<key>=<value>`) seed scalars because they are
  * parsed before the metamodel loads, but the sidebar's select filter renders
  * (and highlights) arrays only, and the client matcher compares arrays by
- * exact option key rather than the loose "contains" scalar branch. Returns the
- * SAME object reference when nothing changed, so callers can setState safely.
+ * exact option key rather than the loose "contains" scalar branch.
+ *
+ * A yes/no field goes the other way: its sidebar control is a single Any / Yes /
+ * No select, which renders a scalar. A one-value array (a report's Yes facet
+ * carried as `attr_<key>=true`, or a saved view) becomes that scalar; two or
+ * more values cannot be shown by that control, so the key is dropped — the
+ * filter degrades to more rows, never to zero. Returns the SAME object
+ * reference when nothing changed, so callers can setState safely.
  */
 export function normalizeSelectAttributeFilters(
   attributes: Filters["attributes"],
@@ -233,8 +239,15 @@ export function normalizeSelectAttributeFilters(
   let changed = false;
   const next: Filters["attributes"] = { ...attributes };
   for (const field of fields) {
-    if (field.type !== "single_select" && field.type !== "multiple_select") continue;
     const value = next[field.key];
+    if (field.type === "boolean") {
+      if (!Array.isArray(value)) continue;
+      if (value.length === 1) next[field.key] = value[0];
+      else delete next[field.key];
+      changed = true;
+      continue;
+    }
+    if (field.type !== "single_select" && field.type !== "multiple_select") continue;
     if (typeof value === "string" && value !== "") {
       next[field.key] = [value];
       changed = true;
@@ -1397,6 +1410,10 @@ export default function InventoryFilterSidebar({
                                 <MenuItem value=""><em>{t("filter.any")}</em></MenuItem>
                                 <MenuItem value="true">{t("common:labels.yes")}</MenuItem>
                                 <MenuItem value="false">{t("common:labels.no")}</MenuItem>
+                                {/* A report's "Not set" facet lands as attr_<key>=__empty__. */}
+                                <MenuItem value={EMPTY_VALUE}>
+                                  <em>{t("common:labels.empty")}</em>
+                                </MenuItem>
                               </Select>
                             </FormControl>
                           );

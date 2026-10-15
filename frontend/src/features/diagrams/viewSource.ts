@@ -1,4 +1,5 @@
-import { APPROVAL_STATUS_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { MULTIPLE_COLOR, facetOptions, rawValues } from "@/lib/fieldFacets";
+import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
 import type { CardType, FieldDef } from "@/types";
 
 /**
@@ -31,7 +32,7 @@ export type ViewSource =
 export interface ColorEntry {
   /** Composite identity — unique across rules. Map key and React key. */
   key: string;
-  /** Raw option key (or {@link NO_VALUE}). */
+  /** Raw option key (or {@link NO_VALUE} / {@link MULTI_VALUE}). */
   value: string;
   label: string;
   color: string;
@@ -44,6 +45,9 @@ export const NO_VALUE = "__none__";
 
 /** Colour used for {@link NO_VALUE}. */
 export const NO_VALUE_COLOR = "#cbd5e1";
+
+/** Stands in for "this card carries several values of a multi-select rule". */
+export const MULTI_VALUE = "__multiple__";
 
 /** The card type the approval scale is filed under — it applies to all of them. */
 const APPROVAL_SCOPE = "";
@@ -59,19 +63,6 @@ const APPROVAL_SCOPE = "";
  */
 export const colorKey = (typeKey: string, fieldKey: string, value: string): string =>
   `${typeKey}\u001f${fieldKey}\u001f${value}`;
-
-/** Palette for options whose metamodel entry carries no colour of its own. */
-const FALLBACK_PALETTE = [
-  SEVERITY_COLORS.low,
-  SEVERITY_COLORS.medium,
-  SEVERITY_COLORS.high,
-  SEVERITY_COLORS.critical,
-  STATUS_COLORS.info,
-  STATUS_COLORS.success,
-  STATUS_COLORS.warning,
-  STATUS_COLORS.error,
-  STATUS_COLORS.neutral,
-];
 
 type OptionLike = { key: string; label: string; translations?: Record<string, string> };
 
@@ -132,18 +123,34 @@ export function buildColorMap(
     return result;
   }
 
+  // A yes/no field paints Yes / No; an option without a colour takes the
+  // shared palette colour of its position — the same rule the reports use.
+  const yesNo = { yes: r.t("common:labels.yes"), no: r.t("common:labels.no") };
   for (const { type, field } of activeRules(view, types)) {
-    (field.options ?? []).forEach((opt, i) => {
+    for (const opt of facetOptions(field, yesNo)) {
       const key = colorKey(type.key, field.key, opt.key);
       result.set(key, {
         key,
         value: opt.key,
         label: r.optionLabel(opt),
-        color: opt.color || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length],
+        color: opt.color,
         typeKey: type.key,
         fieldKey: field.key,
       });
-    });
+    }
+    // A card can carry several values of a multi-select: one swatch for all of
+    // them, rather than painting it in whichever value happens to come first.
+    if (field.type === "multiple_select") {
+      const multiKey = colorKey(type.key, field.key, MULTI_VALUE);
+      result.set(multiKey, {
+        key: multiKey,
+        value: MULTI_VALUE,
+        label: r.t("legend.multiple"),
+        color: MULTIPLE_COLOR,
+        typeKey: type.key,
+        fieldKey: field.key,
+      });
+    }
     // "No value" is an ordinary entry, so an unset field is a map hit rather
     // than a special case the apply pass has to remember to handle.
     const noneKey = colorKey(type.key, field.key, NO_VALUE);
@@ -179,11 +186,11 @@ export function colorKeyForCard(
   }
   const fieldKey = view.fields[card.type];
   if (!fieldKey) return null; // this type carries no rule
-  const raw = card.attributes?.[fieldKey];
-  if (raw === null || raw === undefined || raw === "") {
-    return colorKey(card.type, fieldKey, NO_VALUE);
-  }
-  return colorKey(card.type, fieldKey, typeof raw === "string" ? raw : String(raw));
+  // No field definition here, so the value is read type-agnostically: a yes/no
+  // value is "true" / "false", a list its entries.
+  const values = rawValues(card.attributes?.[fieldKey]);
+  if (values.length === 0) return colorKey(card.type, fieldKey, NO_VALUE);
+  return colorKey(card.type, fieldKey, values.length > 1 ? MULTI_VALUE : values[0]);
 }
 
 /**
@@ -286,9 +293,11 @@ export interface LegendSectionData {
 }
 
 /**
- * The legend sections for a view. `hasMissing` says whether any card on the
- * canvas has no value for a rule — the "no value" swatch appears only then; a
- * permanent grey swatch in every section would be noise.
+ * The legend sections for a view. `present` says whether any card on the canvas
+ * falls in one of a rule's two conditional buckets — `value` is {@link NO_VALUE}
+ * (no value) or {@link MULTI_VALUE} (several values of a multi-select) — and
+ * each of those swatches appears only then; a permanent swatch in every
+ * section would be noise.
  *
  * The one section builder behind every legend: the editor and the in-app
  * viewer derive `hasMissing` from the cards they hold, the published page gets
@@ -297,10 +306,11 @@ export interface LegendSectionData {
 export function legendSections(
   view: ViewSource,
   types: CardType[],
-  hasMissing: (typeKey: string, fieldKey: string) => boolean,
+  present: (typeKey: string, fieldKey: string, value: string) => boolean,
   r: ViewResolvers,
 ): LegendSectionData[] {
   const colorMap = buildColorMap(view, types, r);
+  const conditional = (value: string) => value === NO_VALUE || value === MULTI_VALUE;
   return describeView(view, types, r).sections.map((sec) => ({
     key: sec.key,
     title: sec.title,
@@ -308,7 +318,7 @@ export function legendSections(
       (e) =>
         e.typeKey === sec.typeKey &&
         e.fieldKey === sec.fieldKey &&
-        (e.value !== NO_VALUE || hasMissing(e.typeKey, e.fieldKey)),
+        (!conditional(e.value) || present(e.typeKey, e.fieldKey, e.value)),
     ),
   }));
 }
@@ -342,7 +352,7 @@ export function buildLegend(
   const sections = legendSections(
     view,
     types,
-    (typeKey, fieldKey) => seenKeys.has(colorKey(typeKey, fieldKey, NO_VALUE)),
+    (typeKey, fieldKey, value) => seenKeys.has(colorKey(typeKey, fieldKey, value)),
     r,
   );
   return { sections, coloured };

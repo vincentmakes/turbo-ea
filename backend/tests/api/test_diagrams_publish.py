@@ -319,10 +319,66 @@ class TestPublicAccess:
         assert legend["kind"] == "card_fields"
         assert legend["coloured"] == 1
         assert legend["rules"] == [
-            {"type_key": "Application", "field_key": "criticality", "has_missing": True}
+            {
+                "type_key": "Application",
+                "field_key": "criticality",
+                "has_missing": True,
+                "has_multiple": False,
+            }
         ]
         dumped = json.dumps(legend)
         for leak in (str(coloured.id), str(blank.id), "Secret ERP", "Secret CRM", "999"):
+            assert leak not in dumped
+
+    async def test_public_legend_keys_a_yes_no_rule(self, client, db, publish_env):
+        """A yes/no rule counts both answers as coloured and still sends no card data."""
+        admin = publish_env["admin"]
+        await create_card_type(
+            db,
+            key="Application",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [{"key": "isCloud", "label": "Cloud", "type": "boolean"}],
+                }
+            ],
+        )
+        yes = await create_card(db, name="Secret Yes", attributes={"isCloud": True})
+        no = await create_card(db, name="Secret No", attributes={"isCloud": False})
+        blank = await create_card(db, name="Secret Blank")
+        objects = "".join(
+            f'<object label="x" cardId="{c.id}"><mxCell vertex="1" parent="1"/></object>'
+            for c in (no, blank)
+        )
+        xml = CARD_XML.replace("11111111-1111-1111-1111-111111111111", str(yes.id)).replace(
+            "</root>", objects + "</root>"
+        )
+        resp = await client.post(
+            "/api/v1/diagrams",
+            json={
+                "name": "Cloud",
+                "data": {
+                    "xml": xml,
+                    "view": {"kind": "card_fields", "fields": {"Application": "isCloud"}},
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        slug = await self._publish(client, admin, resp.json()["id"])
+
+        legend = (await client.get(f"/api/v1/diagrams/public/{slug}")).json()["legend"]
+        assert legend["coloured"] == 2
+        assert legend["rules"] == [
+            {
+                "type_key": "Application",
+                "field_key": "isCloud",
+                "has_missing": True,
+                "has_multiple": False,
+            }
+        ]
+        assert legend["types"][0]["fields_schema"][0]["fields"][0]["type"] == "boolean"
+        dumped = json.dumps(legend)
+        for leak in (str(yes.id), str(no.id), str(blank.id), "Secret Yes", "Secret No"):
             assert leak not in dumped
 
     async def test_unpublished_diagram_is_404_not_403(self, client, db, publish_env):

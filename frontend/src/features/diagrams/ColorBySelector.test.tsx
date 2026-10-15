@@ -155,3 +155,45 @@ describe("ColorBySelector", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 });
+
+describe("ColorBySelector facet fields (#1256)", () => {
+  const SERVER = {
+    key: "Server",
+    label: "Server",
+    icon: "dns",
+    color: "#0f7eb5",
+    category: "Technical Architecture",
+    fields_schema: [
+      {
+        section: "Details",
+        fields: [
+          { key: "notes", label: "Notes", type: "text" },
+          { key: "isCloud", label: "Cloud Hosted", type: "boolean" },
+          { key: "regions", label: "Regions", type: "multiple_select", options: [{ key: "eu", label: "EU" }] },
+          { key: "empty", label: "No Options", type: "single_select", options: [] },
+        ],
+      },
+    ],
+  } as unknown as CardType;
+
+  it("offers a yes/no and a multi-select field, never a text or option-less one", async () => {
+    const onChange = vi.fn();
+    render(
+      <ColorBySelector
+        activeTypeKeys={["Server"]}
+        onOpen={vi.fn()}
+        types={[SERVER]}
+        current={{ kind: "card_type" }}
+        onChange={onChange}
+      />,
+    );
+    const menu = await openMenu();
+    expect(within(menu).getAllByRole("checkbox")).toHaveLength(2);
+    expect(within(menu).getByText("Cloud Hosted")).toBeInTheDocument();
+    expect(within(menu).getByText("Regions")).toBeInTheDocument();
+    expect(within(menu).queryByText("Notes")).not.toBeInTheDocument();
+    expect(within(menu).queryByText("No Options")).not.toBeInTheDocument();
+    await userEvent.click(within(menu).getByText("Cloud Hosted"));
+    expect(onChange).toHaveBeenCalledWith({ kind: "card_fields", fields: { Server: "isCloud" } });
+  });
+});

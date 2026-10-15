@@ -173,6 +173,7 @@
   "legend.applied_other": "{{count}} cells colored",
   "legend.reset": "Reset to card colors",
   "legend.noValue": "No value",
+  "legend.multiple": "Multiple",
   "createOnDiagram.title": "Create Card",
   "createOnDiagram.descriptionOptional": "Description (optional)",
   "createOnDiagram.pendingHintPre": "Will be added to the diagram as a pending",

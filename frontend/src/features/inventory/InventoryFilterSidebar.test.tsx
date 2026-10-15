@@ -768,8 +768,26 @@ describe("InventoryFilterSidebar — attribute filters", () => {
     expect(last().attributes).toEqual({ isCloud: "false" });
 
     listbox = openSelect("Cloud Hosted");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Any",
+      "Yes",
+      "No",
+      "(empty)",
+    ]);
+    fireEvent.click(within(listbox).getByRole("option", { name: "(empty)" }));
+    expect(last().attributes).toEqual({ isCloud: EMPTY_VALUE });
+
+    listbox = openSelect("Cloud Hosted");
     fireEvent.click(within(listbox).getByRole("option", { name: "Any" }));
     expect(last().attributes).toEqual({});
+  });
+
+  it("shows a report's Not-set deep link on a boolean field as (empty)", async () => {
+    await renderSidebar({
+      initialFilters: { types: ["Application"], attributes: { isCloud: EMPTY_VALUE } },
+    });
+    expandSection("Attributes");
+    expect(comboboxFor("Cloud Hosted")).toHaveTextContent("(empty)");
   });
 
   it("filters number, cost and percentage fields by minimum", async () => {

@@ -7,6 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { useFieldLabel, useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { isFacetField } from "@/lib/fieldFacets";
 import { ChoiceRow, CheckRow, TypeHeading } from "@/components/cardDisplay/menuRows";
 import { describeView, toggleFieldRule, type ViewResolvers, type ViewSource } from "./viewSource";
 import type { CardType, FieldDef } from "@/types";
@@ -59,8 +60,8 @@ export default function ColorBySelector({
 
   const typeMap = useMemo(() => new Map(types.map((tp) => [tp.key, tp] as const)), [types]);
 
-  /** Only single-select fields: a perspective needs a bounded set of values to
-   *  map onto a palette. */
+  /** Only facet fields (selects with options, yes/no fields): a perspective
+   *  needs a bounded set of values to map onto a palette. */
   const fieldsByType = useMemo(() => {
     const result: Array<{ type: CardType; fields: FieldDef[] }> = [];
     for (const key of activeTypeKeys) {
@@ -69,7 +70,7 @@ export default function ColorBySelector({
       const fields: FieldDef[] = [];
       for (const section of tp.fields_schema ?? []) {
         for (const f of section.fields ?? []) {
-          if (f.type === "single_select" && (f.options?.length ?? 0) > 0) fields.push(f);
+          if (isFacetField(f)) fields.push(f);
         }
       }
       if (fields.length > 0) result.push({ type: tp, fields });

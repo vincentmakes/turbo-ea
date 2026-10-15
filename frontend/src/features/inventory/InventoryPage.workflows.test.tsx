@@ -488,6 +488,27 @@ describe("InventoryPage loading and URL parameters", () => {
     expect(prefs().filters.tagIds).toEqual([ON_PREM.id]);
   });
 
+  it("seeds a yes/no filter from a deep link as the scalar its select shows", async () => {
+    renderInventory("/inventory?type=Application&attr_isCloud=true");
+    // Only CRM is cloud hosted (ERP stores false, HR nothing).
+    await waitForRows(1);
+    expect(gridStub.rows().map((r: any) => r.name)).toEqual(["CRM Cloud"]);
+    await waitFor(() => expect(prefs().filters.attributes).toEqual({ isCloud: "true" }));
+  });
+
+  it("drops a yes/no deep link carrying both values, showing every card", async () => {
+    renderInventory("/inventory?type=Application&attr_isCloud=true&attr_isCloud=false");
+    await waitFor(() => expect(prefs().filters.attributes).toEqual({}));
+    await waitForRows(3);
+  });
+
+  it("matches a two-value yes/no filter against the stored booleans", async () => {
+    // No type selected, so nothing normalises the array: the matcher reads it.
+    renderInventory("/inventory?attr_isCloud=true&attr_isCloud=false");
+    await waitForRows(2);
+    expect(gridStub.rows().map((r: any) => r.name).sort()).toEqual(["CRM Cloud", "ERP Core"]);
+  });
+
   it("lets an attribute-only deep link win over the persisted filters", async () => {
     // No type/search/… in the URL: the attr_ key alone marks it as a deep link.
     localStorage.setItem(
@@ -654,6 +675,16 @@ describe("InventoryPage group by", () => {
     await setAxis("data_quality", 5);
     // missionCritical, businessOperational, not set → 3 headers.
     await setAxis("attr_businessCriticality", 6);
+    // A yes/no field groups as Yes / No / not set; a multi-select offers no axis.
+    await setAxis("attr_isCloud", 6);
+    const headers = (gridStub.rows() as any[])
+      .filter((r) => r.__group)
+      .map((r) => [r.__group.key, r.__group.label, r.__group.color]);
+    expect(headers).toEqual([
+      ["__not_set__", "Not set", undefined],
+      ["true", "Yes", "#4caf50"],
+      ["false", "No", "#78909c"],
+    ]);
     await setAxis(null, 3);
     expect(prefs().groupBy).toBeNull();
   });

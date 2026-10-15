@@ -402,6 +402,55 @@ describe("PublicDiagramPage — colour legend", () => {
     expect(screen.queryByText("No value")).toBeNull();
   });
 
+  it("synthesises Yes / No for a yes/no rule and keys Multiple when the server says so", async () => {
+    const SERVER_TYPE = {
+      key: "Server",
+      label: "Server",
+      translations: {},
+      fields_schema: [
+        {
+          section: "",
+          fields: [
+            { key: "isCloud", label: "Cloud", translations: {}, type: "boolean", options: [] },
+            {
+              key: "regions",
+              label: "Regions",
+              translations: {},
+              type: "multiple_select",
+              options: [{ key: "eu", label: "Europe", translations: {}, color: null }],
+            },
+          ],
+        },
+      ],
+    };
+    mockPublic({
+      kind: "card_fields",
+      coloured: 2,
+      rules: [
+        { type_key: "Server", field_key: "regions", has_missing: false, has_multiple: true },
+      ],
+      types: [SERVER_TYPE],
+    });
+    const first = renderPage();
+    expect(await screen.findByText("Europe")).toBeInTheDocument();
+    expect(screen.getByText("Multiple")).toBeInTheDocument();
+    expect(screen.queryByText("No value")).toBeNull();
+    first.unmount();
+
+    mockPublic({
+      kind: "card_fields",
+      coloured: 1,
+      rules: [{ type_key: "Server", field_key: "isCloud", has_missing: true }],
+      types: [SERVER_TYPE],
+    });
+    renderPage();
+    expect(await screen.findByText("Yes")).toBeInTheDocument();
+    expect(screen.getByText("No")).toBeInTheDocument();
+    expect(screen.getByText("No value")).toBeInTheDocument();
+    // An older server sends no has_multiple: no Multiple swatch.
+    expect(screen.queryByText("Multiple")).toBeNull();
+  });
+
   it("renders the approval-status scale", async () => {
     mockPublic({ kind: "approval_status", coloured: 4 });
     renderPage();

@@ -130,6 +130,7 @@
   "legend.applied_other": "{{count}} celle colorate",
   "legend.reset": "Ripristina colori scheda",
   "legend.noValue": "Nessun valore",
+  "legend.multiple": "Più valori",
   "editor.errors.restoreEdgeFailed": "Impossibile ripristinare il bordo — gli estremi non sono più sul canvas.",
   "editor.noChildren": "Questa scheda non ha figli da approfondire.",
   "editor.deleteRelation.title": "Eliminare la relazione?",

@@ -130,6 +130,7 @@
   "legend.applied_other": "{{count}} Zellen eingefärbt",
   "legend.reset": "Auf Kartenfarben zurücksetzen",
   "legend.noValue": "Kein Wert",
+  "legend.multiple": "Mehrere",
   "editor.errors.restoreEdgeFailed": "Die Kante konnte nicht wiederhergestellt werden — die Endpunkte sind nicht mehr auf der Leinwand.",
   "editor.noChildren": "Diese Karte hat keine Kinder zum Aufschlüsseln.",
   "editor.deleteRelation.title": "Beziehung löschen?",

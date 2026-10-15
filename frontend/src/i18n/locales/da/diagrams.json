@@ -173,6 +173,7 @@
   "legend.applied_other": "{{count}} celler farvet",
   "legend.reset": "Nulstil til kortfarver",
   "legend.noValue": "Ingen værdi",
+  "legend.multiple": "Flere",
   "createOnDiagram.title": "Opret kort",
   "createOnDiagram.descriptionOptional": "Beskrivelse (valgfri)",
   "createOnDiagram.pendingHintPre": "Tilføjes til diagrammet som afventende",

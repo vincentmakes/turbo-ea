@@ -8,6 +8,7 @@ import {
   describeView,
   normaliseViewSource,
   toggleFieldRule,
+  MULTI_VALUE,
   NO_VALUE,
   NO_VALUE_COLOR,
   type ViewResolvers,
@@ -20,6 +21,7 @@ function type(
   fields: Array<{
     key: string;
     label: string;
+    type?: string;
     options?: Array<{ key: string; label: string; color?: string }>;
   }>,
 ): CardType {
@@ -283,5 +285,91 @@ describe("legendSections", () => {
       "low",
       NO_VALUE,
     ]);
+  });
+});
+
+describe("yes/no, multi-select and uncoloured fields (#1256)", () => {
+  const SERVER = type("Server", [
+    { key: "isCloud", label: "Cloud", type: "boolean" },
+    {
+      key: "regions",
+      label: "Regions",
+      type: "multiple_select",
+      options: [
+        { key: "eu", label: "EU" },
+        { key: "us", label: "US", color: "#123456" },
+      ],
+    },
+  ]);
+  const ALL = [...TYPES, SERVER];
+  const byCloud: ViewSource = { kind: "card_fields", fields: { Server: "isCloud" } };
+  const byRegion: ViewSource = { kind: "card_fields", fields: { Server: "regions" } };
+  const entries = (view: ViewSource) =>
+    Array.from(buildColorMap(view, ALL, R).values()).map((e) => [e.value, e.label, e.color]);
+
+  it("paints a yes/no field Yes / No", () => {
+    expect(entries(byCloud)).toEqual([
+      ["true", "common:labels.yes", "#4caf50"],
+      ["false", "common:labels.no", "#78909c"],
+      [NO_VALUE, "legend.noValue", NO_VALUE_COLOR],
+    ]);
+  });
+
+  it("gives an uncoloured option the shared palette colour of its position", () => {
+    const view: ViewSource = { kind: "card_fields", fields: { Provider: "tier" } };
+    expect(entries(view)[0]).toEqual(["gold", "Gold", "#1976d2"]);
+  });
+
+  it("adds a Multiple swatch to a multi-select rule only", () => {
+    expect(entries(byRegion)).toEqual([
+      ["eu", "EU", "#1976d2"],
+      ["us", "US", "#123456"],
+      [MULTI_VALUE, "legend.multiple", "#607d8b"],
+      [NO_VALUE, "legend.noValue", NO_VALUE_COLOR],
+    ]);
+    expect(entries(byCloud).some(([v]) => v === MULTI_VALUE)).toBe(false);
+  });
+
+  it("keys a card by its yes/no value or by its list of values", () => {
+    const card = (attributes: Record<string, unknown>) => ({ type: "Server", attributes });
+    expect(colorKeyForCard(byCloud, card({ isCloud: true }))).toBe(colorKey("Server", "isCloud", "true"));
+    expect(colorKeyForCard(byCloud, card({ isCloud: false }))).toBe(
+      colorKey("Server", "isCloud", "false"),
+    );
+    expect(colorKeyForCard(byRegion, card({ regions: ["eu"] }))).toBe(colorKey("Server", "regions", "eu"));
+    expect(colorKeyForCard(byRegion, card({ regions: ["eu", "us"] }))).toBe(
+      colorKey("Server", "regions", MULTI_VALUE),
+    );
+    expect(colorKeyForCard(byRegion, card({ regions: [] }))).toBe(
+      colorKey("Server", "regions", NO_VALUE),
+    );
+    expect(colorKeyForCard(byRegion, card({ regions: ["", null] }))).toBe(
+      colorKey("Server", "regions", NO_VALUE),
+    );
+  });
+
+  it("shows the Multiple swatch only when a card carries several values", () => {
+    const values = (present: (tk: string, fk: string, v: string) => boolean) =>
+      legendSections(byRegion, ALL, present, R)[0].entries.map((e) => e.value);
+    expect(values(() => false)).toEqual(["eu", "us"]);
+    expect(values((_tk, _fk, v) => v === MULTI_VALUE)).toEqual(["eu", "us", MULTI_VALUE]);
+    expect(values((_tk, _fk, v) => v === NO_VALUE)).toEqual(["eu", "us", NO_VALUE]);
+  });
+
+  it("counts a multi-valued card as coloured and keys it in the legend", () => {
+    const { sections, coloured } = buildLegend(
+      byRegion,
+      ALL,
+      [
+        { type: "Server", attributes: { regions: ["eu", "us"] } },
+        { type: "Server", attributes: { regions: ["us"] } },
+        { type: "Server", attributes: {} },
+      ],
+      R,
+    );
+    expect(coloured).toBe(2);
+    expect(sections[0].entries.map((e) => e.value)).toEqual(["eu", "us", MULTI_VALUE, NO_VALUE]);
+    const single = buildLegend(byRegion, ALL, [{ type: "Server", attributes: { regions: ["eu"] } }], R);
+    expect(single.sections[0].entries.map((e) => e.value)).toEqual(["eu", "us"]);
   });
 });

@@ -130,6 +130,7 @@
   "legend.applied_other": "已为 {{count}} 个单元上色",
   "legend.reset": "重置为卡片颜色",
   "legend.noValue": "无值",
+  "legend.multiple": "多个",
   "editor.errors.restoreEdgeFailed": "无法恢复连线 — 端点已不在画布上。",
   "editor.noChildren": "此卡片没有可下钻的子卡片。",
   "editor.deleteRelation.title": "删除关系吗?",

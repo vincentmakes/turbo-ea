@@ -2694,6 +2694,13 @@ export type PublicDiagramLegend =
   | {
       kind: "card_fields";
       coloured: number;
-      rules: Array<{ type_key: string; field_key: string; has_missing: boolean }>;
+      rules: Array<{
+        type_key: string;
+        field_key: string;
+        has_missing: boolean;
+        /** A card carries several values of this multi-select rule. Absent
+         *  from a server that predates it, which reads as no. */
+        has_multiple?: boolean;
+      }>;
       types: CardType[];
     };
