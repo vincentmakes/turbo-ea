@@ -102,6 +102,12 @@ async def ops_info(db: AsyncSession = Depends(get_db)):
     }
 
 
+def _operator_label(name: str | None, email: str) -> str:
+    """``"Name <email>"``, or the bare email when the operator gave no name."""
+    name = (name or "").strip()
+    return f"{name} <{email}>" if name else email
+
+
 @router.post("/rescue-access")
 async def create_rescue_access(body: RescueAccessRequest, db: AsyncSession = Depends(get_db)):
     """Create (or refresh) a time-boxed admin account for a control-plane operator.
@@ -161,13 +167,14 @@ async def create_rescue_access(body: RescueAccessRequest, db: AsyncSession = Dep
         category="admin",
         subject_email=email,
         target=("user", str(user.id), email),
-        details={
-            "request_id": body.request_id,
-            "operator_email": body.operator_email,
-            "operator_name": body.operator_name,
-            "reason": body.reason,
+        # The operator's free-text justification is ``justification``, not
+        # ``reason``: in the Security log ``reason`` is a failure code.
+        context={
+            "operator": _operator_label(body.operator_name, body.operator_email),
+            "justification": body.reason,
             "break_glass": body.break_glass,
             "expires_at": body.expires_at.isoformat(),
+            "reference": body.request_id,
         },
     )
     await _notify_admins(
@@ -209,7 +216,7 @@ async def revoke_rescue_access(body: RescueAccessRevoke, db: AsyncSession = Depe
             category="admin",
             subject_email=email,
             target=("user", str(user.id), email),
-            details={"request_id": body.request_id},
+            context={"reference": body.request_id},
         )
         await _notify_admins(
             db,
@@ -240,7 +247,7 @@ async def ops_export(db: AsyncSession = Depends(get_db)):
         db,
         action="access.export.workspace",
         category="access",
-        details={"size_bytes": len(payload), "requested_by": "ops"},
+        context={"size_bytes": len(payload), "requested_by": "ops"},
     )
     await db.commit()
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")

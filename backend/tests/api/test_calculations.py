@@ -672,11 +672,122 @@ class TestCalculationAudit:
         ]
         assert all(r.actor_user_id == admin_id and r.category == "admin" for r in rows)
         assert rows[0].target_id == calc_id and rows[0].target_label == "Total Cost"
-        assert rows[0].details["formula"] == "42"
-        assert rows[1].details == {"formula": {"old": "42", "new": "43"}}
+        assert rows[0].details == {
+            "context": {
+                "target_type": "Application",
+                "target_field": "Annual Cost",
+                "formula": "42",
+            }
+        }
+        assert rows[1].details == {"changes": {"formula": {"old": "42", "new": "43"}}}
+        assert rows[2].details is None
+        assert rows[3].target_type == "card_type"
         assert rows[3].target_id == "Application"
-        assert rows[3].details["type_key"] == "Application"
-        assert rows[3].details["cards"] == recalc.json()["cards_processed"] == 1
+        assert rows[3].target_label == "Application"
+        assert recalc.json()["cards_processed"] == 1
+        assert rows[3].details == {
+            "context": {
+                "cards": 1,
+                "succeeded": recalc.json()["calculations_succeeded"],
+                "failed": recalc.json()["calculations_failed"],
+            }
+        }
+        assert rows[4].details is None
+        assert rows[5].details == {"context": {"target_type": "Application", "was_active": False}}
+
+    async def test_target_is_recorded_by_label(self, client, db, calc_env):
+        await create_card_type(
+            db,
+            key="ITComponent",
+            label="IT Component",
+            fields_schema=[
+                {
+                    "section": "Cost",
+                    "fields": [
+                        {"key": "licenseCost", "label": "License Cost", "type": "cost"},
+                        {"key": "unlabelled", "type": "number"},
+                    ],
+                }
+            ],
+        )
+        headers = auth_headers(calc_env["admin"])
+        created = await client.post(
+            "/api/v1/calculations",
+            json={
+                "name": "License",
+                "target_type_key": "ITComponent",
+                "target_field_key": "licenseCost",
+                "formula": "1",
+            },
+            headers=headers,
+        )
+        assert created.status_code == 201, created.text
+        calc_id = created.json()["id"]
+        # Field only: the type is unchanged and not reported.
+        await client.patch(
+            f"/api/v1/calculations/{calc_id}",
+            json={"target_field_key": "unlabelled"},
+            headers=headers,
+        )
+        # Type and field together, plus a plain field.
+        await client.patch(
+            f"/api/v1/calculations/{calc_id}",
+            json={
+                "target_type_key": "Application",
+                "target_field_key": "costTotalAnnual",
+                "name": "App cost",
+            },
+            headers=headers,
+        )
+        # Type only: the field keeps its key, read against the new type.
+        await client.patch(
+            f"/api/v1/calculations/{calc_id}",
+            json={"target_type_key": "ITComponent"},
+            headers=headers,
+        )
+        type_recalc = await client.post(
+            "/api/v1/calculations/recalculate/ITComponent", headers=headers
+        )
+        assert type_recalc.status_code == 200, type_recalc.text
+        await client.delete(f"/api/v1/calculations/{calc_id}", headers=headers)
+
+        created_row, field_row, both_row, type_row, recalc_row, deleted_row = await _audit_rows(
+            db, "admin.calculation."
+        )
+        assert created_row.details == {
+            "context": {
+                "target_type": "IT Component",
+                "target_field": "License Cost",
+                "formula": "1",
+            }
+        }
+        # A field without a label is named by its key.
+        assert field_row.details == {
+            "changes": {"target_field": {"old": "License Cost", "new": "unlabelled"}}
+        }
+        assert both_row.details == {
+            "changes": {
+                "name": {"old": "License", "new": "App cost"},
+                "target_type": {"old": "IT Component", "new": "Application"},
+                "target_field": {"old": "unlabelled", "new": "Annual Cost"},
+            }
+        }
+        # ``costTotalAnnual`` is not a field of IT Component: named by its key.
+        assert type_row.details == {
+            "changes": {"target_type": {"old": "Application", "new": "IT Component"}}
+        }
+        assert recalc_row.target_id == "ITComponent"
+        assert recalc_row.target_label == "IT Component"
+        assert deleted_row.details == {
+            "context": {"target_type": "IT Component", "was_active": False}
+        }
+
+    async def test_recalculating_an_unknown_type_names_it_by_key(self, client, db, calc_env):
+        headers = auth_headers(calc_env["admin"])
+        resp = await client.post("/api/v1/calculations/recalculate/Nowhere", headers=headers)
+        assert resp.status_code == 200, resp.text
+        (row,) = await _audit_rows(db, "admin.calculation.recalculated")
+        assert (row.target_id, row.target_label) == ("Nowhere", "Nowhere")
 
     async def test_probes_record_nothing(self, client, db, calc_env):
         headers = auth_headers(calc_env["admin"])
@@ -687,3 +798,27 @@ class TestCalculationAudit:
         )
         assert resp.status_code == 200
         assert await _audit_rows(db, "admin.") == []
+
+
+class TestFieldLabel:
+    """``field_label`` — the pure lookup behind a calculation's audit target."""
+
+    SCHEMA = [
+        {"section": "A", "fields": [{"key": "one", "label": "One"}]},
+        {"section": "B"},
+        {"section": "C", "fields": [{"key": "two", "label": ""}, {"key": "three", "label": "3"}]},
+    ]
+
+    def test_finds_the_label_in_any_section(self):
+        from app.api.v1.calculations import field_label
+
+        assert field_label(self.SCHEMA, "one") == "One"
+        assert field_label(self.SCHEMA, "three") == "3"
+
+    def test_falls_back_to_the_key(self):
+        from app.api.v1.calculations import field_label
+
+        assert field_label(self.SCHEMA, "two") == "two"
+        assert field_label(self.SCHEMA, "missing") == "missing"
+        assert field_label(None, "one") == "one"
+        assert field_label([], None) is None

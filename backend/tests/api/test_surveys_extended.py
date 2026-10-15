@@ -1841,11 +1841,54 @@ class TestSurveyAudit:
             survey_id,
             "Workflow Test Survey",
         )
-        assert sent_row.details["target_type_key"] == "Application"
-        assert sent_row.details["cards"] == 1
-        assert sent_row.details["requests"] == sent.json()["targets_created"]
+        assert sent.json()["targets_created"] == 1
+        assert sent_row.details == {
+            "context": {
+                "card_type": "Application",
+                "roles": ["Responsible"],
+                "matched_cards": 1,
+                "cards": 1,
+                "recipients": 1,
+                "requests": 1,
+            }
+        }
         assert closed_row.action == "admin.survey.closed"
         assert closed_row.target_id == survey_id
+        assert closed_row.details == {"context": {"card_type": "Application"}}
+
+    async def test_card_type_and_roles_are_recorded_by_label(self, client, db, survey_env):
+        from app.models.card_type import CardType
+        from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+        admin = survey_env["admin"]
+        headers = auth_headers(admin)
+        survey_id = (
+            await _create_draft_survey(client, admin, target_roles=["responsible", "gone"])
+        )["id"]
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.label = "Business Application"
+        role = (
+            await db.execute(
+                select(StakeholderRoleDefinition).where(
+                    StakeholderRoleDefinition.key == "responsible"
+                )
+            )
+        ).scalar_one()
+        role.label = "Application Owner"
+        await db.flush()
+
+        sent = await client.post(f"/api/v1/surveys/{survey_id}/send", headers=headers)
+        assert sent.status_code == 200, sent.text
+        await client.post(f"/api/v1/surveys/{survey_id}/close", headers=headers)
+
+        sent_row, closed_row = await _audit_rows(db)
+        # A role the type no longer defines reads as its key.
+        assert sent_row.details["context"]["roles"] == ["Application Owner", "gone"]
+        assert sent_row.details["context"]["card_type"] == "Business Application"
+        assert "target_type_key" not in sent_row.details["context"]
+        assert closed_row.details == {"context": {"card_type": "Business Application"}}
 
     async def test_drafting_and_responding_are_not_admin_actions(self, client, db, survey_env):
         admin = survey_env["admin"]

@@ -520,7 +520,11 @@ class TestRoleAudit:
         )
         assert row.actor_user_id == admin_id
         assert (row.target_type, row.target_id, row.target_label) == ("role", "auditor", "Auditor")
-        assert row.details["permissions"] == {"inventory.view": True}
+        # One item per granted permission; a False cell is not a grant.
+        assert row.details == {
+            "context": {"color": "#757575", "is_default": False},
+            "items": [{"kind": "permission.granted", "permission": "inventory.view"}],
+        }
 
     async def test_update_records_only_the_changed_permission_keys(self, client, db):
         admin_id, headers = await self._admin(db)
@@ -555,12 +559,31 @@ class TestRoleAudit:
         assert row.actor_user_id == admin_id
         assert (row.target_id, row.target_label) == ("auditor", "Auditors")
         assert row.details == {
-            "label": {"old": "Auditor", "new": "Auditors"},
-            "permissions": {
-                "old": {"inventory.edit": False, "reports.ea_dashboard": True},
-                "new": {"inventory.edit": True, "reports.ea_dashboard": False},
-            },
+            "changes": {"label": {"old": "Auditor", "new": "Auditors"}},
+            "items": [
+                {"kind": "permission.granted", "permission": "inventory.edit"},
+                {"kind": "permission.revoked", "permission": "reports.ea_dashboard"},
+            ],
         }
+
+    async def test_granting_the_wildcard_records_a_wildcard_item(self, client, db):
+        _, headers = await self._admin(db)
+        await create_role(
+            db,
+            key="auditor",
+            label="Auditor",
+            is_system=False,
+            permissions={"inventory.view": True},
+        )
+        resp = await client.patch(
+            "/api/v1/roles/auditor",
+            json={"permissions": {"*": True, "inventory.view": True}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [row] = await _role_rows(db)
+        assert row.details == {"items": [{"kind": "permission.wildcard", "granted": True}]}
 
     async def test_promoting_a_default_records_each_demoted_role(self, client, db):
         admin_id, headers = await self._admin(db)
@@ -581,8 +604,12 @@ class TestRoleAudit:
         assert all(r.action == "admin.role.updated" for r in rows)
         assert all(r.actor_user_id == admin_id for r in rows)
         assert by_target["member"].target_label == "Member"
-        assert by_target["member"].details == {"is_default": {"old": True, "new": False}}
-        assert by_target["auditor"].details == {"is_default": {"old": False, "new": True}}
+        assert by_target["member"].details == {
+            "changes": {"is_default": {"old": True, "new": False}}
+        }
+        assert by_target["auditor"].details == {
+            "changes": {"is_default": {"old": False, "new": True}}
+        }
 
     async def test_archive_and_restore_record(self, client, db):
         _, headers = await self._admin(db)
@@ -598,7 +625,8 @@ class TestRoleAudit:
 
         rows = await _role_rows(db)
         assert [r.action for r in rows] == ["admin.role.archived", "admin.role.restored"]
-        assert rows[0].details == {"affected_users_count": 1}
+        assert rows[0].details == {"context": {"affected_users": 1}}
+        assert rows[1].details is None
         assert all(r.target_id == "auditor" for r in rows)
 
     async def test_refused_write_records_nothing(self, client, db):
@@ -615,15 +643,45 @@ class TestRoleAudit:
 
 
 class TestRoleChanges:
-    """``role_changes`` — the pure helper behind the role diff (its
-    ``permissions`` narrowing is ``audit_log.permission_changes``, tested in
-    ``tests/services/test_audit_log_service.py``)."""
+    """``role_changes`` — the pure helper behind the role diff: ``(changes,
+    items)``, the permission items built by ``audit_changes.permission_items``
+    (tested in ``tests/services/test_audit_changes.py``)."""
 
     def test_role_changes_ignores_unchanged_fields(self):
         from app.api.v1.roles import role_changes
 
         before = {"label": "A", "color": "#000000", "permissions": {"x": True}}
-        assert role_changes(before, dict(before)) == {}
-        assert role_changes(before, {**before, "color": "#ffffff"}) == {
-            "color": {"old": "#000000", "new": "#ffffff"}
-        }
+        assert role_changes(before, dict(before)) == ({}, [])
+        assert role_changes(before, {**before, "color": "#ffffff"}) == (
+            {"color": {"old": "#000000", "new": "#ffffff"}},
+            [],
+        )
+
+    def test_role_changes_reports_each_plain_field(self):
+        from app.api.v1.roles import role_changes
+
+        before = {"label": "A", "color": "#000000", "is_default": False, "sort_order": 1}
+        after = {"label": "B", "color": "#111111", "is_default": True, "sort_order": 2}
+        assert role_changes(before, after) == (
+            {
+                "label": {"old": "A", "new": "B"},
+                "color": {"old": "#000000", "new": "#111111"},
+                "is_default": {"old": False, "new": True},
+                "sort_order": {"old": 1, "new": 2},
+            },
+            [],
+        )
+
+    def test_role_changes_turns_permissions_into_items(self):
+        from app.api.v1.roles import role_changes
+
+        before = {"label": "A", "permissions": {"*": True, "a.view": True, "b.view": False}}
+        after = {"label": "A", "permissions": {"a.view": False, "b.view": True}}
+        assert role_changes(before, after) == (
+            {},
+            [
+                {"kind": "permission.wildcard", "granted": False},
+                {"kind": "permission.revoked", "permission": "a.view"},
+                {"kind": "permission.granted", "permission": "b.view"},
+            ],
+        )

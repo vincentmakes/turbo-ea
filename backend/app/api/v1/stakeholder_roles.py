@@ -23,20 +23,33 @@ from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey
 from app.models.user import User
-from app.services import audit_log
+from app.services import audit_changes, audit_log
 from app.services.card_read_scope import CardReadScope
 from app.services.data_quality import rescore_card_type
 from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["stakeholder-roles"])
 
-# Fields whose old/new an ``admin.stakeholder_role.updated`` row carries;
-# ``permissions`` is narrowed to the keys that changed (``audit_log.permission_changes``).
+# Fields whose old/new an ``admin.stakeholder_role.updated`` row carries as
+# ``changes``; ``permissions`` become ``permission.granted`` / ``.revoked``
+# items (``audit_changes.permission_items``).
 SRD_AUDIT_FIELDS = ("label", "color", "sort_order", "counts_for_quality")
 
 
-def _srd_target(type_key: str, srd: StakeholderRoleDefinition) -> tuple[str, str, str]:
-    return ("stakeholder_role", f"{type_key}:{srd.key}", srd.label)
+def _srd_target(
+    type_key: str, type_label: str, srd: StakeholderRoleDefinition
+) -> tuple[str, str, str]:
+    """``<role label> (<card type label>)`` — the same role key exists on many
+    types, so the label alone would not say which one was changed."""
+    return ("stakeholder_role", f"{type_key}:{srd.key}", f"{srd.label or srd.key} ({type_label})")
+
+
+async def _card_type_label(db: AsyncSession, type_key: str) -> str:
+    """The card type's label, its key when it has none."""
+    label = (
+        await db.execute(select(CardType.label).where(CardType.key == type_key))
+    ).scalar_one_or_none()
+    return label or type_key
 
 
 async def _audit_srd(
@@ -45,15 +58,24 @@ async def _audit_srd(
     action: str,
     type_key: str,
     srd: StakeholderRoleDefinition,
-    details: dict | None = None,
+    *,
+    changes: dict | None = None,
+    items: list | None = None,
+    context: dict | None = None,
 ) -> None:
+    """Record one ``admin.stakeholder_role.<action>`` row. Every row carries
+    ``context.card_type`` (the type's label) so the type stays readable even
+    where only the target id is shown."""
+    type_label = await _card_type_label(db, type_key)
     await audit_log.record(
         db,
         action=f"admin.stakeholder_role.{action}",
         category="admin",
         actor=user,
-        target=_srd_target(type_key, srd),
-        details=details,
+        target=_srd_target(type_key, type_label, srd),
+        changes=changes,
+        items=items,
+        context={**(context or {}), "card_type": type_label},
     )
 
 
@@ -465,11 +487,8 @@ async def create_stakeholder_role(
         "created",
         type_key,
         srd,
-        {
-            "color": body.color,
-            "counts_for_quality": body.counts_for_quality,
-            "permissions": {k: v for k, v in sorted(body.permissions.items()) if v},
-        },
+        context={"color": body.color, "counts_for_quality": body.counts_for_quality},
+        items=audit_changes.permission_items({}, body.permissions),
     )
     # A counting role is a data-quality slot for every card of this type, so
     # adding one moves the denominator instance-wide. See `rescore_card_type`.
@@ -553,13 +572,18 @@ async def update_stakeholder_role(
         await db.flush()
         await rescore_card_type(db, type_key)
 
-    details: dict = audit_log.diff(before, srd, keys=SRD_AUDIT_FIELDS)
+    changes = audit_log.diff(before, srd, keys=SRD_AUDIT_FIELDS)
     if new_key:
-        details["key"] = {"old": role_key, "new": new_key}
-    perms = audit_log.permission_changes(permissions_before, srd.permissions)
-    if perms:
-        details["permissions"] = perms
-    await _audit_srd(db, user, "updated", type_key, srd, details)
+        changes["key"] = {"old": role_key, "new": new_key}
+    await _audit_srd(
+        db,
+        user,
+        "updated",
+        type_key,
+        srd,
+        changes=changes,
+        items=audit_changes.permission_items(permissions_before, srd.permissions),
+    )
     await db.commit()
     await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
@@ -650,7 +674,7 @@ async def archive_stakeholder_role(
     srd.archived_at = datetime.now(timezone.utc)
     srd.archived_by = user.id
     await _audit_srd(
-        db, user, "archived", type_key, srd, {"affected_stakeholders_count": affected_count}
+        db, user, "archived", type_key, srd, context={"affected_stakeholders": affected_count}
     )
     # Archiving a counting role drops it out of the data-quality slot, which
     # can leave cards whose only assignment was under that role incomplete.

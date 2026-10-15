@@ -92,6 +92,15 @@ _PROXY_FAILED = "auth.proxy_session.failed"
 _PROVISION_REASONS = {409: "local_account", 403: "no_account"}
 
 
+async def _role_label(db: AsyncSession, key: str) -> str:
+    """The label a role is shown under, for an audit row; the key itself when no
+    role (or no label) answers to it."""
+    from app.models.role import Role
+
+    label = (await db.execute(select(Role.label).where(Role.key == key))).scalar_one_or_none()
+    return label or key
+
+
 async def _fail(
     db: AsyncSession,
     status_code: int,
@@ -417,7 +426,7 @@ async def register(
         action="auth.register",
         category="auth",
         actor=user,
-        details={"role": role, "first_user": is_first_user},
+        context={"role": await _role_label(db, role), "first_user": is_first_user},
     )
     await db.commit()
     await db.refresh(user)
@@ -482,13 +491,16 @@ async def login(
             action=_LOGIN_FAILED,
             subject_email=body.email,
             actor=user,
-            details={"reason": "locked", "locked_until": user.locked_until.isoformat()},
+            details={
+                "reason": "locked",
+                "context": {"locked_until": user.locked_until.isoformat()},
+            },
         )
 
     if not verify_password(body.password, user.password_hash):
         attempts = (user.failed_login_attempts or 0) + 1
         user.failed_login_attempts = attempts
-        failure = {"reason": "bad_password", "attempts": attempts}
+        failure = {"reason": "bad_password", "context": {"attempts": attempts}}
         if attempts >= 5:
             user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
             logger.warning("Account locked due to repeated failed logins: %s", user.email)
@@ -511,7 +523,9 @@ async def login(
                 action="auth.login.locked",
                 subject_email=body.email,
                 actor=user,
-                details={"locked_until": user.locked_until.isoformat(), "attempts": attempts},
+                details={
+                    "context": {"locked_until": user.locked_until.isoformat(), "attempts": attempts}
+                },
             )
         await _fail(
             db,
@@ -549,7 +563,7 @@ async def login(
         action="auth.login.succeeded",
         category="auth",
         actor=user,
-        details={"first_login": first_login},
+        context={"first_login": first_login},
     )
     await db.commit()
 
@@ -860,7 +874,7 @@ async def sso_callback(
             exc.status_code,
             exc.detail,
             action=_SSO_FAILED,
-            details={"provider": None, "reason": "exchange_failed"},
+            details={"reason": "exchange_failed"},
         )
 
     # Microsoft carries the stable object id in "oid"; every other provider
@@ -885,7 +899,7 @@ async def sso_callback(
                 f"Sign-in restricted to {sso['domain']} accounts.",
                 action=_SSO_FAILED,
                 subject_email=claimed_email,
-                details={"provider": provider, "reason": "hd_mismatch"},
+                details={"reason": "hd_mismatch", "context": {"provider": provider}},
             )
 
     if not email:
@@ -894,7 +908,7 @@ async def sso_callback(
             401,
             "No email claim in SSO token. Ensure email scope is granted.",
             action=_SSO_FAILED,
-            details={"provider": provider, "reason": "no_email"},
+            details={"reason": "no_email", "context": {"provider": provider}},
         )
     if not sso_subject_id:
         await _fail(
@@ -903,7 +917,7 @@ async def sso_callback(
             "No subject identifier found in SSO token.",
             action=_SSO_FAILED,
             subject_email=claimed_email,
-            details={"provider": provider, "reason": "no_subject"},
+            details={"reason": "no_subject", "context": {"provider": provider}},
         )
 
     email = email.lower().strip()
@@ -926,8 +940,8 @@ async def sso_callback(
             action=_SSO_FAILED,
             subject_email=email,
             details={
-                "provider": provider,
                 "reason": _PROVISION_REASONS.get(exc.status_code, "no_account"),
+                "context": {"provider": provider},
             },
         )
 
@@ -940,7 +954,7 @@ async def sso_callback(
             action=_SSO_FAILED,
             subject_email=email,
             actor=user,
-            details={"provider": provider, "reason": blocked[0]},
+            details={"reason": blocked[0], "context": {"provider": provider}},
         )
 
     await audit_log.record(
@@ -948,7 +962,7 @@ async def sso_callback(
         action="auth.sso.succeeded",
         category="auth",
         actor=user,
-        details={"provider": provider, "subject": sso_subject_id, "created": not existed},
+        context={"provider": provider, "subject": sso_subject_id, "created": not existed},
     )
     await db.commit()
     return _issue_session(request, response, user)
@@ -1047,13 +1061,14 @@ async def proxy_session(
             details={"reason": _PROVISION_REASONS.get(exc.status_code, "no_account")},
         )
 
-    # What the ``auth.proxy_session.succeeded`` row reports (plus ``role`` when the
-    # sign-in below changes it).
+    # What the ``auth.proxy_session.succeeded`` row reports (plus a ``role`` change,
+    # by label, when the sign-in below changes it).
     success: dict[str, Any] = {
         "subject": identity.subject_id,
         "verified": identity.verified,
         "created": not existed,
     }
+    role_change: dict[str, Any] | None = None
 
     # Role assignment, re-asserted on every sign-in. Two things live here: the
     # first-admin bootstrap (a proxy-auth-only install has no other route to an
@@ -1066,7 +1081,12 @@ async def proxy_session(
     # _issue_session then mints the JWT from the corrected role.
     desired_role = await _resolve_proxy_role(db, identity)
     if desired_role and user.role != desired_role:
-        success["role"] = {"old": user.role, "new": desired_role}
+        role_change = {
+            "role": {
+                "old": await _role_label(db, user.role),
+                "new": await _role_label(db, desired_role),
+            }
+        }
         # Logged because a demotion is otherwise invisible: the map is authoritative,
         # so a role granted by hand in the Users admin is reverted here, and this
         # line is what answers "why did I lose admin?".
@@ -1093,7 +1113,12 @@ async def proxy_session(
         )
 
     await audit_log.record(
-        db, action="auth.proxy_session.succeeded", category="auth", actor=user, details=success
+        db,
+        action="auth.proxy_session.succeeded",
+        category="auth",
+        actor=user,
+        changes=role_change,
+        context=success,
     )
     await db.commit()
     return _issue_session(request, response, user)
@@ -1395,7 +1420,7 @@ async def forgot_password(
         action="auth.password.reset_requested",
         category="auth",
         subject_email=raw_email or None,
-        details={"account_matched": user is not None, "email_sent": email_sent},
+        context={"account_matched": user is not None, "email_sent": email_sent},
     )
     await db.commit()
     return {"ok": True}

@@ -685,14 +685,14 @@ class TestAudit:
         ]
         assert all(r.actor_user_id == admin_id and r.category == "admin" for r in rows)
         assert rows[0].target_id == conn_id
-        assert rows[0].details == {"instance_url": INSTANCE, "auth_type": "basic"}
-        # Plain context values sit under ``context`` so the top level is old/new
-        # pairs only — the shape the Security log drawer renders as a table.
+        assert rows[0].details == {"context": {"instance_url": INSTANCE, "auth_type": "basic"}}
         assert rows[1].details == {
-            "name": {"old": "SNOW", "new": "SNOW prod"},
+            "changes": {"name": {"old": "SNOW", "new": "SNOW prod"}},
             "context": {"credentials_changed": True},
         }
         assert rows[2].details == {"context": {"credentials_changed": False}}
+        assert rows[3].details == {"context": {"instance_url": INSTANCE, "auth_type": "oauth2"}}
+        assert rows[4].details == {"context": {"instance_url": INSTANCE}}
         for row in rows:
             dumped = repr((row.details, row.target_label, row.target_id, row.subject_email))
             assert NEW_PASSWORD not in dumped
@@ -717,10 +717,47 @@ class TestAudit:
         created, updated, deleted = await _audit_rows(db, "admin.servicenow.mapping.")
         assert created.target_id == mid
         assert created.target_label == "cmdb_ci_appl → Application"
-        assert created.details["field_mappings"] == 4
-        assert updated.details["field_mappings"] == {"old": 4, "new": 1}
-        assert updated.details["sync_mode"]["new"] == "additive"
-        assert deleted.details == {"connection_id": env["conn_id"]}
+        # The connection by name and the card type by label — never their ids.
+        assert created.details == {
+            "context": {
+                "connection": "SNOW",
+                "card_type": "Application",
+                "snow_table": "cmdb_ci_appl",
+                "sync_direction": "snow_to_turbo",
+                "sync_mode": "conservative",
+                "max_deletion_ratio": 0.5,
+                "filter_query": None,
+                "skip_staging": False,
+                "is_active": True,
+                "field_mappings": 4,
+            }
+        }
+        assert updated.details == {
+            "changes": {
+                "sync_mode": {"old": "conservative", "new": "additive"},
+                "field_mappings": {"old": 4, "new": 1},
+            }
+        }
+        assert deleted.details == {"context": {"connection": "SNOW"}}
+
+    async def test_mapping_rows_name_the_card_type_by_label(self, client, db, env):
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        mid = env["mapping_id"]
+        resp = await client.patch(
+            f"{BASE}/mappings/{mid}",
+            json={"card_type_key": "ITComponent", "snow_table": "cmdb_ci_server"},
+            headers=env["headers"],
+        )
+        assert resp.status_code == 200, resp.text
+
+        [updated] = await _audit_rows(db, "admin.servicenow.mapping.updated")
+        assert updated.target_label == "cmdb_ci_server → IT Component"
+        assert updated.details == {
+            "changes": {
+                "card_type": {"old": "Application", "new": "IT Component"},
+                "snow_table": {"old": "cmdb_ci_appl", "new": "cmdb_ci_server"},
+            }
+        }
 
     async def test_syncs_and_apply_are_recorded(self, client, db, env, monkeypatch):
         _swappable(monkeypatch, snow_table_handler(records=[_rec(S1, "Billing")]))
@@ -733,14 +770,39 @@ class TestAudit:
         assert applied.status_code == 200, applied.text
 
         pulled, pushed, applied_row = await _audit_rows(db, "admin.servicenow.sync.")
+        stat_keys = ("fetched", "processed", "created", "updated", "deleted", "skipped", "errors")
+
+        def flat(run: dict) -> dict:
+            return {k: run["stats"][k] for k in stat_keys if k in run["stats"]}
+
         assert pulled.action == "admin.servicenow.sync.pulled"
         assert pulled.outcome == "success" and pulled.target_id == mid
-        assert pulled.details["run_id"] == pull.json()["id"]
-        assert pulled.details["auto_apply"] is False
+        assert pulled.target_label == "cmdb_ci_appl → Application"
+        # The stats flattened; the row targets the mapping, so the run is the
+        # reference.
+        assert flat(pull.json())["fetched"] == 1
+        assert pulled.details == {
+            "context": {
+                "status": pull.json()["status"],
+                "auto_apply": False,
+                **flat(pull.json()),
+                "reference": pull.json()["id"],
+            }
+        }
         assert pushed.action == "admin.servicenow.sync.pushed"
-        assert pushed.details["run_id"] == push.json()["id"]
+        assert pushed.details == {
+            "context": {
+                "status": push.json()["status"],
+                **flat(push.json()),
+                "reference": push.json()["id"],
+            }
+        }
         assert applied_row.action == "admin.servicenow.sync.applied"
-        assert applied_row.details["applied"] == applied.json()["applied"]
+        # The row targets the run: its counts, and no id.
+        assert applied_row.target_id == pull.json()["id"]
+        assert applied_row.target_label == "SNOW"
+        assert applied_row.details == {"context": applied.json()["applied"]}
+        assert set(applied.json()["applied"]) == {"created", "updated", "deleted", "errors"}
 
     async def test_a_failed_sync_is_recorded_as_a_failure(self, client, db, env, monkeypatch):
         admin_id = env["admin"].id
@@ -756,6 +818,11 @@ class TestAudit:
         assert (pulled.action, pulled.outcome) == ("admin.servicenow.sync.pulled", "failure")
         assert (pushed.action, pushed.outcome) == ("admin.servicenow.sync.pushed", "failure")
         assert pulled.actor_user_id == admin_id and pulled.target_id == mid
+        # Resolved before the sync, so a failure still names the mapping.
+        assert pulled.target_label == "cmdb_ci_appl → Application"
+        assert pushed.target_label == "cmdb_ci_appl → Application"
+        assert pulled.details == {"context": {"auto_apply": True}}
+        assert pushed.details is None
 
     async def test_probes_record_nothing(self, client, db, env, monkeypatch):
         _swappable(monkeypatch, snow_table_handler(tables=[{"name": "x"}], records=[]))

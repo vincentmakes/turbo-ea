@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import re
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -21,7 +22,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
-from app.services import audit_log
+from app.services import audit_changes, audit_log
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.bedrock import is_valid_region
@@ -160,35 +161,81 @@ def _email_configured(stored: dict) -> bool:
     return get_backend(cfg.method).is_configured(cfg)
 
 
-def setting_changes(old: Any, new: Any) -> dict[str, dict[str, Any]]:
-    """``{field: {"old", "new"}}`` for one setting, as the audit row stores it.
+# The ``changes`` field a scalar setting is recorded under, by route slug. Every
+# other ``*-enabled`` toggle reads as ``enabled`` (``setting_field``).
+_SETTING_FIELDS = {
+    "currency": "currency",
+    "date-format": "date_format",
+    "app-title": "app_title",
+    "fiscal-year-start": "fiscal_year_start",
+    "archive-retention-days": "retention_days",
+    "audit-log-retention-days": "retention_days",
+    "bpm-row-order": "row_order",
+    "principles-display": "show_principles_tab",
+    "bpm-separate-approver": "separate_approver",
+    "registration": "enabled",
+}
+
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+
+
+def snake_case(name: str) -> str:
+    """``providerUrl`` → ``provider_url``; a snake_case name is returned as it is."""
+    return _CAMEL_BOUNDARY.sub("_", name).lower()
+
+
+def setting_field(key: str) -> str:
+    """The field name a scalar setting's change is recorded under."""
+    if key in _SETTING_FIELDS:
+        return _SETTING_FIELDS[key]
+    if key.endswith("-enabled"):
+        return "enabled"
+    return key.replace("-", "_")
+
+
+def setting_changes(key: str, old: Any, new: Any) -> dict[str, dict[str, Any]]:
+    """``{field: {"old", "new"}}`` for the setting ``key``, as the audit row's
+    ``changes`` stores it.
 
     A structured setting (SMTP, SSO, AI, MCP, branding) is compared key by key,
     so the row names the one field that moved instead of copying the whole
-    block twice; a key present on one side only reads as ``None`` on the other.
-    A scalar or list setting reads as a single ``value`` field. Secrets are
-    masked by ``audit_log.redact`` on the way in (``smtp_password``,
-    ``client_secret``, ``apiKey`` and any ``enc:`` ciphertext read ``***``).
+    block twice; its stored camelCase keys are recorded snake_case
+    (``providerUrl`` → ``provider_url``), and a key present on one side only
+    reads as ``None`` on the other. A scalar or list setting is one field named
+    by ``setting_field`` (``currency``, ``retention_days``, ``enabled``). Secrets
+    are masked by ``audit_log.redact`` on the way in (``smtp_password``,
+    ``client_secret``, ``api_key`` and any ``enc:`` ciphertext read ``***``).
     """
     if isinstance(old, Mapping) or isinstance(new, Mapping):
-        before = old if isinstance(old, Mapping) else {}
-        after = new if isinstance(new, Mapping) else {}
+        before = {snake_case(k): v for k, v in (old if isinstance(old, Mapping) else {}).items()}
+        after = {snake_case(k): v for k, v in (new if isinstance(new, Mapping) else {}).items()}
         return {
-            key: {"old": before.get(key), "new": after.get(key)}
-            for key in sorted(set(before) | set(after))
-            if before.get(key) != after.get(key)
+            field: {"old": before.get(field), "new": after.get(field)}
+            for field in sorted(set(before) | set(after))
+            if before.get(field) != after.get(field)
         }
-    return audit_log.diff({"value": old}, {"value": new})
+    field = setting_field(key)
+    return audit_log.diff({field: old}, {field: new})
+
+
+async def _type_labels(db: AsyncSession, keys: Iterable[str]) -> list[str]:
+    """Card-type labels for ``keys``, in order; a key with no type is kept as it is."""
+    keys = list(keys)
+    rows = await db.execute(select(CardType.key, CardType.label).where(CardType.key.in_(keys)))
+    labels = dict(rows.tuples().all())
+    return [labels.get(key, key) for key in keys]
 
 
 async def _audit_setting(
     db: AsyncSession,
     user: User,
     key: str,
-    old: Any,
-    new: Any,
+    old: Any = None,
+    new: Any = None,
     *,
     action: str = "admin.settings.updated",
+    items: list[dict[str, Any]] | None = None,
+    context: dict[str, Any] | None = None,
 ) -> None:
     """Record an admin's change to the setting ``key`` (the route's own slug).
 
@@ -196,11 +243,14 @@ async def _audit_setting(
     guard test ``tests/services/test_audit_log_guard.py`` counts a call to this
     helper as the handler's audit record. Never commits.
 
-    A save that changed nothing (the same value re-sent) records nothing:
-    "nothing changed" is not an audit event. ``record`` redacts the details.
+    ``old`` / ``new`` become ``changes`` (``setting_changes``); a setting that is
+    better told as change items (the enabled locales, a replaced logo) passes
+    ``items`` and, for plain facts, ``context`` instead. A save that changed
+    nothing (the same value re-sent) records nothing: "nothing changed" is not
+    an audit event. ``record`` redacts the details.
     """
-    changes = setting_changes(old, new)
-    if not changes:
+    changes = setting_changes(key, old, new)
+    if not changes and not items:
         return
     await audit_log.record(
         db,
@@ -208,8 +258,36 @@ async def _audit_setting(
         category="admin",
         actor=user,
         target=("setting", key, key),
-        details=changes,
+        changes=changes,
+        items=items,
+        context=context,
     )
+
+
+async def _audit_image(
+    db: AsyncSession,
+    user: User,
+    image: str,
+    *,
+    had_custom: bool,
+    mime: str | None = None,
+    size_bytes: int | None = None,
+) -> None:
+    """Record a custom ``image`` (``logo`` / ``favicon``) uploaded (``mime`` set)
+    or reset to the default (``mime`` ``None``). Resetting when no custom image
+    was set records nothing."""
+    if mime is not None:
+        await _audit_setting(
+            db,
+            user,
+            image,
+            items=[audit_changes.item("image.replaced", image=image)],
+            context={"mime": mime, "size_bytes": size_bytes},
+        )
+    elif had_custom:
+        await _audit_setting(
+            db, user, image, items=[audit_changes.item("image.removed", image=image)]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1489,10 +1567,12 @@ async def upload_logo(
         raise HTTPException(400, f"Logo must be under {MAX_LOGO_SIZE // (1024 * 1024)} MB.")
 
     row = await _get_or_create_row(db)
-    old = {"mime": row.custom_logo_mime}
+    had_custom = row.custom_logo_mime is not None
     row.custom_logo = data
     row.custom_logo_mime = content_type
-    await _audit_setting(db, user, "logo", old, {"mime": content_type, "size_bytes": len(data)})
+    await _audit_image(
+        db, user, "logo", had_custom=had_custom, mime=content_type, size_bytes=len(data)
+    )
     await db.commit()
 
     return {"ok": True}
@@ -1507,10 +1587,10 @@ async def reset_logo(
     await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
-    old = {"mime": row.custom_logo_mime}
+    had_custom = row.custom_logo_mime is not None
     row.custom_logo = None
     row.custom_logo_mime = None
-    await _audit_setting(db, user, "logo", old, {"mime": None})
+    await _audit_image(db, user, "logo", had_custom=had_custom)
     await db.commit()
 
     return {"ok": True}
@@ -1566,10 +1646,12 @@ async def upload_favicon(
         raise HTTPException(400, f"Favicon must be under {MAX_LOGO_SIZE // (1024 * 1024)} MB.")
 
     row = await _get_or_create_row(db)
-    old = {"mime": row.custom_favicon_mime}
+    had_custom = row.custom_favicon_mime is not None
     row.custom_favicon = data
     row.custom_favicon_mime = content_type
-    await _audit_setting(db, user, "favicon", old, {"mime": content_type, "size_bytes": len(data)})
+    await _audit_image(
+        db, user, "favicon", had_custom=had_custom, mime=content_type, size_bytes=len(data)
+    )
     await db.commit()
 
     return {"ok": True}
@@ -1584,10 +1666,10 @@ async def reset_favicon(
     await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
-    old = {"mime": row.custom_favicon_mime}
+    had_custom = row.custom_favicon_mime is not None
     row.custom_favicon = None
     row.custom_favicon_mime = None
-    await _audit_setting(db, user, "favicon", old, {"mime": None})
+    await _audit_image(db, user, "favicon", had_custom=had_custom)
     await db.commit()
 
     return {"ok": True}
@@ -1854,7 +1936,12 @@ async def update_ai_settings(
         "portfolioInsightsEnabled": body.portfolio_insights_enabled,
     }
     row.general_settings = general
-    await _audit_setting(db, user, "ai", dict(prev_ai), general["ai"])
+    # The enabled card types are named by label, the way the AI settings list them.
+    audit_old, audit_new = dict(prev_ai), dict(general["ai"])
+    for side in (audit_old, audit_new):
+        if isinstance(side.get("enabledTypes"), list):
+            side["enabledTypes"] = await _type_labels(db, side["enabledTypes"])
+    await _audit_setting(db, user, "ai", audit_old, audit_new)
     await db.commit()
 
     return {"ok": True}
@@ -1955,7 +2042,18 @@ async def update_enabled_locales(
     old = general.get("enabledLocales", SUPPORTED_LOCALES)
     general["enabledLocales"] = valid
     row.general_settings = general
-    await _audit_setting(db, user, "enabled-locales", old, general["enabledLocales"])
+    await _audit_setting(
+        db,
+        user,
+        "enabled-locales",
+        items=audit_changes.list_items(
+            old,
+            general["enabledLocales"],
+            kind_added="locale.enabled",
+            kind_removed="locale.disabled",
+            arg="locale",
+        ),
+    )
     await db.commit()
 
     return {"locales": valid}

@@ -304,7 +304,7 @@ async def export_audit_log(
         category="access",
         actor=user,
         target=("audit_log", None, "audit_log"),
-        details={"rows": len(entries)},
+        context={"rows": len(entries)},
     )
     await db.commit()
     # Up to AUDIT_EXPORT_MAX_ROWS rows of CSV is CPU work on the single event

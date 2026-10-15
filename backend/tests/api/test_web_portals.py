@@ -9,6 +9,7 @@ import pytest
 from tests.conftest import (
     auth_headers,
     create_card_type,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -296,29 +297,52 @@ class TestPortalAudit:
             pid,
             "App Catalog",
         )
-        assert created.details["slug"] == "app-catalog"
-        assert created.details["is_published"] is True
-        assert created.details["access_mode"] == "public"
+        assert created.details == {
+            "context": {
+                "slug": "app-catalog",
+                "card_type": "Application",
+                "is_published": True,
+                "view": "cards",
+                "access_mode": "public",
+                "allowed_email_domains": None,
+            }
+        }
 
         assert updated.action == "admin.web_portal.updated"
-        # The current slug and publication state ride along as ``context``,
-        # beside — never mixed into — the old/new pairs.
-        assert updated.details["context"] == {"slug": "app-catalog", "is_published": False}
-        assert "slug" not in updated.details
-        assert updated.details["is_published"] == {"old": True, "new": False}
-        # A configuration blob is summarised by size, not stored.
-        assert set(updated.details["filters"]) == {"old", "new"}
-        assert isinstance(updated.details["filters"]["new"], int)
-        assert all(set(v) == {"old", "new"} for k, v in updated.details.items() if k != "context")
+        # An unknown subtype key reads as itself; nothing else rides along.
+        assert updated.details == {
+            "changes": {"is_published": {"old": True, "new": False}},
+            "items": [
+                {"kind": "portal_filter.changed", "filter": "subtypes", "old": [], "new": ["x"]}
+            ],
+        }
 
         assert deleted.action == "admin.web_portal.deleted"
         assert deleted.details == {
-            "slug": "app-catalog",
-            "is_published": False,
-            "access_mode": "public",
+            "context": {"slug": "app-catalog", "is_published": False, "access_mode": "public"}
         }
 
-    async def test_same_size_blob_change_carries_a_fingerprint(self, client, db, portals_env):
+    async def test_card_type_is_recorded_by_label(self, client, db, portals_env):
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "Catalog", "slug": "catalog", "card_type": "ITComponent"},
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}", json={"card_type": "Application"}, headers=headers
+        )
+        assert resp.status_code == 200
+
+        created, updated = await _audit_rows(db)
+        assert created.details["context"]["card_type"] == "IT Component"
+        assert updated.details == {
+            "changes": {"card_type": {"old": "IT Component", "new": "Application"}}
+        }
+
+    async def test_description_is_recorded_as_clipped_text(self, client, db, portals_env):
         headers = auth_headers(portals_env["admin"])
         resp = await client.post(
             "/api/v1/web-portals",
@@ -331,18 +355,183 @@ class TestPortalAudit:
             headers=headers,
         )
         pid = resp.json()["id"]
+        long_text = "a" * 600
+        await client.patch(
+            f"/api/v1/web-portals/{pid}", json={"description": "The catalog"}, headers=headers
+        )
+        await client.patch(
+            f"/api/v1/web-portals/{pid}", json={"description": long_text}, headers=headers
+        )
+        # Exactly at the limit: kept whole.
+        await client.patch(
+            f"/api/v1/web-portals/{pid}", json={"description": "b" * 500}, headers=headers
+        )
+
+        first, second, third = [
+            r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"
+        ]
+        assert first.details == {
+            "changes": {"description": {"old": "Teh catalog", "new": "The catalog"}}
+        }
+        clipped = second.details["changes"]["description"]["new"]
+        assert clipped == "a" * 499 + "…"
+        assert len(clipped) == 500
+        assert second.details["changes"]["description"]["old"] == "The catalog"
+        assert third.details == {
+            "changes": {"description": {"old": "a" * 499 + "…", "new": "b" * 500}}
+        }
+
+    async def test_subtype_and_tag_filters_are_recorded_by_label(self, client, db, portals_env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from app.models.tag import Tag, TagGroup
+
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.subtypes = [
+            {"key": "business", "label": "Business Application"},
+            {"key": "micro", "label": "Microservice"},
+        ]
+        await db.flush()
+        group = TagGroup(name="Domain")
+        db.add(group)
+        await db.flush()
+        finance = Tag(tag_group_id=group.id, name="Finance")
+        sales = Tag(tag_group_id=group.id, name="Sales")
+        db.add_all([finance, sales])
+        await db.flush()
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Catalog",
+                "slug": "catalog",
+                "card_type": "Application",
+                "filters": {"subtypes": ["business"], "tag_ids": [str(finance.id)]},
+            },
+            headers=headers,
+        )
+        pid = resp.json()["id"]
         resp = await client.patch(
             f"/api/v1/web-portals/{pid}",
-            json={"description": "The catalog"},
+            json={
+                "filters": {
+                    "subtypes": ["business", "micro"],
+                    "tag_ids": [str(sales.id)],
+                }
+            },
             headers=headers,
         )
         assert resp.status_code == 200
 
         [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
-        old, new = updated.details["description"]["old"], updated.details["description"]["new"]
-        assert old.startswith("11 bytes · ") and new.startswith("11 bytes · ")
-        assert old != new
-        assert "catalog" not in old + new
+        assert updated.details == {
+            "items": [
+                {
+                    "kind": "portal_filter.changed",
+                    "filter": "subtypes",
+                    "old": ["Business Application"],
+                    "new": ["Business Application", "Microservice"],
+                },
+                {
+                    "kind": "portal_filter.changed",
+                    "filter": "tags",
+                    "old": ["Finance"],
+                    "new": ["Sales"],
+                },
+            ]
+        }
+
+    async def test_toggles_and_display_fields_are_recorded_by_label(self, client, db, portals_env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.fields_schema = [
+            {
+                "section": "Finance",
+                "fields": [
+                    {"key": "costTotal", "label": "Total cost", "type": "cost"},
+                    {"key": "owner", "label": "Owner", "type": "text"},
+                ],
+            }
+        ]
+        await db.flush()
+        await create_relation_type(
+            db,
+            key="relAppToITC",
+            label="uses",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Catalog",
+                "slug": "catalog",
+                "card_type": "Application",
+                "display_fields": ["costTotal"],
+                "card_config": {"toggles": {"costTotal": {"card": True, "detail": True}}},
+            },
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={
+                "display_fields": ["owner", "costTotal"],
+                "card_config": {
+                    "toggles": {
+                        "costTotal": {"card": False, "detail": True},
+                        "lifecycle": {"card": True},
+                        "rel:relAppToITC": {"detail": True},
+                    },
+                    "show_logo": False,
+                },
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert updated.details == {
+            "changes": {"display_fields": {"old": ["Total cost"], "new": ["Owner", "Total cost"]}},
+            "items": [
+                {
+                    "kind": "portal_toggle.changed",
+                    "item": "Total cost",
+                    "surface": "card",
+                    "old": True,
+                    "new": False,
+                },
+                {
+                    "kind": "portal_toggle.changed",
+                    "item": "lifecycle",
+                    "surface": "card",
+                    "old": None,
+                    "new": True,
+                },
+                {
+                    "kind": "portal_toggle.changed",
+                    "item": "uses",
+                    "surface": "detail",
+                    "old": None,
+                    "new": True,
+                },
+                {
+                    "kind": "portal_option.changed",
+                    "option": "show_logo",
+                    "old": True,
+                    "new": False,
+                },
+            ],
+        }
 
     async def test_unchanged_blob_is_not_reported(self, client, db, portals_env):
         headers = auth_headers(portals_env["admin"])
@@ -360,10 +549,7 @@ class TestPortalAudit:
         assert resp.status_code == 200
 
         [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
-        assert updated.details == {
-            "name": {"old": "Catalog", "new": "Catalogue"},
-            "context": {"slug": "catalog", "is_published": False},
-        }
+        assert updated.details == {"changes": {"name": {"old": "Catalog", "new": "Catalogue"}}}
 
     async def test_viewer_is_refused_and_nothing_is_recorded(self, client, db, portals_env):
         resp = await client.post(

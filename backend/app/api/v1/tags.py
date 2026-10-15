@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -9,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.card_type import CardType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate, TagGroupUpdate, TagUpdate
@@ -16,6 +18,25 @@ from app.services import audit_log
 from app.services.data_quality import rescore_cards
 from app.services.permission_service import PermissionService
 from app.services.tag_service import publish_tag_event as _publish_tag_event
+
+
+async def _type_labels(db: AsyncSession, keys: list[str] | None) -> list[str] | None:
+    """A tag group's ``restrict_to_types`` as card-type labels, in order, for an
+    audit row; a key with no type is kept as it is, and ``None`` (every type)
+    stays ``None``."""
+    if keys is None:
+        return None
+    rows = await db.execute(select(CardType.key, CardType.label).where(CardType.key.in_(keys)))
+    labels = dict(rows.tuples().all())
+    return [labels.get(key, key) for key in keys]
+
+
+async def _group_name(db: AsyncSession, group_id: uuid.UUID) -> str | None:
+    """The name of the tag group ``group_id``, for an audit row."""
+    return (
+        await db.execute(select(TagGroup.name).where(TagGroup.id == group_id))
+    ).scalar_one_or_none()
+
 
 router = APIRouter(tags=["tags"])
 
@@ -79,10 +100,10 @@ async def create_tag_group(
         category="admin",
         actor=user,
         target=("tag_group", str(group.id), group.name),
-        details={
+        context={
             "mode": group.mode,
             "mandatory": group.mandatory,
-            "restrict_to_types": group.restrict_to_types,
+            "restrict_to_types": await _type_labels(db, group.restrict_to_types),
         },
     )
     await db.commit()
@@ -102,17 +123,24 @@ async def update_tag_group(
     if group is None:
         raise HTTPException(status_code=404, detail="Tag group not found")
     updates = body.model_dump(exclude_unset=True)
-    changes = audit_log.diff(group, updates)
+    changes: dict[str, Any] = audit_log.diff(group, updates)
+    if "restrict_to_types" in changes:
+        # Named the way the tag-group editor lists them.
+        changes["restrict_to_types"] = {
+            side: await _type_labels(db, changes["restrict_to_types"][side])
+            for side in ("old", "new")
+        }
     for field, value in updates.items():
         setattr(group, field, value)
-    await audit_log.record(
-        db,
-        action="admin.tag_group.updated",
-        category="admin",
-        actor=user,
-        target=("tag_group", str(group.id), group.name),
-        details=changes,
-    )
+    if changes:  # a save that changed nothing is not an audit event
+        await audit_log.record(
+            db,
+            action="admin.tag_group.updated",
+            category="admin",
+            actor=user,
+            target=("tag_group", str(group.id), group.name),
+            changes=changes,
+        )
     await db.commit()
     await db.refresh(group)
     return {
@@ -168,7 +196,10 @@ async def create_tag(
         category="admin",
         actor=user,
         target=("tag", str(tag.id), tag.name),
-        details={"tag_group_id": str(tag.tag_group_id), "color": tag.color},
+        context={
+            "tag_group": await _group_name(db, tag.tag_group_id),
+            "color": tag.color,
+        },
     )
     await db.commit()
     await db.refresh(tag)
@@ -202,14 +233,15 @@ async def update_tag(
     changes = audit_log.diff(tag, updates)
     for field, value in updates.items():
         setattr(tag, field, value)
-    await audit_log.record(
-        db,
-        action="admin.tag.updated",
-        category="admin",
-        actor=user,
-        target=("tag", str(tag.id), tag.name),
-        details=changes,
-    )
+    if changes:  # a save that changed nothing is not an audit event
+        await audit_log.record(
+            db,
+            action="admin.tag.updated",
+            category="admin",
+            actor=user,
+            target=("tag", str(tag.id), tag.name),
+            changes=changes,
+        )
     await db.commit()
     await db.refresh(tag)
     return {
@@ -244,7 +276,10 @@ async def delete_tag(
         category="admin",
         actor=user,
         target=("tag", str(tag.id), tag.name),
-        details={"tag_group_id": str(tag.tag_group_id)},
+        context={
+            "tag_group": await _group_name(db, tag.tag_group_id),
+            "color": tag.color,
+        },
     )
     await db.delete(tag)
     await db.commit()

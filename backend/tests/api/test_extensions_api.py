@@ -764,6 +764,11 @@ class TestDowngradeGuard:
         ).scalar_one()
         await db.refresh(row)
         assert row.version == "1.0.0"
+        [applied] = await _audit_rows(db, "admin.extension.install.applied")
+        # The confirmed rollback is on the record, labelled with the name of
+        # the extension it rolled back.
+        assert (applied.target_id, applied.target_label) == ("sample-ext", "Sample Extension")
+        assert applied.details == {"context": {"version": "1.0.0", "downgrade_from": "2.0.0"}}
 
     async def test_same_or_newer_version_never_flags(self, client, db, vendor):
         admin = await make_admin(db)
@@ -1948,10 +1953,24 @@ class TestExtensionAudit:
         assert updated.action == "admin.extension.license.updated"
         assert updated.actor_user_id == admin_id and updated.category == "admin"
         assert (updated.target_type, updated.target_label) == ("license", "ACME Corp")
-        assert updated.details["entitlements"] == ["sample-ext"]
-        assert updated.details["licensee"] == "ACME Corp"
+        assert updated.details == {
+            "context": {
+                "licensee": "ACME Corp",
+                "customer_id": "cus_1",
+                "key_id": "vendor-1",
+                "entitlements": ["sample-ext"],
+                "confirmed_downgrade": False,
+            }
+        }
         assert removed.action == "admin.extension.license.removed"
-        assert removed.details["entitlements"] == ["sample-ext"]
+        assert removed.details == {
+            "context": {
+                "licensee": "ACME Corp",
+                "customer_id": "cus_1",
+                "key_id": "vendor-1",
+                "entitlements": ["sample-ext"],
+            }
+        }
         _never_leaks([updated, removed], RENEWAL_KEY, signature, json.loads(text)["payload"])
 
     async def test_a_refused_license_records_nothing(self, client, db, vendor):
@@ -1974,7 +1993,7 @@ class TestExtensionAudit:
             headers=headers,
         )
         install = await upload_and_preview(client, db, admin, vendor)
-        install_id = str(install.id)
+        install_id, file_size = str(install.id), install.file_size
         res = await client.post(
             f"/api/v1/admin/extensions/install/{install_id}/apply", headers=headers
         )
@@ -2000,11 +2019,37 @@ class TestExtensionAudit:
             "admin.extension.uninstalled",
         ]
         by_action = {r.action: r for r in rows}
-        assert by_action["admin.extension.install.uploaded"].details["install_id"] == install_id
+        uploaded = by_action["admin.extension.install.uploaded"]
+        assert (uploaded.target_type, uploaded.target_id, uploaded.target_label) == (
+            "extension",
+            None,
+            "sample.teax",
+        )
+        # The target names the file, so the upload's id is kept as the reference.
+        assert uploaded.details == {
+            "context": {
+                "file_name": "sample.teax",
+                "file_size": file_size,
+                "reference": install_id,
+            }
+        }
+        assert file_size > 0
         applied = by_action["admin.extension.install.applied"]
-        assert (applied.target_type, applied.target_id) == ("extension", "sample-ext")
-        assert applied.details["install_id"] == install_id
-        assert by_action["admin.extension.uninstalled"].target_id == "sample-ext"
+        # A first install has no installed name yet: the key labels it.
+        assert (applied.target_type, applied.target_id, applied.target_label) == (
+            "extension",
+            "sample-ext",
+            "sample-ext",
+        )
+        assert applied.details == {"context": {"version": "1.0.0"}}
+        for action in (
+            "admin.extension.disabled",
+            "admin.extension.enabled",
+            "admin.extension.uninstalled",
+        ):
+            row = by_action[action]
+            assert (row.target_id, row.target_label) == ("sample-ext", "Sample Extension")
+            assert row.details == {"context": {"version": "1.0.0"}}
 
     async def test_discarding_an_upload_is_recorded(self, client, db, vendor):
         admin = await make_admin(db)
@@ -2015,8 +2060,36 @@ class TestExtensionAudit:
         )
         assert res.status_code == 204
         [row] = await _audit_rows(db, "admin.extension.install.discarded")
-        assert row.details["install_id"] == install_id
-        assert row.target_id == "sample-ext"
+        assert row.details == {"context": {"version": "1.0.0", "status": "previewed"}}
+        assert (row.target_id, row.target_label) == ("sample-ext", "sample-ext")
+
+    async def test_an_upgrade_is_labelled_with_the_installed_name(self, client, db, vendor):
+        admin = await make_admin(db)
+        headers = auth_headers(admin)
+        await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": make_license_text(vendor)},
+            headers=headers,
+        )
+        first = await upload_and_preview(client, db, admin, vendor)
+        first_id = str(first.id)
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{first_id}/apply", headers=headers
+        )
+        assert res.status_code == 202, res.text
+        await ext_api.run_apply(db, first, admin)
+        second = await upload_and_preview(client, db, admin, vendor, version="1.1.0")
+        second_id = str(second.id)
+        res = await client.post(
+            f"/api/v1/admin/extensions/install/{second_id}/apply", headers=headers
+        )
+        assert res.status_code == 202, res.text
+
+        applied = await _audit_rows(db, "admin.extension.install.applied")
+        assert [(r.target_label, r.details) for r in applied] == [
+            ("sample-ext", {"context": {"version": "1.0.0"}}),
+            ("Sample Extension", {"context": {"version": "1.1.0"}}),
+        ]
 
     async def test_store_claim_records_only_an_applied_license(
         self, client, db, vendor, monkeypatch
@@ -2047,7 +2120,14 @@ class TestExtensionAudit:
         assert res.json()["status"] == "applied"
         [row] = await _audit_rows(db, "admin.extension.store.")
         assert row.action == "admin.extension.store.claimed"
-        assert row.details["entitlements"] == ["sample-ext"]
+        assert row.details == {
+            "context": {
+                "licensee": "ACME Corp",
+                "customer_id": "cus_1",
+                "key_id": "vendor-1",
+                "entitlements": ["sample-ext"],
+            }
+        }
         _never_leaks([row], CLAIM_TOKEN, RENEWAL_KEY, json.loads(text)["signature"])
 
     async def test_store_refresh_and_install(self, client, db, vendor, monkeypatch):
@@ -2073,8 +2153,8 @@ class TestExtensionAudit:
 
         refreshed, installed = await _audit_rows(db, "admin.extension.store.")
         assert refreshed.action == "admin.extension.store.refreshed"
-        assert refreshed.details == {"refreshed": False}
+        assert refreshed.details == {"context": {"refreshed": False}}
         assert installed.action == "admin.extension.store.installed"
         assert (installed.target_id, installed.target_label) == ("sample-ext", "Sample Extension")
-        assert installed.details["install_id"] == res.json()["id"]
+        assert installed.details == {"context": {"version": "1.0.0", "file_size": len(raw)}}
         _never_leaks([refreshed, installed], RENEWAL_KEY)

@@ -306,8 +306,9 @@ async def get_license(
     )
 
 
-def _license_audit_details(lic: LicenseOut) -> dict:
-    """What an audit row says about a license: who it is for and what it covers.
+def _license_audit_context(lic: LicenseOut) -> dict:
+    """What an audit row says about a license (its ``context``): who it is for
+    and what it covers, the entitlements as extension keys.
 
     Never the license text, a claim token or the renewal credential — the text
     is a bearer document (whoever holds it can install it) and the renewal key
@@ -416,7 +417,7 @@ async def put_license(
         category="admin",
         actor=user,
         target=("license", lic.customer_id or None, lic.licensee),
-        details={**_license_audit_details(lic), "confirmed_downgrade": payload.confirm},
+        context={**_license_audit_context(lic), "confirmed_downgrade": payload.confirm},
     )
     await db.commit()
     return lic
@@ -454,8 +455,10 @@ async def delete_license(
         category="admin",
         actor=user,
         target=("license", actives[0].customer_id, actives[0].licensee),
-        details={
-            "licensees": sorted({row.licensee for row in actives}),
+        context={
+            "licensee": ", ".join(sorted({row.licensee for row in actives})),
+            "customer_id": actives[0].customer_id,
+            "key_id": actives[0].key_id,
             "entitlements": sorted(
                 {
                     str(ent.get("extension_key"))
@@ -530,6 +533,17 @@ async def _persist_upload(
     return install
 
 
+async def _install_audit_label(db: AsyncSession, install: ExtensionInstall) -> str:
+    """How an audit row names the extension an upload carries: the installed
+    extension's name when this is an upgrade, else its key, else the file."""
+    if install.extension_key:
+        name = (
+            await db.execute(select(Extension.name).where(Extension.key == install.extension_key))
+        ).scalar_one_or_none()
+        return name or install.extension_key
+    return install.filename
+
+
 @router.post("/install", response_model=ExtensionInstallOut, status_code=202)
 async def upload_bundle(
     background_tasks: BackgroundTasks,
@@ -555,7 +569,13 @@ async def upload_bundle(
         category="admin",
         actor=user,
         target=("extension", None, install.filename),
-        details={"install_id": str(install.id), "file_size": install.file_size},
+        # The target names the file, not the upload, so the upload's id rides
+        # along as the reference that ties this row to the apply / discard.
+        context={
+            "file_name": install.filename,
+            "file_size": install.file_size,
+            "reference": str(install.id),
+        },
     )
     await db.commit()
     background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
@@ -632,11 +652,10 @@ async def apply_install(
         action="admin.extension.install.applied",
         category="admin",
         actor=user,
-        target=("extension", install.extension_key, install.extension_key or install.filename),
-        details={
-            "install_id": str(install.id),
+        target=("extension", install.extension_key, await _install_audit_label(db, install)),
+        context={
             "version": install.extension_version,
-            "downgrade_from": downgrade["from"] if downgrade else None,
+            **({"downgrade_from": downgrade["from"]} if downgrade else {}),
         },
     )
     await db.commit()
@@ -663,12 +682,8 @@ async def delete_install(
         action="admin.extension.install.discarded",
         category="admin",
         actor=user,
-        target=("extension", install.extension_key, install.extension_key or install.filename),
-        details={
-            "install_id": str(install.id),
-            "version": install.extension_version,
-            "status": install.status,
-        },
+        target=("extension", install.extension_key, await _install_audit_label(db, install)),
+        context={"version": install.extension_version, "status": install.status},
     )
     await db.delete(install)
     await db.commit()
@@ -959,7 +974,7 @@ async def claim_store_purchase(
         category="admin",
         actor=user,
         target=("license", license_out.customer_id or None, license_out.licensee),
-        details=_license_audit_details(license_out),
+        context=_license_audit_context(license_out),
     )
     await db.commit()
     return StoreClaimOut(status="applied", license=license_out)
@@ -1046,7 +1061,7 @@ async def refresh_store_license(
             (current.customer_id or None) if current else None,
             current.licensee if current else None,
         ),
-        details={"refreshed": refreshed},
+        context={"refreshed": refreshed},
     )
     await db.commit()
     return StoreRefreshOut(refreshed=refreshed)
@@ -1156,11 +1171,7 @@ async def install_from_store(
         category="admin",
         actor=user,
         target=("extension", payload.key, str(item.get("name") or payload.key)),
-        details={
-            "install_id": str(install.id),
-            "version": item.get("version"),
-            "file_size": install.file_size,
-        },
+        context={"version": item.get("version"), "file_size": install.file_size},
     )
     await db.commit()
     background_tasks.add_task(_verify_and_preview_job, str(install.id), str(user.id))
@@ -1211,7 +1222,7 @@ async def set_extension_enabled(
         category="admin",
         actor=user,
         target=("extension", row.key, row.name),
-        details={"version": row.version},
+        context={"version": row.version},
     )
     await db.commit()
     await db.refresh(row)
@@ -1235,7 +1246,7 @@ async def uninstall_extension(
         category="admin",
         actor=user,
         target=("extension", row.key, row.name),
-        details={"version": row.version},
+        context={"version": row.version},
     )
     await db.commit()
     await db.refresh(row)

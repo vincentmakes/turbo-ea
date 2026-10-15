@@ -1,10 +1,11 @@
 """``GET /cards/export/csv`` and ``/cards/export/json`` write an audit row.
 
 Each bulk card export records ``access.export.cards`` (category ``access``)
-with the format, the type filter and the number of rows that left the
-instance, and commits it before the response is built. A single exported type
-is named by its card-type label; the echoed ``type`` filter is clipped to 255
-characters.
+with the format, the card types it was filtered to (by label, under
+``context.card_type``) and the number of rows that left the instance, and
+commits it before the response is built. A single exported type is also the
+row's target; a type key that matches no card type is recorded as itself,
+clipped to 255 characters.
 
 Every read goes through ``_committed``, which rolls the session back first: the
 ``db`` fixture shares one session with the app, so a row that was only flushed
@@ -83,7 +84,9 @@ class TestCsv:
             "Application",
             "Application",
         )
-        assert row.details == {"format": "csv", "type": "Application", "rows": 2}
+        assert row.details == {
+            "context": {"format": "csv", "rows": 2, "card_type": ["Application"]}
+        }
 
     async def test_unfiltered_export_has_no_target(self, client, db, env):
         resp = await client.get("/api/v1/cards/export/csv", headers=env["admin_h"])
@@ -92,7 +95,7 @@ class TestCsv:
         [row] = await _committed(db)
         _assert_admin_access_row(row, env)
         assert row.target_type is None and row.target_id is None
-        assert row.details == {"format": "csv", "type": None, "rows": 3}
+        assert row.details == {"context": {"format": "csv", "rows": 3}}
 
     async def test_single_type_target_carries_the_type_label(self, client, db, env):
         await create_card_type(db, key="itAsset", label="IT Asset")
@@ -105,7 +108,8 @@ class TestCsv:
             "itAsset",
             "IT Asset",
         )
-        assert row.details == {"format": "csv", "type": "itAsset", "rows": 0}
+        # The label, never the key.
+        assert row.details == {"context": {"format": "csv", "rows": 0, "card_type": ["IT Asset"]}}
 
     async def test_unknown_type_falls_back_to_the_key_as_label(self, client, db, env):
         resp = await client.get("/api/v1/cards/export/csv?type=NoSuchType", headers=env["admin_h"])
@@ -113,7 +117,7 @@ class TestCsv:
 
         [row] = await _committed(db)
         assert (row.target_id, row.target_label) == ("NoSuchType", "NoSuchType")
-        assert row.details["rows"] == 0
+        assert row.details == {"context": {"format": "csv", "rows": 0, "card_type": ["NoSuchType"]}}
 
     async def test_an_over_long_type_filter_is_clipped_in_details(self, client, db, env):
         long_type = "x" * 1000
@@ -123,8 +127,7 @@ class TestCsv:
         assert resp.status_code == 200
 
         [row] = await _committed(db)
-        assert row.details["type"] == "x" * 255
-        assert row.details["rows"] == 0
+        assert row.details == {"context": {"format": "csv", "rows": 0, "card_type": ["x" * 255]}}
         assert len(row.target_id) <= 100
         assert len(row.target_label) <= 255
 
@@ -149,7 +152,9 @@ class TestJson:
             "Application",
             "Application",
         )
-        assert row.details == {"format": "json", "type": "Application", "rows": 2}
+        assert row.details == {
+            "context": {"format": "json", "rows": 2, "card_type": ["Application"]}
+        }
 
     async def test_single_type_target_carries_the_type_label(self, client, db, env):
         await create_card_type(db, key="itAsset", label="IT Asset")
@@ -159,15 +164,17 @@ class TestJson:
 
         [row] = await _committed(db)
         assert (row.target_id, row.target_label) == ("itAsset", "IT Asset")
+        assert row.details == {"context": {"format": "json", "rows": 0, "card_type": ["IT Asset"]}}
 
-    async def test_a_long_types_list_is_clipped_in_details(self, client, db, env):
-        types = ",".join(f"Type{i:02d}{'y' * 20}" for i in range(20))
-        assert len(types) > 255
+    async def test_a_long_types_list_names_every_type(self, client, db, env):
+        keys = [f"Type{i:02d}{'y' * 20}" for i in range(20)]
+        types = ",".join(keys)
         resp = await client.get(f"/api/v1/cards/export/json?types={types}", headers=env["admin_h"])
         assert resp.status_code == 200
 
         [row] = await _committed(db)
-        assert row.details["type"] == types[:255]
+        # Unknown keys read as themselves, one list entry each.
+        assert row.details == {"context": {"format": "json", "rows": 0, "card_type": keys}}
         assert row.target_type is None
 
     async def test_multi_type_export_names_every_type_and_no_single_target(self, client, db, env):
@@ -181,9 +188,25 @@ class TestJson:
         [row] = await _committed(db)
         assert row.target_type is None
         assert row.details == {
-            "format": "json",
-            "type": "Application,Organization",
-            "rows": 3,
+            "context": {
+                "format": "json",
+                "rows": 3,
+                "card_type": ["Application", "Organization"],
+            }
+        }
+
+    async def test_multi_type_export_records_labels(self, client, db, env):
+        await create_card_type(db, key="itAsset", label="IT Asset")
+        resp = await client.get(
+            "/api/v1/cards/export/json?types=itAsset,Application", headers=env["admin_h"]
+        )
+        assert resp.status_code == 200
+
+        [row] = await _committed(db)
+        assert row.target_type is None
+        # In the order asked for, each by its label.
+        assert row.details == {
+            "context": {"format": "json", "rows": 2, "card_type": ["IT Asset", "Application"]}
         }
 
     async def test_without_inventory_export_is_refused_and_records_nothing(self, client, db, env):

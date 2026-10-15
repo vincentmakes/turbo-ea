@@ -77,10 +77,9 @@ class TestCreate:
         [row] = await _committed(db)
         assert row.action == "admin.user.created"
         _assert_actor_and_subject(row, env, subject="new@test.com", target_id=new_id)
+        # The role is named by its label, as the Users screen shows it.
         assert row.details == {
-            "role": "member",
-            "auth_provider": "local",
-            "invited": False,
+            "context": {"role": "Member", "auth_provider": "local", "invited": False}
         }
 
     async def test_refused_create_records_nothing(self, client, db, env):
@@ -108,8 +107,10 @@ class TestUpdate:
         _assert_actor_and_subject(row, env, subject="member@test.com", target_id=member_id)
         # display_name was re-sent unchanged, so it is not reported.
         assert row.details == {
-            "role": {"old": "member", "new": "viewer"},
-            "is_active": {"old": True, "new": False},
+            "changes": {
+                "role": {"old": "Member", "new": "Viewer"},
+                "is_active": {"old": True, "new": False},
+            }
         }
 
     async def test_admin_setting_a_password_is_masked(self, client, db, env):
@@ -122,7 +123,7 @@ class TestUpdate:
 
         [row] = await _committed(db, prefix="")
         assert row.action == "admin.user.updated"
-        assert row.details == {"password": {"old": "***", "new": "***"}}
+        assert row.details == {"changes": {"password": {"old": "***", "new": "***"}}}
         assert "AdminChosen1" not in str(row.details)
 
     async def test_own_password_change_is_an_auth_event_only(self, client, db, env):
@@ -164,8 +165,10 @@ class TestUpdate:
         assert row.subject_email == "admin@test.com"
         assert row.target_id == admin_id
         assert row.details == {
-            "display_name": {"old": "Test User", "new": "Chief"},
-            "locale": {"old": "en", "new": "fr"},
+            "changes": {
+                "display_name": {"old": "Test User", "new": "Chief"},
+                "locale": {"old": "en", "new": "fr"},
+            }
         }
 
     async def test_no_op_edit_records_nothing(self, client, db, env):
@@ -187,7 +190,16 @@ class TestDelete:
         [row] = await _committed(db)
         assert row.action == "admin.user.deleted"
         _assert_actor_and_subject(row, env, subject="member@test.com", target_id=member_id)
-        assert row.details == {"role": "member", "display_name": "Test User"}
+        assert row.details == {"context": {"role": "Member", "display_name": "Test User"}}
+
+    async def test_a_role_with_no_definition_is_named_by_its_key(self, client, db, env):
+        ghost = await create_user(db, email="ghost@test.com", role="ghost")
+        ghost_id = str(ghost.id)
+        resp = await client.delete(f"/api/v1/users/{ghost_id}", headers=env["admin_h"])
+        assert resp.status_code == 204
+
+        [row] = await _committed(db)
+        assert row.details == {"context": {"role": "ghost", "display_name": "Test User"}}
 
     async def test_member_cannot_delete_and_nothing_is_recorded(self, client, db, env):
         resp = await client.delete(f"/api/v1/users/{env['admin_id']}", headers=env["member_h"])
@@ -209,14 +221,64 @@ class TestBulk:
         [row] = await _committed(db)
         assert row.action == "admin.user.bulk_updated"
         assert row.actor_user_id == env["admin_id"]
-        assert row.target_type == "users"
-        assert row.details["count"] == 2
-        assert sorted(row.details["user_ids"]) == ids
-        assert row.details["fields"] == {"role": "viewer"}
-        assert row.details["changes"] == {
-            "member@test.com": {"role": {"old": "member", "new": "viewer"}},
-            "other@test.com": {"role": {"old": "member", "new": "viewer"}},
-        }
+        assert (row.target_type, row.target_id, row.target_label) == ("users", None, None)
+        assert row.details["context"] == {"count": 2}
+        # One item per user per changed field, roles by label, users by email.
+        assert sorted(row.details["items"], key=lambda i: i["user"]) == [
+            {
+                "kind": "user.changed",
+                "user": "member@test.com",
+                "field": "role",
+                "old": "Member",
+                "new": "Viewer",
+            },
+            {
+                "kind": "user.changed",
+                "user": "other@test.com",
+                "field": "role",
+                "old": "Member",
+                "new": "Viewer",
+            },
+        ]
+        assert set(row.details) == {"context", "items"}
+
+    async def test_bulk_update_lists_only_what_moved_per_user(self, client, db, env):
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        ids = [str(env["member_id"]), str(viewer.id)]
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={"ids": ids, "updates": {"role": "viewer", "is_active": False}},
+            headers=env["admin_h"],
+        )
+        assert resp.status_code == 200
+
+        [row] = await _committed(db)
+        assert row.details["context"] == {"count": 2}
+        # The viewer was already a viewer: only their deactivation is listed.
+        items = sorted(row.details["items"], key=lambda i: (i["user"], i["field"]))
+        assert items == [
+            {
+                "kind": "user.changed",
+                "user": "member@test.com",
+                "field": "is_active",
+                "old": True,
+                "new": False,
+            },
+            {
+                "kind": "user.changed",
+                "user": "member@test.com",
+                "field": "role",
+                "old": "Member",
+                "new": "Viewer",
+            },
+            {
+                "kind": "user.changed",
+                "user": "viewer@test.com",
+                "field": "is_active",
+                "old": True,
+                "new": False,
+            },
+        ]
 
     async def test_bulk_update_that_changes_nothing_records_nothing(self, client, db, env):
         resp = await client.patch(
@@ -243,11 +305,10 @@ class TestBulk:
 
         [row] = await _committed(db)
         assert row.action == "admin.user.bulk_deleted"
+        assert (row.target_type, row.target_id, row.target_label) == ("users", None, None)
         assert row.details == {
-            "count": 1,
-            "user_ids": [gone_id],
-            "emails": ["gone@test.com"],
-            "skipped": 1,
+            "context": {"count": 1, "skipped": 1},
+            "items": [{"kind": "user.deleted", "user": "gone@test.com"}],
         }
 
 
@@ -269,12 +330,12 @@ class TestUnlock:
 
         [row] = await _committed(db)
         assert row.action == "admin.user.unlocked"
-        assert row.details == {"failed_login_attempts": {"old": 2, "new": 0}}
+        assert row.details == {"changes": {"failed_login_attempts": {"old": 2, "new": 0}}}
 
 
 class TestInvitations:
-    async def _invite(self, db, env, email="invitee@test.com"):
-        inv = SsoInvitation(email=email, role="viewer", invited_by=env["admin_id"])
+    async def _invite(self, db, env, email="invitee@test.com", role="viewer"):
+        inv = SsoInvitation(email=email, role=role, invited_by=env["admin_id"])
         db.add(inv)
         await db.flush()
         return str(inv.id)
@@ -289,7 +350,15 @@ class TestInvitations:
         assert row.actor_user_id == env["admin_id"]
         assert row.subject_email == "invitee@test.com"
         assert (row.target_type, row.target_id) == ("invitation", inv_id)
-        assert row.details == {"role": "viewer"}
+        assert row.details == {"context": {"role": "Viewer"}}
+
+    async def test_delete_invitation_for_an_unknown_role_names_the_key(self, client, db, env):
+        inv_id = await self._invite(db, env, role="retired")
+        resp = await client.delete(f"/api/v1/users/invitations/{inv_id}", headers=env["admin_h"])
+        assert resp.status_code == 204
+
+        [row] = await _committed(db)
+        assert row.details == {"context": {"role": "retired"}}
 
     async def test_resend_invitation_records_and_commits(self, client, db, env, monkeypatch):
         import app.services.email_service as email_service

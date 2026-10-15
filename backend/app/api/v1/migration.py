@@ -305,8 +305,8 @@ async def export_workspace(
         category="access",
         actor=user,
         target=("migration_source", source.key, source.label),
-        details={
-            "source_key": source.key,
+        context={
+            "source": source.label,
             "include_archived": include_archived,
             "size_bytes": len(data),
         },
@@ -324,14 +324,19 @@ async def export_workspace(
     )
 
 
+def _source_label(source_key: str) -> str:
+    """A source platform's label ("SAP LeanIX", not "leanix"); the key when
+    no adapter is registered for it any more."""
+    try:
+        return get_source(source_key).label
+    except KeyError:
+        return source_key
+
+
 def _audit_target(m: Migration) -> tuple[str, str, str]:
     """The ``(type, id, label)`` an audit row names a migration by: its source
     platform's label, so the Security log reads "SAP LeanIX", not "leanix"."""
-    try:
-        label = get_source(m.source_type).label
-    except KeyError:
-        label = m.source_type
-    return ("migration", str(m.id), label)
+    return ("migration", str(m.id), _source_label(m.source_type))
 
 
 def _mapped_field_count(mappings: dict | None) -> int:
@@ -403,9 +408,9 @@ async def upload_snapshot(
         category="admin",
         actor=user,
         target=_audit_target(migration),
-        details={
+        context={
             "name": name,
-            "source_type": source.key,
+            "source": source.label,
             "file_size": len(raw),
             "include_archived": bool(include_archived),
         },
@@ -777,12 +782,8 @@ async def update_field_mappings(
         category="admin",
         actor=user,
         target=_audit_target(m),
-        # ``context`` holds the plain values, so the top level stays old/new
-        # pairs the Security log renders as a table.
-        details={
-            "mapped_fields": {"old": old_mapped, "new": _mapped_field_count(cleaned)},
-            "context": {"types": sorted(cleaned)},
-        },
+        changes={"mapped_fields": {"old": old_mapped, "new": _mapped_field_count(cleaned)}},
+        context={"types": sorted(cleaned)},
     )
     await db.commit()
     await db.refresh(m)
@@ -810,7 +811,7 @@ async def apply_migration_endpoint(
         category="admin",
         actor=user,
         target=_audit_target(m),
-        details={"name": m.name, "source_type": m.source_type},
+        context={"name": m.name, "source": _source_label(m.source_type)},
     )
     await db.commit()
     # Without an explicit refresh the commit expires every attribute on
@@ -896,7 +897,7 @@ async def delete_migration(
         category="admin",
         actor=user,
         target=_audit_target(m),
-        details={"name": m.name, "status": m.status},
+        context={"name": m.name, "status": m.status},
     )
     await db.delete(m)
     await db.commit()

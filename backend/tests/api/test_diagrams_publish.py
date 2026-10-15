@@ -581,13 +581,23 @@ class TestPublishAudit:
             "Landscape",
         )
         assert published.details == {
-            "slug_prefix": slug[:8] + "…",
-            "access_mode": "sso",
-            "allowed_email_domains": ["company.com"],
-            "was_published": False,
+            "context": {
+                "slug_prefix": slug[:8] + "…",
+                "access_mode": "sso",
+                "allowed_email_domains": ["company.com"],
+                "was_published": False,
+            }
         }
         assert unpublished.action == "admin.diagram.unpublished"
-        assert unpublished.details == {"slug_prefix": slug[:8] + "…", "was_published": True}
+        # What was withdrawn: the same exposure facts the publish row carried.
+        assert unpublished.details == {
+            "context": {
+                "slug_prefix": slug[:8] + "…",
+                "access_mode": "sso",
+                "allowed_email_domains": ["company.com"],
+                "was_published": True,
+            }
+        }
 
     async def test_editing_a_diagram_is_not_an_admin_action(self, client, db, publish_env):
         admin = publish_env["admin"]

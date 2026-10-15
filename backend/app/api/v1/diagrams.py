@@ -676,7 +676,7 @@ async def publish_diagram(
         category="admin",
         actor=user,
         target=("diagram", str(d.id), d.name),
-        details={
+        context={
             "slug_prefix": slug_hint(d.public_slug),
             "access_mode": d.access_mode,
             "allowed_email_domains": d.allowed_email_domains or [],
@@ -713,7 +713,12 @@ async def unpublish_diagram(
         category="admin",
         actor=user,
         target=("diagram", str(d.id), d.name),
-        details={"slug_prefix": slug_hint(d.public_slug), "was_published": was_published},
+        context={
+            "slug_prefix": slug_hint(d.public_slug),
+            "access_mode": d.access_mode,
+            "allowed_email_domains": d.allowed_email_domains or [],
+            "was_published": was_published,
+        },
     )
     await db.commit()
     await db.refresh(d)

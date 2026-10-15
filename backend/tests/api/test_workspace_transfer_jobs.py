@@ -229,7 +229,9 @@ class TestRoutes:
         )
         assert (row.category, row.outcome) == ("access", "success")
         assert row.actor_user_id == admin_id and row.actor_email == "admin@test.com"
-        assert row.details == {"include_archived": True, "size_bytes": len(resp.content)}
+        assert row.details == {
+            "context": {"include_archived": True, "size_bytes": len(resp.content)}
+        }
 
     async def test_refused_export_records_nothing(self, client, db, env):
         resp = await client.get(
@@ -310,15 +312,22 @@ class TestAudit:
         uploaded, applied, completed = await _audit_rows(db)
         assert uploaded.action == "admin.workspace.import.uploaded"
         assert uploaded.target_id == transfer_id and uploaded.target_label == "workspace.zip"
+        assert uploaded.details == {
+            "context": {"file_name": "workspace.zip", "file_size": len(env["bundle"])}
+        }
         assert applied.action == "admin.workspace.import.applied"
-        assert applied.details == {"transfer_id": transfer_id}
+        # The target is the transfer: there is nothing else to say.
+        assert applied.details is None
         assert applied.actor_user_id == admin_id
         # The job has no request: the actor is the user who asked for the apply.
         assert completed.action == "admin.workspace.import.completed"
         assert completed.outcome == "success"
         assert completed.actor_user_id == admin_id
-        assert completed.details["transfer_id"] == transfer_id
-        assert completed.details["totals"]["failed"] == 0
+        # The run's totals, flattened — and never the transfer's own id.
+        totals = (await _row(db, transfer_id)).result["totals"]
+        assert set(totals) == {"created", "updated", "skipped", "conflict", "failed"}
+        assert totals["failed"] == 0
+        assert completed.details == {"context": totals}
 
     async def test_a_failed_apply_records_a_failure(self, client, db, env, monkeypatch):
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
@@ -331,7 +340,7 @@ class TestAudit:
 
         [completed] = await _audit_rows(db, "admin.workspace.import.completed")
         assert completed.outcome == "failure"
-        assert completed.details == {"transfer_id": transfer_id, "error": "apply exploded"}
+        assert completed.details == {"context": {"error": "apply exploded"}}
 
     async def test_a_vanished_user_records_a_failure_with_no_actor(self, client, db, env):
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
@@ -343,7 +352,9 @@ class TestAudit:
         assert completed.actor_user_id is None
         # Called outside any request, as the background runner does.
         assert completed.origin == "system"
-        assert completed.details["reason"] == "bundle_or_user_missing"
+        assert completed.details == {
+            "context": {"error": "The bundle file or the requesting user no longer exists"}
+        }
 
     async def test_a_transfer_without_its_bundle_records_a_failure(self, client, db, env):
         admin_id = str(env["admin"].id)
@@ -357,8 +368,7 @@ class TestAudit:
         [completed] = await _audit_rows(db, "admin.workspace.import.completed")
         assert completed.outcome == "failure"
         assert completed.details == {
-            "transfer_id": transfer_id,
-            "reason": "bundle_or_user_missing",
+            "context": {"error": "The bundle file or the requesting user no longer exists"}
         }
 
     async def test_an_apply_of_a_discarded_transfer_leaves_no_row(self, client, db, env):
@@ -381,4 +391,4 @@ class TestAudit:
 
         [row] = await _audit_rows(db, "admin.workspace.import.discarded")
         assert row.target_id == transfer_id
-        assert row.details["status"] == "previewed"
+        assert row.details == {"context": {"status": "previewed"}}

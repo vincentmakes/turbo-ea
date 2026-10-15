@@ -349,12 +349,47 @@ def _connection_target(conn: SnowConnection) -> tuple[str, str, str]:
     return ("servicenow_connection", str(conn.id), conn.name)
 
 
-def _mapping_target(mapping: SnowMapping) -> tuple[str, str, str]:
+async def _type_label(db: AsyncSession, type_key: str | None) -> str | None:
+    """A card type's label for the Security log; its key when it has none."""
+    if not type_key:
+        return type_key
+    label = (
+        await db.execute(select(CardType.label).where(CardType.key == type_key))
+    ).scalar_one_or_none()
+    return label or type_key
+
+
+async def _mapping_target(db: AsyncSession, mapping: SnowMapping) -> tuple[str, str, str]:
+    """``("servicenow_mapping", id, "<snow_table> → <card type label>")``."""
     return (
         "servicenow_mapping",
         str(mapping.id),
-        f"{mapping.snow_table} → {mapping.card_type_key}",
+        f"{mapping.snow_table} → {await _type_label(db, mapping.card_type_key)}",
     )
+
+
+async def _connection_name(db: AsyncSession, connection_id: uuid.UUID) -> str | None:
+    return (
+        await db.execute(select(SnowConnection.name).where(SnowConnection.id == connection_id))
+    ).scalar_one_or_none()
+
+
+async def _mapping_audit_values(db: AsyncSession, values: dict) -> dict:
+    """A mapping's audited columns with the card type as ``card_type`` (its
+    label) instead of ``card_type_key``."""
+    out = {k: v for k, v in values.items() if k != "card_type_key"}
+    return {"card_type": await _type_label(db, values.get("card_type_key")), **out}
+
+
+# What a sync run's ``stats`` / an apply's counts may contribute to an audit
+# row's ``context``; anything else the engine might add is left out.
+_RUN_STAT_KEYS = ("fetched", "processed", "created", "updated", "deleted", "skipped", "errors")
+
+
+def _run_stats(stats: object) -> dict:
+    if not isinstance(stats, dict):
+        return {}
+    return {k: stats[k] for k in _RUN_STAT_KEYS if k in stats}
 
 
 def _actor_snapshot(user: User) -> SimpleNamespace:
@@ -435,7 +470,7 @@ async def create_connection(
         category="admin",
         actor=user,
         target=_connection_target(conn),
-        details={"instance_url": conn.instance_url, "auth_type": conn.auth_type},
+        context={"instance_url": conn.instance_url, "auth_type": conn.auth_type},
     )
     await db.commit()
     await db.refresh(conn)
@@ -508,8 +543,9 @@ async def update_connection(
         actor=user,
         target=_connection_target(conn),
         # Whether the credentials moved is context, never a value: they are
-        # not diffed, and ``context`` keeps the top level old/new pairs only.
-        details={**changes, "context": {"credentials_changed": existing_creds != creds_before}},
+        # never diffed.
+        changes=changes,
+        context={"credentials_changed": existing_creds != creds_before},
     )
     await db.commit()
     await db.refresh(conn)
@@ -533,7 +569,7 @@ async def delete_connection(
         category="admin",
         actor=user,
         target=_connection_target(conn),
-        details={"instance_url": conn.instance_url},
+        context={"instance_url": conn.instance_url},
     )
     await db.delete(conn)
     await db.commit()
@@ -704,10 +740,12 @@ async def create_mapping(
         action="admin.servicenow.mapping.created",
         category="admin",
         actor=user,
-        target=_mapping_target(mapping),
-        details={
-            "connection_id": str(mapping.connection_id),
-            **{f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS},
+        target=await _mapping_target(db, mapping),
+        context={
+            "connection": await _connection_name(db, mapping.connection_id),
+            **await _mapping_audit_values(
+                db, {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}
+            ),
             "field_mappings": len(body.field_mappings),
         },
     )
@@ -789,8 +827,11 @@ async def update_mapping(
         await _persist_field_mappings(db, mapping, body.field_mappings)
 
     changes: dict = audit_log.diff(
-        audit_before, {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}
+        await _mapping_audit_values(db, audit_before),
+        await _mapping_audit_values(db, {f: getattr(mapping, f) for f in _MAPPING_AUDIT_FIELDS}),
     )
+    # Recorded whenever the set was replaced, even at the same size: the count
+    # is the only trace of a replacement whose rows are not diffed.
     if body.field_mappings is not None:
         changes["field_mappings"] = {"old": old_field_mappings, "new": len(body.field_mappings)}
     await audit_log.record(
@@ -798,8 +839,8 @@ async def update_mapping(
         action="admin.servicenow.mapping.updated",
         category="admin",
         actor=user,
-        target=_mapping_target(mapping),
-        details=changes,
+        target=await _mapping_target(db, mapping),
+        changes=changes,
     )
     await db.commit()
 
@@ -832,8 +873,8 @@ async def delete_mapping(
         action="admin.servicenow.mapping.deleted",
         category="admin",
         actor=user,
-        target=_mapping_target(mapping),
-        details={"connection_id": str(mapping.connection_id)},
+        target=await _mapping_target(db, mapping),
+        context={"connection": await _connection_name(db, mapping.connection_id)},
     )
     await db.delete(mapping)
     await db.commit()
@@ -942,6 +983,9 @@ async def trigger_pull_sync(
         raise HTTPException(502, "Failed to connect to ServiceNow")
 
     audit_actor = _actor_snapshot(user)
+    # Resolved before the sync: a failure rolls the session back and expires
+    # the mapping, and the failure row still names what was synced.
+    audit_target = await _mapping_target(db, mapping)
     sync_failed = False
     run = None
     try:
@@ -957,12 +1001,14 @@ async def trigger_pull_sync(
             action="admin.servicenow.sync.pulled",
             category="admin",
             actor=user,
-            target=_mapping_target(mapping),
-            details={
-                "run_id": str(run.id),
+            target=audit_target,
+            # The row targets the mapping, so the run it produced is the
+            # reference.
+            context={
                 "status": run.status,
                 "auto_apply": auto_apply,
-                "stats": run.stats,
+                **_run_stats(run.stats),
+                "reference": str(run.id),
             },
         )
         await db.commit()
@@ -982,8 +1028,8 @@ async def trigger_pull_sync(
             category="admin",
             outcome="failure",
             actor=audit_actor,
-            target=("servicenow_mapping", str(mapping_id), None),
-            details={"auto_apply": auto_apply},
+            target=audit_target,
+            context={"auto_apply": auto_apply},
         )
         await db.commit()
         raise HTTPException(502, "Pull sync operation failed")
@@ -1032,6 +1078,7 @@ async def trigger_push_sync(
         raise HTTPException(502, "Failed to connect to ServiceNow")
 
     audit_actor = _actor_snapshot(user)
+    audit_target = await _mapping_target(db, mapping)
     sync_failed = False
     run = None
     try:
@@ -1046,8 +1093,12 @@ async def trigger_push_sync(
             action="admin.servicenow.sync.pushed",
             category="admin",
             actor=user,
-            target=_mapping_target(mapping),
-            details={"run_id": str(run.id), "status": run.status, "stats": run.stats},
+            target=audit_target,
+            context={
+                "status": run.status,
+                **_run_stats(run.stats),
+                "reference": str(run.id),
+            },
         )
         await db.commit()
     except Exception:
@@ -1064,7 +1115,7 @@ async def trigger_push_sync(
             category="admin",
             outcome="failure",
             actor=audit_actor,
-            target=("servicenow_mapping", str(mapping_id), None),
+            target=audit_target,
         )
         await db.commit()
         raise HTTPException(502, "Push sync operation failed")
@@ -1202,6 +1253,7 @@ async def apply_staged_records(
         raise HTTPException(502, "Failed to connect to ServiceNow")
 
     audit_actor = _actor_snapshot(user)
+    audit_label = conn.name
     apply_failed = False
     applied: dict[str, int] = {}
     try:
@@ -1213,7 +1265,7 @@ async def apply_staged_records(
             category="admin",
             actor=user,
             target=("servicenow_sync_run", str(run_id), conn.name),
-            details={"run_id": str(run_id), "applied": applied},
+            context=_run_stats(applied),
         )
         await db.commit()
     except Exception:
@@ -1230,8 +1282,7 @@ async def apply_staged_records(
             category="admin",
             outcome="failure",
             actor=audit_actor,
-            target=("servicenow_sync_run", str(run_id), None),
-            details={"run_id": str(run_id)},
+            target=("servicenow_sync_run", str(run_id), audit_label),
         )
         await db.commit()
         raise HTTPException(502, "Failed to apply staged records")

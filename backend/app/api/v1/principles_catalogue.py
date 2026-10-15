@@ -59,12 +59,12 @@ async def import_principles(
         action="admin.principle.imported",
         category="admin",
         actor=user,
-        target=("principles_catalogue", result.get("catalogue_version"), None),
-        details={
-            "count": len(result["created"]),
-            "skipped": len(result["skipped"]),
-            "catalogue_ids": [row["catalogue_id"] for row in result["created"]],
-        },
+        target=(
+            "principles_catalogue",
+            result.get("catalogue_version"),
+            f"Principles catalogue {result.get('catalogue_version')}",
+        ),
+        context={"count": len(result["created"]), "skipped": len(result["skipped"])},
     )
     await db.commit()
     return result

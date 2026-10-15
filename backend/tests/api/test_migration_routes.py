@@ -559,8 +559,15 @@ class TestAudit:
             first.json()["id"],
             "In-memory source",
         )
-        assert row.details["source_type"] == "inmem"
-        assert row.details["name"] == "Q3 export"
+        # The source by its label, never its adapter key.
+        assert row.details == {
+            "context": {
+                "name": "Q3 export",
+                "source": "In-memory source",
+                "file_size": len(PAYLOAD),
+                "include_archived": False,
+            }
+        }
 
     async def test_mappings_apply_and_delete_are_recorded(self, client, db, env, staged):
         mid = str(staged.id)
@@ -579,13 +586,14 @@ class TestAudit:
         mappings, applied, deleted = await _audit_rows(db)
         assert mappings.action == "admin.migration.field_mappings.updated"
         assert mappings.details == {
-            "mapped_fields": {"old": 0, "new": 1},
+            "changes": {"mapped_fields": {"old": 0, "new": 1}},
             "context": {"types": ["Application"]},
         }
         assert applied.action == "admin.migration.applied"
         assert applied.target_id == mid and applied.target_label == "In-memory source"
+        assert applied.details == {"context": {"name": "import.json", "source": "In-memory source"}}
         assert deleted.action == "admin.migration.deleted"
-        assert deleted.details["status"] == "applied"
+        assert deleted.details == {"context": {"name": "import.json", "status": "applied"}}
 
     async def test_a_refused_apply_records_nothing(self, client, db, env, staged):
         resp = await client.post(f"{BASE}/{staged.id}/apply", headers=auth_headers(env["viewer"]))

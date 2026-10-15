@@ -11,6 +11,34 @@ event auto-creates a mutation batch, is delivered on the SSE stream and used to
 surface in the dashboard's Recent Activity, none of which a failed login may
 reach.
 
+**The ``details`` contract.** A row's ``details`` holds at most four keys,
+each passed as its own keyword to ``record`` and checked by
+``validate_details`` (a breach is a ``ValueError`` at the caller, never a row
+the Security log cannot render):
+
+- ``reason`` — a short snake_case code saying why an attempt failed
+  (``bad_password``, ``locked``, ``hd_mismatch``). Auth, SSO, proxy and
+  password failures only.
+- ``changes`` — ``{field: {"old": v, "new": v}}`` for plain fields that moved
+  (``diff`` builds it). Field names are snake_case; the frontend labels them.
+- ``items`` — a list of semantic change items ``{"kind": "<noun>.<verb>",
+  …}`` for the big JSON columns (a card type's ``fields_schema``, a portal's
+  ``card_config``, a role's permission matrix), built by
+  ``app.services.audit_changes``; ``kind`` must be one of its
+  ``AUDIT_ITEM_KINDS``, each rendered from an i18n sentence template.
+- ``context`` — ``{key: v}`` plain facts that are not a change (a count, a
+  file size, a version, a foreign id under ``reference``).
+
+Every ``v`` is a scalar (``str`` / ``int`` / ``float`` / ``bool`` / ``None``;
+a ``datetime`` / ``date`` / ``UUID`` is stored as its ISO / string form) or a
+flat list of scalars — never a nested mapping, which is what made rows
+unreadable before. Values are labels, not keys, for anything an admin defines
+(roles, card types, fields, options, tags, portals); system enumerations stay
+codes. ``details=`` still accepts a mapping of the same four keys; a keyword
+wins over its key there. Empty parts are dropped, and a row with nothing left
+stores ``details = NULL``. ``tests/services/test_audit_log_guard.py`` scans
+every writer under ``app/api/v1`` for a ``details=`` that breaks the contract.
+
 Rules for callers:
 
 - **``record`` never commits.** It adds and flushes, like every helper handed a
@@ -24,13 +52,14 @@ Rules for callers:
 
       await audit_log.record(db, action="auth.login.failed", category="auth",
                              outcome="failure", subject_email=email,
-                             details={"reason": "bad_password"})
+                             reason="bad_password")
       await db.commit()
       raise HTTPException(401, "Invalid credentials")
 
 - **Secrets are masked at write time.** ``details`` always passes through
-  ``redact`` before it is stored or logged, so a caller cannot leak a password
-  by passing a raw settings diff. Mask in the caller too when in doubt.
+  ``redact`` after validation and before it is stored or logged, so a caller
+  cannot leak a password by passing a raw settings diff. Mask in the caller
+  too when in doubt.
 - **Rows are immutable.** Nothing updates or deletes one except the retention
   purge in ``app.main`` (``general_settings.auditLogRetentionDays``).
 - **The table is the record; the stream is the live feed.** The JSON line is
@@ -43,13 +72,12 @@ Rules for callers:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import re
 import uuid
-from collections.abc import Callable, Iterable, Mapping
-from datetime import datetime, timedelta
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +85,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import is_encrypted
 from app.core.request_context import request_client
 from app.models.audit_log import AuditLogEntry
+from app.services.audit_changes import AUDIT_ITEM_KINDS
 from app.services.event_bus import request_impersonation, request_origin
 from app.services.workspace_io.secrets import (
     EMAIL_SECRET_PATHS,
@@ -222,49 +251,6 @@ def permission_changes(
     }
 
 
-def canonical_json(value: Any) -> str:
-    """``value`` as JSON with sorted keys: two values with the same content
-    always serialise the same, whatever their key order."""
-    return json.dumps(value, sort_keys=True, default=str)
-
-
-def fingerprint(value: Any) -> str:
-    """The first 8 hex characters of the SHA-256 of ``canonical_json(value)``.
-
-    Not a security measure: it lets a summarised audit entry show that a value
-    changed even when its size did not (a typo fixed in a translation)."""
-    return hashlib.sha256(canonical_json(value).encode()).hexdigest()[:8]
-
-
-def _plural(count: int, unit: str) -> str:
-    return f"{count} {unit}" if count == 1 else f"{count} {unit}s"
-
-
-def summarised_change(
-    old: Any,
-    new: Any,
-    *,
-    measure: Callable[[Any], int],
-    unit: str = "item",
-) -> dict[str, Any] | None:
-    """A compact ``{"old", "new"}`` for a value too large to store whole.
-
-    ``None`` when the two have the same content (``canonical_json`` equal), so
-    the caller drops the field. Otherwise each side is its size by ``measure``
-    — and when the sizes are equal, which would read as "nothing changed", the
-    size *plus a content fingerprint*: ``"9 items · a1b2c3d4"``.
-    """
-    if canonical_json(old) == canonical_json(new):
-        return None
-    before, after = measure(old), measure(new)
-    if before != after:
-        return {"old": before, "new": after}
-    return {
-        "old": f"{_plural(before, unit)} · {fingerprint(old)}",
-        "new": f"{_plural(after, unit)} · {fingerprint(new)}",
-    }
-
-
 def validate(category: str, outcome: str, action: str) -> None:
     """Raise ``ValueError`` for a category or outcome the log does not know, or
     for an empty ``action``.
@@ -283,6 +269,120 @@ def validate(category: str, outcome: str, action: str) -> None:
         raise ValueError(f"Unknown audit outcome {outcome!r}; expected one of {sorted(OUTCOMES)}")
 
 
+DETAIL_KEYS: frozenset[str] = frozenset({"reason", "changes", "items", "context"})
+
+# What a value inside ``details`` may be. ISO datetimes, dates and UUIDs are
+# accepted and stored as their string form (``_jsonable``).
+_DETAIL_SCALARS = (str, int, float, bool, datetime, date, uuid.UUID)
+
+
+def _is_detail_value(value: Any) -> bool:
+    """A scalar, or a flat list of scalars."""
+    if value is None or isinstance(value, _DETAIL_SCALARS):
+        return True
+    return isinstance(value, (list, tuple)) and all(
+        v is None or isinstance(v, _DETAIL_SCALARS) for v in value
+    )
+
+
+def _check_flat_map(name: str, value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError(f"Audit details {name!r} must be a mapping; got {type(value).__name__}")
+    for key, v in value.items():
+        if not isinstance(key, str):
+            raise ValueError(f"Audit details {name!r} has a non-string key {key!r}")
+        if not _is_detail_value(v):
+            raise ValueError(
+                f"Audit details {name}[{key!r}] must be a scalar or a flat list of scalars"
+            )
+
+
+def _check_changes(changes: Any) -> None:
+    if not isinstance(changes, Mapping):
+        raise ValueError("Audit details 'changes' must be a mapping of {field: {old, new}}")
+    for field, change in changes.items():
+        if not isinstance(field, str):
+            raise ValueError(f"Audit details 'changes' has a non-string field {field!r}")
+        if not isinstance(change, Mapping) or set(change) != {"old", "new"}:
+            raise ValueError(f"Audit details changes[{field!r}] must be exactly {{old, new}}")
+        if not (_is_detail_value(change["old"]) and _is_detail_value(change["new"])):
+            raise ValueError(
+                f"Audit details changes[{field!r}] must hold scalars or flat lists of scalars"
+            )
+
+
+def _check_items(items: Any) -> None:
+    if not isinstance(items, (list, tuple)):
+        raise ValueError("Audit details 'items' must be a list of change items")
+    for index, entry in enumerate(items):
+        if not isinstance(entry, Mapping):
+            raise ValueError(f"Audit details items[{index}] must be a mapping")
+        kind = entry.get("kind")
+        if kind not in AUDIT_ITEM_KINDS:
+            raise ValueError(f"Audit details items[{index}] has an unknown kind {kind!r}")
+        _check_flat_map(f"items[{index}]", entry)
+
+
+def validate_details(details: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Enforce the ``details`` contract and return what to store.
+
+    Top-level keys must be a subset of ``DETAIL_KEYS``: ``reason`` a non-empty
+    string; ``changes`` ``{field: {"old": v, "new": v}}``; ``items`` a list of
+    change items whose ``kind`` is in ``audit_changes.AUDIT_ITEM_KINDS``;
+    ``context`` ``{key: v}``. Every ``v`` is a scalar or a flat list of scalars
+    — a nested mapping is a ``ValueError`` naming where it sits. An empty
+    ``changes`` / ``items`` / ``context`` (and a ``None`` anywhere at the top)
+    is dropped; ``None`` when nothing is left.
+    """
+    if details is None:
+        return None
+    if not isinstance(details, Mapping):
+        raise ValueError(f"Audit details must be a mapping; got {type(details).__name__}")
+    for key in details:
+        if key not in DETAIL_KEYS:
+            raise ValueError(
+                f"Unknown audit details key {key!r}; expected a subset of {sorted(DETAIL_KEYS)}"
+            )
+    out: dict[str, Any] = {}
+    reason = details.get("reason")
+    if reason is not None:
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"Audit details 'reason' must be a non-empty string; got {reason!r}")
+        out["reason"] = reason
+    checks = (("changes", _check_changes), ("items", _check_items), ("context", None))
+    for key, check in checks:
+        value = details.get(key)
+        if value is None:
+            continue
+        if check is None:
+            _check_flat_map(key, value)
+        else:
+            check(value)
+        if len(value):
+            out[key] = list(value) if isinstance(value, tuple) else value
+    return out or None
+
+
+def merge_details(
+    details: Mapping[str, Any] | None,
+    *,
+    reason: str | None = None,
+    changes: Mapping[str, Any] | None = None,
+    items: Sequence[Mapping[str, Any]] | None = None,
+    context: Mapping[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """``details`` with each keyword that is not ``None`` set over it (a keyword
+    wins over the same key in ``details``), validated by ``validate_details``."""
+    if details is not None and not isinstance(details, Mapping):
+        raise ValueError(f"Audit details must be a mapping; got {type(details).__name__}")
+    merged: dict[str, Any] = dict(details or {})
+    keywords = {"reason": reason, "changes": changes, "items": items, "context": context}
+    for key, value in keywords.items():
+        if value is not None:
+            merged[key] = value
+    return validate_details(merged)
+
+
 def _clip(value: Any, width: int) -> str | None:
     if value is None:
         return None
@@ -290,11 +390,18 @@ def _clip(value: Any, width: int) -> str | None:
     return text[:width] if text else None
 
 
+def _json_default(value: Any) -> str:
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
+
+
 def _jsonable(value: Any) -> Any:
-    """Round-trip through JSON so UUIDs / datetimes in ``details`` store as strings."""
+    """Round-trip through JSON so UUIDs store as strings and datetimes / dates
+    as ISO 8601."""
     if value is None:
         return None
-    return json.loads(json.dumps(value, default=str))
+    return json.loads(json.dumps(value, default=_json_default))
 
 
 def _impersonator_id(raw: str) -> uuid.UUID | None:
@@ -321,11 +428,16 @@ def build_entry(
     actor: Any = None,
     subject_email: str | None = None,
     target: tuple[Any, ...] | None = None,
+    reason: str | None = None,
+    changes: Mapping[str, Any] | None = None,
+    items: Sequence[Mapping[str, Any]] | None = None,
+    context: Mapping[str, Any] | None = None,
     details: Mapping[str, Any] | None = None,
 ) -> AuditLogEntry:
     """Build (but do not add) the row ``record`` writes, stamped with the
     current request context. Pure apart from reading the contextvars."""
     validate(category, outcome, action)
+    stored = merge_details(details, reason=reason, changes=changes, items=items, context=context)
     client = request_client.get()
     ip, agent = client if client else (None, None)
     impersonation = request_impersonation.get()
@@ -348,7 +460,7 @@ def build_entry(
         impersonated_role=(
             _clip(impersonation[1], _WIDTHS["impersonated_role"]) if impersonation else None
         ),
-        details=_jsonable(redact(details)) if details is not None else None,
+        details=_jsonable(redact(stored)) if stored is not None else None,
     )
 
 
@@ -387,15 +499,23 @@ async def record(
     actor: Any = None,
     subject_email: str | None = None,
     target: tuple[Any, ...] | None = None,
+    reason: str | None = None,
+    changes: Mapping[str, Any] | None = None,
+    items: Sequence[Mapping[str, Any]] | None = None,
+    context: Mapping[str, Any] | None = None,
     details: Mapping[str, Any] | None = None,
 ) -> AuditLogEntry:
     """Write one audit row and emit it on ``turbo_ea.audit``. Never commits.
 
     ``actor`` is the ``User`` who acted (its id and email are snapshotted);
     ``subject_email`` the account acted upon; ``target`` a
-    ``(type, id, label)`` tuple (shorter tuples pad with ``None``); ``details``
-    a JSON-able mapping, redacted before it is stored. Raises ``ValueError`` on
-    an unknown ``category`` or ``outcome`` or an empty ``action``.
+    ``(type, id, label)`` tuple (shorter tuples pad with ``None``).
+    ``reason`` / ``changes`` / ``items`` / ``context`` are the four parts of
+    ``details`` (see the module docstring); ``details`` is the legacy way to
+    pass the same four keys at once, and a keyword wins over its key there.
+    Redacted before it is stored. Raises ``ValueError`` on an unknown
+    ``category`` or ``outcome``, an empty ``action``, or ``details`` that break
+    the contract (``validate_details``).
     """
     entry = build_entry(
         action=action,
@@ -404,6 +524,10 @@ async def record(
         actor=actor,
         subject_email=subject_email,
         target=target,
+        reason=reason,
+        changes=changes,
+        items=items,
+        context=context,
         details=details,
     )
     db.add(entry)

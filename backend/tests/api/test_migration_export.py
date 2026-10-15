@@ -236,10 +236,13 @@ class TestExportAudit:
             label,
         )
         assert row.details == {
-            "source_key": "leanix",
-            "include_archived": True,
-            "size_bytes": len(resp.content),
+            "context": {
+                "source": label,
+                "include_archived": True,
+                "size_bytes": len(resp.content),
+            }
         }
+        assert label != "leanix"
 
     async def test_refused_and_rejected_exports_record_nothing(self, client, db, export_env):
         refused = await client.get(

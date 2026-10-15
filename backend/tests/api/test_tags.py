@@ -633,10 +633,16 @@ class TestTagAudit:
         ]
         assert all(r.actor_user_id == admin_id and r.category == "admin" for r in groups)
         assert all(r.target_type == "tag_group" and r.target_id == gid for r in groups)
-        assert groups[1].details == {
-            "name": {"old": "Region", "new": "Regions"},
-            "mandatory": {"old": False, "new": True},
+        assert groups[0].details == {
+            "context": {"mode": "single", "mandatory": False, "restrict_to_types": None}
         }
+        assert groups[1].details == {
+            "changes": {
+                "name": {"old": "Region", "new": "Regions"},
+                "mandatory": {"old": False, "new": True},
+            }
+        }
+        assert groups[2].details is None
 
         tags = await _audit_rows(db, "admin.tag.")
         assert [r.action for r in tags] == [
@@ -645,7 +651,80 @@ class TestTagAudit:
             "admin.tag.deleted",
         ]
         assert tags[0].target_label == "EMEA"
-        assert tags[1].details == {"color": {"old": None, "new": "#112233"}}
+        # The group is named, never referenced by id.
+        assert tags[0].details == {"context": {"tag_group": "Regions", "color": None}}
+        assert tags[1].details == {"changes": {"color": {"old": None, "new": "#112233"}}}
+        assert tags[2].details == {"context": {"tag_group": "Regions", "color": "#112233"}}
+
+    async def test_a_no_op_update_records_no_row(self, client, db, tags_env):
+        headers = auth_headers(tags_env["admin"])
+        group = await client.post(
+            "/api/v1/tag-groups", json={"name": "Region", "mode": "single"}, headers=headers
+        )
+        gid = group.json()["id"]
+        tag = await client.post(
+            f"/api/v1/tag-groups/{gid}/tags", json={"name": "EMEA"}, headers=headers
+        )
+        tid = tag.json()["id"]
+
+        # The same values re-sent: nothing changed, so nothing is recorded.
+        same_group = await client.patch(
+            f"/api/v1/tag-groups/{gid}", json={"name": "Region", "mode": "single"}, headers=headers
+        )
+        same_tag = await client.patch(
+            f"/api/v1/tag-groups/{gid}/tags/{tid}", json={"name": "EMEA"}, headers=headers
+        )
+        assert same_group.status_code == 200 and same_tag.status_code == 200
+
+        assert [r.action for r in await _audit_rows(db, "admin.tag_group.")] == [
+            "admin.tag_group.created"
+        ]
+        assert [r.action for r in await _audit_rows(db, "admin.tag.")] == ["admin.tag.created"]
+
+    async def test_restricted_types_are_recorded_by_label(self, client, db, tags_env):
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        headers = auth_headers(tags_env["admin"])
+
+        group = await client.post(
+            "/api/v1/tag-groups",
+            json={
+                "name": "Tier",
+                "mode": "multi",
+                "mandatory": True,
+                # A key with no card type is kept as it is.
+                "restrict_to_types": ["ITComponent", "Gone", "Application"],
+            },
+            headers=headers,
+        )
+        gid = group.json()["id"]
+        await client.patch(
+            f"/api/v1/tag-groups/{gid}",
+            json={"restrict_to_types": ["Application"]},
+            headers=headers,
+        )
+        await client.patch(
+            f"/api/v1/tag-groups/{gid}", json={"restrict_to_types": None}, headers=headers
+        )
+
+        created, narrowed, cleared = await _audit_rows(db, "admin.tag_group.")
+        assert created.details == {
+            "context": {
+                "mode": "multi",
+                "mandatory": True,
+                "restrict_to_types": ["IT Component", "Gone", "Application"],
+            }
+        }
+        assert narrowed.details == {
+            "changes": {
+                "restrict_to_types": {
+                    "old": ["IT Component", "Gone", "Application"],
+                    "new": ["Application"],
+                }
+            }
+        }
+        assert cleared.details == {
+            "changes": {"restrict_to_types": {"old": ["Application"], "new": None}}
+        }
 
     async def test_card_tag_links_are_content_not_admin_actions(self, client, db, tags_env):
         admin = tags_env["admin"]

@@ -72,7 +72,7 @@ async def seeded(db, admin_user):
             action="access.export.cards",
             actor_user_id=admin_user.id,
             actor_email=admin_user.email,
-            details={"rows": 3},
+            details={"context": {"rows": 3}},
             created_at=BASE + timedelta(days=4),
         ),
     ]
@@ -255,7 +255,7 @@ class TestExport:
         assert row.outcome == "success"
         assert row.actor_user_id == admin_user.id
         assert row.actor_email == admin_user.email
-        assert row.details == {"rows": 3}
+        assert row.details == {"context": {"rows": 3}}
         assert row.user_agent == "pytest-agent"
         assert row.created_at is not None
 

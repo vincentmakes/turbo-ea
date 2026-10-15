@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import re
 import uuid
+from dataclasses import dataclass, field
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
@@ -29,7 +31,7 @@ from app.models.web_portal import WebPortal
 from app.schemas.bpm_public import BpmPublicFlow, BpmPublicProcessMap
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.schemas.ppm_public import PpmPublicPortfolio
-from app.services import audit_log, portal_visibility, sso_service
+from app.services import audit_changes, audit_log, portal_visibility, sso_service
 from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import process_map_service as process_map
 from app.services.card_search import card_search_filter, card_search_rank
@@ -191,8 +193,10 @@ async def list_portals(
 
 # A portal is public exposure of inventory data, so every create / edit /
 # delete is an ``admin.web_portal.*`` row in the Security log. Exposure-shaping
-# columns are diffed in full; the free-form configuration blobs are summarised
-# by size so a row stays small.
+# columns are diffed as old/new pairs (the card type by its label); the
+# configuration blobs become semantic change items — a filter's subtypes and
+# tags by label, a per-item exposure switch by the item's label — and the
+# description is kept as text, clipped.
 _PORTAL_AUDIT_FIELDS = (
     "name",
     "slug",
@@ -202,38 +206,148 @@ _PORTAL_AUDIT_FIELDS = (
     "access_mode",
     "allowed_email_domains",
 )
-_PORTAL_AUDIT_SUMMARISED = ("filters", "display_fields", "card_config")
+_PORTAL_AUDIT_BLOBS = ("filters", "display_fields", "card_config")
+_AUDIT_TEXT_LIMIT = 500
 
 
 def _portal_audit_snapshot(portal: WebPortal) -> dict:
     snap = {f: getattr(portal, f) for f in _PORTAL_AUDIT_FIELDS}
     snap["description"] = portal.description
-    for f in _PORTAL_AUDIT_SUMMARISED:
-        snap[f] = json.dumps(getattr(portal, f), sort_keys=True, default=str)
+    for f in _PORTAL_AUDIT_BLOBS:
+        snap[f] = copy.deepcopy(getattr(portal, f))
     return snap
 
 
-def _byte_length(value: object) -> int:
-    return len(value.encode()) if isinstance(value, str) else 0
+def _clip_text(value: object) -> object:
+    """A long text clipped to ``_AUDIT_TEXT_LIMIT`` characters, the last one an
+    ellipsis; anything else as it is."""
+    if isinstance(value, str) and len(value) > _AUDIT_TEXT_LIMIT:
+        return value[: _AUDIT_TEXT_LIMIT - 1] + "…"
+    return value
 
 
-def _portal_audit_changes(before: dict, after: dict) -> dict:
-    """Diff two snapshots; a changed config blob or description reads as its
-    size in bytes rather than its content — plus a content fingerprint when the
-    size is unchanged (``audit_log.summarised_change``), and not at all when its
-    content is identical."""
-    changes = audit_log.diff(before, after)
-    for f in (*_PORTAL_AUDIT_SUMMARISED, "description"):
-        if f not in changes:
+@dataclass
+class _PortalAuditLabels:
+    """Display names for the keys a portal stores."""
+
+    types: dict[str, str] = field(default_factory=dict)
+    subtypes: dict[str, str] = field(default_factory=dict)
+    tags: dict[str, str] = field(default_factory=dict)
+    fields: dict[str, str] = field(default_factory=dict)
+    relations: dict[str, str] = field(default_factory=dict)
+
+    def type_label(self, key: object) -> object:
+        return self.types.get(key, key) if isinstance(key, str) else key
+
+    def field_labels(self, keys: object) -> object:
+        if not isinstance(keys, list):
+            return keys
+        return [self.fields.get(k, k) if isinstance(k, str) else k for k in keys]
+
+    def item_labels(self) -> dict[str, str]:
+        """``card_config.toggles`` key → label: a field key → its label,
+        ``rel:<key>`` → the relation type's label; a built-in property keeps its
+        key, a code the Security log translates."""
+        labels = dict(self.fields)
+        labels.update({f"rel:{k}": v for k, v in self.relations.items()})
+        labels.update({k: k for k in portal_visibility.BUILT_IN_TOGGLES.values()})
+        return labels
+
+
+def _schema_field_labels(fields_schema: object) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for section in fields_schema if isinstance(fields_schema, list) else []:
+        if not isinstance(section, dict):
             continue
-        summary = audit_log.summarised_change(
-            changes[f]["old"], changes[f]["new"], measure=_byte_length, unit="byte"
+        for f in section.get("fields") or []:
+            if isinstance(f, dict) and isinstance(f.get("key"), str):
+                out.setdefault(f["key"], f.get("label") or f["key"])
+    return out
+
+
+def _filter_tag_ids(*filters: object) -> set[uuid.UUID]:
+    ids: set[uuid.UUID] = set()
+    for value in filters:
+        raw = value.get("tag_ids") if isinstance(value, dict) else None
+        for tag_id in raw if isinstance(raw, list) else []:
+            try:
+                ids.add(uuid.UUID(str(tag_id)))
+            except ValueError:
+                continue
+    return ids
+
+
+def _toggle_relation_keys(*configs: object) -> set[str]:
+    keys: set[str] = set()
+    for config in configs:
+        keys.update(
+            k.removeprefix("rel:")
+            for k in portal_visibility.portal_toggles(config)
+            if isinstance(k, str) and k.startswith("rel:")
         )
-        if summary is None:
-            del changes[f]
-        else:
-            changes[f] = summary
-    return changes
+    return keys
+
+
+async def _portal_audit_labels(db: AsyncSession, *snapshots: dict) -> _PortalAuditLabels:
+    """Resolve every key the snapshots name to its label, one query per kind."""
+    labels = _PortalAuditLabels()
+    type_keys = {s.get("card_type") for s in snapshots} - {None}
+    if type_keys:
+        rows = await db.execute(select(CardType).where(CardType.key.in_(type_keys)))
+        for ct in rows.scalars().all():
+            labels.types[ct.key] = ct.label or ct.key
+            for sub in ct.subtypes or []:
+                if isinstance(sub, dict) and isinstance(sub.get("key"), str):
+                    labels.subtypes.setdefault(sub["key"], sub.get("label") or sub["key"])
+            for key, label in _schema_field_labels(ct.fields_schema).items():
+                labels.fields.setdefault(key, label)
+    tag_ids = _filter_tag_ids(*(s.get("filters") for s in snapshots))
+    if tag_ids:
+        rows = await db.execute(select(Tag.id, Tag.name).where(Tag.id.in_(tag_ids)))
+        labels.tags = {str(tag_id): name for tag_id, name in rows.all()}
+    rel_keys = _toggle_relation_keys(*(s.get("card_config") for s in snapshots))
+    if rel_keys:
+        rows = await db.execute(
+            select(RelationType.key, RelationType.label).where(RelationType.key.in_(rel_keys))
+        )
+        labels.relations = {key: label or key for key, label in rows.all()}
+    return labels
+
+
+def _portal_audit_changes(
+    before: dict, after: dict, labels: _PortalAuditLabels
+) -> tuple[dict, list]:
+    """``(changes, items)`` between two snapshots: plain columns as old/new
+    pairs (the card type and ``display_fields`` as labels, the description as
+    clipped text), the configuration blobs as semantic change items."""
+    plain = (*_PORTAL_AUDIT_FIELDS, "description", "display_fields")
+    changes = audit_log.diff(before, after, keys=plain)
+    if "card_type" in changes:
+        changes["card_type"] = {
+            side: labels.type_label(changes["card_type"][side]) for side in ("old", "new")
+        }
+    if "description" in changes:
+        changes["description"] = {
+            side: _clip_text(changes["description"][side]) for side in ("old", "new")
+        }
+    if "display_fields" in changes:
+        changes["display_fields"] = {
+            side: labels.field_labels(changes["display_fields"][side]) for side in ("old", "new")
+        }
+    items = [
+        *audit_changes.portal_filter_items(
+            before.get("filters"),
+            after.get("filters"),
+            subtype_labels=labels.subtypes,
+            tag_labels=labels.tags,
+        ),
+        *audit_changes.portal_card_config_items(
+            before.get("card_config"),
+            after.get("card_config"),
+            item_labels=labels.item_labels(),
+        ),
+    ]
+    return changes, audit_changes.cap_items(items)
 
 
 @router.post("", status_code=201)
@@ -278,13 +392,21 @@ async def create_portal(
     )
     db.add(portal)
     await db.flush()
+    labels = await _portal_audit_labels(db, _portal_audit_snapshot(portal))
     await audit_log.record(
         db,
         action="admin.web_portal.created",
         category="admin",
         actor=user,
         target=("web_portal", str(portal.id), portal.name),
-        details={f: getattr(portal, f) for f in _PORTAL_AUDIT_FIELDS},
+        context={
+            "slug": portal.slug,
+            "card_type": labels.type_label(portal.card_type),
+            "is_published": portal.is_published,
+            "view": portal.view,
+            "access_mode": portal.access_mode,
+            "allowed_email_domains": portal.allowed_email_domains,
+        },
     )
     await db.commit()
     await db.refresh(portal)
@@ -356,23 +478,20 @@ async def update_portal(
         updates["allowed_email_domains"] = domains
 
     audit_before = _portal_audit_snapshot(portal)
-    for field, value in updates.items():
-        setattr(portal, field, value)
+    for field_name, value in updates.items():
+        setattr(portal, field_name, value)
 
+    audit_after = _portal_audit_snapshot(portal)
+    labels = await _portal_audit_labels(db, audit_before, audit_after)
+    changes, items = _portal_audit_changes(audit_before, audit_after, labels)
     await audit_log.record(
         db,
         action="admin.web_portal.updated",
         category="admin",
         actor=user,
         target=("web_portal", str(portal.id), portal.name),
-        # The diff, plus — under ``context``, so the top level stays a list of
-        # old/new pairs the Security log renders as a table — the portal's
-        # current slug and publication state: the two facts a reviewer needs to
-        # judge what the change exposed, even when the edit left them alone.
-        details={
-            **_portal_audit_changes(audit_before, _portal_audit_snapshot(portal)),
-            "context": {"slug": portal.slug, "is_published": portal.is_published},
-        },
+        changes=changes,
+        items=items,
     )
     await db.commit()
     await db.refresh(portal)
@@ -396,7 +515,7 @@ async def delete_portal(
         category="admin",
         actor=user,
         target=("web_portal", str(portal.id), portal.name),
-        details={
+        context={
             "slug": portal.slug,
             "is_published": portal.is_published,
             "access_mode": portal.access_mode,

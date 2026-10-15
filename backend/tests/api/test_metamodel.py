@@ -1789,6 +1789,18 @@ async def _audit_rows(db, prefix: str):
 
 
 class TestMetamodelAudit:
+    """Every metamodel write records one ``admin.*`` row whose ``details``
+    read in plain language: plain columns as ``changes``, the JSON columns as
+    semantic ``items`` (``services/audit_changes``), facts as ``context`` —
+    labels everywhere, never a key or a size."""
+
+    async def _patch_type(self, client, admin, key: str, body: dict):
+        resp = await client.patch(
+            f"/api/v1/metamodel/types/{key}", json=body, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        return resp
+
     async def test_type_create_update_delete(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
         admin_id, headers = admin.id, auth_headers(admin)
@@ -1798,11 +1810,21 @@ class TestMetamodelAudit:
             json={
                 "key": "AuditType",
                 "label": "Audit Type",
-                "fields_schema": [{"section": "S", "fields": [{"key": "a", "type": "text"}]}],
+                "category": "Application & Data",
+                "fields_schema": [
+                    {"section": "S", "fields": [{"key": "a", "label": "Alpha", "type": "text"}]}
+                ],
             },
             headers=headers,
         )
         assert resp.status_code == 201
+        await create_relation_type(
+            db,
+            key="relAuditSelf",
+            label="depends on",
+            source_type_key="AuditType",
+            target_type_key="AuditType",
+        )
         resp = await client.patch(
             "/api/v1/metamodel/types/AuditType",
             json={
@@ -1810,7 +1832,10 @@ class TestMetamodelAudit:
                 "fields_schema": [
                     {
                         "section": "S",
-                        "fields": [{"key": "a", "type": "text"}, {"key": "b", "type": "text"}],
+                        "fields": [
+                            {"key": "a", "label": "Alpha", "type": "text"},
+                            {"key": "b", "label": "Beta", "type": "number"},
+                        ],
                     }
                 ],
             },
@@ -1829,24 +1854,172 @@ class TestMetamodelAudit:
             "AuditType",
             "Audit Type",
         )
-        assert created.details["fields"] == 1
+        assert created.details == {
+            "context": {"category": "Application & Data", "has_hierarchy": False, "fields": 1}
+        }
 
         assert updated.action == "admin.metamodel.type.updated"
         assert updated.target_label == "Audited"
-        assert updated.details["label"] == {"old": "Audit Type", "new": "Audited"}
-        # The schema is summarised by section count, never stored whole — with a
-        # content fingerprint, since one section became one section.
-        fs = updated.details["fields_schema"]
-        assert fs["old"].startswith("1 item · ") and fs["new"].startswith("1 item · ")
-        assert fs["old"] != fs["new"]
-        assert "description" not in updated.details
+        # The new field is named by its label and section — never a size.
+        assert updated.details == {
+            "changes": {"label": {"old": "Audit Type", "new": "Audited"}},
+            "items": [{"kind": "field.added", "section": "S", "field": "Beta", "type": "number"}],
+        }
 
         assert deleted.action == "admin.metamodel.type.deleted"
-        assert deleted.details["mode"] == "deleted"
+        # Removed relation types are listed by label, not by key.
+        assert deleted.details == {
+            "context": {"mode": "deleted", "relation_types_removed": ["depends on"]}
+        }
+
+    async def test_adding_a_field_to_an_existing_section(self, client, db, metamodel_env):
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            fields_schema=[
+                {"section": "Finance", "fields": [{"key": "cost", "label": "Cost", "type": "cost"}]}
+            ],
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {
+                "fields_schema": [
+                    {
+                        "section": "Finance",
+                        "fields": [
+                            {"key": "cost", "label": "Cost", "type": "cost"},
+                            {"key": "owner", "label": "Budget owner", "type": "text"},
+                        ],
+                    }
+                ]
+            },
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "field.added",
+                    "section": "Finance",
+                    "field": "Budget owner",
+                    "type": "text",
+                }
+            ]
+        }
+
+    async def test_renaming_an_option(self, client, db, metamodel_env):
+        def schema(option_label: str) -> list:
+            return [
+                {
+                    "section": "Ops",
+                    "fields": [
+                        {
+                            "key": "status",
+                            "label": "Status",
+                            "type": "single_select",
+                            "options": [{"key": "a", "label": option_label}],
+                        }
+                    ],
+                }
+            ]
+
+        await create_card_type(db, key="Gizmo", label="Gizmo", fields_schema=schema("Active"))
+        await self._patch_type(
+            client, metamodel_env["admin"], "Gizmo", {"fields_schema": schema("Live")}
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [{"kind": "option.renamed", "field": "Status", "old": "Active", "new": "Live"}]
+        }
+
+    async def test_reordering_sections_names_them(self, client, db, metamodel_env):
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            fields_schema=[
+                {
+                    "section": "Finance",
+                    "fields": [{"key": "cost", "label": "Cost", "type": "cost"}],
+                },
+                {"section": "Ops", "fields": [{"key": "sla", "label": "SLA", "type": "text"}]},
+            ],
+            section_config={"__order": ["description", "custom:0", "custom:1"]},
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"section_config": {"__order": ["description", "custom:1", "custom:0"]}},
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "layout.reordered",
+                    "old": ["description", "Finance", "Ops"],
+                    "new": ["description", "Ops", "Finance"],
+                }
+            ]
+        }
+
+    async def test_subtype_rename_and_recolour(self, client, db, metamodel_env):
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", subtypes=[{"key": "saas", "label": "SaaS"}]
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {
+                "subtypes": [
+                    {"key": "saas", "label": "Software as a Service", "color": "#ff0000"},
+                    {"key": "paas", "label": "PaaS"},
+                ]
+            },
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {"kind": "subtype.added", "label": "PaaS"},
+                {"kind": "subtype.renamed", "old": "SaaS", "new": "Software as a Service"},
+                {
+                    "kind": "subtype.changed",
+                    "label": "Software as a Service",
+                    "property": "color",
+                    "old": None,
+                    "new": "#ff0000",
+                },
+            ]
+        }
+
+    async def test_reference_config_is_diffed_per_key(self, client, db, metamodel_env):
+        await create_card_type(db, key="Gizmo", label="Gizmo")
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"reference_config": {"mode": "auto", "prefix": "GZ-", "start": 1, "padding": 3}},
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "changes": {
+                "reference_mode": {"old": "off", "new": "auto"},
+                "reference_prefix": {"old": "", "new": "GZ-"},
+                "reference_start": {"old": 10000, "new": 1},
+                "reference_padding": {"old": 0, "new": 3},
+            }
+        }
 
     async def test_role_permission_flip_records_exactly_that_cell(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
-        headers = auth_headers(admin)
         await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
         await create_card_type(
             db,
@@ -1857,65 +2030,107 @@ class TestMetamodelAudit:
                 "viewer": {"inventory.view": False},
             },
         )
-        resp = await client.patch(
-            "/api/v1/metamodel/types/Gizmo",
-            json={
+        await self._patch_type(
+            client,
+            admin,
+            "Gizmo",
+            {
                 "role_permissions": {
                     "member": {"inventory.view": False, "inventory.edit": False},
                     "viewer": {"inventory.view": False},
                 }
             },
-            headers=headers,
         )
-        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        # The role is named by its label, the cell by allow / deny / inherit.
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "type_permission.changed",
+                    "role": "Member",
+                    "permission": "inventory.view",
+                    "old": "allow",
+                    "new": "deny",
+                }
+            ]
+        }
+
+    async def test_a_view_deny_reads_inherit_to_deny(self, client, db, metamodel_env):
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+        await create_card_type(db, key="Gizmo", label="Gizmo")
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"role_permissions": {"member": {"inventory.view": False}}},
+        )
 
         [row] = await _audit_rows(db, "admin.metamodel.type.updated")
         assert row.details == {
-            "role_permissions": {
-                "old": {"member": {"inventory.view": True}},
-                "new": {"member": {"inventory.view": False}},
-            }
+            "items": [
+                {
+                    "kind": "type_permission.changed",
+                    "role": "Member",
+                    "permission": "inventory.view",
+                    "old": "inherit",
+                    "new": "deny",
+                }
+            ]
         }
 
     async def test_removing_a_deny_cell_reads_as_inherit(self, client, db, metamodel_env):
-        headers = auth_headers(metamodel_env["admin"])
         await create_card_type(
             db, key="Gizmo", label="Gizmo", role_permissions={"viewer": {"inventory.view": False}}
         )
-        resp = await client.patch(
-            "/api/v1/metamodel/types/Gizmo", json={"role_permissions": {}}, headers=headers
-        )
-        assert resp.status_code == 200
+        await self._patch_type(client, metamodel_env["admin"], "Gizmo", {"role_permissions": {}})
 
         [row] = await _audit_rows(db, "admin.metamodel.type.updated")
         assert row.details == {
-            "role_permissions": {
-                "old": {"viewer": {"inventory.view": False}},
-                "new": {"viewer": {"inventory.view": None}},
-            }
+            "items": [
+                {
+                    "kind": "type_permission.changed",
+                    "role": "Viewer",
+                    "permission": "inventory.view",
+                    "old": "deny",
+                    "new": "inherit",
+                }
+            ]
         }
 
-    async def test_translation_typo_fix_records_two_fingerprints(self, client, db, metamodel_env):
-        headers = auth_headers(metamodel_env["admin"])
+    async def test_a_label_translation_edit_names_locale_and_text(self, client, db, metamodel_env):
         await create_card_type(
             db, key="Gizmo", label="Gizmo", translations={"label": {"de": "Gerat"}}
         )
-        resp = await client.patch(
-            "/api/v1/metamodel/types/Gizmo",
-            json={"translations": {"label": {"de": "Gerät"}}},
-            headers=headers,
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"translations": {"label": {"de": "Gerät", "fr": "Gadget"}}},
         )
-        assert resp.status_code == 200
 
         [row] = await _audit_rows(db, "admin.metamodel.type.updated")
-        tr = row.details["translations"]
-        assert tr["old"].startswith("1 item · ") and tr["new"].startswith("1 item · ")
-        assert tr["old"] != tr["new"]
-        assert "Gerät" not in str(row.details)
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "translation.changed",
+                    "property": "label",
+                    "locale": "de",
+                    "old": "Gerat",
+                    "new": "Gerät",
+                },
+                {
+                    "kind": "translation.changed",
+                    "property": "label",
+                    "locale": "fr",
+                    "old": None,
+                    "new": "Gadget",
+                },
+            ]
+        }
 
-    async def test_unchanged_summarised_column_records_nothing(self, client, db, metamodel_env):
-        headers = auth_headers(metamodel_env["admin"])
-        schema = [{"section": "S", "fields": [{"key": "a", "type": "text"}]}]
+    async def test_unchanged_json_columns_record_nothing(self, client, db, metamodel_env):
+        schema = [{"section": "S", "fields": [{"key": "a", "label": "A", "type": "text"}]}]
         await create_card_type(
             db,
             key="Gizmo",
@@ -1923,19 +2138,33 @@ class TestMetamodelAudit:
             fields_schema=schema,
             translations={"label": {"de": "Gerät"}},
         )
-        resp = await client.patch(
-            "/api/v1/metamodel/types/Gizmo",
-            json={
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {
                 "label": "Gadget",
                 "fields_schema": schema,
                 "translations": {"label": {"de": "Gerät"}},
             },
-            headers=headers,
         )
-        assert resp.status_code == 200
 
         [row] = await _audit_rows(db, "admin.metamodel.type.updated")
-        assert row.details == {"label": {"old": "Gizmo", "new": "Gadget"}}
+        assert row.details == {"changes": {"label": {"old": "Gizmo", "new": "Gadget"}}}
+
+    async def test_a_no_op_patch_records_no_row(self, client, db, metamodel_env):
+        schema = [{"section": "S", "fields": [{"key": "a", "label": "A", "type": "text"}]}]
+        await create_card_type(db, key="Gizmo", label="Gizmo", fields_schema=schema)
+        # A stored ``{}`` reference config and the defaults a save writes back
+        # are the same configuration, not a change.
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {"label": "Gizmo", "fields_schema": schema, "reference_config": {"mode": "off"}},
+        )
+
+        assert await _audit_rows(db, "admin.metamodel.type.") == []
 
     async def test_built_in_type_delete_records_the_soft_delete(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
@@ -1943,7 +2172,7 @@ class TestMetamodelAudit:
         resp = await client.delete("/api/v1/metamodel/types/BuiltIn", headers=auth_headers(admin))
         assert resp.json()["status"] == "hidden"
         [row] = await _audit_rows(db, "admin.metamodel.type.")
-        assert row.details == {"mode": "hidden", "card_count": 0}
+        assert row.details == {"context": {"mode": "hidden", "card_count": 0}}
 
     async def test_a_refused_write_records_nothing(self, client, db, metamodel_env):
         resp = await client.post(
@@ -1957,7 +2186,7 @@ class TestMetamodelAudit:
     async def test_relation_type_lifecycle(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
         headers = auth_headers(admin)
-        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="Application", label="Business App")
         await create_card_type(db, key="ITComponent", label="IT Component")
         await create_relation_type(db, key="relBuiltIn", label="uses", built_in=True)
 
@@ -1968,6 +2197,7 @@ class TestMetamodelAudit:
                 "label": "runs on",
                 "source_type_key": "Application",
                 "target_type_key": "ITComponent",
+                "cardinality": "1:n",
             },
             headers=headers,
         )
@@ -1998,14 +2228,52 @@ class TestMetamodelAudit:
             "deleted",
             "restored",
         ]
+        # The endpoints are named by their type labels.
         assert rows[0].details == {
-            "source_type_key": "Application",
-            "target_type_key": "ITComponent",
+            "context": {
+                "source_type": "Business App",
+                "target_type": "IT Component",
+                "cardinality": "1:n",
+            }
         }
-        assert rows[1].details["label"] == {"old": "runs on", "new": "is hosted on"}
-        assert rows[2].details["mode"] == "deleted"
-        assert rows[3].details["mode"] == "hidden"
+        assert rows[1].details == {"changes": {"label": {"old": "runs on", "new": "is hosted on"}}}
+        assert rows[2].details == {"context": {"mode": "deleted", "instances_removed": 0}}
+        assert rows[3].details == {"context": {"mode": "hidden", "instances_removed": 0}}
         assert rows[4].target_id == "relBuiltIn"
+        assert rows[4].details is None
+
+    async def test_relation_type_endpoint_change_records_labels(self, client, db, metamodel_env):
+        await create_card_type(db, key="Application", label="Business App")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_card_type(db, key="Initiative", label="Strategic Initiative")
+        await create_relation_type(db, key="relMove")
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relMove",
+            json={
+                "source_type_key": "Initiative",
+                "attributes_schema": [{"key": "usage", "label": "Usage", "type": "text"}],
+            },
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+
+        [row] = await _audit_rows(db, "admin.metamodel.relation_type.updated")
+        assert row.details == {
+            "changes": {"source_type": {"old": "Business App", "new": "Strategic Initiative"}},
+            "items": [{"kind": "attribute.added", "attribute": "Usage", "type": "text"}],
+        }
+
+    async def test_a_no_op_relation_type_patch_records_no_row(self, client, db, metamodel_env):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(db, key="relSame", label="uses")
+        resp = await client.patch(
+            "/api/v1/metamodel/relation-types/relSame",
+            json={"label": "uses", "source_type_key": "Application"},
+            headers=auth_headers(metamodel_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert await _audit_rows(db, "admin.metamodel.relation_type.") == []
 
     async def test_principles_regulations_and_resource_types(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]
@@ -2028,7 +2296,7 @@ class TestMetamodelAudit:
         rid = reg.json()["id"]
         await client.patch(
             f"/api/v1/metamodel/compliance-regulations/{rid}",
-            json={"is_enabled": False},
+            json={"is_enabled": False, "translations": {"de": "Prüfregel"}},
             headers=headers,
         )
         await client.delete(f"/api/v1/metamodel/compliance-regulations/{rid}", headers=headers)
@@ -2040,7 +2308,9 @@ class TestMetamodelAudit:
         )
         rtid = rt.json()["id"]
         await client.patch(
-            f"/api/v1/metamodel/resource-types/{rtid}", json={"label": "Wiki page"}, headers=headers
+            f"/api/v1/metamodel/resource-types/{rtid}",
+            json={"label": "Wiki page", "icon": "menu_book", "translations": {"fr": "Wiki"}},
+            headers=headers,
         )
         await client.delete(f"/api/v1/metamodel/resource-types/{rtid}", headers=headers)
 
@@ -2050,8 +2320,12 @@ class TestMetamodelAudit:
             "admin.principle.updated",
             "admin.principle.deleted",
         ]
-        assert principles[1].details == {"title": {"old": "Reuse first", "new": "Reuse"}}
+        assert principles[0].details == {"context": {"is_active": True}}
+        assert principles[1].details == {
+            "changes": {"title": {"old": "Reuse first", "new": "Reuse"}}
+        }
         assert principles[2].target_label == "Reuse"
+        assert principles[2].details is None
 
         regulations = await _audit_rows(db, "admin.regulation.")
         assert [r.action for r in regulations] == [
@@ -2059,13 +2333,78 @@ class TestMetamodelAudit:
             "admin.regulation.updated",
             "admin.regulation.deleted",
         ]
-        assert regulations[1].details == {"is_enabled": {"old": True, "new": False}}
+        assert regulations[0].details == {"context": {"is_enabled": True}}
+        assert regulations[1].details == {
+            "changes": {"is_enabled": {"old": True, "new": False}},
+            "items": [
+                {
+                    "kind": "translation.changed",
+                    "property": "label",
+                    "locale": "de",
+                    "old": None,
+                    "new": "Prüfregel",
+                }
+            ],
+        }
         assert regulations[0].target_id == "audit_reg"
 
         resource = await _audit_rows(db, "admin.metamodel.resource_type.")
         assert [r.action.rsplit(".", 1)[1] for r in resource] == ["created", "updated", "deleted"]
-        assert resource[1].details == {"label": {"old": "Wiki", "new": "Wiki page"}}
-        assert resource[2].details == {"kind": "link_type", "key": "audit_wiki"}
+        assert resource[0].details == {"context": {"kind": "link_type", "key": "audit_wiki"}}
+        assert resource[1].details == {
+            "changes": {
+                "label": {"old": "Wiki", "new": "Wiki page"},
+                "icon": {"old": None, "new": "menu_book"},
+            },
+            "items": [
+                {
+                    "kind": "translation.changed",
+                    "property": "label",
+                    "locale": "fr",
+                    "old": None,
+                    "new": "Wiki",
+                }
+            ],
+        }
+        assert resource[2].details == {"context": {"kind": "link_type", "key": "audit_wiki"}}
+        # The row's own id is its target id — never repeated in the details.
+        assert rtid not in str(resource[1].details)
+
+    async def test_long_principle_texts_are_clipped(self, client, db, metamodel_env):
+        headers = auth_headers(metamodel_env["admin"])
+        principle = await client.post(
+            "/api/v1/metamodel/principles",
+            json={"title": "Reuse", "rationale": "r" * 600},
+            headers=headers,
+        )
+        pid = principle.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/metamodel/principles/{pid}",
+            json={"rationale": "s" * 501, "implications": "short", "is_active": False},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.principle.updated")
+        assert row.details == {
+            "changes": {
+                "rationale": {"old": "r" * 499 + "…", "new": "s" * 499 + "…"},
+                "implications": {"old": None, "new": "short"},
+                "is_active": {"old": True, "new": False},
+            }
+        }
+
+    async def test_a_no_op_principle_patch_records_no_row(self, client, db, metamodel_env):
+        headers = auth_headers(metamodel_env["admin"])
+        principle = await client.post(
+            "/api/v1/metamodel/principles", json={"title": "Reuse"}, headers=headers
+        )
+        pid = principle.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/metamodel/principles/{pid}", json={"title": "Reuse"}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert await _audit_rows(db, "admin.principle.updated") == []
 
     async def test_deleting_an_unknown_principle_records_nothing(self, client, db, metamodel_env):
         import uuid as _uuid
@@ -2095,5 +2434,85 @@ class TestMetamodelAudit:
         )
         assert resp.status_code == 200, resp.text
         [row] = await _audit_rows(db, "admin.metamodel.type.references_generated")
-        assert row.details == {"generated": resp.json()["generated"]}
+        assert row.details == {"context": {"generated": 1}}
+        assert resp.json()["generated"] == 1
         assert row.target_id == "Application"
+
+
+class TestAuditHelpers:
+    """The pure helpers behind the metamodel audit rows (no database)."""
+
+    def test_reference_changes_normalise_defaults(self):
+        from app.api.v1.metamodel import _reference_changes
+
+        assert _reference_changes({}, {"mode": "off"}) == {}
+        assert _reference_changes(None, {"mode": "auto", "prefix": "A-"}) == {
+            "reference_mode": {"old": "off", "new": "auto"},
+            "reference_prefix": {"old": "", "new": "A-"},
+        }
+
+    def test_reference_changes_compare_an_invalid_config_as_stored(self):
+        from app.api.v1.metamodel import _reference_changes
+
+        # A prefix the validator refuses is still reported, not swallowed.
+        assert _reference_changes({"mode": "off", "prefix": "bad prefix!"}, {"mode": "off"}) == {
+            "reference_prefix": {"old": "bad prefix!", "new": ""},
+            "reference_start": {"old": None, "new": 10000},
+            "reference_padding": {"old": None, "new": 0},
+        }
+        assert _reference_changes("junk", {"mode": "auto"}) == {
+            "reference_mode": {"old": None, "new": "auto"},
+            "reference_prefix": {"old": None, "new": ""},
+            "reference_start": {"old": None, "new": 10000},
+            "reference_padding": {"old": None, "new": 0},
+        }
+
+    def test_clip_text(self):
+        from app.api.v1.metamodel import _clip_text
+
+        assert _clip_text("a" * 500) == "a" * 500
+        assert _clip_text("a" * 501) == "a" * 499 + "…"
+        assert _clip_text(None) is None
+        assert _clip_text(7) == 7
+
+    def test_clipped_touches_only_the_long_text_fields(self):
+        from app.api.v1.metamodel import _clipped
+
+        long = "x" * 600
+        assert _clipped(
+            {
+                "title": {"old": long, "new": "t"},
+                "implications": {"old": None, "new": long},
+            }
+        ) == {
+            "title": {"old": long, "new": "t"},
+            "implications": {"old": None, "new": "x" * 499 + "…"},
+        }
+
+    def test_type_label_falls_back_to_the_key(self):
+        from app.api.v1.metamodel import _type_label
+
+        assert _type_label({"App": "Business App"}, "App") == "Business App"
+        assert _type_label({"App": ""}, "App") == "App"
+        assert _type_label({}, "Gone") == "Gone"
+        assert _type_label({}, None) is None
+
+    def test_section_names(self):
+        from app.api.v1.metamodel import _section_names
+
+        assert _section_names([{"section": "A"}, "junk", {"section": "B"}]) == ["A", "B"]
+        assert _section_names(None) == []
+
+    def test_type_audit_changes_caps_items(self):
+        from app.api.v1.metamodel import _TYPE_AUDIT_JSON, _TYPE_AUDIT_SCALARS, _type_audit_changes
+
+        before = dict.fromkeys(_TYPE_AUDIT_SCALARS + _TYPE_AUDIT_JSON)
+        after = dict(
+            before,
+            subtypes=[{"key": f"s{i}", "label": f"S{i}"} for i in range(205)],
+        )
+        changes, items = _type_audit_changes(before, after)
+        assert changes == {}
+        assert len(items) == 201
+        assert items[0] == {"kind": "subtype.added", "label": "S0"}
+        assert items[-1] == {"kind": "more", "count": 5}

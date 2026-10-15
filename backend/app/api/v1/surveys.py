@@ -17,7 +17,7 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.survey import Survey, SurveyResponse
 from app.models.user import User
-from app.services import audit_log, notification_service, survey_service
+from app.services import audit_log, notification_service, stakeholder_service, survey_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.relation_orientation import direction_for
@@ -512,6 +512,27 @@ async def preview_survey(
     }
 
 
+async def _audit_type_label(db: AsyncSession, type_key: str) -> str:
+    """The card type's label for the Security log, its key when it has none."""
+    label = (
+        await db.execute(select(CardType.label).where(CardType.key == type_key))
+    ).scalar_one_or_none()
+    return label or type_key
+
+
+async def _audit_role_labels(
+    db: AsyncSession, type_key: str, role_keys: list[str] | None
+) -> list[str]:
+    """The targeted stakeholder roles by label, in the survey's order; a key
+    the type no longer defines reads as itself."""
+    labels = {
+        r.get("key"): r.get("label") or r.get("key")
+        for r in await stakeholder_service.roles_for_type(db, type_key)
+        if isinstance(r, dict)
+    }
+    return [labels.get(key) or key for key in role_keys or []]
+
+
 @router.post("/{survey_id}/send")
 async def send_survey(
     survey_id: str,
@@ -557,12 +578,12 @@ async def send_survey(
         category="admin",
         actor=user,
         target=("survey", str(survey.id), survey.name),
-        details={
-            "target_type_key": survey.target_type_key,
-            "target_roles": list(survey.target_roles or []),
+        context={
+            "card_type": await _audit_type_label(db, survey.target_type_key),
+            "roles": await _audit_role_labels(db, survey.target_type_key, survey.target_roles),
             "matched_cards": len(matched),
             "cards": len(targets),
-            "users": len({u["user_id"] for t in targets for u in t["users"]}),
+            "recipients": len({u["user_id"] for t in targets for u in t["users"]}),
             "requests": created,
         },
     )
@@ -611,7 +632,7 @@ async def close_survey(
         category="admin",
         actor=user,
         target=("survey", str(survey.id), survey.name),
-        details={"target_type_key": survey.target_type_key},
+        context={"card_type": await _audit_type_label(db, survey.target_type_key)},
     )
     await db.commit()
     result = await db.execute(

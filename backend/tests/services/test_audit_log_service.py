@@ -13,7 +13,7 @@ import json
 import logging
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -162,17 +162,21 @@ async def test_long_strings_are_clipped_to_their_columns():
 
 async def test_details_are_redacted_and_made_json_safe():
     marker = uuid.uuid4()
-    when = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    when = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     entry = await audit_log.record(
         FakeSession(),
         action="admin.settings.updated",
         category="admin",
-        details={"smtp_password": {"old": None, "new": "hunter2"}, "id": marker, "at": when},
+        changes={"smtp_password": {"old": None, "new": "hunter2"}},
+        context={"reference": marker, "at": when, "day": date(2026, 1, 2)},
     )
     assert entry.details == {
-        "smtp_password": {"old": None, "new": "***"},
-        "id": str(marker),
-        "at": str(when),
+        "changes": {"smtp_password": {"old": None, "new": "***"}},
+        "context": {
+            "reference": str(marker),
+            "at": "2026-01-02T03:04:05+00:00",
+            "day": "2026-01-02",
+        },
     }
 
 
@@ -229,7 +233,8 @@ async def test_record_emits_one_json_line(caplog):
             outcome="failure",
             actor=actor,
             subject_email="who@example.com",
-            details={"reason": "bad_password", "password": "nope"},
+            reason="bad_password",
+            context={"password": "nope"},
         )
     records = [r for r in caplog.records if r.name == "turbo_ea.audit"]
     assert len(records) == 1
@@ -245,12 +250,182 @@ async def test_record_emits_one_json_line(caplog):
     assert line["ip"] == "198.51.100.1"
     assert line["user_agent"] == "curl/8"
     assert line["origin"] == "api"
-    assert line["details"] == {"reason": "bad_password", "password": "***"}
+    assert line["details"] == {"reason": "bad_password", "context": {"password": "***"}}
     assert "\n" not in records[0].getMessage()
 
 
 def test_the_logger_is_the_documented_one():
     assert audit_log.AUDIT_LOGGER.name == "turbo_ea.audit"
+
+
+# ── the details contract ──────────────────────────────────────────────────
+
+
+async def test_record_merges_keyword_parts_into_details():
+    item = {"kind": "field.added", "section": "S", "field": "Cost", "type": "cost"}
+    entry = await audit_log.record(
+        FakeSession(),
+        action="admin.card_type.updated",
+        category="admin",
+        reason="why_not",
+        changes={"label": {"old": "A", "new": "B"}},
+        items=[item],
+        context={"count": 2, "types": ["a", "b"]},
+    )
+    assert entry.details == {
+        "reason": "why_not",
+        "changes": {"label": {"old": "A", "new": "B"}},
+        "items": [item],
+        "context": {"count": 2, "types": ["a", "b"]},
+    }
+
+
+async def test_a_keyword_wins_over_the_same_key_in_details():
+    entry = await audit_log.record(
+        FakeSession(),
+        action="auth.login.failed",
+        category="auth",
+        reason="locked",
+        context=None,
+        details={"reason": "bad_password", "context": {"attempts": 3}},
+    )
+    assert entry.details == {"reason": "locked", "context": {"attempts": 3}}
+
+
+@pytest.mark.parametrize("key", ["provider", "role", "smtp_password", "value"])
+async def test_an_unknown_top_level_key_is_refused_by_name(key):
+    db = FakeSession()
+    with pytest.raises(ValueError, match=f"Unknown audit details key '{key}'"):
+        await audit_log.record(db, action="x.y", category="admin", details={key: 1})
+    assert db.added == [] and db.flushes == 0
+
+
+async def test_a_nested_mapping_in_changes_is_refused():
+    with pytest.raises(ValueError, match=r"changes\['permissions'\]"):
+        await audit_log.record(
+            FakeSession(),
+            action="admin.role.updated",
+            category="admin",
+            changes={"permissions": {"old": {"a": True}, "new": {"a": False}}},
+        )
+
+
+async def test_an_unknown_item_kind_is_refused():
+    with pytest.raises(ValueError, match=r"items\[1\] has an unknown kind 'field.exploded'"):
+        await audit_log.record(
+            FakeSession(),
+            action="admin.card_type.updated",
+            category="admin",
+            items=[{"kind": "more", "count": 1}, {"kind": "field.exploded"}],
+        )
+
+
+async def test_nothing_left_stores_no_details():
+    entry = await audit_log.record(
+        FakeSession(),
+        action="admin.card_type.updated",
+        category="admin",
+        changes={},
+        items=[],
+        context={},
+        details={"reason": None, "changes": {}},
+    )
+    assert entry.details is None
+
+
+async def test_redaction_still_masks_a_secret_change():
+    entry = await audit_log.record(
+        FakeSession(),
+        action="admin.settings.updated",
+        category="admin",
+        target=("setting", "email", None),
+        changes={
+            "smtp_password": {"old": "old-secret", "new": "new-secret"},
+            "smtp_host": {"old": "a", "new": "b"},
+        },
+    )
+    assert entry.details == {
+        "changes": {
+            "smtp_password": {"old": "***", "new": "***"},
+            "smtp_host": {"old": "a", "new": "b"},
+        }
+    }
+
+
+def test_validate_details_accepts_none_and_drops_empty_parts():
+    assert audit_log.validate_details(None) is None
+    assert audit_log.validate_details({}) is None
+    assert audit_log.validate_details({"items": (), "context": {"n": 0}}) == {"context": {"n": 0}}
+    assert audit_log.validate_details({"items": ({"kind": "more", "count": 3},)}) == {
+        "items": [{"kind": "more", "count": 3}]
+    }
+
+
+def test_validate_details_returns_a_new_dict():
+    given = {"reason": "x"}
+    out = audit_log.validate_details(given)
+    assert out == given and out is not given
+
+
+@pytest.mark.parametrize(
+    ("details", "message"),
+    [
+        (["reason"], "must be a mapping; got list"),
+        ({"reason": ""}, "'reason' must be a non-empty string"),
+        ({"reason": "  "}, "'reason' must be a non-empty string"),
+        ({"reason": 5}, "'reason' must be a non-empty string"),
+        ({"changes": []}, "'changes' must be a mapping"),
+        ({"changes": {1: {"old": 1, "new": 2}}}, "non-string field 1"),
+        ({"changes": {"a": {"old": 1}}}, r"changes\['a'\] must be exactly"),
+        ({"changes": {"a": {"old": 1, "new": 2, "x": 3}}}, r"changes\['a'\] must be exactly"),
+        ({"changes": {"a": [1, 2]}}, r"changes\['a'\] must be exactly"),
+        ({"changes": {"a": {"old": [{"k": 1}], "new": None}}}, r"changes\['a'\] must hold"),
+        ({"changes": {"a": {"old": None, "new": [[1]]}}}, r"changes\['a'\] must hold"),
+        ({"items": {"kind": "more"}}, "'items' must be a list"),
+        ({"items": ["more"]}, r"items\[0\] must be a mapping"),
+        ({"items": [{"count": 1}]}, r"items\[0\] has an unknown kind None"),
+        ({"items": [{"kind": "more", "count": {"n": 1}}]}, r"items\[0\]\['count'\]"),
+        ({"context": ["a"]}, "'context' must be a mapping; got list"),
+        ({"context": {1: "a"}}, "'context' has a non-string key 1"),
+        ({"context": {"stats": {"a": 1}}}, r"context\['stats'\] must be a scalar"),
+    ],
+)
+def test_validate_details_refuses_a_broken_contract(details, message):
+    with pytest.raises(ValueError, match=message):
+        audit_log.validate_details(details)
+
+
+def test_validate_details_accepts_every_scalar_kind():
+    when = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    marker = uuid.uuid4()
+    context = {
+        "s": "x",
+        "i": 1,
+        "f": 1.5,
+        "b": False,
+        "n": None,
+        "dt": when,
+        "d": date(2026, 1, 1),
+        "u": marker,
+        "list": ["a", 1, None, True],
+        "tuple": ("a", "b"),
+    }
+    assert audit_log.validate_details({"context": context}) == {"context": context}
+
+
+def test_merge_details_refuses_a_non_mapping_details():
+    with pytest.raises(ValueError, match="must be a mapping; got str"):
+        audit_log.merge_details("reason")
+
+
+def test_merge_details_does_not_mutate_its_input():
+    given = {"reason": "a"}
+    assert audit_log.merge_details(given, reason="b") == {"reason": "b"}
+    assert given == {"reason": "a"}
+
+
+def test_detail_keys_are_the_documented_four():
+    assert audit_log.DETAIL_KEYS == {"reason", "changes", "items", "context"}
 
 
 # ── redact ────────────────────────────────────────────────────────────────
@@ -416,53 +591,10 @@ def test_permission_changes_with_absent_none_tells_inherit_from_deny():
     assert audit_log.permission_changes(None, {}, absent=None) == {}
 
 
-def test_canonical_json_ignores_key_order():
-    assert audit_log.canonical_json({"b": 1, "a": [1, 2]}) == audit_log.canonical_json(
-        {"a": [1, 2], "b": 1}
-    )
-    assert audit_log.canonical_json({"a": 1}) == '{"a": 1}'
-
-
-def test_fingerprint_is_eight_hex_chars_of_the_canonical_sha256():
-    import hashlib
-
-    value = {"b": 2, "a": 1}
-    expected = hashlib.sha256(b'{"a": 1, "b": 2}').hexdigest()[:8]
-    assert audit_log.fingerprint(value) == expected
-    assert audit_log.fingerprint({"a": 1, "b": 2}) == expected
-    assert audit_log.fingerprint({"a": 1, "b": 3}) != expected
-
-
-def _count(value):
-    return len(value) if isinstance(value, (list, dict)) else 0
-
-
-def test_summarised_change_is_none_for_identical_content():
-    assert audit_log.summarised_change({"a": 1, "b": 2}, {"b": 2, "a": 1}, measure=_count) is None
-    assert audit_log.summarised_change(None, None, measure=_count) is None
-
-
-def test_summarised_change_reports_sizes_when_they_differ():
-    assert audit_log.summarised_change([1], [1, 2], measure=_count) == {"old": 1, "new": 2}
-
-
-def test_summarised_change_fingerprints_an_equal_size_change():
-    old = {"label": {"de": "Gerat"}}
-    new = {"label": {"de": "Gerät"}}
-    result = audit_log.summarised_change(old, new, measure=_count)
-    assert result == {
-        "old": f"1 item · {audit_log.fingerprint(old)}",
-        "new": f"1 item · {audit_log.fingerprint(new)}",
-    }
-    assert result["old"] != result["new"]
-
-
-def test_summarised_change_pluralises_its_unit():
-    result = audit_log.summarised_change("ab", "cd", measure=len, unit="byte")
-    assert result is not None
-    assert result["old"].startswith("2 bytes · ")
-    zero = audit_log.summarised_change(None, {}, measure=_count)
-    assert zero is not None and zero["old"].startswith("0 items · ")
+def test_the_size_summary_helpers_are_gone():
+    # Replaced by the semantic change items in ``services/audit_changes``.
+    for name in ("summarised_change", "fingerprint", "canonical_json", "_plural"):
+        assert not hasattr(audit_log, name), name
 
 
 def test_retention_defaults_and_bounds():
@@ -493,3 +625,11 @@ def test_resolve_origin():
     assert audit_log.resolve_origin(None, True) == "api"
     assert audit_log.resolve_origin(None, False) == "system"
     assert audit_log.resolve_origin("", True) == "api"
+
+
+def test_items_may_be_any_sequence():
+    # ``cap_items`` and comprehensions hand over lists, callers may hold tuples.
+    merged = audit_log.merge_details(None, items=({"kind": "user.deleted", "user": "a@x"},))
+    assert audit_log.validate_details(merged) == {
+        "items": [{"kind": "user.deleted", "user": "a@x"}]
+    }

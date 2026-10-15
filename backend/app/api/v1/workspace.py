@@ -144,7 +144,7 @@ async def export_workspace(
         action="access.export.workspace",
         category="access",
         actor=user,
-        details={"include_archived": include_archived, "size_bytes": len(data)},
+        context={"include_archived": include_archived, "size_bytes": len(data)},
     )
     # Persist the record and hand the connection back before the response:
     # nothing below touches the database.
@@ -209,7 +209,7 @@ async def upload_workspace(
         category="admin",
         actor=user,
         target=("workspace_transfer", str(transfer.id), transfer.filename),
-        details={"transfer_id": str(transfer.id), "file_size": size},
+        context={"file_name": transfer.filename, "file_size": size},
     )
     await db.commit()
     await db.refresh(transfer)
@@ -249,7 +249,6 @@ async def apply_workspace_transfer(
         category="admin",
         actor=user,
         target=("workspace_transfer", str(transfer.id), transfer.filename),
-        details={"transfer_id": str(transfer.id)},
     )
     await db.commit()
     await db.refresh(transfer)
@@ -276,7 +275,7 @@ async def delete_workspace_transfer(
         category="admin",
         actor=user,
         target=("workspace_transfer", str(transfer.id), transfer.filename),
-        details={"transfer_id": str(transfer.id), "status": transfer.status},
+        context={"status": transfer.status},
     )
     await db.delete(transfer)
     await db.commit()
@@ -405,7 +404,10 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
         # only one that still exists, without its bundle or user, failed.
         if claim.transfer_exists:
             await _record_import_completed(
-                transfer_id_str, user_id_str, "failure", {"reason": "bundle_or_user_missing"}
+                transfer_id_str,
+                user_id_str,
+                "failure",
+                {"error": "The bundle file or the requesting user no longer exists"},
             )
         return
 
@@ -451,7 +453,7 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
                 await db.commit()
                 completion = (
                     "success" if result.total_failed == 0 else "failure",
-                    {"totals": result.as_dict()["totals"]},
+                    dict(result.as_dict()["totals"]),
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.exception("workspace apply job failed")
@@ -465,9 +467,13 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
 
 
 async def _record_import_completed(
-    transfer_id_str: str, user_id_str: str, outcome: str, details: dict
+    transfer_id_str: str, user_id_str: str, outcome: str, context: dict
 ) -> None:
     """Record ``admin.workspace.import.completed`` in a short session of its own.
+
+    ``context`` is the run's totals (``created`` / ``updated`` / ``skipped`` /
+    ``conflict`` / ``failed``) or an ``error`` — never the transfer's id, which
+    the row's target already carries.
 
     The job runs after its request has returned, so there is no request
     context: the actor is the user who asked for the apply (``None`` when that
@@ -496,7 +502,7 @@ async def _record_import_completed(
                 transfer_id_str,
                 transfer.filename if transfer is not None else None,
             ),
-            details={"transfer_id": transfer_id_str, **details},
+            context=context,
         )
         await db.commit()
 

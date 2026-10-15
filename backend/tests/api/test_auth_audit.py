@@ -116,8 +116,8 @@ class TestLoginFailures:
 
         [row] = await _committed(db)
         assert row.action == "auth.login.failed" and row.outcome == "failure"
-        assert row.details["reason"] == "locked"
-        assert datetime.fromisoformat(row.details["locked_until"]) == until
+        assert row.details == {"reason": "locked", "context": {"locked_until": until.isoformat()}}
+        assert datetime.fromisoformat(row.details["context"]["locked_until"]) == until
 
     async def test_bad_password(self, client, db):
         user = await create_user(db, email="typo@test.com", role="member")
@@ -129,7 +129,7 @@ class TestLoginFailures:
 
         [row] = await _committed(db)
         assert row.action == "auth.login.failed" and row.actor_user_id == uid
-        assert row.details == {"reason": "bad_password", "attempts": 1}
+        assert row.details == {"reason": "bad_password", "context": {"attempts": 1}}
         # The failed-attempt counter is committed with it, as it always was.
         attempts = (
             await db.execute(select(User.failed_login_attempts).where(User.id == uid))
@@ -164,11 +164,14 @@ class TestLockoutAndSuccess:
 
         failed, locked = await _committed(db)
         assert failed.action == "auth.login.failed"
-        assert failed.details == {"reason": "bad_password", "attempts": 5}
+        assert failed.details == {"reason": "bad_password", "context": {"attempts": 5}}
         assert locked.action == "auth.login.locked" and locked.outcome == "failure"
         assert locked.actor_user_id == uid and locked.subject_email == "guess@test.com"
-        assert locked.details["attempts"] == 5
-        lock_end = datetime.fromisoformat(locked.details["locked_until"])
+        # The lockout is not a refusal reason of its own: only context.
+        assert set(locked.details) == {"context"}
+        assert set(locked.details["context"]) == {"attempts", "locked_until"}
+        assert locked.details["context"]["attempts"] == 5
+        lock_end = datetime.fromisoformat(locked.details["context"]["locked_until"])
         assert lock_end > datetime.now(timezone.utc)
         stored = (await db.execute(select(User.locked_until).where(User.id == uid))).scalar_one()
         assert stored == lock_end
@@ -188,6 +191,7 @@ class TestLockoutAndSuccess:
             "auth.login.failed",
         ]
         assert rows[-1].details["reason"] == "locked"
+        assert set(rows[-1].details["context"]) == {"locked_until"}
 
     async def test_login_success_records_ip_from_x_real_ip(self, client, db, monkeypatch):
         monkeypatch.setattr(settings, "TRUST_PROXY_HEADERS", True)
@@ -206,7 +210,7 @@ class TestLockoutAndSuccess:
         assert row.actor_user_id == uid and row.actor_email == "ok@test.com"
         assert row.ip == "203.0.113.7"
         assert row.user_agent == "audit-test/1.0"
-        assert row.details == {"first_login": True}
+        assert row.details == {"context": {"first_login": True}}
 
     async def test_x_real_ip_is_ignored_when_proxy_headers_are_not_trusted(
         self, client, db, monkeypatch
@@ -222,7 +226,7 @@ class TestLockoutAndSuccess:
         [row] = await _committed(db)
         assert row.action == "auth.login.succeeded"
         assert row.ip != "203.0.113.7"
-        assert row.details == {"first_login": False}
+        assert row.details == {"context": {"first_login": False}}
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +299,7 @@ class TestSso:
         [row] = await _committed(db)
         assert (row.action, row.outcome) == ("auth.sso.failed", "failure")
         assert row.subject_email == "eve@evil.com"
-        assert row.details == {"provider": "google", "reason": "hd_mismatch"}
+        assert row.details == {"reason": "hd_mismatch", "context": {"provider": "google"}}
 
     async def test_missing_email_claim(self, client, db, sso_roles, monkeypatch):
         _exchange(monkeypatch, {"oid": "x"})
@@ -305,7 +309,7 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.subject_email is None
-        assert row.details == {"provider": "microsoft", "reason": "no_email"}
+        assert row.details == {"reason": "no_email", "context": {"provider": "microsoft"}}
 
     async def test_missing_subject_claim(self, client, db, sso_roles, monkeypatch):
         _exchange(monkeypatch, {"email": "nosub@acme.com"}, provider="google")
@@ -315,7 +319,7 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.subject_email == "nosub@acme.com"
-        assert row.details == {"provider": "google", "reason": "no_subject"}
+        assert row.details == {"reason": "no_subject", "context": {"provider": "google"}}
 
     async def test_local_account_conflict(self, client, db, sso_roles, monkeypatch):
         await create_user(db, email="local@acme.com", role="admin")
@@ -327,7 +331,7 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.subject_email == "local@acme.com"
-        assert row.details == {"provider": "microsoft", "reason": "local_account"}
+        assert row.details == {"reason": "local_account", "context": {"provider": "microsoft"}}
 
     async def test_inactive_account(self, client, db, sso_roles, monkeypatch):
         user = await create_user(db, email="off@acme.com", role="member")
@@ -342,7 +346,7 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.actor_user_id == uid
-        assert row.details == {"provider": "microsoft", "reason": "inactive"}
+        assert row.details == {"reason": "inactive", "context": {"provider": "microsoft"}}
 
     async def test_expired_account(self, client, db, sso_roles, monkeypatch):
         user = await create_user(db, email="late@acme.com", role="member")
@@ -356,7 +360,7 @@ class TestSso:
         assert resp.json() == {"detail": "Account access has expired"}
 
         [row] = await _committed(db)
-        assert row.details == {"provider": "microsoft", "reason": "expired"}
+        assert row.details == {"reason": "expired", "context": {"provider": "microsoft"}}
 
     async def test_exchange_failure(self, client, db, sso_roles, monkeypatch):
         async def refuse(db, code, redirect_uri):
@@ -372,7 +376,8 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.action == "auth.sso.failed"
-        assert row.details == {"provider": None, "reason": "exchange_failed"}
+        # No provider is known before the exchange succeeds.
+        assert row.details == {"reason": "exchange_failed"}
 
     async def test_sso_success_records_subject(self, client, db, sso_roles, monkeypatch):
         _exchange(
@@ -387,7 +392,9 @@ class TestSso:
         [row] = await _committed(db)
         assert (row.action, row.outcome) == ("auth.sso.succeeded", "success")
         assert row.actor_email == "new.person@acme.com" and row.actor_user_id is not None
-        assert row.details == {"provider": "google", "subject": "sub-1", "created": True}
+        assert row.details == {
+            "context": {"provider": "google", "subject": "sub-1", "created": True}
+        }
 
     async def test_sso_success_for_an_existing_account_is_not_created(
         self, client, db, sso_roles, monkeypatch
@@ -402,7 +409,9 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.actor_user_id == uid
-        assert row.details == {"provider": "microsoft", "subject": "known-oid", "created": False}
+        assert row.details == {
+            "context": {"provider": "microsoft", "subject": "known-oid", "created": False}
+        }
 
     async def test_sso_success_matched_by_subject_alone_is_not_created(
         self, client, db, sso_roles, monkeypatch
@@ -419,7 +428,9 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.actor_user_id == uid
-        assert row.details == {"provider": "microsoft", "subject": "renamed-oid", "created": False}
+        assert row.details == {
+            "context": {"provider": "microsoft", "subject": "renamed-oid", "created": False}
+        }
 
     async def test_sso_success_beside_another_federated_account_is_created(
         self, client, db, sso_roles, monkeypatch
@@ -436,7 +447,9 @@ class TestSso:
 
         [row] = await _committed(db)
         assert row.actor_user_id not in (None, other_id)
-        assert row.details == {"provider": "microsoft", "subject": "fresh-oid", "created": True}
+        assert row.details == {
+            "context": {"provider": "microsoft", "subject": "fresh-oid", "created": True}
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -489,13 +502,42 @@ class TestProxySession:
         assert (succeeded.action, succeeded.outcome) == ("auth.proxy_session.succeeded", "success")
         assert succeeded.actor_user_id == uid
         assert succeeded.details == {
-            "subject": "proxy:alice@example.com",
-            "verified": False,
-            "created": False,
+            "context": {
+                "subject": "proxy:alice@example.com",
+                "verified": False,
+                "created": False,
+            }
         }
         assert (failed.action, failed.outcome) == ("auth.proxy_session.failed", "failure")
         assert failed.subject_email is None and failed.actor_user_id is None
         assert failed.details == {"reason": "unauthenticated"}
+
+    async def test_a_role_change_on_sign_in_is_recorded_by_label(
+        self, client, db, proxy_enabled, monkeypatch
+    ):
+        # The bootstrap admin is always promoted, whatever role they held.
+        monkeypatch.setattr(settings, "PROXY_AUTH_BOOTSTRAP_ADMIN_EMAIL", "boss@example.com")
+        await create_role(db, key="admin", label="Administrator")
+        await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+        await _federated_user(db, "boss@example.com")
+
+        ok = await client.post(PROXY, headers=_proxy_headers("boss@example.com"))
+        assert ok.status_code == 200, ok.text
+        again = await client.post(PROXY, headers=_proxy_headers("boss@example.com"))
+        assert again.status_code == 200, again.text
+
+        promoted, unchanged = await _committed(db)
+        assert promoted.action == "auth.proxy_session.succeeded"
+        assert promoted.details == {
+            "changes": {"role": {"old": "Member", "new": "Administrator"}},
+            "context": {
+                "subject": "proxy:boss@example.com",
+                "verified": False,
+                "created": False,
+            },
+        }
+        # Already an admin: no role change to report.
+        assert set(unchanged.details) == {"context"}
 
     async def test_refused_account_creation_is_recorded(self, client, db, proxy_enabled):
         await create_role(db, key="member")
@@ -604,7 +646,19 @@ class TestRegisterAndPasswords:
         [row] = await _committed(db)
         assert (row.action, row.outcome) == ("auth.register", "success")
         assert row.actor_email == "first@test.com" and row.actor_user_id is not None
-        assert row.details == {"role": "admin", "first_user": True}
+        # No role row defines "admin" here, so it is named by its key.
+        assert row.details == {"context": {"role": "admin", "first_user": True}}
+
+    async def test_register_names_the_role_by_its_label(self, client, db):
+        await create_role(db, key="admin", label="Administrator")
+        resp = await client.post(
+            "/api/v1/auth/register",
+            json={"email": "first@test.com", "display_name": "First", "password": STRONG},
+        )
+        assert resp.status_code == 200
+
+        [row] = await _committed(db)
+        assert row.details == {"context": {"role": "Administrator", "first_user": True}}
 
     async def test_reset_requested_for_unknown_email_is_success_shaped(self, client, db):
         await create_user(db, email="known@test.com", role="member")
@@ -649,8 +703,8 @@ class TestRegisterAndPasswords:
             None,
             None,
         )
-        assert first.details == {"account_matched": False, "email_sent": False}
-        assert second.details == {"account_matched": True, "email_sent": True}
+        assert first.details == {"context": {"account_matched": False, "email_sent": False}}
+        assert second.details == {"context": {"account_matched": True, "email_sent": True}}
 
     async def test_reset_requested_records_a_failed_send(self, client, db):
         await create_user(db, email="bounce@test.com", role="member")
@@ -670,7 +724,7 @@ class TestRegisterAndPasswords:
         [row] = await _committed(db)
         assert (row.action, row.outcome) == ("auth.password.reset_requested", "success")
         assert row.subject_email == "bounce@test.com"
-        assert row.details == {"account_matched": True, "email_sent": False}
+        assert row.details == {"context": {"account_matched": True, "email_sent": False}}
 
     async def test_reset_requested_for_sso_account_sends_nothing(self, client, db):
         user = await create_user(db, email="sso-reset@test.com", role="member")
@@ -691,7 +745,7 @@ class TestRegisterAndPasswords:
 
         [row] = await _committed(db)
         assert row.subject_email == "sso-reset@test.com"
-        assert row.details == {"account_matched": True, "email_sent": False}
+        assert row.details == {"context": {"account_matched": True, "email_sent": False}}
 
     async def test_reset_requested_without_email_records_no_subject(self, client, db):
         resp = await client.post("/api/v1/auth/forgot-password", json={"email": "   "})
@@ -701,7 +755,7 @@ class TestRegisterAndPasswords:
         [row] = await _committed(db)
         assert row.action == "auth.password.reset_requested"
         assert row.subject_email is None
-        assert row.details == {"account_matched": False, "email_sent": False}
+        assert row.details == {"context": {"account_matched": False, "email_sent": False}}
 
     async def test_reset_password_records(self, client, db):
         user = await create_user(db, email="reset@test.com", role="member")

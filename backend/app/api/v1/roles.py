@@ -19,7 +19,7 @@ from app.core.permissions import (
 from app.database import get_db
 from app.models.role import Role
 from app.models.user import User
-from app.services import audit_log
+from app.services import audit_changes, audit_log
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/roles", tags=["roles"])
@@ -120,19 +120,16 @@ def _role_response(role: Role, user_count: int | None = None, *, full: bool = Tr
     return data
 
 
-ROLE_AUDIT_FIELDS = ("label", "color", "permissions", "is_default", "sort_order")
+ROLE_AUDIT_FIELDS = ("label", "color", "is_default", "sort_order")
 
 
-def role_changes(before: dict, after: dict) -> dict:
-    """The ``details`` of an ``admin.role.updated`` row: a ``diff`` of the role's
-    audited fields, with ``permissions`` narrowed to the keys that changed."""
-    changes = audit_log.diff(
-        before, after, keys=[k for k in ROLE_AUDIT_FIELDS if k != "permissions"]
-    )
-    perms = audit_log.permission_changes(before.get("permissions"), after.get("permissions"))
-    if perms:
-        changes["permissions"] = perms
-    return changes
+def role_changes(before: dict, after: dict) -> tuple[dict, list]:
+    """``(changes, items)`` of an ``admin.role.updated`` row: a ``diff`` of the
+    role's plain fields, and one ``permission.granted`` / ``.revoked`` /
+    ``.wildcard`` item per permission key whose grant moved."""
+    changes = audit_log.diff(before, after, keys=ROLE_AUDIT_FIELDS)
+    items = audit_changes.permission_items(before.get("permissions"), after.get("permissions"))
+    return changes, items
 
 
 def _role_snapshot(role: Role) -> dict:
@@ -254,11 +251,8 @@ async def create_role(
         category="admin",
         actor=user,
         target=_role_target(role),
-        details={
-            "color": body.color,
-            "is_default": body.is_default,
-            "permissions": {k: v for k, v in sorted(body.permissions.items()) if v},
-        },
+        context={"color": body.color, "is_default": body.is_default},
+        items=audit_changes.permission_items({}, body.permissions),
     )
     await db.commit()
     await db.refresh(role)
@@ -315,21 +309,22 @@ async def update_role(
                 category="admin",
                 actor=user,
                 target=_role_target(r),
-                details={"is_default": {"old": True, "new": False}},
+                changes={"is_default": {"old": True, "new": False}},
             )
 
     before = _role_snapshot(role)
     for field, value in data.items():
         setattr(role, field, value)
 
-    details = role_changes(before, _role_snapshot(role))
+    changes, items = role_changes(before, _role_snapshot(role))
     await audit_log.record(
         db,
         action="admin.role.updated",
         category="admin",
         actor=user,
         target=_role_target(role),
-        details=details,
+        changes=changes,
+        items=items,
     )
     await db.commit()
     await db.refresh(role)
@@ -372,7 +367,7 @@ async def archive_role(
         category="admin",
         actor=user,
         target=_role_target(role),
-        details={"affected_users_count": affected_users_count},
+        context={"affected_users": affected_users_count},
     )
     await db.commit()
     await db.refresh(role)

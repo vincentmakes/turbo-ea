@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import uuid
+from collections.abc import Iterable
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -20,7 +21,7 @@ from app.models.user import (
     NOTIFICATION_TYPE_SPECS,
     User,
 )
-from app.services import audit_log
+from app.services import audit_changes, audit_log
 from app.services.extensions import notification_channels, notification_types
 from app.services.permission_service import PermissionService
 from app.services.sso_service import get_sso_config
@@ -124,6 +125,22 @@ USER_AUDIT_FIELDS = ("role", "is_active", "email", "display_name", "auth_provide
 
 def _user_target(u: User) -> tuple[str, str, str]:
     return ("user", str(u.id), u.email)
+
+
+async def role_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str, str]:
+    """``{role key: role label}`` for ``keys`` in one query, so an audit row names
+    a role the way the Users screen does. A key with no role maps to itself;
+    ``None`` is skipped."""
+    wanted = {k for k in keys if k}
+    rows = await db.execute(select(Role.key, Role.label).where(Role.key.in_(wanted)))
+    found = dict(rows.tuples().all())
+    return {key: found.get(key, key) for key in wanted}
+
+
+def _labelled_role_change(change: dict, labels: dict[str, str]) -> dict:
+    """An ``{"old", "new"}`` role change with each side's key replaced by its label
+    (``labels`` from ``role_labels``, which maps every key it was given)."""
+    return {side: labels.get(change[side]) for side in ("old", "new")}
 
 
 def _user_response_lite(u: User) -> dict:
@@ -305,7 +322,7 @@ async def delete_invitation(
         actor=current_user,
         subject_email=inv.email,
         target=("invitation", str(inv.id), inv.email),
-        details={"role": inv.role},
+        context={"role": (await role_labels(db, [inv.role])).get(inv.role)},
     )
     await db.delete(inv)
     await db.commit()
@@ -499,30 +516,49 @@ async def bulk_update_users(
                 "Keep at least one user with the admin role and active status.",
             )
 
-    changed: dict[str, dict] = {}
+    changed: list[tuple[str, dict]] = []
     for u in users:
         before = {field: getattr(u, field) for field in data}
         for field, value in data.items():
             setattr(u, field, value)
         user_changes = audit_log.diff(before, data)
         if user_changes:
-            changed[u.email] = user_changes
+            changed.append((u.email, user_changes))
 
     # Re-applying values every selected user already holds changes nothing,
     # and "nothing changed" is not an audit event.
     if changed:
+        labels = await role_labels(
+            db,
+            [
+                side
+                for _, c in changed
+                if "role" in c
+                for side in (c["role"]["old"], c["role"]["new"])
+            ],
+        )
+        items = []
+        for email, user_changes in changed:
+            for field, change in user_changes.items():
+                if field == "role":
+                    change = _labelled_role_change(change, labels)
+                items.append(
+                    audit_changes.item(
+                        "user.changed",
+                        user=email,
+                        field=field,
+                        old=change["old"],
+                        new=change["new"],
+                    )
+                )
         await audit_log.record(
             db,
             action="admin.user.bulk_updated",
             category="admin",
             actor=current_user,
-            target=("users", None, f"{len(users)} users"),
-            details={
-                "count": len(users),
-                "user_ids": [str(u.id) for u in users],
-                "fields": data,
-                "changes": changed,
-            },
+            target=("users", None, None),
+            context={"count": len(users)},
+            items=[*audit_changes.cap_items(items)],
         )
     await db.commit()
 
@@ -584,13 +620,13 @@ async def bulk_delete_users(
         action="admin.user.bulk_deleted",
         category="admin",
         actor=current_user,
-        target=("users", None, f"{len(deletable)} users"),
-        details={
-            "count": len(deletable),
-            "user_ids": [str(u.id) for u in deletable],
-            "emails": [u.email for u in deletable],
-            "skipped": len(skipped),
-        },
+        target=("users", None, None),
+        context={"count": len(deletable), "skipped": len(skipped)},
+        items=[
+            *audit_changes.cap_items(
+                [audit_changes.item("user.deleted", user=u.email) for u in deletable]
+            )
+        ],
     )
 
     deleted_count = 0
@@ -749,8 +785,8 @@ async def create_user(
         actor=current_user,
         subject_email=email,
         target=_user_target(u),
-        details={
-            "role": body.role,
+        context={
+            "role": (await role_labels(db, [body.role])).get(body.role),
             "auth_provider": auth_provider,
             "invited": body.send_email,
         },
@@ -931,14 +967,18 @@ async def update_user(
             db, action="auth.password.changed", category="auth", actor=current_user
         )
     after = {field: getattr(u, field) for field in USER_AUDIT_FIELDS}
-    details: dict = audit_log.diff(before, after, keys=USER_AUDIT_FIELDS)
+    changes = audit_log.diff(before, after, keys=USER_AUDIT_FIELDS)
     if sets_password and not changes_own_password:
         # An administrator set someone else's password: say so, never what to.
-        details["password"] = {"old": audit_log.MASK, "new": audit_log.MASK}
+        changes["password"] = {"old": audit_log.MASK, "new": audit_log.MASK}
     # A user editing their own profile (name, locale) is not an administrative
     # act, so only an ``admin.users`` holder's edit is recorded — their own
     # profile included. The self-service password change above is its own row.
-    if details and is_admin:
+    if changes and is_admin:
+        if "role" in changes:
+            # Named the way the Users screen names them, not by key.
+            labels = await role_labels(db, [changes["role"]["old"], changes["role"]["new"]])
+            changes["role"] = _labelled_role_change(changes["role"], labels)
         await audit_log.record(
             db,
             action="admin.user.updated",
@@ -946,7 +986,7 @@ async def update_user(
             actor=current_user,
             subject_email=u.email,
             target=_user_target(u),
-            details=details,
+            changes=changes,
         )
     await db.commit()
     return _user_response(u)
@@ -979,7 +1019,7 @@ async def unlock_user(
     # Only what was actually cleared is reported. Unlocking an account that
     # holds no lock and no failed attempts is a no-op: it answers 200 as before
     # but records nothing.
-    details = audit_log.diff(
+    changes = audit_log.diff(
         {
             "failed_login_attempts": u.failed_login_attempts or 0,
             "locked_until": u.locked_until.isoformat() if u.locked_until else None,
@@ -988,7 +1028,7 @@ async def unlock_user(
     )
     u.failed_login_attempts = 0
     u.locked_until = None
-    if details:
+    if changes:
         await audit_log.record(
             db,
             action="admin.user.unlocked",
@@ -996,7 +1036,7 @@ async def unlock_user(
             actor=current_user,
             subject_email=u.email,
             target=_user_target(u),
-            details=details,
+            changes=changes,
         )
     await db.commit()
     return _user_response(u)
@@ -1042,7 +1082,10 @@ async def delete_user(
         actor=current_user,
         subject_email=u.email,
         target=_user_target(u),
-        details={"role": u.role, "display_name": u.display_name},
+        context={
+            "role": (await role_labels(db, [u.role])).get(u.role),
+            "display_name": u.display_name,
+        },
     )
     await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
     await db.delete(u)

@@ -48,9 +48,15 @@ async def test_import_is_recorded_with_its_count(client, db, env):
     first, second = await _audit_rows(db)
     assert first.action == "admin.principle.imported"
     assert first.category == "admin" and first.actor_user_id == admin_id
-    assert first.details == {"count": 2, "skipped": 0, "catalogue_ids": ["PR-001", "PR-002"]}
-    assert first.target_type == "principles_catalogue"
-    assert second.details == {"count": 0, "skipped": 2, "catalogue_ids": []}
+    assert first.details == {"context": {"count": 2, "skipped": 0}}
+    version = resp.json()["catalogue_version"]
+    assert version
+    assert (first.target_type, first.target_id, first.target_label) == (
+        "principles_catalogue",
+        version,
+        f"Principles catalogue {version}",
+    )
+    assert second.details == {"context": {"count": 0, "skipped": 2}}
 
 
 async def test_viewer_is_refused_and_nothing_is_recorded(client, db, env):

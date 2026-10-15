@@ -32,13 +32,16 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 pytestmark = pytest.mark.source_scan
 
 _V1 = Path(__file__).resolve().parents[2] / "app" / "api" / "v1"
+guard_module = sys.modules[__name__]  # patched by the contract self-tests
 
 _WRITE_VERBS = frozenset({"post", "patch", "put", "delete"})
 _RECORD = re.compile(r"\baudit_log\.record\(")
@@ -479,3 +482,347 @@ def test_detector_signals(source):
 )
 def test_detector_ignores(source):
     assert not is_bulk_export(_handler(source))
+
+
+# ── The ``details`` contract (``audit_log.validate_details``) ──────────────
+#
+# A row's ``details`` holds at most ``reason`` / ``changes`` / ``items`` /
+# ``context``; ``record`` refuses anything else at run time. This scan catches
+# a writer that breaks the contract before any test reaches its route: every
+# ``audit_log.record(`` call — and every call to a module-local wrapper that
+# forwards a ``details`` argument to it — must pass a ``details`` it can see
+# is contract-shaped: a dict literal over the four keys, a call to one of the
+# allowlisted builders below, or a variable built from those in the same
+# function. Prefer the four keyword arguments to ``details=`` altogether.
+
+CONTRACT_KEYS = frozenset({"reason", "changes", "items", "context"})
+
+# Module-local helpers that take a ``details`` argument and pass it on to
+# ``audit_log.record`` — their callers are what the scan checks.
+DETAILS_WRAPPERS = frozenset({"_fail"})
+
+# Helpers whose return value is a whole contract-shaped ``details`` mapping.
+# Empty on purpose: after the 2.161.0 sweep every writer passes ``changes=`` /
+# ``items=`` / ``context=`` and the only remaining ``details=`` is ``_fail``'s
+# ``{"reason", "context"}`` literal. A new builder goes here with a reason.
+DETAILS_BUILDERS: frozenset[str] = frozenset()
+
+
+def _callee(call: ast.Call) -> str | None:
+    """``"audit_log.record"``, a wrapper's name, or ``None`` for anything else."""
+    func = call.func
+    if (
+        isinstance(func, ast.Attribute)
+        and func.attr == "record"
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "audit_log"
+    ):
+        return "audit_log.record"
+    if isinstance(func, ast.Name) and func.id in DETAILS_WRAPPERS:
+        return func.id
+    return None
+
+
+def _details_positions(tree: ast.Module) -> dict[str, int]:
+    """``{wrapper: index}`` of a module-level wrapper's positional ``details``."""
+    out: dict[str, int] = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            names = [a.arg for a in (*node.args.posonlyargs, *node.args.args)]
+            if node.name in DETAILS_WRAPPERS and "details" in names:
+                out[node.name] = names.index("details")
+    return out
+
+
+def _details_argument(call: ast.Call, positions: dict[str, int]) -> ast.expr | None:
+    for kw in call.keywords:
+        if kw.arg == "details":
+            return kw.value
+    name = call.func.id if isinstance(call.func, ast.Name) else None
+    index = positions.get(name) if name else None
+    if index is not None and index < len(call.args):
+        return call.args[index]
+    return None
+
+
+def _function_parameters(func: ast.AST) -> set[str]:
+    if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return set()
+    args = func.args
+    return {a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)}
+
+
+def _call_name(call: ast.Call) -> str | None:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
+
+class _DetailsChecker:
+    """Decides whether a ``details`` expression is visibly contract-shaped."""
+
+    def __init__(self, func: ast.AST | None) -> None:
+        self.func = func
+
+    def problem(self, expr: ast.expr, seen: frozenset[str] = frozenset()) -> str | None:
+        """``None`` when ``expr`` is contract-shaped, else why it is not."""
+        if isinstance(expr, ast.Constant) and expr.value is None:
+            return None
+        if isinstance(expr, ast.Dict):
+            for key, value in zip(expr.keys, expr.values, strict=True):
+                if key is None:
+                    spread = self.problem(value, seen)
+                    if spread:
+                        return f"**-spread of {spread}"
+                elif not (isinstance(key, ast.Constant) and key.value in CONTRACT_KEYS):
+                    return f"key {ast.unparse(key)} is not one of {sorted(CONTRACT_KEYS)}"
+            return None
+        if isinstance(expr, ast.Call):
+            name = _call_name(expr)
+            if name in DETAILS_BUILDERS:
+                return None
+            return f"call {name}() is not an allowlisted details builder"
+        if isinstance(expr, ast.IfExp):
+            return self.problem(expr.body, seen) or self.problem(expr.orelse, seen)
+        if isinstance(expr, ast.Name):
+            return self._name_problem(expr.id, seen)
+        return f"{type(expr).__name__} expression {ast.unparse(expr)!r}"
+
+    def _name_problem(self, name: str, seen: frozenset[str]) -> str | None:
+        if name in seen:
+            return None
+        if self.func is None:
+            return f"module-level name {name!r}"
+        if name in _function_parameters(self.func):
+            if getattr(self.func, "name", None) in DETAILS_WRAPPERS:
+                return None  # the wrapper's callers are checked instead
+            return f"parameter {name!r} of a function that is not a details wrapper"
+        assigned = False
+        for node in ast.walk(self.func):
+            if isinstance(node, ast.Assign):
+                targets, value = node.targets, node.value
+            elif isinstance(node, ast.AnnAssign) and node.value is not None:
+                targets, value = [node.target], node.value
+            else:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == name:
+                    assigned = True
+                    why = self.problem(value, seen | {name})
+                    if why:
+                        return f"{name!r} is assigned {why}"
+                elif (
+                    isinstance(target, ast.Subscript)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == name
+                    and not (
+                        isinstance(target.slice, ast.Constant)
+                        and target.slice.value in CONTRACT_KEYS
+                    )
+                ):
+                    return f"{name}[{ast.unparse(target.slice)}] is not a contract key"
+        if not assigned:
+            return f"{name!r} is never assigned in the calling function"
+        return None
+
+
+def details_violations(source: str) -> list[str]:
+    """``"<line>: <callee>: <why>"`` for every call whose ``details`` breaks the contract."""
+    tree = ast.parse(source)
+    positions = _details_positions(tree)
+    enclosing: dict[ast.AST, ast.AST | None] = {}
+
+    def visit(node: ast.AST, func: ast.AST | None) -> None:
+        for child in ast.iter_child_nodes(node):
+            enclosing[child] = func
+            inner = child if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) else func
+            visit(child, inner)
+
+    visit(tree, None)
+    out: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = _callee(node)
+        if callee is None:
+            continue
+        expr = _details_argument(node, positions)
+        if expr is None:
+            continue
+        why = _DetailsChecker(enclosing.get(node)).problem(expr)
+        if why:
+            out.append((node.lineno, f"{node.lineno}: {callee}: {why}"))
+    return [text for _, text in sorted(out)]
+
+
+class TestDetailsContract:
+    def test_every_writer_passes_contract_shaped_details(self):
+        found = []
+        for path in sorted(_V1.glob("*.py")):
+            for problem in details_violations(path.read_text(encoding="utf-8")):
+                found.append(f"{path.name}:{problem}")
+        assert not found, (
+            "These audit writers pass a `details` the Security log cannot render. "
+            "Pass reason= / changes= / items= / context= to audit_log.record instead "
+            "(semantic items from app.services.audit_changes), or a dict over those "
+            "four keys only:\n" + "\n".join(found)
+        )
+
+    def test_a_literal_over_the_contract_keys_passes(self):
+        source = (
+            "async def h(db):\n"
+            "    await audit_log.record(db, action='a', category='admin',\n"
+            "        details={'reason': 'x', 'changes': {}, 'items': [], 'context': {}})\n"
+            "    await audit_log.record(db, action='a', category='admin', details=None)\n"
+            "    await audit_log.record(db, action='a', category='admin', reason='x')\n"
+        )
+        assert details_violations(source) == []
+
+    def test_an_unknown_literal_key_fails(self):
+        source = (
+            "async def h(db):\n"
+            "    await audit_log.record(db, action='a', category='admin',\n"
+            "        details={'reason': 'x', 'provider': 'p'})\n"
+        )
+        assert details_violations(source) == [
+            "2: audit_log.record: key 'provider' is not one of "
+            "['changes', 'context', 'items', 'reason']"
+        ]
+
+    def test_a_computed_literal_key_fails(self):
+        source = "async def h(db, k):\n    await audit_log.record(db, details={k: 1})\n"
+        assert details_violations(source) == [
+            "2: audit_log.record: key k is not one of ['changes', 'context', 'items', 'reason']"
+        ]
+
+    def test_only_an_allowlisted_builder_passes(self):
+        source = (
+            "async def h(db, lic, a, b):\n"
+            "    await audit_log.record(db, details=_audit_changes(a, b))\n"
+            "    await audit_log.record(db,\n"
+            "        details={**_license_audit_details(lic), 'reason': 'x'})\n"
+            "    await audit_log.record(db, details=setting_changes(a, b) if a else None)\n"
+        )
+        # Nothing is allowlisted today, so each of the three is reported.
+        assert details_violations(source) == [
+            "2: audit_log.record: call _audit_changes() is not an allowlisted details builder",
+            "3: audit_log.record: **-spread of call _license_audit_details() is not an "
+            "allowlisted details builder",
+            "5: audit_log.record: call setting_changes() is not an allowlisted details builder",
+        ]
+        with patch.object(guard_module, "DETAILS_BUILDERS", frozenset({"setting_changes"})):
+            # An allowlisted builder passes, inside an if-expression too.
+            assert details_violations(source) == [
+                "2: audit_log.record: call _audit_changes() is not an allowlisted details builder",
+                "3: audit_log.record: **-spread of call _license_audit_details() is not an "
+                "allowlisted details builder",
+            ]
+
+    def test_the_allowlists_name_only_wrappers_that_exist(self):
+        """A wrapper that stopped taking ``details`` must leave the allowlist."""
+        found: set[str] = set()
+        for path in sorted(_V1.glob("*.py")):
+            tree = ast.parse(path.read_text())
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    names = _function_parameters(node)
+                    if node.name in DETAILS_WRAPPERS and "details" in names:
+                        found.add(node.name)
+        assert found == set(DETAILS_WRAPPERS)
+        assert DETAILS_BUILDERS == frozenset()
+
+    def test_an_unknown_builder_or_spread_fails(self):
+        source = (
+            "async def h(db, a, b):\n"
+            "    await audit_log.record(db, details=audit_log.diff(a, b))\n"
+            "    await audit_log.record(db, details={**audit_log.diff(a, b)})\n"
+            "    await audit_log.record(db, details=a.attr)\n"
+        )
+        assert details_violations(source) == [
+            "2: audit_log.record: call diff() is not an allowlisted details builder",
+            "3: audit_log.record: **-spread of call diff() is not an allowlisted details builder",
+            "4: audit_log.record: Attribute expression 'a.attr'",
+        ]
+
+    def test_a_variable_is_traced_to_its_assignments(self):
+        good = (
+            "async def h(db, a, b):\n"
+            "    details: dict = {'changes': {}}\n"
+            "    details['context'] = {'n': 1}\n"
+            "    details = {'reason': 'x'} if a else None\n"
+            "    await audit_log.record(db, details=details)\n"
+        )
+        assert details_violations(good) == []
+        bad_value = (
+            "async def h(db, a, b):\n"
+            "    changes = audit_log.diff(a, b)\n"
+            "    await audit_log.record(db, details=changes)\n"
+        )
+        assert details_violations(bad_value) == [
+            "3: audit_log.record: 'changes' is assigned call diff() is not an allowlisted "
+            "details builder"
+        ]
+        bad_key = (
+            "async def h(db):\n"
+            "    details = {'reason': 'x'}\n"
+            "    details['stats'] = 1\n"
+            "    await audit_log.record(db, details=details)\n"
+        )
+        assert details_violations(bad_key) == [
+            "4: audit_log.record: details['stats'] is not a contract key"
+        ]
+        unassigned = "async def h(db):\n    await audit_log.record(db, details=failure)\n"
+        assert details_violations(unassigned) == [
+            "2: audit_log.record: 'failure' is never assigned in the calling function"
+        ]
+        module_level = "audit_log.record(db, details=X)\n"
+        assert details_violations(module_level) == ["1: audit_log.record: module-level name 'X'"]
+
+    def test_a_self_referencing_variable_does_not_loop(self):
+        source = (
+            "async def h(db):\n"
+            "    details = {'reason': 'x'}\n"
+            "    details = details if details else None\n"
+            "    await audit_log.record(db, details=details)\n"
+        )
+        assert details_violations(source) == []
+
+    def test_a_wrapper_forwards_its_parameter_and_its_callers_are_checked(self):
+        source = (
+            "async def _fail(db, code, detail, *, action, details=None):\n"
+            "    await audit_log.record(db, action=action, details=details)\n"
+            "\n"
+            "async def _positional(transfer_id, user_id, outcome, details):\n"
+            "    await audit_log.record(db, details=details)\n"
+            "\n"
+            "async def h(db, details):\n"
+            "    await _fail(db, 401, 'x', action='a', details={'reason': 'bad_password'})\n"
+            "    await _fail(db, 401, 'x', action='a', details={'provider': 'p'})\n"
+            "    await _positional('t', 'u', 'success', {'context': {}})\n"
+            "    await _positional('t', 'u', 'success', {'stats': {}})\n"
+            "    await _positional('t', 'u')\n"
+            "    await audit_log.record(db, details=details)\n"
+        )
+        with patch.object(guard_module, "DETAILS_WRAPPERS", frozenset({"_fail", "_positional"})):
+            assert details_violations(source) == [
+                "9: _fail: key 'provider' is not one of ['changes', 'context', 'items', 'reason']",
+                "11: _positional: key 'stats' is not one of "
+                "['changes', 'context', 'items', 'reason']",
+                "13: audit_log.record: parameter 'details' of a function that is not a "
+                "details wrapper",
+            ]
+        # Without the allowlist entry a positional wrapper is an ordinary function:
+        # its own forwarded parameter is the violation, its callers are not read.
+        own = "5: audit_log.record: parameter 'details' of a function that is not a details wrapper"
+        assert own in details_violations(source)
+
+    def test_other_calls_are_ignored(self):
+        source = (
+            "async def h(db):\n"
+            "    await event_bus.publish('x', details={'anything': 1})\n"
+            "    await other.record(db, details={'anything': 1})\n"
+            "    await _unrelated(details={'anything': 1})\n"
+        )
+        assert details_violations(source) == []

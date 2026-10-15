@@ -37,7 +37,9 @@ async def _rows(db) -> list[AuditLogEntry]:
 async def env(db):
     await create_role(db, key="admin", label="Admin", permissions={"*": True})
     admin = await create_user(db, email="admin@test.com", role="admin")
-    await create_card_type(db, key="Application", label="Application")
+    # A label that differs from the key, so the target label proves it names
+    # the type by its label.
+    await create_card_type(db, key="Application", label="Business App")
     await create_stakeholder_role_def(
         db,
         card_type_key="Application",
@@ -55,7 +57,7 @@ def _target(row, key: str, label: str):
     assert (row.target_type, row.target_id, row.target_label) == (
         "stakeholder_role",
         f"Application:{key}",
-        label,
+        f"{label} (Business App)",
     )
 
 
@@ -75,7 +77,14 @@ async def test_create_records(client, db, env):
     )
     assert row.actor_user_id == env["admin_id"]
     _target(row, "reviewer", "Reviewer")
-    assert row.details["permissions"] == {"card.view": True}
+    assert row.details == {
+        "context": {
+            "color": "#757575",
+            "counts_for_quality": True,
+            "card_type": "Business App",
+        },
+        "items": [{"kind": "permission.granted", "permission": "card.view"}],
+    }
 
 
 async def test_update_records_rekey_and_permission_diff(client, db, env):
@@ -94,10 +103,53 @@ async def test_update_records_rekey_and_permission_diff(client, db, env):
     assert row.action == "admin.stakeholder_role.updated"
     _target(row, "watcher", "Watcher")
     assert row.details == {
-        "label": {"old": "Observer", "new": "Watcher"},
-        "key": {"old": "observer", "new": "watcher"},
-        "permissions": {"old": {"card.view": False}, "new": {"card.view": True}},
+        "changes": {
+            "label": {"old": "Observer", "new": "Watcher"},
+            "key": {"old": "observer", "new": "watcher"},
+        },
+        "items": [{"kind": "permission.granted", "permission": "card.view"}],
+        "context": {"card_type": "Business App"},
     }
+
+
+async def test_update_records_plain_fields_and_a_revoked_permission(client, db, env):
+    resp = await client.patch(
+        f"{BASE}/responsible",
+        json={
+            "color": "#ff0000",
+            "counts_for_quality": False,
+            "sort_order": 7,
+            "permissions": {"card.view": True},
+        },
+        headers=env["h"],
+    )
+    assert resp.status_code == 200
+
+    [row] = await _rows(db)
+    _target(row, "responsible", "Responsible")
+    assert row.details == {
+        "changes": {
+            "color": {"old": "#757575", "new": "#ff0000"},
+            "sort_order": {"old": 0, "new": 7},
+            "counts_for_quality": {"old": True, "new": False},
+        },
+        "items": [{"kind": "permission.revoked", "permission": "card.edit"}],
+        "context": {"card_type": "Business App"},
+    }
+
+
+async def test_an_unknown_type_label_falls_back_to_the_key(client, db, env):
+    await create_card_type(db, key="Gizmo", label="")
+    await create_stakeholder_role_def(db, card_type_key="Gizmo", key="owner", label="Owner")
+    await create_stakeholder_role_def(db, card_type_key="Gizmo", key="helper", label="Helper")
+    resp = await client.post(
+        "/api/v1/metamodel/types/Gizmo/stakeholder-roles/helper/archive", headers=env["h"]
+    )
+    assert resp.status_code == 200
+
+    [row] = await _rows(db)
+    assert (row.target_id, row.target_label) == ("Gizmo:helper", "Helper (Gizmo)")
+    assert row.details == {"context": {"affected_stakeholders": 0, "card_type": "Gizmo"}}
 
 
 async def test_delete_archive_restore_record(client, db, env):
@@ -111,7 +163,9 @@ async def test_delete_archive_restore_record(client, db, env):
         "admin.stakeholder_role.restored",
         "admin.stakeholder_role.deleted",
     ]
-    assert rows[0].details == {"affected_stakeholders_count": 0}
+    assert rows[0].details == {"context": {"affected_stakeholders": 0, "card_type": "Business App"}}
+    assert rows[1].details == {"context": {"card_type": "Business App"}}
+    assert rows[2].details == {"context": {"card_type": "Business App"}}
     for row in rows:
         _target(row, "observer", "Observer")
         assert row.actor_user_id == env["admin_id"]

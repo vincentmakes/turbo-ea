@@ -1122,8 +1122,10 @@ async def test_unlock_clears_lockout_and_records(client, db, users_env):
         "member@test.com",
     )
     assert row.details == {
-        "failed_login_attempts": {"old": 7, "new": 0},
-        "locked_until": {"old": locked_until.isoformat(), "new": None},
+        "changes": {
+            "failed_login_attempts": {"old": 7, "new": 0},
+            "locked_until": {"old": locked_until.isoformat(), "new": None},
+        }
     }
 
 
