@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentageInput } from "@/components/PercentageInput";
-import { useNavigate, useParams } from "react-router";
+import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
@@ -16,6 +16,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Autocomplete from "@mui/material/Autocomplete";
+import Link from "@mui/material/Link";
 import IconButton from "@mui/material/IconButton";
 import { useTheme } from "@mui/material/styles";
 import {
@@ -24,10 +25,12 @@ import {
   useTypeLabel,
   useSubtypeLabel,
   useOptionLabel,
-  useFieldLabel,
 } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
+import { useSurveyFieldLabel } from "@/lib/surveyFieldLabel";
+import UserMultiSelect from "@/components/UserMultiSelect";
+import { useDateFormat } from "@/hooks/useDateFormat";
+import { getPhaseLabels, lifecycleOrderIssues, type LifecyclePhase } from "@/lib/lifecyclePhases";
 import Tooltip from "@mui/material/Tooltip";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -37,7 +40,7 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import { FieldHelp } from "@/features/cards/sections/cardDetailUtils";
-import type { SurveyRespondForm, SurveyField } from "@/types";
+import type { SurveyRespondForm, SurveyField, SurveyPersonRef } from "@/types";
 
 type OptionLabelResolver = (key: string, translations?: Record<string, string>) => string;
 
@@ -54,6 +57,35 @@ function isRelationRefList(val: unknown): val is RelationRef[] {
   );
 }
 
+/** True when a value is a list of people ({id, display_name}). */
+function isPersonRefList(val: unknown): val is SurveyPersonRef[] {
+  return (
+    Array.isArray(val) &&
+    val.every((v) => v !== null && typeof v === "object" && "id" in (v as object))
+  );
+}
+
+/** The lifecycle the card would have if every lifecycle answer were applied:
+ *  each lifecycle field's proposed date (or its current one while it is
+ *  confirmed or untouched). Only the surveyed phases are known here, which is
+ *  all the order check needs to warn about what the respondent typed. */
+function proposedLifecycle(
+  fields: (SurveyField & { current_value: unknown })[],
+  responses: Record<string, { confirmed: boolean; new_value: unknown }>,
+): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const f of fields) {
+    if (f.kind !== "lifecycle" || !f.phase) continue;
+    const resp = responses[f.key];
+    const value =
+      resp && !resp.confirmed && resp.new_value !== null && resp.new_value !== undefined
+        ? resp.new_value
+        : f.current_value;
+    out[f.phase] = typeof value === "string" && value ? value : null;
+  }
+  return out;
+}
+
 /** Resolve a value to its display label using field options when available. */
 function formatValue(
   val: unknown,
@@ -61,6 +93,10 @@ function formatValue(
   t?: (key: string) => string,
   rl?: OptionLabelResolver,
 ): string {
+  if (field?.kind === "stakeholder") {
+    if (!isPersonRefList(val) || val.length === 0) return "—";
+    return val.map((p) => p.display_name).join(", ");
+  }
   if (field?.kind === "relation" || isRelationRefList(val)) {
     if (!isRelationRefList(val) || val.length === 0) return "—";
     return val.map((r) => r.name).join(", ");
@@ -218,10 +254,10 @@ export default function SurveyRespond() {
   const typeLabel = useTypeLabel();
   const stLabel = useSubtypeLabel();
   const optLabel = useOptionLabel();
-  const fieldLabel = useFieldLabel();
+  const surveyFieldLabel = useSurveyFieldLabel();
+  const { formatDate } = useDateFormat();
   const theme = useTheme();
   const { types } = useMetamodel();
-  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
 
   // A relation field is scoped to ONE relation type, so its related cards are
@@ -334,8 +370,39 @@ export default function SurveyRespond() {
     }
   };
 
+  // Advisory, as on the card: a phase dated after one that should follow it.
+  const proposed = proposedLifecycle(form?.fields ?? [], fieldResponses);
+  const lifecycleIssues = lifecycleOrderIssues(proposed);
+  const phaseLabels = getPhaseLabels(t);
+  const lifecycleWarning = (phase?: LifecyclePhase) => {
+    const later = phase ? lifecycleIssues[phase] : undefined;
+    if (!later) return null;
+    return t("cards:lifecycle.orderWarning", {
+      phase: phaseLabels[later],
+      date: formatDate(proposed[later] ?? ""),
+    });
+  };
+
   const renderFieldInput = (field: SurveyField & { current_value: unknown }, resp: FieldResponse) => {
     if (resp.confirmed) return null; // No input needed if confirmed
+
+    if (field.kind === "stakeholder") {
+      // Baseline = the role's current holders; the respondent edits the list.
+      const current = isPersonRefList(field.current_value) ? field.current_value : [];
+      const selected = isPersonRefList(resp.new_value) ? resp.new_value : current;
+      return (
+        <UserMultiSelect
+          value={selected.map((p) => ({ id: p.id, display_name: p.display_name, email: "" }))}
+          onChange={(users) =>
+            setNewValue(
+              field.key,
+              users.map((u) => ({ id: u.id, display_name: u.display_name || u.email })),
+            )
+          }
+          placeholder={t("surveys.respond.searchPeople")}
+        />
+      );
+    }
 
     if (field.kind === "relation") {
       // Baseline = current links; respondent edits the set (add/remove).
@@ -457,12 +524,14 @@ export default function SurveyRespond() {
     }
 
     if (field.type === "date") {
+      const warning = field.kind === "lifecycle" ? lifecycleWarning(field.phase) : null;
       return (
         <DateField
           size="small"
           fullWidth
           value={typeof value === "string" ? value : ""}
           onChange={(v) => setNewValue(field.key, v)}
+          {...(warning ? { error: true, helperText: warning } : {})}
         />
       );
     }
@@ -533,7 +602,26 @@ export default function SurveyRespond() {
       {/* Card info */}
       <Card variant="outlined" sx={{ p: 2, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
-        <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>
+        {form.card.can_view ? (
+          // A new tab, so a half-filled form survives a look at the card.
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Tooltip title={t("surveys.respond.openCardTooltip")}>
+              <Link
+                component={RouterLink}
+                to={`/cards/${form.card.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+                sx={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 0.5 }}
+              >
+                {form.card.name}
+                <MaterialSymbol icon="open_in_new" size={16} />
+              </Link>
+            </Tooltip>
+          </Box>
+        ) : (
+          <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>
+        )}
         <Chip
           label={
             typeLabel(types.find((tp) => tp.key === form.card.type)) ||
@@ -580,7 +668,7 @@ export default function SurveyRespond() {
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
-                {field.kind === "relation" ? surveyRelationLabel(field) : fieldLabel(field)}
+                {surveyFieldLabel(field)}
               </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
@@ -588,14 +676,35 @@ export default function SurveyRespond() {
                 color={isMaintain ? "primary" : "default"}
                 variant="outlined"
               />
-              {field.kind !== "relation" && (
+              {field.kind === "lifecycle" || field.kind === "stakeholder" ? (
                 <Typography variant="caption" color="text.secondary">
-                  {rl(field.section, field.section_translations)}
+                  {t(
+                    field.kind === "lifecycle"
+                      ? "surveys.respond.lifecycleSection"
+                      : "surveys.respond.stakeholderSection",
+                  )}
                 </Typography>
+              ) : (
+                field.kind !== "relation" && (
+                  <Typography variant="caption" color="text.secondary">
+                    {rl(field.section, field.section_translations)}
+                  </Typography>
+                )
               )}
             </Box>
 
-            {field.kind !== "relation" && (
+            {field.kind === "stakeholder" && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {t(
+                  isMaintain
+                    ? "surveys.respond.stakeholderMaintainInstruction"
+                    : "surveys.respond.stakeholderConfirmInstruction",
+                  { card: form.card.name, role: surveyFieldLabel(field) },
+                )}
+              </Typography>
+            )}
+
+            {(field.kind === undefined || field.kind === "attribute") && (
               <FieldHelp
                 text={(field.helpTranslations?.[i18n.language] as string) || field.help || ""}
               />
@@ -616,7 +725,29 @@ export default function SurveyRespond() {
               <Typography variant="body2" color="text.secondary">
                 {t("surveys.respond.currentValue")}
               </Typography>
-              {field.kind === "relation" ? (
+              {field.kind === "stakeholder" ? (
+                isPersonRefList(field.current_value) && field.current_value.length > 0 ? (
+                  field.current_value.map((p) => (
+                    <Chip
+                      key={p.id}
+                      icon={<MaterialSymbol icon="person" size={16} />}
+                      label={p.display_name}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))
+                ) : (
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    —
+                  </Typography>
+                )
+              ) : field.kind === "lifecycle" ? (
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {typeof field.current_value === "string" && field.current_value
+                    ? formatDate(field.current_value)
+                    : "—"}
+                </Typography>
+              ) : field.kind === "relation" ? (
                 isRelationRefList(field.current_value) && field.current_value.length > 0 ? (
                   field.current_value.map((r) => {
                     const c = relatedTypeColor(field.related_type_key);

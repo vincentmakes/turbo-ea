@@ -20,8 +20,10 @@
  */
 
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useRelationLabel } from "@/hooks/useResolveLabel";
+import { useFieldLabel, useRelationLabel } from "@/hooks/useResolveLabel";
+import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import type { SurveyField } from "@/types";
 
 export function useSurveyRelationFieldLabel() {
@@ -37,5 +39,37 @@ export function useSurveyRelationFieldLabel() {
       return relLabel(rt, field.direction === "incoming");
     },
     [relationTypes, relLabel],
+  );
+}
+
+/**
+ * The label for any survey field, whatever it surveys.
+ *
+ * - relation → the live verb (`useSurveyRelationFieldLabel`);
+ * - lifecycle → the phase's translated name, the same words the card's
+ *   lifecycle line uses;
+ * - stakeholder → the role's live label when the caller knows it (the builder
+ *   loads the type's roles), else the stored label and translations — the
+ *   response-form endpoint fills those from the live role definition;
+ * - attribute → the field's metamodel label.
+ */
+export function useSurveyFieldLabel(roleLabel?: (roleKey: string) => string | undefined) {
+  const relationLabel = useSurveyRelationFieldLabel();
+  const fieldLabel = useFieldLabel();
+  const { t } = useTranslation("common");
+
+  return useCallback(
+    (field: SurveyField): string => {
+      if (field.kind === "relation") return relationLabel(field);
+      if (field.kind === "lifecycle" && field.phase) {
+        return getPhaseLabels(t)[field.phase] || field.label;
+      }
+      if (field.kind === "stakeholder" && field.role) {
+        // Never the field key (`sh:<role>`): without a label, the role key.
+        return roleLabel?.(field.role) || (field.label ? fieldLabel(field) : field.role);
+      }
+      return fieldLabel(field);
+    },
+    [relationLabel, fieldLabel, t, roleLabel],
   );
 }

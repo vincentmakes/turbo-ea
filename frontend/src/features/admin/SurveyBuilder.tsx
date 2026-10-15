@@ -45,7 +45,9 @@ import {
   useOptionLabel,
   useResolveLabel,
 } from "@/hooks/useResolveLabel";
-import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
+import { useSurveyFieldLabel } from "@/lib/surveyFieldLabel";
+import DeleteSurveyDialog from "@/features/admin/DeleteSurveyDialog";
+import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { sideFlags } from "@/lib/relationSort";
 import { FIELD_TYPE_OPTIONS } from "@/features/admin/metamodel/constants";
 import { isEnforcedRequiredField } from "@/features/cards/sections/cardDetailUtils";
@@ -84,7 +86,6 @@ export default function SurveyBuilder() {
   const isInactiveExtType = (fieldType: string) =>
     fieldType.startsWith("ext.") && !extFieldTypes[fieldType];
   const relLabel = useRelationLabel();
-  const surveyRelationLabel = useSurveyRelationFieldLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   // Section names are loose strings on the schema, not entities — the low-level
@@ -109,6 +110,7 @@ export default function SurveyBuilder() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [surveyId, setSurveyId] = useState(id || "");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Step 1 — Basics
   const [name, setName] = useState("");
@@ -326,6 +328,66 @@ export default function SurveyBuilder() {
       return def ? typeLabel(def) : key;
     };
   }, [roles, typeLabel]);
+  const surveyFieldLabel = useSurveyFieldLabel(roleLabel);
+
+  // Lifecycle phases a survey can ask about, one row each. Offered unless the
+  // type hides its lifecycle section — then only phases a draft already
+  // collects stay listed, so an existing choice can still be removed.
+  const lifecycleRows = useMemo(() => {
+    const labels = getPhaseLabels(t);
+    const hidden = !!selectedType?.section_config?.lifecycle?.hidden;
+    return PHASES.filter(
+      (phase) => !hidden || selectedFields.some((f) => f.key === `lifecycle:${phase}`),
+    ).map((phase) => ({ key: `lifecycle:${phase}`, phase, label: labels[phase] }));
+  }, [selectedType, selectedFields, t]);
+
+  const toggleLifecycle = (row: (typeof lifecycleRows)[number]) => {
+    setSelectedFields((prev) =>
+      prev.some((f) => f.key === row.key)
+        ? prev.filter((f) => f.key !== row.key)
+        : [
+            ...prev,
+            {
+              key: row.key,
+              section: "",
+              label: row.label,
+              type: "date",
+              kind: "lifecycle",
+              phase: row.phase,
+              action: "maintain",
+            },
+          ],
+    );
+  };
+
+  // One row per stakeholder role of the target type: the survey asks who
+  // holds it, and an applied answer adds and removes people.
+  const stakeholderRows = useMemo(
+    () =>
+      targetTypeKey
+        ? roles.map((r) => ({ key: `sh:${r.key}`, role: r.key, label: roleLabel(r.key) }))
+        : [],
+    [roles, roleLabel, targetTypeKey],
+  );
+
+  const toggleStakeholder = (row: (typeof stakeholderRows)[number]) => {
+    setSelectedFields((prev) =>
+      prev.some((f) => f.key === row.key)
+        ? prev.filter((f) => f.key !== row.key)
+        : [
+            ...prev,
+            {
+              key: row.key,
+              section: "",
+              label: row.label,
+              type: "stakeholder",
+              kind: "stakeholder",
+              role: row.role,
+              action: "maintain",
+            },
+          ],
+    );
+  };
 
   // Relation types the surveyed card type can participate in, expanded into one
   // entry per direction (a self-referential relation yields both). Each becomes
@@ -725,7 +787,24 @@ export default function SurveyBuilder() {
         {surveyId && (
           <Chip label={t("common:status.draft")} size="small" color="default" />
         )}
+        {surveyId && (
+          <Tooltip title={t("common:actions.delete")}>
+            <IconButton
+              aria-label={t("common:actions.delete")}
+              color="error"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <MaterialSymbol icon="delete" size={22} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
+
+      <DeleteSurveyDialog
+        survey={confirmDelete && surveyId ? { id: surveyId, name } : null}
+        onClose={() => setConfirmDelete(false)}
+        onDeleted={() => navigate("/admin/surveys")}
+      />
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
@@ -1375,6 +1454,128 @@ export default function SurveyBuilder() {
             </>
           )}
 
+          {selectedType && lifecycleRows.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+                {t("surveyBuilder.lifecycle.title")}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t("surveyBuilder.lifecycle.description")}
+              </Typography>
+              <TableContainer>
+                <Table size="small" aria-label={t("surveyBuilder.lifecycle.title")}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox" />
+                      <TableCell>{t("surveyBuilder.lifecycle.column")}</TableCell>
+                      <TableCell>{t("surveyBuilder.fields.columns.action")}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {lifecycleRows.map((row) => {
+                      const selected = selectedFields.find((sf) => sf.key === row.key);
+                      return (
+                        <TableRow
+                          key={row.key}
+                          hover
+                          onClick={() => toggleLifecycle(row)}
+                          sx={{ cursor: "pointer" }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox checked={!!selected} size="small" />
+                          </TableCell>
+                          <TableCell>{row.label}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            {selected && (
+                              <TextField
+                                select
+                                size="small"
+                                value={selected.action}
+                                onChange={(e) =>
+                                  setFieldAction(row.key, e.target.value as "maintain" | "confirm")
+                                }
+                                sx={{ minWidth: 120 }}
+                              >
+                                <MenuItem value="maintain">
+                                  {t("surveyBuilder.fields.maintain")}
+                                </MenuItem>
+                                <MenuItem value="confirm">
+                                  {t("surveyBuilder.fields.confirm")}
+                                </MenuItem>
+                              </TextField>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+
+          {selectedType && stakeholderRows.length > 0 && (
+            <>
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+                {t("surveyBuilder.stakeholders.title")}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t("surveyBuilder.stakeholders.description")}
+              </Typography>
+              <TableContainer>
+                <Table size="small" aria-label={t("surveyBuilder.stakeholders.title")}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox" />
+                      <TableCell>{t("surveyBuilder.stakeholders.column")}</TableCell>
+                      <TableCell>{t("surveyBuilder.fields.columns.action")}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {stakeholderRows.map((row) => {
+                      const selected = selectedFields.find((sf) => sf.key === row.key);
+                      return (
+                        <TableRow
+                          key={row.key}
+                          hover
+                          onClick={() => toggleStakeholder(row)}
+                          sx={{ cursor: "pointer" }}
+                        >
+                          <TableCell padding="checkbox">
+                            <Checkbox checked={!!selected} size="small" />
+                          </TableCell>
+                          <TableCell>{row.label}</TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            {selected && (
+                              <TextField
+                                select
+                                size="small"
+                                value={selected.action}
+                                onChange={(e) =>
+                                  setFieldAction(row.key, e.target.value as "maintain" | "confirm")
+                                }
+                                sx={{ minWidth: 120 }}
+                              >
+                                <MenuItem value="maintain">
+                                  {t("surveyBuilder.fields.maintain")}
+                                </MenuItem>
+                                <MenuItem value="confirm">
+                                  {t("surveyBuilder.fields.confirm")}
+                                </MenuItem>
+                              </TextField>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+
           {selectedFields.length > 0 && (
             <Typography variant="body2" sx={{ mt: 2 }} color="text.secondary">
               {t("surveyBuilder.fields.selectedCount", {
@@ -1516,7 +1717,7 @@ export default function SurveyBuilder() {
                 {selectedFields.map((f) => (
                   <Chip
                     key={f.key}
-                    label={`${f.kind === "relation" ? surveyRelationLabel(f) : f.label} (${f.action})`}
+                    label={`${f.kind === "relation" || f.kind === "lifecycle" || f.kind === "stakeholder" ? surveyFieldLabel(f) : f.label} (${f.action})`}
                     size="small"
                     color={f.action === "maintain" ? "primary" : "default"}
                     variant="outlined"

@@ -13,7 +13,11 @@ or a bridge's audited batch — decides the transaction. What lives here:
   batch can reverse the send (rollback closes the survey).
 * :func:`expand_fields` — ``[{key, action}]`` → the stored ``Survey.fields``
   shape, resolved from the card type's ``fields_schema`` so a programmatic
-  caller never hand-writes labels the builder would have looked up.
+  caller never hand-writes labels the builder would have looked up. Attribute
+  fields only: lifecycle and stakeholder fields are built by the survey
+  builder, not by a programmatic caller.
+* :func:`delete_impact` / :func:`delete_survey` — what deleting a survey takes
+  with it, and the delete itself (responses + the survey's bell requests).
 
 Delivery is deliberately NOT here: the notifications open an SMTP connection
 each, so the caller hands ``ActivationResult.recipients`` to
@@ -34,6 +38,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.notification import Notification
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
@@ -310,6 +315,9 @@ async def activate_survey(
     payload = {
         "survey_id": str(survey.id),
         "name": survey.name,
+        # The key every survey-sourced event shares, so the History tab names
+        # the survey the same way on a send and on an applied answer.
+        "survey_name": survey.name,
         "card_count": len(card_ids),
         "user_count": len(cards_by_user),
         **(event_extra or {}),
@@ -325,6 +333,45 @@ async def activate_survey(
         card_ids=card_ids,
         user_ids=list(cards_by_user),
     )
+
+
+async def delete_impact(db: AsyncSession, survey_id: uuid.UUID) -> dict[str, int]:
+    """Counts the delete confirmation shows: every request the survey made,
+    those still waiting for an answer, those answered, those applied."""
+    rows = await db.execute(
+        select(SurveyResponse.status, SurveyResponse.applied, sqlalchemy.func.count())
+        .where(SurveyResponse.survey_id == survey_id)
+        .group_by(SurveyResponse.status, SurveyResponse.applied)
+    )
+    impact = {"requests": 0, "pending": 0, "answered": 0, "applied": 0}
+    for status, applied, count in rows.all():
+        impact["requests"] += count
+        if status == "completed":
+            impact["answered"] += count
+        else:
+            impact["pending"] += count
+        if applied:
+            impact["applied"] += count
+    return impact
+
+
+async def delete_survey(db: AsyncSession, survey: Survey) -> None:
+    """Delete a survey, its responses (``ON DELETE CASCADE``) and the bell
+    notifications that asked people to answer it. Flushes, never commits.
+
+    The cards keep whatever the survey already changed, and their history
+    keeps its ``survey.sent`` and applied entries — those carry the survey's
+    name, so they still read correctly once it is gone.
+    """
+    await db.execute(
+        sqlalchemy.delete(Notification).where(
+            Notification.type == "survey_request",
+            Notification.data["survey_id"].astext == str(survey.id),
+        )
+    )
+    await db.execute(sqlalchemy.delete(SurveyResponse).where(SurveyResponse.survey_id == survey.id))
+    await db.delete(survey)
+    await db.flush()
 
 
 async def expand_fields(

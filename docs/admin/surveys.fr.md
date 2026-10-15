@@ -61,6 +61,15 @@ Au-delà des attributs, une enquête peut également demander aux répondants de
 
 Lorsque vous appliquez une telle réponse, Turbo EA ajoute les nouveaux liens et supprime ceux que le répondant a retirés. La modification est enregistrée dans l'historique de la fiche, tout comme une modification manuelle de relation.
 
+### Dates du cycle de vie et rôles des parties prenantes
+
+Deux tableaux supplémentaires à l'étape **Champs** permettent d'interroger sur ce qui n'est pas un attribut :
+
+- **Dates du cycle de vie** — une ligne par phase (Planification, Mise en service, Actif, Retrait progressif, Fin de vie). Le répondant voit la date actuelle de la fiche et la confirme ou en propose une autre ; vider la date propose de la supprimer. Une phase datée après celle qui doit la suivre est signalée dans le formulaire, comme sur la fiche. Le tableau n'est pas proposé lorsque le type de fiche masque sa section cycle de vie.
+- **Rôles des parties prenantes** — une ligne par rôle de partie prenante du type de fiche cible. Le répondant voit qui détient le rôle aujourd'hui et modifie la liste avec un sélecteur de personnes. Appliquer la réponse ajoute les personnes qu'il a ajoutées et retire celles qu'il a enlevées ; les utilisateurs désactivés ne sont jamais ajoutés ni retirés.
+
+Chacun de ces champs peut être en **Maintenir** ou **Confirmer**, comme les autres.
+
 ### Actions automatiques
 
 Configurez des règles qui mettent automatiquement à jour les attributs des fiches en fonction des réponses à l'enquête. Par exemple, si un répondant sélectionne « Mission critique » pour la criticité métier, le champ `businessCriticality` de la fiche peut être mis à jour automatiquement.
@@ -87,3 +96,9 @@ Naviguez vers **Admin > Enquêtes > [Nom de l'enquête] > Résultats** pour voir
 - Statut des réponses par fiche (répondu, en attente)
 - Réponses individuelles avec les réponses par question
 - Une action **Appliquer** pour valider les règles d'action automatique sur les attributs des fiches
+
+Appliquer une réponse passe par les mêmes contrôles qu'une modification faite directement sur la fiche. Une valeur que la fiche refuse — une option qui n'existe plus, par exemple — est signalée pour cette réponse et rien n'en est appliqué, tandis que les autres réponses sont tout de même appliquées. Chaque modification apparaît dans l'onglet **Historique** de la fiche sous l'administrateur qui l'a appliquée, avec un repère **via l'enquête** qui nomme l'enquête ; le survoler indique qui a répondu. L'application entière constitue une seule entrée dans **Admin → Journal d'audit** et peut donc y être annulée.
+
+## Suppression d'une enquête
+
+Une enquête peut être supprimée quel que soit son statut : ouvrez le menu **⋮** de sa ligne dans **Admin > Enquêtes**, ou utilisez **Supprimer** dans le générateur d'enquête ou sur la page des résultats. La confirmation indique ce qui disparaît avec elle : les demandes encore sans réponse sont retirées, ainsi que leurs notifications, et les réponses pas encore appliquées sont perdues. Les modifications déjà appliquées restent sur les fiches, et l'historique des fiches continue de citer l'enquête.

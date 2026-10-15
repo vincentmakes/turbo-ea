@@ -742,6 +742,10 @@ def rewrite_bookmark_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTa
     return tally
 
 
+# The key prefix the survey builder gives a stakeholder-role field (``sh:<role>``).
+STAKEHOLDER_FIELD_PREFIX = "sh:"
+
+
 def _rewrite_relation_answer(value: Any, ids: IdMap, tally: RewriteTally) -> Any:
     """A relation answer is a list of ``{id, name}`` card refs (or bare ids).
     An attribute answer is anything else and comes back as it is — its list
@@ -768,6 +772,13 @@ def rewrite_survey_response_row(kwargs: dict[str, Any], ctx: RemapContext) -> Re
         return tally
     out: dict[str, Any] = {}
     for key, answer in responses.items():
+        if isinstance(key, str) and key.startswith(STAKEHOLDER_FIELD_PREFIX):
+            # A stakeholder answer lists people, not cards. User ids are
+            # instance-local and this map holds none, so the answer travels as
+            # it is: on another instance its ids match no user, and applying it
+            # skips them (the names still show in the results).
+            out[key] = answer
+            continue
         if isinstance(answer, dict):
             answer = {
                 **answer,

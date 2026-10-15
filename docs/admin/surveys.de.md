@@ -61,6 +61,15 @@ Gestalten Sie Ihre Fragen. Jede Frage kann sein:
 
 Wenn Sie eine solche Antwort anwenden, fügt Turbo EA die neuen Verknüpfungen hinzu und entfernt die vom Befragten entfernten. Die Änderung wird im Verlauf der Karte festgehalten, genau wie eine manuelle Beziehungsänderung.
 
+### Lebenszyklusdaten und Stakeholder-Rollen
+
+Zwei weitere Tabellen im Schritt **Felder** erlauben Fragen zu Dingen, die keine Attribute sind:
+
+- **Lebenszyklusdaten** — eine Zeile pro Phase (Planung, Einführung, Aktiv, Auslauf, End of Life). Die befragte Person sieht das aktuelle Datum der Karte und bestätigt es oder schlägt ein anderes vor; ein geleertes Datum schlägt vor, es zu entfernen. Eine Phase, die nach der folgenden Phase datiert ist, wird im Formular markiert – wie auf der Karte. Die Tabelle wird nicht angeboten, wenn der Kartentyp seinen Lebenszyklusabschnitt ausblendet.
+- **Stakeholder-Rollen** — eine Zeile pro Stakeholder-Rolle des Zielkartentyps. Die befragte Person sieht, wer die Rolle heute innehat, und bearbeitet die Liste mit einer Personenauswahl. Beim Übernehmen der Antwort werden die hinzugefügten Personen ergänzt und die entfernten gestrichen; deaktivierte Benutzer werden nie hinzugefügt oder entfernt.
+
+Jedes dieser Felder kann wie jedes andere **Pflegen** oder **Bestätigen** sein.
+
 ### Auto-Aktionen
 
 Konfigurieren Sie Regeln, die Kartenattribute basierend auf Umfrageantworten automatisch aktualisieren. Zum Beispiel: Wenn ein Befragter «Mission Critical» für die Geschäftskritikalität auswählt, kann das `businessCriticality`-Feld der Karte automatisch aktualisiert werden.
@@ -87,3 +96,9 @@ Navigieren Sie zu **Admin > Umfragen > [Umfragename] > Ergebnisse**, um zu sehen
 - Antwortstatus pro Karte (beantwortet, ausstehend)
 - Einzelne Antworten mit Antworten pro Frage
 - Eine **Anwenden**-Aktion, um Auto-Aktionsregeln auf Kartenattribute anzuwenden
+
+Das Übernehmen einer Antwort durchläuft dieselben Prüfungen wie eine Bearbeitung direkt auf der Karte. Ein Wert, den die Karte ablehnt – etwa eine Option, die es nicht mehr gibt –, wird für diese Antwort gemeldet und nichts davon übernommen, während die übrigen Antworten trotzdem übernommen werden. Jede Änderung erscheint im Tab **Verlauf** der Karte unter der Administratorin bzw. dem Administrator, die sie übernommen hat, mit einer Markierung **über Umfrage**, die die Umfrage nennt; beim Darüberfahren wird angezeigt, wer geantwortet hat. Das gesamte Übernehmen ist ein Eintrag unter **Admin → Audit-Log** und kann dort zurückgerollt werden.
+
+## Eine Umfrage löschen
+
+Umfragen jedes Status können gelöscht werden: Öffnen Sie das Menü **⋮** in ihrer Zeile unter **Admin > Umfragen** oder verwenden Sie **Löschen** im Umfrage-Builder oder auf der Ergebnisseite. Die Bestätigung nennt, was mit entfernt wird: Anfragen, die noch auf eine Antwort warten, werden samt ihren Benachrichtigungen zurückgezogen, und noch nicht übernommene Antworten gehen verloren. Bereits übernommene Änderungen bleiben auf den Karten, und der Kartenverlauf nennt die Umfrage weiterhin.

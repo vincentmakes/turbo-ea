@@ -61,6 +61,15 @@ Além dos atributos, uma pesquisa também pode pedir aos respondentes que manten
 
 Ao aplicar uma resposta desse tipo, o Turbo EA adiciona os novos vínculos e remove os que o respondente retirou. A alteração é registrada no histórico do cartão, assim como uma edição manual de relação.
 
+### Datas do ciclo de vida e funções das partes interessadas
+
+Duas tabelas adicionais no passo **Campos** permitem perguntar sobre coisas que não são atributos:
+
+- **Datas do ciclo de vida** — uma linha por fase (Planejamento, Entrada, Ativo, Saída, Fim de vida). O inquirido vê a data atual do cartão e confirma-a ou propõe outra; limpar a data propõe removê-la. Uma fase datada depois daquela que a deveria seguir é assinalada no formulário, tal como no cartão. A tabela não é oferecida quando o tipo de cartão oculta a sua secção de ciclo de vida.
+- **Funções das partes interessadas** — uma linha por função de parte interessada do tipo de cartão alvo. O inquirido vê quem tem hoje a função e edita a lista com um seletor de pessoas. Ao aplicar a resposta, são adicionadas as pessoas que acrescentou e removidas as que retirou; utilizadores desativados nunca são adicionados nem removidos.
+
+Cada um destes campos pode ser **Manter** ou **Confirmar**, como qualquer outro.
+
 ### Auto-ações
 
 Configure regras que atualizam automaticamente atributos do card com base nas respostas da pesquisa. Por exemplo, se um respondente selecionar "Missão Crítica" para criticidade de negócio, o campo `businessCriticality` do card pode ser atualizado automaticamente.
@@ -87,3 +96,9 @@ Navegue até **Admin > Pesquisas > [Nome da Pesquisa] > Resultados** para ver:
 - Status de resposta por card (respondido, pendente)
 - Respostas individuais com respostas por pergunta
 - Uma ação **Aplicar** para executar regras de auto-ação nos atributos dos cards
+
+Aplicar uma resposta passa pelas mesmas verificações que uma edição feita no próprio cartão. Um valor que o cartão recusa — por exemplo, uma opção que já não existe — é assinalado para essa resposta e nada dela é aplicado, enquanto as restantes respostas são aplicadas na mesma. Cada alteração aparece no separador **Histórico** do cartão sob o administrador que a aplicou, com um marcador **através da pesquisa** que nomeia a pesquisa; ao passar o rato por cima vê-se quem respondeu. Toda a aplicação é uma única entrada em **Admin → Registo de auditoria**, pelo que pode ser revertida a partir daí.
+
+## Eliminar uma Pesquisa
+
+Uma pesquisa pode ser eliminada em qualquer estado: abra o menu **⋮** da sua linha em **Admin > Pesquisas**, ou use **Eliminar** no construtor de pesquisas ou na página de resultados. A confirmação indica o que é eliminado com ela: os pedidos ainda à espera de resposta são retirados, juntamente com as suas notificações, e as respostas ainda não aplicadas perdem-se. As alterações já aplicadas permanecem nos cartões, e o histórico do cartão continua a nomear a pesquisa.

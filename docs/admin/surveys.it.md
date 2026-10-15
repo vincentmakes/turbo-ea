@@ -61,6 +61,15 @@ Oltre agli attributi, un'indagine può anche chiedere ai rispondenti di mantener
 
 Quando applichi una risposta di questo tipo, Turbo EA aggiunge i nuovi collegamenti e rimuove quelli rimossi dal rispondente. La modifica viene registrata nella cronologia della scheda, proprio come una modifica manuale di relazione.
 
+### Date del ciclo di vita e ruoli degli stakeholder
+
+Due tabelle aggiuntive nel passaggio **Campi** consentono di chiedere informazioni che non sono attributi:
+
+- **Date del ciclo di vita** — una riga per fase (Pianificazione, Introduzione, Attivo, Dismissione, Fine vita). Chi risponde vede la data attuale della scheda e la conferma o ne propone un'altra; svuotare la data propone di rimuoverla. Una fase datata dopo quella che dovrebbe seguirla viene segnalata nel modulo, come sulla scheda. La tabella non viene proposta quando il tipo di scheda nasconde la sezione del ciclo di vita.
+- **Ruoli degli stakeholder** — una riga per ogni ruolo stakeholder del tipo di scheda target. Chi risponde vede chi ricopre oggi il ruolo e modifica l'elenco con un selettore di persone. Applicando la risposta si aggiungono le persone aggiunte e si rimuovono quelle tolte; gli utenti disattivati non vengono mai aggiunti né rimossi.
+
+Ciascuno di questi campi può essere **Mantieni** o **Conferma**, come gli altri.
+
 ### Auto-azioni
 
 Configurate regole che aggiornano automaticamente gli attributi della card in base alle risposte del sondaggio. Ad esempio, se un rispondente seleziona "Mission Critical" per la criticità aziendale, il campo `businessCriticality` della card può essere aggiornato automaticamente.
@@ -87,3 +96,9 @@ Navigate su **Admin > Sondaggi > [Nome sondaggio] > Risultati** per vedere:
 - Stato delle risposte per card (risposto, in attesa)
 - Risposte individuali con risposte per ogni domanda
 - Un'azione **Applica** per applicare le regole di auto-azione agli attributi della card
+
+Applicare una risposta passa per gli stessi controlli di una modifica fatta direttamente sulla scheda. Un valore che la scheda rifiuta — ad esempio un'opzione che non esiste più — viene segnalato per quella risposta e nulla di essa viene applicato, mentre le altre risposte vengono comunque applicate. Ogni modifica compare nella scheda **Cronologia** della scheda sotto l'amministratore che l'ha applicata, con un indicatore **tramite il sondaggio** che nomina il sondaggio; passandoci sopra si vede chi ha risposto. L'intera applicazione è una sola voce in **Admin → Registro di audit**, quindi può essere annullata da lì.
+
+## Eliminazione di un sondaggio
+
+Un sondaggio può essere eliminato in qualsiasi stato: apri il menu **⋮** nella sua riga in **Admin > Sondaggi**, oppure usa **Elimina** nel generatore di sondaggi o nella pagina dei risultati. La conferma indica cosa viene eliminato insieme: le richieste ancora in attesa di risposta vengono ritirate, insieme alle relative notifiche, e le risposte non ancora applicate vanno perse. Le modifiche già applicate restano sulle schede e la cronologia della scheda continua a citare il sondaggio.

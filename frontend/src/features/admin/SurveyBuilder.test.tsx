@@ -10,6 +10,8 @@ let routeParams: Record<string, string> = {};
 // Mutable so the relations-table tests can hand the builder a metamodel; the
 // other suites want it empty, which is the default.
 let relationTypesMock: unknown[] = [];
+// Mutable so the lifecycle-table tests can hide the type's lifecycle section.
+let sectionConfigMock: Record<string, unknown> | undefined;
 vi.mock("react-router", () => ({
   useNavigate: () => navigate,
   useParams: () => routeParams,
@@ -55,6 +57,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
           },
         ],
         translations: {},
+        section_config: sectionConfigMock,
       },
     ],
     relationTypes: relationTypesMock,
@@ -772,5 +775,102 @@ describe("SurveyBuilder — relations table", () => {
     } finally {
       routeParams = {};
     }
+  });
+});
+
+describe("SurveyBuilder — lifecycle and stakeholder fields (#1257)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sectionConfigMock = undefined;
+    (api.get as ReturnType<typeof vi.fn>).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve({ items: [] });
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLE_DEFS);
+      return Promise.resolve([]);
+    });
+    mockPost.mockResolvedValue({ id: "survey-1" });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "survey-1" });
+  });
+
+  afterEach(() => {
+    sectionConfigMock = undefined;
+  });
+
+  const rowLabels = (tableName: string) =>
+    within(screen.getByRole("table", { name: tableName }))
+      .getAllByRole("row")
+      .slice(1)
+      .map((r) => r.textContent);
+
+  async function savedFields(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /save draft/i }));
+    const patch = api.patch as ReturnType<typeof vi.fn>;
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    const [, body] = patch.mock.calls.at(-1)!;
+    return (body as { fields: Record<string, unknown>[] }).fields;
+  }
+
+  it("offers one row per lifecycle phase, in order, and saves a lifecycle field", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    expect(rowLabels("Lifecycle dates")).toEqual([
+      "Plan",
+      "Phase In",
+      "Active",
+      "Phase Out",
+      "End of Life",
+    ]);
+    await user.click(screen.getByText("End of Life"));
+    expect(await savedFields(user)).toContainEqual({
+      key: "lifecycle:endOfLife",
+      section: "",
+      label: "End of Life",
+      type: "date",
+      kind: "lifecycle",
+      phase: "endOfLife",
+      action: "maintain",
+    });
+  });
+
+  it("offers one row per stakeholder role and saves a role as confirm", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    expect(rowLabels("Stakeholder roles")).toEqual(["Business Owner", "Technical Owner"]);
+    const table = screen.getByRole("table", { name: "Stakeholder roles" });
+    await user.click(within(table).getByText("Technical Owner"));
+    // The action select appears once the row is ticked.
+    const row = within(table).getByText("Technical Owner").closest("tr")!;
+    await user.click(within(row).getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: /confirm/i }));
+
+    expect(await savedFields(user)).toContainEqual({
+      key: "sh:technicalApplicationOwner",
+      section: "",
+      label: "Technical Owner",
+      type: "stakeholder",
+      kind: "stakeholder",
+      role: "technicalApplicationOwner",
+      action: "confirm",
+    });
+  });
+
+  it("unticking a row removes the field again", async () => {
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    await user.click(screen.getByText("Plan"));
+    await user.click(screen.getByText("Plan"));
+    const fields = await savedFields(user);
+    expect(fields.find((f) => f.key === "lifecycle:plan")).toBeUndefined();
+  });
+
+  it("hides the lifecycle table when the type hides its lifecycle section", async () => {
+    sectionConfigMock = { lifecycle: { hidden: true } };
+    const user = userEvent.setup();
+    await gotoFieldsStep(user);
+
+    expect(screen.queryByRole("table", { name: "Lifecycle dates" })).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Stakeholder roles" })).toBeInTheDocument();
   });
 });

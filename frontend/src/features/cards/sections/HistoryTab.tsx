@@ -13,12 +13,17 @@ import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
+import { routePermissionsFor } from "@/components/RequirePermission";
+import { canAccessPath } from "@/lib/routePermissions";
+import Tooltip from "@mui/material/Tooltip";
 import type { EventEntry, FieldDef } from "@/types";
 import {
   NO_VALUE,
   attributeLabels,
   eventDetailModel,
   eventMeta,
+  eventSurvey,
   fieldLabelsFor,
   parseChanges,
   type EventDetail,
@@ -179,6 +184,8 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
     if (!ct) return null;
     return { icon: ct.icon || "category", color: ct.color || "#9e9e9e" };
   };
+  // Only decides whether the survey chip links; the results page gates itself.
+  const perms = routePermissionsFor(useOptionalAuthUser());
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
     api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
@@ -202,6 +209,8 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
             })
           : [];
         const summary = typeof e.data?.summary === "string" ? (e.data.summary as string) : null;
+        // A send, or a change written by applying an answer: name the survey.
+        const survey = eventSurvey(e.event_type, e.data);
 
         return (
           <Box key={e.id} sx={{ display: "flex", gap: 1.5, mb: 2 }}>
@@ -221,6 +230,14 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
                 <Typography variant="body2" color="text.secondary">
                   {t("history.by", { user: e.user_display_name || t("common:labels.system") })}
                 </Typography>
+                {survey && (
+                  <SurveyChip
+                    survey={survey}
+                    sent={e.event_type === "survey.sent"}
+                    canOpen={!!survey.id && canAccessPath(perms, `/admin/surveys/${survey.id}/results`)}
+                    t={t}
+                  />
+                )}
                 <Typography variant="caption" color="text.disabled" sx={{ ml: "auto", whiteSpace: "nowrap" }}>
                   {e.created_at ? formatDateTime(e.created_at) : ""}
                 </Typography>
@@ -290,3 +307,48 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
 }
 
 export default HistoryTab;
+
+/** "via survey «name»" beside the actor of a change a survey answer made —
+ *  the admin applied it, the survey and the respondent are why — and the
+ *  survey's name on a send. Links to the survey's results for people who may
+ *  open them. */
+function SurveyChip({
+  survey,
+  sent,
+  canOpen,
+  t,
+}: {
+  survey: NonNullable<ReturnType<typeof eventSurvey>>;
+  /** On the send itself the chip just names the survey. */
+  sent: boolean;
+  canOpen: boolean;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const label =
+    sent && survey.name
+      ? survey.name
+      : survey.name
+        ? t("history.viaSurvey", { name: survey.name })
+        : t("history.viaSurveyUnnamed");
+  const chip = (
+    <Chip
+      size="small"
+      variant="outlined"
+      icon={<MaterialSymbol icon="assignment" size={14} />}
+      label={label}
+      {...(canOpen
+        ? {
+            component: RouterLink,
+            to: `/admin/surveys/${survey.id}/results`,
+            clickable: true,
+          }
+        : {})}
+      sx={{ height: 22, maxWidth: 280 }}
+    />
+  );
+  return survey.respondentName ? (
+    <Tooltip title={t("history.surveyRespondent", { name: survey.respondentName })}>{chip}</Tooltip>
+  ) : (
+    chip
+  );
+}

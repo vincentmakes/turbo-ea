@@ -105,33 +105,9 @@ class EventBus:
             and db is not None
             and not any(event_type.startswith(p) for p in _NO_AUTO_BATCH_PREFIXES)
         ):
-            from app.models.mutation_batch import MutationBatch
-
-            endpoint = request_endpoint.get()
-            # ``mutation_batches.tool_name`` is ``String(100)``. Real
-            # routes with two embedded UUIDs (e.g. ``PATCH /api/v1/risks/
-            # <uuid>/cards/<uuid>`` = 99 chars,
-            # ``POST /api/v1/diagrams/<uuid>/cards/<uuid>`` = 101 chars,
-            # ``POST /api/v1/mitigation-tasks/<uuid>/occurrences/<uuid>/
-            # complete`` = 124 chars) blow that cap and PG raises
-            # ``22001 value too long``. Truncate so any sufficiently
-            # long path still fits — losing the tail of one UUID is an
-            # acceptable trade-off for the audit-log Tool column.
-            tool_label = (endpoint or f"event:{event_type}")[:100]
-            auto = MutationBatch(
-                tool_name=tool_label,
-                actor_user_id=user_id,
-                origin=origin or "api",
-                dry_run=False,
-                # Auto-batches don't follow the open → write → commit
-                # dance; they're closed the moment they're opened
-                # because they represent a single in-flight request.
-                committed_at=datetime.now(timezone.utc),
+            effective_batch_id = await self.open_auto_batch(
+                db, user_id=user_id, event_type=event_type
             )
-            db.add(auto)
-            await db.flush()
-            effective_batch_id = auto.id
-            request_batch_id.set(effective_batch_id)
 
         if db:
             event = Event(
@@ -164,6 +140,50 @@ class EventBus:
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
+
+    async def open_auto_batch(
+        self,
+        db: AsyncSession,
+        *,
+        user_id: uuid.UUID | None,
+        event_type: str,
+    ) -> uuid.UUID:
+        """Open the request's auto-batch and stash it on the contextvar.
+
+        ``publish`` calls this on the first persisted event of a request. A
+        route that publishes inside per-row savepoints calls it up front
+        instead: a batch row flushed inside a savepoint that then rolls back
+        is gone, while the contextvar still names it, and every later event
+        would point at a batch that does not exist.
+        """
+        from app.models.mutation_batch import MutationBatch
+
+        origin = request_origin.get()
+        endpoint = request_endpoint.get()
+        # ``mutation_batches.tool_name`` is ``String(100)``. Real
+        # routes with two embedded UUIDs (e.g. ``PATCH /api/v1/risks/
+        # <uuid>/cards/<uuid>`` = 99 chars,
+        # ``POST /api/v1/diagrams/<uuid>/cards/<uuid>`` = 101 chars,
+        # ``POST /api/v1/mitigation-tasks/<uuid>/occurrences/<uuid>/
+        # complete`` = 124 chars) blow that cap and PG raises
+        # ``22001 value too long``. Truncate so any sufficiently
+        # long path still fits — losing the tail of one UUID is an
+        # acceptable trade-off for the audit-log Tool column.
+        tool_label = (endpoint or f"event:{event_type}")[:100]
+        auto = MutationBatch(
+            tool_name=tool_label,
+            actor_user_id=user_id,
+            origin=origin or "api",
+            dry_run=False,
+            # Auto-batches don't follow the open → write → commit
+            # dance; they're closed the moment they're opened
+            # because they represent a single in-flight request.
+            committed_at=datetime.now(timezone.utc),
+        )
+        db.add(auto)
+        await db.flush()
+        request_batch_id.set(auto.id)
+        return auto.id
 
     async def subscribe(self) -> AsyncGenerator[dict[str, Any], None]:
         """Yield each published event as a raw dict.

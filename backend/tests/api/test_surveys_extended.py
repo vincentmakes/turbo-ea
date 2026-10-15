@@ -945,8 +945,13 @@ class TestApplyResponses:
         assert ev.data["source"] == "survey_response"
         assert ev.data["survey_id"] == survey_id
         assert ev.data["response_id"] == response_id
-        assert "attr_costTotalAnnual" in ev.data["changes"]
-        assert ev.data["changes"]["attr_costTotalAnnual"]["new"] == 75000
+        # The whole-dict shape PATCH /cards/{id} writes — the one the History
+        # tab renders and the audit-log rollback can restore.
+        attrs_change = ev.data["changes"]["attributes"]
+        assert attrs_change["old"]["costTotalAnnual"] == 50000
+        assert attrs_change["new"]["costTotalAnnual"] == 75000
+        assert ev.data["survey_name"]
+        assert ev.data["respondent_id"] == str(member.id)
 
     async def test_apply_already_applied_returns_error(self, client, db, survey_env):
         """Applying an already-applied response returns an error in the errors list."""

@@ -61,6 +61,15 @@ Ud over attributter kan en undersøgelse også bede respondenter om at holde et 
 
 Når du anvender et sådant svar, tilføjer Turbo EA de nye tilknytninger og fjerner dem, respondenten har fjernet. Ændringen registreres i kortets historik, ligesom en manuel relationsændring.
 
+### Livscyklusdatoer og interessentroller
+
+To tabeller mere i trinnet **Felter** lader en undersøgelse spørge om ting, der ikke er attributter:
+
+- **Livscyklusdatoer** — én række pr. fase (Planlagt, Indfasning, Aktiv, Udfasning, Udløb). Respondenten ser kortets aktuelle dato og bekræfter den eller foreslår en anden; en tømt dato foreslår at fjerne den. En fase, der er dateret efter den fase, der skal følge den, markeres i formularen ligesom på kortet. Tabellen tilbydes ikke, når korttypen skjuler sin livscyklussektion.
+- **Interessentroller** — én række pr. interessentrolle for målkorttypen. Respondenten ser, hvem der har rollen i dag, og redigerer listen med en personvælger. Når svaret anvendes, tilføjes de personer, respondenten tilføjede, og de fjernede fjernes; deaktiverede brugere tilføjes eller fjernes aldrig.
+
+Hvert af disse felter kan være **Vedligehold** eller **Bekræft** ligesom alle andre.
+
 ### Auto-handlinger
 
 Konfigurer regler, der automatisk opdaterer kortegenskaber baseret på undersøgelsessvar. For eksempel, hvis en respondent vælger "Mission Critical" for forretningskritikalitet, kan kortets `businessCriticality`-felt opdateres automatisk.
@@ -87,3 +96,9 @@ Naviger til **Admin > Undersøgelser > [Undersøgelsesnavn] > Resultater** for a
 - Svarstatus pr. kort (besvaret, afventer)
 - Individuelle svar med svar pr. spørgsmål
 - En **Anvend**-handling til at committe auto-handlingsregler til kortegenskaber
+
+Når et svar anvendes, gennemgår det de samme kontroller som en redigering direkte på kortet. En værdi, som kortet afviser — fx en mulighed, der ikke længere findes — rapporteres for det svar, og intet af det anvendes, mens de øvrige svar stadig anvendes. Hver ændring vises på kortets fane **Historik** under den administrator, der anvendte den, med en markering **via undersøgelsen**, der navngiver undersøgelsen; holder du musen over markeringen, ses det, hvem der svarede. Hele anvendelsen er én post i **Admin → Revisionslog** og kan derfor rulles tilbage derfra.
+
+## Sletning af en undersøgelse
+
+En undersøgelse kan slettes uanset status: åbn menuen **⋮** i dens række under **Admin > Undersøgelser**, eller brug **Slet** i undersøgelsesbyggeren eller på resultatsiden. Bekræftelsen fortæller, hvad der forsvinder med den: anmodninger, der stadig venter på svar, trækkes tilbage sammen med deres notifikationer, og svar, der endnu ikke er anvendt, går tabt. Ændringer, der allerede er anvendt, bliver på kortene, og kortets historik nævner fortsat undersøgelsen.

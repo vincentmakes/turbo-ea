@@ -27,9 +27,9 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useSurveyRelationFieldLabel } from "@/lib/surveyFieldLabel";
+import { useSurveyFieldLabel } from "@/lib/surveyFieldLabel";
+import DeleteSurveyDialog from "@/features/admin/DeleteSurveyDialog";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
@@ -44,7 +44,24 @@ function isRelationRefList(val: unknown): val is { id: string; name: string }[] 
 }
 
 /** Resolve a value to its display label using field options when available. */
-function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: string; no: string }): string {
+function formatValue(
+  val: unknown,
+  field?: SurveyField,
+  boolLabels?: { yes: string; no: string },
+  formatDate?: (iso: string) => string,
+): string {
+  if (field?.kind === "stakeholder") {
+    if (!Array.isArray(val) || val.length === 0) return "—";
+    return val
+      .map((p) =>
+        p && typeof p === "object" ? String((p as { display_name?: string }).display_name ?? "") : String(p),
+      )
+      .join(", ");
+  }
+  if (field?.kind === "lifecycle") {
+    if (typeof val !== "string" || !val) return "—";
+    return formatDate ? formatDate(val) : val;
+  }
   if (field?.kind === "relation" || isRelationRefList(val)) {
     if (!isRelationRefList(val) || val.length === 0) return "—";
     return val.map((r) => r.name).join(", ");
@@ -69,10 +86,9 @@ function formatValue(val: unknown, field?: SurveyField, boolLabels?: { yes: stri
 
 export default function SurveyResults() {
   const { t } = useTranslation(["admin", "common"]);
-  const fieldLabel = useFieldLabel();
   const theme = useTheme();
   const { types } = useMetamodel();
-  const surveyRelationLabel = useSurveyRelationFieldLabel();
+  const surveyFieldLabel = useSurveyFieldLabel();
   const boolLabels = { yes: t("surveyResults.boolTrue"), no: t("surveyResults.boolFalse") };
 
   // Relation values render as colour-coded pills (by the related card type's
@@ -97,7 +113,7 @@ export default function SurveyResults() {
         component="span"
         sx={emphasize ? { color: "info.main", fontWeight: 600 } : undefined}
       >
-        {formatValue(val, field, boolLabels)}
+        {formatValue(val, field, boolLabels, formatDate)}
       </Typography>
     );
   };
@@ -115,6 +131,7 @@ export default function SurveyResults() {
   const [applying, setApplying] = useState(false);
   const [closing, setClosing] = useState(false);
   const [detailResp, setDetailResp] = useState<SurveyResponseDetail | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -236,7 +253,7 @@ export default function SurveyResults() {
           {survey.name}
         </Typography>
         <Chip
-          label={survey.status.charAt(0).toUpperCase() + survey.status.slice(1)}
+          label={t(`surveysAdmin.status.${survey.status}`, { defaultValue: survey.status })}
           size="small"
           color={survey.status === "active" ? "info" : survey.status === "closed" ? "success" : "default"}
         />
@@ -252,7 +269,23 @@ export default function SurveyResults() {
             {closing ? t("surveyResults.closing") : t("surveyResults.closeSurvey")}
           </Button>
         )}
+        <Button
+          variant="outlined"
+          color="error"
+          size="small"
+          onClick={() => setConfirmDelete(true)}
+          startIcon={<MaterialSymbol icon="delete" size={18} />}
+          sx={{ textTransform: "none" }}
+        >
+          {t("common:actions.delete")}
+        </Button>
       </Box>
+
+      <DeleteSurveyDialog
+        survey={confirmDelete ? survey : null}
+        onClose={() => setConfirmDelete(false)}
+        onDeleted={() => navigate("/admin/surveys")}
+      />
 
       {survey.description && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -449,7 +482,7 @@ export default function SurveyResults() {
                       <TableRow key={field.key}>
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {field.kind === "relation" ? surveyRelationLabel(field) : fieldLabel(field)}
+                            {surveyFieldLabel(field)}
                           </Typography>
                         </TableCell>
                         <TableCell>{renderCellValue(resp.current_value, field, false)}</TableCell>

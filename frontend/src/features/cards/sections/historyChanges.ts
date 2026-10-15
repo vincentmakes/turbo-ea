@@ -127,7 +127,39 @@ export const EVENT_META: Record<string, EventMeta> = {
     icon: "unpublished",
     color: "#f44336",
   },
+  "survey.sent": {
+    labelKey: "history.events.surveySent",
+    icon: "assignment",
+    color: "#1976d2",
+  },
 };
+
+/** The survey an event came from: a send, or an answer applied to the card. */
+export interface EventSurvey {
+  id: string | null;
+  /** Copied into the event, so it still reads once the survey is deleted.
+   *  `null` on applies recorded before 2.162.0, which stored only the id. */
+  name: string | null;
+  /** Who answered — `null` on a send, and on applies before 2.162.0. */
+  respondentName: string | null;
+}
+
+const asText = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+
+/** The survey behind an event, or `null` when it did not come from one. */
+export function eventSurvey(
+  eventType: string,
+  data: Record<string, unknown> | null | undefined,
+): EventSurvey | null {
+  if (!data) return null;
+  const sent = eventType === "survey.sent";
+  if (!sent && data.source !== "survey_response") return null;
+  return {
+    id: asText(data.survey_id),
+    name: asText(data.survey_name) ?? (sent ? asText(data.name) : null),
+    respondentName: asText(data.respondent_name),
+  };
+}
 
 /** An event type this build has no entry for: its raw type, an info icon, grey. */
 export function eventMeta(

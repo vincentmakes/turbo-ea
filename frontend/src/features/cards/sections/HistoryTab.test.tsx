@@ -24,6 +24,9 @@ vi.mock("@/hooks/useDateFormat", () => ({
 }));
 
 import { api } from "@/api/client";
+import { AuthProvider } from "@/hooks/AuthContext";
+import i18n from "@/i18n";
+import type { User } from "@/types";
 import HistoryTab from "./HistoryTab";
 
 const CARD_ID = "card-123";
@@ -287,5 +290,97 @@ describe("HistoryTab — event detail lines", () => {
     vi.mocked(api.get).mockResolvedValue([]);
     renderTab();
     expect(await screen.findByText(/no history/i)).toBeInTheDocument();
+  });
+});
+
+describe("HistoryTab — survey provenance (#1257)", () => {
+  const ct = (key: string, opts?: Record<string, unknown>) =>
+    String(i18n.t(`cards:${key}`, { ...(opts ?? {}), interpolation: { escapeValue: false } } as never));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const applied = {
+    id: "evt-s",
+    event_type: "card.updated",
+    created_at: "2026-10-15T10:00:00Z",
+    user_id: "u-admin",
+    user_display_name: "Admin",
+    data: {
+      changes: { lifecycle: { old: {}, new: { endOfLife: "2030-12-31" } } },
+      source: "survey_response",
+      survey_id: "s-1",
+      survey_name: "Q3 review",
+      respondent_name: "Ada",
+    },
+  };
+
+  function renderAs(permissions: Record<string, boolean>) {
+    const user = { id: "u", permissions } as unknown as User;
+    return render(
+      <AuthProvider user={user} refreshUser={async () => {}}>
+        <MemoryRouter>
+          <HistoryTab fsId={CARD_ID} cardType="Application" />
+        </MemoryRouter>
+      </AuthProvider>,
+    );
+  }
+
+  it("links the survey for someone who may open its results", async () => {
+    vi.mocked(api.get).mockResolvedValue([applied]);
+    renderAs({ "surveys.manage": true });
+
+    const chip = await screen.findByRole("link", { name: ct("history.surveyRespondent", { name: "Ada" }) });
+    expect(chip).toHaveTextContent(ct("history.viaSurvey", { name: "Q3 review" }));
+    expect(chip).toHaveAttribute("href", "/admin/surveys/s-1/results");
+    // The actor is still the admin who applied it.
+    expect(screen.getByText(ct("history.by", { user: "Admin" }))).toBeInTheDocument();
+  });
+
+  it("names the survey without a link for everyone else", async () => {
+    vi.mocked(api.get).mockResolvedValue([applied]);
+    renderAs({});
+
+    expect(
+      await screen.findByText(ct("history.viaSurvey", { name: "Q3 review" })),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Ada/ })).not.toBeInTheDocument();
+  });
+
+  it("says a survey made a pre-2.162.0 change even without its name", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...applied, data: { ...applied.data, survey_name: undefined, respondent_name: undefined } },
+    ]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.viaSurveyUnnamed"))).toBeInTheDocument();
+  });
+
+  it("labels a send and names its survey", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      {
+        id: "evt-sent",
+        event_type: "survey.sent",
+        created_at: "2026-10-15T09:00:00Z",
+        user_id: "u-admin",
+        user_display_name: "Admin",
+        data: { survey_id: "s-1", name: "Q3 review", survey_name: "Q3 review" },
+      },
+    ]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.events.surveySent"))).toBeInTheDocument();
+    expect(screen.getByText("Q3 review")).toBeInTheDocument();
+    expect(screen.queryByText(ct("history.viaSurvey", { name: "Q3 review" }))).not.toBeInTheDocument();
+  });
+
+  it("shows no survey chip on an ordinary edit", async () => {
+    vi.mocked(api.get).mockResolvedValue([{ ...applied, data: { changes: applied.data.changes } }]);
+    renderTab();
+
+    expect(await screen.findByText(ct("history.by", { user: "Admin" }))).toBeInTheDocument();
+    expect(screen.queryByText(ct("history.viaSurveyUnnamed"))).not.toBeInTheDocument();
+    expect(screen.queryByText(/Q3 review/)).not.toBeInTheDocument();
   });
 });

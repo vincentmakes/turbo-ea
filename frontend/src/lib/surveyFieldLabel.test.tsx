@@ -37,7 +37,8 @@ vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({ types: [], relationTypes: [LINEAGE, CROSS_TYPE] }),
 }));
 
-import { useSurveyRelationFieldLabel } from "./surveyFieldLabel";
+import i18n from "@/i18n";
+import { useSurveyFieldLabel, useSurveyRelationFieldLabel } from "./surveyFieldLabel";
 
 function field(over: Partial<SurveyField>): SurveyField {
   return {
@@ -98,5 +99,54 @@ describe("useSurveyRelationFieldLabel", () => {
 
   it("falls back to the snapshot when the field carries no direction", () => {
     expect(resolve(field({ relation_type_key: "relAppToItc" }))).toBe("stale label");
+  });
+});
+
+describe("useSurveyFieldLabel (#1257)", () => {
+  it("names a lifecycle field by its phase, not its stored label", () => {
+    const { result } = renderHook(() => useSurveyFieldLabel());
+    expect(result.current(field({ kind: "lifecycle", phase: "phaseOut", type: "date" }))).toBe(
+      i18n.t("common:lifecycle.phaseOut"),
+    );
+    // No phase → the stored label.
+    expect(result.current(field({ kind: "lifecycle", type: "date" }))).toBe("stale label");
+  });
+
+  it("names a stakeholder field by the live role label when the caller knows it", () => {
+    const roles: Record<string, string> = { observer: "Watcher" };
+    const { result } = renderHook(() => useSurveyFieldLabel((k) => roles[k]));
+    expect(result.current(field({ kind: "stakeholder", role: "observer", label: "Observer" }))).toBe(
+      "Watcher",
+    );
+    // A role the caller does not know falls back to the stored label …
+    expect(result.current(field({ kind: "stakeholder", role: "gone", label: "Old role" }))).toBe(
+      "Old role",
+    );
+    // … and, without one, to the role key.
+    expect(result.current(field({ kind: "stakeholder", role: "gone", label: "" }))).toBe("gone");
+  });
+
+  it("uses the stored label translations without a role lookup", () => {
+    const { result } = renderHook(() => useSurveyFieldLabel());
+    expect(
+      result.current(
+        field({
+          kind: "stakeholder",
+          role: "observer",
+          label: "Observer",
+          translations: { [i18n.language]: "Beobachter" },
+        }),
+      ),
+    ).toBe("Beobachter");
+  });
+
+  it("delegates relations to the live verb and attributes to the field label", () => {
+    const { result } = renderHook(() => useSurveyFieldLabel());
+    expect(
+      result.current(field({ relation_type_key: "relAppToItc", direction: "incoming" })),
+    ).toBe("is used by");
+    expect(
+      result.current(field({ kind: undefined, type: "text", key: "alias", label: "Alias" })),
+    ).toBe("Alias");
   });
 });

@@ -76,3 +76,5 @@ Jede ausstehende Umfrage zeigt:
 - Eine **Antworten**-Schaltfläche, die zum Antwortformular navigiert
 
 Das Umfrageantwortformular präsentiert die vom Administrator konfigurierten Fragen. Ihre Antworten können Kartenattribute automatisch aktualisieren, je nachdem wie die Umfrage konfiguriert wurde.
+
+Der Kartenname oben im Antwortformular verlinkt auf die Detailseite der Karte und öffnet sie in einem neuen Tab. So können Sie die aktuellen Angaben der Karte prüfen, bevor Sie antworten, ohne das bereits Eingegebene zu verlieren. Der Link erscheint, wenn Sie die Karte ansehen dürfen.

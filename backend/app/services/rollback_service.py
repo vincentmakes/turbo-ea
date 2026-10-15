@@ -119,6 +119,10 @@ def _plan_card_restored(event: Event, data: dict) -> dict[str, Any]:
     return {"op": "archive_card", "card_id": _card_id_of(event, data)}
 
 
+# The per-attribute change key survey applies wrote before 2.162.0.
+_LEGACY_ATTR_PREFIX = "attr_"
+
+
 def _plan_card_updated(event: Event, data: dict) -> dict[str, Any]:
     changes = data.get("changes") or {}
     return {
@@ -478,10 +482,26 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
     # The "old" snapshot in the event payload was already serialised for
     # JSON (UUIDs as strings, dicts intact). Re-coerce parent_id back to
     # UUID; everything else is set verbatim.
+    legacy_attrs: dict[str, Any] = {}
     for k, v in (op.get("fields") or {}).items():
+        if k.startswith(_LEGACY_ATTR_PREFIX):
+            legacy_attrs[k[len(_LEGACY_ATTR_PREFIX) :]] = v
+            continue
         if k == "parent_id" and v:
             v = uuid.UUID(v)
         setattr(card, k, v)
+    if legacy_attrs:
+        # Survey applies before 2.162.0 recorded one ``attr_<key>`` change per
+        # attribute instead of the whole ``attributes`` dict, and ``setattr``
+        # of ``attr_<key>`` wrote nothing. Restore each key onto the card's
+        # attributes; an attribute that did not exist before is removed.
+        attrs = dict(card.attributes or {})
+        for key, old in legacy_attrs.items():
+            if old is None:
+                attrs.pop(key, None)
+            else:
+                attrs[key] = old
+        card.attributes = attrs
     return _ok(op)
 
 

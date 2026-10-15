@@ -17,7 +17,10 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import DeleteSurveyDialog from "@/features/admin/DeleteSurveyDialog";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useExtensionSurveyTemplates } from "@/lib/extensionHost";
@@ -40,6 +43,9 @@ export default function SurveysAdmin() {
   const surveyTemplates = useExtensionSurveyTemplates();
   const [templateMenu, setTemplateMenu] = useState<HTMLElement | null>(null);
   const [creatingTemplate, setCreatingTemplate] = useState(false);
+  // The per-survey actions menu, and the survey a delete is being confirmed for.
+  const [rowMenu, setRowMenu] = useState<{ anchor: HTMLElement; survey: Survey } | null>(null);
+  const [deleting, setDeleting] = useState<Survey | null>(null);
 
   // Mint a fresh draft survey from an extension template, then open it in the
   // builder for the admin to review and send. POST /surveys always creates a
@@ -166,20 +172,32 @@ export default function SurveysAdmin() {
         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         return (
-          <Card key={s.id} sx={{ mb: 1.5 }}>
+          <Card key={s.id} sx={{ mb: 1.5, position: "relative" }}>
+            {/* Outside the action area: a button inside a button is invalid,
+                and a click here must not open the survey. */}
+            <Tooltip title={t("surveysAdmin.actions")}>
+              <IconButton
+                size="small"
+                aria-label={t("surveysAdmin.actions")}
+                onClick={(e) => setRowMenu({ anchor: e.currentTarget, survey: s })}
+                sx={{ position: "absolute", top: 12, right: 8, zIndex: 1 }}
+              >
+                <MaterialSymbol icon="more_vert" size={20} />
+              </IconButton>
+            </Tooltip>
             <CardActionArea
               onClick={() =>
                 s.status === "draft"
                   ? navigate(`/admin/surveys/${s.id}`)
                   : navigate(`/admin/surveys/${s.id}/results`)
               }
-              sx={{ p: 2 }}
+              sx={{ p: 2, pr: 6 }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.name}</Typography>
                 <Chip
-                  label={s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                  label={t(`surveysAdmin.status.${s.status}`, { defaultValue: s.status })}
                   size="small"
                   color={STATUS_COLORS[s.status] ?? "default"}
                 />
@@ -232,6 +250,35 @@ export default function SurveysAdmin() {
           </Card>
         );
       })}
+
+      <Menu
+        anchorEl={rowMenu?.anchor ?? null}
+        open={!!rowMenu}
+        onClose={() => setRowMenu(null)}
+      >
+        <MenuItem
+          onClick={() => {
+            setDeleting(rowMenu?.survey ?? null);
+            setRowMenu(null);
+          }}
+          sx={{ color: "error.main" }}
+        >
+          <ListItemIcon sx={{ color: "inherit" }}>
+            <MaterialSymbol icon="delete" size={20} />
+          </ListItemIcon>
+          <ListItemText>{t("common:actions.delete")}</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      <DeleteSurveyDialog
+        survey={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={() => {
+          const goneId = deleting?.id;
+          setDeleting(null);
+          setSurveys((prev) => prev.filter((x) => x.id !== goneId));
+        }}
+      />
     </Box>
   );
 }

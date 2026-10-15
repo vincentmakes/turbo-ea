@@ -61,6 +61,15 @@ Beyond attributes, a survey can also ask respondents to keep a card's **relation
 
 When you apply such a response, Turbo EA adds the new links and removes the ones the respondent dropped. The change is recorded in the card's history just like a manual relationship edit.
 
+### Lifecycle Dates and Stakeholder Roles
+
+Two more tables in the **Fields** step let a survey ask about things that are not attributes:
+
+- **Lifecycle dates** — one row per phase (Plan, Phase In, Active, Phase Out, End of Life). The respondent sees the card's current date and confirms it or proposes another; clearing the date proposes removing it. A phase dated after the one that should follow it is flagged on the form, as on the card. The table is not offered when the card type hides its lifecycle section.
+- **Stakeholder roles** — one row per stakeholder role of the target card type. The respondent sees who holds the role today and edits the list with a people picker. Applying the answer adds the people they added and removes the ones they dropped; deactivated users are never added or removed.
+
+Each of these fields can be **Maintain** or **Confirm**, like any other.
+
 ### Auto-Actions
 
 Configure rules that automatically update card attributes based on survey responses. For example, if a respondent selects "Mission Critical" for business criticality, the card's `businessCriticality` field can be updated automatically.
@@ -87,3 +96,9 @@ Navigate to **Admin > Surveys > [Survey Name] > Results** to see:
 - Response status per card (responded, pending)
 - Individual responses with per-question answers
 - An **Apply** action to commit auto-action rules to card attributes
+
+Applying a response goes through the same checks as an edit made on the card itself. A value the card refuses — an option that no longer exists, say — is reported for that response and none of it is applied, while the other responses still go through. Each change appears in the card's **History** tab under the administrator who applied it, with a **via survey** marker naming the survey; hovering the marker shows who answered. The whole apply is one entry in **Admin → Audit log**, so it can be rolled back from there.
+
+## Deleting a Survey
+
+A survey of any status can be deleted: open the **⋮** menu on its row in **Admin > Surveys**, or use **Delete** in the survey builder or on the results page. The confirmation says what goes with it: requests still waiting for an answer are withdrawn, together with their notifications, and answers not yet applied are lost. Changes already applied stay on the cards, and the card history keeps naming the survey.

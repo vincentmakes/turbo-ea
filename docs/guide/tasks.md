@@ -76,3 +76,5 @@ Each pending survey shows:
 - A **Respond** button that navigates to the response form
 
 The survey response form presents questions configured by the admin. Your answers may automatically update card attributes, depending on how the survey was configured.
+
+The card's name at the top of the response form links to its detail page and opens it in a new tab, so you can check the card's current details before answering without losing what you have typed. The link appears when you are allowed to view the card.

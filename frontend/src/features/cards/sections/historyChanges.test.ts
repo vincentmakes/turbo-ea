@@ -6,6 +6,7 @@ import {
   attributeLabels,
   eventDetailModel,
   eventMeta,
+  eventSurvey,
   fieldLabelsFor,
   fmtVal,
   parseChanges,
@@ -47,8 +48,8 @@ describe("eventMeta", () => {
     });
   });
 
-  it("knows the 33 event types the backend emits on a card", () => {
-    expect(Object.keys(EVENT_META)).toHaveLength(33);
+  it("knows the 34 event types the backend emits on a card", () => {
+    expect(Object.keys(EVENT_META)).toHaveLength(34);
     expect(EVENT_META["tag.removed"]).toEqual({
       labelKey: "history.events.tagRemoved",
       icon: "label_off",
@@ -375,5 +376,53 @@ describe("attributeLabels", () => {
       c: "C",
     });
     expect(attributeLabels(undefined, () => "x")).toEqual({});
+  });
+});
+
+describe("eventSurvey (#1257)", () => {
+  it("names the survey and the respondent of an applied answer", () => {
+    expect(
+      eventSurvey("stakeholder.added", {
+        source: "survey_response",
+        survey_id: "s1",
+        survey_name: "Q3 review",
+        respondent_name: "Ada",
+      }),
+    ).toEqual({ id: "s1", name: "Q3 review", respondentName: "Ada" });
+  });
+
+  it("reads a send's name from either key", () => {
+    expect(eventSurvey("survey.sent", { survey_id: "s1", name: "Old" })).toEqual({
+      id: "s1",
+      name: "Old",
+      respondentName: null,
+    });
+    expect(
+      eventSurvey("survey.sent", { survey_id: "s1", name: "Old", survey_name: "New" })?.name,
+    ).toBe("New");
+  });
+
+  it("keeps an apply recorded before survey names were stored, nameless", () => {
+    expect(
+      eventSurvey("card.updated", { source: "survey_response", survey_id: "s1", name: "card" }),
+    ).toEqual({ id: "s1", name: null, respondentName: null });
+  });
+
+  it("is null for anything that did not come from a survey", () => {
+    expect(eventSurvey("card.updated", { changes: {} })).toBeNull();
+    expect(eventSurvey("card.updated", { source: "import" })).toBeNull();
+    expect(eventSurvey("card.updated", null)).toBeNull();
+    expect(eventSurvey("survey.sent", undefined)).toBeNull();
+  });
+
+  it("drops a non-string or empty value", () => {
+    expect(
+      eventSurvey("card.updated", {
+        source: "survey_response",
+        survey_id: 7,
+        survey_name: "",
+        respondent_name: ["x"],
+      }),
+    ).toEqual({ id: null, name: null, respondentName: null });
   });
 });

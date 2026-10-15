@@ -464,3 +464,126 @@ describe("SurveyResults — response detail", () => {
     expect(within(dialog).getByText("Redis")).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Lifecycle + stakeholder fields, delete (#1257)
+// ---------------------------------------------------------------------------
+
+describe("SurveyResults — lifecycle and stakeholder fields (#1257)", () => {
+  const LC_SH_FIELDS: SurveyField[] = [
+    {
+      key: "lifecycle:endOfLife",
+      section: "",
+      label: "stored",
+      type: "date",
+      kind: "lifecycle",
+      phase: "endOfLife",
+      action: "maintain",
+    },
+    {
+      key: "sh:observer",
+      section: "",
+      label: "Observer",
+      type: "stakeholder",
+      kind: "stakeholder",
+      role: "observer",
+      action: "maintain",
+    },
+  ];
+
+  it("shows phase dates through the date format and people by name", async () => {
+    mockApi.on("get", `/surveys/${SURVEY_ID}`, survey({ fields: LC_SH_FIELDS }));
+    mockApi.on("get", `/surveys/${SURVEY_ID}/responses`, [
+      response({
+        id: "r9",
+        card_name: "Billing Engine",
+        user_display_name: "Dana Lee",
+        status: "completed",
+        responses: {
+          "lifecycle:endOfLife": {
+            current_value: "2030-12-31",
+            new_value: "2031-06-30",
+            confirmed: false,
+          },
+          "sh:observer": {
+            current_value: [{ id: "u1", display_name: "Ada" }],
+            new_value: [
+              { id: "u1", display_name: "Ada" },
+              { id: "u2", display_name: "Grace" },
+            ],
+            confirmed: false,
+          },
+        },
+      }),
+    ]);
+    const { user } = renderPage();
+    await loaded();
+    await user.click(
+      within(dataRows()[0]).getByRole("button", { name: t("admin:surveyResults.viewDetails") }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const rows = within(dialog).getAllByRole("row").slice(1);
+
+    expect(within(rows[0]).getByText(t("common:lifecycle.endOfLife"))).toBeInTheDocument();
+    expect(within(rows[0]).getByText("D[2030-12-31]")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("D[2031-06-30]")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Observer")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Ada")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Ada, Grace")).toBeInTheDocument();
+  });
+});
+
+describe("SurveyResults — delete (#1257)", () => {
+  it("confirms with the impact, deletes and returns to the list", async () => {
+    mockApi.on("get", `/surveys/${SURVEY_ID}/delete-impact`, {
+      status: "active",
+      requests: 3,
+      pending: 2,
+      answered: 1,
+      applied: 1,
+    });
+    mockApi.on("delete", `/surveys/${SURVEY_ID}`, undefined);
+    const { user } = renderPage();
+    await loaded();
+
+    await user.click(screen.getByRole("button", { name: named(t("common:actions.delete")) }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText(t("admin:surveysAdmin.delete.pending", { count: 2 })),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(t("admin:surveysAdmin.delete.applied", { count: 1 }))).toBeInTheDocument();
+    // Every answer was applied, so none is lost.
+    expect(
+      within(dialog).queryByText(t("admin:surveysAdmin.delete.unapplied", { count: 0 })),
+    ).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: t("common:actions.delete") }));
+    expect(await screen.findByTestId("surveys-list")).toBeInTheDocument();
+    expect(mockApi.callsOf("delete", `/surveys/${SURVEY_ID}`)).toHaveLength(1);
+  });
+
+  it("keeps the dialog open with the error when the delete fails", async () => {
+    mockApi.on("get", `/surveys/${SURVEY_ID}/delete-impact`, {
+      status: "closed",
+      requests: 1,
+      pending: 0,
+      answered: 1,
+      applied: 0,
+    });
+    mockApi.fail("delete", `/surveys/${SURVEY_ID}`, 500, "nope");
+    const { user } = renderPage();
+    await loaded();
+
+    await user.click(screen.getByRole("button", { name: named(t("common:actions.delete")) }));
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText(t("admin:surveysAdmin.delete.unapplied", { count: 1 })),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t("common:actions.delete") }));
+    expect(await within(dialog).findByText(/failed/)).toBeInTheDocument();
+    expect(screen.queryByTestId("surveys-list")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: t("common:actions.cancel") }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+});

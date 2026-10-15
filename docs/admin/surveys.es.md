@@ -61,6 +61,15 @@ Más allá de los atributos, una encuesta también puede pedir a los encuestados
 
 Cuando aplica una respuesta de este tipo, Turbo EA agrega los nuevos vínculos y elimina los que el encuestado quitó. El cambio se registra en el historial de la tarjeta, igual que una edición manual de relación.
 
+### Fechas del ciclo de vida y roles de las partes interesadas
+
+Dos tablas más en el paso **Campos** permiten preguntar por cosas que no son atributos:
+
+- **Fechas del ciclo de vida** — una fila por fase (Planificación, Introducción, Activo, Retiro, Fin de vida). La persona encuestada ve la fecha actual de la ficha y la confirma o propone otra; vaciar la fecha propone eliminarla. Una fase fechada después de la que debería seguirla se señala en el formulario, igual que en la ficha. La tabla no se ofrece cuando el tipo de ficha oculta su sección de ciclo de vida.
+- **Roles de las partes interesadas** — una fila por rol de parte interesada del tipo de ficha objetivo. La persona encuestada ve quién tiene hoy el rol y edita la lista con un selector de personas. Al aplicar la respuesta se añaden las personas que añadió y se quitan las que eliminó; los usuarios desactivados nunca se añaden ni se quitan.
+
+Cada uno de estos campos puede ser **Mantener** o **Confirmar**, como cualquier otro.
+
 ### Acciones Automáticas
 
 Configure reglas que actualicen automáticamente los atributos de las fichas en función de las respuestas de la encuesta. Por ejemplo, si un encuestado selecciona «Misión Crítica» para la criticidad de negocio, el campo `businessCriticality` de la ficha puede actualizarse automáticamente.
@@ -87,3 +96,9 @@ Navegue a **Administrador > Encuestas > [Nombre de la Encuesta] > Resultados** p
 - Estado de respuesta por ficha (respondida, pendiente)
 - Respuestas individuales con las respuestas por pregunta
 - Una acción **Aplicar** para ejecutar las reglas de acción automática sobre los atributos de las fichas
+
+Aplicar una respuesta pasa por las mismas comprobaciones que una edición hecha en la propia ficha. Un valor que la ficha rechaza — por ejemplo, una opción que ya no existe — se notifica para esa respuesta y no se aplica nada de ella, mientras que las demás respuestas se aplican igualmente. Cada cambio aparece en la pestaña **Historial** de la ficha bajo el administrador que lo aplicó, con una marca **mediante la encuesta** que nombra la encuesta; al pasar el ratón por encima se muestra quién respondió. Toda la aplicación es una sola entrada en **Admin → Registro de auditoría**, por lo que puede revertirse desde allí.
+
+## Eliminación de una Encuesta
+
+Se puede eliminar una encuesta en cualquier estado: abra el menú **⋮** de su fila en **Admin > Encuestas**, o use **Eliminar** en el generador de encuestas o en la página de resultados. La confirmación indica lo que se elimina con ella: las solicitudes que aún esperan respuesta se retiran, junto con sus notificaciones, y las respuestas aún no aplicadas se pierden. Los cambios ya aplicados permanecen en las fichas, y el historial de la ficha sigue nombrando la encuesta.

@@ -39075,7 +39075,7 @@
     },
     "/api/v1/surveys/{survey_id}": {
       "delete": {
-        "description": "Delete a draft survey (admin only).",
+        "description": "Delete a survey of any status (admin only).\n\nIts responses go with it, and so do the bell notifications that asked\npeople to answer \u2014 a request for a survey that no longer exists would only\nlead to a 404. What the survey already changed stays on the cards, and the\ncard history keeps naming it: those events carry the survey's name.",
         "operationId": "delete_survey_api_v1_surveys__survey_id__delete",
         "parameters": [
           {
@@ -39284,6 +39284,47 @@
           }
         },
         "summary": "Close Survey",
+        "tags": [
+          "surveys"
+        ]
+      }
+    },
+    "/api/v1/surveys/{survey_id}/delete-impact": {
+      "get": {
+        "description": "What deleting a survey takes with it, for the confirmation dialog.",
+        "operationId": "survey_delete_impact_api_v1_surveys__survey_id__delete_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "survey_id",
+            "required": true,
+            "schema": {
+              "title": "Survey Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Survey Delete Impact",
         "tags": [
           "surveys"
         ]

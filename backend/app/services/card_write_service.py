@@ -822,12 +822,15 @@ async def update_card(
     *,
     strict_attributes: bool = False,
     dry_run: bool = False,
+    event_extra: dict | None = None,
 ) -> bool:
     """Apply an update payload to ``card`` with full validation and side
     effects. Returns True when anything actually changed. ``updates`` is the
     caller's field→value dict (``parent_id`` as str or None); the per-user
     cost-redaction merge — permission shaping, not write semantics — must
-    already have been applied by route callers.
+    already have been applied by route callers. ``event_extra`` is merged into
+    the ``card.updated`` payload — the survey apply path stamps the survey the
+    change came from; ``id`` and ``changes`` always win over it.
     """
     # The human-readable reference is write-once & immutable — never editable via
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
@@ -978,7 +981,10 @@ async def update_card(
     if not dry_run:
         await event_bus.publish(
             "card.updated",
-            _stamp_ext(actor, {"id": str(card.id), "changes": serialised_changes}),
+            _stamp_ext(
+                actor,
+                {**(event_extra or {}), "id": str(card.id), "changes": serialised_changes},
+            ),
             db=db,
             card_id=card.id,
             user_id=actor.user_id,

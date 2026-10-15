@@ -863,3 +863,19 @@ def test_a_legacy_diagram_reports_the_maps_moves_apart_from_its_own():
     assert data["xml"].count(f'cardId="{NEW_A}"') == 2
     assert f'cardId="{NEW_B}"' in data["xml"]
     assert rm.count_mapped_drawio_ids(data["xml"], ids.cards, {}) == 0
+
+
+def test_stakeholder_answers_in_survey_responses_are_left_as_they_are():
+    # A stakeholder answer lists people. Its ids are user ids — even one that
+    # happens to equal a mapped card id must never be rewritten into a card.
+    people = [{"id": OLD_A, "display_name": "Ada"}, OLD_B]
+    kw = {
+        "responses": {
+            "sh:observer": {"current_value": list(people), "new_value": list(people)},
+            "relAppToOrg": {"new_value": [OLD_A]},
+        }
+    }
+    tally = rm.rewrite_survey_response_row(kw, _ctx())
+    assert kw["responses"]["sh:observer"] == {"current_value": people, "new_value": people}
+    assert kw["responses"]["relAppToOrg"] == {"new_value": [NEW_A]}
+    assert tally.counts == {rm.REMAPPED: 1}

@@ -591,3 +591,173 @@ describe("SurveyRespond — submitting", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
   });
 });
+
+const END_OF_LIFE: FormField = {
+  key: "lifecycle:endOfLife",
+  section: "",
+  label: "stored label",
+  type: "date",
+  kind: "lifecycle",
+  phase: "endOfLife",
+  action: "maintain",
+  current_value: "2030-12-31",
+};
+const PHASE_OUT: FormField = {
+  key: "lifecycle:phaseOut",
+  section: "",
+  label: "stored label",
+  type: "date",
+  kind: "lifecycle",
+  phase: "phaseOut",
+  action: "maintain",
+  current_value: null,
+};
+const OBSERVERS: FormField = {
+  key: "sh:observer",
+  section: "",
+  label: "Observer",
+  type: "stakeholder",
+  kind: "stakeholder",
+  role: "observer",
+  action: "maintain",
+  current_value: [{ id: "u-ada", display_name: "Ada Lovelace" }],
+};
+
+describe("SurveyRespond — card link (#1257)", () => {
+  it("links the card in a new tab when the respondent may open it", async () => {
+    mockApi.on(
+      "get",
+      RESPOND_PATH,
+      formWith([ALIAS], {
+        card: { id: CARD_IDS.erp, name: "ERP Core", type: "Application", can_view: true },
+      }),
+    );
+    renderPage();
+
+    // The tooltip names the link; the card name is its visible text.
+    const link = await screen.findByRole("link", { name: t("surveys.respond.openCardTooltip") });
+    expect(link).toHaveTextContent("ERP Core");
+    expect(link).toHaveAttribute("href", `/cards/${CARD_IDS.erp}`);
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("shows the name as plain text when the respondent may not open the card", async () => {
+    mockApi.on(
+      "get",
+      RESPOND_PATH,
+      formWith([ALIAS], {
+        card: { id: CARD_IDS.erp, name: "ERP Core", type: "Application", can_view: false },
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText("ERP Core")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: t("surveys.respond.openCardTooltip") }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("SurveyRespond — lifecycle fields (#1257)", () => {
+  it("labels the field with its phase and posts the new date", async () => {
+    mockApi.on("get", RESPOND_PATH, formWith([END_OF_LIFE]));
+    const { user } = renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    const card = fieldCard(tc("lifecycle.endOfLife"));
+    expect(screen.queryByText("stored label")).not.toBeInTheDocument();
+    expect(within(card).getByText(t("surveys.respond.lifecycleSection"))).toBeInTheDocument();
+
+    const date = within(card).getByDisplayValue("2030-12-31");
+    fireEvent.change(date, { target: { value: "2031-06-30" } });
+    fireEvent.blur(date);
+
+    await user.click(submitButton());
+    await waitFor(() => expect(mockApi.callsOf("post", RESPOND_PATH)).toHaveLength(1));
+    expect(postedResponses()["lifecycle:endOfLife"]).toEqual({
+      confirmed: false,
+      new_value: "2031-06-30",
+    });
+  });
+
+  it("warns when a proposed phase falls after the one that should follow it", async () => {
+    mockApi.on("get", RESPOND_PATH, formWith([PHASE_OUT, END_OF_LIFE]));
+    renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    const phaseOut = fieldCard(tc("lifecycle.phaseOut"));
+    const input = within(phaseOut).getByDisplayValue("");
+    fireEvent.change(input, { target: { value: "2032-01-01" } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(within(phaseOut).getByText((txt) => txt.includes(tc("lifecycle.endOfLife")) && txt.includes("("))).toBeInTheDocument(),
+    );
+    // The later phase itself carries no warning.
+    const eol = fieldCard(tc("lifecycle.endOfLife"));
+    expect(within(eol).queryByText((txt) => txt.includes(tc("lifecycle.phaseOut")))).not.toBeInTheDocument();
+  });
+});
+
+describe("SurveyRespond — stakeholder fields (#1257)", () => {
+  beforeEach(() => {
+    mockApi.on("get", "/users", [
+      { id: "u-ada", display_name: "Ada Lovelace", email: "ada@example.com" },
+      { id: "u-grace", display_name: "Grace Hopper", email: "grace@example.com" },
+    ]);
+  });
+
+  it("shows the current holders and posts the edited list", async () => {
+    mockApi.on("get", RESPOND_PATH, formWith([OBSERVERS]));
+    const { user } = renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    const card = fieldCard("Observer");
+    expect(within(card).getByText(t("surveys.respond.stakeholderSection"))).toBeInTheDocument();
+    expect(
+      within(card).getByText(
+        t("surveys.respond.stakeholderMaintainInstruction", { role: "Observer", card: "ERP Core" }),
+      ),
+    ).toBeInTheDocument();
+    // Current value + the picker's chip.
+    expect(within(card).getAllByText("Ada Lovelace")).toHaveLength(2);
+
+    await user.click(within(card).getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: /Grace Hopper/ }));
+    await user.keyboard("{Escape}");
+
+    await user.click(submitButton());
+    await waitFor(() => expect(mockApi.callsOf("post", RESPOND_PATH)).toHaveLength(1));
+    expect(postedResponses()["sh:observer"]).toEqual({
+      confirmed: false,
+      new_value: [
+        { id: "u-ada", display_name: "Ada Lovelace" },
+        { id: "u-grace", display_name: "Grace Hopper" },
+      ],
+    });
+  });
+
+  it("shows a dash when nobody holds the role and confirms without a picker", async () => {
+    mockApi.on(
+      "get",
+      RESPOND_PATH,
+      formWith([{ ...OBSERVERS, action: "confirm", current_value: [] }]),
+    );
+    const { user } = renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    const card = fieldCard("Observer");
+    expect(within(card).getByText("—")).toBeInTheDocument();
+    expect(within(card).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(
+      within(card).getByText(
+        t("surveys.respond.stakeholderConfirmInstruction", { role: "Observer", card: "ERP Core" }),
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(submitButton());
+    await waitFor(() => expect(mockApi.callsOf("post", RESPOND_PATH)).toHaveLength(1));
+    expect(postedResponses()["sh:observer"]).toEqual({ confirmed: true, new_value: null });
+  });
+});
