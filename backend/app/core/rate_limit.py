@@ -16,6 +16,14 @@ peer's address space — it can never land in a bucket another peer is counted
 in. When there is no forwarded address, or it equals the peer, the key is the
 peer alone (``get_remote_address``, slowapi's default, which also covers a
 peer that is not an IP at all).
+
+Splitting its own traffic is the accepted residual: a caller that reaches the
+backend without nginx can mint a bucket per forged header, so the per-client
+limit bounds brute force only for sign-ins that arrive through the edge nginx.
+That is the deployment the bundled compose file and the Helm chart build (the
+backend is never exposed), and ``docs/admin/audit-log.md`` says so; an
+operator who exposes the backend turns ``TRUST_PROXY_HEADERS`` off, which
+makes the key the socket peer again.
 """
 
 from __future__ import annotations
