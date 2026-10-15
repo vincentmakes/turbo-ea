@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`NGINX_TRUSTED_PROXIES`** for the bundled nginx: list the load balancer, ingress or CDN in front of it and the Security & admin log records each user's real address instead of the load balancer's. Available in Docker Compose, the Helm chart (`nginx.trustedProxies`), the Azure Container Apps, Cloud Run and ECS templates, and the Terraform modules.
 
 ### Changed
-- The sign-in rate limit is counted per client address instead of in one bucket shared by everyone behind the proxy, so one person's failed attempts no longer slow down other users.
+- The sign-in rate limit is counted per client address, instead of in one bucket shared by everyone behind the proxy, for sign-ins that reach the backend through the edge nginx, so one person's failed attempts no longer slow down other users; the MCP server's own sign-in calls still share the MCP container's address.
 
 ## [2.160.0] - 2026-10-14
 

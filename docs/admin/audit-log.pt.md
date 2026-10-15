@@ -221,4 +221,4 @@ Para descobrir o valor, leia o log de acesso do nginx de borda (`docker compose 
 
 Mantenha a lista tão estreita quanto os próprios intermediários. Cada endereço listado é acreditado quando aponta o cliente, então uma faixa de onde seus usuários se conectam — todo o `10.0.0.0/8` em uma implantação interna, por exemplo — permitiria a qualquer um deles gravar outro endereço no registro. Sem configuração, a coluna mostra o balanceador de carga: pouco útil, mas nunca falsificado.
 
-O limite de taxa de entrada conta as tentativas por endereço de cliente a partir do mesmo cabeçalho, então atrás de um balanceador de carga esta configuração também impede que as tentativas com falha de uma pessoa atrasem todas as outras.
+O limite de taxa de entrada conta as tentativas por endereço de cliente a partir do mesmo cabeçalho, então atrás de um balanceador de carga esta configuração também impede que as tentativas com falha de uma pessoa atrasem todas as outras. Isso vale para as entradas que chegam ao backend pelo nginx de borda; o servidor MCP entra diretamente no backend, então as suas próprias chamadas de entrada continuam compartilhando o endereço do contêiner MCP.

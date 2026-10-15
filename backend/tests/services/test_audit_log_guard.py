@@ -19,6 +19,11 @@ The scan is an AST walk over the route modules under ``app/api/v1/``:
 module-level helper that does — ``settings.py``'s ``_audit_setting`` is the
 canonical one — so a handler that delegates is not a false failure.
 
+The export half scans every GET route the same way: one that looks like a bulk
+export (an ``export`` path segment, a ``Content-Disposition`` header, or a CSV /
+zip / JSON response) must record, or sit in ``NOT_A_BULK_EXPORT`` with the
+reason it is not one.
+
 Reads the source as text, so mutmut's rewritten copy would be scanned: marked
 ``source_scan`` and deselected under mutmut (``tests/mutation_plugin.py``).
 """
@@ -222,30 +227,146 @@ def test_scan_sees_only_router_write_verbs():
 
 
 # Read routes that hand data out of the instance (PR C of discussion #1185).
-# Each must record an ``access.export.*`` row, directly or through a module
-# helper. The OData bookmark feed is deliberately absent: Excel and Power BI
-# poll it on a schedule (see the comment on ``bookmark_odata_feed``).
-EXPORT_HANDLERS = {
-    "cards.py": ["export_json", "export_csv"],
-    "workspace.py": ["export_workspace"],
-    "migration.py": ["export_workspace"],
-    "ops.py": ["ops_export"],
+# Every GET route under ``app/api/v1/`` is scanned; one that looks like a bulk
+# export (``is_bulk_export``) must record an audit row, directly or through a
+# module helper, or sit in ``NOT_A_BULK_EXPORT`` with the reason it is not one.
+# The OData bookmark feed is deliberately not recorded (Excel and Power BI poll
+# it on a schedule, see the comment on ``bookmark_odata_feed``), and it carries
+# none of the signals below, so it needs no allowlist entry.
+_EXPORT_SEGMENT = re.compile(r"(?:^|/)export(?:/|$)")
+_BULK_MEDIA_TYPES = frozenset({"text/csv", "application/zip", "application/json"})
+_RESPONSE_CALLS = frozenset({"Response", "StreamingResponse"})
+
+# The bulk exports the scan finds today. A new one appears here, records, and
+# the self-test below is updated with it; that is the point of the scan.
+KNOWN_BULK_EXPORTS = frozenset(
+    {
+        "cards.py::export_json",
+        "cards.py::export_csv",
+        "workspace.py::export_workspace",
+        "migration.py::export_workspace",
+        "ops.py::ops_export",
+        # Records ``access.audit_log.exported``: exporting the log is itself
+        # on the log.
+        "audit_log.py::export_audit_log",
+    }
+)
+
+# ``<module>::<handler>`` → why it is a download but not a bulk export.
+NOT_A_BULK_EXPORT = {
+    "bpm.py::export_bpmn": (
+        "one process diagram the caller is already viewing, gated per card like the viewer"
+    ),
+    "bpm.py::export_svg": (
+        "a picture of one process diagram the caller is already viewing, gated per card"
+    ),
+    "file_attachments.py::download_file_attachment": (
+        "one file someone attached to a card, gated per card like the Resources tab"
+    ),
+    "migration.py::download_error_report": (
+        "the importer's own diagnostics for an upload the admin made, not landscape data"
+    ),
+    "risk_mitigation_tasks.py::export_mitigation_tasks": (
+        "a JSON read of the tasks under the risks the Register page already lists; the "
+        "workbook is built in the browser, like the Inventory's Excel export"
+    ),
 }
 
 
 def _is_get_route(node: ast.AST) -> bool:
+    """A handler served on GET by a router (``router`` or any ``*_router``)."""
     if not isinstance(node, ast.AsyncFunctionDef):
         return False
+    return _get_route_path(node) is not None
+
+
+def _is_router(value: ast.AST) -> bool:
+    return isinstance(value, ast.Name) and (value.id == "router" or value.id.endswith("_router"))
+
+
+def _get_route_path(node: ast.AsyncFunctionDef) -> str | None:
+    """The path of the GET decorator on ``node`` (``""`` if not a literal), else ``None``."""
     for dec in node.decorator_list:
-        func = dec.func if isinstance(dec, ast.Call) else dec
-        if (
-            isinstance(func, ast.Attribute)
-            and func.attr == "get"
-            and isinstance(func.value, ast.Name)
-            and func.value.id == "router"
-        ):
-            return True
+        call = dec if isinstance(dec, ast.Call) else None
+        func = call.func if call else dec
+        if not (isinstance(func, ast.Attribute) and _is_router(func.value)):
+            continue
+        if func.attr == "api_route":
+            methods = next(
+                (k.value for k in (call.keywords if call else []) if k.arg == "methods"), None
+            )
+            verbs = (
+                {e.value.upper() for e in methods.elts if isinstance(e, ast.Constant)}
+                if isinstance(methods, (ast.List, ast.Tuple, ast.Set))
+                else set()
+            )
+            if "GET" not in verbs:
+                continue
+        elif func.attr != "get":
+            continue
+        first = call.args[0] if call and call.args else None
+        return (
+            first.value if isinstance(first, ast.Constant) and isinstance(first.value, str) else ""
+        )
+    return None
+
+
+def _returns_bulk_media(node: ast.AST) -> bool:
+    """A ``Response(`` / ``StreamingResponse(`` call with a bulk ``media_type`` literal."""
+    for call in ast.walk(node):
+        if not isinstance(call, ast.Call):
+            continue
+        name = call.func.id if isinstance(call.func, ast.Name) else None
+        if name not in _RESPONSE_CALLS:
+            continue
+        for kw in call.keywords:
+            if (
+                kw.arg == "media_type"
+                and isinstance(kw.value, ast.Constant)
+                and kw.value.value in _BULK_MEDIA_TYPES
+            ):
+                return True
     return False
+
+
+def _sets_content_disposition(node: ast.AST) -> bool:
+    return any(
+        isinstance(c, ast.Constant) and c.value == "Content-Disposition" for c in ast.walk(node)
+    )
+
+
+def is_bulk_export(node: ast.AsyncFunctionDef) -> bool:
+    """True when a GET handler hands a file or a bulk payload out of the instance.
+
+    Any one signal is enough: an ``export`` segment in the route path (the JSON
+    card export returns a plain list and has no other tell), a
+    ``Content-Disposition`` header, or a response built with a CSV / zip / JSON
+    media type.
+    """
+    path = _get_route_path(node)
+    if path is None:
+        return False
+    return (
+        bool(_EXPORT_SEGMENT.search(path))
+        or _sets_content_disposition(node)
+        or _returns_bulk_media(node)
+    )
+
+
+def _bulk_exports() -> dict[str, bool]:
+    """``{"<module>::<handler>": records?}`` for every bulk-export GET route."""
+    found: dict[str, bool] = {}
+    for path in sorted(_V1.glob("*.py")):
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        gets = [n for n in tree.body if _is_get_route(n)]
+        helpers = recording_helpers(tree, source) - {n.name for n in gets}
+        for node in gets:
+            if is_bulk_export(node):
+                found[f"{path.name}::{node.name}"] = records(
+                    ast.get_source_segment(source, node) or "", helpers
+                )
+    return found
 
 
 def _read_routes(module: str) -> dict[str, bool]:
@@ -262,30 +383,48 @@ def _read_routes(module: str) -> dict[str, bool]:
     }
 
 
-def test_every_export_route_records():
-    unrecorded = []
-    for module, names in EXPORT_HANDLERS.items():
-        routes = _read_routes(module)
-        for name in names:
-            assert name in routes, f"{module}::{name} is no longer a GET route; update the list"
-            if not routes[name]:
-                unrecorded.append(f"{module}::{name}")
+def test_every_bulk_export_records():
+    unrecorded = [
+        name
+        for name, recorded in _bulk_exports().items()
+        if not recorded and name not in NOT_A_BULK_EXPORT
+    ]
     assert not unrecorded, (
-        "These export routes hand data out of the instance without an "
-        "access.export.* audit row — call app.services.audit_log.record (or a "
-        f"module helper that does) and commit before building the response: {unrecorded}"
+        "These GET routes hand data out of the instance without an audit row — "
+        "call app.services.audit_log.record (an access.export.* action, or a "
+        "module helper that records one) and commit before building the response, "
+        "or list the handler in NOT_A_BULK_EXPORT with the reason it is not a bulk "
+        f"export: {unrecorded}"
     )
 
 
+def test_the_detector_finds_the_known_bulk_exports():
+    detected = set(_bulk_exports()) - set(NOT_A_BULK_EXPORT)
+    assert detected == KNOWN_BULK_EXPORTS
+
+
+def test_bulk_export_allowlist_is_not_stale():
+    exports = _bulk_exports()
+    for entry in NOT_A_BULK_EXPORT:
+        assert entry in exports, f"{entry} is no longer detected; drop it from the allowlist"
+        assert not exports[entry], f"{entry} now records an audit row; drop it from the allowlist"
+    assert not set(NOT_A_BULK_EXPORT) & KNOWN_BULK_EXPORTS
+
+
 def test_export_records_name_the_access_category():
-    for module, names in EXPORT_HANDLERS.items():
+    for entry in KNOWN_BULK_EXPORTS:
+        module = entry.split("::")[0]
         source = (_V1 / module).read_text(encoding="utf-8")
-        assert re.search(r'action="access\.export\.(cards|workspace|migration)"', source), module
+        assert re.search(
+            r'action="access\.(export\.(cards|workspace|migration)|audit_log\.exported)"',
+            source,
+        ), module
 
 
 def test_odata_feed_is_deliberately_not_recorded():
     routes = _read_routes("bookmarks.py")
     assert routes["bookmark_odata_feed"] is False
+    assert "bookmarks.py::bookmark_odata_feed" not in _bulk_exports()
     source = (_V1 / "bookmarks.py").read_text(encoding="utf-8")
     assert "Deliberately not recorded in the audit log" in source
 
@@ -295,6 +434,48 @@ def test_scan_sees_only_router_get_verb():
         "@router.get('/x')\nasync def read(): ...\n"
         "@router.post('/x')\nasync def write(): ...\n"
         "@other.get('/x')\nasync def elsewhere(): ...\n"
+        "@status_router.get('/y')\nasync def sub_read(): ...\n"
+        "@router.api_route('/z', methods=['GET', 'HEAD'])\nasync def any_read(): ...\n"
+        "@router.api_route('/z', methods=['POST'])\nasync def any_write(): ...\n"
     )
     tree = ast.parse(source)
-    assert [n.name for n in tree.body if _is_get_route(n)] == ["read"]
+    assert [n.name for n in tree.body if _is_get_route(n)] == ["read", "sub_read", "any_read"]
+
+
+def _handler(source: str) -> ast.AsyncFunctionDef:
+    node = ast.parse(source).body[0]
+    assert isinstance(node, ast.AsyncFunctionDef)
+    return node
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "@router.get('/export/json')\nasync def h():\n    return []\n",
+        "@router.get('/export')\nasync def h():\n    return []\n",
+        "@router.get('/x')\nasync def h():\n"
+        "    return Response(b'', headers={'Content-Disposition': 'attachment'})\n",
+        "@router.get('/x')\nasync def h():\n"
+        "    return StreamingResponse(iter([]), media_type='text/csv')\n",
+        "@router.get('/x')\nasync def h():\n"
+        "    return Response(b'', media_type='application/zip')\n",
+        "@router.get('/x')\nasync def h():\n"
+        "    return Response(b'', media_type='application/json')\n",
+    ],
+)
+def test_detector_signals(source):
+    assert is_bulk_export(_handler(source))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "@router.get('/cards')\nasync def h():\n    return []\n",
+        "@router.get('/exporters')\nasync def h():\n    return []\n",
+        "@router.get('/x')\nasync def h():\n    return Response(b'', media_type='image/png')\n",
+        "@router.get('/x')\nasync def h():\n    return other(media_type='text/csv')\n",
+        "@router.post('/export')\nasync def h():\n    return []\n",
+    ],
+)
+def test_detector_ignores(source):
+    assert not is_bulk_export(_handler(source))

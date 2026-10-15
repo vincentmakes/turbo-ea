@@ -123,6 +123,58 @@ class TestRenderedDirectives:
         assert "NGINX_TRUSTED_PROXIES" in result.stderr
         assert "set_real_ip_from" not in result.stdout
 
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "10.0.0.0/8/8",
+            "1.2.3",
+            "256.1.1.1",
+            "1.2.3.4.5",
+            "1..2.3",
+            "1.2.3.4/",
+            "10.0.0.1/33",
+            "/8",
+            "::::",
+            ":",
+            "1:2::3::4",
+            "2001:db8::/129",
+            "12345::1",
+            "deadbeef",
+        ],
+    )
+    def test_a_malformed_address_or_prefix_is_refused(self, value):
+        # Only the right characters is not enough: nginx would refuse the
+        # config at start, or read a different range than the operator meant.
+        result = _render(value)
+        assert result.returncode != 0, result.stdout
+        assert "NGINX_TRUSTED_PROXIES" in result.stderr
+        assert value in result.stderr
+        assert "set_real_ip_from" not in result.stdout
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "10.0.0.0/8",
+            "192.168.1.5",
+            "0.0.0.0/0",
+            "255.255.255.255/32",
+            "2001:db8::/32",
+            "fe80::1",
+            "::1",
+            "fd00::/8",
+            "2001:db8:0:0:0:0:0:1/128",
+        ],
+    )
+    def test_a_well_formed_address_or_range_is_accepted(self, value):
+        result = _render(value)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.splitlines()[0] == f"    set_real_ip_from {value};"
+
+    def test_one_bad_entry_refuses_the_whole_list(self):
+        result = _render("10.0.0.0/8, 10.0.0.1/33")
+        assert result.returncode != 0
+        assert "10.0.0.1/33" in result.stderr
+
 
 class TestBackendStillGetsTheClient:
     def test_every_backend_location_sends_x_real_ip(self):

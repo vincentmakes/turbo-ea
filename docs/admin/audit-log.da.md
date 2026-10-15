@@ -221,4 +221,4 @@ Find værdien i edge-nginx'ens adgangslog (`docker compose logs nginx`, `kubectl
 
 Hold listen lige så snæver som mellemleddene selv. Hver angivet adresse bliver troet, når den navngiver klienten, så et interval, dine brugere forbinder fra — for eksempel hele `10.0.0.0/8` i en intern udrulning — ville lade enhver af dem skrive en anden adresse i loggen. Uden indstilling viser kolonnen load balanceren: ikke nyttigt, men aldrig forfalsket.
 
-Hastighedsbegrænsningen for login tæller forsøg pr. klientadresse fra den samme header, så bag en load balancer er denne indstilling også det, der forhindrer én persons mislykkede forsøg i at bremse alle andre.
+Hastighedsbegrænsningen for login tæller forsøg pr. klientadresse fra den samme header, så bag en load balancer er denne indstilling også det, der forhindrer én persons mislykkede forsøg i at bremse alle andre. Det gælder logins, der når backend gennem edge-nginx; MCP-serveren logger direkte ind på backend, så dens egne login-kald deler stadig MCP-containerens adresse.

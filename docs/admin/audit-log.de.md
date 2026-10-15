@@ -221,4 +221,4 @@ Den Wert finden Sie im Zugriffsprotokoll des Edge-nginx (`docker compose logs ng
 
 Halten Sie die Liste so eng wie die Zwischenglieder selbst. Jeder aufgeführten Adresse wird geglaubt, wenn sie den Client benennt; ein Bereich, aus dem sich Ihre Benutzer verbinden — etwa ganz `10.0.0.0/8` bei einer internen Bereitstellung —, ließe jeden von ihnen eine andere Adresse ins Protokoll schreiben. Ohne Einstellung zeigt die Spalte den Load Balancer: nicht hilfreich, aber nie gefälscht.
 
-Die Ratenbegrenzung der Anmeldung zählt Versuche pro Client-Adresse aus demselben Header; hinter einem Load Balancer verhindert diese Einstellung also auch, dass die Fehlversuche einer Person alle anderen ausbremsen.
+Die Ratenbegrenzung der Anmeldung zählt Versuche pro Client-Adresse aus demselben Header; hinter einem Load Balancer verhindert diese Einstellung also auch, dass die Fehlversuche einer Person alle anderen ausbremsen. Das gilt für Anmeldungen, die das Backend über den Edge-nginx erreichen; der MCP-Server meldet sich direkt beim Backend an, seine eigenen Anmeldeaufrufe teilen sich daher weiterhin die Adresse des MCP-Containers.

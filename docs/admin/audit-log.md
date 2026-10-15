@@ -221,4 +221,4 @@ To find the value, read the edge nginx's access log (`docker compose logs nginx`
 
 Keep the list as narrow as the hops themselves. Every listed address is believed when it names the client, so a range your users connect from — all of `10.0.0.0/8` on an internal deployment, say — would let any of them write a different address into the log. With nothing set, the column shows the load balancer: not useful, but never forged.
 
-The sign-in rate limit counts attempts per client address from the same header, so behind a load balancer this setting is also what keeps one person's failed attempts from slowing everyone else down.
+The sign-in rate limit counts attempts per client address from the same header, so behind a load balancer this setting is also what keeps one person's failed attempts from slowing everyone else down. This applies to sign-ins that reach the backend through the edge nginx; the MCP server signs in to the backend directly, so its own sign-in calls still share the MCP container's address.

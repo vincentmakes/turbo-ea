@@ -3040,26 +3040,42 @@ async def my_permissions(
     return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
 
+# ``details["type"]`` echoes the raw ``type`` / ``types`` query string, which
+# the caller controls and ``details`` (unbounded JSONB) would otherwise store at
+# any length.
+_EXPORT_TYPE_DETAIL_WIDTH = 255
+
+
 async def _audit_cards_export(
     db: AsyncSession, user: User, fmt: str, type_filter: str | None, rows: int
 ) -> None:
-    """Record an ``access.export.cards`` row for a bulk card export and commit it.
+    """Record an ``access.export.cards`` row for a bulk card export.
 
     Called once the rows are collected and before the response is built, so the
-    record names what actually left the instance. ``type_filter`` is the type
-    key (or the comma-separated keys of the JSON export); the target names the
-    card type only when the export covered exactly one.
+    record names what actually left the instance; the caller commits it.
+    ``type_filter`` is the type key (or the comma-separated keys of the JSON
+    export); the target names the card type, by its label, only when the export
+    covered exactly one.
     """
     single = type_filter if type_filter and "," not in type_filter else None
+    target = None
+    if single:
+        label = (
+            await db.execute(select(CardType.label).where(CardType.key == single))
+        ).scalar_one_or_none()
+        target = ("card_type", single, label or single)
     await audit_log.record(
         db,
         action="access.export.cards",
         category="access",
         actor=user,
-        target=("card_type", single, single) if single else None,
-        details={"format": fmt, "type": type_filter or None, "rows": rows},
+        target=target,
+        details={
+            "format": fmt,
+            "type": type_filter[:_EXPORT_TYPE_DETAIL_WIDTH] if type_filter else None,
+            "rows": rows,
+        },
     )
-    await db.commit()
 
 
 @router.get("/export/json")
@@ -3185,6 +3201,7 @@ async def export_json(
         )
 
     await _audit_cards_export(db, user, "json", ",".join(type_list), len(items))
+    await db.commit()
     return items
 
 
@@ -3252,6 +3269,7 @@ async def export_csv(
             ]
         )
     await _audit_cards_export(db, user, "csv", type, len(sheets))
+    await db.commit()
     output.seek(0)
     stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
     base = f"cards_{type}" if type else "cards"

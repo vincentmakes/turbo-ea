@@ -292,15 +292,67 @@ export NGINX_EMBED_FRAME_ANCESTORS="$embed_ancestors"
 # not set it keeps its config as it was. The lines go into every server block
 # (redirect, HTTPS and plain HTTP) right after server_tokens.
 nginx_real_ip_lines=''
+# Shape check for one entry: an IPv4 dotted quad (four octets of 1-3 digits,
+# each at most 255) or an IPv6 address (hex and colons only, at least two and at
+# most seven colons, at most one "::", groups of at most four hex digits), with
+# an optional "/prefix" of digits at most 32 or 128. The value lands unquoted in
+# the generated config, so anything else is refused rather than passed through.
+turboea_valid_proxy() {
+    tp_entry=$1
+    case "$tp_entry" in
+        ''|*[!0-9A-Fa-f.:/]*|*/*/*) return 1 ;;
+    esac
+    tp_addr=${tp_entry%%/*}
+    [ -n "$tp_addr" ] || return 1
+    case "$tp_addr" in
+        *:*)
+            tp_max=128
+            case "$tp_addr" in
+                *:*:*) ;;
+                *) return 1 ;;
+            esac
+            case "$tp_addr" in
+                *[!0-9A-Fa-f:]*|*:::*|*::*::*) return 1 ;;
+                *[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]*) return 1 ;;
+            esac
+            tp_colons=$(printf '%s' "$tp_addr" | tr -cd ':')
+            [ "${#tp_colons}" -le 7 ] || return 1
+            ;;
+        *)
+            tp_max=32
+            case "$tp_addr" in
+                *.*.*.*.*) return 1 ;;
+                *.*.*.*) ;;
+                *) return 1 ;;
+            esac
+            tp_ifs=$IFS
+            IFS=.
+            set -- $tp_addr
+            IFS=$tp_ifs
+            for tp_octet in "$@"; do
+                case "$tp_octet" in
+                    ''|*[!0-9]*|????*) return 1 ;;
+                esac
+                [ "$tp_octet" -le 255 ] || return 1
+            done
+            ;;
+    esac
+    if [ "$tp_entry" != "$tp_addr" ]; then
+        tp_prefix=${tp_entry#*/}
+        case "$tp_prefix" in
+            ''|*[!0-9]*|????*) return 1 ;;
+        esac
+        [ "$tp_prefix" -le "$tp_max" ] || return 1
+    fi
+    return 0
+}
 trusted_proxies=$(printf '%s' "${NGINX_TRUSTED_PROXIES:-}" | tr ',' ' ')
 set -f
 for proxy in $trusted_proxies; do
-    case "$proxy" in
-        *[!0-9A-Fa-f.:/]*)
-            echo "Turbo EA nginx: NGINX_TRUSTED_PROXIES entries must be IP addresses or CIDR ranges, got: $proxy" >&2
-            exit 1
-            ;;
-    esac
+    if ! turboea_valid_proxy "$proxy"; then
+        echo "Turbo EA nginx: NGINX_TRUSTED_PROXIES entries must be IP addresses or CIDR ranges, got: $proxy" >&2
+        exit 1
+    fi
     nginx_real_ip_lines="${nginx_real_ip_lines}    set_real_ip_from ${proxy};
 "
 done
