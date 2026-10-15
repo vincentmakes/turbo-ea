@@ -7,7 +7,10 @@
 # Mutants on the lines a pull request adds or changes. Enforced by the
 # Backend / Frontend / MCP Mutation Tests jobs on every PR, once at least
 # `min_mutants` of them are in scope (below that a percentage is noise and the
-# Test Plan answers for each survivor instead).
+# Test Plan answers for each survivor instead). The changed lines of a file
+# listed under [modules] answer to that module's own floor instead, with no
+# min_mutants threshold: #1247 added 540 mutants to a 97% module at the diff
+# floor's rate and took it under its floor, and only the nightly said so.
 [diff]
 backend = 60
 frontend = 60
@@ -20,12 +23,11 @@ min_mutants = 10
 # on 2026-10-09 after the helper and entrypoint tests. The
 # backend's baseline (60,921 mutants) completed on 2026-10-08 at 71.2%, and
 # the nightly of 2026-10-11 measured it whole again at 78.9% of 59,697. The
-# frontend's stays 0 until its baseline completes under the stable shard deal
-# of #1240 (153 files were still unmeasured on 2026-10-11), then rises to it
-# like every other floor.
+# frontend's baseline completed on 2026-10-14 under the stable shard deal of
+# #1240, at 61.1% of 125,104.
 [suite]
 backend = 76
-frontend = 0
+frontend = 59
 mcp = 97
 
 # Critical existing modules, enforced per file by the nightly once fully
@@ -82,8 +84,11 @@ mcp = 97
 # Authorization, measured in full by the nightly on 2026-10-08 at 93.0%.
 "backend/app/services/permission_service.py" = 98     # app, type-cell and stakeholder grants
 
-# Workspace transfer, measured 2026-10-08 after the applier pass.
+# Workspace transfer, measured 2026-10-08 after the applier pass, and again on
+# 2026-10-15 after the id-remap pass of #1247 (applier 99.5%, remap 98.6%; every
+# survivor left is an equivalent mutant).
 "backend/app/services/workspace_io/applier.py" = 97   # importing a whole workspace bundle
+"backend/app/services/workspace_io/remap.py" = 96     # ids held inside blobs (#1246)
 
 # Frontend, measured with Stryker (static mutants ignored) on 2026-10-05.
 # linkify, richHtml, routePermissions, dragFill and portfolioHelpers were

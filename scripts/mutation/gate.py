@@ -22,7 +22,8 @@ Scopes:
   diff    mutants on lines the PR added or changed; fails under ``[diff]``,
           but only with at least ``min_mutants`` of them — below that a
           percentage is noise, so it warns and the PR's Test Plan answers for
-          each survivor instead.
+          each survivor instead. The changed lines of a ``[modules]`` file
+          answer to that module's own floor, however few they are.
   suite   the whole suite (the nightly); fails under ``[suite]`` or under any
           ``[modules]`` floor for a file of this suite. With ``--allow-pending``
           (the nightly, which builds the baseline over several time-boxed runs)
@@ -189,6 +190,21 @@ def judge(
                 f"{mark}: {fmt(total.score)} of {total.scored} mutants on changed lines "
                 f"killed; the floor is {floor}% (`scripts/mutation/floors.toml`)."
             )
+        module_rows = changed_module_rows(records, suite, floors)
+        if module_rows:
+            passed = passed and all(ok for ok, _ in module_rows)
+            lines += [
+                "",
+                "### Critical modules on changed lines",
+                "",
+                "A module with its own floor in `[modules]` holds its changed lines to that "
+                "floor, however few of them there are: kill each survivor, or mark a genuinely "
+                "equivalent one with a reasoned pragma.",
+                "",
+                "| Module | Killed on changed lines | Floor | |",
+                "|---|---|---|---|",
+                *(row for _, row in module_rows),
+            ]
     else:
         floor = floors["suite"][suite]
         measured = total.scored + total.excluded
@@ -261,6 +277,34 @@ def judge(
 
     lines += ["", *file_table(records)]
     return Verdict(passed=passed, incomplete=False, lines=lines)
+
+
+def changed_module_rows(records: list[dict], suite: str, floors: dict) -> list[tuple[bool, str]]:
+    """``(ok, table row)`` for every critical module a diff puts mutants on.
+
+    A critical module's whole-file floor is only held if what a PR adds to it
+    is held to the same standard: 540 new mutants at the diff floor's 60%
+    take a 97% module under its floor, and the nightly is the first to say so
+    (#1247). So its changed lines answer to its own floor rather than the diff
+    floor, with no ``min_mutants`` threshold: in a module the nightly keeps
+    above 90%, one survivor is not noise, and the remedy (an assertion or a
+    reasoned pragma) is cheap.
+    """
+    files = per_file(records)
+    rows = []
+    for module, module_floor in sorted(floors.get("modules", {}).items()):
+        t = files.get(module)
+        if suite_of(module) != suite or t is None or t.scored == 0:
+            continue
+        ok = t.score >= module_floor
+        rows.append(
+            (
+                ok,
+                f"| `{module}` | {t.killed} of {t.scored} ({fmt(t.score)}) | {module_floor}% "
+                f"| {'ok' if ok else '**FAIL**'} |",
+            )
+        )
+    return rows
 
 
 def file_table(records: list[dict], limit: int = 40) -> list[str]:
