@@ -81,7 +81,6 @@ class TestCreate:
             "role": "member",
             "auth_provider": "local",
             "invited": False,
-            "password_set": True,
         }
 
     async def test_refused_create_records_nothing(self, client, db, env):

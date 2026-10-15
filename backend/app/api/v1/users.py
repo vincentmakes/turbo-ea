@@ -750,7 +750,6 @@ async def create_user(
             "role": body.role,
             "auth_provider": auth_provider,
             "invited": body.send_email,
-            "password_set": bool(body.password),
         },
     )
     await db.commit()
