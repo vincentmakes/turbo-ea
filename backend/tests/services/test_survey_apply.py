@@ -132,21 +132,56 @@ class TestValidateFieldRows:
         )
 
     @pytest.mark.parametrize(
-        "row, match",
+        "row, message",
         [
-            ("not a dict", "object"),
-            ({"kind": "tag"}, "kind"),
-            ({"kind": "lifecycle", "phase": "later"}, "phase"),
-            ({"kind": "lifecycle"}, "phase"),
-            ({"kind": "stakeholder", "role": "nobody"}, "role"),
-            ({"kind": "stakeholder"}, "role"),
+            ("not a dict", "Each survey field must be an object"),
+            ({"kind": "tag"}, "Unknown survey field kind: tag"),
+            ({"kind": "lifecycle", "phase": "later"}, "Unknown lifecycle phase: later"),
+            ({"kind": "lifecycle"}, "Unknown lifecycle phase: None"),
+            (
+                {"kind": "stakeholder", "role": "nobody"},
+                "Unknown stakeholder role for Application: nobody",
+            ),
+            ({"kind": "stakeholder"}, "Unknown stakeholder role for Application: None"),
+            ({"kind": "stakeholder", "role": ""}, "Unknown stakeholder role for Application: "),
         ],
     )
-    async def test_refuses(self, db, row, match):
+    async def test_refuses(self, db, row, message):
         await create_card_type(db, key="Application", label="Application")
         await create_stakeholder_role_def(db, key="observer", label="Observer")
-        with pytest.raises(sa.SurveyFieldError, match=match):
+        with pytest.raises(sa.SurveyFieldError) as exc:
             await sa.validate_field_rows(db, "Application", [row])
+        assert str(exc.value) == message
+
+    async def test_roles_are_looked_up_once_and_only_for_stakeholder_rows(self, db, monkeypatch):
+        from app.services import stakeholder_service
+
+        calls: list[str] = []
+        real = stakeholder_service.roles_for_type
+
+        async def counting(db_, type_key):
+            calls.append(type_key)
+            # A role entry that is not a dict, and one without a key, are
+            # ignored rather than crashing the lookup.
+            return [*(await real(db_, type_key)), "junk", {"label": "no key"}]
+
+        monkeypatch.setattr(stakeholder_service, "roles_for_type", counting)
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(db, key="observer", label="Observer")
+        await sa.validate_field_rows(
+            db,
+            "Application",
+            [
+                {"key": "a"},
+                {"key": "sh:observer", "kind": "stakeholder", "role": "observer"},
+                {"key": "sh:observer2", "kind": "stakeholder", "role": "observer"},
+            ],
+        )
+        assert calls == ["Application"]
+        await sa.validate_field_rows(
+            db, "Application", [{"key": "b"}, {"key": "c", "kind": "attribute"}]
+        )
+        assert calls == ["Application"]
 
     async def test_an_empty_list_is_fine(self, db):
         await sa.validate_field_rows(db, "Application", [])
@@ -209,6 +244,9 @@ async def test_rollback_restores_legacy_attr_changes(db):
             "changes": {
                 "attr_costTotalAnnual": {"old": 50000, "new": 75000},
                 "attr_added": {"old": None, "new": "x"},
+                # Added by the survey and removed again since: nothing to pop,
+                # and that must not be an error.
+                "attr_vanished": {"old": None, "new": "y"},
                 "name": {"old": "Legacy", "new": "Legacy"},
             },
         },
@@ -386,3 +424,141 @@ async def test_a_deactivated_person_is_skipped_not_added_and_never_removed(db):
     )
     assert changed is True  # A was removed
     assert await _holders(db, card.id) == {c.id}
+
+
+# ---------------------------------------------------------------------------
+# relation_field_peers — the read half of a relation field
+# ---------------------------------------------------------------------------
+
+
+async def _relation_env(db):
+    from app.models.relation import Relation
+
+    await create_card_type(db, key="Application", label="Application")
+    await create_card_type(db, key="ITComponent", label="IT Component")
+    app = await create_card(db, name="App")
+    beta = await create_card(db, card_type="ITComponent", name="Beta")
+    alpha = await create_card(db, card_type="ITComponent", name="Alpha")
+    gone = await create_card(db, card_type="ITComponent", name="Gone", status="ARCHIVED")
+    upstream = await create_card(db, name="Upstream")
+    for target in (beta, alpha, gone):
+        db.add(Relation(type="relAppToITC", source_id=app.id, target_id=target.id))
+    db.add(Relation(type="relAppToApp", source_id=upstream.id, target_id=app.id))
+    # Another type between the same cards must not leak into this field.
+    db.add(Relation(type="relAppToITCOwns", source_id=app.id, target_id=beta.id))
+    await db.flush()
+    return app, alpha, beta, upstream
+
+
+async def test_relation_field_peers_outgoing_lists_active_targets_by_name(db):
+    app, alpha, beta, _ = await _relation_env(db)
+    field = {"relation_type_key": "relAppToITC", "direction": "outgoing"}
+    assert await sa.relation_field_peers(db, app.id, field) == [
+        {"id": str(alpha.id), "name": "Alpha"},
+        {"id": str(beta.id), "name": "Beta"},
+    ]
+
+
+async def test_relation_field_peers_incoming_lists_sources(db):
+    app, _alpha, _beta, upstream = await _relation_env(db)
+    field = {"relation_type_key": "relAppToApp", "direction": "incoming"}
+    assert await sa.relation_field_peers(db, app.id, field) == [
+        {"id": str(upstream.id), "name": "Upstream"}
+    ]
+    # The same type read the other way round names nothing: App is nobody's target source.
+    assert await sa.relation_field_peers(db, app.id, {**field, "direction": "outgoing"}) == []
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        {},
+        {"relation_type_key": "relAppToITC"},
+        {"relation_type_key": "", "direction": "outgoing"},
+        {"relation_type_key": "relAppToITC", "direction": "sideways"},
+        {"relation_type_key": None, "direction": "incoming"},
+    ],
+)
+async def test_relation_field_peers_is_empty_for_a_malformed_field(db, field):
+    app, *_ = await _relation_env(db)
+    assert await sa.relation_field_peers(db, app.id, field) == []
+
+
+# ---------------------------------------------------------------------------
+# event_bus.open_auto_batch — the batch the apply route opens up front
+# ---------------------------------------------------------------------------
+
+
+async def test_open_auto_batch_records_the_request_and_stashes_its_id(db):
+    from datetime import datetime, timezone
+
+    from app.models.mutation_batch import MutationBatch
+    from app.services.event_bus import (
+        event_bus,
+        request_batch_id,
+        request_endpoint,
+        request_origin,
+    )
+
+    user = await create_user(db, email="batch@test.com")
+    t_origin = request_origin.set("web")
+    t_endpoint = request_endpoint.set("POST /api/v1/surveys/x/apply")
+    t_batch = request_batch_id.set(None)
+    try:
+        before = datetime.now(timezone.utc)
+        batch_id = await event_bus.open_auto_batch(db, user_id=user.id, event_type="card.updated")
+        assert request_batch_id.get() == batch_id
+        row = await db.get(MutationBatch, batch_id)
+        assert row is not None
+        assert row.tool_name == "POST /api/v1/surveys/x/apply"
+        assert row.actor_user_id == user.id
+        assert row.origin == "web"
+        assert row.dry_run is False
+        assert row.committed_at is not None
+        assert row.committed_at.tzinfo is not None
+        assert before <= row.committed_at <= datetime.now(timezone.utc)
+    finally:
+        request_origin.reset(t_origin)
+        request_endpoint.reset(t_endpoint)
+        request_batch_id.reset(t_batch)
+
+
+async def test_open_auto_batch_falls_back_to_the_event_type_and_api_origin(db):
+    from app.models.mutation_batch import MutationBatch
+    from app.services.event_bus import (
+        event_bus,
+        request_batch_id,
+        request_endpoint,
+        request_origin,
+    )
+
+    t_origin = request_origin.set(None)
+    t_endpoint = request_endpoint.set(None)
+    t_batch = request_batch_id.set(None)
+    try:
+        batch_id = await event_bus.open_auto_batch(db, user_id=None, event_type="card.updated")
+        row = await db.get(MutationBatch, batch_id)
+        assert row.tool_name == "event:card.updated"
+        assert row.origin == "api"
+        assert row.actor_user_id is None
+    finally:
+        request_origin.reset(t_origin)
+        request_endpoint.reset(t_endpoint)
+        request_batch_id.reset(t_batch)
+
+
+async def test_open_auto_batch_truncates_a_long_endpoint_to_the_column(db):
+    from app.models.mutation_batch import MutationBatch
+    from app.services.event_bus import event_bus, request_batch_id, request_endpoint
+
+    long_path = "POST /api/v1/" + "x" * 200
+    t_endpoint = request_endpoint.set(long_path)
+    t_batch = request_batch_id.set(None)
+    try:
+        batch_id = await event_bus.open_auto_batch(db, user_id=None, event_type="card.updated")
+        row = await db.get(MutationBatch, batch_id)
+        assert row.tool_name == long_path[:100]
+        assert len(row.tool_name) == 100
+    finally:
+        request_endpoint.reset(t_endpoint)
+        request_batch_id.reset(t_batch)
