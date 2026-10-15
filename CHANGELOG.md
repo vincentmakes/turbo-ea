@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.162.0] - 2026-10-15
+
+### Added
+- **Extension SDK 1.16**: an extension holding the survey read grant can list surveys by status and card type, and read which requests of a survey are still waiting for an answer, so it can follow up on surveys whoever sent them. Requests about archived cards are left out.
+
 ## [2.161.1] - 2026-10-15
 
 ### Fixed
