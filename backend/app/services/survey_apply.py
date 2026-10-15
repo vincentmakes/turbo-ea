@@ -100,9 +100,9 @@ async def validate_field_rows(db: AsyncSession, target_type_key: str, fields: li
         if kind == "stakeholder":
             if role_keys is None:
                 role_keys = {
-                    r.get("key")
+                    str(r["key"])
                     for r in await stakeholder_service.roles_for_type(db, target_type_key)
-                    if isinstance(r, dict)
+                    if isinstance(r, dict) and r.get("key")
                 }
             if not is_stakeholder_field(row) or row["role"] not in role_keys:
                 raise SurveyFieldError(
