@@ -45,6 +45,13 @@ FIELD_KINDS = ("attribute", "relation", "lifecycle", "stakeholder")
 class SurveyFieldError(ValueError):
     """A field row or an answer the survey cannot accept."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        # The refusal as written for the person sending or applying the
+        # survey. A route shows this, never ``str(exc)``: what a caught
+        # exception renders to is not something a response may echo.
+        self.message = message
+
 
 # ── Field kinds ─────────────────────────────────────────────────────────────
 

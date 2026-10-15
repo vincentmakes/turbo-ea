@@ -148,7 +148,7 @@ async def _validate_fields(db: AsyncSession, target_type_key: str, fields: list 
     try:
         await survey_apply.validate_field_rows(db, target_type_key, fields or [])
     except survey_apply.SurveyFieldError as exc:
-        raise HTTPException(400, str(exc)) from exc
+        raise HTTPException(400, exc.message) from exc
 
 
 # ── Admin endpoints ──────────────────────────────────────────────────────────
@@ -566,16 +566,29 @@ async def list_responses(
     return [_response_to_dict(r) for r in result.scalars().all()]
 
 
+# What the results page shows for a response that failed for a reason the
+# apply did not raise on purpose. The exception itself (a driver error carries
+# SQL, constraint names and values) is logged, never returned.
+UNEXPECTED_APPLY_ERROR = (
+    "Could not apply this response because of an unexpected error. The server log has the details."
+)
+
+
 def _apply_error_text(exc: BaseException) -> str:
-    """One line the results page can show for a refused response."""
+    """One line the results page can show for a refused response.
+
+    Only the two refusals the apply raises on purpose carry their own message
+    (an ``HTTPException``'s detail, a ``SurveyFieldError``'s ``message``);
+    anything else is reported as ``UNEXPECTED_APPLY_ERROR``.
+    """
     if isinstance(exc, HTTPException):
         detail = exc.detail
         if isinstance(detail, dict):
             return str(detail.get("message") or detail.get("detail") or detail)
         return str(detail)
     if isinstance(exc, survey_apply.SurveyFieldError):
-        return str(exc)
-    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+        return exc.message
+    return UNEXPECTED_APPLY_ERROR
 
 
 @router.post("/{survey_id}/apply")
@@ -656,7 +669,8 @@ async def apply_responses(
         # back only itself and is reported, and the others still land. Any
         # exception is caught, not only the two the apply raises on purpose: a
         # database error inside the savepoint would otherwise abort the whole
-        # request and lose every response already applied.
+        # request and lose every response already applied. Such an error is
+        # logged in full and reported to the client only generically.
         savepoint = await db.begin_nested()
         mine: list[dict] = []
         try:
@@ -672,11 +686,14 @@ async def apply_responses(
             resp.applied = True
             resp.applied_at = datetime.now(timezone.utc)
             await db.flush()
-        except Exception as exc:
+        except (HTTPException, survey_apply.SurveyFieldError) as exc:
             await savepoint.rollback()
-            if not isinstance(exc, (HTTPException, survey_apply.SurveyFieldError)):
-                logger.exception("Applying survey response %s failed", rid_str)
             errors.append({"response_id": rid_str, "error": _apply_error_text(exc)})
+            continue
+        except Exception:
+            await savepoint.rollback()
+            logger.exception("Applying survey response %s failed", rid_str)
+            errors.append({"response_id": rid_str, "error": UNEXPECTED_APPLY_ERROR})
             continue
         await savepoint.commit()
         pending_notifications.extend(mine)
@@ -924,7 +941,7 @@ async def submit_response(
                 # the respondent is no longer around to be told.
                 survey_apply.ref_ids(new_value)
         except survey_apply.SurveyFieldError as exc:
-            raise HTTPException(422, str(exc)) from exc
+            raise HTTPException(422, exc.message) from exc
         full_responses[key] = {
             "current_value": await survey_apply.current_value(db, card, field_def),
             "new_value": new_value,

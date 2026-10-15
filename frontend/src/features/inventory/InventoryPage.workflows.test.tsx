@@ -683,7 +683,7 @@ describe("InventoryPage group by", () => {
     expect(headers).toEqual([
       ["__not_set__", "Not set", undefined],
       ["true", "Yes", "#4caf50"],
-      ["false", "No", "#78909c"],
+      ["false", "No", "#2196f3"],
     ]);
     await setAxis(null, 3);
     expect(prefs().groupBy).toBeNull();

@@ -484,7 +484,7 @@ describe("LifecycleReport date-range mode with a yes/no field (#1256)", () => {
     expect(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · Yes")).toHaveLength(1);
     expect(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · No")).toHaveLength(2);
     expect(getComputedStyle(screen.getAllByLabelText("2024-01-15 → 2025-01-15 · No")[0]).backgroundColor)
-      .toBe("rgb(120, 144, 156)");
+      .toBe("rgb(33, 150, 243)");
     expect(getComputedStyle(bar("Yes")).backgroundColor).toBe("rgb(76, 175, 80)");
     expect(getComputedStyle(bar("Not set")).backgroundColor).toBe("rgb(189, 189, 189)");
     const legend = document.querySelector(".report-legend") as HTMLElement;

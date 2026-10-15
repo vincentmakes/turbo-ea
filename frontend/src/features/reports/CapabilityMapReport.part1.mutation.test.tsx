@@ -1034,9 +1034,9 @@ describe("yes/no and multi-select fields", () => {
     ctl.config = { colorBy: "isCloud", showApps: true };
     renderMap();
     await loaded("Pool");
-    expect(pillColors()).toEqual({ yes: "#4caf50", no: "#78909c", none: UNSET });
+    expect(pillColors()).toEqual({ yes: "#4caf50", no: "#2196f3", none: UNSET });
     expect(bg(within(chart()).getByLabelText("Yes App — Yes"))).toBe("rgb(76, 175, 80)");
-    expect(bg(within(chart()).getByLabelText("No App — No"))).toBe("rgb(120, 144, 156)");
+    expect(bg(within(chart()).getByLabelText("No App — No"))).toBe("rgb(33, 150, 243)");
     expect(bg(within(chart()).getByLabelText("None App"))).toBe(UNSET);
     const legend = document.querySelector(".report-legend") as HTMLElement;
     expect(within(legend).getByText("Cloud Hosted:")).toBeInTheDocument();

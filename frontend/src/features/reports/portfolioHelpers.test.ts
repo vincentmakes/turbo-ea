@@ -836,7 +836,7 @@ describe("boolean and multi-select own fields", () => {
     type: "boolean",
     options: [
       { key: "true", label: "Yes", color: "#4caf50" },
-      { key: "false", label: "No", color: "#78909c" },
+      { key: "false", label: "No", color: "#2196f3" },
     ],
   };
   const regions: FieldDef = {
@@ -863,7 +863,7 @@ describe("boolean and multi-select own fields", () => {
     });
     expect(appColorBucket(withAttrs("b", { isCloud: false }), res, LABELS)).toEqual({
       key: "false",
-      color: "#78909c",
+      color: "#2196f3",
       label: "No",
       isUnset: false,
     });
@@ -906,7 +906,7 @@ describe("boolean and multi-select own fields", () => {
     ]);
     expect(buildColorLegend({ kind: "field", field: cloud }, LABELS, two)).toEqual([
       { label: "Yes", color: "#4caf50" },
-      { label: "No", color: "#78909c" },
+      { label: "No", color: "#2196f3" },
     ]);
     // A stray list on a single_select colours as Multiple too, so it is keyed.
     const single: FieldDef = { ...regions, type: "single_select" };

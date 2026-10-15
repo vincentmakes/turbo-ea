@@ -20,7 +20,12 @@ import {
   resolveFacetField,
   type FacetFieldLike,
 } from "./fieldFacets";
-import { BOOLEAN_COLORS, CATEGORICAL_COLORS, MULTIPLE_VALUE_COLOR } from "@/theme/tokens";
+import {
+  BOOLEAN_COLORS,
+  CATEGORICAL_COLORS,
+  MULTIPLE_VALUE_COLOR,
+  STATUS_COLORS,
+} from "@/theme/tokens";
 
 const LABELS = { yes: "Yes", no: "No", notSet: "Not set", multiple: "Multiple" };
 
@@ -54,7 +59,18 @@ describe("constants", () => {
     expect(UNSET_KEY).toBe("__unset__");
     expect(MULTIPLE_COLOR).toBe(MULTIPLE_VALUE_COLOR);
     expect(MULTIPLE_COLOR).toBe("#607d8b");
-    expect(BOOLEAN_COLORS).toEqual({ true: "#4caf50", false: "#78909c" });
+    expect(BOOLEAN_COLORS).toEqual({ true: "#4caf50", false: "#2196f3" });
+  });
+
+  it("never paints No in a grey, so it cannot read as Not set or Multiple", () => {
+    const channels = (hex: string) =>
+      [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const [r, g, b] = channels(BOOLEAN_COLORS.false);
+    // A grey has (near-)equal channels; demand a clearly saturated hue.
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeGreaterThan(100);
+    expect(BOOLEAN_COLORS.false).not.toBe(MULTIPLE_VALUE_COLOR);
+    expect(BOOLEAN_COLORS.false).not.toBe(STATUS_COLORS.neutral);
+    expect(BOOLEAN_COLORS.false).not.toBe(BOOLEAN_COLORS.true);
   });
 });
 
@@ -110,7 +126,7 @@ describe("facetOptions", () => {
   it("gives a boolean Yes / No in fixed colours", () => {
     expect(facetOptions(bool, LABELS)).toEqual([
       { key: "true", label: "Yes", color: "#4caf50" },
-      { key: "false", label: "No", color: "#78909c" },
+      { key: "false", label: "No", color: "#2196f3" },
     ]);
   });
 
@@ -254,7 +270,7 @@ describe("facetBucket", () => {
       kind: "value",
       key: "false",
       label: "No",
-      color: "#78909c",
+      color: "#2196f3",
     });
     expect(facetBucket(bool, true, LABELS)).toEqual({
       kind: "value",
@@ -302,7 +318,7 @@ describe("facetLegend", () => {
   it("lists every option, coloured", () => {
     expect(facetLegend(bool, LABELS, false)).toEqual([
       { key: "true", label: "Yes", color: "#4caf50" },
-      { key: "false", label: "No", color: "#78909c" },
+      { key: "false", label: "No", color: "#2196f3" },
     ]);
   });
 

@@ -23,6 +23,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.api.v1.surveys import UNEXPECTED_APPLY_ERROR
 from app.models.audit_log import AuditLogEntry
 from app.models.card import Card
 from app.models.event import Event
@@ -725,9 +726,10 @@ class TestApplyFailures:
         second_id = second.id
         result = await _apply(client, admin, sid, [first, other])
         assert result["applied"] == 1
-        assert result["errors"] == [
-            {"response_id": first, "error": "RuntimeError: connection dropped"}
-        ]
+        assert result["errors"] == [{"response_id": first, "error": UNEXPECTED_APPLY_ERROR}]
+        # The exception text is logged, never sent to the client.
+        assert "connection dropped" not in str(result)
+        assert "RuntimeError" not in str(result)
         (ev,) = await _survey_events(db, second_id)
         assert ev.event_type == "stakeholder.added"
 
@@ -743,8 +745,16 @@ class TestApplyFailures:
         )
         assert _apply_error_text(HTTPException(409, {"code": "x"})) == "{'code': 'x'}"
         assert _apply_error_text(survey_apply.SurveyFieldError("bad")) == "bad"
-        assert _apply_error_text(RuntimeError("boom")) == "RuntimeError: boom"
-        assert _apply_error_text(KeyError()) == "KeyError"
+        assert _apply_error_text(RuntimeError("boom")) == UNEXPECTED_APPLY_ERROR
+        assert _apply_error_text(KeyError()) == UNEXPECTED_APPLY_ERROR
+
+    def test_error_text_never_carries_an_unexpected_exceptions_details(self):
+        from app.api.v1.surveys import _apply_error_text
+
+        leaky = RuntimeError('duplicate key value violates unique constraint "cards_pkey"')
+        text = _apply_error_text(leaky)
+        assert text == UNEXPECTED_APPLY_ERROR
+        assert "cards_pkey" not in text and "RuntimeError" not in text
 
     async def test_subscriber_nudges_are_delivered_after_the_commit(
         self, client, db, env, monkeypatch

@@ -310,7 +310,7 @@ describe("yes/no, multi-select and uncoloured fields (#1256)", () => {
   it("paints a yes/no field Yes / No", () => {
     expect(entries(byCloud)).toEqual([
       ["true", "common:labels.yes", "#4caf50"],
-      ["false", "common:labels.no", "#78909c"],
+      ["false", "common:labels.no", "#2196f3"],
       [NO_VALUE, "legend.noValue", NO_VALUE_COLOR],
     ]);
   });

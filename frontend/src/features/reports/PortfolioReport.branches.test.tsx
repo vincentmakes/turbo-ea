@@ -677,7 +677,7 @@ describe("PortfolioReport boolean field (#1256)", () => {
     const yes = within(chart()).getByLabelText("Yes: 2 (100%)");
     const no = within(chart()).getByLabelText("No: 1 (100%)");
     expect(bg(yes)).toBe("rgb(76, 175, 80)");
-    expect(bg(no)).toBe("rgb(120, 144, 156)");
+    expect(bg(no)).toBe("rgb(33, 150, 243)");
     expect(bg(within(chart()).getByLabelText("Not set: 1 (100%)"))).toBe("rgb(158, 158, 158)");
 
     fireEvent.click(within(chart()).getAllByText("Yes")[0]);

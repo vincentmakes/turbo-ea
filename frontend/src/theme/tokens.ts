@@ -66,12 +66,14 @@ export const STATUS_COLORS = {
 // ── Field facets (reports colour-by) ────────────────────────────────────
 
 /** Yes / No colours for a boolean field used as a report's colour-by or
- *  filter facet. "No" is a blue-grey, deliberately distinct from the Not-set
- *  grey (`STATUS_COLORS.neutral`), from `MULTIPLE_VALUE_COLOR`, and from the
- *  error red — a `false` answer is an answer, not a problem. */
+ *  filter facet. "No" is a saturated blue, never a grey: every *Not set*
+ *  swatch and `MULTIPLE_VALUE_COLOR` are greys, and a grey "No" read as
+ *  "nothing recorded". Not the error red either — a `false` answer is an
+ *  answer, not a problem — and green / blue stays apart for red-green
+ *  colour-blind readers. */
 export const BOOLEAN_COLORS = {
   true: STATUS_COLORS.success,
-  false: "#78909c",
+  false: STATUS_COLORS.info,
 } as const;
 
 /** Neutral colour for a card that carries several values at once (a

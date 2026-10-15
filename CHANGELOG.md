@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.164.1] - 2026-10-15
+
+### Fixed
+- When a report, the Inventory or a diagram is coloured by a yes/no field, *No* is now blue so it can no longer be mistaken for *Not set* or *Multiple*.
+
+### Security
+- Applying survey responses no longer shows internal error details when a response fails unexpectedly; the details are written to the server log instead.
+
 ## [2.164.0] - 2026-10-15
 
 ### Added
