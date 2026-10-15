@@ -69,6 +69,8 @@ En søgning på en e-mailadresse rammer aktør, subjekt og mål, så én adresse
 
 Klik på en række for at åbne postens panel. Det viser alle postens felter, herunder browserens user agent og de **detaljer**, der blev registreret med den — årsagskoden for et mislykket login, tidspunktet hvor en spærring ophører, identitetsudbyderen ved et SSO-login. Når en post registrerer en ændring, vises detaljerne som en tabel med gamle og nye værdier. Hemmeligheder gemmes aldrig: en adgangskode, et token eller en klienthemmelighed erstattes af `***`, før posten skrives.
 
+Oplysninger, der sætter en ændring i perspektiv uden at være en del af den — en portals aktuelle adresse og om den er udgivet, om en forbindelses loginoplysninger blev udskiftet, de typer en migreringstilknytning dækker — vises under **Kontekst** under tabellen.
+
 Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 
 ### Eksportér CSV
@@ -129,6 +131,8 @@ Hver ændring, en administrator foretager i instansens konfiguration, registrere
 
 - **Hemmeligheder maskeres.** En SMTP-adgangskode, en SSO-klienthemmelighed, en AI-udbydernøgle, et ServiceNow-loginoplysning eller enhver anden hemmelig værdi skrives som `***`: posten viser, at den ændrede sig, aldrig hvad den var eller blev.
 - **Hverken licenstekst eller loginoplysninger gemmes nogensinde.** En udvidelseslicens identificeres, den kopieres ikke, og en adgangskode, som en administrator sætter for en bruger, registreres som ændret, aldrig med sin værdi.
+
+En gemning, der ikke ændrer noget, registreres ikke, og det gør en bruger, der ændrer sit eget navn eller sprog i sin profil, heller ikke. Omfattende konfiguration — en korttypes felter, oversættelser eller layout, en portals filtre — opsummeres efter sin størrelse i stedet for at blive kopieret; er størrelsen uændret, tilføjes et kort fingeraftryk af indholdet, så posten stadig viser, at noget er ændret. En korttypes rollespecifikke tilladelsestilsidesættelser er undtagelsen: hver celle, der er ændret, vises med sin gamle og nye værdi, hvor en tom værdi betyder, at rollens egen tilladelse gælder.
 
 | Område | Handlinger | Hvad der registreres |
 |------|---------|------------------|

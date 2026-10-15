@@ -579,8 +579,8 @@ class TestAudit:
         mappings, applied, deleted = await _audit_rows(db)
         assert mappings.action == "admin.migration.field_mappings.updated"
         assert mappings.details == {
-            "types": ["Application"],
             "mapped_fields": {"old": 0, "new": 1},
+            "context": {"types": ["Application"]},
         }
         assert applied.action == "admin.migration.applied"
         assert applied.target_id == mid and applied.target_label == "In-memory source"

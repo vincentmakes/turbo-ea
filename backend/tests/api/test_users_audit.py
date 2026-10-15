@@ -136,21 +136,36 @@ class TestUpdate:
         rows = await _committed(db, prefix="")
         assert [r.action for r in rows] == ["auth.password.changed"]
 
-    async def test_own_profile_edit_is_recorded_with_self_as_actor(self, client, db, env):
+    async def test_member_own_profile_edit_records_nothing(self, client, db, env):
+        """A non-admin renaming themselves is self-service, not an admin act."""
+        member_id = env["member_id"]
         resp = await client.patch(
-            f"/api/v1/users/{env['member_id']}",
+            f"/api/v1/users/{member_id}",
             json={"display_name": "Renamed", "locale": "de"},
             headers=env["member_h"],
+        )
+        assert resp.status_code == 200
+        assert resp.json()["display_name"] == "Renamed"
+        assert await _committed(db, prefix="") == []
+
+    async def test_admin_own_profile_edit_is_recorded(self, client, db, env):
+        admin_id = str(env["admin_id"])
+        resp = await client.patch(
+            f"/api/v1/users/{admin_id}",
+            json={"display_name": "Chief", "locale": "fr"},
+            headers=env["admin_h"],
         )
         assert resp.status_code == 200
 
         [row] = await _committed(db)
         assert row.action == "admin.user.updated"
-        assert row.actor_user_id == env["member_id"]
-        assert row.subject_email == "member@test.com"
+        assert row.category == "admin"
+        assert row.actor_user_id == env["admin_id"]
+        assert row.subject_email == "admin@test.com"
+        assert row.target_id == admin_id
         assert row.details == {
-            "display_name": {"old": "Test User", "new": "Renamed"},
-            "locale": {"old": "en", "new": "de"},
+            "display_name": {"old": "Test User", "new": "Chief"},
+            "locale": {"old": "en", "new": "fr"},
         }
 
     async def test_no_op_edit_records_nothing(self, client, db, env):
@@ -203,6 +218,16 @@ class TestBulk:
             "other@test.com": {"role": {"old": "member", "new": "viewer"}},
         }
 
+    async def test_bulk_update_that_changes_nothing_records_nothing(self, client, db, env):
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={"ids": [str(env["member_id"])], "updates": {"role": "member"}},
+            headers=env["admin_h"],
+        )
+        assert resp.status_code == 200
+        assert [u["role"] for u in resp.json()] == ["member"]
+        assert await _committed(db) == []
+
     async def test_bulk_delete_records_only_deleted_accounts(self, client, db, env):
         gone = await create_user(db, email="gone@test.com", role="member")
         gone.is_active = False
@@ -224,6 +249,27 @@ class TestBulk:
             "emails": ["gone@test.com"],
             "skipped": 1,
         }
+
+
+class TestUnlock:
+    async def test_unlocking_an_unlocked_account_records_nothing(self, client, db, env):
+        resp = await client.post(f"/api/v1/users/{env['member_id']}/unlock", headers=env["admin_h"])
+        assert resp.status_code == 200
+        assert resp.json()["failed_login_attempts"] == 0
+        assert await _committed(db) == []
+
+    async def test_clearing_failed_attempts_alone_is_recorded(self, client, db, env):
+        from app.models.user import User
+
+        member = (await db.execute(select(User).where(User.id == env["member_id"]))).scalar_one()
+        member.failed_login_attempts = 2
+        await db.flush()
+        resp = await client.post(f"/api/v1/users/{env['member_id']}/unlock", headers=env["admin_h"])
+        assert resp.status_code == 200
+
+        [row] = await _committed(db)
+        assert row.action == "admin.user.unlocked"
+        assert row.details == {"failed_login_attempts": {"old": 2, "new": 0}}
 
 
 class TestInvitations:

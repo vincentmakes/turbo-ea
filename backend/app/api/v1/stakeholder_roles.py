@@ -11,7 +11,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.api.v1.roles import permission_changes
 from app.core.permissions import (
     ALL_CARD_PERMISSION_KEYS,
     CARD_PERMISSIONS,
@@ -32,7 +31,7 @@ from app.services.permission_service import PermissionService
 router = APIRouter(tags=["stakeholder-roles"])
 
 # Fields whose old/new an ``admin.stakeholder_role.updated`` row carries;
-# ``permissions`` is narrowed to the keys that changed (``permission_changes``).
+# ``permissions`` is narrowed to the keys that changed (``audit_log.permission_changes``).
 SRD_AUDIT_FIELDS = ("label", "color", "sort_order", "counts_for_quality")
 
 
@@ -557,7 +556,7 @@ async def update_stakeholder_role(
     details: dict = audit_log.diff(before, srd, keys=SRD_AUDIT_FIELDS)
     if new_key:
         details["key"] = {"old": role_key, "new": new_key}
-    perms = permission_changes(permissions_before, srd.permissions)
+    perms = audit_log.permission_changes(permissions_before, srd.permissions)
     if perms:
         details["permissions"] = perms
     await _audit_srd(db, user, "updated", type_key, srd, details)

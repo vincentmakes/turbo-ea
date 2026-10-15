@@ -2139,6 +2139,7 @@
   "securityLog.entry.old": "Vorher",
   "securityLog.entry.new": "Nachher",
   "securityLog.entry.noDetails": "Keine weiteren Details erfasst.",
+  "securityLog.entry.context": "Kontext",
   "securityLog.entry.reason": "Grund",
   "users.create.passwordOptionalLocalHelperText": "Leer lassen, damit der Benutzer beim ersten Anmelden sein eigenes Passwort festlegt.",
   "extensions.intro": "Fügen Sie kundenspezifische Funktionen hinzu, ohne den Kern zu verändern. Installieren Sie vom Anbieter signierte Erweiterungen mit einem Klick aus dem integrierten Store oder laden Sie die Erweiterungs- und Lizenzdateien direkt hoch – der dateibasierte Weg benötigt keine Verbindung zum Store, sodass alles auch auf abgeschotteten (air-gapped) Instanzen funktioniert.",

@@ -69,6 +69,8 @@ Uma busca por endereço de e-mail encontra o ator, o sujeito e o alvo, de modo q
 
 Clique em uma linha para abrir o painel da entrada. Ele mostra todos os campos, incluindo o agente de usuário do navegador e os **detalhes** registrados com ela — o código de motivo de uma entrada com falha, a hora em que um bloqueio termina, o provedor de identidade de uma entrada por SSO. Quando uma entrada registra uma alteração, os detalhes aparecem como uma tabela de valores antigos e novos. Segredos nunca são armazenados: uma senha, um token ou um segredo de cliente é substituído por `***` antes de a entrada ser gravada.
 
+As informações que enquadram uma alteração sem fazer parte dela — o endereço atual de um portal e se está publicado, se as credenciais de uma conexão foram substituídas, os tipos que um mapeamento de migração cobre — são listadas em **Contexto**, abaixo da tabela.
+
 O painel não tem ações. As entradas não podem ser editadas nem excluídas.
 
 ### Exportar CSV
@@ -129,6 +131,8 @@ Cada alteração que um administrador faz na configuração da instância é reg
 
 - **Os segredos são mascarados.** Uma senha SMTP, um segredo de cliente SSO, uma chave de provedor de IA, uma credencial do ServiceNow ou qualquer outro valor secreto é escrito como `***`: a entrada mostra que ele mudou, nunca o que era nem o que passou a ser.
 - **Nunca são armazenados o texto de uma licença nem uma credencial.** Uma licença de extensão é identificada, não copiada, e uma senha que um administrador define para um usuário é registrada como alterada, nunca com o seu valor.
+
+Uma gravação que não altera nada não é registrada, nem um usuário que edita o próprio nome ou idioma no perfil. Configurações extensas — os campos, as traduções ou o layout de um tipo de ficha, os filtros de um portal — são resumidas pelo tamanho em vez de copiadas; quando o tamanho não mudou, é acrescentada uma breve impressão digital do conteúdo, para que a entrada ainda mostre que algo mudou. As substituições de permissão por papel de um tipo de ficha são a exceção: cada célula alterada é listada com o valor antigo e o novo, e um valor vazio significa que vale a permissão do próprio papel.
 
 | Área | Ações | O que é registrado |
 |------|---------|------------------|

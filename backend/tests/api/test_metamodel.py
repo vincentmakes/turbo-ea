@@ -1834,12 +1834,108 @@ class TestMetamodelAudit:
         assert updated.action == "admin.metamodel.type.updated"
         assert updated.target_label == "Audited"
         assert updated.details["label"] == {"old": "Audit Type", "new": "Audited"}
-        # The schema is summarised by section count, never stored whole.
-        assert updated.details["fields_schema"] == {"old": 1, "new": 1}
+        # The schema is summarised by section count, never stored whole — with a
+        # content fingerprint, since one section became one section.
+        fs = updated.details["fields_schema"]
+        assert fs["old"].startswith("1 item · ") and fs["new"].startswith("1 item · ")
+        assert fs["old"] != fs["new"]
         assert "description" not in updated.details
 
         assert deleted.action == "admin.metamodel.type.deleted"
         assert deleted.details["mode"] == "deleted"
+
+    async def test_role_permission_flip_records_exactly_that_cell(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        headers = auth_headers(admin)
+        await create_role(db, key="member", label="Member", permissions={"inventory.view": True})
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            role_permissions={
+                "member": {"inventory.view": True, "inventory.edit": False},
+                "viewer": {"inventory.view": False},
+            },
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={
+                "role_permissions": {
+                    "member": {"inventory.view": False, "inventory.edit": False},
+                    "viewer": {"inventory.view": False},
+                }
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "role_permissions": {
+                "old": {"member": {"inventory.view": True}},
+                "new": {"member": {"inventory.view": False}},
+            }
+        }
+
+    async def test_removing_a_deny_cell_reads_as_inherit(self, client, db, metamodel_env):
+        headers = auth_headers(metamodel_env["admin"])
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", role_permissions={"viewer": {"inventory.view": False}}
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo", json={"role_permissions": {}}, headers=headers
+        )
+        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "role_permissions": {
+                "old": {"viewer": {"inventory.view": False}},
+                "new": {"viewer": {"inventory.view": None}},
+            }
+        }
+
+    async def test_translation_typo_fix_records_two_fingerprints(self, client, db, metamodel_env):
+        headers = auth_headers(metamodel_env["admin"])
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", translations={"label": {"de": "Gerat"}}
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={"translations": {"label": {"de": "Gerät"}}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        tr = row.details["translations"]
+        assert tr["old"].startswith("1 item · ") and tr["new"].startswith("1 item · ")
+        assert tr["old"] != tr["new"]
+        assert "Gerät" not in str(row.details)
+
+    async def test_unchanged_summarised_column_records_nothing(self, client, db, metamodel_env):
+        headers = auth_headers(metamodel_env["admin"])
+        schema = [{"section": "S", "fields": [{"key": "a", "type": "text"}]}]
+        await create_card_type(
+            db,
+            key="Gizmo",
+            label="Gizmo",
+            fields_schema=schema,
+            translations={"label": {"de": "Gerät"}},
+        )
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gizmo",
+            json={
+                "label": "Gadget",
+                "fields_schema": schema,
+                "translations": {"label": {"de": "Gerät"}},
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {"label": {"old": "Gizmo", "new": "Gadget"}}
 
     async def test_built_in_type_delete_records_the_soft_delete(self, client, db, metamodel_env):
         admin = metamodel_env["admin"]

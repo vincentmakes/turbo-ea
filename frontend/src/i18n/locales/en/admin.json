@@ -2139,6 +2139,7 @@
   "securityLog.entry.old": "Before",
   "securityLog.entry.new": "After",
   "securityLog.entry.noDetails": "No further details recorded.",
+  "securityLog.entry.context": "Context",
   "securityLog.entry.reason": "Reason",
   "users.create.passwordOptionalLocalHelperText": "Leave blank to let the user set their own password on first login.",
   "extensions.intro": "Add customer-specific capabilities without changing the core. Install vendor-signed extensions one click at a time from the built-in Store, or upload the extension and license files directly — the file-based flow needs no connection to the Store, so everything still works on air-gapped instances.",

@@ -562,6 +562,28 @@ class TestRoleAudit:
             },
         }
 
+    async def test_promoting_a_default_records_each_demoted_role(self, client, db):
+        admin_id, headers = await self._admin(db)
+        member = await create_role(
+            db, key="member", label="Member", is_system=False, permissions={}
+        )
+        member.is_default = True
+        await db.flush()
+        await create_role(db, key="auditor", label="Auditor", is_system=False, permissions={})
+        resp = await client.patch(
+            "/api/v1/roles/auditor", json={"is_default": True}, headers=headers
+        )
+        assert resp.status_code == 200
+
+        rows = await _role_rows(db)
+        by_target = {r.target_id: r for r in rows}
+        assert sorted(by_target) == ["auditor", "member"]
+        assert all(r.action == "admin.role.updated" for r in rows)
+        assert all(r.actor_user_id == admin_id for r in rows)
+        assert by_target["member"].target_label == "Member"
+        assert by_target["member"].details == {"is_default": {"old": True, "new": False}}
+        assert by_target["auditor"].details == {"is_default": {"old": False, "new": True}}
+
     async def test_archive_and_restore_record(self, client, db):
         _, headers = await self._admin(db)
         await create_role(db, key="auditor", label="Auditor", is_system=False, permissions={})
@@ -592,25 +614,10 @@ class TestRoleAudit:
         assert await _role_rows(db) == []
 
 
-class TestPermissionChanges:
-    """``permission_changes`` — the pure helper behind the role diff."""
-
-    def test_only_changed_keys(self):
-        from app.api.v1.roles import permission_changes
-
-        assert permission_changes(
-            {"a": True, "b": True, "c": False}, {"a": True, "b": False, "d": True}
-        ) == {"old": {"b": True, "d": False}, "new": {"b": False, "d": True}}
-
-    def test_absent_reads_as_false(self):
-        from app.api.v1.roles import permission_changes
-
-        assert permission_changes({}, {"a": False}) == {}
-        assert permission_changes(None, None) == {}
-        assert permission_changes({"a": True}, None) == {
-            "old": {"a": True},
-            "new": {"a": False},
-        }
+class TestRoleChanges:
+    """``role_changes`` — the pure helper behind the role diff (its
+    ``permissions`` narrowing is ``audit_log.permission_changes``, tested in
+    ``tests/services/test_audit_log_service.py``)."""
 
     def test_role_changes_ignores_unchanged_fields(self):
         from app.api.v1.roles import role_changes

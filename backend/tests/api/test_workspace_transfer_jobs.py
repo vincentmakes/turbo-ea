@@ -345,6 +345,35 @@ class TestAudit:
         assert completed.origin == "system"
         assert completed.details["reason"] == "bundle_or_user_missing"
 
+    async def test_a_transfer_without_its_bundle_records_a_failure(self, client, db, env):
+        admin_id = str(env["admin"].id)
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        row = await _row(db, transfer_id)
+        row.storage_path = None
+        await db.commit()
+
+        await workspace_api._apply_job(transfer_id, admin_id)
+
+        [completed] = await _audit_rows(db, "admin.workspace.import.completed")
+        assert completed.outcome == "failure"
+        assert completed.details == {
+            "transfer_id": transfer_id,
+            "reason": "bundle_or_user_missing",
+        }
+
+    async def test_an_apply_of_a_discarded_transfer_leaves_no_row(self, client, db, env):
+        """Discarded while its apply was queued: the discard is the record."""
+        admin_id = str(env["admin"].id)
+        transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
+        resp = await client.delete(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 204
+
+        await workspace_api._apply_job(transfer_id, admin_id)
+
+        assert await _audit_rows(db, "admin.workspace.import.completed") == []
+        [discarded] = await _audit_rows(db, "admin.workspace.import.discarded")
+        assert discarded.target_id == transfer_id
+
     async def test_discard_is_recorded(self, client, db, env):
         transfer_id = (await _upload(client, env["admin"], env["bundle"])).json()["id"]
         resp = await client.delete(f"{IMPORT}/{transfer_id}", headers=auth_headers(env["admin"]))

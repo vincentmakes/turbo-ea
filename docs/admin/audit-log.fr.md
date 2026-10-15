@@ -69,6 +69,8 @@ Une recherche sur une adresse e-mail porte sur l'acteur, le sujet et la cible : 
 
 Cliquez sur une ligne pour ouvrir le panneau de l'entrée. Il affiche chaque champ, y compris l'agent utilisateur du navigateur et les **détails** enregistrés avec l'entrée — le code de motif d'une connexion échouée, l'heure de fin d'un verrouillage, le fournisseur d'identité d'une connexion SSO. Lorsqu'une entrée enregistre une modification, les détails s'affichent sous forme de tableau des anciennes et nouvelles valeurs. Les secrets ne sont jamais stockés : un mot de passe, un jeton ou un secret client est remplacé par `***` avant l'écriture de l'entrée.
 
+Les éléments qui situent une modification sans en faire partie — l'adresse actuelle d'un portail et s'il est publié, le remplacement ou non des identifiants d'une connexion, les types couverts par un mappage de migration — sont listés sous **Contexte**, sous le tableau.
+
 Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées ni supprimées.
 
 ### Exporter en CSV
@@ -129,6 +131,8 @@ Chaque modification qu'un administrateur apporte à la configuration de l'instan
 
 - **Les secrets sont masqués.** Un mot de passe SMTP, un secret client SSO, une clé de fournisseur d'IA, un identifiant ServiceNow ou toute autre valeur secrète est écrit `***` : l'entrée montre qu'il a changé, jamais ce qu'il était ni ce qu'il est devenu.
 - **Aucun texte de licence ni identifiant n'est jamais stocké.** Une licence d'extension est identifiée, pas copiée, et un mot de passe qu'un administrateur définit pour un utilisateur est enregistré comme modifié, jamais avec sa valeur.
+
+Un enregistrement qui ne change rien n'est pas consigné, pas plus qu'un utilisateur qui modifie son propre nom ou sa langue dans son profil. Une configuration volumineuse — les champs, traductions ou la mise en page d'un type de fiche, les filtres d'un portail — est résumée par sa taille plutôt que copiée ; lorsque la taille n'a pas changé, une courte empreinte du contenu est ajoutée, afin que l'entrée montre malgré tout qu'il y a eu une modification. Les surcharges de permissions par rôle d'un type de fiche font exception : chaque cellule modifiée est listée avec son ancienne et sa nouvelle valeur, une valeur vide signifiant que la permission propre du rôle s'applique.
 
 | Domaine | Actions | Ce qui est enregistré |
 |------|---------|------------------|

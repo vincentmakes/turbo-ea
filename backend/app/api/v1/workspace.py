@@ -17,7 +17,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, NamedTuple
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -296,7 +296,19 @@ async def _load(db: AsyncSession, transfer_id: uuid.UUID) -> WorkspaceTransfer:
 # ---------------------------------------------------------------------------
 
 
-async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str) -> str | None:
+class _Claim(NamedTuple):
+    """What ``_claim_bundle_path`` found.
+
+    ``path`` is the bundle to parse, ``None`` when the job cannot run;
+    ``transfer_exists`` tells the two reasons apart — a transfer that was
+    discarded while its job was queued (nothing left to report on) from one
+    whose bundle file or user is missing (marked failed, and worth a row)."""
+
+    path: str | None
+    transfer_exists: bool
+
+
+async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str) -> _Claim:
     """Validate the transfer + user and return the uploaded bundle's path.
 
     Its session closes before the caller parses the bundle: ``parse_bundle``
@@ -305,8 +317,8 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
     one at a time). Holding the job's session across it kept a pooled
     connection checked out — in an open transaction — for the entire parse.
 
-    Returns ``None`` when the job cannot run (the transfer is gone, or it has
-    already been marked failed here).
+    ``path`` is ``None`` when the job cannot run: the transfer is gone
+    (``transfer_exists=False``), or it has just been marked failed here.
     """
     async with async_session() as db:
         transfer = (
@@ -315,7 +327,7 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
             )
         ).scalar_one_or_none()
         if transfer is None:
-            return None
+            return _Claim(None, transfer_exists=False)
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
@@ -323,12 +335,12 @@ async def _claim_bundle_path(transfer_id_str: str, user_id_str: str, label: str)
             transfer.status = "failed"
             transfer.error_message = f"{label} user or uploaded bundle no longer exists"
             await db.commit()
-            return None
-        return transfer.storage_path
+            return _Claim(None, transfer_exists=True)
+        return _Claim(transfer.storage_path, transfer_exists=True)
 
 
 async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
-    storage_path = await _claim_bundle_path(transfer_id_str, user_id_str, "Preview")
+    storage_path = (await _claim_bundle_path(transfer_id_str, user_id_str, "Preview")).path
     if storage_path is None:
         return
 
@@ -385,11 +397,16 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
 
 
 async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
-    storage_path = await _claim_bundle_path(transfer_id_str, user_id_str, "Apply")
+    claim = await _claim_bundle_path(transfer_id_str, user_id_str, "Apply")
+    storage_path = claim.path
     if storage_path is None:
-        await _record_import_completed(
-            transfer_id_str, user_id_str, "failure", {"reason": "bundle_or_user_missing"}
-        )
+        # A transfer discarded while its apply was queued has its own
+        # ``admin.workspace.import.discarded`` row and nothing left to complete;
+        # only one that still exists, without its bundle or user, failed.
+        if claim.transfer_exists:
+            await _record_import_completed(
+                transfer_id_str, user_id_str, "failure", {"reason": "bundle_or_user_missing"}
+            )
         return
 
     # Parsed with no database connection held.

@@ -6,8 +6,10 @@
  * Shows the entry's metadata (the layout of `AuditLogBatchDrawer`) and its
  * `details`: a field/old/new table when every value is an `{old, new}` pair —
  * the shape `audit_log.diff()` writes — and formatted JSON otherwise. A
- * `details.reason` code is pulled out and translated through
- * `securityLog.reasons.*`.
+ * `details.context` object (plain values the backend files beside the pairs,
+ * e.g. a portal's current slug) is not part of that test: it renders beneath
+ * the table as a key/value list. A `details.reason` code is pulled out and
+ * translated through `securityLog.reasons.*`.
  */
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -35,6 +37,7 @@ import {
   isFieldDiff,
   outcomeColor,
   reasonLabelKey,
+  splitDetails,
   type SecurityLogEntry,
 } from "./SecurityLogTypes";
 
@@ -57,45 +60,77 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function DiffTable({ pairs }: { pairs: Record<string, { old: unknown; new: unknown }> }) {
+  const { t } = useTranslation("admin");
+  return (
+    <TableContainer component={Paper} variant="outlined">
+      <Table size="small" data-testid="security-details-diff">
+        <TableHead>
+          <TableRow>
+            <TableCell>{t("securityLog.entry.field")}</TableCell>
+            <TableCell>{t("securityLog.entry.old")}</TableCell>
+            <TableCell>{t("securityLog.entry.new")}</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {Object.entries(pairs).map(([field, change]) => (
+            <TableRow key={field}>
+              <TableCell>
+                <code style={{ fontSize: 12 }}>{field}</code>
+              </TableCell>
+              <TableCell sx={{ wordBreak: "break-word" }}>{formatDetailValue(change.old)}</TableCell>
+              <TableCell sx={{ wordBreak: "break-word" }}>{formatDetailValue(change.new)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
+
+function ContextList({ context }: { context: Record<string, unknown> }) {
+  const { t } = useTranslation("admin");
+  return (
+    <Box data-testid="security-details-context">
+      <Typography variant="caption" color="text.secondary">
+        {t("securityLog.entry.context")}
+      </Typography>
+      <Box component="dl" sx={{ m: 0, mt: 0.5 }}>
+        {Object.entries(context).map(([key, value]) => (
+          <Box key={key} sx={{ display: "flex", gap: 1, typography: "body2", minWidth: 0 }}>
+            <Box component="dt" sx={{ flexShrink: 0 }}>
+              <code style={{ fontSize: 12 }}>{key}</code>
+            </Box>
+            <Box component="dd" sx={{ m: 0, wordBreak: "break-word" }}>
+              {formatDetailValue(value)}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 function DetailsBlock({ details }: { details: Record<string, unknown> | null }) {
   const { t } = useTranslation("admin");
   const rest = details ? { ...details } : null;
   if (rest) delete rest.reason;
-  if (!rest || Object.keys(rest).length === 0) {
+  const { pairs, context } = splitDetails(rest ?? {});
+  const ctx = context && Object.keys(context).length > 0 ? context : null;
+  const hasPairs = Object.keys(pairs).length > 0;
+  if (!rest || (!hasPairs && !ctx)) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
         {t("securityLog.entry.noDetails")}
       </Typography>
     );
   }
-  if (isFieldDiff(rest)) {
+  if (!hasPairs || isFieldDiff(pairs)) {
     return (
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small" data-testid="security-details-diff">
-          <TableHead>
-            <TableRow>
-              <TableCell>{t("securityLog.entry.field")}</TableCell>
-              <TableCell>{t("securityLog.entry.old")}</TableCell>
-              <TableCell>{t("securityLog.entry.new")}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {Object.entries(rest).map(([field, change]) => (
-              <TableRow key={field}>
-                <TableCell>
-                  <code style={{ fontSize: 12 }}>{field}</code>
-                </TableCell>
-                <TableCell sx={{ wordBreak: "break-word" }}>
-                  {formatDetailValue(change.old)}
-                </TableCell>
-                <TableCell sx={{ wordBreak: "break-word" }}>
-                  {formatDetailValue(change.new)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Stack spacing={1.5}>
+        {hasPairs && isFieldDiff(pairs) && <DiffTable pairs={pairs} />}
+        {ctx && <ContextList context={ctx} />}
+      </Stack>
     );
   }
   return (

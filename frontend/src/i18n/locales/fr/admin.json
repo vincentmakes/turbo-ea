@@ -2139,6 +2139,7 @@
   "securityLog.entry.old": "Avant",
   "securityLog.entry.new": "Après",
   "securityLog.entry.noDetails": "Aucun autre détail enregistré.",
+  "securityLog.entry.context": "Contexte",
   "securityLog.entry.reason": "Motif",
   "users.create.passwordOptionalLocalHelperText": "Laissez vide pour que l'utilisateur définisse son mot de passe à la première connexion.",
   "extensions.intro": "Ajoutez des fonctionnalités spécifiques au client sans modifier le cœur. Installez en un clic des extensions signées par l'éditeur depuis la Boutique intégrée, ou téléversez directement les fichiers d'extension et de licence — le parcours par fichiers ne nécessite aucune connexion à la Boutique, si bien que tout fonctionne aussi sur des instances isolées (air-gapped).",

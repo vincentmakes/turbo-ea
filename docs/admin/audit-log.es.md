@@ -69,6 +69,8 @@ Una búsqueda por dirección de correo coincide con el actor, el sujeto y el des
 
 Haga clic en una fila para abrir el panel de la entrada. Muestra todos sus campos, incluido el agente de usuario del navegador y los **detalles** registrados con ella — el código de motivo de un inicio de sesión fallido, la hora en que termina un bloqueo, el proveedor de identidad de un inicio de sesión SSO. Cuando una entrada registra un cambio, los detalles se muestran como una tabla de valores anteriores y nuevos. Los secretos nunca se almacenan: una contraseña, un token o un secreto de cliente se sustituye por `***` antes de escribir la entrada.
 
+Los datos que sitúan un cambio sin formar parte de él — la dirección actual de un portal y si está publicado, si se sustituyeron las credenciales de una conexión, los tipos que cubre un mapeo de migración — se muestran en **Contexto**, debajo de la tabla.
+
 El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
 
 ### Exportar CSV
@@ -129,6 +131,8 @@ Cada cambio que un administrador hace en la configuración de la instancia se re
 
 - **Los secretos se enmascaran.** Una contraseña SMTP, un secreto de cliente SSO, una clave de proveedor de IA, una credencial de ServiceNow o cualquier otro valor secreto se escribe como `***`: la entrada muestra que cambió, nunca lo que era ni lo que pasó a ser.
 - **Nunca se almacena el texto de una licencia ni una credencial.** Una licencia de extensión se identifica, no se copia, y una contraseña que un administrador establece para un usuario se registra como cambiada, nunca con su valor.
+
+Un guardado que no cambia nada no se registra, como tampoco un usuario que edita su propio nombre o idioma en su perfil. La configuración extensa — los campos, las traducciones o el diseño de un tipo de ficha, los filtros de un portal — se resume por su tamaño en lugar de copiarse; cuando el tamaño no cambió, se añade una breve huella del contenido, de modo que la entrada sigue mostrando que algo cambió. Las anulaciones de permisos por rol de un tipo de ficha son la excepción: cada celda que cambió se muestra con su valor antiguo y nuevo, y un valor vacío significa que se aplica el permiso propio del rol.
 
 | Área | Acciones | Qué se registra |
 |------|---------|------------------|

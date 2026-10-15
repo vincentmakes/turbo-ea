@@ -508,19 +508,22 @@ async def bulk_update_users(
         if user_changes:
             changed[u.email] = user_changes
 
-    await audit_log.record(
-        db,
-        action="admin.user.bulk_updated",
-        category="admin",
-        actor=current_user,
-        target=("users", None, f"{len(users)} users"),
-        details={
-            "count": len(users),
-            "user_ids": [str(u.id) for u in users],
-            "fields": data,
-            "changes": changed,
-        },
-    )
+    # Re-applying values every selected user already holds changes nothing,
+    # and "nothing changed" is not an audit event.
+    if changed:
+        await audit_log.record(
+            db,
+            action="admin.user.bulk_updated",
+            category="admin",
+            actor=current_user,
+            target=("users", None, f"{len(users)} users"),
+            details={
+                "count": len(users),
+                "user_ids": [str(u.id) for u in users],
+                "fields": data,
+                "changes": changed,
+            },
+        )
     await db.commit()
 
     refreshed = await db.execute(select(User).where(User.id.in_(target_uuids)))
@@ -932,7 +935,10 @@ async def update_user(
     if sets_password and not changes_own_password:
         # An administrator set someone else's password: say so, never what to.
         details["password"] = {"old": audit_log.MASK, "new": audit_log.MASK}
-    if details:
+    # A user editing their own profile (name, locale) is not an administrative
+    # act, so only an ``admin.users`` holder's edit is recorded — their own
+    # profile included. The self-service password change above is its own row.
+    if details and is_admin:
         await audit_log.record(
             db,
             action="admin.user.updated",
@@ -970,24 +976,28 @@ async def unlock_user(
     if not u:
         raise HTTPException(404, "User not found")
 
-    details = {
-        "failed_login_attempts": {"old": u.failed_login_attempts or 0, "new": 0},
-        "locked_until": {
-            "old": u.locked_until.isoformat() if u.locked_until else None,
-            "new": None,
+    # Only what was actually cleared is reported. Unlocking an account that
+    # holds no lock and no failed attempts is a no-op: it answers 200 as before
+    # but records nothing.
+    details = audit_log.diff(
+        {
+            "failed_login_attempts": u.failed_login_attempts or 0,
+            "locked_until": u.locked_until.isoformat() if u.locked_until else None,
         },
-    }
+        {"failed_login_attempts": 0, "locked_until": None},
+    )
     u.failed_login_attempts = 0
     u.locked_until = None
-    await audit_log.record(
-        db,
-        action="admin.user.unlocked",
-        category="admin",
-        actor=current_user,
-        subject_email=u.email,
-        target=_user_target(u),
-        details=details,
-    )
+    if details:
+        await audit_log.record(
+            db,
+            action="admin.user.unlocked",
+            category="admin",
+            actor=current_user,
+            subject_email=u.email,
+            target=_user_target(u),
+            details=details,
+        )
     await db.commit()
     return _user_response(u)
 

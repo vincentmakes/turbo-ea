@@ -92,3 +92,22 @@ export function isFieldDiff(
       "new" in (v as object),
   );
 }
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/**
+ * Split `details` into the `{old, new}` pairs and the `context` object the
+ * backend files plain values under (a portal's current slug, whether a
+ * connection's credentials moved). `context` is only split off when it is a
+ * plain object; otherwise it stays with the rest and the JSON fallback shows it.
+ */
+export function splitDetails(rest: Record<string, unknown>): {
+  pairs: Record<string, unknown>;
+  context: Record<string, unknown> | null;
+} {
+  const { context, ...pairs } = rest;
+  if (isPlainObject(context)) return { pairs, context };
+  return { pairs: rest, context: null };
+}

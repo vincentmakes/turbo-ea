@@ -69,6 +69,8 @@ Una ricerca per indirizzo email trova corrispondenze nell'attore, nel soggetto e
 
 Fate clic su una riga per aprire il pannello della voce. Mostra ogni campo, compreso lo user agent del browser e i **dettagli** registrati con la voce — il codice di motivo di un accesso fallito, l'ora in cui termina un blocco, il provider di identità di un accesso SSO. Quando una voce registra una modifica, i dettagli appaiono come tabella dei valori precedenti e nuovi. I segreti non vengono mai memorizzati: una password, un token o un client secret viene sostituito con `***` prima che la voce venga scritta.
 
+Le informazioni che inquadrano una modifica senza farne parte — l'indirizzo attuale di un portale e se è pubblicato, se le credenziali di una connessione sono state sostituite, i tipi coperti da una mappatura di migrazione — sono elencate in **Contesto**, sotto la tabella.
+
 Il pannello non offre azioni. Le voci non si possono modificare né eliminare.
 
 ### Esporta CSV
@@ -129,6 +131,8 @@ Ogni modifica che un amministratore apporta alla configurazione dell'istanza vie
 
 - **I segreti sono mascherati.** Una password SMTP, un client secret SSO, una chiave del fornitore di IA, una credenziale ServiceNow o qualsiasi altro valore segreto viene scritto come `***`: la voce mostra che è cambiato, mai cosa era o cosa è diventato.
 - **Non vengono mai memorizzati il testo di una licenza né una credenziale.** Una licenza di estensione viene identificata, non copiata, e una password che un amministratore imposta per un utente viene registrata come modificata, mai con il suo valore.
+
+Un salvataggio che non cambia nulla non viene registrato, né lo è un utente che modifica il proprio nome o la propria lingua nel profilo. La configurazione voluminosa — i campi, le traduzioni o il layout di un tipo di scheda, i filtri di un portale — viene riassunta dalla sua dimensione anziché copiata; quando la dimensione non è cambiata, si aggiunge una breve impronta del contenuto, così la voce mostra comunque che qualcosa è cambiato. Le sostituzioni dei permessi per ruolo di un tipo di scheda fanno eccezione: ogni cella modificata è elencata con il valore vecchio e quello nuovo, dove un valore vuoto indica che vale il permesso del ruolo stesso.
 
 | Area | Azioni | Cosa viene registrato |
 |------|---------|------------------|

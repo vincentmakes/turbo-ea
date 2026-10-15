@@ -686,11 +686,13 @@ class TestAudit:
         assert all(r.actor_user_id == admin_id and r.category == "admin" for r in rows)
         assert rows[0].target_id == conn_id
         assert rows[0].details == {"instance_url": INSTANCE, "auth_type": "basic"}
+        # Plain context values sit under ``context`` so the top level is old/new
+        # pairs only — the shape the Security log drawer renders as a table.
         assert rows[1].details == {
             "name": {"old": "SNOW", "new": "SNOW prod"},
-            "credentials_changed": True,
+            "context": {"credentials_changed": True},
         }
-        assert rows[2].details == {"credentials_changed": False}
+        assert rows[2].details == {"context": {"credentials_changed": False}}
         for row in rows:
             dumped = repr((row.details, row.target_label, row.target_id, row.subject_email))
             assert NEW_PASSWORD not in dumped

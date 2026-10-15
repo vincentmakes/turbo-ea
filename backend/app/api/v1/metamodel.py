@@ -55,7 +55,10 @@ _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 # Every metamodel write records one ``admin.*`` row (``services/audit_log``).
 # The big JSON columns (a type's ``fields_schema`` can run to hundreds of
 # fields) are summarised by size rather than stored whole, so an audit row stays
-# small; the scalar columns are diffed in full.
+# small — with a content fingerprint when the size alone would not show the
+# change (``audit_log.summarised_change``). ``role_permissions`` is the
+# exception: it is RBAC, so the cells that changed are recorded exactly. The
+# scalar columns are diffed in full.
 
 _TYPE_AUDIT_SCALARS = (
     "label",
@@ -106,18 +109,48 @@ def _audit_snapshot(obj: object, fields: tuple[str, ...]) -> dict:
     return {f: copy.deepcopy(getattr(obj, f, None)) for f in fields}
 
 
+def _role_permission_changes(old: object, new: object) -> dict[str, dict[str, object]]:
+    """``{"old": {role: {cell: …}}, "new": {role: {cell: …}}}`` for the
+    per-role override cells of a card type that changed — only those cells.
+
+    An absent cell inherits the role's global grant, so it reads as ``None``
+    (``audit_log.permission_changes(..., absent=None)``): Allow → Deny reads
+    ``True → False`` and removing a Deny reads ``False → None``. Empty when no
+    cell changed."""
+    before = old if isinstance(old, dict) else {}
+    after = new if isinstance(new, dict) else {}
+    old_cells: dict[str, object] = {}
+    new_cells: dict[str, object] = {}
+    for role in sorted(set(before) | set(after)):
+        cells = audit_log.permission_changes(before.get(role), after.get(role), absent=None)
+        if cells:
+            old_cells[role] = cells["old"]
+            new_cells[role] = cells["new"]
+    if not old_cells:
+        return {}
+    return {"old": old_cells, "new": new_cells}
+
+
 def _audit_changes(
     before: dict, after: dict, summarised: tuple[str, ...] = ()
 ) -> dict[str, dict[str, object]]:
-    """``audit_log.diff`` of two snapshots, with every ``summarised`` column that
-    changed reported as ``{"old": <entry count>, "new": <entry count>}``."""
+    """``audit_log.diff`` of two snapshots. Every ``summarised`` column that
+    changed is reported by ``audit_log.summarised_change`` (entry count, plus a
+    content fingerprint when the count is unchanged) and dropped when its
+    content is identical; ``role_permissions`` is diffed cell by cell."""
     changes = audit_log.diff(before, after)
     for key in summarised:
-        if key in changes:
-            changes[key] = {
-                "old": _json_size(changes[key]["old"]),
-                "new": _json_size(changes[key]["new"]),
-            }
+        if key not in changes:
+            continue
+        old, new = changes[key]["old"], changes[key]["new"]
+        if key == "role_permissions":
+            summary = _role_permission_changes(old, new) or None
+        else:
+            summary = audit_log.summarised_change(old, new, measure=_json_size)
+        if summary is None:
+            del changes[key]
+        else:
+            changes[key] = summary
     return changes
 
 
