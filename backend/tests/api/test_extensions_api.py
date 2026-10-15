@@ -2026,7 +2026,12 @@ class TestExtensionAudit:
         # A pending claim commits nothing, and reading the log rolls back:
         # make the admin durable first.
         await db.commit()
-        mock_store(monkeypatch, catalog=catalog_payload(), claim={"status": "pending"})
+        # One mock for both requests: ``mock_store`` wraps whatever
+        # ``httpx.AsyncClient`` currently is, so patching twice would nest the
+        # factories and pass ``transport`` twice. The handler reads ``claim``
+        # by closure, so mutating the dict flips the store's answer.
+        claim: dict = {"status": "pending"}
+        mock_store(monkeypatch, catalog=catalog_payload(), claim=claim)
         res = await client.post(
             "/api/v1/admin/extensions/store/claim", json={"token": CLAIM_TOKEN}, headers=headers
         )
@@ -2034,9 +2039,8 @@ class TestExtensionAudit:
         assert await _audit_rows(db, "admin.extension.store.") == []
 
         text = make_license_text(vendor, renewal_key=RENEWAL_KEY)
-        mock_store(
-            monkeypatch, catalog=catalog_payload(), claim={"status": "applied", "license": text}
-        )
+        claim.clear()
+        claim.update({"status": "applied", "license": text})
         res = await client.post(
             "/api/v1/admin/extensions/store/claim", json={"token": CLAIM_TOKEN}, headers=headers
         )

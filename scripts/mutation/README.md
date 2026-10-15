@@ -35,7 +35,11 @@ changed.
 4. `gate.py --scope diff` scores them: killed / (killed + survived). It fails
    under the `[diff]` floor in `floors.toml`, once at least `min_mutants` are
    in scope; below that it warns and the PR's Test Plan answers for each
-   survivor.
+   survivor. The changed lines of a file listed under `[modules]` answer to
+   that module's own floor instead, however few they are: the diff floor's
+   60% let #1247 add 540 mutants to a 97% module and take it under its floor,
+   which only the nightly noticed. A survivor there is killed, or marked with
+   a reasoned pragma when it is genuinely equivalent.
 
 **Every working-day evening** (`mutation-nightly.yml`, Sunday to Thursday,
 17:13 UTC; GitHub starts it several hours late, so the results land before the
@@ -97,7 +101,7 @@ just new lines.
 |---|---|---|
 | `[diff]` | mutants on a PR's changed lines | the PR jobs |
 | `[suite]` | every mutant of a suite | the nightly |
-| `[modules]` | every mutant of one critical file | the nightly |
+| `[modules]` | every mutant of one critical file, and its changed lines on a PR | the nightly, and the PR jobs |
 
 They only go up. A PR that raises a measured score raises its floor in the
 same diff. Nothing ever lowers one, and the way past a floor is never to
