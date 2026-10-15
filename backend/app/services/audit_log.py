@@ -137,15 +137,23 @@ _WIDTHS = {
 }
 
 
+# A key that names WHERE a credential is used rather than the credential: the
+# SSO ``token_endpoint``, the e-mail ``oauth_token_endpoint``, ``jwks_uri``.
+# The stem pattern would mask them, and an auditor reading an SSO change needs
+# the endpoint it now points at. A workspace-transfer secret path or an
+# extension secret (``ext.<key>.secret.*``) still masks whatever its suffix.
+_LOCATION_SUFFIX = re.compile(r"(_endpoint|_url|_uri)$", re.IGNORECASE)
+
+
 def is_secret_key(key: Any) -> bool:
     """True when a mapping key names a credential."""
     if not isinstance(key, str):
         return False
-    return (
-        key in _SECRET_LEAF_KEYS
-        or is_extension_secret_key(key)
-        or bool(_SECRET_KEY_PATTERN.search(key))
-    )
+    if key in _SECRET_LEAF_KEYS or is_extension_secret_key(key):
+        return True
+    if _LOCATION_SUFFIX.search(key):
+        return False
+    return bool(_SECRET_KEY_PATTERN.search(key))
 
 
 def _mask_all(value: Any) -> Any:

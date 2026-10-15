@@ -633,3 +633,26 @@ def test_items_may_be_any_sequence():
     assert audit_log.validate_details(merged) == {
         "items": [{"kind": "user.deleted", "user": "a@x"}]
     }
+
+
+def test_is_secret_key_spares_names_that_say_where_a_credential_is_used():
+    # The stem ``token`` is in ``token_endpoint``; an auditor needs the URL an
+    # SSO change points at, so a location suffix wins over the stem.
+    for name in ("token_endpoint", "oauth_token_endpoint", "jwks_uri", "issuer_url"):
+        assert audit_log.is_secret_key(name) is False, name
+    for name in ("token", "access_token", "smtp_password", "oauth_client_secret"):
+        assert audit_log.is_secret_key(name) is True, name
+    # A workspace-transfer secret path or an extension secret still masks,
+    # whatever its suffix.
+    assert audit_log.is_secret_key("ext.acme.secret.api_url") is True
+
+
+def test_redact_keeps_an_endpoint_change_readable():
+    changes = {
+        "token_endpoint": {"old": "https://a/token", "new": "https://b/token"},
+        "client_secret": {"old": "x", "new": "y"},
+    }
+    assert audit_log.redact(changes) == {
+        "token_endpoint": {"old": "https://a/token", "new": "https://b/token"},
+        "client_secret": {"old": "***", "new": "***"},
+    }
