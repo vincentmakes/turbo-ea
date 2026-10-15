@@ -449,8 +449,11 @@ class TestListSurveys:
         assert [s.name for s in await bridge.list_surveys(status="closed")] == ["Closed"]
         assert [s.name for s in await bridge.list_surveys(status="draft")] == ["Draft"]
         assert await bridge.list_surveys(target_type="Nothing") == ()
-        with pytest.raises(ExtensionDataError, match="Unknown survey status 'pending'"):
+        with pytest.raises(ExtensionDataError) as refused:
             await bridge.list_surveys(status="pending")
+        assert str(refused.value) == (
+            "Unknown survey status 'pending' (expected one of draft, active, closed)"
+        )
 
     async def test_limit_is_clamped(self, db, surveyed):
         load_registry(grants=["core.surveys.read"])
@@ -524,3 +527,55 @@ class TestPendingResponses:
         bridge = ExtensionSurveys(KEY)
         assert await bridge.pending_responses("not-a-uuid") == ()
         assert await bridge.pending_responses(str(uuid.uuid4())) == ()
+
+
+class TestReadOrderingAndDefaults:
+    async def test_surveys_tie_break_on_creation_then_id(self, db, env):
+        load_registry(grants=["core.surveys.read"])
+        # Drafts have no send time: newest creation first. Inserted oldest
+        # first, so neither table order nor id order matches by chance.
+        drafts = [
+            await _survey(
+                db, name=f"Draft {i}", status="draft", created_at=NOW - timedelta(days=10 - i)
+            )
+            for i in range(5)
+        ]
+        created = NOW - timedelta(days=2)
+        same = [
+            await _survey(db, name=f"Same {i}", status="closed", sent_at=NOW, created_at=created)
+            for i in range(5)
+        ]
+        bridge = ExtensionSurveys(KEY)
+        listed = await bridge.list_surveys(status="draft")
+        assert [s.id for s in listed] == [str(d.id) for d in reversed(drafts)]
+        closed = await bridge.list_surveys(status="closed")
+        assert [s.id for s in closed] == sorted(str(s.id) for s in same)
+
+    async def test_pending_rows_tie_break_on_id(self, db, env):
+        load_registry(grants=["core.surveys.read"])
+        survey = await _survey(db, name="Tie", sent_at=NOW)
+        at = NOW - timedelta(days=4)
+        rows = []
+        for i in range(5):
+            person = await create_user(
+                db, email=f"tie{i}@test.com", role="member", display_name=f"Tie {i}"
+            )
+            rows.append(await _request(db, survey, env["a"], person, created_at=at))
+        out = await ExtensionSurveys(KEY).pending_responses(str(survey.id))
+        assert [r.user_id for r in out] == [
+            str(r.user_id) for r in sorted(rows, key=lambda r: str(r.id))
+        ]
+
+    def test_signature_defaults_match_the_protocol(self):
+        import inspect
+
+        from app.services.extensions.sdk import SurveysBridge
+
+        for cls in (SurveysBridge, ExtensionSurveys):
+            listing = inspect.signature(cls.list_surveys).parameters
+            assert listing["status"].default == "active"
+            assert listing["target_type"].default is None
+            assert listing["limit"].default == 200
+            pending = inspect.signature(cls.pending_responses).parameters
+            assert pending["card_ids"].default is None
+            assert pending["limit"].default == 5000

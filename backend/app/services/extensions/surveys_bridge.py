@@ -98,8 +98,8 @@ async def _response_counts(
     rows = await db.execute(
         select(
             SurveyResponse.survey_id,
-            func.count(SurveyResponse.id),
-            func.count(SurveyResponse.id).filter(SurveyResponse.status == "completed"),
+            func.count(),
+            func.count().filter(SurveyResponse.status == "completed"),
             func.count(func.distinct(SurveyResponse.card_id)),
             func.count(func.distinct(SurveyResponse.user_id)),
         )
@@ -178,7 +178,7 @@ async def _pending_rows(
             SurveyResponse.status,
             SurveyResponse.created_at,
         )
-        .join(Card, Card.id == SurveyResponse.card_id)
+        .join(Card)  # survey_responses has one foreign key to cards
         .where(
             SurveyResponse.survey_id == survey_id,
             SurveyResponse.status == "pending",
@@ -294,7 +294,7 @@ class ExtensionSurveys(SurveysBridge):
     ) -> tuple[ExtSurvey, ...]:
         """Surveys in ``status`` (``draft``, ``active`` or ``closed``), newest
         send first, at most ``limit`` (capped at 200) — whoever sent them."""
-        self._require(write=False)
+        self._require(write=False)  # pragma: no mutate, write=None reads as False
         async with async_session() as db:
             return await _list_surveys(db, status=status, target_type=target_type, limit=limit)
 
@@ -305,7 +305,7 @@ class ExtensionSurveys(SurveysBridge):
         first, optionally only about ``card_ids`` (at most 500; a malformed id
         is refused). An unknown survey id answers ``()``, like ``get``
         answers ``None``."""
-        self._require(write=False)
+        self._require(write=False)  # pragma: no mutate, write=None reads as False
         try:
             sid = uuid.UUID(str(survey_id))
         except (TypeError, ValueError):
