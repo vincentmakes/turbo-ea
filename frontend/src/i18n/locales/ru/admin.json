@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Предлагаемое значение:",
   "surveys.respond.searchRelated": "Поиск карточек для связи...",
   "surveys.respond.searchPeople": "Поиск людей...",
-  "surveys.respond.openCardTooltip": "Открыть карточку в новой вкладке",
+  "surveys.respond.openCardTooltip": "Открыть карточку в боковой панели",
   "surveys.respond.lifecycleSection": "Жизненный цикл",
   "surveys.respond.stakeholderSection": "Заинтересованные лица",
   "surveys.respond.stakeholderMaintainInstruction": "Укажите всех, кто должен иметь роль {{role}} для {{card}}.",

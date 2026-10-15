@@ -37,6 +37,7 @@ import math
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import exists, select
@@ -823,6 +824,7 @@ async def update_card(
     strict_attributes: bool = False,
     dry_run: bool = False,
     event_extra: dict | None = None,
+    deferred_notifications: list[dict] | None = None,
 ) -> bool:
     """Apply an update payload to ``card`` with full validation and side
     effects. Returns True when anything actually changed. ``updates`` is the
@@ -831,6 +833,17 @@ async def update_card(
     already have been applied by route callers. ``event_extra`` is merged into
     the ``card.updated`` payload — the survey apply path stamps the survey the
     change came from; ``id`` and ``changes`` always win over it.
+
+    ``deferred_notifications`` changes where the subscriber nudges go. By
+    default they are created inline on ``db`` — one SMTP round-trip per emailed
+    stakeholder, on the caller's open transaction — which is right for one
+    edit on a request path. A caller writing many cards in one request (the
+    survey apply) passes a list instead: every recipient is appended to it as
+    ``{"notif_type", "user_id", "title", "message", "link", "card_id", "data"}``
+    and nothing is created here, so the caller can hand each type's rows to
+    ``notification_service.deliver_notification_batch`` once the transaction
+    has committed. The ``card_updated`` rows and the approval-broken rows both
+    land in the same list, told apart by ``notif_type``.
     """
     # The human-readable reference is write-once & immutable — never editable via
     # update (defensive: CardUpdate no longer carries it, but drop any stray).
@@ -997,25 +1010,59 @@ async def update_card(
 
         # Notify subscribers about the update
         changed_fields = ", ".join(changes.keys())
-        await notification_service.create_notifications_for_subscribers(
-            db,
-            card_id=card.id,
-            actor_id=actor.user_id,
-            notif_type="card_updated",
-            title=f"{card.name} Updated",
-            message=f'{actor.display_name} updated "{card.name}" ({changed_fields})',
-            link=f"/cards/{card.id}",
-            data={"changes": list(changes.keys())},
-        )
+        updated_notice: dict[str, Any] = {
+            "notif_type": "card_updated",
+            "title": f"{card.name} Updated",
+            "message": f'{actor.display_name} updated "{card.name}" ({changed_fields})',
+            "link": f"/cards/{card.id}",
+            "data": {"changes": list(changes.keys())},
+        }
+        if deferred_notifications is None:
+            await notification_service.create_notifications_for_subscribers(
+                db,
+                card_id=card.id,
+                actor_id=actor.user_id,
+                notif_type="card_updated",
+                title=updated_notice["title"],
+                message=updated_notice["message"],
+                link=updated_notice["link"],
+                data=updated_notice["data"],
+            )
+        else:
+            for user_id in await _subscriber_ids(db, card.id, exclude=actor.user_id):
+                deferred_notifications.append(
+                    {**updated_notice, "user_id": user_id, "card_id": card.id}
+                )
         # …and separately that it now needs re-review. Two entries for one edit
         # is deliberate: "what changed" and "your approval is void" are
         # different facts, and the preferences dialog switches them apart.
         if approval_broke:
-            await card_approval.notify_approval_broken(
-                db, card=card, actor_id=actor.user_id, actor_display_name=actor.display_name
-            )
+            if deferred_notifications is None:
+                await card_approval.notify_approval_broken(
+                    db, card=card, actor_id=actor.user_id, actor_display_name=actor.display_name
+                )
+            else:
+                recipients = await card_approval.build_approval_broken_recipients(
+                    db, cards=[card], actor_id=actor.user_id, actor_display_name=actor.display_name
+                )
+                deferred_notifications.extend(
+                    {"notif_type": card_approval.NOTIF_TYPE, **r} for r in recipients
+                )
 
     return True
+
+
+async def _subscriber_ids(
+    db: AsyncSession, card_id: uuid.UUID, *, exclude: uuid.UUID | None
+) -> list[uuid.UUID]:
+    """The distinct people holding any stakeholder role on the card, minus the
+    actor — one nudge per person, however many roles they hold."""
+    from app.models.stakeholder import Stakeholder
+
+    rows = await db.execute(
+        select(Stakeholder.user_id).where(Stakeholder.card_id == card_id).distinct()
+    )
+    return [uid for uid in rows.scalars().all() if uid != exclude]
 
 
 async def resolve_archive_delete_set(

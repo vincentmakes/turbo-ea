@@ -195,21 +195,38 @@ def normalise_lifecycle_answer(value: object) -> str | None:
 
 
 def ref_ids(new_value: object) -> set[uuid.UUID]:
-    """Parse a proposed set of cards or people into UUIDs. Accepts a list of
-    ``{id, …}`` refs or bare id strings; silently drops anything that is not a
-    valid UUID."""
-    ids: set[uuid.UUID] = set()
+    """Parse a proposed set of cards or people into UUIDs.
+
+    Accepts a list of ``{id, …}`` refs or bare id strings — the two shapes the
+    response form writes. Anything else is **refused**, never trimmed: a
+    stakeholder answer that is not a list, or that carries an id no UUID can be
+    read from, is not a shorter list of people — it is an answer nobody gave,
+    and applying what survived the trim would empty a role on the strength of
+    a malformed payload. Only ``submit_response`` and the apply call this, so
+    both halves refuse the same thing.
+    """
     if not isinstance(new_value, list):
-        return ids
+        raise SurveyFieldError("Expected a list of references")
+    ids: set[uuid.UUID] = set()
     for ref in new_value:
         rid = ref.get("id") if isinstance(ref, dict) else ref
-        if not rid:
-            continue
         try:
             ids.add(uuid.UUID(str(rid)))
-        except (ValueError, TypeError):
-            continue
+        except (ValueError, TypeError, AttributeError):
+            raise SurveyFieldError(f"Not a reference: {rid!r}") from None
     return ids
+
+
+def snapshot_ids(value: object) -> set[uuid.UUID] | None:
+    """The ids a response's ``current_value`` snapshot named, or ``None`` when
+    the response carries no usable snapshot (a row written before the snapshot
+    existed, or one whose snapshot is not a list)."""
+    if not isinstance(value, list):
+        return None
+    try:
+        return ref_ids(value)
+    except SurveyFieldError:
+        return None
 
 
 # ── Provenance ──────────────────────────────────────────────────────────────
@@ -248,8 +265,11 @@ async def apply_relation_change(
     """Sync the surveyed card's relations of one type to the respondent's
     proposed set: create the links they added, delete the ones they removed.
     Emits relation events for both endpoints (audit parity with the relations
-    API) and recalculates calculated fields on every touched card. Returns
-    True when anything changed."""
+    API) and recalculates calculated fields on every touched card. A malformed
+    answer (not a list, or an id no UUID can be read from) is refused through
+    ``ref_ids``; a well-formed id whose card is gone or archived is skipped,
+    since a card can legitimately leave between the answer and the apply.
+    Returns True when anything changed."""
     # Local imports keep this module importable from card_write_service's
     # import graph without a cycle.
     from app.services.calculation_engine import run_calculations_for_card
@@ -344,14 +364,29 @@ async def apply_stakeholder_change(
     new_value: object,
     actor_id: uuid.UUID,
     extra: dict | None = None,
+    snapshot: object = None,
 ) -> bool:
-    """Make the **active** holders of ``role`` on the card exactly the people the
-    respondent listed. Adds and removes ``Stakeholder`` rows, publishes
-    ``stakeholder.added`` / ``stakeholder.removed`` for each (so rollback and the
-    History tab treat them like any other assignment), and rescores the card
-    once. A listed person who is unknown or deactivated is skipped; a
-    deactivated holder is never removed, since the respondent could not see
-    them. Returns True when anything changed."""
+    """Apply the respondent's edit to the holders of ``role`` on the card.
+
+    The answer is read as a **diff against what the respondent saw** — the
+    ``current_value`` snapshot the form stored with it — not as the complete
+    holder list: the people they added are added, the people they removed are
+    removed, and a holder who joined between the answer and the apply (another
+    respondent's answer, an assignment on the card) stays. Two respondents'
+    answers to the same role therefore compose instead of the second
+    overwriting the first. A response with no snapshot falls back to making
+    the active holders exactly the listed people.
+
+    Both halves are then checked against the live rows, so nothing is added
+    twice or removed twice. Publishes ``stakeholder.added`` /
+    ``stakeholder.removed`` for each change (so rollback and the History tab
+    treat them like any other assignment) and rescores the card once. A listed
+    id that matches **no user** refuses the answer — on another instance, or
+    after a hand edit, that is a different list of people, not a shorter one. A
+    deactivated person is skipped rather than added, and a deactivated holder
+    is never removed, since the respondent could not see them. Returns True
+    when anything changed.
+    """
     roles = await stakeholder_service.roles_for_type(db, card.type)
     labels = stakeholder_service.role_labels([r for r in roles if isinstance(r, dict)])
     if role not in labels:
@@ -359,10 +394,15 @@ async def apply_stakeholder_change(
     role_label = labels[role] or role
 
     wanted = ref_ids(new_value)
-    active_wanted: dict[uuid.UUID, User] = {}
+    known: dict[uuid.UUID, User] = {}
     if wanted:
-        rows = await db.execute(select(User).where(User.id.in_(wanted), User.is_active.is_(True)))
-        active_wanted = {u.id: u for u in rows.scalars().all()}
+        rows = await db.execute(select(User).where(User.id.in_(wanted)))
+        known = {u.id: u for u in rows.scalars().all()}
+    unknown = wanted - set(known)
+    if unknown:
+        raise SurveyFieldError(
+            f"{len(unknown)} of the people listed for {role_label} match no user"
+        )
 
     holder_rows = await db.execute(
         select(Stakeholder, User)
@@ -373,13 +413,21 @@ async def apply_stakeholder_change(
         sh.user_id: (sh, u) for sh, u in holder_rows.all()
     }
 
-    to_add = [uid for uid in active_wanted if uid not in current]
-    to_remove = [uid for uid, (_, u) in current.items() if u.is_active and uid not in wanted]
+    seen = snapshot_ids(snapshot)
+    if seen is None:
+        add_ids = wanted - set(current)
+        remove_ids = set(current) - wanted
+    else:
+        add_ids = wanted - seen
+        remove_ids = seen - wanted
+
+    to_add = [uid for uid in add_ids if uid not in current and known[uid].is_active]
+    to_remove = [uid for uid in remove_ids if uid in current and current[uid][1].is_active]
     if not to_add and not to_remove:
         return False
 
     for uid in sorted(to_add):
-        person = active_wanted[uid]
+        person = known[uid]
         sh = Stakeholder(card_id=card.id, user_id=uid, role=role)
         db.add(sh)
         await db.flush()
@@ -417,6 +465,9 @@ async def apply_response(
     resp: SurveyResponse,
     card: Card,
     actor: User,
+    *,
+    can_manage_stakeholders: bool = True,
+    deferred_notifications: list[dict] | None = None,
 ) -> bool:
     """Write one completed response onto its card. Flushes, never commits.
 
@@ -429,6 +480,14 @@ async def apply_response(
     ``update_card`` call. A validation failure there raises ``HTTPException``;
     the caller runs each response in its own savepoint. Returns True when the
     card changed.
+
+    ``can_manage_stakeholders`` is the applier's answer to ``stakeholders.manage``
+    (or the card-level ``card.manage_stakeholders``) on this card: a stakeholder
+    answer is a role assignment, and ``surveys.manage`` alone must not hand out
+    what the Stakeholders tab would refuse, so without it such a response is
+    refused as a whole. ``deferred_notifications`` is handed to ``update_card``
+    so the subscriber nudges are collected for delivery after the commit
+    instead of emailed inline on the request's session.
     """
     from app.services.card_write_service import WriteActor, update_card
 
@@ -453,8 +512,18 @@ async def apply_response(
         if is_relation_field(field_def):
             changed |= await apply_relation_change(db, card, field_def, new_value, actor.id, extra)
         elif is_stakeholder_field(field_def):
+            if not can_manage_stakeholders:
+                raise SurveyFieldError(
+                    "Applying a stakeholder answer requires stakeholders.manage on the card"
+                )
             changed |= await apply_stakeholder_change(
-                db, card, field_def["role"], new_value, actor.id, extra
+                db,
+                card,
+                field_def["role"],
+                new_value,
+                actor.id,
+                extra,
+                snapshot=field_data.get("current_value"),
             )
         elif is_lifecycle_field(field_def):
             answer = normalise_lifecycle_answer(new_value)
@@ -477,6 +546,11 @@ async def apply_response(
 
     if updates:
         changed |= await update_card(
-            db, WriteActor.from_user(actor), card, updates, event_extra=extra
+            db,
+            WriteActor.from_user(actor),
+            card,
+            updates,
+            event_extra=extra,
+            deferred_notifications=deferred_notifications,
         )
     return changed

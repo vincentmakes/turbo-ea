@@ -57,6 +57,19 @@ describe("DeleteSurveyDialog", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("does not call a closed survey's unanswered requests withdrawn", async () => {
+    // Nobody could answer them any more, so the delete withdraws nothing.
+    mockApi.on("get", IMPACT, { status: "closed", requests: 3, pending: 2, answered: 1, applied: 0 });
+    renderDialog();
+
+    expect(
+      await screen.findByText(t("admin:surveysAdmin.delete.unapplied", { count: 1 })),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(t("admin:surveysAdmin.delete.pending", { count: 2 })),
+    ).not.toBeInTheDocument();
+  });
+
   it("deletes and reports back", async () => {
     mockApi.on("get", IMPACT, { status: "closed", requests: 1, pending: 0, answered: 1, applied: 1 });
     mockApi.on("delete", "/surveys/s1", undefined);

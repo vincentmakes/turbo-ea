@@ -348,7 +348,7 @@ describe("HistoryTab — survey provenance (#1257)", () => {
     expect(screen.queryByRole("link", { name: /Ada/ })).not.toBeInTheDocument();
   });
 
-  it("says a survey made a pre-2.162.0 change even without its name", async () => {
+  it("says a survey made a pre-2.163.0 change even without its name", async () => {
     vi.mocked(api.get).mockResolvedValue([
       { ...applied, data: { ...applied.data, survey_name: undefined, respondent_name: undefined } },
     ]);

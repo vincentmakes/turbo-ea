@@ -119,7 +119,7 @@ def _plan_card_restored(event: Event, data: dict) -> dict[str, Any]:
     return {"op": "archive_card", "card_id": _card_id_of(event, data)}
 
 
-# The per-attribute change key survey applies wrote before 2.162.0.
+# The per-attribute change key survey applies wrote before 2.163.0.
 _LEGACY_ATTR_PREFIX = "attr_"
 
 
@@ -491,7 +491,7 @@ async def _apply_restore_card_fields(db: AsyncSession, op: dict[str, Any]) -> di
             v = uuid.UUID(v)
         setattr(card, k, v)
     if legacy_attrs:
-        # Survey applies before 2.162.0 recorded one ``attr_<key>`` change per
+        # Survey applies before 2.163.0 recorded one ``attr_<key>`` change per
         # attribute instead of the whole ``attributes`` dict, and ``setattr``
         # of ``attr_<key>`` wrote nothing. Restore each key onto the card's
         # attributes; an attribute that did not exist before is removed.

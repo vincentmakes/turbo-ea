@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Valeur proposée :",
   "surveys.respond.searchRelated": "Rechercher des fiches à lier…",
   "surveys.respond.searchPeople": "Rechercher des personnes…",
-  "surveys.respond.openCardTooltip": "Ouvrir la fiche dans un nouvel onglet",
+  "surveys.respond.openCardTooltip": "Ouvrir la fiche dans un panneau latéral",
   "surveys.respond.lifecycleSection": "Cycle de vie",
   "surveys.respond.stakeholderSection": "Parties prenantes",
   "surveys.respond.stakeholderMaintainInstruction": "Indiquez toutes les personnes qui doivent avoir le rôle {{role}} sur {{card}}.",

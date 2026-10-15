@@ -3,6 +3,16 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+// The card side panel drags the whole card-detail graph in; a probe is enough
+// to see which card it was asked to show.
+vi.mock("@/components/CardDetailSidePanel", () => ({
+  default: ({ cardId, open, onClose }: { cardId: string | null; open: boolean; onClose: () => void }) =>
+    open ? (
+      <div data-testid="side-panel" data-card-id={cardId}>
+        <button onClick={onClose}>close panel</button>
+      </div>
+    ) : null,
+}));
 
 import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
@@ -624,7 +634,7 @@ const OBSERVERS: FormField = {
 };
 
 describe("SurveyRespond — card link (#1257)", () => {
-  it("links the card in a new tab when the respondent may open it", async () => {
+  it("opens the card in the side panel when the respondent may view it, keeping the form", async () => {
     mockApi.on(
       "get",
       RESPOND_PATH,
@@ -632,14 +642,25 @@ describe("SurveyRespond — card link (#1257)", () => {
         card: { id: CARD_IDS.erp, name: "ERP Core", type: "Application", can_view: true },
       }),
     );
-    renderPage();
+    const { user } = renderPage();
 
-    // The tooltip names the link; the card name is its visible text.
-    const link = await screen.findByRole("link", { name: t("surveys.respond.openCardTooltip") });
-    expect(link).toHaveTextContent("ERP Core");
-    expect(link).toHaveAttribute("href", `/cards/${CARD_IDS.erp}`);
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // The tooltip names the button; the card name is its visible text.
+    const open = await screen.findByRole("button", { name: t("surveys.respond.openCardTooltip") });
+    expect(open).toHaveTextContent("ERP Core");
+    expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
+
+    // Type something first: opening the card must not lose it.
+    const alias = within(fieldCard("Alias")).getByDisplayValue("ERP");
+    fireEvent.change(alias, { target: { value: "ERP-2" } });
+
+    await user.click(open);
+    const panel = await screen.findByTestId("side-panel");
+    expect(panel).toHaveAttribute("data-card-id", CARD_IDS.erp);
+    expect(screen.getByDisplayValue("ERP-2")).toBeInTheDocument();
+
+    await user.click(within(panel).getByRole("button", { name: "close panel" }));
+    await waitFor(() => expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument());
+    expect(screen.getByDisplayValue("ERP-2")).toBeInTheDocument();
   });
 
   it("shows the name as plain text when the respondent may not open the card", async () => {
@@ -654,8 +675,9 @@ describe("SurveyRespond — card link (#1257)", () => {
 
     expect(await screen.findByText("ERP Core")).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: t("surveys.respond.openCardTooltip") }),
+      screen.queryByRole("button", { name: t("surveys.respond.openCardTooltip") }),
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("side-panel")).not.toBeInTheDocument();
   });
 });
 
@@ -697,6 +719,35 @@ describe("SurveyRespond — lifecycle fields (#1257)", () => {
     // The later phase itself carries no warning.
     const eol = fieldCard(tc("lifecycle.endOfLife"));
     expect(within(eol).queryByText((txt) => txt.includes(tc("lifecycle.phaseOut")))).not.toBeInTheDocument();
+  });
+
+  it("checks the order against the card's phases the survey did not ask about", async () => {
+    // Only Phase Out is surveyed; the card already holds an End of Life.
+    mockApi.on(
+      "get",
+      RESPOND_PATH,
+      formWith([PHASE_OUT], {
+        card: {
+          id: CARD_IDS.erp,
+          name: "ERP Core",
+          type: "Application",
+          lifecycle: { active: "2020-01-01", endOfLife: "2030-12-31" },
+        },
+      }),
+    );
+    renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    const phaseOut = fieldCard(tc("lifecycle.phaseOut"));
+    const input = within(phaseOut).getByDisplayValue("");
+    fireEvent.change(input, { target: { value: "2032-01-01" } });
+    fireEvent.blur(input);
+
+    await waitFor(() =>
+      expect(
+        within(phaseOut).getByText((txt) => txt.includes(tc("lifecycle.endOfLife")) && txt.includes("(")),
+      ).toBeInTheDocument(),
+    );
   });
 });
 

@@ -34,6 +34,7 @@ import CardPicker, { type CardOption } from "@/components/CardPicker";
 import TagPicker from "@/components/TagPicker";
 import { useExtensionFieldTypes } from "@/lib/extensionHost";
 import { api, isAbortError } from "@/api/client";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { usePageSubject } from "@/hooks/usePageTitle";
@@ -71,6 +72,9 @@ import type {
   StalenessUnit,
   StalenessWindow,
 } from "@/types";
+
+// A stable empty list, so the fallback never re-triggers effects keyed on `roles`.
+const EMPTY_ROLES: StakeholderRoleDef[] = [];
 
 export default function SurveyBuilder() {
   const { t, i18n } = useTranslation(["admin", "common"]);
@@ -133,7 +137,6 @@ export default function SurveyBuilder() {
   const [cardItems, setCardItems] = useState<CardOption[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
-  const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<
     { key: string; op: string; value: string }[]
   >([]);
@@ -222,13 +225,14 @@ export default function SurveyBuilder() {
   // Roles are per card type. Scoped to the target type once one is chosen, so
   // the list stops offering roles that type does not define — those could never
   // match a card and only pad the list. Unscoped until then, purely so the
-  // section isn't empty before a type is picked.
-  useEffect(() => {
-    const path = targetTypeKey
+  // section isn't empty before a type is picked. Through the request hook, so
+  // a type changed twice in a row can never leave the first type's roles on
+  // screen (and in the stakeholder-field rows built from them).
+  const { data: roles = EMPTY_ROLES } = useApiQuery<StakeholderRoleDef[]>(
+    targetTypeKey
       ? `/stakeholder-roles?type_key=${encodeURIComponent(targetTypeKey)}`
-      : "/stakeholder-roles";
-    api.get<StakeholderRoleDef[]>(path).then(setRoles).catch(() => {});
-  }, [targetTypeKey]);
+      : "/stakeholder-roles",
+  );
 
   // Hydrate the selected chips when an existing survey is opened: the survey
   // stores ids, and a picker needs names. Covers both card filters — related

@@ -511,8 +511,19 @@ export default function SurveyResults() {
                   variant="contained"
                   onClick={async () => {
                     setApplying(true);
+                    setError("");
                     try {
-                      await api.post(`/surveys/${id}/apply`, { response_ids: [detailResp.id] });
+                      // A refused answer comes back as a 200 with an `errors`
+                      // row, not as a failed request: keep the dialog open and
+                      // say why, or the admin reads a silent no-op as applied.
+                      const result = await api.post<{
+                        applied: number;
+                        errors: { response_id: string; error: string }[];
+                      }>(`/surveys/${id}/apply`, { response_ids: [detailResp.id] });
+                      if (result.errors.length > 0) {
+                        setError(result.errors.map((e) => e.error).join(", "));
+                        return;
+                      }
                       setDetailResp(null);
                       await fetchData();
                     } catch (e) {

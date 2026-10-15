@@ -444,6 +444,25 @@ describe("SurveyResults — response detail", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  it("keeps the dialog open and shows the refusal when the apply reports an error row", async () => {
+    // A refused answer is a 200 with `errors`, not a failed request.
+    mockApi.on("post", `/surveys/${SURVEY_ID}/apply`, {
+      applied: 0,
+      errors: [{ response_id: "r1", error: "Applying a stakeholder answer requires stakeholders.manage on the card" }],
+    });
+    const { user } = renderPage();
+    await loaded();
+    const dialog = await openDetail(user, 0);
+    await user.click(within(dialog).getByRole("button", { name: t("admin:surveyResults.detail.applyChanges") }));
+
+    expect(
+      await screen.findByText("Applying a stakeholder answer requires stakeholders.manage on the card"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // Nothing to refetch: the response was not applied.
+    expect(mockApi.callsOf("get", `/surveys/${SURVEY_ID}/responses`)).toHaveLength(1);
+  });
+
   it("offers no apply button for an applied, all-confirmed response and skips unanswered fields", async () => {
     const { user } = renderPage();
     await loaded();

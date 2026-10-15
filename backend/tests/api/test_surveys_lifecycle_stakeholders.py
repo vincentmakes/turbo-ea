@@ -5,9 +5,12 @@ Covers:
 - field-row validation on create / PATCH (phase, role, kind);
 - the response form's current values and the card link flag;
 - submit refusing a lifecycle answer that is not a date;
-- apply merging lifecycle phases through ``update_card`` and syncing a
-  role's holders, every event carrying the survey it came from;
-- one refused response rolling back alone, inside one audit batch;
+- apply merging lifecycle phases through ``update_card`` and applying a
+  role answer as a diff against what the respondent saw, every event carrying
+  the survey it came from;
+- a malformed, unknown-person or unauthorised stakeholder answer refused whole;
+- one refused response rolling back alone, inside one audit batch — whatever
+  raised, and with the subscriber nudges delivered only after the commit;
 - rolling the apply batch back from the audit log;
 - ``DELETE /surveys/{id}`` and ``GET /surveys/{id}/delete-impact``.
 """
@@ -17,6 +20,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.models.audit_log import AuditLogEntry
@@ -26,6 +30,7 @@ from app.models.mutation_batch import MutationBatch
 from app.models.notification import Notification
 from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
+from app.services import notification_service, survey_apply
 from app.services.rollback_service import execute_rollback
 from tests.api.test_surveys_extended import _create_draft_survey, survey_env  # noqa: F401
 from tests.conftest import (
@@ -198,6 +203,9 @@ class TestResponseForm:
         ]
         assert by_key["sh:observer"]["label"] == "Observer"
         assert body["card"]["can_view"] is True
+        # Every phase the card holds, so the form can warn about ordering
+        # against a phase the survey did not ask about.
+        assert body["card"]["lifecycle"] == {"plan": "2024-01-01", "active": "2024-06-01"}
 
     async def test_can_view_is_false_without_a_read_grant(self, client, db, env):
         await create_role(
@@ -244,10 +252,50 @@ class TestResponseForm:
         assert row.responses["lifecycle:plan"]["current_value"] == "2024-01-01"
         assert row.responses["sh:observer"]["current_value"][0]["id"] == str(env["leaving"].id)
 
+    # ---------------------------------------------------------------------------
+    # Apply
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Apply
-# ---------------------------------------------------------------------------
+    @pytest.mark.parametrize(
+        "answer",
+        ["alice", {"id": "x"}, ["not-a-uuid"], [{"name": "no id"}], [None]],
+    )
+    async def test_submit_refuses_a_people_answer_that_is_not_a_list_of_refs(
+        self, client, env, answer
+    ):
+        sid = await _send(client, env["admin"], [OBSERVER_FIELD])
+        resp = await client.post(
+            f"/api/v1/surveys/{sid}/respond/{env['card'].id}",
+            json={"responses": {"sh:observer": {"new_value": answer}}},
+            headers=auth_headers(env["member"]),
+        )
+        assert resp.status_code == 422, resp.text
+
+    async def test_submit_refuses_a_relation_answer_that_is_not_a_list(self, client, env):
+        field = {
+            "key": "rel:relAppToApp:outgoing",
+            "label": "Depends on",
+            "type": "relation",
+            "kind": "relation",
+            "relation_type_key": "relAppToApp",
+            "direction": "outgoing",
+            "action": "maintain",
+        }
+        sid = await _send(client, env["admin"], [field])
+        resp = await client.post(
+            f"/api/v1/surveys/{sid}/respond/{env['card'].id}",
+            json={"responses": {field["key"]: {"new_value": "ERP"}}},
+            headers=auth_headers(env["member"]),
+        )
+        assert resp.status_code == 422, resp.text
+        # An empty list and no answer are both fine.
+        for value in ([], None):
+            resp = await client.post(
+                f"/api/v1/surveys/{sid}/respond/{env['card'].id}",
+                json={"responses": {field["key"]: {"new_value": value}}},
+                headers=auth_headers(env["member"]),
+            )
+            assert resp.status_code == 200, resp.text
 
 
 async def _survey_events(db, card_id) -> list[Event]:
@@ -312,7 +360,7 @@ class TestApply:
         after = set((await db.execute(select(MutationBatch.id))).scalars().all())
         assert after == before
 
-    async def test_stakeholder_answer_syncs_the_role_holders(self, client, db, env):
+    async def test_stakeholder_answer_is_applied_as_a_diff(self, client, db, env):
         card = env["card"]
         sid = await _send(client, env["admin"], [OBSERVER_FIELD])
         rid = await _answer(
@@ -324,14 +372,17 @@ class TestApply:
                 "sh:observer": {
                     "new_value": [
                         {"id": str(env["joining"].id), "display_name": "Joining Observer"},
-                        # Deactivated or unknown people are skipped, never added.
+                        # A deactivated person is skipped, never added.
                         {"id": str(env["retired"].id)},
-                        {"id": str(uuid.uuid4())},
-                        "not-a-uuid",
                     ]
                 }
             },
         )
+        # Someone else joined between the answer and the apply; the answer
+        # never saw them and must not remove them.
+        later = await create_user(db, email="later@test.com", display_name="Later Observer")
+        db.add(Stakeholder(card_id=card.id, user_id=later.id, role="observer"))
+        await db.flush()
         assert (await _apply(client, env["admin"], sid, [rid]))["applied"] == 1
 
         holders = (
@@ -345,8 +396,9 @@ class TestApply:
             .scalars()
             .all()
         )
-        # Joining added, leaving removed, the deactivated holder left alone.
-        assert set(holders) == {env["joining"].id, env["retired"].id}
+        # Joining added, leaving removed, the deactivated and the late holders
+        # left alone.
+        assert set(holders) == {env["joining"].id, env["retired"].id, later.id}
 
         events = {e.event_type: e for e in await _survey_events(db, card.id)}
         added, removed = events["stakeholder.added"], events["stakeholder.removed"]
@@ -358,6 +410,125 @@ class TestApply:
             assert ev.data["respondent_id"] == str(env["member"].id)
             assert ev.data["role"] == "observer"
             assert ev.data["role_label"] == "Observer"
+
+    async def test_two_respondents_answers_to_one_role_compose(self, client, db, env):
+        card = env["card"]
+        other = await create_user(db, email="other@test.com", role="member", display_name="Other")
+        db.add(Stakeholder(card_id=card.id, user_id=other.id, role="responsible"))
+        await db.flush()
+        sid = await _send(client, env["admin"], [OBSERVER_FIELD])
+        # Both saw [leaving]; one adds joining, the other adds themselves and
+        # drops leaving. Applied together, both edits land.
+        first = await _answer(
+            client,
+            env["member"],
+            sid,
+            card.id,
+            {
+                "sh:observer": {
+                    "new_value": [{"id": str(env["leaving"].id)}, {"id": str(env["joining"].id)}]
+                }
+            },
+        )
+        second = await _answer(
+            client, other, sid, card.id, {"sh:observer": {"new_value": [{"id": str(other.id)}]}}
+        )
+        result = await _apply(client, env["admin"], sid, [first, second])
+        assert result == {"applied": 2, "errors": []}
+        holders = (
+            await db.execute(
+                select(Stakeholder.user_id).where(
+                    Stakeholder.card_id == card.id, Stakeholder.role == "observer"
+                )
+            )
+        ).scalars()
+        assert set(holders) == {env["joining"].id, other.id, env["retired"].id}
+
+    async def test_an_unknown_person_refuses_the_response_and_keeps_the_role(self, client, db, env):
+        card = env["card"]
+        sid = await _send(client, env["admin"], [OBSERVER_FIELD])
+        rid = await _answer(
+            client,
+            env["member"],
+            sid,
+            card.id,
+            {"sh:observer": {"new_value": [{"id": str(uuid.uuid4()), "display_name": "Ghost"}]}},
+        )
+        card_id, leaving_id = card.id, env["leaving"].id
+        result = await _apply(client, env["admin"], sid, [rid])
+        assert result["applied"] == 0
+        assert "match no user" in result["errors"][0]["error"]
+        holders = (
+            await db.execute(
+                select(Stakeholder.user_id).where(
+                    Stakeholder.card_id == card_id, Stakeholder.role == "observer"
+                )
+            )
+        ).scalars()
+        # The one active holder is still there: the answer was not read as "nobody".
+        assert leaving_id in set(holders)
+        assert await _survey_events(db, card_id) == []
+
+    async def test_a_stakeholder_answer_needs_stakeholders_manage(self, client, db, env):
+        """``surveys.manage`` applies attributes; a role assignment needs the
+        stakeholder authority the Stakeholders tab asks for."""
+        await create_role(
+            db,
+            key="survey_admin",
+            label="Survey admin",
+            permissions={"surveys.manage": True, "inventory.view": True, "inventory.edit": True},
+        )
+        applier = await create_user(db, email="applier@test.com", role="survey_admin")
+        card = env["card"]
+        second = await create_card(
+            db, card_type="Application", name="Second App", attributes={"riskLevel": "low"}
+        )
+        db.add(Stakeholder(card_id=second.id, user_id=env["member"].id, role="responsible"))
+        await db.flush()
+        fields = [
+            {"key": "riskLevel", "label": "Risk", "type": "single_select", "action": "maintain"},
+            OBSERVER_FIELD,
+        ]
+        sid = await _send(client, env["admin"], fields)
+        roles = await _answer(
+            client,
+            env["member"],
+            sid,
+            card.id,
+            {"sh:observer": {"new_value": [{"id": str(env["joining"].id)}]}},
+        )
+        attrs = await _answer(
+            client, env["member"], sid, second.id, {"riskLevel": {"new_value": "high"}}
+        )
+        card_id, second_id, joining_id = card.id, second.id, env["joining"].id
+
+        result = await _apply(client, applier, sid, [roles, attrs])
+        assert result["applied"] == 1
+        assert [e["response_id"] for e in result["errors"]] == [roles]
+        assert "stakeholders.manage" in result["errors"][0]["error"]
+        joined = await db.execute(
+            select(Stakeholder).where(
+                Stakeholder.card_id == card_id, Stakeholder.user_id == joining_id
+            )
+        )
+        assert joined.scalar_one_or_none() is None
+        second_card = await db.get(Card, second_id)
+        await db.refresh(second_card)
+        assert second_card.attributes["riskLevel"] == "high"
+
+        # A card-level grant on this very card is enough: the applier is made
+        # a stakeholder in a role that carries ``card.manage_stakeholders``.
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="steward",
+            label="Steward",
+            permissions={"card.manage_stakeholders": True},
+        )
+        db.add(Stakeholder(card_id=card_id, user_id=applier.id, role="steward"))
+        await db.flush()
+        result = await _apply(client, applier, sid, [roles])
+        assert result == {"applied": 1, "errors": []}
 
     async def test_an_unchanged_stakeholder_answer_writes_nothing(self, client, db, env):
         sid = await _send(client, env["admin"], [OBSERVER_FIELD])
@@ -513,6 +684,122 @@ class TestApply:
 # ---------------------------------------------------------------------------
 # Delete
 # ---------------------------------------------------------------------------
+
+
+class TestApplyFailures:
+    async def test_an_unexpected_error_is_reported_and_the_others_land(
+        self, client, db, env, monkeypatch
+    ):
+        """Only two exception types are raised on purpose; anything else inside
+        a response's savepoint is still a refused response, not a lost request."""
+        admin, member = env["admin"], env["member"]
+        second = await create_card(
+            db, card_type="Application", name="Second App", attributes={"riskLevel": "low"}
+        )
+        db.add(Stakeholder(card_id=second.id, user_id=member.id, role="responsible"))
+        await db.flush()
+        sid = await _send(client, admin, [OBSERVER_FIELD])
+        first = await _answer(
+            client,
+            member,
+            sid,
+            env["card"].id,
+            {"sh:observer": {"new_value": [{"id": str(env["joining"].id)}]}},
+        )
+        other = await _answer(
+            client,
+            member,
+            sid,
+            second.id,
+            {"sh:observer": {"new_value": [{"id": str(env["joining"].id)}]}},
+        )
+
+        real = survey_apply.apply_stakeholder_change
+
+        async def flaky(db_, card, *args, **kwargs):
+            if card.name == "Survey Test App":
+                raise RuntimeError("connection dropped")
+            return await real(db_, card, *args, **kwargs)
+
+        monkeypatch.setattr(survey_apply, "apply_stakeholder_change", flaky)
+        second_id = second.id
+        result = await _apply(client, admin, sid, [first, other])
+        assert result["applied"] == 1
+        assert result["errors"] == [
+            {"response_id": first, "error": "RuntimeError: connection dropped"}
+        ]
+        (ev,) = await _survey_events(db, second_id)
+        assert ev.event_type == "stakeholder.added"
+
+    def test_error_text_prefers_a_dict_details_message(self):
+        from app.api.v1.surveys import _apply_error_text
+
+        assert _apply_error_text(HTTPException(400, "plain")) == "plain"
+        assert (
+            _apply_error_text(
+                HTTPException(409, {"code": "duplicate_name", "message": "Name already used"})
+            )
+            == "Name already used"
+        )
+        assert _apply_error_text(HTTPException(409, {"code": "x"})) == "{'code': 'x'}"
+        assert _apply_error_text(survey_apply.SurveyFieldError("bad")) == "bad"
+        assert _apply_error_text(RuntimeError("boom")) == "RuntimeError: boom"
+        assert _apply_error_text(KeyError()) == "KeyError"
+
+    async def test_subscriber_nudges_are_delivered_after_the_commit(
+        self, client, db, env, monkeypatch
+    ):
+        """The apply emails nobody inline: ``card_updated`` and the
+        approval-broken nudge go to the background batch, once per type, and
+        a refused response notifies nobody at all."""
+        admin, member = env["admin"], env["member"]
+        card = env["card"]
+        card.approval_status = "APPROVED"
+        watcher = await create_user(db, email="watcher@test.com", display_name="Watcher")
+        db.add(Stakeholder(card_id=card.id, user_id=watcher.id, role="observer"))
+        second = await create_card(
+            db, card_type="Application", name="Second App", attributes={"riskLevel": "low"}
+        )
+        db.add(Stakeholder(card_id=second.id, user_id=member.id, role="responsible"))
+        db.add(Stakeholder(card_id=second.id, user_id=watcher.id, role="responsible"))
+        await db.flush()
+
+        calls: list[tuple[str, list[dict]]] = []
+
+        async def fake_deliver(recipients, *, notif_type, actor_id=None):
+            calls.append((notif_type, recipients))
+
+        monkeypatch.setattr(notification_service, "deliver_notification_batch", fake_deliver)
+
+        fields = [
+            {"key": "riskLevel", "label": "Risk", "type": "single_select", "action": "maintain"}
+        ]
+        sid = await _send(client, admin, fields)
+        calls.clear()  # the send's own survey_request batch
+        good = await _answer(client, member, sid, card.id, {"riskLevel": {"new_value": "high"}})
+        bad = await _answer(client, member, sid, second.id, {"riskLevel": {"new_value": "bogus"}})
+        card_id = card.id
+        # Every stakeholder of the applied card (the fixture's two observers
+        # included), the actor excluded; nobody from the refused card.
+        subscribers = {member.id, watcher.id, env["leaving"].id, env["retired"].id}
+
+        result = await _apply(client, admin, sid, [good, bad])
+        assert result["applied"] == 1 and len(result["errors"]) == 1
+
+        by_type = {t: r for t, r in calls}
+        assert set(by_type) == {"card_updated", "approval_status_changed"}
+        updated = by_type["card_updated"]
+        assert {r["user_id"] for r in updated} == subscribers
+        assert len(updated) == len(subscribers)
+        assert all(r["card_id"] == card_id for r in updated)
+        assert {r["user_id"] for r in by_type["approval_status_changed"]} == subscribers
+        # Nothing was written inline on the request's session.
+        inline = await db.execute(
+            select(Notification).where(
+                Notification.type.in_(["card_updated", "approval_status_changed"])
+            )
+        )
+        assert inline.scalars().all() == []
 
 
 class TestDelete:

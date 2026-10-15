@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Surveys**: a survey can ask about a card's lifecycle dates (Plan, Phase In, Active, Phase Out, End of Life) and about who holds each stakeholder role; applying an answer updates the dates and adds or removes the people in the role ([#1257](https://github.com/vincentmakes/turbo-ea/discussions/1257)).
-- **Surveys**: the response form links the card's name to its detail page, opening in a new tab, so a respondent can check the card before answering.
+- **Surveys**: the card's name on the response form opens the card in a side panel, so a respondent can check it before answering without leaving the form.
 - **Surveys**: surveys of any status can be deleted from the survey list, the builder or the results page; the confirmation shows the pending requests that will be withdrawn and the answers that will be lost.
 - **Card history**: changes made by applying a survey answer carry a "via survey" marker naming the survey and, on hover, who answered; a survey's send now appears in the history under its own label.
 
 ### Fixed
-- **Surveys**: applying an answer now goes through the same validation, calculated fields, data-quality score, approval break and notifications as an edit on the card; an answer the card refuses is reported for that response without blocking the others.
+- **Surveys**: applying an answer now goes through the same validation, calculated fields, data-quality score, approval break and notifications as an edit on the card; an answer the card refuses is reported for that response without blocking the others, whatever went wrong, and the subscriber notifications are sent after the apply has been saved rather than one by one during it.
+- **Surveys**: a stakeholder-role answer is applied as the respondent's additions and removals, so two people's answers about the same role combine instead of the last one winning, and a person assigned after the answer is kept. Applying it requires the stakeholder permission the card's Stakeholders tab asks for, and a malformed answer, or one naming a person this instance does not know, is refused instead of emptying the role.
+- **Surveys**: applying a single response from its detail dialog now shows why it was refused instead of closing silently; a lifecycle date proposed on the response form is checked for order against the card's other phases, not only the surveyed ones; deleting a closed survey no longer says its unanswered requests will be withdrawn.
 - **Audit log**: rolling back a batch that applied survey answers restores the card's attributes, including answers applied before this release.
 
 ## [2.162.0] - 2026-10-15

@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Valor proposto:",
   "surveys.respond.searchRelated": "Pesquisar cartões para vincular...",
   "surveys.respond.searchPeople": "Pesquisar pessoas...",
-  "surveys.respond.openCardTooltip": "Abrir o cartão num novo separador",
+  "surveys.respond.openCardTooltip": "Abrir o cartão num painel lateral",
   "surveys.respond.lifecycleSection": "Ciclo de vida",
   "surveys.respond.stakeholderSection": "Partes interessadas",
   "surveys.respond.stakeholderMaintainInstruction": "Indique todas as pessoas que devem ter a função {{role}} em {{card}}.",

@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Vorgeschlagener Wert:",
   "surveys.respond.searchRelated": "Karten zum Verknüpfen suchen …",
   "surveys.respond.searchPeople": "Personen suchen …",
-  "surveys.respond.openCardTooltip": "Karte in neuem Tab öffnen",
+  "surveys.respond.openCardTooltip": "Karte im Seitenbereich öffnen",
   "surveys.respond.lifecycleSection": "Lebenszyklus",
   "surveys.respond.stakeholderSection": "Stakeholder",
   "surveys.respond.stakeholderMaintainInstruction": "Führen Sie alle Personen auf, die die Rolle {{role}} für {{card}} innehaben sollen.",

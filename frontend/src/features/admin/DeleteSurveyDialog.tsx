@@ -65,7 +65,9 @@ export default function DeleteSurveyDialog({ survey, onClose, onDeleted }: Props
           <CircularProgress size={20} />
         ) : impact ? (
           <>
-            {impact.pending > 0 && (
+            {/* Only an active survey's pending requests are "withdrawn" by the
+                delete: once a survey is closed nobody could answer them anyway. */}
+            {impact.status === "active" && impact.pending > 0 && (
               <Alert severity="warning" sx={{ mb: 1 }}>
                 {t("surveysAdmin.delete.pending", { count: impact.pending })}
               </Alert>

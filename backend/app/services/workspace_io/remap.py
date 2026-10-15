@@ -775,8 +775,9 @@ def rewrite_survey_response_row(kwargs: dict[str, Any], ctx: RemapContext) -> Re
         if isinstance(key, str) and key.startswith(STAKEHOLDER_FIELD_PREFIX):
             # A stakeholder answer lists people, not cards. User ids are
             # instance-local and this map holds none, so the answer travels as
-            # it is: on another instance its ids match no user, and applying it
-            # skips them (the names still show in the results).
+            # it is: on another instance its ids match no user, and the apply
+            # refuses that response rather than emptying the role (the names
+            # still show in the results, so the admin can redo the assignment).
             out[key] = answer
             continue
         if isinstance(answer, dict):

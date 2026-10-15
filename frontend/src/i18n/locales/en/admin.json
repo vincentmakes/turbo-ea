@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Proposed value:",
   "surveys.respond.searchRelated": "Search cards to link...",
   "surveys.respond.searchPeople": "Search people...",
-  "surveys.respond.openCardTooltip": "Open the card in a new tab",
+  "surveys.respond.openCardTooltip": "Open the card in a side panel",
   "surveys.respond.lifecycleSection": "Lifecycle",
   "surveys.respond.stakeholderSection": "Stakeholders",
   "surveys.respond.stakeholderMaintainInstruction": "List everyone who should hold the {{role}} role on {{card}}.",

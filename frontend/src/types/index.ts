@@ -1208,6 +1208,9 @@ export interface SurveyRespondForm {
     /** Whether the respondent may open the card (server-computed: a
      *  stakeholder's per-card view grant is not visible to the route table). */
     can_view?: boolean;
+    /** Every phase the card holds, surveyed or not, so a proposed date can be
+     *  checked for order against phases the survey did not ask about. */
+    lifecycle?: Record<string, string | null>;
   };
   fields: (SurveyField & { current_value: unknown })[];
   existing_responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;

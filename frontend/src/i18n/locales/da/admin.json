@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "Foreslået værdi:",
   "surveys.respond.searchRelated": "Søg efter kort, der skal knyttes...",
   "surveys.respond.searchPeople": "Søg efter personer...",
-  "surveys.respond.openCardTooltip": "Åbn kortet i en ny fane",
+  "surveys.respond.openCardTooltip": "Åbn kortet i et sidepanel",
   "surveys.respond.lifecycleSection": "Livscyklus",
   "surveys.respond.stakeholderSection": "Interessenter",
   "surveys.respond.stakeholderMaintainInstruction": "Angiv alle, der skal have rollen {{role}} på {{card}}.",

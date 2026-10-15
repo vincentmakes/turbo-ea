@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "建议值：",
   "surveys.respond.searchRelated": "搜索要关联的卡片……",
   "surveys.respond.searchPeople": "搜索人员……",
-  "surveys.respond.openCardTooltip": "在新标签页中打开卡片",
+  "surveys.respond.openCardTooltip": "在侧边面板中打开卡片",
   "surveys.respond.lifecycleSection": "生命周期",
   "surveys.respond.stakeholderSection": "干系人",
   "surveys.respond.stakeholderMaintainInstruction": "列出应在 {{card}} 上担任 {{role}} 角色的所有人员。",

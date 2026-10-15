@@ -13,7 +13,7 @@
   "surveys.respond.proposedValue": "القيمة المقترحة:",
   "surveys.respond.searchRelated": "البحث عن البطاقات للربط...",
   "surveys.respond.searchPeople": "البحث عن الأشخاص...",
-  "surveys.respond.openCardTooltip": "فتح البطاقة في علامة تبويب جديدة",
+  "surveys.respond.openCardTooltip": "فتح البطاقة في لوحة جانبية",
   "surveys.respond.lifecycleSection": "دورة الحياة",
   "surveys.respond.stakeholderSection": "أصحاب المصلحة",
   "surveys.respond.stakeholderMaintainInstruction": "اذكر جميع الأشخاص الذين يجب أن يحملوا دور {{role}} في {{card}}.",

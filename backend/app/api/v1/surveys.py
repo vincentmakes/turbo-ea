@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -28,6 +29,8 @@ from app.services import (
 )
 from app.services.event_bus import event_bus, request_batch_id
 from app.services.permission_service import PermissionService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 
@@ -131,9 +134,10 @@ async def _get_response_stats(db: AsyncSession, survey_id: uuid.UUID) -> dict:
     }
 
 
-# The field-kind predicates and writers live in ``services/survey_apply.py`` so
-# the extension bridge and tests reach them without importing a router; the
-# old private names stay importable from here.
+# The field-kind predicates and writers live in ``services/survey_apply.py``
+# (services must not import from ``app.api``). The old private names stay
+# importable from here for ``test_relation_orientation.py``'s writer scan and
+# any test that still reaches them through the router module.
 _is_relation_field = survey_apply.is_relation_field
 _relation_field_peers = survey_apply.relation_field_peers
 _relation_peer_ids = survey_apply.ref_ids
@@ -562,10 +566,23 @@ async def list_responses(
     return [_response_to_dict(r) for r in result.scalars().all()]
 
 
+def _apply_error_text(exc: BaseException) -> str:
+    """One line the results page can show for a refused response."""
+    if isinstance(exc, HTTPException):
+        detail = exc.detail
+        if isinstance(detail, dict):
+            return str(detail.get("message") or detail.get("detail") or detail)
+        return str(detail)
+    if isinstance(exc, survey_apply.SurveyFieldError):
+        return str(exc)
+    return f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+
+
 @router.post("/{survey_id}/apply")
 async def apply_responses(
     survey_id: str,
     body: ApplyBody,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -579,6 +596,14 @@ async def apply_responses(
 
     applied_count = 0
     errors = []
+    # Subscriber nudges, collected per response and delivered after the commit
+    # (see ``update_card``'s ``deferred_notifications``): an apply over dozens
+    # of cards must not email each stakeholder inline on the request's
+    # transaction, and a response that rolls back must notify nobody.
+    pending_notifications: list[dict] = []
+    # A stakeholder answer is a role assignment: ``surveys.manage`` alone does
+    # not grant it, so the applier's stakeholder authority is asked once per card.
+    can_manage_stakeholders: dict[uuid.UUID, bool] = {}
 
     # Open the request's audit batch before the per-response savepoints: one
     # created lazily by the first event inside a savepoint that then rolls
@@ -616,21 +641,45 @@ async def apply_responses(
             errors.append({"response_id": rid_str, "error": "Card not found"})
             continue
 
+        if card.id not in can_manage_stakeholders:
+            can_manage_stakeholders[card.id] = await PermissionService.check_permission(
+                db,
+                user,
+                "stakeholders.manage",
+                card.id,
+                "card.manage_stakeholders",
+                card_type_key=card.type,
+            )
+
         # One savepoint per response: an answer the card refuses (a required
-        # field cleared, an unknown option) rolls back only itself and is
-        # reported, and the others still land.
+        # field cleared, an unknown option, a malformed list of people) rolls
+        # back only itself and is reported, and the others still land. Any
+        # exception is caught, not only the two the apply raises on purpose: a
+        # database error inside the savepoint would otherwise abort the whole
+        # request and lose every response already applied.
         savepoint = await db.begin_nested()
+        mine: list[dict] = []
         try:
-            await survey_apply.apply_response(db, survey, resp, card, user)
+            await survey_apply.apply_response(
+                db,
+                survey,
+                resp,
+                card,
+                user,
+                can_manage_stakeholders=can_manage_stakeholders[card.id],
+                deferred_notifications=mine,
+            )
             resp.applied = True
             resp.applied_at = datetime.now(timezone.utc)
             await db.flush()
-        except (HTTPException, survey_apply.SurveyFieldError) as exc:
+        except Exception as exc:
             await savepoint.rollback()
-            detail = exc.detail if isinstance(exc, HTTPException) else str(exc)
-            errors.append({"response_id": rid_str, "error": str(detail)})
+            if not isinstance(exc, (HTTPException, survey_apply.SurveyFieldError)):
+                logger.exception("Applying survey response %s failed", rid_str)
+            errors.append({"response_id": rid_str, "error": _apply_error_text(exc)})
             continue
         await savepoint.commit()
+        pending_notifications.extend(mine)
         applied_count += 1
 
     if opened_batch and not await db.scalar(select(exists().where(Event.batch_id == opened_batch))):
@@ -641,6 +690,18 @@ async def apply_responses(
         request_batch_id.set(None)
 
     await db.commit()
+
+    by_type: dict[str, list[dict]] = {}
+    for row in pending_notifications:
+        recipient = dict(row)
+        by_type.setdefault(recipient.pop("notif_type"), []).append(recipient)
+    for notif_type, recipients in by_type.items():
+        background_tasks.add_task(
+            notification_service.deliver_notification_batch,
+            recipients,
+            notif_type=notif_type,
+            actor_id=user.id,
+        )
     return {"applied": applied_count, "errors": errors}
 
 
@@ -794,10 +855,14 @@ async def get_response_form(
             # the server because a stakeholder role's per-card view grant is
             # invisible to the client's route table.
             "can_view": await PermissionService.check_permission(
-                db, user, "inventory.view", card.id, "card.view"
+                db, user, "inventory.view", card.id, "card.view", card_type_key=card.type
             ),
             "type": card.type,
             "subtype": card.subtype,
+            # Every phase the card holds, surveyed or not, so the form can warn
+            # about a proposed date that lands out of order against a phase the
+            # survey did not ask about.
+            "lifecycle": card.lifecycle or {},
             "type_translations": (card_type.translations if card_type else None) or None,
             "subtype_translations": subtype_translations,
         },
@@ -847,11 +912,19 @@ async def submit_response(
         if not isinstance(submitted, dict):
             submitted = {}
         new_value = submitted.get("new_value")
-        if survey_apply.is_lifecycle_field(field_def):
-            try:
+        try:
+            if survey_apply.is_lifecycle_field(field_def):
                 new_value = survey_apply.normalise_lifecycle_answer(new_value)
-            except survey_apply.SurveyFieldError as exc:
-                raise HTTPException(422, str(exc)) from exc
+            elif new_value is not None and (
+                survey_apply.is_relation_field(field_def)
+                or survey_apply.is_stakeholder_field(field_def)
+            ):
+                # A relation or stakeholder answer is a list of references;
+                # refuse anything else here rather than at apply time, where
+                # the respondent is no longer around to be told.
+                survey_apply.ref_ids(new_value)
+        except survey_apply.SurveyFieldError as exc:
+            raise HTTPException(422, str(exc)) from exc
         full_responses[key] = {
             "current_value": await survey_apply.current_value(db, card, field_def),
             "new_value": new_value,

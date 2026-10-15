@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentageInput } from "@/components/PercentageInput";
-import { Link as RouterLink, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
@@ -29,6 +29,7 @@ import {
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSurveyFieldLabel } from "@/lib/surveyFieldLabel";
 import UserMultiSelect from "@/components/UserMultiSelect";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { getPhaseLabels, lifecycleOrderIssues, type LifecyclePhase } from "@/lib/lifecyclePhases";
 import Tooltip from "@mui/material/Tooltip";
@@ -66,14 +67,19 @@ function isPersonRefList(val: unknown): val is SurveyPersonRef[] {
 }
 
 /** The lifecycle the card would have if every lifecycle answer were applied:
- *  each lifecycle field's proposed date (or its current one while it is
- *  confirmed or untouched). Only the surveyed phases are known here, which is
- *  all the order check needs to warn about what the respondent typed. */
+ *  the card's stored phases, with each lifecycle field's proposed date (or its
+ *  current one while it is confirmed or untouched) laid over them. The stored
+ *  phases matter: a proposed Active after an existing, unsurveyed Phase Out is
+ *  exactly the order problem the warning exists for. */
 function proposedLifecycle(
   fields: (SurveyField & { current_value: unknown })[],
   responses: Record<string, { confirmed: boolean; new_value: unknown }>,
+  stored: Record<string, string | null | undefined> = {},
 ): Record<string, string | null> {
   const out: Record<string, string | null> = {};
+  for (const [phase, value] of Object.entries(stored)) {
+    out[phase] = typeof value === "string" && value ? value : null;
+  }
   for (const f of fields) {
     if (f.kind !== "lifecycle" || !f.phase) continue;
     const resp = responses[f.key];
@@ -283,6 +289,7 @@ export default function SurveyRespond() {
 
   // Field responses: {field_key: {confirmed: bool, new_value: any}}
   const [fieldResponses, setFieldResponses] = useState<Record<string, FieldResponse>>({});
+  const [previewCardId, setPreviewCardId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!surveyId || !cardId) return;
@@ -371,7 +378,7 @@ export default function SurveyRespond() {
   };
 
   // Advisory, as on the card: a phase dated after one that should follow it.
-  const proposed = proposedLifecycle(form?.fields ?? [], fieldResponses);
+  const proposed = proposedLifecycle(form?.fields ?? [], fieldResponses, form?.card.lifecycle ?? {});
   const lifecycleIssues = lifecycleOrderIssues(proposed);
   const phaseLabels = getPhaseLabels(t);
   const lifecycleWarning = (phase?: LifecyclePhase) => {
@@ -603,19 +610,27 @@ export default function SurveyRespond() {
       <Card variant="outlined" sx={{ p: 2, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
         {form.card.can_view ? (
-          // A new tab, so a half-filled form survives a look at the card.
+          // The card opens in the side panel, so a half-filled form stays
+          // where it is while the respondent checks the card; the panel's own
+          // "Open full page" is there for more.
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Tooltip title={t("surveys.respond.openCardTooltip")}>
               <Link
-                component={RouterLink}
-                to={`/cards/${form.card.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                component="button"
+                type="button"
+                onClick={() => setPreviewCardId(form.card.id)}
                 underline="hover"
-                sx={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                sx={{
+                  fontWeight: 600,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  font: "inherit",
+                  textAlign: "left",
+                }}
               >
                 {form.card.name}
-                <MaterialSymbol icon="open_in_new" size={16} />
+                <MaterialSymbol icon="visibility" size={16} />
               </Link>
             </Tooltip>
           </Box>
@@ -851,6 +866,12 @@ export default function SurveyRespond() {
           {submitting ? t("surveys.respond.submitting") : t("surveys.respond.submit")}
         </Button>
       </Box>
+
+      <CardDetailSidePanel
+        cardId={previewCardId}
+        open={!!previewCardId}
+        onClose={() => setPreviewCardId(null)}
+      />
     </Box>
   );
 }
