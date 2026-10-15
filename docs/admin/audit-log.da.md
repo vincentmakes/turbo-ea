@@ -65,11 +65,17 @@ Filterpanelet til venstre indsnævrer listen efter **kategori**, **resultat**, *
 
 En søgning på en e-mailadresse rammer aktør, subjekt og mål, så én adresse finder både, hvad den person har gjort, og hvad der er forsøgt mod vedkommendes konto.
 
-### Postdetaljer
+### Sådan læses en post
 
-Klik på en række for at åbne postens panel. Det viser alle postens felter, herunder browserens user agent og de **detaljer**, der blev registreret med den — årsagskoden for et mislykket login, tidspunktet hvor en spærring ophører, identitetsudbyderen ved et SSO-login. Når en post registrerer en ændring, vises detaljerne som en tabel med gamle og nye værdier. Hemmeligheder gemmes aldrig: en adgangskode, et token eller en klienthemmelighed erstattes af `***`, før posten skrives.
+Klik på en række for at åbne postens panel. Det viser hvert felt i posten — hvornår, hvem, fra hvilken IP-adresse og hvilken browser — og under **Detaljer** det, som posten registrerede, skrevet i almindeligt sprog i stedet for som gemte nøgler:
 
-Oplysninger, der sætter en ændring i perspektiv uden at være en del af den — en portals aktuelle adresse og om den er udgivet, om en forbindelses loginoplysninger blev udskiftet, de typer en migreringstilknytning dækker — vises under **Kontekst** under tabellen.
+- **Ændringer** — én sætning pr. ændring. En redigering af en korttype lyder for eksempel *Feltet «Forretningskritikalitet» (Enkeltvalg) tilføjet til afsnittet «Governance»* eller *Muligheden «Høj» i feltet «Forretningskritikalitet» omdøbt til «Kritisk»*. Felter, afsnit, muligheder, roller og portaler nævnes ved deres etiket, tilladelser ved deres beskrivelse og sprog ved deres navn.
+- **Før / Efter** — en tabel over de ændrede værdier, én række pr. felt, hvert felt nævnt ved sin etiket. Værdierne er formateret: Ja eller Nej, datoer i arbejdsområdets datoformat, farver som farveprøve, filstørrelser i KB eller MB. Hemmeligheder gemmes aldrig: en adgangskode, et token eller en klienthemmelighed erstattes, før posten skrives, og vises som **Hemmelig værdi**.
+- **Kontekst** — oplysninger, der sætter en ændring i sammenhæng uden at være en del af den: en portals nuværende adresse og om den er publiceret, om en forbindelses legitimationsoplysninger blev erstattet, hvor mange rækker en import berørte.
+
+Et mislykket logon viser sin **Årsag** over detaljerne — en forkert adgangskode, en ukendt konto, en midlertidigt låst konto.
+
+Poster skrevet før version 2.161.0 viser deres detaljer, som de blev registreret: gamle og nye værdier vises stadig i tabellen, og det, panelet ikke kan læse, vises som rå JSON.
 
 Panelet har ingen handlinger. Poster kan hverken redigeres eller slettes.
 
@@ -196,7 +202,7 @@ Hver linje har de samme felter som posten:
 | `ip`, `user_agent` | Klienten |
 | `origin` | web, api, mcp, ext, ops eller system |
 | `impersonator_user_id`, `impersonated_role` | Udfyldt, mens en administrator ser appen som en anden rolle |
-| `details` | Årsagskoder og gamle/nye værdier, med hemmeligheder allerede maskeret |
+| `details` | Op til fire nøgler, med hemmeligheder allerede maskeret: `reason` (en fejlkode), `changes` (`{field: {old, new}}`), `items` (semantiske ændringer, `{kind, …}` — f.eks. `field.added`) og `context` (enkle oplysninger) |
 
 Sender du strømmen til et centralt loglager, ligger der en kopi uden for instansen, uden for rækkevidde af alle, der kan administrere den — og det er netop, hvad en gennemgang af insidertrusler har brug for. Se [Logning og revisionsstrømmen](operations.md#logging-and-the-audit-stream) for, hvordan du indsamler den.
 

@@ -65,13 +65,19 @@ La barra lateral de filtros de la izquierda acota la lista por **categoría**, *
 
 Una búsqueda por dirección de correo coincide con el actor, el sujeto y el destino, de modo que escribir una sola dirección encuentra tanto lo que hizo esa persona como lo que se intentó contra su cuenta.
 
-### Detalles de una entrada
+### Leer una entrada
 
-Haga clic en una fila para abrir el panel de la entrada. Muestra todos sus campos, incluido el agente de usuario del navegador y los **detalles** registrados con ella — el código de motivo de un inicio de sesión fallido, la hora en que termina un bloqueo, el proveedor de identidad de un inicio de sesión SSO. Cuando una entrada registra un cambio, los detalles se muestran como una tabla de valores anteriores y nuevos. Los secretos nunca se almacenan: una contraseña, un token o un secreto de cliente se sustituye por `***` antes de escribir la entrada.
+Haga clic en una fila para abrir el panel de la entrada. Muestra cada campo de la entrada — cuándo, quién, desde qué dirección IP y con qué navegador — y, en **Detalles**, lo que la entrada registró, redactado en lenguaje claro en lugar de claves internas:
 
-Los datos que sitúan un cambio sin formar parte de él — la dirección actual de un portal y si está publicado, si se sustituyeron las credenciales de una conexión, los tipos que cubre un mapeo de migración — se muestran en **Contexto**, debajo de la tabla.
+- **Cambios** — una frase por cambio. La edición de un tipo de ficha se lee, por ejemplo, *Campo «Criticidad de negocio» (Selección única) añadido a la sección «Gobierno»* u *Opción «Alta» del campo «Criticidad de negocio» renombrada a «Crítica»*. Los campos, secciones, opciones, roles y portales se nombran por su etiqueta, los permisos por su descripción y los idiomas por su nombre.
+- **Antes / Después** — una tabla de los valores que cambiaron, una fila por campo, cada campo nombrado por su etiqueta. Los valores se formatean: Sí o No, fechas en el formato de fecha del espacio de trabajo, colores como muestra, tamaños de archivo en KB o MB. Los secretos nunca se almacenan: una contraseña, un token o un secreto de cliente se sustituye antes de escribir la entrada y se muestra como **Valor secreto**.
+- **Contexto** — datos que enmarcan un cambio sin formar parte de él: la dirección actual de un portal y si está publicado, si se sustituyeron las credenciales de una conexión, cuántas filas afectó una importación.
 
-El panel no tiene acciones. Las entradas no se pueden editar ni eliminar.
+Un inicio de sesión fallido muestra su **Motivo** encima de los detalles — una contraseña incorrecta, una cuenta desconocida, una cuenta bloqueada temporalmente.
+
+Las entradas escritas antes de la versión 2.161.0 muestran sus detalles tal como se registraron: los valores anteriores y nuevos siguen apareciendo en la tabla, y lo que el panel no sabe leer se muestra como JSON sin procesar.
+
+El panel no ofrece acciones. Las entradas no se pueden editar ni eliminar.
 
 ### Exportar CSV
 
@@ -196,7 +202,7 @@ Cada línea lleva los mismos campos que la entrada:
 | `ip`, `user_agent` | El cliente |
 | `origin` | web, api, mcp, ext, ops o system |
 | `impersonator_user_id`, `impersonated_role` | Se rellenan mientras un administrador ve la aplicación como otro rol |
-| `details` | Códigos de motivo y valores anteriores/nuevos, con los secretos ya enmascarados |
+| `details` | Hasta cuatro claves, con los secretos ya enmascarados: `reason` (un código de fallo), `changes` (`{field: {old, new}}`), `items` (cambios semánticos, `{kind, …}` — p. ej. `field.added`) y `context` (datos simples) |
 
 Enviar el flujo a un almacén central de registros guarda una copia fuera de la instancia, lejos del alcance de quien pueda administrarla — que es lo que necesita una revisión de amenazas internas. Consulte [Registros y flujo de auditoría](operations.md#logging-and-the-audit-stream) para recopilarlo.
 

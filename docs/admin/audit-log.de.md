@@ -65,11 +65,17 @@ Die Filterleiste links grenzt die Liste nach **Kategorie**, **Ergebnis**, **Akti
 
 Eine Suche nach einer E-Mail-Adresse trifft Akteur, betroffenes Konto und Ziel, sodass eine einzige Adresse sowohl findet, was diese Person getan hat, als auch, was gegen ihr Konto versucht wurde.
 
-### Eintragsdetails
+### Einen Eintrag lesen
 
-Klicken Sie auf eine Zeile, um die Eintragsleiste zu öffnen. Sie zeigt jedes Feld des Eintrags, einschließlich des User-Agents des Browsers und der mit ihm aufgezeichneten **Details** — den Grundcode einer fehlgeschlagenen Anmeldung, den Zeitpunkt, zu dem eine Sperre endet, den Identitätsanbieter einer SSO-Anmeldung. Zeichnet ein Eintrag eine Änderung auf, erscheinen die Details als Tabelle mit alten und neuen Werten. Geheimnisse werden nie gespeichert: Ein Passwort, Token oder Client-Secret wird vor dem Schreiben des Eintrags durch `***` ersetzt.
+Klicken Sie auf eine Zeile, um die Eintragsleiste zu öffnen. Sie zeigt jedes Feld des Eintrags — wann, wer, von welcher IP-Adresse und mit welchem Browser — und unter **Details**, was der Eintrag aufgezeichnet hat, in Klartext statt als gespeicherte Schlüssel:
 
-Angaben, die eine Änderung einordnen, ohne Teil von ihr zu sein — die aktuelle Adresse eines Portals und ob es veröffentlicht ist, ob die Zugangsdaten einer Verbindung ersetzt wurden, die Typen, die eine Migrationszuordnung abdeckt —, stehen unter **Kontext** unterhalb der Tabelle.
+- **Änderungen** — ein Satz pro Änderung. Die Bearbeitung eines Kartentyps lautet zum Beispiel *Feld „Geschäftskritikalität“ (Einfachauswahl) zum Abschnitt „Governance“ hinzugefügt* oder *Option „Hoch“ im Feld „Geschäftskritikalität“ umbenannt in „Kritisch“*. Felder, Abschnitte, Optionen, Rollen und Portale werden mit ihrer Bezeichnung genannt, Berechtigungen mit ihrer Beschreibung und Sprachen mit ihrem Namen.
+- **Vorher / Nachher** — eine Tabelle der geänderten Werte, eine Zeile pro Feld, jedes Feld mit seiner Bezeichnung. Die Werte sind formatiert: Ja oder Nein, Datumsangaben im Datumsformat des Arbeitsbereichs, Farben als Farbfeld, Dateigrößen in KB oder MB. Geheimnisse werden nie gespeichert: Ein Passwort, Token oder Client-Secret wird vor dem Schreiben des Eintrags ersetzt und als **Geheimer Wert** angezeigt.
+- **Kontext** — Angaben, die eine Änderung einordnen, ohne Teil von ihr zu sein: die aktuelle Adresse eines Portals und ob es veröffentlicht ist, ob die Zugangsdaten einer Verbindung ersetzt wurden, wie viele Zeilen ein Import betroffen hat.
+
+Eine fehlgeschlagene Anmeldung zeigt ihren **Grund** oberhalb der Details — ein falsches Passwort, ein unbekanntes Konto, ein vorübergehend gesperrtes Konto.
+
+Einträge, die vor Version 2.161.0 geschrieben wurden, zeigen ihre Details so, wie sie aufgezeichnet wurden: Alte und neue Werte erscheinen weiterhin in der Tabelle, und was die Leiste nicht lesen kann, wird als Roh-JSON angezeigt.
 
 Die Leiste bietet keine Aktionen. Einträge können weder bearbeitet noch gelöscht werden.
 
@@ -196,7 +202,7 @@ Jede Zeile enthält dieselben Felder wie der Eintrag:
 | `ip`, `user_agent` | Der Client |
 | `origin` | web, api, mcp, ext, ops oder system |
 | `impersonator_user_id`, `impersonated_role` | Gesetzt, während eine Administratorin die App als andere Rolle betrachtet |
-| `details` | Grundcodes und alte/neue Werte, Geheimnisse bereits maskiert |
+| `details` | Bis zu vier Schlüssel, Geheimnisse bereits maskiert: `reason` (ein Fehlercode), `changes` (`{field: {old, new}}`), `items` (semantische Änderungen, `{kind, …}` — z. B. `field.added`) und `context` (einfache Angaben) |
 
 Wer den Stream in einen zentralen Log-Speicher überträgt, hält eine Kopie außerhalb der Instanz vor, außer Reichweite aller, die sie administrieren können — genau das braucht eine Prüfung auf Insider-Bedrohungen. Wie Sie ihn erfassen, steht unter [Protokollierung und der Audit-Stream](operations.md#logging-and-the-audit-stream).
 

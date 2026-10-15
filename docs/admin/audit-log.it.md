@@ -65,13 +65,19 @@ La barra dei filtri a sinistra restringe l'elenco per **categoria**, **esito**, 
 
 Una ricerca per indirizzo email trova corrispondenze nell'attore, nel soggetto e nella destinazione, così un solo indirizzo trova sia ciò che quella persona ha fatto sia ciò che è stato tentato contro il suo account.
 
-### Dettagli di una voce
+### Leggere una voce
 
-Fate clic su una riga per aprire il pannello della voce. Mostra ogni campo, compreso lo user agent del browser e i **dettagli** registrati con la voce — il codice di motivo di un accesso fallito, l'ora in cui termina un blocco, il provider di identità di un accesso SSO. Quando una voce registra una modifica, i dettagli appaiono come tabella dei valori precedenti e nuovi. I segreti non vengono mai memorizzati: una password, un token o un client secret viene sostituito con `***` prima che la voce venga scritta.
+Fate clic su una riga per aprire il pannello della voce. Mostra ogni campo della voce — quando, chi, da quale indirizzo IP e con quale browser — e, sotto **Dettagli**, ciò che la voce ha registrato, scritto in linguaggio semplice anziché come chiavi interne:
 
-Le informazioni che inquadrano una modifica senza farne parte — l'indirizzo attuale di un portale e se è pubblicato, se le credenziali di una connessione sono state sostituite, i tipi coperti da una mappatura di migrazione — sono elencate in **Contesto**, sotto la tabella.
+- **Modifiche** — una frase per modifica. La modifica di un tipo di scheda si legge, ad esempio, *Campo «Criticità aziendale» (Selezione singola) aggiunto alla sezione «Governance»* oppure *Opzione «Alta» del campo «Criticità aziendale» rinominata in «Critica»*. Campi, sezioni, opzioni, ruoli e portali sono indicati con la loro etichetta, i permessi con la loro descrizione e le lingue con il loro nome.
+- **Prima / Dopo** — una tabella dei valori modificati, una riga per campo, ogni campo indicato con la sua etichetta. I valori sono formattati: Sì o No, date nel formato data dell'area di lavoro, colori come campione, dimensioni dei file in KB o MB. I segreti non vengono mai memorizzati: una password, un token o un segreto client viene sostituito prima della scrittura della voce e viene mostrato come **Valore segreto**.
+- **Contesto** — informazioni che inquadrano una modifica senza farne parte: l'indirizzo attuale di un portale e se è pubblicato, se le credenziali di una connessione sono state sostituite, quante righe ha interessato un'importazione.
 
-Il pannello non offre azioni. Le voci non si possono modificare né eliminare.
+Un accesso non riuscito mostra il suo **Motivo** sopra i dettagli — una password errata, un account sconosciuto, un account temporaneamente bloccato.
+
+Le voci scritte prima della versione 2.161.0 mostrano i dettagli così come sono stati registrati: i valori precedenti e nuovi compaiono ancora nella tabella, e ciò che il pannello non sa leggere viene mostrato come JSON grezzo.
+
+Il pannello non offre azioni. Le voci non possono essere modificate né eliminate.
 
 ### Esporta CSV
 
@@ -196,7 +202,7 @@ Ogni riga riporta gli stessi campi della voce:
 | `ip`, `user_agent` | Il client |
 | `origin` | web, api, mcp, ext, ops o system |
 | `impersonator_user_id`, `impersonated_role` | Valorizzati mentre un amministratore visualizza l'app come un altro ruolo |
-| `details` | Codici di motivo e valori precedenti/nuovi, con i segreti già mascherati |
+| `details` | Fino a quattro chiavi, con i segreti già mascherati: `reason` (un codice di errore), `changes` (`{field: {old, new}}`), `items` (modifiche semantiche, `{kind, …}` — ad es. `field.added`) e `context` (informazioni semplici) |
 
 Inviare il flusso a un archivio centrale dei log ne conserva una copia fuori dall'istanza, lontano dalla portata di chiunque possa amministrarla — ciò di cui ha bisogno una revisione delle minacce interne. Vedere [Log e flusso di audit](operations.md#logging-and-the-audit-stream) per raccoglierlo.
 

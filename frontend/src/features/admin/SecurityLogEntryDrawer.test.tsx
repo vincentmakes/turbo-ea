@@ -1,12 +1,16 @@
 /**
  * The Security & admin entry drawer: read-only metadata plus the `details`
- * payload, rendered as a field/old/new table for a diff and as JSON otherwise.
+ * payload in plain language — change sentences, a labelled Field / Before /
+ * After table, a labelled context list, and JSON only for what fits none.
  */
-import { screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import i18n from "@/i18n";
+import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 vi.mock("@/hooks/useDateFormat", async () => {
   const actual = await vi.importActual<typeof import("@/hooks/useDateFormat")>("@/hooks/useDateFormat");
@@ -23,11 +27,19 @@ vi.mock("@/hooks/useDateFormat", async () => {
   };
 });
 
-import SecurityLogEntryDrawer, { formatDetailValue } from "./SecurityLogEntryDrawer";
-import { isFieldDiff, splitDetails, type SecurityLogEntry } from "./SecurityLogTypes";
+import SecurityLogEntryDrawer, { flattenAppSchema } from "./SecurityLogEntryDrawer";
+import type { SecurityLogEntry } from "./SecurityLogTypes";
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`admin:${key}`, opts) as string;
 const EMPTY = "—";
+const YES = i18n.t("common:labels.yes") as string;
+const NO = i18n.t("common:labels.no") as string;
+const SECRET = t("securityLog.entry.masked");
+const field = (k: string) => t(`securityLog.fields.${k}`);
+
+beforeEach(() => {
+  mockApi.reset();
+});
 
 function entry(overrides: Partial<SecurityLogEntry> = {}): SecurityLogEntry {
   return {
@@ -91,7 +103,7 @@ describe("SecurityLogEntryDrawer", () => {
     expect(screen.getByTestId("security-reason")).toHaveTextContent("odd");
   });
 
-  it("renders a field diff as an old/new table", () => {
+  it("renders a field diff as a labelled table with formatted values", () => {
     renderDrawer(
       entry({
         category: "admin",
@@ -104,7 +116,7 @@ describe("SecurityLogEntryDrawer", () => {
           smtp_host: { old: "a.example", new: "b.example" },
           smtp_password: { old: "***", new: "***" },
           smtp_port: { old: 25, new: null },
-          tags: { old: ["x"], new: true },
+          tags: { old: ["x", "y"], new: true },
         },
       }),
     );
@@ -112,20 +124,26 @@ describe("SecurityLogEntryDrawer", () => {
     expect(within(table).getByText(t("securityLog.entry.field"))).toBeInTheDocument();
     expect(within(table).getByText(t("securityLog.entry.old"))).toBeInTheDocument();
     expect(within(table).getByText(t("securityLog.entry.new"))).toBeInTheDocument();
-    expect(within(table).getByText("smtp_host")).toBeInTheDocument();
+    // The stored field name stays available as the label's tooltip.
+    expect(within(table).getByText(field("smtp_host"))).toHaveAttribute("aria-label", "smtp_host");
+    expect(within(table).queryByText("smtp_host")).not.toBeInTheDocument();
     expect(within(table).getByText("a.example")).toBeInTheDocument();
     expect(within(table).getByText("b.example")).toBeInTheDocument();
-    expect(within(table).getAllByText("***")).toHaveLength(2);
+    const secrets = within(table).getAllByText(SECRET);
+    expect(secrets).toHaveLength(2);
+    expect(secrets[0].closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
     expect(within(table).getByText("25")).toBeInTheDocument();
     expect(within(table).getByText(EMPTY)).toBeInTheDocument();
-    expect(within(table).getByText('["x"]')).toBeInTheDocument();
-    expect(within(table).getByText("true")).toBeInTheDocument();
+    expect(within(table).getByText("x, y")).toBeInTheDocument();
+    expect(within(table).getByText(YES)).toBeInTheDocument();
     expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
-    expect(screen.getByText("setting · smtp")).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-items")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-context")).not.toBeInTheDocument();
+    expect(screen.getByText(`${t("securityLog.targetTypes.setting")} · smtp`)).toBeInTheDocument();
     expect(screen.queryByTestId("security-reason")).not.toBeInTheDocument();
   });
 
-  it("falls back to formatted JSON when the details are not a diff", () => {
+  it("shows plain values of an older row as context, not JSON", () => {
     renderDrawer(
       entry({
         details: { reason: "unknown_user", provider: "google", attempts: 3 },
@@ -133,8 +151,12 @@ describe("SecurityLogEntryDrawer", () => {
         impersonated_role: "viewer",
       }),
     );
-    const pre = screen.getByTestId("security-details-json");
-    expect(pre.textContent).toBe(JSON.stringify({ provider: "google", attempts: 3 }, null, 2));
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText(field("provider"))).toBeInTheDocument();
+    expect(within(ctx).getByText(t("securityLog.values.google"))).toBeInTheDocument();
+    expect(within(ctx).getByText(field("attempts"))).toBeInTheDocument();
+    expect(within(ctx).getByText("3")).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
     expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
     expect(screen.getByText("abc")).toBeInTheDocument();
     expect(screen.getByText("viewer")).toBeInTheDocument();
@@ -150,41 +172,42 @@ describe("SecurityLogEntryDrawer", () => {
     expect(screen.getByText(t("securityLog.entry.noDetails"))).toBeInTheDocument();
   });
 
-  it("renders the diff pairs as the table and `context` beneath it as a list", () => {
+  it("renders the `changes` as the table and `context` beneath it as a labelled list", () => {
     renderDrawer(
       entry({
         category: "admin",
         action: "admin.web_portal.updated",
         outcome: "success",
         details: {
-          is_published: { old: true, new: false },
-          filters: { old: "12 bytes · a1b2c3d4", new: "12 bytes · e5f6a7b8" },
-          context: { slug: "app-catalog", is_published: false },
+          changes: { is_published: { old: true, new: false } },
+          context: { slug: "app-catalog", is_published: false, view: "cards" },
         },
       }),
     );
     const table = screen.getByTestId("security-details-diff");
-    expect(within(table).getByText("is_published")).toBeInTheDocument();
-    expect(within(table).getByText("filters")).toBeInTheDocument();
-    expect(within(table).getByText("12 bytes · e5f6a7b8")).toBeInTheDocument();
+    expect(within(table).getByText(field("is_published"))).toBeInTheDocument();
+    expect(within(table).getByText(YES)).toBeInTheDocument();
+    expect(within(table).getByText(NO)).toBeInTheDocument();
     // `context` is not a row of the table.
-    expect(within(table).queryByText("context")).not.toBeInTheDocument();
     expect(within(table).queryByText("app-catalog")).not.toBeInTheDocument();
 
     const ctx = screen.getByTestId("security-details-context");
     expect(within(ctx).getByText(t("securityLog.entry.context"))).toBeInTheDocument();
-    expect(within(ctx).getByText("slug")).toBeInTheDocument();
-    expect(within(ctx).getByText("app-catalog")).toBeInTheDocument();
-    expect(within(ctx).getByText("is_published")).toBeInTheDocument();
-    expect(within(ctx).getByText("false")).toBeInTheDocument();
+    expect(within(ctx).getByText(field("slug"))).toBeInTheDocument();
+    // A plain value carries no tooltip; only a permission key does.
+    expect(within(ctx).getByText("app-catalog").getAttribute("aria-label")).toBeNull();
+    expect(within(ctx).getByText(field("is_published"))).toBeInTheDocument();
+    expect(within(ctx).getByText(NO)).toBeInTheDocument();
+    expect(within(ctx).getByText(field("view"))).toBeInTheDocument();
+    expect(within(ctx).getByText(t("securityLog.values.cards"))).toBeInTheDocument();
     expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
   });
 
   it("renders `context` alone when there is no diff", () => {
     renderDrawer(entry({ details: { context: { credentials_changed: false } } }));
     const ctx = screen.getByTestId("security-details-context");
-    expect(within(ctx).getByText("credentials_changed")).toBeInTheDocument();
-    expect(within(ctx).getByText("false")).toBeInTheDocument();
+    expect(within(ctx).getByText(field("credentials_changed"))).toBeInTheDocument();
+    expect(within(ctx).getByText(NO)).toBeInTheDocument();
     expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
     expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
   });
@@ -195,22 +218,15 @@ describe("SecurityLogEntryDrawer", () => {
     expect(screen.queryByTestId("security-details-context")).not.toBeInTheDocument();
   });
 
-  it("falls back to JSON, context included, when the rest is not a diff", () => {
-    const details = { count: 2, context: { slug: "x" } };
-    renderDrawer(entry({ details }));
+  it("keeps only what is nested as JSON, beside the readable parts", () => {
+    renderDrawer(entry({ details: { count: 2, nested: { a: [1, 2] }, role: { old: "a", new: "b" } } }));
     expect(screen.getByTestId("security-details-json").textContent).toBe(
-      JSON.stringify(details, null, 2),
+      JSON.stringify({ nested: { a: [1, 2] } }, null, 2),
     );
-    expect(screen.queryByTestId("security-details-context")).not.toBeInTheDocument();
-  });
-
-  it("falls back to JSON when `context` is not an object", () => {
-    const details = { a: { old: 1, new: 2 }, context: ["x"] };
-    renderDrawer(entry({ details }));
-    expect(screen.getByTestId("security-details-json").textContent).toBe(
-      JSON.stringify(details, null, 2),
-    );
-    expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
+    expect(screen.getByTestId("security-details-json").tagName).toBe("PRE");
+    expect(within(screen.getByTestId("security-details-context")).getByText("2")).toBeInTheDocument();
+    expect(within(screen.getByTestId("security-details-diff")).getByText(field("role"))).toBeInTheDocument();
+    expect(screen.queryByText(t("securityLog.entry.noDetails"))).not.toBeInTheDocument();
   });
 
   it("ignores a non-string reason", () => {
@@ -222,51 +238,6 @@ describe("SecurityLogEntryDrawer", () => {
     const { user, onClose } = renderDrawer(entry());
     await user.click(screen.getByRole("button", { name: t("securityLog.entry.close") }));
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("formatDetailValue", () => {
-  it.each([
-    [null, EMPTY],
-    [undefined, EMPTY],
-    ["text", "text"],
-    [0, "0"],
-    [false, "false"],
-    [{ a: 1 }, '{"a":1}'],
-  ])("%j → %s", (v, out) => {
-    expect(formatDetailValue(v)).toBe(out);
-  });
-});
-
-describe("splitDetails", () => {
-  it("splits a plain-object `context` from the pairs", () => {
-    expect(splitDetails({ a: { old: 1, new: 2 }, context: { slug: "s" } })).toEqual({
-      pairs: { a: { old: 1, new: 2 } },
-      context: { slug: "s" },
-    });
-  });
-
-  it.each([[null], [["x"]], ["text"], [3]])("keeps a non-object context %j with the rest", (c) => {
-    const rest = { a: { old: 1, new: 2 }, context: c };
-    expect(splitDetails(rest)).toEqual({ pairs: rest, context: null });
-  });
-
-  it("returns no context when there is none", () => {
-    expect(splitDetails({ a: 1 })).toEqual({ pairs: { a: 1 }, context: null });
-  });
-});
-
-describe("isFieldDiff", () => {
-  it.each([
-    [null, false],
-    [{}, false],
-    [{ a: { old: 1, new: 2 } }, true],
-    [{ a: { old: 1, new: 2 }, b: "x" }, false],
-    [{ a: { old: 1 } }, false],
-    [{ a: null }, false],
-    [{ a: [1, 2] }, false],
-  ])("%j → %s", (v, out) => {
-    expect(isFieldDiff(v as Record<string, unknown> | null)).toBe(out);
   });
 });
 
@@ -313,7 +284,7 @@ describe("SecurityLogEntryDrawer — metadata fields", () => {
     expect(metaValue("securityLog.columns.actor")).toHaveTextContent(/^admin@example\.com$/);
     expect(metaValue("securityLog.columns.subject")).toHaveTextContent(/^dana@example\.com$/);
     // The label wins over the id when both are present.
-    expect(metaValue("securityLog.columns.target")).toHaveTextContent(/^setting · smtp$/);
+    expect(metaValue("securityLog.columns.target")).toHaveTextContent(`${t("securityLog.targetTypes.setting")} · smtp`);
     expect(metaValue("securityLog.columns.ip")).toHaveTextContent(/^198\.51\.100\.4$/);
     expect(metaValue("securityLog.columns.ip").querySelector("code")).toHaveTextContent(
       "198.51.100.4",
@@ -361,9 +332,12 @@ describe("SecurityLogEntryDrawer — metadata fields", () => {
 
   it.each([
     [{ target_type: null, target_id: "abc", target_label: null }, "abc"],
-    [{ target_type: "user", target_id: "abc", target_label: null }, "user · abc"],
+    [{ target_type: "user", target_id: "abc", target_label: null }, "User · abc"],
     [{ target_type: null, target_id: null, target_label: "smtp" }, "smtp"],
-    [{ target_type: "setting", target_id: "abc", target_label: "smtp" }, "setting · smtp"],
+    [{ target_type: "setting", target_id: "abc", target_label: "smtp" }, "Setting · smtp"],
+    [{ target_type: "setting", target_id: "date-format", target_label: "date-format" }, "Setting · Date format"],
+    [{ target_type: "card_type", target_id: "x", target_label: "Application" }, "Card type · Application"],
+    [{ target_type: "brand_new", target_id: "x", target_label: "X" }, "Brand new · X"],
   ])("formats the target %j as %s", (fields, expected) => {
     renderDrawer(entry(fields));
     expect(metaValue("securityLog.columns.target").textContent).toBe(expected);
@@ -442,8 +416,8 @@ describe("SecurityLogEntryDrawer — details rendering", () => {
       `${t("securityLog.entry.field")}${t("securityLog.entry.old")}${t("securityLog.entry.new")}`,
     );
     expect(bodyRows()).toEqual([
-      ["role", "viewer", "member"],
-      ["is_active", "true", "false"],
+      [field("role"), "viewer", "member"],
+      [field("is_active"), YES, NO],
     ]);
     expect(screen.queryByText(t("securityLog.entry.noDetails"))).not.toBeInTheDocument();
   });
@@ -452,7 +426,7 @@ describe("SecurityLogEntryDrawer — details rendering", () => {
     renderDrawer(
       entry({ details: { reason: "locked", attempts: { old: 4, new: 5 } } }),
     );
-    expect(bodyRows()).toEqual([["attempts", "4", "5"]]);
+    expect(bodyRows()).toEqual([[field("attempts"), "4", "5"]]);
     expect(screen.getByTestId("security-reason").textContent).toBe(
       `${t("securityLog.reasons.locked")} (locked)`,
     );
@@ -461,7 +435,7 @@ describe("SecurityLogEntryDrawer — details rendering", () => {
 
   it("renders a placeholder for a missing side of a change", () => {
     renderDrawer(entry({ details: { email: { old: null, new: "x@example.com" } } }));
-    expect(bodyRows()).toEqual([["email", EMPTY, "x@example.com"]]);
+    expect(bodyRows()).toEqual([[field("email"), EMPTY, "x@example.com"]]);
   });
 
   it("renders non-diff details as pretty JSON without the reason", () => {
@@ -470,17 +444,19 @@ describe("SecurityLogEntryDrawer — details rendering", () => {
     );
     const pre = screen.getByTestId("security-details-json");
     expect(pre.tagName).toBe("PRE");
-    expect(pre.textContent).toBe(JSON.stringify({ nested: { a: [1, 2] }, attempts: 3 }, null, 2));
+    expect(pre.textContent).toBe(JSON.stringify({ nested: { a: [1, 2] } }, null, 2));
     expect(pre.textContent).not.toContain("reason");
     expect(screen.queryByTestId("security-details-diff")).not.toBeInTheDocument();
     expect(screen.queryByText(t("securityLog.entry.noDetails"))).not.toBeInTheDocument();
   });
 
-  it("a mixed payload (one diff, one scalar) is JSON, not a table", () => {
+  it("a mixed payload (one diff, one scalar) is a table and a context list", () => {
     renderDrawer(entry({ details: { role: { old: "a", new: "b" }, note: "x" } }));
-    expect(screen.getByTestId("security-details-json").textContent).toBe(
-      JSON.stringify({ role: { old: "a", new: "b" }, note: "x" }, null, 2),
-    );
+    expect(bodyRows()).toEqual([[field("role"), "a", "b"]]);
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText("Note")).toBeInTheDocument();
+    expect(within(ctx).getByText("x")).toBeInTheDocument();
+    expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
   });
 
   it("empty details read as no details", () => {
@@ -491,13 +467,209 @@ describe("SecurityLogEntryDrawer — details rendering", () => {
   });
 });
 
-describe("formatDetailValue — more shapes", () => {
-  it.each([
-    [true, "true"],
-    [1.5, "1.5"],
-    ["", ""],
-    [[1, "a"], '[1,"a"]'],
-  ])("%j → %s", (v, out) => {
-    expect(formatDetailValue(v)).toBe(out);
+// ---------------------------------------------------------------------------
+// The `details` contract: change sentences, formatted values, permissions.
+// ---------------------------------------------------------------------------
+
+const items = () =>
+  within(screen.getByTestId("security-details-items"))
+    .getAllByRole("listitem")
+    .map((li) => li.textContent);
+
+describe("SecurityLogEntryDrawer — change items", () => {
+  it("renders the metamodel example as a sentence under the Changes heading", () => {
+    renderDrawer(
+      entry({
+        category: "admin",
+        action: "admin.card_type.updated",
+        outcome: "success",
+        target_type: "card_type",
+        target_label: "Application",
+        details: {
+          items: [
+            {
+              kind: "field.added",
+              section: "Governance",
+              field: "Business criticality",
+              type: "single_select",
+            },
+          ],
+        },
+      }),
+    );
+    const list = screen.getByTestId("security-details-items");
+    expect(within(list).getByText(t("securityLog.entry.changes"))).toBeInTheDocument();
+    expect(items()).toEqual([
+      "Field “Business criticality” (Single select) added to section “Governance”",
+    ]);
+    expect(within(list).getByRole("listitem")).toHaveAttribute("data-kind", "field.added");
+    expect(metaValue("securityLog.columns.target").textContent).toBe("Card type · Application");
+    expect(screen.queryByTestId("security-details-json")).not.toBeInTheDocument();
+  });
+
+  it("formats every argument: booleans, codes, the description section, lists, dates", async () => {
+    mockApi.lenient({});
+    renderDrawer(
+      entry({
+        details: {
+          items: [
+            { kind: "field.changed", section: "__description", field: "Owner", property: "required", old: false, new: true },
+            { kind: "section.changed", section: "Main", property: "defaultExpanded", old: true, new: null },
+            { kind: "layout.reordered", old: ["__description", "Main"], new: ["Main", "__description"] },
+            { kind: "type_permission.changed", role: "Viewer", permission: "inventory.view", old: "inherit", new: "deny" },
+            { kind: "user.changed", user: "a@example.com", field: "locked_until", old: null, new: "2026-03-05T08:00:00Z" },
+            { kind: "locale.enabled", locale: "de" },
+            { kind: "image.removed", image: "favicon" },
+            { kind: "portal_option.changed", option: "show_logo", old: true, new: false },
+            { kind: "section.moved", section: "Main", from: 1, to: 3 },
+            { kind: "portal_toggle.changed", item: "lifecycle", surface: "detail", old: false, new: true },
+            { kind: "portal_toggle.changed", item: "Owner", surface: "card", old: true, new: false },
+          ],
+        },
+      }),
+    );
+    // The permission key asks for the schemas; empty ones leave the key shown.
+    await waitFor(() => expect(mockApi.calls).toHaveLength(2));
+    expect(items()).toEqual([
+      `Field “Owner” in section “Description”: ${field("required")} changed from ${NO} to ${YES}`,
+      `Section “Main”: ${field("default_expanded")} changed from ${YES} to ${EMPTY}`,
+      "Sections reordered: Description, Main → Main, Description",
+      "Viewer: inventory.view Inherit → Deny",
+      `User a@example.com: ${field("locked_until")} changed from ${EMPTY} to DT[2026-03-05T08:00:00Z]`,
+      "Language enabled: Deutsch",
+      "Favicon removed",
+      `Portal option Show logo changed from ${YES} to ${NO}`,
+      "Section “Main” moved from position 1 to 3",
+      `Show “Lifecycle” (Detail page): ${NO} → ${YES}`,
+      `Show “Owner” (Card): ${YES} → ${NO}`,
+    ]);
+  });
+
+  it("names a translation's scope and a bare translated property", () => {
+    renderDrawer(
+      entry({
+        details: {
+          items: [
+            { kind: "translation.changed", property: "field_help:Owner", locale: "fr", old: null, new: "Aide" },
+            { kind: "translation.changed", property: "reverse_label", locale: "de", old: "a", new: "b" },
+            { kind: "translation.changed", property: "mystery:X", locale: "xx", old: "a", new: "b" },
+          ],
+        },
+      }),
+    );
+    expect(items()).toEqual([
+      `Translation (Français) of field help “Owner” changed: “${EMPTY}” → “Aide”`,
+      `Translation (Deutsch) of ${field("reverse_label")} changed: “a” → “b”`,
+      "Translation (xx) of Mystery “X” changed: “a” → “b”",
+    ]);
+  });
+
+  it("pluralises the overflow line", () => {
+    renderDrawer(entry({ details: { items: [{ kind: "more", count: 1 }, { kind: "more", count: 5 }] } }));
+    expect(items()).toEqual(["…and 1 more change", "…and 5 more changes"]);
+  });
+
+  it("renders an unknown kind generically with labelled arguments", () => {
+    renderDrawer(
+      entry({
+        details: {
+          items: [
+            { kind: "widget.frobbed", slug: "s", enabled: true },
+            { kind: "bare.kind" },
+            { kind: "quality_weight.changed", component: 5, old: 1, new: 2 },
+            { kind: "quality_weight.changed", component: "field:x", old: 1, new: 2 },
+          ],
+        },
+      }),
+    );
+    expect(items()).toEqual([
+      `Widget frobbed: ${field("slug")} = s, ${field("enabled")} = ${YES}`,
+      "Bare kind",
+      // A non-string name is shown as a value, and only `property` carries a scope.
+      "Data-quality weight of 5 changed from 1 to 2",
+      "Data-quality weight of Field:x changed from 1 to 2",
+    ]);
+  });
+});
+
+describe("SecurityLogEntryDrawer — formatted cells", () => {
+  it("renders a nested value inside a change as JSON", () => {
+    renderDrawer(entry({ details: { config: { old: { a: 1 }, new: null } } }));
+    const table = screen.getByTestId("security-details-diff");
+    expect(within(table).getByText('{"a":1}')).toBeInTheDocument();
+    expect(within(table).getByText(EMPTY)).toBeInTheDocument();
+  });
+
+  it("shows a colour swatch with its hex, a date, bytes, a language and a code", () => {
+    renderDrawer(
+      entry({
+        details: {
+          changes: {
+            navbar_bg: { old: "#112233", new: "#aabbcc" },
+            locked_until: { old: null, new: "2026-03-05T08:00:00Z" },
+            cardinality: { old: "1:n", new: "n:m" },
+          },
+          context: { size_bytes: 2048, locale: "fr", mime: "image/png", config: '{"a":1}' },
+        },
+      }),
+    );
+    const table = screen.getByTestId("security-details-diff");
+    const swatches = within(table).getAllByTestId("security-color-swatch");
+    expect(swatches).toHaveLength(2);
+    expect(swatches[0].parentElement).toHaveTextContent("#112233");
+    expect(within(table).getByText("#aabbcc")).toBeInTheDocument();
+    expect(within(table).getByText("DT[2026-03-05T08:00:00Z]")).toBeInTheDocument();
+    expect(within(table).getByText("1:n")).toBeInTheDocument();
+    expect(within(table).getByText(field("cardinality"))).toBeInTheDocument();
+    const ctx = screen.getByTestId("security-details-context");
+    expect(within(ctx).getByText("2 KB")).toBeInTheDocument();
+    expect(within(ctx).getByText("Français")).toBeInTheDocument();
+    expect(within(ctx).getByText("image/png")).toBeInTheDocument();
+    expect(within(ctx).getByText('{"a":1}')).toBeInTheDocument();
+    expect(mockApi.calls).toHaveLength(0);
+  });
+});
+
+describe("SecurityLogEntryDrawer — permission descriptions", () => {
+  const APP_SCHEMA = {
+    inventory: { label: "Inventory", permissions: { "inventory.view": "View card lists" } },
+    admin: { label: "Admin" },
+  };
+
+  it("fetches both schemas and shows a permission's description", async () => {
+    mockApi.on("get", "/roles/permissions-schema", APP_SCHEMA);
+    mockApi.on("get", "/stakeholder-roles/permissions-schema", { "card.edit": "Edit this card" });
+    renderDrawer(
+      entry({
+        details: {
+          items: [{ kind: "permission.granted", permission: "inventory.view" }],
+          changes: { permissions: { old: [], new: ["card.edit", "card.unknown"] } },
+        },
+      }),
+    );
+    await waitFor(() => expect(items()).toEqual(["Permission granted: View card lists"]));
+    const table = screen.getByTestId("security-details-diff");
+    expect(within(table).getByText("Edit this card, card.unknown")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/roles/permissions-schema")).toHaveLength(1);
+    expect(mockApi.callsOf("get", "/stakeholder-roles/permissions-schema")).toHaveLength(1);
+  });
+
+  it("falls back to the key when the schemas cannot be read", async () => {
+    mockApi.fail("get", "/roles/permissions-schema", 500);
+    mockApi.fail("get", "/stakeholder-roles/permissions-schema", 500);
+    renderDrawer(entry({ details: { context: { permission: "inventory.view" } } }));
+    await waitFor(() => expect(mockApi.calls).toHaveLength(2));
+    const ctx = screen.getByTestId("security-details-context");
+    // The key is also the tooltip, so it stays readable once a description loads.
+    expect(within(ctx).getByText("inventory.view")).toHaveAttribute("aria-label", "inventory.view");
+  });
+
+  it("flattens the app schema's groups", () => {
+    expect(flattenAppSchema(APP_SCHEMA)).toEqual({ "inventory.view": "View card lists" });
+    expect(flattenAppSchema(null)).toEqual({});
+    expect(
+      flattenAppSchema({ broken: null } as unknown as Parameters<typeof flattenAppSchema>[0]),
+    ).toEqual({});
+    expect(flattenAppSchema(undefined)).toEqual({});
   });
 });

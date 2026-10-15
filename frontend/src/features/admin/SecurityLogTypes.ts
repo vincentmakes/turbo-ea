@@ -28,7 +28,10 @@ export interface SecurityLogEntry {
   origin: string | null;
   impersonator_user_id: string | null;
   impersonated_role: string | null;
-  /** Reason codes, `{field: {old, new}}` diffs — secrets masked at write time. */
+  /**
+   * `{reason?, changes?, items?, context?}` (see `securityLogDetails.ts`);
+   * secrets masked at write time. Older rows may carry other top-level keys.
+   */
   details: Record<string, unknown> | null;
 }
 
@@ -74,40 +77,4 @@ export function categoryColor(category: string): string {
 
 export function outcomeColor(outcome: string): string {
   return OUTCOME_COLORS[outcome as SecurityOutcome] ?? STATUS_COLORS.neutral;
-}
-
-/** True when every value of `details` is an `{old, new}` pair. */
-export function isFieldDiff(
-  details: Record<string, unknown> | null | undefined,
-): details is Record<string, { old: unknown; new: unknown }> {
-  if (!details) return false;
-  const values = Object.values(details);
-  if (values.length === 0) return false;
-  return values.every(
-    (v) =>
-      v !== null &&
-      typeof v === "object" &&
-      !Array.isArray(v) &&
-      "old" in (v as object) &&
-      "new" in (v as object),
-  );
-}
-
-function isPlainObject(v: unknown): v is Record<string, unknown> {
-  return v !== null && typeof v === "object" && !Array.isArray(v);
-}
-
-/**
- * Split `details` into the `{old, new}` pairs and the `context` object the
- * backend files plain values under (a portal's current slug, whether a
- * connection's credentials moved). `context` is only split off when it is a
- * plain object; otherwise it stays with the rest and the JSON fallback shows it.
- */
-export function splitDetails(rest: Record<string, unknown>): {
-  pairs: Record<string, unknown>;
-  context: Record<string, unknown> | null;
-} {
-  const { context, ...pairs } = rest;
-  if (isPlainObject(context)) return { pairs, context };
-  return { pairs: rest, context: null };
 }

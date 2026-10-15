@@ -65,13 +65,19 @@ A barra lateral de filtros à esquerda restringe a lista por **categoria**, **re
 
 Uma busca por endereço de e-mail encontra o ator, o sujeito e o alvo, de modo que digitar um único endereço mostra tanto o que essa pessoa fez quanto o que foi tentado contra a conta dela.
 
-### Detalhes de uma entrada
+### Ler uma entrada
 
-Clique em uma linha para abrir o painel da entrada. Ele mostra todos os campos, incluindo o agente de usuário do navegador e os **detalhes** registrados com ela — o código de motivo de uma entrada com falha, a hora em que um bloqueio termina, o provedor de identidade de uma entrada por SSO. Quando uma entrada registra uma alteração, os detalhes aparecem como uma tabela de valores antigos e novos. Segredos nunca são armazenados: uma senha, um token ou um segredo de cliente é substituído por `***` antes de a entrada ser gravada.
+Clique em uma linha para abrir o painel da entrada. Ele mostra cada campo da entrada — quando, quem, de qual endereço IP e com qual navegador — e, em **Detalhes**, o que a entrada registrou, escrito em linguagem simples em vez de chaves internas:
 
-As informações que enquadram uma alteração sem fazer parte dela — o endereço atual de um portal e se está publicado, se as credenciais de uma conexão foram substituídas, os tipos que um mapeamento de migração cobre — são listadas em **Contexto**, abaixo da tabela.
+- **Alterações** — uma frase por alteração. A edição de um tipo de ficha aparece, por exemplo, como *Campo “Criticidade de negócio” (Seleção única) adicionado à seção “Governança”* ou *Opção “Alta” do campo “Criticidade de negócio” renomeada para “Crítica”*. Campos, seções, opções, papéis e portais são indicados pelo rótulo, as permissões pela descrição e os idiomas pelo nome.
+- **Antes / Depois** — uma tabela dos valores alterados, uma linha por campo, cada campo indicado pelo rótulo. Os valores são formatados: Sim ou Não, datas no formato de data do espaço de trabalho, cores como amostra, tamanhos de arquivo em KB ou MB. Segredos nunca são armazenados: uma senha, um token ou um segredo de cliente é substituído antes de a entrada ser gravada e aparece como **Valor secreto**.
+- **Contexto** — fatos que enquadram uma alteração sem fazer parte dela: o endereço atual de um portal e se ele está publicado, se as credenciais de uma conexão foram substituídas, quantas linhas uma importação afetou.
 
-O painel não tem ações. As entradas não podem ser editadas nem excluídas.
+Um login com falha mostra o seu **Motivo** acima dos detalhes — uma senha incorreta, uma conta desconhecida, uma conta temporariamente bloqueada.
+
+As entradas gravadas antes da versão 2.161.0 mostram os detalhes como foram registrados: os valores antigos e novos continuam aparecendo na tabela, e o que o painel não consegue ler é mostrado como JSON bruto.
+
+O painel não oferece ações. As entradas não podem ser editadas nem excluídas.
 
 ### Exportar CSV
 
@@ -196,7 +202,7 @@ Cada linha traz os mesmos campos da entrada:
 | `ip`, `user_agent` | O cliente |
 | `origin` | web, api, mcp, ext, ops ou system |
 | `impersonator_user_id`, `impersonated_role` | Preenchidos enquanto um administrador vê o aplicativo como outro papel |
-| `details` | Códigos de motivo e valores antigos/novos, com os segredos já mascarados |
+| `details` | Até quatro chaves, com os segredos já mascarados: `reason` (um código de falha), `changes` (`{field: {old, new}}`), `items` (alterações semânticas, `{kind, …}` — por ex. `field.added`) e `context` (fatos simples) |
 
 Enviar o fluxo para um repositório central de logs guarda uma cópia fora da instância, longe do alcance de quem pode administrá-la — é disso que uma revisão de ameaças internas precisa. Veja [Logs e fluxo de auditoria](operations.md#logging-and-the-audit-stream) para coletá-lo.
 

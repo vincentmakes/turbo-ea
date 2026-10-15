@@ -48,6 +48,7 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { useAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
 import { originColor } from "./AuditLogBatchDrawer";
 import SecurityLogEntryDrawer from "./SecurityLogEntryDrawer";
+import { formatTarget, rawTarget } from "./securityLogDetails";
 import SecurityLogFilterSidebar, {
   EMPTY_SECURITY_FILTERS,
   LOCKED_SECURITY_COLUMNS,
@@ -440,14 +441,17 @@ export default function SecurityLogAdmin() {
         headerName: t("securityLog.columns.target"),
         width: 200,
         filter: "agTextColumnFilter",
-        valueGetter: (p) => {
-          const d = p.data;
-          if (!d) return null;
-          const label = d.target_label ?? d.target_id;
-          if (!label) return null;
-          return d.target_type ? `${d.target_type} · ${label}` : label;
-        },
+        valueGetter: (p) => (p.data ? formatTarget(p.data, (key, opts) => t(key, opts)) : null),
         valueFormatter: (p) => (p.value as string | null) ?? empty,
+        cellRenderer: (p: ICellRendererParams<SecurityLogEntry, string | null>) => {
+          if (!p.value) return empty;
+          const raw = p.data ? rawTarget(p.data) : null;
+          return (
+            <Tooltip title={raw ?? ""} placement="top-start">
+              <span>{p.value}</span>
+            </Tooltip>
+          );
+        },
       },
       {
         field: "ip",

@@ -358,7 +358,10 @@ describe("SecurityLogAdmin — load", () => {
     expect(gridStub.cellValue("actor_email", FAILED, { formatted: true })).toBe(empty);
     expect(gridStub.cellValue("actor_email", SUCCEEDED, { formatted: true })).toBe("dana@example.com");
     expect(gridStub.cellValue("subject_email", IMPERSONATED, { formatted: true })).toBe(empty);
-    expect(gridStub.cellValue("target_label", IMPERSONATED)).toBe("role · Viewer");
+    // The target type is labelled; the stored value stays in the cell's tooltip.
+    expect(gridStub.cellValue("target_label", IMPERSONATED)).toBe(
+      `${t("securityLog.targetTypes.role")} · Viewer`,
+    );
     expect(gridStub.cellValue("target_label", EXPORTED)).toBe("abc");
     expect(gridStub.cellValue("target_label", FAILED)).toBeNull();
     expect(gridStub.cellValue("target_label", FAILED, { formatted: true })).toBe(empty);
@@ -382,6 +385,29 @@ describe("SecurityLogAdmin — load", () => {
     expect(within(screen.getByTestId("cell-ip")).getByText("203.0.113.7")).toBeInTheDocument();
     renderCell("origin", IMPERSONATED);
     expect(within(screen.getByTestId("cell-origin")).getByText("mcp")).toBeInTheDocument();
+    render(
+      <div data-testid="cell-target">
+        {gridStub.colDef("target_label").cellRenderer({
+          data: IMPERSONATED,
+          value: gridStub.cellValue("target_label", IMPERSONATED),
+        })}
+      </div>,
+    );
+    const target = within(screen.getByTestId("cell-target")).getByText(
+      `${t("securityLog.targetTypes.role")} · Viewer`,
+    );
+    expect(target).toHaveAttribute("aria-label", "role · Viewer");
+    expect(gridStub.colDef("target_label").cellRenderer({ data: FAILED, value: null })).toBe(
+      t("auditLog.batch.emptyValue"),
+    );
+    render(
+      <div data-testid="cell-target-nodata">
+        {gridStub.colDef("target_label").cellRenderer({ data: undefined, value: "x" })}
+      </div>,
+    );
+    expect(
+      within(screen.getByTestId("cell-target-nodata")).getByText("x").getAttribute("aria-label"),
+    ).toBeFalsy();
 
     for (const id of ["category", "action", "outcome", "origin"]) {
       expect(gridStub.colDef(id).cellRenderer({ value: null })).toBeNull();

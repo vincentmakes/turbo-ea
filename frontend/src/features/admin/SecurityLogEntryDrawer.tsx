@@ -4,14 +4,21 @@
  * batch drawer there is no action here.
  *
  * Shows the entry's metadata (the layout of `AuditLogBatchDrawer`) and its
- * `details`: a field/old/new table when every value is an `{old, new}` pair —
- * the shape `audit_log.diff()` writes — and formatted JSON otherwise. A
- * `details.context` object (plain values the backend files beside the pairs,
- * e.g. a portal's current slug) is not part of that test: it renders beneath
- * the table as a key/value list. A `details.reason` code is pulled out and
- * translated through `securityLog.reasons.*`.
+ * `details`, in plain language (`securityLogDetails.ts` splits them):
+ *
+ * - **Changes** — one sentence per semantic item (`field.added`, …) through
+ *   `securityLog.changes.*`, every argument formatted like a cell value;
+ * - a **Field / Before / After** table for `{old, new}` pairs, the field named
+ *   through `securityLog.fields.*`;
+ * - **Context** — labelled plain facts;
+ * - the raw JSON only for what fits none of these (rows written before the
+ *   `details` contract).
+ *
+ * Values are formatted, never shown raw: Yes / No, the workspace date format, a
+ * colour swatch, a masked-secret chip, KB / MB, a language's name, a permission
+ * key's description from the permission schemas, a code's label.
  */
-import type { ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -29,24 +36,161 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { originColor } from "./AuditLogBatchDrawer";
 import {
   actionLabelKey,
   categoryColor,
-  isFieldDiff,
   outcomeColor,
   reasonLabelKey,
-  splitDetails,
   type SecurityLogEntry,
 } from "./SecurityLogTypes";
+import {
+  changeKindKey,
+  classifyValue,
+  describeDetails,
+  fieldLabelKey,
+  formatBytes,
+  formatTarget,
+  hasPermissionValue,
+  humanise,
+  isEmptyDescription,
+  isNameArg,
+  splitTranslationProperty,
+  translationScopeKey,
+  valueFieldFor,
+  valueLabelKey,
+  type ChangeItem,
+  type ChangePair,
+  type DescribedDetails,
+} from "./securityLogDetails";
 
-/** A value in a details table cell — scalars inline, anything else as JSON. */
-export function formatDetailValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "string") return v;
-  if (typeof v === "number" || typeof v === "boolean") return String(v);
-  return JSON.stringify(v);
+type AppPermissionSchema = Record<string, { permissions?: Record<string, string> }>;
+
+/** Flatten `GET /roles/permissions-schema` into `{key: description}`. */
+export function flattenAppSchema(raw: AppPermissionSchema | null | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const group of Object.values(raw ?? {})) {
+    Object.assign(out, group?.permissions ?? {});
+  }
+  return out;
+}
+
+/**
+ * The permission keys' descriptions, fetched only when the entry shows a
+ * permission. Both schemas are joined — app keys (`inventory.view`) and card
+ * keys (`card.edit`) never collide.
+ */
+function usePermissionDescriptions(needed: boolean): Record<string, string> {
+  const app = useApiQuery<AppPermissionSchema, Record<string, string>>(
+    needed ? "/roles/permissions-schema" : null,
+    { select: flattenAppSchema },
+  );
+  const card = useApiQuery<Record<string, string>>(
+    needed ? "/stakeholder-roles/permissions-schema" : null,
+  );
+  return useMemo(() => ({ ...(card.data ?? {}), ...(app.data ?? {}) }), [app.data, card.data]);
+}
+
+export interface ValueFormatter {
+  /** The value as plain text, for a sentence or a list. */
+  text: (value: unknown, field: string) => string;
+  /** The value as a table cell: a swatch for a colour, a chip for a secret. */
+  node: (value: unknown, field: string) => ReactNode;
+  /** A field name's label (`smtp_host` → "SMTP host"). */
+  fieldLabel: (field: string) => string;
+}
+
+/** Formats every value the drawer shows; see the module doc for the rules. */
+export function useValueFormatter(
+  permissions: Record<string, string>,
+  targetType?: string | null,
+): ValueFormatter {
+  // Keys are namespace-qualified, so the hook needs no namespace of its own.
+  const { t } = useTranslation();
+  const { formatDateTime } = useDateFormat();
+  const empty = t("admin:auditLog.batch.emptyValue");
+
+  const text = useCallback(
+    (value: unknown, field: string): string => {
+      switch (classifyValue(value, field)) {
+        case "empty":
+          return empty;
+        case "bool":
+          return t(value ? "common:labels.yes" : "common:labels.no");
+        case "datetime":
+          return formatDateTime(value as string);
+        case "bytes":
+          return formatBytes(value as number);
+        case "masked":
+          return t("admin:securityLog.entry.masked");
+        case "permission":
+          return permissions[value as string] ?? (value as string);
+        case "locale":
+          return LOCALE_LABELS[value as SupportedLocale] ?? (value as string);
+        case "list":
+          return (value as unknown[]).map((v) => text(v, field)).join(", ");
+        case "code":
+          // Only a code this build labels is classified as one.
+          return t(`admin:${valueLabelKey(value as string)}`);
+        default:
+          return typeof value === "string" ? value : JSON.stringify(value);
+      }
+    },
+    [t, empty, formatDateTime, permissions],
+  );
+
+  const node = useCallback(
+    (value: unknown, field: string): ReactNode => {
+      const kind = classifyValue(value, field);
+      if (kind === "color") {
+        return (
+          <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
+            <Box
+              component="span"
+              data-testid="security-color-swatch"
+              aria-hidden
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: 0.5,
+                border: 1,
+                borderColor: "divider",
+                bgcolor: value as string,
+                flexShrink: 0,
+              }}
+            />
+            <code style={{ fontSize: 12 }}>{value as string}</code>
+          </Box>
+        );
+      }
+      if (kind === "masked") {
+        return <Chip size="small" variant="outlined" label={text(value, field)} />;
+      }
+      if (kind === "permission") {
+        return (
+          <Tooltip title={value as string}>
+            <span>{text(value, field)}</span>
+          </Tooltip>
+        );
+      }
+      return text(value, field);
+    },
+    [text],
+  );
+
+  const fieldLabel = useCallback(
+    (field: string) =>
+      t(
+        fieldLabelKey(field, targetType).map((k) => `admin:${k}`),
+        { defaultValue: humanise(field) },
+      ),
+    [t, targetType],
+  );
+
+  return { text, node, fieldLabel };
 }
 
 function Meta({ label, children }: { label: string; children: ReactNode }) {
@@ -60,7 +204,62 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function DiffTable({ pairs }: { pairs: Record<string, { old: unknown; new: unknown }> }) {
+/** One item as a sentence: its template with every argument formatted. */
+export function useItemSentence(fmt: ValueFormatter): (item: ChangeItem) => string {
+  const { t } = useTranslation("admin");
+  return useCallback(
+    (item: ChangeItem) => {
+      const args: Record<string, unknown> = {};
+      const generic: string[] = [];
+      for (const [arg, value] of Object.entries(item)) {
+        if (arg === "kind") continue;
+        let shown: string;
+        if (isNameArg(item.kind, arg) && typeof value === "string") {
+          const scoped = arg === "property" ? splitTranslationProperty(value) : null;
+          shown = scoped
+            ? t("securityLog.translationScope", {
+                scope: t(translationScopeKey(scoped.scope), { defaultValue: humanise(scoped.scope) }),
+                name: scoped.name,
+              })
+            : fmt.fieldLabel(value);
+        } else {
+          shown = fmt.text(value, valueFieldFor(item, arg));
+        }
+        args[arg] = shown;
+        generic.push(`${fmt.fieldLabel(arg)} = ${shown}`);
+      }
+      const fallback = humanise(item.kind);
+      return t(changeKindKey(item.kind), {
+        ...args,
+        // `count` selects a plural form (`more`), so it is passed as the number.
+        count: item.count as number | undefined,
+        defaultValue: generic.length > 0 ? `${fallback}: ${generic.join(", ")}` : fallback,
+      });
+    },
+    [t, fmt],
+  );
+}
+
+function ChangesList({ items, fmt }: { items: ChangeItem[]; fmt: ValueFormatter }) {
+  const { t } = useTranslation("admin");
+  const sentence = useItemSentence(fmt);
+  return (
+    <Box data-testid="security-details-items">
+      <Typography variant="caption" color="text.secondary">
+        {t("securityLog.entry.changes")}
+      </Typography>
+      <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5, typography: "body2" }}>
+        {items.map((item, i) => (
+          <Box component="li" key={i} data-kind={item.kind} sx={{ wordBreak: "break-word" }}>
+            {sentence(item)}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+function DiffTable({ pairs, fmt }: { pairs: Record<string, ChangePair>; fmt: ValueFormatter }) {
   const { t } = useTranslation("admin");
   return (
     <TableContainer component={Paper} variant="outlined">
@@ -76,10 +275,12 @@ function DiffTable({ pairs }: { pairs: Record<string, { old: unknown; new: unkno
           {Object.entries(pairs).map(([field, change]) => (
             <TableRow key={field}>
               <TableCell>
-                <code style={{ fontSize: 12 }}>{field}</code>
+                <Tooltip title={field} placement="top-start">
+                  <span>{fmt.fieldLabel(field)}</span>
+                </Tooltip>
               </TableCell>
-              <TableCell sx={{ wordBreak: "break-word" }}>{formatDetailValue(change.old)}</TableCell>
-              <TableCell sx={{ wordBreak: "break-word" }}>{formatDetailValue(change.new)}</TableCell>
+              <TableCell sx={{ wordBreak: "break-word" }}>{fmt.node(change.old, field)}</TableCell>
+              <TableCell sx={{ wordBreak: "break-word" }}>{fmt.node(change.new, field)}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -88,7 +289,7 @@ function DiffTable({ pairs }: { pairs: Record<string, { old: unknown; new: unkno
   );
 }
 
-function ContextList({ context }: { context: Record<string, unknown> }) {
+function ContextList({ context, fmt }: { context: Record<string, unknown>; fmt: ValueFormatter }) {
   const { t } = useTranslation("admin");
   return (
     <Box data-testid="security-details-context">
@@ -98,11 +299,11 @@ function ContextList({ context }: { context: Record<string, unknown> }) {
       <Box component="dl" sx={{ m: 0, mt: 0.5 }}>
         {Object.entries(context).map(([key, value]) => (
           <Box key={key} sx={{ display: "flex", gap: 1, typography: "body2", minWidth: 0 }}>
-            <Box component="dt" sx={{ flexShrink: 0 }}>
-              <code style={{ fontSize: 12 }}>{key}</code>
+            <Box component="dt" sx={{ flexShrink: 0, color: "text.secondary" }}>
+              {fmt.fieldLabel(key)}
             </Box>
             <Box component="dd" sx={{ m: 0, wordBreak: "break-word" }}>
-              {formatDetailValue(value)}
+              {fmt.node(value, key)}
             </Box>
           </Box>
         ))}
@@ -111,45 +312,48 @@ function ContextList({ context }: { context: Record<string, unknown> }) {
   );
 }
 
-function DetailsBlock({ details }: { details: Record<string, unknown> | null }) {
+function DetailsBlock({
+  described,
+  targetType,
+}: {
+  described: DescribedDetails;
+  targetType: string | null;
+}) {
   const { t } = useTranslation("admin");
-  const rest = details ? { ...details } : null;
-  if (rest) delete rest.reason;
-  const { pairs, context } = splitDetails(rest ?? {});
-  const ctx = context && Object.keys(context).length > 0 ? context : null;
-  const hasPairs = Object.keys(pairs).length > 0;
-  if (!rest || (!hasPairs && !ctx)) {
+  const permissions = usePermissionDescriptions(hasPermissionValue(described));
+  const fmt = useValueFormatter(permissions, targetType);
+  if (isEmptyDescription(described)) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
         {t("securityLog.entry.noDetails")}
       </Typography>
     );
   }
-  if (!hasPairs || isFieldDiff(pairs)) {
-    return (
-      <Stack spacing={1.5}>
-        {hasPairs && isFieldDiff(pairs) && <DiffTable pairs={pairs} />}
-        {ctx && <ContextList context={ctx} />}
-      </Stack>
-    );
-  }
+  const { items, changes, context, legacy } = described;
   return (
-    <Box
-      component="pre"
-      data-testid="security-details-json"
-      sx={{
-        m: 0,
-        p: 1.5,
-        fontSize: 12,
-        borderRadius: 1,
-        bgcolor: "action.hover",
-        overflowX: "auto",
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-      }}
-    >
-      {JSON.stringify(rest, null, 2)}
-    </Box>
+    <Stack spacing={1.5}>
+      {items.length > 0 && <ChangesList items={items} fmt={fmt} />}
+      {Object.keys(changes).length > 0 && <DiffTable pairs={changes} fmt={fmt} />}
+      {Object.keys(context).length > 0 && <ContextList context={context} fmt={fmt} />}
+      {legacy && (
+        <Box
+          component="pre"
+          data-testid="security-details-json"
+          sx={{
+            m: 0,
+            p: 1.5,
+            fontSize: 12,
+            borderRadius: 1,
+            bgcolor: "action.hover",
+            overflowX: "auto",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {JSON.stringify(legacy, null, 2)}
+        </Box>
+      )}
+    </Stack>
   );
 }
 
@@ -167,12 +371,9 @@ export default function SecurityLogEntryDrawer({
 
   if (!entry) return null;
   const empty = t("auditLog.batch.emptyValue");
-  const reason =
-    entry.details && typeof entry.details.reason === "string" ? entry.details.reason : null;
-  const target =
-    entry.target_label || entry.target_id
-      ? [entry.target_type, entry.target_label ?? entry.target_id].filter(Boolean).join(" · ")
-      : null;
+  const described = describeDetails(entry.details);
+  const reason = described.reason;
+  const target = formatTarget(entry, (key, opts) => t(key, opts));
 
   return (
     <Drawer
@@ -291,7 +492,7 @@ export default function SecurityLogEntryDrawer({
           <Divider sx={{ my: 1 }} />
 
           <Typography variant="subtitle2">{t("securityLog.entry.details")}</Typography>
-          <DetailsBlock details={entry.details} />
+          <DetailsBlock described={described} targetType={entry.target_type} />
         </Stack>
       </Box>
     </Drawer>

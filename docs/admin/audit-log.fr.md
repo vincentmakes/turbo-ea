@@ -65,11 +65,17 @@ Le panneau de filtres à gauche restreint la liste par **catégorie**, **résult
 
 Une recherche sur une adresse e-mail porte sur l'acteur, le sujet et la cible : saisir une seule adresse retrouve à la fois ce que cette personne a fait et ce qui a été tenté contre son compte.
 
-### Détails d'une entrée
+### Lire une entrée
 
-Cliquez sur une ligne pour ouvrir le panneau de l'entrée. Il affiche chaque champ, y compris l'agent utilisateur du navigateur et les **détails** enregistrés avec l'entrée — le code de motif d'une connexion échouée, l'heure de fin d'un verrouillage, le fournisseur d'identité d'une connexion SSO. Lorsqu'une entrée enregistre une modification, les détails s'affichent sous forme de tableau des anciennes et nouvelles valeurs. Les secrets ne sont jamais stockés : un mot de passe, un jeton ou un secret client est remplacé par `***` avant l'écriture de l'entrée.
+Cliquez sur une ligne pour ouvrir le panneau de l'entrée. Il affiche chaque champ de l'entrée — quand, qui, depuis quelle adresse IP et quel navigateur — et, sous **Détails**, ce que l'entrée a enregistré, rédigé en langage clair plutôt qu'en clés techniques :
 
-Les éléments qui situent une modification sans en faire partie — l'adresse actuelle d'un portail et s'il est publié, le remplacement ou non des identifiants d'une connexion, les types couverts par un mappage de migration — sont listés sous **Contexte**, sous le tableau.
+- **Modifications** — une phrase par modification. La modification d'un type de fiche se lit par exemple *Champ « Criticité métier » (Sélection unique) ajouté à la section « Gouvernance »* ou *Option « Élevée » du champ « Criticité métier » renommée en « Critique »*. Les champs, sections, options, rôles et portails sont désignés par leur libellé, les autorisations par leur description et les langues par leur nom.
+- **Avant / Après** — un tableau des valeurs modifiées, une ligne par champ, chaque champ désigné par son libellé. Les valeurs sont mises en forme : Oui ou Non, dates au format de date de l'espace de travail, couleurs sous forme de pastille, tailles de fichier en Ko ou Mo. Les secrets ne sont jamais stockés : un mot de passe, un jeton ou un secret client est remplacé avant l'écriture de l'entrée et s'affiche comme **Valeur secrète**.
+- **Contexte** — les éléments qui situent une modification sans en faire partie : l'adresse actuelle d'un portail et s'il est publié, le remplacement ou non des identifiants d'une connexion, le nombre de lignes traitées par un import.
+
+Une connexion échouée affiche son **Motif** au-dessus des détails — un mot de passe erroné, un compte inconnu, un compte temporairement verrouillé.
+
+Les entrées écrites avant la version 2.161.0 affichent leurs détails tels qu'ils ont été enregistrés : les anciennes et nouvelles valeurs apparaissent toujours dans le tableau, et ce que le panneau ne sait pas lire s'affiche en JSON brut.
 
 Le panneau ne propose aucune action. Les entrées ne peuvent être ni modifiées ni supprimées.
 
@@ -196,7 +202,7 @@ Chaque ligne porte les mêmes champs que l'entrée :
 | `ip`, `user_agent` | Le client |
 | `origin` | web, api, mcp, ext, ops ou system |
 | `impersonator_user_id`, `impersonated_role` | Renseignés pendant qu'un administrateur consulte l'application sous un autre rôle |
-| `details` | Codes de motif et anciennes/nouvelles valeurs, secrets déjà masqués |
+| `details` | Jusqu'à quatre clés, secrets déjà masqués : `reason` (un code d'échec), `changes` (`{field: {old, new}}`), `items` (modifications sémantiques, `{kind, …}` — par ex. `field.added`) et `context` (faits simples) |
 
 Expédier ce flux vers un stockage central de journaux en conserve une copie hors de l'instance, hors de portée de quiconque peut l'administrer — c'est ce dont a besoin une revue des menaces internes. Voir [Journalisation et flux d'audit](operations.md#logging-and-the-audit-stream) pour le collecter.
 

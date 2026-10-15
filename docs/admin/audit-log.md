@@ -65,11 +65,17 @@ The filter sidebar on the left narrows the list by **category**, **outcome**, **
 
 A search for an email address matches the actor, the subject and the target, so typing one address finds both what that person did and what was attempted against their account.
 
-### Entry details
+### Reading an entry
 
-Click a row to open the entry drawer. It shows every field of the entry, including the browser's user agent and the **details** recorded with it — the reason code of a failed sign-in, the time a lockout ends, the identity provider of an SSO sign-in. Where an entry records a change, the details are shown as a table of old and new values. Secrets are never stored: a password, token or client secret is replaced with `***` before the entry is written.
+Click a row to open the entry drawer. It shows every field of the entry — when, who, from which IP address and browser — and, under **Details**, what the entry recorded, written out in plain language rather than as stored keys:
 
-Facts that frame a change without being part of it — a portal's current address and whether it is published, whether a connection's credentials were replaced, the types a migration mapping covers — are listed under **Context** beneath the table.
+- **Changes** — one sentence per change. Editing a card type reads, for example, *Field “Business criticality” (Single select) added to section “Governance”* or *Option “High” on field “Business criticality” renamed to “Critical”*. Fields, sections, options, roles and portals are named by their labels, permissions by their description and languages by their name.
+- **Before / After** — a table of the values that changed, one row per field, each field named by its label. Values are formatted: Yes or No, dates in the workspace date format, colours as a swatch, file sizes in KB or MB. Secrets are never stored: a password, token or client secret is replaced before the entry is written and is shown as **Secret value**.
+- **Context** — facts that frame a change without being part of it: a portal's current address and whether it is published, whether a connection's credentials were replaced, how many rows an import touched.
+
+A failed sign-in shows its **Reason** above the details — a wrong password, an unknown account, an account that is temporarily locked.
+
+Entries written before version 2.161.0 show their details as they were recorded: old and new values still appear in the table, and anything the drawer cannot read is shown as raw JSON.
 
 The drawer has no actions. Entries cannot be edited or deleted.
 
@@ -196,7 +202,7 @@ Each line carries the same fields as the entry:
 | `ip`, `user_agent` | The client |
 | `origin` | web, api, mcp, ext, ops or system |
 | `impersonator_user_id`, `impersonated_role` | Set while an administrator is viewing the app as another role |
-| `details` | Reason codes and old/new values, with secrets already masked |
+| `details` | Up to four keys, secrets already masked: `reason` (a failure code), `changes` (`{field: {old, new}}`), `items` (semantic changes, `{kind, …}` — e.g. `field.added`) and `context` (plain facts) |
 
 Shipping the stream to a central log store keeps a copy outside the instance, out of reach of anyone who can administer it — which is what an insider-threat review needs. See [Logging and the audit stream](operations.md#logging-and-the-audit-stream) for how to collect it.
 
