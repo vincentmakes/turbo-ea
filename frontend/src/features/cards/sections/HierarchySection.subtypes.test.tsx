@@ -91,6 +91,10 @@ const bucketHeaders = () =>
         b.hasAttribute("aria-expanded") && !b.classList.contains("MuiAccordionSummary-root"),
     );
 
+/** A header's label + count, without the chevron glyph's ligature text. */
+const headerText = (h: HTMLElement) =>
+  (h.textContent ?? "").replace(/^(expand_more|chevron_right)/, "");
+
 beforeEach(() => {
   hookState.reset();
   mockApi.reset();
@@ -103,7 +107,7 @@ describe("HierarchySection — subtype grouping", () => {
     renderSection(MANY);
     await screen.findByText("Sales");
 
-    expect(bucketHeaders().map((h) => h.textContent)).toEqual([
+    expect(bucketHeaders().map(headerText)).toEqual([
       "Region3",
       "Business Unit3",
       "No subtype2",
@@ -122,7 +126,7 @@ describe("HierarchySection — subtype grouping", () => {
     const { user } = renderSection(MANY);
     await screen.findByText("Sales");
 
-    const region = screen.getByRole("button", { name: /^Region/ });
+    const region = screen.getByRole("button", { name: /Region/ });
     expect(region).toHaveAttribute("aria-expanded", "true");
     await user.click(region);
 
@@ -150,7 +154,7 @@ describe("HierarchySection — subtype grouping", () => {
 
     expect(bucketHeaders()).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Group by subtype" }));
-    expect(bucketHeaders().map((h) => h.textContent)).toEqual([
+    expect(bucketHeaders().map(headerText)).toEqual([
       "Region1",
       "Business Unit1",
       "No subtype1",
@@ -183,7 +187,7 @@ describe("HierarchySection — subtype grouping", () => {
     const { user } = renderSection(MANY);
     await screen.findByText("Sales");
 
-    const businessUnit = screen.getByRole("button", { name: /^Business Unit/ })
+    const businessUnit = screen.getByRole("button", { name: /Business Unit/ })
       .parentElement as HTMLElement;
     const sales = within(businessUnit)
       .getAllByRole("listitem")
