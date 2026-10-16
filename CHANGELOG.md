@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.165.0] - 2026-10-16
+
+### Added
+- **Group a card's children by subtype** ([#1269](https://github.com/vincentmakes/turbo-ea/discussions/1269)): on card details, the Hierarchy section now groups the child cards into collapsible subtype sections, each with a count and a trailing **No subtype** section, the same way the Relations section groups related cards. Grouping turns on by itself when there are many children of several subtypes, and a toggle next to the **Children** count switches between the grouped and flat lists.
+
 ## [2.164.2] - 2026-10-16
 
 ### Fixed

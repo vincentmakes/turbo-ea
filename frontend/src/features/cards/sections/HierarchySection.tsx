@@ -31,11 +31,13 @@ import OptionChip from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
-import { useOptionLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { useOptionLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { api } from "@/api/client";
-import type { Card, FieldOption, HierarchyData } from "@/types";
+import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from "@/types";
+import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
+import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
 const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
@@ -203,13 +205,39 @@ function HierarchySection({
   canEdit?: boolean;
   initialExpanded?: boolean;
 }) {
-  const { t } = useTranslation(["cards", "common"]);
+  const { t, i18n } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
+  const subtypeLabel = useSubtypeLabel();
   const typeConfig = getType(card.type);
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
   const [hierarchy, setHierarchy] = useState<HierarchyData | null>(null);
+
+  // Subtype grouping of the children (discussion #1269) — the same rule and
+  // the same control as a relation group's subtype buckets (#792). Children
+  // always share this card's type, so its subtypes are the one vocabulary.
+  const subtypeDefs = useMemo<SubtypeDef[]>(() => typeConfig?.subtypes ?? [], [typeConfig]);
+  const childBuckets = useMemo(
+    () =>
+      bucketBySubtype(
+        hierarchy?.children ?? [],
+        (c) => c.subtype,
+        (c) => c.name,
+        subtypeDefs.map((s) => s.key),
+        i18n.language,
+      ),
+    [hierarchy, subtypeDefs, i18n.language],
+  );
+  const childCount = hierarchy?.children.length ?? 0;
+  // Offered whenever two real subtypes are present; on by default only once
+  // the list is long enough that a flat one is hard to scan.
+  const canToggleChildGrouping =
+    subtypeDefs.length > 0 && childBuckets.filter((b) => !b.isNoSubtype).length >= 2;
+  const { grouped: childrenGrouped, toggleGrouped: toggleChildrenGrouped } = useSubtypeGrouping(
+    shouldGroupBySubtype(childBuckets, childCount),
+  );
+  const childBucketState = useCollapsedBuckets();
 
   // Parent picker state
   const [pickingParent, setPickingParent] = useState(false);
@@ -361,6 +389,54 @@ function HierarchySection({
 
   const level = hierarchy?.level ?? 1;
   const levelColor = LEVEL_COLORS[Math.min(level - 1, LEVEL_COLORS.length - 1)];
+
+  // One child row — the same in the flat list and inside a subtype bucket.
+  const renderChildRow = (child: HierarchyNode) => (
+    <ListItem
+      key={child.id}
+      // Only the link type is pinned to the row's right edge.
+      // Unlink sits beside the name instead, as it does on the
+      // Parent row above: removing a child is the frequent
+      // action and belongs next to the thing it acts on, while
+      // a link type is rare — most installs configure none.
+      //
+      // `undefined`, not an empty Box, when there is no
+      // vocabulary: MUI adds its right-padding reserve whenever
+      // `secondaryAction` is set, which would indent every row
+      // on every install that never opted in.
+      secondaryAction={
+        showLinkLabels ? (
+          /* The child's own label — the edge from this card
+             down to it. Editing patches the CHILD. */
+          <HierarchyLinkLabel
+            value={child.parent_label}
+            options={linkLabels}
+            onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
+            idPrefix={child.id}
+          />
+        ) : undefined
+      }
+      sx={{ py: 0.25 }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box
+          component="div"
+          onClick={() => navigate(`/cards/${child.id}`)}
+          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
+        >
+          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
+          <ListItemText primary={child.name} />
+        </Box>
+        {/* A sibling of the clickable name, never a child of
+            it — inside, unlinking would also navigate. */}
+        {canEdit && (
+          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
+            <MaterialSymbol icon="link_off" size={16} />
+          </IconButton>
+        )}
+      </Box>
+    </ListItem>
+  );
 
   return (
     <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
@@ -559,55 +635,57 @@ function HierarchySection({
                   {t("hierarchy.children")}
                 </Typography>
                 <Chip size="small" label={hierarchy.children.length} sx={{ height: 18, fontSize: "0.65rem" }} />
-              </Box>
-              {hierarchy.children.length > 0 ? (
-                <List dense disablePadding sx={{ px: 0.5 }}>
-                  {hierarchy.children.map((child) => (
-                    <ListItem
-                      key={child.id}
-                      // Only the link type is pinned to the row's right edge.
-                      // Unlink sits beside the name instead, as it does on the
-                      // Parent row above: removing a child is the frequent
-                      // action and belongs next to the thing it acts on, while
-                      // a link type is rare — most installs configure none.
-                      //
-                      // `undefined`, not an empty Box, when there is no
-                      // vocabulary: MUI adds its right-padding reserve whenever
-                      // `secondaryAction` is set, which would indent every row
-                      // on every install that never opted in.
-                      secondaryAction={
-                        showLinkLabels ? (
-                          /* The child's own label — the edge from this card
-                             down to it. Editing patches the CHILD. */
-                          <HierarchyLinkLabel
-                            value={child.parent_label}
-                            options={linkLabels}
-                            onChange={canEdit ? (next) => setLinkLabel(child.id, next) : undefined}
-                            idPrefix={child.id}
-                          />
-                        ) : undefined
-                      }
-                      sx={{ py: 0.25 }}
+                {canToggleChildGrouping && (
+                  <Tooltip
+                    title={t(
+                      childrenGrouped
+                        ? "hierarchy.subtype.ungroupTooltip"
+                        : "hierarchy.subtype.groupTooltip",
+                    )}
+                  >
+                    <IconButton
+                      size="small"
+                      onClick={toggleChildrenGrouped}
+                      color={childrenGrouped ? "primary" : "default"}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Box
-                          component="div"
-                          onClick={() => navigate(`/cards/${child.id}`)}
-                          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-                        >
-                          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
-                          <ListItemText primary={child.name} />
-                        </Box>
-                        {/* A sibling of the clickable name, never a child of
-                            it — inside, unlinking would also navigate. */}
-                        {canEdit && (
-                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title={t("hierarchy.removeChild")}>
-                            <MaterialSymbol icon="link_off" size={16} />
-                          </IconButton>
-                        )}
-                      </Box>
-                    </ListItem>
-                  ))}
+                      <MaterialSymbol
+                        icon={childrenGrouped ? "format_list_bulleted" : "account_tree"}
+                        size={18}
+                      />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+              {hierarchy.children.length > 0 && childrenGrouped && canToggleChildGrouping ? (
+                <Box>
+                  {childBuckets.map((bucket) => {
+                    const def = bucket.isNoSubtype
+                      ? undefined
+                      : subtypeDefs.find((d) => d.key === bucket.key);
+                    const label = bucket.isNoSubtype
+                      ? t("hierarchy.subtype.noSubtype")
+                      : def
+                        ? subtypeLabel(def)
+                        : bucket.key;
+                    return (
+                      <SubtypeBucket
+                        key={bucket.key}
+                        label={label}
+                        isNoSubtype={bucket.isNoSubtype}
+                        count={bucket.items.length}
+                        open={childBucketState.isOpen(bucket.key)}
+                        onToggle={() => childBucketState.toggle(bucket.key)}
+                      >
+                        <List dense disablePadding sx={{ px: 0.5 }}>
+                          {bucket.items.map(renderChildRow)}
+                        </List>
+                      </SubtypeBucket>
+                    );
+                  })}
+                </Box>
+              ) : hierarchy.children.length > 0 ? (
+                <List dense disablePadding sx={{ px: 0.5 }}>
+                  {hierarchy.children.map(renderChildRow)}
                 </List>
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{t("hierarchy.noChildren")}</Typography>

@@ -1154,6 +1154,7 @@ async def get_hierarchy(
                     "id": str(parent.id),
                     "name": parent.name,
                     "type": parent.type,
+                    "subtype": parent.subtype,
                     "parent_label": parent.parent_label,
                 }
             )
@@ -1172,6 +1173,7 @@ async def get_hierarchy(
             "id": str(c.id),
             "name": c.name,
             "type": c.type,
+            "subtype": c.subtype,
             "parent_label": c.parent_label,
         }
         for c in children_result.scalars().all()

@@ -117,6 +117,7 @@ Para tipos de ficha que soportan jerarquía (por ejemplo, Organización, Capacid
 
 - **Padre** — La ficha padre en la jerarquía (haga clic para navegar)
 - **Hijos** — Lista de fichas hijas (haga clic en cualquiera para navegar)
+- **Agrupar por subtipo** — Cuando una ficha tiene muchos hijos de distintos subtipos (por ejemplo unidades de negocio, regiones y equipos bajo una misma empresa), se agrupan automáticamente en secciones plegables por subtipo, cada una con su recuento, con una sección final **Sin subtipo** para los hijos sin clasificar. El botón agrupar/lista junto al recuento de **hijos** alterna entre la vista agrupada y la lista plana.
 - **Ruta jerárquica** — Muestra la ruta completa desde la raíz hasta la ficha actual
 - **Tipo de vínculo** — Cuando un administrador ha configurado tipos de vínculo para este tipo de ficha, cada vínculo padre-hijo puede etiquetarse — por ejemplo, una filial *comercial* y otra de *ventas*. La etiqueta pertenece a la ficha hija: la ficha padre la muestra junto a cada hija, y la ficha hija junto a su padre. Quitar una ficha o moverla al nivel superior borra su etiqueta, y el cambio queda registrado en la pestaña **Historial**.
 

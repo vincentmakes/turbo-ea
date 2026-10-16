@@ -168,6 +168,39 @@ class TestGetHierarchy:
         assert child_names == ["Child A", "Child B"]
         assert len(data["children"]) == 2
 
+    async def test_hierarchy_nodes_carry_subtype(self, client, db, env):
+        """Children and ancestors carry their subtype so card detail can group by it."""
+        admin = env["admin"]
+        root = await create_card(
+            db, card_type="Organization", name="Holding", subtype="legalEntity", user_id=admin.id
+        )
+        parent = await create_card(
+            db, card_type="Organization", name="Group", user_id=admin.id, parent_id=root.id
+        )
+        await create_card(
+            db,
+            card_type="Organization",
+            name="Sales",
+            subtype="team",
+            user_id=admin.id,
+            parent_id=parent.id,
+        )
+        await create_card(
+            db, card_type="Organization", name="Unclassified", user_id=admin.id, parent_id=parent.id
+        )
+
+        response = await client.get(
+            f"/api/v1/cards/{parent.id}/hierarchy",
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert {c["name"]: c["subtype"] for c in data["children"]} == {
+            "Sales": "team",
+            "Unclassified": None,
+        }
+        assert data["ancestors"][0]["subtype"] == "legalEntity"
+
     async def test_hierarchy_card_not_found(self, client, db, env):
         """Requesting hierarchy for a non-existent card returns 404."""
         admin = env["admin"]

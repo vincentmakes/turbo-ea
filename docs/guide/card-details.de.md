@@ -117,6 +117,7 @@ Für Kartentypen, die Hierarchie unterstützen (z.B. Organisation, Geschäftsfä
 
 - **Übergeordnete Karte** — Die übergeordnete Karte in der Hierarchie (klicken zum Navigieren)
 - **Untergeordnete Karten** — Liste der untergeordneten Karten (klicken zum Navigieren)
+- **Nach Untertyp gruppieren** — Hat eine Karte viele untergeordnete Karten verschiedener Untertypen (zum Beispiel Geschäftsbereiche, Regionen und Teams unter einem Unternehmen), werden sie automatisch in einklappbare Untertyp-Abschnitte mit Anzahl gruppiert; ein abschließender Abschnitt **Kein Untertyp** sammelt nicht klassifizierte Karten. Mit dem Gruppieren/Listen-Schalter neben der Anzahl der **untergeordneten Karten** wechseln Sie zwischen gruppierter und einfacher Ansicht.
 - **Hierarchie-Brotkrumen** — Zeigt den vollständigen Pfad von der Wurzel zur aktuellen Karte
 - **Verbindungstyp** — Wenn eine Administratorin Verbindungstypen für diesen Kartentyp konfiguriert hat, lässt sich jede Eltern-Kind-Verbindung benennen — zum Beispiel eine Tochtergesellschaft als *Vertrieb* und eine andere als *Verkauf*. Die Bezeichnung gehört zur untergeordneten Karte: Auf der übergeordneten Karte steht sie neben jeder untergeordneten Karte, auf der untergeordneten neben ihrer übergeordneten. Wird eine Karte entfernt oder auf die oberste Ebene verschoben, entfällt ihre Bezeichnung; die Änderung wird im Tab **Verlauf** festgehalten.
 

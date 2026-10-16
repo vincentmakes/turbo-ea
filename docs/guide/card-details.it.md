@@ -115,6 +115,7 @@ Per i tipi di card che supportano la gerarchia (es. Organization, Business Capab
 
 - **Genitore** — Il genitore della card nella gerarchia (cliccate per navigare)
 - **Figli** — Elenco delle card figlie (cliccate su qualsiasi per navigare)
+- **Raggruppa per sottotipo** — Quando una card ha molti figli di sottotipi diversi (ad esempio business unit, regioni e team sotto un'unica società), vengono raggruppati automaticamente in sezioni comprimibili per sottotipo, ciascuna con il proprio conteggio, con una sezione finale **Nessun sottotipo** per i figli non classificati. Il pulsante raggruppa/elenco accanto al conteggio dei **figli** passa dalla vista raggruppata all'elenco semplice.
 - **Breadcrumb gerarchico** — Mostra il percorso completo dalla radice alla card corrente
 - **Tipo di collegamento** — Quando un amministratore ha configurato i tipi di collegamento per questo tipo di card, ogni collegamento padre-figlio può essere etichettato — ad esempio una controllata *commerciale* e un'altra di *vendita*. L'etichetta appartiene alla card figlia: la card padre la mostra accanto a ogni figlia, e la card figlia accanto al proprio padre. Rimuovere una card o spostarla al livello superiore ne cancella l'etichetta, e la modifica viene registrata nella scheda **Cronologia**.
 

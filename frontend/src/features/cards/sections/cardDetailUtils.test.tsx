@@ -12,6 +12,7 @@ import type { FieldDef, Relation } from "@/types";
 import { BOOLEAN_COLORS } from "@/theme/tokens";
 
 import {
+  bucketBySubtype,
   bucketRelationsBySubtype,
   CardIdPill,
   FieldEditor,
@@ -156,6 +157,44 @@ describe("bucketRelationsBySubtype", () => {
     const [bucket] = bucketRelationsBySubtype([incoming], FS, order);
     expect(bucket.key).toBe("region");
     expect(bucket.rels[0].source?.name).toBe("Inbound");
+  });
+});
+
+describe("bucketBySubtype", () => {
+  type Item = { name: string; st?: string | null };
+  const items: Item[] = [
+    { name: "beta", st: "b" },
+    { name: "Alpha", st: "b" },
+    { name: "zed", st: "a" },
+    { name: "none" },
+    { name: "Stale", st: "gone" },
+  ];
+  const run = (order: string[]) =>
+    bucketBySubtype(items, (i) => i.st, (i) => i.name, order, "en");
+
+  it("emits buckets in metamodel order, skipping empty ones, then No subtype", () => {
+    const buckets = run(["a", "unused", "b"]);
+    expect(buckets.map((b) => [b.key, b.isNoSubtype])).toEqual([
+      ["a", false],
+      ["b", false],
+      [NO_SUBTYPE_KEY, true],
+    ]);
+  });
+
+  it("sorts each bucket by name, case-insensitively", () => {
+    const buckets = run(["a", "b"]);
+    expect(buckets[1].items.map((i) => i.name)).toEqual(["Alpha", "beta"]);
+    expect(buckets[2].items.map((i) => i.name)).toEqual(["none", "Stale"]);
+  });
+
+  it("collects missing and stale subtypes in the trailing bucket", () => {
+    const buckets = run(["a", "b"]);
+    expect(buckets[2].items).toHaveLength(2);
+    expect(buckets.reduce((n, b) => n + b.items.length, 0)).toBe(items.length);
+  });
+
+  it("returns no buckets for no items", () => {
+    expect(bucketBySubtype<Item>([], (i) => i.st, (i) => i.name, ["a"])).toEqual([]);
   });
 });
 

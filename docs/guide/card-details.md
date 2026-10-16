@@ -114,6 +114,7 @@ For card types that support hierarchy (e.g., Organization, Business Capability, 
 
 - **Parent** — The card's parent in the hierarchy (click to navigate)
 - **Children** — List of child cards (click any to navigate)
+- **Group by subtype** — When a card has many children of different subtypes (for example business units, regions and teams under one company), they are automatically grouped into collapsible subtype sections, each with a count, with a trailing **No subtype** section for unclassified children. Use the group/list toggle next to the **Children** count to switch between the grouped and flat views.
 - **Hierarchy breadcrumb** — Shows the full path from root to current card
 - **Link type** — When an administrator has configured link types for this card type, each parent-child link can be labelled — for example one subsidiary that is *commercial* and another that is *sales*. The label sits on the child, so the parent's card shows a label beside every child and the child's card shows its own beside its parent. Removing or moving a card to the top level clears its label, and the change is recorded on the **History** tab.
 

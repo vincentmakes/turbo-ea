@@ -19,7 +19,6 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -35,6 +34,7 @@ import { api } from "@/api/client";
 import { isHexColor, readableTypeColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { SubtypeBucket, useCollapsedBuckets } from "./SubtypeBucket";
 import type {
   DescendantRelationRow,
   DescendantRelationsResponse,
@@ -140,14 +140,7 @@ export default function DescendantRelationsDrawer({
     return out;
   }, [rows]);
 
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  const toggleBucket = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const collapsible = useCollapsedBuckets();
 
   const renderRow = (row: DescendantRelationRow) => {
     const rowType = getType(row.type);
@@ -321,7 +314,6 @@ export default function DescendantRelationsDrawer({
         {!loading && !error && rows.length > 0 && (
           <Box sx={{ overflowY: "auto" }}>
             {buckets.map((b) => {
-              const isOpen = !collapsed.has(b.key);
               const def = b.isNoSubtype
                 ? undefined
                 : peerType?.subtypes?.find((s) => s.key === b.key);
@@ -342,46 +334,17 @@ export default function DescendantRelationsDrawer({
               if (!hasAnySubtype) return <Box key={b.key}>{list}</Box>;
 
               return (
-                <Box key={b.key}>
-                  <Box
-                    component="button"
-                    onClick={() => toggleBucket(b.key)}
-                    sx={{
-                      all: "unset",
-                      boxSizing: "border-box",
-                      width: "100%",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.75,
-                      px: 2,
-                      py: 0.5,
-                      bgcolor: "background.default",
-                      borderTop: "1px solid",
-                      borderColor: "divider",
-                      "&:hover": { bgcolor: "action.hover" },
-                    }}
-                  >
-                    <MaterialSymbol icon={isOpen ? "expand_more" : "chevron_right"} size={16} />
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      color={b.isNoSubtype ? "text.disabled" : "text.secondary"}
-                      sx={{ flex: 1, fontStyle: b.isNoSubtype ? "italic" : "normal" }}
-                    >
-                      {label}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={b.rows.length}
-                      variant="outlined"
-                      sx={{ height: 18, fontSize: "0.65rem" }}
-                    />
-                  </Box>
-                  <Collapse in={isOpen} unmountOnExit>
-                    {list}
-                  </Collapse>
-                </Box>
+                <SubtypeBucket
+                  key={b.key}
+                  label={label}
+                  isNoSubtype={b.isNoSubtype}
+                  count={b.rows.length}
+                  open={collapsible.isOpen(b.key)}
+                  onToggle={() => collapsible.toggle(b.key)}
+                  px={2}
+                >
+                  {list}
+                </SubtypeBucket>
               );
             })}
           </Box>

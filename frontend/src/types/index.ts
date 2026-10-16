@@ -510,6 +510,8 @@ export interface HierarchyNode {
   id: string;
   name: string;
   type: string;
+  /** The node's subtype key; card detail groups the children by it (#1269). */
+  subtype?: string | null;
   /** This node's OWN link label — the label on the edge from its parent down
    *  to it. On a `children` node that is the edge from the card under view; on
    *  an `ancestor` node it is the edge one level above that ancestor. */

@@ -112,6 +112,7 @@ For korttyper der understøtter hierarki (f.eks. Organization, Business Capabili
 
 - **Parent** — Kortets forælder i hierarkiet (klik for at navigere)
 - **Children** — Liste over barnekort (klik på et for at navigere)
+- **Gruppér efter undertype** — Når et kort har mange underordnede kort af forskellige undertyper (for eksempel forretningsenheder, regioner og teams under ét selskab), grupperes de automatisk i sammenfoldelige undertypesektioner med et antal, med en afsluttende sektion **Ingen undertype** til uklassificerede kort. Brug gruppér/liste-knappen ved siden af antallet af **underordnede** kort til at skifte mellem grupperet visning og flad liste.
 - **Hierarki-brødkrumme** — Viser den fulde sti fra rod til aktuelt kort
 - **Forbindelsestype** — Når en administrator har konfigureret forbindelsestyper for denne korttype, kan hver forælder-barn-forbindelse få en etiket — for eksempel ét datterselskab, der er *kommercielt*, og et andet, der står for *salg*. Etiketten hører til barnekortet: forælderkortet viser den ud for hvert barn, og barnekortet ud for sin forælder. Fjernes et kort, eller flyttes det til øverste niveau, ryddes etiketten, og ændringen registreres under fanen **Historik**.
 
