@@ -111,8 +111,10 @@ archive/
 # TurboLens fork (built from GitHub URL in docker-compose)
 /turbolens/
 
-#Local Claude
-.claude/
+#Local Claude — everything stays local except the shared settings.json, which
+# carries the Trail-code SessionStart hook (.trail/hook.cjs) for every clone
+.claude/*
+!.claude/settings.json
 
 # Terraform (deploy/terraform): provider binaries, state and personal tfvars.
 # The .terraform.lock.hcl files ARE committed.
