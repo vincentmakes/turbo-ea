@@ -47,8 +47,16 @@ next morning): the whole codebase, so the existing features are measured, not
 just new lines.
 
 - Every mutable file is dealt into shards (6 backend, 1 MCP, 8 frontend) and
-  each shard caches its results: mutmut's `mutants/` directory, Stryker's
-  incremental file. mutmut saves every verdict as it lands, so a shard that
+  each shard keeps its results from one run to the next: mutmut's `mutants/`
+  directory, Stryker's incremental files. They are kept as an artifact of the
+  run (`nightly_state.py`), a tarball because mutmut's state is full of
+  symlinks into the repository that an artifact would follow and bring back as
+  stale copies. The next night restores the newest one on `main`. They used to
+  be an Actions cache, and the repository's 10 GB cache limit evicts the least
+  recently used first: run 35 (2026-10-15) found 13 of the 15 shards' caches
+  gone and restarted the frontend's complete baseline from nothing. The cache
+  restore is still there as the fallback when no artifact is found. mutmut
+  saves every verdict as it lands, so a shard that
   runs out of its `--budget` stops cleanly and the next night resumes from the
   functions still unchecked (see below). Once the baseline is complete, only
   functions that changed are re-tested, plus the survivors that a changed
@@ -65,7 +73,7 @@ just new lines.
   every file and throws that progress away.
   A chunk whose last report was made from the same inputs is skipped (see
   below). Frontend files are dealt to shards and chunks by a hash of their
-  path, never by size, so a file stays where its cached verdicts are; a
+  path, never by size, so a file stays where its kept verdicts are; a
   size-balanced deal moved most files to another shard every night, where
   they were scored from whatever old report that shard held. A chunk's
   report is read only for the files the chunk holds now, because Stryker's
@@ -89,7 +97,9 @@ just new lines.
   run), then the backlog: critical modules first, then by survivor count, per
   function. Every run rewrites the body, so it is a report, not a bug list and
   not a place for notes: those go in a comment, a pragma or a floor.
-- The PR jobs restore the nightly's mutmut cache. That is what spares them
+- The PR jobs restore the nightly's mutmut cache, which is why backend shard 1
+  and the MCP shard still save one beside their artifact (and no other shard
+  does). That is what spares them
   mutmut's stats pass, a **serial** run of the whole suite that maps each test
   to the functions it reaches (about an hour for the backend on a runner).
 
@@ -231,7 +241,7 @@ Each of these was found the hard way while wiring it up; keep them.
   function a changed test module runs (by mutmut's own stats, which the
   generate step has just updated with any new tests). "Changed" is judged
   against `mutants/mutmut-tests-digest.json`, a hash per test module that
-  each run leaves in the cached directory; the first run, with no digest
+  each run leaves in the kept directory; the first run, with no digest
   yet, asks git what changed since the commit mutmut's stats were built at,
   fetching that commit into the shallow checkout, and treats every test
   module as changed if git cannot say.
@@ -334,10 +344,10 @@ Each of these was found the hard way while wiring it up; keep them.
 - **A lost runner loses half a night, not all of it.** GitHub sometimes takes
   a runner away mid-job ("The runner has received a shutdown signal"). A job
   in that state runs no later step, not even an `always()` one, so the
-  shard's cache and records would never be saved. The nightly therefore splits
+  shard's state and records would never be saved. The nightly therefore splits
   each backend and frontend shard's budget into two halves. Between them a
-  checkpoint saves the cache under `…-<run id>-checkpoint` and uploads the
-  records (`overwrite: true`). Each half costs one more mutmut clean test,
+  checkpoint uploads the state and the records under the names the end of the
+  job overwrites (`overwrite: true`). Each half costs one more mutmut clean test,
   about 20 minutes, which is why there are two halves and not more. The
   shard jobs' `timeout-minutes` is GitHub's maximum, 360, so the budget
   input is the only limit: a dispatched run can take it to about 320 (two

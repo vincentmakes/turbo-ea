@@ -6,11 +6,15 @@
 # everything: every mutable file of the three suites, dealt into shards
 # across runners. It is built to be RESUMABLE rather than fast. mutmut keeps
 # every verdict in its `mutants/` directory; the frontend keeps one Stryker
-# incremental file and report per chunk of files. Both are cached per shard,
-# so each night a shard picks up where the previous one stopped (`--budget`),
-# and once the baseline is complete only what changed is re-tested. The
-# mutmut caches are also what the PR jobs restore, so they skip its serial
-# stats pass.
+# incremental file and report per chunk of files. Each shard keeps that state
+# as an artifact of the run (`nightly_state.py`), so each night a shard picks
+# up where the last run that kept it stopped (`--budget`), and once the
+# baseline is complete only what changed is re-tested. It used to be an
+# Actions cache, which the repository's 10 GB limit evicts least recently used
+# first: run 35 found 13 of its 15 shards' caches gone and restarted the
+# frontend's complete baseline from nothing. Backend shard 1 and the MCP shard
+# still save a cache as well, because that is what the PR jobs restore, so
+# they skip mutmut's serial stats pass.
 #
 # The `report` job merges the shards, scores each suite with
 # `gate.py --scope suite --allow-pending` against the [suite] and [modules]
@@ -54,7 +58,9 @@ concurrency:
 
 env:
   BUDGET: ${{ github.event_name == 'pull_request' && '15' || inputs.budget || '280' }}
-  # Caches are written by main only; a pull request only ever reads them.
+  # Caches are written by main only; a pull request only ever reads them. The
+  # state artifacts are uploaded by every run, since `nightly_state.py restore`
+  # reads only main's runs back.
   SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
   # Address-space cap (`ulimit -v`, KiB) for each process mutmut forks: 3 GiB.
   # The whole backend suite in one process peaks at ~0.65 GiB (VmPeak, measured
@@ -75,6 +81,9 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6]
     outputs:
       count: ${{ steps.meta.outputs.count }} # every leg writes the same value
+    permissions:
+      contents: read
+      actions: read # the last run's state artifact
     services:
       postgres:
         image: postgres:16-alpine
@@ -106,7 +115,17 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
+      - name: Restore the shard's state from the last run that kept it
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/mutation/nightly_state.py restore
+          --name "nightly-state-backend-${{ matrix.shard }}" --into .mutation/backend/backend
+      # Only when no artifact was found: the first night after the switch from
+      # caches, or an artifact API that failed.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.state.outputs.restored != 'true'
         with:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
@@ -147,11 +166,17 @@ jobs:
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
           --output "mutation-records-backend-${{ matrix.shard }}.json"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
+      - name: Checkpoint the shard's state
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
+        run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/backend/backend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
-          path: .mutation/backend/backend
-          key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
+          name: nightly-state-backend-${{ matrix.shard }}
+          path: nightly-state.tgz
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
@@ -172,8 +197,21 @@ jobs:
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite backend --shard "$SHARD"
           --output "mutation-records-backend-${{ matrix.shard }}.json"
+      - name: Keep the shard's state
+        if: always()
+        run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/backend/backend
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: nightly-state-backend-${{ matrix.shard }}
+          path: nightly-state.tgz
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+      # The cache the PR job restores (ci.yml, `restore-keys: mutmut-backend-shard1-`),
+      # so shard 1 only: nothing reads the other shards' caches any more.
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && env.SAVE_CACHE == 'true'
+        if: always() && env.SAVE_CACHE == 'true' && matrix.shard == 1
         with:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
@@ -199,6 +237,9 @@ jobs:
     name: MCP mutation
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read # the last run's state artifact
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -208,7 +249,15 @@ jobs:
           cache-dependency-path: mcp-server/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: mcp-server
+      - name: Restore the shard's state from the last run that kept it
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/mutation/nightly_state.py restore
+          --name nightly-state-mcp-1 --into .mutation/mcp-server/mcp-server
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.state.outputs.restored != 'true'
         with:
           path: .mutation/mcp-server/mcp-server
           key: mutmut-mcp-shard1-${{ github.run_id }}
@@ -225,6 +274,18 @@ jobs:
         run: >-
           python scripts/mutation/mutmut_scope.py collect --suite mcp --shard 1/1
           --output mutation-records-mcp-1.json
+      - name: Keep the shard's state
+        if: always()
+        run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/mcp-server/mcp-server
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: nightly-state-mcp-1
+          path: nightly-state.tgz
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
+      # The cache the PR job restores (ci.yml, `restore-keys: mutmut-mcp-shard1-`).
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: always() && env.SAVE_CACHE == 'true'
         with:
@@ -247,13 +308,15 @@ jobs:
 
   # StrykerJS alone cannot resume: it writes its incremental file only when a
   # run completes. `stryker_scope.py nightly` splits each shard into stable
-  # chunks, each with its own incremental file and last report in a cached
-  # state directory, and runs them oldest-first until the budget is spent, so
-  # the frontend baseline also builds up over several nights. Files are dealt
-  # to shards and chunks by a hash of their path, so a file keeps its shard,
-  # and with it its cached verdicts, from one night to the next. The `v2` in
-  # the cache key retired the state built under the old size-balanced deal,
-  # which moved most files to another shard every night.
+  # chunks, each with its own incremental file and last report in a state
+  # directory kept from run to run, and runs them oldest-first until the
+  # budget is spent, so the frontend baseline also builds up over several
+  # nights. Files are dealt to shards and chunks by a hash of their path, so a
+  # file keeps its shard, and with it its kept verdicts, from one night to the
+  # next. The `v2` in the fallback cache key retired the state built under the
+  # old size-balanced deal, which moved most files to another shard every
+  # night. No frontend cache is saved any more: nothing outside this workflow
+  # reads one, and the artifact is what survives the repository's cache limit.
   frontend:
     name: Frontend mutation (shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
@@ -264,6 +327,9 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     outputs:
       count: ${{ steps.meta.outputs.count }} # every leg writes the same value
+    permissions:
+      contents: read
+      actions: read # the last run's state artifact
     env:
       SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
       STATE: frontend/reports/nightly
@@ -278,7 +344,17 @@ jobs:
         working-directory: frontend
       - id: meta
         run: echo "count=${{ strategy.job-total }}" >> "$GITHUB_OUTPUT"
+      - name: Restore the shard's state from the last run that kept it
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          python3 scripts/mutation/nightly_state.py restore
+          --name "nightly-state-frontend-${{ matrix.shard }}" --into "$STATE"
+      # Only when no artifact was found: the first night after the switch from
+      # caches, or an artifact API that failed.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.state.outputs.restored != 'true'
         with:
           path: frontend/reports/nightly
           key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}
@@ -317,11 +393,17 @@ jobs:
         run: >-
           python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
           --output "mutation-records-frontend-${{ matrix.shard }}.json"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' && env.SAVE_CACHE == 'true' }}
+      - name: Checkpoint the shard's state
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
+        run: python3 scripts/mutation/nightly_state.py pack --dir "$STATE"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
-          path: frontend/reports/nightly
-          key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}-checkpoint
+          name: nightly-state-frontend-${{ matrix.shard }}
+          path: nightly-state.tgz
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
@@ -346,11 +428,17 @@ jobs:
         run: >-
           python3 scripts/mutation/stryker_scope.py collect --state "$STATE" --shard "$SHARD"
           --output "mutation-records-frontend-${{ matrix.shard }}.json"
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: always() && env.SAVE_CACHE == 'true'
+      - name: Keep the shard's state
+        if: always()
+        run: python3 scripts/mutation/nightly_state.py pack --dir "$STATE"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
         with:
-          path: frontend/reports/nightly
-          key: stryker-frontend-v2-shard${{ matrix.shard }}-${{ github.run_id }}
+          name: nightly-state-frontend-${{ matrix.shard }}
+          path: nightly-state.tgz
+          if-no-files-found: warn
+          retention-days: 14
+          overwrite: true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:

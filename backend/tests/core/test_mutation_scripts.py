@@ -15,6 +15,7 @@ import fnmatch
 import importlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -33,6 +34,7 @@ changed_lines = importlib.import_module("changed_lines")
 gate = importlib.import_module("gate")
 harness = importlib.import_module("harness")
 mutmut_scope = importlib.import_module("mutmut_scope")
+nightly_state = importlib.import_module("nightly_state")
 stryker_scope = importlib.import_module("stryker_scope")
 shadow_root = importlib.import_module("shadow_root")
 
@@ -2426,3 +2428,177 @@ class TestStrykerNightlySkipsUnchangedChunks:
         # a file outside src/ and the listed configs is not an input
         (fe / "README.md").write_text("notes\n")
         assert stryker_scope.inputs_digest(fe) == configured
+
+
+# ── nightly_state ────────────────────────────────────────────────────────────
+
+
+def _gh(runs: list[str], kept: dict[str, Path], calls: list[list[str]]):
+    """A runner standing in for ``gh``: ``runs`` newest first, ``kept`` the runs
+    that still hold the artifact. ``tar`` really runs."""
+
+    def run(cmd):
+        cmd = list(cmd)
+        calls.append(cmd)
+        if cmd[:3] == ["gh", "run", "list"]:
+            listed = json.dumps([{"databaseId": int(r)} for r in runs])
+            return subprocess.CompletedProcess(cmd, 0, listed, "")
+        if cmd[:3] == ["gh", "run", "download"]:
+            if cmd[3] not in kept:
+                return subprocess.CompletedProcess(cmd, 1, "", "no artifact matches")
+            dest = Path(cmd[cmd.index("--dir") + 1])
+            dest.mkdir(parents=True, exist_ok=True)
+            shutil.copy(kept[cmd[3]], dest / nightly_state.ARCHIVE)
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        return nightly_state._run(cmd)
+
+    return run
+
+
+def _state_dir(root: Path) -> Path:
+    """A shard's state as mutmut leaves it: real files beside links into the repo."""
+    (root / "backend" / "alembic").mkdir(parents=True)
+    state = root / ".mutation" / "backend" / "backend"
+    (state / "mutants").mkdir(parents=True)
+    (state / "mutants" / "x.py.meta").write_text('{"exit_code_by_key": {"k": 1}}')
+    (state / "alembic").symlink_to("../../../backend/alembic")
+    return state
+
+
+class TestNightlyState:
+    def test_a_packed_state_comes_back_with_its_links_still_links(self, tmp_path):
+        state = _state_dir(tmp_path / "before")
+        archive = tmp_path / "nightly-state.tgz"
+        assert nightly_state.pack(state, archive) is True
+        into = _state_dir(tmp_path / "after").parent / "restored"
+        calls: list[list[str]] = []
+        run = _gh(["9", "8"], {"8": archive}, calls)
+        assert nightly_state.restore("nightly-state-backend-1", into, run=run) == "8"
+        assert (into / "mutants" / "x.py.meta").read_text() == '{"exit_code_by_key": {"k": 1}}'
+        # an artifact would have brought the directory back as a stale copy
+        assert (into / "alembic").is_symlink()
+        assert os.readlink(into / "alembic") == "../../../backend/alembic"
+        downloads = [c[3] for c in calls if c[:3] == ["gh", "run", "download"]]
+        assert downloads == ["9", "8"]  # the newest first, past the one that kept nothing
+
+    def test_it_stops_at_the_newest_run_that_kept_the_state(self, tmp_path):
+        old, new = tmp_path / "old.tgz", tmp_path / "new.tgz"
+        for archive, text in ((old, "old"), (new, "new")):
+            src = tmp_path / f"src-{text}"
+            src.mkdir()
+            (src / "which").write_text(text)
+            nightly_state.pack(src, archive)
+        calls: list[list[str]] = []
+        into = tmp_path / "into"
+        run = _gh(["7", "6"], {"7": new, "6": old}, calls)
+        assert nightly_state.restore("nightly-state-frontend-2", into, run=run) == "7"
+        assert (into / "which").read_text() == "new"
+        assert [c[3] for c in calls if c[:3] == ["gh", "run", "download"]] == ["7"]
+
+    def test_nothing_restored_when_no_recent_run_kept_it(self, tmp_path):
+        into = tmp_path / "into"
+        calls: list[list[str]] = []
+        assert (
+            nightly_state.restore("nightly-state-mcp-1", into, run=_gh(["3", "2"], {}, calls))
+            is None
+        )
+        assert not into.exists()
+        assert len([c for c in calls if c[:3] == ["gh", "run", "download"]]) == 2
+
+    def test_a_download_without_the_archive_is_passed_over(self, tmp_path):
+        calls: list[list[str]] = []
+        base = _gh(["5"], {}, calls)
+
+        def run(cmd):
+            if list(cmd)[:3] == ["gh", "run", "download"]:  # succeeds, but holds nothing
+                calls.append(list(cmd))
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            return base(cmd)
+
+        assert nightly_state.restore("nightly-state-backend-2", tmp_path / "into", run=run) is None
+
+    def test_an_archive_that_will_not_unpack_falls_through_to_the_next_run(self, tmp_path, capsys):
+        broken = tmp_path / "broken.tgz"
+        broken.write_bytes(b"not a tarball")
+        good_src = tmp_path / "good"
+        good_src.mkdir()
+        (good_src / "ok").write_text("1")
+        good = tmp_path / "good.tgz"
+        nightly_state.pack(good_src, good)
+        calls: list[list[str]] = []
+        into = tmp_path / "into"
+        run = _gh(["4", "3"], {"4": broken, "3": good}, calls)
+        assert nightly_state.restore("nightly-state-backend-3", into, run=run) == "3"
+        assert (into / "ok").read_text() == "1"
+        assert (
+            "::warning::run 4's nightly-state-backend-3 would not unpack" in capsys.readouterr().out
+        )
+
+    def test_it_asks_for_mains_completed_nightlies_only(self):
+        calls: list[list[str]] = []
+        assert nightly_state.recent_runs(5, _gh(["2", "1"], {}, calls)) == ["2", "1"]
+        listed = calls[0]
+        # a pull request's smoke run uploads too, and must never be read back
+        assert listed[listed.index("--branch") + 1] == "main"
+        assert listed[listed.index("--workflow") + 1] == "mutation-nightly.yml"
+        assert listed[listed.index("--status") + 1] == "completed"
+        assert listed[listed.index("--limit") + 1] == "5"
+
+    def test_a_listing_that_fails_restores_nothing_and_says_why(self, capsys):
+        def run(cmd):
+            return subprocess.CompletedProcess(cmd, 1, "", "HTTP 403")
+
+        assert nightly_state.recent_runs(10, run) == []
+        assert "::warning::cannot list the nightly's runs: HTTP 403" in capsys.readouterr().out
+
+    def test_no_state_yet_is_a_warning_not_an_archive(self, tmp_path, capsys):
+        archive = tmp_path / "nightly-state.tgz"
+        assert nightly_state.pack(tmp_path / "missing", archive) is False
+        assert not archive.exists()
+        assert "::warning::no state to keep" in capsys.readouterr().out
+
+    def test_a_tar_failure_fails_the_pack(self, tmp_path):
+        def run(cmd):
+            return subprocess.CompletedProcess(cmd, 2, "", "disk full")
+
+        with pytest.raises(SystemExit, match="tar failed: disk full"):
+            nightly_state.pack(tmp_path, tmp_path / "out.tgz", run)
+
+    @pytest.mark.parametrize("found, flag", [("8", "true"), (None, "false")])
+    def test_the_workflow_learns_whether_to_fall_back_to_the_cache(
+        self, monkeypatch, tmp_path, capsys, found, flag
+    ):
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        seen = {}
+
+        def fake_restore(name, into, lookback):
+            seen.update(name=name, into=into, lookback=lookback)
+            return found
+
+        monkeypatch.setattr(nightly_state, "restore", fake_restore)
+        argv = [
+            "restore",
+            "--name",
+            "nightly-state-frontend-4",
+            "--into",
+            "frontend/reports/nightly",
+        ]
+        assert nightly_state.main(argv) == 0
+        assert output.read_text() == f"restored={flag}\n"
+        assert seen == {
+            "name": "nightly-state-frontend-4",
+            "into": Path("frontend/reports/nightly"),
+            "lookback": nightly_state.LOOKBACK,
+        }
+        out = capsys.readouterr().out
+        assert ("Restored nightly-state-frontend-4 from run 8." in out) == (found is not None)
+
+    def test_pack_from_the_command_line_writes_the_archive_the_workflow_uploads(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "state").mkdir()
+        (tmp_path / "state" / "f").write_text("x")
+        assert nightly_state.main(["pack", "--dir", "state"]) == 0
+        assert (tmp_path / "nightly-state.tgz").is_file()

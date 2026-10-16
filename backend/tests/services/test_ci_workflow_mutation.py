@@ -144,27 +144,86 @@ def test_the_nightly_measures_every_suite_resumably():
     assert 'TEST_DB_REQUIRED: "1"' in j["backend"]
     text = NIGHTLY.read_text()
     assert 'cron: "' in text and "workflow_dispatch:" in text
-    # caches are written by main only
+    # caches are written by main only, and only the two a PR job reads
     assert "SAVE_CACHE: ${{ github.event_name != 'pull_request' && github.ref == " in text
-    assert text.count("if: always() && env.SAVE_CACHE == 'true'") == 3
+    assert text.count("if: always() && env.SAVE_CACHE == 'true'") == 2
 
 
 @pytest.mark.parametrize("job", ["backend", "frontend"])
 def test_a_lost_runner_loses_half_a_night_not_all_of_it(job):
     """A runner that disappears mid-job runs no later step, not even an always()
     one; the checkpoint between two halves of the budget keeps the first half's
-    verdicts in the cache and the shard's records in the artifact."""
+    state and the shard's records as artifacts, under the names the end of the
+    job overwrites."""
     body = jobs(NIGHTLY)[job]
     assert body.count('--budget "$HALF_BUDGET"') == 2
     assert "first half of the budget" in body and "second half of the budget" in body
     first = body.index("first half of the budget")
-    checkpoint = body.index("-${{ github.run_id }}-checkpoint")
+    checkpoint = body.index("Checkpoint the shard's state")
     second = body.index("second half of the budget")
-    assert first < checkpoint < second
-    # the final save keeps the plain key, so it is the newest by prefix next night
-    assert body.index("key: ") < second < body.rindex("-${{ github.run_id }}\n")
-    # the same artifact name is written twice
-    assert body.count("overwrite: true") == 2
+    final = body.index("Keep the shard's state")
+    assert first < checkpoint < second < final
+    state = f"name: nightly-state-{job}-${{{{ matrix.shard }}}}\n"
+    assert body[checkpoint:second].count(state) == 1
+    assert body[final:].count(state) == 1
+    # the state and the records, each written twice under one name
+    assert body.count("overwrite: true") == 4
+
+
+STATE_DIRS = [
+    pytest.param(
+        "backend", '"nightly-state-backend-${{ matrix.shard }}"', ".mutation/backend/backend", 2
+    ),
+    pytest.param("mcp", "nightly-state-mcp-1", ".mutation/mcp-server/mcp-server", 1),
+    pytest.param("frontend", '"nightly-state-frontend-${{ matrix.shard }}"', '"$STATE"', 2),
+]
+
+
+@pytest.mark.parametrize("job, name, directory, packs", STATE_DIRS)
+def test_each_shard_keeps_its_state_as_an_artifact(job, name, directory, packs):
+    """The state used to be an Actions cache, and the repository's 10 GB limit
+    evicts caches least recently used first: run 35 found 13 of its 15 shards'
+    gone and the frontend restarted a complete baseline. An artifact is kept
+    for its retention period. It is a tarball, because mutmut's state is full
+    of symlinks an artifact would follow (nightly_state.py)."""
+    body = jobs(NIGHTLY)[job]
+    assert "permissions:\n      contents: read\n      actions: read" in body
+    restore = body.index("nightly_state.py restore")
+    assert f"--name {name} --into {directory}" in body[restore : restore + 200]
+    assert "GH_TOKEN: ${{ github.token }}" in body[body.rindex("- name:", 0, restore) : restore]
+    # the old cache only when no artifact was found
+    cache = body.index("actions/cache/restore@")
+    assert restore < cache
+    assert "if: steps.state.outputs.restored != 'true'" in body[cache : cache + 200]
+    first_run = min(
+        body.index(cmd)
+        for cmd in ("mutmut_scope.py run", "stryker_scope.py nightly")
+        if cmd in body
+    )
+    assert cache < first_run
+    # packed, then uploaded under the shard's name, kept for a fixed period
+    assert body.count(f"nightly_state.py pack --dir {directory}") == packs
+    artifact = name.strip('"')
+    assert body.count(f"name: {artifact}\n") == packs
+    for start in [m.start() for m in re.finditer(re.escape(f"name: {artifact}\n"), body)]:
+        upload = body[start : start + 200]
+        assert "path: nightly-state.tgz" in upload
+        assert "retention-days: 14" in upload
+        assert "overwrite: true" in upload
+        assert body.rindex("nightly_state.py pack", 0, start) < start
+
+
+def test_only_the_caches_a_pr_job_reads_are_saved():
+    """Every other cache was written for the next night only, and nothing reads
+    a cache the artifact already carries; the checkpoint caches doubled the
+    nightly's share of the 10 GB besides."""
+    j = jobs(NIGHTLY)
+    assert "actions/cache/save@" not in j["frontend"]
+    assert "-checkpoint" not in NIGHTLY.read_text()
+    backend = j["backend"][j["backend"].index("actions/cache/save@") :]
+    assert j["backend"].count("actions/cache/save@") == 1
+    assert "if: always() && env.SAVE_CACHE == 'true' && matrix.shard == 1" in backend
+    assert j["mcp"].count("actions/cache/save@") == 1
 
 
 @pytest.mark.parametrize("job", ["backend", "frontend"])
