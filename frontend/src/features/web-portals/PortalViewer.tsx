@@ -42,6 +42,8 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { bandColor, bandOf, type DataQualityBand } from "@/lib/dataQualityBands";
 import { PercentBar } from "@/components/PercentBar";
+import { OptionChip } from "@/components/OptionChip";
+import { booleanOption } from "@/lib/fieldFacets";
 import { todayIsoDate } from "@/lib/dates";
 import TagPicker from "@/components/TagPicker";
 import { publicGet, type ApiError } from "./publicApi";
@@ -203,7 +205,14 @@ function FieldValue({
   };
 }) {
   const optLabel = useOptionLabel();
-  if (value === null || value === undefined || value === "") {
+  const { t } = useTranslation("common");
+  // A boolean reads as the green Yes / blue No pill card detail shows (#1266);
+  // a value that is neither is unset.
+  const boolOpt =
+    field?.type === "boolean"
+      ? booleanOption(value, { yes: t("labels.yes"), no: t("labels.no") })
+      : null;
+  if (value === null || value === undefined || value === "" || (field?.type === "boolean" && !boolOpt)) {
     return (
       <Typography variant="body2" color="text.disabled">
         —
@@ -213,14 +222,8 @@ function FieldValue({
   if (field?.type === "percentage") {
     return <PercentBar value={Number(value)} width={80} height={6} />;
   }
-  if (field?.type === "boolean") {
-    return (
-      <Icon
-        name={value ? "check_circle" : "cancel"}
-        size={18}
-        color={value ? "#4caf50" : "#bdbdbd"}
-      />
-    );
+  if (boolOpt) {
+    return <OptionChip option={boolOpt} value={boolOpt.key} label={boolOpt.label} />;
   }
   if (field?.type === "single_select" && field.options) {
     const opt = field.options.find((o) => o.key === value);

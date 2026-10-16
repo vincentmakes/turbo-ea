@@ -50,7 +50,7 @@ Gestalten Sie Ihre Fragen. Jede Frage kann sein:
 - **Mehrfachauswahl** — Mehrere Optionen wählen
 - **Zahl** — Numerische Eingabe
 - **Datum** — Datumsauswahl
-- **Boolean** — Auswahl zwischen Ja, Nein und Nicht gesetzt; Nicht gesetzt lässt den Wert der Karte unverändert
+- **Boolean** — Auswahl aus einer Ja/Nein-Liste; **Keine** ist keine Antwort und lässt den Wert der Karte unverändert
 
 ### Beziehungen
 

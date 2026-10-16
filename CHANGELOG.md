@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.164.2] - 2026-10-16
 
 ### Fixed
-- **Yes/no fields can be left unset** ([#1266](https://github.com/vincentmakes/turbo-ea/issues/1266)): everywhere a yes/no field is edited — card details, Create card, Mass Edit, surveys and AI suggestions — it now offers Yes / No / Not set instead of an on/off switch, so an unset field no longer looks like No, No takes one click, and Not set clears a value. The Inventory grid shows and edits the same three states, and a survey no longer shows an unanswered yes/no field as No. A yes/no field now only accepts true, false or no value; text such as "yes" sent through the API is refused.
+- **Yes/no fields can be left unset** ([#1266](https://github.com/vincentmakes/turbo-ea/issues/1266)): everywhere a yes/no field is edited — card details, Create card, Mass Edit, surveys and AI suggestions — it is now chosen from a Yes / No list like any other select field, with **None** to clear it, instead of an on/off switch, so an unset field no longer looks like No and No takes one click. Card details and portals show the value as a green *Yes* or blue *No* pill (the same blue as in the reports), or — when unset; the Inventory grid shows the same pill, leaves an unset cell blank, and edits the value with the same list. A survey no longer shows an unanswered yes/no field as No. A yes/no field now only accepts true, false or no value; text such as "yes" sent through the API is refused.
 
 ## [2.164.1] - 2026-10-15
 

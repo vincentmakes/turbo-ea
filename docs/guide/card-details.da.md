@@ -98,7 +98,7 @@ Afhængigt af korttypen vil du se yderligere sektioner med **brugerdefinerede fe
 - **Multi-line Text** — Friform tekstindtastning, der bevarer linjeskift, gengivet som et auto-voksende tekstområde
 - **Number** — Numerisk værdi
 - **Cost** — Numerisk værdi vist med platformens konfigurerede valuta
-- **Boolean** — Ja / Nej / Ikke angivet; Ikke angivet betyder ukendt og vises som —
+- **Boolean** — Valg fra en Ja/Nej-liste med **Ingen** til at rydde feltet; vises som en grøn *Ja*- eller blå *Nej*-mærkat, — når det ikke er angivet
 - **Date** — Datovælger
 - **URL** — Klikbart link (valideret for http/https/mailto)
 - **Single select** — Dropdown med foruddefinerede muligheder

@@ -100,7 +100,7 @@ Depending on the card type, you will see additional sections with **custom field
 - **Multi-line Text** — Free text input that preserves line breaks, rendered as an auto-growing text area
 - **Number** — Numeric value
 - **Cost** — Numeric value displayed with the platform's configured currency
-- **Boolean** — Yes / No / Not set; Not set means unknown and is shown as —
+- **Boolean** — Chosen from a Yes / No list, with **None** to clear it; shown as a green *Yes* or blue *No* pill, — when unset
 - **Date** — Date picker
 - **URL** — Clickable link (validated for http/https/mailto)
 - **Single select** — Dropdown with predefined options

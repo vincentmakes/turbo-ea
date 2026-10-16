@@ -11,7 +11,7 @@ import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { TriStateBooleanField } from "@/components/TriStateBooleanField";
+import { BooleanField } from "@/components/BooleanField";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { AiSuggestResponse, FieldDef, SectionDef } from "@/types";
@@ -237,11 +237,11 @@ export default function AiSuggestPanel({
             </Box>
 
             {fieldDef.type === "boolean" && (
-              <TriStateBooleanField
-                hideLabel
-                label={fieldLabel(fieldDef)}
+              <BooleanField
+                fullWidth
                 value={currentFieldVal}
                 onChange={(v) => setFieldOverrides((prev) => ({ ...prev, [key]: v }))}
+                sx={{ mt: 0.5 }}
               />
             )}
 

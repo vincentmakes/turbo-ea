@@ -100,7 +100,7 @@ Dependendo do tipo de card, você verá seções adicionais com **campos persona
 - **Texto multilinha** — Entrada de texto livre que preserva quebras de linha, exibida como uma área de texto que cresce automaticamente
 - **Número** — Valor numérico
 - **Custo** — Valor numérico exibido com a moeda configurada na plataforma
-- **Booleano** — Sim / Não / Não definido; Não definido significa desconhecido e é exibido como —
+- **Booleano** — Escolha numa lista Sim / Não, com **Nenhum** para o limpar; exibido como etiqueta verde *Sim* ou azul *Não*, — quando não definido
 - **Data** — Seletor de data
 - **URL** — Link clicável (validado para http/https/mailto)
 - **Seleção única** — Menu suspenso com opções predefinidas

@@ -140,7 +140,7 @@ import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import OptionChip from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
-import { facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
+import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -2866,14 +2866,18 @@ export default function InventoryPage() {
       };
       return labels[v] || v;
     };
-    // Yes / No / Not set for a boolean column (#1266). Its formatter only
-    // compares `p.node` to null — the editor-dropdown case of rule 1 above —
-    // and never dereferences it.
-    const boolColumn = booleanColumnDef({
-      yes: t("common:labels.yes"),
-      no: t("common:labels.no"),
-      notSet: t("common:labels.notSet"),
-    });
+    // A boolean column reads and edits like a single-select one (#1266): the
+    // green Yes / blue No pill, blank when unset. Its formatter only compares
+    // `p.node` to null — the editor-dropdown case of rule 1 above — and never
+    // dereferences it.
+    const boolLabels = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    const boolColumn = {
+      ...booleanColumnDef({ ...boolLabels, none: t("common:labels.none") }),
+      cellRenderer: (p: { value?: unknown }) => {
+        const opt = booleanOption(p.value, boolLabels);
+        return opt ? <OptionChip option={opt} value={opt.key} label={opt.label} /> : null;
+      },
+    };
 
     const cols: ColDef[] = [
       {

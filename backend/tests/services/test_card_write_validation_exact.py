@@ -273,6 +273,18 @@ async def test_a_stored_legacy_value_sent_back_unchanged_is_left_alone(db, env):
     )
 
 
+async def test_a_grandfathered_value_does_not_end_the_scan(db):
+    # Bury one changed legacy value among many unchanged ones: an early exit
+    # on the first grandfathered key would let it through.
+    fields = [{"key": f"g{i}", "type": "boolean"} for i in range(30)]
+    await create_card_type(db, key="ManyG", label="ManyG", fields_schema=[{"fields": fields}])
+    stored = {f"g{i}": "yes" for i in range(30)}
+    attrs = stored | {"g17": "no"}
+    with pytest.raises(HTTPException) as exc:
+        await svc._validate_boolean_attributes(db, "ManyG", attrs, previous=stored)
+    assert exc.value.detail == "Field 'g17' must be true or false"
+
+
 @pytest.mark.parametrize(
     "previous",
     [None, {}, {"flag": "no"}, {"other": "yes"}, {"flag": True}],

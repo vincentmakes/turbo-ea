@@ -62,6 +62,7 @@ vi.mock("@/components/TagPicker", () => ({
 import PortalViewer from "./PortalViewer";
 import { todayIsoDate } from "@/lib/dates";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
+import { BOOLEAN_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1032,8 +1033,10 @@ describe("PortalViewer field values", () => {
     // The second option resolves to its own label.
     expect(value.getByText("Low")).toBeInTheDocument();
     expect(value.queryByText("High")).toBeNull();
-    // A false boolean is a "cancel" mark, not a blank.
-    expect(value.getByText("cancel")).toBeInTheDocument();
+    // A false boolean is the blue No pill, not a blank.
+    expect(value.getByText("No").closest(".MuiChip-root")).toHaveStyle({
+      backgroundColor: BOOLEAN_COLORS.false,
+    });
     // A url field is one whole link, mailto included.
     expect(value.getByRole("link", { name: "mailto:team@example.com" })).toHaveAttribute(
       "href",

@@ -50,7 +50,7 @@ Desenhe suas perguntas. Cada pergunta pode ser:
 - **Seleção múltipla** — Escolha múltiplas opções
 - **Número** — Entrada numérica
 - **Data** — Seletor de data
-- **Booleano** — Escolha entre Sim, Não e Não definido; Não definido mantém o valor do cartão como está
+- **Booleano** — Escolha numa lista Sim / Não; **Nenhum** equivale a não responder e mantém o valor do cartão como está
 
 ### Relações
 

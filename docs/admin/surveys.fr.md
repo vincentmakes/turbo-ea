@@ -50,7 +50,7 @@ Concevez vos questions. Chaque question peut être :
 - **Sélection multiple** -- Choisir plusieurs options
 - **Nombre** -- Saisie numérique
 - **Date** -- Sélecteur de date
-- **Booléen** -- Choix entre Oui, Non et Non défini ; Non défini laisse la valeur de la fiche inchangée
+- **Booléen** -- Choix dans une liste Oui / Non ; **Aucun** vaut absence de réponse et laisse la valeur de la fiche inchangée
 
 ### Relations
 

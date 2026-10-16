@@ -206,13 +206,11 @@ describe("CreateCardDialog — required fields of every type", () => {
     await user.type(screen.getByRole("textbox", { name: /^Notes/ }), "Hello");
     const units = screen.getByRole("spinbutton", { name: /^Units/ });
     await user.type(units, "7");
-    // A required yes/no field starts unset — nothing pressed, not "No" (#1266) —
-    // and one click on No stores false.
-    const shared = screen.getByRole("group", { name: /^Shared/ });
-    for (const b of within(shared).getAllByRole("button")) {
-      expect(b).toHaveAttribute("aria-pressed", "false");
-    }
-    await user.click(within(shared).getByRole("button", { name: "No" }));
+    // A required yes/no field starts unset — nothing chosen, not "No" (#1266) —
+    // and one pick of No stores false.
+    expect(select(/^Shared/)).not.toHaveTextContent(/Yes|No/);
+    await user.click(select(/^Shared/));
+    await user.click(await screen.findByRole("option", { name: "No" }));
 
     const golive = screen.getByLabelText(/^Go-live/);
     fireEvent.focus(golive);
@@ -253,17 +251,18 @@ describe("CreateCardDialog — required fields of every type", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/cards/new-id"));
   });
 
-  it("drops a yes/no field set back to Not set from the payload", async () => {
+  it("drops a yes/no field set back to None from the payload", async () => {
     const { user } = renderDialog({ initialType: "Widget" });
-    const shared = screen.getByRole("group", { name: /^Shared/ });
-    await user.click(within(shared).getByRole("button", { name: "Yes" }));
-    expect(within(shared).getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
-    await user.click(within(shared).getByRole("button", { name: "Not set" }));
-    expect(within(shared).getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(select(/^Shared/));
+    await user.click(await screen.findByRole("option", { name: "Yes" }));
+    expect(select(/^Shared/)).toHaveTextContent("Yes");
+    await user.click(select(/^Shared/));
+    await user.click(await screen.findByRole("option", { name: "None" }));
+    expect(select(/^Shared/)).not.toHaveTextContent("Yes");
     await user.type(nameBox(), "Gadget");
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
-    // Not set is "no value": undefined, which the request body drops — never null.
+    // None is "no value": undefined, which the request body drops — never null.
     expect(onCreate.mock.calls[0][0].attributes?.shared).toBeUndefined();
   });
 
@@ -519,9 +518,7 @@ describe("CreateCardDialog — AI suggestions", () => {
     await user.type(nameBox(), "Gadget");
     await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
-    expect(
-      within(screen.getByRole("group", { name: /^Shared/ })).getByRole("button", { name: "Yes" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(select(/^Shared/)).toHaveTextContent("Yes");
   });
 
   it("applies field values even without a description suggestion", async () => {
@@ -534,9 +531,7 @@ describe("CreateCardDialog — AI suggestions", () => {
     await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
     expect(screen.getByRole("textbox", { name: /^Description/ })).toHaveValue("");
-    expect(
-      within(screen.getByRole("group", { name: /^Shared/ })).getByRole("button", { name: "Yes" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(select(/^Shared/)).toHaveTextContent("Yes");
   });
 
   it("shows a failed suggestion and dismisses it", async () => {

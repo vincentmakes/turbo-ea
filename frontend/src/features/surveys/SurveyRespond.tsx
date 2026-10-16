@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentageInput } from "@/components/PercentageInput";
-import { TriStateBooleanField } from "@/components/TriStateBooleanField";
+import { BooleanField } from "@/components/BooleanField";
 import { useNavigate, useParams } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -450,14 +450,10 @@ export default function SurveyRespond() {
 
     if (field.type === "boolean") {
       return (
-        // Yes / No / Not set (#1266): an unset value used to read as "No".
-        // Not set is a non-answer — applying the survey leaves the card alone.
-        <TriStateBooleanField
-          hideLabel
-          label={surveyFieldLabel(field)}
-          value={value}
-          onChange={(v) => setNewValue(field.key, v)}
-        />
+        // A Yes / No dropdown like the single-select below (#1266): an unset
+        // value used to read as "No". None is a non-answer — applying the
+        // survey leaves the card alone.
+        <BooleanField fullWidth value={value} onChange={(v) => setNewValue(field.key, v)} />
       );
     }
 

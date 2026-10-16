@@ -50,7 +50,7 @@ Design dine spørgsmål. Hvert spørgsmål kan være:
 - **Multiple select** — Vælg flere muligheder
 - **Tal** — Numerisk input
 - **Dato** — Datovælger
-- **Boolean** — Valg mellem Ja, Nej og Ikke angivet; Ikke angivet lader kortets værdi være uændret
+- **Boolean** — Valg fra en Ja/Nej-liste; **Ingen** er intet svar og lader kortets værdi være uændret
 
 ### Relationer
 

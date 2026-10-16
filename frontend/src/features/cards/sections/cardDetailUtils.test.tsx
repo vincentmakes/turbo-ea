@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/client", () => ({
@@ -8,6 +9,7 @@ vi.mock("@/api/client", () => ({
 
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
+import { BOOLEAN_COLORS } from "@/theme/tokens";
 
 import {
   bucketRelationsBySubtype,
@@ -299,30 +301,52 @@ describe("percentage field type", () => {
 
 describe("boolean field type (#1266)", () => {
   const flag: FieldDef = { key: "commercial", label: "Commercial Application", type: "boolean" };
-  const pressed = (name: string) =>
-    screen.getByRole("button", { name }).getAttribute("aria-pressed");
 
-  it("FieldEditor offers Yes / No / Not set, with nothing pressed when unset", () => {
-    render(<FieldEditor field={flag} value={undefined} onChange={() => {}} />);
-    expect(screen.getByRole("group", { name: "Commercial Application" })).toBeInTheDocument();
-    expect(pressed("Yes")).toBe("false");
-    expect(pressed("No")).toBe("false");
-    expect(pressed("Not set")).toBe("false");
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  it("FieldValue shows true as a green Yes pill", () => {
+    render(<FieldValue field={flag} value={true} />);
+    const chip = screen.getByText("Yes").closest(".MuiChip-root");
+    expect(chip).toHaveStyle({ backgroundColor: BOOLEAN_COLORS.true });
+    expect(screen.queryByText("No")).not.toBeInTheDocument();
   });
 
-  it("FieldEditor shows false as No, not as unset", () => {
-    render(<FieldEditor field={flag} value={false} onChange={() => {}} />);
-    expect(pressed("No")).toBe("true");
+  it("FieldValue shows false as a blue No pill, not an empty mark", () => {
+    render(<FieldValue field={flag} value={false} />);
+    const chip = screen.getByText("No").closest(".MuiChip-root");
+    expect(chip).toHaveStyle({ backgroundColor: BOOLEAN_COLORS.false });
   });
 
-  it("FieldEditor writes false in one click and clears through Not set", () => {
+  it("FieldValue reads a legacy string as the pill it means", () => {
+    render(<FieldValue field={flag} value="yes" />);
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+  });
+
+  it.each([null, "", "maybe"])("FieldValue shows a dash for an unset value (%j)", (value) => {
+    render(<FieldValue field={flag} value={value} />);
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(document.querySelector(".MuiChip-root")).toBeNull();
+  });
+
+  it("FieldEditor is a Yes / No dropdown with None to clear", async () => {
     const onChange = vi.fn();
-    const { rerender } = render(<FieldEditor field={flag} value={undefined} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    render(<FieldEditor field={flag} value={undefined} onChange={onChange} />);
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox", { name: /Commercial Application/ }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "None",
+      "Yes",
+      "No",
+    ]);
+    await userEvent.click(within(listbox).getByRole("option", { name: "No" }));
     expect(onChange).toHaveBeenLastCalledWith(false);
-    rerender(<FieldEditor field={flag} value={true} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "Not set" }));
+  });
+
+  it("FieldEditor clears a set value through None", async () => {
+    const onChange = vi.fn();
+    render(<FieldEditor field={flag} value={true} onChange={onChange} />);
+    expect(screen.getByRole("combobox")).toHaveTextContent("Yes");
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: "None" }));
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 

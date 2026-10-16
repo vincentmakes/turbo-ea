@@ -52,7 +52,7 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 |-------------|-------------|
 | **Schlüssel** | Eindeutiger Feldbezeichner |
 | **Bezeichnung** | Anzeigename |
-| **Typ** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select oder multiple_select. Ein Prozentsatz ist eine Zahl von 0 bis 100, die als Fortschrittsbalken dargestellt und mit einem Schieberegler oder durch exakte Eingabe bearbeitet wird. Ein Boolean wird als Ja / Nein / Nicht gesetzt bearbeitet; Nicht gesetzt bedeutet unbekannt, wird als — angezeigt und vom Inventarfilter **(leer)** erfasst |
+| **Typ** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select oder multiple_select. Ein Prozentsatz ist eine Zahl von 0 bis 100, die als Fortschrittsbalken dargestellt und mit einem Schieberegler oder durch exakte Eingabe bearbeitet wird. Ein Boolean wird aus einer Ja/Nein-Liste gewählt, **Keine** leert ihn; er erscheint als grüne *Ja*- oder blaue *Nein*-Marke bzw. als —, wenn nicht gesetzt, was der Inventarfilter **(leer)** erfasst |
 | **Optionen** | Für Auswahlfelder: die verfügbaren Auswahlmöglichkeiten mit Bezeichnungen und optionalen Farben |
 | **Pflichtfeld** | Ob das Feld verpflichtend ist — siehe die Durchsetzungsregeln unten |
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |

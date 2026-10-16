@@ -2,42 +2,41 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOOLEAN_EDITOR_VALUES,
-  BOOLEAN_EMPTY_CELL,
   booleanColumnDef,
   compareBooleanCells,
   formatBooleanCell,
 } from "./booleanColumn";
 
-const LABELS = { yes: "Yes", no: "No", notSet: "Not set" };
+const LABELS = { yes: "Yes", no: "No", none: "None" };
 
 describe("formatBooleanCell", () => {
-  it("shows Yes, No and a dash for the three states", () => {
+  it("shows Yes and No, and leaves an unset cell blank like a single-select", () => {
     expect(formatBooleanCell(true, LABELS)).toBe("Yes");
     expect(formatBooleanCell(false, LABELS)).toBe("No");
-    expect(formatBooleanCell("", LABELS)).toBe("—");
-    expect(formatBooleanCell(null, LABELS)).toBe(BOOLEAN_EMPTY_CELL);
-    expect(formatBooleanCell(undefined, LABELS)).toBe(BOOLEAN_EMPTY_CELL);
+    expect(formatBooleanCell("", LABELS)).toBe("");
+    expect(formatBooleanCell(null, LABELS)).toBe("");
+    expect(formatBooleanCell(undefined, LABELS)).toBe("");
   });
 
   it("reads the legacy strings", () => {
     expect(formatBooleanCell("yes", LABELS)).toBe("Yes");
     expect(formatBooleanCell("FALSE", LABELS)).toBe("No");
-    expect(formatBooleanCell("maybe", LABELS)).toBe("—");
+    expect(formatBooleanCell("maybe", LABELS)).toBe("");
   });
 
-  it("labels the unset entry Not set inside the editor only", () => {
-    expect(formatBooleanCell("", LABELS, true)).toBe("Not set");
+  it("labels the unset entry None inside the editor only", () => {
+    expect(formatBooleanCell("", LABELS, true)).toBe("None");
     expect(formatBooleanCell(true, LABELS, true)).toBe("Yes");
     expect(formatBooleanCell(false, LABELS, true)).toBe("No");
   });
 });
 
 describe("compareBooleanCells", () => {
-  it("sorts Not set before No before Yes", () => {
+  it("sorts unset before No before Yes", () => {
     const sorted = [true, "", false, null, true, false].sort(compareBooleanCells);
-    expect(sorted.map((v) => formatBooleanCell(v, LABELS))).toEqual([
-      "—",
-      "—",
+    expect(sorted.map((v) => formatBooleanCell(v, LABELS, true))).toEqual([
+      "None",
+      "None",
       "No",
       "No",
       "Yes",
@@ -68,10 +67,16 @@ describe("booleanColumnDef", () => {
     expect(def.cellEditorParams.values).not.toBe(BOOLEAN_EDITOR_VALUES);
   });
 
-  it("formats a cell with a row as a dash and an editor entry as Not set", () => {
-    expect(def.valueFormatter({ value: "", node: {} })).toBe("—");
-    expect(def.valueFormatter({ value: "" })).toBe("—");
-    expect(def.valueFormatter({ value: "", node: null })).toBe("Not set");
+  it("formats a cell with a row as blank and an editor entry as None", () => {
+    expect(def.valueFormatter({ value: "", node: {} })).toBe("");
+    expect(def.valueFormatter({ value: "" })).toBe("");
+    expect(def.valueFormatter({ value: "", node: null })).toBe("None");
     expect(def.valueFormatter({ value: false, node: {} })).toBe("No");
+  });
+
+  it("lists None / Yes / No in the editor", () => {
+    expect(
+      def.cellEditorParams.values.map((value) => def.valueFormatter({ value, node: null })),
+    ).toEqual(["None", "Yes", "No"]);
   });
 });

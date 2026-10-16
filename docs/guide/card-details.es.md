@@ -103,7 +103,7 @@ Dependiendo del tipo de ficha, verá secciones adicionales con **campos personal
 - **Texto multilínea** — Entrada de texto libre que preserva los saltos de línea, mostrada como un área de texto que crece automáticamente
 - **Número** — Valor numérico
 - **Costo** — Valor numérico mostrado con la moneda configurada en la plataforma
-- **Booleano** — Sí / No / Sin definir; Sin definir significa desconocido y se muestra como —
+- **Booleano** — Elección en una lista Sí / No, con **Ninguno** para borrarlo; se muestra como una etiqueta verde *Sí* o azul *No*, — si no está definido
 - **Fecha** — Selector de fecha
 - **URL** — Enlace interactivo (validado para http/https/mailto)
 - **Selección única** — Desplegable con opciones predefinidas

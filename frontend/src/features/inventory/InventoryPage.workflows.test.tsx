@@ -267,6 +267,7 @@ const FLEET_FIELDS = [
   makeField({ key: "since", label: "Since", type: "date" }),
   makeField({ key: "gadget", label: "Gadget", type: "ext.acme.gadget" }),
   makeField({ key: "price", label: "Price", type: "cost" }),
+  makeField({ key: "fleetOk", label: "Fleet OK", type: "boolean" }),
 ];
 const VEHICLE_TYPE = makeCardType({
   key: "Vehicle",
@@ -1148,7 +1149,8 @@ describe("InventoryPage mass edit — tags, subtype, parent, attributes", () => 
     await waitForRows(3);
     const dialog = await openMassEdit(user, [ERP, CRM, HR]);
     await chooseField(user, "Cloud Hosted");
-    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
+    await user.click(within(dialog).getAllByRole("combobox")[1]);
+    await user.click(await screen.findByRole("option", { name: "Yes" }));
     await apply(user);
     expect(await screen.findByText(/2 updated, 1 blocked/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`PATCH /cards/${CARD_IDS.crm} failed`))).toBeInTheDocument();
@@ -1559,6 +1561,11 @@ describe("InventoryPage column definitions", () => {
     expect(gridStub.colDef("attr_memo").cellRenderer({ value: "" })).toBeNull();
     expect(gridStub.colDef("attr_site").cellRenderer({ value: "plain" })).toBe("plain");
     expect(gridStub.colDef("attr_pct").valueFormatter({ value: 40 })).toBe("40%");
+    // A shared boolean gets the boolean column too, not AG Grid's inference.
+    const fleetOk = gridStub.colDef("attr_fleetOk");
+    expect(fleetOk.cellEditor).toBe("agSelectCellEditor");
+    expect(fleetOk.cellDataType).toBe(false);
+    expect(fleetOk.valueFormatter({ value: false, node: {} })).toBe("No");
     expect(gridStub.colDef("attr_since")).toBeDefined();
     mount(gridStub.colDef("attr_gadget").cellRenderer({ value: "widget" }));
     // Cost columns exist for a user who may see costs…

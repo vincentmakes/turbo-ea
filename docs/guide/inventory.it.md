@@ -138,7 +138,7 @@ Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
 
 Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
 
-Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no la scelta Sì / No / Non impostato, un campo data un selettore di data. Lasciando il valore vuoto — o scegliendo **Non impostato** su un campo sì/no — il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
+Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no un elenco Sì / No, un campo data un selettore di data. Lasciando il valore vuoto — **Nessuno** su un campo sì/no — il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
 
 ### Ristrutturare la gerarchia { #mass-edit-parent }
 

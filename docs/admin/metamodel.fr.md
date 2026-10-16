@@ -52,7 +52,7 @@ Les champs définissent les attributs personnalisés disponibles sur les fiches 
 |-----------|-------------|
 | **Clé** | Identifiant unique du champ |
 | **Libellé** | Nom d'affichage |
-| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Un pourcentage est un nombre de 0 à 100, affiché sous forme de barre de progression et modifié avec un curseur ou saisi exactement. Un booléen se modifie par Oui / Non / Non défini ; Non défini signifie inconnu, s'affiche sous la forme — et correspond au filtre **(vide)** de l'inventaire |
+| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Un pourcentage est un nombre de 0 à 100, affiché sous forme de barre de progression et modifié avec un curseur ou saisi exactement. Un booléen se choisit dans une liste Oui / Non, **Aucun** l'efface ; il s'affiche sous forme de pastille verte *Oui* ou bleue *Non*, ou sous la forme — s'il n'est pas renseigné, ce que le filtre **(vide)** de l'inventaire retrouve |
 | **Options** | Pour les champs de sélection : les choix disponibles avec libellés et couleurs optionnelles |
 | **Obligatoire** | Si le champ est obligatoire — voir les règles d'application ci-dessous |
 | **Qualité des données** | La contribution de chaque champ au score est gérée dans le panneau **Qualité des données** (voir ci-dessous) |

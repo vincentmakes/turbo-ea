@@ -52,7 +52,7 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 |---------------|-------------|
 | **Clave** | Identificador único del campo |
 | **Etiqueta** | Nombre para mostrar |
-| **Tipo** | texto, texto_multilínea, número, costo, porcentaje, booleano, fecha, url, selección_única o selección_múltiple. Un porcentaje es un número de 0 a 100, mostrado como una barra de progreso y editado con un control deslizante o escrito con exactitud. Un booleano se edita como Sí / No / Sin definir; Sin definir significa desconocido, se muestra como — y coincide con el filtro **(vacío)** del inventario |
+| **Tipo** | texto, texto_multilínea, número, costo, porcentaje, booleano, fecha, url, selección_única o selección_múltiple. Un porcentaje es un número de 0 a 100, mostrado como una barra de progreso y editado con un control deslizante o escrito con exactitud. Un booleano se elige en una lista Sí / No, con **Ninguno** para borrarlo, y se muestra como una etiqueta verde *Sí* o azul *No*, o como — si no está definido, lo que encuentra el filtro **(vacío)** del inventario |
 | **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
 | **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |

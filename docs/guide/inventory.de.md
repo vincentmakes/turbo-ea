@@ -138,7 +138,7 @@ Das Dropdown **Feld** gruppiert die Änderungsmöglichkeiten:
 
 Tags, Beziehungen und das übergeordnete Element bieten jeweils einen Umschalter **Hinzufügen / Entfernen**, sodass Sie vorhandene Werte ergänzen oder reduzieren, statt sie zu ersetzen.
 
-Das Eingabeelement richtet sich nach dem Feldtyp: Ein Mehrfachauswahlfeld zeigt seine Optionen mit Kontrollkästchen, ein Ja/Nein-Feld die Auswahl Ja / Nein / Nicht gesetzt, ein Datumsfeld eine Datumsauswahl. Bleibt der Wert leer – oder wählen Sie bei einem Ja/Nein-Feld **Nicht gesetzt** –, wird das Feld auf allen ausgewählten Karten geleert. Per Formel berechnete Felder sowie Kostenfelder, für die Ihnen die Leseberechtigung fehlt, werden nicht angeboten.
+Das Eingabeelement richtet sich nach dem Feldtyp: Ein Mehrfachauswahlfeld zeigt seine Optionen mit Kontrollkästchen, ein Ja/Nein-Feld eine Ja/Nein-Liste, ein Datumsfeld eine Datumsauswahl. Bleibt der Wert leer – bei einem Ja/Nein-Feld **Keine** –, wird das Feld auf allen ausgewählten Karten geleert. Per Formel berechnete Felder sowie Kostenfelder, für die Ihnen die Leseberechtigung fehlt, werden nicht angeboten.
 
 ### Hierarchie umstrukturieren { #mass-edit-parent }
 

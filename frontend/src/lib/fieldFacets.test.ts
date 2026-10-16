@@ -6,6 +6,7 @@ import {
   MULTIPLE_COLOR,
   MULTIPLE_KEY,
   UNSET_KEY,
+  booleanOption,
   booleanValueOf,
   defaultColorField,
   facetBucket,
@@ -246,6 +247,24 @@ describe("booleanValueOf", () => {
     expect(booleanValueOf(1)).toBeNull();
     expect(booleanValueOf(0)).toBeNull();
     expect(booleanValueOf([true])).toBeNull();
+  });
+});
+
+describe("booleanOption", () => {
+  const L = { yes: "Yes", no: "No" };
+
+  it("is the green Yes for a true value", () => {
+    expect(booleanOption(true, L)).toEqual({ key: "true", label: "Yes", color: BOOLEAN_COLORS.true });
+    expect(booleanOption(" yes ", L)).toEqual({ key: "true", label: "Yes", color: BOOLEAN_COLORS.true });
+  });
+
+  it("is the blue No for a false value", () => {
+    expect(booleanOption(false, L)).toEqual({ key: "false", label: "No", color: BOOLEAN_COLORS.false });
+    expect(booleanOption("False", L)).toEqual({ key: "false", label: "No", color: BOOLEAN_COLORS.false });
+  });
+
+  it("is null for an unset value", () => {
+    for (const v of [null, undefined, "", "maybe", 0]) expect(booleanOption(v, L)).toBeNull();
   });
 });
 

@@ -1,6 +1,6 @@
 /**
- * The Inventory grid column for a `boolean` attribute: three states, read and
- * edited as Yes / No / Not set (#1266).
+ * The Inventory grid column for a `boolean` attribute, rendered and edited
+ * like the `single_select` column beside it (#1266).
  *
  * Without its own column def a boolean column fell back to AG Grid's type
  * inference from the first row, and since the shared `valueGetter` returns
@@ -10,32 +10,29 @@
  *
  *  - `cellDataType: false` switches the inference off, so the column is the
  *    same whatever the rows are.
- *  - The formatter shows `—` for an unset value (as card detail does), Yes or
- *    No otherwise — legacy `"yes"` / `"true"` strings included, through the
- *    same `booleanValueOf` the editors and the filter facets use. It also
- *    feeds the "Export current view" sheet, which is WYSIWYG by design.
+ *  - A cell shows the green Yes / blue No pill card detail shows; the page
+ *    renders it from `booleanOption` (this module stays React-free). An unset
+ *    cell is blank, like an unset single-select cell.
+ *  - The formatter feeds the "Export current view" sheet (WYSIWYG): Yes, No,
+ *    or blank. Legacy `"yes"` / `"true"` strings read through `booleanValueOf`.
  *  - The editor is `agSelectCellEditor` over `["", true, false]`. AG Grid
  *    labels its options through this same formatter, calling it with
  *    `node: null` (there is no row behind a dropdown entry), and that is the
- *    one context where the unset entry reads **Not set** instead of `—`: it
- *    is an action there, not a display. `persistCellValue` already writes a
+ *    one context where the unset entry reads **None** — the clear option, as
+ *    in every single-select dropdown. `persistCellValue` already writes a
  *    picked `""` as `null` (`normalizeAttrValue`) and keeps `false`.
- *  - Sorting ranks Not set < No < Yes. AG Grid's default comparator coerces
+ *  - Sorting ranks unset < No < Yes. AG Grid's default comparator coerces
  *    `""` and `false` to the same number and would interleave them.
  */
 
-import { booleanValueOf } from "@/lib/fieldFacets";
+import { booleanValueOf, type FacetLabels } from "@/lib/fieldFacets";
 
-export interface BooleanColumnLabels {
-  yes: string;
-  no: string;
-  notSet: string;
+export interface BooleanColumnLabels extends FacetLabels {
+  /** The editor's clear entry (`common:labels.none`). */
+  none: string;
 }
 
-/** What an unset boolean cell shows. */
-export const BOOLEAN_EMPTY_CELL = "—";
-
-/** The values the cell editor offers: Not set, Yes, No. */
+/** The values the cell editor offers: None, Yes, No. */
 export const BOOLEAN_EDITOR_VALUES: readonly unknown[] = ["", true, false];
 
 /** A cell's display text; `inEditor` is true for the editor's dropdown entries. */
@@ -45,7 +42,7 @@ export function formatBooleanCell(
   inEditor = false,
 ): string {
   const b = booleanValueOf(value);
-  if (b === null) return inEditor ? labels.notSet : BOOLEAN_EMPTY_CELL;
+  if (b === null) return inEditor ? labels.none : "";
   return b ? labels.yes : labels.no;
 }
 
@@ -55,12 +52,12 @@ function rank(value: unknown): number {
   return b ? 2 : 1;
 }
 
-/** Sort order Not set < No < Yes. */
+/** Sort order unset < No < Yes. */
 export function compareBooleanCells(a: unknown, b: unknown): number {
   return rank(a) - rank(b);
 }
 
-/** The column-def fragment a boolean attribute column spreads in. */
+/** The column-def fragment a boolean attribute column spreads in (renderer aside). */
 export function booleanColumnDef(labels: BooleanColumnLabels) {
   return {
     cellDataType: false as const,

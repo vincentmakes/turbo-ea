@@ -55,6 +55,7 @@ import PortalViewer from "./PortalViewer";
 import { parseState } from "@/lib/publicSso";
 import { setViewportWidth } from "@/test/matchMedia";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
+import { BOOLEAN_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -559,8 +560,10 @@ describe("PortalViewer card tile", () => {
     expect(inTile.getByText("Web")).toBeInTheDocument();
     expect(inTile.getByText("Mobile")).toBeInTheDocument();
     expect(inTile.getByText("desktop")).toBeInTheDocument();
-    // boolean → icon, url → link
-    expect(inTile.getByText("check_circle")).toBeInTheDocument();
+    // boolean → the green Yes pill card detail shows, url → link
+    expect(inTile.getByText("Yes").closest(".MuiChip-root")).toHaveStyle({
+      backgroundColor: BOOLEAN_COLORS.true,
+    });
     expect(inTile.getByRole("link", { name: "https://sap.example.com" })).toHaveAttribute(
       "href",
       "https://sap.example.com",

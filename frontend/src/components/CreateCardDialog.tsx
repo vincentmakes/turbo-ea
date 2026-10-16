@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentageInput } from "@/components/PercentageInput";
-import { TriStateBooleanField } from "@/components/TriStateBooleanField";
+import { BooleanField } from "@/components/BooleanField";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -647,15 +647,17 @@ export default function CreateCardDialog({
 
       case "boolean":
         return (
-          // Yes / No / Not set (#1266): a new card's boolean starts unset,
-          // not "off"; Not set drops the key rather than sending null.
-          <TriStateBooleanField
+          // A Yes / No dropdown like the single-select above (#1266): a new
+          // card's boolean starts unset, not "off"; None drops the key rather
+          // than sending null.
+          <BooleanField
             key={field.key}
+            fullWidth
             label={fieldLabel(field)}
             required={field.required}
             value={attributes[field.key]}
             onChange={(v) => setAttr(field.key, v ?? undefined)}
-            sx={{ mb: 2, display: "flex" }}
+            sx={{ mb: 2 }}
           />
         );
 

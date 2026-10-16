@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentBar } from "@/components/PercentBar";
 import { PercentageInput } from "@/components/PercentageInput";
-import { TriStateBooleanField } from "@/components/TriStateBooleanField";
+import { BooleanField } from "@/components/BooleanField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
 import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
@@ -28,6 +28,7 @@ import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { bandColor } from "@/lib/dataQualityBands";
+import { booleanOption, facetOptions } from "@/lib/fieldFacets";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -155,7 +156,7 @@ export function FieldHelp({ text }: { text: string }) {
 
 // ── Mandatory (required) fields ─────────────────────────────────
 // Shared semantics with the backend (_is_empty_attr / the data-quality gate):
-// empty means null / "" / []; boolean fields are exempt (Not set is one of a
+// empty means null / "" / []; boolean fields are exempt (unset is one of a
 // boolean's three states, #1266) and so are readonly (calculated) fields.
 export function isEmptyAttrValue(val: unknown): boolean {
   return (
@@ -434,12 +435,15 @@ export function FieldValue({
   }
 
   if (field.type === "boolean") {
+    // The same pill a single-select value gets: green Yes / blue No, from the
+    // one colour definition the reports use (#1266). A value that reads as
+    // neither is unset.
+    const labels = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    const options = facetOptions(field, labels);
+    const opt = booleanOption(value, labels);
+    if (!opt) return <Typography variant="body2" color="text.secondary">—</Typography>;
     return (
-      <MaterialSymbol
-        icon={value ? "check_circle" : "cancel"}
-        size={18}
-        color={value ? "#4caf50" : "#bdbdbd"}
-      />
+      <OptionChip option={opt} value={opt.key} label={opt.label} width={chipWidthForField(options)} />
     );
   }
   if (field.type === "url") {
@@ -706,9 +710,10 @@ export function FieldEditor({
         />
       );
     case "boolean":
-      // Yes / No / Not set: an unset boolean is not "off" (#1266).
+      // A Yes / No dropdown with None to clear, like a single-select: an
+      // unset boolean is not "off" (#1266).
       return (
-        <TriStateBooleanField
+        <BooleanField
           label={fieldLabel(field)}
           required={isRequired}
           error={error}

@@ -138,7 +138,7 @@ La lista desplegable **Campo** agrupa lo que se puede modificar:
 
 Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
 
-El control de valor se adapta al tipo de campo: un campo de selección múltiple muestra sus opciones con casillas, un campo de sí/no la elección Sí / No / Sin definir y un campo de fecha un selector de fecha. Si deja el valor vacío —o elige **Sin definir** en un campo de sí/no—, el campo se borra en todas las tarjetas seleccionadas. Los campos calculados por una fórmula, y los campos de coste que no tiene permiso para ver, no se ofrecen.
+El control de valor se adapta al tipo de campo: un campo de selección múltiple muestra sus opciones con casillas, un campo de sí/no una lista Sí / No y un campo de fecha un selector de fecha. Si deja el valor vacío —**Ninguno** en un campo de sí/no—, el campo se borra en todas las tarjetas seleccionadas. Los campos calculados por una fórmula, y los campos de coste que no tiene permiso para ver, no se ofrecen.
 
 ### Reestructurar la jerarquía { #mass-edit-parent }
 

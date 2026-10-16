@@ -103,6 +103,21 @@ export function facetOptions<O extends FacetOptionLike>(
   return (f.options ?? []).map((o, i) => ({ ...o, color: o.color || categoricalColor(i) }));
 }
 
+/**
+ * The option a boolean field's stored value reads as — the green Yes or the
+ * blue No that `facetOptions` defines — or `null` when it is unset. What every
+ * boolean pill (card detail, the portal, the Inventory column) renders.
+ */
+export function booleanOption(
+  raw: unknown,
+  labels: FacetLabels,
+): (FacetOptionLike & { color: string }) | null {
+  const b = booleanValueOf(raw);
+  if (b === null) return null;
+  const [yes, no] = facetOptions({ type: "boolean" }, labels);
+  return b ? yes : no;
+}
+
 /** A copy of `f` whose `options` are `facetOptions(f)`. Idempotent. */
 export function resolveFacetField<F extends FacetFieldLike>(f: F, labels: FacetLabels): F {
   return { ...f, options: facetOptions(f, labels) };

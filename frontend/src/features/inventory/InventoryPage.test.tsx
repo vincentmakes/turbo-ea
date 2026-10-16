@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
+import { BOOLEAN_COLORS } from "@/theme/tokens";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import InventoryPage, {
@@ -1096,7 +1097,7 @@ describe("InventoryPage exported cell values", () => {
     expect(multi({ value: undefined })).toBe("");
   });
 
-  it("reads and edits a boolean column as Yes / No / Not set (#1266)", async () => {
+  it("reads and edits a boolean column like a single-select (#1266)", async () => {
     await renderTyped();
     const c = col("attr_commercial")! as ColDefLike & {
       cellDataType?: unknown;
@@ -1108,18 +1109,30 @@ describe("InventoryPage exported cell values", () => {
     const fmt = c.valueFormatter! as (p: { value?: unknown; node?: unknown }) => string;
     expect(fmt({ value: true, node: {} })).toBe("Yes");
     expect(fmt({ value: false, node: {} })).toBe("No");
-    expect(fmt({ value: "", node: {} })).toBe("—");
-    expect(fmt({ value: undefined, node: {} })).toBe("—");
-    // The editor lists Not set / Yes / No; its entries are formatted with no row.
+    // Blank when unset, like an unset single-select cell.
+    expect(fmt({ value: "", node: {} })).toBe("");
+    expect(fmt({ value: undefined, node: {} })).toBe("");
+    // The editor lists None / Yes / No; its entries are formatted with no row.
     expect(c.cellEditor).toBe("agSelectCellEditor");
     expect(c.cellEditorParams!.values).toEqual(["", true, false]);
     expect(c.cellEditorParams!.values.map((value) => fmt({ value, node: null }))).toEqual([
-      "Not set",
+      "None",
       "Yes",
       "No",
     ]);
     expect(c.comparator!("", false)).toBeLessThan(0);
     expect(c.comparator!(false, true)).toBeLessThan(0);
+    // A cell renders the green Yes / blue No pill, nothing when unset.
+    const renderCell = c.cellRenderer! as (p: { value: unknown }) => ReactElement | null;
+    expect(renderCell({ value: "" })).toBeNull();
+    expect(renderCell({ value: undefined })).toBeNull();
+    render(<>{renderCell({ value: true })}{renderCell({ value: false })}</>);
+    expect(screen.getByText("Yes").closest(".MuiChip-root")).toHaveStyle({
+      backgroundColor: BOOLEAN_COLORS.true,
+    });
+    expect(screen.getByText("No").closest(".MuiChip-root")).toHaveStyle({
+      backgroundColor: BOOLEAN_COLORS.false,
+    });
   });
 
   it("never returns a nullish cell, whatever the column", async () => {
@@ -1869,17 +1882,20 @@ describe("InventoryPage mass edit attributes", () => {
 
   it("writes false for a boolean rather than clearing it", async () => {
     // `massEditValue || null` used to turn a deliberate "off" into a clear.
-    // One click on No is an explicit false (it took two on the old switch, #1266).
+    // One pick of No is an explicit false (it took two on the old switch, #1266).
     const dialog = await openField(/^critical$/i);
-    await userEvent.click(within(dialog).getByRole("button", { name: "No" }));
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "No" }));
     await apply();
     await waitFor(() => expect(patchedAttrs()).toEqual({ critical: false }));
   });
 
-  it("clears a boolean through Not set", async () => {
+  it("clears a boolean through None", async () => {
     const dialog = await openField(/^critical$/i);
-    await userEvent.click(within(dialog).getByRole("button", { name: "Yes" }));
-    await userEvent.click(within(dialog).getByRole("button", { name: "Not set" }));
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "Yes" }));
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "None" }));
     await apply();
     await waitFor(() => expect(patchedAttrs()).toEqual({ critical: null }));
   });
