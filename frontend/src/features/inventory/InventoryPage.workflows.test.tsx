@@ -1148,7 +1148,7 @@ describe("InventoryPage mass edit — tags, subtype, parent, attributes", () => 
     await waitForRows(3);
     const dialog = await openMassEdit(user, [ERP, CRM, HR]);
     await chooseField(user, "Cloud Hosted");
-    await user.click(within(dialog).getByRole("checkbox"));
+    await user.click(within(dialog).getByRole("button", { name: "Yes" }));
     await apply(user);
     expect(await screen.findByText(/2 updated, 1 blocked/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`PATCH /cards/${CARD_IDS.crm} failed`))).toBeInTheDocument();

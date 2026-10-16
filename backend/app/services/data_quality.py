@@ -84,8 +84,8 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
 
     # Mandatory-field gate: while any visible required field is empty, the
     # score is pinned to 0 — the regular weighted calculation only applies once
-    # every mandatory field is filled. Boolean fields are exempt (a switch
-    # always has a value) and so are readonly (calculated) fields, whose value
+    # every mandatory field is filled. Boolean fields are exempt (Not set is
+    # one of a boolean's three states, #1266) and so are readonly (calculated) fields, whose value
     # the user cannot enter by hand.
     for section in schema:
         for field in section.get("fields", []):

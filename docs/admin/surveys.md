@@ -50,7 +50,7 @@ Design your questions. Each question can be:
 - **Multiple select** — Choose multiple options
 - **Number** — Numeric input
 - **Date** — Date picker
-- **Boolean** — Yes/No toggle
+- **Boolean** — a choice of Yes, No or Not set; Not set leaves the card's value as it is
 
 ### Relationships
 

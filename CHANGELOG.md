@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.164.2] - 2026-10-16
+
+### Fixed
+- **Yes/no fields can be left unset** ([#1266](https://github.com/vincentmakes/turbo-ea/issues/1266)): everywhere a yes/no field is edited — card details, Create card, Mass Edit, surveys and AI suggestions — it now offers Yes / No / Not set instead of an on/off switch, so an unset field no longer looks like No, No takes one click, and Not set clears a value. The Inventory grid shows and edits the same three states, and a survey no longer shows an unanswered yes/no field as No. A yes/no field now only accepts true, false or no value; text such as "yes" sent through the API is refused.
+
 ## [2.164.1] - 2026-10-15
 
 ### Fixed

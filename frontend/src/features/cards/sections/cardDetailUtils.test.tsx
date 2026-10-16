@@ -297,6 +297,41 @@ describe("percentage field type", () => {
   });
 });
 
+describe("boolean field type (#1266)", () => {
+  const flag: FieldDef = { key: "commercial", label: "Commercial Application", type: "boolean" };
+  const pressed = (name: string) =>
+    screen.getByRole("button", { name }).getAttribute("aria-pressed");
+
+  it("FieldEditor offers Yes / No / Not set, with nothing pressed when unset", () => {
+    render(<FieldEditor field={flag} value={undefined} onChange={() => {}} />);
+    expect(screen.getByRole("group", { name: "Commercial Application" })).toBeInTheDocument();
+    expect(pressed("Yes")).toBe("false");
+    expect(pressed("No")).toBe("false");
+    expect(pressed("Not set")).toBe("false");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("FieldEditor shows false as No, not as unset", () => {
+    render(<FieldEditor field={flag} value={false} onChange={() => {}} />);
+    expect(pressed("No")).toBe("true");
+  });
+
+  it("FieldEditor writes false in one click and clears through Not set", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<FieldEditor field={flag} value={undefined} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    expect(onChange).toHaveBeenLastCalledWith(false);
+    rerender(<FieldEditor field={flag} value={true} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Not set" }));
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("FieldEditor shows the error message under a boolean", () => {
+    render(<FieldEditor field={flag} value={null} onChange={() => {}} error="Pick a value" />);
+    expect(screen.getByText("Pick a value")).toBeInTheDocument();
+  });
+});
+
 describe("links in free text (FieldValue)", () => {
   const notes: FieldDef = { key: "notes", label: "Notes", type: "multiline_text" };
   const plain: FieldDef = { key: "plain", label: "Plain", type: "text" };

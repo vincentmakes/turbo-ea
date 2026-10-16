@@ -33,6 +33,7 @@ SCHEMA = [
             {"key": "progress", "label": "Progress", "type": "percentage"},
             {"key": "uptime", "label": "Uptime", "type": "percentage"},
             {"key": "notes", "label": "Notes", "type": "text"},
+            {"key": "flag", "label": "Flag", "type": "boolean"},
         ],
     },
     {"section": "Empty"},
@@ -232,6 +233,64 @@ async def test_no_attributes_skip_the_percentage_check_without_a_query(db, monke
 
     monkeypatch.setattr(db, "execute", boom)
     await svc._validate_percentage_attributes(db, "Application", {})
+
+
+# ── boolean fields (#1266) ──────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("value", [True, False, None, ""])
+async def test_a_boolean_true_false_or_unset_passes(db, env, value):
+    await svc._validate_boolean_attributes(db, "Application", {"flag": value})
+
+
+@pytest.mark.parametrize("value", ["yes", "true", "false", 1, 0, [True], {"v": True}])
+async def test_a_boolean_that_is_not_a_boolean_is_refused(db, env, value):
+    with pytest.raises(HTTPException) as exc:
+        await svc._validate_boolean_attributes(db, "Application", {"flag": value})
+    assert detail_of(exc) == (422, "Field 'flag' must be true or false")
+
+
+async def test_an_unset_boolean_does_not_end_the_scan(db):
+    fields = [{"key": f"b{i}", "type": "boolean"} for i in range(30)]
+    await create_card_type(db, key="ManyB", label="ManyB", fields_schema=[{"fields": fields}])
+    attrs = {f"b{i}": None for i in range(30)} | {f"b{i}": False for i in range(10)} | {"b17": "no"}
+    with pytest.raises(HTTPException) as exc:
+        await svc._validate_boolean_attributes(db, "ManyB", attrs)
+    assert exc.value.detail == "Field 'b17' must be true or false"
+
+
+async def test_only_boolean_typed_fields_are_checked(db, env):
+    await svc._validate_boolean_attributes(db, "Application", {"notes": "yes", "progress": 1})
+    await svc._validate_boolean_attributes(db, "Bare", {"flag": "yes"})
+    await svc._validate_boolean_attributes(db, "Nonexistent", {"flag": "yes"})
+
+
+async def test_a_stored_legacy_value_sent_back_unchanged_is_left_alone(db, env):
+    # The editor sends the whole attributes object back; a legacy string the
+    # card already carries must not block an unrelated edit.
+    await svc._validate_boolean_attributes(
+        db, "Application", {"flag": "yes", "notes": "x"}, previous={"flag": "yes"}
+    )
+
+
+@pytest.mark.parametrize(
+    "previous",
+    [None, {}, {"flag": "no"}, {"other": "yes"}, {"flag": True}],
+)
+async def test_a_new_or_changed_non_boolean_is_still_refused(db, env, previous):
+    with pytest.raises(HTTPException) as exc:
+        await svc._validate_boolean_attributes(
+            db, "Application", {"flag": "yes"}, previous=previous
+        )
+    assert detail_of(exc) == (422, "Field 'flag' must be true or false")
+
+
+async def test_no_attributes_skip_the_boolean_check_without_a_query(db, monkeypatch):
+    async def boom(*a, **k):
+        raise AssertionError("queried")
+
+    monkeypatch.setattr(db, "execute", boom)
+    await svc._validate_boolean_attributes(db, "Application", {})
 
 
 # ── required fields are never cleared ───────────────────────────────────────
@@ -571,7 +630,7 @@ async def test_strict_mode_refuses_undeclared_keys_with_both_lists_sorted(db, en
                 "Set strict_attributes=False to store side-channel JSONB metadata anyway."
             ),
             "unknown_keys": ["alpha", "zeta"],
-            "valid_keys": ["docs", "notes", "progress", "uptime", "website"],
+            "valid_keys": ["docs", "flag", "notes", "progress", "uptime", "website"],
             "card_type": "Application",
         },
     )

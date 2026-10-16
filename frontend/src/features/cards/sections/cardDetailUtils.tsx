@@ -10,8 +10,6 @@ import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -20,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentBar } from "@/components/PercentBar";
 import { PercentageInput } from "@/components/PercentageInput";
+import { TriStateBooleanField } from "@/components/TriStateBooleanField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
 import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
@@ -156,8 +155,8 @@ export function FieldHelp({ text }: { text: string }) {
 
 // ── Mandatory (required) fields ─────────────────────────────────
 // Shared semantics with the backend (_is_empty_attr / the data-quality gate):
-// empty means null / "" / []; boolean fields are exempt (a switch always has a
-// value) and so are readonly (calculated) fields.
+// empty means null / "" / []; boolean fields are exempt (Not set is one of a
+// boolean's three states, #1266) and so are readonly (calculated) fields.
 export function isEmptyAttrValue(val: unknown): boolean {
   return (
     val === null ||
@@ -707,15 +706,14 @@ export function FieldEditor({
         />
       );
     case "boolean":
+      // Yes / No / Not set: an unset boolean is not "off" (#1266).
       return (
-        <FormControlLabel
-          control={
-            <Switch
-              checked={!!value}
-              onChange={(e) => onChange(e.target.checked)}
-            />
-          }
+        <TriStateBooleanField
           label={fieldLabel(field)}
+          required={isRequired}
+          error={error}
+          value={value}
+          onChange={onChange}
         />
       );
     case "date":

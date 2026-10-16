@@ -52,7 +52,7 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 |---------|-------------|
 | **Nøgle** | Unik feltidentifikator |
 | **Etiket** | Visningsnavn |
-| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist |
+| **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist. En boolean redigeres som Ja / Nej / Ikke angivet; Ikke angivet betyder ukendt, vises som — og matches af inventarets filter **(tom)** |
 | **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver |
 | **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |

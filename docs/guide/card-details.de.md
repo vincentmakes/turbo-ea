@@ -103,7 +103,7 @@ Abhängig vom Kartentyp werden Sie zusätzliche Abschnitte mit **benutzerdefinie
 - **Mehrzeiliger Text** — Freitexteingabe, die Zeilenumbrüche beibehält und als automatisch wachsendes Textfeld dargestellt wird
 - **Zahl** — Numerischer Wert
 - **Kosten** — Numerischer Wert, angezeigt mit der konfigurierten Währung der Plattform
-- **Boolean** — Ein/Aus-Umschalter
+- **Boolean** — Ja / Nein / Nicht gesetzt; Nicht gesetzt bedeutet unbekannt und wird als — angezeigt
 - **Datum** — Datumsauswahl
 - **URL** — Klickbarer Link (validiert für http/https/mailto)
 - **Einfachauswahl** — Dropdown mit vordefinierten Optionen

@@ -6,6 +6,7 @@ import {
   MULTIPLE_COLOR,
   MULTIPLE_KEY,
   UNSET_KEY,
+  booleanValueOf,
   defaultColorField,
   facetBucket,
   facetLegend,
@@ -221,6 +222,30 @@ describe("facetValues", () => {
     expect(facetValues(bool, ["true"])).toEqual([]);
     expect(facetValues(bool, null)).toEqual([]);
     expect(facetValues(bool, undefined)).toEqual([]);
+  });
+});
+
+describe("booleanValueOf", () => {
+  it("keeps a stored boolean", () => {
+    expect(booleanValueOf(true)).toBe(true);
+    expect(booleanValueOf(false)).toBe(false);
+  });
+
+  it("reads the legacy strings, trimmed and case-insensitive", () => {
+    expect(booleanValueOf("true")).toBe(true);
+    expect(booleanValueOf(" Yes ")).toBe(true);
+    expect(booleanValueOf("false")).toBe(false);
+    expect(booleanValueOf("\tNO\n")).toBe(false);
+  });
+
+  it("reads anything else as not set", () => {
+    expect(booleanValueOf(null)).toBeNull();
+    expect(booleanValueOf(undefined)).toBeNull();
+    expect(booleanValueOf("")).toBeNull();
+    expect(booleanValueOf("maybe")).toBeNull();
+    expect(booleanValueOf(1)).toBeNull();
+    expect(booleanValueOf(0)).toBeNull();
+    expect(booleanValueOf([true])).toBeNull();
   });
 });
 

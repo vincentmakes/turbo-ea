@@ -138,7 +138,7 @@ A lista **Campo** agrupa o que pode ser alterado:
 
 Etiquetas, relações e pai oferecem um botão **adicionar / remover**, para que amplie ou reduza os valores existentes em vez de os substituir.
 
-O controlo de valor adapta-se ao tipo de campo: um campo de seleção múltipla mostra as suas opções com caixas de verificação, um campo sim/não um interruptor e um campo de data um seletor de data. Deixar o valor vazio limpa o campo em todos os cartões selecionados. Os campos calculados por uma fórmula, e os campos de custo que não tem permissão para ver, não são disponibilizados.
+O controlo de valor adapta-se ao tipo de campo: um campo de seleção múltipla mostra as suas opções com caixas de verificação, um campo sim/não a escolha Sim / Não / Não definido e um campo de data um seletor de data. Deixar o valor vazio — ou escolher **Não definido** num campo sim/não — limpa o campo em todos os cartões selecionados. Os campos calculados por uma fórmula, e os campos de custo que não tem permissão para ver, não são disponibilizados.
 
 ### Reestruturar a hierarquia { #mass-edit-parent }
 

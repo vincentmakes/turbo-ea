@@ -50,7 +50,7 @@ Diseñe sus preguntas. Cada pregunta puede ser:
 - **Selección múltiple** — Elegir varias opciones
 - **Número** — Entrada numérica
 - **Fecha** — Selector de fecha
-- **Booleano** — Interruptor Sí/No
+- **Booleano** — Elección entre Sí, No y Sin definir; Sin definir deja el valor de la tarjeta como está
 
 ### Relaciones
 

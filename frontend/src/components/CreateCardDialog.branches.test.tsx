@@ -206,7 +206,13 @@ describe("CreateCardDialog — required fields of every type", () => {
     await user.type(screen.getByRole("textbox", { name: /^Notes/ }), "Hello");
     const units = screen.getByRole("spinbutton", { name: /^Units/ });
     await user.type(units, "7");
-    await user.click(screen.getByRole("checkbox", { name: "Shared" }));
+    // A required yes/no field starts unset — nothing pressed, not "No" (#1266) —
+    // and one click on No stores false.
+    const shared = screen.getByRole("group", { name: /^Shared/ });
+    for (const b of within(shared).getAllByRole("button")) {
+      expect(b).toHaveAttribute("aria-pressed", "false");
+    }
+    await user.click(within(shared).getByRole("button", { name: "No" }));
 
     const golive = screen.getByLabelText(/^Go-live/);
     fireEvent.focus(golive);
@@ -237,7 +243,7 @@ describe("CreateCardDialog — required fields of every type", () => {
         tier: "silver",
         notes: "Hello",
         units: 7,
-        shared: true,
+        shared: false,
         golive: "2027-03-01",
         done: 40,
         zones: ["eu", "us"],
@@ -245,6 +251,20 @@ describe("CreateCardDialog — required fields of every type", () => {
     });
     expect(onClose).toHaveBeenCalled();
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/cards/new-id"));
+  });
+
+  it("drops a yes/no field set back to Not set from the payload", async () => {
+    const { user } = renderDialog({ initialType: "Widget" });
+    const shared = screen.getByRole("group", { name: /^Shared/ });
+    await user.click(within(shared).getByRole("button", { name: "Yes" }));
+    expect(within(shared).getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(shared).getByRole("button", { name: "Not set" }));
+    expect(within(shared).getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+    await user.type(nameBox(), "Gadget");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+    await waitFor(() => expect(onCreate).toHaveBeenCalled());
+    // Not set is "no value": undefined, which the request body drops — never null.
+    expect(onCreate.mock.calls[0][0].attributes?.shared).toBeUndefined();
   });
 
   it("clears a number field back to undefined and removes a multi-select chip", async () => {
@@ -499,7 +519,9 @@ describe("CreateCardDialog — AI suggestions", () => {
     await user.type(nameBox(), "Gadget");
     await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
-    expect(screen.getByRole("checkbox", { name: "Shared" })).toBeChecked();
+    expect(
+      within(screen.getByRole("group", { name: /^Shared/ })).getByRole("button", { name: "Yes" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("applies field values even without a description suggestion", async () => {
@@ -512,7 +534,9 @@ describe("CreateCardDialog — AI suggestions", () => {
     await user.click(aiButton()!);
     await user.click(await screen.findByRole("button", { name: /Apply suggestions/ }));
     expect(screen.getByRole("textbox", { name: /^Description/ })).toHaveValue("");
-    expect(screen.getByRole("checkbox", { name: "Shared" })).toBeChecked();
+    expect(
+      within(screen.getByRole("group", { name: /^Shared/ })).getByRole("button", { name: "Yes" }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("shows a failed suggestion and dismisses it", async () => {

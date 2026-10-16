@@ -4,15 +4,14 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { TriStateBooleanField } from "@/components/TriStateBooleanField";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { brand, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { AiSuggestResponse, FieldDef, SectionDef } from "@/types";
@@ -238,21 +237,11 @@ export default function AiSuggestPanel({
             </Box>
 
             {fieldDef.type === "boolean" && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={!!currentFieldVal}
-                    onChange={(e) =>
-                      setFieldOverrides((prev) => ({ ...prev, [key]: e.target.checked }))
-                    }
-                  />
-                }
-                label={
-                  <Typography variant="body2">
-                    {currentFieldVal ? t("labels.yes") : t("labels.no")}
-                  </Typography>
-                }
+              <TriStateBooleanField
+                hideLabel
+                label={fieldLabel(fieldDef)}
+                value={currentFieldVal}
+                onChange={(v) => setFieldOverrides((prev) => ({ ...prev, [key]: v }))}
               />
             )}
 

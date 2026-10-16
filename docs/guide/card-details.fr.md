@@ -101,7 +101,7 @@ Selon le type de fiche, vous verrez des sections supplémentaires avec des **cha
 - **Texte multiligne** -- Saisie de texte libre qui préserve les retours à la ligne, affichée comme une zone de texte à hauteur automatique
 - **Nombre** -- Valeur numérique
 - **Coût** -- Valeur numérique affichée avec la devise configurée de la plateforme
-- **Booléen** -- Interrupteur marche/arrêt
+- **Booléen** -- Oui / Non / Non défini ; Non défini signifie inconnu et s'affiche sous la forme —
 - **Date** -- Sélecteur de date
 - **URL** -- Lien cliquable (validé pour http/https/mailto)
 - **Sélection unique** -- Liste déroulante avec options prédéfinies

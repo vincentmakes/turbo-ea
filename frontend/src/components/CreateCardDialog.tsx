@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentageInput } from "@/components/PercentageInput";
+import { TriStateBooleanField } from "@/components/TriStateBooleanField";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -13,8 +14,6 @@ import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import Switch from "@mui/material/Switch";
 import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
@@ -648,16 +647,15 @@ export default function CreateCardDialog({
 
       case "boolean":
         return (
-          <FormControlLabel
+          // Yes / No / Not set (#1266): a new card's boolean starts unset,
+          // not "off"; Not set drops the key rather than sending null.
+          <TriStateBooleanField
             key={field.key}
-            control={
-              <Switch
-                checked={!!attributes[field.key]}
-                onChange={(e) => setAttr(field.key, e.target.checked)}
-              />
-            }
             label={fieldLabel(field)}
-            sx={{ mb: 1, display: "block" }}
+            required={field.required}
+            value={attributes[field.key]}
+            onChange={(v) => setAttr(field.key, v ?? undefined)}
+            sx={{ mb: 2, display: "flex" }}
           />
         );
 

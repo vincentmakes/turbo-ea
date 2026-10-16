@@ -192,6 +192,48 @@ async def _validate_percentage_attributes(
             raise HTTPException(422, f"Field '{key}' must be a number between 0 and 100")
 
 
+async def _validate_boolean_attributes(
+    db: AsyncSession,
+    card_type: str,
+    attributes: dict,
+    previous: dict | None = None,
+) -> None:
+    """Validate that any attribute whose field type is 'boolean' is true, false or unset.
+
+    A boolean is three-valued — ``True``, ``False`` or not set (``None``, or
+    ``""`` from a cleared form) — and every reader (card detail, the inventory
+    filter, the reports, data quality) reads it that way (#1266). Anything
+    else, such as the string ``"yes"``, used to be stored as given and then
+    read as unset everywhere. ``1`` / ``0`` are refused too: they are not
+    booleans in JSON.
+
+    ``previous`` is the card's stored attributes on an update. A value equal
+    to the stored one is left alone, so a card that already carries a legacy
+    string (an import before this check, which the readers still tolerate)
+    stays editable: the editor sends the whole attributes object back, and
+    refusing an untouched value would block every unrelated edit.
+    """
+    if not attributes:
+        return
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return
+    boolean_keys: set[str] = set()
+    for section in schema:
+        for field in section.get("fields", []):
+            if field.get("type") == "boolean":
+                boolean_keys.add(field["key"])
+    stored = previous or {}
+    for key in boolean_keys:
+        val = attributes.get(key)
+        if val is None or val == "" or isinstance(val, bool):
+            continue
+        if key in stored and stored[key] == val:
+            continue
+        raise HTTPException(422, f"Field '{key}' must be true or false")
+
+
 async def _validate_cost_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
     """Validate that a ``cost`` or ``number`` attribute holds a number, coercing numeric text.
 
@@ -245,7 +287,8 @@ def _check_required_not_cleared(
     Deliberately only guards *clearing*: creation and imports may land cards with
     required fields still empty (the card just scores 0 data quality until they
     are filled), and a card that is already incomplete stays editable. Boolean
-    fields are exempt (a switch always has a value) and so are readonly fields —
+    fields are exempt (Not set is one of a boolean's three states, #1266) and so
+    are readonly fields —
     the calculation engine may legitimately pop a calculated key when its
     formula yields None.
     """
@@ -752,6 +795,7 @@ async def create_card(
     """
     await _validate_url_attributes(db, type_key, attributes or {})
     await _validate_percentage_attributes(db, type_key, attributes or {})
+    await _validate_boolean_attributes(db, type_key, attributes or {})
     await _validate_cost_attributes(db, type_key, attributes or {})
     await _validate_select_attributes(db, type_key, attributes or {}, {})
     await _validate_hierarchy_label(
@@ -854,6 +898,9 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
         await _validate_percentage_attributes(db, card.type, updates["attributes"])
+        await _validate_boolean_attributes(
+            db, card.type, updates["attributes"], previous=card.attributes
+        )
         await _validate_cost_attributes(db, card.type, updates["attributes"])
         if strict_attributes:
             await _validate_strict_attributes(db, card.type, updates["attributes"])

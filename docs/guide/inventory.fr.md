@@ -138,7 +138,7 @@ La liste déroulante **Champ** regroupe les éléments modifiables :
 
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
-Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non un interrupteur, un champ date un sélecteur de date. Laisser la valeur vide efface le champ sur toutes les fiches sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
+Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non le choix Oui / Non / Non défini, un champ date un sélecteur de date. Laisser la valeur vide — ou choisir **Non défini** pour un champ oui/non — efface le champ sur toutes les fiches sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
 
 ### Restructurer la hiérarchie { #mass-edit-parent }
 

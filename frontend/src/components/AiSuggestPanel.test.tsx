@@ -155,10 +155,10 @@ describe("AiSuggestPanel", () => {
     // A suggestion for a key the schema does not carry gets no editor.
     expect(screen.queryByText("unknownField")).not.toBeInTheDocument();
 
-    // Boolean: starts "Yes", switch flips it to "No".
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    await user.click(screen.getByRole("checkbox"));
-    expect(screen.getByText("No")).toBeInTheDocument();
+    // Boolean: starts on "Yes"; one click on "No" sets it to false.
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "No" }));
+    expect(screen.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "true");
 
     // Single select: change High → Low.
     const select = screen.getByRole("combobox");
@@ -255,12 +255,24 @@ describe("AiSuggestPanel — details", () => {
     const user = userEvent.setup();
     const { onApply } = renderPanel({ response: WITH_FIELDS });
     expect(screen.queryByText("Cloud Hosted")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Cloud Hosted" })).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({
       description: "A CRM.",
       fields: { isCloud: true, criticality: "high", unknownField: 42 },
+    });
+  });
+
+  it("can clear a suggested yes/no value through Not set", async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderPanel({ response: WITH_FIELDS, fieldsSchema: SCHEMA });
+    await user.click(screen.getByRole("button", { name: "Not set" }));
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
+    expect(onApply).toHaveBeenCalledWith({
+      description: "A CRM.",
+      fields: { isCloud: null, criticality: "high", unknownField: 42 },
     });
   });
 
@@ -277,8 +289,8 @@ describe("AiSuggestPanel — details", () => {
         fieldsSchema={SCHEMA}
       />,
     );
-    await user.click(screen.getByRole("checkbox"));
-    expect(screen.getByText("No")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "No" }));
+    expect(screen.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "true");
     rerender(
       <AiSuggestPanel
         response={{ ...WITH_FIELDS }}
@@ -289,8 +301,8 @@ describe("AiSuggestPanel — details", () => {
         fieldsSchema={SCHEMA}
       />,
     );
-    expect(screen.getByText("Yes")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "false");
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({
       description: "A CRM.",
@@ -401,7 +413,7 @@ describe("AiSuggestPanel — details", () => {
       fieldsSchema: schema,
     });
     expect(screen.getByText("Tier")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox")).toBeChecked();
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 });

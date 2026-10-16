@@ -101,7 +101,7 @@ A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzat
 - **Testo multilinea** — Input di testo libero che preserva le interruzioni di riga, visualizzato come un'area di testo a crescita automatica
 - **Numero** — Valore numerico
 - **Costo** — Valore numerico visualizzato con la valuta configurata della piattaforma
-- **Booleano** — Interruttore on/off
+- **Booleano** — Sì / No / Non impostato; Non impostato significa sconosciuto ed è mostrato come —
 - **Data** — Selettore di data
 - **URL** — Link cliccabile (validato per http/https/mailto)
 - **Selezione singola** — Menu a tendina con opzioni predefinite

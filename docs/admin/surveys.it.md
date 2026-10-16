@@ -50,7 +50,7 @@ Progettate le vostre domande. Ogni domanda può essere:
 - **Selezione multipla** — Scegliete più opzioni
 - **Numero** — Input numerico
 - **Data** — Selettore di data
-- **Booleano** — Interruttore Sì/No
+- **Booleano** — Scelta tra Sì, No e Non impostato; Non impostato lascia invariato il valore della scheda
 
 ### Relazioni
 

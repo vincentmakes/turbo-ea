@@ -71,6 +71,7 @@ import {
 } from "@/lib/dataQualityBands";
 import { exportToExcel, exportCurrentViewToExcel } from "./excelExport";
 import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
+import { booleanColumnDef } from "./booleanColumn";
 import RelationCellPopover from "./RelationCellPopover";
 import ExtFieldCell from "./ExtFieldCell";
 import LinkifiedText from "@/components/LinkifiedText";
@@ -2865,6 +2866,14 @@ export default function InventoryPage() {
       };
       return labels[v] || v;
     };
+    // Yes / No / Not set for a boolean column (#1266). Its formatter only
+    // compares `p.node` to null — the editor-dropdown case of rule 1 above —
+    // and never dereferences it.
+    const boolColumn = booleanColumnDef({
+      yes: t("common:labels.yes"),
+      no: t("common:labels.no"),
+      notSet: t("common:labels.notSet"),
+    });
 
     const cols: ColDef[] = [
       {
@@ -3409,6 +3418,7 @@ export default function InventoryPage() {
                 }
               : {}),
             ...(field.type === "date" ? dateColumnFilterDef : {}),
+            ...(field.type === "boolean" ? boolColumn : {}),
             // Extension-typed columns render through the fieldTypes registry
             // (same display component as card detail) and are never
             // grid-editable — the spread order deliberately overrides the
@@ -3467,6 +3477,7 @@ export default function InventoryPage() {
           ...(field.type === "url" ? urlCell : {}),
           ...(field.type === "percentage" ? percentageColumnDef : {}),
           ...(field.type === "date" ? dateColumnFilterDef : {}),
+          ...(field.type === "boolean" ? boolColumn : {}),
           ...(field.type.startsWith("ext.")
             ? {
                 cellRenderer: (p: { value: unknown }) => (
