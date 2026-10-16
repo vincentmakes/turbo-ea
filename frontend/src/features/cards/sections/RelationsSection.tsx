@@ -12,7 +12,6 @@ import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
 import Popover from "@mui/material/Popover";
@@ -45,6 +44,7 @@ import RelationAttributesEditor, {
   type RelationAttributes,
 } from "./RelationAttributesEditor";
 import OptionChip from "@/components/OptionChip";
+import ClickableCardName from "@/components/ClickableCardName";
 import {
   bucketRelationsBySubtype,
   shouldGroupBySubtype,
@@ -361,14 +361,11 @@ function RelationGroup({
         }
         sx={{ py: 0.25 }}
       >
-        <Box
-          component="div"
+        <ClickableCardName
+          name={other?.name || t("relations.unknown")}
           onClick={() => other && navigate(`/cards/${other.id}`)}
-          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-        >
-          {oType && <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: oType.color, flexShrink: 0 }} />}
-          <ListItemText primary={other?.name || t("relations.unknown")} />
-        </Box>
+          dotColor={oType?.color}
+        />
         {alsoVerbs && (
           <Typography
             variant="caption"

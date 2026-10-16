@@ -11,7 +11,6 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import Dialog from "@mui/material/Dialog";
@@ -21,6 +20,7 @@ import DialogActions from "@mui/material/DialogActions";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
+import ClickableCardName from "@/components/ClickableCardName";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -264,28 +264,12 @@ function SuccessorsSection({
                         ) : undefined
                       }
                     >
-                      <Box
-                        component="div"
-                        onClick={() =>
-                          navigate(`/cards/${rel.target_id}`)
-                        }
-                        sx={{
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          "&:hover": { textDecoration: "underline" },
-                        }}
-                      >
-                        <MaterialSymbol
-                          icon={typeConfig.icon || "category"}
-                          size={16}
-                          color={typeConfig.color}
-                        />
-                        <ListItemText
-                          primary={rel.target?.name || rel.target_id}
-                        />
-                      </Box>
+                      <ClickableCardName
+                        name={rel.target?.name || rel.target_id}
+                        onClick={() => navigate(`/cards/${rel.target_id}`)}
+                        icon={typeConfig.icon || "category"}
+                        iconColor={typeConfig.color}
+                      />
                     </ListItem>
                   ))}
                 </List>
@@ -351,28 +335,12 @@ function SuccessorsSection({
                         ) : undefined
                       }
                     >
-                      <Box
-                        component="div"
-                        onClick={() =>
-                          navigate(`/cards/${rel.source_id}`)
-                        }
-                        sx={{
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          "&:hover": { textDecoration: "underline" },
-                        }}
-                      >
-                        <MaterialSymbol
-                          icon={typeConfig.icon || "category"}
-                          size={16}
-                          color={typeConfig.color}
-                        />
-                        <ListItemText
-                          primary={rel.source?.name || rel.source_id}
-                        />
-                      </Box>
+                      <ClickableCardName
+                        name={rel.source?.name || rel.source_id}
+                        onClick={() => navigate(`/cards/${rel.source_id}`)}
+                        icon={typeConfig.icon || "category"}
+                        iconColor={typeConfig.color}
+                      />
                     </ListItem>
                   ))}
                 </List>

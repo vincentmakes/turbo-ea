@@ -697,6 +697,27 @@ accepted as an *href* (a `url`-typed value, a stored anchor) but never detected 
 - Don't pin `underline` or `color` on a `MuiLink` theme default to get this look — the
   component carries its own; ~30 unrelated bare `<Link>`s would change.
 
+### 3.15 A Clickable Card Name in a List Row
+
+A card name that opens the card — card detail's Hierarchy children, Relations rows and
+Lineage lists — renders through **`ClickableCardName`** (`components/ClickableCardName.tsx`).
+It draws the type icon (or a type-colour dot) as a **sibling** of the name and puts the
+hover underline on the name span alone, so the icon and the gap are never underlined. The
+whole row stays the click target, and navigation is the caller's `onClick`, so the
+component is a MUI-only leaf with no router dependency. Each of the three sections used
+to carry its own wrapper `Box` with `"&:hover": { textDecoration: "underline" }` holding
+icon and name together — that is the drift this exists to end.
+
+✅ Do
+- Reach for `ClickableCardName` for any new list row whose name opens a card; pass `icon`
+  + `iconColor` for a typed row, `dotColor` where the row is a relation.
+
+❌ Don't
+- Don't put a hover underline on a flex wrapper that also holds an icon or a chip.
+- Don't swap it for a whole-row `ListItemButton` to "fix" the underline: the background wash
+  is for rows that are entirely the control (search results, the sub-items drawer), not for
+  a row that also carries an unlink button and a link-type chip.
+
 ---
 
 ## 8. Related Files

@@ -11,7 +11,6 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import Dialog from "@mui/material/Dialog";
@@ -27,6 +26,7 @@ import Popover from "@mui/material/Popover";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
+import ClickableCardName from "@/components/ClickableCardName";
 import OptionChip from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
@@ -419,14 +419,12 @@ function HierarchySection({
       sx={{ py: 0.25 }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <Box
-          component="div"
+        <ClickableCardName
+          name={child.name}
           onClick={() => navigate(`/cards/${child.id}`)}
-          sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
-        >
-          <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
-          <ListItemText primary={child.name} />
-        </Box>
+          icon={typeConfig?.icon || "category"}
+          iconColor={typeConfig?.color}
+        />
         {/* A sibling of the clickable name, never a child of
             it — inside, unlinking would also navigate. */}
         {canEdit && (

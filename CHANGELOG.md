@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Group a card's children by subtype** ([#1269](https://github.com/vincentmakes/turbo-ea/discussions/1269)): on card details, the Hierarchy section now groups the child cards into collapsible subtype sections, each with a count and a trailing **No subtype** section, the same way the Relations section groups related cards. Grouping turns on by itself when there are many children of several subtypes, and a toggle next to the **Children** count switches between the grouped and flat lists.
 
+### Changed
+- Hovering a card name in the Hierarchy, Relations and Lineage sections of card details now underlines the name only, not the type icon or colour dot beside it.
+
 ## [2.164.2] - 2026-10-16
 
 ### Fixed
