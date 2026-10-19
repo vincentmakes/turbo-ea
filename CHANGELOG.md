@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.168.0] - 2026-10-19
 
 ### Changed
-- **Budget & Costs tables grouped by fiscal year**: on an initiative's **Budget & Costs** tab, planned budget lines and cost items are now grouped under collapsible fiscal-year rows that show each year's CapEx, OpEx and total, with separate CapEx and OpEx columns and a totals row for all years under each table. Only the current fiscal year is open when the tab loads, a **+** on a budget year adds a line for that year, and cost items without a date are gathered in an **Undated** group at the end.
+- **Budget & Costs tables grouped by fiscal year**: on an initiative's **Budget & Costs** tab, planned budget lines and cost items are now grouped under collapsible fiscal-year rows that show each year's CapEx, OpEx and total, with separate CapEx and OpEx columns and a totals row for all years under each table. Only the current fiscal year is open when the tab loads, a **+** on a budget year adds a line for that year, cost items are listed by date within their year, and those without a date are gathered in an **Undated** group at the end.
 
 ## [2.167.0] - 2026-10-19
 

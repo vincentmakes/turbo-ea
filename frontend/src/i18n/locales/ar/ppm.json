@@ -197,7 +197,7 @@
   "total": "الإجمالي",
   "totalAllYears": "الإجمالي لجميع السنوات المالية",
   "undated": "بلا تاريخ",
-  "toggleYear": "إظهار أو إخفاء بنود {{year}}",
+  "toggleYear": "إظهار البنود أو إخفاؤها: {{year}}",
   "addLineForYear": "إضافة بند ميزانية لـ {{year}}",
   "lineCount_one": "{{count}} بند",
   "lineCount_other": "{{count}} بنود"

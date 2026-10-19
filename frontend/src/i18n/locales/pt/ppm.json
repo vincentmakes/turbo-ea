@@ -197,7 +197,7 @@
   "total": "Total",
   "totalAllYears": "Total, todos os anos fiscais",
   "undated": "Sem data",
-  "toggleYear": "Mostrar ou ocultar as linhas de {{year}}",
+  "toggleYear": "Mostrar ou ocultar as linhas: {{year}}",
   "addLineForYear": "Adicionar uma linha de orçamento para {{year}}",
   "lineCount_one": "{{count}} linha",
   "lineCount_other": "{{count}} linhas"

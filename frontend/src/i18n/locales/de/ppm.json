@@ -197,7 +197,7 @@
   "total": "Gesamt",
   "totalAllYears": "Gesamt, alle Geschäftsjahre",
   "undated": "Ohne Datum",
-  "toggleYear": "Zeilen von {{year}} ein- oder ausblenden",
+  "toggleYear": "Zeilen ein- oder ausblenden: {{year}}",
   "addLineForYear": "Budgetzeile für {{year}} hinzufügen",
   "lineCount_one": "{{count}} Zeile",
   "lineCount_other": "{{count}} Zeilen"

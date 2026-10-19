@@ -72,8 +72,13 @@ const costPath = "/ppm/initiatives/i1/costs";
 function renderTab(costLines: PpmCostLine[] = COSTS) {
   const onRefresh = vi.fn();
   const user = userEvent.setup();
-  render(<PpmCostTab initiativeId="i1" costLines={costLines} onRefresh={onRefresh} />);
-  return { user, onRefresh };
+  const tab = (lines: PpmCostLine[]) => (
+    <PpmCostTab initiativeId="i1" costLines={lines} onRefresh={onRefresh} />
+  );
+  const { rerender } = render(tab(costLines));
+  /** What the parent does after `onRefresh`: hand the tab its reloaded cost lines. */
+  const setCostLines = (lines: PpmCostLine[]) => rerender(tab(lines));
+  return { user, onRefresh, setCostLines };
 }
 
 /** The value printed under a summary-bar caption. */
@@ -90,10 +95,10 @@ const costTable = () => screen.getByTestId("ppm-cost-table");
 
 /** A year group's show/hide toggle in `table`. */
 const toggleOf = (table: HTMLElement, label: string) =>
-  within(table).getByRole("button", { name: `Show or hide the lines of ${label}` });
+  within(table).getByRole("button", { name: `Show or hide the lines: ${label}` });
 
-/** Open (or close) a year group in `table`. */
-async function expand(user: ReturnType<typeof userEvent.setup>, table: HTMLElement, label: string) {
+/** Open a closed year group in `table`, or close an open one. */
+async function toggleGroup(user: ReturnType<typeof userEvent.setup>, table: HTMLElement, label: string) {
   await user.click(toggleOf(table, label));
 }
 
@@ -194,7 +199,7 @@ describe("PpmCostTab — summary and tables", () => {
   it("lists each budget line's amount under its category's column", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, budgetTable(), "FY 2025");
+    await toggleGroup(user, budgetTable(), "FY 2025");
     expect(cellTexts(lineRow(budgetTable(), "$1000")).slice(1, 4)).toEqual(["$1000", "", ""]);
     expect(cellTexts(lineRow(budgetTable(), "$400")).slice(1, 4)).toEqual(["", "$400", ""]);
   });
@@ -205,7 +210,7 @@ describe("PpmCostTab — summary and tables", () => {
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
     expect(within(licences).getByText("2026-03-15")).toBeInTheDocument();
     expect(within(licences).getByText("$300")).toBeInTheDocument();
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     expect(within(rowOf("Servers")).getByText("—")).toBeInTheDocument();
   });
 
@@ -259,7 +264,7 @@ describe("PpmCostTab — budget lines", () => {
   it("edits a budget line with its own values pre-filled", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, budgetTable(), "FY 2025");
+    await toggleGroup(user, budgetTable(), "FY 2025");
     await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
@@ -333,7 +338,7 @@ describe("PpmCostTab — budget lines", () => {
     ]);
     const { user } = renderTab([]);
     await screen.findByText("FY 2025");
-    await expand(user, budgetTable(), "FY 2025");
+    await toggleGroup(user, budgetTable(), "FY 2025");
     const link = await screen.findByRole("link", { name: "https://partner.example.com" });
     const row = link.closest("tr") as HTMLElement;
     expect(cellTexts(row)[1]).toBe("$100");
@@ -410,7 +415,7 @@ describe("PpmCostTab — cost items", () => {
   it("edits a cost item, sending a cleared date as null", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
@@ -435,7 +440,7 @@ describe("PpmCostTab — cost items", () => {
   it("commits a date picked in the dialog", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
     const date = within(screen.getByRole("dialog")).getByLabelText("Date");
     fireEvent.focus(date);
@@ -449,7 +454,7 @@ describe("PpmCostTab — cost items", () => {
   it("deletes a cost item and refreshes the parent", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/costs/c2")).toHaveLength(1));
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
@@ -545,7 +550,7 @@ describe("PpmCostTab — labels and empty states", () => {
   it("puts each cost item's amount under its category's column", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     expect(cellTexts(rowOf("Servers")).slice(1, 5)).toEqual(["—", "$250", "", ""]);
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
     expect(cellTexts(licences).slice(1, 5)).toEqual(["2026-03-15", "", "$300", ""]);
@@ -825,7 +830,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("patch", "/ppm/costs/c2", 422);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
@@ -876,7 +881,7 @@ describe("PpmCostTab — failed writes", () => {
     expect(alert.compareDocumentPosition(budgetTable())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(mockApi.callsOf("get", budgetPath)).toHaveLength(1);
 
-    await expand(user, budgetTable(), "FY 2025");
+    await toggleGroup(user, budgetTable(), "FY 2025");
     await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(mockApi.callsOf("delete", "/ppm/budgets/b1")).toHaveLength(1);
@@ -886,7 +891,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/costs/c2", 409);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
 
     const alert = await screen.findByRole("alert");
@@ -906,7 +911,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/costs/c2", 409);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
     await screen.findByRole("alert");
 
@@ -920,7 +925,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/budgets/b1", 409);
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, budgetTable(), "FY 2025");
+    await toggleGroup(user, budgetTable(), "FY 2025");
     await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Delete" }));
     const alert = await screen.findByRole("alert");
     await user.click(within(alert).getByRole("button", { name: "Close" }));
@@ -932,7 +937,7 @@ describe("PpmCostTab — accessible names", () => {
   it("names every row's edit and delete buttons", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, costTable(), "Undated");
+    await toggleGroup(user, costTable(), "Undated");
     for (const row of [lineRow(budgetTable(), "$400"), rowOf("Servers")]) {
       expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument();
       expect(within(row).getByRole("button", { name: "Delete" })).toBeInTheDocument();
@@ -961,7 +966,7 @@ describe("PpmCostTab — accessible names", () => {
       // Both tables carry a description column.
       expect(screen.getAllByRole("columnheader", { name: "Beschreibung" })).toHaveLength(2);
       await user.click(
-        within(costTable()).getByRole("button", { name: "Zeilen von Ohne Datum ein- oder ausblenden" }),
+        within(costTable()).getByRole("button", { name: "Zeilen ein- oder ausblenden: Ohne Datum" }),
       );
       expect(within(rowOf("Servers")).getByRole("button", { name: "Bearbeiten" })).toBeInTheDocument();
       expect(within(rowOf("Servers")).getByRole("button", { name: "Löschen" })).toBeInTheDocument();
@@ -1005,17 +1010,17 @@ describe("PpmCostTab — fiscal-year groups", () => {
     expect(lineRows(table)).toHaveLength(1);
     expect(() => lineRow(table, "$1000")).toThrow();
 
-    await expand(user, table, "FY 2025");
+    await toggleGroup(user, table, "FY 2025");
     expect(toggleOf(table, "FY 2025")).toHaveAttribute("aria-expanded", "true");
     expect(cellTexts(lineRow(table, "$1000"))[1]).toBe("$1000");
     expect(lineRows(table)).toHaveLength(2);
 
-    await expand(user, table, "FY 2025");
+    await toggleGroup(user, table, "FY 2025");
     expect(toggleOf(table, "FY 2025")).toHaveAttribute("aria-expanded", "false");
     expect(lineRows(table)).toHaveLength(1);
 
     // The year that opened by default closes like any other.
-    await expand(user, table, "FY 2026");
+    await toggleGroup(user, table, "FY 2026");
     expect(toggleOf(table, "FY 2026")).toHaveAttribute("aria-expanded", "false");
     expect(lineRows(table)).toHaveLength(0);
   });
@@ -1034,9 +1039,10 @@ describe("PpmCostTab — fiscal-year groups", () => {
   it("keeps a year the user collapsed collapsed when the lines reload after a save", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await expand(user, budgetTable(), "FY 2026");
-    await expand(user, budgetTable(), "FY 2025");
-    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    await toggleGroup(user, budgetTable(), "FY 2026");
+    await toggleGroup(user, budgetTable(), "FY 2025");
+    // Saved into the year already open, so the save itself opens nothing new.
+    await user.click(screen.getByRole("button", { name: "Add a budget line for FY 2025" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2));
     await settle();
@@ -1150,13 +1156,120 @@ describe("PpmCostTab — fiscal-year groups", () => {
     mockApi.on("get", budgetPath, [budget({ id: "b1", fiscal_year: 2026, category: "capex", amount: 500 })]);
     const { user } = renderTab([
       cost({ id: "c1", description: "Licences", category: "opex", actual: 300, date: "2026-03-15" }),
+      cost({ id: "c6", description: "Hosting", category: "opex", actual: 40, date: "2026-05-10" }),
     ]);
-    // With an April start, March 2026 closes FY 2025–2026.
+    // With an April start, March 2026 closes FY 2025–2026 and May 2026 opens FY 2026–2027.
     expect(await within(costTable()).findByText("FY 2025–2026")).toBeInTheDocument();
+    expect(within(costTable()).getByText("FY 2026–2027")).toBeInTheDocument();
     expect(await within(budgetTable()).findByText("FY 2025–2026")).toBeInTheDocument();
 
     // Mid-June 2026 sits in FY 2026–2027: a new line defaults to it.
     await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
     expect(within(screen.getByRole("dialog")).getByRole("spinbutton", { name: "Fiscal Year" })).toHaveValue(2027);
+  });
+
+  it("opens a collapsed year once a line is saved into it from its +", async () => {
+    let gets = 0;
+    mockApi.on("get", budgetPath, () =>
+      ++gets === 1
+        ? BUDGETS
+        : [...BUDGETS, budget({ id: "b4", fiscal_year: 2025, category: "opex", amount: 90 })],
+    );
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    expect(toggleOf(budgetTable(), "FY 2025")).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Add a budget line for FY 2025" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Amount" }), {
+      target: { value: "90" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(gets).toBe(2));
+    await waitFor(() => expect(lineRow(budgetTable(), "$90")).toBeInTheDocument());
+    expect(toggleOf(budgetTable(), "FY 2025")).toHaveAttribute("aria-expanded", "true");
+    // Opening the saved line's year closes nothing else.
+    expect(toggleOf(budgetTable(), "FY 2026")).toHaveAttribute("aria-expanded", "true");
+    expect(lineRows(budgetTable())).toHaveLength(3);
+  });
+
+  it("shows a new year's group open once a line is saved into it", async () => {
+    let gets = 0;
+    mockApi.on("get", budgetPath, () =>
+      ++gets === 1
+        ? BUDGETS
+        : [...BUDGETS, budget({ id: "b4", fiscal_year: 2028, category: "capex", amount: 75 })],
+    );
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Fiscal Year" }), {
+      target: { value: "2028" },
+    });
+    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Amount" }), {
+      target: { value: "75" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(await within(budgetTable()).findByText("FY 2028")).toBeInTheDocument();
+    expect(toggleOf(budgetTable(), "FY 2028")).toHaveAttribute("aria-expanded", "true");
+    expect(cellTexts(lineRow(budgetTable(), "$75"))[1]).toBe("$75");
+    expect(toggleOf(budgetTable(), "FY 2025")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the fiscal year a saved cost item is dated in", async () => {
+    const { user, onRefresh, setCostLines } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByRole("textbox", { name: "Description" }), "Audit");
+    const date = within(dialog).getByLabelText("Date");
+    fireEvent.focus(date);
+    fireEvent.change(date, { target: { value: "2025-08-01" } });
+    fireEvent.blur(date);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+
+    setCostLines([...COSTS, cost({ id: "c4", description: "Audit", actual: 60, date: "2025-08-01" })]);
+    expect(await within(costTable()).findByText("FY 2025")).toBeInTheDocument();
+    expect(toggleOf(costTable(), "FY 2025")).toHaveAttribute("aria-expanded", "true");
+    expect(within(rowOf("Audit")).getByText("$60")).toBeInTheDocument();
+    // The year that was open stays open; Undated stays shut.
+    expect(toggleOf(costTable(), "FY 2026")).toHaveAttribute("aria-expanded", "true");
+    expect(toggleOf(costTable(), "Undated")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the undated group once an undated cost item is saved", async () => {
+    const { user, onRefresh, setCostLines } = renderTab();
+    await screen.findByText("FY 2025");
+    expect(toggleOf(costTable(), "Undated")).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: /Add Cost Item/ }));
+    const dialog = screen.getByRole("dialog");
+    const date = within(dialog).getByLabelText("Date");
+    fireEvent.focus(date);
+    fireEvent.change(date, { target: { value: "" } });
+    fireEvent.blur(date);
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post", costPath)).toHaveLength(1));
+    expect(mockApi.callsOf("post", costPath)[0].body).toMatchObject({ date: null });
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+
+    setCostLines([...COSTS, cost({ id: "c4", description: "Cables", actual: 12 })]);
+    expect(await screen.findByText("Cables")).toBeInTheDocument();
+    expect(toggleOf(costTable(), "Undated")).toHaveAttribute("aria-expanded", "true");
+    expect(rowOf("Servers")).toBeInTheDocument();
+  });
+
+  it("regroups and re-totals the cost items when the parent hands it new ones", async () => {
+    const { setCostLines } = renderTab();
+    await screen.findByText("FY 2025");
+    expect(cellTexts(footerRow(costTable())).slice(1, 4)).toEqual(["$250", "$300", "$550"]);
+    expect(within(costTable()).queryByText("FY 2027")).not.toBeInTheDocument();
+
+    setCostLines([...COSTS, cost({ id: "c7", description: "Rollout", category: "capex", actual: 100, date: "2027-02-01" })]);
+    const y2027 = groupRow(costTable(), "FY 2027");
+    expect(cellTexts(y2027).slice(1, 4)).toEqual(["$100", "$0", "$100"]);
+    expect(cellTexts(footerRow(costTable())).slice(1, 4)).toEqual(["$350", "$300", "$650"]);
   });
 });

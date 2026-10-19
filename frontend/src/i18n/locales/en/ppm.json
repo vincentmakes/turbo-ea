@@ -197,7 +197,7 @@
   "total": "Total",
   "totalAllYears": "Total, all fiscal years",
   "undated": "Undated",
-  "toggleYear": "Show or hide the lines of {{year}}",
+  "toggleYear": "Show or hide the lines: {{year}}",
   "addLineForYear": "Add a budget line for {{year}}",
   "lineCount_one": "{{count}} line",
   "lineCount_other": "{{count}} lines"

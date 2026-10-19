@@ -197,7 +197,7 @@
   "total": "Total",
   "totalAllYears": "Total, tous les exercices",
   "undated": "Sans date",
-  "toggleYear": "Afficher ou masquer les lignes de {{year}}",
+  "toggleYear": "Afficher ou masquer les lignes : {{year}}",
   "addLineForYear": "Ajouter une ligne budgétaire pour {{year}}",
   "lineCount_one": "{{count}} ligne",
   "lineCount_other": "{{count}} lignes"

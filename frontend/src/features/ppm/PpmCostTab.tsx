@@ -37,7 +37,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
-import { bucketFor, currentFiscalYear } from "./costChartData";
+import { bucketFor, currentFiscalYear, fiscalYearFor } from "./costChartData";
 import {
   defaultExpandedKey,
   grandTotals,
@@ -56,6 +56,12 @@ const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 const NO_BUDGET_LINES: PpmBudgetLine[] = [];
 // Stryker disable next-line ObjectLiteral: spacing is presentation
 const LOADING_CELL_SX = { py: 2 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const EMPTY_CELL_SX = { py: 2 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const LINE_COUNT_SX = { ml: 0.5 } as const;
+// Stryker disable next-line ObjectLiteral: spacing is presentation
+const DESCRIPTION_CELL_SX = { maxWidth: 240 } as const;
 // Stryker disable next-line ObjectLiteral: typography is presentation
 const NUM_SX = { fontVariantNumeric: "tabular-nums" } as const;
 // Stryker disable next-line ObjectLiteral: typography is presentation
@@ -76,7 +82,8 @@ const FOOTER_CELL_SX = {
  * Which year groups a table shows open. `null` until the user first toggles
  * one: until then the open group follows the data (`defaultExpandedKey`), so a
  * table whose lines arrive late still opens on the right year, and a reload
- * after a save never undoes what the user chose.
+ * after a save never undoes what the user chose. `open` adds a group without
+ * closing any, so a line just saved into a collapsed year is not hidden.
  */
 function useExpandedGroups(defaultKey: GroupKey | null) {
   // A `null` default sits in the set harmlessly: no group has a null key.
@@ -88,7 +95,11 @@ function useExpandedGroups(defaultKey: GroupKey | null) {
     else next.add(key);
     setChosen(next);
   };
-  return { expanded, toggle };
+  const open = (key: GroupKey) => {
+    // Functional: a save resolves after its own render, so read the latest set.
+    setChosen((prev) => new Set([...(prev ?? expanded), key]));
+  };
+  return { expanded, toggle, open };
 }
 
 interface Props {
@@ -235,7 +246,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <Typography variant="body2" fontWeight={700}>
             {label}
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={LINE_COUNT_SX}>
             {t("lineCount", { count })}
           </Typography>
         </Box>
@@ -280,6 +291,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       }
       // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setBudgetDialog({ open: false });
+      budgetOpen.open(budgetForm.fiscal_year);
       loadBudgets();
     });
 
@@ -335,6 +347,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       }
       // Stryker disable next-line ObjectLiteral: a dialog state without `open` is closed
       setCostDialog({ open: false });
+      costOpen.open(fiscalYearFor(payload.date, fyStart) ?? "undated");
       onRefresh();
     });
 
@@ -495,7 +508,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                   {open &&
                     g.lines.map((bl) => (
                       <TableRow key={bl.id} hover>
-                        <TableCell sx={{ maxWidth: 240 }}>
+                        <TableCell sx={DESCRIPTION_CELL_SX}>
                           <Typography variant="body2" noWrap title={bl.description ?? ""}>
                             <LinkifiedText text={bl.description ?? ""} />
                           </Typography>
@@ -623,7 +636,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                   {open &&
                     g.lines.map((cl) => (
                       <TableRow key={cl.id} hover>
-                        <TableCell sx={{ maxWidth: 240 }}>
+                        <TableCell sx={DESCRIPTION_CELL_SX}>
                           <Typography variant="body2" noWrap title={cl.description}>
                             <LinkifiedText text={cl.description} />
                           </Typography>
@@ -655,7 +668,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             })}
             {costLines.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={6} align="center" sx={EMPTY_CELL_SX}>
                   <Typography variant="body2" color="text.secondary">
                     {t("noCostLines")}
                   </Typography>

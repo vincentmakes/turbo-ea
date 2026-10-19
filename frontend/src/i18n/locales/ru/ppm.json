@@ -197,7 +197,7 @@
   "total": "Итого",
   "totalAllYears": "Итого за все финансовые годы",
   "undated": "Без даты",
-  "toggleYear": "Показать или скрыть строки за {{year}}",
+  "toggleYear": "Показать или скрыть строки: {{year}}",
   "addLineForYear": "Добавить строку бюджета за {{year}}",
   "lineCount_one": "{{count}} строка",
   "lineCount_other": "{{count}} строк"
