@@ -175,7 +175,7 @@ El servidor expone 32 herramientas de lectura agrupadas en ocho clusters.
 | `get_card` | Obtener detalles completos de una ficha por UUID |
 | `get_card_relations` | Obtener todas las relaciones conectadas a una ficha |
 | `get_card_hierarchy` | Obtener ancestros e hijos de una ficha |
-| `list_card_types` | Listar todos los tipos de ficha del metamodelo |
+| `list_card_types` | Listar todos los tipos de ficha del metamodelo; el campo `category` de cada tipo es la clave de su categoría (capa de arquitectura) |
 | `get_relation_types` | Listar tipos de relación, opcionalmente filtrados por tipo de ficha |
 | `resolve_card_refs` | Prevalidar referencias de ficha basadas en nombre (nombre → UUID) antes de una importación masiva — solo resuelve, nunca escribe |
 | `analyze_impact` | Análisis del radio de impacto de dependencias para un cambio propuesto en una ficha |

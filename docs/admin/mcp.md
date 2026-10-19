@@ -175,7 +175,7 @@ The server exposes 32 read tools grouped into eight clusters.
 | `get_card` | Get full details of a card by UUID |
 | `get_card_relations` | Get all relations connected to a card |
 | `get_card_hierarchy` | Get ancestors and children of a card |
-| `list_card_types` | List all card types in the metamodel |
+| `list_card_types` | List all card types in the metamodel; each type's `category` is the key of its category (architecture layer) |
 | `get_relation_types` | List relation types, optionally filtered by card type |
 | `resolve_card_refs` | Pre-validate name-based card references (name → UUID) before a bulk import — resolves only, never writes |
 | `analyze_impact` | Dependency blast-radius analysis for a proposed change to a card |

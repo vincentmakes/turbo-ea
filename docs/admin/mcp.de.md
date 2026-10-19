@@ -175,7 +175,7 @@ Der Server stellt 32 Lese-Werkzeuge in acht Gruppen bereit.
 | `get_card` | Vollständige Details einer Karte per UUID abrufen |
 | `get_card_relations` | Alle Beziehungen einer Karte abrufen |
 | `get_card_hierarchy` | Vorfahren und Kinder einer Karte abrufen |
-| `list_card_types` | Alle Kartentypen im Metamodell auflisten |
+| `list_card_types` | Alle Kartentypen im Metamodell auflisten; das Feld `category` jedes Typs ist der Schlüssel seiner Kategorie (Architekturebene) |
 | `get_relation_types` | Beziehungstypen auflisten, optional nach Kartentyp gefiltert |
 | `resolve_card_refs` | Vorvalidiert namensbasierte Karten-Referenzen (Name → UUID) vor einem Bulk-Import — löst nur auf, schreibt niemals |
 | `analyze_impact` | Abhängigkeits-Wirkungsradius-Analyse für eine geplante Änderung an einer Karte |

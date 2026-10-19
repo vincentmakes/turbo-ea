@@ -175,7 +175,7 @@ Serveren eksponerer 32 læseværktøjer grupperet i otte klynger.
 | `get_card` | Få fulde detaljer for et kort efter UUID |
 | `get_card_relations` | Få alle relationer forbundet til et kort |
 | `get_card_hierarchy` | Få forfædre og børn af et kort |
-| `list_card_types` | Liste over alle korttyper i metamodellen |
+| `list_card_types` | Liste over alle korttyper i metamodellen; hver types `category` er nøglen til dens kategori (arkitekturlag) |
 | `get_relation_types` | Liste over relationstyper, valgfrit filtreret efter korttype |
 | `resolve_card_refs` | Forhåndsvalider navnebaserede kortreferencer (navn → UUID) før en bulk-import — opløser kun, skriver aldrig |
 | `analyze_impact` | Afhængigheds-konsekvensanalyse (blast radius) for en foreslået ændring af et kort |

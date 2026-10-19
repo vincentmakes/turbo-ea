@@ -175,7 +175,7 @@ O servidor expõe 32 ferramentas de leitura agrupadas em oito clusters.
 | `get_card` | Obter detalhes completos de um card por UUID |
 | `get_card_relations` | Obter todas as relações conectadas a um card |
 | `get_card_hierarchy` | Obter ancestrais e filhos de um card |
-| `list_card_types` | Listar todos os tipos de card no metamodelo |
+| `list_card_types` | Listar todos os tipos de card no metamodelo; o campo `category` de cada tipo é a chave da sua categoria (camada de arquitetura) |
 | `get_relation_types` | Listar tipos de relação, opcionalmente filtrados por tipo de card |
 | `resolve_card_refs` | Pré-validar referências a cards baseadas em nome (nome → UUID) antes de uma importação em massa — apenas resolve, nunca escreve |
 | `analyze_impact` | Análise do raio de impacto das dependências para uma alteração proposta em um card |

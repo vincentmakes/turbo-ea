@@ -175,7 +175,7 @@ MCP 服务器提供 **51 个工具**，分为两组：**32 个读取工具** 用
 | `get_card` | 通过 UUID 获取卡片的完整详细信息 |
 | `get_card_relations` | 获取连接到卡片的所有关系 |
 | `get_card_hierarchy` | 获取卡片的祖先和子级 |
-| `list_card_types` | 列出元模型中的所有卡片类型 |
+| `list_card_types` | 列出元模型中的所有卡片类型；每个类型的 `category` 是其分类（架构层）的键 |
 | `get_relation_types` | 列出关系类型，可按卡片类型筛选 |
 | `resolve_card_refs` | 在批量导入之前预校验基于名称的卡片引用（名称 → UUID）——仅解析，从不写入 |
 | `analyze_impact` | 针对卡片的一项拟议变更进行依赖影响范围分析 |
