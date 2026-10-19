@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1171,7 +1172,7 @@ PROCESS_FREQUENCY_OPTIONS = [
 # rows are locked (label, colour, translations, delete); admins add their own
 # layers beside them. Colours match ``LAYER_COLORS`` in ``frontend/src/theme/tokens.ts``.
 
-CARD_TYPE_CATEGORIES = [
+CARD_TYPE_CATEGORIES: list[dict[str, Any]] = [
     {
         "key": "Strategy & Transformation",
         "label": "Strategy & Transformation",
