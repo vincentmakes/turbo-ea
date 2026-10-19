@@ -974,7 +974,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 |-------|-------|---------|
 | `ppm_status_reports` | `PpmStatusReport` | Initiative health reports: schedule/cost/scope health, summary, accomplishments, next steps |
 | `ppm_cost_lines` | `PpmCostLine` | Actual cost transactions: description, category (capex/opex), planned, actual, date |
-| `ppm_budget_lines` | `PpmBudgetLine` | Planned budget per fiscal year: category (capex/opex), amount |
+| `ppm_budget_lines` | `PpmBudgetLine` | Planned budget per fiscal year: category (capex/opex), amount, optional description; several lines per fiscal year + category are allowed by design (no uniqueness check anywhere) |
 | `ppm_risks` | `PpmRisk` | Initiative risks: probability (1-5), impact (1-5), auto-computed risk_score, mitigation, status |
 | `ppm_tasks` | `PpmTask` | Work items: status (todo/in_progress/done/blocked), priority, assignee, tags (JSONB), WBS link |
 | `ppm_task_comments` | `PpmTaskComment` | Comments on PPM tasks |

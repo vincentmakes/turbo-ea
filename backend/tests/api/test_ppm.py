@@ -15,6 +15,7 @@ import pytest
 from app.core.permissions import VIEWER_PERMISSIONS
 from tests.conftest import (
     auth_headers,
+    create_budget_line,
     create_card,
     create_card_type,
     create_role,
@@ -347,6 +348,127 @@ class TestBudgetLines:
         assert card_resp.status_code == 200
         attrs = card_resp.json()["attributes"]
         assert attrs.get("costBudget") == 25000
+
+    async def test_create_with_description(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/budgets",
+            json={
+                "fiscal_year": 2026,
+                "category": "capex",
+                "amount": 1000,
+                "description": "SAP licences",
+            },
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "SAP licences"
+
+    async def test_description_defaults_to_none(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/budgets",
+            json={"fiscal_year": 2026, "category": "opex", "amount": 1000},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] is None
+
+    async def test_patch_sets_keeps_and_clears_description(self, client, ppm_env):
+        init_id = str(ppm_env["initiative"].id)
+        create_resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/budgets",
+            json={"fiscal_year": 2026, "category": "capex", "amount": 1000},
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        budget_id = create_resp.json()["id"]
+        url = f"{BASE}/budgets/{budget_id}"
+        headers = auth_headers(ppm_env["admin"])
+
+        resp = await client.patch(url, json={"description": "Hardware"}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "Hardware"
+
+        # A patch that does not carry the description leaves it alone.
+        resp = await client.patch(url, json={"amount": 2000}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["amount"] == 2000
+        assert resp.json()["description"] == "Hardware"
+
+        resp = await client.patch(url, json={"description": None}, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["description"] is None
+
+    async def test_list_returns_description(self, client, db, ppm_env):
+        init = ppm_env["initiative"]
+        await create_budget_line(
+            db, initiative_id=init.id, fiscal_year=2026, amount=10, description="Partner"
+        )
+        resp = await client.get(
+            f"{BASE}/initiatives/{init.id}/budgets",
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert [b["description"] for b in resp.json()] == ["Partner"]
+
+    async def test_several_lines_on_one_fiscal_year_and_category(self, client, ppm_env):
+        """Several lines may share FY + category; none is merged or refused.
+
+        Guards against a future uniqueness check: both are stored, listed in
+        creation order and summed into the initiative's costBudget.
+        """
+        init_id = str(ppm_env["initiative"].id)
+        headers = auth_headers(ppm_env["admin"])
+        bodies = [
+            {"fiscal_year": 2026, "category": "capex", "amount": 450, "description": "Licences"},
+            {"fiscal_year": 2026, "category": "capex", "amount": 250, "description": "Partner"},
+        ]
+        ids = []
+        for body in bodies:
+            resp = await client.post(
+                f"{BASE}/initiatives/{init_id}/budgets", json=body, headers=headers
+            )
+            assert resp.status_code == 200
+            ids.append(resp.json()["id"])
+        assert ids[0] != ids[1]
+
+        resp = await client.get(f"{BASE}/initiatives/{init_id}/budgets", headers=headers)
+        assert resp.status_code == 200
+        listed = resp.json()
+        assert sorted(b["id"] for b in listed) == sorted(ids)
+        assert sorted(b["description"] for b in listed) == ["Licences", "Partner"]
+        # Every request in a test shares one transaction, so both rows carry the
+        # same created_at here; the id tie-break still has to keep the order put.
+        again = await client.get(f"{BASE}/initiatives/{init_id}/budgets", headers=headers)
+        assert [b["id"] for b in again.json()] == [b["id"] for b in listed]
+
+        card_resp = await client.get(f"/api/v1/cards/{init_id}", headers=headers)
+        assert card_resp.json()["attributes"].get("costBudget") == 700
+
+    async def test_lines_sharing_a_pair_are_listed_oldest_first(self, client, db, ppm_env):
+        """created_at orders lines on the same FY + category, before the id."""
+        from datetime import datetime, timezone
+
+        init = ppm_env["initiative"]
+        a = await create_budget_line(db, initiative_id=init.id, fiscal_year=2026, amount=1)
+        b = await create_budget_line(db, initiative_id=init.id, fiscal_year=2026, amount=2)
+        # A later fiscal year sorts after both, whatever its timestamp.
+        await create_budget_line(
+            db, initiative_id=init.id, fiscal_year=2027, amount=3, description="Next year"
+        )
+        # The older line is the one with the larger id, so the id tie-break
+        # disagrees with created_at and only the created_at key gives this order.
+        older, newer = (a, b) if a.id > b.id else (b, a)
+        older.description, older.created_at = "Older", datetime(2026, 1, 1, tzinfo=timezone.utc)
+        newer.description, newer.created_at = "Newer", datetime(2026, 2, 1, tzinfo=timezone.utc)
+        await db.flush()
+
+        resp = await client.get(
+            f"{BASE}/initiatives/{init.id}/budgets",
+            headers=auth_headers(ppm_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert [line["description"] for line in resp.json()] == ["Older", "Newer", "Next year"]
 
     async def test_404_for_nonexistent_budget(self, client, ppm_env):
         resp = await client.delete(

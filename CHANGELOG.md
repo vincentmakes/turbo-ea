@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.167.0] - 2026-10-19
+
+### Added
+- **Describe a planned budget line**: on an initiative's **Budget & Costs** tab, a planned budget line can now carry an optional description, just as cost items do, shown in its own column of the budget table. A fiscal year's CapEx or OpEx can be split into several named lines — licences, implementation partner, hardware — and the totals still add them all up. The demo initiatives show a few split lines.
+
 ## [2.166.0] - 2026-10-19
 
 ### Added

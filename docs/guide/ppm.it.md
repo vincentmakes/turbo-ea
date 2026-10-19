@@ -70,7 +70,7 @@ I report di stato mensili monitorano la salute del progetto nel tempo. Ogni repo
 
 Monitoraggio dei dati finanziari con due tipi di voci:
 
-- **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx). Le linee di budget sono raggruppate in base al **mese di inizio dell'anno fiscale** configurato nelle [Impostazioni](../admin/settings.md#inizio-dellanno-fiscale). Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027
+- **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx), con una descrizione facoltativa. Uno stesso anno fiscale e categoria possono contenere tutte le voci necessarie — una per licenza, partner di implementazione o lotto di hardware — e la descrizione le distingue; i totali le sommano tutte. Le linee di budget sono raggruppate in base al **mese di inizio dell'anno fiscale** configurato nelle [Impostazioni](../admin/settings.md#inizio-dellanno-fiscale). Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027
 - **Voci di costo** — Spese effettive con data, descrizione e categoria
 
 I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.

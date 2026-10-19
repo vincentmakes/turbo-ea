@@ -85,12 +85,14 @@ class PpmCostLineOut(BaseModel):
 class PpmBudgetLineCreate(BaseModel):
     fiscal_year: int
     category: Literal["capex", "opex"]
+    description: str | None = None
     amount: float = 0
 
 
 class PpmBudgetLineUpdate(BaseModel):
     fiscal_year: int | None = None
     category: Literal["capex", "opex"] | None = None
+    description: str | None = None
     amount: float | None = None
 
 
@@ -99,6 +101,7 @@ class PpmBudgetLineOut(BaseModel):
     initiative_id: str
     fiscal_year: int
     category: str
+    description: str | None = None
     amount: float
     created_at: datetime
     updated_at: datetime

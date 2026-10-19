@@ -819,38 +819,209 @@ def _tasks(
 # BUDGET LINES
 # ===================================================================
 def _budget_lines(ids: dict[str, uuid.UUID]) -> list[dict]:
+    """Planned budget per fiscal year.
+
+    A few fiscal year + category pairs hold two lines (SAP FY2025 CapEx, IoT
+    FY2026 CapEx, Cybersecurity FY2025 CapEx) to show that a pair can be split
+    into several named lines; each initiative's total is unchanged.
+    """
     _i = ids
     return [
         # SAP (total budget 2.5M)
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2023, category="capex", amount=400000),
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2024, category="capex", amount=600000),
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2025, category="capex", amount=700000),
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2025, category="opex", amount=200000),
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2026, category="capex", amount=400000),
-        dict(initiative_id=_i[INIT_SAP], fiscal_year=2026, category="opex", amount=200000),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2023,
+            category="capex",
+            description="S/4HANA blueprint and design",
+            amount=400000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2024,
+            category="capex",
+            description="Build and data migration",
+            amount=600000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2025,
+            category="capex",
+            description="S/4HANA licences",
+            amount=450000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2025,
+            category="capex",
+            description="Implementation partner",
+            amount=250000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2025,
+            category="opex",
+            description="RISE subscription",
+            amount=200000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2026,
+            category="capex",
+            description="Rollout to remaining plants",
+            amount=400000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SAP],
+            fiscal_year=2026,
+            category="opex",
+            description="Hypercare and support",
+            amount=200000,
+        ),
         # IoT (total budget 1.8M)
-        dict(initiative_id=_i[INIT_IOT], fiscal_year=2024, category="capex", amount=300000),
-        dict(initiative_id=_i[INIT_IOT], fiscal_year=2025, category="capex", amount=600000),
-        dict(initiative_id=_i[INIT_IOT], fiscal_year=2025, category="opex", amount=150000),
-        dict(initiative_id=_i[INIT_IOT], fiscal_year=2026, category="capex", amount=500000),
-        dict(initiative_id=_i[INIT_IOT], fiscal_year=2026, category="opex", amount=250000),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2024,
+            category="capex",
+            description="Pilot line instrumentation",
+            amount=300000,
+        ),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2025,
+            category="capex",
+            description="Sensor rollout, wave 1",
+            amount=600000,
+        ),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2025,
+            category="opex",
+            description="IoT platform subscription",
+            amount=150000,
+        ),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2026,
+            category="capex",
+            description="Sensor hardware",
+            amount=350000,
+        ),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2026,
+            category="capex",
+            description="Edge gateways",
+            amount=150000,
+        ),
+        dict(
+            initiative_id=_i[INIT_IOT],
+            fiscal_year=2026,
+            category="opex",
+            description="Platform and connectivity",
+            amount=250000,
+        ),
         # Salesforce (total budget 900K)
-        dict(initiative_id=_i[INIT_SF], fiscal_year=2024, category="capex", amount=200000),
-        dict(initiative_id=_i[INIT_SF], fiscal_year=2025, category="capex", amount=300000),
-        dict(initiative_id=_i[INIT_SF], fiscal_year=2025, category="opex", amount=150000),
-        dict(initiative_id=_i[INIT_SF], fiscal_year=2026, category="opex", amount=250000),
+        dict(
+            initiative_id=_i[INIT_SF],
+            fiscal_year=2024,
+            category="capex",
+            description="Sales Cloud implementation",
+            amount=200000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SF],
+            fiscal_year=2025,
+            category="capex",
+            description="Service Cloud implementation",
+            amount=300000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SF],
+            fiscal_year=2025,
+            category="opex",
+            description="Salesforce licences",
+            amount=150000,
+        ),
+        dict(
+            initiative_id=_i[INIT_SF],
+            fiscal_year=2026,
+            category="opex",
+            description="Salesforce licences",
+            amount=250000,
+        ),
         # Cybersecurity (total budget 650K)
-        dict(initiative_id=_i[INIT_CYBER], fiscal_year=2025, category="capex", amount=350000),
-        dict(initiative_id=_i[INIT_CYBER], fiscal_year=2025, category="opex", amount=100000),
-        dict(initiative_id=_i[INIT_CYBER], fiscal_year=2026, category="opex", amount=200000),
+        dict(
+            initiative_id=_i[INIT_CYBER],
+            fiscal_year=2025,
+            category="capex",
+            description="Security tooling",
+            amount=200000,
+        ),
+        dict(
+            initiative_id=_i[INIT_CYBER],
+            fiscal_year=2025,
+            category="capex",
+            description="Penetration test and audit",
+            amount=150000,
+        ),
+        dict(
+            initiative_id=_i[INIT_CYBER],
+            fiscal_year=2025,
+            category="opex",
+            description="SOC managed service",
+            amount=100000,
+        ),
+        dict(
+            initiative_id=_i[INIT_CYBER],
+            fiscal_year=2026,
+            category="opex",
+            description="SOC managed service",
+            amount=200000,
+        ),
         # Data Warehouse (total budget 500K)
-        dict(initiative_id=_i[INIT_DW], fiscal_year=2025, category="capex", amount=150000),
-        dict(initiative_id=_i[INIT_DW], fiscal_year=2026, category="capex", amount=200000),
-        dict(initiative_id=_i[INIT_DW], fiscal_year=2026, category="opex", amount=150000),
+        dict(
+            initiative_id=_i[INIT_DW],
+            fiscal_year=2025,
+            category="capex",
+            description="Warehouse design and build",
+            amount=150000,
+        ),
+        dict(
+            initiative_id=_i[INIT_DW],
+            fiscal_year=2026,
+            category="capex",
+            description="Source system integration",
+            amount=200000,
+        ),
+        dict(
+            initiative_id=_i[INIT_DW],
+            fiscal_year=2026,
+            category="opex",
+            description="Cloud warehouse consumption",
+            amount=150000,
+        ),
         # DevOps (total budget 250K)
-        dict(initiative_id=_i[INIT_DEVOPS], fiscal_year=2025, category="capex", amount=100000),
-        dict(initiative_id=_i[INIT_DEVOPS], fiscal_year=2025, category="opex", amount=50000),
-        dict(initiative_id=_i[INIT_DEVOPS], fiscal_year=2026, category="opex", amount=100000),
+        dict(
+            initiative_id=_i[INIT_DEVOPS],
+            fiscal_year=2025,
+            category="capex",
+            description="CI/CD pipeline build",
+            amount=100000,
+        ),
+        dict(
+            initiative_id=_i[INIT_DEVOPS],
+            fiscal_year=2025,
+            category="opex",
+            description="Tooling subscriptions",
+            amount=50000,
+        ),
+        dict(
+            initiative_id=_i[INIT_DEVOPS],
+            fiscal_year=2026,
+            category="opex",
+            description="Tooling subscriptions",
+            amount=100000,
+        ),
     ]
 
 

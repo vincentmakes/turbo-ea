@@ -70,7 +70,7 @@ Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. 
 
 Acompanhamento de dados financeiros com dois tipos de itens:
 
-- **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx). As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
+- **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx), com uma descrição opcional. Um mesmo ano fiscal e categoria podem ter quantas linhas forem necessárias — uma por licença, parceiro de implementação ou lote de hardware — e a descrição as distingue; os totais somam todas. As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
 - **Linhas de custo** — Despesas reais com data, descrição e categoria
 
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.

@@ -8089,6 +8089,17 @@
             "title": "Category",
             "type": "string"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
           "fiscal_year": {
             "title": "Fiscal Year",
             "type": "integer"
@@ -8115,6 +8126,17 @@
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "fiscal_year": {
             "title": "Fiscal Year",
@@ -8173,6 +8195,17 @@
               }
             ],
             "title": "Category"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
           },
           "fiscal_year": {
             "anyOf": [

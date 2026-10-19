@@ -417,6 +417,7 @@ def _budget_line_out(bl: PpmBudgetLine) -> PpmBudgetLineOut:
         initiative_id=str(bl.initiative_id),
         fiscal_year=bl.fiscal_year,
         category=bl.category,
+        description=bl.description,
         amount=bl.amount,
         created_at=bl.created_at,
         updated_at=bl.updated_at,
@@ -437,7 +438,14 @@ async def list_budget_lines(
     result = await db.execute(
         select(PpmBudgetLine)
         .where(PpmBudgetLine.initiative_id == initiative_id)
-        .order_by(PpmBudgetLine.fiscal_year, PpmBudgetLine.category)
+        # Several lines may share a fiscal year + category; created_at, id keep
+        # their order stable between reloads.
+        .order_by(
+            PpmBudgetLine.fiscal_year,
+            PpmBudgetLine.category,
+            PpmBudgetLine.created_at,
+            PpmBudgetLine.id,
+        )
     )
     return [_budget_line_out(bl) for bl in result.scalars().all()]
 
@@ -459,6 +467,7 @@ async def create_budget_line(
         initiative_id=initiative_id,
         fiscal_year=body.fiscal_year,
         category=body.category,
+        description=body.description,
         amount=body.amount,
     )
     db.add(bl)

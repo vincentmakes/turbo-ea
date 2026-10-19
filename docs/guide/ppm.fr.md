@@ -70,7 +70,7 @@ Les rapports de statut mensuels suivent la santé du projet au fil du temps. Cha
 
 Suivi des données financières avec deux types de lignes :
 
-- **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx). Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
+- **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx), avec une description facultative. Une même année fiscale et une même catégorie peuvent compter autant de lignes que nécessaire — une par licence, partenaire d'intégration ou lot de matériel — et la description permet de les distinguer ; les totaux les additionnent toutes. Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
 - **Lignes de coût** — Dépenses réelles avec date, description et catégorie
 
 Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la fiche Initiative.

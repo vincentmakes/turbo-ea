@@ -47,6 +47,7 @@ function budget(overrides: Partial<PpmBudgetLine> & { id: string }): PpmBudgetLi
     initiative_id: "i1",
     fiscal_year: 2026,
     category: "capex",
+    description: null,
     amount: 0,
     created_at: "2026-01-01T00:00:00",
     updated_at: "2026-01-01T00:00:00",
@@ -81,6 +82,9 @@ const kpi = (caption: string) =>
 
 /** The table row holding `text`. */
 const rowOf = (text: string) => screen.getByText(text).closest("tr") as HTMLElement;
+
+/** Wait for `text` to render, then hand it back (for `rowOf`). */
+const textOf = async (text: string) => (await screen.findByText(text)).textContent ?? "";
 
 /** Pick an option in the dialog's Category select. */
 async function pickCategory(user: ReturnType<typeof userEvent.setup>, label: "CapEx" | "OpEx") {
@@ -191,6 +195,7 @@ describe("PpmCostTab — budget lines", () => {
     expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
       fiscal_year: 2027,
       category: "opex",
+      description: null,
       amount: 750,
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -216,8 +221,83 @@ describe("PpmCostTab — budget lines", () => {
     expect(mockApi.callsOf("patch", "/ppm/budgets/b1")[0].body).toEqual({
       fiscal_year: 2025,
       category: "capex",
+      description: null,
       amount: 0,
     });
+  });
+
+  it("sends the description typed into the budget dialog, trimmed", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+
+    const dialog = screen.getByRole("dialog");
+    const description = within(dialog).getByRole("textbox", { name: "Description" });
+    expect(description).toHaveValue("");
+    await user.type(description, "  SAP licences ");
+    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Amount" }), {
+      target: { value: "450" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1));
+    expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
+      fiscal_year: new Date().getFullYear(),
+      category: "capex",
+      description: "SAP licences",
+      amount: 450,
+    });
+  });
+
+  it("pre-fills a budget line's description on edit, and sends a cleared one as null", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b7", fiscal_year: 2025, amount: 300, description: "Partner" }),
+    ]);
+    const { user } = renderTab();
+    await user.click(within(rowOf(await textOf("Partner"))).getByRole("button", { name: "Edit" }));
+
+    const dialog = screen.getByRole("dialog");
+    const description = within(dialog).getByRole("textbox", { name: "Description" });
+    expect(description).toHaveValue("Partner");
+    await user.clear(description);
+    await user.type(description, "   ");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(mockApi.callsOf("patch", "/ppm/budgets/b7")).toHaveLength(1));
+    expect(mockApi.callsOf("patch", "/ppm/budgets/b7")[0].body).toEqual({
+      fiscal_year: 2025,
+      category: "capex",
+      description: null,
+      amount: 300,
+    });
+  });
+
+  it("shows a budget line's description in its row, with links linkified", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b8", fiscal_year: 2025, amount: 100, description: "Quote https://partner.example.com" }),
+    ]);
+    renderTab([]);
+    const link = await screen.findByRole("link", { name: "https://partner.example.com" });
+    const row = link.closest("tr") as HTMLElement;
+    expect(within(row).getByText("FY 2025")).toBeInTheDocument();
+    expect(within(row).getByText(/^Quote/).closest("[title]")).toHaveAttribute(
+      "title",
+      "Quote https://partner.example.com",
+    );
+  });
+
+  it("lists several lines on the same fiscal year and category as separate rows, and sums them", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b1", fiscal_year: 2026, category: "capex", amount: 450, description: "Licences" }),
+      budget({ id: "b2", fiscal_year: 2026, category: "capex", amount: 250, description: "Partner" }),
+    ]);
+    renderTab([]);
+    await screen.findByText("Licences");
+    expect(screen.getAllByText("FY 2026")).toHaveLength(2);
+    expect(within(rowOf("Licences")).getByText("$450")).toBeInTheDocument();
+    expect(within(rowOf("Partner")).getByText("$250")).toBeInTheDocument();
+    expect(kpi("Total Budget")).toBe("$700");
+    expect(kpi("CapEx")).toBe("$0 / $700");
   });
 
   it("deletes a budget line and reloads the list", async () => {
@@ -328,6 +408,7 @@ describe("PpmCostTab — labels and empty states", () => {
     expect(screen.getByText("Cost Items")).toBeInTheDocument();
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
       "Fiscal Year",
+      "Description",
       "Category",
       "Amount",
       "",
@@ -371,7 +452,7 @@ describe("PpmCostTab — labels and empty states", () => {
     renderTab();
     const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
     const cell = within(budgetTable).getByRole("progressbar").closest("td") as HTMLElement;
-    expect(cell).toHaveAttribute("colspan", "4");
+    expect(cell).toHaveAttribute("colspan", "5");
   });
 
   it("drops the loading row once the budget lines have arrived", async () => {
@@ -428,6 +509,7 @@ describe("PpmCostTab — dialogs", () => {
     expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
       fiscal_year: new Date().getFullYear(),
       category: "capex",
+      description: null,
       amount: 0,
     });
   });
@@ -807,7 +889,8 @@ describe("PpmCostTab — accessible names", () => {
     try {
       const { user } = renderTab();
       await screen.findByText("FY 2025");
-      expect(screen.getByRole("columnheader", { name: "Beschreibung" })).toBeInTheDocument();
+      // Both tables carry a description column.
+      expect(screen.getAllByRole("columnheader", { name: "Beschreibung" })).toHaveLength(2);
       expect(within(rowOf("Servers")).getByRole("button", { name: "Bearbeiten" })).toBeInTheDocument();
       expect(within(rowOf("Servers")).getByRole("button", { name: "Löschen" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /Kostenposition hinzufügen/ }));

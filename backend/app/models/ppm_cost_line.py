@@ -39,4 +39,7 @@ class PpmBudgetLine(Base, UUIDMixin, TimestampMixin):
     )
     fiscal_year: Mapped[int] = mapped_column(Integer, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False)  # capex | opex
+    # Optional: FY + category already names a line, and several lines may share
+    # the pair (one per licence, partner, hardware lot), told apart by this.
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     amount: Mapped[float] = mapped_column(Float, default=0)

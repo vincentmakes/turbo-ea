@@ -48,6 +48,7 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("PpmStatusReports", "next_steps"): PROSE,
     ("PpmCostLines", "description"): PROSE,
     ("PpmCostLines", "category"): ENUM,
+    ("PpmBudgetLines", "description"): PROSE,
     ("PpmBudgetLines", "category"): ENUM,
     ("PpmRisks", "title"): PROSE,
     ("PpmRisks", "status"): ENUM,

@@ -89,6 +89,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
   const [budgetForm, setBudgetForm] = useState({
     fiscal_year: new Date().getFullYear(),
     category: "capex" as "capex" | "opex",
+    description: "",
     amount: 0,
   });
 
@@ -139,12 +140,14 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       setBudgetForm({
         fiscal_year: item.fiscal_year,
         category: item.category,
+        description: item.description ?? "",
         amount: item.amount,
       });
     } else {
       setBudgetForm({
         fiscal_year: new Date().getFullYear(),
         category: "capex",
+        description: "",
         amount: 0,
       });
     }
@@ -154,11 +157,13 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
 
   const handleBudgetSave = () =>
     submit(async () => {
+      // The description is optional: an empty box stores NULL, not "".
+      const body = { ...budgetForm, description: budgetForm.description.trim() || null };
       try {
         if (budgetDialog.item) {
-          await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, budgetForm);
+          await api.patch(`/ppm/budgets/${budgetDialog.item.id}`, body);
         } else {
-          await api.post(`/ppm/initiatives/${initiativeId}/budgets`, budgetForm);
+          await api.post(`/ppm/initiatives/${initiativeId}/budgets`, body);
         }
       } catch (err) {
         setBudgetSaveError(errorText(err));
@@ -340,10 +345,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         variant="outlined"
         sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
       >
-        <Table size="small" sx={{ minWidth: { xs: 520, md: "auto" } }}>
+        <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("fiscalYear")}</TableCell>
+              <TableCell>{t("common:labels.description")}</TableCell>
               <TableCell>{t("category")}</TableCell>
               <TableCell align="right">{t("amount")}</TableCell>
               <TableCell width={80} />
@@ -355,6 +361,11 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                 <TableCell>
                   <Typography variant="body2" fontWeight={500}>
                     FY {bl.fiscal_year}
+                  </Typography>
+                </TableCell>
+                <TableCell sx={{ maxWidth: 240 }}>
+                  <Typography variant="body2" noWrap title={bl.description ?? ""}>
+                    <LinkifiedText text={bl.description ?? ""} />
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -387,14 +398,14 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             ))}
             {!budgetKnown && budgetLoading && (
               <TableRow>
-                <TableCell colSpan={4} sx={LOADING_CELL_SX}>
+                <TableCell colSpan={5} sx={LOADING_CELL_SX}>
                   <LinearProgress />
                 </TableCell>
               </TableRow>
             )}
             {budgetKnown && budgetLines.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("noBudgetLines")}
                   </Typography>
@@ -501,7 +512,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         <Dialog
           open
           onClose={() => setBudgetDialog({ open: false })}
-          maxWidth="xs"
+          maxWidth="sm"
           fullWidth
           fullScreen={fullScreen}
         >
@@ -526,6 +537,15 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                     fiscal_year: Number(e.target.value),
                   })
                 }
+                size="small"
+              />
+              <TextField
+                label={t("common:labels.description")}
+                value={budgetForm.description}
+                onChange={(e) =>
+                  setBudgetForm({ ...budgetForm, description: e.target.value })
+                }
+                fullWidth
                 size="small"
               />
               <FormControl size="small">
