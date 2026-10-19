@@ -345,7 +345,6 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         variant="outlined"
         sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
       >
-        {/* Stryker disable next-line ObjectLiteral: width is presentation */}
         <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
           <TableHead>
             <TableRow>
@@ -364,7 +363,6 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                     FY {bl.fiscal_year}
                   </Typography>
                 </TableCell>
-                {/* Stryker disable next-line ObjectLiteral: width is presentation */}
                 <TableCell sx={{ maxWidth: 240 }}>
                   <Typography variant="body2" noWrap title={bl.description ?? ""}>
                     <LinkifiedText text={bl.description ?? ""} />

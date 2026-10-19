@@ -276,6 +276,7 @@ describe("PpmCostTab — budget lines", () => {
   it("shows a budget line's description in its row, with links linkified", async () => {
     mockApi.on("get", budgetPath, [
       budget({ id: "b8", fiscal_year: 2025, amount: 100, description: "Quote https://partner.example.com" }),
+      budget({ id: "b9", fiscal_year: 2026, amount: 50 }),
     ]);
     renderTab([]);
     const link = await screen.findByRole("link", { name: "https://partner.example.com" });
@@ -285,6 +286,10 @@ describe("PpmCostTab — budget lines", () => {
       "title",
       "Quote https://partner.example.com",
     );
+    // A line without a description renders an empty cell, with nothing in its tooltip either.
+    const bareCell = rowOf("FY 2026").querySelectorAll("td")[1] as HTMLElement;
+    expect(bareCell.textContent).toBe("");
+    expect(bareCell.querySelector("[title]")).toHaveAttribute("title", "");
   });
 
   it("lists several lines on the same fiscal year and category as separate rows, and sums them", async () => {
