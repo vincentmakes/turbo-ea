@@ -234,6 +234,24 @@ transition, the bug has nothing to act on. Extensions inherit this through core'
 
 For MUI tables, table headers use `bgcolor: "action.hover"` for subtle distinction.
 
+**A long list of line items is grouped, subtotalled and totalled in the same
+table.** When a MUI table lists financial or similar lines that belong to
+periods or categories (the PPM Budget & Costs tab is the reference,
+`features/ppm/PpmCostTab.tsx`), use one level of grouping and no more: a header
+row per group on `bgcolor: "action.hover"` carrying a toggle `IconButton` with
+`aria-expanded` and a translated `aria-label`, the group label, a line count and
+the group's subtotals in `fontWeight: 700`; the lines beneath it rendered only
+while the group is open (a conditional render, not `Collapse` inside a table,
+which needs a `colSpan` wrapper and breaks column alignment); and a single
+grand-total row in a `TableFooter` on `bgcolor: "action.selected"`. Put each
+category in its own column (CapEx | OpEx | Total) rather than one Amount column
+plus a category chip, so the category is read by position and each column sums
+vertically. Numbers are right-aligned with `fontVariantNumeric: "tabular-nums"`.
+Open only the group the reader needs first (the current fiscal year) and open the
+group a saved line lands in, or the result of the save is hidden. Do not add a
+second level of subtotals inside a group, and do not make the footer sticky on a
+container that has no height limit, where `position: sticky` does nothing.
+
 **Every AG Grid gets column freeze.** Users must be able to pin a column to the
 leading edge so it stays readable while scrolling sideways. AG Grid Community
 renders pinned columns but ships no UI to pin one, so the affordance lives in
