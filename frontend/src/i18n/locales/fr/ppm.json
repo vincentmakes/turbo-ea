@@ -193,5 +193,12 @@
   "totalBudgetLine": "Budget total",
   "noChartData": "Aucune donnée de coût à représenter",
   "undatedExcluded_one": "{{count}} poste de coût sans date n'apparaît pas dans les graphiques",
-  "undatedExcluded_other": "{{count}} postes de coût sans date n'apparaissent pas dans les graphiques"
+  "undatedExcluded_other": "{{count}} postes de coût sans date n'apparaissent pas dans les graphiques",
+  "total": "Total",
+  "totalAllYears": "Total, tous les exercices",
+  "undated": "Sans date",
+  "toggleYear": "Afficher ou masquer les lignes de {{year}}",
+  "addLineForYear": "Ajouter une ligne budgétaire pour {{year}}",
+  "lineCount_one": "{{count}} ligne",
+  "lineCount_other": "{{count}} lignes"
 }

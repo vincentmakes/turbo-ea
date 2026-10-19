@@ -73,6 +73,8 @@ Seguimiento de datos financieros con dos tipos de partidas:
 - **Líneas de presupuesto** — Presupuesto planificado por año fiscal y categoría (CapEx / OpEx), con una descripción opcional. Un mismo año fiscal y categoría pueden tener tantas líneas como necesite —una por licencia, socio de implantación o lote de hardware— y la descripción las distingue; los totales las suman todas. Las líneas de presupuesto se agrupan según el **mes de inicio del año fiscal** configurado en [Configuración](../admin/settings.md#inicio-del-año-fiscal). Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027
 - **Líneas de costo** — Gastos reales con fecha, descripción y categoría
 
+Ambas tablas se agrupan por año fiscal. Cada año tiene una fila de encabezado con sus subtotales de CapEx, OpEx y total, y el número de líneas que contiene; la flecha del encabezado muestra u oculta las líneas de ese año. Al abrir la pestaña, solo el año fiscal en curso aparece desplegado (o el último año con líneas, si el actual no tiene ninguna). Los importes figuran en columnas **CapEx** y **OpEx** separadas, y una fila **Total, todos los años fiscales** bajo cada tabla suma todos los años. El botón **+** del encabezado de un año de presupuesto añade una línea de presupuesto con ese año fiscal ya rellenado. Las líneas de costo se agrupan por el año fiscal de su fecha; las que no tienen fecha se reúnen al final en el grupo **Sin fecha** y cuentan en los totales de costos como cualquier otra línea.
+
 Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
 
 #### Gasto a lo largo del tiempo

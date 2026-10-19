@@ -73,6 +73,8 @@ Acompanhamento de dados financeiros com dois tipos de itens:
 - **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx), com uma descrição opcional. Um mesmo ano fiscal e categoria podem ter quantas linhas forem necessárias — uma por licença, parceiro de implementação ou lote de hardware — e a descrição as distingue; os totais somam todas. As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
 - **Linhas de custo** — Despesas reais com data, descrição e categoria
 
+As duas tabelas são agrupadas por ano fiscal. Cada ano tem uma linha de cabeçalho com os subtotais de CapEx, OpEx e total e o número de linhas que contém; a seta do cabeçalho mostra ou oculta as linhas desse ano. Ao abrir a aba, apenas o ano fiscal atual fica expandido (ou o último ano com linhas, se o atual não tiver nenhuma). Os valores ficam em colunas **CapEx** e **OpEx** separadas, e uma linha **Total, todos os anos fiscais** abaixo de cada tabela soma todos os anos. O botão **+** no cabeçalho de um ano de orçamento adiciona uma linha de orçamento com esse ano fiscal já preenchido. As linhas de custo são agrupadas pelo ano fiscal da sua data; as que não têm data ficam reunidas no final, no grupo **Sem data**, e contam para os totais de custos como qualquer outra linha.
+
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
 
 #### Gastos ao longo do tempo

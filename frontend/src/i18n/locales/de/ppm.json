@@ -193,5 +193,12 @@
   "totalBudgetLine": "Gesamtbudget",
   "noChartData": "Noch keine Kostendaten für das Diagramm",
   "undatedExcluded_one": "{{count}} Kostenposition ohne Datum wird in den Diagrammen nicht angezeigt",
-  "undatedExcluded_other": "{{count}} Kostenpositionen ohne Datum werden in den Diagrammen nicht angezeigt"
+  "undatedExcluded_other": "{{count}} Kostenpositionen ohne Datum werden in den Diagrammen nicht angezeigt",
+  "total": "Gesamt",
+  "totalAllYears": "Gesamt, alle Geschäftsjahre",
+  "undated": "Ohne Datum",
+  "toggleYear": "Zeilen von {{year}} ein- oder ausblenden",
+  "addLineForYear": "Budgetzeile für {{year}} hinzufügen",
+  "lineCount_one": "{{count}} Zeile",
+  "lineCount_other": "{{count}} Zeilen"
 }

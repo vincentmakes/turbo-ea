@@ -56,6 +56,17 @@ function fiscalYearOf(year: number, month: number, startMonth: number): number {
 }
 
 /**
+ * The fiscal year `today` falls in.
+ *
+ * Local date parts, not `toISOString()`: `buildCumulativeSeries` places "now"
+ * with the local month, and a UTC-derived month would disagree with it near a
+ * month boundary.
+ */
+export function currentFiscalYear(today: Date, startMonth: number): number {
+  return fiscalYearOf(today.getFullYear(), today.getMonth() + 1, startMonth);
+}
+
+/**
  * `YYYY-MM-DD` (or a longer ISO timestamp) to its year and 1-12 month.
  *
  * Parsed by hand rather than via `new Date()` so a bare `YYYY-MM-DD` is never

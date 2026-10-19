@@ -6,7 +6,7 @@
  * and cost dialogs send to `/ppm/initiatives/{id}/budgets|costs`,
  * `/ppm/budgets/{id}` and `/ppm/costs/{id}`.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
@@ -25,6 +25,7 @@ vi.mock("@/features/ppm/PpmCostCharts", () => ({
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { todayIsoDate } from "@/lib/dates";
+import { resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import i18n from "@/i18n";
 import PpmCostTab from "./PpmCostTab";
 
@@ -83,6 +84,44 @@ const kpi = (caption: string) =>
 /** The table row holding `text`. */
 const rowOf = (text: string) => screen.getByText(text).closest("tr") as HTMLElement;
 
+/** The budget and cost tables. */
+const budgetTable = () => screen.getByTestId("ppm-budget-table");
+const costTable = () => screen.getByTestId("ppm-cost-table");
+
+/** A year group's show/hide toggle in `table`. */
+const toggleOf = (table: HTMLElement, label: string) =>
+  within(table).getByRole("button", { name: `Show or hide the lines of ${label}` });
+
+/** Open (or close) a year group in `table`. */
+async function expand(user: ReturnType<typeof userEvent.setup>, table: HTMLElement, label: string) {
+  await user.click(toggleOf(table, label));
+}
+
+/** The header row of a year group in `table`. */
+const groupRow = (table: HTMLElement, label: string) =>
+  toggleOf(table, label).closest("tr") as HTMLElement;
+
+/** The line row in `table` showing `amount` (a year header or the totals row never matches). */
+const lineRow = (table: HTMLElement, amount: string) => {
+  const row = within(table)
+    .queryAllByRole("button", { name: "Edit" })
+    .map((button) => button.closest("tr") as HTMLElement)
+    .find((tr) => within(tr).queryByText(amount));
+  if (!row) throw new Error(`no line row showing ${amount}`);
+  return row;
+};
+
+/** The line rows currently rendered in `table`. */
+const lineRows = (table: HTMLElement) => within(table).queryAllByRole("button", { name: "Edit" });
+
+/** Each cell's text, in order. */
+const cellTexts = (row: HTMLElement) =>
+  Array.from(row.querySelectorAll("td")).map((td) => td.textContent);
+
+/** The all-years totals row of `table`. */
+const footerRow = (table: HTMLElement) =>
+  within(table).getByText("Total, all fiscal years").closest("tr") as HTMLElement;
+
 /** Wait for `text` to render, then hand it back (for `rowOf`). */
 const textOf = async (text: string) => (await screen.findByText(text)).textContent ?? "";
 
@@ -94,8 +133,14 @@ async function pickCategory(user: ReturnType<typeof userEvent.setup>, label: "Ca
 }
 
 beforeEach(() => {
+  // Only `Date` is faked: timers stay real so user-event and findBy* still run.
+  // Mid-June 2026 makes FY 2026 the current fiscal year, the one a table opens on.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 5, 15));
   mockApi.reset();
   hookState.reset();
+  resetFiscalYearStart();
+  mockApi.on("get", "/settings/fiscal-year-start", { month: 1 });
   mockApi.on("get", budgetPath, BUDGETS);
   mockApi.on("post", budgetPath, {});
   mockApi.on("patch", /^\/ppm\/budgets\//, {});
@@ -103,6 +148,10 @@ beforeEach(() => {
   mockApi.on("post", costPath, {});
   mockApi.on("patch", /^\/ppm\/costs\//, {});
   mockApi.on("delete", /^\/ppm\/costs\//, null);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PpmCostTab — summary and tables", () => {
@@ -142,20 +191,21 @@ describe("PpmCostTab — summary and tables", () => {
     expect(await varianceFor(100)).toBe(green);
   });
 
-  it("lists budget lines by fiscal year with their category and amount", async () => {
-    renderTab();
-    const row = rowOf(await screen.findByText("FY 2025").then((el) => el.textContent ?? ""));
-    expect(within(row).getByText("CapEx")).toBeInTheDocument();
-    expect(within(row).getByText("$1000")).toBeInTheDocument();
-    expect(within(rowOf("FY 2026")).getByText("OpEx")).toBeInTheDocument();
+  it("lists each budget line's amount under its category's column", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await expand(user, budgetTable(), "FY 2025");
+    expect(cellTexts(lineRow(budgetTable(), "$1000")).slice(1, 4)).toEqual(["$1000", "", ""]);
+    expect(cellTexts(lineRow(budgetTable(), "$400")).slice(1, 4)).toEqual(["", "$400", ""]);
   });
 
   it("lists cost items with a linkified description, a formatted date and a dash when undated", async () => {
-    renderTab();
+    const { user } = renderTab();
     await screen.findByText("FY 2025");
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
     expect(within(licences).getByText("2026-03-15")).toBeInTheDocument();
     expect(within(licences).getByText("$300")).toBeInTheDocument();
+    await expand(user, costTable(), "Undated");
     expect(within(rowOf("Servers")).getByText("—")).toBeInTheDocument();
   });
 
@@ -170,8 +220,10 @@ describe("PpmCostTab — summary and tables", () => {
     renderTab([]);
     expect(await screen.findByText("No budget lines yet")).toBeInTheDocument();
     expect(screen.getByText("No budget lines yet").closest("td")).toHaveAttribute("colspan", "5");
-    expect(screen.getByText("No cost items yet")).toBeInTheDocument();
+    expect(screen.getByText("No cost items yet").closest("td")).toHaveAttribute("colspan", "6");
     expect(kpi("Total Budget")).toBe("$0");
+    // No lines, no totals row.
+    expect(screen.queryByText("Total, all fiscal years")).not.toBeInTheDocument();
   });
 });
 
@@ -184,7 +236,7 @@ describe("PpmCostTab — budget lines", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Add Budget Line")).toBeInTheDocument();
     const year = within(dialog).getByRole("spinbutton", { name: "Fiscal Year" });
-    expect(year).toHaveValue(new Date().getFullYear());
+    expect(year).toHaveValue(2026);
     fireEvent.change(year, { target: { value: "2027" } });
     await pickCategory(user, "OpEx");
     fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Amount" }), {
@@ -207,7 +259,8 @@ describe("PpmCostTab — budget lines", () => {
   it("edits a budget line with its own values pre-filled", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Edit" }));
+    await expand(user, budgetTable(), "FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Edit Budget Line")).toBeInTheDocument();
@@ -243,7 +296,7 @@ describe("PpmCostTab — budget lines", () => {
 
     await waitFor(() => expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1));
     expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
-      fiscal_year: new Date().getFullYear(),
+      fiscal_year: 2026,
       category: "capex",
       description: "SAP licences",
       amount: 450,
@@ -278,16 +331,18 @@ describe("PpmCostTab — budget lines", () => {
       budget({ id: "b8", fiscal_year: 2025, amount: 100, description: "Quote https://partner.example.com" }),
       budget({ id: "b9", fiscal_year: 2026, amount: 50 }),
     ]);
-    renderTab([]);
+    const { user } = renderTab([]);
+    await screen.findByText("FY 2025");
+    await expand(user, budgetTable(), "FY 2025");
     const link = await screen.findByRole("link", { name: "https://partner.example.com" });
     const row = link.closest("tr") as HTMLElement;
-    expect(within(row).getByText("FY 2025")).toBeInTheDocument();
+    expect(cellTexts(row)[1]).toBe("$100");
     expect(within(row).getByText(/^Quote/).closest("[title]")).toHaveAttribute(
       "title",
       "Quote https://partner.example.com",
     );
     // A line without a description renders an empty cell, with nothing in its tooltip either.
-    const bareCell = rowOf("FY 2026").querySelectorAll("td")[1] as HTMLElement;
+    const bareCell = lineRow(budgetTable(), "$50").querySelectorAll("td")[0] as HTMLElement;
     expect(bareCell.textContent).toBe("");
     expect(bareCell.querySelector("[title]")).toHaveAttribute("title", "");
   });
@@ -299,7 +354,9 @@ describe("PpmCostTab — budget lines", () => {
     ]);
     renderTab([]);
     await screen.findByText("Licences");
-    expect(screen.getAllByText("FY 2026")).toHaveLength(2);
+    // One year, one header over both lines.
+    expect(within(budgetTable()).getAllByText("FY 2026")).toHaveLength(1);
+    expect(within(groupRow(budgetTable(), "FY 2026")).getByText("2 lines")).toBeInTheDocument();
     expect(within(rowOf("Licences")).getByText("$450")).toBeInTheDocument();
     expect(within(rowOf("Partner")).getByText("$250")).toBeInTheDocument();
     expect(kpi("Total Budget")).toBe("$700");
@@ -308,8 +365,8 @@ describe("PpmCostTab — budget lines", () => {
 
   it("deletes a budget line and reloads the list", async () => {
     const { user } = renderTab();
-    await screen.findByText("FY 2026");
-    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Delete" }));
+    await screen.findByText("FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$400")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/budgets/b2")).toHaveLength(1));
     await waitFor(() => expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2));
   });
@@ -353,6 +410,7 @@ describe("PpmCostTab — cost items", () => {
   it("edits a cost item, sending a cleared date as null", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
 
     const dialog = screen.getByRole("dialog");
@@ -377,6 +435,7 @@ describe("PpmCostTab — cost items", () => {
   it("commits a date picked in the dialog", async () => {
     const { user } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
     const date = within(screen.getByRole("dialog")).getByLabelText("Date");
     fireEvent.focus(date);
@@ -390,6 +449,7 @@ describe("PpmCostTab — cost items", () => {
   it("deletes a cost item and refreshes the parent", async () => {
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(mockApi.callsOf("delete", "/ppm/costs/c2")).toHaveLength(1));
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
@@ -413,15 +473,16 @@ describe("PpmCostTab — labels and empty states", () => {
     expect(screen.getByText("Planned Budget")).toBeInTheDocument();
     expect(screen.getByText("Cost Items")).toBeInTheDocument();
     expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "Fiscal Year",
       "Description",
-      "Category",
-      "Amount",
+      "CapEx",
+      "OpEx",
+      "Total",
       "",
       "Description",
-      "Category",
       "Date",
-      "Amount",
+      "CapEx",
+      "OpEx",
+      "Total",
       "",
     ]);
   });
@@ -438,8 +499,9 @@ describe("PpmCostTab — labels and empty states", () => {
     mockApi.on("get", budgetPath, () => new Promise(() => {}));
     renderTab();
     expect(screen.queryByText("No budget lines yet")).not.toBeInTheDocument();
-    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
-    expect(within(budgetTable).getByRole("progressbar")).toBeInTheDocument();
+    expect(within(budgetTable()).getByRole("progressbar")).toBeInTheDocument();
+    // The all-years row waits for the budget lines too.
+    expect(cellTexts(footerRow(budgetTable()))).toEqual(["Total, all fiscal years", "—", "—", "—", ""]);
     // Every figure that needs the budget waits for it; the actuals are known.
     expect(kpi("Total Budget")).toBe("—");
     expect(kpi("Variance")).toBe("—");
@@ -456,16 +518,14 @@ describe("PpmCostTab — labels and empty states", () => {
   it("pads the budget loading row like the empty-state row it stands in for", () => {
     mockApi.on("get", budgetPath, () => new Promise(() => {}));
     renderTab();
-    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
-    const cell = within(budgetTable).getByRole("progressbar").closest("td") as HTMLElement;
+    const cell = within(budgetTable()).getByRole("progressbar").closest("td") as HTMLElement;
     expect(cell).toHaveAttribute("colspan", "5");
   });
 
   it("drops the loading row once the budget lines have arrived", async () => {
     renderTab();
     await screen.findByText("FY 2025");
-    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
-    expect(within(budgetTable).queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(within(budgetTable()).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
   it("keeps the lines and totals on screen while it reloads them after a save", async () => {
@@ -479,33 +539,31 @@ describe("PpmCostTab — labels and empty states", () => {
     await waitFor(() => expect(gets).toBe(2));
     expect(screen.getByText("FY 2025")).toBeInTheDocument();
     expect(kpi("Total Budget")).toBe("$1400");
-    const budgetTable = screen.getByRole("columnheader", { name: "Fiscal Year" }).closest("table") as HTMLElement;
-    expect(within(budgetTable).queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(within(budgetTable()).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
-  it("labels each cost item's category chip", async () => {
-    renderTab();
+  it("puts each cost item's amount under its category's column", async () => {
+    const { user } = renderTab();
     await screen.findByText("FY 2025");
-    expect(within(rowOf("Servers")).getByText("CapEx")).toBeInTheDocument();
-    expect(within(rowOf("Servers")).queryByText("OpEx")).not.toBeInTheDocument();
+    await expand(user, costTable(), "Undated");
+    expect(cellTexts(rowOf("Servers")).slice(1, 5)).toEqual(["—", "$250", "", ""]);
     const licences = screen.getByRole("link", { name: "https://vendor.example.com" }).closest("tr") as HTMLElement;
-    expect(within(licences).getByText("OpEx")).toBeInTheDocument();
-    expect(within(licences).queryByText("CapEx")).not.toBeInTheDocument();
+    expect(cellTexts(licences).slice(1, 5)).toEqual(["2026-03-15", "", "$300", ""]);
   });
 });
 
 describe("PpmCostTab — dialogs", () => {
   it("opens a fresh budget form after an edit was cancelled", async () => {
     const { user } = renderTab();
-    await screen.findByText("FY 2026");
-    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Edit" }));
+    await screen.findByText("FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$400")).getByRole("button", { name: "Edit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("spinbutton", { name: "Fiscal Year" })).toHaveValue(
-      new Date().getFullYear(),
+      2026,
     );
     expect(within(dialog).getByRole("combobox", { name: "Category" })).toHaveTextContent("CapEx");
     expect(within(dialog).getByRole("spinbutton", { name: "Amount" })).toHaveValue(null);
@@ -513,7 +571,7 @@ describe("PpmCostTab — dialogs", () => {
 
     await waitFor(() => expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1));
     expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
-      fiscal_year: new Date().getFullYear(),
+      fiscal_year: 2026,
       category: "capex",
       description: null,
       amount: 0,
@@ -587,7 +645,8 @@ describe("PpmCostTab — dialogs", () => {
     });
     try {
       const { user } = renderTab();
-      await screen.findByText("FY 2025");
+      // The year headers are named in the user's language too.
+      await screen.findByText("GJ 2025");
       await user.click(screen.getByRole("button", { name: /Budgetzeile hinzufügen/ }));
       let dialog = screen.getByRole("dialog");
       expect(within(dialog).getByRole("button", { name: "Abbrechen" })).toBeInTheDocument();
@@ -766,6 +825,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("patch", "/ppm/costs/c2", 422);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Edit" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
 
@@ -808,17 +868,16 @@ describe("PpmCostTab — failed writes", () => {
   it("shows a failed budget delete above the budget table, until the next delete succeeds", async () => {
     mockApi.fail("delete", "/ppm/budgets/b2", 409);
     const { user } = renderTab();
-    await screen.findByText("FY 2026");
-    await user.click(within(rowOf("FY 2026")).getByRole("button", { name: "Delete" }));
+    await screen.findByText("FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$400")).getByRole("button", { name: "Delete" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("DELETE /ppm/budgets/b2 failed");
-    expect(alert.compareDocumentPosition(screen.getByText("Fiscal Year"))).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
+    expect(alert.compareDocumentPosition(budgetTable())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(mockApi.callsOf("get", budgetPath)).toHaveLength(1);
 
-    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Delete" }));
+    await expand(user, budgetTable(), "FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(mockApi.callsOf("delete", "/ppm/budgets/b1")).toHaveLength(1);
   });
@@ -827,6 +886,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/costs/c2", 409);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
 
     const alert = await screen.findByRole("alert");
@@ -846,6 +906,7 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/costs/c2", 409);
     const { user, onRefresh } = renderTab();
     await screen.findByText("FY 2025");
+    await expand(user, costTable(), "Undated");
     await user.click(within(rowOf("Servers")).getByRole("button", { name: "Delete" }));
     await screen.findByRole("alert");
 
@@ -859,7 +920,8 @@ describe("PpmCostTab — failed writes", () => {
     mockApi.fail("delete", "/ppm/budgets/b1", 409);
     const { user } = renderTab();
     await screen.findByText("FY 2025");
-    await user.click(within(rowOf("FY 2025")).getByRole("button", { name: "Delete" }));
+    await expand(user, budgetTable(), "FY 2025");
+    await user.click(within(lineRow(budgetTable(), "$1000")).getByRole("button", { name: "Delete" }));
     const alert = await screen.findByRole("alert");
     await user.click(within(alert).getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
@@ -868,9 +930,10 @@ describe("PpmCostTab — failed writes", () => {
 
 describe("PpmCostTab — accessible names", () => {
   it("names every row's edit and delete buttons", async () => {
-    renderTab();
+    const { user } = renderTab();
     await screen.findByText("FY 2025");
-    for (const row of [rowOf("FY 2025"), rowOf("Servers")]) {
+    await expand(user, costTable(), "Undated");
+    for (const row of [lineRow(budgetTable(), "$400"), rowOf("Servers")]) {
       expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument();
       expect(within(row).getByRole("button", { name: "Delete" })).toBeInTheDocument();
     }
@@ -894,9 +957,12 @@ describe("PpmCostTab — accessible names", () => {
     });
     try {
       const { user } = renderTab();
-      await screen.findByText("FY 2025");
+      await screen.findByText("GJ 2025");
       // Both tables carry a description column.
       expect(screen.getAllByRole("columnheader", { name: "Beschreibung" })).toHaveLength(2);
+      await user.click(
+        within(costTable()).getByRole("button", { name: "Zeilen von Ohne Datum ein- oder ausblenden" }),
+      );
       expect(within(rowOf("Servers")).getByRole("button", { name: "Bearbeiten" })).toBeInTheDocument();
       expect(within(rowOf("Servers")).getByRole("button", { name: "Löschen" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /Kostenposition hinzufügen/ }));
@@ -908,5 +974,189 @@ describe("PpmCostTab — accessible names", () => {
         await i18n.changeLanguage("en");
       });
     }
+  });
+});
+
+describe("PpmCostTab — fiscal-year groups", () => {
+  it("heads each budget year with its CapEx, OpEx and Total subtotals and its line count", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b1", fiscal_year: 2025, category: "capex", amount: 1000 }),
+      budget({ id: "b3", fiscal_year: 2025, category: "opex", amount: 200 }),
+      budget({ id: "b2", fiscal_year: 2026, category: "opex", amount: 400 }),
+    ]);
+    renderTab([]);
+    await screen.findByText("FY 2025");
+    const y2025 = groupRow(budgetTable(), "FY 2025");
+    expect(cellTexts(y2025)).toEqual(["chevron_rightFY 20252 lines", "$1000", "$200", "$1200", "add"]);
+    const y2026 = groupRow(budgetTable(), "FY 2026");
+    expect(cellTexts(y2026)).toEqual(["expand_moreFY 20261 line", "$0", "$400", "$400", "add"]);
+    // The icon says which way the toggle goes: closed years point right, open ones down.
+    // Years run oldest first.
+    expect(y2025.compareDocumentPosition(y2026)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("opens only the current fiscal year on load, and shows or hides a year on its toggle", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    const table = budgetTable();
+    expect(toggleOf(table, "FY 2026")).toHaveAttribute("aria-expanded", "true");
+    expect(toggleOf(table, "FY 2025")).toHaveAttribute("aria-expanded", "false");
+    // Only FY 2026's line is on screen.
+    expect(lineRows(table)).toHaveLength(1);
+    expect(() => lineRow(table, "$1000")).toThrow();
+
+    await expand(user, table, "FY 2025");
+    expect(toggleOf(table, "FY 2025")).toHaveAttribute("aria-expanded", "true");
+    expect(cellTexts(lineRow(table, "$1000"))[1]).toBe("$1000");
+    expect(lineRows(table)).toHaveLength(2);
+
+    await expand(user, table, "FY 2025");
+    expect(toggleOf(table, "FY 2025")).toHaveAttribute("aria-expanded", "false");
+    expect(lineRows(table)).toHaveLength(1);
+
+    // The year that opened by default closes like any other.
+    await expand(user, table, "FY 2026");
+    expect(toggleOf(table, "FY 2026")).toHaveAttribute("aria-expanded", "false");
+    expect(lineRows(table)).toHaveLength(0);
+  });
+
+  it("opens the latest year when the current fiscal year has no lines", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b1", fiscal_year: 2023, amount: 10 }),
+      budget({ id: "b2", fiscal_year: 2024, amount: 20 }),
+    ]);
+    renderTab([]);
+    await screen.findByText("FY 2024");
+    expect(toggleOf(budgetTable(), "FY 2024")).toHaveAttribute("aria-expanded", "true");
+    expect(toggleOf(budgetTable(), "FY 2023")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps a year the user collapsed collapsed when the lines reload after a save", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await expand(user, budgetTable(), "FY 2026");
+    await expand(user, budgetTable(), "FY 2025");
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("get", budgetPath)).toHaveLength(2));
+    await settle();
+    expect(toggleOf(budgetTable(), "FY 2026")).toHaveAttribute("aria-expanded", "false");
+    expect(toggleOf(budgetTable(), "FY 2025")).toHaveAttribute("aria-expanded", "true");
+    expect(lineRows(budgetTable())).toHaveLength(1);
+  });
+
+  it("totals every fiscal year in a row under each table", async () => {
+    renderTab();
+    await screen.findByText("FY 2025");
+    expect(cellTexts(footerRow(budgetTable()))).toEqual([
+      "Total, all fiscal years",
+      "$1000",
+      "$400",
+      "$1400",
+      "",
+    ]);
+    // Undated cost items count towards the cost totals.
+    const costFooter = footerRow(costTable());
+    expect(cellTexts(costFooter)).toEqual(["Total, all fiscal years", "$250", "$300", "$550", ""]);
+    // Its label spans the Description and Date columns.
+    expect(costFooter.querySelector("td")).toHaveAttribute("colspan", "2");
+    // The totals row sits below every line, in the table's footer.
+    expect(costFooter.closest("tfoot")).not.toBeNull();
+    expect(footerRow(budgetTable()).closest("tfoot")).not.toBeNull();
+  });
+
+  it("adds a budget line for the year whose + was clicked", async () => {
+    const { user } = renderTab();
+    await screen.findByText("FY 2025");
+    await user.click(
+      within(groupRow(budgetTable(), "FY 2025")).getByRole("button", {
+        name: "Add a budget line for FY 2025",
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Add Budget Line")).toBeInTheDocument();
+    expect(within(dialog).getByRole("spinbutton", { name: "Fiscal Year" })).toHaveValue(2025);
+    expect(within(dialog).getByRole("spinbutton", { name: "Amount" })).toHaveValue(null);
+    fireEvent.change(within(dialog).getByRole("spinbutton", { name: "Amount" }), {
+      target: { value: "90" },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(mockApi.callsOf("post", budgetPath)).toHaveLength(1));
+    expect(mockApi.callsOf("post", budgetPath)[0].body).toEqual({
+      fiscal_year: 2025,
+      category: "capex",
+      description: null,
+      amount: 90,
+    });
+  });
+
+  it("offers no + on a cost year: a whole year is no date", async () => {
+    renderTab();
+    await screen.findByText("FY 2025");
+    expect(within(costTable()).queryByRole("button", { name: /Add a budget line/ })).not.toBeInTheDocument();
+    expect(within(budgetTable()).getAllByRole("button", { name: /Add a budget line/ })).toHaveLength(2);
+  });
+
+  it("groups cost items by the fiscal year of their date, with the undated ones last", async () => {
+    renderTab([
+      ...COSTS,
+      cost({ id: "c3", description: "Old audit", category: "capex", actual: 80, date: "2025-11-02" }),
+    ]);
+    // Both tables now carry an FY 2025 header: wait for the budget table's.
+    await within(budgetTable()).findByText("FY 2025");
+    const table = costTable();
+    const y2025 = groupRow(table, "FY 2025");
+    const y2026 = groupRow(table, "FY 2026");
+    const undated = groupRow(table, "Undated");
+    expect(y2025.compareDocumentPosition(y2026)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(y2026.compareDocumentPosition(undated)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // A cost header spans Description and Date, then carries the three subtotals.
+    expect(cellTexts(y2026)).toEqual(["expand_moreFY 20261 line", "$0", "$300", "$300", ""]);
+    expect(y2026.querySelector("td")).toHaveAttribute("colspan", "2");
+    expect(cellTexts(undated)).toEqual(["chevron_rightUndated1 line", "$250", "$0", "$250", ""]);
+    // The current year is open; the undated group waits for its toggle.
+    expect(toggleOf(table, "Undated")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Servers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old audit")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "https://vendor.example.com" })).toBeInTheDocument();
+  });
+
+  it("opens the undated group when it is the only one", async () => {
+    renderTab([cost({ id: "c2", description: "Servers", actual: 250 })]);
+    await screen.findByText("FY 2025");
+    expect(toggleOf(costTable(), "Undated")).toHaveAttribute("aria-expanded", "true");
+    expect(within(rowOf("Servers")).getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("shows a line of any other category under Total only", async () => {
+    mockApi.on("get", budgetPath, [
+      budget({ id: "b5", fiscal_year: 2026, category: "other" as PpmBudgetLine["category"], amount: 70 }),
+    ]);
+    renderTab([
+      cost({ id: "c5", description: "Misc", category: "misc" as PpmCostLine["category"], actual: 15, date: "2026-02-01" }),
+    ]);
+    // The cost lines are props and render at once; wait for the budget GET too.
+    await waitFor(() => expect(lineRows(budgetTable())).toHaveLength(1));
+    expect(cellTexts(lineRow(budgetTable(), "$70")).slice(1, 4)).toEqual(["", "", "$70"]);
+    expect(cellTexts(rowOf("Misc")).slice(2, 5)).toEqual(["", "", "$15"]);
+    // It counts towards its year's total and the all-years total, never CapEx or OpEx.
+    expect(cellTexts(groupRow(budgetTable(), "FY 2026")).slice(1, 4)).toEqual(["$0", "$0", "$70"]);
+    expect(cellTexts(footerRow(costTable())).slice(1, 4)).toEqual(["$0", "$0", "$15"]);
+  });
+
+  it("names a fiscal year that straddles two calendar years by both, and defaults new lines to it", async () => {
+    mockApi.on("get", "/settings/fiscal-year-start", { month: 4 });
+    mockApi.on("get", budgetPath, [budget({ id: "b1", fiscal_year: 2026, category: "capex", amount: 500 })]);
+    const { user } = renderTab([
+      cost({ id: "c1", description: "Licences", category: "opex", actual: 300, date: "2026-03-15" }),
+    ]);
+    // With an April start, March 2026 closes FY 2025–2026.
+    expect(await within(costTable()).findByText("FY 2025–2026")).toBeInTheDocument();
+    expect(await within(budgetTable()).findByText("FY 2025–2026")).toBeInTheDocument();
+
+    // Mid-June 2026 sits in FY 2026–2027: a new line defaults to it.
+    await user.click(screen.getByRole("button", { name: /Add Budget Line/ }));
+    expect(within(screen.getByRole("dialog")).getByRole("spinbutton", { name: "Fiscal Year" })).toHaveValue(2027);
   });
 });

@@ -1,4 +1,4 @@
-import { useState, useMemo, lazy, Suspense } from "react";
+import { Fragment, useState, useMemo, lazy, Suspense } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -10,9 +10,9 @@ import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import TableFooter from "@mui/material/TableFooter";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -35,6 +35,16 @@ import { KPI_VALUE_SX } from "./ppmStyles";
 import { useFullScreenDialog } from "@/hooks/useFullScreenDialog";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { fiscalYearLabel } from "@/lib/fiscalYear";
+import { bucketFor, currentFiscalYear } from "./costChartData";
+import {
+  defaultExpandedKey,
+  grandTotals,
+  groupBudgetLines,
+  groupCostLines,
+  type GroupKey,
+} from "./costTableGroups";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
 
 // Lazy: PpmProjectDetail imports every tab eagerly, so a static import would
@@ -46,6 +56,40 @@ const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 const NO_BUDGET_LINES: PpmBudgetLine[] = [];
 // Stryker disable next-line ObjectLiteral: spacing is presentation
 const LOADING_CELL_SX = { py: 2 } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const NUM_SX = { fontVariantNumeric: "tabular-nums" } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const SUBTOTAL_SX = { fontVariantNumeric: "tabular-nums", fontWeight: 700 } as const;
+// Stryker disable next-line ObjectLiteral: colour is presentation
+const YEAR_ROW_SX = { bgcolor: "action.hover" } as const;
+// Stryker disable next-line ObjectLiteral: colour is presentation
+const FOOTER_ROW_SX = { bgcolor: "action.selected" } as const;
+// Stryker disable next-line ObjectLiteral: typography is presentation
+const FOOTER_CELL_SX = {
+  fontVariantNumeric: "tabular-nums",
+  fontWeight: 700,
+  color: "text.primary",
+  fontSize: "0.875rem",
+} as const;
+
+/**
+ * Which year groups a table shows open. `null` until the user first toggles
+ * one: until then the open group follows the data (`defaultExpandedKey`), so a
+ * table whose lines arrive late still opens on the right year, and a reload
+ * after a save never undoes what the user chose.
+ */
+function useExpandedGroups(defaultKey: GroupKey | null) {
+  // A `null` default sits in the set harmlessly: no group has a null key.
+  const [chosen, setChosen] = useState<Set<GroupKey | null> | null>(null);
+  const expanded = chosen ?? new Set<GroupKey | null>([defaultKey]);
+  const toggle = (key: GroupKey) => {
+    const next = new Set(expanded);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setChosen(next);
+  };
+  return { expanded, toggle };
+}
 
 interface Props {
   initiativeId: string;
@@ -58,6 +102,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
   const fullScreen = useFullScreenDialog();
   const { fmt } = useCurrency();
   const { formatDate } = useDateFormat();
+  const { month: fyStart } = useFiscalYearStart();
 
   const errorText = (err: unknown) =>
     err instanceof Error ? err.message : t("common:errors.generic");
@@ -87,7 +132,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     item?: PpmBudgetLine;
   }>({ open: false });
   const [budgetForm, setBudgetForm] = useState({
-    fiscal_year: new Date().getFullYear(),
+    fiscal_year: currentFiscalYear(new Date(), fyStart),
     category: "capex" as "capex" | "opex",
     description: "",
     amount: 0,
@@ -134,8 +179,72 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
     [costLines],
   );
 
+  // ── Table groups ──
+  const currentFy = currentFiscalYear(new Date(), fyStart);
+  const budgetGroups = useMemo(() => groupBudgetLines(budgetLines), [budgetLines]);
+  const costGroups = useMemo(() => groupCostLines(costLines, fyStart), [costLines, fyStart]);
+  const budgetGrand = useMemo(() => grandTotals(budgetGroups), [budgetGroups]);
+  const costGrand = useMemo(() => grandTotals(costGroups), [costGroups]);
+  const budgetOpen = useExpandedGroups(defaultExpandedKey(budgetGroups, currentFy));
+  const costOpen = useExpandedGroups(defaultExpandedKey(costGroups, currentFy));
+  const groupLabel = (key: GroupKey) =>
+    key === "undated" ? t("undated") : fiscalYearLabel(key, fyStart, t);
+
+  /**
+   * A line's amount under its category's column; one whose category is
+   * neither shows it under Total, the only figure it counts towards.
+   */
+  const amountCells = (amount: number, category: string) => {
+    const bucket = bucketFor(category);
+    const text = fmt.format(amount);
+    return (
+      <>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === "capex" ? text : ""}
+        </TableCell>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === "opex" ? text : ""}
+        </TableCell>
+        <TableCell align="right" sx={NUM_SX}>
+          {bucket === null ? text : ""}
+        </TableCell>
+      </>
+    );
+  };
+
+  /** The first cell of a year's header row: its toggle, name and line count. */
+  const groupTitleCell = (
+    key: GroupKey,
+    count: number,
+    open: boolean,
+    onToggle: () => void,
+    colSpan = 1,
+  ) => {
+    const label = groupLabel(key);
+    return (
+      <TableCell colSpan={colSpan}>
+        <Box display="flex" alignItems="center" gap={0.5}>
+          <IconButton
+            size="small"
+            aria-expanded={open}
+            aria-label={t("toggleYear", { year: label })}
+            onClick={onToggle}
+          >
+            <MaterialSymbol icon={open ? "expand_more" : "chevron_right"} size={18} />
+          </IconButton>
+          <Typography variant="body2" fontWeight={700}>
+            {label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+            {t("lineCount", { count })}
+          </Typography>
+        </Box>
+      </TableCell>
+    );
+  };
+
   // ── Budget handlers ──
-  const handleBudgetOpen = (item?: PpmBudgetLine) => {
+  const handleBudgetOpen = (item?: PpmBudgetLine, preset?: { fiscalYear?: number }) => {
     if (item) {
       setBudgetForm({
         fiscal_year: item.fiscal_year,
@@ -145,7 +254,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       });
     } else {
       setBudgetForm({
-        fiscal_year: new Date().getFullYear(),
+        fiscal_year: preset?.fiscalYear ?? currentFiscalYear(new Date(), fyStart),
         category: "capex",
         description: "",
         amount: 0,
@@ -341,6 +450,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       )}
 
       <TableContainer
+        data-testid="ppm-budget-table"
         component={Paper}
         variant="outlined"
         sx={{ mb: 3, WebkitOverflowScrolling: "touch" }}
@@ -348,54 +458,72 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
         <Table size="small" sx={{ minWidth: { xs: 660, md: "auto" } }}>
           <TableHead>
             <TableRow>
-              <TableCell>{t("fiscalYear")}</TableCell>
               <TableCell>{t("common:labels.description")}</TableCell>
-              <TableCell>{t("category")}</TableCell>
-              <TableCell align="right">{t("amount")}</TableCell>
+              <TableCell align="right">{t("capex")}</TableCell>
+              <TableCell align="right">{t("opex")}</TableCell>
+              <TableCell align="right">{t("total")}</TableCell>
               <TableCell width={80} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {budgetLines.map((bl) => (
-              <TableRow key={bl.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight={500}>
-                    FY {bl.fiscal_year}
-                  </Typography>
-                </TableCell>
-                <TableCell sx={{ maxWidth: 240 }}>
-                  <Typography variant="body2" noWrap title={bl.description ?? ""}>
-                    <LinkifiedText text={bl.description ?? ""} />
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={bl.category === "capex" ? t("capex") : t("opex")}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell align="right">{fmt.format(bl.amount)}</TableCell>
-                <TableCell>
-                  <Box display="flex" gap={0.5}>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.edit")}
-                      onClick={() => handleBudgetOpen(bl)}
-                    >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.delete")}
-                      onClick={() => handleBudgetDelete(bl.id)}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+            {budgetGroups.map((g) => {
+              const open = budgetOpen.expanded.has(g.key);
+              const year = g.key as number;
+              return (
+                <Fragment key={g.key}>
+                  <TableRow sx={YEAR_ROW_SX}>
+                    {groupTitleCell(g.key, g.lines.length, open, () => budgetOpen.toggle(g.key))}
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.capex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.opex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.total)}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        aria-label={t("addLineForYear", { year: groupLabel(g.key) })}
+                        onClick={() => handleBudgetOpen(undefined, { fiscalYear: year })}
+                      >
+                        <MaterialSymbol icon="add" size={16} />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                  {open &&
+                    g.lines.map((bl) => (
+                      <TableRow key={bl.id} hover>
+                        <TableCell sx={{ maxWidth: 240 }}>
+                          <Typography variant="body2" noWrap title={bl.description ?? ""}>
+                            <LinkifiedText text={bl.description ?? ""} />
+                          </Typography>
+                        </TableCell>
+                        {amountCells(bl.amount, bl.category)}
+                        <TableCell>
+                          <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.edit")}
+                              onClick={() => handleBudgetOpen(bl)}
+                            >
+                              <MaterialSymbol icon="edit" size={16} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.delete")}
+                              onClick={() => handleBudgetDelete(bl.id)}
+                            >
+                              <MaterialSymbol icon="delete" size={16} />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </Fragment>
+              );
+            })}
             {!budgetKnown && budgetLoading && (
               <TableRow>
                 <TableCell colSpan={5} sx={LOADING_CELL_SX}>
@@ -413,6 +541,23 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
               </TableRow>
             )}
           </TableBody>
+          {(!budgetKnown || budgetLines.length > 0) && (
+            <TableFooter>
+              <TableRow sx={FOOTER_ROW_SX}>
+                <TableCell sx={FOOTER_CELL_SX}>{t("totalAllYears")}</TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {budgetFigure(budgetGrand.capex)}
+                </TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {budgetFigure(budgetGrand.opex)}
+                </TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {budgetFigure(budgetGrand.total)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </TableContainer>
 
@@ -441,6 +586,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
       )}
 
       <TableContainer
+        data-testid="ppm-cost-table"
         component={Paper}
         variant="outlined"
         sx={{ WebkitOverflowScrolling: "touch" }}
@@ -449,54 +595,67 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
           <TableHead>
             <TableRow>
               <TableCell>{t("common:labels.description")}</TableCell>
-              <TableCell>{t("category")}</TableCell>
               <TableCell>{t("date")}</TableCell>
-              <TableCell align="right">{t("amount")}</TableCell>
+              <TableCell align="right">{t("capex")}</TableCell>
+              <TableCell align="right">{t("opex")}</TableCell>
+              <TableCell align="right">{t("total")}</TableCell>
               <TableCell width={80} />
             </TableRow>
           </TableHead>
           <TableBody>
-            {costLines.map((cl) => (
-              <TableRow key={cl.id} hover>
-                <TableCell sx={{ maxWidth: 240 }}>
-                  <Typography variant="body2" noWrap title={cl.description}>
-                    <LinkifiedText text={cl.description} />
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={cl.category === "capex" ? t("capex") : t("opex")}
-                    size="small"
-                    variant="outlined"
-                  />
-                </TableCell>
-                <TableCell>
-                  {cl.date ? formatDate(cl.date) : "\u2014"}
-                </TableCell>
-                <TableCell align="right">{fmt.format(cl.actual)}</TableCell>
-                <TableCell>
-                  <Box display="flex" gap={0.5}>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.edit")}
-                      onClick={() => handleCostOpen(cl)}
-                    >
-                      <MaterialSymbol icon="edit" size={16} />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("common:actions.delete")}
-                      onClick={() => handleCostDelete(cl.id)}
-                    >
-                      <MaterialSymbol icon="delete" size={16} />
-                    </IconButton>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ))}
+            {costGroups.map((g) => {
+              const open = costOpen.expanded.has(g.key);
+              return (
+                <Fragment key={g.key}>
+                  <TableRow sx={YEAR_ROW_SX}>
+                    {groupTitleCell(g.key, g.lines.length, open, () => costOpen.toggle(g.key), 2)}
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.capex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.opex)}
+                    </TableCell>
+                    <TableCell align="right" sx={SUBTOTAL_SX}>
+                      {fmt.format(g.totals.total)}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                  {open &&
+                    g.lines.map((cl) => (
+                      <TableRow key={cl.id} hover>
+                        <TableCell sx={{ maxWidth: 240 }}>
+                          <Typography variant="body2" noWrap title={cl.description}>
+                            <LinkifiedText text={cl.description} />
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{cl.date ? formatDate(cl.date) : "\u2014"}</TableCell>
+                        {amountCells(cl.actual, cl.category)}
+                        <TableCell>
+                          <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.edit")}
+                              onClick={() => handleCostOpen(cl)}
+                            >
+                              <MaterialSymbol icon="edit" size={16} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label={t("common:actions.delete")}
+                              onClick={() => handleCostDelete(cl.id)}
+                            >
+                              <MaterialSymbol icon="delete" size={16} />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </Fragment>
+              );
+            })}
             {costLines.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     {t("noCostLines")}
                   </Typography>
@@ -504,6 +663,25 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
               </TableRow>
             )}
           </TableBody>
+          {costLines.length > 0 && (
+            <TableFooter>
+              <TableRow sx={FOOTER_ROW_SX}>
+                <TableCell colSpan={2} sx={FOOTER_CELL_SX}>
+                  {t("totalAllYears")}
+                </TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {fmt.format(costGrand.capex)}
+                </TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {fmt.format(costGrand.opex)}
+                </TableCell>
+                <TableCell align="right" sx={FOOTER_CELL_SX}>
+                  {fmt.format(costGrand.total)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </TableContainer>
 

@@ -193,5 +193,12 @@
   "totalBudgetLine": "الميزانية الإجمالية",
   "noChartData": "لا توجد بيانات تكلفة لعرضها في الرسم البياني بعد",
   "undatedExcluded_one": "{{count}} بند تكلفة بلا تاريخ لا يظهر في الرسوم البيانية",
-  "undatedExcluded_other": "{{count}} بنود تكلفة بلا تاريخ لا تظهر في الرسوم البيانية"
+  "undatedExcluded_other": "{{count}} بنود تكلفة بلا تاريخ لا تظهر في الرسوم البيانية",
+  "total": "الإجمالي",
+  "totalAllYears": "الإجمالي لجميع السنوات المالية",
+  "undated": "بلا تاريخ",
+  "toggleYear": "إظهار أو إخفاء بنود {{year}}",
+  "addLineForYear": "إضافة بند ميزانية لـ {{year}}",
+  "lineCount_one": "{{count}} بند",
+  "lineCount_other": "{{count}} بنود"
 }

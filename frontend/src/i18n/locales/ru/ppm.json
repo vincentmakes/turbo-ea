@@ -193,5 +193,12 @@
   "totalBudgetLine": "Общий бюджет",
   "noChartData": "Пока нет данных о затратах для диаграммы",
   "undatedExcluded_one": "{{count}} статья затрат без даты не показана на диаграммах",
-  "undatedExcluded_other": "{{count}} статей затрат без даты не показаны на диаграммах"
+  "undatedExcluded_other": "{{count}} статей затрат без даты не показаны на диаграммах",
+  "total": "Итого",
+  "totalAllYears": "Итого за все финансовые годы",
+  "undated": "Без даты",
+  "toggleYear": "Показать или скрыть строки за {{year}}",
+  "addLineForYear": "Добавить строку бюджета за {{year}}",
+  "lineCount_one": "{{count}} строка",
+  "lineCount_other": "{{count}} строк"
 }

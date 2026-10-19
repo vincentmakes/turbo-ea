@@ -193,5 +193,12 @@
   "totalBudgetLine": "Budget totale",
   "noChartData": "Nessun dato di costo da rappresentare",
   "undatedExcluded_one": "{{count}} voce di costo senza data non è mostrata nei grafici",
-  "undatedExcluded_other": "{{count}} voci di costo senza data non sono mostrate nei grafici"
+  "undatedExcluded_other": "{{count}} voci di costo senza data non sono mostrate nei grafici",
+  "total": "Totale",
+  "totalAllYears": "Totale, tutti gli anni fiscali",
+  "undated": "Senza data",
+  "toggleYear": "Mostra o nascondi le righe di {{year}}",
+  "addLineForYear": "Aggiungi una riga di budget per {{year}}",
+  "lineCount_one": "{{count}} riga",
+  "lineCount_other": "{{count}} righe"
 }

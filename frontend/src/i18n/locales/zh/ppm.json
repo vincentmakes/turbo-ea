@@ -193,5 +193,12 @@
   "totalBudgetLine": "总预算",
   "noChartData": "暂无可用于绘图的成本数据",
   "undatedExcluded_one": "{{count}} 项未填日期的成本条目未显示在图表中",
-  "undatedExcluded_other": "{{count}} 项未填日期的成本条目未显示在图表中"
+  "undatedExcluded_other": "{{count}} 项未填日期的成本条目未显示在图表中",
+  "total": "合计",
+  "totalAllYears": "合计（所有财政年度）",
+  "undated": "无日期",
+  "toggleYear": "显示或隐藏 {{year}} 的条目",
+  "addLineForYear": "为 {{year}} 添加预算行",
+  "lineCount_one": "{{count}} 行",
+  "lineCount_other": "{{count}} 行"
 }

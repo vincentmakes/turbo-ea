@@ -193,5 +193,12 @@
   "totalBudgetLine": "Total budget",
   "noChartData": "No cost data to chart yet",
   "undatedExcluded_one": "{{count}} undated cost item is not shown on the charts",
-  "undatedExcluded_other": "{{count}} undated cost items are not shown on the charts"
+  "undatedExcluded_other": "{{count}} undated cost items are not shown on the charts",
+  "total": "Total",
+  "totalAllYears": "Total, all fiscal years",
+  "undated": "Undated",
+  "toggleYear": "Show or hide the lines of {{year}}",
+  "addLineForYear": "Add a budget line for {{year}}",
+  "lineCount_one": "{{count}} line",
+  "lineCount_other": "{{count}} lines"
 }

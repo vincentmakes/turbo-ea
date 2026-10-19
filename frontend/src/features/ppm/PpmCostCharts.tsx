@@ -51,7 +51,7 @@ import {
   fiscalYearOptions,
   buildCumulativeSeries,
   countUndated,
-  fiscalYearFor,
+  currentFiscalYear,
   fiscalYearMonths,
   projectMonthRange,
   type MonthPoint,
@@ -94,13 +94,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   // `today` is read once per render rather than per helper call so every chart
   // on screen agrees on where "now" is.
   const today = useMemo(() => new Date(), []);
-  const currentFy = useMemo(() => {
-    // Local parts, not toISOString(): buildCumulativeSeries places "now" with
-    // local getMonth(), and a UTC-derived month would disagree with it near a
-    // month boundary.
-    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
-    return fiscalYearFor(iso, fyStart) ?? today.getFullYear();
-  }, [today, fyStart]);
+  const currentFy = useMemo(() => currentFiscalYear(today, fyStart), [today, fyStart]);
 
   const years = useMemo(
     () => availableFiscalYears(costLines, budgetLines, fyStart),

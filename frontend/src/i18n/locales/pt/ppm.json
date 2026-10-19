@@ -193,5 +193,12 @@
   "totalBudgetLine": "Orçamento total",
   "noChartData": "Ainda não há dados de custo para o gráfico",
   "undatedExcluded_one": "{{count}} item de custo sem data não é apresentado nos gráficos",
-  "undatedExcluded_other": "{{count}} itens de custo sem data não são apresentados nos gráficos"
+  "undatedExcluded_other": "{{count}} itens de custo sem data não são apresentados nos gráficos",
+  "total": "Total",
+  "totalAllYears": "Total, todos os anos fiscais",
+  "undated": "Sem data",
+  "toggleYear": "Mostrar ou ocultar as linhas de {{year}}",
+  "addLineForYear": "Adicionar uma linha de orçamento para {{year}}",
+  "lineCount_one": "{{count}} linha",
+  "lineCount_other": "{{count}} linhas"
 }
