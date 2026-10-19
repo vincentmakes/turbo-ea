@@ -126,7 +126,14 @@ FROM nginx:1.30.5-alpine AS frontend
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+# The official image ships nginx's optional dynamic modules and curl. Nothing
+# here loads a module (no load_module) and nothing in the container calls curl
+# (the ECS health checks use busybox wget). Their dependency tree (libgd, tiff,
+# libx11, fontconfig/libexpat, libxml2/libxslt, geoip) is what produced the
+# libtiff, libexpat and libX11 image findings, so it goes before the upgrade.
+RUN apk del --no-cache nginx-module-image-filter nginx-module-xslt nginx-module-geoip \
+        nginx-module-njs nginx-module-acme curl && \
+    apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY --from=frontend-build /app/dist /usr/share/nginx/html
@@ -168,7 +175,14 @@ FROM nginx:1.30.5-alpine AS nginx
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
+# The official image ships nginx's optional dynamic modules and curl. Nothing
+# here loads a module (no load_module) and nothing in the container calls curl
+# (the ECS health checks use busybox wget). Their dependency tree (libgd, tiff,
+# libx11, fontconfig/libexpat, libxml2/libxslt, geoip) is what produced the
+# libtiff, libexpat and libX11 image findings, so it goes before the upgrade.
+RUN apk del --no-cache nginx-module-image-filter nginx-module-xslt nginx-module-geoip \
+        nginx-module-njs nginx-module-acme curl && \
+    apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -H -u ${APP_UID} -G appgroup appuser
 
 COPY nginx/default.conf /etc/nginx/turboea-templates/default.conf.template

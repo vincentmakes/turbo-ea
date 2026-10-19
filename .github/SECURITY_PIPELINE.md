@@ -211,6 +211,27 @@ you republish the image.
    observe once the image is patched, but the reconcile closes them immediately
    too.
 
+### A gd / tiff / X11 / fontconfig / expat / xslt / curl finding on the nginx images
+
+The official `nginx:*-alpine` base installs five optional dynamic module
+packages (`nginx-module-image-filter`, `-xslt`, `-geoip`, `-njs`, `-acme`) and
+`curl`. Turbo EA loads none of the modules (no `load_module` in either nginx
+config) and calls `curl` from neither container — the ECS template's health
+checks use busybox `wget`, the Helm test pod runs its own `curlimages/curl`
+image, and the `curl` calls in `ci.yml` / `dast-scan.yml` run on the runner.
+Their dependency tree (libgd, tiff, libX11 and the rest of X11, fontconfig →
+libexpat, freetype, the image codecs, libxml2 / libxslt, geoip) is where the
+recurring findings on the `frontend` and `nginx` images came from: libtiff on
+2026-10-09, libexpat and libX11 on 2026-10-19, and an earlier curl / libcurl
+batch. Since 2.169.1 both stages `apk del` the six packages before their
+`apk upgrade`, which takes the orphaned dependencies with them;
+`gettext-envsubst` (the official entrypoint's `envsubst`) and busybox stay on
+purpose. `test_publish_image_matrix.py::TestNginxStagesDropUnusedModules`
+fails any stage built `FROM nginx:*-alpine` without that line. So a finding in
+one of those libraries on these two images now means the line was lost — a
+base bump that renamed a package, or a new stage copied without it — not a
+patch to wait for: restore the `apk del` rather than allowlisting the CVE.
+
 ### Retiring a scan configuration
 GitHub closes an alert only when a **new analysis in the same category** omits it, so a category nothing produces any more — an image dropped from the matrix, a renamed category — keeps its alerts open forever. Run [`code-scanning-retire.yml`](workflows/code-scanning-retire.yml) from the Actions tab with the tool, the category and the category typed again as confirmation: it refuses a category a workflow in the checkout still uploads (the next run would recreate it), lists the configuration's analyses and deletes them through the code-scanning API — analyses form one set per (ref, commit) the tool ran on, each a chain walked newest first, and `?confirm_delete` on the last of a set is what closes its alerts — re-listing until the category is empty, and fails if any alert is left in it. It is the "Delete configuration" button of the Security tab's tool-status page, on record. The 75 `trivy-ollama` alerts of 2026-09-30 were retired this way after 2.155.0 stopped publishing that image.
 

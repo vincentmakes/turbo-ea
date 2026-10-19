@@ -99,3 +99,60 @@ class TestDockerfileBasesArePinned:
             "the ollama image is upstream's, pinned in docker-compose.yml; do not reintroduce "
             "a patched copy the repo would have to sign and scan"
         )
+
+
+_NGINX_BASE_RE = re.compile(r"^nginx:[^\s]*-alpine$")
+_UNUSED_NGINX_PACKAGES = (
+    "nginx-module-image-filter",
+    "nginx-module-xslt",
+    "nginx-module-geoip",
+    "nginx-module-njs",
+    "nginx-module-acme",
+    "curl",
+)
+
+
+def _stage_bodies(text: str) -> dict[str, tuple[str, str]]:
+    """``{stage: (base, body)}`` with backslash continuations joined, so a
+    ``RUN`` spread over several lines reads as one."""
+    joined = re.sub(r"\\\n\s*", " ", text)
+    parts = re.split(r"(?m)^(?=FROM\s)", joined)
+    stages: dict[str, tuple[str, str]] = {}
+    for part in parts:
+        match = _FROM_RE.match(part)
+        if match:
+            stages[match.group(2)] = (match.group(1), part)
+    return stages
+
+
+class TestNginxStagesDropUnusedModules:
+    """The official nginx image ships five optional module packages and curl.
+    Nothing here loads a module or calls curl, and their dependency tree
+    (libgd, tiff, libX11, fontconfig/libexpat, libxslt, geoip) is where the
+    recurring libtiff, libexpat and libX11 findings on the frontend and edge
+    images came from. A base bump or a copied stage must not bring them back."""
+
+    def _nginx_stages(self) -> dict[str, str]:
+        text = (_ROOT / "Dockerfile").read_text(encoding="utf-8")
+        return {
+            stage: body
+            for stage, (base, body) in _stage_bodies(text).items()
+            if _NGINX_BASE_RE.match(base)
+        }
+
+    def test_both_published_nginx_images_are_covered(self):
+        assert {"frontend", "nginx"} <= set(self._nginx_stages())
+
+    def test_every_nginx_stage_removes_the_unused_packages(self):
+        for stage, body in self._nginx_stages().items():
+            del_lines = [line for line in body.splitlines() if "apk del" in line]
+            assert del_lines, f"stage {stage!r} has no `apk del` of nginx's unused modules"
+            removed = set(" ".join(del_lines).split())
+            missing = [pkg for pkg in _UNUSED_NGINX_PACKAGES if pkg not in removed]
+            assert not missing, f"stage {stage!r} keeps {missing}"
+
+    def test_the_removal_runs_before_the_upgrade(self):
+        """Removing first means the upgrade never fetches fixes for packages
+        about to go, and the layer never holds them."""
+        for stage, body in self._nginx_stages().items():
+            assert body.index("apk del") < body.index("apk upgrade"), stage

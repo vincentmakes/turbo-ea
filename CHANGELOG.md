@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.169.1] - 2026-10-19
+
+### Fixed
+- Importing a relation, `parent_path`, `source_ref` or `target_ref` that names a card containing `/` without escaping it (for example `SAP S/4HANA` or `CI / CD`) now finds that card instead of reporting that it matches no card: when no card sits at the path the slash spells, the reference is read as one name. Two references that differed only by escaping (`A\/B` and `A / B`) are no longer treated as the same card ([#1278](https://github.com/vincentmakes/turbo-ea/issues/1278)).
+
+### Security
+- The frontend and edge nginx images no longer ship nginx's optional modules (image filter, XSLT, GeoIP, njs, ACME) or curl, removing about 40 packages Turbo EA never used and that produced the recurring libtiff, libexpat and libX11 image findings.
+
 ## [2.169.0] - 2026-10-19
 
 ### Added
