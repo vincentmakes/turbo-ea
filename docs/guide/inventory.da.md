@@ -247,7 +247,7 @@ rel:supports     →  NexaCore ERP; BillingApp; Salesforce
 rel:depends_on   →  Sales / Customer Mgmt / CRM
 ```
 
-Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\`, og et `;` som `\;` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig; kun hånd-skrevne celler har brug for escapes.
+Semikoloner (ikke kommaer) separerer mål, fordi kortnavne almindeligvis indeholder `,` (f.eks. `Acme, Inc.`). Inde i et navn skal `/` og `\` undgås som `\/` og `\\`, og et `;` som `\;` — importøren læser cellen med de samme regler som `parent_path`, så et navn som `SAP S/4HANA` skrives som `SAP S\/4HANA`. Eksportøren gør dette automatisk for dig, og en escapet reference er altid entydig. En håndskrevet celle kan lade `/` stå uden escape: `SAP S/4HANA` læses først som en sti (et kort *4HANA* under *SAP S*), og når intet kort findes på den sti, læses den som ét navn, der findes, når netop ét kort af typen har det.
 
 Celler er **deklarative**: sættet af mål i cellen bliver det komplette sæt af udgående relationer af den type fra den kilde efter import. **At fjerne et mål fra listen dropper den relation**; at tømme cellen dropper dem alle. At udelade kolonnen helt (ingen `rel:supports`-kolonne overhovedet) efterlader eksisterende relationer urørt.
 
@@ -311,4 +311,4 @@ Du kan også vælge **Eksportér aktuel visning** i Export-menuen — et fladt e
 - At omdøbe et kort bryder den navn-baserede match. Hold `id`-kolonnen udfyldt, når du planlægger at omdøbe og re-importere i den samme projektmappe.
 - Nye kort, der refererer til hinanden (forælder-barn eller relation source-target), virker i begge rækkefølger — serveren topologisk-sorterer før anvendelse.
 - **Kun `name` og `type` kræves for at oprette et kort.** Felter, der er markeret som *påkrævede* i metamodellen (også på Provider eller enhver anden type), blokerer ikke importen — kortet oprettes alligevel, og mangler afspejles i dets datakvalitetsscore i stedet for at føre til et stille spring.
-- **En `/` i et korts egen `name`-kolonne skal ikke escapes.** Escaping (`\/` for en skråstreg, `\\` for en omvendt skråstreg) er kun nødvendig, når du *refererer* til kortet fra en `parent_path`-, `rel:<nøgle>`-, `source_ref`- eller `target_ref`-celle, hvor `/` er stiadskilleren.
+- **En `/` i et korts egen `name`-kolonne skal ikke escapes.** Escaping (`\/` for en skråstreg, `\\` for en omvendt skråstreg) er kun nødvendig, når du *refererer* til kortet fra en `parent_path`-, `rel:<nøgle>`-, `source_ref`- eller `target_ref`-celle, hvor `/` er stiadskilleren — og selv dér læses en `/` uden escape som en del af navnet, når intet kort findes på den sti, den beskriver.
