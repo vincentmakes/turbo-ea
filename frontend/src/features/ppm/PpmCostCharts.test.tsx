@@ -71,6 +71,7 @@ function budget(overrides: Partial<PpmBudgetLine> & { id: string }): PpmBudgetLi
     initiative_id: "i1",
     fiscal_year: 2020,
     category: "capex",
+    description: null,
     amount: 0,
     created_at: "2020-01-01T00:00:00",
     updated_at: "2020-01-01T00:00:00",

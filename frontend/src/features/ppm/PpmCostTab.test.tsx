@@ -169,6 +169,7 @@ describe("PpmCostTab — summary and tables", () => {
     mockApi.on("get", budgetPath, []);
     renderTab([]);
     expect(await screen.findByText("No budget lines yet")).toBeInTheDocument();
+    expect(screen.getByText("No budget lines yet").closest("td")).toHaveAttribute("colspan", "5");
     expect(screen.getByText("No cost items yet")).toBeInTheDocument();
     expect(kpi("Total Budget")).toBe("$0");
   });

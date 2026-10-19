@@ -1787,7 +1787,7 @@ export interface PpmBudgetLine {
   initiative_id: string;
   fiscal_year: number;
   category: "capex" | "opex";
-  description?: string | null;
+  description: string | null;
   amount: number;
   created_at: string;
   updated_at: string;

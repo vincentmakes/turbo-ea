@@ -374,6 +374,24 @@ class TestBudgetLines:
         assert resp.status_code == 200
         assert resp.json()["description"] is None
 
+    async def test_blank_description_is_stored_as_none(self, client, ppm_env):
+        """The API, not only the dialog, turns a blank into "no description"."""
+        init_id = str(ppm_env["initiative"].id)
+        headers = auth_headers(ppm_env["admin"])
+        resp = await client.post(
+            f"{BASE}/initiatives/{init_id}/budgets",
+            json={"fiscal_year": 2026, "category": "capex", "amount": 1, "description": "  SAP  "},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "SAP"
+        line_id = resp.json()["id"]
+        resp = await client.patch(
+            f"{BASE}/budgets/{line_id}", json={"description": "   "}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert resp.json()["description"] is None
+
     async def test_patch_sets_keeps_and_clears_description(self, client, ppm_env):
         init_id = str(ppm_env["initiative"].id)
         create_resp = await client.post(
@@ -438,7 +456,9 @@ class TestBudgetLines:
         assert sorted(b["id"] for b in listed) == sorted(ids)
         assert sorted(b["description"] for b in listed) == ["Licences", "Partner"]
         # Every request in a test shares one transaction, so both rows carry the
-        # same created_at here; the id tie-break still has to keep the order put.
+        # same created_at here: two reloads must agree on the order regardless.
+        # (The id tie-break itself cannot be told apart from row order on two
+        # equal rows; the explicit ordering test below covers the other keys.)
         again = await client.get(f"{BASE}/initiatives/{init_id}/budgets", headers=headers)
         assert [b["id"] for b in again.json()] == [b["id"] for b in listed]
 
@@ -446,21 +466,28 @@ class TestBudgetLines:
         assert card_resp.json()["attributes"].get("costBudget") == 700
 
     async def test_lines_sharing_a_pair_are_listed_oldest_first(self, client, db, ppm_env):
-        """created_at orders lines on the same FY + category, before the id."""
+        """fiscal_year, then category, then created_at order the list, before the id.
+
+        Every other key is stamped so that it disagrees with the one under test:
+        the later fiscal year and the opex line are the OLDEST rows, so only the
+        fiscal_year / category keys can put them after the two capex lines, and
+        the older capex line has the larger id, so only created_at can put it
+        first.
+        """
         from datetime import datetime, timezone
 
         init = ppm_env["initiative"]
         a = await create_budget_line(db, initiative_id=init.id, fiscal_year=2026, amount=1)
         b = await create_budget_line(db, initiative_id=init.id, fiscal_year=2026, amount=2)
-        # A later fiscal year sorts after both, whatever its timestamp.
-        await create_budget_line(
-            db, initiative_id=init.id, fiscal_year=2027, amount=3, description="Next year"
+        opex = await create_budget_line(
+            db, initiative_id=init.id, fiscal_year=2026, category="opex", amount=4
         )
-        # The older line is the one with the larger id, so the id tie-break
-        # disagrees with created_at and only the created_at key gives this order.
+        later = await create_budget_line(db, initiative_id=init.id, fiscal_year=2027, amount=3)
         older, newer = (a, b) if a.id > b.id else (b, a)
         older.description, older.created_at = "Older", datetime(2026, 1, 1, tzinfo=timezone.utc)
         newer.description, newer.created_at = "Newer", datetime(2026, 2, 1, tzinfo=timezone.utc)
+        opex.description, opex.created_at = "Opex", datetime(2025, 6, 1, tzinfo=timezone.utc)
+        later.description, later.created_at = "Next year", datetime(2025, 1, 1, tzinfo=timezone.utc)
         await db.flush()
 
         resp = await client.get(
@@ -468,7 +495,12 @@ class TestBudgetLines:
             headers=auth_headers(ppm_env["admin"]),
         )
         assert resp.status_code == 200
-        assert [line["description"] for line in resp.json()] == ["Older", "Newer", "Next year"]
+        assert [line["description"] for line in resp.json()] == [
+            "Older",
+            "Newer",
+            "Opex",
+            "Next year",
+        ]
 
     async def test_404_for_nonexistent_budget(self, client, ppm_env):
         resp = await client.delete(

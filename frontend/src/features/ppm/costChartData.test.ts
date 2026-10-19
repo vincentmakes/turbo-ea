@@ -49,6 +49,7 @@ function budget(
     initiative_id: "i1",
     fiscal_year,
     category: category as PpmBudgetLine["category"],
+    description: null,
     amount,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
