@@ -158,17 +158,17 @@ describe("parseWorkbookSheets", () => {
 
 /**
  * Build a `/cards/resolve-refs` mock implementation that resolves any ref
- * against the provided `Card` list. Mirrors what the backend
- * `CardResolver` would do: bare names match when unique within a type,
- * names that appear in multiple cards come back ambiguous. We use this so
- * the existing tests don't have to spell out the full server-shape result
- * for every payload.
+ * against the provided `Card` list the way the backend `CardResolver` does
+ * for that endpoint: the ref is split on unescaped `/` (`decode_ref`); one
+ * segment matches by name and is ambiguous when two cards share it; several
+ * segments must match the card's exact ancestor chain; and a multi-segment
+ * miss is read again as ONE name with its escapes dropped
+ * (`literal_fallback`, #1278). The previous double never split on `/` at
+ * all — it read every ref as a single name — which is why the importer's
+ * unescaped-slash failure never showed up in this suite.
  */
 function buildResolveRefsMock(cards: Card[]) {
-  // Decode `\\` / `\/` escapes the same way the backend's `decode_ref`
-  // does, so refs that contain literal slashes (e.g. "SAP S\\/4HANA")
-  // match against the card's raw name.
-  function decodeName(ref: string): string {
+  function unescapeWhole(ref: string): string {
     let out = "";
     for (let i = 0; i < ref.length; i++) {
       if (ref[i] === "\\" && i + 1 < ref.length) {
@@ -178,7 +178,56 @@ function buildResolveRefsMock(cards: Card[]) {
         out += ref[i];
       }
     }
+    return out.trim();
+  }
+  function decodeRef(ref: string): string[] {
+    const segments: string[] = [];
+    let cur = "";
+    for (let i = 0; i < ref.length; i++) {
+      if (ref[i] === "\\" && i + 1 < ref.length) {
+        cur += ref[i + 1];
+        i++;
+      } else if (ref[i] === "/") {
+        segments.push(cur.trim());
+        cur = "";
+      } else {
+        cur += ref[i];
+      }
+    }
+    segments.push(cur.trim());
+    return segments.filter(Boolean);
+  }
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  function chain(card: Card): string[] {
+    const out: string[] = [];
+    let parent = card.parent_id ? byId.get(card.parent_id) : undefined;
+    while (parent) {
+      out.unshift(parent.name.trim().toLowerCase());
+      parent = parent.parent_id ? byId.get(parent.parent_id) : undefined;
+    }
     return out;
+  }
+  type Outcome =
+    | { status: "resolved"; id: string }
+    | { status: "ambiguous"; candidates: { id: string; path: string }[] }
+    | { status: "missing" };
+  function resolveSegments(type: string, segs: string[]): Outcome {
+    const name = segs[segs.length - 1].toLowerCase();
+    const parents = segs.slice(0, -1).map((s) => s.toLowerCase());
+    let matches = cards.filter(
+      (c) => c.type === type && c.name.trim().toLowerCase() === name,
+    );
+    if (parents.length > 0) {
+      matches = matches.filter((c) => chain(c).join("/") === parents.join("/"));
+    }
+    if (matches.length === 1) return { status: "resolved", id: matches[0].id };
+    if (matches.length > 1) {
+      return {
+        status: "ambiguous",
+        candidates: matches.map((c) => ({ id: c.id, path: [...chain(c), c.name].join(" / ") })),
+      };
+    }
+    return { status: "missing" };
   }
   return async (
     url: string,
@@ -190,22 +239,14 @@ function buildResolveRefsMock(cards: Card[]) {
     }).refs;
     return {
       results: refs.map(({ row, column, type, ref }) => {
-        const decoded = decodeName(ref).trim().toLowerCase();
-        const candidates = cards.filter(
-          (c) => c.type === type && c.name.trim().toLowerCase() === decoded,
-        );
-        if (candidates.length === 1) {
-          return { row, column, status: "resolved", id: candidates[0].id };
+        const segs = decodeRef(ref);
+        if (segs.length === 0) return { row, column, status: "missing" };
+        let outcome = resolveSegments(type, segs);
+        if (outcome.status === "missing" && segs.length > 1) {
+          const literal = resolveSegments(type, [unescapeWhole(ref)]);
+          if (literal.status !== "missing") outcome = literal;
         }
-        if (candidates.length > 1) {
-          return {
-            row,
-            column,
-            status: "ambiguous",
-            candidates: candidates.map((c) => ({ id: c.id, path: c.name })),
-          };
-        }
-        return { row, column, status: "missing" };
+        return { row, column, ...outcome };
       }),
     };
   };
@@ -418,6 +459,204 @@ describe("validateMultiSheet", () => {
       kind: "pathKey",
       pathKey: "Application|platform/crm",
       type: "Application",
+    });
+  });
+
+  describe("a slash typed inside a target's name (#1278)", () => {
+    const APP_DEP: RelationType = {
+      ...DEPENDS_ON_TYPE,
+      key: "app_dep",
+      source_type_key: "Application",
+      target_type_key: "Application",
+    };
+    const ERP_ID = "11111111-1111-1111-1111-111111111111";
+    const CRM_ID = "44444444-4444-4444-4444-444444444444";
+
+    /** The refs the importer sent to `/cards/resolve-refs`, in order. */
+    function stagedRefs(): { type: string; ref: string }[] {
+      return postMock.mock.calls
+        .filter(([url]) => url === "/cards/resolve-refs")
+        .flatMap(([, body]) =>
+          (body as { refs: { type: string; ref: string }[] }).refs.map(({ type, ref }) => ({
+            type,
+            ref,
+          })),
+        );
+    }
+
+    async function validate(
+      rows: Record<string, unknown>[],
+      existing: Card[],
+      relationTypes: RelationType[],
+    ) {
+      postMock.mockImplementation(buildResolveRefsMock(existing));
+      const parsed = parseWorkbookSheets(buildWorkbook(rows, "Application"), [APP_TYPE, ITC_TYPE]);
+      return validateMultiSheet(parsed, existing, [APP_TYPE, ITC_TYPE], relationTypes, []);
+    }
+
+    it("links a hand-typed `SAP S/4HANA` to the existing card of that name", async () => {
+      const existing = [
+        makeCard({ id: ERP_ID, type: "Application", name: "ERP" }),
+        makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "SAP S/4HANA" }),
+      ];
+      const report = await validate(
+        [{ id: ERP_ID, type: "Application", name: "ERP", "rel:depends_on": "SAP S/4HANA" }],
+        existing,
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.relationOps).toHaveLength(1);
+      expect(report.relationOps[0]).toMatchObject({
+        action: "upsert",
+        sourceRef: { kind: "id", id: ERP_ID },
+        targetRef: { kind: "id", id: "22222222-2222-2222-2222-222222222222" },
+      });
+      // Sent as typed: the server reads the path first, then the name.
+      expect(stagedRefs()).toContainEqual({ type: "ITComponent", ref: "SAP S/4HANA" });
+    });
+
+    it("links an unescaped same-batch child by its name, without asking the server", async () => {
+      const report = await validate(
+        [
+          { type: "Application", name: "Platform" },
+          { type: "Application", name: "SAP S/4HANA", parent_path: "Platform" },
+          { type: "Application", name: "Portal", "rel:app_dep": "SAP S/4HANA" },
+        ],
+        [],
+        [APP_DEP],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.creates).toHaveLength(3);
+      const op = report.relationOps.find((o) => o.relationType === "app_dep");
+      expect(op?.targetRef).toEqual({
+        kind: "pathKey",
+        pathKey: "Application|platform/sap s/4hana",
+        type: "Application",
+      });
+      expect(stagedRefs().map((r) => r.ref)).not.toContain("SAP S/4HANA");
+    });
+
+    it("links an unescaped same-batch flat target from another sheet (control)", async () => {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet([{ type: "ITComponent", name: "Acme/EMEA" }]),
+        "ITComponent",
+      );
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.json_to_sheet([
+          { type: "Application", name: "Portal", "rel:depends_on": "Acme/EMEA" },
+        ]),
+        "Application",
+      );
+      postMock.mockImplementation(buildResolveRefsMock([]));
+      const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+      const parsed = parseWorkbookSheets(buf, [APP_TYPE, ITC_TYPE]);
+      const report = await validateMultiSheet(
+        parsed,
+        [],
+        [APP_TYPE, ITC_TYPE],
+        [DEPENDS_ON_TYPE],
+        [],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.relationOps[0].targetRef).toEqual({
+        kind: "pathKey",
+        pathKey: "ITComponent|acme/emea",
+        type: "ITComponent",
+      });
+    });
+
+    it("looks up `A\\/B` and `A / B` separately: they name different cards", async () => {
+      const literal = "55555555-5555-5555-5555-555555555555";
+      const a = "66666666-6666-6666-6666-666666666666";
+      const child = "77777777-7777-7777-7777-777777777777";
+      const existing = [
+        makeCard({ id: ERP_ID, type: "Application", name: "ERP" }),
+        makeCard({ id: CRM_ID, type: "Application", name: "CRM" }),
+        makeCard({ id: literal, type: "Application", name: "A/B" }),
+        makeCard({ id: a, type: "Application", name: "A" }),
+        makeCard({ id: child, type: "Application", name: "B", parent_id: a }),
+      ];
+      const report = await validate(
+        [
+          { id: ERP_ID, type: "Application", name: "ERP", "rel:app_dep": "A\\/B" },
+          { id: CRM_ID, type: "Application", name: "CRM", "rel:app_dep": "A / B" },
+        ],
+        existing,
+        [APP_DEP],
+      );
+      expect(report.errors).toEqual([]);
+      const targets = report.relationOps.map((o) => [o.sourceRef, o.targetRef]);
+      expect(targets).toEqual([
+        [
+          { kind: "id", id: ERP_ID },
+          { kind: "id", id: literal },
+        ],
+        [
+          { kind: "id", id: CRM_ID },
+          { kind: "id", id: child },
+        ],
+      ]);
+      const refs = stagedRefs().map((r) => r.ref);
+      expect(refs).toContain("A\\/B");
+      expect(refs).toContain("A / B");
+    });
+
+    it("sources relations from a new child whose unescaped parent is a whole name", async () => {
+      const report = await validate(
+        [
+          { type: "Application", name: "CI / CD" },
+          { type: "Application", name: "Runner", parent_path: "CI / CD", "rel:depends_on": "DB" },
+        ],
+        [makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "DB" })],
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.creates.map((r) => r.ownPathKey)).toEqual([
+        "Application|ci / cd",
+        "Application|ci / cd/runner",
+      ]);
+      expect(report.relationOps).toHaveLength(1);
+      expect(report.relationOps[0].sourceRef).toEqual({
+        kind: "pathKey",
+        pathKey: "Application|ci / cd/runner",
+        type: "Application",
+      });
+    });
+
+    it("sources relations from a new child of an existing card named with a slash", async () => {
+      const cicd = "88888888-8888-8888-8888-888888888888";
+      const report = await validate(
+        [{ type: "Application", name: "Runner", parent_path: "CI / CD", "rel:depends_on": "DB" }],
+        [
+          makeCard({ id: cicd, type: "Application", name: "CI / CD" }),
+          makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "DB" }),
+        ],
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.creates[0].data.parent_id).toBe(cicd);
+      expect(report.relationOps[0].sourceRef).toEqual({
+        kind: "pathKey",
+        pathKey: "Application|ci / cd/runner",
+        type: "Application",
+      });
+    });
+
+    it("links a name holding angle brackets (the `<` control)", async () => {
+      const gw = "99999999-9999-9999-9999-999999999999";
+      const report = await validate(
+        [{ id: ERP_ID, type: "Application", name: "ERP", "rel:depends_on": "Gateway <EU>" }],
+        [
+          makeCard({ id: ERP_ID, type: "Application", name: "ERP" }),
+          makeCard({ id: gw, type: "ITComponent", name: "Gateway <EU>" }),
+        ],
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.relationOps[0].targetRef).toEqual({ kind: "id", id: gw });
     });
   });
 });

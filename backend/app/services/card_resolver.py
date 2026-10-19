@@ -14,6 +14,12 @@ the frontend:
   so the caller can disambiguate.
 - Multi-segment references match the **exact** ancestor chain from root —
   the same chain `parent_path` writes on export.
+- With ``literal_fallback=True`` — what `POST /cards/resolve-refs` passes,
+  since it receives strings people typed — a multi-segment reference that
+  matches no card is read again as ONE name with every escape dropped, so
+  a hand-typed ``SAP S/4HANA`` finds the card of that name. The path
+  reading always comes first, so nothing an exported workbook writes (it
+  escapes every ``/``) resolves differently ([#1278]).
 
 All comparisons are case-insensitive after `.strip()`.
 """
@@ -59,6 +65,23 @@ def decode_ref(ref: str) -> list[str]:
         i += 1
     segments.append(cur.strip())
     return [s for s in segments if s]
+
+
+def unescape_whole(ref: str) -> str:
+    """Read a reference as a single name: every ``\\x`` becomes ``x`` and a
+    ``/`` is just a character. The literal reading `resolve()` falls back to
+    when the path reading of a hand-typed reference matches nothing."""
+    out: list[str] = []
+    i = 0
+    while i < len(ref):
+        ch = ref[i]
+        if ch == "\\" and i + 1 < len(ref):
+            out.append(ref[i + 1])
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out).strip()
 
 
 @dataclass(frozen=True)
@@ -194,13 +217,27 @@ class CardResolver:
 
         return cls(by_id, by_type_name, path_cache)
 
-    def resolve(self, type_key: str, ref: str) -> ResolveResult:
-        """Resolve a single ref. See module docstring for matching rules."""
+    def resolve(self, type_key: str, ref: str, *, literal_fallback: bool = False) -> ResolveResult:
+        """Resolve a single ref. See module docstring for matching rules.
+
+        ``literal_fallback`` is for references a person typed: when the path
+        reading of a multi-segment ref finds nothing, the whole ref is read
+        as one name. Structured callers (bulk relations, bulk-create parents,
+        workspace import) build their refs from separated parts and keep the
+        exact reading.
+        """
         if ref is None:
             return ResolveResult(status="missing")
         segments = decode_ref(str(ref))
         if not segments:
             return ResolveResult(status="missing")
+        outcome = self._resolve_segments(type_key, segments)
+        if outcome.status != "missing" or not literal_fallback or len(segments) < 2:
+            return outcome
+        literal = self._resolve_segments(type_key, [unescape_whole(str(ref))])
+        return outcome if literal.status == "missing" else literal
+
+    def _resolve_segments(self, type_key: str, segments: list[str]) -> ResolveResult:
         name = segments[-1]
         parent_path = tuple(s.lower() for s in segments[:-1])
         candidates = self._by_type_name.get((type_key, name.strip().lower()), [])

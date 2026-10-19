@@ -1046,7 +1046,9 @@ async def resolve_card_refs(
 
     results: list[CardRefResolveResult] = []
     for ref in body.refs:
-        outcome = resolver.resolve(ref.type, ref.ref)
+        # These strings are typed by people, so an unescaped `/` that matches
+        # no path is read as part of the name (#1278).
+        outcome = resolver.resolve(ref.type, ref.ref, literal_fallback=True)
         candidates_payload: list[CardRefCandidate] | None = None
         if outcome.candidates:
             candidates_payload = [

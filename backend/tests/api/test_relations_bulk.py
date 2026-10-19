@@ -111,6 +111,41 @@ async def test_bulk_resolves_source_and_target_by_name(client, db, rel_env):
     assert rels[0].target_id == rel_env["itc1"].id
 
 
+async def test_bulk_structured_refs_stay_exact(client, db, rel_env):
+    """Structured refs never take the resolve-refs literal fallback (#1278):
+    a name holding `/` resolves exactly, and a parent_path + name pair that
+    names no card is not read as one name, even when a card of that name
+    exists."""
+    admin = rel_env["admin"]
+    sap = await create_card(db, card_type="ITComponent", name="SAP S/4HANA", user_id=admin.id)
+    await db.commit()
+    payload = {
+        "operations": [
+            {
+                "row_index": 1,
+                "action": "upsert",
+                "type": "app_to_itc",
+                "source": {"type": "Application", "name": "App One"},
+                "target": {"type": "ITComponent", "name": "SAP S/4HANA"},
+            },
+            {
+                "row_index": 2,
+                "action": "upsert",
+                "type": "app_to_itc",
+                "source": {"type": "Application", "name": "App Two"},
+                "target": {"type": "ITComponent", "parent_path": ["SAP S"], "name": "4HANA"},
+            },
+        ]
+    }
+    resp = await client.post("/api/v1/relations/bulk", json=payload, headers=auth_headers(admin))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert (body["upserted"], body["failed"]) == (1, 1)
+    rows = await db.execute(select(Relation).where(Relation.type == "app_to_itc"))
+    rels = list(rows.scalars().all())
+    assert [(r.source_id, r.target_id) for r in rels] == [(rel_env["app1"].id, sap.id)]
+
+
 async def test_bulk_delete_removes_relation(client, db, rel_env):
     admin = rel_env["admin"]
     rel = await create_relation(

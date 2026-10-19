@@ -234,6 +234,24 @@ function pathKey(type: string, segments: string[]): string {
   return `${type}|${segments.map((s) => s.toLowerCase()).join("/")}`;
 }
 
+/**
+ * The parent segments a `parent_path` cell names. The cell is read as a path
+ * first; when no card sits at that path but one sits at the whole cell read as
+ * ONE name (escapes dropped), that name is the parent — a hand-typed
+ * `CI / CD` names the root card "CI / CD" when there is no "CD" under "CI"
+ * (#1278). `known` answers whether a card exists at a `pathKey`.
+ */
+function resolveParentSegments(
+  type: string,
+  parentPathRaw: string,
+  known: (key: string) => boolean,
+): string[] {
+  const segs = decodePath(parentPathRaw);
+  if (segs.length < 2 || known(pathKey(type, segs))) return segs;
+  const literal = unescapeListItem(parentPathRaw).trim();
+  return known(pathKey(type, [literal])) ? [literal] : segs;
+}
+
 /** Mirror of `encodePathSegment()` in `excelExport.ts` — escape `\`, `/`
  * and `;` so a card name containing any of them round-trips cleanly. */
 function encodePathSegment(name: string): string {
@@ -831,7 +849,11 @@ export function validateImport(
     let parentPathKey: string | undefined;
     let pathRowError = false;
     if (parentPathRaw) {
-      parentSegments = decodePath(parentPathRaw);
+      parentSegments = resolveParentSegments(
+        type,
+        parentPathRaw,
+        (k) => existingByPath.has(k) || fileByOwnPathKey.has(k),
+      );
       if (parentSegments.length === 0) {
         // Treat malformed path (only escapes / whitespace) as missing.
         parentSegments = undefined;
@@ -1425,8 +1447,34 @@ export async function validateMultiSheet(
     if (segs.length === 1) {
       const byName = fileByTypeName.get(`${type}|${segs[0].trim().toLowerCase()}`);
       if (byName) return byName; // null (ambiguous) → undefined
+      return undefined;
     }
-    return undefined;
+    // No row at that path: a hand-typed `/` may be part of the name (#1278),
+    // so read the whole ref as one name, escapes dropped. `null` (two
+    // creates share it) falls through to the server like any bare name.
+    const literal = fileByTypeName.get(`${type}|${unescapeListItem(ref).trim().toLowerCase()}`);
+    return literal ?? undefined;
+  }
+
+  // Cards already in the instance, by path key — with the creates' own keys
+  // this answers "is there a card at this parent path?" the way the per-sheet
+  // pass did, so a row's own path here matches the `ownPathKey` it was given.
+  const existingCardById = new Map<string, Card>();
+  for (const card of existingCards) existingCardById.set(normalizeId(card.id), card);
+  const existingPathKeys = new Set<string>();
+  for (const card of existingCards) {
+    existingPathKeys.add(pathKey(card.type, fullPathFor(card, existingCardById)));
+  }
+  /** A sheet row's own path, root first, with its parent read as
+   * `validateImport()` read it. */
+  function rowOwnPath(type: string, parentPathRaw: string, name: string): string[] {
+    if (!parentPathRaw) return [name];
+    const parent = resolveParentSegments(
+      type,
+      parentPathRaw,
+      (k) => existingPathKeys.has(k) || fileByOwnPathKey.has(k),
+    );
+    return [...parent, name];
   }
 
   // ----- Two-pass ref resolution ----------------------------------------
@@ -1443,10 +1491,13 @@ export async function validateMultiSheet(
   // that *isn't* a same-batch row. Stage them by a canonical key so
   // identical refs in different cells share one server lookup.
 
-  /** Normalised lookup key matching what we'll send to the backend. */
+  /** Lookup key for one staged ref: the ref as written, trimmed and
+   * lower-cased. Not the decoded segments joined with `/` — that made the
+   * literal name `A\/B` and the path `A / B` one key, so only one of them
+   * reached the server and the other silently took its answer; they can
+   * name different cards. */
   function refLookupKey(type: string, ref: string): string {
-    const segs = decodePath(ref);
-    return `${type}|${segs.map((s) => s.trim().toLowerCase()).join("/")}`;
+    return `${type}|${ref.trim().toLowerCase()}`;
   }
 
   type StagedRef = { type: string; ref: string };
@@ -1485,9 +1536,7 @@ export async function validateMultiSheet(
       // ref staged means `resolveRef()` has a fallback for workbooks whose
       // UUIDs point at a different tenant (cross-instance migration) or
       // were hand-edited away. Cheap — refs are deduped by canonical key.
-      const ownPath = parentPathRaw
-        ? [...decodePath(parentPathRaw), name]
-        : [name];
+      const ownPath = rowOwnPath(sheetType, parentPathRaw, name);
       const ownKey = pathKey(sheetType, ownPath);
       if (!fileByOwnPathKey.has(ownKey)) {
         stageRef(sheetType, ownPath.map(encodePathSegment).join(" / "));
@@ -1702,9 +1751,7 @@ export async function validateMultiSheet(
       // update / same-instance re-import), where it also enables the
       // relation delete-diff below.
       let sourceRef: CardRefHandle | undefined;
-      const ownPath = parentPathRaw
-        ? [...decodePath(parentPathRaw), name]
-        : [name];
+      const ownPath = rowOwnPath(sheetType, parentPathRaw, name);
       const ownKey = pathKey(sheetType, ownPath);
       if (fileByOwnPathKey.has(ownKey)) {
         sourceRef = { kind: "pathKey", pathKey: ownKey, type: sheetType };

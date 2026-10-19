@@ -335,3 +335,35 @@ async def test_resolve_refs_resolved_and_ambiguous_and_missing(client, db, bulk_
     assert len(results[2]["candidates"]) == 2
     assert results[3]["status"] == "resolved"
     assert results[4]["status"] == "missing"
+
+
+async def test_resolve_refs_reads_an_unescaped_slash_as_part_of_the_name(client, db, bulk_env):
+    """#1278: a hand-typed `SAP S/4HANA` names the card of that name when no
+    card sits at the path "4HANA" under "SAP S"; the escaped form resolves
+    too, and a path that does exist still wins over a literal homonym."""
+    admin = bulk_env["admin"]
+    sap = await create_card(db, card_type="Application", name="SAP S/4HANA", user_id=admin.id)
+    ops = await create_card(db, card_type="Application", name="Ops", user_id=admin.id)
+    billing = await create_card(
+        db, card_type="Application", name="Billing", parent_id=ops.id, user_id=admin.id
+    )
+    await create_card(db, card_type="Application", name="Ops/Billing", user_id=admin.id)
+    await db.commit()
+
+    refs = ["SAP S/4HANA", "SAP S\\/4HANA", "Ops/Billing", "Nowhere/At All"]
+    payload = {
+        "refs": [
+            {"row": i, "column": "rel:supports", "type": "Application", "ref": ref}
+            for i, ref in enumerate(refs, start=1)
+        ]
+    }
+    resp = await client.post(
+        "/api/v1/cards/resolve-refs", json=payload, headers=auth_headers(admin)
+    )
+    assert resp.status_code == 200, resp.text
+    results = {r["row"]: r for r in resp.json()["results"]}
+    assert (results[1]["status"], results[1]["id"]) == ("resolved", str(sap.id))
+    assert (results[2]["status"], results[2]["id"]) == ("resolved", str(sap.id))
+    assert (results[3]["status"], results[3]["id"]) == ("resolved", str(billing.id))
+    assert results[4]["status"] == "missing"
+    assert results[4]["id"] is None

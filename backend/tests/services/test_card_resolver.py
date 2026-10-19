@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.card_resolver import CardResolver, decode_ref, find_card_by_path
+from app.services.card_resolver import (
+    CardResolver,
+    decode_ref,
+    find_card_by_path,
+    unescape_whole,
+)
 from tests.conftest import create_card, create_card_type, create_user
 
 
@@ -32,6 +37,26 @@ async def resolver_env(db):
     )
     # One unambiguous app at the root.
     erp = await create_card(db, card_type="Application", name="ERP", user_id=user.id)
+    # Names holding a `/` (#1278) and a `<` (the control the issue named).
+    sap = await create_card(db, card_type="Application", name="SAP S/4HANA", user_id=user.id)
+    angle = await create_card(db, card_type="Application", name="A <B>", user_id=user.id)
+    # A path homonym: "Billing" under "Ops", and a root card literally
+    # named "Ops/Billing". The path reading must win.
+    ops = await create_card(db, card_type="Application", name="Ops", user_id=user.id)
+    billing = await create_card(
+        db, card_type="Application", name="Billing", parent_id=ops.id, user_id=user.id
+    )
+    ops_billing = await create_card(
+        db, card_type="Application", name="Ops/Billing", user_id=user.id
+    )
+    # Two "Dup" under "Ops" make the path reading of "Ops/Dup" ambiguous,
+    # beside a root card literally named "Ops/Dup".
+    await create_card(db, card_type="Application", name="Dup", parent_id=ops.id, user_id=user.id)
+    await create_card(db, card_type="Application", name="Dup", parent_id=ops.id, user_id=user.id)
+    await create_card(db, card_type="Application", name="Ops/Dup", user_id=user.id)
+    # Two root cards with the same literal name.
+    await create_card(db, card_type="Application", name="CI/CD", user_id=user.id)
+    await create_card(db, card_type="Application", name="CI/CD", user_id=user.id)
     return {
         "user": user,
         "root": root,
@@ -40,6 +65,10 @@ async def resolver_env(db):
         "crm_sales": crm_sales,
         "crm_eng": crm_eng,
         "erp": erp,
+        "sap": sap,
+        "angle": angle,
+        "billing": billing,
+        "ops_billing": ops_billing,
     }
 
 
@@ -125,3 +154,96 @@ async def test_resolver_case_insensitive(db, resolver_env):
     outcome = resolver.resolve("Application", "nexatech / sales / crm")
     assert outcome.status == "resolved"
     assert outcome.card_id == resolver_env["crm_sales"].id
+
+
+def test_unescape_whole_reads_one_name():
+    assert unescape_whole("a\\/b") == "a/b"
+    assert unescape_whole("a\\\\b") == "a\\b"
+    assert unescape_whole(" x/y ") == "x/y"
+    assert unescape_whole("x / y") == "x / y"
+    # A trailing lone backslash escapes nothing and is kept.
+    assert unescape_whole("a\\") == "a\\"
+    assert unescape_whole("") == ""
+
+
+async def test_unescaped_slash_is_a_path_without_the_fallback(db, resolver_env):
+    """#1278: `SAP S/4HANA` read as a path is "4HANA" under "SAP S"."""
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "SAP S/4HANA")
+    assert outcome.status == "missing"
+    assert outcome.card_id is None
+
+
+async def test_unescaped_slash_falls_back_to_the_literal_name(db, resolver_env):
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "SAP S/4HANA", literal_fallback=True)
+    assert outcome.status == "resolved"
+    assert outcome.card_id == resolver_env["sap"].id
+
+
+async def test_escaped_slash_resolves_with_or_without_the_fallback(db, resolver_env):
+    resolver = await CardResolver.load(db, {"Application"})
+    for flag in (False, True):
+        outcome = resolver.resolve("Application", "SAP S\\/4HANA", literal_fallback=flag)
+        assert outcome.status == "resolved"
+        assert outcome.card_id == resolver_env["sap"].id
+
+
+async def test_the_path_reading_wins_over_a_literal_homonym(db, resolver_env):
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "Ops/Billing", literal_fallback=True)
+    assert outcome.status == "resolved"
+    assert outcome.card_id == resolver_env["billing"].id
+    escaped = resolver.resolve("Application", "Ops\\/Billing", literal_fallback=True)
+    assert escaped.status == "resolved"
+    assert escaped.card_id == resolver_env["ops_billing"].id
+
+
+async def test_an_ambiguous_path_reading_is_kept(db, resolver_env):
+    """Ambiguous is an answer, not a miss: the literal "Ops/Dup" card must
+    not be picked over the two "Dup" under "Ops"."""
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "Ops/Dup", literal_fallback=True)
+    assert outcome.status == "ambiguous"
+    assert outcome.card_id is None
+    assert outcome.candidates is not None
+    assert [c.parent_path for c in outcome.candidates] == [("Ops",), ("Ops",)]
+
+
+async def test_two_literal_homonyms_are_ambiguous(db, resolver_env):
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "CI/CD", literal_fallback=True)
+    assert outcome.status == "ambiguous"
+    assert outcome.card_id is None
+    assert outcome.candidates is not None
+    assert [c.name for c in outcome.candidates] == ["CI/CD", "CI/CD"]
+
+
+async def test_a_double_miss_keeps_the_path_reading(db, resolver_env):
+    """When both readings miss, the path reading's result is returned: its
+    candidates (same name, other chains) are what the caller can show."""
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "Marketing / CRM", literal_fallback=True)
+    assert outcome.status == "missing"
+    assert outcome.card_id is None
+    assert outcome.candidates is not None
+    assert len(outcome.candidates) == 2
+    nowhere = resolver.resolve("Application", "Nowhere / At All", literal_fallback=True)
+    assert nowhere.status == "missing"
+    assert nowhere.candidates == []
+
+
+async def test_a_single_segment_miss_stays_missing(db, resolver_env):
+    resolver = await CardResolver.load(db, {"Application"})
+    outcome = resolver.resolve("Application", "Nowhere", literal_fallback=True)
+    assert outcome.status == "missing"
+    assert outcome.card_id is None
+
+
+async def test_angle_brackets_in_a_name_resolve(db, resolver_env):
+    """The `<` control from #1278: nothing in the grammar treats it."""
+    resolver = await CardResolver.load(db, {"Application"})
+    for flag in (False, True):
+        outcome = resolver.resolve("Application", "A <B>", literal_fallback=flag)
+        assert outcome.status == "resolved"
+        assert outcome.card_id == resolver_env["angle"].id

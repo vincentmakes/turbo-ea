@@ -493,6 +493,66 @@ describe("validateImport — rows", () => {
     });
   });
 
+  describe("a slash typed inside a parent's name (#1278)", () => {
+    const cicd = makeCard({ type: "BusinessCapability", name: "CI / CD" });
+    const sap = makeCard({ type: "BusinessCapability", name: "SAP S/4HANA" });
+    const existing = [...CARDS, cicd, sap];
+
+    it("reads a path that names no card as the parent's whole name", () => {
+      const row = oneCreate(bc({ parent_path: "CI / CD" }), { existing }).creates[0];
+      expect(row.data.parent_id).toBe(cicd.id);
+      expect(row.parentPath).toEqual(["CI / CD"]);
+      expect(row.parentPathKey).toBe("BusinessCapability|ci / cd");
+      expect(row.ownPathKey).toBe("BusinessCapability|ci / cd/payments");
+    });
+
+    it("resolves the escaped spelling to the same card", () => {
+      const row = oneCreate(bc({ parent_path: "CI \\/ CD" }), { existing }).creates[0];
+      expect(row.data.parent_id).toBe(cicd.id);
+      expect(row.parentPath).toEqual(["CI / CD"]);
+    });
+
+    it("keeps the path reading when a card sits at that path", () => {
+      const ci = makeCard({ type: "BusinessCapability", name: "CI" });
+      const cd = makeCard({ type: "BusinessCapability", name: "CD", parent_id: ci.id });
+      const row = oneCreate(bc({ parent_path: "CI / CD" }), {
+        existing: [...existing, ci, cd],
+      }).creates[0];
+      expect(row.data.parent_id).toBe(cd.id);
+      expect(row.parentPath).toEqual(["CI", "CD"]);
+      expect(row.parentPathKey).toBe("BusinessCapability|ci/cd");
+    });
+
+    it("links an unescaped parent created in the same file through both keys", () => {
+      const r = run([bc({ name: "Child", parent_path: "CI / CD" }), bc({ name: "CI / CD" })]);
+      expect(r.errors).toEqual([]);
+      expect(r.creates[0].parentPath).toEqual(["CI / CD"]);
+      expect(r.creates[0].parentPathKey).toBe("BusinessCapability|ci / cd");
+      expect(r.creates[0].ownPathKey).toBe("BusinessCapability|ci / cd/child");
+      expect(r.creates[0].data).not.toHaveProperty("parent_id");
+      expect(r.creates[1].ownPathKey).toBe("BusinessCapability|ci / cd");
+    });
+
+    it("resolves SAP S/4HANA written either way (control)", () => {
+      for (const parent_path of ["SAP S/4HANA", "SAP S\\/4HANA"]) {
+        const row = oneCreate(bc({ parent_path }), { existing }).creates[0];
+        expect(row.data.parent_id).toBe(sap.id);
+      }
+    });
+
+    it("still errors when neither reading names a card", () => {
+      const r = run([bc({ parent_path: "CI / CD / Nightly" })], { existing });
+      expect(r.errors).toEqual([
+        {
+          row: 2,
+          column: "parent_path",
+          message: err("invalidParentPath", { row: 2, path: "CI / CD / Nightly" }),
+        },
+      ]);
+      expect(r.creates).toEqual([]);
+    });
+  });
+
   describe("legacy parent_id", () => {
     it("accepts an existing card", () => {
       const r = oneCreate(bc({ parent_id: CARD_IDS.finance }));
