@@ -622,6 +622,9 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
 # The one column of a built-in category a bundle may change: its place in the
 # layer order. Label, colour and translations stay locked.
 _BUILT_IN_CATEGORY_MOVABLE = frozenset({"sort_order"})
+# Columns a bundle never changes on a category it matched: the key is what it
+# was matched by, and ``built_in`` is the target instance's own verdict.
+_CATEGORY_IMMUTABLE_COLUMNS = frozenset({"key", "built_in"})
 
 
 async def _apply_card_type_categories(
@@ -654,19 +657,19 @@ async def _apply_card_type_categories(
         if current is None:
             fresh = {k: v for k, v in data.items() if v is not None}
             fresh.setdefault("label", key)
-            fresh.setdefault("color", card_type_categories.DEFAULT_COLOR)
             if "sort_order" not in fresh:
                 fresh["sort_order"] = await card_type_categories.next_sort_order(db)
             # A built-in layer exists on every instance; one arriving here is a
-            # bundle's own invention and lands as an ordinary custom row.
-            fresh["built_in"] = False
+            # bundle's own invention and lands as an ordinary custom row — the
+            # model's default, like the colour a row does not carry.
+            fresh.pop("built_in", None)
             obj = CardTypeCategory(**fresh)
             db.add(obj)
             existing[key] = obj
             await db.flush()
             sr.created += 1
         else:
-            cols = [c for c in sec.columns if c not in ("key", "built_in")]
+            cols = [c for c in sec.columns if c not in _CATEGORY_IMMUTABLE_COLUMNS]
             if not current.built_in:
                 _update_if_changed(current, data, cols, sr)
                 continue

@@ -1804,3 +1804,166 @@ async def test_a_custom_layer_between_two_defaults_survives_import(db):
     section = next(s for s in again.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     assert (section.created, section.updated) == (0, 0)
     assert section.skip_reasons == {"identical": 5}
+
+
+# ── The category applier, row by row ────────────────────────────────────────
+#
+# ``_apply_card_type_categories`` is a bespoke applier (it runs before the card
+# types and keeps a built-in row's lock), so every branch of it answers to the
+# applier module's own mutation floor: an unusable row, a row carrying only its
+# key, a key named twice, a cleared translations cell, and a bundle claiming
+# ``built_in`` on a custom row the target already has.
+
+
+def _category_bundle(columns: tuple[str, ...], rows: list[dict]) -> bytes:
+    sec = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    return _make_bundle({schema.SHEET_CARD_TYPE_CATEGORIES: (columns, sec.json_columns, rows)})
+
+
+def _category_section(result):
+    return next(s for s in result.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+
+
+async def _categories_by_key(db):
+    from app.models.card_type_category import CardTypeCategory
+
+    return {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+
+
+async def test_category_rows_without_a_key_fail_without_stopping_the_sheet(db):
+    """A row with no key (an empty cell or whitespace) is counted ``failed``,
+    one per row, and the rows after it are still applied."""
+    user = await create_user(db, email="cat-nokey@test.com", role="admin")
+    columns = ("key", "label", "color", "sort_order")
+    rows = [
+        {"key": None, "label": "Nameless", "color": "#123456", "sort_order": 1},
+        {"key": "   ", "label": "Blank", "color": "#123456", "sort_order": 2},
+        {"key": "Security", "label": "Security", "color": "#abcdef", "sort_order": 3},
+    ]
+    result = await apply_bundle(db, parse_bundle(_category_bundle(columns, rows)), user)
+    section = _category_section(result)
+    assert (section.failed, section.created, section.updated) == (2, 1, 0)
+    by_key = await _categories_by_key(db)
+    assert "Security" in by_key
+    assert not any(k.strip() == "" for k in by_key)
+
+
+async def test_a_category_row_carrying_only_its_key_takes_the_defaults(db):
+    """A hand-authored pack may list the key alone: the label is the key, the
+    colour the registry's default, the place in the order the next free one,
+    the translations empty, and the row is custom."""
+    from app.services.card_type_categories import DEFAULT_COLOR, next_sort_order
+
+    user = await create_user(db, email="cat-keyonly@test.com", role="admin")
+    await seed_default_categories_for_test(db)
+    expected_order = await next_sort_order(db)
+    assert expected_order > 0
+    result = await apply_bundle(
+        db, parse_bundle(_category_bundle(("key",), [{"key": "Security"}])), user
+    )
+    assert result.total_failed == 0, result.as_dict()
+    assert _category_section(result).created == 1
+    row = (await _categories_by_key(db))["Security"]
+    assert (row.label, row.color, row.sort_order, row.built_in, row.translations) == (
+        "Security",
+        DEFAULT_COLOR,
+        expected_order,
+        False,
+        {},
+    )
+
+
+async def test_a_category_key_named_twice_in_one_bundle_is_created_once_then_updated(db):
+    """The second row for a key the sheet already created updates that row
+    instead of inserting a duplicate, and two distinct new keys count as two
+    creations."""
+    user = await create_user(db, email="cat-twice@test.com", role="admin")
+    columns = ("key", "label", "color", "sort_order", "built_in", "translations")
+    rows = [
+        {"key": "Security", "label": "Security", "color": "#111111", "sort_order": 50},
+        {"key": "Security", "label": "Security", "color": "#222222", "sort_order": 50},
+        {"key": "Operations", "label": "Operations", "color": "#333333", "sort_order": 51},
+    ]
+    result = await apply_bundle(db, parse_bundle(_category_bundle(columns, rows)), user)
+    assert result.total_failed == 0, result.as_dict()
+    section = _category_section(result)
+    assert (section.created, section.updated) == (2, 1)
+    by_key = await _categories_by_key(db)
+    assert by_key["Security"].color == "#222222"
+    assert set(by_key) >= {"Security", "Operations"}
+
+
+async def test_an_empty_translations_cell_clears_a_custom_categorys_translations(db):
+    """An export can blank a field: an empty ``translations`` cell on a custom
+    row the target holds lands as an empty map, never as NULL."""
+    from app.models.card_type_category import CardTypeCategory
+
+    user = await create_user(db, email="cat-trans@test.com", role="admin")
+    db.add(
+        CardTypeCategory(
+            key="Security",
+            label="Security",
+            color="#111111",
+            sort_order=50,
+            built_in=False,
+            translations={"fr": "Sécurité"},
+        )
+    )
+    await db.flush()
+    columns = ("key", "label", "color", "sort_order", "translations")
+    rows = [
+        {"key": "Security", "label": "Security", "color": "#111111", "sort_order": 50},
+    ]
+    result = await apply_bundle(db, parse_bundle(_category_bundle(columns, rows)), user)
+    assert result.total_failed == 0, result.as_dict()
+    assert _category_section(result).updated == 1
+    assert (await _categories_by_key(db))["Security"].translations == {}
+
+
+async def test_a_bundle_cannot_promote_a_custom_category_to_built_in(db):
+    """``built_in`` is the target's verdict: a bundle claiming it on a custom
+    row the target already has changes nothing (the row is identical), and the
+    rows after it are still applied."""
+    from app.models.card_type_category import CardTypeCategory
+
+    user = await create_user(db, email="cat-promote@test.com", role="admin")
+    db.add(
+        CardTypeCategory(
+            key="Security", label="Security", color="#111111", sort_order=50, built_in=False
+        )
+    )
+    await db.flush()
+    columns = ("key", "label", "color", "sort_order", "built_in", "translations")
+    rows = [
+        {
+            "key": "Security",
+            "label": "Security",
+            "color": "#111111",
+            "sort_order": 50,
+            "built_in": True,
+            "translations": {},
+        },
+        {
+            "key": "Operations",
+            "label": "Operations",
+            "color": "#333333",
+            "sort_order": 51,
+            "built_in": False,
+            "translations": {},
+        },
+    ]
+    result = await apply_bundle(db, parse_bundle(_category_bundle(columns, rows)), user)
+    assert result.total_failed == 0, result.as_dict()
+    section = _category_section(result)
+    assert (section.created, section.updated) == (1, 0)
+    assert section.skip_reasons == {"identical": 1}
+    by_key = await _categories_by_key(db)
+    assert by_key["Security"].built_in is False
+    assert by_key["Operations"].built_in is False
+
+
+async def seed_default_categories_for_test(db):
+    from app.services.card_type_categories import seed_default_categories
+
+    await seed_default_categories(db)
+    await db.flush()
