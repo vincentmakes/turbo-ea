@@ -200,6 +200,7 @@
   "dependency.aggregateByHint": "Объединяет связанные карточки в блоки и рисует между двумя блоками одну линию с числом связей, которые она представляет. Связи между карточками одного блока по-прежнему рисуются внутри него, а карточка в центре остаётся отдельно.",
   "dependency.aggregateBy_none": "Выключено",
   "dependency.aggregateBy_layer": "По слою",
+  "dependency.uncategorizedLayer": "Без категории",
   "dependency.aggregateBy_type": "По типу карточки",
   "dependency.aggregateBy_subtype": "По подтипу",
   "dependency.clusterTitle": "{{label}} ({{count}})",

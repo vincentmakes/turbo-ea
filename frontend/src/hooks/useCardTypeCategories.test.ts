@@ -44,7 +44,6 @@ describe("useCardTypeCategories", () => {
       "Zed",
       "Tech",
     ]);
-    expect(result.current.byKey.Tech.sort_order).toBe(3);
   });
 
   it("shares one request between components mounting together", async () => {
@@ -57,12 +56,34 @@ describe("useCardTypeCategories", () => {
     expect(api.get).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to an empty list on an API error", async () => {
+  it("does not cache a failed fetch: the next mount retries", async () => {
     vi.mocked(api.get).mockRejectedValueOnce(new Error("boom"));
     const { useCardTypeCategories } = await import("./useCardTypeCategories");
-    const { result } = renderHook(() => useCardTypeCategories());
-    await waitFor(() => expect(result.current.loaded).toBe(true));
-    expect(result.current.categories).toEqual([]);
+    const first = renderHook(() => useCardTypeCategories());
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    // Settle the rejected request before asserting on what it left behind.
+    await act(async () => {});
+    expect(first.result.current.categories).toEqual([]);
+    expect(first.result.current.loaded).toBe(false);
+    first.unmount();
+
+    vi.mocked(api.get).mockResolvedValueOnce([cat({ key: "A" })]);
+    const second = renderHook(() => useCardTypeCategories());
+    await waitFor(() => expect(second.result.current.loaded).toBe(true));
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(second.result.current.categories.map((c) => c.key)).toEqual(["A"]);
+  });
+
+  it("a failed refresh keeps the list it had", async () => {
+    const mod = await import("./useCardTypeCategories");
+    mod.invalidateCardTypeCategories([cat({ key: "A" })]);
+    vi.mocked(api.get).mockRejectedValueOnce(new Error("boom"));
+    const { result } = renderHook(() => mod.useCardTypeCategories());
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.categories.map((c) => c.key)).toEqual(["A"]);
+    expect(result.current.loaded).toBe(true);
   });
 
   it("re-primes every mounted consumer on invalidate, without a fetch", async () => {
@@ -85,14 +106,28 @@ describe("useCardTypeCategories", () => {
     await act(async () => {
       await result.current.refresh();
     });
+    expect(api.get).toHaveBeenCalledWith("/metamodel/categories");
     expect(result.current.categories.map((c) => c.key)).toEqual(["C"]);
   });
 
-  it("sortCategories never mutates its input", async () => {
-    const { sortCategories } = await import("./useCardTypeCategories");
-    const input = [cat({ key: "B", sort_order: 2 }), cat({ key: "A", sort_order: 1 })];
-    const out = sortCategories(input);
-    expect(out.map((c) => c.key)).toEqual(["A", "B"]);
-    expect(input.map((c) => c.key)).toEqual(["B", "A"]);
+  it("refresh supersedes a fetch already in flight", async () => {
+    // The mount's request started before an admin write; its (stale) answer
+    // must not overwrite what the post-write refresh fetched.
+    let resolveStale: (v: CardTypeCategory[]) => void = () => {};
+    vi.mocked(api.get)
+      .mockImplementationOnce(
+        () => new Promise<CardTypeCategory[]>((r) => (resolveStale = r)) as never,
+      )
+      .mockResolvedValueOnce([cat({ key: "A" }), cat({ key: "New", sort_order: 1 })]);
+    const mod = await import("./useCardTypeCategories");
+    const { result } = renderHook(() => mod.useCardTypeCategories());
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(api.get).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      resolveStale([cat({ key: "A" })]);
+    });
+    expect(result.current.categories.map((c) => c.key)).toEqual(["A", "New"]);
   });
 });

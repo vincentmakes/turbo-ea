@@ -80,7 +80,6 @@ vi.mock("@/hooks/useCardTypeCategories", () => {
   return {
     useCardTypeCategories: () => ({
       categories,
-      byKey: Object.fromEntries(categories.map((c) => [c.key, c])),
       loaded: true,
       refresh: () => Promise.resolve(),
     }),
@@ -287,13 +286,15 @@ describe("MetamodelAdmin", () => {
     expect(screen.getByText("Uncategorized")).toBeInTheDocument();
   });
 
-  it("starts a new type in the first registry category and posts it", async () => {
+  it("starts a new type in Application & Data, not the first layer, and posts it", async () => {
     const user = userEvent.setup();
     vi.mocked(api.post).mockResolvedValueOnce({});
     renderMetamodel();
     await user.click(screen.getByRole("button", { name: /new type/i }));
     const combo = await screen.findByRole("combobox", { name: "Category" });
-    expect(combo).toHaveValue("Strategy & Transformation");
+    // "Strategy & Transformation" sorts first; the default is still the
+    // pre-registry one.
+    expect(combo).toHaveValue("Application & Data");
 
     await user.click(combo);
     await user.click(await screen.findByRole("option", { name: "Security Layer" }));

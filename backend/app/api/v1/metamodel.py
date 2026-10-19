@@ -234,6 +234,23 @@ def _type_audit_changes(
     return changes, audit_changes.cap_items(items)
 
 
+async def _category_label(db: AsyncSession, key: str | None) -> str | None:
+    """The registry label of a card type's ``category`` for an audit row; the
+    stored string itself when no registry row answers to it, ``None`` for
+    uncategorised."""
+    if not key:
+        return key
+    return (await audit_labels.category_labels(db, [key])).get(key, key)
+
+
+async def _category_change_labels(db: AsyncSession, change: dict) -> dict:
+    """A ``{"old", "new"}`` category change with both keys resolved to labels
+    in one query, so a move into a renamed custom category logs what an admin
+    reads rather than the key the type stores."""
+    labels = await audit_labels.category_labels(db, [change.get("old"), change.get("new")])
+    return {side: labels.get(change.get(side), change.get(side)) for side in ("old", "new")}
+
+
 def _relation_type_audit_changes(
     before: dict, after: dict, type_labels: dict[str, str]
 ) -> tuple[dict, list]:
@@ -1140,7 +1157,7 @@ async def create_type(
         actor=user,
         target=("card_type", t.key, t.label),
         context={
-            "category": t.category,
+            "category": await _category_label(db, t.category),
             "has_hierarchy": t.has_hierarchy,
             "fields": sum(len(s.get("fields") or []) for s in t.fields_schema or []),
         },
@@ -1315,6 +1332,8 @@ async def update_type(
         else {}
     )
     changes, items = _type_audit_changes(audit_before, audit_after, role_labels)
+    if "category" in changes:
+        changes["category"] = await _category_change_labels(db, changes["category"])
     if changes or items:
         await audit_log.record(
             db,
@@ -2447,15 +2466,15 @@ async def create_card_type_category(
         raise _category_http_error(exc) from exc
     color = body.color or card_type_categories.DEFAULT_COLOR
     _validate_color({"color": color})
-    existing_keys = (await db.execute(select(CardTypeCategory.key))).scalars().all()
-    clash = card_type_categories.is_duplicate(existing_keys, key)
+    existing = await card_type_categories.list_categories(db)
+    clash = card_type_categories.is_duplicate(existing, key)
     if clash is not None:
         raise HTTPException(
             409,
             detail={
                 "error": "category_exists",
-                "message": f"A category named '{clash}' already exists",
-                "key": clash,
+                "message": f"A category named '{clash.label}' already exists",
+                "key": clash.key,
             },
         )
     c = CardTypeCategory(
@@ -2541,19 +2560,15 @@ async def update_card_type_category(
             updates["label"] = card_type_categories.normalize_key(updates["label"])
         except card_type_categories.CategoryError as exc:
             raise _category_http_error(exc) from exc
-        others = (
-            (await db.execute(select(CardTypeCategory.key).where(CardTypeCategory.id != c.id)))
-            .scalars()
-            .all()
-        )
-        clash = card_type_categories.is_duplicate(others, updates["label"])
+        rows = await card_type_categories.list_categories(db)
+        clash = card_type_categories.is_duplicate(rows, updates["label"], exclude_key=c.key)
         if clash is not None:
             raise HTTPException(
                 409,
                 detail={
                     "error": "category_exists",
-                    "message": f"A category named '{clash}' already exists",
-                    "key": clash,
+                    "message": f"A category named '{clash.label}' already exists",
+                    "key": clash.key,
                 },
             )
     if "color" in updates:

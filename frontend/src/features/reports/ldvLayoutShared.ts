@@ -11,7 +11,11 @@
 
 import dagre from "@dagrejs/dagre";
 import { runsAgainstType } from "@/lib/relationSort";
-import { categoryDisplayName, orderCategoryKeys } from "@/lib/cardTypeOrder";
+import {
+  categoryDisplayName,
+  orderCategoryKeys,
+  UNCATEGORIZED_GROUP_KEY,
+} from "@/lib/cardTypeOrder";
 import { DEFAULT_LAYER_COLOR, LAYER_COLORS } from "@/theme/tokens";
 import type { CardType, CardTypeCategory } from "@/types";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
@@ -35,14 +39,20 @@ export const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
 
 /**
  * How the view orders, names and colours its layer lanes. Built from the
- * category registry by `ldvLayers(categories, locale)` — the registry's order,
- * its translated labels and its colours, so a custom category gets its own
- * lane in the colour an admin chose. Without a registry (the default, which
- * keeps the `loadDependencyView` SDK surface additive) it is the four built-in
- * layers, their raw names and `LAYER_COLORS`.
+ * category registry by `ldvLayers(categories, locale, uncategorizedLabel)` —
+ * the registry's order, its translated labels and its colours, so a custom
+ * category gets its own lane in the colour an admin chose. Without a registry
+ * (the default, which keeps the `loadDependencyView` SDK surface additive) it
+ * is the four built-in layers, their raw names and `LAYER_COLORS`.
+ *
+ * A card type with no category sits in the `UNCATEGORIZED_GROUP_KEY` lane — a
+ * sentinel, never the literal "Other", which an admin may well create as a
+ * real category. That lane always comes last, in the default grey, named by
+ * `uncategorizedLabel` (the caller's translation; "Other" when none is given).
  */
 export interface LdvLayers {
-  /** `present` layer keys in lane order: known ones first, unknown ones as seen. */
+  /** `present` layer keys in lane order: known ones first, unknown ones as
+   *  seen, the uncategorised lane last. */
   order: (present: Iterable<string>) => string[];
   /** The lane's display name — the raw key for a layer the registry lacks. */
   label: (cat: string) => string;
@@ -50,12 +60,31 @@ export interface LdvLayers {
   color: (cat: string) => string;
 }
 
-export function ldvLayers(categories?: CardTypeCategory[], locale?: string): LdvLayers {
+export function ldvLayers(
+  categories?: CardTypeCategory[],
+  locale?: string,
+  uncategorizedLabel = "Other",
+): LdvLayers {
   const byKey = new Map((categories ?? []).map((c) => [c.key, c]));
   return {
-    order: (present) => orderCategoryKeys(present, categories),
-    label: (cat) => categoryDisplayName(cat, categories, locale) ?? cat,
-    color: (cat) => byKey.get(cat)?.color ?? CATEGORY_COLORS[cat] ?? DEFAULT_LAYER_COLOR,
+    order: (present) => {
+      const seen = [...present];
+      const ordered = orderCategoryKeys(
+        seen.filter((k) => k !== UNCATEGORIZED_GROUP_KEY),
+        categories,
+      );
+      return seen.includes(UNCATEGORIZED_GROUP_KEY)
+        ? [...ordered, UNCATEGORIZED_GROUP_KEY]
+        : ordered;
+    },
+    label: (cat) =>
+      cat === UNCATEGORIZED_GROUP_KEY
+        ? uncategorizedLabel
+        : (categoryDisplayName(cat, categories, locale) ?? cat),
+    color: (cat) =>
+      cat === UNCATEGORIZED_GROUP_KEY
+        ? DEFAULT_LAYER_COLOR
+        : (byKey.get(cat)?.color ?? CATEGORY_COLORS[cat] ?? DEFAULT_LAYER_COLOR),
   };
 }
 
@@ -90,8 +119,12 @@ export function typeIcon(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.icon || "category";
 }
 
+/**
+ * The lane a card type sits in: its category, or `UNCATEGORIZED_GROUP_KEY`
+ * for none (and for a type the metamodel does not know).
+ */
 export function typeCategory(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.category || "Other";
+  return types.find((t) => t.key === key)?.category?.trim() || UNCATEGORIZED_GROUP_KEY;
 }
 
 /* ------------------------------------------------------------------ */

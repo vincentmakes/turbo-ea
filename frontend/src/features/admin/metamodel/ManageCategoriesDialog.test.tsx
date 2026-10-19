@@ -139,6 +139,11 @@ describe("ManageCategoriesDialog", () => {
       ...REGISTRY[1],
       ...(body as object),
     }));
+    mockApi.on("get", "/metamodel/categories", [
+      REGISTRY[0],
+      { ...REGISTRY[1], label: "Cyber" },
+      REGISTRY[2],
+    ]);
     const { user } = renderDialog();
     await user.click(within(row("Security")).getByRole("button", { name: /^Edit:/ }));
     const dialog = await screen.findByRole("dialog", { name: "Edit category" });
@@ -157,12 +162,28 @@ describe("ManageCategoriesDialog", () => {
     await waitFor(() => expect(within(row("Security")).getByText("Cyber")).toBeInTheDocument());
   });
 
-  it("deletes an unused category", async () => {
+  it("deletes an unused category and re-reads the registry", async () => {
     mockApi.on("delete", "/metamodel/categories/Unused", undefined);
+    mockApi.on("get", "/metamodel/categories", REGISTRY.slice(0, 2));
     const { user } = renderDialog();
     await user.click(within(row("Unused")).getByRole("button", { name: /^Delete:/ }));
     await waitFor(() => expect(screen.queryByTestId("category-row-Unused")).not.toBeInTheDocument());
     expect(mockApi.callsOf("delete")[0].path).toBe("/metamodel/categories/Unused");
+    expect(mockApi.callsOf("get", "/metamodel/categories")).toHaveLength(1);
+    expect(row("Business Architecture")).toBeInTheDocument();
+  });
+
+  it("a delete made while the cache holds a stale list keeps every server row", async () => {
+    // The dialog's copy lacks "Data", which another tab created meanwhile.
+    mockApi.on("delete", "/metamodel/categories/Unused", undefined);
+    mockApi.on("get", "/metamodel/categories", [
+      ...REGISTRY.slice(0, 2),
+      cat({ key: "Data", sort_order: 3 }),
+    ]);
+    const { user } = renderDialog();
+    await user.click(within(row("Unused")).getByRole("button", { name: /^Delete:/ }));
+    expect(await screen.findByTestId("category-row-Data")).toBeInTheDocument();
+    expect(screen.queryByTestId("category-row-Unused")).not.toBeInTheDocument();
   });
 
   it("shows a translated error when the server refuses a delete", async () => {
@@ -181,12 +202,37 @@ describe("ManageCategoriesDialog", () => {
 
   it("creates a new category from the footer button", async () => {
     mockApi.on("post", "/metamodel/categories", cat({ key: "Data", sort_order: 3 }));
+    mockApi.on("get", "/metamodel/categories", [...REGISTRY, cat({ key: "Data", sort_order: 3 })]);
     const { user } = renderDialog();
     await user.click(screen.getByRole("button", { name: /New category/ }));
     const dialog = await screen.findByRole("dialog", { name: "New category" });
     await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Data");
     await user.click(within(dialog).getByRole("button", { name: "Create" }));
     expect(await screen.findByTestId("category-row-Data")).toBeInTheDocument();
+  });
+
+  it("a create made while the cache is empty re-fetches the full registry", async () => {
+    // The first load failed, so the hook holds []; rebuilding the cache from
+    // that copy would leave the new category alone and drop the built-ins.
+    invalidateCardTypeCategories([]);
+    const data = cat({ key: "Data", sort_order: 3 });
+    mockApi.on("post", "/metamodel/categories", data);
+    mockApi.on("get", "/metamodel/categories", [...REGISTRY, data]);
+    const { user } = renderDialog();
+    expect(screen.queryAllByTestId(/^category-row-/)).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: /New category/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New category" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Name" }), "Data");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+    await waitFor(() =>
+      expect(screen.getAllByTestId(/^category-row-/).map((el) => el.dataset.testid)).toEqual([
+        "category-row-Business Architecture",
+        "category-row-Security",
+        "category-row-Unused",
+        "category-row-Data",
+      ]),
+    );
+    expect(mockApi.callsOf("get", "/metamodel/categories")).toHaveLength(1);
   });
 
   it("closes", async () => {

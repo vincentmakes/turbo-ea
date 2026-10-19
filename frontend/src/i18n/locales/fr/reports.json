@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "Regroupe les fiches liées dans des cadres et trace une seule connexion entre deux cadres, portant le nombre de relations qu'elle représente. Les relations entre fiches d'un même cadre y restent tracées, et la fiche centrée reste isolée.",
   "dependency.aggregateBy_none": "Désactivé",
   "dependency.aggregateBy_layer": "Par couche",
+  "dependency.uncategorizedLayer": "Non catégorisé",
   "dependency.aggregateBy_type": "Par type de fiche",
   "dependency.aggregateBy_subtype": "Par sous-type",
   "dependency.clusterTitle": "{{label}} ({{count}})",

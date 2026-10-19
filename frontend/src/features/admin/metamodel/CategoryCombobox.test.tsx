@@ -109,7 +109,7 @@ describe("CategoryCombobox", () => {
   });
 
   it("creates a category inline and selects it", async () => {
-    mockApi.on("post", "/metamodel/categories", {
+    const security = {
       id: "c3",
       key: "Security",
       label: "Security",
@@ -117,7 +117,9 @@ describe("CategoryCombobox", () => {
       sort_order: 2,
       built_in: false,
       translations: {},
-    });
+    };
+    mockApi.on("post", "/metamodel/categories", security);
+    mockApi.on("get", "/metamodel/categories", [...REGISTRY, security]);
     const { user, combo, onChange } = renderCombo();
     await user.type(combo, "Security");
     await user.click(await screen.findByRole("option", { name: /Create category “Security”/ }));
@@ -131,7 +133,8 @@ describe("CategoryCombobox", () => {
     expect(call.body).toMatchObject({ label: "Security", color: "#999999" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByTestId("value")).toHaveTextContent("Security");
-    // The singleton was re-primed: the new category is an ordinary option now.
+    // The registry was re-fetched: the new category is an ordinary option now.
+    expect(mockApi.callsOf("get", "/metamodel/categories")).toHaveLength(1);
     await user.click(combo);
     expect(await screen.findByRole("option", { name: "Security" })).toBeInTheDocument();
   });

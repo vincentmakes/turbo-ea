@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "将相关卡片归入分组框，任意两个分组框之间只绘制一条连线，连线上标注它所代表的关系数量。同一分组框内卡片之间的关系仍在框内绘制，居中的卡片保持独立。",
   "dependency.aggregateBy_none": "关闭",
   "dependency.aggregateBy_layer": "按层",
+  "dependency.uncategorizedLayer": "未分类",
   "dependency.aggregateBy_type": "按卡片类型",
   "dependency.aggregateBy_subtype": "按子类型",
   "dependency.clusterTitle": "{{label}}（{{count}}）",

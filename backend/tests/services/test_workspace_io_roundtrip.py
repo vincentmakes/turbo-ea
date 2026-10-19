@@ -1685,9 +1685,11 @@ async def test_card_type_bundle_without_categories_sheet_adopts_the_category(db)
 
 
 async def test_a_bundle_cannot_repaint_a_built_in_category(db):
-    """The four default layers are locked on every instance: a bundle carrying
-    a recoloured, renamed default leaves the target's row alone, and a bundle
-    row claiming ``built_in`` for a new key lands as a custom row."""
+    """The four default layers' label, colour and translations are locked on
+    every instance: a bundle carrying a recoloured, renamed default leaves them
+    alone (``built_in_locked`` when nothing else moved), but a new place in
+    the layer order is applied and counted as an update. A bundle row claiming
+    ``built_in`` for a new key lands as a custom row."""
     from app.models.card_type_category import CardTypeCategory
     from app.services.card_type_categories import seed_default_categories
 
@@ -1696,11 +1698,21 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
     await db.flush()
     sec = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     rows = [
+        # Locked columns only — its sort_order (2) is the target's.
         {
             "key": "Application & Data",
             "label": "Apps",
             "color": "#000000",
-            "sort_order": 0,
+            "sort_order": 2,
+            "built_in": False,
+            "translations": {"fr": "Applis"},
+        },
+        # A locked repaint plus a move: only the move lands.
+        {
+            "key": "Technical Architecture",
+            "label": "Tech",
+            "color": "#222222",
+            "sort_order": 9,
             "built_in": False,
             "translations": {},
         },
@@ -1708,7 +1720,7 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
             "key": "Smuggled",
             "label": "Smuggled",
             "color": "#111111",
-            "sort_order": 9,
+            "sort_order": 8,
             "built_in": True,
             "translations": {},
         },
@@ -1718,13 +1730,77 @@ async def test_a_bundle_cannot_repaint_a_built_in_category(db):
     assert result.total_failed == 0, result.as_dict()
     section = next(s for s in result.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     assert section.skip_reasons == {"built_in_locked": 1}
-    assert section.created == 1
+    assert (section.created, section.updated) == (1, 1)
 
     by_key = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
     app_data = by_key["Application & Data"]
-    assert (app_data.label, app_data.color, app_data.built_in) == (
+    assert (app_data.label, app_data.color, app_data.sort_order, app_data.built_in) == (
         "Application & Data",
         "#0f7eb5",
+        2,
         True,
     )
+    assert app_data.translations["fr"] == "Application et données"
+    tech = by_key["Technical Architecture"]
+    assert (tech.label, tech.sort_order, tech.built_in) == ("Technical Architecture", 9, True)
+    assert tech.color != "#222222"
     assert by_key["Smuggled"].built_in is False
+    assert by_key["Smuggled"].sort_order == 8
+
+
+async def test_a_custom_layer_between_two_defaults_survives_import(db):
+    """An admin who placed a custom layer between two defaults gets that order
+    back on a target whose defaults are still in seed order — the built-ins'
+    ``sort_order`` is transferred even though their other columns are locked."""
+    from app.models.card_type_category import CardTypeCategory
+    from app.services.card_type_categories import seed_default_categories
+
+    user = await create_user(db, email="order-cat@test.com", role="admin")
+    await seed_default_categories(db)
+    await db.flush()
+    by_key = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+    db.add(
+        CardTypeCategory(
+            key="Security",
+            label="Security",
+            color="#123456",
+            sort_order=2,
+            built_in=False,
+            translations={},
+        )
+    )
+    by_key["Application & Data"].sort_order = 3
+    by_key["Technical Architecture"].sort_order = 4
+    await db.flush()
+    wanted = [
+        "Strategy & Transformation",
+        "Business Architecture",
+        "Security",
+        "Application & Data",
+        "Technical Architecture",
+    ]
+
+    raw = await build_bundle(db)
+
+    # The target: the custom layer gone, the defaults back in seed order.
+    await db.execute(delete(CardTypeCategory).where(CardTypeCategory.built_in.is_(False)))
+    for index, key in enumerate(wanted[:2] + wanted[3:]):
+        by_key[key].sort_order = index
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    section = next(s for s in result.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    assert (section.created, section.updated) == (1, 2)
+    assert "built_in_locked" not in section.skip_reasons
+    ordered = (
+        (await db.execute(select(CardTypeCategory.key).order_by(CardTypeCategory.sort_order)))
+        .scalars()
+        .all()
+    )
+    assert ordered == wanted
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    section = next(s for s in again.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    assert (section.created, section.updated) == (0, 0)
+    assert section.skip_reasons == {"identical": 5}

@@ -619,15 +619,25 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
     await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
 
 
+# The one column of a built-in category a bundle may change: its place in the
+# layer order. Label, colour and translations stay locked.
+_BUILT_IN_CATEGORY_MOVABLE = frozenset({"sort_order"})
+
+
 async def _apply_card_type_categories(
     db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool
 ) -> None:
     """Create the categories the target lacks and update its custom ones.
 
-    A target row that is ``built_in`` is never edited — the four default
-    layers are locked on every instance, so a bundle carrying a recoloured
-    default cannot repaint the target's — and ``built_in`` is never flipped
-    either way. A target row the bundle does not carry is left alone."""
+    On a target row that is ``built_in`` only ``sort_order`` is applied: the
+    four default layers' label, colour and translations are locked on every
+    instance, so a bundle carrying a recoloured default cannot repaint the
+    target's, but their place in the layer order is the admin's (a custom
+    layer may sit between two defaults) and must survive a transfer. Such a
+    row counts as updated when it moved, and is skipped ``built_in_locked``
+    only when the bundle wanted to change a locked column and nothing moved.
+    ``built_in`` is never flipped either way. A target row the bundle does not
+    carry is left alone."""
     sec = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
     existing = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
     for row in bundle.rows(schema.SHEET_CARD_TYPE_CATEGORIES):
@@ -645,7 +655,8 @@ async def _apply_card_type_categories(
             fresh = {k: v for k, v in data.items() if v is not None}
             fresh.setdefault("label", key)
             fresh.setdefault("color", card_type_categories.DEFAULT_COLOR)
-            fresh.setdefault("sort_order", await card_type_categories.next_sort_order(db))
+            if "sort_order" not in fresh:
+                fresh["sort_order"] = await card_type_categories.next_sort_order(db)
             # A built-in layer exists on every instance; one arriving here is a
             # bundle's own invention and lands as an ordinary custom row.
             fresh["built_in"] = False
@@ -658,7 +669,14 @@ async def _apply_card_type_categories(
             cols = [c for c in sec.columns if c not in ("key", "built_in")]
             if not current.built_in:
                 _update_if_changed(current, data, cols, sr)
-            elif any(c in data and getattr(current, c) != data[c] for c in cols):
+                continue
+            differs = [c for c in cols if c in data and getattr(current, c) != data[c]]
+            moved = [c for c in differs if c in _BUILT_IN_CATEGORY_MOVABLE]
+            for col in moved:
+                setattr(current, col, data[col])
+            if moved:
+                sr.updated += 1
+            elif differs:
                 sr.skip("built_in_locked")
             else:
                 sr.skip("identical")

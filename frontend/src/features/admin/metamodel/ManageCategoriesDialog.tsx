@@ -50,7 +50,7 @@ export default function ManageCategoriesDialog({
   types,
 }: ManageCategoriesDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
-  const { categories } = useCardTypeCategories();
+  const { categories, refresh } = useCardTypeCategories();
   const resolve = useCategoryLabel();
   const usage = useMemo(() => usageByCategory(types), [types]);
   const [editing, setEditing] = useState<CardTypeCategory | null>(null);
@@ -80,7 +80,9 @@ export default function ManageCategoriesDialog({
     setError(null);
     try {
       await api.delete(`/metamodel/categories/${encodeURIComponent(category.key)}`);
-      invalidateCardTypeCategories(categories.filter((c) => c.key !== category.key));
+      // Re-read the registry rather than filtering the list held here, which
+      // can be stale.
+      await refresh();
     } catch (err) {
       setError(categoryErrorMessage(err, t));
     } finally {

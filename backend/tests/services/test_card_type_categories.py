@@ -2,10 +2,12 @@
 
 The pure helpers (key normalisation, duplicate detection, adoption planning,
 order validation) need no database; ``ensure_categories`` /
-``seed_default_categories`` / ``category_usage`` run against the test DB.
+``seed_default_categories`` / ``types_using`` run against the test DB.
 """
 
 from __future__ import annotations
+
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
@@ -26,7 +28,9 @@ class TestNormalizeKey:
     def test_exactly_the_column_length_is_accepted(self):
         assert ctc.normalize_key("x" * 100) == "x" * 100
 
-    @pytest.mark.parametrize("value", ["", "   ", "x" * 101, None, 5])
+    @pytest.mark.parametrize(
+        "value", ["", "   ", "x" * 101, None, 5, "__uncategorized__", " __UNCATEGORIZED__ "]
+    )
     def test_refuses(self, value):
         with pytest.raises(ctc.CategoryError) as exc:
             ctc.normalize_key(value)
@@ -50,17 +54,39 @@ class TestNormalizeCategoryValue:
         assert exc.value.code == "invalid_category"
 
 
-class TestIsDuplicate:
-    def test_case_insensitive_match_returns_the_existing_key(self):
-        assert ctc.is_duplicate(["Application & Data"], "APPLICATION & data") == (
-            "Application & Data"
-        )
+def _row(key: str, label: str | None = None) -> SimpleNamespace:
+    return SimpleNamespace(key=key, label=label if label is not None else key)
 
-    def test_new_key_is_none(self):
-        assert ctc.is_duplicate(["Application & Data"], "Security") is None
+
+class TestIsDuplicate:
+    def test_case_insensitive_key_match_returns_the_row(self):
+        row = _row("Application & Data")
+        assert ctc.is_duplicate([row], "APPLICATION & data") is row
+
+    def test_new_name_is_none(self):
+        assert ctc.is_duplicate([_row("Application & Data")], "Security") is None
 
     def test_empty_registry(self):
         assert ctc.is_duplicate([], "Security") is None
+
+    def test_matches_a_renamed_rows_label(self):
+        # Custom 'Foo' renamed to label 'Bar': a new 'bar' reads as the same
+        # layer, though no row has that key.
+        renamed = _row("Foo", "Bar")
+        assert ctc.is_duplicate([_row("Security"), renamed], "bar") is renamed
+
+    def test_still_matches_a_renamed_rows_key(self):
+        renamed = _row("Foo", "Bar")
+        assert ctc.is_duplicate([renamed], "FOO") is renamed
+
+    def test_exclude_key_skips_the_row_being_renamed(self):
+        renamed = _row("Foo", "Bar")
+        assert ctc.is_duplicate([renamed], "foo", exclude_key="Foo") is None
+        assert ctc.is_duplicate([renamed], "BAR", exclude_key="Foo") is None
+
+    def test_exclude_key_keeps_every_other_row(self):
+        other = _row("Baz", "Bar")
+        assert ctc.is_duplicate([_row("Foo"), other], "bar", exclude_key="Foo") is other
 
 
 class TestPlanAdoption:
@@ -163,14 +189,6 @@ class TestEnsureCategories:
 
 
 class TestUsage:
-    async def test_counts_types_per_trimmed_category(self, db):
-        await create_card_type(db, key="A", label="A", category="Security")
-        await create_card_type(db, key="B", label="B", category=" Security")
-        await create_card_type(db, key="C", label="C", category="Business Architecture")
-        await create_card_type(db, key="D", label="D", category=None)
-        await create_card_type(db, key="E", label="E", category="  ")
-        assert await ctc.category_usage(db) == {"Security": 2, "Business Architecture": 1}
-
     async def test_types_using_is_alphabetical(self, db):
         await create_card_type(db, key="Z", label="Zulu", category="Security")
         await create_card_type(db, key="Y", label="Alpha", category="Security")

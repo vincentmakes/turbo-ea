@@ -81,6 +81,21 @@ export function orderCategories(categories: CardTypeCategory[]): CardTypeCategor
   );
 }
 
+/** The category a new card type starts in when nothing else picks one. */
+export const DEFAULT_NEW_TYPE_CATEGORY = "Application & Data";
+
+/**
+ * The category the create-type dialog preselects: `DEFAULT_NEW_TYPE_CATEGORY`
+ * when the registry holds it (the default before the registry existed), else
+ * the registry's first layer, else none.
+ */
+export function defaultNewTypeCategory(categories: CardTypeCategory[]): string | null {
+  if (categories.some((c) => c.key === DEFAULT_NEW_TYPE_CATEGORY)) {
+    return DEFAULT_NEW_TYPE_CATEGORY;
+  }
+  return orderCategories(categories)[0]?.key ?? null;
+}
+
 /**
  * The layer keys in display order: the registry's when it has any rows,
  * `CARD_TYPE_CATEGORY_ORDER` otherwise.

@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "Raggruppa le schede collegate in riquadri e traccia una sola connessione fra due riquadri, etichettata con quante relazioni rappresenta. Le relazioni fra schede dello stesso riquadro restano disegnate al suo interno, e la scheda al centro resta a sé.",
   "dependency.aggregateBy_none": "Disattivato",
   "dependency.aggregateBy_layer": "Per livello",
+  "dependency.uncategorizedLayer": "Non categorizzato",
   "dependency.aggregateBy_type": "Per tipo di scheda",
   "dependency.aggregateBy_subtype": "Per sottotipo",
   "dependency.clusterTitle": "{{label}} ({{count}})",

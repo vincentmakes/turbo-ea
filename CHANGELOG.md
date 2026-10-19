@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Translated layer names**: the four built-in layers now show in the reader's language in the inventory's type filter, the metamodel graph and the Layered Dependency View's lanes, and a custom category can carry its own translations. Creating, editing, reordering and deleting categories is recorded in the Security & admin log.
 
 ### Changed
-- A custom category now gets its own lane in the Layered Dependency View, in its own colour, and its own layer in the metamodel graph instead of being folded into "Other"; the layer order follows the category order everywhere.
-- The card type API refuses a category that does not exist (`400 unknown_category`); create the category first. Workspace imports, content packs and the platform-migration importer add any category they carry that the instance does not have yet, and a workspace export now includes the categories (a `CardTypeCategories` sheet; an import never changes a built-in category).
+- A custom category now gets its own lane in the Layered Dependency View, in its own colour, and its own layer in the metamodel graph instead of being folded into "Other"; card types with no category share a last, translated "Uncategorized" lane, kept apart from any category an admin names "Other"; the layer order follows the category order everywhere.
+- The card type API refuses a category that does not exist (`400 unknown_category`); create the category first. Workspace imports, content packs and the platform-migration importer add any category they carry that the instance does not have yet, and a workspace export now includes the categories (a `CardTypeCategories` sheet; an import never renames, recolours or retranslates a built-in category, though it does carry over where it sits in the layer order).
 ## [2.168.0] - 2026-10-19
 
 ### Changed

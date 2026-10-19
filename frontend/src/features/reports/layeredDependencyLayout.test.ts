@@ -1120,4 +1120,69 @@ describe("buildLdvFlow lanes from the category registry", () => {
     ]);
     expect(boxes.find((b) => b.label === "Security Layer")?.color).toBe("#ff0000");
   });
+
+  describe("an admin category named 'Other' beside an uncategorised type", () => {
+    const OTHER: CardTypeCategory = {
+      id: "4",
+      key: "Other",
+      label: "Other",
+      color: "#00aa00",
+      sort_order: 3,
+      built_in: false,
+      translations: {},
+    };
+    const OTHER_TYPE = makeType({ key: "Widget", label: "Widget", category: "Other" });
+    const LOOSE_TYPE = { ...makeType({ key: "Loose", label: "Loose" }), category: null };
+    const mixed: GNode[] = [
+      { id: "a1", name: "App 1", type: "Application" },
+      { id: "w1", name: "Widget 1", type: "Widget" },
+      { id: "l1", name: "Loose 1", type: "Loose" },
+    ];
+    const types = [...TYPES, OTHER_TYPE, LOOSE_TYPE as CardType];
+
+    it("land in two lanes, the uncategorised one last, translated and grey", () => {
+      const result = buildLdvFlow(
+        mixed,
+        [],
+        types,
+        undefined,
+        ldvLayers([...REGISTRY, OTHER], "en", "Uncategorized"),
+      );
+      expect(lanes(result)).toEqual([
+        { label: "Application & Data", color: "#0f7eb5" },
+        { label: "Other", color: "#00aa00" },
+        { label: "Uncategorized", color: "#999999" },
+      ]);
+      const groupOf = (id: string) => result.nodes.find((n) => n.id === id)?.parentId;
+      expect(groupOf("w1")).not.toBe(groupOf("l1"));
+    });
+
+    it("are two aggregate layer boxes too", () => {
+      const result = buildLdvAggregateFlow(
+        mixed,
+        [],
+        types,
+        "layer",
+        undefined,
+        undefined,
+        undefined,
+        ldvLayers([...REGISTRY, OTHER], "en", "Uncategorized"),
+      );
+      const boxes = result.nodes
+        .filter((n) => n.type === "ldvCluster")
+        .map((n) => n.data as { label: string; color: string });
+      expect(boxes.map((b) => b.label).sort()).toEqual([
+        "Application & Data",
+        "Other",
+        "Uncategorized",
+      ]);
+      expect(boxes.find((b) => b.label === "Other")?.color).toBe("#00aa00");
+      expect(boxes.find((b) => b.label === "Uncategorized")?.color).toBe("#999999");
+    });
+
+    it("the uncategorised lane reads 'Other' only without a layers object", () => {
+      const result = buildLdvFlow([mixed[2]], [], types);
+      expect(lanes(result)).toEqual([{ label: "Other", color: "#999999" }]);
+    });
+  });
 });

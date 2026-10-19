@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
+from typing import TypeVar
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +30,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.card_type import CardType
 from app.models.card_type_category import CardTypeCategory
 
+_R = TypeVar("_R")
+
 # ``card_type_categories.key`` / ``label`` and ``card_types.category`` are all
 # ``String(100)``.
 MAX_KEY_LENGTH = 100
+# The frontend's sentinel for "no category" (``UNCATEGORIZED_GROUP_KEY`` in
+# ``lib/cardTypeOrder.ts``). A registry row under that key would share the
+# uncategorised lane and group with every type that has no category at all.
+RESERVED_KEYS = frozenset({"__uncategorized__"})
 # The colour a category gets when none is chosen (an adopted one, or a create
 # that sent none) — the neutral grey the dependency view always used for an
 # unknown layer.
@@ -64,6 +71,8 @@ def normalize_key(label: object) -> str:
         raise CategoryError(
             "invalid_category", f"Category label must be at most {MAX_KEY_LENGTH} characters"
         )
+    if key.lower() in RESERVED_KEYS:
+        raise CategoryError("invalid_category", f"'{key}' is a reserved name")
     return key
 
 
@@ -80,14 +89,23 @@ def normalize_category_value(value: object) -> str | None:
     return stripped or None
 
 
-def is_duplicate(existing_keys: Iterable[str], key: str) -> str | None:
-    """The existing key ``key`` collides with, compared case-insensitively —
-    ``None`` when it is new. Two layers differing only in case would read as
-    one to every person looking at the metamodel."""
-    folded = key.casefold()
-    for existing in existing_keys:
-        if existing.casefold() == folded:
-            return existing
+def is_duplicate(rows: Iterable[_R], name: str, exclude_key: str | None = None) -> _R | None:
+    """The registry row ``name`` collides with — ``None`` when it is new.
+
+    ``rows`` are registry rows (anything with ``key`` and ``label``);
+    ``exclude_key`` leaves out the row being renamed. A name collides with
+    another row's **key or label**, compared case-insensitively: the key is
+    what card types store and the label is what every person reads, so after
+    renaming ``Foo`` to ``Bar`` a new ``Bar`` (or renaming ``Baz`` to ``bar``)
+    would put two layers on screen that read as one."""
+    folded = name.casefold()
+    for row in rows:
+        key = getattr(row, "key", None)
+        if exclude_key is not None and key == exclude_key:
+            continue
+        for candidate in (key, getattr(row, "label", None)):
+            if isinstance(candidate, str) and candidate.casefold() == folded:
+                return row
     return None
 
 
@@ -167,17 +185,6 @@ async def types_using(db: AsyncSession, key: str) -> list[str]:
         select(CardType.label).where(func.trim(CardType.category) == key).order_by(CardType.label)
     )
     return [label for label in result.scalars().all()]
-
-
-async def category_usage(db: AsyncSession) -> dict[str, int]:
-    """``{category: number of card types}`` over every type that has one."""
-    trimmed = func.trim(CardType.category)
-    result = await db.execute(
-        select(trimmed, func.count(CardType.id))
-        .where(CardType.category.is_not(None), trimmed != "")
-        .group_by(trimmed)
-    )
-    return {key: count for key, count in result.all()}
 
 
 async def ensure_categories(db: AsyncSession, values: Iterable[object]) -> list[str]:

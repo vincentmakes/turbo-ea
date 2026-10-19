@@ -202,6 +202,7 @@
   "dependency.aggregateByHint": "يجمّع البطاقات المرتبطة في صناديق ويرسم وصلة واحدة بين أي صندوقين، مع عدد العلاقات التي تمثّلها. تبقى العلاقات بين بطاقات الصندوق نفسه مرسومة داخله، وتبقى البطاقة الموجودة في المركز وحدها.",
   "dependency.aggregateBy_none": "إيقاف",
   "dependency.aggregateBy_layer": "حسب الطبقة",
+  "dependency.uncategorizedLayer": "غير مصنّف",
   "dependency.aggregateBy_type": "حسب نوع البطاقة",
   "dependency.aggregateBy_subtype": "حسب النوع الفرعي",
   "dependency.clusterTitle": "{{label}} ({{count}})",

@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "Fasst die verbundenen Karten in Kästen zusammen und zeichnet zwischen zwei Kästen eine einzige Verbindung, beschriftet mit der Anzahl der Beziehungen, für die sie steht. Beziehungen zwischen Karten desselben Kastens bleiben darin gezeichnet, und die zentrierte Karte steht weiterhin für sich.",
   "dependency.aggregateBy_none": "Aus",
   "dependency.aggregateBy_layer": "Nach Ebene",
+  "dependency.uncategorizedLayer": "Nicht kategorisiert",
   "dependency.aggregateBy_type": "Nach Kartentyp",
   "dependency.aggregateBy_subtype": "Nach Untertyp",
   "dependency.clusterTitle": "{{label}} ({{count}})",

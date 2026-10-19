@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "Samler de relaterede kort i kasser og tegner én forbindelse mellem to kasser, mærket med hvor mange relationer den står for. Relationer mellem kort i samme kasse tegnes stadig inde i den, og det centrerede kort står fortsat for sig selv.",
   "dependency.aggregateBy_none": "Fra",
   "dependency.aggregateBy_layer": "Efter lag",
+  "dependency.uncategorizedLayer": "Ukategoriseret",
   "dependency.aggregateBy_type": "Efter korttype",
   "dependency.aggregateBy_subtype": "Efter undertype",
   "dependency.clusterTitle": "{{label}} ({{count}})",

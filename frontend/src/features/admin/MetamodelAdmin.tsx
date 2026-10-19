@@ -36,7 +36,7 @@ import CategoryCombobox from "./metamodel/CategoryCombobox";
 import ManageCategoriesDialog from "./metamodel/ManageCategoriesDialog";
 import { categoryErrorMessage } from "./metamodel/categoryErrors";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
-import { categoryDisplayName } from "@/lib/cardTypeOrder";
+import { categoryDisplayName, defaultNewTypeCategory } from "@/lib/cardTypeOrder";
 import { successorRelationKeys } from "@/lib/successorRelation";
 
 /* ================================================================== */
@@ -72,9 +72,9 @@ export default function MetamodelAdmin() {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
   const { categories } = useCardTypeCategories();
-  // A new type starts in the first layer of the registry, like the old
-  // default did with a hard-coded name.
-  const defaultCategory = categories[0]?.key ?? null;
+  // A new type starts in "Application & Data" — the default before the
+  // registry existed — or, when an instance has none, the first layer.
+  const defaultCategory = defaultNewTypeCategory(categories);
 
   const [tab, setTab] = useState(0);
   const [types, setTypes] = useState<FSType[]>([]);

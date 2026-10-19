@@ -108,6 +108,20 @@ class TestCreate:
         assert r.json()["detail"]["error"] == "category_exists"
         assert r.json()["detail"]["key"] == "Application & Data"
 
+    async def test_a_renamed_categorys_label_is_taken(self, client, db, env):
+        await _create(client, env["admin"], "Foo")
+        r = await client.patch(
+            f"{BASE}/Foo", json={"label": "Bar"}, headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 200, r.text
+        r = await _create(client, env["admin"], "bar")
+        assert r.status_code == 409
+        assert r.json()["detail"]["error"] == "category_exists"
+        # The clash names the row that holds the label, by its key.
+        assert r.json()["detail"]["key"] == "Foo"
+        rows = (await db.execute(select(CardTypeCategory.key))).scalars().all()
+        assert "bar" not in rows
+
     @pytest.mark.parametrize("label", ["", "   ", "x" * 101])
     async def test_blank_or_overlong_label_is_refused(self, client, env, label):
         r = await _create(client, env["admin"], label)
@@ -180,6 +194,29 @@ class TestUpdate:
         )
         assert r.status_code == 409
         assert r.json()["detail"]["error"] == "category_exists"
+
+    async def test_rename_onto_another_renamed_categorys_label_conflicts(self, client, env):
+        await _create(client, env["admin"], "Foo")
+        await _create(client, env["admin"], "Baz")
+        r = await client.patch(
+            f"{BASE}/Foo", json={"label": "Bar"}, headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 200
+        r = await client.patch(
+            f"{BASE}/Baz", json={"label": "BAR"}, headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 409
+        assert r.json()["detail"]["error"] == "category_exists"
+        assert r.json()["detail"]["key"] == "Foo"
+
+    async def test_a_category_may_be_renamed_back_to_its_own_key(self, client, env):
+        await _create(client, env["admin"], "Foo")
+        await client.patch(f"{BASE}/Foo", json={"label": "Bar"}, headers=auth_headers(env["admin"]))
+        r = await client.patch(
+            f"{BASE}/Foo", json={"label": "foo"}, headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["label"] == "foo"
 
     async def test_unknown_is_404(self, client, env):
         r = await client.patch(
@@ -366,3 +403,51 @@ class TestTypeCategoryValidation:
         )
         assert r.status_code == 400
         assert r.json()["detail"]["error"] == "invalid_category"
+
+
+class TestTypeCategoryAuditLabels:
+    """A card-type audit row names its category by the registry label — the
+    key a type stores is not what an admin reads once a custom layer has been
+    renamed."""
+
+    async def _renamed_foo(self, client, env):
+        await _create(client, env["admin"], "Foo")
+        r = await client.patch(
+            f"{BASE}/Foo", json={"label": "Bar"}, headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 200
+
+    async def test_moving_a_type_logs_the_category_labels(self, client, db, env):
+        await create_card_type(db, key="Application", category="Application & Data")
+        await self._renamed_foo(client, env)
+        r = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"category": "Foo"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["category"] == "Foo"
+        (row,) = await _audit(db, "admin.metamodel.type.updated")
+        assert row.details["changes"]["category"] == {"old": "Application & Data", "new": "Bar"}
+
+    async def test_a_value_without_a_registry_row_is_logged_as_stored(self, client, db, env):
+        await create_card_type(db, key="Application", category="Legacy Layer")
+        r = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={"category": None},
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 200
+        (row,) = await _audit(db, "admin.metamodel.type.updated")
+        assert row.details["changes"]["category"] == {"old": "Legacy Layer", "new": None}
+
+    async def test_creating_a_type_logs_the_category_label(self, client, db, env):
+        await self._renamed_foo(client, env)
+        r = await client.post(
+            "/api/v1/metamodel/types",
+            json={"key": "Gadget", "label": "Gadget", "category": "Foo"},
+            headers=auth_headers(env["admin"]),
+        )
+        assert r.status_code == 201, r.text
+        (row,) = await _audit(db, "admin.metamodel.type.created")
+        assert row.details["context"]["category"] == "Bar"

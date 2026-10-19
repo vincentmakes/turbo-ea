@@ -1178,8 +1178,8 @@ function LayeredDependencyInner({
   // the reader's language.
   const { categories } = useCardTypeCategories();
   const layers = useMemo(
-    () => ldvLayers(categories, i18n.language),
-    [categories, i18n.language],
+    () => ldvLayers(categories, i18n.language, t("reports:dependency.uncategorizedLayer")),
+    [categories, i18n.language, t],
   );
 
   const {

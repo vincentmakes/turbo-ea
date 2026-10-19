@@ -198,6 +198,7 @@
   "dependency.aggregateByHint": "Agrupa las tarjetas relacionadas en cajas y traza una sola conexión entre dos cajas cualesquiera, etiquetada con cuántas relaciones representa. Las relaciones entre tarjetas de una misma caja se siguen dibujando dentro de ella, y la tarjeta centrada permanece aparte.",
   "dependency.aggregateBy_none": "Desactivado",
   "dependency.aggregateBy_layer": "Por capa",
+  "dependency.uncategorizedLayer": "Sin categoría",
   "dependency.aggregateBy_type": "Por tipo de tarjeta",
   "dependency.aggregateBy_subtype": "Por subtipo",
   "dependency.clusterTitle": "{{label}} ({{count}})",

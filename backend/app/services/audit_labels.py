@@ -2,7 +2,7 @@
 
 An audit row names admin-defined things by their *label*, never their key
 (``services/audit_log`` contract: "labels, not keys"). The lookups every writer
-needs — a card type's label, a role's label — and the one clipping rule for long
+needs — a card type's label, a role's label, a category's label — and the one clipping rule for long
 free text live here, so the writers cannot drift on what an unknown key or an
 over-long description turns into.
 
@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card_type import CardType
+from app.models.card_type_category import CardTypeCategory
 from app.models.role import Role
 
 # The longest free text (a description, a rationale) one side of an audit
@@ -65,6 +66,19 @@ async def role_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str,
     if not wanted:
         return {}
     rows = await db.execute(select(Role.key, Role.label).where(Role.key.in_(wanted)))
+    return {key: label for key, label in rows.all() if label}
+
+
+async def category_labels(db: AsyncSession, keys: Iterable[str | None]) -> dict[str, str]:
+    """``{card type category key: label}`` for ``keys``, in one query (none
+    when empty). A card type stores its category by key; a renamed custom
+    category's key is no longer what anyone reads."""
+    wanted = _wanted(keys)
+    if not wanted:
+        return {}
+    rows = await db.execute(
+        select(CardTypeCategory.key, CardTypeCategory.label).where(CardTypeCategory.key.in_(wanted))
+    )
     return {key: label for key, label in rows.all() if label}
 
 

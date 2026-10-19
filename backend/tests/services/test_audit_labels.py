@@ -12,6 +12,7 @@ from app.services.audit_labels import (
     AUDIT_TEXT_LIMIT,
     card_type_label,
     card_type_labels,
+    category_labels,
     clip_text,
     role_labels,
 )
@@ -49,7 +50,7 @@ def test_clip_text():
     assert clip_text("abcd", limit=4) == "abcd"
 
 
-@pytest.mark.parametrize("lookup", [card_type_labels, role_labels])
+@pytest.mark.parametrize("lookup", [card_type_labels, role_labels, category_labels])
 async def test_empty_input_issues_no_query(lookup):
     db = FakeSession()
     assert await lookup(db, []) == {}
@@ -84,3 +85,12 @@ async def test_card_type_label_falls_back_to_the_key():
     assert await card_type_label(db, None) is None
     assert await card_type_label(db, "") == ""
     assert db.statements == []
+
+
+async def test_category_labels_query_the_category_registry():
+    db = FakeSession([("Foo", "Bar"), ("Blank", "")])
+    assert await category_labels(db, ["Foo", "Blank", "Ghost", None]) == {"Foo": "Bar"}
+    [statement] = db.statements
+    sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+    assert "FROM card_type_categories" in sql
+    assert "'Foo'" in sql and "'Ghost'" in sql

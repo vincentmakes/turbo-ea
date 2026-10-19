@@ -5,6 +5,7 @@ import {
   UNCATEGORIZED_GROUP_KEY,
   categoryDisplayName,
   categoryKeyOrder,
+  defaultNewTypeCategory,
   groupCardTypesByCategory,
   orderCategories,
   orderCategoryKeys,
@@ -349,5 +350,28 @@ describe("category ordering helpers", () => {
     expect(categoryDisplayName("  ", registry())).toBeNull();
     expect(categoryDisplayName(null, registry())).toBeNull();
     expect(categoryDisplayName(undefined, registry())).toBeNull();
+  });
+});
+
+describe("defaultNewTypeCategory", () => {
+  it("is Application & Data when the registry holds it, wherever it sorts", () => {
+    // Strategy & Transformation sorts first; the default is not "first".
+    expect(defaultNewTypeCategory(registry())).toBe(APPLICATION);
+  });
+
+  it("falls back to the registry's first layer without Application & Data", () => {
+    const rows = registry().filter((c) => c.key !== APPLICATION);
+    expect(defaultNewTypeCategory(rows)).toBe(STRATEGY);
+    expect(
+      defaultNewTypeCategory([
+        makeCategory({ key: "Zed", sort_order: 1 }),
+        makeCategory({ key: "Alpha", sort_order: 1 }),
+        makeCategory({ key: "Late", sort_order: 5 }),
+      ]),
+    ).toBe("Alpha");
+  });
+
+  it("is none for an empty registry", () => {
+    expect(defaultNewTypeCategory([])).toBeNull();
   });
 });

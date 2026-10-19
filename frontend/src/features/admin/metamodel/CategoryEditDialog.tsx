@@ -23,10 +23,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ColorPicker from "@/components/ColorPicker";
 import { api } from "@/api/client";
-import {
-  invalidateCardTypeCategories,
-  useCardTypeCategories,
-} from "@/hooks/useCardTypeCategories";
+import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { DEFAULT_LAYER_COLOR } from "@/theme/tokens";
 import type { CardTypeCategory, TranslationMap } from "@/types";
@@ -58,7 +55,7 @@ export default function CategoryEditDialog({
   onSaved,
 }: CategoryEditDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
-  const { categories } = useCardTypeCategories();
+  const { refresh } = useCardTypeCategories();
   const editing = Boolean(category);
   const [label, setLabel] = useState("");
   const [color, setColor] = useState<string>(DEFAULT_LAYER_COLOR);
@@ -84,22 +81,16 @@ export default function CategoryEditDialog({
       translations: cleanTranslations(translations),
     };
     try {
-      let saved: CardTypeCategory;
-      if (category) {
-        saved = await api.patch<CardTypeCategory>(
-          `/metamodel/categories/${encodeURIComponent(category.key)}`,
-          body,
-        );
-        invalidateCardTypeCategories(
-          categories.map((c) => (c.key === saved.key ? saved : c)),
-        );
-      } else {
-        saved = await api.post<CardTypeCategory>("/metamodel/categories", body);
-        invalidateCardTypeCategories([
-          ...categories.filter((c) => c.key !== saved.key),
-          saved,
-        ]);
-      }
+      const saved = category
+        ? await api.patch<CardTypeCategory>(
+            `/metamodel/categories/${encodeURIComponent(category.key)}`,
+            body,
+          )
+        : await api.post<CardTypeCategory>("/metamodel/categories", body);
+      // Re-read the registry rather than patching the list this dialog holds:
+      // that copy can be stale, or still empty if the first load failed, and
+      // rebuilding the cache from it would drop every other category.
+      await refresh();
       onSaved(saved);
     } catch (err) {
       setError(categoryErrorMessage(err, t));
