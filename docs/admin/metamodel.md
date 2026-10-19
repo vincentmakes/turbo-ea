@@ -16,7 +16,17 @@ The Card Types tab lists all types in the system. Turbo EA ships with 14 built-i
 | **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
 | **Application & Data** | Application, Interface, Data Object |
 | **Technical Architecture** | IT Component, Tech Category, Provider, System |
-| **Allow custom logos** | Whether editors may upload a logo image per card, shown in place of the type icon (on for Application and IT Component by default) |
+
+### Categories (architecture layers)
+
+Every card type sits in a **category** — the architecture layer it is grouped under. The category order is the order of the layers wherever they are drawn: the Inventory's type filter, the **Metamodel Graph** and the swim lanes of the Layered Dependency View, each shown in the category's color and in the reader's language.
+
+- **The four built-in layers are locked.** Strategy & Transformation, Business Architecture, Application & Data and Technical Architecture cannot be renamed, recolored or deleted, and are translated into every supported language.
+- **Create your own.** In the **Category** field of the type editor or of **+ New Type**, type a name that does not exist yet and choose **Create category "…"**. Pick a color, optionally add translations, and the type moves into the new category.
+- **Move any type.** Built-in types can be moved too — for example, put Interface into a custom *Integration* layer.
+- **Manage categories.** The **Manage categories** button next to **+ New Type** lists every category with its color and the number of card types that use it. Use the arrows to change the layer order (a custom layer can sit between two built-in ones), the pencil to rename, recolor or translate a custom category, and the bin to delete one. A category still used by a card type cannot be deleted — move its types to another category first.
+
+![Manage categories](../assets/img/en/100_admin_metamodel_categories.png)
 
 ### Creating a Custom Type
 
@@ -28,7 +38,7 @@ Click **+ New Type** to create a custom card type. Configure:
 | **Label** | Display name shown in the UI |
 | **Icon** | Google Material Symbol icon name |
 | **Color** | Brand color for the type (used in inventory, reports, and diagrams) |
-| **Category** | Architecture layer grouping |
+| **Category** | The architecture layer the type is grouped under — pick an existing category or type a new name to create one (see [Categories](#categories-architecture-layers)) |
 | **Has Hierarchy** | Whether cards of this type can have parent/child relationships |
 
 ### Editing a Type

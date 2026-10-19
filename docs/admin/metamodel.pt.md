@@ -17,6 +17,17 @@ A aba de Tipos de Card lista todos os tipos no sistema. O Turbo EA vem com 14 ti
 | **Aplicação e Dados** | Aplicação, Interface, Objeto de Dados |
 | **Arquitetura Técnica** | Componente de TI, Categoria Tecnológica, Fornecedor, Sistema |
 
+### Categorias (camadas de arquitetura)
+
+Cada tipo de card pertence a uma **categoria** — a camada de arquitetura em que é agrupado. A ordem das categorias é a ordem das camadas em todo o lado onde são desenhadas: o filtro de tipos do inventário, o **grafo do metamodelo** e as faixas da Layered Dependency View, cada uma na cor da sua categoria e no idioma de quem lê.
+
+- **As quatro camadas nativas estão bloqueadas.** Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados e Arquitetura Técnica não podem ser renomeadas, recoloridas nem eliminadas, e estão traduzidas para todos os idiomas suportados.
+- **Crie as suas.** No campo **Categoria** do editor de tipos ou de **+ Novo Tipo**, escreva um nome que ainda não exista e escolha **Criar a categoria «…»**. Escolha uma cor, adicione traduções se quiser, e o tipo passa para a nova categoria.
+- **Mova qualquer tipo.** Os tipos nativos também podem ser movidos — por exemplo, coloque Interface numa camada própria *Integração*.
+- **Gerir categorias.** O botão **Gerir categorias**, ao lado de **+ Novo Tipo**, lista todas as categorias com a sua cor e o número de tipos de card que as usam. As setas alteram a ordem das camadas (uma camada própria pode ficar entre duas nativas), o lápis renomeia, recolore ou traduz uma categoria própria, e o caixote do lixo elimina-a. Uma categoria ainda usada por um tipo de card não pode ser eliminada — mova primeiro os seus tipos para outra categoria.
+
+![Gerir categorias](../assets/img/pt/100_admin_metamodelo_categorias.png)
+
 ### Criando um Tipo Personalizado
 
 Clique em **+ Novo Tipo** para criar um tipo de card personalizado. Configure:
@@ -27,7 +38,7 @@ Clique em **+ Novo Tipo** para criar um tipo de card personalizado. Configure:
 | **Rótulo** | Nome de exibição mostrado na interface |
 | **Ícone** | Nome do ícone Google Material Symbol |
 | **Cor** | Cor da marca para o tipo (usada no inventário, relatórios e diagramas) |
-| **Categoria** | Agrupamento por camada de arquitetura |
+| **Categoria** | A camada de arquitetura em que o tipo é agrupado — escolha uma categoria existente ou escreva um novo nome para criar uma (consulte [Categorias](#categorias-camadas-de-arquitetura)) |
 | **Possui Hierarquia** | Se cards deste tipo podem ter relacionamentos pai/filho |
 | **Permitir logótipos personalizados** | Se os editores podem carregar um logótipo por cartão, apresentado em vez do ícone do tipo (ativo de origem para Aplicação e Componente de TI) |
 

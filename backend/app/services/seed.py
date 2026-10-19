@@ -1162,6 +1162,90 @@ PROCESS_FREQUENCY_OPTIONS = [
 ]
 
 
+# ── Card type categories (the EA layers) ─────────────────────────────
+#
+# The four built-in architecture layers, seeded insert-only into
+# ``card_type_categories`` on every boot (``seed_default_categories``). Each is
+# keyed by its historical name — the exact string the built-in types below carry
+# in ``category`` — so introducing the registry changed no card-type row. Built-in
+# rows are locked (label, colour, translations, delete); admins add their own
+# layers beside them. Colours match ``LAYER_COLORS`` in ``frontend/src/theme/tokens.ts``.
+
+CARD_TYPE_CATEGORIES = [
+    {
+        "key": "Strategy & Transformation",
+        "label": "Strategy & Transformation",
+        "color": "#33cc58",
+        "sort_order": 0,
+        "translations": {
+            "de": "Strategie & Transformation",
+            "fr": "Stratégie et transformation",
+            "es": "Estrategia y Transformación",
+            "it": "Strategia e trasformazione",
+            "pt": "Estratégia e Transformação",
+            "zh": "战略与转型",
+            "ru": "Стратегия и трансформация",
+            "da": "Strategi og transformation",
+            "ar": "الاستراتيجية والتحول",
+        },
+    },
+    {
+        "key": "Business Architecture",
+        "label": "Business Architecture",
+        "color": "#2889ff",
+        "sort_order": 1,
+        "translations": {
+            "de": "Geschäftsarchitektur",
+            "fr": "Architecture métier",
+            "es": "Arquitectura de Negocio",
+            "it": "Architettura aziendale",
+            "pt": "Arquitetura de Negócio",
+            "zh": "业务架构",
+            "ru": "Бизнес-архитектура",
+            "da": "Forretningsarkitektur",
+            "ar": "بنية الأعمال",
+        },
+    },
+    {
+        "key": "Application & Data",
+        "label": "Application & Data",
+        "color": "#0f7eb5",
+        "sort_order": 2,
+        "translations": {
+            "de": "Anwendung & Daten",
+            "fr": "Application et données",
+            "es": "Aplicación y Datos",
+            "it": "Applicazioni e dati",
+            "pt": "Aplicação e Dados",
+            "zh": "应用与数据",
+            "ru": "Приложения и данные",
+            "da": "Applikationer og data",
+            "ar": "التطبيقات والبيانات",
+        },
+    },
+    {
+        "key": "Technical Architecture",
+        "label": "Technical Architecture",
+        "color": "#d29270",
+        "sort_order": 3,
+        "translations": {
+            "de": "Technische Architektur",
+            "fr": "Architecture technique",
+            "es": "Arquitectura Técnica",
+            "it": "Architettura tecnologica",
+            "pt": "Arquitetura Técnica",
+            "zh": "技术架构",
+            "ru": "Техническая архитектура",
+            "da": "Teknisk arkitektur",
+            "ar": "البنية التقنية",
+        },
+    },
+]
+
+# The keys above — the strings that are never adopted as a custom category.
+DEFAULT_CATEGORY_KEYS = frozenset(c["key"] for c in CARD_TYPE_CATEGORIES)
+
+
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [
@@ -6330,5 +6414,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
                 translations=rt["translations"],
             )
         )
+
+    # ── Built-in card type categories (the four EA layers, insert-only) ──
+    from app.services.card_type_categories import seed_default_categories
+
+    await seed_default_categories(db)
 
     await db.commit()

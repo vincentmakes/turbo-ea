@@ -1596,3 +1596,135 @@ async def test_card_tags_and_relations_carry_full_card_paths(db):
     assert tagged == [child.id]
     (rel,) = (await db.execute(select(Relation))).scalars().all()
     assert (rel.source_id, rel.target_id) == (child.id, db_card.id)
+
+
+async def test_card_type_categories_roundtrip(db):
+    """A custom category and a built-in type moved into it survive an export
+    → delete → import round trip; a re-import of the same bundle is all-skip."""
+    from app.models.card_type_category import CardTypeCategory
+    from app.services.card_type_categories import seed_default_categories
+
+    user = await create_user(db, email="cat-ws@test.com", role="admin")
+    await seed_default_categories(db)
+    db.add(
+        CardTypeCategory(
+            key="Security",
+            label="Security Layer",
+            color="#123456",
+            sort_order=7,
+            built_in=False,
+            translations={"fr": "Sécurité"},
+        )
+    )
+    await create_card_type(db, key="Application", built_in=True, category="Security")
+    await db.flush()
+
+    raw = await build_bundle(db)
+    bundle = parse_bundle(raw)
+    assert bundle.rows(schema.SHEET_CARD_TYPE_CATEGORIES)
+
+    await db.execute(delete(CardTypeCategory).where(CardTypeCategory.built_in.is_(False)))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    rows = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+    restored = rows["Security"]
+    assert (restored.label, restored.color, restored.sort_order) == ("Security Layer", "#123456", 7)
+    assert restored.translations == {"fr": "Sécurité"}
+    assert restored.built_in is False
+    app = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+    assert app.category == "Security"
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    section = next(s for s in again.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    assert (section.created, section.updated) == (0, 0)
+    assert section.skipped == 5
+    assert section.skip_reasons == {"identical": 5}
+
+
+async def test_card_type_bundle_without_categories_sheet_adopts_the_category(db):
+    """A bundle exported before the registry carries no CardTypeCategories
+    sheet; the category its card types name is adopted as a custom row."""
+    from app.models.card_type_category import CardTypeCategory
+
+    user = await create_user(db, email="old-cat@test.com", role="admin")
+    card_types = [
+        {c: None for c in exp.CARD_TYPE_COLUMNS}
+        | {
+            "key": "Widget",
+            "label": "Widget",
+            "icon": "widgets",
+            "color": "#123456",
+            "category": "Legacy Layer",
+            "has_hierarchy": False,
+            "has_successors": False,
+            "subtypes": [],
+            "fields_schema": [],
+            "stakeholder_roles": [],
+            "section_config": {},
+            "built_in": False,
+            "is_hidden": False,
+            "sort_order": 0,
+            "translations": {},
+            "reference_config": {},
+            "role_permissions": {},
+        }
+    ]
+    raw = _make_bundle(
+        {schema.SHEET_CARD_TYPES: (exp.CARD_TYPE_COLUMNS, exp.CARD_TYPE_JSON, card_types)}
+    )
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    adopted = (
+        await db.execute(select(CardTypeCategory).where(CardTypeCategory.key == "Legacy Layer"))
+    ).scalar_one()
+    assert adopted.label == "Legacy Layer"
+    assert adopted.built_in is False
+    assert adopted.color == "#999999"
+
+
+async def test_a_bundle_cannot_repaint_a_built_in_category(db):
+    """The four default layers are locked on every instance: a bundle carrying
+    a recoloured, renamed default leaves the target's row alone, and a bundle
+    row claiming ``built_in`` for a new key lands as a custom row."""
+    from app.models.card_type_category import CardTypeCategory
+    from app.services.card_type_categories import seed_default_categories
+
+    user = await create_user(db, email="lock-cat@test.com", role="admin")
+    await seed_default_categories(db)
+    await db.flush()
+    sec = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    rows = [
+        {
+            "key": "Application & Data",
+            "label": "Apps",
+            "color": "#000000",
+            "sort_order": 0,
+            "built_in": False,
+            "translations": {},
+        },
+        {
+            "key": "Smuggled",
+            "label": "Smuggled",
+            "color": "#111111",
+            "sort_order": 9,
+            "built_in": True,
+            "translations": {},
+        },
+    ]
+    raw = _make_bundle({schema.SHEET_CARD_TYPE_CATEGORIES: (sec.columns, sec.json_columns, rows)})
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    section = next(s for s in result.sections if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    assert section.skip_reasons == {"built_in_locked": 1}
+    assert section.created == 1
+
+    by_key = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+    app_data = by_key["Application & Data"]
+    assert (app_data.label, app_data.color, app_data.built_in) == (
+        "Application & Data",
+        "#0f7eb5",
+        True,
+    )
+    assert by_key["Smuggled"].built_in is False

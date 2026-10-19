@@ -41,9 +41,52 @@ vi.mock("./metamodel/HierarchyLabelsDialog", () => ({
 }));
 
 vi.mock("./metamodel/constants", () => ({
-  CATEGORIES: ["Application & Data", "Business Architecture", "Strategy & Transformation", "Technical Architecture"],
   CARDINALITY_OPTIONS: ["1:1", "1:n", "n:m"],
 }));
+
+// The category registry, as the singleton hook serves it. The page reads it
+// for the type cards' captions, the create dialog's default and combobox, and
+// the Manage categories dialog.
+vi.mock("@/hooks/useCardTypeCategories", () => {
+  const categories = [
+    {
+      id: "c1",
+      key: "Strategy & Transformation",
+      label: "Strategy & Transformation",
+      color: "#33cc58",
+      sort_order: 0,
+      built_in: true,
+      translations: {},
+    },
+    {
+      id: "c2",
+      key: "Application & Data",
+      label: "Application & Data",
+      color: "#0f7eb5",
+      sort_order: 1,
+      built_in: true,
+      translations: {},
+    },
+    {
+      id: "c3",
+      key: "Security",
+      label: "Security Layer",
+      color: "#ff0000",
+      sort_order: 2,
+      built_in: false,
+      translations: {},
+    },
+  ];
+  return {
+    useCardTypeCategories: () => ({
+      categories,
+      byKey: Object.fromEntries(categories.map((c) => [c.key, c])),
+      loaded: true,
+      refresh: () => Promise.resolve(),
+    }),
+    invalidateCardTypeCategories: vi.fn(),
+  };
+});
 
 vi.mock("@/features/admin/CalculationsAdmin", () => ({
   default: () => <div data-testid="calculations-admin" />,
@@ -226,6 +269,68 @@ describe("MetamodelAdmin", () => {
     await waitFor(() => {
       expect(screen.getByText("Create Card Type")).toBeInTheDocument();
     });
+  });
+
+  it("names each type's category through the registry", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/metamodel/types"))
+        return Promise.resolve([
+          { ...MOCK_TYPES[0], category: "Security" },
+          { ...MOCK_TYPES[1], category: null },
+        ]);
+      if (path.includes("/metamodel/relation-types")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+    renderMetamodel();
+    // A renamed custom category shows its label, not the stored key.
+    expect(await screen.findByText("Security Layer")).toBeInTheDocument();
+    expect(screen.getByText("Uncategorized")).toBeInTheDocument();
+  });
+
+  it("starts a new type in the first registry category and posts it", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockResolvedValueOnce({});
+    renderMetamodel();
+    await user.click(screen.getByRole("button", { name: /new type/i }));
+    const combo = await screen.findByRole("combobox", { name: "Category" });
+    expect(combo).toHaveValue("Strategy & Transformation");
+
+    await user.click(combo);
+    await user.click(await screen.findByRole("option", { name: "Security Layer" }));
+    await user.type(screen.getByTestId("key-input"), "widget");
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Widget");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.post).mock.calls[0]).toEqual([
+      "/metamodel/types",
+      expect.objectContaining({ key: "widget", label: "Widget", category: "Security" }),
+    ]);
+  });
+
+  it("keeps the create dialog open with a translated error on an unknown category", async () => {
+    const user = userEvent.setup();
+    const { ApiError } = await vi.importActual<typeof import("@/api/client")>("@/api/client");
+    vi.mocked(api.post).mockRejectedValueOnce(
+      new ApiError("Unknown category", 400, { error: "unknown_category", category: "Gone" }),
+    );
+    renderMetamodel();
+    await user.click(screen.getByRole("button", { name: /new type/i }));
+    await user.type(screen.getByTestId("key-input"), "widget");
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Widget");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    expect(
+      await screen.findByText(/The category “Gone” does not exist/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Create Card Type")).toBeInTheDocument();
+  });
+
+  it("opens the Manage categories dialog from the Card Types tab", async () => {
+    const user = userEvent.setup();
+    renderMetamodel();
+    await user.click(screen.getByRole("button", { name: /manage categories/i }));
+    expect(await screen.findByText("Categories (architecture layers)")).toBeInTheDocument();
+    expect(screen.getByTestId("category-row-Security")).toBeInTheDocument();
   });
 
   it("shows Show hidden types toggle", async () => {

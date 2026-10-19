@@ -17,6 +17,7 @@
 | **Cálculo** | Uma fórmula definida pelo administrador que calcula automaticamente o valor de um campo quando um card é salvo |
 | **Card** | A unidade básica de informação no Turbo EA representando qualquer componente de arquitetura |
 | **Tipo de Card** | A categoria à qual um card pertence (ex.: Aplicação, Processo de Negócio, Organização) |
+| **Categoria (camada de arquitetura)** | A camada de EA em que um tipo de card é agrupado — Estratégia e Transformação, Arquitetura de Negócio, Aplicação e Dados, Arquitetura Técnica ou uma criada por um administrador. As categorias ordenam as camadas no filtro de tipos do inventário, no grafo do metamodelo e nas faixas da vista de dependências; as quatro nativas estão bloqueadas |
 | **Pontuação de Confiança** | Uma classificação de 0–100% indicando o quão confiável é uma descrição gerada por IA |
 | **Linha de custo** | Uma entrada de orçamento ou custo real (CapEx/OpEx) em uma iniciativa PPM, usada para rastrear gastos financeiros |
 | **Qualidade de Dados** | Uma pontuação de completude de 0–100% baseada nos campos preenchidos e seus pesos configurados |

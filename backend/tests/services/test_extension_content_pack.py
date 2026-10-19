@@ -84,6 +84,26 @@ class TestLoadContent:
         assert "Surveys" in CONTENT_ALLOWED_SHEETS
         assert "SurveyResponses" not in CONTENT_ALLOWED_SHEETS
 
+    def test_card_type_categories_is_an_allowed_sheet(self):
+        """A pack may ship the EA layers its card types sit in."""
+        assert "CardTypeCategories" in CONTENT_ALLOWED_SHEETS
+
+    def test_allowed_sheets_match_the_teax_cli(self):
+        """``teax lint`` must accept exactly the sheets the installer does, or a
+        pack that lints clean is refused at install (or the reverse)."""
+        import ast
+        from pathlib import Path
+
+        teax = Path(__file__).resolve().parents[3] / "scripts" / "extension-tools" / "teax.py"
+        tree = ast.parse(teax.read_text(encoding="utf-8"))
+        sheets = next(
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "CONTENT_SHEETS" for t in node.targets)
+        )
+        assert set(ast.literal_eval(sheets)) == set(CONTENT_ALLOWED_SHEETS)
+
     def test_build_bundle_clamps_survey_status_to_draft(self):
         # Even an "active" survey with send/close stamps is forced to draft.
         sheets = {

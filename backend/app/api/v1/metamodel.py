@@ -19,6 +19,7 @@ from app.core.permissions import (
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.card_type_category import CardTypeCategory
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
@@ -32,6 +33,7 @@ from app.services import (
     audit_labels,
     audit_log,
     card_reference,
+    card_type_categories,
     card_type_delete,
 )
 from app.services.extensions.registry import extension_registry
@@ -115,6 +117,7 @@ _PRINCIPLE_TEXT_FIELDS = ("description", "rationale", "implications")
 # ``translations`` (``{locale: label}``) are reported as items instead.
 _CATALOGUE_AUDIT_SCALARS = ("label", "description", "is_enabled", "sort_order")
 _RESOURCE_TYPE_AUDIT_SCALARS = ("label", "description", "icon", "is_enabled", "sort_order")
+_CATEGORY_AUDIT_SCALARS = ("label", "color", "sort_order")
 
 
 def _audit_snapshot(obj: object, fields: tuple[str, ...]) -> dict:
@@ -1103,13 +1106,14 @@ async def create_type(
     except card_reference.ReferenceConfigError as exc:
         raise HTTPException(400, str(exc)) from exc
     role_permissions = await _validated_role_permissions(db, body.get("role_permissions"))
+    category = await _validated_category(db, body.get("category"))
     t = CardType(
         key=body["key"],
         label=body["label"],
         description=body.get("description"),
         icon=body.get("icon", "category"),
         color=body.get("color", "#1976d2"),
-        category=body.get("category"),
+        category=category,
         has_hierarchy=body.get("has_hierarchy", False),
         has_successors=body.get("has_successors", False),
         allow_card_logo=body.get("allow_card_logo", False),
@@ -1182,6 +1186,9 @@ async def update_type(
                     f"Cannot remove roles that are in use: {details}. "
                     "Remove the stakeholder assignments first.",
                 )
+
+    if "category" in body:
+        body["category"] = await _validated_category(db, body["category"], t.category)
 
     audit_fields = _TYPE_AUDIT_SCALARS + _TYPE_AUDIT_JSON
     audit_before = _audit_snapshot(t, audit_fields)
@@ -2347,4 +2354,274 @@ async def delete_resource_type(
         context={"kind": r.kind, "key": r.key},
     )
     await db.delete(r)
+    await db.commit()
+
+
+# ── Card type categories (the EA layers) ──────────────────────────────
+#
+# ``card_types.category`` names a row of this registry by ``key``. The four
+# built-in layers are locked (label, colour, translations, delete); their
+# position in the order is not, since a custom layer may sit between two of
+# them. The logic lives in ``services/card_type_categories`` — these handlers
+# only translate its answers into HTTP.
+
+
+class CardTypeCategoryCreate(BaseModel):
+    label: str = Field(..., max_length=300)
+    color: str | None = None
+    translations: dict[str, str] | None = None
+
+
+class CardTypeCategoryUpdate(BaseModel):
+    label: str | None = Field(None, max_length=300)
+    color: str | None = None
+    translations: dict[str, str] | None = None
+
+
+class CardTypeCategoryOrder(BaseModel):
+    keys: list[str]
+
+
+def _category_http_error(exc: card_type_categories.CategoryError) -> HTTPException:
+    return HTTPException(400, detail={"error": exc.code, "message": str(exc)})
+
+
+def _clean_translations(translations: dict[str, str] | None) -> dict[str, str]:
+    """``translations`` with blank labels dropped and the rest trimmed — an
+    empty field in the editor means "fall back to the label"."""
+    return {
+        locale: label.strip()
+        for locale, label in (translations or {}).items()
+        if isinstance(label, str) and label.strip()
+    }
+
+
+async def _validated_category(db: AsyncSession, value: object, current: str | None = None):
+    """``value`` as a card type stores it — trimmed, ``None`` when blank —
+    once it names a registry key. Re-sending a type's current category is
+    always accepted, so a value adopted nowhere (written before the registry
+    by a path that did not adopt) cannot block an unrelated edit of the type."""
+    try:
+        category = card_type_categories.normalize_category_value(value)
+    except card_type_categories.CategoryError as exc:
+        raise _category_http_error(exc) from exc
+    if category is None:
+        return None
+    if current is not None and category == current.strip():
+        return category
+    if not await card_type_categories.category_exists(db, category):
+        raise HTTPException(
+            400,
+            detail={
+                "error": "unknown_category",
+                "message": f"Unknown category '{category}'. Create it under "
+                "Manage categories first.",
+                "category": category,
+            },
+        )
+    return category
+
+
+@router.get("/categories")
+async def list_card_type_categories(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Every card type category, in layer order. Any signed-in user may read
+    it — every surface that draws layers needs the labels and colours."""
+    rows = await card_type_categories.list_categories(db)
+    return [card_type_categories.serialize(c) for c in rows]
+
+
+@router.post("/categories", status_code=201)
+async def create_card_type_category(
+    body: CardTypeCategoryCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a custom category; its key is the label as typed, trimmed."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    try:
+        key = card_type_categories.normalize_key(body.label)
+    except card_type_categories.CategoryError as exc:
+        raise _category_http_error(exc) from exc
+    color = body.color or card_type_categories.DEFAULT_COLOR
+    _validate_color({"color": color})
+    existing_keys = (await db.execute(select(CardTypeCategory.key))).scalars().all()
+    clash = card_type_categories.is_duplicate(existing_keys, key)
+    if clash is not None:
+        raise HTTPException(
+            409,
+            detail={
+                "error": "category_exists",
+                "message": f"A category named '{clash}' already exists",
+                "key": clash,
+            },
+        )
+    c = CardTypeCategory(
+        id=uuid.uuid4(),
+        key=key,
+        label=key,
+        color=color,
+        sort_order=await card_type_categories.next_sort_order(db),
+        built_in=False,
+        translations=_clean_translations(body.translations),
+    )
+    db.add(c)
+    await audit_log.record(
+        db,
+        action="admin.metamodel.category.created",
+        category="admin",
+        actor=user,
+        target=("card_type_category", c.key, c.label),
+        context={"color": c.color},
+    )
+    await db.commit()
+    await db.refresh(c)
+    return card_type_categories.serialize(c)
+
+
+@router.put("/categories/order")
+async def reorder_card_type_categories(
+    body: CardTypeCategoryOrder,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Rewrite the layer order. ``keys`` must list every category exactly once
+    — the built-in layers included, since a custom one may sit between them."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    rows = await card_type_categories.list_categories(db)
+    try:
+        order = card_type_categories.validate_order([c.key for c in rows], body.keys)
+    except card_type_categories.CategoryError as exc:
+        raise _category_http_error(exc) from exc
+    by_key = {c.key: c for c in rows}
+    before = [c.key for c in rows]
+    for index, key in enumerate(order):
+        by_key[key].sort_order = index
+    if order != before:
+        await audit_log.record(
+            db,
+            action="admin.metamodel.category.reordered",
+            category="admin",
+            actor=user,
+            target=("card_type_category", None, None),
+            context={"order": [by_key[k].label for k in order]},
+        )
+    await db.commit()
+    rows = await card_type_categories.list_categories(db)
+    return [card_type_categories.serialize(c) for c in rows]
+
+
+@router.patch("/categories/{key:path}")
+async def update_card_type_category(
+    key: str,
+    body: CardTypeCategoryUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Edit a custom category's label, colour or translations. The key never
+    changes (it is what card types store); a built-in layer is locked."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    c = await card_type_categories.get_category(db, key)
+    if c is None:
+        raise HTTPException(404, "Category not found")
+    if c.built_in:
+        raise HTTPException(
+            400,
+            detail={
+                "error": "built_in_locked",
+                "message": "A built-in category cannot be renamed, recoloured or deleted",
+                "key": c.key,
+            },
+        )
+    updates = body.model_dump(exclude_unset=True)
+    if "label" in updates:
+        try:
+            updates["label"] = card_type_categories.normalize_key(updates["label"])
+        except card_type_categories.CategoryError as exc:
+            raise _category_http_error(exc) from exc
+        others = (
+            (await db.execute(select(CardTypeCategory.key).where(CardTypeCategory.id != c.id)))
+            .scalars()
+            .all()
+        )
+        clash = card_type_categories.is_duplicate(others, updates["label"])
+        if clash is not None:
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "category_exists",
+                    "message": f"A category named '{clash}' already exists",
+                    "key": clash,
+                },
+            )
+    if "color" in updates:
+        if updates["color"] is None:
+            updates["color"] = card_type_categories.DEFAULT_COLOR
+        _validate_color(updates)
+    if "translations" in updates:
+        updates["translations"] = _clean_translations(updates["translations"])
+    changes = audit_log.diff(c, updates, keys=_CATEGORY_AUDIT_SCALARS)
+    items = _label_translation_items(c.translations, updates.get("translations", c.translations))
+    for field_name, value in updates.items():
+        setattr(c, field_name, value)
+    if changes or items:
+        await audit_log.record(
+            db,
+            action="admin.metamodel.category.updated",
+            category="admin",
+            actor=user,
+            target=("card_type_category", c.key, c.label),
+            changes=changes,
+            items=items,
+        )
+    await db.commit()
+    await db.refresh(c)
+    return card_type_categories.serialize(c)
+
+
+@router.delete("/categories/{key:path}", status_code=204)
+async def delete_card_type_category(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a custom category no card type uses. Built-in layers are locked;
+    a category still in use answers 409 ``types_present`` with the types."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    c = await card_type_categories.get_category(db, key)
+    if c is None:
+        raise HTTPException(404, "Category not found")
+    if c.built_in:
+        raise HTTPException(
+            400,
+            detail={
+                "error": "built_in_locked",
+                "message": "A built-in category cannot be renamed, recoloured or deleted",
+                "key": c.key,
+            },
+        )
+    using = await card_type_categories.types_using(db, c.key)
+    if using:
+        raise HTTPException(
+            409,
+            detail={
+                "error": "types_present",
+                "message": f"Category '{c.label}' is used by {len(using)} card type(s): "
+                + ", ".join(using),
+                "key": c.key,
+                "count": len(using),
+                "types": using,
+            },
+        )
+    await audit_log.record(
+        db,
+        action="admin.metamodel.category.deleted",
+        category="admin",
+        actor=user,
+        target=("card_type_category", c.key, c.label),
+        context={"color": c.color},
+    )
+    await db.delete(c)
     await db.commit()

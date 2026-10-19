@@ -7,10 +7,12 @@ import {
   resolveRevealIds,
   stripEdgeLabels,
   transposeRow,
+  ldvLayers,
+  buildLdvAggregateFlow,
   type GNode,
   type GEdge,
 } from "./layeredDependencyLayout";
-import type { CardType, RelationType, FieldOption } from "@/types";
+import type { CardType, CardTypeCategory, RelationType, FieldOption } from "@/types";
 
 const PAST = "2000-01-01";
 const FUTURE = "2999-01-01";
@@ -1023,5 +1025,99 @@ describe("buildLdvFlow arrowheads", () => {
       true,
       false,
     ]);
+  });
+});
+
+
+/* ------------------------------------------------------------------ */
+/*  Lanes from the category registry                                   */
+/* ------------------------------------------------------------------ */
+
+describe("buildLdvFlow lanes from the category registry", () => {
+  const SEC_TYPE = makeType({ key: "Firewall", category: "Security", sort_order: 9 });
+  const REGISTRY: CardTypeCategory[] = [
+    {
+      id: "1",
+      key: "Technical Architecture",
+      label: "Technical Architecture",
+      color: "#d29270",
+      sort_order: 2,
+      built_in: true,
+      translations: { fr: "Architecture technique" },
+    },
+    {
+      id: "2",
+      key: "Security",
+      label: "Security Layer",
+      color: "#ff0000",
+      sort_order: 0,
+      built_in: false,
+      translations: {},
+    },
+    {
+      id: "3",
+      key: "Application & Data",
+      label: "Application & Data",
+      color: "#0f7eb5",
+      sort_order: 1,
+      built_in: true,
+      translations: {},
+    },
+  ];
+  const nodes: GNode[] = [
+    { id: "a1", name: "App 1", type: "Application" },
+    { id: "it1", name: "Server 1", type: "ITComponent" },
+    { id: "fw1", name: "FW 1", type: "Firewall" },
+  ];
+  const lanes = (result: ReturnType<typeof buildLdvFlow>) =>
+    result.nodes
+      .filter((n) => n.type === "ldvGroup")
+      .sort((a, b) => a.position.y - b.position.y)
+      .map((g) => g.data as { label: string; color: string });
+
+  it("orders, names and colours lanes from the registry", () => {
+    const result = buildLdvFlow(
+      nodes,
+      [],
+      [...TYPES, SEC_TYPE],
+      undefined,
+      ldvLayers(REGISTRY, "fr"),
+    );
+    expect(lanes(result)).toEqual([
+      { label: "Security Layer", color: "#ff0000" },
+      { label: "Application & Data", color: "#0f7eb5" },
+      { label: "Architecture technique", color: "#d29270" },
+    ]);
+  });
+
+  it("keeps the built-in order, raw names and default colour without a registry", () => {
+    const result = buildLdvFlow(nodes, [], [...TYPES, SEC_TYPE]);
+    expect(lanes(result)).toEqual([
+      { label: "Application & Data", color: "#0f7eb5" },
+      { label: "Technical Architecture", color: "#d29270" },
+      { label: "Security", color: "#999999" },
+    ]);
+  });
+
+  it("orders the aggregate layer boxes by the registry too", () => {
+    const result = buildLdvAggregateFlow(
+      nodes,
+      [],
+      [...TYPES, SEC_TYPE],
+      "layer",
+      undefined,
+      undefined,
+      undefined,
+      ldvLayers(REGISTRY, "en"),
+    );
+    const boxes = result.nodes
+      .filter((n) => n.type === "ldvCluster")
+      .map((n) => n.data as { label: string; color: string });
+    expect(boxes.map((b) => b.label).sort()).toEqual([
+      "Application & Data",
+      "Security Layer",
+      "Technical Architecture",
+    ]);
+    expect(boxes.find((b) => b.label === "Security Layer")?.color).toBe("#ff0000");
   });
 });

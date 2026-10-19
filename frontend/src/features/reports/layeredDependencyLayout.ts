@@ -16,8 +16,7 @@ import type { TimelineChange } from "./timelineRange";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
 import {
   alignLanesX,
-  CATEGORY_COLORS,
-  CATEGORY_ORDER,
+  DEFAULT_LDV_LAYERS,
   DRAG_ROOM,
   GROUP_GAP,
   LABEL_H,
@@ -32,6 +31,7 @@ import {
   typeColor,
   typeIcon,
   typeLabel,
+  type LdvLayers,
 } from "./ldvLayoutShared";
 import type { LdvEdgeLineStyle } from "./ldvLineStyle";
 import {
@@ -330,6 +330,11 @@ export function buildLdvFlow(
    * exactly as before (label-only).
    */
   relValueResolver?: (edge: GEdge) => string | undefined,
+  /**
+   * Lane order, names and colours — `ldvLayers(categories, locale)` from the
+   * category registry. Defaults to the four built-in layers.
+   */
+  layers: LdvLayers = DEFAULT_LDV_LAYERS,
 ): { nodes: Node[]; edges: Edge[] } {
   if (gNodes.length === 0) return { nodes: [], edges: [] };
 
@@ -354,10 +359,7 @@ export function buildLdvFlow(
   }
 
   // Ordered categories
-  const orderedCats = [
-    ...CATEGORY_ORDER.filter((c) => groups.has(c)),
-    ...[...groups.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
-  ];
+  const orderedCats = layers.order(groups.keys());
 
   // Valid edges (both endpoints exist)
   const validEdges = gEdges.filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target));
@@ -438,8 +440,8 @@ export function buildLdvFlow(
       type: "ldvGroup",
       position: { x: gx, y: gy },
       data: {
-        label: gl.cat,
-        color: CATEGORY_COLORS[gl.cat] || "#999",
+        label: layers.label(gl.cat),
+        color: layers.color(gl.cat),
       } satisfies LdvGroupData,
       style: { width: gl.groupW, height: gl.groupH },
       selectable: false,
@@ -665,3 +667,7 @@ export {
 // laying them out (#1140); exported from here so a consumer building its own
 // graph from these builders can do the same.
 export { orientEdgesToRelationTypes } from "./ldvLayoutShared";
+
+// Lane order, names and colours from the category registry; exported so an
+// extension calling the builders can pass its instance's layers too.
+export { ldvLayers, DEFAULT_LDV_LAYERS, type LdvLayers } from "./ldvLayoutShared";

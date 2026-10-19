@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.169.0] - 2026-10-19
+
+### Added
+- **Custom card type categories**: an admin can now create their own architecture layers next to the four built-in ones (Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture) and move any card type — built-in types included — into any category. The **Category** field of the type editor and of **+ New Type** is now a picker over the existing categories that can create a new one on the spot ("Create category “…”"), so a typo no longer silently invents a layer.
+- **Manage categories** on Admin → Metamodel → Card Types: lists every category with its colour and how many card types use it, lets you reorder the layers (a custom layer may sit between two built-in ones), rename, recolour and translate your own categories, and delete one no type uses. The four built-in layers are locked: they cannot be renamed, recoloured or deleted.
+- **Translated layer names**: the four built-in layers now show in the reader's language in the inventory's type filter, the metamodel graph and the Layered Dependency View's lanes, and a custom category can carry its own translations. Creating, editing, reordering and deleting categories is recorded in the Security & admin log.
+
+### Changed
+- A custom category now gets its own lane in the Layered Dependency View, in its own colour, and its own layer in the metamodel graph instead of being folded into "Other"; the layer order follows the category order everywhere.
+- The card type API refuses a category that does not exist (`400 unknown_category`); create the category first. Workspace imports, content packs and the platform-migration importer add any category they carry that the instance does not have yet, and a workspace export now includes the categories (a `CardTypeCategories` sheet; an import never changes a built-in category).
 ## [2.168.0] - 2026-10-19
 
 ### Changed

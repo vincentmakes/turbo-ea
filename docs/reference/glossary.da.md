@@ -17,6 +17,7 @@
 | **Beregning** | En administratordefineret formel, der automatisk beregner en feltværdi, når et kort gemmes |
 | **Kort** | Den grundlæggende informationsenhed i Turbo EA, der repræsenterer enhver arkitekturkomponent |
 | **Korttype** | Den kategori, et kort tilhører (f.eks. Applikation, Forretningsproces, Organisation) |
+| **Kategori (arkitekturlag)** | Det EA-lag, en korttype grupperes under — Strategi og transformation, Forretningsarkitektur, Applikationer og data, Teknisk arkitektur eller et lag oprettet af en administrator. Kategorierne bestemmer lagenes rækkefølge i inventarets typefilter, metamodelgrafen og afhængighedsvisningens baner; de fire indbyggede er låst |
 | **Konfidensscore** | En 0–100 % vurdering, der angiver, hvor pålidelig en AI-genereret beskrivelse er |
 | **Datakvalitet** | En 0–100 % fuldstændighedsscore baseret på udfyldte felter og deres konfigurerede vægte |
 | **Diagram** | Et visuelt arkitekturdiagram oprettet med den indlejrede DrawIO-editor |

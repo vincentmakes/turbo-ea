@@ -26,6 +26,7 @@ import {
 } from "@/test/fixtures/metamodel";
 
 import TypeDetailDrawer from "./TypeDetailDrawer";
+import { invalidateCardTypeCategories } from "@/hooks/useCardTypeCategories";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -272,7 +273,7 @@ describe("TypeDetailDrawer — header prefill", () => {
     expect(screen.getByRole("textbox", { name: DESCRIPTION_FIELD })).toHaveValue(
       "Runs the business.",
     );
-    expect(screen.getByRole("textbox", { name: ta("metamodel.typeDrawer.category") })).toHaveValue(
+    expect(screen.getByRole("combobox", { name: ta("metamodel.typeDrawer.category") })).toHaveValue(
       "Application & Data",
     );
     expect(screen.getByTestId("color-picker")).toHaveValue("#0f7eb5");
@@ -372,6 +373,58 @@ describe("TypeDetailDrawer — save", () => {
     const body = lastPatchBody() as { description?: string; translations: Record<string, Record<string, string>> };
     expect(body.description).toBe("");
     expect(body.translations.description.en).toBe("");
+  });
+
+  it("moves a built-in type into another category through the combobox", async () => {
+    invalidateCardTypeCategories([
+      {
+        id: "c1",
+        key: "Application & Data",
+        label: "Application & Data",
+        color: "#0f7eb5",
+        sort_order: 0,
+        built_in: true,
+        translations: {},
+      },
+      {
+        id: "c2",
+        key: "Security",
+        label: "Security Layer",
+        color: "#ff0000",
+        sort_order: 1,
+        built_in: false,
+        translations: {},
+      },
+    ]);
+    try {
+      const { user } = renderDrawer();
+      await screen.findByRole("dialog");
+      const combo = screen.getByRole("combobox", { name: ta("metamodel.typeDrawer.category") });
+      // The field stays editable on a built-in type: moving it is the point.
+      expect(combo).toBeEnabled();
+      await user.click(combo);
+      await user.click(await screen.findByRole("option", { name: "Security Layer" }));
+      await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+      await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+      expect(lastPatchBody().category).toBe("Security");
+    } finally {
+      invalidateCardTypeCategories([]);
+    }
+  });
+
+  it("translates an unknown-category refusal", async () => {
+    mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 400, {
+      error: "unknown_category",
+      message: "Unknown category",
+      category: "Typo",
+    });
+    const { user } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      ta("metamodel.categories.errors.unknown_category", { category: "Typo" }),
+    );
   });
 
   it("surfaces a failed save in the alert and does not refresh", async () => {

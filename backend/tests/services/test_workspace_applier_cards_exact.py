@@ -427,9 +427,16 @@ async def test_a_full_run_walks_every_section_in_dependency_order(db, env, final
     result = await applier.diff_bundle(db, bundle({}), env.user)
     sheets = [s.sheet for s in result.sections]
     assert sheets == [
+        # Categories first: card types name them, and the target's built-in
+        # ones must win over the bundle's.
+        schema.SHEET_CARD_TYPE_CATEGORIES,
         schema.SHEET_CARD_TYPES,
         schema.SHEET_RELATION_TYPES,
-        *(sec.sheet for sec in schema.CONFIG_SECTIONS),
+        *(
+            sec.sheet
+            for sec in schema.CONFIG_SECTIONS
+            if sec.sheet != schema.SHEET_CARD_TYPE_CATEGORIES
+        ),
         schema.SHEET_TAG_GROUPS,
         schema.SHEET_TAGS,
         schema.SHEET_USERS,

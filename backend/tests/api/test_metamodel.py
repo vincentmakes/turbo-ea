@@ -1804,7 +1804,7 @@ class TestMetamodelAudit:
         assert resp.status_code == 200, resp.text
         return resp
 
-    async def test_type_create_update_delete(self, client, db, metamodel_env):
+    async def test_type_create_update_delete(self, client, db, metamodel_env, default_categories):
         admin = metamodel_env["admin"]
         admin_id, headers = admin.id, auth_headers(admin)
 

@@ -42,6 +42,7 @@ from app.services.workspace_io import schema as ws_schema
 SHEET_SURVEYS = "Surveys"
 
 CONTENT_ALLOWED_SHEETS: tuple[str, ...] = (
+    ws_schema.SHEET_CARD_TYPE_CATEGORIES,
     ws_schema.SHEET_CARD_TYPES,
     ws_schema.SHEET_RELATION_TYPES,
     ws_schema.SHEET_STAKEHOLDER_ROLES,

@@ -17,7 +17,8 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     icon: Mapped[str] = mapped_column(String(100), default="category")
     color: Mapped[str] = mapped_column(String(20), default="#1976d2")
-    category: Mapped[str | None] = mapped_column(String(100))  # free-text layer label, not enum
+    # A key of the ``card_type_categories`` registry (no FK — see that model).
+    category: Mapped[str | None] = mapped_column(String(100))
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
     has_successors: Mapped[bool] = mapped_column(Boolean, default=False)
     # Whether editors may upload a per-card logo image (shown in place of this

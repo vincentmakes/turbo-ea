@@ -32,6 +32,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { expandSides, sideKey } from "@/lib/relationSort";
 import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
+import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, {
   type ColumnOrderItem,
@@ -475,9 +476,10 @@ export default function InventoryFilterSidebar({
   // orders by `sort_order` alone, which only looks layered because the seed
   // numbers the built-in types that way; a type added later would otherwise
   // sit at the bottom of the list whatever layer it belongs to.
+  const { categories } = useCardTypeCategories();
   const typeGroups = useMemo(
-    () => groupCardTypesByCategory(types, { locale: i18n.language }),
-    [types, i18n.language],
+    () => groupCardTypesByCategory(types, { locale: i18n.language, categories }),
+    [types, i18n.language, categories],
   );
   // A lone layer heading names nothing the section header does not — and on an
   // instance where no type has a layer it would read as "Uncategorized" over
@@ -1043,7 +1045,7 @@ export default function InventoryFilterSidebar({
                             bgcolor: "transparent",
                           }}
                         >
-                          {group.category ?? t("filter.typesUncategorized")}
+                          {group.label ?? t("filter.typesUncategorized")}
                         </ListSubheader>
                       )}
                       {group.types.map((t) => (

@@ -1,35 +1,36 @@
 /**
- * Canonical EA-layer order for card types, and the grouping the Inventory
+ * EA-layer order and naming for card types, and the grouping the Inventory
  * filter sidebar renders from it.
  *
- * The `/metamodel/types` API returns types ordered by `sort_order` alone
- * (`backend/app/api/v1/metamodel.py`). That *looks* layered only because the
- * seed numbers the built-in types 0-12 in layer order; a custom type created
- * later gets `max(sort_order) + 1` and lands at the very bottom of the list
- * whatever layer it belongs to, with no UI anywhere to move it (`sort_order`
- * is not admin-editable). Layer order is therefore derived at display time,
- * here, and never trusted from the number.
+ * A card type's `category` names a row of the category registry
+ * (`/metamodel/categories`, cached by `useCardTypeCategories`): the four
+ * built-in layers plus any an admin created. The registry's `sort_order` is
+ * the layer order and its colour/translations are the layer's look and name,
+ * on every surface — this module (the inventory sidebar), the metamodel admin
+ * and graph (`features/admin/metamodel/constants.ts`) and the Layered
+ * Dependency View (`features/reports/ldvLayoutShared.ts`) all order through
+ * `orderCategoryKeys` below.
  *
- * `category` is a nullable free-text `String(100)` an admin can type anything
- * into, so this handles three cases the four canonical names do not cover: a
- * category that is not one of them (kept, appended after them in the order it
- * is first seen — the same posture as `features/reports/layeredDependencyLayout.ts`,
- * deliberately *not* `MetamodelGraph`'s collapse-to-"Other", which would hide
- * the admin's own layer name), a category that is null, and one that is blank
- * or whitespace. Comparison is case-sensitive, matching the two existing
- * copies of this constant — `Application & Data` and `application & data` are
- * two layers.
+ * The API returns types ordered by `sort_order` alone; a custom type gets
+ * `max(sort_order) + 1` and would land at the very bottom whatever its layer,
+ * so layer order is derived here at display time, never trusted from the
+ * type's number.
  *
- * Two other copies of the canonical order exist and are intentionally left
- * alone: `features/admin/metamodel/constants.ts` (`CATEGORIES` / `LAYER_ORDER`,
- * which appends a synthetic "Other") and `features/reports/ldvLayoutShared.ts`
- * (`CATEGORY_ORDER`). Converging the three is a separate change.
+ * When no registry is to hand (tests, account-less portals, an older backend)
+ * the four built-in names in `CARD_TYPE_CATEGORY_ORDER` are the fallback. A
+ * category that the registry does not know (a value written before it existed)
+ * is kept, after the known ones, in the order it is first seen — never folded
+ * into "Other", which would hide the layer an admin named. A null, blank or
+ * whitespace category is "uncategorized". Comparison is exact after trimming.
  */
 
-import { typeLabel } from "@/hooks/useResolveLabel";
-import type { CardType } from "@/types";
+import { categoryLabel, typeLabel } from "@/hooks/useResolveLabel";
+import type { CardType, CardTypeCategory } from "@/types";
 
-/** The four seeded EA layers, in the order they are drawn everywhere. */
+/**
+ * The four seeded EA layers in their default order — the fallback when no
+ * registry is available. Also the keys of the built-in registry rows.
+ */
 export const CARD_TYPE_CATEGORY_ORDER: readonly string[] = [
   "Strategy & Transformation",
   "Business Architecture",
@@ -44,12 +45,19 @@ export interface CardTypeGroup {
   /** Stable React key — the category itself, or `UNCATEGORIZED_GROUP_KEY`. */
   key: string;
   /**
-   * The category as the admin stored it (trimmed), or `null` when the types in
-   * this group have none. Render it raw: layer names are database free text and
-   * are never translated anywhere in the app. Only the `null` case needs a
-   * translated label, and that belongs to the caller's namespace.
+   * The category as stored on the types (trimmed), or `null` when the types in
+   * this group have none. Display `label` instead; only the `null` case needs a
+   * translated "uncategorized" label, and that belongs to the caller's namespace.
    */
   category: string | null;
+  /**
+   * The display name: the registry row's label in the requested locale, the
+   * raw category for a value the registry does not know, `null` when
+   * uncategorized.
+   */
+  label: string | null;
+  /** The registry row's colour, when there is one. */
+  color: string | null;
   /** Visible types of this layer, ordered `sort_order` then label. */
   types: CardType[];
 }
@@ -59,11 +67,74 @@ export interface GroupCardTypesOptions {
   locale?: string;
   /** Keep `is_hidden` types. Default `false`. */
   includeHidden?: boolean;
+  /**
+   * The category registry (`useCardTypeCategories().categories`). Its order
+   * wins; when empty or absent, `CARD_TYPE_CATEGORY_ORDER` is used.
+   */
+  categories?: CardTypeCategory[];
+}
+
+/** `categories` in layer order (`sort_order`, then label). Never mutates. */
+export function orderCategories(categories: CardTypeCategory[]): CardTypeCategory[] {
+  return [...categories].sort(
+    (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label),
+  );
 }
 
 /**
- * Card types bucketed by category, groups in canonical layer order and types
- * ordered inside each group. Never mutates the input.
+ * The layer keys in display order: the registry's when it has any rows,
+ * `CARD_TYPE_CATEGORY_ORDER` otherwise.
+ */
+export function categoryKeyOrder(categories?: CardTypeCategory[]): string[] {
+  return categories && categories.length > 0
+    ? orderCategories(categories).map((c) => c.key)
+    : [...CARD_TYPE_CATEGORY_ORDER];
+}
+
+/**
+ * `present` (category keys, in first-seen order) arranged in layer order:
+ * every key the registry (or the fallback order) knows, in that order, then
+ * the unknown ones as first seen. Duplicates are dropped.
+ */
+export function orderCategoryKeys(
+  present: Iterable<string>,
+  categories?: CardTypeCategory[],
+): string[] {
+  const seen = [...new Set(present)];
+  const order = categoryKeyOrder(categories);
+  const known = new Set(order);
+  return [...order.filter((k) => seen.includes(k)), ...seen.filter((k) => !known.has(k))];
+}
+
+/**
+ * The display name of a stored `category`: the registry row's label in
+ * `locale`, the raw (trimmed) value when the registry has no such row, `null`
+ * for a null or blank category.
+ */
+export function categoryDisplayName(
+  category: string | null | undefined,
+  categories: CardTypeCategory[] | undefined,
+  locale?: string,
+): string | null {
+  const key = category?.trim();
+  if (!key) return null;
+  const row = categories?.find((c) => c.key === key);
+  return row ? categoryLabel(row, locale) : key;
+}
+
+/** `{category key: number of card types}` over `types` (trimmed match). */
+export function usageByCategory(types: CardType[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of types) {
+    const key = t.category?.trim();
+    if (key) out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
+/**
+ * Card types bucketed by category, groups in layer order and types ordered
+ * inside each group. Never mutates the input.
  *
  * Within a group the order is `sort_order` ascending, falling back to the
  * localized label. `sort_order` is not admin-editable (there is no reorder UI),
@@ -76,7 +147,7 @@ export function groupCardTypesByCategory(
   types: CardType[],
   options: GroupCardTypesOptions = {},
 ): CardTypeGroup[] {
-  const { locale, includeHidden = false } = options;
+  const { locale, includeHidden = false, categories } = options;
 
   const buckets = new Map<string, CardType[]>();
   const categoryByKey = new Map<string, string | null>();
@@ -95,26 +166,32 @@ export function groupCardTypesByCategory(
     bucket.push(type);
   }
 
-  // Canonical layers first, then any layer an admin invented, in the order the
-  // API handed them over (i.e. by the lowest `sort_order` in that layer), then
-  // the types with no layer at all.
+  // Known layers in registry order, then any layer the registry does not know,
+  // in the order the API handed them over (i.e. by the lowest `sort_order` in
+  // that layer), then the types with no layer at all.
   const orderedKeys = [
-    ...CARD_TYPE_CATEGORY_ORDER.filter((c) => buckets.has(c)),
-    ...[...buckets.keys()].filter(
-      (k) => k !== UNCATEGORIZED_GROUP_KEY && !CARD_TYPE_CATEGORY_ORDER.includes(k),
+    ...orderCategoryKeys(
+      [...buckets.keys()].filter((k) => k !== UNCATEGORIZED_GROUP_KEY),
+      categories,
     ),
     ...(buckets.has(UNCATEGORIZED_GROUP_KEY) ? [UNCATEGORIZED_GROUP_KEY] : []),
   ];
 
-  return orderedKeys.map((key) => ({
-    key,
-    category: categoryByKey.get(key) ?? null,
-    types: [...buckets.get(key)!].sort(
-      (a, b) =>
-        a.sort_order - b.sort_order ||
-        typeLabel(a, locale).localeCompare(typeLabel(b, locale), locale, {
-          sensitivity: "base",
-        }),
-    ),
-  }));
+  return orderedKeys.map((key) => {
+    const category = categoryByKey.get(key) ?? null;
+    const row = category ? categories?.find((c) => c.key === category) : undefined;
+    return {
+      key,
+      category,
+      label: categoryDisplayName(category, categories, locale),
+      color: row?.color ?? null,
+      types: [...buckets.get(key)!].sort(
+        (a, b) =>
+          a.sort_order - b.sort_order ||
+          typeLabel(a, locale).localeCompare(typeLabel(b, locale), locale, {
+            sensitivity: "base",
+          }),
+      ),
+    };
+  });
 }

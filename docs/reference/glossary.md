@@ -17,6 +17,7 @@
 | **Calculation** | An admin-defined formula that automatically computes a field value when a card is saved |
 | **Card** | The basic unit of information in Turbo EA representing any architecture component |
 | **Card Type** | The category a card belongs to (e.g., Application, Business Process, Organization) |
+| **Category (architecture layer)** | The EA layer a card type is grouped under — Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture, or one an admin created. Categories order the layers in the Inventory's type filter, the metamodel graph and the dependency view's lanes; the four built-in ones are locked |
 | **Confidence Score** | A 0–100% rating indicating how reliable an AI-generated description is |
 | **Data Quality** | A 0–100% completeness score based on filled fields and their configured weights |
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |

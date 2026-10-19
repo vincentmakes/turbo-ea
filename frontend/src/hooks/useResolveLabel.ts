@@ -15,6 +15,7 @@ import type { TranslationMap, MetamodelTranslations } from "@/types";
  *   const fieldLabel = useFieldLabel();     fieldLabel(field)
  *   const optLabel   = useOptionLabel();    optLabel(option)
  *   const stLabel    = useSubtypeLabel();   stLabel(subtype)
+ *   const catLabel   = useCategoryLabel();  catLabel(category)
  *
  * Non-React contexts (excelExport/excelImport, plain helpers) use the pure
  * variants with an explicit locale:
@@ -135,6 +136,20 @@ export function fieldLabel(entity: InlineEntityLike | null | undefined, locale?:
 export const optionLabel = fieldLabel;
 export const subtypeLabel = fieldLabel;
 
+/**
+ * Localized label for a card type category (an EA layer — a row of
+ * `/metamodel/categories`, whose `translations` map a locale straight to a
+ * label). Falls back to the category's own label. A `CardType.category`
+ * string with no registry row has nothing to resolve: render the string.
+ */
+export function categoryLabel(
+  entity: InlineEntityLike | null | undefined,
+  locale?: string,
+): string {
+  if (!entity) return "";
+  return resolveLabel(entity.label || entity.key, entity.translations, locale);
+}
+
 /* ------------------------------------------------------------------ */
 /*  Hooks — bind the current i18n language                             */
 /* ------------------------------------------------------------------ */
@@ -209,4 +224,14 @@ export function useOptionLabel() {
 /** Entity-aware: localized label for a subtype (alias of `useFieldLabel`). */
 export function useSubtypeLabel() {
   return useFieldLabel();
+}
+
+/** Entity-aware: localized label for a card type category (pass the whole row). */
+export function useCategoryLabel() {
+  const { i18n } = useTranslation();
+  const locale = i18n.language;
+  return useCallback(
+    (entity: InlineEntityLike | null | undefined): string => categoryLabel(entity, locale),
+    [locale],
+  );
 }

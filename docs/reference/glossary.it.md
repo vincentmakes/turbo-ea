@@ -17,6 +17,7 @@
 | **Calcolo** | Una formula definita dall'amministratore che calcola automaticamente il valore di un campo quando una card viene salvata |
 | **Card** | L'unità base di informazione in Turbo EA che rappresenta qualsiasi componente architetturale |
 | **Tipo di card** | La categoria a cui appartiene una card (es. Application, Business Process, Organization) |
+| **Categoria (livello architetturale)** | Il livello EA in cui è raggruppato un tipo di card: Strategia e trasformazione, Architettura aziendale, Applicazioni e dati, Architettura tecnologica o uno creato da un amministratore. Le categorie ordinano i livelli nel filtro dei tipi dell'inventario, nel grafo del metamodello e nelle corsie della vista delle dipendenze; le quattro predefinite sono bloccate |
 | **Punteggio di affidabilità** | Una valutazione 0-100% che indica quanto è affidabile una descrizione generata dall'AI |
 | **Voce di costo** | Una voce di budget o costo effettivo (CapEx/OpEx) in un'iniziativa PPM, utilizzata per monitorare le spese finanziarie |
 | **Qualità dei dati** | Un punteggio di completezza 0-100% basato sui campi compilati e sui loro pesi configurati |

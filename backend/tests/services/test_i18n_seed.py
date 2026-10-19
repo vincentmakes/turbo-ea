@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.seed import RELATIONS, TYPES
+from app.services.seed import CARD_TYPE_CATEGORIES, RELATIONS, TYPES
 
 SUPPORTED_LOCALES = ["de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"]
 
@@ -445,3 +445,26 @@ class TestNoTranslationLeaksFromChildren:
                 if child_tr.get(locale) == parent_text and not same_word and not allowed:
                     leaks.append(f"{where}: '{parent_en}' reads «{parent_text}» like '{child_en}'")
         assert not leaks, "\n".join(leaks)
+
+
+# ---------------------------------------------------------------------------
+# Card type categories (the EA layers)
+# ---------------------------------------------------------------------------
+
+
+class TestCardTypeCategoryTranslations:
+    @pytest.mark.parametrize(
+        "category", [pytest.param(c, id=c["key"]) for c in CARD_TYPE_CATEGORIES]
+    )
+    def test_category_label_translated_to_all_locales(self, category):
+        """Every built-in layer names itself in every non-English locale — the
+        lanes and group headers render the translation."""
+        translations = category.get("translations", {})
+        for locale in SUPPORTED_LOCALES:
+            value = translations.get(locale)
+            assert isinstance(value, str) and value.strip(), (
+                f"Category '{category['key']}' missing '{locale}' translation"
+            )
+            assert value != category["label"], (
+                f"Category '{category['key']}' '{locale}' is the untranslated English label"
+            )

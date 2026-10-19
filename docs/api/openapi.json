@@ -3437,6 +3437,104 @@
         "title": "CardRestoreResponse",
         "type": "object"
       },
+      "CardTypeCategoryCreate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "label": {
+            "maxLength": 300,
+            "title": "Label",
+            "type": "string"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "CardTypeCategoryCreate",
+        "type": "object"
+      },
+      "CardTypeCategoryOrder": {
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "CardTypeCategoryOrder",
+        "type": "object"
+      },
+      "CardTypeCategoryUpdate": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "translations": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Translations"
+          }
+        },
+        "title": "CardTypeCategoryUpdate",
+        "type": "object"
+      },
       "CardTypeCount": {
         "properties": {
           "count": {
@@ -27001,6 +27099,189 @@
         "summary": "Download File Attachment",
         "tags": [
           "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/metamodel/categories": {
+      "get": {
+        "description": "Every card type category, in layer order. Any signed-in user may read\nit \u2014 every surface that draws layers needs the labels and colours.",
+        "operationId": "list_card_type_categories_api_v1_metamodel_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Card Type Categories",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "post": {
+        "description": "Create a custom category; its key is the label as typed, trimmed.",
+        "operationId": "create_card_type_category_api_v1_metamodel_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Card Type Category",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/categories/order": {
+      "put": {
+        "description": "Rewrite the layer order. ``keys`` must list every category exactly once\n\u2014 the built-in layers included, since a custom one may sit between them.",
+        "operationId": "reorder_card_type_categories_api_v1_metamodel_categories_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryOrder"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reorder Card Type Categories",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/categories/{key}": {
+      "delete": {
+        "description": "Delete a custom category no card type uses. Built-in layers are locked;\na category still in use answers 409 ``types_present`` with the types.",
+        "operationId": "delete_card_type_category_api_v1_metamodel_categories__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Card Type Category",
+        "tags": [
+          "metamodel"
+        ]
+      },
+      "patch": {
+        "description": "Edit a custom category's label, colour or translations. The key never\nchanges (it is what card types store); a built-in layer is locked.",
+        "operationId": "update_card_type_category_api_v1_metamodel_categories__key__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardTypeCategoryUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Card Type Category",
+        "tags": [
+          "metamodel"
         ]
       }
     },

@@ -17,6 +17,7 @@
 | **Calcul** | Une formule définie par l'administrateur qui calcule automatiquement une valeur de champ lorsqu'une fiche est sauvegardée |
 | **Fiche** | L'unité d'information de base dans Turbo EA représentant tout composant d'architecture |
 | **Type de fiche** | La catégorie à laquelle appartient une fiche (par ex. Application, Processus Métier, Organisation) |
+| **Catégorie (couche d'architecture)** | La couche EA sous laquelle un type de fiche est regroupé — Stratégie et transformation, Architecture métier, Application et données, Architecture technique, ou une couche créée par un administrateur. Les catégories ordonnent les couches dans le filtre de types de l'inventaire, le graphe du métamodèle et les couloirs de la vue des dépendances ; les quatre catégories intégrées sont verrouillées |
 | **Score de confiance** | Une note de 0 à 100% indiquant la fiabilité d'une description générée par IA |
 | **Ligne de coût** | Une entrée de budget ou de coût réel (CapEx/OpEx) dans une initiative PPM, utilisée pour suivre les dépenses financières |
 | **Qualité des données** | Un score de complétude de 0 à 100% basé sur les champs remplis et leurs poids configurés |

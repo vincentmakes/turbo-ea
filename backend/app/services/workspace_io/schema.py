@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.models.calculation import Calculation
+from app.models.card_type_category import CardTypeCategory
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
 from app.models.resource_type import ResourceType
@@ -56,6 +57,7 @@ SHEET_CALCULATIONS = "Calculations"
 SHEET_PRINCIPLES = "Principles"
 SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_RESOURCE_TYPES = "ResourceTypes"
+SHEET_CARD_TYPE_CATEGORIES = "CardTypeCategories"
 SHEET_SETTINGS = "Settings"
 SHEET_USERS = "Users"
 SHEET_CARDS = "Cards"
@@ -270,6 +272,24 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "is_enabled",
             "built_in",
             "sort_order",
+            "translations",
+        ),
+        json_columns=frozenset({"translations"}),
+    ),
+    # The EA layers card types sit in. Exported generically like the rest, but
+    # APPLIED by a bespoke ``_apply_card_type_categories`` that runs before the
+    # card types and never edits a built-in row on the target (the generic
+    # applier would overwrite every column, ``built_in`` included).
+    ConfigSection(
+        sheet=SHEET_CARD_TYPE_CATEGORIES,
+        model=CardTypeCategory,
+        natural_key=("key",),
+        columns=(
+            "key",
+            "label",
+            "color",
+            "sort_order",
+            "built_in",
             "translations",
         ),
         json_columns=frozenset({"translations"}),

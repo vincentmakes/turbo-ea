@@ -10,9 +10,9 @@ import type {
 import { truncate } from "./helpers";
 import { readableTextColor } from "@/lib/color";
 import { successorRelationKeys } from "@/lib/successorRelation";
+import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
+import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import {
-  CATEGORIES,
-  LAYER_ORDER,
   NODE_W,
   NODE_H,
   NODE_RX,
@@ -113,27 +113,27 @@ export interface GraphProps {
 }
 
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
-  const { t } = useTranslation(["admin"]);
+  const { t, i18n } = useTranslation(["admin"]);
   const theme = useTheme();
+  const { categories } = useCardTypeCategories();
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   /* ================================================================ */
   /*  Build layers                                                     */
   /* ================================================================ */
-  const layers = useMemo(() => {
-    const byCategory: Record<string, FSType[]> = {};
-    for (const t of visibleTypes) {
-      const cat = CATEGORIES.includes(t.category || "")
-        ? t.category!
-        : "Other";
-      (byCategory[cat] ??= []).push(t);
-    }
-    return LAYER_ORDER.map((cat) => ({
-      category: cat,
-      nodes: byCategory[cat] || [],
-    })).filter((l) => l.nodes.length > 0);
-  }, [visibleTypes]);
+  // One layer per category, in registry order — a custom category is a layer
+  // of its own, never folded into a catch-all. Only types with no category
+  // share the last, "Uncategorized" layer.
+  const layers = useMemo(
+    () =>
+      groupCardTypesByCategory(types, { locale: i18n.language, categories }).map((g) => ({
+        key: g.key,
+        label: g.label ?? t("metamodel.uncategorized"),
+        nodes: g.types,
+      })),
+    [types, i18n.language, categories, t],
+  );
 
   /* ================================================================ */
   /*  Compute node positions                                           */
@@ -499,7 +499,8 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
   /* ================================================================ */
   const layerLabels = useMemo(() => {
     return layers.map((layer, li) => ({
-      label: layer.category,
+      key: layer.key,
+      label: layer.label,
       y: PAD_Y + li * (NODE_H + LAYER_GAP_Y),
     }));
   }, [layers]);
@@ -610,7 +611,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
 
         {/* ---- Layer backgrounds + labels ---- */}
         {layerLabels.map((ll) => (
-          <g key={ll.label}>
+          <g key={ll.key}>
             <rect
               x={LAYER_LABEL_W - 4}
               y={ll.y - 16}

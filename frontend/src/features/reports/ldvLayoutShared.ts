@@ -11,8 +11,9 @@
 
 import dagre from "@dagrejs/dagre";
 import { runsAgainstType } from "@/lib/relationSort";
-import { LAYER_COLORS } from "@/theme/tokens";
-import type { CardType } from "@/types";
+import { categoryDisplayName, orderCategoryKeys } from "@/lib/cardTypeOrder";
+import { DEFAULT_LAYER_COLOR, LAYER_COLORS } from "@/theme/tokens";
+import type { CardType, CardTypeCategory } from "@/types";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import type { LdvRoute } from "./ldvEdgeRouting";
 import { cardSizes, LDV_NODE_W, type SizeLookup } from "./ldvHandles";
@@ -31,6 +32,35 @@ export const CATEGORY_ORDER = [
 ];
 
 export const CATEGORY_COLORS: Record<string, string> = LAYER_COLORS;
+
+/**
+ * How the view orders, names and colours its layer lanes. Built from the
+ * category registry by `ldvLayers(categories, locale)` — the registry's order,
+ * its translated labels and its colours, so a custom category gets its own
+ * lane in the colour an admin chose. Without a registry (the default, which
+ * keeps the `loadDependencyView` SDK surface additive) it is the four built-in
+ * layers, their raw names and `LAYER_COLORS`.
+ */
+export interface LdvLayers {
+  /** `present` layer keys in lane order: known ones first, unknown ones as seen. */
+  order: (present: Iterable<string>) => string[];
+  /** The lane's display name — the raw key for a layer the registry lacks. */
+  label: (cat: string) => string;
+  /** The lane's colour — `DEFAULT_LAYER_COLOR` for a layer with none. */
+  color: (cat: string) => string;
+}
+
+export function ldvLayers(categories?: CardTypeCategory[], locale?: string): LdvLayers {
+  const byKey = new Map((categories ?? []).map((c) => [c.key, c]));
+  return {
+    order: (present) => orderCategoryKeys(present, categories),
+    label: (cat) => categoryDisplayName(cat, categories, locale) ?? cat,
+    color: (cat) => byKey.get(cat)?.color ?? CATEGORY_COLORS[cat] ?? DEFAULT_LAYER_COLOR,
+  };
+}
+
+/** The layers without a registry: built-in order, raw names, `LAYER_COLORS`. */
+export const DEFAULT_LDV_LAYERS: LdvLayers = ldvLayers();
 
 /** Padding inside each group boundary */
 export const PAD = 30;

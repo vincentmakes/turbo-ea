@@ -352,6 +352,7 @@ async def create_card_type(
         label=label,
         icon=kwargs.get("icon", "apps"),
         color=kwargs.get("color", "#0f7eb5"),
+        category=kwargs.get("category"),
         fields_schema=fields_schema if fields_schema is not None else [],
         section_config=kwargs.get("section_config", {}),
         subtypes=kwargs.get("subtypes", []),
@@ -743,6 +744,16 @@ def sources_registry_snapshot():
 # ---------------------------------------------------------------------------
 # Convenience fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def default_categories(db):
+    """The four built-in card type categories (EA layers). The schema is built
+    with ``create_all`` and the seed never runs, so a test that creates or edits
+    a card type with a ``category`` needs them present to pass validation."""
+    from app.services.card_type_categories import seed_default_categories
+
+    await seed_default_categories(db)
 
 
 @pytest.fixture

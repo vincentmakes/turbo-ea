@@ -17,6 +17,17 @@ L'onglet Types de fiches liste tous les types du système. Turbo EA est livré a
 | **Application et données** | Application, Interface, Objet de Données |
 | **Architecture technique** | Composant IT, Catégorie Technique, Fournisseur, Système |
 
+### Catégories (couches d'architecture)
+
+Chaque type de fiche appartient à une **catégorie** — la couche d'architecture sous laquelle il est regroupé. L'ordre des catégories est celui des couches partout où elles sont dessinées : le filtre de types de l'inventaire, le **graphe du métamodèle** et les couloirs de la Layered Dependency View, chacune dans la couleur de sa catégorie et dans la langue du lecteur.
+
+- **Les quatre couches intégrées sont verrouillées.** Stratégie et transformation, Architecture métier, Application et données et Architecture technique ne peuvent être ni renommées, ni recolorées, ni supprimées, et sont traduites dans toutes les langues prises en charge.
+- **Créez les vôtres.** Dans le champ **Catégorie** de l'éditeur de type ou de **+ Nouveau type**, saisissez un nom qui n'existe pas encore et choisissez **Créer la catégorie « … »**. Choisissez une couleur, ajoutez éventuellement des traductions, et le type rejoint la nouvelle catégorie.
+- **Déplacez n'importe quel type.** Les types intégrés peuvent aussi être déplacés — placez par exemple Interface dans une couche personnalisée *Intégration*.
+- **Gérer les catégories.** Le bouton **Gérer les catégories**, à côté de **+ Nouveau type**, liste toutes les catégories avec leur couleur et le nombre de types de fiches qui les utilisent. Les flèches changent l'ordre des couches (une couche personnalisée peut se placer entre deux couches intégrées), le crayon renomme, recolore ou traduit une catégorie personnalisée, et la corbeille la supprime. Une catégorie encore utilisée par un type de fiche ne peut pas être supprimée — déplacez d'abord ses types vers une autre catégorie.
+
+![Gérer les catégories](../assets/img/fr/100_admin_metamodele_categories.png)
+
 ### Création d'un type personnalisé
 
 Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Configurez :
@@ -27,7 +38,7 @@ Cliquez sur **+ Nouveau type** pour créer un type de fiche personnalisé. Confi
 | **Libellé** | Nom d'affichage dans l'interface |
 | **Icône** | Nom de l'icône Google Material Symbol |
 | **Couleur** | Couleur de marque pour le type (utilisée dans l'inventaire, les rapports et les diagrammes) |
-| **Catégorie** | Regroupement par couche d'architecture |
+| **Catégorie** | La couche d'architecture sous laquelle le type est regroupé — choisissez une catégorie existante ou saisissez un nouveau nom pour en créer une (voir [Catégories](#categories-couches-darchitecture)) |
 | **À une hiérarchie** | Si les fiches de ce type peuvent avoir des relations parent/enfant |
 | **Autoriser les logos personnalisés** | Si les éditeurs peuvent téléverser un logo par fiche, affiché à la place de l'icône du type (activé par défaut pour Application et Composant informatique) |
 

@@ -25,6 +25,7 @@ import { invalidateCurrency } from "@/hooks/useCurrency";
 import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidateResourceTypes } from "@/hooks/useResourceTypes";
+import { invalidateCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
@@ -36,7 +37,7 @@ import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { invalidateNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
-import type { ComplianceRegulation, ResourceType } from "@/types";
+import type { CardTypeCategory, ComplianceRegulation, ResourceType } from "@/types";
 
 type BootstrapResponse = {
   currency: string;
@@ -59,6 +60,8 @@ type BootstrapResponse = {
   show_principles_tab: boolean;
   compliance_regulations: ComplianceRegulation[];
   resource_types: ResourceType[];
+  /** Absent on a backend older than the category registry. */
+  card_type_categories?: CardTypeCategory[];
   login_tagline: string;
   login_tagline_hidden: boolean;
   login_help_text: string;
@@ -133,6 +136,12 @@ export function primeBootstrap(): Promise<void> {
       invalidateResourceTypes(
         Array.isArray(r.resource_types) ? r.resource_types : [],
       );
+
+      // Only prime when the backend sent the list: an older backend has no
+      // registry, and an empty prime would stop the hook fetching it.
+      if (Array.isArray(r.card_type_categories)) {
+        invalidateCardTypeCategories(r.card_type_categories);
+      }
 
       invalidateLoginBranding({
         tagline: r.login_tagline || "",

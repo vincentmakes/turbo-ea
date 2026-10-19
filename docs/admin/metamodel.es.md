@@ -17,6 +17,17 @@ La pestaña Tipos de Fichas lista todos los tipos en el sistema. Turbo EA incluy
 | **Aplicación y Datos** | Aplicación, Interfaz, Objeto de Datos |
 | **Arquitectura Técnica** | Componente TI, Categoría Tecnológica, Proveedor, Sistema |
 
+### Categorías (capas de arquitectura)
+
+Cada tipo de ficha pertenece a una **categoría**: la capa de arquitectura en la que se agrupa. El orden de las categorías es el orden de las capas allí donde se dibujan: el filtro de tipos del inventario, el **grafo del metamodelo** y los carriles de la Layered Dependency View, cada una en el color de su categoría y en el idioma del lector.
+
+- **Las cuatro capas integradas están bloqueadas.** Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos y Arquitectura Técnica no se pueden renombrar, cambiar de color ni eliminar, y están traducidas a todos los idiomas admitidos.
+- **Cree las suyas.** En el campo **Categoría** del editor de tipos o de **+ Nuevo Tipo**, escriba un nombre que todavía no exista y elija **Crear la categoría «…»**. Elija un color, añada traducciones si lo desea y el tipo pasará a la nueva categoría.
+- **Mueva cualquier tipo.** También se pueden mover los tipos integrados; por ejemplo, ponga Interfaz en una capa propia *Integración*.
+- **Gestionar categorías.** El botón **Gestionar categorías**, junto a **+ Nuevo Tipo**, enumera todas las categorías con su color y el número de tipos de ficha que las usan. Las flechas cambian el orden de las capas (una capa propia puede situarse entre dos integradas), el lápiz renombra, cambia el color o traduce una categoría propia, y la papelera la elimina. Una categoría que todavía usa algún tipo de ficha no se puede eliminar: mueva antes sus tipos a otra categoría.
+
+![Gestionar categorías](../assets/img/es/100_admin_metamodelo_categorias.png)
+
 ### Crear un Tipo Personalizado
 
 Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configure:
@@ -27,7 +38,7 @@ Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configu
 | **Etiqueta** | Nombre para mostrar en la interfaz |
 | **Icono** | Nombre del icono de Google Material Symbols |
 | **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
-| **Categoría** | Agrupación por capa de arquitectura |
+| **Categoría** | La capa de arquitectura en la que se agrupa el tipo: elija una categoría existente o escriba un nombre nuevo para crearla (consulte [Categorías](#categorias-capas-de-arquitectura)) |
 | **Tiene Jerarquía** | Si las fichas de este tipo pueden tener relaciones padre/hijo |
 | **Permitir logotipos personalizados** | Si los editores pueden subir un logotipo por tarjeta, que se muestra en lugar del icono del tipo (activado de origen para Aplicación y Componente de TI) |
 

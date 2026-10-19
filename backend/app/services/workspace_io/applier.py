@@ -39,6 +39,7 @@ from app.models.app_settings import AppSettings
 from app.models.bookmark import Bookmark, bookmark_shares
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.card_type_category import CardTypeCategory
 from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.relation import Relation
@@ -47,7 +48,7 @@ from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
-from app.services import card_reference
+from app.services import card_reference, card_type_categories
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
 from app.services.relation_orientation import oriented
@@ -246,9 +247,16 @@ async def _run(
     id_map = rm.IdMap()
 
     sections = [
+        # Categories first: the card types name them, and a built-in one on the
+        # target must win over whatever the bundle carries.
+        (schema.SHEET_CARD_TYPE_CATEGORIES, _apply_card_type_categories),
         (schema.SHEET_CARD_TYPES, _apply_card_types),
         (schema.SHEET_RELATION_TYPES, _apply_relation_types),
-        *((sec.sheet, _make_config_applier(sec)) for sec in schema.CONFIG_SECTIONS),
+        *(
+            (sec.sheet, _make_config_applier(sec))
+            for sec in schema.CONFIG_SECTIONS
+            if sec.sheet != schema.SHEET_CARD_TYPE_CATEGORIES
+        ),
         (schema.SHEET_TAG_GROUPS, _apply_tag_groups),
         (schema.SHEET_TAGS, functools.partial(_apply_tags, id_map=id_map)),
         (schema.SHEET_USERS, _apply_users),
@@ -604,6 +612,56 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             # (The row was matched by key, so the key itself never differs.)
             cols = [c for c in exp.CARD_TYPE_COLUMNS if c != "built_in"]
             _update_if_changed(current, data, cols, sr)
+    await db.flush()
+    # A bundle older than the category registry (or a content pack that ships
+    # no CardTypeCategories sheet) still names its layers: adopt any the
+    # registry lacks, so the type editor never refuses to save such a type.
+    await card_type_categories.ensure_categories(db, (ct.category for ct in existing.values()))
+
+
+async def _apply_card_type_categories(
+    db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool
+) -> None:
+    """Create the categories the target lacks and update its custom ones.
+
+    A target row that is ``built_in`` is never edited — the four default
+    layers are locked on every instance, so a bundle carrying a recoloured
+    default cannot repaint the target's — and ``built_in`` is never flipped
+    either way. A target row the bundle does not carry is left alone."""
+    sec = next(s for s in schema.CONFIG_SECTIONS if s.sheet == schema.SHEET_CARD_TYPE_CATEGORIES)
+    existing = {c.key: c for c in (await db.execute(select(CardTypeCategory))).scalars().all()}
+    for row in bundle.rows(schema.SHEET_CARD_TYPE_CATEGORIES):
+        data = _coerce(row, sec.columns, sec.json_columns)
+        key = data.get("key")
+        if not isinstance(key, str) or not key.strip():
+            sr.failed += 1
+            continue
+        key = key.strip()
+        data["key"] = key
+        if data.get("translations") is None and "translations" in data:
+            data["translations"] = {}
+        current = existing.get(key)
+        if current is None:
+            fresh = {k: v for k, v in data.items() if v is not None}
+            fresh.setdefault("label", key)
+            fresh.setdefault("color", card_type_categories.DEFAULT_COLOR)
+            fresh.setdefault("sort_order", await card_type_categories.next_sort_order(db))
+            # A built-in layer exists on every instance; one arriving here is a
+            # bundle's own invention and lands as an ordinary custom row.
+            fresh["built_in"] = False
+            obj = CardTypeCategory(**fresh)
+            db.add(obj)
+            existing[key] = obj
+            await db.flush()
+            sr.created += 1
+        else:
+            cols = [c for c in sec.columns if c not in ("key", "built_in")]
+            if not current.built_in:
+                _update_if_changed(current, data, cols, sr)
+            elif any(c in data and getattr(current, c) != data[c] for c in cols):
+                sr.skip("built_in_locked")
+            else:
+                sr.skip("identical")
     await db.flush()
 
 

@@ -18,6 +18,7 @@
 | **Berechnung** | Eine vom Administrator definierte Formel, die automatisch einen Feldwert berechnet, wenn eine Karte gespeichert wird |
 | **Karte** | Die grundlegende Informationseinheit in Turbo EA, die jede Architekturkomponente repräsentiert |
 | **Kartentyp** | Die Kategorie, zu der eine Karte gehört (z.B. Anwendung, Geschäftsprozess, Organisation) |
+| **Kategorie (Architekturebene)** | Die EA-Ebene, unter der ein Kartentyp gruppiert wird — Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten, Technische Architektur oder eine von einem Administrator erstellte. Kategorien bestimmen die Reihenfolge der Ebenen im Typfilter des Inventars, im Metamodell-Graphen und in den Bahnen der Abhängigkeitsansicht; die vier vordefinierten sind gesperrt |
 | **Konfidenzwert** | Eine Bewertung von 0–100%, die angibt, wie zuverlässig eine KI-generierte Beschreibung ist |
 | **Kostenposition** | Ein Budget- oder Ist-Kosteneintrag (CapEx/OpEx) in einer PPM-Initiative zur Verfolgung finanzieller Ausgaben |
 | **Datenqualität** | Ein Vollständigkeitswert von 0–100%, basierend auf ausgefüllten Feldern und deren konfigurierten Gewichtungen |

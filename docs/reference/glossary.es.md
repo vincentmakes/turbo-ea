@@ -18,6 +18,7 @@
 | **Feed OData** | Un feed de datos JSON disponible en las vistas guardadas del inventario (marcadores) para el consumo por herramientas externas como Power BI o Excel |
 | **Ficha (Card)** | La unidad básica de información en Turbo EA que representa cualquier componente de arquitectura |
 | **Tipo de Ficha** | La categoría a la que pertenece una ficha (ej., Aplicación, Proceso de Negocio, Organización) |
+| **Categoría (capa de arquitectura)** | La capa de EA en la que se agrupa un tipo de ficha: Estrategia y Transformación, Arquitectura de Negocio, Aplicación y Datos, Arquitectura Técnica o una creada por un administrador. Las categorías ordenan las capas en el filtro de tipos del inventario, el grafo del metamodelo y los carriles de la vista de dependencias; las cuatro integradas están bloqueadas |
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
 | **Línea de costo** | Una entrada de presupuesto o costo real (CapEx/OpEx) en una iniciativa PPM, utilizada para rastrear el gasto financiero |
 | **Calidad de Datos** | Una puntuación de completitud de 0–100% basada en campos completados y sus pesos configurados |

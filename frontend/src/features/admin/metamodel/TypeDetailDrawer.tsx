@@ -43,6 +43,8 @@ import TranslationDialog from "./TranslationDialog";
 import RelationsTabContent from "./RelationsTabContent";
 import DeleteTypeDialog from "./DeleteTypeDialog";
 import { STATUS_COLORS } from "@/theme/tokens";
+import CategoryCombobox from "./CategoryCombobox";
+import { categoryErrorCode, categoryErrorMessage } from "./categoryErrors";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -242,7 +244,13 @@ export default function TypeDetailDrawer({
       setError(null);
       setSnack(t("metamodel.typeDrawer.typeSaved"));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
+      setError(
+        categoryErrorCode(e)
+          ? categoryErrorMessage(e, t)
+          : e instanceof Error
+            ? e.message
+            : t("metamodel.typeDrawer.failedToSave"),
+      );
     } finally {
       setSaving(false);
     }
@@ -622,12 +630,12 @@ export default function TypeDetailDrawer({
               fullWidth
             />
           </Box>
-          <TextField
+          <CategoryCombobox
             size="small"
             label={t("metamodel.typeDrawer.category")}
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            helperText={t("metamodel.typeDrawer.categoryHelper")}
+            value={category || null}
+            onChange={(key) => setCategory(key ?? "")}
+            helperText={t("metamodel.categories.helper")}
           />
         </Box>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>

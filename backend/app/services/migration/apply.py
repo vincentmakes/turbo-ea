@@ -56,6 +56,7 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
+from app.services import card_type_categories
 from app.services.event_bus import event_bus
 from app.services.relation_orientation import orient_endpoints
 
@@ -917,6 +918,9 @@ async def _apply_metamodel_type_pass(
             )
             db.add(new_type)
             await db.flush()
+            # The route refuses a category the registry lacks; adopt this one
+            # so the imported type stays editable.
+            await card_type_categories.ensure_categories(db, [new_type.category])
             staged.target_id = new_type.id
             staged.status = "applied"
             counts["created"] += 1

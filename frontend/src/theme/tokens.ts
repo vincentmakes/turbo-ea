@@ -227,6 +227,13 @@ export const LAYER_COLORS = {
   "Technical Architecture": "#d29270",
 } as const;
 
+/**
+ * The colour of a layer that has none of its own: a custom category created
+ * without one (the backend's default too, `card_type_categories.DEFAULT_COLOR`)
+ * or a category value the registry does not know.
+ */
+export const DEFAULT_LAYER_COLOR = "#999999";
+
 // ── Vendor accent (VendorField, Provider chips) ─────────────────────────
 
 export const VENDOR_ACCENT = {

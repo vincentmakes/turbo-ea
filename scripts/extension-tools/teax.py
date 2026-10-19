@@ -228,6 +228,7 @@ BUILTIN_FIELD_TYPES = {
 }
 KEY_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{1,63}$")
 CONTENT_SHEETS = {
+    "CardTypeCategories",
     "CardTypes",
     "RelationTypes",
     "StakeholderRoles",

@@ -42,7 +42,7 @@ import type {
   LdvEdgeData,
 } from "./layeredDependencyLayout";
 import {
-  CATEGORY_COLORS,
+  DEFAULT_LDV_LAYERS,
   flowMarkers,
   layoutGroup,
   type PositionedNode,
@@ -54,6 +54,7 @@ import {
   typeIcon,
   typeLabel,
   type FlowDir,
+  type LdvLayers,
 } from "./ldvLayoutShared";
 import {
   routeLdvEdges,
@@ -129,7 +130,13 @@ interface GroupRef {
  * with the metamodel's localised one, and colour/icon come from the card type
  * so a box reads like the cards it holds.
  */
-function groupOf(node: GNode, types: CardType[], level: Exclude<LdvAggregateBy, "none">): GroupRef {
+function groupOf(
+  node: GNode,
+  types: CardType[],
+  level: Exclude<LdvAggregateBy, "none">,
+  layers: LdvLayers,
+  layerRank: (cat: string) => number,
+): GroupRef {
   const tp = types.find((t) => t.key === node.type);
   const typeOrder = tp?.sort_order ?? 0;
 
@@ -137,10 +144,12 @@ function groupOf(node: GNode, types: CardType[], level: Exclude<LdvAggregateBy, 
     const cat = typeCategory(node.type, types);
     return {
       key: `cluster:layer:${cat}`,
-      label: cat,
-      color: CATEGORY_COLORS[cat] || "#999",
+      label: layers.label(cat),
+      color: layers.color(cat),
       icon: "layers",
-      order: 0,
+      // The registry's layer order, so the boxes read top to bottom as the
+      // lanes of the card view do.
+      order: layerRank(cat),
       subOrder: 0,
     };
   }
@@ -207,8 +216,12 @@ export function buildLdvAggregateFlow(
   relValueResolver?: (edge: GEdge) => string | undefined,
   /** Renders the "+N more" tail of a connector's tooltip. i18n stays with the caller. */
   moreLabel?: (n: number) => string,
+  /** Layer names, colours and order — see `buildLdvFlow`. */
+  layers: LdvLayers = DEFAULT_LDV_LAYERS,
 ): LdvAggregateFlow {
   if (gNodes.length === 0) return { nodes: [], edges: [], memberOf: new Map() };
+  const layerOrder = layers.order(new Set(gNodes.map((n) => typeCategory(n.type, types))));
+  const layerRank = (cat: string) => layerOrder.indexOf(cat);
 
   const nodeIdSet = new Set(gNodes.map((n) => n.id));
   const nodeById = new Map(gNodes.map((n) => [n.id, n]));
@@ -251,7 +264,7 @@ export function buildLdvAggregateFlow(
       lane.center = n;
       continue;
     }
-    const ref = groupOf(n, types, level);
+    const ref = groupOf(n, types, level, layers, layerRank);
     groupRefs.set(ref.key, ref);
     laneOfGroup.set(ref.key, cat);
     memberOf.set(n.id, ref.key);

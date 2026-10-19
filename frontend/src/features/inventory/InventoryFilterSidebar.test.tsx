@@ -20,6 +20,8 @@ import InventoryFilterSidebar, {
   type Filters,
 } from "./InventoryFilterSidebar";
 import { mockApi } from "@/test/apiMock";
+import i18n from "@/i18n";
+import { invalidateCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { installClipboard } from "@/test/dom";
 import {
   ADMIN_USER,
@@ -517,6 +519,45 @@ describe("InventoryFilterSidebar — card types", () => {
     await renderSidebar({ types: [APPLICATION_TYPE, bare] });
     expect(screen.getByText("Uncategorized")).toBeInTheDocument();
     expect(screen.getByText("Bare Thing")).toBeInTheDocument();
+  });
+
+  it("names and orders the layer headers from the category registry", async () => {
+    invalidateCardTypeCategories([
+      {
+        id: "1",
+        key: "Application & Data",
+        label: "Application & Data",
+        color: "#0f7eb5",
+        sort_order: 0,
+        built_in: true,
+        translations: { fr: "Application et données" },
+      },
+      {
+        id: "2",
+        key: "Business Architecture",
+        label: "Business Architecture",
+        color: "#2889ff",
+        sort_order: 1,
+        built_in: true,
+        translations: { fr: "Architecture métier" },
+      },
+    ]);
+    await act(async () => {
+      await i18n.changeLanguage("fr");
+    });
+    try {
+      await renderSidebar({ types: [SITE_TYPE, SERVICE_TYPE] });
+      const app = screen.getByText("Application et données");
+      const business = screen.getByText("Architecture métier");
+      // The registry puts Application & Data first, whatever the seed order.
+      expect(app.compareDocumentPosition(business) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(screen.queryByText("Business Architecture")).not.toBeInTheDocument();
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+      invalidateCardTypeCategories([]);
+    }
   });
 
   it("selecting a type resets the type-specific facets but keeps the rest", async () => {

@@ -121,3 +121,35 @@ describe("primeBootstrap — audit-log retention", () => {
     expect(api.get).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("primeBootstrap — card type categories", () => {
+  it("primes the category registry so the hook does not fetch", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({
+      ...BASE,
+      card_type_categories: [
+        { id: "2", key: "B", label: "B", color: "#222222", sort_order: 1, built_in: false, translations: {} },
+        { id: "1", key: "A", label: "A", color: "#111111", sort_order: 0, built_in: true, translations: {} },
+      ],
+    });
+    await boot.primeBootstrap();
+    const { renderHook } = await import("@testing-library/react");
+    const { useCardTypeCategories } = await import("@/hooks/useCardTypeCategories");
+    const { result } = renderHook(() => useCardTypeCategories());
+    expect(result.current.loaded).toBe(true);
+    expect(result.current.categories.map((c) => c.key)).toEqual(["A", "B"]);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the hook to fetch when an older backend sends no registry", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE });
+    await boot.primeBootstrap();
+    vi.mocked(api.get).mockResolvedValueOnce([]);
+    const { renderHook, waitFor } = await import("@testing-library/react");
+    const { useCardTypeCategories } = await import("@/hooks/useCardTypeCategories");
+    const { result } = renderHook(() => useCardTypeCategories());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+    expect(api.get).toHaveBeenLastCalledWith("/metamodel/categories");
+  });
+});

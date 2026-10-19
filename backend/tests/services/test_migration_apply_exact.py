@@ -930,6 +930,24 @@ async def test_a_custom_type_is_created_once_with_import_defaults(db, env):
     assert (broken.status, broken.error_message) == ("error", "missing proposed_tea_key")
 
 
+async def test_the_imported_category_is_adopted_into_the_registry(db, env):
+    """The type pass writes ``category="Imported"`` without going through the
+    route, so it adopts the category — otherwise the type editor would refuse
+    every later save of the imported type with ``unknown_category``."""
+    from app.models.card_type_category import CardTypeCategory
+
+    await stage(db, env, "metamodel_type", "Server", data={"proposed_tea_key": "Server"})
+    await stage(db, env, "metamodel_type", "Rack", data={"proposed_tea_key": "Rack"})
+    await ap._apply_metamodel_type_pass(db, env.m, env.admin)
+    rows = (
+        (await db.execute(select(CardTypeCategory).where(CardTypeCategory.key == "Imported")))
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+    assert (rows[0].label, rows[0].built_in) == ("Imported", False)
+
+
 async def test_custom_fields_land_in_an_imported_section(db, env):
     env.m.field_mappings = {"LXApp": {"mapped": "description", "dropped": "__skip__"}}
     await db.flush()

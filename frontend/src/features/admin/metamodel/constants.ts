@@ -17,14 +17,9 @@ export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; tKey: string }[] = [
   { value: "percentage", tKey: "common:fieldTypes.percentage" },
 ];
 
-export const CATEGORIES = [
-  "Strategy & Transformation",
-  "Business Architecture",
-  "Application & Data",
-  "Technical Architecture",
-];
-
-export const LAYER_ORDER = [...CATEGORIES, "Other"];
+// The EA layers a card type sits in are data — the category registry
+// (`useCardTypeCategories`), ordered and named through `lib/cardTypeOrder.ts`.
+// There is deliberately no hard-coded list of them here.
 
 export const CARDINALITY_OPTIONS: ("1:1" | "1:n" | "n:m")[] = ["1:1", "1:n", "n:m"];
 

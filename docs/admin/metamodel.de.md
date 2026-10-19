@@ -16,7 +16,17 @@ Der Kartentypen-Tab listet alle Typen im System auf. Turbo EA wird mit 14 integr
 | **Geschäftsarchitektur** | Organisation, Geschäftsfähigkeit, Geschäftskontext, Geschäftsprozess |
 | **Anwendung & Daten** | Anwendung, Schnittstelle, Datenobjekt |
 | **Technische Architektur** | IT-Komponente, Technologiekategorie, Anbieter, System |
-| **Eigene Logos zulassen** | Ob Bearbeiter pro Karte ein Logo hochladen dürfen, das anstelle des Typ-Symbols angezeigt wird (standardmäßig aktiv für Anwendung und IT-Komponente) |
+
+### Kategorien (Architekturebenen)
+
+Jeder Kartentyp gehört zu einer **Kategorie** — der Architekturebene, unter der er gruppiert wird. Die Reihenfolge der Kategorien ist die Reihenfolge der Ebenen überall dort, wo sie dargestellt werden: im Typfilter des Inventars, im **Metamodell-Graphen** und in den Bahnen der Layered Dependency View, jeweils in der Farbe der Kategorie und in der Sprache des Lesers.
+
+- **Die vier vordefinierten Ebenen sind gesperrt.** Strategie & Transformation, Geschäftsarchitektur, Anwendung & Daten und Technische Architektur können weder umbenannt, umgefärbt noch gelöscht werden und sind in jede unterstützte Sprache übersetzt.
+- **Eigene erstellen.** Geben Sie im Feld **Kategorie** des Typ-Editors oder von **+ Neuer Typ** einen Namen ein, den es noch nicht gibt, und wählen Sie **Kategorie „…“ erstellen**. Wählen Sie eine Farbe, fügen Sie bei Bedarf Übersetzungen hinzu, und der Typ wird der neuen Kategorie zugeordnet.
+- **Jeden Typ verschieben.** Auch vordefinierte Typen lassen sich verschieben — legen Sie zum Beispiel die Schnittstelle in eine eigene Ebene *Integration*.
+- **Kategorien verwalten.** Die Schaltfläche **Kategorien verwalten** neben **+ Neuer Typ** listet alle Kategorien mit ihrer Farbe und der Anzahl der Kartentypen, die sie verwenden. Mit den Pfeilen ändern Sie die Reihenfolge der Ebenen (eine eigene Ebene kann zwischen zwei vordefinierten liegen), mit dem Stift benennen Sie eine eigene Kategorie um, färben sie um oder übersetzen sie, und mit dem Papierkorb löschen Sie sie. Eine Kategorie, die noch von einem Kartentyp verwendet wird, lässt sich nicht löschen — ordnen Sie dessen Typen zuerst einer anderen Kategorie zu.
+
+![Kategorien verwalten](../assets/img/de/100_admin_metamodell_kategorien.png)
 
 ### Einen benutzerdefinierten Typ erstellen
 
@@ -28,7 +38,7 @@ Klicken Sie auf **+ Neuer Typ**, um einen benutzerdefinierten Kartentyp zu erste
 | **Bezeichnung** | Anzeigename in der Benutzeroberfläche |
 | **Symbol** | Google Material Symbol-Symbolname |
 | **Farbe** | Markenfarbe für den Typ (verwendet in Inventar, Berichten und Diagrammen) |
-| **Kategorie** | Architekturebenen-Gruppierung |
+| **Kategorie** | Die Architekturebene, unter der der Typ gruppiert wird — wählen Sie eine vorhandene Kategorie oder geben Sie einen neuen Namen ein, um eine zu erstellen (siehe [Kategorien](#kategorien-architekturebenen)) |
 | **Hat Hierarchie** | Ob Karten dieses Typs Eltern-/Kind-Beziehungen haben können |
 
 ### Einen Typ bearbeiten

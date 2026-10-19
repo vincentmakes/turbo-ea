@@ -16,7 +16,17 @@ Fanebladet Korttyper viser alle typer i systemet. Turbo EA leveres med 14 indbyg
 | **Business Architecture** | Organization, Business Capability, Business Context, Business Process |
 | **Application & Data** | Application, Interface, Data Object |
 | **Technical Architecture** | IT Component, Tech Category, Provider, System |
-| **Tillad egne logoer** | Om redaktører må uploade et logo pr. kort, som vises i stedet for typeikonet (slået til for Application og IT Component fra start) |
+
+### Kategorier (arkitekturlag)
+
+Hver korttype hører til en **kategori** — det arkitekturlag, den grupperes under. Kategoriernes rækkefølge er lagenes rækkefølge overalt, hvor de tegnes: inventarets typefilter, **metamodelgrafen** og banerne i Layered Dependency View, hver i kategoriens farve og på læserens sprog.
+
+- **De fire indbyggede lag er låst.** Strategi og transformation, Forretningsarkitektur, Applikationer og data og Teknisk arkitektur kan hverken omdøbes, farves om eller slettes, og de er oversat til alle understøttede sprog.
+- **Opret dine egne.** Skriv i feltet **Kategori** i typeeditoren eller i **+ Ny type** et navn, der ikke findes endnu, og vælg **Opret kategorien «…»**. Vælg en farve, tilføj eventuelt oversættelser, og typen flyttes til den nye kategori.
+- **Flyt enhver type.** Også indbyggede typer kan flyttes — læg for eksempel Interface i et eget *Integration*-lag.
+- **Administrer kategorier.** Knappen **Administrer kategorier** ved siden af **+ Ny type** viser alle kategorier med deres farve og antallet af korttyper, der bruger dem. Med pilene ændrer du lagenes rækkefølge (et eget lag kan ligge mellem to indbyggede), med blyanten omdøber, omfarver eller oversætter du en egen kategori, og med skraldespanden sletter du den. En kategori, som en korttype stadig bruger, kan ikke slettes — flyt først dens typer til en anden kategori.
+
+![Administrer kategorier](../assets/img/da/100_admin_metamodel_categories.png)
 
 ### Oprettelse af en brugerdefineret type
 
@@ -28,7 +38,7 @@ Klik på **+ Ny type** for at oprette en brugerdefineret korttype. Konfigurer:
 | **Etiket** | Visningsnavn vist i UI'et |
 | **Ikon** | Google Material Symbol-ikonnavn |
 | **Farve** | Brandfarve for typen (bruges i lager, rapporter og diagrammer) |
-| **Kategori** | Arkitekturlag-gruppering |
+| **Kategori** | Det arkitekturlag, typen grupperes under — vælg en eksisterende kategori, eller skriv et nyt navn for at oprette en (se [Kategorier](#kategorier-arkitekturlag)) |
 | **Har hierarki** | Hvorvidt kort af denne type kan have forælder/barn-relationer |
 
 ### Redigering af en type

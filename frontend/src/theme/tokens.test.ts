@@ -50,6 +50,8 @@ describe("colour tokens", () => {
       }
     }
     for (const c of t.CATEGORICAL_COLORS) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
+    // Matches the backend's default for a category created without a colour.
+    expect(t.DEFAULT_LAYER_COLOR).toBe("#999999");
   });
 
   it("name the four EA layers", async () => {

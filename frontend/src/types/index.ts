@@ -2126,6 +2126,23 @@ export type ResourceTypeKind = "link_type" | "file_category";
  * or disabled but not deleted. `icon` is a Material Symbol name used by link
  * types; file categories leave it null.
  */
+/**
+ * An EA layer a card type sits in (`card_types.category` names one by `key`).
+ * The four built-in layers are locked: label, colour and translations cannot
+ * change and they cannot be deleted; their place in the order can.
+ */
+export interface CardTypeCategory {
+  id: string;
+  /** What `CardType.category` stores — the label as first typed. Immutable. */
+  key: string;
+  label: string;
+  color: string;
+  sort_order: number;
+  built_in: boolean;
+  /** `{locale: label}` — resolve with `categoryLabel` / `useCategoryLabel`. */
+  translations: TranslationMap;
+}
+
 export interface ResourceType {
   id: string;
   kind: ResourceTypeKind;

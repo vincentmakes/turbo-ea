@@ -17,6 +17,17 @@ La scheda Tipi di card elenca tutti i tipi nel sistema. Turbo EA viene fornito c
 | **Application & Data** | Application, Interface, Data Object |
 | **Technical Architecture** | IT Component, Tech Category, Provider, System |
 
+### Categorie (livelli architetturali)
+
+Ogni tipo di card appartiene a una **categoria**: il livello architetturale in cui è raggruppato. L'ordine delle categorie è l'ordine dei livelli ovunque siano disegnati: il filtro dei tipi dell'inventario, il **grafo del metamodello** e le corsie della Layered Dependency View, ciascuno nel colore della propria categoria e nella lingua di chi legge.
+
+- **I quattro livelli predefiniti sono bloccati.** Strategia e trasformazione, Architettura aziendale, Applicazioni e dati e Architettura tecnologica non possono essere rinominati, ricolorati o eliminati, e sono tradotti in tutte le lingue supportate.
+- **Create i vostri.** Nel campo **Categoria** dell'editor del tipo o di **+ Nuovo tipo**, digitate un nome che non esiste ancora e scegliete **Crea la categoria «…»**. Scegliete un colore, aggiungete eventualmente le traduzioni e il tipo passa nella nuova categoria.
+- **Spostate qualsiasi tipo.** Anche i tipi predefiniti si possono spostare: ad esempio, mettete Interface in un livello personalizzato *Integrazione*.
+- **Gestisci categorie.** Il pulsante **Gestisci categorie**, accanto a **+ Nuovo tipo**, elenca tutte le categorie con il loro colore e il numero di tipi di card che le usano. Le frecce cambiano l'ordine dei livelli (un livello personalizzato può stare tra due predefiniti), la matita rinomina, ricolora o traduce una categoria personalizzata e il cestino la elimina. Una categoria ancora usata da un tipo di card non si può eliminare: spostate prima i suoi tipi in un'altra categoria.
+
+![Gestisci categorie](../assets/img/it/100_admin_metamodello_categorie.png)
+
 ### Creazione di un tipo personalizzato
 
 Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configurate:
@@ -27,7 +38,7 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 | **Etichetta** | Nome visualizzato nell'interfaccia |
 | **Icona** | Nome dell'icona Google Material Symbol |
 | **Colore** | Colore del brand per il tipo (utilizzato nell'inventario, nei report e nei diagrammi) |
-| **Categoria** | Raggruppamento per livello architetturale |
+| **Categoria** | Il livello architetturale in cui è raggruppato il tipo: scegliete una categoria esistente o digitate un nuovo nome per crearne una (vedi [Categorie](#categorie-livelli-architetturali)) |
 | **Ha gerarchia** | Se le card di questo tipo possono avere relazioni genitore/figlio |
 | **Consenti loghi personalizzati** | Se gli editor possono caricare un logo per ogni scheda, mostrato al posto dell'icona del tipo (attivo di serie per Applicazione e Componente IT) |
 

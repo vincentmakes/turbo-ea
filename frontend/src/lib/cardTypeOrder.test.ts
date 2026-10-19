@@ -3,9 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   CARD_TYPE_CATEGORY_ORDER,
   UNCATEGORIZED_GROUP_KEY,
+  categoryDisplayName,
+  categoryKeyOrder,
   groupCardTypesByCategory,
+  orderCategories,
+  orderCategoryKeys,
 } from "./cardTypeOrder";
-import type { CardType } from "@/types";
+import type { CardType, CardTypeCategory } from "@/types";
 
 /** Minimal CardType — only the columns the grouping actually reads. */
 function makeType(partial: Partial<CardType> & { key: string }): CardType {
@@ -217,5 +221,133 @@ describe("groupCardTypesByCategory", () => {
     const original = input.map((t) => t.key);
     groupCardTypesByCategory(input);
     expect(input.map((t) => t.key)).toEqual(original);
+  });
+});
+
+
+function makeCategory(
+  partial: Partial<CardTypeCategory> & { key: string },
+): CardTypeCategory {
+  return {
+    id: partial.key,
+    label: partial.key,
+    color: "#999999",
+    sort_order: 0,
+    built_in: false,
+    translations: {},
+    ...partial,
+  };
+}
+
+/** The registry with a custom layer an admin placed between two defaults. */
+function registry(): CardTypeCategory[] {
+  return [
+    makeCategory({ key: TECHNICAL, sort_order: 4, built_in: true }),
+    makeCategory({ key: "Security", sort_order: 2, color: "#ff0000" }),
+    makeCategory({ key: STRATEGY, sort_order: 0, built_in: true }),
+    makeCategory({
+      key: APPLICATION,
+      sort_order: 3,
+      built_in: true,
+      color: "#0f7eb5",
+      translations: { fr: "Application et données" },
+    }),
+    makeCategory({ key: BUSINESS, sort_order: 1, built_in: true }),
+  ];
+}
+
+describe("groupCardTypesByCategory with a registry", () => {
+  it("orders groups by the registry, a custom layer included", () => {
+    const sec = makeType({ key: "Firewall", category: "Security", sort_order: 99 });
+    const groups = groupCardTypesByCategory([...seeded(), sec], {
+      categories: registry(),
+    });
+    expect(keysOf(groups)).toEqual([STRATEGY, BUSINESS, "Security", APPLICATION, TECHNICAL]);
+  });
+
+  it("resolves the label and colour from the registry", () => {
+    const groups = groupCardTypesByCategory(seeded(), {
+      categories: registry(),
+      locale: "fr",
+    });
+    const app = groups.find((g) => g.key === APPLICATION)!;
+    expect(app.label).toBe("Application et données");
+    expect(app.color).toBe("#0f7eb5");
+    expect(app.category).toBe(APPLICATION);
+  });
+
+  it("keeps an unknown category after the known ones, under its raw name", () => {
+    const stray = makeType({ key: "Stray", category: "Legacy", sort_order: 0 });
+    const groups = groupCardTypesByCategory([stray, ...seeded()], {
+      categories: registry(),
+    });
+    expect(keysOf(groups).at(-1)).toBe("Legacy");
+    const legacy = groups.at(-1)!;
+    expect(legacy.label).toBe("Legacy");
+    expect(legacy.color).toBeNull();
+  });
+
+  it("labels the uncategorized bucket null", () => {
+    const groups = groupCardTypesByCategory([makeType({ key: "X", category: null })], {
+      categories: registry(),
+    });
+    expect(groups[0]).toMatchObject({
+      key: UNCATEGORIZED_GROUP_KEY,
+      category: null,
+      label: null,
+      color: null,
+    });
+  });
+
+  it("falls back to the built-in order when the registry is empty", () => {
+    const shuffled = [...seeded()].reverse();
+    expect(keysOf(groupCardTypesByCategory(shuffled, { categories: [] }))).toEqual([
+      STRATEGY,
+      BUSINESS,
+      APPLICATION,
+      TECHNICAL,
+    ]);
+  });
+});
+
+describe("category ordering helpers", () => {
+  it("orderCategories sorts by sort_order then label without mutating", () => {
+    const input = [
+      makeCategory({ key: "b", sort_order: 1 }),
+      makeCategory({ key: "c", sort_order: 0 }),
+      makeCategory({ key: "a", sort_order: 1 }),
+    ];
+    expect(orderCategories(input).map((c) => c.key)).toEqual(["c", "a", "b"]);
+    expect(input.map((c) => c.key)).toEqual(["b", "c", "a"]);
+  });
+
+  it("categoryKeyOrder uses the registry, else the fallback", () => {
+    expect(categoryKeyOrder(registry())).toEqual([
+      STRATEGY,
+      BUSINESS,
+      "Security",
+      APPLICATION,
+      TECHNICAL,
+    ]);
+    expect(categoryKeyOrder([])).toEqual([...CARD_TYPE_CATEGORY_ORDER]);
+    expect(categoryKeyOrder(undefined)).toEqual([...CARD_TYPE_CATEGORY_ORDER]);
+  });
+
+  it("orderCategoryKeys keeps only present keys, unknown ones last, deduplicated", () => {
+    expect(
+      orderCategoryKeys(["Zed", TECHNICAL, "Security", STRATEGY, "Zed", "Alpha"], registry()),
+    ).toEqual([STRATEGY, "Security", TECHNICAL, "Zed", "Alpha"]);
+  });
+
+  it("categoryDisplayName resolves, passes unknown values through, and nulls blanks", () => {
+    expect(categoryDisplayName(` ${APPLICATION} `, registry(), "fr")).toBe(
+      "Application et données",
+    );
+    expect(categoryDisplayName(APPLICATION, registry(), "de")).toBe(APPLICATION);
+    expect(categoryDisplayName("Legacy", registry(), "fr")).toBe("Legacy");
+    expect(categoryDisplayName("Legacy", undefined)).toBe("Legacy");
+    expect(categoryDisplayName("  ", registry())).toBeNull();
+    expect(categoryDisplayName(null, registry())).toBeNull();
+    expect(categoryDisplayName(undefined, registry())).toBeNull();
   });
 });

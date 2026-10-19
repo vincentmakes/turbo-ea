@@ -22,7 +22,7 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
-from app.services import audit_changes, audit_labels, audit_log
+from app.services import audit_changes, audit_labels, audit_log, card_type_categories
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.bedrock import is_valid_region
@@ -361,6 +361,8 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         for r in rt_rows
     ]
 
+    card_type_category_rows = await card_type_categories.list_categories(db)
+
     email_settings = (row.email_settings if row else None) or {}
     email_configured = _email_configured(email_settings)
 
@@ -393,6 +395,9 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "show_principles_tab": general.get("showPrinciplesTab", True),
         "compliance_regulations": compliance_regulations,
         "resource_types": resource_types,
+        "card_type_categories": [
+            card_type_categories.serialize(c) for c in card_type_category_rows
+        ],
         "login_tagline": (general.get("loginTagline") or "").strip(),
         "login_tagline_hidden": bool(general.get("loginTaglineHidden", False)),
         "login_help_text": (general.get("loginHelpText") or "").strip(),
