@@ -533,6 +533,12 @@ describe("validateImport — rows", () => {
       expect(r.creates[1].ownPathKey).toBe("BusinessCapability|ci / cd");
     });
 
+    it("drops an escaped leading space from the literal reading, as the path reading does", () => {
+      const row = oneCreate(bc({ parent_path: "\\ CI / CD" }), { existing }).creates[0];
+      expect(row.data.parent_id).toBe(cicd.id);
+      expect(row.parentPath).toEqual(["CI / CD"]);
+    });
+
     it("resolves SAP S/4HANA written either way (control)", () => {
       for (const parent_path of ["SAP S/4HANA", "SAP S\\/4HANA"]) {
         const row = oneCreate(bc({ parent_path }), { existing }).creates[0];

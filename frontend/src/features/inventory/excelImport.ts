@@ -247,7 +247,7 @@ function resolveParentSegments(
   known: (key: string) => boolean,
 ): string[] {
   const segs = decodePath(parentPathRaw);
-  if (segs.length < 2 || known(pathKey(type, segs))) return segs;
+  if (known(pathKey(type, segs))) return segs;
   const literal = unescapeListItem(parentPathRaw).trim();
   return known(pathKey(type, [literal])) ? [literal] : segs;
 }
@@ -1468,7 +1468,6 @@ export async function validateMultiSheet(
   /** A sheet row's own path, root first, with its parent read as
    * `validateImport()` read it. */
   function rowOwnPath(type: string, parentPathRaw: string, name: string): string[] {
-    if (!parentPathRaw) return [name];
     const parent = resolveParentSegments(
       type,
       parentPathRaw,
@@ -1497,6 +1496,7 @@ export async function validateMultiSheet(
    * reached the server and the other silently took its answer; they can
    * name different cards. */
   function refLookupKey(type: string, ref: string): string {
+    // Stryker disable next-line MethodExpression: any case fold is a dedup key and `splitListCell` / `str()` already trimmed every ref; the server receives `ref` as written
     return `${type}|${ref.trim().toLowerCase()}`;
   }
 

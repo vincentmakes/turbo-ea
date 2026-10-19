@@ -161,8 +161,11 @@ def test_unescape_whole_reads_one_name():
     assert unescape_whole("a\\\\b") == "a\\b"
     assert unescape_whole(" x/y ") == "x/y"
     assert unescape_whole("x / y") == "x / y"
-    # A trailing lone backslash escapes nothing and is kept.
+    # A trailing lone backslash escapes nothing and is kept, while an escape
+    # that ends the string is still honoured.
     assert unescape_whole("a\\") == "a\\"
+    assert unescape_whole("x\\/") == "x/"
+    assert unescape_whole("a\\b") == "ab"
     assert unescape_whole("") == ""
 
 

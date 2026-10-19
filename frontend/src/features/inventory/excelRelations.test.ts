@@ -536,6 +536,25 @@ describe("validateMultiSheet", () => {
       expect(stagedRefs().map((r) => r.ref)).not.toContain("SAP S/4HANA");
     });
 
+    it("drops an escaped leading space from a same-batch literal target", async () => {
+      const report = await validate(
+        [
+          { type: "Application", name: "Platform" },
+          { type: "Application", name: "SAP S/4HANA", parent_path: "Platform" },
+          { type: "Application", name: "Portal", "rel:app_dep": "\\ SAP S/4HANA" },
+        ],
+        [],
+        [APP_DEP],
+      );
+      expect(report.errors).toEqual([]);
+      const op = report.relationOps.find((o) => o.relationType === "app_dep");
+      expect(op?.targetRef).toEqual({
+        kind: "pathKey",
+        pathKey: "Application|platform/sap s/4hana",
+        type: "Application",
+      });
+    });
+
     it("links an unescaped same-batch flat target from another sheet (control)", async () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(
@@ -643,6 +662,48 @@ describe("validateMultiSheet", () => {
         pathKey: "Application|ci / cd/runner",
         type: "Application",
       });
+    });
+
+    it("reads a new child's parent through the existing hierarchy, not a literal homonym", async () => {
+      const root = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+      const child = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+      const report = await validate(
+        [{ type: "Application", name: "Runner", parent_path: "Root / Child", "rel:depends_on": "DB" }],
+        [
+          makeCard({ id: root, type: "Application", name: "Root" }),
+          makeCard({ id: child, type: "Application", name: "Child", parent_id: root }),
+          makeCard({ id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", type: "Application", name: "Root / Child" }),
+          makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "DB" }),
+        ],
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.creates[0].data.parent_id).toBe(child);
+      // The relation pass walks the same chain the card pass did, so the
+      // source key is the row's own key and the apply step can resolve it.
+      expect(report.relationOps[0].sourceRef).toEqual({
+        kind: "pathKey",
+        pathKey: "Application|root/child/runner",
+        type: "Application",
+      });
+    });
+
+    it("sources relations from two same-named new children by their own paths", async () => {
+      const report = await validate(
+        [
+          { type: "Application", name: "Blue" },
+          { type: "Application", name: "Green" },
+          { type: "Application", name: "Runner", parent_path: "Blue", "rel:depends_on": "DB" },
+          { type: "Application", name: "Runner", parent_path: "Green", "rel:depends_on": "DB" },
+        ],
+        [makeCard({ id: "22222222-2222-2222-2222-222222222222", type: "ITComponent", name: "DB" })],
+        [DEPENDS_ON_TYPE],
+      );
+      expect(report.errors).toEqual([]);
+      expect(report.relationOps.map((o) => o.sourceRef)).toEqual([
+        { kind: "pathKey", pathKey: "Application|blue/runner", type: "Application" },
+        { kind: "pathKey", pathKey: "Application|green/runner", type: "Application" },
+      ]);
     });
 
     it("links a name holding angle brackets (the `<` control)", async () => {
