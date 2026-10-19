@@ -28,7 +28,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.calculation import Calculation
@@ -196,9 +196,9 @@ async def delete_type_dependents(
         # Every row of such a type has a card of this type at one end, so the
         # card cascade already took it. Delete by type key as well so a row
         # that somehow points elsewhere cannot dangle without its type.
-        await db.execute(Relation.__table__.delete().where(Relation.type == rt.key))
+        await db.execute(delete(Relation).where(Relation.type == rt.key))
         await db.delete(rt)
 
-    await db.execute(Calculation.__table__.delete().where(Calculation.target_type_key == key))
+    await db.execute(delete(Calculation).where(Calculation.target_type_key == key))
     await db.flush()
     return impact
