@@ -190,8 +190,8 @@ Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tie
 
 ### Eliminar un Tipo
 
-- Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse
-- Los **tipos personalizados** se eliminan permanentemente
+- Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse. El botón de eliminar del editor de tipos está bloqueado para ellos — use **Ocultar tipo** en su lugar.
+- Los **tipos personalizados** — los que usted creó — pueden **eliminarse permanentemente**. Abra el tipo, haga clic en **Eliminar tipo** en la cabecera y Turbo EA muestra todo lo que la eliminación se llevará consigo: las cards del tipo (con sus relaciones, partes interesadas, comentarios y adjuntos), los tipos de relación que lo conectan con otros tipos, los cálculos dirigidos a él y sus roles de parte interesada. Escriba la clave del tipo para desbloquear **Eliminar permanentemente**. La eliminación no se puede deshacer; las cards archivadas del tipo también se eliminan, y cada card eliminada queda registrada en el registro de seguridad y administración y en el historial de eventos.
 
 ## Tipos de Relación
 

@@ -41,6 +41,8 @@ import StakeholderRolePanel from "./StakeholderRolePanel";
 import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
 import RelationsTabContent from "./RelationsTabContent";
+import DeleteTypeDialog from "./DeleteTypeDialog";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -67,6 +69,8 @@ export interface TypeDrawerProps {
   relationTypes: RType[];
   onClose: () => void;
   onRefresh: () => void;
+  /** The type was permanently deleted: close the drawer and reload the list. */
+  onDeleted?: () => void;
 }
 
 export default function TypeDetailDrawer({
@@ -76,6 +80,7 @@ export default function TypeDetailDrawer({
   relationTypes,
   onClose,
   onRefresh,
+  onDeleted = onRefresh,
 }: TypeDrawerProps) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
@@ -118,6 +123,9 @@ export default function TypeDetailDrawer({
 
   /* --- Translation dialog --- */
   const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
+
+  /* --- Permanent deletion dialog --- */
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   /* --- Drawer tab (general / relations / stakeholders / data quality) --- */
   const [tab, setTab] = useState<TabKey>("main");
@@ -540,6 +548,30 @@ export default function TypeDetailDrawer({
                 color={cardTypeKey.is_hidden ? "#f57c00" : "#999"}
               />
             </IconButton>
+          </Tooltip>
+          {/* A built-in type is only ever hidden (the seed restores it); the
+              delete button stays visible but locked so the admin sees why. */}
+          <Tooltip
+            title={
+              cardTypeKey.built_in
+                ? t("metamodel.typeDrawer.deleteTypeBuiltIn")
+                : t("metamodel.typeDrawer.deleteType")
+            }
+          >
+            <span>
+              <IconButton
+                size="small"
+                aria-label={t("metamodel.typeDrawer.deleteType")}
+                disabled={cardTypeKey.built_in}
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <MaterialSymbol
+                  icon="delete"
+                  size={20}
+                  color={cardTypeKey.built_in ? "#bbb" : STATUS_COLORS.error}
+                />
+              </IconButton>
+            </span>
           </Tooltip>
           <Button
             variant="contained"
@@ -1022,6 +1054,18 @@ export default function TypeDetailDrawer({
         onSave={() => {
           onRefresh();
           setSnack(t("metamodel.translationDialog.saved"));
+        }}
+      />
+
+      {/* --- Permanent deletion (custom types only) --- */}
+      <DeleteTypeDialog
+        open={deleteDialogOpen}
+        cardType={cardTypeKey}
+        relationTypes={relationTypes}
+        onClose={() => setDeleteDialogOpen(false)}
+        onDeleted={() => {
+          setDeleteDialogOpen(false);
+          onDeleted();
         }}
       />
 

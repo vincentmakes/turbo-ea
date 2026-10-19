@@ -273,7 +273,10 @@ class TestDeleteType:
             "/api/v1/metamodel/types/Custom",
             headers=auth_headers(admin),
         )
-        assert response.status_code == 400
+        # A conflict the caller can resolve with `delete_cards=true`
+        # (test_metamodel_delete_type.py covers that path).
+        assert response.status_code == 409
+        assert response.json()["detail"]["error"] == "cards_present"
 
 
 # ---------------------------------------------------------------------------
@@ -1869,7 +1872,14 @@ class TestMetamodelAudit:
         assert deleted.action == "admin.metamodel.type.deleted"
         # Removed relation types are listed by label, not by key.
         assert deleted.details == {
-            "context": {"mode": "deleted", "relation_types_removed": ["depends on"]}
+            "context": {
+                "mode": "deleted",
+                "card_count": 0,
+                "relation_count": 0,
+                "relation_types_removed": ["depends on"],
+                "calculation_count": 0,
+                "stakeholder_role_count": 0,
+            }
         }
 
     async def test_adding_a_field_to_an_existing_section(self, client, db, metamodel_env):

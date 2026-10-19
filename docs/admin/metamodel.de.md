@@ -190,8 +190,8 @@ Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Dr
 
 ### Einen Typ löschen
 
-- **Integrierte Typen** werden weich gelöscht (ausgeblendet) und können wiederhergestellt werden
-- **Benutzerdefinierte Typen** werden dauerhaft gelöscht
+- **Integrierte Typen** werden weich gelöscht (ausgeblendet) und können wiederhergestellt werden. Die Löschen-Schaltfläche im Typ-Editor ist für sie gesperrt — verwenden Sie stattdessen **Typ ausblenden**.
+- **Benutzerdefinierte Typen** — die von Ihnen erstellten — können **dauerhaft gelöscht** werden. Öffnen Sie den Typ, klicken Sie in der Kopfzeile auf **Typ löschen**, und Turbo EA zeigt alles an, was mit der Löschung entfernt wird: die Karten des Typs (mit ihren Beziehungen, Stakeholdern, Kommentaren und Anhängen), die Beziehungstypen, die ihn mit anderen Typen verbinden, die Berechnungen für diesen Typ und seine Stakeholder-Rollen. Geben Sie den Schlüssel des Typs ein, um **Dauerhaft löschen** freizugeben. Die Löschung kann nicht rückgängig gemacht werden; archivierte Karten des Typs werden ebenfalls gelöscht, und jede gelöschte Karte wird im Sicherheits- und Admin-Protokoll sowie im Ereignisverlauf festgehalten.
 
 ## Beziehungstypen
 

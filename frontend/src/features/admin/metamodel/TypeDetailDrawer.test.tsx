@@ -61,6 +61,26 @@ vi.mock("./FieldEditorDialog", () => ({
     ) : null,
 }));
 
+vi.mock("./DeleteTypeDialog", () => ({
+  default: ({
+    open,
+    cardType,
+    onClose,
+    onDeleted,
+  }: {
+    open: boolean;
+    cardType: CardType | null;
+    onClose: () => void;
+    onDeleted: () => void;
+  }) =>
+    open ? (
+      <div data-testid="delete-type-dialog" data-type={cardType?.key}>
+        <button onClick={onDeleted}>stub-confirm-delete</button>
+        <button onClick={onClose}>stub-close-delete</button>
+      </div>
+    ) : null,
+}));
+
 vi.mock("./DataQualityPanel", () => ({
   default: ({ cardType }: { cardType: CardType }) => (
     <div data-testid="dq-panel" data-type={cardType.key} />
@@ -198,10 +218,11 @@ const TWO_SECTIONS: CardType = makeCardType({
 function renderDrawer(
   typeKey: string | null = "Application",
   types: CardType[] = CARD_TYPES,
-  overrides: { open?: boolean } = {},
+  overrides: { open?: boolean; withOnDeleted?: boolean } = {},
 ) {
   const onClose = vi.fn();
   const onRefresh = vi.fn();
+  const onDeleted = vi.fn();
   const utils = renderWithProviders(
     <TypeDetailDrawer
       open={overrides.open ?? true}
@@ -210,9 +231,10 @@ function renderDrawer(
       relationTypes={RELATION_TYPES}
       onClose={onClose}
       onRefresh={onRefresh}
+      onDeleted={overrides.withOnDeleted === false ? undefined : onDeleted}
     />,
   );
-  return { ...utils, onClose, onRefresh };
+  return { ...utils, onClose, onRefresh, onDeleted };
 }
 
 /** The last PATCH body sent to the type endpoint. */
@@ -703,6 +725,46 @@ describe("TypeDetailDrawer — visibility and translations", () => {
     await user.click(screen.getByRole("button", { name: ta("metamodel.typeDrawer.unhideType") }));
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect(lastPatchBody()).toEqual({ is_hidden: false });
+  });
+
+  it("offers permanent deletion on a custom type and relays the outcome", async () => {
+    const { user, onDeleted, onRefresh } = renderDrawer("Secret", [HIDDEN_TYPE]);
+    await screen.findByRole("dialog");
+    expect(screen.queryByTestId("delete-type-dialog")).not.toBeInTheDocument();
+    const button = screen.getByRole("button", { name: ta("metamodel.typeDrawer.deleteType") });
+    expect(button).toBeEnabled();
+    await user.click(button);
+    expect(screen.getByTestId("delete-type-dialog")).toHaveAttribute("data-type", "Secret");
+    await user.click(screen.getByRole("button", { name: "stub-confirm-delete" }));
+    expect(onDeleted).toHaveBeenCalledTimes(1);
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("delete-type-dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the deletion dialog without deleting", async () => {
+    const { user, onDeleted } = renderDrawer("Secret", [HIDDEN_TYPE]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: ta("metamodel.typeDrawer.deleteType") }));
+    await user.click(screen.getByRole("button", { name: "stub-close-delete" }));
+    expect(screen.queryByTestId("delete-type-dialog")).not.toBeInTheDocument();
+    expect(onDeleted).not.toHaveBeenCalled();
+  });
+
+  it("falls back to onRefresh when no onDeleted handler is given", async () => {
+    const { user, onRefresh } = renderDrawer("Secret", [HIDDEN_TYPE], { withOnDeleted: false });
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: ta("metamodel.typeDrawer.deleteType") }));
+    await user.click(screen.getByRole("button", { name: "stub-confirm-delete" }));
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks deletion on a built-in type, which can only be hidden", async () => {
+    renderDrawer();
+    await screen.findByRole("dialog");
+    // Application is built in: the button is rendered, but disabled, so the
+    // dialog can never open from it.
+    expect(screen.getByRole("button", { name: ta("metamodel.typeDrawer.deleteType") })).toBeDisabled();
+    expect(screen.queryByTestId("delete-type-dialog")).not.toBeInTheDocument();
   });
 
   it("reports a failed visibility change", async () => {

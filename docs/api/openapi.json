@@ -27872,6 +27872,18 @@
               "title": "Key",
               "type": "string"
             }
+          },
+          {
+            "description": "Also delete every card of a custom type (with its relations). Without it, a custom type that still has cards is refused with 409.",
+            "in": "query",
+            "name": "delete_cards",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also delete every card of a custom type (with its relations). Without it, a custom type that still has cards is refused with 409.",
+              "title": "Delete Cards",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -27983,6 +27995,47 @@
           }
         },
         "summary": "Update Type",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/types/{key}/delete-impact": {
+      "get": {
+        "description": "What ``DELETE /types/{key}`` would remove: the confirmation dialog's numbers.\n\nCounts only \u2014 a card type's dependants are landscape-wide admin data, and the\ncaller holds ``admin.metamodel``, so no read scope applies.",
+        "operationId": "get_type_delete_impact_api_v1_metamodel_types__key__delete_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Type Delete Impact",
         "tags": [
           "metamodel"
         ]

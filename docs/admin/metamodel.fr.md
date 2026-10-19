@@ -190,8 +190,8 @@ Les traductions sont stockées avec chaque type de fiche et sont résolues au mo
 
 ### Suppression d'un type
 
-- Les **types intégrés** sont masqués (suppression logique) et peuvent être restaurés
-- Les **types personnalisés** sont supprimés définitivement
+- Les **types intégrés** sont masqués (suppression logique) et peuvent être restaurés. Le bouton de suppression de l'éditeur de type est verrouillé pour eux — utilisez **Masquer le type** à la place.
+- Les **types personnalisés** — ceux que vous avez créés — peuvent être **supprimés définitivement**. Ouvrez le type, cliquez sur **Supprimer le type** dans l'en-tête, et Turbo EA affiche tout ce que la suppression emportera : les fiches du type (avec leurs relations, parties prenantes, commentaires et pièces jointes), les types de relation qui le relient à d'autres types, les calculs qui le ciblent et ses rôles de partie prenante. Saisissez la clé du type pour déverrouiller **Supprimer définitivement**. La suppression est irréversible ; les fiches archivées du type sont également supprimées, et chaque fiche supprimée est consignée dans le journal de sécurité et d'administration ainsi que dans l'historique des événements.
 
 ## Types de relations
 

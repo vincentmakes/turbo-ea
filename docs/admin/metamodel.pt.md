@@ -190,8 +190,8 @@ As traduções são armazenadas junto com cada tipo de card e são resolvidas no
 
 ### Excluindo um Tipo
 
-- **Tipos incorporados** são excluídos temporariamente (ocultos) e podem ser restaurados
-- **Tipos personalizados** são excluídos permanentemente
+- **Tipos incorporados** são excluídos temporariamente (ocultos) e podem ser restaurados. O botão de excluir no editor de tipos fica bloqueado para eles — use **Ocultar tipo** em vez disso.
+- **Tipos personalizados** — os que você criou — podem ser **excluídos permanentemente**. Abra o tipo, clique em **Excluir tipo** no cabeçalho e o Turbo EA mostra tudo o que a exclusão levará junto: os cards do tipo (com seus relacionamentos, stakeholders, comentários e anexos), os tipos de relacionamento que o ligam a outros tipos, os cálculos direcionados a ele e seus papéis de stakeholder. Digite a chave do tipo para liberar **Excluir permanentemente**. A exclusão não pode ser desfeita; os cards arquivados do tipo também são excluídos, e cada card excluído fica registrado no log de segurança e administração e no histórico de eventos.
 
 ## Tipos de Relacionamento
 

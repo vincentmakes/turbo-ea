@@ -409,6 +409,11 @@ export default function MetamodelAdmin() {
         relationTypes={relationTypes}
         onClose={() => setDrawerOpen(false)}
         onRefresh={refresh}
+        onDeleted={() => {
+          setDrawerOpen(false);
+          setSelectedTypeKey(null);
+          refresh();
+        }}
       />
 
       {/* ============================================================ */}

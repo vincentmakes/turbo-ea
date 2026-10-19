@@ -27,7 +27,13 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
-from app.services import audit_changes, audit_labels, audit_log, card_reference
+from app.services import (
+    audit_changes,
+    audit_labels,
+    audit_log,
+    card_reference,
+    card_type_delete,
+)
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
     HIERARCHY_LEVEL_KEY,
@@ -1338,9 +1344,34 @@ async def _recompute_data_quality_for_type(db: AsyncSession, type_key: str) -> N
         await db.commit()
 
 
+@router.get("/types/{key}/delete-impact")
+async def get_type_delete_impact(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    """What ``DELETE /types/{key}`` would remove: the confirmation dialog's numbers.
+
+    Counts only — a card type's dependants are landscape-wide admin data, and the
+    caller holds ``admin.metamodel``, so no read scope applies.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Type not found")
+    impact = await card_type_delete.type_delete_impact(db, t)
+    return impact.to_dict()
+
+
 @router.delete("/types/{key}")
 async def delete_type(
-    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+    key: str,
+    delete_cards: bool = Query(
+        False,
+        description="Also delete every card of a custom type (with its relations). "
+        "Without it, a custom type that still has cards is refused with 409.",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(CardType).where(CardType.key == key))
@@ -1348,12 +1379,10 @@ async def delete_type(
     if not t:
         raise HTTPException(404, "Type not found")
 
-    # Check for existing cards of this type
-    count_result = await db.execute(select(func.count()).select_from(Card).where(Card.type == key))
-    instance_count = count_result.scalar() or 0
+    impact = await card_type_delete.type_delete_impact(db, t)
 
     if t.built_in:
-        # Soft-delete built-in types
+        # Built-in types are only ever hidden, so the seed can restore them.
         t.is_hidden = True
         await audit_log.record(
             db,
@@ -1361,34 +1390,30 @@ async def delete_type(
             category="admin",
             actor=user,
             target=("card_type", key, t.label),
-            context={"mode": "hidden", "card_count": instance_count},
+            context={"mode": "hidden", "card_count": impact.card_count},
         )
         await db.commit()
         PermissionService.invalidate_type_permission_cache(key)
-        return {"status": "hidden", "key": key, "instance_count": instance_count}
+        return {"status": "hidden", "key": key, "instance_count": impact.card_count}
 
-    if instance_count > 0:
-        raise HTTPException(
-            400,
-            f"Cannot delete type '{key}': {instance_count} card(s) exist. "
-            "Delete them first or hide the type instead.",
-        )
+    if impact.card_count > 0:
+        if not delete_cards:
+            raise HTTPException(
+                409,
+                detail={
+                    "error": "cards_present",
+                    "message": f"Cannot delete type '{key}': {impact.card_count} card(s) "
+                    "exist. Pass delete_cards=true to delete them with the type, "
+                    "or hide the type instead.",
+                    "key": key,
+                    "card_count": impact.card_count,
+                },
+            )
+        # Deleting the cards is a permanent inventory delete, so it takes that
+        # permission on top of the metamodel one (every default admin holds both).
+        await PermissionService.require_permission(db, user, "inventory.delete")
 
-    # Also delete relation types that reference this type
-    await db.execute(
-        select(RelationType).where(
-            (RelationType.source_type_key == key) | (RelationType.target_type_key == key)
-        )
-    )
-    rel_result = await db.execute(
-        select(RelationType).where(
-            (RelationType.source_type_key == key) | (RelationType.target_type_key == key)
-        )
-    )
-    removed_relation_types = []
-    for rt in rel_result.scalars().all():
-        removed_relation_types.append(rt.label or rt.key)
-        await db.delete(rt)
+    await card_type_delete.delete_type_dependents(db, t, actor_id=user.id)
 
     await audit_log.record(
         db,
@@ -1396,12 +1421,27 @@ async def delete_type(
         category="admin",
         actor=user,
         target=("card_type", key, t.label),
-        context={"mode": "deleted", "relation_types_removed": sorted(removed_relation_types)},
+        context={
+            "mode": "deleted",
+            "card_count": impact.card_count,
+            "relation_count": impact.relation_count,
+            "relation_types_removed": sorted(rt.label for rt in impact.relation_types),
+            "calculation_count": impact.calculation_count,
+            "stakeholder_role_count": impact.stakeholder_role_count,
+        },
     )
     await db.delete(t)
     await db.commit()
     PermissionService.invalidate_type_permission_cache(key)
-    return {"status": "deleted", "key": key}
+    return {
+        "status": "deleted",
+        "key": key,
+        "cards_removed": impact.card_count,
+        "relations_removed": impact.relation_count,
+        "relation_types_removed": [rt.key for rt in impact.relation_types],
+        "calculations_removed": impact.calculation_count,
+        "stakeholder_roles_removed": impact.stakeholder_role_count,
+    }
 
 
 # ── Relation Types ─────────────────────────────────────────────────────

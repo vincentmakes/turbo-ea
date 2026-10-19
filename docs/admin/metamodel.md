@@ -192,8 +192,8 @@ Translations are stored alongside each card type and are resolved at render time
 
 ### Deleting a Type
 
-- **Built-in types** are soft-deleted (hidden) and can be restored
-- **Custom types** are permanently deleted
+- **Built-in types** are soft-deleted (hidden) and can be restored. The delete button in the type editor is locked for them — use **Hide type** instead.
+- **Custom types** — the ones you created — can be **permanently deleted**. Open the type, click the **Delete type** button in the header, and Turbo EA shows everything the deletion will take with it: the cards of the type (with their relations, stakeholders, comments and attachments), the relation types that connect it to other types, the calculations that target it and its stakeholder roles. Type the type's key to unlock **Delete permanently**. The deletion cannot be undone; archived cards of the type are deleted too, and every deleted card is recorded in the Security & admin log and in the event history.
 
 ## Relation Types
 

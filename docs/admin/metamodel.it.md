@@ -190,8 +190,8 @@ Le traduzioni sono memorizzate insieme a ciascun tipo di card e vengono risolte 
 
 ### Eliminazione di un tipo
 
-- I **tipi predefiniti** vengono eliminati temporaneamente (nascosti) e possono essere ripristinati
-- I **tipi personalizzati** vengono eliminati definitivamente
+- I **tipi predefiniti** vengono eliminati temporaneamente (nascosti) e possono essere ripristinati. Il pulsante di eliminazione nell'editor del tipo è bloccato per loro — usa invece **Nascondi tipo**.
+- I **tipi personalizzati** — quelli creati da te — possono essere **eliminati definitivamente**. Apri il tipo, fai clic su **Elimina tipo** nell'intestazione e Turbo EA mostra tutto ciò che l'eliminazione porterà via: le card del tipo (con relazioni, stakeholder, commenti e allegati), i tipi di relazione che lo collegano ad altri tipi, i calcoli destinati a esso e i suoi ruoli di stakeholder. Digita la chiave del tipo per sbloccare **Elimina definitivamente**. L'eliminazione non può essere annullata; vengono eliminate anche le card archiviate del tipo, e ogni card eliminata è registrata nel log di sicurezza e amministrazione e nella cronologia degli eventi.
 
 ## Tipi di relazione
 

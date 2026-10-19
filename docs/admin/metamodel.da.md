@@ -190,8 +190,8 @@ Oversættelser gemmes sammen med hver korttype og opløses ved render-tid ved hj
 
 ### Sletning af en type
 
-- **Indbyggede typer** soft-slettes (skjules) og kan gendannes
-- **Brugerdefinerede typer** slettes permanent
+- **Indbyggede typer** soft-slettes (skjules) og kan gendannes. Slet-knappen i typeeditoren er låst for dem — brug **Skjul type** i stedet.
+- **Brugerdefinerede typer** — dem du selv har oprettet — kan **slettes permanent**. Åbn typen, klik på **Slet type** i toppen, og Turbo EA viser alt, som sletningen tager med sig: typens kort (med deres relationer, interessenter, kommentarer og vedhæftninger), de relationstyper der forbinder den med andre typer, de beregninger der er rettet mod den, og dens interessentroller. Skriv typens nøgle for at låse **Slet permanent** op. Sletningen kan ikke fortrydes; typens arkiverede kort slettes også, og hvert slettet kort registreres i sikkerheds- og administrationsloggen og i hændelseshistorikken.
 
 ## Relationstyper
 

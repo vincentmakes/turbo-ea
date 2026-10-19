@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.166.0] - 2026-10-19
+
+### Added
+- **Permanently delete a custom card type**: an admin can now delete a card type they created, from the **Delete type** button in the type editor's header. Before anything is removed, Turbo EA lists what goes with the type — its cards (with their relations, stakeholders, comments and attachments), the relation types that connect it to other types, the calculations that target it and its stakeholder roles — and asks for the type's key to be typed in. Built-in types keep their lock: they can only be hidden, never deleted. Every deleted card is recorded in the Security & admin log and the event history.
+
+### Changed
+- `DELETE /metamodel/types/{key}` on a custom type that still has cards now answers **409** with the card count instead of 400, and removes the cards too when called with `delete_cards=true` (which also requires the permission to delete cards). `GET /metamodel/types/{key}/delete-impact` returns what the deletion would remove.
+
 ## [2.165.0] - 2026-10-16
 
 ### Added
