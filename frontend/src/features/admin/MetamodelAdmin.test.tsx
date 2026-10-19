@@ -19,7 +19,12 @@ vi.mock("@/hooks/useMetamodel", () => ({
 // — the relation-type assertions below are its behaviour now, and running them
 // through the real panel is what proves the page still wires it up.
 vi.mock("./metamodel", () => ({
-  TypeDetailDrawer: () => <div data-testid="type-detail-drawer" />,
+  TypeDetailDrawer: ({ open, onDeleted }: { open: boolean; onDeleted?: () => void }) =>
+    open ? (
+      <div data-testid="type-detail-drawer">
+        <button onClick={onDeleted}>stub-type-deleted</button>
+      </div>
+    ) : null,
   MetamodelGraph: () => <div data-testid="metamodel-graph" />,
 }));
 
@@ -282,6 +287,23 @@ describe("MetamodelAdmin", () => {
     await waitFor(() => {
       expect(screen.getByTestId("metamodel-graph")).toBeInTheDocument();
     });
+  });
+
+  it("closes the type drawer and reloads the metamodel once a type was deleted", async () => {
+    renderMetamodel();
+    await waitFor(() => expect(screen.getByText("Application")).toBeInTheDocument());
+    expect(screen.queryByTestId("type-detail-drawer")).not.toBeInTheDocument();
+    const callsBefore = vi.mocked(api.get).mock.calls.length;
+
+    fireEvent.click(screen.getByText("Application"));
+    expect(screen.getByTestId("type-detail-drawer")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("stub-type-deleted"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("type-detail-drawer")).not.toBeInTheDocument();
+      expect(vi.mocked(api.get).mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+    expect(api.get).toHaveBeenLastCalledWith(expect.stringContaining("/metamodel/relation-types"));
   });
 
   it("fetches types and relation types on mount", async () => {

@@ -18,7 +18,7 @@ from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
-from app.services.card_type_delete import leaves_first
+from app.services.card_type_delete import delete_type_dependents, leaves_first
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -61,15 +61,32 @@ async def _landscape(db):
     grandchild = await create_card(db, card_type=TYPE, name="Grandchild", parent_id=child.id)
     archived = await create_card(db, card_type=TYPE, name="Old gadget", status="ARCHIVED")
     app = await create_card(db, card_type="Application", name="App")
+    app2 = await create_card(db, card_type="Application", name="Other app")
+    # sort_order runs against insertion order so the impact's ordering is observable.
     await create_relation_type(
         db,
         key="relGadgetToApp",
         label="powers",
         source_type_key=TYPE,
         target_type_key="Application",
+        sort_order=2,
     )
     await create_relation_type(
-        db, key="relGadgetSelf", label="feeds", source_type_key=TYPE, target_type_key=TYPE
+        db,
+        key="relGadgetSelf",
+        label="feeds",
+        source_type_key=TYPE,
+        target_type_key=TYPE,
+        sort_order=1,
+    )
+    # The type at the TARGET end only, with no rows: touched all the same.
+    await create_relation_type(
+        db,
+        key="relAppToGadget",
+        label="configures",
+        source_type_key="Application",
+        target_type_key=TYPE,
+        sort_order=0,
     )
     await create_relation_type(
         db,
@@ -81,6 +98,8 @@ async def _landscape(db):
     await create_relation(db, type_key="relGadgetToApp", source_id=root.id, target_id=app.id)
     await create_relation(db, type_key="relGadgetToApp", source_id=child.id, target_id=app.id)
     await create_relation(db, type_key="relGadgetSelf", source_id=root.id, target_id=grandchild.id)
+    # A row of a relation type that never touches the deleted type must survive.
+    await create_relation(db, type_key="relAppSelf", source_id=app.id, target_id=app2.id)
     db.add(
         Calculation(
             name="Gadget score",
@@ -89,16 +108,19 @@ async def _landscape(db):
             formula="1",
         )
     )
-    db.add(
-        Calculation(
-            name="App score",
-            target_type_key="Application",
-            target_field_key="score",
-            formula="1",
+    # Two of each on the other type, so "everything but this type" never counts the same.
+    for name in ("App score", "App health"):
+        db.add(
+            Calculation(
+                name=name,
+                target_type_key="Application",
+                target_field_key="score",
+                formula="1",
+            )
         )
-    )
     await create_stakeholder_role_def(db, card_type_key=TYPE, key="keeper", label="Keeper")
     await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    await create_stakeholder_role_def(db, card_type_key="Application", key="deputy", label="Deputy")
     await db.flush()
     return {
         "root": root,
@@ -106,6 +128,7 @@ async def _landscape(db):
         "grandchild": grandchild,
         "archived": archived,
         "app": app,
+        "app2": app2,
     }
 
 
@@ -129,8 +152,9 @@ class TestDeleteImpact:
             "archived_card_count": 1,
             "relation_count": 3,
             "relation_types": [
-                {"key": "relGadgetToApp", "label": "powers", "relation_count": 2},
+                {"key": "relAppToGadget", "label": "configures", "relation_count": 0},
                 {"key": "relGadgetSelf", "label": "feeds", "relation_count": 1},
+                {"key": "relGadgetToApp", "label": "powers", "relation_count": 2},
             ],
             "calculation_count": 1,
             "stakeholder_role_count": 1,
@@ -145,6 +169,15 @@ class TestDeleteImpact:
         assert body["card_count"] == 0
         assert body["relation_types"] == []
         assert body["relation_count"] == 0
+        assert body["calculation_count"] == 0
+        assert body["stakeholder_role_count"] == 0
+
+    async def test_reports_a_built_in_type_as_such(self, client, db, env):
+        await create_card_type(db, key="Application", label="Application", built_in=True)
+        resp = await client.get(
+            "/api/v1/metamodel/types/Application/delete-impact", headers=auth_headers(env["admin"])
+        )
+        assert resp.json()["built_in"] is True
 
     async def test_requires_the_metamodel_permission(self, client, db, env):
         await create_card_type(db, key=TYPE, label="Gadget", built_in=False)
@@ -187,22 +220,16 @@ class TestDeleteCustomType:
             "key": TYPE,
             "cards_removed": 4,
             "relations_removed": 3,
-            "relation_types_removed": ["relGadgetToApp", "relGadgetSelf"],
+            "relation_types_removed": ["relAppToGadget", "relGadgetSelf", "relGadgetToApp"],
             "calculations_removed": 1,
             "stakeholder_roles_removed": 1,
         }
 
         assert await _count(db, CardType, CardType.key == TYPE) == []
         assert await _count(db, Card, Card.type == TYPE) == []
-        assert (
-            await _count(db, Relation, Relation.type.in_(["relGadgetToApp", "relGadgetSelf"])) == []
-        )
-        assert (
-            await _count(
-                db, RelationType, RelationType.key.in_(["relGadgetToApp", "relGadgetSelf"])
-            )
-            == []
-        )
+        gone = ["relGadgetToApp", "relGadgetSelf", "relAppToGadget"]
+        assert await _count(db, Relation, Relation.type.in_(gone)) == []
+        assert await _count(db, RelationType, RelationType.key.in_(gone)) == []
         assert await _count(db, Calculation, Calculation.target_type_key == TYPE) == []
         assert (
             await _count(
@@ -214,7 +241,8 @@ class TestDeleteCustomType:
         # The other type keeps everything of its own.
         assert len(await _count(db, Card, Card.id == cards["app"].id)) == 1
         assert len(await _count(db, RelationType, RelationType.key == "relAppSelf")) == 1
-        assert len(await _count(db, Calculation, Calculation.target_type_key == "Application")) == 1
+        assert len(await _count(db, Relation, Relation.type == "relAppSelf")) == 1
+        assert len(await _count(db, Calculation, Calculation.target_type_key == "Application")) == 2
         assert (
             len(
                 await _count(
@@ -223,15 +251,31 @@ class TestDeleteCustomType:
                     StakeholderRoleDefinition.card_type_key == "Application",
                 )
             )
-            == 1
+            == 2
         )
 
-        # Every deleted card is on record, archived one included.
+        # Every deleted card is on record, archived one included, by id and name.
         events = await _count(db, Event, Event.event_type == "card.deleted")
         names = sorted(e.data["name"] for e in events)
         assert names == ["Child gadget", "Grandchild", "Old gadget", "Root gadget"]
+        assert {e.data["id"] for e in events} == {
+            str(cards[k].id) for k in ("root", "child", "grandchild", "archived")
+        }
         assert {e.data["type"] for e in events} == {TYPE}
         assert {e.user_id for e in events} == {env["admin"].id}
+
+    async def test_the_service_returns_what_was_there_before(self, db, env):
+        """`delete_type_dependents` reports the pre-deletion counts, not the empty after."""
+        await _landscape(db)
+        [t] = await _count(db, CardType, CardType.key == TYPE)
+        impact = await delete_type_dependents(db, t, actor_id=env["admin"].id)
+        assert (impact.card_count, impact.relation_count) == (4, 3)
+        assert [rt.key for rt in impact.relation_types] == [
+            "relAppToGadget",
+            "relGadgetSelf",
+            "relGadgetToApp",
+        ]
+        assert await _count(db, Card, Card.type == TYPE) == []
 
     async def test_the_type_is_gone_from_the_list(self, client, db, env):
         await _landscape(db)
@@ -315,7 +359,7 @@ class TestDeleteCustomType:
                 "mode": "deleted",
                 "card_count": 4,
                 "relation_count": 3,
-                "relation_types_removed": ["feeds", "powers"],
+                "relation_types_removed": ["configures", "feeds", "powers"],
                 "calculation_count": 1,
                 "stakeholder_role_count": 1,
             }

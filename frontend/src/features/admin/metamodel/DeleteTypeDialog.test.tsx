@@ -147,6 +147,33 @@ describe("DeleteTypeDialog — impact", () => {
     expect(within(list).queryByText(/archived/)).not.toBeInTheDocument();
   });
 
+  it("leaves out every line whose count is zero", async () => {
+    mockApi.on("get", IMPACT_PATH, {
+      ...FULL_IMPACT,
+      relation_types: [],
+      relation_count: 0,
+      calculation_count: 0,
+      stakeholder_role_count: 0,
+    });
+    renderDialog();
+    const list = await screen.findByTestId("delete-type-impact");
+    expect(within(list).getByText(ta("metamodel.deleteType.cards", { count: 4 }))).toBeInTheDocument();
+    expect(within(list).queryByText(/relation type/)).not.toBeInTheDocument();
+    expect(within(list).queryByText(/calculation/)).not.toBeInTheDocument();
+    expect(within(list).queryByText(/stakeholder role/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["one relation type", { relation_types: [{ key: "relX", label: "x", relation_count: 0 }] }],
+    ["one calculation", { calculation_count: 1 }],
+    ["one stakeholder role", { stakeholder_role_count: 1 }],
+  ])("lists the impact rather than saying nothing depends on the type when there is %s", async (_label, extra) => {
+    mockApi.on("get", IMPACT_PATH, { ...EMPTY_IMPACT, ...extra });
+    renderDialog();
+    expect(await screen.findByTestId("delete-type-impact")).toBeInTheDocument();
+    expect(screen.queryByText(ta("metamodel.deleteType.noImpact"))).not.toBeInTheDocument();
+  });
+
   it("reports a failed impact load and keeps the button locked", async () => {
     mockApi.fail("get", IMPACT_PATH, 500);
     const { user } = renderDialog();
@@ -166,6 +193,36 @@ describe("DeleteTypeDialog — confirmation", () => {
     await user.clear(confirmField());
     await user.type(confirmField(), "Gadget");
     expect(confirmButton()).toBeEnabled();
+  });
+
+  it("ignores surrounding whitespace in the typed key", async () => {
+    const { user } = renderDialog();
+    await screen.findByTestId("delete-type-impact");
+    await user.type(confirmField(), "  Gadget  ");
+    expect(confirmButton()).toBeEnabled();
+  });
+
+  it("a further keystroke after a match never deletes on its own", async () => {
+    const { user, onDeleted } = renderDialog();
+    await screen.findByTestId("delete-type-impact");
+    await user.type(confirmField(), "Gadgetx");
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+    expect(onDeleted).not.toHaveBeenCalled();
+    expect(confirmButton()).toBeDisabled();
+  });
+
+  it("locks both buttons while the delete is in flight", async () => {
+    let finish: (v: unknown) => void = () => {};
+    mockApi.on("delete", /^\/metamodel\/types\/Gadget/, () => new Promise((r) => (finish = r)));
+    const { user, onDeleted } = renderDialog();
+    await screen.findByTestId("delete-type-impact");
+    await user.type(confirmField(), "Gadget");
+    await user.click(confirmButton());
+    expect(confirmButton()).toBeDisabled();
+    expect(screen.getByRole("button", { name: tc("actions.cancel") })).toBeDisabled();
+    expect(confirmField()).toBeDisabled();
+    finish({ status: "deleted" });
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledTimes(1));
   });
 
   it("deletes with delete_cards=true when cards exist and reports back", async () => {
@@ -207,6 +264,10 @@ describe("DeleteTypeDialog — confirmation", () => {
     expect(onDeleted).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(confirmButton()).toBeEnabled();
+    // The refusal can be dismissed, and the dialog stays.
+    await user.click(screen.getByRole("button", { name: /close/i }));
+    await waitFor(() => expect(screen.queryByText(/failed/)).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("cancel closes without deleting", async () => {
