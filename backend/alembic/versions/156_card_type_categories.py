@@ -14,8 +14,8 @@ defaults, as a custom row (label = key, neutral grey, ordered after the
 defaults) — otherwise the type editor, which always sends ``category`` back,
 would refuse every unrelated edit of such a type with ``unknown_category``.
 
-Revision ID: 155
-Revises: 154
+Revision ID: 156
+Revises: 155
 """
 
 from collections.abc import Iterable, Sequence
@@ -26,8 +26,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "155"
-down_revision: Union[str, None] = "154"
+revision: str = "156"
+down_revision: Union[str, None] = "155"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,6 +1,6 @@
-"""Unit tests for migration 155 (the card type category registry).
+"""Unit tests for migration 156 (the card type category registry).
 
-Before 155 ``card_types.category`` was free text. The migration creates the
+Before 156 ``card_types.category`` was free text. The migration creates the
 registry and adopts every stored category that is not one of the four
 built-in layers (those are seeded on boot) as a custom row, so the type
 editor — which always sends ``category`` back — can still save such a type.
@@ -16,17 +16,17 @@ from pathlib import Path
 from app.services.seed import DEFAULT_CATEGORY_KEYS
 
 _MIG_PATH = (
-    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "155_card_type_categories.py"
+    Path(__file__).resolve().parents[2] / "alembic" / "versions" / "156_card_type_categories.py"
 )
-_spec = importlib.util.spec_from_file_location("mig155", _MIG_PATH)
+_spec = importlib.util.spec_from_file_location("mig156", _MIG_PATH)
 mig = importlib.util.module_from_spec(_spec)
 assert _spec and _spec.loader
 _spec.loader.exec_module(mig)
 
 
 def test_revision_chain():
-    assert mig.revision == "155"
-    assert mig.down_revision == "154"
+    assert mig.revision == "156"
+    assert mig.down_revision == "155"
 
 
 def test_a_free_text_category_is_adopted_as_a_custom_row():

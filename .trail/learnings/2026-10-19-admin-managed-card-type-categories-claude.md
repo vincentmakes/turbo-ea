@@ -7,7 +7,7 @@ touches:
   - backend/app/services/card_type_categories.py
   - backend/app/api/v1/metamodel.py
   - backend/app/services/workspace_io/applier.py
-  - backend/alembic/versions/155_card_type_categories.py
+  - backend/alembic/versions/156_card_type_categories.py
   - frontend/src/hooks/useCardTypeCategories.ts
   - frontend/src/lib/cardTypeOrder.ts
   - frontend/src/features/reports/ldvLayoutShared.ts
