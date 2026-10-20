@@ -155,7 +155,7 @@ IF(ppm.tasksOverdue > 0, "At risk", COALESCE(ppm.scheduleHealth, "No report"))
 
 #### 沿举措层级汇总 PPM 数值 { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-PPM 投资组合显示的是每个举措自身的数值，不会沿层级做任何汇总。要在项目群上显示其下所有内容的预算，只需使用一项读取其下级结果的计算：
+PPM 投资组合看板会为没有自己预算行或成本行的上级显示其下举措的合计，但该数值只存在于看板上。要在项目群上（包括清单、报表和门户中）显示其下所有内容的预算，只需使用一项读取其下级结果的计算：
 
 1. 在**管理 → 元模型**中，为 Initiative 类型添加一个**成本**类型的字段 —— 例如 `rolledUpBudget`，标签为*汇总预算*。
 2. 在**管理 → 计算**中，为 Initiative 添加一项计算，公式为 `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`，目标为该字段，并启用它。

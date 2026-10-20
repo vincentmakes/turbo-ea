@@ -42,7 +42,9 @@ O agrupamento continua sendo o principal: a hierarquia é montada **dentro de ca
 
 #### Consolidar valores nas iniciativas pai
 
-O portfólio mostra os valores próprios de cada iniciativa: as barras de CapEx e OpEx de uma iniciativa pai cobrem as linhas de orçamento e de custo registradas nela, não as das filhas, e os totais de grupo contam cada iniciativa uma única vez. Para ver um total na iniciativa pai, defina um campo calculado que some o orçamento próprio de cada nível aos totais das filhas — veja [Consolidar valores de PPM ao longo da hierarquia de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Uma alteração de PPM em uma filha executa novamente os cálculos de todas as iniciativas acima dela, de modo que o total da iniciativa pai é atualizado na hora.
+Cada iniciativa mostra os próprios valores sempre que os tiver: as barras de CapEx e OpEx de uma iniciativa pai cobrem as linhas de orçamento e de custo registradas nela, e a barra de Gantt as próprias datas de início e término. Uma iniciativa pai **sem linhas de orçamento ou de custo próprias** mostra, em vez disso, o total das iniciativas abaixo dela, desenhado como barras **contornadas** com valores em itálico; uma iniciativa pai **sem data de início nem de término** abrange do início mais cedo ao término mais tardio abaixo dela, desenhada como uma barra **tracejada** com trimestres em itálico. Uma dica de ferramenta informa, em cada caso, quantas iniciativas estão incluídas. As duas regras são independentes — um programa pode ter datas próprias e ainda assim mostrar os custos dos projetos — e basta registrar uma linha de orçamento ou uma data na iniciativa pai para que essa parte volte aos valores próprios. Só contam as iniciativas que você pode ver e, em um portal, as que o portal publica. Os totais de grupo e a barra de KPIs continuam somando apenas as linhas registradas, de modo que cada valor é contado uma única vez.
+
+Os valores derivados existem apenas no quadro de PPM. Para levar um total consolidado ao inventário, aos relatórios ou a um portal, defina um campo calculado que some o orçamento próprio de cada nível aos totais das filhas — veja [Consolidar valores de PPM ao longo da hierarquia de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Uma alteração de PPM em uma filha executa novamente os cálculos de todas as iniciativas acima dela, de modo que o total da iniciativa pai é atualizado na hora.
 
 ### Impressão e exportação
 
@@ -50,7 +52,7 @@ O portfólio oferece as mesmas ações na barra de título que os relatórios:
 
 - **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página. Quando a hierarquia ou o subagrupamento estão ativados, a linha de parâmetros também os indica, com a profundidade de exibição.
 - **Exportar para PowerPoint (.pptx)** — pelo menu **⋮**. O primeiro slide traz o título, o carimbo de data/hora de geração e os filtros ativos junto com o portfólio em qualidade de apresentação; portfólios longos continuam em outros slides, divididos apenas entre iniciativas — nunca no meio de uma linha, de um cabeçalho de grupo ou de uma linha de totais.
-- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status. As linhas seguem a ordem da tela; enquanto a hierarquia é exibida, uma coluna **Pai** indica a iniciativa pai de cada iniciativa.
+- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status. As linhas seguem a ordem da tela; enquanto a hierarquia é exibida, uma coluna **Pai** indica a iniciativa pai de cada iniciativa. Duas colunas, **Origem dos custos** e **Origem das datas**, indicam se os valores de uma linha são os próprios ou o total das iniciativas abaixo dela.
 
 ## Visão Detalhada da Iniciativa
 
@@ -64,6 +66,7 @@ A visão geral mostra um resumo da saúde e finanças da iniciativa:
 
 - **Resumo de saúde** — Indicadores de cronograma, custos e escopo do último relatório de status
 - **Orçamento vs. Real** — Card de KPI combinado mostrando orçamento total e gasto real com variação
+- **Abaixo desta iniciativa** — Quando a iniciativa tem iniciativas abaixo dela, uma linha sob as barras de orçamento indica quantas são, o orçamento e o gasto real somados e o período coberto pelas datas delas. Ela aparece ao lado dos valores próprios da iniciativa e nunca é somada a eles.
 - **Atividade recente** — Resumo do último relatório de status
 
 ### Aba Relatórios de Status

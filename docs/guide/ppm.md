@@ -42,7 +42,9 @@ The grouping stays primary: the hierarchy nests **inside each group**, so a chil
 
 #### Rolling figures up to parent initiatives
 
-The portfolio shows each initiative's own figures: a parent's CapEx and OpEx bars cover the budget and cost lines recorded on the parent, not those of its children, and the group totals count every initiative once. To see a total on a parent, define a calculated field that adds each level's own budget to its children's totals — see [Rolling PPM figures up the Initiative hierarchy](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). A PPM change on a child re-runs the calculations of every Initiative above it, so the parent's total moves straight away.
+Each initiative shows its own figures whenever it has any: a parent's CapEx and OpEx bars cover the budget and cost lines recorded on the parent, and its Gantt bar its own start and end dates. A parent with **no budget or cost lines of its own** shows instead the total of the initiatives beneath it, drawn as **outlined** bars with italic figures; a parent with **neither a start nor an end date** spans from the earliest start to the latest end beneath it, drawn as a **dashed** bar with italic quarters. A tooltip on each says how many initiatives it covers. The two rules are independent — a program may carry its own dates and still show its projects' costs — and recording one budget line or one date on the parent switches that part back to its own figures. Only the initiatives you can see count, and on a portal only those the portal publishes. The group totals and the KPI bar keep adding up recorded lines only, so every figure is counted once.
+
+The derived figures exist on the PPM board only. To carry a rolled-up total into the Inventory, reports or a portal, define a calculated field that adds each level's own budget to its children's totals — see [Rolling PPM figures up the Initiative hierarchy](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). A PPM change on a child re-runs the calculations of every Initiative above it, so the parent's total moves straight away.
 
 ### Printing & exporting
 
@@ -50,7 +52,7 @@ The portfolio offers the same title-bar actions as the reports:
 
 - **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge. When the hierarchy or the sub-grouping is switched on, the parameter line names it too, with the display depth.
 - **Export to PowerPoint (.pptx)** — from the **⋮** menu. The first slide carries the title, the generation timestamp and the active filters together with the portfolio at presentation quality; long portfolios continue onto further slides, split only between initiatives — never through a row, a group header or a totals line.
-- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report. The rows follow the order on screen; while the hierarchy is shown, a **Parent** column names each initiative's parent.
+- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report. The rows follow the order on screen; while the hierarchy is shown, a **Parent** column names each initiative's parent. Two columns, **Costs from** and **Dates from**, say whether a row's figures are its own or the total of the initiatives beneath it.
 
 ## Initiative Detail View
 
@@ -64,6 +66,7 @@ The overview shows a summary of the initiative's health and financials:
 
 - **Health Summary** — Schedule, cost, and scope indicators from the latest status report
 - **Budget vs. Actual** — Combined KPI card showing total budget and actual spend with variance
+- **Beneath this initiative** — When the initiative has initiatives beneath it, a line under the budget bars names how many there are, their summed budget and actual spend, and the span of their dates. It is shown beside the initiative's own figures and never added to them.
 - **Recent Activity** — Latest status report summary
 
 ### Status Reports Tab

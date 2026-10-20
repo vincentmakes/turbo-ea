@@ -42,7 +42,9 @@ Le regroupement reste prioritaire : la hiérarchie s'imbrique **à l'intérieur 
 
 #### Agréger les montants sur les initiatives parentes
 
-Le portefeuille affiche les montants propres à chaque initiative : les barres CapEx et OpEx d'un parent couvrent les lignes de budget et de coût saisies sur le parent, et non celles de ses enfants, et les totaux de groupe comptent chaque initiative une seule fois. Pour obtenir un total sur un parent, définissez un champ calculé qui ajoute le budget propre de chaque niveau aux totaux de ses enfants — voir [Agréger les montants PPM le long de la hiérarchie des initiatives](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Une modification PPM sur un enfant relance les calculs de toutes les initiatives situées au-dessus de lui, de sorte que le total du parent évolue immédiatement.
+Chaque initiative affiche ses propres montants dès qu'elle en a : les barres CapEx et OpEx d'un parent couvrent les lignes de budget et de coût saisies sur le parent, et sa barre de Gantt ses propres dates de début et de fin. Un parent **sans ligne de budget ni de coût propre** affiche à la place le total des initiatives situées en dessous, sous forme de barres **en contour** aux montants en italique ; un parent **sans date de début ni de fin** couvre la période allant du début le plus précoce à la fin la plus tardive des initiatives situées en dessous, sous forme de barre **en pointillés** aux trimestres en italique. Une infobulle indique chaque fois combien d'initiatives sont couvertes. Les deux règles sont indépendantes — un programme peut porter ses propres dates et afficher malgré tout les coûts de ses projets — et il suffit d'une ligne de budget ou d'une date sur le parent pour que cette partie revienne à ses propres montants. Seules comptent les initiatives que vous pouvez voir et, sur un portail, celles que le portail publie. Les totaux de groupe et la barre d'indicateurs continuent d'additionner les seules lignes saisies, de sorte que chaque montant n'est compté qu'une fois.
+
+Les montants dérivés n'existent que sur le tableau PPM. Pour reporter un total agrégé dans l'inventaire, les rapports ou un portail, définissez un champ calculé qui ajoute le budget propre de chaque niveau aux totaux de ses enfants — voir [Agréger les montants PPM le long de la hiérarchie des initiatives](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Une modification PPM sur un enfant relance les calculs de toutes les initiatives situées au-dessus de lui, de sorte que le total du parent évolue immédiatement.
 
 ### Impression et export
 
@@ -50,7 +52,7 @@ Le portefeuille propose les mêmes actions de barre de titre que les rapports :
 
 - **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
 - **Exporter vers PowerPoint (.pptx)** — depuis le menu **⋮**. La première diapositive porte le titre, l'horodatage de génération et les filtres actifs, accompagnés du portefeuille en qualité de présentation ; les portefeuilles longs se poursuivent sur d'autres diapositives, découpées uniquement entre initiatives — jamais au milieu d'une ligne, d'un en-tête de groupe ou d'une ligne de totaux.
-- **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement. Les lignes suivent l'ordre affiché à l'écran ; lorsque la hiérarchie est affichée, une colonne **Parent** indique l'initiative parente de chaque initiative.
+- **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement. Les lignes suivent l'ordre affiché à l'écran ; lorsque la hiérarchie est affichée, une colonne **Parent** indique l'initiative parente de chaque initiative. Deux colonnes, **Origine des coûts** et **Origine des dates**, indiquent si les montants d'une ligne sont les siens ou le total des initiatives situées en dessous.
 
 ## Vue Détaillée de l'Initiative
 
@@ -64,6 +66,7 @@ La vue d'ensemble montre un résumé de la santé et des finances de l'initiativ
 
 - **Résumé de santé** — Indicateurs de calendrier, coût et périmètre du dernier rapport de statut
 - **Budget vs. Réel** — Carte KPI combinée montrant le budget total et les dépenses réelles avec écart
+- **Sous cette initiative** — Lorsque l'initiative a des initiatives en dessous d'elle, une ligne sous les barres de budget indique leur nombre, leur budget et leurs dépenses réelles additionnés, ainsi que la période couverte par leurs dates. Elle s'affiche à côté des montants propres de l'initiative et ne s'y ajoute jamais.
 - **Activité récente** — Résumé du dernier rapport de statut
 
 ### Onglet Rapports de Statut

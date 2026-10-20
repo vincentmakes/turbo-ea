@@ -42,7 +42,9 @@ Il raggruppamento resta prioritario: la gerarchia si annida **all'interno di ogn
 
 #### Aggregare gli importi sulle iniziative padre
 
-Il portafoglio mostra gli importi propri di ogni iniziativa: le barre CapEx e OpEx di un padre coprono le righe di budget e di costo registrate sul padre, non quelle delle figlie, e i totali di gruppo contano ogni iniziativa una sola volta. Per vedere un totale su un padre, definire un campo calcolato che sommi il budget proprio di ogni livello ai totali delle sue figlie: vedere [Aggregare gli importi PPM lungo la gerarchia delle iniziative](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Una modifica PPM su una figlia riesegue i calcoli di tutte le iniziative superiori, così il totale del padre si aggiorna subito.
+Ogni iniziativa mostra i propri importi ogni volta che ne ha: le barre CapEx e OpEx di un padre coprono le righe di budget e di costo registrate sul padre, e la sua barra Gantt le sue date di inizio e fine. Un padre **senza righe di budget o di costo proprie** mostra invece il totale delle iniziative sottostanti, disegnato con barre **a contorno** e importi in corsivo; un padre **senza data di inizio né di fine** copre il periodo che va dall'inizio più precoce alla fine più tardiva delle iniziative sottostanti, disegnato come barra **tratteggiata** con trimestri in corsivo. Un tooltip indica in ogni caso quante iniziative sono comprese. Le due regole sono indipendenti — un programma può avere date proprie e mostrare comunque i costi dei suoi progetti — e basta registrare una riga di budget o una data sul padre perché quella parte torni ai suoi importi. Contano solo le iniziative che potete vedere e, su un portale, quelle che il portale pubblica. I totali di gruppo e la barra dei KPI continuano a sommare solo le righe registrate, così ogni importo è contato una sola volta.
+
+Gli importi derivati esistono solo sulla bacheca PPM. Per portare un totale aggregato nell'inventario, nei report o in un portale, definire un campo calcolato che sommi il budget proprio di ogni livello ai totali delle sue figlie: vedere [Aggregare gli importi PPM lungo la gerarchia delle iniziative](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Una modifica PPM su una figlia riesegue i calcoli di tutte le iniziative superiori, così il totale del padre si aggiorna subito.
 
 ### Stampa ed esportazione
 
@@ -50,7 +52,7 @@ Il portafoglio offre le stesse azioni nella barra del titolo dei report:
 
 - **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina. Quando la gerarchia o il sottoraggruppamento sono attivi, anche la riga dei parametri lo indica, con la profondità di visualizzazione.
 - **Esporta in PowerPoint (.pptx)** — dal menu **⋮**. La prima diapositiva riporta titolo, data e ora di generazione e filtri attivi insieme al portafoglio in qualità da presentazione; i portafogli lunghi proseguono su altre diapositive, tagliate solo tra le iniziative — mai attraverso una riga, un'intestazione di gruppo o una riga dei totali.
-- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato. Le righe seguono l'ordine sullo schermo; mentre la gerarchia è visualizzata, una colonna **Padre** indica l'iniziativa padre di ciascuna iniziativa.
+- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato. Le righe seguono l'ordine sullo schermo; mentre la gerarchia è visualizzata, una colonna **Padre** indica l'iniziativa padre di ciascuna iniziativa. Due colonne, **Origine dei costi** e **Origine delle date**, indicano se gli importi di una riga sono i suoi o il totale delle iniziative sottostanti.
 
 ## Vista Dettagliata dell'Iniziativa
 
@@ -64,6 +66,7 @@ La panoramica mostra un riepilogo della salute e delle finanze dell'iniziativa:
 
 - **Riepilogo salute** — Indicatori di calendario, costi e ambito dall'ultimo report di stato
 - **Budget vs. Effettivo** — Card KPI combinata che mostra budget totale e spesa effettiva con varianza
+- **Sotto questa iniziativa** — Quando l'iniziativa ha iniziative sottostanti, una riga sotto le barre del budget ne indica il numero, il budget e la spesa effettiva sommati e il periodo coperto dalle loro date. È mostrata accanto agli importi propri dell'iniziativa e non vi si somma mai.
 - **Attività recente** — Riepilogo dell'ultimo report di stato
 
 ### Scheda Report di Stato

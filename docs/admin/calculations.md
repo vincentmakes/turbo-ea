@@ -188,9 +188,10 @@ the bar wherever the card is shown.
 
 #### Rolling PPM figures up the Initiative hierarchy { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-The PPM portfolio shows each initiative's own figures and adds nothing up the hierarchy. To
-show on a program the budget of everything beneath it, use one calculation that reads its
-children's result:
+The PPM portfolio board shows a parent without budget or cost lines of its own the total of the
+initiatives beneath it, but that figure lives on the board only. To show on a program — in the
+Inventory, reports and portals — the budget of everything beneath it, use one calculation that
+reads its children's result:
 
 1. In **Admin → Metamodel**, add a field of type **Cost** to the Initiative type — say
    `rolledUpBudget`, labelled *Rolled-up budget*.

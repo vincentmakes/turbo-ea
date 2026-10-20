@@ -42,7 +42,9 @@ Die Gruppierung bleibt vorrangig: Die Hierarchie wird **innerhalb jeder Gruppe**
 
 #### Werte auf übergeordnete Initiativen aufsummieren
 
-Das Portfolio zeigt die eigenen Werte jeder Initiative: Die CapEx- und OpEx-Balken einer übergeordneten Initiative umfassen die Budget- und Kostenzeilen, die auf ihr selbst erfasst sind, nicht die ihrer untergeordneten Initiativen, und die Gruppensummen zählen jede Initiative einmal. Um eine Summe auf der übergeordneten Initiative zu sehen, legen Sie ein berechnetes Feld an, das das eigene Budget jeder Ebene zu den Summen ihrer untergeordneten Initiativen addiert – siehe [PPM-Werte entlang der Initiativhierarchie aufsummieren](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Eine PPM-Änderung an einer untergeordneten Initiative führt die Berechnungen aller darüberliegenden Initiativen erneut aus, sodass sich die Summe der übergeordneten sofort aktualisiert.
+Jede Initiative zeigt ihre eigenen Werte, sobald sie welche hat: Die CapEx- und OpEx-Balken einer übergeordneten Initiative umfassen die auf ihr selbst erfassten Budget- und Kostenzeilen, ihr Gantt-Balken ihr eigenes Start- und Enddatum. Eine übergeordnete Initiative **ohne eigene Budget- oder Kostenzeilen** zeigt stattdessen die Summe der Initiativen darunter, als **umrandete** Balken mit kursiven Werten; eine ohne **Start- und ohne Enddatum** erstreckt sich vom frühesten Start bis zum spätesten Ende darunter, als **gestrichelter** Balken mit kursiven Quartalen. Ein Tooltip nennt jeweils, wie viele Initiativen erfasst sind. Beide Regeln gelten unabhängig voneinander – ein Programm kann eigene Termine haben und trotzdem die Kosten seiner Projekte zeigen –, und schon eine Budgetzeile oder ein Datum auf der übergeordneten Initiative schaltet diesen Teil auf ihre eigenen Werte zurück. Es zählen nur die Initiativen, die Sie sehen dürfen, und auf einem Portal nur die, die das Portal veröffentlicht. Die Gruppensummen und die KPI-Leiste addieren weiterhin nur erfasste Zeilen, sodass jeder Wert genau einmal zählt.
+
+Die abgeleiteten Werte gibt es nur auf dem PPM-Board. Um eine aufsummierte Summe ins Inventar, in Berichte oder in ein Portal zu bringen, legen Sie ein berechnetes Feld an, das das eigene Budget jeder Ebene zu den Summen ihrer untergeordneten Initiativen addiert – siehe [PPM-Werte entlang der Initiativhierarchie aufsummieren](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Eine PPM-Änderung an einer untergeordneten Initiative führt die Berechnungen aller darüberliegenden Initiativen erneut aus, sodass sich die Summe der übergeordneten sofort aktualisiert.
 
 ### Drucken und Exportieren
 
@@ -50,7 +52,7 @@ Das Portfolio bietet dieselben Aktionen in der Titelleiste wie die Berichte:
 
 - **Drucken / Als PDF speichern** — Das Druckersymbol druckt das Portfolio so, wie es auf dem Bildschirm aussieht. Die Registerkartenleiste, die Filterleiste und Hover-Popovers werden ausgeblendet, die aktive Gruppierung, der Subtyp und die Suche erscheinen als kompakte Parameterzeile, und das Zeitplanraster wird nicht mehr beschnitten, sodass alle Spalten auf die Seite passen. Sind die Hierarchie oder die Untergliederung eingeschaltet, nennt die Parameterzeile auch diese, mit der Anzeigetiefe.
 - **Export nach PowerPoint (.pptx)** — über das **⋮**-Menü. Die erste Folie enthält Titel, Erstellungszeitstempel und die aktiven Filter zusammen mit dem Portfolio in Präsentationsqualität; lange Portfolios werden auf weiteren Folien fortgesetzt und nur zwischen Initiativen getrennt — nie mitten in einer Zeile, einer Gruppenüberschrift oder einer Summenzeile.
-- **Export nach Excel (.xlsx)** — ebenfalls über das **⋮**-Menü. Eine Zeile je Initiative mit Gruppe, Subtyp, Projektleitung, Start- und Enddatum, den drei Gesundheitsbewertungen, CapEx/OpEx geplant und tatsächlich sowie dem Datum des letzten Statusberichts. Die Zeilen folgen der Reihenfolge auf dem Bildschirm; solange die Hierarchie angezeigt wird, nennt eine Spalte **Übergeordnet** die übergeordnete Initiative jeder Initiative.
+- **Export nach Excel (.xlsx)** — ebenfalls über das **⋮**-Menü. Eine Zeile je Initiative mit Gruppe, Subtyp, Projektleitung, Start- und Enddatum, den drei Gesundheitsbewertungen, CapEx/OpEx geplant und tatsächlich sowie dem Datum des letzten Statusberichts. Die Zeilen folgen der Reihenfolge auf dem Bildschirm; solange die Hierarchie angezeigt wird, nennt eine Spalte **Übergeordnet** die übergeordnete Initiative jeder Initiative. Zwei Spalten, **Kosten aus** und **Termine aus**, geben an, ob die Werte einer Zeile ihre eigenen sind oder die Summe der Initiativen darunter.
 
 ## Initiativ-Detailansicht
 
@@ -64,6 +66,7 @@ Die Übersicht zeigt eine Zusammenfassung der Gesundheit und Finanzen der Initia
 
 - **Gesundheitsübersicht** — Zeitplan-, Kosten- und Umfangsindikatoren aus dem letzten Statusbericht
 - **Budget vs. Ist** — Kombinierte KPI-Karte mit Gesamtbudget und tatsächlichen Ausgaben mit Abweichung
+- **Unter dieser Initiative** — Hat die Initiative untergeordnete Initiativen, nennt eine Zeile unter den Budgetbalken deren Anzahl, ihr summiertes Budget und ihre Ist-Ausgaben sowie die Spanne ihrer Termine. Sie steht neben den eigenen Werten der Initiative und wird nie zu ihnen addiert.
 - **Letzte Aktivität** — Zusammenfassung des letzten Statusberichts
 
 ### Statusberichte-Tab

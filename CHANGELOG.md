@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.171.0] - 2026-10-20
+
+### Added
+- **Derived costs and dates on PPM parent initiatives**: on the PPM portfolio, a parent initiative with no budget or cost lines of its own shows the total of the initiatives beneath it, drawn as outlined bars with italic figures, and one with neither a start nor an end date spans the initiatives beneath it as a dashed Gantt bar with italic quarters; a tooltip on each says how many initiatives it covers. A parent's own lines or dates always win, the two are decided separately, only initiatives the reader can see (or the portal publishes) count, and the group totals and KPI bar still count each recorded line once. Published portfolio portals show the same, with the derived costs following the portal's cost setting, and the Excel export gains **Costs from** and **Dates from** columns.
+- The initiative **Overview** tab names, under the budget bars, how many initiatives sit beneath it, their summed budget and actual spend and their date span, read live through the new `GET /ppm/initiatives/{id}/rollup`.
+
 ## [2.170.0] - 2026-10-20
 
 ### Added

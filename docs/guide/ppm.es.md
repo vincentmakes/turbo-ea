@@ -42,7 +42,9 @@ La agrupación sigue siendo la principal: la jerarquía se anida **dentro de cad
 
 #### Acumular cifras en las iniciativas padre
 
-La cartera muestra las cifras propias de cada iniciativa: las barras de CapEx y OpEx de un padre cubren las líneas de presupuesto y de coste registradas en el padre, no las de sus hijas, y los totales de grupo cuentan cada iniciativa una sola vez. Para ver un total en un padre, defina un campo calculado que sume el presupuesto propio de cada nivel a los totales de sus hijas; consulte [Acumular cifras de PPM a lo largo de la jerarquía de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Un cambio de PPM en una hija vuelve a ejecutar los cálculos de todas las iniciativas superiores, de modo que el total del padre se actualiza de inmediato.
+Cada iniciativa muestra sus propias cifras siempre que las tenga: las barras de CapEx y OpEx de un padre cubren las líneas de presupuesto y de coste registradas en el padre, y su barra de Gantt sus propias fechas de inicio y fin. Un padre **sin líneas de presupuesto ni de coste propias** muestra en su lugar el total de las iniciativas que tiene por debajo, dibujado con barras **de contorno** y cifras en cursiva; un padre **sin fecha de inicio ni de fin** abarca desde el inicio más temprano hasta el fin más tardío de lo que tiene por debajo, dibujado como una barra **discontinua** con trimestres en cursiva. Una información sobre herramientas indica en cada caso cuántas iniciativas abarca. Las dos reglas son independientes —un programa puede tener sus propias fechas y aun así mostrar los costes de sus proyectos— y basta con registrar una línea de presupuesto o una fecha en el padre para que esa parte vuelva a sus propias cifras. Solo cuentan las iniciativas que usted puede ver y, en un portal, las que el portal publica. Los totales de grupo y la barra de KPI siguen sumando únicamente las líneas registradas, de modo que cada cifra se cuenta una sola vez.
+
+Las cifras derivadas solo existen en el tablero de PPM. Para llevar un total acumulado al inventario, a los informes o a un portal, defina un campo calculado que sume el presupuesto propio de cada nivel a los totales de sus hijas; consulte [Acumular cifras de PPM a lo largo de la jerarquía de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Un cambio de PPM en una hija vuelve a ejecutar los cálculos de todas las iniciativas superiores, de modo que el total del padre se actualiza de inmediato.
 
 ### Impresión y exportación
 
@@ -50,7 +52,7 @@ La cartera ofrece las mismas acciones en la barra de título que los informes:
 
 - **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
 - **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
-- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado. Las filas siguen el orden de la pantalla; mientras se muestra la jerarquía, una columna **Padre** indica la iniciativa padre de cada iniciativa.
+- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado. Las filas siguen el orden de la pantalla; mientras se muestra la jerarquía, una columna **Padre** indica la iniciativa padre de cada iniciativa. Dos columnas, **Origen de los costes** y **Origen de las fechas**, indican si las cifras de una fila son las suyas propias o el total de las iniciativas que tiene por debajo.
 
 ## Vista de detalle de iniciativa
 
@@ -64,6 +66,7 @@ La visión general muestra un resumen de la salud y finanzas de la iniciativa:
 
 - **Resumen de salud** — Indicadores de cronograma, costo y alcance del último informe de estado
 - **Presupuesto vs. Real** — Tarjeta de KPI combinada mostrando presupuesto total y gasto real con variación
+- **Por debajo de esta iniciativa** — Cuando la iniciativa tiene iniciativas por debajo, una línea bajo las barras de presupuesto indica cuántas son, su presupuesto y su gasto real sumados y el periodo que abarcan sus fechas. Se muestra junto a las cifras propias de la iniciativa y nunca se suma a ellas.
 - **Actividad reciente** — Resumen del último informe de estado
 
 ### Pestaña de informes de estado

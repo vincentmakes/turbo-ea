@@ -42,7 +42,9 @@ Grupperingen kommer stadig først: hierarkiet indlejres **inden for hver gruppe*
 
 #### Summér tal op til overordnede initiativer
 
-Porteføljen viser hvert initiativs egne tal: et overordnet initiativs CapEx- og OpEx-bjælker dækker de budget- og omkostningslinjer, der er registreret på det selv, ikke dem på de underordnede, og gruppetotalerne tæller hvert initiativ én gang. Hvis du vil se en total på det overordnede initiativ, skal du definere et beregnet felt, der lægger hvert niveaus eget budget til de underordnedes totaler — se [Summér PPM-tal op gennem initiativhierarkiet](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). En PPM-ændring på et underordnet initiativ kører beregningerne igen for alle initiativer over det, så det overordnedes total flytter sig med det samme.
+Hvert initiativ viser sine egne tal, når det har nogen: et overordnet initiativs CapEx- og OpEx-bjælker dækker de budget- og omkostningslinjer, der er registreret på det selv, og dets Gantt-bjælke dets egne start- og slutdatoer. Et overordnet initiativ **uden egne budget- eller omkostningslinjer** viser i stedet summen af initiativerne under det, tegnet som **omridsede** bjælker med kursive tal; et initiativ **uden hverken start- eller slutdato** spænder fra den tidligste start til den seneste slutning under det, tegnet som en **stiplet** bjælke med kursive kvartaler. Et værktøjstip fortæller i begge tilfælde, hvor mange initiativer det dækker. De to regler er uafhængige af hinanden — et program kan have egne datoer og alligevel vise sine projekters omkostninger — og én budgetlinje eller én dato på det overordnede initiativ er nok til at skifte den del tilbage til dets egne tal. Kun de initiativer, du kan se, tæller med, og på en portal kun dem, portalen udgiver. Gruppetotalerne og KPI-linjen lægger fortsat kun registrerede linjer sammen, så hvert tal tælles én gang.
+
+De afledte tal findes kun på PPM-tavlen. Hvis du vil have en sammenlagt total med i inventaret, rapporter eller en portal, skal du definere et beregnet felt, der lægger hvert niveaus eget budget til de underordnedes totaler — se [Summér PPM-tal op gennem initiativhierarkiet](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). En PPM-ændring på et underordnet initiativ kører beregningerne igen for alle initiativer over det, så det overordnedes total flytter sig med det samme.
 
 ### Udskrivning og eksport
 
@@ -50,7 +52,7 @@ Porteføljen tilbyder de samme handlinger i titellinjen som rapporterne:
 
 - **Udskriv / Gem som PDF** — printerikonet udskriver porteføljen, som den ser ud på skærmen. Fanebjælken, filterværktøjslinjen og pop op-vinduer ved museover udelades, den aktive gruppering, undertype og søgning udskrives som en kompakt parameterlinje, og tidslinjegitteret beskæres ikke længere, så alle kolonner er med på siden. Når hierarkiet eller undergrupperingen er slået til, nævner parameterlinjen også det, med visningsdybden.
 - **Eksportér til PowerPoint (.pptx)** — fra **⋮**-menuen. Det første dias indeholder titlen, tidsstemplet for genereringen og de aktive filtre sammen med porteføljen i præsentationskvalitet; lange porteføljer fortsætter på flere dias og opdeles kun mellem initiativer — aldrig midt i en række, en gruppeoverskrift eller en totallinje.
-- **Eksportér til Excel (.xlsx)** — også fra **⋮**-menuen. Én række pr. initiativ med gruppe, undertype, projektleder, start- og slutdato, de tre sundhedsvurderinger, planlagt og faktisk CapEx/OpEx samt datoen for den seneste statusrapport. Rækkerne følger rækkefølgen på skærmen; mens hierarkiet vises, angiver en kolonne **Overordnet** hvert initiativs overordnede initiativ.
+- **Eksportér til Excel (.xlsx)** — også fra **⋮**-menuen. Én række pr. initiativ med gruppe, undertype, projektleder, start- og slutdato, de tre sundhedsvurderinger, planlagt og faktisk CapEx/OpEx samt datoen for den seneste statusrapport. Rækkerne følger rækkefølgen på skærmen; mens hierarkiet vises, angiver en kolonne **Overordnet** hvert initiativs overordnede initiativ. To kolonner, **Omkostninger fra** og **Datoer fra**, angiver, om en rækkes tal er dens egne eller summen af initiativerne under den.
 
 ## Initiativ-detaljevisning
 
@@ -64,6 +66,7 @@ Overblikket viser et resumé af initiativets sundhed og økonomi:
 
 - **Sundhedsresumé** — Tidsplan-, omkostnings- og scope-indikatorer fra den seneste statusrapport
 - **Budget vs. faktisk** — Kombineret KPI-kort, der viser samlet budget og faktisk forbrug med varians
+- **Under dette initiativ** — Når initiativet har initiativer under sig, viser en linje under budgetbjælkerne, hvor mange der er, deres samlede budget og faktiske forbrug samt det tidsrum, deres datoer spænder over. Den vises ved siden af initiativets egne tal og lægges aldrig til dem.
 - **Seneste aktivitet** — Resumé af seneste statusrapport
 
 ### Statusrapporter-fane

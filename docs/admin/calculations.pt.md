@@ -162,7 +162,7 @@ A partir daí, marcar uma tarefa como concluída, editar a conclusão de um paco
 
 #### Consolidar valores de PPM ao longo da hierarquia de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-O portfólio de PPM mostra os valores próprios de cada iniciativa e não consolida nada ao longo da hierarquia. Para mostrar em um programa o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
+O portfólio de PPM mostra em uma iniciativa pai sem linhas de orçamento ou de custo próprias o total das iniciativas abaixo dela, mas esse valor existe apenas no quadro. Para mostrar em um programa — no inventário, nos relatórios e nos portais — o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
 
 1. Em **Admin → Metamodelo**, adicione um campo do tipo **Custo** ao tipo Iniciativa — por exemplo `rolledUpBudget`, com o rótulo *Orçamento consolidado*.
 2. Em **Admin → Cálculos**, adicione um cálculo em Iniciativa com a fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, aponte para esse campo e ative-o.

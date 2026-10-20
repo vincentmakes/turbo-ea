@@ -162,7 +162,7 @@ Da quel momento, completare un'attività, modificare il completamento di un pacc
 
 #### Aggregare gli importi PPM lungo la gerarchia delle iniziative { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-Il portafoglio PPM mostra gli importi propri di ogni iniziativa e non aggrega nulla lungo la gerarchia. Per mostrare su un programma il budget di tutto ciò che sta sotto, usate un unico calcolo che legga il risultato delle sue figlie:
+Il portafoglio PPM mostra su un padre senza righe di budget o di costo proprie il totale delle iniziative sottostanti, ma quell'importo esiste solo sulla bacheca. Per mostrare su un programma — nell'inventario, nei report e nei portali — il budget di tutto ciò che sta sotto, usate un unico calcolo che legga il risultato delle sue figlie:
 
 1. In **Admin → Metamodello**, aggiungete al tipo Iniziativa un campo di tipo **Costo** — ad esempio `rolledUpBudget`, con etichetta *Budget aggregato*.
 2. In **Admin → Calcoli**, aggiungete un calcolo su Iniziativa con la formula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, indicate quel campo come destinazione e attivatelo.

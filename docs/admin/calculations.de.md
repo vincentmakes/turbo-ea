@@ -163,7 +163,7 @@ Von da an bewegt jedes Erledigen einer Aufgabe, jedes Bearbeiten des Fertigstell
 
 #### PPM-Werte entlang der Initiativhierarchie aufsummieren { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-Das PPM-Portfolio zeigt die eigenen Werte jeder Initiative und summiert nichts entlang der Hierarchie. Um auf einem Programm das Budget von allem darunter anzuzeigen, verwenden Sie eine einzige Berechnung, die das Ergebnis ihrer untergeordneten Initiativen liest:
+Das PPM-Portfolio zeigt einer übergeordneten Initiative ohne eigene Budget- oder Kostenzeilen die Summe der Initiativen darunter, doch dieser Wert existiert nur auf dem Board. Um auf einem Programm – im Inventar, in Berichten und Portalen – das Budget von allem darunter anzuzeigen, verwenden Sie eine einzige Berechnung, die das Ergebnis ihrer untergeordneten Initiativen liest:
 
 1. Fügen Sie unter **Admin → Metamodell** dem Typ Initiative ein Feld vom Typ **Kosten** hinzu — etwa `rolledUpBudget` mit der Bezeichnung *Aufsummiertes Budget*.
 2. Legen Sie unter **Admin → Berechnungen** eine Berechnung auf Initiative mit der Formel `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))` an, wählen Sie dieses Feld als Ziel und aktivieren Sie sie.

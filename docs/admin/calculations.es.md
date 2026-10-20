@@ -163,7 +163,7 @@ A partir de entonces, marcar una tarea como hecha, editar el porcentaje de final
 
 #### Acumular cifras de PPM a lo largo de la jerarquía de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-La cartera de PPM muestra las cifras propias de cada iniciativa y no acumula nada a lo largo de la jerarquía. Para mostrar en un programa el presupuesto de todo lo que tiene debajo, use un único cálculo que lea el resultado de sus hijas:
+La cartera de PPM muestra en un padre sin líneas de presupuesto ni de coste propias el total de las iniciativas que tiene por debajo, pero esa cifra solo existe en el tablero. Para mostrar en un programa —en el inventario, los informes y los portales— el presupuesto de todo lo que tiene debajo, use un único cálculo que lea el resultado de sus hijas:
 
 1. En **Admin → Metamodelo**, añada un campo de tipo **Costo** al tipo Iniciativa —por ejemplo `rolledUpBudget`, con la etiqueta *Presupuesto acumulado*—.
 2. En **Admin → Cálculos**, añada un cálculo sobre Iniciativa con la fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, apunte a ese campo y actívelo.

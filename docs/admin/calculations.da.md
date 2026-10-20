@@ -161,7 +161,7 @@ Fra da af flytter bjælken sig, overalt hvor kortet vises, når en opgave marker
 
 #### Summér PPM-tal op gennem initiativhierarkiet { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-PPM-porteføljen viser hvert initiativs egne tal og summerer ikke noget op gennem hierarkiet. For at vise budgettet for alt under et program på selve programmet bruger du én beregning, der læser resultatet fra de underordnede:
+PPM-porteføljen viser et overordnet initiativ uden egne budget- eller omkostningslinjer summen af initiativerne under det, men det tal findes kun på tavlen. For at vise budgettet for alt under et program på selve programmet — i inventaret, rapporter og portaler — bruger du én beregning, der læser resultatet fra de underordnede:
 
 1. Tilføj under **Admin → Metamodel** et felt af typen **Omkostning** til Initiative-typen — fx `rolledUpBudget` med etiketten *Summeret budget*.
 2. Tilføj under **Admin → Beregninger** en beregning på Initiative med formlen `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, vælg feltet som mål, og aktivér den.

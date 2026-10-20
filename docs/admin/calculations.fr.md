@@ -188,8 +188,10 @@ supprimer un fait bouger la barre partout où la fiche est affichée.
 
 #### Agréger les montants PPM le long de la hiérarchie des initiatives { #rolling-ppm-figures-up-the-initiative-hierarchy }
 
-Le portefeuille PPM affiche les montants propres à chaque initiative et n'agrège rien le long de
-la hiérarchie. Pour afficher sur un programme le budget de tout ce qui se trouve en dessous,
+Le tableau du portefeuille PPM affiche sur un parent sans ligne de budget ni de coût propre le
+total des initiatives situées en dessous, mais ce montant n'existe que sur le tableau. Pour
+afficher sur un programme — dans l'inventaire, les rapports et les portails — le budget de tout
+ce qui se trouve en dessous,
 utilisez un seul calcul qui lit le résultat de ses enfants :
 
 1. Dans **Admin → Métamodèle**, ajoutez un champ de type **Coût** au type Initiative — par
