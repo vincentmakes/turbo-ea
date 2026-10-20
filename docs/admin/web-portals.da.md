@@ -54,6 +54,8 @@ Tavlen åbner desuden med en gruppering og en undertype, du vælger:
 | **Åbner grupperet efter** | Organisation | Hvilken gruppering tavlen viser først |
 | **Åbner med undertype** | Alle | Hvilken undertype der er valgt først |
 
+**Åbner grupperet efter** accepterer også en undertype af Initiativ, så tavlen åbner med én gruppe pr. initiativ af den undertype (se [Projektporteføljestyring](../guide/ppm.md)). En undertype, som portalens eget undertypefilter udelukker, tilbydes ikke: Portalen ville ikke udgive nogen af disse initiativer, så alle rækker ville havne under »Ugrupperet«.
+
 Begge er kun et udgangspunkt — en besøgende kan ændre begge dele, og intet huskes,
 så gensyn med portalen vender tilbage til det, du har konfigureret her. Det er ikke
 det samme som **undertypefilteret** ovenfor, der afgør, hvilke initiativer der

@@ -54,6 +54,8 @@ The board also opens on a grouping and subtype of your choosing:
 | **Opens grouped by** | Organization | Which grouping the board shows first |
 | **Opens showing subtype** | All | Which subtype is selected first |
 
+**Opens grouped by** also accepts an Initiative subtype, which opens the board with one group per initiative of that subtype (see [Project Portfolio Management](../guide/ppm.md)). A subtype that the portal's own subtype filter excludes is not offered: the portal would publish none of those initiatives, so every row would land under Ungrouped.
+
 Both are only a starting point — a visitor can change either control, and nothing
 is remembered, so reopening the portal returns to what you configured here. This
 is separate from the **subtype filter** above, which decides which initiatives

@@ -54,6 +54,8 @@ O painel abre também com um agrupamento e um subtipo à sua escolha:
 | **Abre agrupado por** | Organização | Que agrupamento o painel mostra primeiro |
 | **Abre a mostrar o subtipo** | Todos | Que subtipo fica selecionado primeiro |
 
+**Abre agrupado por** também aceita um subtipo de iniciativa, abrindo o painel com um grupo por cada iniciativa desse subtipo (consulte [Gestão de portfólio de projetos](../guide/ppm.md)). Um subtipo que o próprio filtro de subtipos do portal exclui não é oferecido: o portal não publicaria nenhuma dessas iniciativas, e todas as linhas ficariam em «Sem grupo».
+
 Ambos são apenas um ponto de partida: o visitante pode alterar qualquer um dos
 controlos e nada é memorizado, pelo que reabrir o portal regressa ao que aqui
 configurou. É diferente do **filtro por subtipos** acima, que decide que

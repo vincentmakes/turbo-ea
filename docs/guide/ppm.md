@@ -21,6 +21,7 @@ The **Portfolio Dashboard** is the main entry point for PPM. It provides:
 Use the toolbar to:
 
 - **Group by** any related card type (e.g., Organization, Platform) to see initiatives grouped by business unit or technology platform
+- **Group by** an Initiative subtype (e.g., Program), listed in a second section of the same menu, to see each program with every initiative beneath it (see below)
 - **Filter by subtype** (Idea, Program, Project, Epic)
 - **Search** by initiative name
 - **Show hierarchy** to nest the initiatives of each group under their parent Initiative (see below)
@@ -40,6 +41,12 @@ The grouping stays primary: the hierarchy nests **inside each group**, so a chil
 
 **Sub-group by subtype** splits every group into one sub-group per subtype, in the order the subtypes are defined on the Initiative type, with the initiatives that have no subtype last. Each sub-group has its own header, collapses on its own and carries its own totals row; the group's totals still cover all of its initiatives. The switch is unavailable while the hierarchy is shown, because the tree already spans the subtypes.
 
+#### Grouping by an Initiative subtype
+
+The **Group by** menu has two sections: **Related card types** and **Initiative subtypes**, the subtypes defined on the Initiative type. Picking a subtype — say **Program** — shows one group per Program initiative. The program names its group and is its **header only, never a row**; the group holds **every initiative beneath it, at any depth** and whatever its subtype, so a program nested under another program is a row in the top-most program's group.
+
+The group's bottom line takes the place of the totals row: labelled with the subtype, it shows the program's **own** budget, actuals and dates, or — where it has none of its own — the figures **derived** from the initiatives beneath it, drawn outlined, dashed and italic as described under *Rolling figures up to parent initiatives*. Initiatives with no program above them are listed under **Ungrouped**. An initiative in between that you cannot see, that is archived or that a portal does not publish **breaks the chain**: what sits beneath it is no longer grouped under the program above. **Show hierarchy** appears only when something nests below a program's direct children, and the subtype filter does not offer the grouping subtype, because its initiatives are headers rather than rows.
+
 #### Rolling figures up to parent initiatives
 
 Each initiative shows its own figures whenever it has any: a parent's CapEx and OpEx bars cover the budget and cost lines recorded on the parent, and its Gantt bar its own start and end dates. A parent with **no budget lines of its own** shows the budget of the initiatives beneath it instead, and a parent with **no cost lines of its own** their actuals; either way the bar is drawn **outlined** with italic figures, and its tooltip says which half comes from beneath. A parent with **neither a start nor an end date** spans from the earliest start to the latest end beneath it, drawn as a **dashed** bar with italic quarters. A tooltip on each says how many initiatives it covers. The three rules are independent — a program that holds the budget while its projects record the spend shows its own budget against their actuals, and a program may carry its own dates and still show its projects' costs — and recording one budget line, one cost line or one date on the parent switches that part back to its own figures. Only the initiatives you can see count, and on a portal only those the portal publishes. The group totals and the KPI bar keep adding up recorded lines only, so every figure is counted once.
@@ -52,7 +59,7 @@ The portfolio offers the same title-bar actions as the reports:
 
 - **Print / Save as PDF** — the printer icon prints the portfolio the way it looks on screen. The tab strip, the filter toolbar and hover popovers are dropped, the active grouping / subtype / search are printed as a compact parameter line, and the timeline grid is unclipped so every column fits the page instead of being cut off at the scroll edge. When the hierarchy or the sub-grouping is switched on, the parameter line names it too, with the display depth.
 - **Export to PowerPoint (.pptx)** — from the **⋮** menu. The first slide carries the title, the generation timestamp and the active filters together with the portfolio at presentation quality; long portfolios continue onto further slides, split only between initiatives — never through a row, a group header or a totals line.
-- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report. The rows follow the order on screen; while the hierarchy is shown, a **Parent** column names each initiative's parent. Three columns, **Budget from**, **Costs from** and **Dates from**, say whether a row's budget, actuals and dates are its own or the total of the initiatives beneath it.
+- **Export to Excel (.xlsx)** — also from the **⋮** menu. One row per initiative with its group, subtype, project manager, start and end dates, the three health ratings, CapEx / OpEx planned vs. actual, and the date of the latest status report. The rows follow the order on screen; while the hierarchy is shown, a **Parent** column names each initiative's parent. Three columns, **Budget from**, **Costs from** and **Dates from**, say whether a row's budget, actuals and dates are its own or the total of the initiatives beneath it. When the board is grouped by an Initiative subtype, the grouping initiative is the **first row of its group**, with the figures its bottom line shows.
 
 ## Initiative Detail View
 

@@ -54,6 +54,8 @@ Das Board öffnet außerdem mit einer Gruppierung und einem Subtyp Ihrer Wahl:
 | **Öffnet gruppiert nach** | Organisation | Welche Gruppierung das Board zuerst zeigt |
 | **Öffnet mit Subtyp** | Alle | Welcher Subtyp zuerst ausgewählt ist |
 
+**Öffnet gruppiert nach** akzeptiert auch einen Untertyp der Initiative; das Board öffnet dann mit einer Gruppe je Initiative dieses Untertyps (siehe [Projektportfoliomanagement](../guide/ppm.md)). Ein Untertyp, den der eigene Untertyp-Filter des Portals ausschließt, wird nicht angeboten: Das Portal würde keine dieser Initiativen veröffentlichen, sodass jede Zeile unter „Nicht gruppiert“ landen würde.
+
 Beides ist nur ein Ausgangspunkt — Besucher können beide Bedienelemente ändern,
 und nichts wird gespeichert; ein erneuter Aufruf kehrt zu Ihrer Konfiguration
 zurück. Das ist etwas anderes als der **Subtyp-Filter** oben, der bestimmt,

@@ -55,6 +55,8 @@ La bacheca si apre inoltre con un raggruppamento e un sottotipo a vostra scelta:
 | **Si apre raggruppato per** | Organizzazione | Quale raggruppamento mostra per primo |
 | **Si apre mostrando il sottotipo** | Tutti | Quale sottotipo è selezionato per primo |
 
+**Si apre raggruppato per** accetta anche un sottotipo di iniziativa: la bacheca si apre allora con un gruppo per ogni iniziativa di quel sottotipo (vedere [Gestione del portafoglio progetti](../guide/ppm.md)). Un sottotipo escluso dal filtro per sottotipo del portale stesso non viene proposto: il portale non pubblicherebbe nessuna di quelle iniziative e ogni riga finirebbe in «Non raggruppato».
+
 Sono solo un punto di partenza: il visitatore può cambiare entrambi i controlli e
 nulla viene memorizzato, quindi riaprendo il portale si torna a quanto configurato
 qui. È cosa diversa dal **filtro per sottotipi** sopra, che decide quali iniziative

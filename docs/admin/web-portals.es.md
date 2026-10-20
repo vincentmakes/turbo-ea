@@ -55,6 +55,8 @@ El tablero también se abre con una agrupación y un subtipo que usted elige:
 | **Se abre agrupado por** | Organización | Qué agrupación muestra el tablero primero |
 | **Se abre mostrando el subtipo** | Todos | Qué subtipo se selecciona primero |
 
+**Se abre agrupado por** también admite un subtipo de iniciativa, con lo que el tablero se abre con un grupo por cada iniciativa de ese subtipo (consulte [Gestión de cartera de proyectos](../guide/ppm.md)). No se ofrece un subtipo que el propio filtro de subtipos del portal excluye: el portal no publicaría ninguna de esas iniciativas y todas las filas acabarían en «Sin grupo».
+
 Ambos son solo un punto de partida: el visitante puede cambiar cualquiera de los
 dos y nada se recuerda, así que volver a abrir el portal regresa a lo que usted
 configuró. Es distinto del **filtro por subtipos** de más arriba, que decide qué

@@ -54,6 +54,8 @@ Le tableau s'ouvre également sur un regroupement et un sous-type de votre choix
 | **S'ouvre groupé par** | Organisation | Le regroupement affiché en premier |
 | **S'ouvre sur le sous-type** | Tous | Le sous-type sélectionné en premier |
 
+**S'ouvre groupé par** accepte aussi un sous-type d'initiative : le tableau s'ouvre alors avec un groupe par initiative de ce sous-type (voir [Gestion de portefeuille de projets](../guide/ppm.md)). Un sous-type que le propre filtre de sous-type du portail exclut n'est pas proposé : le portail ne publierait aucune de ces initiatives, et chaque ligne se retrouverait sous « Non groupé ».
+
 Ce ne sont que des points de départ : un visiteur peut changer l'un ou l'autre, et
 rien n'est mémorisé — rouvrir le portail revient à votre configuration. À ne pas
 confondre avec le **filtre par sous-types** ci-dessus, qui décide quelles
