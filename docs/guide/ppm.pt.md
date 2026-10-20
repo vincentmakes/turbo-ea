@@ -23,16 +23,34 @@ Use a barra de ferramentas para:
 - **Agrupar por** qualquer tipo de card relacionado (ex., Organização, Plataforma)
 - **Filtrar por subtipo** (Ideia, Programa, Projeto, Épico)
 - **Pesquisar** por nome de iniciativa
+- **Mostrar hierarquia** para aninhar as iniciativas de cada grupo sob a iniciativa pai (veja abaixo)
+- **Subagrupar por subtipo** para dividir cada grupo por subtipo (veja abaixo)
 
-Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual.
+Esses filtros são mantidos na URL, então atualizar a página preserva sua visualização atual. A hierarquia, sua profundidade de exibição e o subagrupamento também são mantidos na URL.
+
+#### Mostrar a hierarquia de iniciativas
+
+Quando algumas iniciativas do portfólio têm uma iniciativa pai que também está no portfólio, a barra de ferramentas oferece **Mostrar hierarquia**. Ao ativá-la, cada grupo lista suas iniciativas como uma árvore: uma iniciativa filha aparece recuada sob a iniciativa pai, a seta antes do nome de uma iniciativa pai recolhe ou expande sua subárvore, e cada linha mostra seu subtipo, para que o papel de cada nível (por exemplo Programa → Projeto → Épico) continue visível. **Profundidade de exibição** limita a árvore aos seus primeiros níveis (*Nível 1*, *Nível 2*, … ou *Todos os níveis*).
+
+O agrupamento continua sendo o principal: a hierarquia é montada **dentro de cada grupo**, então uma iniciativa cuja iniciativa pai pertence a outro grupo aparece como linha de primeiro nível do seu próprio grupo. Os filtros são aplicados primeiro e a árvore mostra o que resta: quando a pesquisa ou o filtro de subtipo deixam uma iniciativa pai de fora, as filhas dela sobem para o primeiro nível, em vez de a iniciativa pai ser mantida como contexto.
+
+![Portfólio PPM com a hierarquia exibida](../assets/img/pt/101_ppm_portfolio_hierarquia.png)
+
+#### Subagrupar por subtipo
+
+**Subagrupar por subtipo** divide cada grupo em um subgrupo por subtipo, na ordem em que os subtipos estão definidos no tipo Iniciativa, com as iniciativas sem subtipo por último. Cada subgrupo tem seu próprio cabeçalho, pode ser recolhido separadamente e tem sua própria linha de totais; os totais do grupo continuam abrangendo todas as suas iniciativas. A chave fica indisponível enquanto a hierarquia é exibida, porque a árvore já abrange todos os subtipos.
+
+#### Consolidar valores nas iniciativas pai
+
+O portfólio mostra os valores próprios de cada iniciativa: as barras de CapEx e OpEx de uma iniciativa pai cobrem as linhas de orçamento e de custo registradas nela, não as das filhas, e os totais de grupo contam cada iniciativa uma única vez. Para ver um total na iniciativa pai, defina um campo calculado que some o orçamento próprio de cada nível aos totais das filhas — veja [Consolidar valores de PPM ao longo da hierarquia de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Uma alteração de PPM em uma filha executa novamente os cálculos de todas as iniciativas acima dela, de modo que o total da iniciativa pai é atualizado na hora.
 
 ### Impressão e exportação
 
 O portfólio oferece as mesmas ações na barra de título que os relatórios:
 
-- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página.
+- **Imprimir / Salvar como PDF** — o ícone de impressora imprime o portfólio como ele aparece na tela. A barra de abas, a barra de filtros e os balões exibidos ao passar o mouse são ocultados, o agrupamento, o subtipo e a busca ativos são impressos como uma linha compacta de parâmetros, e a grade de cronograma deixa de ser cortada, para que todas as colunas caibam na página. Quando a hierarquia ou o subagrupamento estão ativados, a linha de parâmetros também os indica, com a profundidade de exibição.
 - **Exportar para PowerPoint (.pptx)** — pelo menu **⋮**. O primeiro slide traz o título, o carimbo de data/hora de geração e os filtros ativos junto com o portfólio em qualidade de apresentação; portfólios longos continuam em outros slides, divididos apenas entre iniciativas — nunca no meio de uma linha, de um cabeçalho de grupo ou de uma linha de totais.
-- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status.
+- **Exportar para Excel (.xlsx)** — também pelo menu **⋮**. Uma linha por iniciativa com seu grupo, subtipo, gerente de projeto, datas de início e término, os três indicadores de saúde, CapEx/OpEx planejado e realizado, e a data do último relatório de status. As linhas seguem a ordem da tela; enquanto a hierarquia é exibida, uma coluna **Pai** indica a iniciativa pai de cada iniciativa.
 
 ## Visão Detalhada da Iniciativa
 

@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.170.0] - 2026-10-20
+
+### Added
+- **Show hierarchy on the PPM portfolio** ([#1254](https://github.com/vincentmakes/turbo-ea/discussions/1254)): when some initiatives have their parent initiative on the board, a **Show hierarchy** switch nests each group's initiatives under their parent, indented, with a chevron to fold a parent's subtree, the subtype shown on every row and a **Display depth** selector (*Level 1*, *Level 2*, … *All levels*). The tree is built inside each group, and the filters narrow the board first: a child whose parent is in another group or filtered out is shown at the top level.
+- **Sub-group by subtype** on the PPM portfolio splits every group into one sub-group per subtype, in the order the Initiative type defines them, each with its own header, collapse and totals row. It is unavailable while the hierarchy is shown.
+- Both switches and the display depth are kept in the URL and printed in the parameter line; the Excel export lists the initiatives in the order shown, with a **Parent** column while the hierarchy is shown. Published portfolio portals offer the same hierarchy for the initiatives they publish.
+
+### Changed
+- A change to an initiative's budget lines, cost lines, work packages, tasks, risks or status reports now also re-runs the calculations of every initiative above it in the hierarchy, nearest parent first, so a calculated field that totals PPM figures up the hierarchy updates straight away (see the new example on the Calculations page).
+- Running a calculation manually now processes the cards of a hierarchical type deepest first, so a total built from the children's calculated values is correct after a single run.
+
+### Fixed
+- The PPM portfolio no longer sends the id of an initiative's parent when that parent is archived or hidden from the viewer by a per-type View permission.
+
 ## [2.169.1] - 2026-10-19
 
 ### Fixed

@@ -23,16 +23,34 @@ Utilisez la barre d'outils pour :
 - **Regrouper par** tout type de fiche lié (p. ex., Organisation, Plateforme)
 - **Filtrer par sous-type** (Idée, Programme, Projet, Épique)
 - **Rechercher** par nom d'initiative
+- **Afficher la hiérarchie** pour imbriquer les initiatives de chaque groupe sous leur initiative parente (voir ci-dessous)
+- **Sous-grouper par sous-type** pour scinder chaque groupe par sous-type (voir ci-dessous)
 
-Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle.
+Ces filtres sont conservés dans l'URL, donc l'actualisation de la page conserve votre vue actuelle. La hiérarchie, sa profondeur d’affichage et le sous-groupement sont eux aussi conservés dans l'URL.
+
+#### Afficher la hiérarchie des initiatives
+
+Lorsque certaines initiatives du portefeuille ont une initiative parente elle-même présente dans le portefeuille, la barre d'outils propose **Afficher la hiérarchie**. Une fois activée, chaque groupe présente ses initiatives sous forme d'arborescence : une initiative enfant apparaît en retrait sous son parent, le chevron placé devant le nom d'un parent replie ou déplie sa sous-arborescence, et chaque ligne affiche son sous-type, afin que le rôle de chaque niveau (par exemple Programme → Projet → Épique) reste visible. **Profondeur d’affichage** limite l'arborescence à ses premiers niveaux (*Niveau 1*, *Niveau 2*, … ou *Tous les niveaux*).
+
+Le regroupement reste prioritaire : la hiérarchie s'imbrique **à l'intérieur de chaque groupe**, si bien qu'une initiative dont le parent appartient à un autre groupe apparaît comme ligne de premier niveau de son propre groupe. Les filtres s'appliquent d'abord et l'arborescence montre ce qui reste : lorsque la recherche ou le filtre de sous-type exclut un parent, ses enfants remontent au premier niveau, au lieu que le parent soit conservé comme contexte.
+
+![Portefeuille PPM avec la hiérarchie affichée](../assets/img/fr/101_ppm_portefeuille_hierarchie.png)
+
+#### Sous-grouper par sous-type
+
+**Sous-grouper par sous-type** divise chaque groupe en un sous-groupe par sous-type, dans l'ordre où les sous-types sont définis sur le type Initiative, les initiatives sans sous-type venant en dernier. Chaque sous-groupe a son propre en-tête, se replie séparément et porte sa propre ligne de totaux ; les totaux du groupe couvrent toujours toutes ses initiatives. Le commutateur n'est pas disponible tant que la hiérarchie est affichée, car l'arborescence couvre déjà tous les sous-types.
+
+#### Agréger les montants sur les initiatives parentes
+
+Le portefeuille affiche les montants propres à chaque initiative : les barres CapEx et OpEx d'un parent couvrent les lignes de budget et de coût saisies sur le parent, et non celles de ses enfants, et les totaux de groupe comptent chaque initiative une seule fois. Pour obtenir un total sur un parent, définissez un champ calculé qui ajoute le budget propre de chaque niveau aux totaux de ses enfants — voir [Agréger les montants PPM le long de la hiérarchie des initiatives](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Une modification PPM sur un enfant relance les calculs de toutes les initiatives situées au-dessus de lui, de sorte que le total du parent évolue immédiatement.
 
 ### Impression et export
 
 Le portefeuille propose les mêmes actions de barre de titre que les rapports :
 
-- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page.
+- **Imprimer / Enregistrer en PDF** — l'icône d'imprimante imprime le portefeuille tel qu'il apparaît à l'écran. La barre d'onglets, la barre de filtres et les fenêtres contextuelles de survol sont masquées, le regroupement, le sous-type et la recherche actifs sont imprimés sous forme de ligne de paramètres compacte, et la grille chronologique n'est plus rognée : toutes les colonnes tiennent dans la page. Lorsque la hiérarchie ou le sous-groupement est activé, la ligne de paramètres l'indique également, avec la profondeur d’affichage.
 - **Exporter vers PowerPoint (.pptx)** — depuis le menu **⋮**. La première diapositive porte le titre, l'horodatage de génération et les filtres actifs, accompagnés du portefeuille en qualité de présentation ; les portefeuilles longs se poursuivent sur d'autres diapositives, découpées uniquement entre initiatives — jamais au milieu d'une ligne, d'un en-tête de groupe ou d'une ligne de totaux.
-- **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement.
+- **Exporter vers Excel (.xlsx)** — également depuis le menu **⋮**. Une ligne par initiative avec son groupe, son sous-type, son chef de projet, ses dates de début et de fin, les trois indicateurs de santé, le CapEx / OpEx prévu et réel, et la date du dernier rapport d'avancement. Les lignes suivent l'ordre affiché à l'écran ; lorsque la hiérarchie est affichée, une colonne **Parent** indique l'initiative parente de chaque initiative.
 
 ## Vue Détaillée de l'Initiative
 

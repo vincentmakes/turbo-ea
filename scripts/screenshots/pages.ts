@@ -1216,6 +1216,25 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
   {
+    // The board with the Initiative hierarchy switched on. Grouped by
+    // Platform, the demo's programs and their projects share a group, so the
+    // tree nests; grouped by Organization they mostly sit in different ones.
+    id: "101_ppm_portfolio_hierarchy",
+    route: "/ppm?groupBy=Platform&hierarchy=1",
+    waitFor: "[data-depth]",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "101_ppm_portfolio_hierarchy",
+      de: "101_ppm_portfolio_hierarchie",
+      fr: "101_ppm_portefeuille_hierarchie",
+      es: "101_ppm_portafolio_jerarquia",
+      it: "101_ppm_portafoglio_gerarchia",
+      pt: "101_ppm_portfolio_hierarquia",
+      zh: "101_ppm_portfolio_hierarchy",
+      ru: "101_ppm_portfel_ierarkhiya",
+    },
+  },
+  {
     id: "41_ppm_overview",
     route: "/ppm/{{cardId:sampleInitiative}}",
     // Wait for the tablist itself: the page paints Papers before its async

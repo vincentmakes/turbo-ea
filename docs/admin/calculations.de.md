@@ -161,6 +161,16 @@ Der Fortschritt einer Initiative lebt auf ihrem Übersicht-Tab; Karten und verö
 
 Von da an bewegt jedes Erledigen einer Aufgabe, jedes Bearbeiten des Fertigstellungsgrads eines Arbeitspakets und jedes Löschen eines Arbeitspakets den Balken überall dort, wo die Karte angezeigt wird.
 
+#### PPM-Werte entlang der Initiativhierarchie aufsummieren { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+Das PPM-Portfolio zeigt die eigenen Werte jeder Initiative und summiert nichts entlang der Hierarchie. Um auf einem Programm das Budget von allem darunter anzuzeigen, verwenden Sie eine einzige Berechnung, die das Ergebnis ihrer untergeordneten Initiativen liest:
+
+1. Fügen Sie unter **Admin → Metamodell** dem Typ Initiative ein Feld vom Typ **Kosten** hinzu — etwa `rolledUpBudget` mit der Bezeichnung *Aufsummiertes Budget*.
+2. Legen Sie unter **Admin → Berechnungen** eine Berechnung auf Initiative mit der Formel `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))` an, wählen Sie dieses Feld als Ziel und aktivieren Sie sie.
+3. Führen Sie sie einmal aus der Liste aus, um die bereits vorhandenen Initiativen zu befüllen.
+
+Dieselbe Formel dient jeder Ebene: Ein Projekt addiert sein eigenes Budget zu nichts, ein Programm addiert seines zu den Summen seiner Projekte, und so weiter nach oben. Da jede Ebene liest, was ihre untergeordneten Initiativen enthalten, kommt es auf die Reihenfolge an, und Turbo EA kümmert sich darum: Ein manueller Lauf verarbeitet die Hierarchie von der tiefsten Ebene an, und eine Änderung an einer Budgetzeile, Kostenzeile, einem Arbeitspaket, einer Aufgabe, einem Risiko oder einem Statusbericht führt die Berechnungen der übergeordneten Initiativen erneut aus, die nächstgelegene zuerst. Ersetzen Sie `ppm.totalBudget` durch `ppm.totalActual`, `ppm.capexBudget` oder einen anderen `ppm`-Wert, um eine andere Kennzahl aufzusummieren — ein Feld je Kennzahl.
+
 ### Eingebaute Funktionen
 
 | Funktion | Beschreibung | Beispiel |
@@ -300,6 +310,13 @@ Die Berechnungen einer Karte werden neu ausgewertet, wenn:
   ausgewertet und die Ergebnisse gespeichert werden;
 * eine PPM-Budgetzeile, Kostenzeile, ein Arbeitspaket, eine Aufgabe, ein Risiko oder ein
   Statusbericht auf der Karte geändert wird, bei einer Initiative.
+* die obige Änderung an einer Initiative weiter unten in der Hierarchie erfolgt: Jede
+  Initiative darüber wird ebenfalls neu berechnet, die nächstgelegene zuerst, sodass eine
+  [Aufsummierung](#rolling-ppm-figures-up-the-initiative-hierarchy) der Änderung folgt.
+
+Ein manueller Lauf wertet die Karten eines hierarchischen Typs von der tiefsten Ebene an aus,
+untergeordnete vor ihrer übergeordneten, sodass eine Formel, die die berechneten Werte ihrer
+untergeordneten Karten liest, in einem einzigen Lauf zum Endwert kommt.
 
 Sie werden **nicht** neu ausgewertet, wenn eine andere Karte bearbeitet wird, aus der diese
 Formel liest. Wenn Sie Kosten an einer IT-Komponente ändern, bewegt sich eine Anwendung, die

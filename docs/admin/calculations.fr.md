@@ -186,6 +186,27 @@ un [portail web](web-portals.md) :
 Dès lors, marquer une tâche comme terminée, modifier l'achèvement d'un lot de travaux ou en
 supprimer un fait bouger la barre partout où la fiche est affichée.
 
+#### Agréger les montants PPM le long de la hiérarchie des initiatives { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+Le portefeuille PPM affiche les montants propres à chaque initiative et n'agrège rien le long de
+la hiérarchie. Pour afficher sur un programme le budget de tout ce qui se trouve en dessous,
+utilisez un seul calcul qui lit le résultat de ses enfants :
+
+1. Dans **Admin → Métamodèle**, ajoutez un champ de type **Coût** au type Initiative — par
+   exemple `rolledUpBudget`, libellé *Budget agrégé*.
+2. Dans **Admin → Calculs**, ajoutez un calcul sur Initiative avec la formule
+   `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, ciblez ce champ et activez-le.
+3. Exécutez-le une fois depuis la liste pour renseigner les initiatives déjà existantes.
+
+La même formule sert à chaque niveau : un projet ajoute son propre budget à rien, un programme
+ajoute le sien aux totaux de ses projets, et ainsi de suite vers le haut. Comme chaque niveau lit
+ce que contiennent ses enfants, l'ordre compte, et Turbo EA s'en charge : une exécution manuelle
+traite la hiérarchie en commençant par le niveau le plus profond, et une modification d'une ligne
+de budget, d'une ligne de coût, d'un lot de travaux, d'une tâche, d'un risque ou d'un rapport
+d'avancement relance les ancêtres de l'initiative, en commençant par le parent direct. Remplacez
+`ppm.totalBudget` par `ppm.totalActual`, `ppm.capexBudget` ou toute autre mesure `ppm` pour agréger
+un autre montant — un champ par montant.
+
 ### Fonctions intégrées
 
 | Fonction | Description | Exemple |
@@ -322,6 +343,13 @@ Les calculs d'une fiche sont réévalués lorsque :
   fiches du type cible et sauvegarde les résultats ;
 * une ligne de budget, une ligne de coût, un lot de travaux, une tâche, un risque ou un
   rapport de statut PPM de la fiche change, pour une Initiative.
+* la modification ci-dessus porte sur une Initiative située plus bas dans la hiérarchie :
+  toutes les Initiatives au-dessus d'elle sont recalculées aussi, en commençant par le parent
+  direct, de sorte qu'une [agrégation](#rolling-ppm-figures-up-the-initiative-hierarchy) suit la modification.
+
+Une exécution manuelle évalue les fiches d'un type hiérarchique en commençant par le niveau le
+plus profond, les enfants avant leur parent, de sorte qu'une formule qui lit les valeurs
+calculées de ses enfants aboutit en une seule exécution.
 
 Ils ne sont **pas** réévalués lorsqu'une autre fiche lue par la formule est modifiée. Si vous
 changez un coût sur un composant IT, une application qui l'agrège ne bougera pas tant que

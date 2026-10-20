@@ -23,16 +23,34 @@ Use la barra de herramientas para:
 - **Agrupar por** cualquier tipo de tarjeta relacionada (p. ej., Organización, Plataforma)
 - **Filtrar por subtipo** (Idea, Programa, Proyecto, Épica)
 - **Buscar** por nombre de iniciativa
+- **Mostrar jerarquía** para anidar las iniciativas de cada grupo bajo su iniciativa padre (ver más abajo)
+- **Subagrupar por subtipo** para dividir cada grupo por subtipo (ver más abajo)
 
-Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual.
+Estos filtros se mantienen en la URL, por lo que al actualizar la página se conserva su vista actual. La jerarquía, su profundidad de visualización y la subagrupación también se conservan en la URL.
+
+#### Mostrar la jerarquía de iniciativas
+
+Cuando algunas iniciativas de la cartera tienen una iniciativa padre que también está en la cartera, la barra de herramientas ofrece **Mostrar jerarquía**. Al activarla, cada grupo muestra sus iniciativas como un árbol: una iniciativa hija aparece con sangría bajo su padre, el chevrón delante del nombre de un padre pliega o despliega su subárbol, y cada fila muestra su subtipo para que el papel de cada nivel (por ejemplo Programa → Proyecto → Épica) siga siendo visible. **Profundidad de visualización** limita el árbol a sus primeros niveles (*Nivel 1*, *Nivel 2*, … o *Todos los niveles*).
+
+La agrupación sigue siendo la principal: la jerarquía se anida **dentro de cada grupo**, de modo que una iniciativa cuyo padre pertenece a otro grupo aparece como fila de primer nivel de su propio grupo. Los filtros se aplican primero y el árbol muestra lo que queda: cuando la búsqueda o el filtro de subtipo dejan fuera a un padre, sus hijas suben al primer nivel en lugar de conservarse el padre como contexto.
+
+![Cartera PPM con la jerarquía visible](../assets/img/es/101_ppm_portafolio_jerarquia.png)
+
+#### Subagrupar por subtipo
+
+**Subagrupar por subtipo** divide cada grupo en un subgrupo por subtipo, en el orden en que los subtipos están definidos en el tipo Iniciativa, con las iniciativas sin subtipo al final. Cada subgrupo tiene su propio encabezado, se contrae por separado y tiene su propia fila de totales; los totales del grupo siguen abarcando todas sus iniciativas. El interruptor no está disponible mientras se muestra la jerarquía, porque el árbol ya abarca todos los subtipos.
+
+#### Acumular cifras en las iniciativas padre
+
+La cartera muestra las cifras propias de cada iniciativa: las barras de CapEx y OpEx de un padre cubren las líneas de presupuesto y de coste registradas en el padre, no las de sus hijas, y los totales de grupo cuentan cada iniciativa una sola vez. Para ver un total en un padre, defina un campo calculado que sume el presupuesto propio de cada nivel a los totales de sus hijas; consulte [Acumular cifras de PPM a lo largo de la jerarquía de iniciativas](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Un cambio de PPM en una hija vuelve a ejecutar los cálculos de todas las iniciativas superiores, de modo que el total del padre se actualiza de inmediato.
 
 ### Impresión y exportación
 
 La cartera ofrece las mismas acciones en la barra de título que los informes:
 
-- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página.
+- **Imprimir / Guardar como PDF** — el icono de impresora imprime la cartera tal como se ve en pantalla. La barra de pestañas, la barra de filtros y las ventanas emergentes al pasar el ratón se ocultan, la agrupación, el subtipo y la búsqueda activos se imprimen como una línea compacta de parámetros, y la cuadrícula de cronología deja de recortarse para que todas las columnas quepan en la página. Cuando la jerarquía o la subagrupación están activadas, la línea de parámetros también lo indica, con la profundidad de visualización.
 - **Exportar a PowerPoint (.pptx)** — desde el menú **⋮**. La primera diapositiva incluye el título, la marca de tiempo de generación y los filtros activos junto con la cartera con calidad de presentación; las carteras largas continúan en más diapositivas, cortadas solo entre iniciativas, nunca a través de una fila, un encabezado de grupo o una línea de totales.
-- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado.
+- **Exportar a Excel (.xlsx)** — también desde el menú **⋮**. Una fila por iniciativa con su grupo, subtipo, jefe de proyecto, fechas de inicio y fin, los tres indicadores de salud, CapEx/OpEx planificado frente a real y la fecha del último informe de estado. Las filas siguen el orden de la pantalla; mientras se muestra la jerarquía, una columna **Padre** indica la iniciativa padre de cada iniciativa.
 
 ## Vista de detalle de iniciativa
 

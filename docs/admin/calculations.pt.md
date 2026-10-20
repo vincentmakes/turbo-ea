@@ -160,6 +160,16 @@ O progresso de uma iniciativa vive na sua aba Visão Geral; cards e portais publ
 
 A partir daí, marcar uma tarefa como concluída, editar a conclusão de um pacote de trabalho ou excluir um deles move a barra onde quer que o card seja exibido.
 
+#### Consolidar valores de PPM ao longo da hierarquia de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+O portfólio de PPM mostra os valores próprios de cada iniciativa e não consolida nada ao longo da hierarquia. Para mostrar em um programa o orçamento de tudo o que está abaixo dele, use um único cálculo que leia o resultado das filhas:
+
+1. Em **Admin → Metamodelo**, adicione um campo do tipo **Custo** ao tipo Iniciativa — por exemplo `rolledUpBudget`, com o rótulo *Orçamento consolidado*.
+2. Em **Admin → Cálculos**, adicione um cálculo em Iniciativa com a fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, aponte para esse campo e ative-o.
+3. Execute-o uma vez a partir da lista para preencher as iniciativas que já existem.
+
+A mesma fórmula serve para todos os níveis: um projeto soma o próprio orçamento a nada, um programa soma o dele aos totais dos seus projetos, e assim por diante para cima. Como cada nível lê o que as filhas contêm, a ordem importa, e o Turbo EA cuida disso: uma execução manual processa a hierarquia a partir do nível mais profundo, e uma alteração em uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um relatório de status executa novamente os ancestrais da iniciativa, começando pelo pai direto. Troque `ppm.totalBudget` por `ppm.totalActual`, `ppm.capexBudget` ou qualquer outra medida `ppm` para consolidar outro valor — um campo por valor.
+
 ### Funções Incorporadas
 
 | Função | Descrição | Exemplo |
@@ -297,6 +307,13 @@ Os cálculos de um card são reavaliados quando:
   alvo e salva os resultados;
 * uma linha de orçamento, uma linha de custo, um pacote de trabalho, uma tarefa, um risco ou um
   relatório de status do PPM no card muda, para uma Iniciativa.
+* a alteração acima acontece em uma Iniciativa mais abaixo na hierarquia: todas as
+  Iniciativas acima dela também são recalculadas, começando pelo pai direto, de modo que uma
+  [consolidação](#rolling-ppm-figures-up-the-initiative-hierarchy) acompanha a alteração.
+
+Uma execução manual avalia os cards de um tipo hierárquico a partir do nível mais profundo, as
+filhas antes do pai, de modo que uma fórmula que lê os valores calculados das filhas chega ao
+resultado em uma única execução.
 
 Eles **não** são reavaliados quando outro card do qual a fórmula lê é editado. Se você mudar
 um custo em um componente de TI, a aplicação que o agrega não vai se mover até que essa

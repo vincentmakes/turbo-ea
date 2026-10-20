@@ -186,6 +186,26 @@ attributes. To put the same number on the card and in a [web portal](web-portals
 From then on marking a task done, editing a work package's completion, or deleting one moves
 the bar wherever the card is shown.
 
+#### Rolling PPM figures up the Initiative hierarchy { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+The PPM portfolio shows each initiative's own figures and adds nothing up the hierarchy. To
+show on a program the budget of everything beneath it, use one calculation that reads its
+children's result:
+
+1. In **Admin → Metamodel**, add a field of type **Cost** to the Initiative type — say
+   `rolledUpBudget`, labelled *Rolled-up budget*.
+2. In **Admin → Calculations**, add a calculation on Initiative with the formula
+   `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, target that field, and activate it.
+3. Run it once from the list to fill in the initiatives that already exist.
+
+The same formula serves every level: a project adds its own budget to nothing, a program adds
+its own to its projects' totals, and so on upwards. Because each level reads what its children
+hold, the order matters, and Turbo EA takes care of it: a manual run processes the hierarchy
+deepest first, and a change to a budget line, cost line, work package, task, risk or status
+report re-runs the initiative's ancestors, nearest parent first. Swap `ppm.totalBudget` for
+`ppm.totalActual`, `ppm.capexBudget` or any other `ppm` measure to roll up another figure — one
+field per figure.
+
 ### Built-in Functions
 
 | Function | Description | Example |
@@ -334,6 +354,11 @@ Calculations for a card are re-evaluated when:
 
 * a PPM budget line, cost line, work package, task, risk or status report on the card
   changes, for an Initiative.
+* the change above happens on an Initiative lower in the hierarchy: every Initiative above
+  it is re-run as well, nearest parent first, so a [roll-up](#rolling-ppm-figures-up-the-initiative-hierarchy) follows the change.
+
+A manual run evaluates the cards of a hierarchical type deepest first, children before
+their parent, so a formula that reads its children's calculated values settles in one run.
 
 They are **not** re-evaluated when a different card that this formula reads from is edited.
 If you change a cost on an IT Component, an application that aggregates it will not move

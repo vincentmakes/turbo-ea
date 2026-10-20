@@ -23,16 +23,34 @@ Utilizzare la barra degli strumenti per:
 - **Raggruppare per** qualsiasi tipo di card correlato (es. Organizzazione, Piattaforma)
 - **Filtrare per sottotipo** (Idea, Programma, Progetto, Epic)
 - **Cercare** per nome dell'iniziativa
+- **Mostrare la gerarchia** per annidare le iniziative di ogni gruppo sotto la loro iniziativa padre (vedi sotto)
+- **Sottoraggruppare per sottotipo** per suddividere ogni gruppo per sottotipo (vedi sotto)
 
-Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente.
+Questi filtri vengono mantenuti nell'URL, quindi l'aggiornamento della pagina conserva la vista corrente. Anche la gerarchia, la sua profondità di visualizzazione e il sottoraggruppamento vengono mantenuti nell'URL.
+
+#### Mostrare la gerarchia delle iniziative
+
+Quando alcune iniziative del portafoglio hanno un'iniziativa padre anch'essa presente nel portafoglio, la barra degli strumenti offre **Mostra gerarchia**. Una volta attivata, ogni gruppo elenca le proprie iniziative come un albero: un'iniziativa figlia compare rientrata sotto il padre, la freccia davanti al nome di un padre comprime o espande il suo sottoalbero e ogni riga mostra il proprio sottotipo, così il ruolo di ciascun livello (per esempio Programma → Progetto → Epic) resta visibile. **Profondità di visualizzazione** limita l'albero ai suoi primi livelli (*Livello 1*, *Livello 2*, … o *Tutti i livelli*).
+
+Il raggruppamento resta prioritario: la gerarchia si annida **all'interno di ogni gruppo**, quindi un'iniziativa il cui padre appartiene a un altro gruppo compare come riga di primo livello del proprio gruppo. I filtri si applicano per primi e l'albero mostra ciò che resta: quando la ricerca o il filtro per sottotipo escludono un padre, le sue figlie salgono al primo livello invece di mantenere il padre come contesto.
+
+![Portafoglio PPM con la gerarchia visualizzata](../assets/img/it/101_ppm_portafoglio_gerarchia.png)
+
+#### Sottoraggruppare per sottotipo
+
+**Sottoraggruppa per sottotipo** divide ogni gruppo in un sottogruppo per sottotipo, nell'ordine in cui i sottotipi sono definiti sul tipo Iniziativa, con le iniziative senza sottotipo in fondo. Ogni sottogruppo ha la propria intestazione, si comprime separatamente e ha la propria riga dei totali; i totali del gruppo continuano a comprendere tutte le sue iniziative. L'interruttore non è disponibile mentre la gerarchia è visualizzata, perché l'albero comprende già tutti i sottotipi.
+
+#### Aggregare gli importi sulle iniziative padre
+
+Il portafoglio mostra gli importi propri di ogni iniziativa: le barre CapEx e OpEx di un padre coprono le righe di budget e di costo registrate sul padre, non quelle delle figlie, e i totali di gruppo contano ogni iniziativa una sola volta. Per vedere un totale su un padre, definire un campo calcolato che sommi il budget proprio di ogni livello ai totali delle sue figlie: vedere [Aggregare gli importi PPM lungo la gerarchia delle iniziative](../admin/calculations.md#rolling-ppm-figures-up-the-initiative-hierarchy). Una modifica PPM su una figlia riesegue i calcoli di tutte le iniziative superiori, così il totale del padre si aggiorna subito.
 
 ### Stampa ed esportazione
 
 Il portafoglio offre le stesse azioni nella barra del titolo dei report:
 
-- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina.
+- **Stampa / Salva come PDF** — l'icona della stampante stampa il portafoglio così come appare a schermo. La barra delle schede, la barra dei filtri e i popover al passaggio del mouse vengono nascosti, il raggruppamento, il sottotipo e la ricerca attivi vengono stampati come una riga compatta di parametri e la griglia della timeline non viene più ritagliata, così tutte le colonne entrano nella pagina. Quando la gerarchia o il sottoraggruppamento sono attivi, anche la riga dei parametri lo indica, con la profondità di visualizzazione.
 - **Esporta in PowerPoint (.pptx)** — dal menu **⋮**. La prima diapositiva riporta titolo, data e ora di generazione e filtri attivi insieme al portafoglio in qualità da presentazione; i portafogli lunghi proseguono su altre diapositive, tagliate solo tra le iniziative — mai attraverso una riga, un'intestazione di gruppo o una riga dei totali.
-- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato.
+- **Esporta in Excel (.xlsx)** — anch'esso dal menu **⋮**. Una riga per iniziativa con gruppo, sottotipo, project manager, date di inizio e fine, i tre indicatori di salute, CapEx/OpEx pianificato ed effettivo e la data dell'ultimo report di stato. Le righe seguono l'ordine sullo schermo; mentre la gerarchia è visualizzata, una colonna **Padre** indica l'iniziativa padre di ciascuna iniziativa.
 
 ## Vista Dettagliata dell'Iniziativa
 

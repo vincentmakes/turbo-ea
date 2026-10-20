@@ -161,6 +161,16 @@ El avance de una iniciativa vive en su pestaña de visión general; las fichas y
 
 A partir de entonces, marcar una tarea como hecha, editar el porcentaje de finalización de un paquete de trabajo o eliminar uno mueve la barra dondequiera que se muestre la ficha.
 
+#### Acumular cifras de PPM a lo largo de la jerarquía de iniciativas { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+La cartera de PPM muestra las cifras propias de cada iniciativa y no acumula nada a lo largo de la jerarquía. Para mostrar en un programa el presupuesto de todo lo que tiene debajo, use un único cálculo que lea el resultado de sus hijas:
+
+1. En **Admin → Metamodelo**, añada un campo de tipo **Costo** al tipo Iniciativa —por ejemplo `rolledUpBudget`, con la etiqueta *Presupuesto acumulado*—.
+2. En **Admin → Cálculos**, añada un cálculo sobre Iniciativa con la fórmula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, apunte a ese campo y actívelo.
+3. Ejecútelo una vez desde la lista para rellenar las iniciativas que ya existen.
+
+La misma fórmula sirve para todos los niveles: un proyecto suma su propio presupuesto a nada, un programa suma el suyo a los totales de sus proyectos, y así sucesivamente hacia arriba. Como cada nivel lee lo que contienen sus hijas, el orden importa, y Turbo EA se encarga de ello: una ejecución manual procesa la jerarquía empezando por el nivel más profundo, y un cambio en una línea de presupuesto, una línea de costo, un paquete de trabajo, una tarea, un riesgo o un informe de estado vuelve a ejecutar los ancestros de la iniciativa, empezando por el padre directo. Sustituya `ppm.totalBudget` por `ppm.totalActual`, `ppm.capexBudget` o cualquier otra medida `ppm` para acumular otra cifra: un campo por cifra.
+
 ### Funciones Incorporadas
 
 | Función | Descripción | Ejemplo |
@@ -298,6 +308,13 @@ Los cálculos de una ficha se reevalúan cuando:
   del tipo objetivo y guarda los resultados;
 * cambia una línea de presupuesto, una línea de costo, un paquete de trabajo, una tarea, un
   riesgo o un informe de estado de PPM en la ficha, para una Iniciativa.
+* el cambio anterior se produce en una Iniciativa situada más abajo en la jerarquía: todas
+  las Iniciativas por encima de ella se recalculan también, empezando por el padre directo, de
+  modo que una [acumulación](#rolling-ppm-figures-up-the-initiative-hierarchy) sigue al cambio.
+
+Una ejecución manual evalúa las fichas de un tipo jerárquico empezando por el nivel más
+profundo, las hijas antes que su padre, de modo que una fórmula que lee los valores calculados
+de sus hijas queda resuelta en una sola ejecución.
 
 **No** se reevalúan cuando se edita otra ficha de la que la fórmula lee datos. Si cambia un
 costo en un componente de TI, la aplicación que lo agrega no se moverá hasta que esa

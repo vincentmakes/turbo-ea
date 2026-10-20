@@ -160,6 +160,16 @@ L'avanzamento di un'iniziativa vive nella sua scheda Panoramica; le card e i por
 
 Da quel momento, completare un'attività, modificare il completamento di un pacchetto di lavoro o eliminarne uno sposta la barra ovunque la card sia mostrata.
 
+#### Aggregare gli importi PPM lungo la gerarchia delle iniziative { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+Il portafoglio PPM mostra gli importi propri di ogni iniziativa e non aggrega nulla lungo la gerarchia. Per mostrare su un programma il budget di tutto ciò che sta sotto, usate un unico calcolo che legga il risultato delle sue figlie:
+
+1. In **Admin → Metamodello**, aggiungete al tipo Iniziativa un campo di tipo **Costo** — ad esempio `rolledUpBudget`, con etichetta *Budget aggregato*.
+2. In **Admin → Calcoli**, aggiungete un calcolo su Iniziativa con la formula `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, indicate quel campo come destinazione e attivatelo.
+3. Eseguitelo una volta dall'elenco per valorizzare le iniziative già esistenti.
+
+La stessa formula vale per ogni livello: un progetto somma il proprio budget a nulla, un programma somma il suo ai totali dei suoi progetti, e così via verso l'alto. Poiché ogni livello legge ciò che contengono le sue figlie, l'ordine conta, e Turbo EA se ne occupa: un'esecuzione manuale elabora la gerarchia partendo dal livello più profondo, e una modifica a una riga di budget, una riga di costo, un pacchetto di lavoro, un'attività, un rischio o un report di stato riesegue i calcoli degli antenati dell'iniziativa, a partire dal padre diretto. Sostituite `ppm.totalBudget` con `ppm.totalActual`, `ppm.capexBudget` o qualsiasi altra misura `ppm` per aggregare un altro importo — un campo per importo.
+
 ### Funzioni predefinite
 
 | Funzione | Descrizione | Esempio |
@@ -296,6 +306,13 @@ I calcoli di una card vengono rivalutati quando:
   e ne salva i risultati;
 * cambia una riga di budget, una riga di costo, un pacchetto di lavoro, un'attività, un rischio
   o un report di stato PPM sulla card, per un'Iniziativa.
+* la modifica precedente avviene su un'Iniziativa più in basso nella gerarchia: anche tutte
+  le Iniziative sopra di essa vengono ricalcolate, a partire dal padre diretto, così
+  un'[aggregazione](#rolling-ppm-figures-up-the-initiative-hierarchy) segue la modifica.
+
+Un'esecuzione manuale valuta le card di un tipo gerarchico partendo dal livello più profondo,
+le figlie prima del padre, così una formula che legge i valori calcolati delle figlie arriva al
+risultato in un'unica esecuzione.
 
 **Non** vengono rivalutati quando viene modificata un'altra card da cui la formula legge. Se
 cambiate un costo su un componente IT, l'applicazione che lo aggrega non si muoverà finché

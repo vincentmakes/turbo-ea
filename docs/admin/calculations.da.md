@@ -159,6 +159,16 @@ Et initiativs fremdrift bor på dets Overview-fane; kort og udgivne portaler vis
 
 Fra da af flytter bjælken sig, overalt hvor kortet vises, når en opgave markeres som udført, en arbejdspakkes fuldførelse redigeres, eller en af dem slettes.
 
+#### Summér PPM-tal op gennem initiativhierarkiet { #rolling-ppm-figures-up-the-initiative-hierarchy }
+
+PPM-porteføljen viser hvert initiativs egne tal og summerer ikke noget op gennem hierarkiet. For at vise budgettet for alt under et program på selve programmet bruger du én beregning, der læser resultatet fra de underordnede:
+
+1. Tilføj under **Admin → Metamodel** et felt af typen **Omkostning** til Initiative-typen — fx `rolledUpBudget` med etiketten *Summeret budget*.
+2. Tilføj under **Admin → Beregninger** en beregning på Initiative med formlen `ppm.totalBudget + SUM(PLUCK(children, "attributes.rolledUpBudget"))`, vælg feltet som mål, og aktivér den.
+3. Kør den én gang fra listen for at udfylde de initiativer, der allerede findes.
+
+Den samme formel gælder for alle niveauer: et projekt lægger sit eget budget til ingenting, et program lægger sit til sine projekters totaler, og så videre opad. Fordi hvert niveau læser det, de underordnede indeholder, har rækkefølgen betydning, og det sørger Turbo EA for: en manuel kørsel behandler hierarkiet fra det dybeste niveau, og en ændring af en budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport kører initiativets forfædre igen, startende med det nærmeste overordnede. Udskift `ppm.totalBudget` med `ppm.totalActual`, `ppm.capexBudget` eller en anden `ppm`-måling for at summere et andet tal — ét felt pr. tal.
+
 ### Indbyggede funktioner
 
 | Funktion | Beskrivelse | Eksempel |
@@ -295,6 +305,13 @@ Et korts beregninger evalueres igen, når:
 
 * en PPM-budgetlinje, omkostningslinje, arbejdspakke, opgave, risiko eller statusrapport på
   kortet ændres, for et Initiative.
+* ændringen ovenfor sker på et Initiative længere nede i hierarkiet: hvert Initiative over
+  det genberegnes også, startende med det nærmeste overordnede, så en [summering](#rolling-ppm-figures-up-the-initiative-hierarchy)
+  følger ændringen.
+
+En manuel kørsel evaluerer kortene af en hierarkisk type fra det dybeste niveau, de
+underordnede før deres overordnede, så en formel, der læser de underordnedes beregnede værdier,
+når sit resultat i én kørsel.
 
 De evalueres **ikke** igen, når et andet kort, som formlen læser fra, redigeres. Ændrer du en
 omkostning på en IT-komponent, flytter en applikation, der aggregerer den, sig ikke, før den
