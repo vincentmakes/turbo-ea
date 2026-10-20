@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Desative a hierarquia para subagrupar por subtipo: a árvore já abrange todos os subtipos.",
   "parentColumn": "Pai",
   "toggleChildren": "Mostrar ou ocultar os filhos: {{name}}",
-  "printOn": "Ativado"
+  "printOn": "Ativado",
+  "fromOwn": "Próprios",
+  "fromBeneath_one": "{{count}} iniciativa abaixo",
+  "fromBeneath_other": "{{count}} iniciativas abaixo",
+  "costsFrom": "Origem dos custos",
+  "datesFrom": "Origem das datas",
+  "derivedCostTooltip_one": "Sem linhas de orçamento ou de custo próprias: total da iniciativa abaixo dela ({{count}})",
+  "derivedCostTooltip_other": "Sem linhas de orçamento ou de custo próprias: total das {{count}} iniciativas abaixo dela",
+  "derivedDatesTooltip_one": "Sem datas próprias: abrange a iniciativa abaixo dela ({{count}})",
+  "derivedDatesTooltip_other": "Sem datas próprias: abrange as {{count}} iniciativas abaixo dela",
+  "beneathThisInitiative_one": "Abaixo desta iniciativa: {{count}} iniciativa",
+  "beneathThisInitiative_other": "Abaixo desta iniciativa: {{count}} iniciativas",
+  "beneathFigures": "Orçamento {{budget}} · Real {{actual}}",
+  "beneathSpan": "De {{from}} a {{to}}"
 }

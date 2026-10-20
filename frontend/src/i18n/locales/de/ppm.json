@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Schalten Sie die Hierarchie aus, um nach Untertyp zu untergliedern: Der Baum umfasst bereits alle Untertypen.",
   "parentColumn": "Übergeordnet",
   "toggleChildren": "Untergeordnete ein- oder ausblenden: {{name}}",
-  "printOn": "Ein"
+  "printOn": "Ein",
+  "fromOwn": "Eigene",
+  "fromBeneath_one": "{{count}} untergeordnete Initiative",
+  "fromBeneath_other": "{{count}} untergeordnete Initiativen",
+  "costsFrom": "Kosten aus",
+  "datesFrom": "Termine aus",
+  "derivedCostTooltip_one": "Keine eigenen Budget- oder Kostenzeilen: Summe der untergeordneten Initiative ({{count}})",
+  "derivedCostTooltip_other": "Keine eigenen Budget- oder Kostenzeilen: Summe der {{count}} untergeordneten Initiativen",
+  "derivedDatesTooltip_one": "Keine eigenen Termine: umfasst die untergeordnete Initiative ({{count}})",
+  "derivedDatesTooltip_other": "Keine eigenen Termine: umfasst die {{count}} untergeordneten Initiativen",
+  "beneathThisInitiative_one": "Unter dieser Initiative: {{count}} Initiative",
+  "beneathThisInitiative_other": "Unter dieser Initiative: {{count}} Initiativen",
+  "beneathFigures": "Budget {{budget}} · Ist {{actual}}",
+  "beneathSpan": "Von {{from}} bis {{to}}"
 }

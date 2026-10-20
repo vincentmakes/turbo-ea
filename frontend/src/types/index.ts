@@ -1834,6 +1834,37 @@ export interface PpmGanttItem {
   latest_report: PpmStatusReport | null;
   latest_report_id: string | null;
   stakeholders: PpmGanttStakeholder[];
+  rollup?: PpmRollup | null;
+}
+
+/**
+ * What a parent row on the PPM board shows in place of costs or dates it has
+ * not got. The cost quartet is set only when the parent has no budget or cost
+ * line of its own and some initiative beneath it has (and, on a portal, only
+ * when the portal shows costs); the dates only when it has neither a start nor
+ * an end date.
+ */
+export interface PpmRollup {
+  descendant_count: number;
+  capex_planned?: number | null;
+  capex_actual?: number | null;
+  opex_planned?: number | null;
+  opex_actual?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
+/** `GET /ppm/initiatives/{id}/rollup`: always over the descendants alone. */
+export interface PpmRollupOut {
+  descendant_count: number;
+  capex_planned: number;
+  capex_actual: number;
+  opex_planned: number;
+  opex_actual: number;
+  total_planned: number;
+  total_actual: number;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 export type PpmHealthValue = "onTrack" | "atRisk" | "offTrack";
@@ -1965,6 +1996,8 @@ export interface PpmPortfolioItem {
   opex_actual?: number | null;
   stakeholders: PpmPortfolioPerson[];
   latest_report: PpmPortfolioReport | null;
+  /** Derived costs and dates for a parent without its own (see `PpmRollup`). */
+  rollup?: PpmRollup | null;
 }
 
 export interface PpmPortfolioDashboard {

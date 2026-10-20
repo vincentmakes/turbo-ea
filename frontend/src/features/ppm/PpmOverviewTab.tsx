@@ -16,7 +16,13 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { KPI_VALUE_SX } from "./ppmStyles";
-import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine } from "@/types";
+import type {
+  Card,
+  PpmStatusReport,
+  PpmCostLine,
+  PpmBudgetLine,
+  PpmRollupOut,
+} from "@/types";
 
 const HEALTH_DOT_COLORS: Record<string, string> = {
   onTrack: RAG_COLORS.green,
@@ -47,6 +53,9 @@ function magnitude(n: number): Scale {
   if (Math.abs(n) >= 1_000) return "k";
   return "";
 }
+
+/** The "beneath this initiative" block under the Financials bars. */
+const BENEATH_SX = { mt: 2, pt: 1.5, borderTop: 1, borderColor: "divider" };
 
 /** Health RAG dot. Module scope: defined inline it was a fresh component type
  * on every render, remounting the row each time. */
@@ -150,6 +159,15 @@ export default function PpmOverviewTab({
   const completionPct = completion?.completion;
   // Stryker disable next-line ConditionalExpression,LogicalOperator: completionPct is read off completion, so the two are undefined together
   const completionLoading = completion === undefined || completionPct === undefined;
+
+  // What the initiatives beneath this one add up to: read live, shown beside
+  // this initiative's own figures, never added to them. Hidden while loading
+  // and on failure — it is a secondary figure, not worth an error.
+  const { data: rollup } = useApiQuery<PpmRollupOut>(`/ppm/initiatives/${card.id}/rollup`, {
+    keepPreviousData: false,
+  });
+  const showBeneath = !!rollup && rollup.descendant_count > 0;
+  const fmtSpanDate = (d: string | null) => (d ? formatDate(d) : "\u2014");
 
   // Budget totals (from budget lines)
   const totalBudget = budgetLines.reduce((s, bl) => s + bl.amount, 0);
@@ -365,6 +383,27 @@ export default function PpmOverviewTab({
           barColor={budgetBarColor}
           overColor={overBudgetColor}
         />
+        {showBeneath && (
+          <Box data-testid="ppm-beneath" sx={BENEATH_SX}>
+            <Typography variant="body2" fontWeight={600}>
+              {t("beneathThisInitiative", { count: rollup.descendant_count })}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {t("beneathFigures", {
+                budget: fmt.format(rollup.total_planned),
+                actual: fmt.format(rollup.total_actual),
+              })}
+            </Typography>
+            {(rollup.start_date || rollup.end_date) && (
+              <Typography variant="body2" color="text.secondary">
+                {t("beneathSpan", {
+                  from: fmtSpanDate(rollup.start_date),
+                  to: fmtSpanDate(rollup.end_date),
+                })}
+              </Typography>
+            )}
+          </Box>
+        )}
       </Paper>
 
       {/* Timeline + Status */}

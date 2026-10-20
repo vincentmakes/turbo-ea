@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Turn the hierarchy off to sub-group by subtype: the tree already spans subtypes.",
   "parentColumn": "Parent",
   "toggleChildren": "Show or hide the children: {{name}}",
-  "printOn": "On"
+  "printOn": "On",
+  "fromOwn": "Own",
+  "fromBeneath_one": "{{count}} initiative beneath",
+  "fromBeneath_other": "{{count}} initiatives beneath",
+  "costsFrom": "Costs from",
+  "datesFrom": "Dates from",
+  "derivedCostTooltip_one": "No budget or cost lines of its own: total of the {{count}} initiative beneath it",
+  "derivedCostTooltip_other": "No budget or cost lines of its own: total of the {{count}} initiatives beneath it",
+  "derivedDatesTooltip_one": "No dates of its own: spans the {{count}} initiative beneath it",
+  "derivedDatesTooltip_other": "No dates of its own: spans the {{count}} initiatives beneath it",
+  "beneathThisInitiative_one": "Beneath this initiative: {{count}} initiative",
+  "beneathThisInitiative_other": "Beneath this initiative: {{count}} initiatives",
+  "beneathFigures": "Budget {{budget}} · Actual {{actual}}",
+  "beneathSpan": "From {{from}} to {{to}}"
 }

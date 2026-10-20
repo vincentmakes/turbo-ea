@@ -3,7 +3,8 @@
  * heading, which is the shared `common:labels.description` key, so it follows
  * the user's language like the rest of the tab; the completion KPI's load
  * (stale replies ignored, a failure shown as one); the timeline dates in the
- * workspace format; and the RAG dots in the theme's RAG colours.
+ * workspace format; the RAG dots in the theme's RAG colours; and the line
+ * naming what the initiatives beneath this one add up to.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
@@ -29,6 +30,18 @@ const CARD = {
   attributes: {},
 } as unknown as Card;
 
+const ROLLUP_NONE = {
+  descendant_count: 0,
+  capex_planned: 0,
+  capex_actual: 0,
+  opex_planned: 0,
+  opex_actual: 0,
+  total_planned: 0,
+  total_actual: 0,
+  start_date: null,
+  end_date: null,
+};
+
 function renderTab(card: Card = CARD) {
   render(<PpmOverviewTab card={card} latestReport={null} costLines={[]} budgetLines={[]} />);
 }
@@ -37,6 +50,7 @@ beforeEach(() => {
   mockApi.reset();
   hookState.reset();
   mockApi.on("get", "/ppm/initiatives/i1/completion", { completion: 40, wbs_count: 3 });
+  mockApi.on("get", "/ppm/initiatives/i1/rollup", ROLLUP_NONE);
 });
 
 describe("PpmOverviewTab — description", () => {
@@ -238,5 +252,97 @@ describe("PpmOverviewTab — health summary", () => {
     );
     await screen.findByText("40%");
     expect(dotOf("Schedule")).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral });
+  });
+});
+
+describe("PpmOverviewTab — beneath this initiative", () => {
+  const ROLLUP = {
+    descendant_count: 3,
+    capex_planned: 1000,
+    capex_actual: 400,
+    opex_planned: 200,
+    opex_actual: 50,
+    total_planned: 1200,
+    total_actual: 450,
+    start_date: "2026-02-01",
+    end_date: "2027-03-31",
+  };
+  const beneath = () => screen.queryByTestId("ppm-beneath");
+
+  it("names the count, the summed figures and the span of the initiatives beneath", async () => {
+    hookState.dateFormat = "DD/MM/YYYY";
+    mockApi.on("get", "/ppm/initiatives/i1/rollup", ROLLUP);
+    renderTab();
+    const block = await screen.findByTestId("ppm-beneath");
+    expect(block.children).toHaveLength(3);
+    expect(block.children[0]).toHaveTextContent("Beneath this initiative: 3 initiatives");
+    expect(block.children[1]).toHaveTextContent("Budget $1200 · Actual $450");
+    expect(block.children[2]).toHaveTextContent("From 01/02/2026 to 31/03/2027");
+  });
+
+  it("uses the singular for one initiative and a dash for a missing side of the span", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/rollup", {
+      ...ROLLUP,
+      descendant_count: 1,
+      start_date: null,
+    });
+    renderTab();
+    const block = await screen.findByTestId("ppm-beneath");
+    expect(block.children[0]).toHaveTextContent("Beneath this initiative: 1 initiative");
+    expect(block.children[0]).not.toHaveTextContent("initiatives");
+    expect(block.children[2]).toHaveTextContent("From — to 2027-03-31");
+  });
+
+  it("leaves the span out when the initiatives beneath have no dates", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/rollup", {
+      ...ROLLUP,
+      start_date: null,
+      end_date: null,
+    });
+    renderTab();
+    const block = await screen.findByTestId("ppm-beneath");
+    expect(block.children).toHaveLength(2);
+    expect(screen.queryByText(/^From /)).not.toBeInTheDocument();
+  });
+
+  it("is absent when nothing is beneath the initiative", async () => {
+    renderTab();
+    await screen.findByText("40%");
+    await settle();
+    expect(beneath()).toBeNull();
+  });
+
+  it("is absent, with no error, when the roll-up fails to load", async () => {
+    mockApi.fail("get", "/ppm/initiatives/i1/rollup", 500);
+    renderTab();
+    await screen.findByText("40%");
+    await settle();
+    expect(beneath()).toBeNull();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("leaves the initiative's own totals as its own lines", async () => {
+    mockApi.on("get", "/ppm/initiatives/i1/rollup", ROLLUP);
+    render(
+      <PpmOverviewTab
+        card={CARD}
+        latestReport={null}
+        costLines={[]}
+        budgetLines={[
+          {
+            id: "b1",
+            initiative_id: "i1",
+            fiscal_year: 2026,
+            category: "capex",
+            description: null,
+            amount: 70,
+            created_at: "2026-01-01T00:00:00",
+            updated_at: "2026-01-01T00:00:00",
+          },
+        ]}
+      />,
+    );
+    await screen.findByTestId("ppm-beneath");
+    expect(screen.getByText("Total Budget").nextElementSibling).toHaveTextContent("$70");
   });
 });

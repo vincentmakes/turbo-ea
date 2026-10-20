@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Slå hierarkiet fra for at undergruppere efter undertype: træet omfatter allerede alle undertyper.",
   "parentColumn": "Overordnet",
   "toggleChildren": "Vis eller skjul de underordnede: {{name}}",
-  "printOn": "Til"
+  "printOn": "Til",
+  "fromOwn": "Egne",
+  "fromBeneath_one": "{{count}} underliggende initiativ",
+  "fromBeneath_other": "{{count}} underliggende initiativer",
+  "costsFrom": "Omkostninger fra",
+  "datesFrom": "Datoer fra",
+  "derivedCostTooltip_one": "Ingen egne budget- eller omkostningslinjer: summen af det underliggende initiativ ({{count}})",
+  "derivedCostTooltip_other": "Ingen egne budget- eller omkostningslinjer: summen af de {{count}} underliggende initiativer",
+  "derivedDatesTooltip_one": "Ingen egne datoer: spænder over det underliggende initiativ ({{count}})",
+  "derivedDatesTooltip_other": "Ingen egne datoer: spænder over de {{count}} underliggende initiativer",
+  "beneathThisInitiative_one": "Under dette initiativ: {{count}} initiativ",
+  "beneathThisInitiative_other": "Under dette initiativ: {{count}} initiativer",
+  "beneathFigures": "Budget {{budget}} · Faktisk {{actual}}",
+  "beneathSpan": "Fra {{from}} til {{to}}"
 }

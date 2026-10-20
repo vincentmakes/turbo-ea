@@ -34,6 +34,7 @@ import {
   portfolioWindow,
   projectManager,
   ragColor,
+  rowFigures,
   subtypeKeys,
   subGroupId,
   subtypeName,
@@ -240,6 +241,27 @@ describe("groupTotals", () => {
     });
   });
 
+  it("sums recorded lines only, never a parent's derived figures", () => {
+    const parent = item({
+      id: "p",
+      rollup: {
+        descendant_count: 1,
+        capex_planned: 100,
+        capex_actual: 0,
+        opex_planned: 0,
+        opex_actual: 0,
+      },
+    });
+    const child = item({ id: "c", parent_id: "p", capex_planned: 100 });
+    expect(groupTotals([parent, child])).toEqual({
+      capexPlanned: 100,
+      capexActual: 0,
+      opexPlanned: 0,
+      opexActual: 0,
+    });
+    expect(groupTotals([parent])).toBeNull();
+  });
+
   it("has no totals row when every sum is zero", () => {
     expect(groupTotals([])).toBeNull();
     expect(groupTotals([item(), item({ capex_planned: 0, opex_actual: null })])).toBeNull();
@@ -262,6 +284,37 @@ describe("hasAnyCost", () => {
       expect(hasAnyCost(item({ [field]: 1 }))).toBe(true);
     },
   );
+
+  it("shows the cost row for a parent whose only figures are derived", () => {
+    expect(
+      hasAnyCost(
+        item({
+          capex_planned: 0,
+          rollup: {
+            descendant_count: 1,
+            capex_planned: 0,
+            capex_actual: 0,
+            opex_planned: 0,
+            opex_actual: 3,
+          },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      hasAnyCost(
+        item({
+          capex_planned: 5,
+          rollup: {
+            descendant_count: 1,
+            capex_planned: 0,
+            capex_actual: 0,
+            opex_planned: 0,
+            opex_actual: 0,
+          },
+        }),
+      ),
+    ).toBe(false);
+  });
 
   it("hides it when every figure is zero, negative or withheld", () => {
     expect(hasAnyCost(item())).toBe(false);
@@ -329,6 +382,7 @@ describe("barModel", () => {
       width: 25,
       color: "#1976d2",
       borderRadius: "8px 8px 8px 8px",
+      derived: false,
     });
   });
 
@@ -367,6 +421,23 @@ describe("barModel", () => {
   it("draws no bar without both dates", () => {
     expect(barModel(dated(null, "2026-01-05"), eightDays)).toBeNull();
     expect(barModel(dated("2026-01-03", null), eightDays)).toBeNull();
+  });
+
+  it("spans the dates beneath a parent without its own, and says so", () => {
+    const parent = item({
+      rollup: {
+        descendant_count: 2,
+        start_date: "2026-01-02",
+        end_date: "2026-01-07",
+      },
+    });
+    expect(barModel(parent, eightDays)).toEqual({
+      left: 12.5,
+      width: 62.5,
+      color: "#1976d2",
+      borderRadius: "8px 8px 8px 8px",
+      derived: true,
+    });
   });
 });
 
@@ -653,6 +724,8 @@ describe("buildPortfolioExport", () => {
       { key: "opexPlanned", label: "opex — planned", type: "currency" },
       { key: "opexActual", label: "opex — actual", type: "currency" },
       { key: "lastReport", label: 'lastReport{"defaultValue":"Report"}', type: "date" },
+      { key: "costsFrom", label: "costsFrom", type: "text" },
+      { key: "datesFrom", label: "datesFrom", type: "text" },
     ]);
   });
 
@@ -672,6 +745,8 @@ describe("buildPortfolioExport", () => {
       opexPlanned: 0,
       opexActual: 5,
       lastReport: "2026-09-30",
+      costsFrom: "fromOwn",
+      datesFrom: "fromOwn",
     });
   });
 
@@ -691,6 +766,220 @@ describe("buildPortfolioExport", () => {
       opexPlanned: "",
       opexActual: "",
       lastReport: "",
+      costsFrom: "fromOwn",
+      datesFrom: "fromOwn",
+    });
+  });
+
+  it("exports a parent's derived costs and dates and says where they come from", () => {
+    const program = item({
+      id: "p",
+      name: "Program",
+      start_date: null,
+      end_date: null,
+      capex_planned: 0,
+      capex_actual: 0,
+      opex_planned: 0,
+      opex_actual: 0,
+      rollup: {
+        descendant_count: 3,
+        capex_planned: 300,
+        capex_actual: 120,
+        opex_planned: 30,
+        opex_actual: 12,
+        start_date: "2026-02-01",
+        end_date: "2027-03-31",
+      },
+    });
+    const half = item({
+      id: "h",
+      name: "Half",
+      start_date: "2026-05-01",
+      end_date: "2026-06-30",
+      capex_planned: 7,
+      rollup: {
+        descendant_count: 2,
+        capex_planned: null,
+        capex_actual: null,
+        opex_planned: null,
+        opex_actual: null,
+        start_date: null,
+        end_date: null,
+      },
+    });
+    const rows = buildPortfolioExport(
+      {
+        groups: [["g", { name: "G", items: [program, half] }]],
+        groupTypeLabel: "Organization",
+        printParams: [],
+        chartNode: null,
+        layout: { kind: "flat" },
+        allItems: [program, half],
+      },
+      t,
+      subtypeLabel,
+    ).sheets[0].rows;
+    expect(rows[0]).toMatchObject({
+      start: "2026-02-01",
+      end: "2027-03-31",
+      capexPlanned: 300,
+      capexActual: 120,
+      opexPlanned: 30,
+      opexActual: 12,
+      costsFrom: 'fromBeneath{"count":3}',
+      datesFrom: 'fromBeneath{"count":3}',
+    });
+    expect(rows[1]).toMatchObject({
+      start: "2026-05-01",
+      end: "2026-06-30",
+      capexPlanned: 7,
+      costsFrom: "fromOwn",
+      datesFrom: "fromOwn",
+    });
+  });
+});
+
+describe("rowFigures", () => {
+  const own = {
+    start_date: "2026-01-01",
+    end_date: "2026-12-31",
+    capex_planned: 1,
+    capex_actual: 2,
+    opex_planned: 3,
+    opex_actual: 4,
+  };
+  const noCosts = {
+    capex_planned: null,
+    capex_actual: null,
+    opex_planned: null,
+    opex_actual: null,
+  };
+  const noDates = { start_date: null, end_date: null };
+
+  it("is the row's own data when there is no roll-up", () => {
+    expect(rowFigures(item(own))).toEqual({
+      capexPlanned: 1,
+      capexActual: 2,
+      opexPlanned: 3,
+      opexActual: 4,
+      derivedCosts: false,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      derivedDates: false,
+      descendantCount: 0,
+    });
+  });
+
+  it("takes the derived costs alone when only they are set", () => {
+    const f = rowFigures(
+      item({
+        ...own,
+        rollup: {
+          descendant_count: 2,
+          capex_planned: 10,
+          capex_actual: 20,
+          opex_planned: 30,
+          opex_actual: 40,
+          ...noDates,
+        },
+      }),
+    );
+    expect(f).toEqual({
+      capexPlanned: 10,
+      capexActual: 20,
+      opexPlanned: 30,
+      opexActual: 40,
+      derivedCosts: true,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      derivedDates: false,
+      descendantCount: 2,
+    });
+  });
+
+  it("takes the derived dates alone when only they are set", () => {
+    const f = rowFigures(
+      item({
+        ...own,
+        rollup: {
+          descendant_count: 4,
+          ...noCosts,
+          start_date: "2025-03-01",
+          end_date: null,
+        },
+      }),
+    );
+    expect(f).toMatchObject({
+      capexPlanned: 1,
+      opexActual: 4,
+      derivedCosts: false,
+      startDate: "2025-03-01",
+      endDate: null,
+      derivedDates: true,
+      descendantCount: 4,
+    });
+    // An end date alone is a derived span too.
+    expect(
+      rowFigures(
+        item({
+          ...own,
+          rollup: {
+            descendant_count: 1,
+            ...noCosts,
+            start_date: null,
+            end_date: "2027-01-31",
+          },
+        }),
+      ),
+    ).toMatchObject({
+      startDate: null,
+      endDate: "2027-01-31",
+      derivedDates: true,
+    });
+  });
+
+  it("takes both when both are derived", () => {
+    const f = rowFigures(
+      item({
+        ...noDates,
+        rollup: {
+          descendant_count: 5,
+          capex_planned: 0,
+          capex_actual: 0,
+          opex_planned: 0,
+          opex_actual: 9,
+          start_date: "2026-02-01",
+          end_date: "2026-03-01",
+        },
+      }),
+    );
+    expect(f).toEqual({
+      capexPlanned: 0,
+      capexActual: 0,
+      opexPlanned: 0,
+      opexActual: 9,
+      derivedCosts: true,
+      startDate: "2026-02-01",
+      endDate: "2026-03-01",
+      derivedDates: true,
+      descendantCount: 5,
+    });
+  });
+
+  it("keeps its own data when the roll-up derives nothing", () => {
+    expect(
+      rowFigures(
+        item({
+          ...own,
+          rollup: { descendant_count: 3, ...noCosts, ...noDates },
+        }),
+      ),
+    ).toMatchObject({
+      capexPlanned: 1,
+      derivedCosts: false,
+      startDate: "2026-01-01",
+      derivedDates: false,
+      descendantCount: 3,
     });
   });
 });

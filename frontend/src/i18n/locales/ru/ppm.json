@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Отключите иерархию, чтобы разбить на подгруппы по подтипу: дерево уже охватывает все подтипы.",
   "parentColumn": "Родитель",
   "toggleChildren": "Показать или скрыть дочерние: {{name}}",
-  "printOn": "Вкл."
+  "printOn": "Вкл.",
+  "fromOwn": "Собственные",
+  "fromBeneath_one": "Нижестоящие инициативы: {{count}}",
+  "fromBeneath_other": "Нижестоящие инициативы: {{count}}",
+  "costsFrom": "Источник затрат",
+  "datesFrom": "Источник дат",
+  "derivedCostTooltip_one": "Нет собственных строк бюджета и затрат: сумма по нижестоящим инициативам ({{count}})",
+  "derivedCostTooltip_other": "Нет собственных строк бюджета и затрат: сумма по нижестоящим инициативам ({{count}})",
+  "derivedDatesTooltip_one": "Нет собственных дат: охватывает нижестоящие инициативы ({{count}})",
+  "derivedDatesTooltip_other": "Нет собственных дат: охватывает нижестоящие инициативы ({{count}})",
+  "beneathThisInitiative_one": "Под этой инициативой — инициатив: {{count}}",
+  "beneathThisInitiative_other": "Под этой инициативой — инициатив: {{count}}",
+  "beneathFigures": "Бюджет {{budget}} · Факт {{actual}}",
+  "beneathSpan": "С {{from}} по {{to}}"
 }

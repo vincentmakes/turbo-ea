@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "请先关闭层级再按子类型细分：层级树已涵盖所有子类型。",
   "parentColumn": "上级",
   "toggleChildren": "显示或隐藏下级：{{name}}",
-  "printOn": "开启"
+  "printOn": "开启",
+  "fromOwn": "自身",
+  "fromBeneath_one": "下级 {{count}} 项举措",
+  "fromBeneath_other": "下级 {{count}} 项举措",
+  "costsFrom": "成本来源",
+  "datesFrom": "日期来源",
+  "derivedCostTooltip_one": "自身没有预算或成本条目：为下级 {{count}} 项举措的合计",
+  "derivedCostTooltip_other": "自身没有预算或成本条目：为下级 {{count}} 项举措的合计",
+  "derivedDatesTooltip_one": "自身没有日期：涵盖下级 {{count}} 项举措",
+  "derivedDatesTooltip_other": "自身没有日期：涵盖下级 {{count}} 项举措",
+  "beneathThisInitiative_one": "此举措下级：{{count}} 项举措",
+  "beneathThisInitiative_other": "此举措下级：{{count}} 项举措",
+  "beneathFigures": "预算 {{budget}} · 实际 {{actual}}",
+  "beneathSpan": "从 {{from}} 到 {{to}}"
 }

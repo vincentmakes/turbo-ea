@@ -24,7 +24,7 @@ export const RAG_LABEL: Record<string, string> = {
 };
 
 /** Format a date string as "Q3'25" */
-export function fmtQuarter(dateStr: string | null): string {
+export function fmtQuarter(dateStr: string | null | undefined): string {
   const d = toLocalDate(dateStr);
   if (!d) return "\u2014";
   const q = Math.floor(d.getMonth() / 3) + 1;

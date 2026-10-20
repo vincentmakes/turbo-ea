@@ -740,3 +740,142 @@ describe("PpmPortfolioView subtype sub-groups", () => {
     expect(location()).toBe("");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  Derived costs and dates on a parent without its own                */
+/* ------------------------------------------------------------------ */
+
+const COST_TIP = "No budget or cost lines of its own: total of the 1 initiative beneath it";
+const DATES_TIP = "No dates of its own: spans the 1 initiative beneath it";
+
+const PARENT: PpmPortfolioItem = {
+  ...ITEM,
+  id: "77777777-7777-7777-7777-777777777777",
+  name: "Program X",
+  subtype: "Program",
+  start_date: null,
+  end_date: null,
+  capex_planned: 0,
+  capex_actual: 0,
+  opex_planned: 0,
+  opex_actual: 0,
+  latest_report: null,
+  rollup: {
+    descendant_count: 1,
+    capex_planned: 300,
+    capex_actual: 120,
+    opex_planned: 0,
+    opex_actual: 0,
+    start_date: "2026-06-01",
+    end_date: "2027-02-28",
+  },
+};
+const CHILD: PpmPortfolioItem = {
+  ...ITEM,
+  id: "88888888-8888-8888-8888-888888888888",
+  name: "Child Project",
+  parent_id: PARENT.id,
+  start_date: "2026-06-01",
+  end_date: "2027-02-28",
+  capex_planned: 300,
+  capex_actual: 120,
+  opex_planned: 0,
+  opex_actual: 0,
+  latest_report: null,
+};
+
+const derivedCosts = () => Array.from(document.querySelectorAll('[data-derived="costs"]'));
+
+describe("PpmPortfolioView derived costs and dates", () => {
+  it("draws a parent's derived costs outlined, italic and explained, outside the group totals", () => {
+    renderBoard({ items: [PARENT, CHILD] });
+    const [bar, ...rest] = derivedCosts();
+    expect(rest).toHaveLength(0);
+    expect(bar).toHaveAttribute("aria-label", COST_TIP);
+    const label = within(bar as HTMLElement).getByText("120/300 CHF");
+    expect(label).toHaveStyle({ fontStyle: "italic" });
+    const fill = bar.firstElementChild!.firstElementChild as HTMLElement;
+    expect(fill).toHaveStyle({ border: "1px solid #1976d2", boxSizing: "border-box" });
+    expect(getComputedStyle(fill).backgroundColor).toMatch(/^(transparent|rgba\(0, 0, 0, 0\))$/);
+
+    // The child's own bar and the group totals row: filled, upright, and the
+    // totals count the child's lines once (never 240/600).
+    const labels = screen.getAllByText("120/300 CHF");
+    expect(labels).toHaveLength(3);
+    const own = labels.filter((l) => !l.closest("[data-derived]"));
+    expect(own).toHaveLength(2);
+    for (const l of own) expect(l).not.toHaveStyle({ fontStyle: "italic" });
+    expect(screen.queryByText("240/600 CHF")).toBeNull();
+    expect(own[0].previousElementSibling?.firstElementChild).toHaveStyle({
+      backgroundColor: "#1976d2",
+    });
+  });
+
+  it("outlines a derived over-budget bar and its band in the over-budget colour", () => {
+    renderBoard({
+      items: [{ ...PARENT, rollup: { ...PARENT.rollup!, capex_planned: 300, capex_actual: 360 } }],
+    });
+    const [bar] = derivedCosts();
+    const [fill, band] = Array.from(bar.firstElementChild!.children) as HTMLElement[];
+    for (const el of [fill, band]) {
+      expect(el).toHaveStyle({ border: "1px solid #c62828", boxSizing: "border-box" });
+      expect(getComputedStyle(el).backgroundColor).toMatch(/^(transparent|rgba\(0, 0, 0, 0\))$/);
+    }
+    expect(within(bar as HTMLElement).getByText("360/300 CHF")).toHaveStyle({
+      fontStyle: "italic",
+    });
+  });
+
+  it("draws a parent's derived dates as a dashed bar over the span beneath, with italic quarters", () => {
+    renderBoard({ items: [PARENT, CHILD] });
+    const derived = screen.getByLabelText(`2026-06-01 → 2027-02-28 · ${DATES_TIP}`);
+    const own = screen.getByLabelText("2026-06-01 → 2027-02-28");
+    expect(derived).toHaveAttribute("data-derived", "dates");
+    expect(own).not.toHaveAttribute("data-derived");
+    expect(derived).toHaveStyle({ border: "1.5px dashed #1976d2", boxSizing: "border-box" });
+    expect(getComputedStyle(derived).backgroundColor).toMatch(
+      /^(transparent|rgba\(0, 0, 0, 0\))$/,
+    );
+    expect(getComputedStyle(own).backgroundColor).toBe("rgb(25, 118, 210)");
+    const at = (el: HTMLElement) => [getComputedStyle(el).left, getComputedStyle(el).width];
+    expect(at(derived)).toEqual(at(own));
+    expect(getComputedStyle(derived).width).toMatch(/%$/);
+
+    const plan = screen.getByLabelText(DATES_TIP);
+    expect(plan).toHaveTextContent("Q2'26 / Q1'27");
+    expect(plan).toHaveStyle({ fontStyle: "italic" });
+    const ownPlans = screen.getAllByText("Q2'26 / Q1'27").filter((el) => el !== plan);
+    expect(ownPlans).toHaveLength(1);
+    expect(ownPlans[0]).not.toHaveStyle({ fontStyle: "italic" });
+    expect(ownPlans[0]).not.toHaveAttribute("aria-label");
+  });
+
+  it("mixes own dates with derived costs part by part", () => {
+    const parent: PpmPortfolioItem = {
+      ...PARENT,
+      start_date: "2026-07-01",
+      end_date: "2026-08-31",
+      rollup: { ...PARENT.rollup!, start_date: null, end_date: null },
+    };
+    renderBoard({ items: [parent, CHILD] });
+    expect(derivedCosts()).toHaveLength(1);
+    expect(document.querySelector('[data-derived="dates"]')).toBeNull();
+    expect(screen.queryByLabelText(DATES_TIP)).toBeNull();
+    expect(screen.getByLabelText("2026-07-01 → 2026-08-31")).toBeTruthy();
+    expect(screen.getByText("Q3'26 / Q3'26")).not.toHaveStyle({ fontStyle: "italic" });
+  });
+
+  it("shows a mobile card's derived cost row and quarters", () => {
+    setViewportWidth(400);
+    renderBoard({ items: [PARENT] });
+    expect(screen.getByText("CapEx")).toBeTruthy();
+    const [bar] = derivedCosts();
+    expect(bar).toHaveAttribute("aria-label", COST_TIP);
+    expect(within(bar as HTMLElement).getByText("120/300 CHF")).toHaveStyle({
+      fontStyle: "italic",
+    });
+    const plan = screen.getByLabelText(DATES_TIP);
+    expect(plan).toHaveTextContent("Q2'26 – Q1'27");
+    expect(plan).toHaveStyle({ fontStyle: "italic" });
+  });
+});

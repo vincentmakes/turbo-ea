@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "أوقف التسلسل الهرمي للتجميع الفرعي حسب النوع الفرعي: الشجرة تشمل جميع الأنواع الفرعية بالفعل.",
   "parentColumn": "الأصل",
   "toggleChildren": "إظهار العناصر الفرعية أو إخفاؤها: {{name}}",
-  "printOn": "مفعّل"
+  "printOn": "مفعّل",
+  "fromOwn": "خاصة",
+  "fromBeneath_one": "المبادرات التابعة: {{count}}",
+  "fromBeneath_other": "المبادرات التابعة: {{count}}",
+  "costsFrom": "مصدر التكاليف",
+  "datesFrom": "مصدر التواريخ",
+  "derivedCostTooltip_one": "لا توجد بنود ميزانية أو تكلفة خاصة بها: مجموع المبادرات التابعة لها ({{count}})",
+  "derivedCostTooltip_other": "لا توجد بنود ميزانية أو تكلفة خاصة بها: مجموع المبادرات التابعة لها ({{count}})",
+  "derivedDatesTooltip_one": "لا توجد تواريخ خاصة بها: تمتد عبر المبادرات التابعة لها ({{count}})",
+  "derivedDatesTooltip_other": "لا توجد تواريخ خاصة بها: تمتد عبر المبادرات التابعة لها ({{count}})",
+  "beneathThisInitiative_one": "المبادرات التابعة لهذه المبادرة: {{count}}",
+  "beneathThisInitiative_other": "المبادرات التابعة لهذه المبادرة: {{count}}",
+  "beneathFigures": "الميزانية {{budget}} · الفعلي {{actual}}",
+  "beneathSpan": "من {{from}} إلى {{to}}"
 }

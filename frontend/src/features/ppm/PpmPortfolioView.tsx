@@ -94,6 +94,7 @@ import {
   portfolioWindow,
   projectManager,
   ragColor,
+  rowFigures,
   subtypeKeys,
   subtypeName,
   subtypeSubGroups,
@@ -101,7 +102,24 @@ import {
   treeRows,
   visibleQuarterLabels,
 } from "./ppmPortfolioModel";
-import type { GroupLayout } from "./ppmPortfolioModel";
+import type { GroupLayout, RowFigures } from "./ppmPortfolioModel";
+
+/** A derived (rolled-up) figure is drawn outlined rather than filled. */
+const outlinedFill = (color: string) => ({
+  bgcolor: "transparent",
+  border: `1px solid ${color}`,
+  boxSizing: "border-box" as const,
+});
+
+/** A Gantt bar whose dates span the initiatives beneath is drawn as a dashed outline. */
+const dashedOutline = (color: string) => ({
+  bgcolor: "transparent",
+  border: `1.5px dashed ${color}`,
+  boxSizing: "border-box" as const,
+});
+
+/** A derived figure's or date's text reads italic. */
+const DERIVED_TEXT_SX = { fontStyle: "italic" };
 
 /** Mini cost bar matching the design: bar on top, label "578/1,350 kCHF" below */
 function CostBar({
@@ -109,11 +127,18 @@ function CostBar({
   planned,
   currency,
   label,
+  derivedTip,
 }: {
   actual: number;
   planned: number;
   currency: string;
   label?: string;
+  /**
+   * Set when the figures are the total of the initiatives beneath a parent
+   * with no lines of its own: the bar is outlined, its label italic, and this
+   * text is its tooltip. The group totals row never passes it.
+   */
+  derivedTip?: string;
 }) {
   const bar = costBarModel(actual, planned, currency);
   if (!bar) {
@@ -125,9 +150,11 @@ function CostBar({
   }
   const { overBudget } = bar;
   const barColor = overBudget ? COST_BAR_OVER : COST_BAR_COLOR;
+  const fillSx = derivedTip ? outlinedFill(barColor) : { bgcolor: barColor };
+  const overSx = derivedTip ? outlinedFill(COST_BAR_OVER) : { bgcolor: COST_BAR_OVER };
 
-  return (
-    <Box sx={{ width: "100%", minWidth: 90 }}>
+  const content = (
+    <Box sx={{ width: "100%", minWidth: 90 }} data-derived={derivedTip ? "costs" : undefined}>
       {label && (
         <Typography
           variant="caption"
@@ -145,7 +172,7 @@ function CostBar({
             top: 0,
             height: "100%",
             width: `${bar.fillPct}%`,
-            bgcolor: barColor,
+            ...fillSx,
             borderRadius: 5,
             zIndex: 1,
           }}
@@ -158,7 +185,7 @@ function CostBar({
               top: 0,
               height: "100%",
               width: `${bar.overPct}%`,
-              bgcolor: COST_BAR_OVER,
+              ...overSx,
               borderRadius: 5,
               zIndex: 0,
             }}
@@ -176,12 +203,14 @@ function CostBar({
           mt: 0.25,
           color: overBudget ? COST_BAR_OVER : "text.secondary",
           whiteSpace: "nowrap",
+          ...(derivedTip ? DERIVED_TEXT_SX : {}),
         }}
       >
         {bar.actualText}/{bar.plannedText} {bar.unit}
       </Typography>
     </Box>
   );
+  return derivedTip ? <Tooltip title={derivedTip}>{content}</Tooltip> : content;
 }
 
 /**
@@ -287,6 +316,12 @@ const TREE_SUBTYPE_CHIP_SX = {
   height: 20,
   "& .MuiChip-label": { px: 0.75, fontSize: "0.68rem" },
 };
+
+/** The desktop row's Plan cell (quarter span). */
+const PLAN_CELL_SX = { px: 0.5, textAlign: "center" };
+
+/** No extra styling (the mobile card's quarter span). */
+const NO_SX = {};
 
 const gridCols =
   "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 120px 120px 64px";
@@ -537,20 +572,42 @@ export default function PpmPortfolioView({
     [groups, groupLabel, printParams, layout, items, t, resolveSubtype],
   );
 
+  // ── Derived figures and dates (a parent without its own) ──
+  const derivedDatesTip = (f: RowFigures) =>
+    t("derivedDatesTooltip", { count: f.descendantCount });
+  const derivedCostTip = (f: RowFigures) =>
+    f.derivedCosts ? t("derivedCostTooltip", { count: f.descendantCount }) : undefined;
+  /** The quarter span, italic and explained when the dates are derived. */
+  const renderPlan = (f: RowFigures, plan: string, sx: Record<string, unknown>) => {
+    const text = (
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={f.derivedDates ? { ...sx, ...DERIVED_TEXT_SX } : sx}
+        noWrap
+      >
+        {plan}
+      </Typography>
+    );
+    return f.derivedDates ? <Tooltip title={derivedDatesTip(f)}>{text}</Tooltip> : text;
+  };
+
   // ── Desktop: Gantt timeline bar ──
-  const renderBar = (item: PpmPortfolioItem) => {
+  const renderBar = (item: PpmPortfolioItem, f: RowFigures) => {
     const bar = barModel(item, timeline);
     if (!bar) return null;
+    const range = `${f.startDate} \u2192 ${f.endDate}`;
     return (
-      <Tooltip title={`${item.start_date} \u2192 ${item.end_date}`}>
+      <Tooltip title={bar.derived ? `${range} \u00b7 ${derivedDatesTip(f)}` : range}>
         <Box
+          data-derived={bar.derived ? "dates" : undefined}
           sx={{
             position: "absolute",
             left: `${bar.left}%`,
             width: `${bar.width}%`,
             height: 16,
             borderRadius: bar.borderRadius,
-            bgcolor: bar.color,
+            ...(bar.derived ? dashedOutline(bar.color) : { bgcolor: bar.color }),
             opacity: 0.9,
             top: "50%",
             transform: "translateY(-50%)",
@@ -602,8 +659,9 @@ export default function PpmPortfolioView({
   const renderRow = (item: PpmPortfolioItem, depth = 0, hasChildren = false) => {
     const rep = item.latest_report;
     const pm = projectManager(item.stakeholders);
+    const f = rowFigures(item);
 
-    const plan = `${fmtQuarter(item.start_date)} / ${fmtQuarter(item.end_date)}`;
+    const plan = `${fmtQuarter(f.startDate)} / ${fmtQuarter(f.endDate)}`;
 
     return (
       <Box
@@ -661,14 +719,7 @@ export default function PpmPortfolioView({
         </Typography>
 
         {/* Plan column */}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ px: 0.5, textAlign: "center" }}
-          noWrap
-        >
-          {plan}
-        </Typography>
+        {renderPlan(f, plan, PLAN_CELL_SX)}
 
         {/* Timeline bar */}
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
@@ -685,7 +736,7 @@ export default function PpmPortfolioView({
               pointerEvents: "none",
             }}
           />
-          {renderBar(item)}
+          {renderBar(item, f)}
         </Box>
 
         {/* RAG dots */}
@@ -698,18 +749,20 @@ export default function PpmPortfolioView({
         {/* CapEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
           <CostBar
-            actual={money(item.capex_actual)}
-            planned={money(item.capex_planned)}
+            actual={money(f.capexActual)}
+            planned={money(f.capexPlanned)}
             currency={currency}
+            derivedTip={derivedCostTip(f)}
           />
         </Box>
 
         {/* OpEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
           <CostBar
-            actual={money(item.opex_actual)}
-            planned={money(item.opex_planned)}
+            actual={money(f.opexActual)}
+            planned={money(f.opexPlanned)}
             currency={currency}
+            derivedTip={derivedCostTip(f)}
           />
         </Box>
 
@@ -750,7 +803,8 @@ export default function PpmPortfolioView({
   const renderMobileCard = (item: PpmPortfolioItem, depth = 0, hasChildren = false) => {
     const rep = item.latest_report;
     const pm = projectManager(item.stakeholders);
-    const plan = `${fmtQuarter(item.start_date)} \u2013 ${fmtQuarter(item.end_date)}`;
+    const f = rowFigures(item);
+    const plan = `${fmtQuarter(f.startDate)} \u2013 ${fmtQuarter(f.endDate)}`;
 
     return (
       <Box
@@ -795,9 +849,7 @@ export default function PpmPortfolioView({
           <Typography variant="caption" color="text.secondary" noWrap>
             {pm?.display_name || "\u2014"}
           </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {plan}
-          </Typography>
+          {renderPlan(f, plan, NO_SX)}
         </Box>
 
         {/* Row 3: RAG dots + Report date */}
@@ -848,18 +900,20 @@ export default function PpmPortfolioView({
           <Box display="flex" gap={2} mt={0.75}>
             <Box flex={1}>
               <CostBar
-                actual={money(item.capex_actual)}
-                planned={money(item.capex_planned)}
+                actual={money(f.capexActual)}
+                planned={money(f.capexPlanned)}
                 currency={currency}
                 label={t("capex")}
+                derivedTip={derivedCostTip(f)}
               />
             </Box>
             <Box flex={1}>
               <CostBar
-                actual={money(item.opex_actual)}
-                planned={money(item.opex_planned)}
+                actual={money(f.opexActual)}
+                planned={money(f.opexPlanned)}
                 currency={currency}
                 label={t("opex")}
+                derivedTip={derivedCostTip(f)}
               />
             </Box>
           </Box>

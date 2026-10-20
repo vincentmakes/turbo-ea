@@ -209,5 +209,18 @@
   "subGroupDisabledWithHierarchy": "Désactivez la hiérarchie pour sous-grouper par sous-type : l’arborescence couvre déjà tous les sous-types.",
   "parentColumn": "Parent",
   "toggleChildren": "Afficher ou masquer les enfants : {{name}}",
-  "printOn": "Activé"
+  "printOn": "Activé",
+  "fromOwn": "Propres",
+  "fromBeneath_one": "{{count}} initiative en dessous",
+  "fromBeneath_other": "{{count}} initiatives en dessous",
+  "costsFrom": "Origine des coûts",
+  "datesFrom": "Origine des dates",
+  "derivedCostTooltip_one": "Aucune ligne de budget ou de coût propre : total de l’initiative située en dessous ({{count}})",
+  "derivedCostTooltip_other": "Aucune ligne de budget ou de coût propre : total des {{count}} initiatives situées en dessous",
+  "derivedDatesTooltip_one": "Aucune date propre : couvre l’initiative située en dessous ({{count}})",
+  "derivedDatesTooltip_other": "Aucune date propre : couvre les {{count}} initiatives situées en dessous",
+  "beneathThisInitiative_one": "Sous cette initiative : {{count}} initiative",
+  "beneathThisInitiative_other": "Sous cette initiative : {{count}} initiatives",
+  "beneathFigures": "Budget {{budget}} · Réel {{actual}}",
+  "beneathSpan": "Du {{from}} au {{to}}"
 }
