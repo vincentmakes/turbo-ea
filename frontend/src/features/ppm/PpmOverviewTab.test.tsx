@@ -387,6 +387,28 @@ describe("PpmOverviewTab — beneath this initiative", () => {
     expect(kpi("Total Budget").querySelector("[data-derived]")).toBeNull();
   });
 
+  it("reads the KPI figures in thousands or millions so the derived mark cannot wrap them", async () => {
+    // 5.71M beneath against 70 of its own budget: the derived actual reads in
+    // millions, the own budget (below a thousand) exactly, the variance in millions.
+    show(
+      {
+        ...ROLLUP,
+        capex_actual: 5_700_000,
+        opex_actual: 10_000,
+        total_actual: 5_710_000,
+        by_year: [{ ...ROLLUP.by_year[0], capex_actual: 5_700_000, opex_actual: 10_000 }],
+      },
+      OWN_BUDGET,
+      [],
+    );
+    await screen.findByTestId("ppm-beneath");
+    expect(kpi("Total Actual")).toHaveTextContent("subdirectory_arrow_right5.7 MUSD");
+    expect(kpi("Total Budget")).toHaveTextContent("$70");
+    expect(kpi("Variance")).toHaveTextContent("-5.7 MUSD");
+    // The explanation line keeps the exact figures: it is a sentence, not a cell.
+    expect(beneath()!.children[1]).toHaveTextContent("Budget $1200 · Actual $5710000");
+  });
+
   it("keeps both sides its own when it has lines of both kinds", async () => {
     show(ROLLUP);
     await screen.findByTestId("ppm-beneath");
@@ -407,14 +429,14 @@ describe("PpmOverviewTab — beneath this initiative", () => {
     show(ROLLUP, []);
     await screen.findByTestId("ppm-beneath");
     const budget = within(kpi("Total Budget")).getByLabelText(BUDGET_TIP);
-    expect(budget).toHaveTextContent("subdirectory_arrow_right$1200");
+    expect(budget).toHaveTextContent("subdirectory_arrow_right1.2 kUSD");
     expect(budget).toHaveStyle({ fontStyle: "italic" });
     expect(budget).toHaveAttribute("data-derived", "true");
     expect(kpi("Total Actual")).toHaveTextContent("$30");
     expect(kpi("Total Actual").querySelector("[data-derived]")).toBeNull();
     // The variance compares the derived budget with the own actuals.
     expect(screen.getAllByLabelText(BUDGET_TIP)).toHaveLength(2);
-    expect(kpi("Variance")).toHaveTextContent("$1170");
+    expect(kpi("Variance")).toHaveTextContent("1.2 kUSD");
 
     const bar = barOf("Total");
     expect(bar).toHaveAttribute("data-derived-budget", "true");
@@ -464,7 +486,7 @@ describe("PpmOverviewTab — beneath this initiative", () => {
   it("derives both sides, explains the variance with both and drops the figures line", async () => {
     show(ROLLUP, [], []);
     const block = await screen.findByTestId("ppm-beneath");
-    expect(within(kpi("Total Budget")).getByLabelText(BUDGET_TIP)).toHaveTextContent("$1200");
+    expect(within(kpi("Total Budget")).getByLabelText(BUDGET_TIP)).toHaveTextContent("1.2 kUSD");
     expect(within(kpi("Total Actual")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("$450");
     expect(
       within(kpi("Variance")).getByLabelText(`${BUDGET_TIP} · ${ACTUAL_TIP}`),

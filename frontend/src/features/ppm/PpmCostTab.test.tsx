@@ -163,17 +163,17 @@ describe("PpmCostTab — summary and tables", () => {
   it("totals the budget lines it loads against the cost lines it is given", async () => {
     renderTab();
     await screen.findByText("FY 2025");
-    expect(kpi("Total Budget")).toBe("$1400");
+    expect(kpi("Total Budget")).toBe("1.4 kUSD");
     expect(kpi("Total Actual")).toBe("$550");
     expect(kpi("Variance")).toBe("$850");
-    expect(kpi("CapEx")).toBe("$250 / $1000");
+    expect(kpi("CapEx")).toBe("$250 / 1 kUSD");
     expect(kpi("OpEx")).toBe("$300 / $400");
   });
 
   it("flags an overspend as a negative variance", async () => {
     renderTab([cost({ id: "c9", actual: 5000, category: "capex" })]);
     await screen.findByText("FY 2025");
-    expect(kpi("Variance")).toBe("$-3600");
+    expect(kpi("Variance")).toBe("-3.6 kUSD");
   });
 
   it("colours the variance red only when actuals exceed the budget", async () => {
@@ -548,7 +548,7 @@ describe("PpmCostTab — labels and empty states", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(gets).toBe(2));
     expect(screen.getByText("FY 2025")).toBeInTheDocument();
-    expect(kpi("Total Budget")).toBe("$1400");
+    expect(kpi("Total Budget")).toBe("1.4 kUSD");
     expect(within(budgetTable()).queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
@@ -1397,10 +1397,10 @@ describe("PpmCostTab — derived from the initiatives beneath", () => {
     expect(footerRow(budgetTable()).querySelectorAll("td")[1]).not.toHaveStyle({
       fontStyle: "italic",
     });
-    expect(kpi("Total Budget")).toBe("$1400");
+    expect(kpi("Total Budget")).toBe("1.4 kUSD");
     expect(within(kpiEl("Total Actual")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("$99");
-    expect(within(kpiEl("Variance")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("$1301");
-    expect(kpi("CapEx")).toBe("subdirectory_arrow_right$90 / $1000");
+    expect(within(kpiEl("Variance")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("1.3 kUSD");
+    expect(kpi("CapEx")).toBe("subdirectory_arrow_right$90 / 1 kUSD");
   });
 
   it("derives both tables and explains the variance with both", async () => {
@@ -1418,7 +1418,7 @@ describe("PpmCostTab — derived from the initiatives beneath", () => {
     renderTab(COSTS, BENEATH);
     await screen.findByText("FY 2025");
     expect(document.querySelector("[data-derived]")).toBeNull();
-    expect(kpi("Total Budget")).toBe("$1400");
+    expect(kpi("Total Budget")).toBe("1.4 kUSD");
     expect(kpi("Total Actual")).toBe("$550");
     expect(kpi("Variance")).toBe("$850");
   });

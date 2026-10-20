@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { fmtQuarter, fmtMonthYear, fmtK, costUnit, getQuarters } from "./ppmPortfolioFormat";
+import {
+  fmtQuarter,
+  fmtMonthYear,
+  fmtK,
+  costUnit,
+  compactAmount,
+  getQuarters,
+} from "./ppmPortfolioFormat";
 
 describe("fmtQuarter", () => {
   it("maps each month to its calendar quarter", () => {
@@ -47,6 +54,29 @@ describe("fmtK", () => {
   it("renders millions with one decimal", () => {
     expect(fmtK(1_500_000)).toBe("1.5M");
     expect(fmtK(-2_000_000)).toBe("-2.0M");
+  });
+});
+
+describe("compactAmount", () => {
+  const exact = (v: number) => `CHF ${v}`;
+
+  it("leaves a figure below a thousand to the exact formatter", () => {
+    expect(compactAmount(0, "CHF", exact)).toBe("CHF 0");
+    expect(compactAmount(999, "CHF", exact)).toBe("CHF 999");
+    expect(compactAmount(-999, "CHF", exact)).toBe("CHF -999");
+  });
+
+  it("renders thousands with one decimal in the k unit", () => {
+    expect(compactAmount(1_000, "CHF", exact)).toBe("1 kCHF");
+    expect(compactAmount(1_170, "USD", exact)).toBe("1.2 kUSD");
+    expect(compactAmount(-3_600, "USD", exact)).toBe("-3.6 kUSD");
+    expect(compactAmount(999_949, "CHF", exact)).toBe("999.9 kCHF");
+  });
+
+  it("renders millions with one decimal in the M unit", () => {
+    expect(compactAmount(1_000_000, "CHF", exact)).toBe("1 MCHF");
+    expect(compactAmount(5_710_000, "CHF", exact)).toBe("5.7 MCHF");
+    expect(compactAmount(-2_050_000, "EUR", exact)).toBe("-2.1 MEUR");
   });
 });
 

@@ -46,6 +46,7 @@ import {
   type GroupKey,
 } from "./costTableGroups";
 import DerivedValue from "./DerivedValue";
+import { compactAmount } from "./ppmPortfolioFormat";
 import {
   derivedYearGroups,
   financialTotals,
@@ -126,7 +127,7 @@ interface Props {
 export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
   const fullScreen = useFullScreenDialog();
-  const { fmt } = useCurrency();
+  const { fmt, currency } = useCurrency();
   const { formatDate } = useDateFormat();
   const { month: fyStart } = useFiscalYearStart();
 
@@ -146,7 +147,10 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
   const budgetLines = loadedBudgetLines ?? NO_BUDGET_LINES;
   // Until the budget lines have arrived, a budget figure is unknown — never $0.
   const budgetKnown = loadedBudgetLines !== undefined;
+  // Summary-bar figures read in k / M so the derived glyph beside them cannot wrap them.
+  const kpiAmount = (n: number) => compactAmount(n, currency, fmt.format);
   const budgetFigure = (n: number) => (budgetKnown ? fmt.format(n) : "\u2014");
+  const budgetKpi = (n: number) => (budgetKnown ? kpiAmount(n) : "\u2014");
   // A failed delete, shown above the table it failed in.
   const [budgetListError, setBudgetListError] = useState<string | null>(null);
   const [costListError, setCostListError] = useState<string | null>(null);
@@ -434,7 +438,7 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
             {t("totalBudget")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            <DerivedValue tip={budgetTip}>{budgetFigure(totalBudget)}</DerivedValue>
+            <DerivedValue tip={budgetTip}>{budgetKpi(totalBudget)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -442,7 +446,7 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
             {t("totalActual")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            <DerivedValue tip={actualTip}>{fmt.format(totalActual)}</DerivedValue>
+            <DerivedValue tip={actualTip}>{kpiAmount(totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -455,7 +459,7 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
             color={!budgetKnown ? undefined : totalActual > totalBudget ? "error" : "success.main"}
             sx={KPI_VALUE_SX}
           >
-            <DerivedValue tip={varianceTip}>{budgetFigure(totalBudget - totalActual)}</DerivedValue>
+            <DerivedValue tip={varianceTip}>{budgetKpi(totalBudget - totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -463,9 +467,9 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
             {t("capex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            <DerivedValue tip={actualTip}>{fmt.format(totals.actual.capex)}</DerivedValue>
+            <DerivedValue tip={actualTip}>{kpiAmount(totals.actual.capex)}</DerivedValue>
             {" / "}
-            <DerivedValue tip={budgetTip}>{budgetFigure(totals.budget.capex)}</DerivedValue>
+            <DerivedValue tip={budgetTip}>{budgetKpi(totals.budget.capex)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -473,9 +477,9 @@ export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh 
             {t("opex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            <DerivedValue tip={actualTip}>{fmt.format(totals.actual.opex)}</DerivedValue>
+            <DerivedValue tip={actualTip}>{kpiAmount(totals.actual.opex)}</DerivedValue>
             {" / "}
-            <DerivedValue tip={budgetTip}>{budgetFigure(totals.budget.opex)}</DerivedValue>
+            <DerivedValue tip={budgetTip}>{budgetKpi(totals.budget.opex)}</DerivedValue>
           </Typography>
         </Box>
       </Paper>

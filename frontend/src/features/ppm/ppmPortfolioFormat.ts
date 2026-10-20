@@ -75,6 +75,26 @@ export function costUnit(planned: number, actual: number, currency: string): str
 }
 
 /**
+ * A KPI amount in the unit the budget bars use: "1.2 kCHF", "5.7 MCHF".
+ *
+ * A full "CHF 5,710,000" wraps the moment the derived glyph sits beside it in
+ * a KPI cell, so the summary figures on the initiative pages read in thousands
+ * or millions with one decimal; below a thousand `exact` (the currency
+ * formatter) renders the figure as it is, since there is nothing to shorten.
+ */
+export function compactAmount(
+  n: number,
+  currency: string,
+  exact: (value: number) => string,
+): string {
+  const abs = Math.abs(n);
+  if (abs < 1_000) return exact(n);
+  const oneDecimal = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 });
+  if (abs >= 1_000_000) return `${oneDecimal.format(n / 1_000_000)} M${currency}`;
+  return `${oneDecimal.format(n / 1_000)} k${currency}`;
+}
+
+/**
  * The board's content width and page gutter.
  *
  * Shared by the authenticated page, the portal board and the portal banner above

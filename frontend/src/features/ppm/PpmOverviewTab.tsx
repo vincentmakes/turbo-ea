@@ -18,6 +18,7 @@ import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import DerivedValue from "./DerivedValue";
 import { financialTotals } from "./derivedFinancials";
+import { compactAmount } from "./ppmPortfolioFormat";
 import type {
   Card,
   PpmStatusReport,
@@ -177,6 +178,8 @@ export default function PpmOverviewTab({
   const { t } = useTranslation("ppm");
   const theme = useTheme();
   const { fmt, currency } = useCurrency();
+  // The KPI figures read in k / M so the derived glyph beside them cannot wrap them.
+  const kpiAmount = (n: number) => compactAmount(n, currency, fmt.format);
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const subtypeLabel = useCardSubtypeLabel();
@@ -356,7 +359,7 @@ export default function PpmOverviewTab({
               {t("totalBudget")}
             </Typography>
             <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-              <DerivedValue tip={budgetTip}>{fmt.format(totals.budget.total)}</DerivedValue>
+              <DerivedValue tip={budgetTip}>{kpiAmount(totals.budget.total)}</DerivedValue>
             </Typography>
           </Box>
           <Box>
@@ -364,7 +367,7 @@ export default function PpmOverviewTab({
               {t("totalActual")}
             </Typography>
             <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-              <DerivedValue tip={actualTip}>{fmt.format(totals.actual.total)}</DerivedValue>
+              <DerivedValue tip={actualTip}>{kpiAmount(totals.actual.total)}</DerivedValue>
             </Typography>
           </Box>
           <Box>
@@ -377,7 +380,7 @@ export default function PpmOverviewTab({
               color={variance < 0 ? "error" : "success.main"}
               sx={KPI_VALUE_SX}
             >
-              <DerivedValue tip={varianceTip}>{fmt.format(variance)}</DerivedValue>
+              <DerivedValue tip={varianceTip}>{kpiAmount(variance)}</DerivedValue>
             </Typography>
           </Box>
         </Box>

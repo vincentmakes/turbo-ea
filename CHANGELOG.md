@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - A parent on the PPM portfolio now derives its budget and its actuals separately: a program that holds the budget while its projects record the spend shows its own budget against their actuals. The tooltip names which half comes from beneath, and the Excel export gains a **Budget from** column beside **Costs from** and **Dates from**.
+- The Total Budget / Total Actual / Variance figures on an initiative's Overview and Budget & Costs summary bar now read in thousands or millions ("1.2 kCHF", "5.7 MCHF"), the unit the budget bars already use, so a figure with the "from beneath" mark no longer wraps; figures below a thousand and every table cell stay exact.
 
 ## [2.171.0] - 2026-10-20
 
