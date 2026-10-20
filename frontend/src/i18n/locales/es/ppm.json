@@ -67,6 +67,8 @@
   "priorityMedium": "Media",
   "priorityLow": "Baja",
   "groupBy": "Agrupar por",
+  "groupByRelatedTypes": "Tipos de tarjeta relacionados",
+  "groupBySubtypes": "Subtipos de iniciativa",
   "noGroup": "Sin grupo",
   "viewReport": "Ver informe",
   "accomplishments": "Logros",

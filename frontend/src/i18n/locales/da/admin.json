@@ -1156,6 +1156,7 @@
   "webPortals.ppm.hint": "Vælg, hvad den offentliggjorte tavle viser. Kortenes omkostningsfelter, e-mailadresser og detaljer for det enkelte initiativ offentliggøres aldrig, uanset hvad du vælger her.",
   "webPortals.ppm.defaultGroupBy": "Åbner grupperet efter",
   "webPortals.ppm.defaultGroupByHelper": "Hvilken gruppering tavlen viser først. Besøgende kan ændre den.",
+  "webPortals.ppm.subtypeNotPublished": "Denne portal udgiver ikke denne undertype, så tavlen ville åbne med alle initiativer ugrupperede.",
   "webPortals.ppm.defaultSubtype": "Åbner med undertype",
   "webPortals.ppm.defaultSubtypeHelper": "Hvilken undertype der er valgt først. «Alle» viser hvert offentliggjort initiativ.",
   "webPortals.ppm.showCosts": "Vis budget og faktisk forbrug",

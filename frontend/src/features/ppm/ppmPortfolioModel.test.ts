@@ -19,6 +19,7 @@ import {
   depthLabel,
   filterItems,
   filterSearchParams,
+  groupByLabel,
   groupItems,
   groupLayout,
   groupRowsInOrder,
@@ -36,6 +37,8 @@ import {
   projectManager,
   ragColor,
   rowFigures,
+  subtypeGroupBy,
+  subtypeGroupKey,
   subtypeKeys,
   subGroupId,
   subtypeName,
@@ -693,8 +696,8 @@ describe("buildPortfolioExport", () => {
     buildPortfolioExport(
       {
         groups: [
-          ["g", { name: "Sales", items: [full] }],
-          ["__ungrouped", { name: "No group", items: [withheld] }],
+          ["g", { name: "Sales", items: [full], anchor: null }],
+          ["__ungrouped", { name: "No group", items: [withheld], anchor: null }],
         ],
         groupTypeLabel: "Organization",
         printParams: [
@@ -826,7 +829,7 @@ describe("buildPortfolioExport", () => {
     });
     const rows = buildPortfolioExport(
       {
-        groups: [["g", { name: "G", items: [program, half] }]],
+        groups: [["g", { name: "G", items: [program, half], anchor: null }]],
         groupTypeLabel: "Organization",
         printParams: [],
         chartNode: null,
@@ -1098,11 +1101,30 @@ const shape = (rows: { item: PpmPortfolioItem; depth: number; hasChildren: boole
   rows.map((r) => `${r.item.id}@${r.depth}${r.hasChildren ? "+" : ""}`);
 
 describe("hasHierarchy", () => {
-  it("is true only when some row names a parent", () => {
+  it("is true only when some row names a parent that is a row too", () => {
     expect(hasHierarchy([item({ id: "a" }), item({ id: "b", parent_id: "a" })])).toBe(true);
     expect(hasHierarchy([item({ id: "a" }), item({ id: "b", parent_id: null })])).toBe(false);
     expect(hasHierarchy([item({ id: "a", parent_id: "" })])).toBe(false);
+    expect(hasHierarchy([item({ id: "b", parent_id: "gone" })])).toBe(false);
     expect(hasHierarchy([])).toBe(false);
+  });
+
+  it("does not count a group's anchor as a parent", () => {
+    const anchor = item({ id: "p", group_id: "p", group_name: "P", group_anchor: true });
+    const child = item({ id: "c", parent_id: "p", group_id: "p", group_name: "P" });
+    expect(hasHierarchy([anchor, child])).toBe(false);
+    expect(hasHierarchy([anchor, child, item({ id: "g", parent_id: "c" })])).toBe(true);
+  });
+
+  it("does not count a child that is an anchor", () => {
+    const anchor = item({ id: "p", parent_id: "a", group_anchor: true });
+    expect(hasHierarchy([item({ id: "a" }), anchor])).toBe(false);
+  });
+
+  it("counts a parent in another group (the tree nests within each group)", () => {
+    const parent = item({ id: "a", group_id: "g1", group_name: "One" });
+    const child = item({ id: "b", parent_id: "a", group_id: "g2", group_name: "Two" });
+    expect(hasHierarchy([parent, child])).toBe(true);
   });
 });
 
@@ -1396,7 +1418,7 @@ describe("buildPortfolioExport — hierarchy", () => {
   ) =>
     buildPortfolioExport(
       {
-        groups: [["g", { name: "Sales", items: tree() }]],
+        groups: [["g", { name: "Sales", items: tree(), anchor: null }]],
         groupTypeLabel: "Organization",
         printParams: [],
         chartNode: null,
@@ -1449,5 +1471,255 @@ describe("buildPortfolioExport — hierarchy", () => {
     const rows = build({ kind: "subtype", order: ["program"] }).sheets[0].rows;
     expect(rows.map((r) => r.name)).toEqual(["Program", "Sub", "Beta", "Alpha", "Adrift", "Lone"]);
     expect(rows.every((r) => !("parent" in r))).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Grouping by an Initiative subtype                                  */
+/* ------------------------------------------------------------------ */
+
+describe("subtypeGroupKey / subtypeGroupBy", () => {
+  it("reads the subtype key out of a subtype grouping, and nothing else", () => {
+    expect(subtypeGroupKey("subtype:program")).toBe("program");
+    expect(subtypeGroupKey("subtype:subtype:x")).toBe("subtype:x");
+    expect(subtypeGroupKey("subtype:")).toBe("");
+    expect(subtypeGroupKey("Organization")).toBeNull();
+    expect(subtypeGroupKey("xsubtype:program")).toBeNull();
+    expect(subtypeGroupKey("")).toBeNull();
+  });
+
+  it("writes the grouping value a subtype key selects", () => {
+    expect(subtypeGroupBy("program")).toBe("subtype:program");
+    expect(subtypeGroupKey(subtypeGroupBy("epic"))).toBe("epic");
+  });
+});
+
+describe("groupByLabel", () => {
+  const options = [
+    {
+      type_key: "Organization",
+      label: "Organization",
+      translations: { label: { de: "Organisation" } },
+    },
+  ];
+  const defs = [
+    { key: "program", label: "Program", translations: { de: "Programm" } },
+    { key: "project", label: "Project" },
+  ];
+
+  it("names a subtype grouping by the subtype's label, in the user's language", () => {
+    expect(groupByLabel("subtype:program", options, defs, "de")).toBe("Programm");
+    expect(groupByLabel("subtype:program", options, defs, "fr")).toBe("Program");
+    expect(groupByLabel("subtype:project", options, defs, "de")).toBe("Project");
+  });
+
+  it("falls back to the raw subtype key for a subtype the metamodel does not define", () => {
+    expect(groupByLabel("subtype:epic", options, defs, "de")).toBe("epic");
+    expect(groupByLabel("subtype:program", options, [], "de")).toBe("program");
+  });
+
+  it("names a card type grouping as before", () => {
+    expect(groupByLabel("Organization", options, defs, "de")).toBe("Organisation");
+    expect(groupByLabel("Platform", options, defs, "de")).toBe("Platform");
+    // A type key that happens to equal a subtype key is still a type key.
+    expect(groupByLabel("program", options, defs, "de")).toBe("program");
+  });
+});
+
+describe("groupItems — anchored groups", () => {
+  const anchor = (id: string, name: string) =>
+    item({ id, name, group_id: id, group_name: name, group_anchor: true });
+  const row = (id: string, group: string, name: string) =>
+    item({ id, group_id: group, group_name: name });
+
+  it("files the anchor as the group's anchor, never as one of its rows", () => {
+    const groups = groupItems(
+      [row("c1", "p", "Prog"), anchor("p", "Prog"), row("c2", "p", "Prog"), item({ id: "u" })],
+      "No group",
+    );
+    expect(
+      groups.map(([id, g]) => [id, g.name, g.anchor?.id ?? null, g.items.map((i) => i.id)]),
+    ).toEqual([
+      ["p", "Prog", "p", ["c1", "c2"]],
+      ["__ungrouped", "No group", null, ["u"]],
+    ]);
+  });
+
+  it("keeps a group with an anchor and no rows, sorted by name among the others", () => {
+    const groups = groupItems(
+      [anchor("z", "Zulu"), anchor("a", "Alpha"), row("c", "z", "Zulu")],
+      "No group",
+    );
+    expect(groups.map(([id, g]) => [id, g.anchor?.id, g.items.length])).toEqual([
+      ["a", "a", 0],
+      ["z", "z", 1],
+    ]);
+  });
+
+  it("gives a related-card group no anchor", () => {
+    const [[, group]] = groupItems([row("c", "g", "G")], "No group");
+    expect(group.anchor).toBeNull();
+  });
+
+  it("treats an anchor flag without a group as an ungrouped row", () => {
+    const [[id, group]] = groupItems([item({ id: "x", group_anchor: true })], "No group");
+    expect([id, group.items.map((i) => i.id), group.anchor]).toEqual(["__ungrouped", ["x"], null]);
+  });
+});
+
+describe("subtypeSubGroups — anchors", () => {
+  it("gives a sub-group no anchor", () => {
+    const subs = subtypeSubGroups("g", [item({ subtype: "project" })], [], (k) => `${k}`);
+    expect(subs[0][1].anchor).toBeNull();
+  });
+});
+
+describe("filterItems — anchored groups", () => {
+  const anchor = (id: string, name: string) =>
+    item({ id, name, subtype: "program", group_id: id, group_name: id, group_anchor: true });
+  const rows = [
+    anchor("p", "Program CRM"),
+    item({ id: "a", name: "Alpha", subtype: "project", group_id: "p", group_name: "p" }),
+    anchor("q", "Quiet"),
+    item({ id: "b", name: "Beta", subtype: "epic", group_id: "q", group_name: "q" }),
+    item({ id: "u", name: "Alpha loose", subtype: "project" }),
+  ];
+  const ids = (list: PpmPortfolioItem[]) => list.map((i) => i.id);
+
+  it("keeps every anchor when neither filter is set, an empty group's included", () => {
+    expect(ids(filterItems(rows, "", ""))).toEqual(["p", "a", "q", "b", "u"]);
+    expect(ids(filterItems([rows[0]], "", ""))).toEqual(["p"]);
+  });
+
+  it("keeps an anchor whose group kept a row under the search, and drops one that did not", () => {
+    expect(ids(filterItems(rows, "alpha", ""))).toEqual(["p", "a", "u"]);
+    expect(ids(filterItems(rows, "beta", ""))).toEqual(["q", "b"]);
+  });
+
+  it("does not match the search against the anchor itself", () => {
+    expect(ids(filterItems(rows, "program crm", ""))).toEqual([]);
+  });
+
+  it("keeps an anchor whose group kept a row under the subtype, and drops one that did not", () => {
+    expect(ids(filterItems(rows, "", "epic"))).toEqual(["q", "b"]);
+    expect(ids(filterItems(rows, "", "project"))).toEqual(["p", "a", "u"]);
+  });
+
+  it("does not match the subtype against the anchor itself", () => {
+    expect(ids(filterItems(rows, "", "program"))).toEqual([]);
+  });
+
+  it("combines both filters for the rows that decide an anchor", () => {
+    expect(ids(filterItems(rows, "alpha", "epic"))).toEqual([]);
+    expect(ids(filterItems(rows, "be", "epic"))).toEqual(["q", "b"]);
+  });
+
+  it("drops an anchor with no rows once a filter is set", () => {
+    expect(ids(filterItems([rows[0]], "x", ""))).toEqual([]);
+    expect(ids(filterItems([rows[0]], "", "program"))).toEqual([]);
+  });
+});
+
+describe("subtypeKeys — anchors", () => {
+  it("offers no subtype that only an anchor carries", () => {
+    const rows = [
+      item({ subtype: "program", group_anchor: true }),
+      item({ subtype: "project" }),
+      item({ subtype: "program", group_anchor: false }),
+    ];
+    expect(subtypeKeys(rows)).toEqual(["project", "program"]);
+    expect(subtypeKeys([item({ subtype: "program", group_anchor: true })])).toEqual([]);
+  });
+});
+
+describe("buildPortfolioExport — anchored groups", () => {
+  const program = item({
+    id: "p",
+    name: "Program",
+    subtype: "program",
+    parent_id: "above",
+    group_id: "p",
+    group_name: "Program",
+    group_anchor: true,
+    capex_planned: 0,
+    capex_actual: 0,
+    opex_planned: 0,
+    opex_actual: 0,
+    rollup: {
+      descendant_count: 2,
+      capex_planned: 90,
+      capex_actual: 40,
+      opex_planned: 9,
+      opex_actual: 4,
+      start_date: "2026-02-01",
+      end_date: "2026-11-30",
+    },
+  });
+  const child = item({
+    id: "c",
+    name: "Child",
+    subtype: "project",
+    parent_id: "p",
+    group_id: "p",
+    group_name: "Program",
+    capex_planned: 90,
+  });
+  const grandchild = item({
+    id: "g",
+    name: "Grandchild",
+    parent_id: "c",
+    group_id: "p",
+    group_name: "Program",
+  });
+  const loose = item({ id: "u", name: "Loose" });
+  const build = (layout: Parameters<typeof groupRowsInOrder>[1]) =>
+    buildPortfolioExport(
+      {
+        groups: [
+          ["p", { name: "Program", items: [child, grandchild], anchor: program }],
+          ["__ungrouped", { name: "No group", items: [loose], anchor: null }],
+        ],
+        groupTypeLabel: "Program",
+        printParams: [],
+        chartNode: null,
+        layout,
+        allItems: [program, child, grandchild, loose, item({ id: "above", name: "Above" })],
+      },
+      t,
+      subtypeLabel,
+    ).sheets[0];
+
+  it("writes the anchor as the first row of its group, with its own-or-derived figures", () => {
+    const sheet = build({ kind: "flat" });
+    expect(sheet.columns[0]).toEqual({ key: "group", label: "Program", type: "text" });
+    expect(sheet.rows.map((r) => [r.group, r.name])).toEqual([
+      ["Program", "Program"],
+      ["Program", "Child"],
+      ["Program", "Grandchild"],
+      ["No group", "Loose"],
+    ]);
+    expect(sheet.rows[0]).toMatchObject({
+      subtype: "S:program",
+      start: "2026-02-01",
+      end: "2026-11-30",
+      capexPlanned: 90,
+      capexActual: 40,
+      opexPlanned: 9,
+      opexActual: 4,
+      budgetFrom: 'fromBeneath{"count":2}',
+      costsFrom: 'fromBeneath{"count":2}',
+      datesFrom: 'fromBeneath{"count":2}',
+    });
+    expect(sheet.rows[1]).toMatchObject({ budgetFrom: "fromOwn", capexPlanned: 90 });
+  });
+
+  it("leaves the anchor's parent empty and names the program as its children's parent", () => {
+    const rows = build({ kind: "hierarchy", maxDepth: ALL_LEVELS }).rows;
+    expect(rows.map((r) => [r.name, r.parent])).toEqual([
+      ["Program", ""],
+      ["Child", "Program"],
+      ["Grandchild", "Child"],
+      ["Loose", ""],
+    ]);
   });
 });

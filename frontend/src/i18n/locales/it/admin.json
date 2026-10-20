@@ -1156,6 +1156,7 @@
   "webPortals.ppm.hint": "Scegliere cosa rivela la bacheca pubblicata. I campi di costo delle schede, gli indirizzi e-mail e il dettaglio delle singole iniziative non vengono mai pubblicati, qualunque sia la scelta qui.",
   "webPortals.ppm.defaultGroupBy": "Si apre raggruppato per",
   "webPortals.ppm.defaultGroupByHelper": "Quale raggruppamento mostra per primo la bacheca. I visitatori possono cambiarlo.",
+  "webPortals.ppm.subtypeNotPublished": "Questo portale non pubblica questo sottotipo, quindi la bacheca si aprirebbe con tutte le iniziative non raggruppate.",
   "webPortals.ppm.defaultSubtype": "Si apre mostrando il sottotipo",
   "webPortals.ppm.defaultSubtypeHelper": "Quale sottotipo è selezionato per primo. «Tutti» mostra ogni iniziativa pubblicata.",
   "webPortals.ppm.showCosts": "Mostrare budget e spesa effettiva",

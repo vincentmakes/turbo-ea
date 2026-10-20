@@ -67,6 +67,8 @@
   "priorityMedium": "Moyenne",
   "priorityLow": "Basse",
   "groupBy": "Grouper par",
+  "groupByRelatedTypes": "Types de fiches liés",
+  "groupBySubtypes": "Sous-types d’initiative",
   "noGroup": "Non groupé",
   "viewReport": "Voir le rapport",
   "accomplishments": "Réalisations",

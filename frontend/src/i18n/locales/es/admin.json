@@ -1156,6 +1156,7 @@
   "webPortals.ppm.hint": "Elija qué revela el tablero publicado. Los campos de coste de las tarjetas, las direcciones de correo y el detalle de cada iniciativa nunca se publican, sea cual sea su elección aquí.",
   "webPortals.ppm.defaultGroupBy": "Se abre agrupado por",
   "webPortals.ppm.defaultGroupByHelper": "Qué agrupación muestra el tablero primero. Los visitantes pueden cambiarla.",
+  "webPortals.ppm.subtypeNotPublished": "Este portal no publica este subtipo, por lo que el tablero se abriría con todas las iniciativas sin agrupar.",
   "webPortals.ppm.defaultSubtype": "Se abre mostrando el subtipo",
   "webPortals.ppm.defaultSubtypeHelper": "Qué subtipo se selecciona primero. «Todos» muestra todas las iniciativas publicadas.",
   "webPortals.ppm.showCosts": "Mostrar presupuesto y gasto real",

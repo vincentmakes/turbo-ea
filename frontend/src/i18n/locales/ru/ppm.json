@@ -67,6 +67,8 @@
   "priorityMedium": "Средний",
   "priorityLow": "Низкий",
   "groupBy": "Группировка по",
+  "groupByRelatedTypes": "Связанные типы карточек",
+  "groupBySubtypes": "Подтипы инициатив",
   "noGroup": "Без группы",
   "viewReport": "Посмотреть отчёт",
   "accomplishments": "Достижения",

@@ -67,6 +67,8 @@
   "priorityMedium": "中",
   "priorityLow": "低",
   "groupBy": "分组依据",
+  "groupByRelatedTypes": "关联的卡片类型",
+  "groupBySubtypes": "举措子类型",
   "noGroup": "未分组",
   "viewReport": "查看报告",
   "accomplishments": "已完成事项",

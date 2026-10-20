@@ -1156,6 +1156,7 @@
   "webPortals.ppm.hint": "Legen Sie fest, was das veröffentlichte Board preisgibt. Kosten-Felder der Karten, E-Mail-Adressen und Detailansichten einzelner Initiativen werden unabhängig von dieser Auswahl niemals veröffentlicht.",
   "webPortals.ppm.defaultGroupBy": "Öffnet gruppiert nach",
   "webPortals.ppm.defaultGroupByHelper": "Welche Gruppierung das Board zuerst zeigt. Besucher können sie ändern.",
+  "webPortals.ppm.subtypeNotPublished": "Dieses Portal veröffentlicht diesen Subtyp nicht, daher würde das Board mit allen Initiativen ungruppiert öffnen.",
   "webPortals.ppm.defaultSubtype": "Öffnet mit Subtyp",
   "webPortals.ppm.defaultSubtypeHelper": "Welcher Subtyp zuerst ausgewählt ist. «Alle» zeigt jede veröffentlichte Initiative.",
   "webPortals.ppm.showCosts": "Budget und Ist-Kosten anzeigen",

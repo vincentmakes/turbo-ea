@@ -67,6 +67,8 @@
   "priorityMedium": "Medium",
   "priorityLow": "Low",
   "groupBy": "Group by",
+  "groupByRelatedTypes": "Related card types",
+  "groupBySubtypes": "Initiative subtypes",
   "noGroup": "Ungrouped",
   "viewReport": "View Report",
   "accomplishments": "Accomplishments",

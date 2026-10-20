@@ -67,6 +67,8 @@
   "priorityMedium": "Mittel",
   "priorityLow": "Niedrig",
   "groupBy": "Gruppieren nach",
+  "groupByRelatedTypes": "Verknüpfte Kartentypen",
+  "groupBySubtypes": "Initiative-Subtypen",
   "noGroup": "Nicht gruppiert",
   "viewReport": "Bericht anzeigen",
   "accomplishments": "Ergebnisse",

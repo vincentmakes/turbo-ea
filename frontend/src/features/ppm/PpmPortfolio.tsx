@@ -55,7 +55,10 @@ export default function PpmPortfolio() {
       setLoading(true);
       try {
         const [g, d] = await Promise.all([
-          api.get<PpmGanttItem[]>(`/reports/ppm/gantt?group_by=${groupBy}`, { signal }),
+          api.get<PpmGanttItem[]>(
+            `/reports/ppm/gantt?group_by=${encodeURIComponent(groupBy)}`,
+            { signal },
+          ),
           api.get<PpmDashboardData>("/reports/ppm/dashboard", { signal }),
         ]);
         if (!isCurrent()) return;

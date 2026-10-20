@@ -1831,6 +1831,8 @@ export interface PpmGanttItem {
   opex_actual: number;
   group_id: string | null;
   group_name: string | null;
+  /** Under a `subtype:<key>` grouping, the initiative that names its group (header only). */
+  group_anchor?: boolean;
   latest_report: PpmStatusReport | null;
   latest_report_id: string | null;
   stakeholders: PpmGanttStakeholder[];
@@ -2007,6 +2009,12 @@ export interface PpmPortfolioItem {
   /** Opaque on the public board; a card UUID on the authenticated one. */
   group_id: string | null;
   group_name: string | null;
+  /**
+   * Under a `subtype:<key>` grouping, the initiative that names its group: the
+   * board shows it as the group header and its figures as the group's bottom
+   * line, never as a row.
+   */
+  group_anchor?: boolean;
   capex_planned?: number | null;
   capex_actual?: number | null;
   opex_planned?: number | null;

@@ -599,4 +599,54 @@ describe("WebPortalsAdmin — PPM portfolio board", () => {
     });
     expect(lastBody("post").card_config).not.toHaveProperty("toggles");
   });
+
+  it("offers the Initiative subtypes as a second section and saves a subtype grouping", async () => {
+    const { user } = await openNewPortalForm();
+    await user.type(screen.getByRole("textbox", { name: /^portal name/i }), "Programs");
+    await selectOption(user, /portal type/i, t("webPortals.portalTypePpm"));
+
+    await user.click(screen.getByRole("combobox", { name: t("webPortals.ppm.defaultGroupBy") }));
+    const list = await screen.findByRole("listbox");
+    const kind = (li: Element) =>
+      li.classList.contains("MuiListSubheader-root") ? "section" : "item";
+    expect(Array.from(list.children).map((li) => [kind(li), li.textContent])).toEqual([
+      ["section", i18n.t("ppm:groupByRelatedTypes")],
+      ["item", "Organization"],
+      ["item", "Business Capability"],
+      ["section", i18n.t("ppm:groupBySubtypes")],
+      ["item", "Project"],
+      ["item", "Program"],
+    ]);
+    await user.click(screen.getByRole("option", { name: "Program" }));
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
+    expect(lastBody("post")).toMatchObject({
+      card_config: { ppm: { default_group_by: "subtype:program" } },
+    });
+  });
+
+  it("does not offer a subtype grouping the portal's own subtype filter leaves out", async () => {
+    const { user } = await openNewPortalForm();
+    await selectOption(user, /portal type/i, t("webPortals.portalTypePpm"));
+    await selectOption(user, t("webPortals.filterSubtypes"), "Project");
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("combobox", { name: t("webPortals.ppm.defaultGroupBy") }));
+    const program = await screen.findByRole("option", { name: "Program" });
+    expect(program).toHaveAttribute("aria-disabled", "true");
+    await user.hover(within(program).getByText("Program"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(t("webPortals.ppm.subtypeNotPublished"));
+    const project = screen.getByRole("option", { name: "Project" });
+    expect(project).not.toHaveAttribute("aria-disabled");
+
+    // A click on the disabled label picks nothing, and leaves the menu open.
+    await user.click(within(program).getByText("Program"));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("combobox", { name: t("webPortals.ppm.defaultGroupBy") })).toHaveTextContent(
+      "Organization",
+    );
+  });
 });
+

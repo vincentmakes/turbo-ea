@@ -67,6 +67,8 @@
   "priorityMedium": "Mellem",
   "priorityLow": "Lav",
   "groupBy": "Gruppér efter",
+  "groupByRelatedTypes": "Relaterede korttyper",
+  "groupBySubtypes": "Initiativ-undertyper",
   "noGroup": "Ugrupperet",
   "viewReport": "Se rapport",
   "accomplishments": "Resultater",

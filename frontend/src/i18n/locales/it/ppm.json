@@ -67,6 +67,8 @@
   "priorityMedium": "Media",
   "priorityLow": "Bassa",
   "groupBy": "Raggruppa per",
+  "groupByRelatedTypes": "Tipi di scheda correlati",
+  "groupBySubtypes": "Sottotipi di iniziativa",
   "noGroup": "Non raggruppato",
   "viewReport": "Visualizza rapporto",
   "accomplishments": "Risultati",

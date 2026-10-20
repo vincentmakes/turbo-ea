@@ -1156,6 +1156,7 @@
   "webPortals.ppm.hint": "Choisissez ce que le tableau publié révèle. Les champs de coût des fiches, les adresses e-mail et le détail de chaque initiative ne sont jamais publiés, quel que soit votre choix ici.",
   "webPortals.ppm.defaultGroupBy": "S'ouvre groupé par",
   "webPortals.ppm.defaultGroupByHelper": "Le regroupement affiché en premier. Les visiteurs peuvent le changer.",
+  "webPortals.ppm.subtypeNotPublished": "Ce portail ne publie pas ce sous-type : le tableau s’ouvrirait avec toutes les initiatives non groupées.",
   "webPortals.ppm.defaultSubtype": "S'ouvre sur le sous-type",
   "webPortals.ppm.defaultSubtypeHelper": "Le sous-type sélectionné en premier. «Tous» affiche toutes les initiatives publiées.",
   "webPortals.ppm.showCosts": "Afficher le budget et les dépenses réelles",

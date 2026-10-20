@@ -67,6 +67,8 @@
   "priorityMedium": "متوسطة",
   "priorityLow": "منخفضة",
   "groupBy": "تجميع حسب",
+  "groupByRelatedTypes": "أنواع البطاقات المرتبطة",
+  "groupBySubtypes": "الأنواع الفرعية للمبادرة",
   "noGroup": "غير مجمَّع",
   "viewReport": "عرض التقرير",
   "accomplishments": "الإنجازات",

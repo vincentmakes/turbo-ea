@@ -15,6 +15,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import ListSubheader from "@mui/material/ListSubheader";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
@@ -36,6 +37,7 @@ import {
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { subtypeGroupBy } from "@/features/ppm/ppmPortfolioModel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
 
@@ -853,6 +855,7 @@ export default function WebPortalsAdmin() {
                   sx={{ minWidth: 220, flex: 1 }}
                   helperText={t("webPortals.ppm.defaultGroupByHelper")}
                 >
+                  <ListSubheader>{t("ppm:groupByRelatedTypes")}</ListSubheader>
                   {ppmGroupOptions.map((opt) => (
                     <MenuItem key={opt.type_key} value={opt.type_key}>
                       {typeLabel(
@@ -863,6 +866,34 @@ export default function WebPortalsAdmin() {
                       )}
                     </MenuItem>
                   ))}
+                  {/* One group per initiative of the subtype. A subtype the
+                      portal's own filter leaves out is never loaded, so the
+                      board would open with every row ungrouped: not offered. */}
+                  {!!selectedType?.subtypes?.length && (
+                    <ListSubheader>{t("ppm:groupBySubtypes")}</ListSubheader>
+                  )}
+                  {(selectedType?.subtypes || []).map((st) => {
+                    const unpublished =
+                      filterSubtypes.length > 0 && !filterSubtypes.includes(st.key);
+                    return (
+                      <MenuItem key={st.key} value={subtypeGroupBy(st.key)} disabled={unpublished}>
+                        {unpublished ? (
+                          <Tooltip describeChild title={t("webPortals.ppm.subtypeNotPublished")}>
+                            {/* A disabled item takes no pointer events; this span does,
+                                so the tooltip shows, and it swallows the click. */}
+                            <span
+                              style={{ pointerEvents: "auto" }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {stLabel(st)}
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          stLabel(st)
+                        )}
+                      </MenuItem>
+                    );
+                  })}
                 </TextField>
                 <TextField
                   select

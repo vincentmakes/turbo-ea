@@ -34,6 +34,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import ListSubheader from "@mui/material/ListSubheader";
 import Tooltip from "@mui/material/Tooltip";
 import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -51,7 +52,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { toIsoDate } from "@/lib/dates";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { typeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { subtypeLabel, typeLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import type { InlineEntityLike } from "@/hooks/useResolveLabel";
 import type { PrintParam } from "@/features/reports/ReportShell";
 import type { ReportExportData } from "@/features/reports/reportExport";
@@ -80,10 +81,10 @@ import {
   derivedCostTipKey,
   filterItems,
   filterSearchParams,
+  groupByLabel,
   groupItems,
   groupLayout,
   groupTotals,
-  groupTypeLabel,
   hasAnyCost,
   hasHierarchy,
   healthLabelKey,
@@ -96,6 +97,7 @@ import {
   projectManager,
   ragColor,
   rowFigures,
+  subtypeGroupBy,
   subtypeKeys,
   subtypeName,
   subtypeSubGroups,
@@ -522,7 +524,8 @@ export default function PpmPortfolioView({
 
   const groups = useMemo(() => groupItems(filtered, t("noGroup")), [filtered, t]);
 
-  // The hierarchy toggle exists only when some row has its parent on the board.
+  // The hierarchy toggle exists only when some row has its parent on the board
+  // as a row (a group's anchor is a header, so it is never a parent to nest under).
   const canNest = useMemo(() => hasHierarchy(items), [items]);
   const treeOn = hierarchy && canNest;
   const subtypeOrder = useMemo(() => (subtypeDefs ?? []).map((d) => d.key), [subtypeDefs]);
@@ -543,8 +546,8 @@ export default function PpmPortfolioView({
 
   // ── Print / export ──
   const groupLabel = useMemo(
-    () => groupTypeLabel(groupOptions, groupBy, i18n.language),
-    [groupOptions, groupBy, i18n.language],
+    () => groupByLabel(groupBy, groupOptions, subtypeDefs ?? [], i18n.language),
+    [groupBy, groupOptions, subtypeDefs, i18n.language],
   );
 
   const printParams: PrintParam[] = useMemo(
@@ -598,7 +601,9 @@ export default function PpmPortfolioView({
   };
 
   // ── Desktop: Gantt timeline bar ──
-  const renderBar = (item: PpmPortfolioItem, f: RowFigures) => {
+  // An anchored group's bottom line passes `clickable: false`: it is no row to open.
+  const renderBar = (item: PpmPortfolioItem, f: RowFigures, clickable = true) => {
+    const open = clickable ? onOpen : undefined;
     const bar = barModel(item, timeline);
     if (!bar) return null;
     const range = `${f.startDate} \u2192 ${f.endDate}`;
@@ -616,9 +621,9 @@ export default function PpmPortfolioView({
             opacity: 0.9,
             top: "50%",
             transform: "translateY(-50%)",
-            ...(onOpen ? { cursor: "pointer", "&:hover": { opacity: 1 } } : {}),
+            ...(open ? { cursor: "pointer", "&:hover": { opacity: 1 } } : {}),
           }}
-          onClick={onOpen ? () => onOpen(item) : undefined}
+          onClick={open ? () => open(item) : undefined}
         />
       </Tooltip>
     );
@@ -728,19 +733,7 @@ export default function PpmPortfolioView({
 
         {/* Timeline bar */}
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
-          <Box
-            sx={{
-              position: "absolute",
-              left: `${nowLeft}%`,
-              top: 0,
-              bottom: 0,
-              width: 1.5,
-              bgcolor: theme.palette.error.main,
-              opacity: 0.3,
-              zIndex: 1,
-              pointerEvents: "none",
-            }}
-          />
+          {nowLine}
           {renderBar(item, f)}
         </Box>
 
@@ -966,6 +959,131 @@ export default function PpmPortfolioView({
     );
   };
 
+  /** The red "today" line across a timeline cell. */
+  const nowLine = (
+    <Box
+      sx={{
+        position: "absolute",
+        left: `${nowLeft}%`,
+        top: 0,
+        bottom: 0,
+        width: 1.5,
+        bgcolor: theme.palette.error.main,
+        opacity: 0.3,
+        zIndex: 1,
+        pointerEvents: "none",
+      }}
+    />
+  );
+
+  /**
+   * An anchored group's bottom line (desktop), in place of the summed totals:
+   * the anchor's own budget, actuals and dates, or what is beneath it when it
+   * has none, drawn exactly as a row draws them. Labelled by the grouping
+   * subtype ("Program") — "Totals" would misdescribe a program's own budget.
+   * The anchor is a header, not a row, so the line has no health dots and
+   * no report link.
+   */
+  const renderAnchorLine = (anchor: PpmPortfolioItem) => {
+    const f = rowFigures(anchor);
+    const plan = `${fmtQuarter(f.startDate)} / ${fmtQuarter(f.endDate)}`;
+    return (
+      <Box
+        data-export-row
+        data-anchor-line
+        sx={{
+          display: "grid",
+          gridTemplateColumns: gridCols,
+          alignItems: "center",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          minHeight: 36,
+          bgcolor: alpha(theme.palette.primary.main, 0.02),
+        }}
+      >
+        <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ px: 1.5 }}>
+          {groupLabel}
+        </Typography>
+        <Box />
+        {renderPlan(f, plan, PLAN_CELL_SX)}
+        <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
+          {nowLine}
+          {renderBar(anchor, f, false)}
+        </Box>
+        <Box />
+        <Box />
+        <Box />
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar
+            actual={money(f.capexActual)}
+            planned={money(f.capexPlanned)}
+            currency={currency}
+            derivedTip={derivedCostTip(f)}
+          />
+        </Box>
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar
+            actual={money(f.opexActual)}
+            planned={money(f.opexPlanned)}
+            currency={currency}
+            derivedTip={derivedCostTip(f)}
+          />
+        </Box>
+        <Box />
+      </Box>
+    );
+  };
+
+  /**
+   * The same figures on a phone, as a compact block under the group header
+   * (the mobile board has no totals row, and the anchor's figures must not
+   * vanish there).
+   */
+  const renderMobileAnchor = (anchor: PpmPortfolioItem) => {
+    const f = rowFigures(anchor);
+    const plan = `${fmtQuarter(f.startDate)} \u2013 ${fmtQuarter(f.endDate)}`;
+    return (
+      <Box
+        data-export-row
+        data-anchor-line
+        sx={{
+          px: 1.5,
+          py: 1,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          bgcolor: alpha(theme.palette.primary.main, 0.02),
+        }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="caption" fontWeight={600} color="text.secondary">
+            {groupLabel}
+          </Typography>
+          {renderPlan(f, plan, NO_SX)}
+        </Box>
+        {hasAnyCost(anchor) && (
+          <Box display="flex" gap={2} mt={0.75}>
+            <Box flex={1}>
+              <CostBar
+                actual={money(f.capexActual)}
+                planned={money(f.capexPlanned)}
+                currency={currency}
+                label={t("capex")}
+                derivedTip={derivedCostTip(f)}
+              />
+            </Box>
+            <Box flex={1}>
+              <CostBar
+                actual={money(f.opexActual)}
+                planned={money(f.opexPlanned)}
+                currency={currency}
+                label={t("opex")}
+                derivedTip={derivedCostTip(f)}
+              />
+            </Box>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   /**
    * What sits between a group's header and its totals, for the layout the
    * toggles chose: subtype sub-groups (each with its own header, collapse and
@@ -1024,12 +1142,20 @@ export default function PpmPortfolioView({
           label={t("groupBy")}
           onChange={(e) => setGroupBy(e.target.value)}
         >
+          <ListSubheader>{t("groupByRelatedTypes")}</ListSubheader>
           {groupOptions.map((opt) => (
             <MenuItem key={opt.type_key} value={opt.type_key}>
               {typeLabel(
                 { key: opt.type_key, label: opt.label, translations: opt.translations },
                 i18n.language,
               )}
+            </MenuItem>
+          ))}
+          {/* One group per initiative of the subtype, holding everything beneath it. */}
+          {!!subtypeDefs?.length && <ListSubheader>{t("groupBySubtypes")}</ListSubheader>}
+          {(subtypeDefs ?? []).map((def) => (
+            <MenuItem key={def.key} value={subtypeGroupBy(def.key)}>
+              {subtypeLabel(def, i18n.language)}
             </MenuItem>
           ))}
         </Select>
@@ -1293,7 +1419,10 @@ export default function PpmPortfolioView({
                   onToggle={() => toggle(groupId)}
                 />
                 {!isCollapsed && renderGroupBody(groupId, group.items, renderRow, true)}
-                {!isCollapsed && renderGroupTotals(group.items)}
+                {!isCollapsed &&
+                  (group.anchor
+                    ? renderAnchorLine(group.anchor)
+                    : renderGroupTotals(group.items))}
               </Box>
             );
           })}
@@ -1324,6 +1453,7 @@ export default function PpmPortfolioView({
                     collapsed={isCollapsed}
                     onToggle={() => toggle(groupId)}
                   />
+                  {!isCollapsed && group.anchor && renderMobileAnchor(group.anchor)}
                   {!isCollapsed &&
                     renderGroupBody(groupId, group.items, renderMobileCard, false)}
                 </Box>

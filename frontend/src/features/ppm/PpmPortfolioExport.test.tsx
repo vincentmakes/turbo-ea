@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { ReportExportData } from "@/features/reports/reportExport";
+import { api } from "@/api/client";
 import PpmPortfolio from "./PpmPortfolio";
 
 // ---------------------------------------------------------------------------
@@ -150,9 +151,9 @@ vi.mock("@/features/reports/reportExport", async () => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function renderPortfolio() {
+async function renderPortfolio(url = "/") {
   const view = render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <PpmPortfolio />
     </MemoryRouter>,
   );
@@ -296,5 +297,30 @@ describe("PPM Portfolio print & export", () => {
       ["CRM Consolidation", ""],
     ]);
     expect(nested.filterSummary).toContainEqual({ label: "Show hierarchy", value: "All levels" });
+  });
+
+  it("loads, labels and exports a subtype grouping with each anchor first in its group", async () => {
+    // Grouped by the Project subtype: the migration names its own group and
+    // the stream beneath it is that group's row.
+    ganttRows = [
+      { ...GANTT[0], group_id: "i1", group_name: "SAP S/4HANA Migration", group_anchor: true },
+      { ...CHILD, group_id: "i1", group_name: "SAP S/4HANA Migration" },
+      GANTT[1],
+    ] as typeof GANTT;
+    const { container } = await renderPortfolio("/?groupBy=subtype%3Aproject");
+    expect(vi.mocked(api.get)).toHaveBeenCalledWith(
+      "/reports/ppm/gantt?group_by=subtype%3Aproject",
+      expect.anything(),
+    );
+    const params = container.querySelector(".report-print-params");
+    expect(params!.textContent).toContain("Project");
+
+    const data = await exportExcel(userEvent.setup());
+    expect(data.sheets[0].columns[0]).toEqual({ key: "group", label: "Project", type: "text" });
+    expect(data.sheets[0].rows.map((r) => [r.group, r.name])).toEqual([
+      ["SAP S/4HANA Migration", "SAP S/4HANA Migration"],
+      ["SAP S/4HANA Migration", "Finance Close Stream"],
+      ["Ungrouped", "CRM Consolidation"],
+    ]);
   });
 });
