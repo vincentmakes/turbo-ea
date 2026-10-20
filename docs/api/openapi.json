@@ -9232,7 +9232,7 @@
         "type": "object"
       },
       "PpmPublicRollup": {
-        "description": "What a parent row shows in place of costs or dates it has not got.\n\nCarries no identifier. The cost quartet is ``None`` whenever the portal hides\ncosts; the dates and the count are published like the row's own dates.",
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nCarries no identifier. The planned and actual pairs are derived on their own\n(see ``PpmRollup``) and both read ``None`` whenever the portal hides costs;\nthe dates and the count are published like the row's own dates.",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -9580,7 +9580,7 @@
         "type": "object"
       },
       "PpmRollup": {
-        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe cost quartet is all set or all ``None``: set only when the parent has no\nbudget or cost line of its own and some initiative beneath it has. The dates\nare set only when it has neither a start nor an end date. ``descendant_count``\nis the number of initiatives beneath it on the board\n(``app.services.ppm_rollup``).",
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe quartet is two pairs, each all set or all ``None`` on its own: the\nplanned pair when the parent has no budget line of its own and some\ninitiative beneath it has, the actual pair when it has no cost line of its\nown and some initiative beneath it has. The dates\nare set only when it has neither a start nor an end date. ``descendant_count``\nis the number of initiatives beneath it on the board\n(``app.services.ppm_rollup``).",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -9660,8 +9660,16 @@
         "type": "object"
       },
       "PpmRollupOut": {
-        "description": "``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.\n\nAlways summed over the descendants alone, never including the initiative's\nown lines or dates \u2014 the Overview tab shows it beside those.",
+        "description": "``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.\n\nAlways summed over the descendants alone, never including the initiative's\nown lines or dates \u2014 the Overview and Budget & Costs tabs show it beside\nthose, or in their place on a side the initiative has no lines of its own\nfor. ``has_budget_lines`` / ``has_cost_lines`` describe the initiative\nitself; ``by_year`` is ascending with the undated entry last.",
         "properties": {
+          "by_year": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PpmRollupYear"
+            },
+            "title": "By Year",
+            "type": "array"
+          },
           "capex_actual": {
             "default": 0,
             "title": "Capex Actual",
@@ -9686,6 +9694,16 @@
               }
             ],
             "title": "End Date"
+          },
+          "has_budget_lines": {
+            "default": false,
+            "title": "Has Budget Lines",
+            "type": "boolean"
+          },
+          "has_cost_lines": {
+            "default": false,
+            "title": "Has Cost Lines",
+            "type": "boolean"
           },
           "opex_actual": {
             "default": 0,
@@ -9723,6 +9741,47 @@
           "descendant_count"
         ],
         "title": "PpmRollupOut",
+        "type": "object"
+      },
+      "PpmRollupYear": {
+        "description": "One fiscal year of the initiatives beneath one initiative.\n\n``year`` is ``None`` for cost lines without a date, which belong to no year.\nBudget lines sit on their stored fiscal year, cost lines on the fiscal year\ntheir date falls in (the same rule as ``ppm.byYear``).",
+        "properties": {
+          "capex_actual": {
+            "default": 0,
+            "title": "Capex Actual",
+            "type": "number"
+          },
+          "capex_budget": {
+            "default": 0,
+            "title": "Capex Budget",
+            "type": "number"
+          },
+          "opex_actual": {
+            "default": 0,
+            "title": "Opex Actual",
+            "type": "number"
+          },
+          "opex_budget": {
+            "default": 0,
+            "title": "Opex Budget",
+            "type": "number"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "title": "PpmRollupYear",
         "type": "object"
       },
       "PpmStatusReportCreate": {

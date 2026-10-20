@@ -317,8 +317,10 @@ class PpmGanttStakeholder(BaseModel):
 class PpmRollup(BaseModel):
     """What a parent row shows in place of costs or dates it has not got.
 
-    The cost quartet is all set or all ``None``: set only when the parent has no
-    budget or cost line of its own and some initiative beneath it has. The dates
+    The quartet is two pairs, each all set or all ``None`` on its own: the
+    planned pair when the parent has no budget line of its own and some
+    initiative beneath it has, the actual pair when it has no cost line of its
+    own and some initiative beneath it has. The dates
     are set only when it has neither a start nor an end date. ``descendant_count``
     is the number of initiatives beneath it on the board
     (``app.services.ppm_rollup``).
@@ -333,11 +335,29 @@ class PpmRollup(BaseModel):
     end_date: str | None = None
 
 
+class PpmRollupYear(BaseModel):
+    """One fiscal year of the initiatives beneath one initiative.
+
+    ``year`` is ``None`` for cost lines without a date, which belong to no year.
+    Budget lines sit on their stored fiscal year, cost lines on the fiscal year
+    their date falls in (the same rule as ``ppm.byYear``).
+    """
+
+    year: int | None
+    capex_budget: float = 0
+    opex_budget: float = 0
+    capex_actual: float = 0
+    opex_actual: float = 0
+
+
 class PpmRollupOut(BaseModel):
     """``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.
 
     Always summed over the descendants alone, never including the initiative's
-    own lines or dates — the Overview tab shows it beside those.
+    own lines or dates — the Overview and Budget & Costs tabs show it beside
+    those, or in their place on a side the initiative has no lines of its own
+    for. ``has_budget_lines`` / ``has_cost_lines`` describe the initiative
+    itself; ``by_year`` is ascending with the undated entry last.
     """
 
     descendant_count: int
@@ -349,6 +369,9 @@ class PpmRollupOut(BaseModel):
     total_actual: float = 0
     start_date: str | None = None
     end_date: str | None = None
+    has_budget_lines: bool = False
+    has_cost_lines: bool = False
+    by_year: list[PpmRollupYear] = []
 
 
 class PpmGanttItem(BaseModel):

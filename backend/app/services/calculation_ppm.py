@@ -72,6 +72,14 @@ _TASK_STATUS_KEYS = {
 
 _PPM_REFERENCE = re.compile(r"\bppm\b")
 
+#: The undated (no fiscal year) actuals split by category. The combined
+#: ``unscheduledActual`` stays beside them; a category that is neither lands in
+#: that total only, as it does in ``totalActual``.
+_UNSCHEDULED_ACTUAL_SPLIT = {
+    "capex": "unscheduledCapexActual",
+    "opex": "unscheduledOpexActual",
+}
+
 
 def needs_ppm(formula: str) -> bool:
     """Whether a formula reads the ``ppm`` root at all.
@@ -101,6 +109,8 @@ def empty_ppm(current_fiscal_year: int | None = None) -> dict[str, Any]:
     payload["currentFiscalYear"] = current_fiscal_year
     payload["unscheduledPlanned"] = 0.0
     payload["unscheduledActual"] = 0.0
+    payload["unscheduledCapexActual"] = 0.0
+    payload["unscheduledOpexActual"] = 0.0
     payload["byYear"] = []
     payload.update(_zero_delivery())
     return payload
@@ -268,7 +278,13 @@ async def build_ppm_map(
 
     totals: dict[str, dict[str, float]] = {str(i): _zero_measures() for i in initiative_ids}
     unscheduled: dict[str, dict[str, float]] = {
-        str(i): {"unscheduledPlanned": 0.0, "unscheduledActual": 0.0} for i in initiative_ids
+        str(i): {
+            "unscheduledPlanned": 0.0,
+            "unscheduledActual": 0.0,
+            "unscheduledCapexActual": 0.0,
+            "unscheduledOpexActual": 0.0,
+        }
+        for i in initiative_ids
     }
     per_year: dict[str, dict[int, dict[str, float]]] = {}
 
@@ -326,6 +342,8 @@ async def build_ppm_map(
             _add(totals[key], bucket, measure, value)
             if fiscal_year is None:
                 unscheduled[key][f"unscheduled{measure}"] += value
+                if bucket and measure == "Actual":
+                    unscheduled[key][_UNSCHEDULED_ACTUAL_SPLIT[bucket]] += value
             else:
                 _add(slot(key, fiscal_year), bucket, measure, value)
 

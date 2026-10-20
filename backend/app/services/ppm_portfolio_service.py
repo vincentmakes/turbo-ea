@@ -40,6 +40,7 @@ from app.schemas.ppm import (
     PpmGroupOption,
     PpmRollup,
     PpmRollupOut,
+    PpmRollupYear,
     PpmStatusReportOut,
     ReporterOut,
 )
@@ -54,10 +55,12 @@ from app.schemas.ppm_public import (
 )
 from app.services.card_lifecycle import collect_descendants
 from app.services.ppm_rollup import (
+    LinePresence,
     Rollup,
     date_span,
     descendants_within,
     rollup_for_board,
+    sum_by_year,
     sum_figures,
 )
 
@@ -222,18 +225,24 @@ async def load_stakeholders(
     return out
 
 
-async def build_cost_aggregates(
-    db: AsyncSession, initiative_ids: Sequence[uuid.UUID]
-) -> dict[uuid.UUID, dict[str, float]]:
-    """Per-initiative capex/opex planned + actual, from the PPM cost tables."""
+@dataclass(frozen=True)
+class CostRows:
+    """The two grouped PPM line queries, as ``(initiative_id, category, amount)`` rows.
+
+    ``actual`` sums cost lines' actuals, ``budget`` budget lines' amounts. Loaded
+    once by ``load_cost_rows`` and read by both ``cost_aggregates_from`` and
+    ``cost_presence_from``, so a caller that needs the figures and which kind of
+    line exists pays for the two queries once.
+    """
+
+    actual: list[tuple[uuid.UUID, str, float]]
+    budget: list[tuple[uuid.UUID, str, float]]
+
+
+async def load_cost_rows(db: AsyncSession, initiative_ids: Sequence[uuid.UUID]) -> CostRows:
+    """Per initiative and category: the summed cost-line actuals and budget amounts."""
     if not initiative_ids:
-        return {}
-
-    def _blank() -> dict[str, float]:
-        return {"capex_planned": 0, "capex_actual": 0, "opex_planned": 0, "opex_actual": 0}
-
-    agg: dict[uuid.UUID, dict[str, float]] = {}
-
+        return CostRows(actual=[], budget=[])
     cost_result = await db.execute(
         select(
             PpmCostLine.initiative_id,
@@ -243,9 +252,6 @@ async def build_cost_aggregates(
         .where(PpmCostLine.initiative_id.in_(initiative_ids))
         .group_by(PpmCostLine.initiative_id, PpmCostLine.category)
     )
-    for row in cost_result.all():
-        agg.setdefault(row[0], _blank())[f"{row[1]}_actual"] = float(row[2])
-
     budget_result = await db.execute(
         select(
             PpmBudgetLine.initiative_id,
@@ -255,10 +261,31 @@ async def build_cost_aggregates(
         .where(PpmBudgetLine.initiative_id.in_(initiative_ids))
         .group_by(PpmBudgetLine.initiative_id, PpmBudgetLine.category)
     )
-    for row in budget_result.all():
-        agg.setdefault(row[0], _blank())[f"{row[1]}_planned"] = float(row[2])
+    return CostRows(
+        actual=[(r[0], r[1], float(r[2])) for r in cost_result.all()],
+        budget=[(r[0], r[1], float(r[2])) for r in budget_result.all()],
+    )
 
+
+def cost_aggregates_from(rows: CostRows) -> dict[uuid.UUID, dict[str, float]]:
+    """Per-initiative capex/opex planned + actual; keyed when either kind of line exists."""
+
+    def _blank() -> dict[str, float]:
+        return {"capex_planned": 0, "capex_actual": 0, "opex_planned": 0, "opex_actual": 0}
+
+    agg: dict[uuid.UUID, dict[str, float]] = {}
+    for initiative_id, category, amount in rows.actual:
+        agg.setdefault(initiative_id, _blank())[f"{category}_actual"] = amount
+    for initiative_id, category, amount in rows.budget:
+        agg.setdefault(initiative_id, _blank())[f"{category}_planned"] = amount
     return agg
+
+
+def cost_presence_from(rows: CostRows) -> dict[uuid.UUID, LinePresence]:
+    """Which kinds of line each initiative has; keyed like ``cost_aggregates_from``."""
+    with_cost = {r[0] for r in rows.actual}
+    with_budget = {r[0] for r in rows.budget}
+    return {i: LinePresence(i in with_budget, i in with_cost) for i in with_cost | with_budget}
 
 
 async def sum_budget_actual(
@@ -283,14 +310,20 @@ async def sum_budget_actual(
 async def build_initiative_rollup(
     db: AsyncSession, root: Card, read_scope: CardReadScope
 ) -> PpmRollupOut:
-    """What the initiatives beneath ``root`` add up to, for its Overview tab.
+    """What the initiatives beneath ``root`` add up to, for its Overview and cost tabs.
 
-    Always over the descendants alone — the tab shows this beside the root's own
-    figures, so unlike the board it never falls back to the root's own data.
-    Only ACTIVE Initiative cards the reader may see count, and a hidden or
-    archived initiative breaks the chain beneath it: its children are not
-    reached through it, the same rule the board follows.
+    Always over the descendants alone — the totals, the count, the date span and
+    the per-fiscal-year split. Beside them, ``has_budget_lines`` /
+    ``has_cost_lines`` say whether ``root`` itself has lines of each kind, which
+    is what the tabs read to decide which side they show derived. Only ACTIVE
+    Initiative cards the reader may see count, and a hidden or archived
+    initiative breaks the chain beneath it: its children are not reached
+    through it, the same rule the board follows.
     """
+    # calculation_ppm imports this module (``latest_reports``), so it is
+    # imported here rather than at the top.
+    from app.services.calculation_ppm import build_ppm_map, get_fiscal_year_start
+
     candidate_ids = await collect_descendants(db, root.id)
     parents: dict[uuid.UUID, uuid.UUID | None] = {root.id: None}
     dates: dict[uuid.UUID, tuple[str | None, str | None]] = {}
@@ -307,8 +340,12 @@ async def build_initiative_rollup(
             parents[card_id] = parent_id
             dates[card_id] = ((attrs or {}).get("startDate"), (attrs or {}).get("endDate"))
     ids = descendants_within(parents, root.id)
-    figures = sum_figures(ids, await build_cost_aggregates(db, ids))
+    cost_rows = await load_cost_rows(db, [root.id, *ids])
+    own = cost_presence_from(cost_rows).get(root.id, LinePresence(False, False))
+    aggregates = cost_aggregates_from(cost_rows)
+    figures = sum_figures(ids, aggregates)
     start, end = date_span(ids, dates)
+    ppm_map = await build_ppm_map(db, ids, start_month=await get_fiscal_year_start(db))
     return PpmRollupOut(
         descendant_count=len(ids),
         **figures,
@@ -316,6 +353,9 @@ async def build_initiative_rollup(
         total_actual=figures["capex_actual"] + figures["opex_actual"],
         start_date=start,
         end_date=end,
+        has_budget_lines=own.has_budget,
+        has_cost_lines=own.has_cost,
+        by_year=[PpmRollupYear(**entry) for entry in sum_by_year(ppm_map.values())],
     )
 
 
@@ -457,13 +497,14 @@ def rollup_out(rollup: Rollup | None) -> PpmRollup | None:
     """The board's ``rollup`` field for one row, or ``None`` for a leaf."""
     if rollup is None:
         return None
-    figures = rollup.figures or {}
+    planned = rollup.planned or {}
+    actual = rollup.actual or {}
     return PpmRollup(
         descendant_count=rollup.descendant_count,
-        capex_planned=figures.get("capex_planned"),
-        capex_actual=figures.get("capex_actual"),
-        opex_planned=figures.get("opex_planned"),
-        opex_actual=figures.get("opex_actual"),
+        capex_planned=planned.get("capex_planned"),
+        capex_actual=actual.get("capex_actual"),
+        opex_planned=planned.get("opex_planned"),
+        opex_actual=actual.get("opex_actual"),
         start_date=rollup.start_date,
         end_date=rollup.end_date,
     )
@@ -495,7 +536,8 @@ async def build_gantt_items(
     group_map = (
         await build_group_map(db, init_ids, group_by, read_scope=read_scope) if group_by else {}
     )
-    cost_agg = await build_cost_aggregates(db, init_ids)
+    cost_rows = await load_cost_rows(db, init_ids)
+    cost_agg = cost_aggregates_from(cost_rows)
     reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
     stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)
 
@@ -506,14 +548,16 @@ async def build_gantt_items(
     # parent only when that parent is published too.
     on_board = {c.id for c in initiatives}
 
-    # A parent without lines or dates of its own shows what the rows beneath it
-    # add up to. Computed over these same rows, so a hidden or archived child
-    # adds nothing, and in memory, so the portal's query budget is untouched.
+    # A parent without budget lines, cost lines or dates of its own shows what
+    # the rows beneath it add up to, each of the three decided on its own.
+    # Computed over these same rows, so a hidden or archived child adds nothing,
+    # and in memory, so the portal's query budget is untouched.
     # The row's own capex/opex/dates stay as recorded: group totals and the KPI
     # bar sum those, so every figure is counted once.
     rollups = rollup_for_board(
         {c.id: (c.parent_id if c.parent_id in on_board else None) for c in initiatives},
         cost_agg,
+        cost_presence_from(cost_rows),
         {
             c.id: ((c.attributes or {}).get("startDate"), (c.attributes or {}).get("endDate"))
             for c in initiatives

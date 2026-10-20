@@ -73,6 +73,13 @@ class TestEmptyPpm:
                 assert payload[f"{bucket}{measure}"] == 0.0
         assert payload["byYear"] == []
         assert payload["currentFiscalYear"] == 2026
+        for key in (
+            "unscheduledPlanned",
+            "unscheduledActual",
+            "unscheduledCapexActual",
+            "unscheduledOpexActual",
+        ):
+            assert payload[key] == 0.0, key
 
     def test_delivery_figures_read_zero_or_none(self):
         # #1111: the delivery half. Counts are 0 so arithmetic never trips on a

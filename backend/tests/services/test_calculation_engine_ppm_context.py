@@ -100,6 +100,27 @@ class TestPpmRoot:
         assert ppm["unscheduledActual"] == 40
         assert sum(row["totalActual"] for row in ppm["byYear"]) == 7
 
+    async def test_dateless_actuals_are_split_by_category(self, db):
+        card = await _initiative_with_ppm(db)
+        await create_cost_line(db, initiative_id=card.id, category="opex", actual=40, date=None)
+        await create_cost_line(
+            db, initiative_id=card.id, category="CapEx", actual=3, planned=9, date=None
+        )
+        await create_cost_line(
+            db, initiative_id=card.id, category="contingency", actual=5, date=None
+        )
+        # A dated actual stays out of the undated split.
+        await create_cost_line(
+            db, initiative_id=card.id, category="opex", actual=11, date=date(2026, 2, 1)
+        )
+        context = await _build_context(db, card, needs_ppm_data=True)
+        ppm = context["ppm"]
+        assert ppm["unscheduledCapexActual"] == 3
+        assert ppm["unscheduledOpexActual"] == 40
+        # The combined figure still carries every category.
+        assert ppm["unscheduledActual"] == 48
+        assert ppm["unscheduledPlanned"] == 9
+
     async def test_fiscal_year_start_shifts_cost_lines_only(self, db):
         # Budget lines keep their stored fiscal_year; cost lines are bucketed
         # from their date. With an October start the November cost line moves
@@ -120,6 +141,8 @@ class TestPpmRoot:
         context = await _build_context(db, card, needs_ppm_data=True)
         assert context["ppm"]["totalBudget"] == 0.0
         assert context["ppm"]["byYear"] == []
+        assert context["ppm"]["unscheduledCapexActual"] == 0.0
+        assert context["ppm"]["unscheduledOpexActual"] == 0.0
         assert context["ppm"]["currentFiscalYear"] == current_fiscal_year(4)
         assert _evaluate_formula("ppm.capexBudget + 1", context) == 1
 

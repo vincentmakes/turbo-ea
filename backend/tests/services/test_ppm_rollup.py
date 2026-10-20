@@ -6,14 +6,20 @@ import uuid
 
 from app.services.ppm_rollup import (
     COST_KEYS,
+    LinePresence,
     Rollup,
     children_index,
     date_span,
     descendants_within,
     rollup_for_board,
+    sum_by_year,
     sum_figures,
     walk,
 )
+
+BOTH = LinePresence(has_budget=True, has_cost=True)
+BUDGET_ONLY = LinePresence(has_budget=True, has_cost=False)
+COST_ONLY = LinePresence(has_budget=False, has_cost=True)
 
 
 def _ids(n: int) -> list[uuid.UUID]:
@@ -22,6 +28,14 @@ def _ids(n: int) -> list[uuid.UUID]:
 
 def _fig(cp: float, ca: float, op: float, oa: float) -> dict[str, float]:
     return {"capex_planned": cp, "capex_actual": ca, "opex_planned": op, "opex_actual": oa}
+
+
+def _planned(cp: float, op: float) -> dict[str, float]:
+    return {"capex_planned": cp, "opex_planned": op}
+
+
+def _actual(ca: float, oa: float) -> dict[str, float]:
+    return {"capex_actual": ca, "opex_actual": oa}
 
 
 class TestChildrenIndex:
@@ -112,35 +126,91 @@ class TestRollupForBoard:
             grandchild: _fig(10, 20, 30, 40),
             leaf: _fig(9, 9, 9, 9),
         }
+        presence = {child: BOTH, grandchild: BOTH, leaf: BOTH}
         dates = {
             root: (None, None),
             child: ("2026-03-01", "2026-06-30"),
             grandchild: ("2026-01-01", "2026-04-30"),
             leaf: ("2020-01-01", "2030-01-01"),
         }
-        out = rollup_for_board(parents, figures, dates)
+        out = rollup_for_board(parents, figures, presence, dates)
         assert out[root] == Rollup(
             descendant_count=2,
-            figures=_fig(11, 22, 33, 44),
+            planned=_planned(11, 33),
+            actual=_actual(22, 44),
             start_date="2026-01-01",
             end_date="2026-06-30",
         )
         # A middle level derives from its own descendants only (not itself).
         assert out[child] == Rollup(
-            descendant_count=1, figures=None, start_date=None, end_date=None
+            descendant_count=1, planned=None, actual=None, start_date=None, end_date=None
         )
         assert set(out) == {root, child}
 
-    def test_parent_with_own_lines_keeps_its_count_but_derives_no_costs(self):
+    def test_parent_with_both_kinds_of_line_keeps_its_count_but_derives_no_costs(self):
         root, child = _ids(2)
         out = rollup_for_board(
             {root: None, child: root},
             {root: _fig(0, 0, 0, 0), child: _fig(5, 5, 5, 5)},
+            {root: BOTH, child: BOTH},
             {root: (None, None), child: ("2026-01-01", "2026-02-01")},
         )
         assert out[root] == Rollup(
-            descendant_count=1, figures=None, start_date="2026-01-01", end_date="2026-02-01"
+            descendant_count=1,
+            planned=None,
+            actual=None,
+            start_date="2026-01-01",
+            end_date="2026-02-01",
         )
+
+    def test_budget_only_parent_derives_its_actuals_only(self):
+        # A program that holds the budget while its projects record the spend.
+        root, a, b = _ids(3)
+        out = rollup_for_board(
+            {root: None, a: root, b: root},
+            {root: _fig(500, 0, 50, 0), a: _fig(7, 3, 11, 1), b: _fig(0, 2, 0, 4)},
+            {root: BUDGET_ONLY, a: BOTH, b: COST_ONLY},
+            {root: ("2026-01-01", None), a: (None, None), b: (None, None)},
+        )
+        assert out[root] == Rollup(
+            descendant_count=2,
+            planned=None,
+            actual=_actual(5, 5),
+            start_date=None,
+            end_date=None,
+        )
+
+    def test_cost_only_parent_derives_its_budget_only(self):
+        root, a, b = _ids(3)
+        out = rollup_for_board(
+            {root: None, a: root, b: root},
+            {root: _fig(0, 9, 0, 9), a: _fig(7, 3, 11, 1), b: _fig(2, 0, 4, 0)},
+            {root: COST_ONLY, a: BOTH, b: BUDGET_ONLY},
+            {root: (None, None), a: (None, None), b: (None, None)},
+        )
+        assert out[root].planned == _planned(9, 15)
+        assert out[root].actual is None
+
+    def test_a_side_nothing_beneath_has_is_not_derived(self):
+        # Beneath carries budget lines only: the actual pair has nothing to
+        # derive from, so a parent with no lines at all derives the budget alone.
+        root, a = _ids(2)
+        out = rollup_for_board(
+            {root: None, a: root},
+            {a: _fig(4, 0, 6, 0)},
+            {a: BUDGET_ONLY},
+            {root: (None, None), a: (None, None)},
+        )
+        assert out[root].planned == _planned(4, 6)
+        assert out[root].actual is None
+        out = rollup_for_board(
+            {root: None, a: root},
+            {a: _fig(0, 4, 0, 6)},
+            {a: COST_ONLY},
+            {root: (None, None), a: (None, None)},
+        )
+        assert out[root].planned is None
+        assert out[root].actual == _actual(4, 6)
 
     def test_parent_with_one_own_date_derives_neither_date(self):
         root, child = _ids(2)
@@ -148,10 +218,17 @@ class TestRollupForBoard:
         children_dates = ("2025-01-01", "2028-01-01")
         for own in (("2026-05-01", None), (None, "2026-05-01")):
             out = rollup_for_board(
-                {root: None, child: root}, figures, {root: own, child: children_dates}
+                {root: None, child: root},
+                figures,
+                {child: BOTH},
+                {root: own, child: children_dates},
             )
             assert out[root] == Rollup(
-                descendant_count=1, figures=_fig(1, 1, 1, 1), start_date=None, end_date=None
+                descendant_count=1,
+                planned=_planned(1, 1),
+                actual=_actual(1, 1),
+                start_date=None,
+                end_date=None,
             )
 
     def test_children_without_anything_still_give_a_count(self):
@@ -159,10 +236,13 @@ class TestRollupForBoard:
         out = rollup_for_board(
             {root: None, a: root, b: root},
             {},
+            {},
             {root: (None, None), a: (None, None), b: (None, None)},
         )
         assert out == {
-            root: Rollup(descendant_count=2, figures=None, start_date=None, end_date=None)
+            root: Rollup(
+                descendant_count=2, planned=None, actual=None, start_date=None, end_date=None
+            )
         }
 
     def test_one_line_anywhere_beneath_is_enough_to_derive(self):
@@ -170,10 +250,66 @@ class TestRollupForBoard:
         out = rollup_for_board(
             {root: None, mid: root, leaf: mid},
             {leaf: _fig(0, 0, 0, 0)},
+            {leaf: BOTH},
             {root: (None, None), mid: (None, None), leaf: (None, None)},
         )
-        assert out[root].figures == _fig(0, 0, 0, 0)
-        assert out[mid].figures == _fig(0, 0, 0, 0)
+        assert out[root].planned == _planned(0, 0)
+        assert out[root].actual == _actual(0, 0)
+        assert out[mid].planned == _planned(0, 0)
 
     def test_empty_board(self):
-        assert rollup_for_board({}, {}, {}) == {}
+        assert rollup_for_board({}, {}, {}, {}) == {}
+
+
+def _payload(by_year, capex_undated=0.0, opex_undated=0.0):
+    return {
+        "byYear": [
+            {
+                "year": year,
+                "capexBudget": cb,
+                "opexBudget": ob,
+                "capexActual": ca,
+                "opexActual": oa,
+                "totalBudget": 999,
+                "capexPlanned": 999,
+            }
+            for year, cb, ob, ca, oa in by_year
+        ],
+        "unscheduledCapexActual": capex_undated,
+        "unscheduledOpexActual": opex_undated,
+        "unscheduledActual": 999,
+    }
+
+
+def _year(year, cb=0.0, ob=0.0, ca=0.0, oa=0.0):
+    return {
+        "year": year,
+        "capex_budget": cb,
+        "opex_budget": ob,
+        "capex_actual": ca,
+        "opex_actual": oa,
+    }
+
+
+class TestSumByYear:
+    def test_sums_each_year_across_payloads_ascending_with_undated_last(self):
+        out = sum_by_year(
+            [
+                _payload([(2026, 100, 10, 40, 4), (2024, 1, 2, 3, 4)], capex_undated=5),
+                _payload([(2025, 7, 0, 0, 0), (2026, 200, 20, 60, 6)], opex_undated=2),
+            ]
+        )
+        assert out == [
+            _year(2024, 1, 2, 3, 4),
+            _year(2025, cb=7),
+            _year(2026, 300, 30, 100, 10),
+            _year(None, ca=5, oa=2),
+        ]
+
+    def test_all_zero_entries_are_dropped(self):
+        out = sum_by_year([_payload([(2025, 0, 0, 0, 0), (2026, 0, 0, 0, 1)])])
+        assert out == [_year(2026, oa=1)]
+
+    def test_nothing_to_sum(self):
+        assert sum_by_year([]) == []
+        assert sum_by_year([_payload([])]) == []

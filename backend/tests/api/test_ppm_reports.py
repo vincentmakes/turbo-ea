@@ -360,14 +360,42 @@ class TestPpmGanttRollup:
         assert items["A"]["rollup"] is None
         assert items["A"]["capex_planned"] == 100
 
-    async def test_parent_with_a_zero_line_keeps_its_own(self, client, db, ppm_env):
+    async def test_parent_with_a_zero_budget_line_keeps_its_budget_but_derives_actuals(
+        self, client, db, ppm_env
+    ):
+        # Budget and costs derive on their own: a program that holds the budget
+        # while its projects record the spend shows its projects' actuals.
         program = await create_card(db, card_type="Initiative", name="Program")
         child = await create_card(db, card_type="Initiative", name="Child", parent_id=program.id)
         await create_budget_line(db, initiative_id=program.id, category="capex", amount=0)
-        await self._lines(db, child, capex=100)
+        await self._lines(db, child, capex=100, capex_actual=30, opex_actual=3)
 
         rollup = (await self._by_name(client, ppm_env["admin"]))["Program"]["rollup"]
         assert rollup["descendant_count"] == 1
+        assert (rollup["capex_planned"], rollup["opex_planned"]) == (None, None)
+        assert (rollup["capex_actual"], rollup["opex_actual"]) == (30, 3)
+
+    async def test_parent_with_cost_lines_only_derives_its_budget(self, client, db, ppm_env):
+        program = await create_card(db, card_type="Initiative", name="Program")
+        child = await create_card(db, card_type="Initiative", name="Child", parent_id=program.id)
+        await create_cost_line(db, initiative_id=program.id, category="opex", actual=9)
+        await self._lines(db, child, capex=100, opex=10, capex_actual=30)
+
+        items = await self._by_name(client, ppm_env["admin"])
+        rollup = items["Program"]["rollup"]
+        assert (rollup["capex_planned"], rollup["opex_planned"]) == (100, 10)
+        assert (rollup["capex_actual"], rollup["opex_actual"]) == (None, None)
+        # Its own actuals stay on the row itself.
+        assert items["Program"]["opex_actual"] == 9
+
+    async def test_parent_with_both_kinds_of_line_derives_no_costs(self, client, db, ppm_env):
+        program = await create_card(db, card_type="Initiative", name="Program")
+        child = await create_card(db, card_type="Initiative", name="Child", parent_id=program.id)
+        await create_budget_line(db, initiative_id=program.id, category="capex", amount=0)
+        await create_cost_line(db, initiative_id=program.id, category="capex", actual=0)
+        await self._lines(db, child, capex=100, capex_actual=30)
+
+        rollup = (await self._by_name(client, ppm_env["admin"]))["Program"]["rollup"]
         assert [rollup[k] for k in ("capex_planned", "capex_actual", "opex_planned")] == [
             None,
             None,

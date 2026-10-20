@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy import select
 
@@ -107,6 +109,24 @@ class TestRollupEndpoint:
             "total_actual": 110,
             "start_date": "2026-01-15",
             "end_date": "2027-06-30",
+            "has_budget_lines": True,
+            "has_cost_lines": True,
+            "by_year": [
+                {
+                    "year": 2025,
+                    "capex_budget": 300,
+                    "opex_budget": 30,
+                    "capex_actual": 0,
+                    "opex_actual": 0,
+                },
+                {
+                    "year": None,
+                    "capex_budget": 0,
+                    "opex_budget": 0,
+                    "capex_actual": 100,
+                    "opex_actual": 10,
+                },
+            ],
         }
 
         mid_resp = (await client.get(_url(mid), headers=auth_headers(env["admin"]))).json()
@@ -181,6 +201,9 @@ class TestRollupEndpoint:
             "total_actual": 0,
             "start_date": None,
             "end_date": None,
+            "has_budget_lines": True,
+            "has_cost_lines": True,
+            "by_year": [],
         }
 
     async def test_non_initiative_child_ignored(self, client, db, env):
@@ -195,3 +218,121 @@ class TestRollupEndpoint:
         body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
         assert body["descendant_count"] == 0
         assert body["start_date"] is None
+
+
+class TestRollupPerSide:
+    async def test_presence_of_a_root_with_budget_lines_only(self, client, db, env):
+        root = await create_card(db, card_type="Initiative", name="Root")
+        await create_budget_line(db, initiative_id=root.id, category="capex", amount=0)
+        child = await create_card(db, card_type="Initiative", name="Child", parent_id=root.id)
+        await create_cost_line(db, initiative_id=child.id, category="opex", actual=3)
+        body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
+        assert body["has_budget_lines"] is True
+        assert body["has_cost_lines"] is False
+        # The child's own presence is not the root's.
+        child_body = (await client.get(_url(child), headers=auth_headers(env["admin"]))).json()
+        assert child_body["has_budget_lines"] is False
+        assert child_body["has_cost_lines"] is True
+
+    async def test_presence_of_a_root_with_cost_lines_only(self, client, db, env):
+        root = await create_card(db, card_type="Initiative", name="Root")
+        await create_cost_line(db, initiative_id=root.id, category="capex", actual=0)
+        body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
+        assert body["has_budget_lines"] is False
+        assert body["has_cost_lines"] is True
+
+    async def test_by_year_sums_three_levels_with_mixed_fiscal_years(self, client, db, env):
+        root = await create_card(db, card_type="Initiative", name="Root")
+        # The root's own lines never land in its by_year.
+        await create_budget_line(
+            db, initiative_id=root.id, fiscal_year=2026, category="capex", amount=9999
+        )
+        mid = await create_card(db, card_type="Initiative", name="Mid", parent_id=root.id)
+        leaf = await create_card(db, card_type="Initiative", name="Leaf", parent_id=mid.id)
+        await create_budget_line(
+            db, initiative_id=mid.id, fiscal_year=2026, category="capex", amount=100
+        )
+        await create_budget_line(
+            db, initiative_id=leaf.id, fiscal_year=2026, category="opex", amount=20
+        )
+        await create_budget_line(
+            db, initiative_id=leaf.id, fiscal_year=2024, category="capex", amount=5
+        )
+        await create_cost_line(
+            db, initiative_id=mid.id, category="capex", actual=40, date=date(2026, 3, 1)
+        )
+        await create_cost_line(
+            db, initiative_id=leaf.id, category="opex", actual=6, date=date(2027, 2, 1)
+        )
+        await create_cost_line(db, initiative_id=leaf.id, category="opex", actual=8, date=None)
+
+        body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
+        assert body["by_year"] == [
+            {
+                "year": 2024,
+                "capex_budget": 5,
+                "opex_budget": 0,
+                "capex_actual": 0,
+                "opex_actual": 0,
+            },
+            {
+                "year": 2026,
+                "capex_budget": 100,
+                "opex_budget": 20,
+                "capex_actual": 40,
+                "opex_actual": 0,
+            },
+            {
+                "year": 2027,
+                "capex_budget": 0,
+                "opex_budget": 0,
+                "capex_actual": 0,
+                "opex_actual": 6,
+            },
+            {
+                "year": None,
+                "capex_budget": 0,
+                "opex_budget": 0,
+                "capex_actual": 0,
+                "opex_actual": 8,
+            },
+        ]
+
+    async def test_fiscal_year_start_moves_a_cost_line_into_the_next_year(self, client, db, env):
+        from app.models.app_settings import AppSettings
+
+        await db.merge(AppSettings(id="default", general_settings={"fiscalYearStart": 10}))
+        await db.flush()
+        root = await create_card(db, card_type="Initiative", name="Root")
+        child = await create_card(db, card_type="Initiative", name="Child", parent_id=root.id)
+        await create_cost_line(
+            db, initiative_id=child.id, category="capex", actual=7, date=date(2025, 11, 1)
+        )
+        body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
+        assert [(y["year"], y["capex_actual"]) for y in body["by_year"]] == [(2026, 7)]
+
+    async def test_archived_and_hidden_descendants_stay_out_of_by_year(self, client, db, env):
+        member = env["member"]
+        await create_stakeholder_role_def(
+            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+        )
+        from app.models.stakeholder import Stakeholder
+
+        root = await create_card(db, card_type="Initiative", name="Root")
+        seen = await create_card(db, card_type="Initiative", name="Seen", parent_id=root.id)
+        hidden = await create_card(db, card_type="Initiative", name="Hidden", parent_id=root.id)
+        gone = await create_card(
+            db, card_type="Initiative", name="Gone", parent_id=root.id, status="ARCHIVED"
+        )
+        for card, amount in ((seen, 10), (hidden, 500), (gone, 700)):
+            await create_budget_line(
+                db, initiative_id=card.id, fiscal_year=2026, category="capex", amount=amount
+            )
+        for card in (root, seen):
+            db.add(Stakeholder(card_id=card.id, user_id=member.id, role="responsible"))
+        await _deny_initiative_view_to_members(db)
+
+        body = (await client.get(_url(root), headers=auth_headers(member))).json()
+        assert [(y["year"], y["capex_budget"]) for y in body["by_year"]] == [(2026, 10)]
+        admin_body = (await client.get(_url(root), headers=auth_headers(env["admin"]))).json()
+        assert [(y["year"], y["capex_budget"]) for y in admin_body["by_year"]] == [(2026, 510)]

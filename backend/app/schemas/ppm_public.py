@@ -45,8 +45,9 @@ class PpmPublicReport(BaseModel):
 class PpmPublicRollup(BaseModel):
     """What a parent row shows in place of costs or dates it has not got.
 
-    Carries no identifier. The cost quartet is ``None`` whenever the portal hides
-    costs; the dates and the count are published like the row's own dates.
+    Carries no identifier. The planned and actual pairs are derived on their own
+    (see ``PpmRollup``) and both read ``None`` whenever the portal hides costs;
+    the dates and the count are published like the row's own dates.
     """
 
     descendant_count: int
