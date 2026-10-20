@@ -18,7 +18,7 @@ import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { KPI_VALUE_SX } from "./ppmStyles";
 import DerivedValue from "./DerivedValue";
 import { financialTotals } from "./derivedFinancials";
-import { compactAmount } from "./ppmPortfolioFormat";
+import { compactAmount, costPair } from "./ppmPortfolioFormat";
 import type {
   Card,
   PpmStatusReport,
@@ -40,23 +40,6 @@ interface Props {
   budgetLines: PpmBudgetLine[];
   /** The initiatives beneath this one (`null` while unknown or unreadable). */
   rollup: PpmRollupOut | null;
-}
-
-/** Format a number compactly. Pass `scale` to force a shared magnitude so a
- * budget/actual pair renders against one unit suffix. */
-function fmtK(n: number, scale?: Scale): string {
-  const s = scale ?? magnitude(n);
-  if (s === "M") return (n / 1_000_000).toFixed(1);
-  if (s === "k") return (n / 1_000).toFixed(0);
-  return String(Math.round(n));
-}
-
-type Scale = "M" | "k" | "";
-
-function magnitude(n: number): Scale {
-  if (Math.abs(n) >= 1_000_000) return "M";
-  if (Math.abs(n) >= 1_000) return "k";
-  return "";
 }
 
 /** The "beneath this initiative" block under the Financials bars. */
@@ -121,12 +104,9 @@ function BudgetBar({
   const pct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
   const over = actual > budget && budget > 0;
   const color = over ? overColor : barColor;
-  // One shared scale for both figures, and a unit suffix that matches it.
-  // Deriving them separately rendered a 2.5M budget as "1.7M/2.5M kCHF".
-  const scale = magnitude(Math.max(Math.abs(budget), Math.abs(actual)));
-  const unit = `${scale}${currency}`;
-  const aVal = fmtK(actual, scale);
-  const pVal = fmtK(budget, scale);
+  // One shared scale for both figures and a unit suffix that matches it (the
+  // board's cost bars read the same helper, so the two cannot drift again).
+  const { actualText: aVal, plannedText: pVal, unit } = costPair(actual, budget, currency);
 
   return (
     <Box sx={{ mb: 1.5 }}>

@@ -90,9 +90,13 @@ export function useCurrency() {
     };
   }, [baseFmt, currency]);
 
-  /** Short format for tight spaces: e.g. $450k, €1.2M */
+  /** Short format for tight spaces: e.g. $450k, €1.2M. One decimal in the
+   * millions, none in the thousands; the symbol always leads. */
   const fmtShort = useCallback(
     (v: number) => {
+      if (Math.abs(v) >= 1_000_000) {
+        return `${symbol}${(v / 1_000_000).toFixed(1)}M`;
+      }
       if (Math.abs(v) >= 1_000) {
         return `${symbol}${(v / 1_000).toFixed(0)}k`;
       }

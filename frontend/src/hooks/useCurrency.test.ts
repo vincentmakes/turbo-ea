@@ -49,6 +49,15 @@ describe("useCurrency", () => {
     expect(short).toContain("5k");
   });
 
+  it("fmtShort abbreviates millions with one decimal, never as thousands", () => {
+    vi.mocked(api.get).mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useCurrency());
+    expect(result.current.fmtShort(12_000_000)).toBe("$12.0M");
+    expect(result.current.fmtShort(1_250_000)).toBe("$1.3M");
+    expect(result.current.fmtShort(999_999)).toBe("$1000k");
+    expect(result.current.fmtShort(-2_000_000)).toBe("$-2.0M");
+  });
+
   it("fmtShort formats small numbers normally", () => {
     vi.mocked(api.get).mockReturnValue(new Promise(() => {}));
     const { result } = renderHook(() => useCurrency());

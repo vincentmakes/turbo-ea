@@ -226,6 +226,19 @@ describe("costBarModel", () => {
       plannedText: "900",
     });
   });
+
+  it("reads both figures in one scale with a unit that matches it", () => {
+    expect(costBarModel(1_500_000, 2_100_000, "CHF")).toMatchObject({
+      unit: "MCHF",
+      actualText: "1.5",
+      plannedText: "2.1",
+    });
+    expect(costBarModel(773_000, 1_400_000, "CHF")).toMatchObject({
+      unit: "MCHF",
+      actualText: "0.8",
+      plannedText: "1.4",
+    });
+  });
 });
 
 describe("groupTotals", () => {

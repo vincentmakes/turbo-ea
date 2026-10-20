@@ -3,7 +3,8 @@ import {
   fmtQuarter,
   fmtMonthYear,
   fmtK,
-  costUnit,
+  magnitude,
+  costPair,
   compactAmount,
   getQuarters,
 } from "./ppmPortfolioFormat";
@@ -39,21 +40,61 @@ describe("fmtMonthYear", () => {
   });
 });
 
+describe("magnitude", () => {
+  it("reads a figure in millions, thousands or as it is, sign ignored", () => {
+    expect(magnitude(0)).toBe("");
+    expect(magnitude(999)).toBe("");
+    expect(magnitude(1_000)).toBe("k");
+    expect(magnitude(999_999)).toBe("k");
+    expect(magnitude(1_000_000)).toBe("M");
+    expect(magnitude(-2_000_000)).toBe("M");
+  });
+});
+
 describe("fmtK", () => {
-  it("leaves values below a thousand alone", () => {
-    expect(fmtK(0)).toBe("0");
-    expect(fmtK(999)).toBe("999");
-    expect(fmtK(12.4)).toBe("12");
+  it("renders the digits of a figure in the scale it is given", () => {
+    expect(fmtK(0, "")).toBe("0");
+    expect(fmtK(12.4, "")).toBe("12");
+    expect(fmtK(1_000, "k")).toBe("1");
+    expect(fmtK(578_000, "k")).toBe("578");
+    expect(fmtK(1_500_000, "M")).toBe("1.5");
+    expect(fmtK(-2_000_000, "M")).toBe("-2.0");
   });
 
-  it("renders thousands as a rounded count of thousands", () => {
-    expect(fmtK(1_000)).toBe("1");
-    expect(fmtK(578_000)).toBe("578");
+  it("keeps a smaller figure in the shared scale rather than its own", () => {
+    expect(fmtK(773_000, "M")).toBe("0.8");
+    expect(fmtK(250, "k")).toBe("0");
+  });
+});
+
+describe("costPair", () => {
+  it("keeps the bare currency for small figures", () => {
+    expect(costPair(250, 500, "EUR")).toEqual({ actualText: "250", plannedText: "500", unit: "EUR" });
+    expect(costPair(0, 0, "EUR")).toEqual({ actualText: "0", plannedText: "0", unit: "EUR" });
   });
 
-  it("renders millions with one decimal", () => {
-    expect(fmtK(1_500_000)).toBe("1.5M");
-    expect(fmtK(-2_000_000)).toBe("-2.0M");
+  it("switches both figures to thousands once either side reaches a thousand", () => {
+    expect(costPair(578, 1_350, "CHF")).toEqual({ actualText: "1", plannedText: "1", unit: "kCHF" });
+    expect(costPair(2_000, 500, "CHF")).toEqual({ actualText: "2", plannedText: "1", unit: "kCHF" });
+  });
+
+  it("reads both figures in millions, with one unit, once either side reaches a million", () => {
+    // The board used to render these as "1.5M/2.1M kCHF" and "773/1.4M kCHF".
+    expect(costPair(1_500_000, 2_100_000, "CHF")).toEqual({
+      actualText: "1.5",
+      plannedText: "2.1",
+      unit: "MCHF",
+    });
+    expect(costPair(773_000, 1_400_000, "CHF")).toEqual({
+      actualText: "0.8",
+      plannedText: "1.4",
+      unit: "MCHF",
+    });
+  });
+
+  it("takes the scale from the larger magnitude whichever side it is on", () => {
+    expect(costPair(3_000_000, 400, "USD").unit).toBe("MUSD");
+    expect(costPair(-3_000_000, 400, "USD").unit).toBe("MUSD");
   });
 });
 
@@ -77,18 +118,6 @@ describe("compactAmount", () => {
     expect(compactAmount(1_000_000, "CHF", exact)).toBe("1 MCHF");
     expect(compactAmount(5_710_000, "CHF", exact)).toBe("5.7 MCHF");
     expect(compactAmount(-2_050_000, "EUR", exact)).toBe("-2.1 MEUR");
-  });
-});
-
-describe("costUnit", () => {
-  it("switches to the thousands unit once either side reaches a thousand", () => {
-    expect(costUnit(1_350, 578, "CHF")).toBe("kCHF");
-    expect(costUnit(500, 2_000, "CHF")).toBe("kCHF");
-  });
-
-  it("keeps the bare currency for small figures", () => {
-    expect(costUnit(500, 250, "EUR")).toBe("EUR");
-    expect(costUnit(0, 0, "EUR")).toBe("EUR");
   });
 });
 

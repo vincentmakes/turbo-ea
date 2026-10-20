@@ -367,8 +367,8 @@ function CumulativeChart(props: {
             tick={isRtl ? rtlTick : theme.axisTick}
             tickLine={false}
             // Measured from the rendered ticks (Recharts 3.7): a fixed width
-            // clipped long labels once costs ran to millions, since fmtShort
-            // only abbreviates to thousands ("$12000k", "CHF12000k").
+            // clipped long labels ("CHF12000k" before fmtShort learned "M",
+            // and still a four-digit "CHF9999k" just under a million).
             width="auto"
             orientation={isRtl ? "right" : "left"}
             tickFormatter={(v: number) => fmtShort(v)}

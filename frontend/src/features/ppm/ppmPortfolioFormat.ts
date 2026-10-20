@@ -58,20 +58,42 @@ export function getQuarters(startMonth: Date, months: number) {
   return qs;
 }
 
-/** Format a number in compact "k" notation with thousands separator */
-export function fmtK(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) {
-    const k = n / 1_000;
-    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(k);
-  }
+/** The magnitude a figure is read in: millions, thousands, or as it is. */
+export type Scale = "M" | "k" | "";
+
+export function magnitude(n: number): Scale {
+  if (Math.abs(n) >= 1_000_000) return "M";
+  if (Math.abs(n) >= 1_000) return "k";
+  return "";
+}
+
+/** A figure in a given scale, digits only: 1.5 (M), 578 (k), 250 (bare). */
+export function fmtK(n: number, scale: Scale): string {
+  if (scale === "M") return (n / 1_000_000).toFixed(1);
+  if (scale === "k") return (n / 1_000).toFixed(0);
   return String(Math.round(n));
 }
 
-/** Determine the "k" suffix: values in thousands → "k{CUR}", otherwise "{CUR}" */
-export function costUnit(planned: number, actual: number, currency: string): string {
-  if (Math.abs(planned) >= 1_000 || Math.abs(actual) >= 1_000) return `k${currency}`;
-  return currency;
+/**
+ * The two figures of a cost bar and their one unit suffix.
+ *
+ * The scale is chosen ONCE, from the larger of the two, and the suffix follows
+ * it, so the pair reads "1.5/2.1 MCHF" or "578/900 kCHF". Choosing a scale per
+ * figure and the suffix from a third rule is how the board rendered
+ * "1.5M/2.1M kCHF" and "773/1.4M kCHF" (the Overview had already fixed the
+ * same bug on its own copy; this is the one copy both now use).
+ */
+export function costPair(
+  actual: number,
+  planned: number,
+  currency: string,
+): { actualText: string; plannedText: string; unit: string } {
+  const scale = magnitude(Math.max(Math.abs(actual), Math.abs(planned)));
+  return {
+    actualText: fmtK(actual, scale),
+    plannedText: fmtK(planned, scale),
+    unit: `${scale}${currency}`,
+  };
 }
 
 /**

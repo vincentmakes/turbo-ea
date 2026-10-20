@@ -23,7 +23,7 @@ import type {
   PpmPortfolioPerson,
   PpmRollup,
 } from "@/types";
-import { COST_BAR_COLOR, RAG, RAG_LABEL, RAG_NONE, costUnit, fmtK } from "./ppmPortfolioFormat";
+import { COST_BAR_COLOR, RAG, RAG_LABEL, RAG_NONE, costPair } from "./ppmPortfolioFormat";
 
 /** i18next's `t`, narrowed to the call shape the board uses. */
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -160,9 +160,7 @@ export function costBarModel(
     overBudget: actual > planned && planned > 0,
     fillPct: Math.min(pct, 100),
     overPct: Math.min(pct, 130),
-    unit: costUnit(planned, actual, currency),
-    actualText: fmtK(actual),
-    plannedText: fmtK(planned),
+    ...costPair(actual, planned, currency),
   };
 }
 
