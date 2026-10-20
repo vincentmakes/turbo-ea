@@ -8721,6 +8721,16 @@
             ],
             "title": "Parent Id"
           },
+          "rollup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmRollup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stakeholders": {
             "default": [],
             "items": {
@@ -9035,6 +9045,16 @@
             ],
             "title": "Parent Id"
           },
+          "rollup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PpmPublicRollup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stakeholders": {
             "default": [],
             "items": {
@@ -9209,6 +9229,86 @@
           "scope_health"
         ],
         "title": "PpmPublicReport",
+        "type": "object"
+      },
+      "PpmPublicRollup": {
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nCarries no identifier. The cost quartet is ``None`` whenever the portal hides\ncosts; the dates and the count are published like the row's own dates.",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmPublicRollup",
         "type": "object"
       },
       "PpmRiskCreate": {
@@ -9477,6 +9577,152 @@
           }
         },
         "title": "PpmRiskUpdate",
+        "type": "object"
+      },
+      "PpmRollup": {
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe cost quartet is all set or all ``None``: set only when the parent has no\nbudget or cost line of its own. The dates are set only when it has neither a\nstart nor an end date. ``descendant_count`` is the number of initiatives\nbeneath it on the board (``app.services.ppm_rollup``).",
+        "properties": {
+          "capex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Actual"
+          },
+          "capex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capex Planned"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "opex_actual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Actual"
+          },
+          "opex_planned": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opex Planned"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmRollup",
+        "type": "object"
+      },
+      "PpmRollupOut": {
+        "description": "``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.\n\nAlways summed over the descendants alone, never including the initiative's\nown lines or dates \u2014 the Overview tab shows it beside those.",
+        "properties": {
+          "capex_actual": {
+            "default": 0,
+            "title": "Capex Actual",
+            "type": "number"
+          },
+          "capex_planned": {
+            "default": 0,
+            "title": "Capex Planned",
+            "type": "number"
+          },
+          "descendant_count": {
+            "title": "Descendant Count",
+            "type": "integer"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "opex_actual": {
+            "default": 0,
+            "title": "Opex Actual",
+            "type": "number"
+          },
+          "opex_planned": {
+            "default": 0,
+            "title": "Opex Planned",
+            "type": "number"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "total_actual": {
+            "default": 0,
+            "title": "Total Actual",
+            "type": "number"
+          },
+          "total_planned": {
+            "default": 0,
+            "title": "Total Planned",
+            "type": "number"
+          }
+        },
+        "required": [
+          "descendant_count"
+        ],
+        "title": "PpmRollupOut",
         "type": "object"
       },
       "PpmStatusReportCreate": {
@@ -31411,6 +31657,49 @@
           }
         },
         "summary": "Create Risk",
+        "tags": [
+          "ppm"
+        ]
+      }
+    },
+    "/api/v1/ppm/initiatives/{initiative_id}/rollup": {
+      "get": {
+        "description": "Count, cost sums and date span of the initiatives beneath this one.\n\nRead live and never stored: a stored roll-up would go stale on a child's\nedit, a re-parent, an archive or a restore. Only initiatives the caller may\nsee count.",
+        "operationId": "initiative_rollup_api_v1_ppm_initiatives__initiative_id__rollup_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "initiative_id",
+            "required": true,
+            "schema": {
+              "title": "Initiative Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PpmRollupOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Initiative Rollup",
         "tags": [
           "ppm"
         ]

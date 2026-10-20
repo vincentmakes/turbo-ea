@@ -42,6 +42,22 @@ class PpmPublicReport(BaseModel):
     next_steps: str | None = None
 
 
+class PpmPublicRollup(BaseModel):
+    """What a parent row shows in place of costs or dates it has not got.
+
+    Carries no identifier. The cost quartet is ``None`` whenever the portal hides
+    costs; the dates and the count are published like the row's own dates.
+    """
+
+    descendant_count: int
+    capex_planned: float | None = None
+    capex_actual: float | None = None
+    opex_planned: float | None = None
+    opex_actual: float | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
 class PpmPublicItem(BaseModel):
     """One board row.
 
@@ -68,6 +84,7 @@ class PpmPublicItem(BaseModel):
     opex_actual: float | None = None
     stakeholders: list[PpmPublicPerson] = []
     latest_report: PpmPublicReport | None = None
+    rollup: PpmPublicRollup | None = None
 
 
 class PpmPublicDashboard(BaseModel):

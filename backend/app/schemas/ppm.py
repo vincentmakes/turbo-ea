@@ -314,6 +314,42 @@ class PpmGanttStakeholder(BaseModel):
     role_key: str
 
 
+class PpmRollup(BaseModel):
+    """What a parent row shows in place of costs or dates it has not got.
+
+    The cost quartet is all set or all ``None``: set only when the parent has no
+    budget or cost line of its own. The dates are set only when it has neither a
+    start nor an end date. ``descendant_count`` is the number of initiatives
+    beneath it on the board (``app.services.ppm_rollup``).
+    """
+
+    descendant_count: int
+    capex_planned: float | None = None
+    capex_actual: float | None = None
+    opex_planned: float | None = None
+    opex_actual: float | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class PpmRollupOut(BaseModel):
+    """``GET /ppm/initiatives/{id}/rollup``: the initiatives beneath one initiative.
+
+    Always summed over the descendants alone, never including the initiative's
+    own lines or dates — the Overview tab shows it beside those.
+    """
+
+    descendant_count: int
+    capex_planned: float = 0
+    capex_actual: float = 0
+    opex_planned: float = 0
+    opex_actual: float = 0
+    total_planned: float = 0
+    total_actual: float = 0
+    start_date: str | None = None
+    end_date: str | None = None
+
+
 class PpmGanttItem(BaseModel):
     id: str
     name: str
@@ -333,6 +369,7 @@ class PpmGanttItem(BaseModel):
     latest_report: PpmStatusReportOut | None = None
     latest_report_id: str | None = None
     stakeholders: list[PpmGanttStakeholder] = []
+    rollup: PpmRollup | None = None
 
 
 class PpmGroupOption(BaseModel):

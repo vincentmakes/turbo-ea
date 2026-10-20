@@ -34,6 +34,7 @@ from app.schemas.ppm import (
     PpmRiskCreate,
     PpmRiskOut,
     PpmRiskUpdate,
+    PpmRollupOut,
     PpmStatusReportCreate,
     PpmStatusReportOut,
     PpmStatusReportUpdate,
@@ -50,11 +51,12 @@ from app.schemas.ppm import (
 )
 from app.services import notification_service
 from app.services.calculation_ppm import root_wbs_completion_map
-from app.services.card_read_scope import is_card_readable
+from app.services.card_read_scope import CardReadScope, is_card_readable
 from app.services.card_write_service import recalculate_and_rescore
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.ppm_ancestors import active_initiative_ancestors
+from app.services.ppm_portfolio_service import build_initiative_rollup
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
 
@@ -562,6 +564,26 @@ async def has_costs(
         "has_budget_lines": (budget_result.scalar() or 0) > 0,
         "has_cost_lines": (cost_result.scalar() or 0) > 0,
     }
+
+
+# ── Roll-up of the initiatives beneath one (Overview tab) ──
+
+
+@router.get("/initiatives/{initiative_id}/rollup", response_model=PpmRollupOut)
+async def initiative_rollup(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Count, cost sums and date span of the initiatives beneath this one.
+
+    Read live and never stored: a stored roll-up would go stale on a child's
+    edit, a re-parent, an archive or a restore. Only initiatives the caller may
+    see count.
+    """
+    await PermissionService.require_permission(db, user, "ppm.view")
+    card = await _get_initiative_or_404(db, initiative_id, user)
+    return await build_initiative_rollup(db, card, await CardReadScope.load(db, user))
 
 
 # ── Risks ──────────────────────────────────────────────────────────

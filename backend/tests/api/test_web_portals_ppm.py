@@ -428,6 +428,82 @@ class TestPublicPortfolioScope:
         assert [i["name"] for i in body["items"]] == ["ERP Replacement"]
 
 
+class TestPublicPortfolioRollup:
+    """A parent without lines or dates of its own publishes what is beneath it."""
+
+    @staticmethod
+    async def _program(db):
+        program = await create_card(
+            db, card_type="Initiative", name="Transformation", subtype="Program"
+        )
+        phase = await create_card(
+            db,
+            card_type="Initiative",
+            name="ERP Phase 1",
+            subtype="Project",
+            parent_id=program.id,
+            attributes={"startDate": "2026-02-01", "endDate": "2026-08-31"},
+        )
+        pilot = await create_card(
+            db,
+            card_type="Initiative",
+            name="Pilot",
+            subtype="Epic",
+            parent_id=program.id,
+            attributes={"startDate": "2025-06-01", "endDate": "2027-03-31"},
+        )
+        await _add_budget_and_cost(db, phase, planned=400.0, actual=100.0)
+        await _add_budget_and_cost(db, pilot, planned=30.0, actual=3.0)
+        return program
+
+    async def test_costs_and_dates_published_with_costs_on(self, client, db, ppm_portal_env):
+        await self._program(db)
+        items = {i["name"]: i for i in (await client.get(PUBLIC)).json()["items"]}
+        assert items["Transformation"]["rollup"] == {
+            "descendant_count": 2,
+            "capex_planned": 430.0,
+            "capex_actual": 103.0,
+            "opex_planned": 0.0,
+            "opex_actual": 0.0,
+            "start_date": "2025-06-01",
+            "end_date": "2027-03-31",
+        }
+        assert items["Transformation"]["capex_planned"] == 0
+        assert items["ERP Phase 1"]["rollup"] is None
+
+    async def test_costs_withheld_dates_kept_with_costs_off(self, client, db, ppm_portal_env):
+        await self._program(db)
+        await _set_toggles(
+            client, ppm_portal_env["admin"], ppm_portal_env["portal_id"], show_costs=False
+        )
+        items = {i["name"]: i for i in (await client.get(PUBLIC)).json()["items"]}
+        assert items["Transformation"]["rollup"] == {
+            "descendant_count": 2,
+            "capex_planned": None,
+            "capex_actual": None,
+            "opex_planned": None,
+            "opex_actual": None,
+            "start_date": "2025-06-01",
+            "end_date": "2027-03-31",
+        }
+
+    async def test_child_outside_the_portal_filter_adds_nothing(self, client, db, ppm_portal_env):
+        await self._program(db)
+        resp = await client.patch(
+            f"/api/v1/web-portals/{ppm_portal_env['portal_id']}",
+            json={"filters": {"subtypes": ["Program", "Project"]}},
+            headers=auth_headers(ppm_portal_env["admin"]),
+        )
+        assert resp.status_code == 200
+        items = {i["name"]: i for i in (await client.get(PUBLIC)).json()["items"]}
+        assert "Pilot" not in items
+        rollup = items["Transformation"]["rollup"]
+        assert rollup["descendant_count"] == 1
+        assert rollup["capex_planned"] == 400.0
+        assert rollup["capex_actual"] == 100.0
+        assert (rollup["start_date"], rollup["end_date"]) == ("2026-02-01", "2026-08-31")
+
+
 class TestPublicPortfolioGuards:
     async def test_unpublished_portal_404s(self, client, db, ppm_portal_env):
         resp = await client.patch(
