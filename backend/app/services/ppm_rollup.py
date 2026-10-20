@@ -126,7 +126,7 @@ def anchor_groups(
         top: uuid.UUID | None = None
         # An id that is not a key of ``parents`` is not on the board: the walk
         # ends there, which also covers ``None`` (a root).
-        while node in parents and node not in seen:
+        while node is not None and node in parents and node not in seen:
             seen.add(node)
             if subtype_of.get(node) == key:
                 top = node
