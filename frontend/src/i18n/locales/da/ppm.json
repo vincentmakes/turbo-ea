@@ -200,5 +200,14 @@
   "toggleYear": "Vis eller skjul linjerne: {{year}}",
   "addLineForYear": "Tilføj en budgetlinje for {{year}}",
   "lineCount_one": "{{count}} linje",
-  "lineCount_other": "{{count}} linjer"
+  "lineCount_other": "{{count}} linjer",
+  "showHierarchy": "Vis hierarki",
+  "displayDepth": "Visningsdybde",
+  "levelN": "Niveau {{n}}",
+  "allLevels": "Alle niveauer",
+  "subGroupBySubtype": "Undergruppér efter undertype",
+  "subGroupDisabledWithHierarchy": "Slå hierarkiet fra for at undergruppere efter undertype: træet omfatter allerede alle undertyper.",
+  "parentColumn": "Overordnet",
+  "toggleChildren": "Vis eller skjul de underordnede: {{name}}",
+  "printOn": "Til"
 }

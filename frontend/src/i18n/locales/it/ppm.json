@@ -200,5 +200,14 @@
   "toggleYear": "Mostra o nascondi le righe: {{year}}",
   "addLineForYear": "Aggiungi una riga di budget per {{year}}",
   "lineCount_one": "{{count}} riga",
-  "lineCount_other": "{{count}} righe"
+  "lineCount_other": "{{count}} righe",
+  "showHierarchy": "Mostra gerarchia",
+  "displayDepth": "Profondità di visualizzazione",
+  "levelN": "Livello {{n}}",
+  "allLevels": "Tutti i livelli",
+  "subGroupBySubtype": "Sottoraggruppa per sottotipo",
+  "subGroupDisabledWithHierarchy": "Disattiva la gerarchia per sottoraggruppare per sottotipo: l’albero comprende già tutti i sottotipi.",
+  "parentColumn": "Padre",
+  "toggleChildren": "Mostra o nascondi i figli: {{name}}",
+  "printOn": "Attivo"
 }

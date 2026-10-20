@@ -10,26 +10,36 @@ import { describe, expect, it } from "vitest";
 
 import type { PpmPortfolioItem, PpmPortfolioReport } from "@/types";
 import {
+  ALL_LEVELS,
   barModel,
   buildPortfolioExport,
   buildPrintParams,
   costBarModel,
+  depthLabel,
   filterItems,
   filterSearchParams,
   groupItems,
+  groupLayout,
+  groupRowsInOrder,
   groupTotals,
   groupTypeLabel,
   hasAnyCost,
+  hasHierarchy,
   healthLabelKey,
+  maxTreeDepth,
   money,
   nowPct,
+  parseDepth,
   pctOf,
   portfolioWindow,
   projectManager,
   ragColor,
   subtypeKeys,
+  subGroupId,
   subtypeName,
+  subtypeSubGroups,
   toggleCollapsed,
+  treeRows,
   visibleQuarterLabels,
   type FilterState,
   type PortfolioWindow,
@@ -678,5 +688,323 @@ describe("buildPortfolioExport", () => {
       opexActual: "",
       lastReport: "",
     });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Hierarchy and subtype sub-groups                                   */
+/* ------------------------------------------------------------------ */
+
+// Program P has projects B and A (out of name order); A has a sub-project S.
+// X is a root of its own; Y names a parent that is not on the board.
+const tree = () => [
+  item({ id: "S", name: "Sub", parent_id: "A", subtype: "epic" }),
+  item({ id: "P", name: "Program", subtype: "program" }),
+  item({ id: "B", name: "Beta", parent_id: "P", subtype: "project" }),
+  item({ id: "A", name: "Alpha", parent_id: "P", subtype: "project" }),
+  item({ id: "X", name: "Lone" }),
+  item({ id: "Y", name: "Adrift", parent_id: "gone", subtype: "project" }),
+];
+const shape = (rows: { item: PpmPortfolioItem; depth: number; hasChildren: boolean }[]) =>
+  rows.map((r) => `${r.item.id}@${r.depth}${r.hasChildren ? "+" : ""}`);
+
+describe("hasHierarchy", () => {
+  it("is true only when some row names a parent", () => {
+    expect(hasHierarchy([item({ id: "a" }), item({ id: "b", parent_id: "a" })])).toBe(true);
+    expect(hasHierarchy([item({ id: "a" }), item({ id: "b", parent_id: null })])).toBe(false);
+    expect(hasHierarchy([item({ id: "a", parent_id: "" })])).toBe(false);
+    expect(hasHierarchy([])).toBe(false);
+  });
+});
+
+describe("treeRows", () => {
+  const all = { collapsed: new Set<string>(), maxDepth: ALL_LEVELS };
+
+  it("walks depth first with siblings by name, and makes an absent parent's child a root", () => {
+    expect(shape(treeRows(tree(), all))).toEqual([
+      "Y@0",
+      "X@0",
+      "P@0+",
+      "A@1+",
+      "S@2",
+      "B@1",
+    ]);
+  });
+
+  it("stops at the depth cap, and a row at the cap has no chevron", () => {
+    expect(shape(treeRows(tree(), { ...all, maxDepth: 2 }))).toEqual([
+      "Y@0",
+      "X@0",
+      "P@0+",
+      "A@1",
+      "B@1",
+    ]);
+    expect(shape(treeRows(tree(), { ...all, maxDepth: 1 }))).toEqual(["Y@0", "X@0", "P@0"]);
+    expect(treeRows(tree(), { ...all, maxDepth: 0 })).toEqual([]);
+  });
+
+  it("emits nothing below a collapsed parent, and keeps its chevron", () => {
+    expect(shape(treeRows(tree(), { ...all, collapsed: new Set(["A"]) }))).toEqual([
+      "Y@0",
+      "X@0",
+      "P@0+",
+      "A@1+",
+      "B@1",
+    ]);
+    expect(shape(treeRows(tree(), { ...all, collapsed: new Set(["P"]) }))).toEqual([
+      "Y@0",
+      "X@0",
+      "P@0+",
+    ]);
+  });
+
+  it("nests only within the items it is given: a parent in another group leaves a root", () => {
+    const [sub, , beta] = tree();
+    expect(shape(treeRows([sub, beta], all))).toEqual(["B@0", "S@0"]);
+  });
+
+  it("returns the very items it was given", () => {
+    const items = tree();
+    const rows = treeRows(items, all);
+    expect(rows.find((r) => r.item.id === "S")!.item).toBe(items[0]);
+    expect(rows).toHaveLength(items.length);
+  });
+
+  it("shows the members of a cycle as roots rather than losing them", () => {
+    const cyclic = [
+      item({ id: "a", name: "A", parent_id: "b" }),
+      item({ id: "b", name: "B", parent_id: "a" }),
+      item({ id: "c", name: "C", parent_id: "b" }),
+    ];
+    expect(shape(treeRows(cyclic, all))).toEqual(["a@0", "b@0+", "c@1"]);
+  });
+
+  it("keeps a child under its parent when a cycle sits higher up", () => {
+    const rows = [
+      item({ id: "a", name: "A", parent_id: "b" }),
+      item({ id: "b", name: "B", parent_id: "a" }),
+      item({ id: "c", name: "C", parent_id: "a" }),
+      item({ id: "d", name: "D", parent_id: "c" }),
+    ];
+    expect(shape(treeRows(rows, all))).toEqual(["a@0+", "c@1+", "d@2", "b@0"]);
+  });
+});
+
+describe("maxTreeDepth", () => {
+  it("counts the levels of the deepest chain", () => {
+    expect(maxTreeDepth(tree())).toBe(3);
+    expect(maxTreeDepth([item({ id: "a" }), item({ id: "b" })])).toBe(1);
+    expect(maxTreeDepth([])).toBe(0);
+  });
+});
+
+describe("parseDepth", () => {
+  it("reads a whole number of levels from 1, and anything else as every level", () => {
+    expect(parseDepth("2")).toBe(2);
+    expect(parseDepth("1")).toBe(1);
+    expect(parseDepth(null)).toBe(ALL_LEVELS);
+    expect(parseDepth("0")).toBe(ALL_LEVELS);
+    expect(parseDepth("-1")).toBe(ALL_LEVELS);
+    expect(parseDepth("1.5")).toBe(ALL_LEVELS);
+    expect(parseDepth("deep")).toBe(ALL_LEVELS);
+  });
+
+  it("is the reports' all-levels value", () => {
+    expect(ALL_LEVELS).toBe(99);
+  });
+});
+
+describe("depthLabel", () => {
+  it("names a level, or every level", () => {
+    expect(depthLabel(2, t)).toBe('levelN{"n":2}');
+    expect(depthLabel(99, t)).toBe("allLevels");
+  });
+});
+
+describe("subtypeSubGroups", () => {
+  const label = (key: string | null) => `L:${key ?? "none"}`;
+
+  it("orders sub-groups as the metamodel lists them, unknown ones next, none last", () => {
+    const items = [
+      item({ id: "1", subtype: null }),
+      item({ id: "2", subtype: "project" }),
+      item({ id: "3", subtype: "custom" }),
+      item({ id: "4", subtype: "program" }),
+      item({ id: "5", subtype: "project" }),
+      item({ id: "6", subtype: "" }),
+    ];
+    const subs = subtypeSubGroups("g1", items, ["program", "project"], label);
+    expect(subs.map(([id, g]) => [id, g.name, g.items.map((i) => i.id)])).toEqual([
+      ["g1::program", "L:program", ["4"]],
+      ["g1::project", "L:project", ["2", "5"]],
+      ["g1::custom", "L:custom", ["3"]],
+      ["g1::", "L:none", ["1", "6"]],
+    ]);
+  });
+
+  it("keeps several unknown subtypes in first-seen order", () => {
+    const items = [item({ id: "1", subtype: "zeta" }), item({ id: "2", subtype: "alpha" })];
+    expect(subtypeSubGroups("g", items, [], label).map(([id]) => id)).toEqual([
+      "g::zeta",
+      "g::alpha",
+    ]);
+  });
+
+  it("gives each sub-group an id no group or row can carry", () => {
+    expect(subGroupId("__ungrouped", "epic")).toBe("__ungrouped::epic");
+    expect(subGroupId("g", null)).toBe("g::");
+  });
+});
+
+describe("groupLayout", () => {
+  it("lets the hierarchy win, then the subtype sub-groups, else a flat list", () => {
+    expect(groupLayout(true, 2, true, ["a"])).toEqual({ kind: "hierarchy", maxDepth: 2 });
+    expect(groupLayout(false, 2, true, ["a"])).toEqual({ kind: "subtype", order: ["a"] });
+    expect(groupLayout(false, 2, false, ["a"])).toEqual({ kind: "flat" });
+  });
+});
+
+describe("groupRowsInOrder", () => {
+  it("lists a tree in tree order, ignoring collapse but honouring the depth cap", () => {
+    const ids = (layout: Parameters<typeof groupRowsInOrder>[2]) =>
+      groupRowsInOrder("g", tree(), layout).map((i) => i.id);
+    expect(ids({ kind: "hierarchy", maxDepth: ALL_LEVELS })).toEqual([
+      "Y",
+      "X",
+      "P",
+      "A",
+      "S",
+      "B",
+    ]);
+    expect(ids({ kind: "hierarchy", maxDepth: 2 })).toEqual(["Y", "X", "P", "A", "B"]);
+    expect(ids({ kind: "subtype", order: ["project", "program"] })).toEqual([
+      "B",
+      "A",
+      "Y",
+      "P",
+      "S",
+      "X",
+    ]);
+    expect(ids({ kind: "flat" })).toEqual(["S", "P", "B", "A", "X", "Y"]);
+  });
+});
+
+describe("filterSearchParams — hierarchy and sub-groups", () => {
+  const opening: FilterState = {
+    groupBy: "Organization",
+    search: "",
+    subtype: "",
+    initialGroupBy: "Organization",
+    initialSubtype: "",
+  };
+  const params = (prev: string, s: Partial<FilterState>) =>
+    filterSearchParams(new URLSearchParams(prev), { ...opening, ...s }).toString();
+
+  it("carries the hierarchy, and its depth only when capped", () => {
+    expect(params("", { hierarchy: true, depth: ALL_LEVELS })).toBe("hierarchy=1");
+    expect(params("", { hierarchy: true, depth: 2 })).toBe("hierarchy=1&depth=2");
+  });
+
+  it("drops the depth with the hierarchy off", () => {
+    expect(params("hierarchy=1&depth=2", { hierarchy: false, depth: 2 })).toBe("");
+  });
+
+  it("carries the subtype sub-groups, unless the hierarchy is on", () => {
+    expect(params("", { bySubtype: true })).toBe("bySubtype=1");
+    expect(params("bySubtype=1", { bySubtype: true, hierarchy: true, depth: ALL_LEVELS })).toBe(
+      "hierarchy=1",
+    );
+    expect(params("bySubtype=1", { bySubtype: false })).toBe("");
+  });
+});
+
+describe("buildPrintParams — hierarchy and sub-groups", () => {
+  const base = { groupTypeLabel: "Platform", subtype: "", search: "" };
+
+  it("adds the hierarchy and its depth while the tree is on", () => {
+    const params = buildPrintParams(
+      { ...base, layout: { kind: "hierarchy", maxDepth: 3 } },
+      t,
+      subtypeLabel,
+    );
+    expect(params).toHaveLength(4);
+    expect(params[3]).toEqual({ label: "showHierarchy", value: 'levelN{"n":3}' });
+  });
+
+  it("adds the subtype sub-groups while they are on", () => {
+    const params = buildPrintParams(
+      { ...base, layout: { kind: "subtype", order: [] } },
+      t,
+      subtypeLabel,
+    );
+    expect(params).toHaveLength(4);
+    expect(params[3]).toEqual({ label: "subGroupBySubtype", value: "printOn" });
+  });
+
+  it("adds nothing for a flat board", () => {
+    expect(buildPrintParams({ ...base, layout: { kind: "flat" } }, t, subtypeLabel)).toHaveLength(
+      3,
+    );
+    expect(buildPrintParams(base, t, subtypeLabel)).toHaveLength(3);
+  });
+});
+
+describe("buildPortfolioExport — hierarchy", () => {
+  const build = (layout?: Parameters<typeof groupRowsInOrder>[2], allItems?: PpmPortfolioItem[]) =>
+    buildPortfolioExport(
+      {
+        groups: [["g", { name: "Sales", items: tree() }]],
+        groupTypeLabel: "Organization",
+        printParams: [],
+        chartNode: null,
+        layout,
+        allItems,
+      },
+      t,
+      subtypeLabel,
+    );
+
+  it("adds a Parent column after the name only while the tree is on", () => {
+    const keys = (layout?: Parameters<typeof groupRowsInOrder>[2]) =>
+      build(layout).sheets[0].columns.map((c) => c.key);
+    expect(keys({ kind: "hierarchy", maxDepth: ALL_LEVELS }).slice(0, 4)).toEqual([
+      "group",
+      "name",
+      "parent",
+      "subtype",
+    ]);
+    expect(build({ kind: "hierarchy", maxDepth: ALL_LEVELS }).sheets[0].columns[2]).toEqual({
+      key: "parent",
+      label: "parentColumn",
+      type: "text",
+    });
+    expect(keys({ kind: "subtype", order: [] })).not.toContain("parent");
+    expect(keys()).not.toContain("parent");
+  });
+
+  it("writes the rows in tree order, each naming its parent", () => {
+    const rows = build({ kind: "hierarchy", maxDepth: ALL_LEVELS }).sheets[0].rows;
+    expect(rows.map((r) => [r.name, r.parent])).toEqual([
+      ["Adrift", ""],
+      ["Lone", ""],
+      ["Program", ""],
+      ["Alpha", "Program"],
+      ["Sub", "Alpha"],
+      ["Beta", "Program"],
+    ]);
+  });
+
+  it("names a parent the filters left off the grid, from the whole board", () => {
+    const rows = build(
+      { kind: "hierarchy", maxDepth: ALL_LEVELS },
+      [item({ id: "gone", name: "Hidden by search" })],
+    ).sheets[0].rows;
+    expect(rows[0]).toMatchObject({ name: "Adrift", parent: "Hidden by search" });
+  });
+
+  it("writes no parent cell without the tree, in sub-group order", () => {
+    const rows = build({ kind: "subtype", order: ["program"] }).sheets[0].rows;
+    expect(rows.map((r) => r.name)).toEqual(["Program", "Sub", "Beta", "Alpha", "Adrift", "Lone"]);
+    expect(rows.every((r) => !("parent" in r))).toBe(true);
   });
 });

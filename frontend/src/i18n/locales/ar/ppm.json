@@ -200,5 +200,14 @@
   "toggleYear": "إظهار البنود أو إخفاؤها: {{year}}",
   "addLineForYear": "إضافة بند ميزانية لـ {{year}}",
   "lineCount_one": "{{count}} بند",
-  "lineCount_other": "{{count}} بنود"
+  "lineCount_other": "{{count}} بنود",
+  "showHierarchy": "إظهار التسلسل الهرمي",
+  "displayDepth": "عمق العرض",
+  "levelN": "المستوى {{n}}",
+  "allLevels": "جميع المستويات",
+  "subGroupBySubtype": "تجميع فرعي حسب النوع الفرعي",
+  "subGroupDisabledWithHierarchy": "أوقف التسلسل الهرمي للتجميع الفرعي حسب النوع الفرعي: الشجرة تشمل جميع الأنواع الفرعية بالفعل.",
+  "parentColumn": "الأصل",
+  "toggleChildren": "إظهار العناصر الفرعية أو إخفاؤها: {{name}}",
+  "printOn": "مفعّل"
 }

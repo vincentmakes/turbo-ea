@@ -200,5 +200,14 @@
   "toggleYear": "Afficher ou masquer les lignes : {{year}}",
   "addLineForYear": "Ajouter une ligne budgétaire pour {{year}}",
   "lineCount_one": "{{count}} ligne",
-  "lineCount_other": "{{count}} lignes"
+  "lineCount_other": "{{count}} lignes",
+  "showHierarchy": "Afficher la hiérarchie",
+  "displayDepth": "Profondeur d’affichage",
+  "levelN": "Niveau {{n}}",
+  "allLevels": "Tous les niveaux",
+  "subGroupBySubtype": "Sous-grouper par sous-type",
+  "subGroupDisabledWithHierarchy": "Désactivez la hiérarchie pour sous-grouper par sous-type : l’arborescence couvre déjà tous les sous-types.",
+  "parentColumn": "Parent",
+  "toggleChildren": "Afficher ou masquer les enfants : {{name}}",
+  "printOn": "Activé"
 }

@@ -1948,6 +1948,12 @@ export interface PpmPortfolioItem {
   id: string;
   name: string;
   subtype: string | null;
+  /**
+   * The parent initiative, set only when the parent is itself a row on this
+   * board — never a hidden or archived card's id, and on a portal never one
+   * the portal does not publish.
+   */
+  parent_id?: string | null;
   start_date: string | null;
   end_date: string | null;
   /** Opaque on the public board; a card UUID on the authenticated one. */

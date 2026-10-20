@@ -200,5 +200,14 @@
   "toggleYear": "Zeilen ein- oder ausblenden: {{year}}",
   "addLineForYear": "Budgetzeile für {{year}} hinzufügen",
   "lineCount_one": "{{count}} Zeile",
-  "lineCount_other": "{{count}} Zeilen"
+  "lineCount_other": "{{count}} Zeilen",
+  "showHierarchy": "Hierarchie anzeigen",
+  "displayDepth": "Anzeigetiefe",
+  "levelN": "Ebene {{n}}",
+  "allLevels": "Alle Ebenen",
+  "subGroupBySubtype": "Nach Untertyp untergliedern",
+  "subGroupDisabledWithHierarchy": "Schalten Sie die Hierarchie aus, um nach Untertyp zu untergliedern: Der Baum umfasst bereits alle Untertypen.",
+  "parentColumn": "Übergeordnet",
+  "toggleChildren": "Untergeordnete ein- oder ausblenden: {{name}}",
+  "printOn": "Ein"
 }

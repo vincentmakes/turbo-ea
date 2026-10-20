@@ -2,18 +2,20 @@
  * The PPM portfolio board's model, as plain functions: which initiatives a
  * search and a subtype leave on the board and how they group, where each
  * Gantt bar sits in the board's rolling window and what colour it takes, what
- * a cost bar shows, which group totals exist, which filters belong in the
- * URL, which quarter labels fit, and what the print summary and the XLSX
- * export carry.
+ * a cost bar shows, which group totals exist, how a group nests by parent or
+ * splits by subtype, which filters belong in the URL, which quarter labels
+ * fit, and what the print summary and the XLSX export carry.
  *
  * `PpmPortfolioView.tsx` renders and measures the DOM; this decides. Labels
  * come in as functions, so nothing here touches React, i18n or the API, and
  * each rule is unit-tested on its own (`ppmPortfolioModel.test.ts`).
  */
 import type { PrintParam } from "@/features/reports/ReportShell";
+import { ALL_LEVELS } from "@/features/reports/portfolioGrouping";
 import type { ExportColumn, ReportExportData } from "@/features/reports/reportExport";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import type { InlineEntityLike } from "@/hooks/useResolveLabel";
+import { buildChildIndex } from "@/lib/cardTree";
 import { toLocalDate } from "@/lib/dates";
 import type {
   PpmPortfolioGroupOption,
@@ -276,12 +278,174 @@ export function toggleCollapsed(prev: Set<string>, id: string): Set<string> {
   return next;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Inside a group: hierarchy and subtype sub-groups                   */
+/* ------------------------------------------------------------------ */
+
+export { ALL_LEVELS };
+
+/** True when some initiative on the board names a parent that is on it too. */
+export const hasHierarchy = (items: PpmPortfolioItem[]): boolean =>
+  items.some((i) => !!i.parent_id);
+
+/** One rendered row of a group shown as a tree. */
+export interface PortfolioRow {
+  item: PpmPortfolioItem;
+  /** 0 for a row whose parent is not in the same group. */
+  depth: number;
+  /** Has children the tree would show, i.e. the row gets a chevron. */
+  hasChildren: boolean;
+}
+
+/**
+ * Each item's parent within `items`, or `null`. A parent outside the set —
+ * another group, filtered out, not on the board — makes the item a root, and
+ * so does a cycle (impossible through the API, but an import could leave one),
+ * which would otherwise make every member of it unreachable from any root.
+ */
+function parentsWithin(items: PpmPortfolioItem[]): Map<string, string | null> {
+  const declared = new Map(items.map((i) => [i.id, i.parent_id ?? null]));
+  const inSet = (id: string | null): id is string => id !== null && declared.has(id);
+  const out = new Map<string, string | null>();
+  for (const i of items) {
+    const parent = i.parent_id ?? null;
+    if (!inSet(parent)) {
+      out.set(i.id, null);
+      continue;
+    }
+    // Walk up inside the set: reaching the item again means it sits in a cycle.
+    const seen = new Set<string>();
+    let cursor: string | null = parent;
+    let cyclic = false;
+    while (inSet(cursor) && !seen.has(cursor)) {
+      if (cursor === i.id) {
+        cyclic = true;
+        break;
+      }
+      seen.add(cursor);
+      cursor = declared.get(cursor) ?? null;
+    }
+    out.set(i.id, cyclic ? null : parent);
+  }
+  return out;
+}
+
+/** The group's items indexed by parent, each level sorted by name. */
+function childrenOf(items: PpmPortfolioItem[]): Map<string | null, PpmPortfolioItem[]> {
+  const parents = parentsWithin(items);
+  const nodes = new Map(
+    items.map((item) => [
+      item.id,
+      { id: item.id, name: item.name, type: "Initiative", parent_id: parents.get(item.id), item },
+    ]),
+  );
+  const index = new Map<string | null, PpmPortfolioItem[]>();
+  for (const [key, list] of buildChildIndex(nodes)) {
+    index.set(
+      key,
+      list.map((n) => n.item),
+    );
+  }
+  return index;
+}
+
+/**
+ * A group's initiatives as an indented tree: depth first, siblings by name.
+ * A row deeper than `maxDepth` levels is not emitted, and a collapsed parent
+ * emits nothing beneath it.
+ */
+export function treeRows(
+  items: PpmPortfolioItem[],
+  { collapsed, maxDepth }: { collapsed: Set<string>; maxDepth: number },
+): PortfolioRow[] {
+  const byParent = childrenOf(items);
+  const out: PortfolioRow[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const item of byParent.get(parent) ?? []) {
+      const hasChildren = depth + 1 < maxDepth && (byParent.get(item.id)?.length ?? 0) > 0;
+      out.push({ item, depth, hasChildren });
+      if (hasChildren && !collapsed.has(item.id)) walk(item.id, depth + 1);
+    }
+  };
+  if (maxDepth > 0) walk(null, 0);
+  return out;
+}
+
+/** How many levels the deepest chain on the board spans (1 when nothing nests). */
+export function maxTreeDepth(items: PpmPortfolioItem[]): number {
+  let deepest = 0;
+  for (const row of treeRows(items, { collapsed: new Set(), maxDepth: ALL_LEVELS })) {
+    deepest = Math.max(deepest, row.depth + 1);
+  }
+  return deepest;
+}
+
+/** Read the depth param: a whole number of levels from 1, else every level. */
+export function parseDepth(value: string | null): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 ? n : ALL_LEVELS;
+}
+
+/** The id a group's sub-group for one subtype gets — distinct from every group and row id. */
+export const subGroupId = (groupId: string, subtype: string | null): string =>
+  `${groupId}::${subtype ?? ""}`;
+
+/**
+ * A group split by subtype: one sub-group per subtype in the metamodel's
+ * order, then any subtype the metamodel does not list (first seen first), and
+ * the initiatives with no subtype last. Each keeps its items' order.
+ */
+export function subtypeSubGroups(
+  groupId: string,
+  items: PpmPortfolioItem[],
+  subtypeOrder: string[],
+  subtypeLabel: (key: string | null) => string,
+): [string, PortfolioGroup][] {
+  const buckets = new Map<string | null, PpmPortfolioItem[]>();
+  for (const item of items) {
+    const key = item.subtype || null;
+    const list = buckets.get(key) ?? [];
+    list.push(item);
+    buckets.set(key, list);
+  }
+  const rank = (key: string | null) => {
+    if (key === null) return Number.MAX_SAFE_INTEGER;
+    const at = subtypeOrder.indexOf(key);
+    return at === -1 ? subtypeOrder.length : at;
+  };
+  return [...buckets.entries()]
+    .sort((a, b) => rank(a[0]) - rank(b[0]))
+    .map(([key, list]) => [subGroupId(groupId, key), { name: subtypeLabel(key), items: list }]);
+}
+
+/** How the rows inside each group are laid out. */
+export type GroupLayout =
+  | { kind: "flat" }
+  | { kind: "hierarchy"; maxDepth: number }
+  | { kind: "subtype"; order: string[] };
+
+/** The layout the toggles ask for. The hierarchy wins: the two are exclusive. */
+export function groupLayout(
+  hierarchy: boolean,
+  depth: number,
+  bySubtype: boolean,
+  subtypeOrder: string[],
+): GroupLayout {
+  if (hierarchy) return { kind: "hierarchy", maxDepth: depth };
+  if (bySubtype) return { kind: "subtype", order: subtypeOrder };
+  return { kind: "flat" };
+}
+
 export interface FilterState {
   groupBy: string;
   search: string;
   subtype: string;
   initialGroupBy: string;
   initialSubtype: string;
+  hierarchy?: boolean;
+  /** Levels shown while the hierarchy is on; `ALL_LEVELS` for every level. */
+  depth?: number;
+  bySubtype?: boolean;
 }
 
 /**
@@ -299,6 +463,10 @@ export function filterSearchParams(prev: URLSearchParams, s: FilterState): URLSe
   put("groupBy", s.groupBy, s.initialGroupBy);
   put("search", s.search);
   put("subtype", s.subtype, s.initialSubtype);
+  put("hierarchy", s.hierarchy ? "1" : "");
+  put("depth", s.hierarchy && s.depth && s.depth !== ALL_LEVELS ? String(s.depth) : "");
+  // The two are exclusive, and the hierarchy wins.
+  put("bySubtype", s.bySubtype && !s.hierarchy ? "1" : "");
   return next;
 }
 
@@ -322,19 +490,56 @@ export interface PrintState {
   groupTypeLabel: string;
   subtype: string;
   search: string;
+  layout?: GroupLayout;
 }
 
-/** The parameter summary a printed board carries in place of its dropdowns. */
+/** "Level 2", or "All levels" for the uncapped tree. */
+export const depthLabel = (depth: number, t: Translate): string =>
+  depth === ALL_LEVELS ? t("allLevels") : t("levelN", { n: depth });
+
+/**
+ * The parameter summary a printed board carries in place of its dropdowns.
+ * The hierarchy and the subtype sub-groups appear only while they are on.
+ */
 export function buildPrintParams(
   s: PrintState,
   t: Translate,
   subtypeLabel: (key: string) => string,
 ): PrintParam[] {
-  return [
+  const params: PrintParam[] = [
     { label: t("groupBy"), value: s.groupTypeLabel },
     { label: t("subtype"), value: s.subtype ? subtypeLabel(s.subtype) : "" },
     { label: t("common:actions.search", { defaultValue: "Search" }), value: s.search },
   ];
+  if (s.layout?.kind === "hierarchy") {
+    params.push({ label: t("showHierarchy"), value: depthLabel(s.layout.maxDepth, t) });
+  } else if (s.layout?.kind === "subtype") {
+    params.push({ label: t("subGroupBySubtype"), value: t("printOn") });
+  }
+  return params;
+}
+
+/**
+ * A group's initiatives in the order the board lists them under `layout`,
+ * ignoring what is collapsed (the export carries every row, as it always
+ * has) but honouring the depth cap, which decides what is on the board at all.
+ */
+export function groupRowsInOrder(
+  groupId: string,
+  items: PpmPortfolioItem[],
+  layout: GroupLayout,
+): PpmPortfolioItem[] {
+  if (layout.kind === "hierarchy") {
+    return treeRows(items, { collapsed: new Set(), maxDepth: layout.maxDepth }).map(
+      (r) => r.item,
+    );
+  }
+  if (layout.kind === "subtype") {
+    return subtypeSubGroups(groupId, items, layout.order, () => "").flatMap(
+      ([, g]) => g.items,
+    );
+  }
+  return items;
 }
 
 export interface ExportInput {
@@ -342,6 +547,9 @@ export interface ExportInput {
   groupTypeLabel: string;
   printParams: PrintParam[];
   chartNode: HTMLElement | null;
+  layout?: GroupLayout;
+  /** Every initiative on the board, to name a parent the filters left out. */
+  allItems?: PpmPortfolioItem[];
 }
 
 /**
@@ -371,14 +579,24 @@ export function buildPortfolioExport(
     { key: "opexActual", label: `${t("opex")} — ${t("actual")}`, type: "currency" },
     { key: "lastReport", label: t("lastReport", { defaultValue: "Report" }), type: "date" },
   ];
+  const layout = input.layout ?? { kind: "flat" };
+  const withParent = layout.kind === "hierarchy";
+  if (withParent) columns.splice(2, 0, { key: "parent", label: t("parentColumn"), type: "text" });
+  const names = new Map(
+    [...(input.allItems ?? []), ...input.groups.flatMap(([, g]) => g.items)].map((i) => [
+      i.id,
+      i.name,
+    ]),
+  );
 
   const rows: Record<string, unknown>[] = [];
-  for (const [, group] of input.groups) {
-    for (const item of group.items) {
+  for (const [groupId, group] of input.groups) {
+    for (const item of groupRowsInOrder(groupId, group.items, layout)) {
       const rep = item.latest_report;
       rows.push({
         group: group.name,
         name: item.name,
+        ...(withParent ? { parent: (item.parent_id && names.get(item.parent_id)) || "" } : {}),
         subtype: item.subtype ? subtypeLabel(item.subtype) : "",
         pm: projectManager(item.stakeholders)?.display_name || "",
         start: item.start_date || "",

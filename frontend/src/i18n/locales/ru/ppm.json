@@ -200,5 +200,14 @@
   "toggleYear": "Показать или скрыть строки: {{year}}",
   "addLineForYear": "Добавить строку бюджета за {{year}}",
   "lineCount_one": "{{count}} строка",
-  "lineCount_other": "{{count}} строк"
+  "lineCount_other": "{{count}} строк",
+  "showHierarchy": "Показать иерархию",
+  "displayDepth": "Глубина отображения",
+  "levelN": "Уровень {{n}}",
+  "allLevels": "Все уровни",
+  "subGroupBySubtype": "Подгруппы по подтипу",
+  "subGroupDisabledWithHierarchy": "Отключите иерархию, чтобы разбить на подгруппы по подтипу: дерево уже охватывает все подтипы.",
+  "parentColumn": "Родитель",
+  "toggleChildren": "Показать или скрыть дочерние: {{name}}",
+  "printOn": "Вкл."
 }

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router";
 import { setViewportWidth } from "@/test/matchMedia";
 import PpmPortfolioView from "./PpmPortfolioView";
@@ -499,5 +499,237 @@ describe("PpmPortfolioView report preview timing", () => {
     fireEvent.mouseEnter(screen.getByText(SUMMARY).closest(".MuiPopover-paper")!);
     settle();
     expect(screen.getByText(SUMMARY)).toBeTruthy();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Hierarchy and subtype sub-groups                                   */
+/* ------------------------------------------------------------------ */
+
+const PROGRAM: PpmPortfolioItem = {
+  ...ITEM,
+  id: "44444444-4444-4444-4444-444444444444",
+  name: "Transformation",
+  subtype: "Program",
+  latest_report: null,
+};
+const PROJECT: PpmPortfolioItem = {
+  ...ITEM,
+  id: "55555555-5555-5555-5555-555555555555",
+  name: "ERP Rollout",
+  subtype: "Project",
+  parent_id: PROGRAM.id,
+  latest_report: null,
+};
+const STREAM: PpmPortfolioItem = {
+  ...ITEM,
+  id: "66666666-6666-6666-6666-666666666666",
+  name: "Finance Stream",
+  subtype: "Epic",
+  parent_id: PROJECT.id,
+  latest_report: null,
+};
+const TREE = [STREAM, PROJECT, PROGRAM];
+const SUBTYPES = [
+  { key: "Program", label: "Program" },
+  { key: "Project", label: "Project" },
+  { key: "Epic", label: "Epic" },
+];
+
+const nameCell = (name: string) => screen.getByText(name).closest("[data-depth]") as HTMLElement;
+const rowNames = () =>
+  Array.from(document.querySelectorAll("[data-depth]")).map(
+    (el) => el.querySelector("p, span.MuiTypography-root")?.textContent,
+  );
+const hierarchySwitch = () => screen.getByLabelText("Show hierarchy");
+const subtypeSwitch = () => screen.getByLabelText("Sub-group by subtype");
+
+describe("PpmPortfolioView hierarchy", () => {
+  it("offers the hierarchy only when some row has its parent on the board", () => {
+    renderAt("/", { items: [ITEM, EPIC] });
+    expect(screen.queryByLabelText("Show hierarchy")).toBeNull();
+    expect(subtypeSwitch()).toBeTruthy();
+  });
+
+  it("is off on opening, and lists the rows flat", () => {
+    renderAt("/", { items: TREE, subtypeDefs: SUBTYPES });
+    expect(hierarchySwitch()).not.toBeChecked();
+    expect(rowNames()).toEqual(["Finance Stream", "ERP Rollout", "Transformation"]);
+    expect(screen.queryByRole("combobox", { name: "Display depth" })).toBeNull();
+  });
+
+  it("nests the rows by parent, indented, and carries the switch in the URL", () => {
+    renderAt("/", { items: TREE, subtypeDefs: SUBTYPES });
+    fireEvent.click(hierarchySwitch());
+
+    expect(location()).toBe("?hierarchy=1");
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
+    expect(nameCell("Transformation").dataset.depth).toBe("0");
+    expect(nameCell("ERP Rollout").dataset.depth).toBe("1");
+    expect(nameCell("Finance Stream").dataset.depth).toBe("2");
+    expect(getComputedStyle(nameCell("Transformation")).paddingLeft).toBe("12px");
+    expect(getComputedStyle(nameCell("ERP Rollout")).paddingLeft).toBe("28px");
+    expect(getComputedStyle(nameCell("Finance Stream")).paddingLeft).toBe("44px");
+  });
+
+  it("names each row's subtype while the tree is on", () => {
+    renderAt("/", { items: TREE, subtypeDefs: SUBTYPES });
+    expect(screen.queryByText("Program")).toBeNull();
+    fireEvent.click(hierarchySwitch());
+    expect(within(nameCell("Transformation")).getByText("Program")).toBeTruthy();
+    expect(within(nameCell("Finance Stream")).getByText("Epic")).toBeTruthy();
+  });
+
+  it("gives a parent a chevron and a leaf the empty slot, so names line up", () => {
+    renderAt("/?hierarchy=1", { items: TREE, subtypeDefs: SUBTYPES });
+    const toggle = screen.getByRole("button", {
+      name: "Show or hide the children: Transformation",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(nameCell("Transformation").contains(toggle)).toBe(true);
+    expect(
+      screen.queryByRole("button", { name: "Show or hide the children: Finance Stream" }),
+    ).toBeNull();
+    expect(nameCell("Finance Stream").querySelector("[data-tree-spacer]")).not.toBeNull();
+    expect(nameCell("Transformation").querySelector("[data-tree-spacer]")).toBeNull();
+  });
+
+  it("collapses a parent's whole subtree without opening it", () => {
+    const onOpen = vi.fn();
+    renderAt("/?hierarchy=1", { items: TREE, subtypeDefs: SUBTYPES, onOpen });
+    const toggle = screen.getByRole("button", {
+      name: "Show or hide the children: Transformation",
+    });
+    fireEvent.click(toggle);
+
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(rowNames()).toEqual(["Transformation"]);
+    // The group header still counts every member.
+    expect(screen.getByText("— 3 projects")).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout", "Finance Stream"]);
+  });
+
+  it("caps the tree at the chosen depth and carries it in the URL", () => {
+    renderAt("/?hierarchy=1", { items: TREE, subtypeDefs: SUBTYPES });
+    const depth = screen.getByRole("combobox", { name: "Display depth" });
+    expect(depth).toHaveTextContent("All levels");
+
+    fireEvent.mouseDown(depth);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Level 1",
+      "Level 2",
+      "Level 3",
+      "All levels",
+    ]);
+    fireEvent.click(screen.getByRole("option", { name: "Level 2" }));
+
+    expect(location()).toBe("?hierarchy=1&depth=2");
+    expect(rowNames()).toEqual(["Transformation", "ERP Rollout"]);
+    // At the cap, a parent has nothing to unfold.
+    expect(
+      screen.queryByRole("button", { name: "Show or hide the children: ERP Rollout" }),
+    ).toBeNull();
+  });
+
+  it("opens on the hierarchy and depth the URL carries", () => {
+    renderAt("/?hierarchy=1&depth=1", { items: TREE, subtypeDefs: SUBTYPES });
+    expect(hierarchySwitch()).toBeChecked();
+    expect(rowNames()).toEqual(["Transformation"]);
+  });
+
+  it("nests inside each group: a parent in another group leaves a root", () => {
+    renderAt("/?hierarchy=1", {
+      items: [
+        { ...PROGRAM, group_id: "g1", group_name: "Sales" },
+        { ...PROJECT, group_id: "g2", group_name: "Finance" },
+        { ...STREAM, group_id: "g2", group_name: "Finance" },
+      ],
+      subtypeDefs: SUBTYPES,
+    });
+    expect(nameCell("ERP Rollout").dataset.depth).toBe("0");
+    expect(nameCell("Finance Stream").dataset.depth).toBe("1");
+  });
+
+  it("shows what the filters leave, with a hidden parent's children as roots", () => {
+    renderAt("/?hierarchy=1&subtype=Project", { items: TREE, subtypeDefs: SUBTYPES });
+    expect(rowNames()).toEqual(["ERP Rollout"]);
+    expect(nameCell("ERP Rollout").dataset.depth).toBe("0");
+  });
+
+  it("indents and folds the mobile list the same way", () => {
+    setViewportWidth(400);
+    renderAt("/?hierarchy=1", { items: TREE, subtypeDefs: SUBTYPES });
+    const card = (name: string) => screen.getByText(name).closest("[data-depth]") as HTMLElement;
+    expect(card("Finance Stream").dataset.depth).toBe("2");
+    expect(getComputedStyle(card("ERP Rollout")).paddingLeft).toBe("28px");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show or hide the children: ERP Rollout" }),
+    );
+    expect(screen.queryByText("Finance Stream")).toBeNull();
+    expect(screen.getByText("ERP Rollout")).toBeTruthy();
+  });
+});
+
+const NO_COST = { capex_planned: null, capex_actual: null, opex_planned: null, opex_actual: null };
+
+describe("PpmPortfolioView subtype sub-groups", () => {
+  const ROWS: PpmPortfolioItem[] = [
+    { ...PROJECT, parent_id: null, group_id: "g1", group_name: "Sales", capex_planned: 100 },
+    { ...STREAM, parent_id: null, group_id: "g1", group_name: "Sales", capex_planned: 50 },
+    { ...PROGRAM, group_id: "g1", group_name: "Sales", ...NO_COST },
+    { ...EPIC, subtype: null, group_id: "g1", group_name: "Sales", ...NO_COST },
+  ];
+  // The header's two texts, without the icon ligatures beside them.
+  const subHeaders = () =>
+    Array.from(document.querySelectorAll('[data-group-variant="sub"]')).map((el) =>
+      Array.from(el.querySelectorAll("p"))
+        .map((t) => t.textContent)
+        .join(" "),
+    );
+
+  it("splits each group by subtype in metamodel order, none last, and keeps the URL", () => {
+    renderAt("/", { items: ROWS, subtypeDefs: SUBTYPES });
+    expect(subHeaders()).toEqual([]);
+    fireEvent.click(subtypeSwitch());
+
+    expect(location()).toBe("?bySubtype=1");
+    expect(subHeaders()).toEqual([
+      "Program — 1 project",
+      "Project — 1 project",
+      "Epic — 1 project",
+      "— — 1 project",
+    ]);
+    // A totals row per sub-group with costs (Program and the none group have
+    // none), plus the group's own.
+    expect(screen.getAllByText(/Totals/)).toHaveLength(3);
+  });
+
+  it("collapses one sub-group on its own", () => {
+    renderAt("/?bySubtype=1", { items: ROWS, subtypeDefs: SUBTYPES });
+    expect(subtypeSwitch()).toBeChecked();
+    fireEvent.click(screen.getByText("Project", { selector: "p" }));
+    expect(screen.queryByText("ERP Rollout")).toBeNull();
+    expect(screen.getByText("Finance Stream")).toBeTruthy();
+    expect(screen.getAllByText(/Totals/)).toHaveLength(2);
+  });
+
+  it("is switched off and disabled while the hierarchy is on", () => {
+    renderAt("/?bySubtype=1", { items: TREE, subtypeDefs: SUBTYPES });
+    expect(subtypeSwitch()).toBeChecked();
+    fireEvent.click(hierarchySwitch());
+
+    expect(subtypeSwitch()).not.toBeChecked();
+    expect(subtypeSwitch()).toBeDisabled();
+    expect(location()).toBe("?hierarchy=1");
+    expect(subHeaders()).toEqual([]);
+
+    // Turning the tree off again does not bring the sub-groups back.
+    fireEvent.click(hierarchySwitch());
+    expect(subtypeSwitch()).not.toBeChecked();
+    expect(subtypeSwitch()).toBeEnabled();
+    expect(location()).toBe("");
   });
 });

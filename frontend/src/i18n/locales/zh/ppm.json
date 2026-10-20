@@ -200,5 +200,14 @@
   "toggleYear": "显示或隐藏条目：{{year}}",
   "addLineForYear": "为 {{year}} 添加预算行",
   "lineCount_one": "{{count}} 行",
-  "lineCount_other": "{{count}} 行"
+  "lineCount_other": "{{count}} 行",
+  "showHierarchy": "显示层级",
+  "displayDepth": "显示深度",
+  "levelN": "第 {{n}} 级",
+  "allLevels": "所有级别",
+  "subGroupBySubtype": "按子类型细分",
+  "subGroupDisabledWithHierarchy": "请先关闭层级再按子类型细分：层级树已涵盖所有子类型。",
+  "parentColumn": "上级",
+  "toggleChildren": "显示或隐藏下级：{{name}}",
+  "printOn": "开启"
 }

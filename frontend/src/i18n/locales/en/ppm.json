@@ -200,5 +200,14 @@
   "toggleYear": "Show or hide the lines: {{year}}",
   "addLineForYear": "Add a budget line for {{year}}",
   "lineCount_one": "{{count}} line",
-  "lineCount_other": "{{count}} lines"
+  "lineCount_other": "{{count}} lines",
+  "showHierarchy": "Show hierarchy",
+  "displayDepth": "Display depth",
+  "levelN": "Level {{n}}",
+  "allLevels": "All levels",
+  "subGroupBySubtype": "Sub-group by subtype",
+  "subGroupDisabledWithHierarchy": "Turn the hierarchy off to sub-group by subtype: the tree already spans subtypes.",
+  "parentColumn": "Parent",
+  "toggleChildren": "Show or hide the children: {{name}}",
+  "printOn": "On"
 }
