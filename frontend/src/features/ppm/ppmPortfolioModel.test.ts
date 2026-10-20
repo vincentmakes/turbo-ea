@@ -38,6 +38,8 @@ import {
   subGroupId,
   subtypeName,
   subtypeSubGroups,
+  parentsWithin,
+  bucketBySubtype,
   toggleCollapsed,
   treeRows,
   visibleQuarterLabels,
@@ -616,6 +618,8 @@ describe("buildPortfolioExport", () => {
           { label: "search", value: "crm" },
         ],
         chartNode,
+        layout: { kind: "flat" },
+        allItems: [full, withheld],
       },
       t,
       subtypeLabel,
@@ -821,6 +825,57 @@ describe("depthLabel", () => {
   });
 });
 
+describe("parentsWithin", () => {
+  it("keeps a parent that is in the set, and nulls one that is absent or missing", () => {
+    const items = [
+      item({ id: "p", parent_id: null }),
+      item({ id: "c", parent_id: "p" }),
+      item({ id: "o", parent_id: "elsewhere" }),
+      item({ id: "r" }),
+    ];
+    const parents = parentsWithin(items);
+    expect([...parents.entries()]).toEqual([
+      ["p", null],
+      ["c", "p"],
+      ["o", null],
+      ["r", null],
+    ]);
+  });
+
+  it("nulls every member of a cycle, and keeps a child hanging off one", () => {
+    const items = [
+      item({ id: "a", parent_id: "b" }),
+      item({ id: "b", parent_id: "a" }),
+      item({ id: "c", parent_id: "a" }),
+    ];
+    expect([...parentsWithin(items).entries()]).toEqual([
+      ["a", null],
+      ["b", null],
+      ["c", "a"],
+    ]);
+  });
+});
+
+describe("bucketBySubtype", () => {
+  it("buckets in metamodel order, unknown next, none last, keeping each bucket's order", () => {
+    const items = [
+      item({ id: "1", subtype: null }),
+      item({ id: "2", subtype: "project" }),
+      item({ id: "3", subtype: "custom" }),
+      item({ id: "4", subtype: "program" }),
+      item({ id: "5", subtype: "project" }),
+    ];
+    expect(
+      bucketBySubtype(items, ["program", "project"]).map(([k, l]) => [k, l.map((i) => i.id)]),
+    ).toEqual([
+      ["program", ["4"]],
+      ["project", ["2", "5"]],
+      ["custom", ["3"]],
+      [null, ["1"]],
+    ]);
+  });
+});
+
 describe("subtypeSubGroups", () => {
   const label = (key: string | null) => `L:${key ?? "none"}`;
 
@@ -867,7 +922,7 @@ describe("groupLayout", () => {
 describe("groupRowsInOrder", () => {
   it("lists a tree in tree order, ignoring collapse but honouring the depth cap", () => {
     const ids = (layout: Parameters<typeof groupRowsInOrder>[2]) =>
-      groupRowsInOrder("g", tree(), layout).map((i) => i.id);
+      groupRowsInOrder(tree(), layout).map((i) => i.id);
     expect(ids({ kind: "hierarchy", maxDepth: ALL_LEVELS })).toEqual([
       "Y",
       "X",
@@ -950,7 +1005,10 @@ describe("buildPrintParams — hierarchy and sub-groups", () => {
 });
 
 describe("buildPortfolioExport — hierarchy", () => {
-  const build = (layout?: Parameters<typeof groupRowsInOrder>[2], allItems?: PpmPortfolioItem[]) =>
+  const build = (
+    layout: Parameters<typeof groupRowsInOrder>[1] = { kind: "flat" },
+    allItems: PpmPortfolioItem[] = [],
+  ) =>
     buildPortfolioExport(
       {
         groups: [["g", { name: "Sales", items: tree() }]],
@@ -965,7 +1023,7 @@ describe("buildPortfolioExport — hierarchy", () => {
     );
 
   it("adds a Parent column after the name only while the tree is on", () => {
-    const keys = (layout?: Parameters<typeof groupRowsInOrder>[2]) =>
+    const keys = (layout?: Parameters<typeof groupRowsInOrder>[1]) =>
       build(layout).sheets[0].columns.map((c) => c.key);
     expect(keys({ kind: "hierarchy", maxDepth: ALL_LEVELS }).slice(0, 4)).toEqual([
       "group",

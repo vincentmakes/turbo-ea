@@ -303,7 +303,7 @@ export interface PortfolioRow {
  * so does a cycle (impossible through the API, but an import could leave one),
  * which would otherwise make every member of it unreachable from any root.
  */
-function parentsWithin(items: PpmPortfolioItem[]): Map<string, string | null> {
+export function parentsWithin(items: PpmPortfolioItem[]): Map<string, string | null> {
   const declared = new Map(items.map((i) => [i.id, i.parent_id ?? null]));
   const inSet = (id: string | null): id is string => id !== null && declared.has(id);
   const out = new Map<string, string | null>();
@@ -336,6 +336,7 @@ function childrenOf(items: PpmPortfolioItem[]): Map<string | null, PpmPortfolioI
   const nodes = new Map(
     items.map((item) => [
       item.id,
+      // Stryker disable next-line StringLiteral: TreeCard requires a type and buildChildIndex never reads it
       { id: item.id, name: item.name, type: "Initiative", parent_id: parents.get(item.id), item },
     ]),
   );
@@ -401,6 +402,17 @@ export function subtypeSubGroups(
   subtypeOrder: string[],
   subtypeLabel: (key: string | null) => string,
 ): [string, PortfolioGroup][] {
+  return bucketBySubtype(items, subtypeOrder).map(([key, list]) => [
+    subGroupId(groupId, key),
+    { name: subtypeLabel(key), items: list },
+  ]);
+}
+
+/** The items of a group bucketed by subtype, in sub-group order; `null` is the no-subtype bucket. */
+export function bucketBySubtype(
+  items: PpmPortfolioItem[],
+  subtypeOrder: string[],
+): [string | null, PpmPortfolioItem[]][] {
   const buckets = new Map<string | null, PpmPortfolioItem[]>();
   for (const item of items) {
     const key = item.subtype || null;
@@ -413,9 +425,7 @@ export function subtypeSubGroups(
     const at = subtypeOrder.indexOf(key);
     return at === -1 ? subtypeOrder.length : at;
   };
-  return [...buckets.entries()]
-    .sort((a, b) => rank(a[0]) - rank(b[0]))
-    .map(([key, list]) => [subGroupId(groupId, key), { name: subtypeLabel(key), items: list }]);
+  return [...buckets.entries()].sort((a, b) => rank(a[0]) - rank(b[0]));
 }
 
 /** How the rows inside each group are laid out. */
@@ -524,20 +534,14 @@ export function buildPrintParams(
  * ignoring what is collapsed (the export carries every row, as it always
  * has) but honouring the depth cap, which decides what is on the board at all.
  */
-export function groupRowsInOrder(
-  groupId: string,
-  items: PpmPortfolioItem[],
-  layout: GroupLayout,
-): PpmPortfolioItem[] {
+export function groupRowsInOrder(items: PpmPortfolioItem[], layout: GroupLayout): PpmPortfolioItem[] {
   if (layout.kind === "hierarchy") {
     return treeRows(items, { collapsed: new Set(), maxDepth: layout.maxDepth }).map(
       (r) => r.item,
     );
   }
   if (layout.kind === "subtype") {
-    return subtypeSubGroups(groupId, items, layout.order, () => "").flatMap(
-      ([, g]) => g.items,
-    );
+    return bucketBySubtype(items, layout.order).flatMap(([, list]) => list);
   }
   return items;
 }
@@ -547,9 +551,9 @@ export interface ExportInput {
   groupTypeLabel: string;
   printParams: PrintParam[];
   chartNode: HTMLElement | null;
-  layout?: GroupLayout;
+  layout: GroupLayout;
   /** Every initiative on the board, to name a parent the filters left out. */
-  allItems?: PpmPortfolioItem[];
+  allItems: PpmPortfolioItem[];
 }
 
 /**
@@ -579,19 +583,19 @@ export function buildPortfolioExport(
     { key: "opexActual", label: `${t("opex")} — ${t("actual")}`, type: "currency" },
     { key: "lastReport", label: t("lastReport", { defaultValue: "Report" }), type: "date" },
   ];
-  const layout = input.layout ?? { kind: "flat" };
+  const { layout } = input;
   const withParent = layout.kind === "hierarchy";
   if (withParent) columns.splice(2, 0, { key: "parent", label: t("parentColumn"), type: "text" });
   const names = new Map(
-    [...(input.allItems ?? []), ...input.groups.flatMap(([, g]) => g.items)].map((i) => [
+    [...input.allItems, ...input.groups.flatMap(([, g]) => g.items)].map((i) => [
       i.id,
       i.name,
     ]),
   );
 
   const rows: Record<string, unknown>[] = [];
-  for (const [groupId, group] of input.groups) {
-    for (const item of groupRowsInOrder(groupId, group.items, layout)) {
+  for (const [, group] of input.groups) {
+    for (const item of groupRowsInOrder(group.items, layout)) {
       const rep = item.latest_report;
       rows.push({
         group: group.name,
