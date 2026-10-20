@@ -101,6 +101,41 @@ def descendants_within(
     return walk(children_index(parents), root)
 
 
+def anchor_groups(
+    parents: Mapping[uuid.UUID, uuid.UUID | None],
+    subtype_of: Mapping[uuid.UUID, str | None],
+    key: str,
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Map each id to the highest initiative of subtype ``key`` on its chain.
+
+    The PPM board's "group by a subtype" groups every initiative under the
+    top-most initiative of that subtype above it — the row itself included, so
+    such an initiative anchors its own group and a nested one of the same subtype
+    is a row in the top-most one's group. An id with none on its chain is absent.
+
+    The walk goes **up** the child → parent map ``parents``, so a chain broken by
+    an initiative absent from it (archived, hidden, outside a portal's filters)
+    stops there, the rule ``parent_id`` follows, and so does a parent id that is not
+    itself a key of ``parents``. The subtype is matched exactly;
+    each walk keeps its own ``seen`` set, so a cycle ends it.
+    """
+    out: dict[uuid.UUID, uuid.UUID] = {}
+    for start in parents:
+        seen: set[uuid.UUID] = set()
+        node: uuid.UUID | None = start
+        top: uuid.UUID | None = None
+        # An id that is not a key of ``parents`` is not on the board: the walk
+        # ends there, which also covers ``None`` (a root).
+        while node in parents and node not in seen:
+            seen.add(node)
+            if subtype_of.get(node) == key:
+                top = node
+            node = parents[node]
+        if top is not None:
+            out[start] = top
+    return out
+
+
 def sum_figures(ids: Iterable[uuid.UUID], figures: Mapping[uuid.UUID, Figures]) -> Figures:
     """The four cost keys summed over ``ids``; an id without lines adds nothing."""
     total = dict.fromkeys(COST_KEYS, 0.0)

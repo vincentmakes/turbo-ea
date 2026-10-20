@@ -8649,6 +8649,11 @@
             ],
             "title": "End Date"
           },
+          "group_anchor": {
+            "default": false,
+            "title": "Group Anchor",
+            "type": "boolean"
+          },
           "group_id": {
             "anyOf": [
               {
@@ -8937,7 +8942,7 @@
         "type": "object"
       },
       "PpmPublicItem": {
-        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` is an opaque per-response token, and the\nreport, reporter and stakeholder ids are not emitted at all.",
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` is an opaque per-response token, and the\nreport, reporter and stakeholder ids are not emitted at all. ``group_anchor``\nmarks the row that names its group under a subtype grouping.",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -8971,6 +8976,11 @@
               }
             ],
             "title": "End Date"
+          },
+          "group_anchor": {
+            "default": false,
+            "title": "Group Anchor",
+            "type": "boolean"
           },
           "group_id": {
             "anyOf": [
@@ -33914,7 +33924,7 @@
         "operationId": "ppm_gantt_api_v1_reports_ppm_gantt_get",
         "parameters": [
           {
-            "description": "Card type key to group by",
+            "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
             "in": "query",
             "name": "group_by",
             "required": false,
@@ -33927,7 +33937,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Card type key to group by",
+              "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
               "title": "Group By"
             }
           }
@@ -42881,7 +42891,7 @@
             }
           },
           {
-            "description": "Card type key to group by",
+            "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
             "in": "query",
             "name": "group_by",
             "required": false,
@@ -42894,7 +42904,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Card type key to group by",
+              "description": "Card type key to group by, or subtype:<key> to group every initiative under the top-most initiative of that Initiative subtype above it",
               "title": "Group By"
             }
           }

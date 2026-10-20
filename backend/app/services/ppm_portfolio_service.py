@@ -57,6 +57,7 @@ from app.services.card_lifecycle import collect_descendants
 from app.services.ppm_rollup import (
     LinePresence,
     Rollup,
+    anchor_groups,
     date_span,
     descendants_within,
     rollup_for_board,
@@ -361,6 +362,18 @@ async def build_initiative_rollup(
 
 # ── Grouping ────────────────────────────────────────────────────────────
 
+#: A ``group_by`` value that groups the board by an Initiative subtype rather than
+#: by a related card type: ``subtype:program`` puts every initiative under the
+#: top-most Program above it (see ``ppm_rollup.anchor_groups``).
+SUBTYPE_GROUP_PREFIX = "subtype:"
+
+
+def subtype_group_key(group_by: str | None) -> str | None:
+    """The subtype key a ``subtype:<key>`` value names, else ``None``."""
+    if group_by and group_by.startswith(SUBTYPE_GROUP_PREFIX):
+        return group_by[len(SUBTYPE_GROUP_PREFIX) :]
+    return None
+
 
 async def build_group_map(
     db: AsyncSession,
@@ -533,20 +546,33 @@ async def build_gantt_items(
     def _name(u: User) -> str:
         return (u.display_name or u.email) if allow_email_fallback else (u.display_name or "")
 
-    group_map = (
-        await build_group_map(db, init_ids, group_by, read_scope=read_scope) if group_by else {}
-    )
-    cost_rows = await load_cost_rows(db, init_ids)
-    cost_agg = cost_aggregates_from(cost_rows)
-    reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
-    stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)
-
     # A parent is named only when it is itself a row on this board. The rows
     # already carry the caller's scope (the read scope here, a portal's
     # PortfolioScope on the public board), so this one rule keeps a hidden or
     # archived parent's id out of the payload and lets a portal publish a
     # parent only when that parent is published too.
     on_board = {c.id for c in initiatives}
+    parents = {c.id: (c.parent_id if c.parent_id in on_board else None) for c in initiatives}
+
+    # Grouping by an Initiative subtype is decided over these same rows — the
+    # top-most initiative of that subtype on each row's on-board chain names its
+    # group — so it costs no query and a hidden or archived intermediate breaks
+    # the chain exactly as it breaks ``parent_id``. It runs before the
+    # relation-based branch, which would take ``subtype:…`` for a type key.
+    subtype_key = subtype_group_key(group_by)
+    anchors: dict[uuid.UUID, uuid.UUID] = {}
+    if subtype_key is not None:
+        anchors = anchor_groups(parents, {c.id: c.subtype for c in initiatives}, subtype_key)
+        names = {c.id: c.name for c in initiatives}
+        group_map = {i: (a, names[a]) for i, a in anchors.items()}
+    elif group_by:
+        group_map = await build_group_map(db, init_ids, group_by, read_scope=read_scope)
+    else:
+        group_map = {}
+    cost_rows = await load_cost_rows(db, init_ids)
+    cost_agg = cost_aggregates_from(cost_rows)
+    reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
+    stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)
 
     # A parent without budget lines, cost lines or dates of its own shows what
     # the rows beneath it add up to, each of the three decided on its own.
@@ -555,7 +581,7 @@ async def build_gantt_items(
     # The row's own capex/opex/dates stay as recorded: group totals and the KPI
     # bar sum those, so every figure is counted once.
     rollups = rollup_for_board(
-        {c.id: (c.parent_id if c.parent_id in on_board else None) for c in initiatives},
+        parents,
         cost_agg,
         cost_presence_from(cost_rows),
         {
@@ -607,6 +633,7 @@ async def build_gantt_items(
                 opex_actual=costs.get("opex_actual", 0),
                 group_id=str(group_info[0]) if group_info else None,
                 group_name=group_info[1] if group_info else None,
+                group_anchor=anchors.get(card.id) == card.id,
                 latest_report=report_out,
                 latest_report_id=str(report.id) if report else None,
                 stakeholders=[
@@ -755,7 +782,9 @@ def to_public_portfolio(
       so genuinely outside that invariant. The board renders neither of the two
       card attributes anyway.
     * **Identifiers other than the board's own rows.** ``group_id`` becomes an
-      opaque per-response token, and ``latest_report_id`` / ``reporter_id`` /
+      opaque per-response token (under a subtype grouping the anchor's own id,
+      tokenised like every other group id, so ``group_anchor`` names no new
+      identifier), and ``latest_report_id`` / ``reporter_id`` /
       ``user_id`` are not emitted at all. The initiative ``id`` *is* a real card
       UUID because a portfolio portal links its rows to ``/ppm/{id}`` behind the
       login wall. ``parent_id`` is published so the board can nest its rows, and
@@ -814,6 +843,7 @@ def to_public_portfolio(
                 end_date=it.end_date,
                 group_id=group_token,
                 group_name=it.group_name,
+                group_anchor=it.group_anchor,
                 capex_planned=it.capex_planned if cfg.show_costs else None,
                 capex_actual=it.capex_actual if cfg.show_costs else None,
                 opex_planned=it.opex_planned if cfg.show_costs else None,

@@ -1140,7 +1140,13 @@ async def get_public_portal_cards(
 async def get_public_portal_ppm_portfolio(
     slug: str,
     request: Request,
-    group_by: str | None = Query(None, description="Card type key to group by"),
+    group_by: str | None = Query(
+        None,
+        description=(
+            "Card type key to group by, or subtype:<key> to group every initiative "
+            "under the top-most initiative of that Initiative subtype above it"
+        ),
+    ),
     portal: WebPortal = Depends(require_portal_access),
     db: AsyncSession = Depends(get_db),
 ):

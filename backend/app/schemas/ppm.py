@@ -390,6 +390,9 @@ class PpmGanttItem(BaseModel):
     opex_actual: float = 0
     group_id: str | None = None
     group_name: str | None = None
+    # Under a ``subtype:<key>`` grouping, True on the initiative that names its
+    # group (the board shows it as the group header, never as a row).
+    group_anchor: bool = False
     latest_report: PpmStatusReportOut | None = None
     latest_report_id: str | None = None
     stakeholders: list[PpmGanttStakeholder] = []

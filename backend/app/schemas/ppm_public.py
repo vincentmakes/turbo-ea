@@ -68,7 +68,8 @@ class PpmPublicItem(BaseModel):
     response, so it repeats an ``id`` already published and lets the board nest
     its rows; a parent the portal does not publish reads ``None``. Every other
     identifier is withheld: ``group_id`` is an opaque per-response token, and the
-    report, reporter and stakeholder ids are not emitted at all.
+    report, reporter and stakeholder ids are not emitted at all. ``group_anchor``
+    marks the row that names its group under a subtype grouping.
     """
 
     id: str
@@ -79,6 +80,7 @@ class PpmPublicItem(BaseModel):
     end_date: str | None = None
     group_id: str | None = None
     group_name: str | None = None
+    group_anchor: bool = False
     capex_planned: float | None = None
     capex_actual: float | None = None
     opex_planned: float | None = None

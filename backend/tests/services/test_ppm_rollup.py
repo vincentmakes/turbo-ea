@@ -8,6 +8,7 @@ from app.services.ppm_rollup import (
     COST_KEYS,
     LinePresence,
     Rollup,
+    anchor_groups,
     children_index,
     date_span,
     descendants_within,
@@ -46,6 +47,73 @@ class TestChildrenIndex:
 
     def test_empty_map(self):
         assert dict(children_index({})) == {}
+
+
+class TestAnchorGroups:
+    def test_a_root_program_anchors_itself(self):
+        (prog,) = _ids(1)
+        assert anchor_groups({prog: None}, {prog: "program"}, "program") == {prog: prog}
+
+    def test_every_level_beneath_maps_to_the_top_most_program(self):
+        top, project, epic, nested, under_nested = _ids(5)
+        parents = {top: None, project: top, epic: project, nested: top, under_nested: nested}
+        subtypes = {
+            top: "program",
+            project: "project",
+            epic: "epic",
+            nested: "program",
+            under_nested: "project",
+        }
+        assert anchor_groups(parents, subtypes, "program") == {
+            top: top,
+            project: top,
+            epic: top,
+            nested: top,
+            under_nested: top,
+        }
+
+    def test_a_row_with_no_program_above_is_absent(self):
+        prog, child, loose, loose_child = _ids(4)
+        parents = {prog: None, child: prog, loose: None, loose_child: loose}
+        subtypes = {prog: "program", child: "project", loose: "project", loose_child: "epic"}
+        assert anchor_groups(parents, subtypes, "program") == {prog: prog, child: prog}
+
+    def test_a_broken_chain_stops_the_walk_even_below_a_program(self):
+        # ``mid`` has no on-board parent (its own parent was hidden), so the
+        # program that sits higher in the real hierarchy is never reached.
+        prog, mid, leaf = _ids(3)
+        parents = {prog: None, mid: None, leaf: mid}
+        subtypes = {prog: "program", mid: "project", leaf: "project"}
+        assert anchor_groups(parents, subtypes, "program") == {prog: prog}
+
+    def test_a_cycle_terminates(self):
+        a, b, c = _ids(3)
+        parents = {a: b, b: a, c: None}
+        subtypes = {a: "program", b: "project", c: None}
+        assert anchor_groups(parents, subtypes, "program") == {a: a, b: a}
+
+    def test_a_cycle_of_two_programs_terminates(self):
+        a, b = _ids(2)
+        assert anchor_groups({a: b, b: a}, {a: "program", b: "program"}, "program") == {
+            a: b,
+            b: a,
+        }
+
+    def test_none_and_missing_subtypes_never_match(self):
+        a, b = _ids(2)
+        assert anchor_groups({a: None, b: a}, {a: None}, "program") == {}
+
+    def test_the_key_is_matched_exactly(self):
+        (a,) = _ids(1)
+        assert anchor_groups({a: None}, {a: "Program"}, "program") == {}
+        assert anchor_groups({a: None}, {a: "program"}, "Program") == {}
+
+    def test_a_parent_outside_the_map_ends_the_walk(self):
+        a, outside = _ids(2)
+        assert anchor_groups({a: outside}, {a: "project", outside: "program"}, "program") == {}
+
+    def test_empty_map(self):
+        assert anchor_groups({}, {}, "program") == {}
 
 
 class TestDescendantsWithin:

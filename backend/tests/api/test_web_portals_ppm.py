@@ -309,6 +309,83 @@ class TestPublicPortfolioPayload:
         assert str(org.id) not in json.dumps(body)
 
 
+class TestPublicPortfolioSubtypeGroup:
+    """``group_by=subtype:<key>`` on the public board: one anchor per opaque token."""
+
+    @staticmethod
+    async def _programs(db, under):
+        program = await create_card(
+            db, card_type="Initiative", name="Transformation", subtype="Program"
+        )
+        await create_card(
+            db, card_type="Initiative", name="Phase 1", subtype="Project", parent_id=program.id
+        )
+        await create_card(
+            db, card_type="Initiative", name="Phase 2", subtype="Project", parent_id=program.id
+        )
+        other = await create_card(db, card_type="Initiative", name="Upgrade", subtype="Program")
+        await create_card(
+            db, card_type="Initiative", name="Patch", subtype="Epic", parent_id=other.id
+        )
+        # A child of the fixture's standalone project: it has no program above.
+        await create_card(
+            db, card_type="Initiative", name="Loose", subtype="Epic", parent_id=under.id
+        )
+        return program, other
+
+    async def test_one_anchor_per_token_shared_by_its_rows(self, client, db, ppm_portal_env):
+        program, other = await self._programs(db, ppm_portal_env["initiative"])
+        resp = await client.get(PUBLIC, params={"group_by": "subtype:Program"})
+        assert resp.status_code == 200
+        items = {i["name"]: i for i in resp.json()["items"]}
+
+        anchors = {i["group_id"]: n for n, i in items.items() if i["group_anchor"]}
+        assert sorted(anchors.values()) == ["Transformation", "Upgrade"]
+        assert all(re.fullmatch(r"g\d+", token) for token in anchors)
+        by_anchor = {n: items[n]["group_id"] for n in ("Transformation", "Upgrade")}
+        for name in ("Phase 1", "Phase 2"):
+            assert items[name]["group_id"] == by_anchor["Transformation"]
+            assert items[name]["group_name"] == "Transformation"
+            assert items[name]["group_anchor"] is False
+        assert items["Patch"]["group_id"] == by_anchor["Upgrade"]
+        for name in ("ERP Replacement", "Loose"):
+            assert items[name]["group_id"] is None
+            assert items[name]["group_anchor"] is False
+        assert str(program.id) in {i["id"] for i in items.values()}
+        assert resp.text.count(str(other.id)) == 2  # its own id and its child's parent_id
+
+    async def test_no_identifiers_beyond_the_initiative_id(self, client, db, ppm_portal_env):
+        await self._programs(db, ppm_portal_env["initiative"])
+        body = (await client.get(PUBLIC, params={"group_by": "subtype:Program"})).json()
+        item_ids = [i.pop("id") for i in body["items"]]
+        parents = [i.pop("parent_id") for i in body["items"]]
+        assert set(parents) - {None} <= set(item_ids)
+        assert not UUID_RE.search(json.dumps(body)), "a non-initiative identifier leaked"
+
+    async def test_a_portal_that_filters_programs_out_is_all_ungrouped(
+        self, client, db, ppm_portal_env
+    ):
+        await self._programs(db, ppm_portal_env["initiative"])
+        resp = await client.patch(
+            f"/api/v1/web-portals/{ppm_portal_env['portal_id']}",
+            json={"filters": {"subtypes": ["Project", "Epic"]}},
+            headers=auth_headers(ppm_portal_env["admin"]),
+        )
+        assert resp.status_code == 200
+
+        resp = await client.get(PUBLIC, params={"group_by": "subtype:Program"})
+        items = resp.json()["items"]
+        assert {i["name"] for i in items} == {
+            "ERP Replacement",
+            "Phase 1",
+            "Phase 2",
+            "Patch",
+            "Loose",
+        }
+        assert all(i["group_id"] is None and not i["group_anchor"] for i in items)
+        assert "Transformation" not in resp.text
+
+
 class TestPublicPortfolioCosts:
     async def test_costs_shown_by_default(self, client, db, ppm_portal_env):
         body = (await client.get(PUBLIC)).json()
@@ -565,8 +642,6 @@ class TestQueryCount:
         Both used to run inside the item loop, which put an unauthenticated
         endpoint one page-load away from N queries per initiative.
         """
-        from sqlalchemy import event
-
         pm = await create_user(db, email="pm2@company.com", role="admin", display_name="PM Two")
         for n in range(20):
             card = await create_card(
@@ -575,21 +650,59 @@ class TestQueryCount:
             await _add_stakeholder(db, card, pm)
             await _add_report(db, card, pm)
 
-        counter = {"n": 0}
-
-        def _count(conn, cursor, statement, params, context, executemany):
-            counter["n"] += 1
-
-        event.listen(test_engine.sync_engine, "before_cursor_execute", _count)
-        try:
-            resp = await client.get(PUBLIC)
-        finally:
-            event.remove(test_engine.sync_engine, "before_cursor_execute", _count)
-
+        resp, count = await _counted_get(client, test_engine, PUBLIC)
         assert resp.status_code == 200
         assert len(resp.json()["items"]) == 21
         # Comfortably above the handful the builder issues, far below 21×2.
-        assert counter["n"] < 25, f"query count {counter['n']} scales with initiatives"
+        assert count < 25, f"query count {count} scales with initiatives"
+
+    async def test_subtype_grouping_adds_no_query(self, client, db, ppm_portal_env, test_engine):
+        """Grouping by a subtype is decided over the rows already loaded."""
+        pm = await create_user(db, email="pm2@company.com", role="admin", display_name="PM Two")
+        programs = []
+        for n in range(5):
+            programs.append(
+                await create_card(
+                    db, card_type="Initiative", name=f"Program {n}", subtype="Program"
+                )
+            )
+        for n in range(20):
+            card = await create_card(
+                db,
+                card_type="Initiative",
+                name=f"Initiative {n}",
+                subtype="Project",
+                parent_id=programs[n % 5].id,
+            )
+            await _add_stakeholder(db, card, pm)
+            await _add_report(db, card, pm)
+
+        plain, plain_count = await _counted_get(client, test_engine, PUBLIC)
+        grouped, grouped_count = await _counted_get(
+            client, test_engine, f"{PUBLIC}?group_by=subtype:Program"
+        )
+        assert plain.status_code == grouped.status_code == 200
+        assert len(grouped.json()["items"]) == 26
+        assert sum(1 for i in grouped.json()["items"] if i["group_anchor"]) == 5
+        assert grouped_count == plain_count
+        assert grouped_count < 25, f"query count {grouped_count} scales with initiatives"
+
+
+async def _counted_get(client, test_engine, url):
+    """GET ``url`` and count the SQL statements it issued."""
+    from sqlalchemy import event
+
+    counter = {"n": 0}
+
+    def _count(conn, cursor, statement, params, context, executemany):
+        counter["n"] += 1
+
+    event.listen(test_engine.sync_engine, "before_cursor_execute", _count)
+    try:
+        resp = await client.get(url)
+    finally:
+        event.remove(test_engine.sync_engine, "before_cursor_execute", _count)
+    return resp, counter["n"]
 
 
 class TestCardPortalUnaffected:
