@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.172.0] - 2026-10-20
+
+### Added
+- **Derived budget and costs on a PPM initiative's own pages**: when an initiative has no budget lines of its own, its **Overview** (total budget, budget bars, variance) and its **Budget & Costs** tab (summary bar and budget table) show the budget of the initiatives beneath it — in italic with a "from beneath" mark and a tooltip, and in the table as one read-only row per fiscal year under a caption. Actuals do the same from cost lines, with an **Undated** row for cost lines without a date. Recording a line of its own switches that side back; nothing is stored or added to the initiative's own figures, and only initiatives the reader can see count.
+- `GET /ppm/initiatives/{id}/rollup` now says whether the initiative has budget lines and cost lines of its own and splits the figures beneath it by fiscal year, and the calculated-field context gains `ppm.unscheduledCapexActual` / `ppm.unscheduledOpexActual`.
+
+### Changed
+- A parent on the PPM portfolio now derives its budget and its actuals separately: a program that holds the budget while its projects record the spend shows its own budget against their actuals. The tooltip names which half comes from beneath, and the Excel export gains a **Budget from** column beside **Costs from** and **Dates from**.
+
 ## [2.171.0] - 2026-10-20
 
 ### Added

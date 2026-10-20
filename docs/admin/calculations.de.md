@@ -119,6 +119,8 @@ Die Wurzel `ppm` macht die Daten des PPM-Moduls für Formeln zugänglich: die Bu
 | `ppm.byYear` | Dieselben neun Kennzahlen je Geschäftsjahr, als Liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Das Geschäftsjahr, in das der heutige Tag fällt |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Kostenzeilen ohne Datum: zählen zu den Summen, gehören aber zu keinem Jahr |
+| `ppm.unscheduledCapexActual` | Die CapEx-Ist-Kosten dieser Kostenzeilen ohne Datum |
+| `ppm.unscheduledOpexActual` | Die OpEx-Ist-Kosten dieser Kostenzeilen ohne Datum |
 | `ppm.completion` | Gesamtfortschritt in % — der Mittelwert der Arbeitspakete oberster Ebene, genau die Zahl, die der Übersicht-Tab der Initiative anzeigt |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Anzahl der Arbeitspakete und der Meilensteine |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Anzahl der Aufgaben, insgesamt und je Status |

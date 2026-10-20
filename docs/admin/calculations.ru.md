@@ -114,6 +114,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | Те же девять показателей по финансовым годам, в виде списка `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Финансовый год, в который попадает сегодняшняя дата |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Строки затрат без даты: учитываются в итогах, но не относятся ни к одному году |
+| `ppm.unscheduledCapexActual` | Фактические затраты CapEx по этим строкам затрат без даты |
+| `ppm.unscheduledOpexActual` | Фактические затраты OpEx по этим строкам затрат без даты |
 | `ppm.completion` | Общий процент завершения — среднее по рабочим пакетам верхнего уровня, ровно то число, которое показывает вкладка «Обзор» инициативы |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Число рабочих пакетов и число вех |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Число задач: всего и по статусам |

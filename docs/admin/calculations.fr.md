@@ -123,6 +123,8 @@ ses tâches et ses risques, et le dernier rapport de statut.
 | `ppm.byYear` | Les mêmes neuf mesures par exercice, sous forme de liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | L'exercice dans lequel tombe la date du jour |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Lignes de coût sans date : comptées dans les totaux, rattachées à aucun exercice |
+| `ppm.unscheduledCapexActual` | Le réel CapEx de ces lignes de coût sans date |
+| `ppm.unscheduledOpexActual` | Le réel OpEx de ces lignes de coût sans date |
 | `ppm.completion` | Avancement global en % — la moyenne des lots de travaux de premier niveau, exactement le chiffre qu'affiche l'onglet Vue d'ensemble de l'initiative |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Nombre de lots de travaux et de jalons |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Nombre de tâches, au total et par statut |

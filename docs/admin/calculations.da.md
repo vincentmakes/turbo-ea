@@ -117,6 +117,8 @@ Roden `ppm` gør PPM-modulets data tilgængelige for formler: budget- og omkostn
 | `ppm.byYear` | De samme ni mål pr. regnskabsår, som en liste `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | Det regnskabsår, dagens dato falder i |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Omkostningslinjer uden dato: tæller med i totalerne, men hører til intet år |
+| `ppm.unscheduledCapexActual` | Det realiserede CapEx for disse omkostningslinjer uden dato |
+| `ppm.unscheduledOpexActual` | Det realiserede OpEx for disse omkostningslinjer uden dato |
 | `ppm.completion` | Samlet fuldførelse i % — gennemsnittet af arbejdspakkerne på øverste niveau, præcis det tal, initiativets Overview-fane viser |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Antal arbejdspakker og antal milepæle |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Antal opgaver, i alt og pr. status |

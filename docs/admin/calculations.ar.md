@@ -114,6 +114,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | المقاييس التسعة نفسها لكل سنة مالية، كقائمة `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | السنة المالية التي يقع فيها تاريخ اليوم |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | سطور تكلفة بلا تاريخ: تُحتسب في الإجماليات لكنها لا تنتمي لأي سنة |
+| `ppm.unscheduledCapexActual` | الفعلي من النفقات الرأسمالية لسطور التكلفة هذه التي بلا تاريخ |
+| `ppm.unscheduledOpexActual` | الفعلي من النفقات التشغيلية لسطور التكلفة هذه التي بلا تاريخ |
 | `ppm.completion` | نسبة الإنجاز الإجمالية بالمئة — متوسط حزم العمل في المستوى الأعلى، وهو الرقم نفسه الذي تعرضه علامة تبويب النظرة العامة للمبادرة |
 | `ppm.wbsCount`, `ppm.milestoneCount` | عدد حزم العمل وعدد المعالم الرئيسية |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | أعداد المهام، إجمالًا وحسب الحالة |

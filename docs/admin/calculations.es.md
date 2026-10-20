@@ -119,6 +119,8 @@ La raíz `ppm` expone a las fórmulas los datos del módulo PPM: las líneas de 
 | `ppm.byYear` | Las mismas nueve medidas por ejercicio fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | El ejercicio fiscal en el que cae la fecha de hoy |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Líneas de costo sin fecha: cuentan en los totales, pero no pertenecen a ningún ejercicio |
+| `ppm.unscheduledCapexActual` | El gasto real CapEx de esas líneas de costo sin fecha |
+| `ppm.unscheduledOpexActual` | El gasto real OpEx de esas líneas de costo sin fecha |
 | `ppm.completion` | Avance global en % — la media de los paquetes de trabajo de nivel superior, exactamente el número que muestra la pestaña de visión general de la iniciativa |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Número de paquetes de trabajo y de hitos |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Recuento de tareas, en total y por estado |

@@ -118,6 +118,8 @@ La radice `ppm` espone alle formule i dati del modulo PPM: le righe di budget e 
 | `ppm.byYear` | Le stesse nove misure per esercizio, come elenco `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | L'esercizio in cui cade la data odierna |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Righe di costo senza data: contano nei totali, ma non appartengono ad alcun esercizio |
+| `ppm.unscheduledCapexActual` | Il consuntivo CapEx di quelle righe di costo senza data |
+| `ppm.unscheduledOpexActual` | Il consuntivo OpEx di quelle righe di costo senza data |
 | `ppm.completion` | Completamento complessivo in % — la media dei pacchetti di lavoro di primo livello, esattamente il numero mostrato dalla scheda Panoramica dell'iniziativa |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Numero di pacchetti di lavoro e di milestone |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Conteggio delle attività, in totale e per stato |

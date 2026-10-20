@@ -126,6 +126,8 @@ report.
 | `ppm.byYear` | The same nine measures per fiscal year, as a list of `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | The fiscal year today falls in |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Cost lines with no date, which count towards the totals but belong to no year |
+| `ppm.unscheduledCapexActual` | The CapEx actuals of those undated cost lines |
+| `ppm.unscheduledOpexActual` | The OpEx actuals of those undated cost lines |
 | `ppm.completion` | Overall completion in % — the mean of the top-level work packages, exactly the number the initiative's Overview tab shows |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Number of work packages and of milestones |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Task counts, in total and by status |

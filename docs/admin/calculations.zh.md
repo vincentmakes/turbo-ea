@@ -111,6 +111,8 @@ COALESCE(data.licenseCost, 0) + COALESCE(data.supportCost, 0) + COALESCE(data.in
 | `ppm.byYear` | 按财年划分的同样九项指标，形式为列表 `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | 今天所属的财年 |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | 没有日期的成本行：计入合计，但不属于任何财年 |
+| `ppm.unscheduledCapexActual` | 这些没有日期的成本行中的资本支出实际值 |
+| `ppm.unscheduledOpexActual` | 这些没有日期的成本行中的运营支出实际值 |
 | `ppm.completion` | 整体完成率（%）—— 顶层工作包的平均值，与举措「概览」选项卡上显示的数字完全一致 |
 | `ppm.wbsCount`, `ppm.milestoneCount` | 工作包数量与里程碑数量 |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | 任务数量：总数及按状态统计 |

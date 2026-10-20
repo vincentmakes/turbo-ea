@@ -118,6 +118,8 @@ A raiz `ppm` expõe às fórmulas os dados do módulo PPM: as linhas de orçamen
 | `ppm.byYear` | As mesmas nove medidas por exercício fiscal, como lista `{year, capexBudget, …}` |
 | `ppm.currentFiscalYear` | O exercício fiscal em que a data de hoje cai |
 | `ppm.unscheduledPlanned`, `ppm.unscheduledActual` | Linhas de custo sem data: contam nos totais, mas não pertencem a nenhum exercício |
+| `ppm.unscheduledCapexActual` | O realizado CapEx dessas linhas de custo sem data |
+| `ppm.unscheduledOpexActual` | O realizado OpEx dessas linhas de custo sem data |
 | `ppm.completion` | Conclusão geral em % — a média dos pacotes de trabalho de nível superior, exatamente o número que a aba Visão Geral da iniciativa mostra |
 | `ppm.wbsCount`, `ppm.milestoneCount` | Número de pacotes de trabalho e de marcos |
 | `ppm.taskCount`, `ppm.tasksTodo`, `ppm.tasksInProgress`, `ppm.tasksDone`, `ppm.tasksBlocked` | Contagem de tarefas, no total e por status |
