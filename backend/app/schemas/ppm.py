@@ -318,9 +318,10 @@ class PpmRollup(BaseModel):
     """What a parent row shows in place of costs or dates it has not got.
 
     The cost quartet is all set or all ``None``: set only when the parent has no
-    budget or cost line of its own. The dates are set only when it has neither a
-    start nor an end date. ``descendant_count`` is the number of initiatives
-    beneath it on the board (``app.services.ppm_rollup``).
+    budget or cost line of its own and some initiative beneath it has. The dates
+    are set only when it has neither a start nor an end date. ``descendant_count``
+    is the number of initiatives beneath it on the board
+    (``app.services.ppm_rollup``).
     """
 
     descendant_count: int

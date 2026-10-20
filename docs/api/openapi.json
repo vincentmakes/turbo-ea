@@ -9580,7 +9580,7 @@
         "type": "object"
       },
       "PpmRollup": {
-        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe cost quartet is all set or all ``None``: set only when the parent has no\nbudget or cost line of its own. The dates are set only when it has neither a\nstart nor an end date. ``descendant_count`` is the number of initiatives\nbeneath it on the board (``app.services.ppm_rollup``).",
+        "description": "What a parent row shows in place of costs or dates it has not got.\n\nThe cost quartet is all set or all ``None``: set only when the parent has no\nbudget or cost line of its own and some initiative beneath it has. The dates\nare set only when it has neither a start nor an end date. ``descendant_count``\nis the number of initiatives beneath it on the board\n(``app.services.ppm_rollup``).",
         "properties": {
           "capex_actual": {
             "anyOf": [

@@ -162,10 +162,18 @@ class TestRollupForBoard:
             {root: (None, None), a: (None, None), b: (None, None)},
         )
         assert out == {
-            root: Rollup(
-                descendant_count=2, figures=_fig(0, 0, 0, 0), start_date=None, end_date=None
-            )
+            root: Rollup(descendant_count=2, figures=None, start_date=None, end_date=None)
         }
+
+    def test_one_line_anywhere_beneath_is_enough_to_derive(self):
+        root, mid, leaf = _ids(3)
+        out = rollup_for_board(
+            {root: None, mid: root, leaf: mid},
+            {leaf: _fig(0, 0, 0, 0)},
+            {root: (None, None), mid: (None, None), leaf: (None, None)},
+        )
+        assert out[root].figures == _fig(0, 0, 0, 0)
+        assert out[mid].figures == _fig(0, 0, 0, 0)
 
     def test_empty_board(self):
         assert rollup_for_board({}, {}, {}) == {}

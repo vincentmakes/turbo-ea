@@ -39,7 +39,9 @@ class Rollup:
     """What the board shows for a parent in place of data it has not got.
 
     ``figures`` is set only when the parent has no budget or cost line of its
-    own, and the dates only when it has neither a start nor an end date. An
+    own and some initiative beneath it has, and the dates only when it has
+    neither a start nor an end date (each side ``None`` when nothing beneath
+    carries one). An
     initiative with descendants but nothing to derive still carries its
     ``descendant_count``.
     """
@@ -125,7 +127,9 @@ def rollup_for_board(
 
     ``figures`` is keyed only for initiatives with at least one budget or cost
     line, so ``i not in figures`` is exactly "no lines of its own" (a zero
-    amount still counts as data entered).
+    amount still counts as data entered). Costs are derived only when some
+    initiative beneath has lines, and dates only when some has a date, so a
+    row never claims figures that nobody recorded.
     """
     children = children_index(parents)
     out: dict[uuid.UUID, Rollup] = {}
@@ -136,9 +140,12 @@ def rollup_for_board(
         own_start, own_end = dates[i]
         no_own_dates = not own_start and not own_end
         start, end = date_span(beneath, dates) if no_own_dates else (None, None)
+        # Derive costs only when the row has no lines of its own and some
+        # initiative beneath it has: zeros summed from nothing are not data.
+        derive_costs = i not in figures and any(d in figures for d in beneath)
         out[i] = Rollup(
             descendant_count=len(beneath),
-            figures=None if i in figures else sum_figures(beneath, figures),
+            figures=sum_figures(beneath, figures) if derive_costs else None,
             start_date=start,
             end_date=end,
         )
