@@ -651,6 +651,13 @@ describe("PpmPortfolioView hierarchy", () => {
     });
     expect(nameCell("ERP Rollout").dataset.depth).toBe("0");
     expect(nameCell("Finance Stream").dataset.depth).toBe("1");
+    // The depth menu is sized per group: no group shows a third level.
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Display depth" }));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Level 1",
+      "Level 2",
+      "All levels",
+    ]);
   });
 
   it("shows what the filters leave, with a hidden parent's children as roots", () => {

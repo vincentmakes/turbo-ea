@@ -493,11 +493,16 @@ export default function PpmPortfolioView({
     () => groupLayout(treeOn, depth, bySubtype, subtypeOrder),
     [treeOn, depth, bySubtype, subtypeOrder],
   );
-  // Level 1 … the deepest chain on the board (or the URL's depth, if deeper).
+  // Level 1 … the deepest chain any group shows (or the URL's depth, if
+  // deeper). Measured per group, never over the whole board: a chain whose
+  // parent sits in another group is two roots, not a level.
   const depthOptions = useMemo(() => {
-    const deepest = Math.max(maxTreeDepth(filtered), depth === ALL_LEVELS ? 0 : depth);
+    const deepest = Math.max(
+      ...groups.map(([, g]) => maxTreeDepth(g.items)),
+      depth === ALL_LEVELS ? 0 : depth,
+    );
     return Array.from({ length: deepest }, (_, i) => i + 1);
-  }, [filtered, depth]);
+  }, [groups, depth]);
 
   // ── Print / export ──
   const groupLabel = useMemo(
