@@ -260,6 +260,8 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     items.push({ insert: "currentFiscalYear", label: "currentFiscalYear", detail: t("calculations.ppmCurrentFy"), category: "PPM" });
     items.push({ insert: "unscheduledPlanned", label: "unscheduledPlanned", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
     items.push({ insert: "unscheduledActual", label: "unscheduledActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
+    items.push({ insert: "unscheduledCapexActual", label: "unscheduledCapexActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
+    items.push({ insert: "unscheduledOpexActual", label: "unscheduledOpexActual", detail: t("calculations.ppmUnscheduled"), category: "PPM" });
     // Delivery figures (#1111): progress, tasks, risks, the latest status report.
     items.push({ insert: "completion", label: "completion", detail: t("calculations.ppmCompletion"), category: "PPM" });
     items.push({ insert: "wbsCount", label: "wbsCount", detail: t("calculations.ppmWbsCount"), category: "PPM" });

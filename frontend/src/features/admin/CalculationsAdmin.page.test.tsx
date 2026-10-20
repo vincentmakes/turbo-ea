@@ -724,11 +724,11 @@ describe("FormulaEditor suggestions", () => {
     expect(list.getByText("Planned budget (capex)")).toBeInTheDocument();
     expect(list.getByText("Amounts per fiscal year (list)")).toBeInTheDocument();
     // Only the first twenty are listed after a bare dot.
-    expect(list.getByText("tasksDone")).toBeInTheDocument();
-    expect(list.queryByText("tasksBlocked")).not.toBeInTheDocument();
+    expect(list.getByText("tasksTodo")).toBeInTheDocument();
+    expect(list.queryByText("tasksInProgress")).not.toBeInTheDocument();
 
     await user.type(textarea, "risk");
-    await waitFor(() => expect(screen.queryByText("tasksDone")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("tasksTodo")).not.toBeInTheDocument());
     list = await suggestionList();
     expect(list.getByText("riskScoreMax")).toBeInTheDocument();
     expect(list.getAllByText("PPM risks — all, open, and the highest risk score")).toHaveLength(3);
