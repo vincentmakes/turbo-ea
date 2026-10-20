@@ -8927,7 +8927,7 @@
         "type": "object"
       },
       "PpmPublicItem": {
-        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design. Every\nother identifier is withheld: ``group_id`` is an opaque per-response token,\nand the parent, report, reporter and stakeholder ids are not emitted at all.",
+        "description": "One board row.\n\n``id`` is the initiative's real card UUID \u2014 a portfolio portal links its rows\nto ``/ppm/{id}`` behind the login wall, so it is exposed by design.\n``parent_id`` is set only when the parent is itself a row of the same\nresponse, so it repeats an ``id`` already published and lets the board nest\nits rows; a parent the portal does not publish reads ``None``. Every other\nidentifier is withheld: ``group_id`` is an opaque per-response token, and the\nreport, reporter and stakeholder ids are not emitted at all.",
         "properties": {
           "capex_actual": {
             "anyOf": [
@@ -9023,6 +9023,17 @@
               }
             ],
             "title": "Opex Planned"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
           },
           "stakeholders": {
             "default": [],

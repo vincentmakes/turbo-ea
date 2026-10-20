@@ -955,3 +955,69 @@ class TestRunCalculationsForCard:
         assert await names(exclude_fields={"b"}) == ["A", "C"]
         assert await names(exclude_field="a", exclude_fields={"b"}) == ["C"]
         assert await names(exclude_fields={"a", "b", "c"}) == []
+
+
+class TestDeepestFirst:
+    """A manual run computes a hierarchy bottom-up, so a roll-up settles in one run."""
+
+    def test_sort_key(self):
+        from types import SimpleNamespace
+
+        from app.services.calculation_engine import _deepest_first
+
+        def key(attrs):
+            return _deepest_first(SimpleNamespace(attributes=attrs))
+
+        assert key({"hierarchyLevel": 3}) == -3
+        assert key({"hierarchyLevel": 2.0}) == -2
+        assert key({"hierarchyLevel": 1}) == -1
+        # Anything that is not a level sorts as a root.
+        assert key({}) == -1
+        assert key(None) == -1
+        assert key({"hierarchyLevel": "3"}) == -1
+        assert key({"hierarchyLevel": None}) == -1
+        assert key({"hierarchyLevel": True}) == -1
+        assert key({"hierarchyLevel": False}) == -1
+
+    async def test_a_three_level_roll_up_settles_in_one_run(self, db):
+        from sqlalchemy import select
+
+        from app.models.card import Card
+        from app.services.calculation_engine import run_calculations_for_type
+
+        await create_card_type(db, key="Initiative", label="Initiative", has_hierarchy=True)
+        db.add(
+            Calculation(
+                name="Roll-up",
+                formula='data.own + SUM(PLUCK(children, "attributes.total"))',
+                target_type_key="Initiative",
+                target_field_key="total",
+                is_active=True,
+            )
+        )
+        # Inserted root first, so the order the rows come back in is the wrong one.
+        root = await create_card(
+            db, card_type="Initiative", name="Root", attributes={"own": 1, "hierarchyLevel": 1}
+        )
+        mid = await create_card(
+            db,
+            card_type="Initiative",
+            name="Mid",
+            parent_id=root.id,
+            attributes={"own": 10, "hierarchyLevel": 2},
+        )
+        await create_card(
+            db,
+            card_type="Initiative",
+            name="Leaf",
+            parent_id=mid.id,
+            attributes={"own": 100, "hierarchyLevel": 3},
+        )
+        await db.commit()
+
+        report = await run_calculations_for_type(db, "Initiative")
+        assert report["cards_processed"] == 3
+
+        rows = (await db.execute(select(Card).where(Card.type == "Initiative"))).scalars().all()
+        totals = {c.name: (c.attributes or {}).get("total") for c in rows}
+        assert totals == {"Leaf": 100, "Mid": 110, "Root": 111}

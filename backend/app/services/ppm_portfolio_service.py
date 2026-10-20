@@ -433,6 +433,13 @@ async def build_gantt_items(
     reporters = await load_reporters(db, [r.reporter_id for r in latest.values()])
     stakeholder_map = await load_stakeholders(db, init_ids, role_keys=role_keys)
 
+    # A parent is named only when it is itself a row on this board. The rows
+    # already carry the caller's scope (the read scope here, a portal's
+    # PortfolioScope on the public board), so this one rule keeps a hidden or
+    # archived parent's id out of the payload and lets a portal publish a
+    # parent only when that parent is published too.
+    on_board = {c.id for c in initiatives}
+
     items: list[PpmGanttItem] = []
     for card in initiatives:
         attrs = card.attributes or {}
@@ -465,7 +472,7 @@ async def build_gantt_items(
                 name=card.name,
                 subtype=card.subtype,
                 status=attrs.get("initiativeStatus"),
-                parent_id=str(card.parent_id) if card.parent_id else None,
+                parent_id=str(card.parent_id) if card.parent_id in on_board else None,
                 start_date=attrs.get("startDate"),
                 end_date=attrs.get("endDate"),
                 cost_budget=float(attrs.get("costBudget") or 0) or None,
@@ -607,11 +614,14 @@ def to_public_portfolio(
       ``ppm_cost_lines``/``ppm_budget_lines`` tables — not card attributes, and
       so genuinely outside that invariant. The board renders neither of the two
       card attributes anyway.
-    * **Identifiers other than the initiative's own.** ``group_id`` becomes an
-      opaque per-response token, and ``parent_id`` / ``latest_report_id`` /
-      ``reporter_id`` / ``user_id`` are not emitted at all. The initiative ``id``
-      *is* a real card UUID because a portfolio portal links its rows to
-      ``/ppm/{id}`` behind the login wall; nothing else here needs one.
+    * **Identifiers other than the board's own rows.** ``group_id`` becomes an
+      opaque per-response token, and ``latest_report_id`` / ``reporter_id`` /
+      ``user_id`` are not emitted at all. The initiative ``id`` *is* a real card
+      UUID because a portfolio portal links its rows to ``/ppm/{id}`` behind the
+      login wall. ``parent_id`` is published so the board can nest its rows, and
+      ``build_gantt_items`` sets it only when the parent is itself a row of this
+      response — so it only ever repeats an ``id`` the payload already carries,
+      and a parent the portal does not publish reads ``null``.
     """
     group_tokens: dict[str, str] = {}
 
@@ -653,6 +663,7 @@ def to_public_portfolio(
                 id=it.id,
                 name=it.name,
                 subtype=it.subtype,
+                parent_id=it.parent_id,
                 start_date=it.start_date,
                 end_date=it.end_date,
                 group_id=group_token,

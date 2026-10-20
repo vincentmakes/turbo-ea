@@ -54,6 +54,7 @@ from app.services.card_read_scope import is_card_readable
 from app.services.card_write_service import recalculate_and_rescore
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+from app.services.ppm_ancestors import active_initiative_ancestors
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
 
@@ -133,6 +134,7 @@ async def _sync_initiative_costs(
     # releases `costBudget` back to calculations.
     await recalculate_and_rescore(db, card)
     await _publish_initiative_rollup(db, card, old_attrs, "ppm_cost_rollup", actor_id)
+    await _refresh_ancestors(db, card, actor_id)
     await db.commit()
 
 
@@ -186,7 +188,25 @@ async def _refresh_initiative_derived(
     old_attrs = dict(card.attributes or {})
     await recalculate_and_rescore(db, card)
     await _publish_initiative_rollup(db, card, old_attrs, "ppm_rollup", actor_id)
+    await _refresh_ancestors(db, card, actor_id)
     await db.commit()
+
+
+async def _refresh_ancestors(db: AsyncSession, card: Card, actor_id: uuid.UUID | None) -> None:
+    """Re-run the calculations of every Initiative above ``card``, nearest first.
+
+    A roll-up formula reads its children's values, so a parent must be
+    recomputed after its child and before its own parent — the order
+    ``active_initiative_ancestors`` returns. Each level is flushed before the
+    next reads it: the formula context loads ``children`` with a query. An
+    ancestor whose attributes did not move records nothing on its History tab,
+    as ``_publish_initiative_rollup`` already guarantees. Commits nothing.
+    """
+    for ancestor in await active_initiative_ancestors(db, card):
+        await db.flush()
+        old_attrs = dict(ancestor.attributes or {})
+        await recalculate_and_rescore(db, ancestor)
+        await _publish_initiative_rollup(db, ancestor, old_attrs, "ppm_rollup", actor_id)
 
 
 def _report_to_out(report: PpmStatusReport, reporter: ReporterOut | None) -> PpmStatusReportOut:

@@ -259,10 +259,22 @@ class TestPublicPortfolioPayload:
         await _set_toggles(
             client, ppm_portal_env["admin"], ppm_portal_env["portal_id"], show_people=True
         )
+        # A child row, so `parent_id` carries a value rather than passing as null.
+        await create_card(
+            db,
+            card_type="Initiative",
+            name="ERP Phase 1",
+            subtype="Project",
+            parent_id=ppm_portal_env["initiative"].id,
+        )
         body = (await client.get(PUBLIC)).json()
 
         item_ids = [i.pop("id") for i in body["items"]]
-        assert item_ids == [str(ppm_portal_env["initiative"].id)]
+        assert str(ppm_portal_env["initiative"].id) in item_ids
+        # A parent may only ever repeat the id of another row on this board.
+        parents = [i.pop("parent_id") for i in body["items"]]
+        assert [p for p in parents if p is not None] == [str(ppm_portal_env["initiative"].id)]
+        assert set(parents) - {None} <= set(item_ids)
         assert not UUID_RE.search(json.dumps(body)), "a non-initiative identifier leaked"
 
     async def test_group_id_is_an_opaque_token(self, client, db, ppm_portal_env):
@@ -369,6 +381,35 @@ class TestPublicPortfolioScope:
         body = (await client.get(PUBLIC)).json()
         assert [i["name"] for i in body["items"]] == ["Cloud Migration"]
         assert body["dashboard"]["total_initiatives"] == 1
+
+    async def test_parent_on_the_board_is_published(self, client, db, ppm_portal_env):
+        parent = ppm_portal_env["initiative"]
+        await create_card(
+            db, card_type="Initiative", name="ERP Phase 1", subtype="Project", parent_id=parent.id
+        )
+        items = {i["name"]: i for i in (await client.get(PUBLIC)).json()["items"]}
+        assert items["ERP Phase 1"]["parent_id"] == str(parent.id)
+        assert items["ERP Replacement"]["parent_id"] is None
+
+    async def test_parent_outside_the_portal_filter_is_null(self, client, db, ppm_portal_env):
+        program = await create_card(
+            db, card_type="Initiative", name="Transformation", subtype="Program"
+        )
+        await create_card(
+            db, card_type="Initiative", name="ERP Phase 1", subtype="Project", parent_id=program.id
+        )
+        resp = await client.patch(
+            f"/api/v1/web-portals/{ppm_portal_env['portal_id']}",
+            json={"filters": {"subtypes": ["Project"]}},
+            headers=auth_headers(ppm_portal_env["admin"]),
+        )
+        assert resp.status_code == 200
+
+        resp = await client.get(PUBLIC)
+        items = {i["name"]: i for i in resp.json()["items"]}
+        assert set(items) == {"ERP Replacement", "ERP Phase 1"}
+        assert items["ERP Phase 1"]["parent_id"] is None
+        assert str(program.id) not in resp.text
 
     async def test_malformed_tag_filter_does_not_500(self, client, db, ppm_portal_env):
         resp = await client.patch(

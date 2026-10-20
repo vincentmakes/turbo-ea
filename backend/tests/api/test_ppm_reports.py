@@ -239,6 +239,77 @@ class TestPpmGantt:
         assert data[0]["group_name"] is None
 
 
+class TestPpmGanttParent:
+    """``parent_id`` names a parent only when that parent is a row on the board.
+
+    The board nests rows by it, and it must never hand out the id of a card the
+    caller cannot read (an archived parent, or one hidden by the read scope).
+    """
+
+    @staticmethod
+    async def _by_name(client, user) -> dict[str, dict]:
+        resp = await client.get("/api/v1/reports/ppm/gantt", headers=auth_headers(user))
+        assert resp.status_code == 200
+        return {i["name"]: i for i in resp.json()}
+
+    async def test_parent_on_the_board_is_emitted(self, client, db, ppm_env):
+        admin = ppm_env["admin"]
+        program = await create_card(db, card_type="Initiative", name="Program")
+        project = await create_card(
+            db, card_type="Initiative", name="Project", parent_id=program.id
+        )
+        await create_card(db, card_type="Initiative", name="Sub", parent_id=project.id)
+
+        items = await self._by_name(client, admin)
+        assert items["Program"]["parent_id"] is None
+        assert items["Project"]["parent_id"] == str(program.id)
+        assert items["Sub"]["parent_id"] == str(project.id)
+
+    async def test_archived_parent_is_not_named(self, client, db, ppm_env):
+        admin = ppm_env["admin"]
+        gone = await create_card(db, card_type="Initiative", name="Old Program", status="ARCHIVED")
+        await create_card(db, card_type="Initiative", name="Orphan", parent_id=gone.id)
+
+        items = await self._by_name(client, admin)
+        assert set(items) == {"Orphan"}
+        assert items["Orphan"]["parent_id"] is None
+
+    async def test_parent_hidden_by_the_read_scope_is_not_named(self, client, db, ppm_env):
+        from sqlalchemy import select
+
+        from app.core.permissions import MEMBER_PERMISSIONS
+        from app.models.card_type import CardType
+        from app.models.stakeholder import Stakeholder
+        from app.services.permission_service import PermissionService
+        from tests.conftest import create_stakeholder_role_def
+
+        await create_role(db, key="member", label="Member", permissions=MEMBER_PERMISSIONS)
+        member = await create_user(db, email="member@test.com", role="member")
+        await create_stakeholder_role_def(
+            db, card_type_key="Initiative", key="responsible", permissions={"card.view": True}
+        )
+        program = await create_card(db, card_type="Initiative", name="Secret Program")
+        project = await create_card(
+            db, card_type="Initiative", name="Held Project", parent_id=program.id
+        )
+        db.add(Stakeholder(card_id=project.id, user_id=member.id, role="responsible"))
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.role_permissions = {"member": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        resp = await client.get("/api/v1/reports/ppm/gantt", headers=auth_headers(member))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert [i["name"] for i in body] == ["Held Project"]
+        assert body[0]["parent_id"] is None
+        assert str(program.id) not in resp.text
+
+        # The admin still sees the pair, linked.
+        items = await self._by_name(client, ppm_env["admin"])
+        assert items["Held Project"]["parent_id"] == str(program.id)
+
+
 # ---------------------------------------------------------------------------
 # Group Options
 # ---------------------------------------------------------------------------

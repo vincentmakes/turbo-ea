@@ -46,14 +46,18 @@ class PpmPublicItem(BaseModel):
     """One board row.
 
     ``id`` is the initiative's real card UUID — a portfolio portal links its rows
-    to ``/ppm/{id}`` behind the login wall, so it is exposed by design. Every
-    other identifier is withheld: ``group_id`` is an opaque per-response token,
-    and the parent, report, reporter and stakeholder ids are not emitted at all.
+    to ``/ppm/{id}`` behind the login wall, so it is exposed by design.
+    ``parent_id`` is set only when the parent is itself a row of the same
+    response, so it repeats an ``id`` already published and lets the board nest
+    its rows; a parent the portal does not publish reads ``None``. Every other
+    identifier is withheld: ``group_id`` is an opaque per-response token, and the
+    report, reporter and stakeholder ids are not emitted at all.
     """
 
     id: str
     name: str
     subtype: str | None = None
+    parent_id: str | None = None
     start_date: str | None = None
     end_date: str | None = None
     group_id: str | None = None

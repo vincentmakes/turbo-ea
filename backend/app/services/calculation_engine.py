@@ -755,6 +755,19 @@ async def run_calculations_for_card(
 MAX_SAMPLE_CARDS = 10
 
 
+def _deepest_first(card: Card) -> int:
+    """Sort key putting the deepest cards first: minus the hierarchy level.
+
+    ``attributes.hierarchyLevel`` (1 = root) is kept on every card of a
+    hierarchical type. A card without it — or with a value that is not a whole
+    number, as an import could leave behind — sorts as a root.
+    """
+    level = (card.attributes or {}).get("hierarchyLevel")
+    if isinstance(level, bool) or not isinstance(level, (int, float)):
+        return -1
+    return -int(level)
+
+
 async def run_calculations_for_type(
     db: AsyncSession,
     target_type_key: str,
@@ -770,7 +783,11 @@ async def run_calculations_for_type(
     cards_result = await db.execute(
         select(Card).where(Card.type == target_type_key, Card.status == "ACTIVE")
     )
-    cards = cards_result.scalars().all()
+    # Deepest first, so a roll-up formula that reads its children's values
+    # (`SUM(PLUCK(children, "attributes.x"))` on every level) settles in one
+    # run: each parent is computed after every card below it. The sort is
+    # stable, so a type without a hierarchy keeps the order it had.
+    cards = sorted(cards_result.scalars().all(), key=_deepest_first)
 
     total = len(cards)
     success_count = 0
