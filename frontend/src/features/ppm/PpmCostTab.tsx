@@ -45,7 +45,14 @@ import {
   groupCostLines,
   type GroupKey,
 } from "./costTableGroups";
-import type { PpmCostLine, PpmBudgetLine } from "@/types";
+import DerivedValue from "./DerivedValue";
+import {
+  derivedYearGroups,
+  financialTotals,
+  type DerivedSide,
+  type DerivedYearRow,
+} from "./derivedFinancials";
+import type { PpmCostLine, PpmBudgetLine, PpmRollupOut } from "@/types";
 
 // Lazy: PpmProjectDetail imports every tab eagerly, so a static import would
 // pull Recharts into the PPM route chunk even for visitors who never open
@@ -77,6 +84,12 @@ const FOOTER_CELL_SX = {
   color: "text.primary",
   fontSize: "0.875rem",
 } as const;
+/** A figure summed from the initiatives beneath reads italic. */
+const DERIVED_NUM_SX = { ...NUM_SX, fontStyle: "italic" } as const;
+const DERIVED_FOOTER_CELL_SX = { ...FOOTER_CELL_SX, fontStyle: "italic" } as const;
+/** The caption heading a derived table: what it is and where it comes from. */
+// Stryker disable next-line ObjectLiteral: layout of the glyph beside the caption is presentation
+const DERIVED_CAPTION_SX = { display: "flex", alignItems: "center", gap: 0.5 } as const;
 
 /**
  * Which year groups a table shows open. `null` until the user first toggles
@@ -105,10 +118,12 @@ function useExpandedGroups(defaultKey: GroupKey | null) {
 interface Props {
   initiativeId: string;
   costLines: PpmCostLine[];
+  /** The initiatives beneath this one (`null` while unknown or unreadable). */
+  rollup: PpmRollupOut | null;
   onRefresh: () => void;
 }
 
-export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props) {
+export default function PpmCostTab({ initiativeId, costLines, rollup, onRefresh }: Props) {
   const { t } = useTranslation("ppm");
   const fullScreen = useFullScreenDialog();
   const { fmt } = useCurrency();
@@ -165,30 +180,18 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
   const { busy: saving, run: submit } = useSubmitOnce();
 
   // ── KPIs ──
-  const totalBudget = useMemo(
-    () => budgetLines.reduce((s, bl) => s + bl.amount, 0),
-    [budgetLines],
-  );
-  const totalActual = useMemo(
-    () => costLines.reduce((s, cl) => s + cl.actual, 0),
-    [costLines],
-  );
-  const capexBudget = useMemo(
-    () => budgetLines.filter((b) => b.category === "capex").reduce((s, b) => s + b.amount, 0),
-    [budgetLines],
-  );
-  const capexActual = useMemo(
-    () => costLines.filter((c) => c.category === "capex").reduce((s, c) => s + c.actual, 0),
-    [costLines],
-  );
-  const opexBudget = useMemo(
-    () => budgetLines.filter((b) => b.category === "opex").reduce((s, b) => s + b.amount, 0),
-    [budgetLines],
-  );
-  const opexActual = useMemo(
-    () => costLines.filter((c) => c.category === "opex").reduce((s, c) => s + c.actual, 0),
-    [costLines],
-  );
+  // Each side is this initiative's own lines, or — when it has none of that
+  // kind — the initiatives' beneath it (see derivedFinancials). The budget
+  // side is only ever derived once its own lines are known to be none.
+  const totals = financialTotals(budgetLines, costLines, rollup);
+  const budgetDerived = budgetKnown && totals.budget.derived;
+  const actualDerived = totals.actual.derived;
+  const count = rollup?.descendant_count;
+  const budgetTip = budgetDerived ? t("derivedBudgetTooltip", { count }) : undefined;
+  const actualTip = actualDerived ? t("derivedActualTooltip", { count }) : undefined;
+  const varianceTip = [budgetTip, actualTip].filter(Boolean).join(" \u00b7 ") || undefined;
+  const totalBudget = totals.budget.total;
+  const totalActual = totals.actual.total;
 
   // ── Table groups ──
   const currentFy = currentFiscalYear(new Date(), fyStart);
@@ -196,10 +199,51 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
   const costGroups = useMemo(() => groupCostLines(costLines, fyStart), [costLines, fyStart]);
   const budgetGrand = useMemo(() => grandTotals(budgetGroups), [budgetGroups]);
   const costGrand = useMemo(() => grandTotals(costGroups), [costGroups]);
+  // A derived table's footer is the derived side's total, in italic.
+  const budgetFooter = budgetDerived ? totals.budget : budgetGrand;
+  const budgetFooterSx = budgetDerived ? DERIVED_FOOTER_CELL_SX : FOOTER_CELL_SX;
+  const costFooter = actualDerived ? totals.actual : costGrand;
+  const costFooterSx = actualDerived ? DERIVED_FOOTER_CELL_SX : FOOTER_CELL_SX;
   const budgetOpen = useExpandedGroups(defaultExpandedKey(budgetGroups, currentFy));
   const costOpen = useExpandedGroups(defaultExpandedKey(costGroups, currentFy));
   const groupLabel = (key: GroupKey) =>
     key === "undated" ? t("undated") : fiscalYearLabel(key, fyStart, t);
+
+  /**
+   * In place of an empty table's "no lines" row: one read-only row per fiscal
+   * year of the initiatives beneath, under a caption saying so. No toggles,
+   * no edit or delete — adding a line of its own is how the initiative takes
+   * the figure back.
+   */
+  const derivedTableRows = (side: DerivedSide, rows: DerivedYearRow[], labelSpan: number) => (
+    <>
+      <TableRow data-derived={side}>
+        <TableCell colSpan={labelSpan + 4}>
+          <Box sx={DERIVED_CAPTION_SX}>
+            <MaterialSymbol icon="subdirectory_arrow_right" size={18} />
+            <Typography variant="body2" color="text.secondary">
+              {t(side === "budget" ? "derivedBudgetCaption" : "derivedCostCaption", { count })}
+            </Typography>
+          </Box>
+        </TableCell>
+      </TableRow>
+      {rows.map((row) => (
+        <TableRow key={row.key} data-derived-row={side}>
+          <TableCell colSpan={labelSpan}>{groupLabel(row.key)}</TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {fmt.format(row.capex)}
+          </TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {fmt.format(row.opex)}
+          </TableCell>
+          <TableCell align="right" sx={DERIVED_NUM_SX}>
+            {fmt.format(row.total)}
+          </TableCell>
+          <TableCell />
+        </TableRow>
+      ))}
+    </>
+  );
 
   /**
    * A line's amount under its category's column; one whose category is
@@ -390,7 +434,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("totalBudget")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            {budgetFigure(totalBudget)}
+            <DerivedValue tip={budgetTip}>{budgetFigure(totalBudget)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -398,7 +442,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("totalActual")}
           </Typography>
           <Typography variant="h6" fontWeight={600} sx={KPI_VALUE_SX}>
-            {fmt.format(totalActual)}
+            <DerivedValue tip={actualTip}>{fmt.format(totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -411,7 +455,7 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             color={!budgetKnown ? undefined : totalActual > totalBudget ? "error" : "success.main"}
             sx={KPI_VALUE_SX}
           >
-            {budgetFigure(totalBudget - totalActual)}
+            <DerivedValue tip={varianceTip}>{budgetFigure(totalBudget - totalActual)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -419,7 +463,9 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("capex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {fmt.format(capexActual)} / {budgetFigure(capexBudget)}
+            <DerivedValue tip={actualTip}>{fmt.format(totals.actual.capex)}</DerivedValue>
+            {" / "}
+            <DerivedValue tip={budgetTip}>{budgetFigure(totals.budget.capex)}</DerivedValue>
           </Typography>
         </Box>
         <Box>
@@ -427,7 +473,9 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
             {t("opex")}
           </Typography>
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {fmt.format(opexActual)} / {budgetFigure(opexBudget)}
+            <DerivedValue tip={actualTip}>{fmt.format(totals.actual.opex)}</DerivedValue>
+            {" / "}
+            <DerivedValue tip={budgetTip}>{budgetFigure(totals.budget.opex)}</DerivedValue>
           </Typography>
         </Box>
       </Paper>
@@ -544,7 +592,8 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                 </TableCell>
               </TableRow>
             )}
-            {budgetKnown && budgetLines.length === 0 && (
+            {budgetDerived && derivedTableRows("budget", derivedYearGroups(rollup, "budget"), 1)}
+            {budgetKnown && budgetLines.length === 0 && !budgetDerived && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 2 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -554,18 +603,18 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
               </TableRow>
             )}
           </TableBody>
-          {(!budgetKnown || budgetLines.length > 0) && (
+          {(!budgetKnown || budgetLines.length > 0 || budgetDerived) && (
             <TableFooter>
               <TableRow sx={FOOTER_ROW_SX}>
                 <TableCell sx={FOOTER_CELL_SX}>{t("totalAllYears")}</TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {budgetFigure(budgetGrand.capex)}
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.capex)}
                 </TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {budgetFigure(budgetGrand.opex)}
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.opex)}
                 </TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {budgetFigure(budgetGrand.total)}
+                <TableCell align="right" sx={budgetFooterSx}>
+                  {budgetFigure(budgetFooter.total)}
                 </TableCell>
                 <TableCell />
               </TableRow>
@@ -666,7 +715,8 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
                 </Fragment>
               );
             })}
-            {costLines.length === 0 && (
+            {actualDerived && derivedTableRows("cost", derivedYearGroups(rollup, "cost"), 2)}
+            {costLines.length === 0 && !actualDerived && (
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={EMPTY_CELL_SX}>
                   <Typography variant="body2" color="text.secondary">
@@ -676,20 +726,20 @@ export default function PpmCostTab({ initiativeId, costLines, onRefresh }: Props
               </TableRow>
             )}
           </TableBody>
-          {costLines.length > 0 && (
+          {(costLines.length > 0 || actualDerived) && (
             <TableFooter>
               <TableRow sx={FOOTER_ROW_SX}>
                 <TableCell colSpan={2} sx={FOOTER_CELL_SX}>
                   {t("totalAllYears")}
                 </TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {fmt.format(costGrand.capex)}
+                <TableCell align="right" sx={costFooterSx}>
+                  {fmt.format(costFooter.capex)}
                 </TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {fmt.format(costGrand.opex)}
+                <TableCell align="right" sx={costFooterSx}>
+                  {fmt.format(costFooter.opex)}
                 </TableCell>
-                <TableCell align="right" sx={FOOTER_CELL_SX}>
-                  {fmt.format(costGrand.total)}
+                <TableCell align="right" sx={costFooterSx}>
+                  {fmt.format(costFooter.total)}
                 </TableCell>
                 <TableCell />
               </TableRow>

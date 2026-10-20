@@ -21,7 +21,15 @@ import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
 import PpmGanttTab from "./PpmGanttTab";
 import CardDetailContent from "@/features/cards/CardDetailContent";
-import type { Card, CardEffectivePermissions, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
+import type {
+  Card,
+  CardEffectivePermissions,
+  PpmStatusReport,
+  PpmCostLine,
+  PpmBudgetLine,
+  PpmRisk,
+  PpmRollupOut,
+} from "@/types";
 
 const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "details"];
 // The `ppm`-namespace key each tab renders its label from, in TAB_KEYS order.
@@ -85,6 +93,9 @@ export default function PpmProjectDetail() {
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
   const [budgetLines, setBudgetLines] = useState<PpmBudgetLine[]>([]);
   const [risks, setRisks] = useState<PpmRisk[]>([]);
+  // What the initiatives beneath this one add up to: shown on a side this
+  // initiative has no lines of its own for. `null` when it could not be read.
+  const [rollup, setRollup] = useState<PpmRollupOut | null>(null);
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -100,6 +111,7 @@ export default function PpmProjectDetail() {
     setCostLines([]);
     setBudgetLines([]);
     setRisks([]);
+    setRollup(null);
     setPerms(DEFAULT_PERMS);
     setError("");
     // Stryker restore all
@@ -126,12 +138,17 @@ export default function PpmProjectDetail() {
       setError("");
       try {
         // Stryker disable ObjectLiteral: the signal only cancels the request on the wire; the stale-reply guard, which is what the tests pin, is isCurrent()
-        const [c, r, cl, bl, ri] = await Promise.all([
+        const [c, r, cl, bl, ri, ru] = await Promise.all([
           api.get<Card>(`/cards/${id}`, { signal }),
           api.get<PpmStatusReport[]>(`/ppm/initiatives/${id}/reports`, { signal }),
           api.get<PpmCostLine[]>(`/ppm/initiatives/${id}/costs`, { signal }),
           api.get<PpmBudgetLine[]>(`/ppm/initiatives/${id}/budgets`, { signal }),
           api.get<PpmRisk[]>(`/ppm/initiatives/${id}/risks`, { signal }),
+          // A secondary figure: a failure (a subtree too large to walk) leaves
+          // the page on the initiative's own figures, never an error.
+          api
+            .get<PpmRollupOut>(`/ppm/initiatives/${id}/rollup`, { signal })
+            .catch(() => null),
         ]);
         if (!isCurrent()) return;
         setCard(c);
@@ -139,6 +156,7 @@ export default function PpmProjectDetail() {
         setCostLines(cl);
         setBudgetLines(bl);
         setRisks(ri);
+        setRollup(ru);
         // Fetch effective permissions (non-blocking)
         api
           .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`, { signal })
@@ -251,6 +269,7 @@ export default function PpmProjectDetail() {
           latestReport={latestReport}
           costLines={costLines}
           budgetLines={budgetLines}
+          rollup={rollup}
         />
       )}
       {tab === 1 && (
@@ -265,6 +284,7 @@ export default function PpmProjectDetail() {
           key={id}
           initiativeId={id!}
           costLines={costLines}
+          rollup={rollup}
           onRefresh={loadData}
         />
       )}

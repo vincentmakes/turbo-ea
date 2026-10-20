@@ -21,15 +21,17 @@ vi.mock("./PpmOverviewTab", () => ({
     latestReport,
     costLines,
     budgetLines,
+    rollup,
   }: {
     card: { name: string };
     latestReport: { id: string } | null;
     costLines: unknown[];
     budgetLines: unknown[];
+    rollup: { descendant_count: number } | null;
   }) => (
     <div data-testid="overview-tab">
       {card.name} | report {latestReport?.id ?? "none"} | {costLines.length} costs |{" "}
-      {budgetLines.length} budgets
+      {budgetLines.length} budgets | beneath {rollup ? rollup.descendant_count : "none"}
     </div>
   ),
 }));
@@ -50,11 +52,21 @@ vi.mock("./PpmReportsTab", () => ({
 const costTab = vi.hoisted(() => ({ mounts: 0 }));
 vi.mock("./PpmCostTab", async () => {
   const { useEffect } = await import("react");
-  function CostTabStub({ initiativeId }: { initiativeId: string }) {
+  function CostTabStub({
+    initiativeId,
+    rollup,
+  }: {
+    initiativeId: string;
+    rollup: { descendant_count: number } | null;
+  }) {
     useEffect(() => {
       costTab.mounts += 1;
     }, []);
-    return <div data-testid="cost-tab">{initiativeId}</div>;
+    return (
+      <div data-testid="cost-tab">
+        {initiativeId} | beneath {rollup ? rollup.descendant_count : "none"}
+      </div>
+    );
   }
   return { default: CostTabStub };
 });
@@ -119,6 +131,7 @@ function serve(
     canEdit?: boolean;
     budgets?: { id: string }[];
     risks?: { id: string }[];
+    rollup?: { descendant_count: number };
   } = {},
 ) {
   mockApi.on("get", `/cards/${id}`, o.card ?? initiative(id, name));
@@ -126,6 +139,7 @@ function serve(
   mockApi.on("get", `/ppm/initiatives/${id}/costs`, id === "i1" ? [{ id: "c1" }, { id: "c2" }] : []);
   mockApi.on("get", `/ppm/initiatives/${id}/budgets`, o.budgets ?? []);
   mockApi.on("get", `/ppm/initiatives/${id}/risks`, o.risks ?? []);
+  if (o.rollup) mockApi.on("get", `/ppm/initiatives/${id}/rollup`, o.rollup);
   mockApi.on(
     "get",
     `/cards/${id}/my-permissions`,
@@ -163,6 +177,41 @@ beforeEach(() => {
   mockApi.reset();
   resetPageTitle();
   costTab.mounts = 0;
+});
+
+describe("PpmProjectDetail roll-up of the initiatives beneath", () => {
+  it("reads it once with the page and hands it to the Overview and the cost tab", async () => {
+    serve("i1", "ERP Replacement", { rollup: { descendant_count: 3 } });
+    renderPage();
+    expect(await screen.findByTestId("overview-tab")).toHaveTextContent("beneath 3");
+    expect(mockApi.callsOf("get", "/ppm/initiatives/i1/rollup")).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole("tab", { name: "Budget & Costs" }));
+    expect(await screen.findByTestId("cost-tab")).toHaveTextContent("i1 | beneath 3");
+  });
+
+  it("reads it again when a tab refreshes the page", async () => {
+    serve("i1", "ERP Replacement", { rollup: { descendant_count: 3 } });
+    renderPage("/ppm/i1?tab=reports");
+    await screen.findByTestId("reports-tab");
+    mockApi.on("get", "/ppm/initiatives/i1/rollup", { descendant_count: 4 });
+    await userEvent.click(screen.getByRole("button", { name: "refresh" }));
+    await waitFor(() =>
+      expect(mockApi.callsOf("get", "/ppm/initiatives/i1/rollup")).toHaveLength(2),
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(await screen.findByTestId("overview-tab")).toHaveTextContent("beneath 4");
+  });
+
+  it("keeps the page on the initiative's own figures when it cannot be read", async () => {
+    serve("i1", "ERP Replacement");
+    mockApi.fail("get", "/ppm/initiatives/i1/rollup", 400, "subtree_too_large");
+    renderPage();
+    expect(await screen.findByTestId("overview-tab")).toHaveTextContent(
+      "ERP Replacement | report i1-report | 2 costs | 0 budgets | beneath none",
+    );
+    expect(screen.queryByText("Not found")).toBeNull();
+  });
 });
 
 describe("PpmProjectDetail switching initiatives", () => {

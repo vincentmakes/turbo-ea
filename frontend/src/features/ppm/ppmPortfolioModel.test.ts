@@ -15,6 +15,7 @@ import {
   buildPortfolioExport,
   buildPrintParams,
   costBarModel,
+  derivedCostTipKey,
   depthLabel,
   filterItems,
   filterSearchParams,
@@ -724,6 +725,7 @@ describe("buildPortfolioExport", () => {
       { key: "opexPlanned", label: "opex — planned", type: "currency" },
       { key: "opexActual", label: "opex — actual", type: "currency" },
       { key: "lastReport", label: 'lastReport{"defaultValue":"Report"}', type: "date" },
+      { key: "budgetFrom", label: "budgetFrom", type: "text" },
       { key: "costsFrom", label: "costsFrom", type: "text" },
       { key: "datesFrom", label: "datesFrom", type: "text" },
     ]);
@@ -745,6 +747,7 @@ describe("buildPortfolioExport", () => {
       opexPlanned: 0,
       opexActual: 5,
       lastReport: "2026-09-30",
+      budgetFrom: "fromOwn",
       costsFrom: "fromOwn",
       datesFrom: "fromOwn",
     });
@@ -766,6 +769,7 @@ describe("buildPortfolioExport", () => {
       opexPlanned: "",
       opexActual: "",
       lastReport: "",
+      budgetFrom: "fromOwn",
       costsFrom: "fromOwn",
       datesFrom: "fromOwn",
     });
@@ -833,6 +837,7 @@ describe("buildPortfolioExport", () => {
       start: "2026-05-01",
       end: "2026-06-30",
       capexPlanned: 7,
+      budgetFrom: "fromOwn",
       costsFrom: "fromOwn",
       datesFrom: "fromOwn",
     });
@@ -862,7 +867,8 @@ describe("rowFigures", () => {
       capexActual: 2,
       opexPlanned: 3,
       opexActual: 4,
-      derivedCosts: false,
+      derivedBudget: false,
+      derivedActual: false,
       startDate: "2026-01-01",
       endDate: "2026-12-31",
       derivedDates: false,
@@ -889,7 +895,8 @@ describe("rowFigures", () => {
       capexActual: 20,
       opexPlanned: 30,
       opexActual: 40,
-      derivedCosts: true,
+      derivedBudget: true,
+      derivedActual: true,
       startDate: "2026-01-01",
       endDate: "2026-12-31",
       derivedDates: false,
@@ -912,7 +919,8 @@ describe("rowFigures", () => {
     expect(f).toMatchObject({
       capexPlanned: 1,
       opexActual: 4,
-      derivedCosts: false,
+      derivedBudget: false,
+      derivedActual: false,
       startDate: "2025-03-01",
       endDate: null,
       derivedDates: true,
@@ -958,11 +966,70 @@ describe("rowFigures", () => {
       capexActual: 0,
       opexPlanned: 0,
       opexActual: 9,
-      derivedCosts: true,
+      derivedBudget: true,
+      derivedActual: true,
       startDate: "2026-02-01",
       endDate: "2026-03-01",
       derivedDates: true,
       descendantCount: 5,
+    });
+  });
+
+  it("takes the derived budget alone and keeps its own actuals", () => {
+    expect(
+      rowFigures(
+        item({
+          ...own,
+          rollup: {
+            descendant_count: 2,
+            capex_planned: 10,
+            capex_actual: null,
+            opex_planned: 30,
+            opex_actual: null,
+            ...noDates,
+          },
+        }),
+      ),
+    ).toEqual({
+      capexPlanned: 10,
+      capexActual: 2,
+      opexPlanned: 30,
+      opexActual: 4,
+      derivedBudget: true,
+      derivedActual: false,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      derivedDates: false,
+      descendantCount: 2,
+    });
+  });
+
+  it("takes the derived actuals alone and keeps its own budget", () => {
+    expect(
+      rowFigures(
+        item({
+          ...own,
+          rollup: {
+            descendant_count: 2,
+            capex_planned: null,
+            capex_actual: 20,
+            opex_planned: null,
+            opex_actual: 40,
+            ...noDates,
+          },
+        }),
+      ),
+    ).toEqual({
+      capexPlanned: 1,
+      capexActual: 20,
+      opexPlanned: 3,
+      opexActual: 40,
+      derivedBudget: false,
+      derivedActual: true,
+      startDate: "2026-01-01",
+      endDate: "2026-12-31",
+      derivedDates: false,
+      descendantCount: 2,
     });
   });
 
@@ -976,11 +1043,27 @@ describe("rowFigures", () => {
       ),
     ).toMatchObject({
       capexPlanned: 1,
-      derivedCosts: false,
+      derivedBudget: false,
+      derivedActual: false,
       startDate: "2026-01-01",
       derivedDates: false,
       descendantCount: 3,
     });
+  });
+});
+
+describe("derivedCostTipKey", () => {
+  const f = (derivedBudget: boolean, derivedActual: boolean) => ({
+    ...rowFigures(item({})),
+    derivedBudget,
+    derivedActual,
+  });
+
+  it("names the halves that are derived", () => {
+    expect(derivedCostTipKey(f(true, true))).toBe("derivedBothTooltip");
+    expect(derivedCostTipKey(f(true, false))).toBe("derivedBudgetTooltip");
+    expect(derivedCostTipKey(f(false, true))).toBe("derivedActualTooltip");
+    expect(derivedCostTipKey(f(false, false))).toBeNull();
   });
 });
 

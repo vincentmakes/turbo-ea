@@ -9,7 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PpmBudgetLine, PpmCostLine } from "@/types";
+import type { PpmBudgetLine, PpmCostLine, PpmRollupOut } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
@@ -69,11 +69,11 @@ const COSTS: PpmCostLine[] = [
 const budgetPath = "/ppm/initiatives/i1/budgets";
 const costPath = "/ppm/initiatives/i1/costs";
 
-function renderTab(costLines: PpmCostLine[] = COSTS) {
+function renderTab(costLines: PpmCostLine[] = COSTS, rollup: PpmRollupOut | null = null) {
   const onRefresh = vi.fn();
   const user = userEvent.setup();
   const tab = (lines: PpmCostLine[]) => (
-    <PpmCostTab initiativeId="i1" costLines={lines} onRefresh={onRefresh} />
+    <PpmCostTab initiativeId="i1" costLines={lines} rollup={rollup} onRefresh={onRefresh} />
   );
   const { rerender } = render(tab(costLines));
   /** What the parent does after `onRefresh`: hand the tab its reloaded cost lines. */
@@ -180,7 +180,12 @@ describe("PpmCostTab — summary and tables", () => {
     /** The variance figure; the budget lines total $1400. */
     const varianceFor = async (actual: number) => {
       const { unmount } = render(
-        <PpmCostTab initiativeId="i1" costLines={[cost({ id: "v", actual })]} onRefresh={vi.fn()} />,
+        <PpmCostTab
+          initiativeId="i1"
+          costLines={[cost({ id: "v", actual })]}
+          rollup={null}
+          onRefresh={vi.fn()}
+        />,
       );
       await screen.findByText("FY 2025");
       const el = screen.getByText("Variance", { selector: ".MuiTypography-caption" })
@@ -1271,5 +1276,177 @@ describe("PpmCostTab — fiscal-year groups", () => {
     const y2027 = groupRow(costTable(), "FY 2027");
     expect(cellTexts(y2027).slice(1, 4)).toEqual(["$100", "$0", "$100"]);
     expect(cellTexts(footerRow(costTable())).slice(1, 4)).toEqual(["$350", "$300", "$650"]);
+  });
+});
+
+
+/* ------------------------------------------------------------------ */
+/*  Derived figures: no lines of its own, the initiatives beneath      */
+/* ------------------------------------------------------------------ */
+
+const BENEATH: PpmRollupOut = {
+  descendant_count: 2,
+  capex_planned: 600,
+  capex_actual: 90,
+  opex_planned: 60,
+  opex_actual: 9,
+  total_planned: 660,
+  total_actual: 99,
+  start_date: null,
+  end_date: null,
+  has_budget_lines: false,
+  has_cost_lines: false,
+  by_year: [
+    { year: 2025, capex_budget: 100, opex_budget: 0, capex_actual: 0, opex_actual: 0 },
+    { year: 2026, capex_budget: 500, opex_budget: 60, capex_actual: 80, opex_actual: 9 },
+    { year: null, capex_budget: 0, opex_budget: 0, capex_actual: 10, opex_actual: 0 },
+  ],
+};
+const BUDGET_TIP = "No budget lines of its own: budget of the 2 initiatives beneath it";
+const ACTUAL_TIP = "No cost lines of its own: actuals of the 2 initiatives beneath it";
+
+/** The read-only rows a table draws from the initiatives beneath. */
+const derivedRows = (table: HTMLElement, side: "budget" | "cost") =>
+  Array.from(table.querySelectorAll(`tr[data-derived-row="${side}"]`)) as HTMLElement[];
+/** The summary-bar value element under a caption. */
+const kpiEl = (caption: string) =>
+  screen.getByText(caption, { selector: ".MuiTypography-caption" })
+    .nextElementSibling as HTMLElement;
+
+describe("PpmCostTab — derived from the initiatives beneath", () => {
+  it("draws the budget beneath per fiscal year when it has no budget lines", async () => {
+    mockApi.on("get", budgetPath, []);
+    renderTab(COSTS, BENEATH);
+    const caption = await within(budgetTable()).findByText(
+      "No budget lines of its own: the budget of the 2 initiatives beneath it, by fiscal year",
+    );
+    const captionRow = caption.closest("tr") as HTMLElement;
+    expect(captionRow).toHaveAttribute("data-derived", "budget");
+    expect(captionRow.querySelector("td")).toHaveAttribute("colspan", "5");
+    expect(captionRow).toHaveTextContent("subdirectory_arrow_right");
+    expect(within(budgetTable()).queryByText("No budget lines yet")).toBeNull();
+
+    const rows = derivedRows(budgetTable(), "budget");
+    expect(rows.map(cellTexts)).toEqual([
+      ["FY 2025", "$100", "$0", "$100", ""],
+      ["FY 2026", "$500", "$60", "$560", ""],
+    ]);
+    expect(rows[0].querySelector("td")).toHaveAttribute("colspan", "1");
+    expect(rows[0].querySelectorAll("td")[1]).toHaveStyle({ fontStyle: "italic" });
+    expect(rows[0].querySelectorAll("td")[0]).not.toHaveStyle({ fontStyle: "italic" });
+    // Read-only: no toggles, no edit or delete, no per-year +.
+    expect(within(budgetTable()).queryAllByRole("button")).toHaveLength(0);
+    const footer = footerRow(budgetTable());
+    expect(cellTexts(footer)).toEqual(["Total, all fiscal years", "$600", "$60", "$660", ""]);
+    expect(footer.querySelectorAll("td")[1]).toHaveStyle({ fontStyle: "italic" });
+    expect(footer.querySelectorAll("td")[0]).not.toHaveStyle({ fontStyle: "italic" });
+
+    // The add button stays: a line of its own takes the figure back.
+    expect(screen.getByRole("button", { name: /Add Budget Line/ })).toBeInTheDocument();
+    // The cost table is this initiative's own: it has cost lines.
+    expect(derivedRows(costTable(), "cost")).toHaveLength(0);
+    expect(costTable().querySelector("[data-derived]")).toBeNull();
+    expect(cellTexts(footerRow(costTable()))).toEqual([
+      "Total, all fiscal years",
+      "$250",
+      "$300",
+      "$550",
+      "",
+    ]);
+  });
+
+  it("marks the derived budget in the summary bar, against the own actuals", async () => {
+    mockApi.on("get", budgetPath, []);
+    renderTab(COSTS, BENEATH);
+    await within(budgetTable()).findByText(/No budget lines of its own/);
+    const budget = within(kpiEl("Total Budget")).getByLabelText(BUDGET_TIP);
+    expect(budget).toHaveTextContent("$660");
+    expect(budget).toHaveStyle({ fontStyle: "italic" });
+    expect(kpi("Total Actual")).toBe("$550");
+    expect(kpiEl("Total Actual").querySelector("[data-derived]")).toBeNull();
+    expect(within(kpiEl("Variance")).getByLabelText(BUDGET_TIP)).toHaveTextContent("$110");
+    expect(kpi("CapEx")).toBe("$250 / subdirectory_arrow_right$600");
+    expect(within(kpiEl("OpEx")).getByLabelText(BUDGET_TIP)).toHaveTextContent("$60");
+    expect(within(kpiEl("OpEx")).queryByLabelText(ACTUAL_TIP)).toBeNull();
+  });
+
+  it("draws the actuals beneath per fiscal year, undated last, when it has no cost lines", async () => {
+    renderTab([], BENEATH);
+    await screen.findByText("FY 2025");
+    const caption = within(costTable()).getByText(
+      "No cost lines of its own: the actuals of the 2 initiatives beneath it, by fiscal year",
+    );
+    const captionRow = caption.closest("tr") as HTMLElement;
+    expect(captionRow).toHaveAttribute("data-derived", "cost");
+    expect(captionRow.querySelector("td")).toHaveAttribute("colspan", "6");
+    expect(within(costTable()).queryByText("No cost items yet")).toBeNull();
+    const rows = derivedRows(costTable(), "cost");
+    expect(rows.map(cellTexts)).toEqual([
+      ["FY 2026", "$80", "$9", "$89", ""],
+      ["Undated", "$10", "$0", "$10", ""],
+    ]);
+    expect(rows[0].querySelector("td")).toHaveAttribute("colspan", "2");
+    expect(rows[1].querySelectorAll("td")[3]).toHaveStyle({ fontStyle: "italic" });
+    const footer = footerRow(costTable());
+    expect(cellTexts(footer)).toEqual(["Total, all fiscal years", "$90", "$9", "$99", ""]);
+    expect(footer.querySelectorAll("td")[3]).toHaveStyle({ fontStyle: "italic" });
+    expect(screen.getByRole("button", { name: /Add Cost Item/ })).toBeInTheDocument();
+
+    // The budget table is its own (it has budget lines), upright.
+    expect(derivedRows(budgetTable(), "budget")).toHaveLength(0);
+    expect(footerRow(budgetTable()).querySelectorAll("td")[1]).not.toHaveStyle({
+      fontStyle: "italic",
+    });
+    expect(kpi("Total Budget")).toBe("$1400");
+    expect(within(kpiEl("Total Actual")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("$99");
+    expect(within(kpiEl("Variance")).getByLabelText(ACTUAL_TIP)).toHaveTextContent("$1301");
+    expect(kpi("CapEx")).toBe("subdirectory_arrow_right$90 / $1000");
+  });
+
+  it("derives both tables and explains the variance with both", async () => {
+    mockApi.on("get", budgetPath, []);
+    renderTab([], BENEATH);
+    await within(budgetTable()).findByText(/No budget lines of its own/);
+    expect(derivedRows(budgetTable(), "budget")).toHaveLength(2);
+    expect(derivedRows(costTable(), "cost")).toHaveLength(2);
+    expect(
+      within(kpiEl("Variance")).getByLabelText(`${BUDGET_TIP} · ${ACTUAL_TIP}`),
+    ).toHaveTextContent("$561");
+  });
+
+  it("keeps both tables its own when it has lines, whatever is beneath", async () => {
+    renderTab(COSTS, BENEATH);
+    await screen.findByText("FY 2025");
+    expect(document.querySelector("[data-derived]")).toBeNull();
+    expect(kpi("Total Budget")).toBe("$1400");
+    expect(kpi("Total Actual")).toBe("$550");
+    expect(kpi("Variance")).toBe("$850");
+  });
+
+  it("keeps the empty states when nothing beneath has figures", async () => {
+    mockApi.on("get", budgetPath, []);
+    renderTab([], { ...BENEATH, by_year: [] });
+    expect(await screen.findByText("No budget lines yet")).toBeInTheDocument();
+    expect(screen.getByText("No cost items yet")).toBeInTheDocument();
+    expect(document.querySelector("[data-derived]")).toBeNull();
+    expect(screen.queryByText("Total, all fiscal years")).not.toBeInTheDocument();
+  });
+
+  it("derives no budget while its own budget lines are still loading", () => {
+    mockApi.on("get", budgetPath, () => new Promise(() => {}));
+    renderTab(COSTS, BENEATH);
+    expect(budgetTable().querySelector("[data-derived]")).toBeNull();
+    expect(kpi("Total Budget")).toBe("\u2014");
+    expect(kpiEl("Total Budget").querySelector("[data-derived]")).toBeNull();
+  });
+
+  it("names one initiative beneath in the singular", async () => {
+    mockApi.on("get", budgetPath, []);
+    renderTab(COSTS, { ...BENEATH, descendant_count: 1 });
+    expect(
+      await within(budgetTable()).findByText(
+        "No budget lines of its own: the budget of the 1 initiative beneath it, by fiscal year",
+      ),
+    ).toBeInTheDocument();
   });
 });

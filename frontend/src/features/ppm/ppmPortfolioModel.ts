@@ -75,8 +75,10 @@ export interface RowFigures {
   capexActual: number | null | undefined;
   opexPlanned: number | null | undefined;
   opexActual: number | null | undefined;
-  /** The costs are the total of the initiatives beneath (no lines of its own). */
-  derivedCosts: boolean;
+  /** The planned pair is the budget of the initiatives beneath (no budget lines of its own). */
+  derivedBudget: boolean;
+  /** The actual pair is the actuals of the initiatives beneath (no cost lines of its own). */
+  derivedActual: boolean;
   startDate: string | null | undefined;
   endDate: string | null | undefined;
   /** The dates span the initiatives beneath (no dates of its own). */
@@ -86,28 +88,45 @@ export interface RowFigures {
 }
 
 /**
- * A row's own costs and dates, unless the backend derived that part from the
- * initiatives beneath it (`rollup`, set only when the row has none of its
- * own). Costs and dates are decided independently: a program may carry its
- * own dates and still show its projects' costs.
+ * A row's own budget, actuals and dates, unless the backend derived that part
+ * from the initiatives beneath it (`rollup`, set per part only when the row
+ * has none of its own). The three are decided independently: a program that
+ * holds the budget while its projects record the spend shows its own budget
+ * against its projects' actuals.
  */
 export function rowFigures(item: PpmPortfolioItem): RowFigures {
   const rollup = item.rollup;
-  const costs: PpmRollup | PpmPortfolioItem =
+  const planned: PpmRollup | PpmPortfolioItem =
     rollup && rollup.capex_planned != null ? rollup : item;
+  const actual: PpmRollup | PpmPortfolioItem =
+    rollup && rollup.capex_actual != null ? rollup : item;
   const span: PpmRollup | PpmPortfolioItem =
     rollup && (rollup.start_date || rollup.end_date) ? rollup : item;
   return {
-    capexPlanned: costs.capex_planned,
-    capexActual: costs.capex_actual,
-    opexPlanned: costs.opex_planned,
-    opexActual: costs.opex_actual,
-    derivedCosts: costs !== item,
+    capexPlanned: planned.capex_planned,
+    capexActual: actual.capex_actual,
+    opexPlanned: planned.opex_planned,
+    opexActual: actual.opex_actual,
+    derivedBudget: planned !== item,
+    derivedActual: actual !== item,
     startDate: span.start_date,
     endDate: span.end_date,
     derivedDates: span !== item,
     descendantCount: rollup?.descendant_count ?? 0,
   };
+}
+
+/** The tooltip key naming which halves of a row's cost figures are derived, or null. */
+export type DerivedCostTipKey =
+  | "derivedBothTooltip"
+  | "derivedBudgetTooltip"
+  | "derivedActualTooltip";
+
+export function derivedCostTipKey(f: RowFigures): DerivedCostTipKey | null {
+  if (f.derivedBudget && f.derivedActual) return "derivedBothTooltip";
+  if (f.derivedBudget) return "derivedBudgetTooltip";
+  if (f.derivedActual) return "derivedActualTooltip";
+  return null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -644,6 +663,7 @@ export function buildPortfolioExport(
     { key: "opexPlanned", label: `${t("opex")} — ${t("planned")}`, type: "currency" },
     { key: "opexActual", label: `${t("opex")} — ${t("actual")}`, type: "currency" },
     { key: "lastReport", label: t("lastReport", { defaultValue: "Report" }), type: "date" },
+    { key: "budgetFrom", label: t("budgetFrom"), type: "text" },
     { key: "costsFrom", label: t("costsFrom"), type: "text" },
     { key: "datesFrom", label: t("datesFrom"), type: "text" },
   ];
@@ -680,7 +700,8 @@ export function buildPortfolioExport(
         opexPlanned: f.opexPlanned ?? "",
         opexActual: f.opexActual ?? "",
         lastReport: rep ? rep.report_date : "",
-        costsFrom: from(f.derivedCosts),
+        budgetFrom: from(f.derivedBudget),
+        costsFrom: from(f.derivedActual),
         datesFrom: from(f.derivedDates),
       });
     }

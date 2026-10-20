@@ -77,6 +77,7 @@ import {
   buildPortfolioExport,
   buildPrintParams,
   costBarModel,
+  derivedCostTipKey,
   filterItems,
   filterSearchParams,
   groupItems,
@@ -134,9 +135,10 @@ function CostBar({
   currency: string;
   label?: string;
   /**
-   * Set when the figures are the total of the initiatives beneath a parent
-   * with no lines of its own: the bar is outlined, its label italic, and this
-   * text is its tooltip. The group totals row never passes it.
+   * Set when the budget, the actuals or both are the total of the initiatives
+   * beneath a parent with no lines of that kind of its own: the bar is
+   * outlined, its label italic, and this text (naming which half) is its
+   * tooltip. The group totals row never passes it.
    */
   derivedTip?: string;
 }) {
@@ -575,8 +577,11 @@ export default function PpmPortfolioView({
   // ── Derived figures and dates (a parent without its own) ──
   const derivedDatesTip = (f: RowFigures) =>
     t("derivedDatesTooltip", { count: f.descendantCount });
-  const derivedCostTip = (f: RowFigures) =>
-    f.derivedCosts ? t("derivedCostTooltip", { count: f.descendantCount }) : undefined;
+  // Which halves are derived picks the wording; either one outlines the bar.
+  const derivedCostTip = (f: RowFigures) => {
+    const key = derivedCostTipKey(f);
+    return key ? t(key, { count: f.descendantCount }) : undefined;
+  };
   /** The quarter span, italic and explained when the dates are derived. */
   const renderPlan = (f: RowFigures, plan: string, sx: Record<string, unknown>) => {
     const text = (

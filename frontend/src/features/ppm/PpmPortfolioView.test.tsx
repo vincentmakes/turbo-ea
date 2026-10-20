@@ -865,6 +865,46 @@ describe("PpmPortfolioView derived costs and dates", () => {
     expect(screen.getByText("Q3'26 / Q3'26")).not.toHaveStyle({ fontStyle: "italic" });
   });
 
+  it("words a half-derived bar after the half that is derived", () => {
+    // Its own budget against the actuals beneath it.
+    renderBoard({
+      items: [
+        {
+          ...PARENT,
+          capex_planned: 300,
+          rollup: { ...PARENT.rollup!, capex_planned: null, opex_planned: null },
+        },
+      ],
+    });
+    const [actualBar, ...rest] = derivedCosts();
+    expect(rest).toHaveLength(0);
+    expect(actualBar).toHaveAttribute(
+      "aria-label",
+      "No cost lines of its own: actuals of the 1 initiative beneath it",
+    );
+    expect(within(actualBar as HTMLElement).getByText("120/300 CHF")).toHaveStyle({
+      fontStyle: "italic",
+    });
+  });
+
+  it("words a derived budget against the row's own actuals", () => {
+    renderBoard({
+      items: [
+        {
+          ...PARENT,
+          capex_actual: 45,
+          rollup: { ...PARENT.rollup!, capex_actual: null, opex_actual: null },
+        },
+      ],
+    });
+    const [budgetBar] = derivedCosts();
+    expect(budgetBar).toHaveAttribute(
+      "aria-label",
+      "No budget lines of its own: budget of the 1 initiative beneath it",
+    );
+    expect(within(budgetBar as HTMLElement).getByText("45/300 CHF")).toBeTruthy();
+  });
+
   it("shows a mobile card's derived cost row and quarters", () => {
     setViewportWidth(400);
     renderBoard({ items: [PARENT] });
