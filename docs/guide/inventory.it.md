@@ -138,6 +138,8 @@ Il menu a discesa **Campo** raggruppa ciò che è possibile modificare:
 
 Tag, relazioni e padre offrono ciascuno un interruttore **aggiungi / rimuovi**, così da estendere o ridurre i valori esistenti invece di sostituirli.
 
+Quando scegliete **Aggiungi collegamento** per un tipo di relazione che ha dei dettagli — la direzione del flusso tra due applicazioni, il modo in cui un'organizzazione usa un'applicazione, gli indicatori crea / leggi / aggiorna / elimina su un oggetto dati —, la finestra mostra anche questi campi. Ciò che impostate viene salvato su ogni collegamento aggiunto. Anche le schede già collegate a una destinazione scelta ricevono i dettagli, quindi ripetere **Aggiungi collegamento** è il modo per aggiornare i dettagli dei collegamenti esistenti; un dettaglio lasciato vuoto non viene modificato.
+
 Il controllo del valore si adatta al tipo di campo: un campo a selezione multipla mostra le sue opzioni con caselle di spunta, un campo sì/no un elenco Sì / No, un campo data un selettore di data. Lasciando il valore vuoto — **Nessuno** su un campo sì/no — il campo viene svuotato su tutte le schede selezionate. I campi calcolati da una formula e i campi di costo che non sei autorizzato a vedere non vengono proposti.
 
 ### Ristrutturare la gerarchia { #mass-edit-parent }

@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Remove license",
   "extensions.license.removeTitle": "Remove license?",
   "extensions.license.removeBody": "Licensed extensions will be disabled until you apply a license again — their pages stop working and their jobs pause. No data is deleted, and applying a license restores everything.",
-  "extensions.license.removed": "License removed. Licensed extensions are disabled until a license is applied — no data was deleted."
+  "extensions.license.removed": "License removed. Licensed extensions are disabled until a license is applied — no data was deleted.",
+  "metamodel.typeDrawer.optionalRelations": "Relations not required for this subtype",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Tick a mandatory relation to make it optional for cards of this subtype: it no longer blocks approval or lowers data quality.",
+  "metamodel.typeDrawer.noMandatoryRelations": "This card type has no mandatory relations.",
+  "securityLog.fields.optional_relations": "Relations not required"
 }

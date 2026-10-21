@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Rimuovi licenza",
   "extensions.license.removeTitle": "Rimuovere la licenza?",
   "extensions.license.removeBody": "Le estensioni con licenza verranno disattivate finché non applichi di nuovo una licenza: le loro pagine smettono di funzionare e i loro job si sospendono. Nessun dato viene eliminato e applicare una licenza ripristina tutto.",
-  "extensions.license.removed": "Licenza rimossa. Le estensioni con licenza sono disattivate finché non viene applicata una licenza: nessun dato è stato eliminato."
+  "extensions.license.removed": "Licenza rimossa. Le estensioni con licenza sono disattivate finché non viene applicata una licenza: nessun dato è stato eliminato.",
+  "metamodel.typeDrawer.optionalRelations": "Relazioni non obbligatorie per questo sottotipo",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Seleziona una relazione obbligatoria per renderla facoltativa per le schede di questo sottotipo: non blocca più l'approvazione né abbassa la qualità dei dati.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Questo tipo di scheda non ha relazioni obbligatorie.",
+  "securityLog.fields.optional_relations": "Relazioni non obbligatorie"
 }

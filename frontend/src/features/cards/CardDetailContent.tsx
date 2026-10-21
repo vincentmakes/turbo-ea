@@ -411,6 +411,7 @@ export default function CardDetailContent({
           <RelationsSection
             fsId={card.id}
             cardTypeKey={card.type}
+            cardSubtype={card.subtype}
             refreshKey={relRefresh}
             canManageRelations={perms.can_manage_relations}
             initialExpanded={exp}

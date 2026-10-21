@@ -133,6 +133,10 @@ Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipo
 
 **Renombrar un subtipo:** haga clic en el lápiz junto a su chip, escriba la nueva etiqueta y pulse Intro (o haga clic en otro lugar); Escape cancela. Solo cambia la etiqueta: la clave, que guardan las fichas, no cambia, y las traducciones del subtipo (editadas desde el icono de traducciones de la cabecera) se mantienen.
 
+**Relaciones no obligatorias para un subtipo:**
+
+Una relación marcada como obligatoria en el tipo de ficha se aplica a todas las fichas de ese tipo. Cuando no encaja con un subtipo — por ejemplo, una aplicación SaaS sin componente de TI que la aloje —, abra el diálogo **Plantilla de subtipo** y márquela en **Relaciones no obligatorias para este subtipo**. La lista muestra solo las relaciones obligatorias del tipo, cada una nombrada por su verbo tal como se lee desde este tipo de ficha. En las fichas de ese subtipo la relación ya no bloquea la aprobación, ya no penaliza la puntuación de calidad de datos y el detalle de la ficha deja de marcarla como **Obligatorio**; sigue mostrándose si el tipo de relación está configurado como visible. Las fichas de otros subtipos, y las que no tienen subtipo, la siguen necesitando. Al guardar, las fichas existentes del tipo se vuelven a puntuar de inmediato.
+
 #### Roles de Partes Interesadas
 
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.

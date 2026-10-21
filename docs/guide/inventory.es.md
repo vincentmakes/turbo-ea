@@ -138,6 +138,8 @@ La lista desplegable **Campo** agrupa lo que se puede modificar:
 
 Las etiquetas, las relaciones y el padre ofrecen un conmutador **añadir / quitar**, de modo que amplíe o reduzca los valores existentes en lugar de sustituirlos.
 
+Cuando elige **Añadir vínculo** para un tipo de relación con detalles — el sentido del flujo entre dos aplicaciones, cómo usa una organización una aplicación, los indicadores de crear / leer / actualizar / eliminar de un objeto de datos —, el diálogo muestra también esos campos. Lo que establezca se guarda en cada vínculo añadido. Las fichas ya vinculadas a un destino elegido también reciben los detalles, así que volver a usar **Añadir vínculo** es la manera de actualizar los detalles de los vínculos existentes; un detalle que deje vacío no se modifica.
+
 El control de valor se adapta al tipo de campo: un campo de selección múltiple muestra sus opciones con casillas, un campo de sí/no una lista Sí / No y un campo de fecha un selector de fecha. Si deja el valor vacío —**Ninguno** en un campo de sí/no—, el campo se borra en todas las tarjetas seleccionadas. Los campos calculados por una fórmula, y los campos de coste que no tiene permiso para ver, no se ofrecen.
 
 ### Reestructurar la jerarquía { #mass-edit-parent }

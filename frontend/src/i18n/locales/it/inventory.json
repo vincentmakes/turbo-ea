@@ -273,5 +273,6 @@
   "columns.eolSupport": "Fine del supporto",
   "filter.eol": "Fine vita",
   "filter.linkType": "Tipo di collegamento",
-  "filter.eolManual": "Gestito manualmente"
+  "filter.eolManual": "Gestito manualmente",
+  "massEdit.rel.attributesHint": "Applicati a ogni collegamento aggiunto. Anche le schede già collegate a una destinazione scelta ricevono questi dettagli; i dettagli lasciati vuoti restano invariati."
 }

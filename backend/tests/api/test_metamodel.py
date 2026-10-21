@@ -1391,6 +1391,178 @@ class TestScoringSignatureRequiredFlag:
         assert _scoring_signature(a, None) == _scoring_signature(b, None)
 
 
+class TestScoringSignatureSubtypes:
+    """What a subtype drops out of the score is part of the signature (#1296):
+    a change to its ``hidden_fields`` or ``optional_relations`` re-scores the
+    type, a reorder or an unconfigured subtype does not."""
+
+    def _sig(self, subtypes):
+        from app.api.v1.metamodel import _scoring_signature
+
+        return _scoring_signature([], None, subtypes)
+
+    def test_optional_relations_change_the_signature(self):
+        base = [{"key": "saas", "label": "SaaS"}]
+        exempt = [{"key": "saas", "label": "SaaS", "optional_relations": ["relAppToOrg"]}]
+        assert self._sig(base) != self._sig(exempt)
+
+    def test_hidden_fields_change_the_signature(self):
+        base = [{"key": "saas", "label": "SaaS", "hidden_fields": []}]
+        hidden = [{"key": "saas", "label": "SaaS", "hidden_fields": ["cost"]}]
+        assert self._sig(base) != self._sig(hidden)
+
+    def test_order_labels_and_unconfigured_subtypes_leave_it_unchanged(self):
+        a = [
+            {"key": "saas", "label": "SaaS", "optional_relations": ["x", "y"]},
+            {"key": "paas", "label": "PaaS", "hidden_fields": []},
+        ]
+        b = [
+            {"key": "saas", "label": "Software", "optional_relations": ["y", "x"]},
+            {"key": "iaas", "label": "IaaS"},
+        ]
+        assert self._sig(a) == self._sig(b)
+        assert self._sig(None) == self._sig([])
+
+    def test_an_exemption_moving_between_subtypes_changes_it(self):
+        a = [{"key": "saas", "optional_relations": ["x"]}, {"key": "paas"}]
+        b = [{"key": "saas"}, {"key": "paas", "optional_relations": ["x"]}]
+        assert self._sig(a) != self._sig(b)
+
+    def test_malformed_entries_are_ignored(self):
+        assert self._sig(["saas", {"label": "No key"}, {"key": 3}]) == self._sig([])
+        assert self._sig([{"key": "saas", "optional_relations": ["x", 3]}]) == self._sig(
+            [{"key": "saas", "optional_relations": ["x"]}]
+        )
+
+
+class TestOptionalRelationsAuditHelpers:
+    def test_changed_reads_each_subtype_by_key(self):
+        from app.api.v1.metamodel import _optional_relations_changed
+
+        a = [{"key": "saas", "optional_relations": ["x"]}, {"key": "paas"}]
+        assert _optional_relations_changed(a, a) is False
+        # Absent and empty mean the same thing; other properties do not count.
+        assert (
+            _optional_relations_changed(
+                [{"key": "saas", "label": "A"}],
+                [{"key": "saas", "label": "B", "optional_relations": [], "hidden_fields": ["f"]}],
+            )
+            is False
+        )
+        assert _optional_relations_changed(a, [{"key": "saas"}, {"key": "paas"}]) is True
+        assert _optional_relations_changed(None, a) is True
+        assert _optional_relations_changed(["junk"], None) is False
+
+    def test_side_labels_read_the_verb_from_this_types_side(self):
+        from types import SimpleNamespace
+
+        from app.api.v1.metamodel import _relation_side_labels
+
+        rts = [
+            SimpleNamespace(
+                key="relAppToOrg",
+                label="is owned by",
+                reverse_label="owns",
+                source_type_key="Application",
+                target_type_key="Organization",
+            ),
+            SimpleNamespace(
+                key="relOrgToApp",
+                label="uses",
+                reverse_label=None,
+                source_type_key="Organization",
+                target_type_key="Application",
+            ),
+            SimpleNamespace(
+                key="relAppFeeds",
+                label="feeds",
+                reverse_label="is fed by",
+                source_type_key="Application",
+                target_type_key="Application",
+            ),
+        ]
+        labels = {"Organization": "Organisation", "Application": "App"}
+        assert _relation_side_labels(rts, "Application", labels) == {
+            "relAppToOrg": "is owned by → Organisation",
+            # No reverse label: the forward one stands in.
+            "relOrgToApp": "uses → Organisation",
+            "relAppFeeds__out": "feeds → App",
+            "relAppFeeds__in": "is fed by → App",
+        }
+        # An unknown other type falls back to its key.
+        assert _relation_side_labels(rts[:1], "Application", {}) == {
+            "relAppToOrg": "is owned by → Organization"
+        }
+
+
+class TestOptionalRelationsRescore:
+    """PATCHing a subtype's ``optional_relations`` re-scores the type's cards
+    at once, as derived maintenance: Modified must not move (#1296)."""
+
+    async def test_patch_moves_the_exempted_subtypes_score(
+        self, client, db, metamodel_env, card_update_sql
+    ):
+        admin = metamodel_env["admin"]
+        await create_card_type(
+            db,
+            key="Application",
+            label="Application",
+            fields_schema=[
+                {
+                    "section": "Details",
+                    "fields": [{"key": "a", "label": "A", "type": "text", "weight": 1}],
+                }
+            ],
+            subtypes=[{"key": "saas", "label": "SaaS"}],
+            section_config={
+                "__dataQuality": {
+                    "description": 0,
+                    "lifecycle": 0,
+                    "tags": 0,
+                    "stakeholders": 0,
+                }
+            },
+        )
+        await create_card_type(db, key="Organization", label="Organization")
+        rt = await create_relation_type(
+            db,
+            key="relAppToOrg",
+            label="is owned by",
+            source_type_key="Application",
+            target_type_key="Organization",
+        )
+        rt.source_mandatory = True
+        await db.flush()
+        saas = await create_card(
+            db, card_type="Application", name="CRM", subtype="saas", attributes={"a": "x"}
+        )
+        plain = await create_card(
+            db, card_type="Application", name="ERP", attributes={"a": "x"}, data_quality=50.0
+        )
+        saas.data_quality = 50.0
+        await db.flush()
+
+        card_update_sql.clear()
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Application",
+            json={
+                "subtypes": [
+                    {"key": "saas", "label": "SaaS", "optional_relations": ["relAppToOrg"]}
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        await db.refresh(saas)
+        await db.refresh(plain)
+        # One filled field, no relation slot → 100%; the other card keeps 1/2.
+        assert saas.data_quality == 100.0
+        assert plain.data_quality == 50.0
+        assert resp.json()["subtypes"][0]["optional_relations"] == ["relAppToOrg"]
+        assert card_update_sql.statements, "expected the rescore to UPDATE the card"
+        assert not card_update_sql.bumped(), "an exemption is not an edit to every card"
+
+
 # ---------------------------------------------------------------------------
 # Per-card-type role permission overrides (discussion #1068)
 # ---------------------------------------------------------------------------
@@ -2059,6 +2231,60 @@ class TestMetamodelAudit:
                     "property": "hidden_fields",
                     "old": [],
                     "new": ["Annual cost"],
+                }
+            ]
+        }
+
+    async def test_subtype_optional_relations_are_named_by_verb(self, client, db, metamodel_env):
+        # #1296: the log names each exempted side "verb → other type", read
+        # from this type's side, never as a side key.
+        await create_card_type(
+            db, key="Gizmo", label="Gizmo", subtypes=[{"key": "saas", "label": "SaaS"}]
+        )
+        await create_card_type(db, key="Owner", label="Owner org")
+        await create_relation_type(
+            db,
+            key="relGizmoToOwner",
+            label="is owned by",
+            source_type_key="Gizmo",
+            target_type_key="Owner",
+        )
+        await create_relation_type(
+            db,
+            key="relGizmoFeeds",
+            label="feeds",
+            reverse_label="is fed by",
+            source_type_key="Gizmo",
+            target_type_key="Gizmo",
+        )
+        await self._patch_type(
+            client,
+            metamodel_env["admin"],
+            "Gizmo",
+            {
+                "subtypes": [
+                    {
+                        "key": "saas",
+                        "label": "SaaS",
+                        "optional_relations": [
+                            "relGizmoToOwner",
+                            "relGizmoFeeds__in",
+                            "relGone",
+                        ],
+                    }
+                ]
+            },
+        )
+
+        [row] = await _audit_rows(db, "admin.metamodel.type.updated")
+        assert row.details == {
+            "items": [
+                {
+                    "kind": "subtype.changed",
+                    "label": "SaaS",
+                    "property": "optional_relations",
+                    "old": [],
+                    "new": ["is owned by → Owner org", "is fed by → Gizmo", "relGone"],
                 }
             ]
         }

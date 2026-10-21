@@ -132,6 +132,10 @@ Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen u
 
 **Omdøb en undertype:** klik på blyanten ved siden af dens chip, skriv den nye etiket, og tryk på Enter (eller klik et andet sted); Escape annullerer. Kun etiketten ændres: nøglen, som kortene gemmer, forbliver den samme, og undertypens oversættelser (redigeres fra oversættelsesikonet i overskriften) bevares.
 
+**Relationer, der ikke er påkrævet for en undertype:**
+
+En relation, der er markeret som påkrævet på korttypen, gælder for alle kort af den type. Når den ikke passer til én undertype — for eksempel en SaaS-applikation uden en hostende IT-komponent — åbner du dialogen **Undertype-skabelon** og markerer den under **Relationer, der ikke er påkrævet for denne undertype**. Listen viser kun typens påkrævede relationer, hver navngivet med sit verbum, som det læses fra denne korttype. For kort af den undertype blokerer relationen ikke længere godkendelse, trækker ikke længere datakvalitetsscoren ned, og kortdetaljen markerer den ikke længere som **Påkrævet**; den vises stadig, hvis relationstypen er sat til at være synlig. Kort af andre undertyper og kort uden undertype skal stadig have den. Når du gemmer, får typens eksisterende kort straks en ny score.
+
 #### Interessentroller
 
 Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Technical Owner"). Hver rolle bærer **tilladelser på kortniveau**, der kombineres med brugerens applikationsrolle, når der tilgås et kort. Se [Brugere og roller](users.md) for mere om tilladelsesmodellen.

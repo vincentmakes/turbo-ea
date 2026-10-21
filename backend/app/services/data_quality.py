@@ -36,7 +36,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
-from app.services.card_completeness import missing_mandatory
+from app.services.card_completeness import missing_mandatory, optional_relation_sides
 from app.services.derived_writes import derived_maintenance
 
 # Reserved key on CardType.section_config holding the built-in weights.
@@ -137,7 +137,9 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
     rel_w = _bucket_weight(dq_cfg, "relations")
     tag_w = _bucket_weight(dq_cfg, "tags")
     if rel_w > 0 or tag_w > 0:
-        state = await missing_mandatory(db, card)
+        state = await missing_mandatory(
+            db, card, optional_sides=optional_relation_sides(subtypes, card.subtype)
+        )
         if rel_w > 0:
             total_weight += state["relations_applicable"] * rel_w
             filled_weight += (state["relations_applicable"] - len(state["relations"])) * rel_w

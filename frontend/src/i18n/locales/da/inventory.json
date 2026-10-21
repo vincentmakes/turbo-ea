@@ -273,5 +273,6 @@
   "columns.eolSupport": "Support slutter",
   "filter.eol": "End of life",
   "filter.linkType": "Forbindelsestype",
-  "filter.eolManual": "Vedligeholdt manuelt"
+  "filter.eolManual": "Vedligeholdt manuelt",
+  "massEdit.rel.attributesHint": "Anvendes på hvert link, der tilføjes. Kort, der allerede er linket til et valgt mål, får også disse detaljer; detaljer, der efterlades tomme, bevares."
 }

@@ -12,9 +12,9 @@
  * for one pair render next to each other, and a card reached through more than
  * one of them says so on every one of its rows.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // These components read the signed-in user to apply per-card-type create
 // permissions (discussion #1068). They render deep in the tree, always inside
@@ -547,5 +547,70 @@ describe("RelationsSection attribute row", () => {
     // Hierarchy section's link type; only the affordance goes.
     await waitFor(() => expect(screen.getByText("Owner")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /Usage Type/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Mandatory relations scoped per subtype (#1296): a side the card's subtype
+ * lists in `optional_relations` loses its Required chip and its "this relation
+ * is required" hint, on that subtype only.
+ */
+describe("RelationsSection mandatory sides exempted by subtype", () => {
+  const mandatoryAppToOrg = { ...appToOrg, source_mandatory: true };
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockReset();
+    mm.relationTypes = [mandatoryAppToOrg];
+    (APP_TYPE as { subtypes: unknown[] }).subtypes = [
+      { key: "saas", label: "SaaS", optional_relations: ["appToOrg"] },
+      { key: "inhouse", label: "In-house" },
+    ];
+  });
+
+  afterEach(() => {
+    (APP_TYPE as { subtypes: unknown[] }).subtypes = [];
+  });
+
+  function renderFor(cardSubtype: string | null) {
+    mockApi([], []);
+    render(
+      <RelationsSection
+        fsId={FS}
+        cardTypeKey="Application"
+        cardSubtype={cardSubtype}
+        initialExpanded
+      />,
+    );
+  }
+
+  it("drops the Required chip and the mandatory hint for the exempted subtype", async () => {
+    renderFor("saas");
+    expect(await screen.findByText("No relations yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+    expect(screen.queryByText("No relations yet — this relation is required.")).toBeNull();
+  });
+
+  it("keeps the side required for another subtype and for a card with no subtype", async () => {
+    for (const subtype of ["inhouse", null]) {
+      renderFor(subtype);
+      expect(
+        await screen.findByText("No relations yet — this relation is required."),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Required")).toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  it("moves a side shown only because it is mandatory to the Add menu", async () => {
+    mm.relationTypes = [{ ...mandatoryAppToOrg, source_visible: false }];
+    renderFor("saas");
+    // No group of its own: the side is reached from the section's Add button.
+    expect(await screen.findByRole("button", { name: /Add Relation/ })).toBeInTheDocument();
+    expect(screen.queryByText("Required")).not.toBeInTheDocument();
+  });
+
+  it("still shows the group when the exempted side is visible", async () => {
+    renderFor("saas");
+    expect(await screen.findByRole("button", { name: /Add Organization/ })).toBeInTheDocument();
   });
 });

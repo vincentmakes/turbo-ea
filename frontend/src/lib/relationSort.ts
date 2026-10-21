@@ -133,6 +133,45 @@ export function sideKey<T extends { key: string; source_type_key: string; target
 }
 
 /**
+ * The mandatory relation sides a card's subtype exempts (#1296): the side
+ * keys (see `sideKey`) listed in `subtypes[*].optional_relations` for the
+ * card's subtype. A card with no subtype, or one the type does not define,
+ * exempts nothing. Mirrors `optional_relation_sides` in
+ * `backend/app/services/card_completeness.py`, which drives the approval gate
+ * and the data-quality score; card detail reads this one so its "Required"
+ * chip says what the backend will enforce.
+ */
+export function subtypeOptionalSides(
+  typeConfig: { subtypes?: { key: string; optional_relations?: string[] }[] } | undefined,
+  subtype: string | null | undefined,
+): Set<string> {
+  if (!subtype) return new Set();
+  const keys = typeConfig?.subtypes?.find((s) => s.key === subtype)?.optional_relations;
+  return new Set(Array.isArray(keys) ? keys.filter((k) => typeof k === "string") : []);
+}
+
+/**
+ * `sideFlags`, with a side the card's subtype exempts read as not mandatory.
+ * Visibility is untouched: an exempted side still shows when it is visible.
+ */
+export function effectiveSideFlags<
+  T extends {
+    key: string;
+    source_type_key: string;
+    target_type_key: string;
+    source_visible: boolean;
+    target_visible: boolean;
+    source_mandatory: boolean;
+    target_mandatory: boolean;
+  },
+>(rt: T, isSource: boolean, optionalSides: ReadonlySet<string>): { visible: boolean; mandatory: boolean } {
+  const flags = sideFlags(rt, isSource);
+  return flags.mandatory && optionalSides.has(sideKey(rt, isSource))
+    ? { ...flags, mandatory: false }
+    : flags;
+}
+
+/**
  * Does relation `r` belong on this side of `rtKey`, seen from `myId`?
  *
  * Per row, never per type — see `otherEnd`. A degenerate self-loop

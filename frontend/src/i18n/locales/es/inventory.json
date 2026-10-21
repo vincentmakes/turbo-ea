@@ -273,5 +273,6 @@
   "columns.eolSupport": "Fin del soporte",
   "filter.eol": "Fin de vida",
   "filter.linkType": "Tipo de vínculo",
-  "filter.eolManual": "Mantenido manualmente"
+  "filter.eolManual": "Mantenido manualmente",
+  "massEdit.rel.attributesHint": "Se aplican a cada vínculo añadido. Las tarjetas ya vinculadas a un destino elegido también reciben estos detalles; los detalles que se dejen vacíos se conservan."
 }

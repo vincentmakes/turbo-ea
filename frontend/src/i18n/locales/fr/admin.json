@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Supprimer la licence",
   "extensions.license.removeTitle": "Supprimer la licence ?",
   "extensions.license.removeBody": "Les extensions sous licence seront désactivées jusqu'à ce que vous appliquiez à nouveau une licence : leurs pages cessent de fonctionner et leurs tâches se mettent en pause. Aucune donnée n'est supprimée, et appliquer une licence restaure tout.",
-  "extensions.license.removed": "Licence supprimée. Les extensions sous licence sont désactivées jusqu'à l'application d'une licence : aucune donnée n'a été supprimée."
+  "extensions.license.removed": "Licence supprimée. Les extensions sous licence sont désactivées jusqu'à l'application d'une licence : aucune donnée n'a été supprimée.",
+  "metamodel.typeDrawer.optionalRelations": "Relations non requises pour ce sous-type",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Cochez une relation obligatoire pour la rendre facultative pour les fiches de ce sous-type : elle ne bloque plus l'approbation et ne fait plus baisser la qualité des données.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Ce type de fiche n'a aucune relation obligatoire.",
+  "securityLog.fields.optional_relations": "Relations non requises"
 }

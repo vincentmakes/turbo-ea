@@ -133,6 +133,10 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 
 **Rinominare un sottotipo:** fate clic sulla matita accanto al suo chip, digitate la nuova etichetta e premete Invio (o fate clic altrove); Esc annulla. Cambia solo l'etichetta: la chiave, che le card memorizzano, resta la stessa, e le traduzioni del sottotipo (modificate dall'icona delle traduzioni nell'intestazione) restano invariate.
 
+**Relazioni non obbligatorie per un sottotipo:**
+
+Una relazione contrassegnata come obbligatoria sul tipo di card vale per ogni scheda di quel tipo. Quando non si adatta a un sottotipo — ad esempio un'applicazione SaaS senza componente IT che la ospita —, aprite il dialogo **Modello di sottotipo** e selezionatela in **Relazioni non obbligatorie per questo sottotipo**. L'elenco mostra solo le relazioni obbligatorie del tipo, ciascuna indicata con il suo verbo come si legge da questo tipo di card. Per le schede di quel sottotipo la relazione non blocca più l'approvazione, non pesa più sul punteggio di qualità dei dati e il dettaglio della scheda non la segna più come **Obbligatorio**; resta visibile se il tipo di relazione è impostato come visibile. Le schede degli altri sottotipi, e quelle senza sottotipo, ne hanno ancora bisogno. Il salvataggio ricalcola subito il punteggio delle schede esistenti del tipo.
+
 #### Ruoli stakeholder
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.

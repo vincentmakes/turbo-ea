@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Relation } from "@/types";
 import {
+  effectiveSideFlags,
   expandSides,
   onSide,
   orderRelationTypesByOtherEnd,
@@ -9,6 +10,7 @@ import {
   runsAgainstType,
   sideKey,
   sortRelationsByName,
+  subtypeOptionalSides,
 } from "./relationSort";
 
 const FS = "fs-1";
@@ -253,6 +255,97 @@ describe("sideKey", () => {
     const self = { key: "orgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
     expect(sideKey(self, true)).toBe("orgToOrg__out");
     expect(sideKey(self, false)).toBe("orgToOrg__in");
+  });
+});
+
+describe("sideKey parity with the backend", () => {
+  // The same cases as `TestSideKey` in backend/tests/services/test_relation_orientation.py:
+  // a subtype's `optional_relations` (#1296) is written here and read there.
+  it("matches side_key for a cross-type rt and a self-pair", () => {
+    const appToIf = { key: "relAppToInterface", source_type_key: "Application", target_type_key: "Interface" };
+    const orgToOrg = { key: "relOrgToOrg", source_type_key: "Organization", target_type_key: "Organization" };
+    expect([sideKey(appToIf, true), sideKey(appToIf, false)]).toEqual([
+      "relAppToInterface",
+      "relAppToInterface",
+    ]);
+    expect([sideKey(orgToOrg, true), sideKey(orgToOrg, false)]).toEqual([
+      "relOrgToOrg__out",
+      "relOrgToOrg__in",
+    ]);
+  });
+});
+
+describe("subtypeOptionalSides", () => {
+  const type = {
+    subtypes: [
+      { key: "saas", optional_relations: ["relAppToOrg", "relAppFeeds__in"] },
+      { key: "inhouse" },
+    ],
+  };
+
+  it("returns the subtype's exemption list", () => {
+    expect([...subtypeOptionalSides(type, "saas")]).toEqual(["relAppToOrg", "relAppFeeds__in"]);
+  });
+
+  it("exempts nothing for another subtype, no subtype, an unknown one or no type", () => {
+    expect(subtypeOptionalSides(type, "inhouse").size).toBe(0);
+    expect(subtypeOptionalSides(type, null).size).toBe(0);
+    expect(subtypeOptionalSides(type, "").size).toBe(0);
+    expect(subtypeOptionalSides(type, "gone").size).toBe(0);
+    expect(subtypeOptionalSides(undefined, "saas").size).toBe(0);
+  });
+
+  it("ignores a malformed list", () => {
+    const bad = { subtypes: [{ key: "saas", optional_relations: "relX" as unknown as string[] }] };
+    expect(subtypeOptionalSides(bad, "saas").size).toBe(0);
+    const mixed = { subtypes: [{ key: "saas", optional_relations: ["relX", 3 as unknown as string] }] };
+    expect([...subtypeOptionalSides(mixed, "saas")]).toEqual(["relX"]);
+  });
+});
+
+describe("effectiveSideFlags", () => {
+  const flags = {
+    source_visible: true,
+    target_visible: false,
+    source_mandatory: true,
+    target_mandatory: true,
+  };
+  const cross = { key: "relAppToOrg", source_type_key: "Application", target_type_key: "Organization", ...flags };
+  const self = { key: "relAppFeeds", source_type_key: "Application", target_type_key: "Application", ...flags };
+
+  it("reads an exempted side as not mandatory, visibility untouched", () => {
+    expect(effectiveSideFlags(cross, true, new Set(["relAppToOrg"]))).toEqual({
+      visible: true,
+      mandatory: false,
+    });
+    expect(effectiveSideFlags(cross, false, new Set(["relAppToOrg"]))).toEqual({
+      visible: false,
+      mandatory: false,
+    });
+  });
+
+  it("keeps a side the subtype does not list mandatory", () => {
+    expect(effectiveSideFlags(cross, true, new Set())).toEqual({ visible: true, mandatory: true });
+    expect(effectiveSideFlags(cross, true, new Set(["relOther"]))).toEqual({
+      visible: true,
+      mandatory: true,
+    });
+  });
+
+  it("exempts each side of a self-pair on its own key", () => {
+    const outOnly = new Set(["relAppFeeds__out"]);
+    expect(effectiveSideFlags(self, true, outOnly).mandatory).toBe(false);
+    expect(effectiveSideFlags(self, false, outOnly).mandatory).toBe(true);
+    // The bare key names no side of a self-pair.
+    expect(effectiveSideFlags(self, true, new Set(["relAppFeeds"])).mandatory).toBe(true);
+  });
+
+  it("leaves a non-mandatory side alone", () => {
+    const optional = { ...cross, source_mandatory: false };
+    expect(effectiveSideFlags(optional, true, new Set(["relAppToOrg"]))).toEqual({
+      visible: true,
+      mandatory: false,
+    });
   });
 });
 

@@ -92,6 +92,25 @@ def direction_for(rt: _TypedEnds | None, card_type: str, requested: str) -> str:
     return requested
 
 
+class _KeyedEnds(_TypedEnds, Protocol):
+    key: str
+
+
+def side_key(rt: _KeyedEnds, is_source: bool) -> str:
+    """The key ONE side of ``rt`` is filed under, seen from a card at the
+    source end (``is_source``) or the target end.
+
+    A cross-type relation type has one side per card type, so it keeps its
+    bare key; a self-referencing type has two sides on the same card type and
+    takes ``<key>__out`` / ``<key>__in``. Mirrors ``sideKey`` in
+    ``frontend/src/lib/relationSort.ts`` — the vocabulary a subtype's
+    ``optional_relations`` list (#1296) is written in, so the two must agree.
+    """
+    if rt.source_type_key != rt.target_type_key:
+        return rt.key
+    return f"{rt.key}__{'out' if is_source else 'in'}"
+
+
 async def orient_endpoints(
     db: AsyncSession,
     rt: _TypedEnds | str | None,

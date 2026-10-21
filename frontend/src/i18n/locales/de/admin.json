@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Lizenz entfernen",
   "extensions.license.removeTitle": "Lizenz entfernen?",
   "extensions.license.removeBody": "Lizenzierte Erweiterungen werden deaktiviert, bis Sie wieder eine Lizenz anwenden – ihre Seiten funktionieren nicht mehr und ihre Jobs pausieren. Es werden keine Daten gelöscht; das Anwenden einer Lizenz stellt alles wieder her.",
-  "extensions.license.removed": "Lizenz entfernt. Lizenzierte Erweiterungen sind deaktiviert, bis eine Lizenz angewendet wird – es wurden keine Daten gelöscht."
+  "extensions.license.removed": "Lizenz entfernt. Lizenzierte Erweiterungen sind deaktiviert, bis eine Lizenz angewendet wird – es wurden keine Daten gelöscht.",
+  "metamodel.typeDrawer.optionalRelations": "Für diesen Subtyp nicht erforderliche Beziehungen",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Aktivieren Sie eine Pflichtbeziehung, um sie für Karten dieses Subtyps optional zu machen: Sie blockiert dann weder die Freigabe noch senkt sie die Datenqualität.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Dieser Kartentyp hat keine Pflichtbeziehungen.",
+  "securityLog.fields.optional_relations": "Nicht erforderliche Beziehungen"
 }

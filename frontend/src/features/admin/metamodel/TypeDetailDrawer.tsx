@@ -10,6 +10,7 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
@@ -34,7 +35,8 @@ import type {
 } from "@/types";
 import { emptyField } from "./helpers";
 import TypeColorPreview from "./TypeColorPreview";
-import { useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolveLabel";
+import { expandSides, sideFlags, sideKey } from "@/lib/relationSort";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
 import StakeholderRolePanel from "./StakeholderRolePanel";
@@ -87,6 +89,8 @@ export default function TypeDetailDrawer({
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
+  const relLabel = useRelationLabel();
+  const typeLabel = useTypeLabel();
   const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
@@ -129,6 +133,8 @@ export default function TypeDetailDrawer({
   /* --- Subtype template editor --- */
   const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
   const [draftHiddenFields, setDraftHiddenFields] = useState<Set<string>>(new Set());
+  // Side keys of the mandatory relations the subtype being edited exempts (#1296).
+  const [draftOptionalRelations, setDraftOptionalRelations] = useState<Set<string>>(new Set());
 
   /* --- Translation dialog --- */
   const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
@@ -372,10 +378,39 @@ export default function TypeDetailDrawer({
     return acc;
   }, {});
 
+  // The mandatory relation sides of this type, one per side — a
+  // self-referencing type contributes two, under `<key>__out` / `<key>__in` —
+  // named by the verb read from this type's side, as card detail names them.
+  // Hidden relation types are not enforced (`missing_mandatory` skips them),
+  // so they are not offered.
+  const mandatoryRelationSides = expandSides(
+    relationTypes.filter((rt) => !rt.is_hidden),
+    cardTypeKey.key,
+  )
+    .filter(({ rt, isSource }) => sideFlags(rt, isSource).mandatory)
+    .map(({ rt, isSource }) => {
+      const otherKey = isSource ? rt.target_type_key : rt.source_type_key;
+      return {
+        key: sideKey(rt, isSource),
+        verb: relLabel(rt, !isSource),
+        otherLabel: typeLabel(types.find((tp) => tp.key === otherKey)) || otherKey,
+      };
+    });
+
   const openSubtypeTemplate = (subKey: string) => {
     const sub = (cardTypeKey.subtypes || []).find((s) => s.key === subKey);
     setDraftHiddenFields(new Set(sub?.hidden_fields ?? []));
+    setDraftOptionalRelations(new Set(sub?.optional_relations ?? []));
     setEditingSubtypeKey(subKey);
+  };
+
+  const handleToggleOptionalRelation = (sideKeyValue: string) => {
+    setDraftOptionalRelations((prev) => {
+      const next = new Set(prev);
+      if (next.has(sideKeyValue)) next.delete(sideKeyValue);
+      else next.add(sideKeyValue);
+      return next;
+    });
   };
 
   const handleToggleFieldVisibility = (fieldKey: string) => {
@@ -391,7 +426,13 @@ export default function TypeDetailDrawer({
     if (!editingSubtypeKey) return;
     const subtypes = (cardTypeKey.subtypes || []).map((s) => {
       if (s.key !== editingSubtypeKey) return s;
-      return { ...s, hidden_fields: [...draftHiddenFields] };
+      // A side ticked earlier whose relation is no longer mandatory is kept
+      // as stored: it is inert until the relation is made mandatory again.
+      return {
+        ...s,
+        hidden_fields: [...draftHiddenFields],
+        optional_relations: [...draftOptionalRelations],
+      };
     });
     try {
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes });
@@ -1214,6 +1255,45 @@ export default function TypeDetailDrawer({
               </Box>
             ))
           )}
+
+          {/* Mandatory relations this subtype does not need (#1296). */}
+          <Box sx={{ mt: 3 }} data-testid="subtype-optional-relations">
+            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+              {t("metamodel.typeDrawer.optionalRelations")}
+            </Typography>
+            {mandatoryRelationSides.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {t("metamodel.typeDrawer.noMandatoryRelations")}
+              </Typography>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {t("metamodel.typeDrawer.optionalRelationsHelp")}
+                </Typography>
+                {mandatoryRelationSides.map((side) => (
+                  <FormControlLabel
+                    key={side.key}
+                    sx={{ display: "flex", ml: 0 }}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={draftOptionalRelations.has(side.key)}
+                        onChange={() => handleToggleOptionalRelation(side.key)}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        {side.verb}
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                          {side.otherLabel}
+                        </Typography>
+                      </Typography>
+                    }
+                  />
+                ))}
+              </>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditingSubtypeKey(null)}>{t("common:actions.cancel")}</Button>

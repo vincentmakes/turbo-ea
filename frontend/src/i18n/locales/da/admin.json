@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Fjern licens",
   "extensions.license.removeTitle": "Fjern licens?",
   "extensions.license.removeBody": "Licenserede udvidelser deaktiveres, indtil du anvender en licens igen — deres sider holder op med at virke, og deres job sættes på pause. Ingen data slettes, og en licens genopretter alt.",
-  "extensions.license.removed": "Licens fjernet. Licenserede udvidelser er deaktiveret, indtil en licens anvendes — ingen data blev slettet."
+  "extensions.license.removed": "Licens fjernet. Licenserede udvidelser er deaktiveret, indtil en licens anvendes — ingen data blev slettet.",
+  "metamodel.typeDrawer.optionalRelations": "Relationer, der ikke er påkrævet for denne undertype",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Markér en påkrævet relation for at gøre den valgfri for kort af denne undertype: den blokerer så ikke længere godkendelse og trækker ikke datakvaliteten ned.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Denne korttype har ingen påkrævede relationer.",
+  "securityLog.fields.optional_relations": "Relationer, der ikke er påkrævet"
 }

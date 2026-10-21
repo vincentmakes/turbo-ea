@@ -11,12 +11,36 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
+from app.services.relation_orientation import side_key
 
 
-async def missing_mandatory(db: AsyncSession, card: Card) -> dict:
+def optional_relation_sides(subtypes: object, subtype: str | None) -> frozenset[str]:
+    """The mandatory relation sides the card's subtype exempts (#1296).
+
+    ``card_types.subtypes[*].optional_relations`` lists side keys (see
+    ``side_key``) the admin ticked under *Relations not required for this
+    subtype*. A card with no subtype, a subtype the type does not define, or a
+    malformed list exempts nothing. Unknown keys are harmless: they simply name
+    no side.
+    """
+    if not subtype or not isinstance(subtypes, list):
+        return frozenset()
+    for st in subtypes:
+        if isinstance(st, dict) and st.get("key") == subtype:
+            keys = st.get("optional_relations")
+            if not isinstance(keys, list):
+                return frozenset()
+            return frozenset(k for k in keys if isinstance(k, str))
+    return frozenset()
+
+
+async def missing_mandatory(
+    db: AsyncSession, card: Card, *, optional_sides: frozenset[str] | None = None
+) -> dict:
     """Return unsatisfied mandatory items + applicable counts for a card.
 
     Shape:
@@ -35,6 +59,12 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict:
       includes the card's type requires at least one tag from that group
       on the card. Empty mandatory groups (no tags configured) are skipped
       to avoid an unreachable gate from an admin mis-configuration.
+    - A mandatory side the card's subtype lists in ``optional_relations`` is
+      not required at all for that card — it is neither missing nor counted as
+      applicable, exactly as a subtype's ``hidden_fields`` drop out of the
+      field score. ``optional_sides`` lets a caller that already loaded the
+      type's subtypes (the data-quality scorer) pass the set in; otherwise it
+      is read here.
     """
     missing_relations: list[dict] = []
     missing_tag_groups: list[dict] = []
@@ -55,9 +85,25 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict:
     )
     relation_types = rt_rows.scalars().all()
 
+    if optional_sides is None:
+        optional_sides = frozenset()
+        if card.subtype and relation_types:
+            subtypes = (
+                await db.execute(select(CardType.subtypes).where(CardType.key == card.type))
+            ).scalar_one_or_none()
+            optional_sides = optional_relation_sides(subtypes, card.subtype)
+
     for rt in relation_types:
-        source_side = rt.source_type_key == card.type and rt.source_mandatory
-        target_side = rt.target_type_key == card.type and rt.target_mandatory
+        source_side = (
+            rt.source_type_key == card.type
+            and rt.source_mandatory
+            and side_key(rt, True) not in optional_sides
+        )
+        target_side = (
+            rt.target_type_key == card.type
+            and rt.target_mandatory
+            and side_key(rt, False) not in optional_sides
+        )
 
         # Outgoing check (source side)
         if source_side:

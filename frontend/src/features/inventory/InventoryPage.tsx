@@ -149,6 +149,10 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
+import RelationAttributesEditor, {
+  hasEditableRelationAttributes,
+  type RelationAttributes,
+} from "@/features/cards/sections/RelationAttributesEditor";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, isEolType } from "@/lib/eol";
@@ -1163,6 +1167,10 @@ export default function InventoryPage() {
   const [massEditRelTargets, setMassEditRelTargets] = useState<{ id: string; name: string; type: string }[]>([]);
   const [massEditRelSearch, setMassEditRelSearch] = useState("");
   const [massEditRelSearchDebounced, setMassEditRelSearchDebounced] = useState("");
+  // The relation-type attributes an Add sets on every link (#1293): flow
+  // direction, usage type, CRUD flags… Only keys the user set are present —
+  // the editor deletes a cleared one.
+  const [massEditRelAttrs, setMassEditRelAttrs] = useState<RelationAttributes>({});
   // Parent mass-edit state
   const [massEditParent, setMassEditParent] = useState<CardOption | null>(null);
   // Inline (Grid Edit) failures that the user needs a reason for — a rejected
@@ -2565,6 +2573,14 @@ export default function InventoryPage() {
           return;
         }
         const { relType, isSource } = currentMassField.relInfo;
+        // Attributes ride on Add only, and only for a type that has editable
+        // ones; an empty set keeps the historic "skip what is already linked".
+        const relAttrs =
+          massEditRelMode === "add" &&
+          hasEditableRelationAttributes(relType) &&
+          Object.keys(massEditRelAttrs).length > 0
+            ? massEditRelAttrs
+            : null;
         // Pre-fetch all relations of this type to determine what already exists,
         // so "add" is idempotent and "remove" can locate the relation IDs to delete.
         const allRels = await api
@@ -2578,23 +2594,36 @@ export default function InventoryPage() {
         if (massEditRelMode === "add") {
           // For each selected card × each target, create a relation if not already present.
           // We treat already-existing relations as a no-op success (idempotent).
+          //
+          // With attributes set, an existing link is NOT skipped: `POST
+          // /relations` is idempotent on (type, source, target) and writes the
+          // supplied attributes onto the row it finds — so re-running Add is how
+          // the details of links that already exist get updated. It replaces
+          // the row's whole attribute dict, so an existing link is sent its own
+          // attributes with the chosen ones laid over them: a detail the user
+          // left empty here is kept, never wiped.
           for (const sourceId of selectedIds) {
-            const existingPairs = new Set<string>();
+            const existingByOther = new Map<string, Relation>();
             for (const r of allRels) {
               const a = isSource ? r.source_id : r.target_id;
               const b = isSource ? r.target_id : r.source_id;
-              if (a === sourceId) existingPairs.add(b);
+              if (a === sourceId) existingByOther.set(b, r);
             }
             for (const tg of massEditRelTargets) {
-              if (existingPairs.has(tg.id)) continue;
+              const existing = existingByOther.get(tg.id);
+              if (existing && !relAttrs) continue;
               if (tg.id === sourceId) continue; // can't link to self
-              ops.push(
-                api.post("/relations", {
-                  type: relType.key,
-                  source_id: isSource ? sourceId : tg.id,
-                  target_id: isSource ? tg.id : sourceId,
-                }),
-              );
+              const body: Record<string, unknown> = {
+                type: relType.key,
+                source_id: isSource ? sourceId : tg.id,
+                target_id: isSource ? tg.id : sourceId,
+              };
+              if (relAttrs) {
+                body.attributes = existing
+                  ? { ...((existing.attributes as RelationAttributes | undefined) ?? {}), ...relAttrs }
+                  : relAttrs;
+              }
+              ops.push(api.post("/relations", body));
               opSourceIds.push(sourceId);
             }
           }
@@ -2664,6 +2693,7 @@ export default function InventoryPage() {
           setMassEditValue("");
           setMassEditRelTargets([]);
           setMassEditRelSearch("");
+          setMassEditRelAttrs({});
           return;
         }
         setMassEditSucceeded(succeeded);
@@ -3972,6 +4002,25 @@ export default function InventoryPage() {
               massEditRelLoading ? t("common:labels.loading") : t("common:labels.noResults")
             }
           />
+          {massEditRelMode === "add" &&
+            hasEditableRelationAttributes(currentMassField.relInfo.relType) && (
+              <Box data-testid="mass-edit-rel-attributes" sx={{ mt: 2 }}>
+                <RelationAttributesEditor
+                  relationType={currentMassField.relInfo.relType}
+                  value={massEditRelAttrs}
+                  onChange={setMassEditRelAttrs}
+                  compact
+                  disabled={massEditLoading}
+                />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1, display: "block" }}
+                >
+                  {t("massEdit.rel.attributesHint")}
+                </Typography>
+              </Box>
+            )}
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
             {massEditRelMode === "add"
               ? t("massEdit.rel.addHint", { count: selectedIds.length, type: otherLabel })
@@ -4310,6 +4359,7 @@ export default function InventoryPage() {
                 setMassEditRelTargets([]);
                 setMassEditRelSearch("");
                 setMassEditRelMode("add");
+                setMassEditRelAttrs({});
               }}
             >
               {t("massEdit.title")}
@@ -4561,6 +4611,7 @@ export default function InventoryPage() {
                 setMassEditRelSearch("");
                 setMassEditRelSearchDebounced("");
                 setMassEditRelMode("add");
+                setMassEditRelAttrs({});
                 setMassEditParent(null);
                 setMassEditError("");
               }}

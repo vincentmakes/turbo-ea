@@ -138,6 +138,8 @@ A lista **Campo** agrupa o que pode ser alterado:
 
 Etiquetas, relações e pai oferecem um botão **adicionar / remover**, para que amplie ou reduza os valores existentes em vez de os substituir.
 
+Quando escolhe **Adicionar vínculo** para um tipo de relação com detalhes — o sentido do fluxo entre duas aplicações, a forma como uma organização usa uma aplicação, os indicadores de criar / ler / atualizar / eliminar de um objeto de dados —, o diálogo mostra também esses campos. O que definir é guardado em cada vínculo adicionado. Os cartões já vinculados a um destino escolhido também recebem os detalhes, pelo que voltar a usar **Adicionar vínculo** é a forma de atualizar os detalhes dos vínculos existentes; um detalhe deixado em branco não é alterado.
+
 O controlo de valor adapta-se ao tipo de campo: um campo de seleção múltipla mostra as suas opções com caixas de verificação, um campo sim/não uma lista Sim / Não e um campo de data um seletor de data. Deixar o valor vazio — **Nenhum** num campo sim/não — limpa o campo em todos os cartões selecionados. Os campos calculados por uma fórmula, e os campos de custo que não tem permissão para ver, não são disponibilizados.
 
 ### Reestruturar a hierarquia { #mass-edit-parent }

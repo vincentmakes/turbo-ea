@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "إزالة الترخيص",
   "extensions.license.removeTitle": "إزالة الترخيص؟",
   "extensions.license.removeBody": "سيتم تعطيل الإضافات المرخّصة حتى تطبّق ترخيصًا مرة أخرى — تتوقف صفحاتها وتتوقف مهامها مؤقتًا. لا تُحذف أي بيانات، وتطبيق ترخيص يعيد كل شيء.",
-  "extensions.license.removed": "تمت إزالة الترخيص. الإضافات المرخّصة معطّلة حتى يُطبَّق ترخيص — ولم تُحذف أي بيانات."
+  "extensions.license.removed": "تمت إزالة الترخيص. الإضافات المرخّصة معطّلة حتى يُطبَّق ترخيص — ولم تُحذف أي بيانات.",
+  "metamodel.typeDrawer.optionalRelations": "العلاقات غير المطلوبة لهذا النوع الفرعي",
+  "metamodel.typeDrawer.optionalRelationsHelp": "حدّد علاقة مطلوبة لجعلها اختيارية لبطاقات هذا النوع الفرعي: لن تمنع الاعتماد بعد ذلك ولن تخفض جودة البيانات.",
+  "metamodel.typeDrawer.noMandatoryRelations": "لا يحتوي نوع البطاقة هذا على علاقات مطلوبة.",
+  "securityLog.fields.optional_relations": "علاقات غير مطلوبة"
 }

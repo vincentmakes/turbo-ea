@@ -236,6 +236,13 @@ export interface SubtypeDef {
   label: string;
   translations?: TranslationMap;
   hidden_fields?: string[];
+  /**
+   * Mandatory relation sides this subtype does not need (#1296), as side keys
+   * (`sideKey` in `lib/relationSort.ts`: a cross-type relation type's bare
+   * key, `<key>__out` / `<key>__in` for a self-referencing one). An exempted
+   * side neither blocks approval nor counts against data quality.
+   */
+  optional_relations?: string[];
 }
 
 export interface SectionDef {

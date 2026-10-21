@@ -134,6 +134,10 @@ When no subtype is selected on a card (or the type has no subtypes), all fields 
 
 **Renaming a subtype:** click the pencil beside its chip, type the new label and press Enter (or click elsewhere); Escape cancels. Only the label changes: the key, which cards store, stays the same, and the subtype's translations (edited from the translations icon in the header) are left as they are.
 
+**Relations not required for a subtype:**
+
+A relation marked mandatory on the card type applies to every card of that type. When it does not fit one subtype — a SaaS application with no hosting IT component, say — open the **Subtype Template** dialog and tick it under **Relations not required for this subtype**. The list shows only the type's mandatory relations, each named by its verb as read from this card type. For cards of that subtype the relation no longer blocks approval, no longer counts against the data quality score, and card detail stops marking it **Required**; it still shows if the relation type is set to be visible. Cards of other subtypes, and cards with no subtype, still need it. Saving re-scores the type's existing cards straight away.
+
 #### Stakeholder Roles
 
 Define custom roles for this type (e.g., "Application Owner", "Technical Owner"). Each role carries **card-level permissions** that are combined with the user's app-level role when accessing a card. See [Users & Roles](users.md) for more on the permission model.

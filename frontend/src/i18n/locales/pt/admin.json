@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Remover licença",
   "extensions.license.removeTitle": "Remover licença?",
   "extensions.license.removeBody": "As extensões licenciadas serão desativadas até aplicar uma licença novamente — as suas páginas deixam de funcionar e as suas tarefas ficam em pausa. Nenhum dado é eliminado e aplicar uma licença restaura tudo.",
-  "extensions.license.removed": "Licença removida. As extensões licenciadas estão desativadas até que se aplique uma licença — nenhum dado foi eliminado."
+  "extensions.license.removed": "Licença removida. As extensões licenciadas estão desativadas até que se aplique uma licença — nenhum dado foi eliminado.",
+  "metamodel.typeDrawer.optionalRelations": "Relações não obrigatórias para este subtipo",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Marque uma relação obrigatória para torná-la opcional nos cartões deste subtipo: ela deixa de bloquear a aprovação e de reduzir a qualidade de dados.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Este tipo de cartão não tem relações obrigatórias.",
+  "securityLog.fields.optional_relations": "Relações não obrigatórias"
 }

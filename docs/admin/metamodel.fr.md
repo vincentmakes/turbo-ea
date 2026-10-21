@@ -133,6 +133,10 @@ Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas
 
 **Renommer un sous-type :** cliquez sur le crayon à côté de sa puce, saisissez le nouveau libellé et appuyez sur Entrée (ou cliquez ailleurs) ; Échap annule. Seul le libellé change : la clé, que les fiches enregistrent, reste la même, et les traductions du sous-type (modifiées depuis l'icône de traduction de l'en-tête) restent telles quelles.
 
+**Relations non requises pour un sous-type :**
+
+Une relation marquée obligatoire sur le type de fiche s'applique à toutes les fiches de ce type. Lorsqu'elle ne convient pas à un sous-type — une application SaaS sans composant informatique d'hébergement, par exemple —, ouvrez la boîte de dialogue **Modèle de sous-type** et cochez-la sous **Relations non requises pour ce sous-type**. La liste ne montre que les relations obligatoires du type, chacune nommée par son verbe tel qu'il se lit depuis ce type de fiche. Pour les fiches de ce sous-type, la relation ne bloque plus l'approbation, ne pèse plus sur le score de qualité des données, et le détail de la fiche ne la marque plus **Obligatoire** ; elle reste affichée si le type de relation est paramétré comme visible. Les fiches des autres sous-types, et celles sans sous-type, en ont toujours besoin. L'enregistrement recalcule aussitôt le score des fiches existantes du type.
+
 #### Rôles de parties prenantes
 
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.

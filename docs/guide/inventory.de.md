@@ -138,6 +138,8 @@ Das Dropdown **Feld** gruppiert die Änderungsmöglichkeiten:
 
 Tags, Beziehungen und das übergeordnete Element bieten jeweils einen Umschalter **Hinzufügen / Entfernen**, sodass Sie vorhandene Werte ergänzen oder reduzieren, statt sie zu ersetzen.
 
+Wenn Sie für einen Beziehungstyp mit Details **Verknüpfung hinzufügen** wählen — etwa die Flussrichtung zwischen zwei Anwendungen, wie eine Organisation eine Anwendung nutzt, oder die Erstellen-/Lesen-/Aktualisieren-/Löschen-Kennzeichen an einem Datenobjekt —, zeigt der Dialog auch diese Felder. Was Sie festlegen, wird bei jeder hinzugefügten Verknüpfung gespeichert. Karten, die bereits mit einem gewählten Ziel verknüpft sind, erhalten die Details ebenfalls; ein erneutes **Verknüpfung hinzufügen** ist also der Weg, die Details bestehender Verknüpfungen zu aktualisieren. Ein leer gelassenes Detail bleibt unverändert.
+
 Das Eingabeelement richtet sich nach dem Feldtyp: Ein Mehrfachauswahlfeld zeigt seine Optionen mit Kontrollkästchen, ein Ja/Nein-Feld eine Ja/Nein-Liste, ein Datumsfeld eine Datumsauswahl. Bleibt der Wert leer – bei einem Ja/Nein-Feld **Keine** –, wird das Feld auf allen ausgewählten Karten geleert. Per Formel berechnete Felder sowie Kostenfelder, für die Ihnen die Leseberechtigung fehlt, werden nicht angeboten.
 
 ### Hierarchie umstrukturieren { #mass-edit-parent }

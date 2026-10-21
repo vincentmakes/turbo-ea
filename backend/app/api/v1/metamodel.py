@@ -43,6 +43,7 @@ from app.services.hierarchy import (
     hierarchy_level_field_def,
 )
 from app.services.permission_service import PermissionService
+from app.services.relation_orientation import side_key
 from app.services.seed import (
     DEFAULT_TYPE_COLORS,
     SUCCESSOR_LABEL,
@@ -158,11 +159,81 @@ def _labelled_hidden_fields(items: list, field_labels: dict[str, str]) -> list:
     """``items`` with each ``subtype.changed`` ``hidden_fields`` side mapped from
     field keys to field labels (an absent list read as empty); an item whose
     sides then agree — absent vs. ``[]`` — is dropped as no change."""
+    return _labelled_subtype_list(items, "hidden_fields", field_labels)
+
+
+def _optional_relations_changed(before: object, after: object) -> bool:
+    """Did any subtype's ``optional_relations`` move? Gates the label query."""
+
+    def by_key(subtypes: object) -> dict:
+        return {
+            st.get("key"): st.get("optional_relations") or []
+            for st in (subtypes if isinstance(subtypes, list) else [])
+            if isinstance(st, dict)
+        }
+
+    return by_key(before) != by_key(after)
+
+
+def _relation_side_labels(
+    relation_types: list, type_key: str, type_labels: dict[str, str]
+) -> dict[str, str]:
+    """``{side key: "verb → other type"}`` for every side of ``relation_types``
+    a card of ``type_key`` sits on — how a subtype's ``optional_relations``
+    (#1296) reads in the Security & admin log. The verb is read from this
+    type's side, the same words the subtype dialog shows."""
+    out: dict[str, str] = {}
+    for rt in relation_types:
+        if rt.source_type_key == type_key:
+            other = type_labels.get(rt.target_type_key, rt.target_type_key)
+            out[side_key(rt, True)] = f"{rt.label} → {other}"
+        if rt.target_type_key == type_key:
+            other = type_labels.get(rt.source_type_key, rt.source_type_key)
+            out[side_key(rt, False)] = f"{rt.reverse_label or rt.label} → {other}"
+    return out
+
+
+async def _load_relation_side_labels(db: AsyncSession, type_key: str) -> dict[str, str]:
+    """``_relation_side_labels`` over the relation types touching ``type_key``."""
+    rts = (
+        (
+            await db.execute(
+                select(RelationType).where(
+                    or_(
+                        RelationType.source_type_key == type_key,
+                        RelationType.target_type_key == type_key,
+                    )
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    other_keys = {rt.source_type_key for rt in rts} | {rt.target_type_key for rt in rts}
+    type_labels = (
+        dict(
+            (
+                await db.execute(
+                    select(CardType.key, CardType.label).where(CardType.key.in_(other_keys))
+                )
+            ).all()
+        )
+        if other_keys
+        else {}
+    )
+    return _relation_side_labels(list(rts), type_key, type_labels)
+
+
+def _labelled_subtype_list(items: list, prop: str, labels: dict[str, str]) -> list:
+    """``items`` with each ``subtype.changed`` ``prop`` side — a list of keys —
+    mapped to labels (an absent list read as empty, an unknown key kept as it
+    is); an item whose sides then agree — absent vs. ``[]`` — is dropped as no
+    change."""
     out = []
     for entry in items:
-        if entry.get("kind") == "subtype.changed" and entry.get("property") == "hidden_fields":
+        if entry.get("kind") == "subtype.changed" and entry.get("property") == prop:
             old, new = (
-                [field_labels.get(k, k) for k in (entry.get(side) or []) if isinstance(k, str)]
+                [labels.get(k, k) for k in (entry.get(side) or []) if isinstance(k, str)]
                 for side in ("old", "new")
             )
             if old == new:
@@ -194,7 +265,10 @@ def _reference_changes(old: object, new: object) -> dict[str, dict[str, object]]
 
 
 def _type_audit_changes(
-    before: dict, after: dict, role_labels: dict[str, str] | None = None
+    before: dict,
+    after: dict,
+    role_labels: dict[str, str] | None = None,
+    relation_side_labels: dict[str, str] | None = None,
 ) -> tuple[dict, list]:
     """``(changes, items)`` for a card-type update: the scalar columns diffed
     into ``changes`` (``reference_config`` per key), the JSON columns compared
@@ -208,14 +282,18 @@ def _type_audit_changes(
             after["section_config"],
             _section_names(after["fields_schema"]),
         )
-        + _labelled_hidden_fields(
-            audit_changes.keyed_list_items(
-                before["subtypes"],
-                after["subtypes"],
-                noun="subtype",
-                props=("color", "hidden_fields"),
+        + _labelled_subtype_list(
+            _labelled_hidden_fields(
+                audit_changes.keyed_list_items(
+                    before["subtypes"],
+                    after["subtypes"],
+                    noun="subtype",
+                    props=("color", "hidden_fields", "optional_relations"),
+                ),
+                _field_labels(after["fields_schema"], before["fields_schema"]),
             ),
-            _field_labels(after["fields_schema"], before["fields_schema"]),
+            "optional_relations",
+            relation_side_labels or {},
         )
         + audit_changes.keyed_list_items(
             before["hierarchy_labels"],
@@ -313,13 +391,17 @@ def _validate_color(body: dict) -> None:
         raise HTTPException(400, "color must be a hex value in #rrggbb format")
 
 
-def _scoring_signature(fields_schema: list | None, section_config: dict | None) -> dict:
+def _scoring_signature(
+    fields_schema: list | None, section_config: dict | None, subtypes: list | None = None
+) -> dict:
     """Capture the data-quality-relevant config of a card type.
 
     Used to detect when an admin edit changes how scores are computed (field
-    weights, the required/readonly flags feeding the mandatory-field gate, or
-    the built-in contributor weights) so existing cards can be re-scored.
-    Label/icon/order edits leave this signature unchanged.
+    weights, the required/readonly flags feeding the mandatory-field gate, the
+    built-in contributor weights, or what a subtype drops out of the score —
+    its ``hidden_fields`` and its ``optional_relations``, #1296) so existing
+    cards can be re-scored. Label/icon/order edits leave this signature
+    unchanged, and so does reordering either subtype list.
     """
     field_weights: dict[str, tuple] = {}
     for section in fields_schema or []:
@@ -331,7 +413,18 @@ def _scoring_signature(fields_schema: list | None, section_config: dict | None) 
                     bool(field.get("readonly")),
                 )
     dq_cfg = (section_config or {}).get("__dataQuality") or {}
-    return {"fields": field_weights, "dq": dq_cfg}
+    # A subtype that drops nothing out of the score is left out, so adding or
+    # removing an unconfigured subtype does not rescore the whole type.
+    subtype_scope: dict[str, tuple] = {}
+    for st in subtypes or []:
+        if isinstance(st, dict) and isinstance(st.get("key"), str):
+            scope = tuple(
+                tuple(sorted(k for k in (st.get(prop) or []) if isinstance(k, str)))
+                for prop in ("hidden_fields", "optional_relations")
+            )
+            if any(scope):
+                subtype_scope[st["key"]] = scope
+    return {"fields": field_weights, "dq": dq_cfg, "subtypes": subtype_scope}
 
 
 # ── Extension-gated field capabilities ─────────────────────────────────
@@ -1224,7 +1317,7 @@ async def update_type(
     # Snapshot the data-quality-relevant config so we can re-score existing
     # cards if (and only if) the admin changed field weights or the built-in
     # contributor weights.
-    old_signature = _scoring_signature(t.fields_schema, t.section_config)
+    old_signature = _scoring_signature(t.fields_schema, t.section_config, t.subtypes)
     old_has_hierarchy = t.has_hierarchy
     old_reference_config = dict(t.reference_config or {})
 
@@ -1325,7 +1418,14 @@ async def update_type(
         if audit_before["role_permissions"] != audit_after["role_permissions"]
         else {}
     )
-    changes, items = _type_audit_changes(audit_before, audit_after, role_labels)
+    relation_side_labels = (
+        await _load_relation_side_labels(db, key)
+        if _optional_relations_changed(audit_before["subtypes"], audit_after["subtypes"])
+        else {}
+    )
+    changes, items = _type_audit_changes(
+        audit_before, audit_after, role_labels, relation_side_labels
+    )
     if "category" in changes:
         changes["category"] = await _category_change_labels(db, changes["category"])
     if changes or items:
@@ -1349,7 +1449,7 @@ async def update_type(
     # Re-score existing cards when the scoring config actually changed, so
     # tuned data-quality weights take effect immediately instead of waiting
     # for each card to be edited.
-    new_signature = _scoring_signature(t.fields_schema, t.section_config)
+    new_signature = _scoring_signature(t.fields_schema, t.section_config, t.subtypes)
     if new_signature != old_signature:
         await _recompute_data_quality_for_type(db, key)
 

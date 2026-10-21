@@ -408,3 +408,40 @@ async def test_zero_still_counts_as_filled(db):
     await _set_dq(db, description=0, lifecycle=0, relations=0, tags=0)
     card = await create_card(db, attributes={"seats": 0})
     assert await calc_data_quality(db, card) == 100.0
+
+
+# ── Mandatory relations scoped per subtype (#1296) ──────────────────
+# A side the card's subtype lists in `optional_relations` is not a slot at all
+# for that card, exactly as a subtype's hidden fields drop out of the score.
+
+
+async def test_relation_side_exempted_by_subtype_is_not_a_slot(db):
+    from tests.conftest import create_relation_type
+
+    await create_card_type(
+        db,
+        key="Application",
+        fields_schema=_SCHEMA,
+        subtypes=[
+            {"key": "saas", "label": "SaaS", "optional_relations": ["relAppToOrg"]},
+            {"key": "inhouse", "label": "In-house"},
+        ],
+    )
+    await create_card_type(db, key="Organization")
+    rt = await create_relation_type(
+        db,
+        key="relAppToOrg",
+        label="is owned by",
+        source_type_key="Application",
+        target_type_key="Organization",
+    )
+    rt.source_mandatory = True
+    await db.flush()
+    await _set_dq(db, description=0, lifecycle=0, tags=0, stakeholders=0)
+
+    saas = await create_card(db, name="CRM", subtype="saas", attributes={"a": "x", "b": "y"})
+    inhouse = await create_card(db, name="ERP", subtype="inhouse", attributes={"a": "x", "b": "y"})
+    # SaaS: two filled fields and no relation slot → 100%.
+    assert await calc_data_quality(db, saas) == 100.0
+    # In-house: the unmet mandatory relation is a third, empty slot → 2/3.
+    assert await calc_data_quality(db, inhouse) == pytest.approx(200 / 3, abs=0.1)

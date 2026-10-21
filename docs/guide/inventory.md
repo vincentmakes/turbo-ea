@@ -140,6 +140,8 @@ The **Field** dropdown groups what you can change:
 
 Tags, relations and parent each offer an **add / remove** toggle, so you extend or trim existing values instead of replacing them.
 
+When you **Add link** for a relation type that carries details — the flow direction between two applications, how an organization uses an application, the create / read / update / delete flags on a data object — the dialog also shows those fields. What you set is saved on every link added. Cards already linked to a chosen target get the details too, so running **Add link** again is how you update the details of existing links; a detail you leave empty is not changed.
+
 The value control matches the field's type: a multi-select shows its options with checkboxes, a yes/no field a Yes / No list, a date field a date picker. Leaving the value empty — **None** on a yes/no field — clears the field on every selected card. Fields calculated by a formula, and cost fields you do not have permission to view, are not offered.
 
 ### Restructuring the hierarchy { #mass-edit-parent }

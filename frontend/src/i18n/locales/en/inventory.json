@@ -273,5 +273,6 @@
   "columns.eolSupport": "Support ends",
   "filter.eol": "End of life",
   "filter.linkType": "Link type",
-  "filter.eolManual": "Manually maintained"
+  "filter.eolManual": "Manually maintained",
+  "massEdit.rel.attributesHint": "Applied to every link added. Cards already linked to a chosen target get these details too; details left empty are kept as they are."
 }

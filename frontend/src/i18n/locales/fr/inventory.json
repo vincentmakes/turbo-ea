@@ -273,5 +273,6 @@
   "columns.eolSupport": "Fin du support",
   "filter.eol": "Fin de vie",
   "filter.linkType": "Type de lien",
-  "filter.eolManual": "Saisie manuelle"
+  "filter.eolManual": "Saisie manuelle",
+  "massEdit.rel.attributesHint": "Appliqués à chaque lien ajouté. Les fiches déjà liées à une cible choisie reçoivent aussi ces détails ; les détails laissés vides restent inchangés."
 }

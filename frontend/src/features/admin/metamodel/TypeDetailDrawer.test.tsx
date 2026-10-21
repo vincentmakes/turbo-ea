@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within, fireEvent } from "@testing-library/react";
 
-import type { CardType, FieldDef } from "@/types";
+import type { CardType, FieldDef, RelationType } from "@/types";
 import i18n, { LOCALE_LABELS } from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
@@ -20,7 +20,11 @@ import {
   CARD_TYPES,
   HIDDEN_TYPE,
   RELATION_TYPES,
+  REL_APP_TO_APP,
+  REL_APP_TO_BC,
+  REL_APP_TO_ITC,
   makeCardType,
+  makeRelationType,
   makeField,
   makeSection,
 } from "@/test/fixtures/metamodel";
@@ -219,7 +223,7 @@ const TWO_SECTIONS: CardType = makeCardType({
 function renderDrawer(
   typeKey: string | null = "Application",
   types: CardType[] = CARD_TYPES,
-  overrides: { open?: boolean; withOnDeleted?: boolean } = {},
+  overrides: { open?: boolean; withOnDeleted?: boolean; relationTypes?: RelationType[] } = {},
 ) {
   const onClose = vi.fn();
   const onRefresh = vi.fn();
@@ -229,7 +233,7 @@ function renderDrawer(
       open={overrides.open ?? true}
       typeKey={typeKey}
       types={types}
-      relationTypes={RELATION_TYPES}
+      relationTypes={overrides.relationTypes ?? RELATION_TYPES}
       onClose={onClose}
       onRefresh={onRefresh}
       onDeleted={overrides.withOnDeleted === false ? undefined : onDeleted}
@@ -542,7 +546,12 @@ describe("TypeDetailDrawer — subtypes", () => {
     await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
     expect(lastPatchBody()).toEqual({
       subtypes: [
-        { key: "businessApplication", label: "Business Application", hidden_fields: ["alias"] },
+        {
+          key: "businessApplication",
+          label: "Business Application",
+          hidden_fields: ["alias"],
+          optional_relations: [],
+        },
         { key: "microservice", label: "Microservice" },
       ],
     });
@@ -663,6 +672,80 @@ describe("TypeDetailDrawer — subtypes", () => {
       await user.type(labelInput(), "s{Enter}");
       expect(await screen.findByRole("alert")).toHaveTextContent("failed");
       expect(onRefresh).not.toHaveBeenCalled();
+    });
+  });
+
+  it("says so when the type has no mandatory relation to exempt", async () => {
+    // The shared fixture marks only BusinessCapability's side of relAppToBC.
+    const { user } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByText("Business Application (businessApplication)"));
+    const list = await screen.findByTestId("subtype-optional-relations");
+    expect(within(list).getByText(ta("metamodel.typeDrawer.optionalRelations"))).toBeInTheDocument();
+    expect(within(list).getByText(ta("metamodel.typeDrawer.noMandatoryRelations"))).toBeInTheDocument();
+    expect(within(list).queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("lists only the mandatory relation sides and saves the ticked ones as optional_relations", async () => {
+    // Application: relAppToITC mandatory at its source (Application) end;
+    // relAppToApp, a self-pair, mandatory at its TARGET end only; relAppToBC
+    // mandatory only at the BusinessCapability end; a hidden mandatory type.
+    const relationTypes = [
+      { ...REL_APP_TO_ITC, source_mandatory: true },
+      { ...REL_APP_TO_APP, target_mandatory: true },
+      REL_APP_TO_BC,
+      makeRelationType({
+        key: "relAppHidden",
+        label: "is shadowed by",
+        source_type_key: "Application",
+        target_type_key: "ITComponent",
+        source_mandatory: true,
+        is_hidden: true,
+      }),
+    ];
+    const withExisting: CardType = {
+      ...APPLICATION_TYPE,
+      subtypes: [
+        {
+          key: "businessApplication",
+          label: "Business Application",
+          optional_relations: ["relAppToApp__in", "relNoLongerMandatory"],
+        },
+      ],
+    };
+    const { user, onRefresh } = renderDrawer("Application", [withExisting, ...CARD_TYPES.slice(1)], {
+      relationTypes,
+    });
+    await screen.findByRole("dialog");
+    await user.click(screen.getByText("Business Application (businessApplication)"));
+    const list = await screen.findByTestId("subtype-optional-relations");
+    expect(within(list).getByText(ta("metamodel.typeDrawer.optionalRelationsHelp"))).toBeInTheDocument();
+
+    const boxes = within(list).getAllByRole("checkbox");
+    expect(boxes).toHaveLength(2);
+    // The verb is read from this type's side: forward at the source end,
+    // reverse at the target end of the self-pair.
+    const uses = within(list).getByRole("checkbox", { name: /^uses/ });
+    const received = within(list).getByRole("checkbox", { name: /^receives data from/ });
+    expect(within(list).getByText("IT Component")).toBeInTheDocument();
+    expect(within(list).queryByText(/is shadowed by|supports|is supported by/)).toBeNull();
+    expect(uses).not.toBeChecked();
+    expect(received).toBeChecked();
+
+    await user.click(uses);
+    await user.click(received);
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(lastPatchBody()).toEqual({
+      subtypes: [
+        {
+          key: "businessApplication",
+          label: "Business Application",
+          hidden_fields: [],
+          // A stored key the dialog no longer lists is kept, inert.
+          optional_relations: ["relNoLongerMandatory", "relAppToITC"],
+        },
+      ],
     });
   });
 

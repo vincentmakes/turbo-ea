@@ -29,6 +29,7 @@ from app.services.relation_orientation import (
     orient_endpoints,
     oriented,
     runs_against_type,
+    side_key,
 )
 from tests.conftest import (
     create_card,
@@ -70,6 +71,37 @@ class TestPureHelpers:
         # A self-pair's direction is the caller's to say.
         assert direction_for(SELF_PAIR, "Organization", "incoming") == "incoming"
         assert direction_for(None, "Interface", "outgoing") == "outgoing"
+
+
+class TestSideKey:
+    """``side_key`` is the vocabulary a subtype's ``optional_relations`` (#1296)
+    is written in by the admin UI, so it must agree with ``sideKey`` in
+    ``frontend/src/lib/relationSort.ts`` — the same cases are pinned in
+    ``relationSort.test.ts``."""
+
+    KEYED_APP_TO_IF = SimpleNamespace(
+        key="relAppToInterface", source_type_key="Application", target_type_key="Interface"
+    )
+    KEYED_SELF_PAIR = SimpleNamespace(
+        key="relOrgToOrg", source_type_key="Organization", target_type_key="Organization"
+    )
+
+    def test_a_cross_type_side_keeps_the_bare_key(self):
+        assert side_key(self.KEYED_APP_TO_IF, True) == "relAppToInterface"
+        assert side_key(self.KEYED_APP_TO_IF, False) == "relAppToInterface"
+
+    def test_a_self_pair_takes_out_and_in(self):
+        assert side_key(self.KEYED_SELF_PAIR, True) == "relOrgToOrg__out"
+        assert side_key(self.KEYED_SELF_PAIR, False) == "relOrgToOrg__in"
+
+    def test_the_frontend_spells_the_suffixes_the_same_way(self):
+        source = (
+            Path(__file__).resolve().parents[3] / "frontend" / "src" / "lib" / "relationSort.ts"
+        ).read_text()
+        body = source[source.index("export function sideKey") :]
+        body = body[: body.index("\n}\n")]
+        assert "if (rt.source_type_key !== rt.target_type_key) return rt.key;" in body
+        assert re.search(r'`\$\{rt\.key\}__\$\{isSource \? "out" : "in"\}`', body), body
 
 
 @pytest.fixture

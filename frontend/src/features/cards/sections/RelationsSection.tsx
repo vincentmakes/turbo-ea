@@ -53,12 +53,13 @@ import {
 } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
 import {
+  effectiveSideFlags,
   expandSides,
   onSide,
   orderRelationTypesByOtherEnd,
   otherEnd,
-  sideFlags,
   sideKey,
+  subtypeOptionalSides,
   type RelationSide,
 } from "@/lib/relationSort";
 import { successorRelationKeys } from "@/lib/successorRelation";
@@ -634,6 +635,7 @@ function RelationGroup({
 function RelationsSection({
   fsId,
   cardTypeKey,
+  cardSubtype = null,
   refreshKey = 0,
   canManageRelations = true,
   initialExpanded = false,
@@ -641,6 +643,10 @@ function RelationsSection({
 }: {
   fsId: string;
   cardTypeKey: string;
+  /** The card's subtype: a mandatory side it lists in `optional_relations`
+   *  (#1296) is not required on this card, exactly as the backend's approval
+   *  gate and data-quality score read it. */
+  cardSubtype?: string | null;
   refreshKey?: number;
   canManageRelations?: boolean;
   initialExpanded?: boolean;
@@ -844,26 +850,35 @@ function RelationsSection({
   // groups, the hidden-but-populated block and the Add menu cannot disagree.
   const sides = useMemo(() => expandSides(relevantRTs, cardTypeKey), [relevantRTs, cardTypeKey]);
 
+  // Sides this card's subtype does not need (#1296). They lose the Required
+  // chip and the "this relation is required" hint, and a side that is only
+  // shown because it is mandatory drops to the Add menu like any optional one.
+  const cardTypeConfig = getType(cardTypeKey);
+  const optionalSides = useMemo(
+    () => subtypeOptionalSides(cardTypeConfig, cardSubtype),
+    [cardTypeConfig, cardSubtype],
+  );
+
   // Displayed groups: visible=true OR mandatory=true, on that side.
   const displayedGroups = useMemo(() => {
     return sides
       .map(({ rt, isSource }) => {
-        const { visible, mandatory } = sideFlags(rt, isSource);
+        const { visible, mandatory } = effectiveSideFlags(rt, isSource, optionalSides);
         const rels = relations.filter((r) => onSide(r, rt.key, fsId, isSource));
         return { rt, isSource, visible, mandatory, rels };
       })
       .filter(({ visible, mandatory }) => visible || mandatory);
-  }, [sides, relations, fsId]);
+  }, [sides, relations, fsId, optionalSides]);
 
   // Sides with no group of their own (reached via the section's Add menu, and
   // rendered below only while they hold data).
   const hiddenSides = useMemo(
     () =>
       sides.filter(({ rt, isSource }) => {
-        const { visible, mandatory } = sideFlags(rt, isSource);
+        const { visible, mandatory } = effectiveSideFlags(rt, isSource, optionalSides);
         return !visible && !mandatory;
       }),
-    [sides],
+    [sides, optionalSides],
   );
 
   const openAddDialog = (side: RelationSide<RelationType>) => {

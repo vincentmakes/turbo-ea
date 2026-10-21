@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "移除许可证",
   "extensions.license.removeTitle": "确定移除许可证？",
   "extensions.license.removeBody": "在您重新应用许可证之前，已授权的扩展将被停用——其页面停止工作，作业暂停。不会删除任何数据，重新应用许可证即可恢复一切。",
-  "extensions.license.removed": "许可证已移除。在应用许可证之前，已授权的扩展处于停用状态——未删除任何数据。"
+  "extensions.license.removed": "许可证已移除。在应用许可证之前，已授权的扩展处于停用状态——未删除任何数据。",
+  "metamodel.typeDrawer.optionalRelations": "此子类型无需的关系",
+  "metamodel.typeDrawer.optionalRelationsHelp": "勾选一条必填关系，使其对此子类型的卡片变为可选：它将不再阻止审批，也不会降低数据质量。",
+  "metamodel.typeDrawer.noMandatoryRelations": "此卡片类型没有必填关系。",
+  "securityLog.fields.optional_relations": "无需的关系"
 }

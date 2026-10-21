@@ -1029,6 +1029,118 @@ describe("InventoryPage mass edit — relations", () => {
   });
 });
 
+describe("InventoryPage mass edit — relation attributes (#1293)", () => {
+  /** relAppToApp is a self-pair carrying `flowDirection`; pick its outgoing side. */
+  async function openFlowField(user: ReturnType<typeof userEvent.setup>, rows: Card[]) {
+    await openMassEdit(user, rows);
+    await chooseField(user, "sends data to → Application");
+    return screen.getByRole("dialog");
+  }
+
+  async function pickApp(user: ReturnType<typeof userEvent.setup>, name: string) {
+    await user.click(screen.getByRole("combobox", { name: "Application cards" }));
+    await user.click(await screen.findByRole("option", { name }));
+  }
+
+  async function setFlow(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) {
+    await user.click(within(dialog).getByRole("combobox", { name: "Flow Direction" }));
+    await user.click(await screen.findByRole("option", { name: /sends data to/ }));
+  }
+
+  it("sends the chosen attributes on every POST, merged onto an existing link's own", async () => {
+    const existing = {
+      id: "7e1a0000-0000-4000-8000-0000000000aa",
+      type: "relAppToApp",
+      source_id: CARD_IDS.erp,
+      target_id: HR.id,
+      attributes: { flowDirection: "reverse", note: "keep me" },
+    };
+    mockApi.on("get", /^\/relations\?type=relAppToApp/, [existing]);
+    mockApi.on("post", "/relations", {});
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    const dialog = await openFlowField(user, [ERP]);
+
+    const editor = within(dialog).getByTestId("mass-edit-rel-attributes");
+    expect(
+      within(editor).getByText(
+        "Applied to every link added. Cards already linked to a chosen target get these details too; details left empty are kept as they are.",
+      ),
+    ).toBeInTheDocument();
+    await pickApp(user, "CRM Cloud");
+    await pickApp(user, "HR Portal");
+    await setFlow(user, dialog);
+    await apply(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockApi.callsOf("post", "/relations").map((c) => c.body)).toEqual([
+      {
+        type: "relAppToApp",
+        source_id: CARD_IDS.erp,
+        target_id: CARD_IDS.crm,
+        attributes: { flowDirection: "forward" },
+      },
+      // Already linked: re-posted (the idempotent upsert updates it), keeping
+      // the attribute the user did not touch.
+      {
+        type: "relAppToApp",
+        source_id: CARD_IDS.erp,
+        target_id: HR.id,
+        attributes: { flowDirection: "forward", note: "keep me" },
+      },
+    ]);
+  });
+
+  it("still skips an existing link when no attribute was set", async () => {
+    mockApi.on("get", /^\/relations\?type=relAppToApp/, [
+      { id: "r1", type: "relAppToApp", source_id: CARD_IDS.erp, target_id: HR.id, attributes: {} },
+    ]);
+    mockApi.on("post", "/relations", {});
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await openFlowField(user, [ERP]);
+    await pickApp(user, "CRM Cloud");
+    await pickApp(user, "HR Portal");
+    await apply(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockApi.callsOf("post", "/relations").map((c) => c.body)).toEqual([
+      { type: "relAppToApp", source_id: CARD_IDS.erp, target_id: CARD_IDS.crm },
+    ]);
+  });
+
+  it("offers no attribute editor on a type without editable attributes, nor when removing", async () => {
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    await openMassEdit(user, [ERP]);
+    await chooseField(user, "uses → IT Component");
+    expect(screen.queryByTestId("mass-edit-rel-attributes")).toBeNull();
+
+    await chooseField(user, "sends data to → Application");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByTestId("mass-edit-rel-attributes")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: /Remove link$/ }));
+    expect(screen.queryByTestId("mass-edit-rel-attributes")).toBeNull();
+  });
+
+  it("does not carry attributes into Remove", async () => {
+    mockApi.on("get", /^\/relations\?type=relAppToApp/, [
+      { id: "r1", type: "relAppToApp", source_id: CARD_IDS.erp, target_id: CARD_IDS.crm },
+    ]);
+    mockApi.on("delete", /^\/relations\//, {});
+    const { user } = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    const dialog = await openFlowField(user, [ERP]);
+    await setFlow(user, dialog);
+    await user.click(within(dialog).getByRole("button", { name: /Remove link$/ }));
+    await pickApp(user, "CRM Cloud");
+    await apply(user);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockApi.callsOf("delete", "/relations/r1")).toHaveLength(1);
+    expect(mockApi.callsOf("post", "/relations")).toHaveLength(0);
+  });
+});
+
 describe("InventoryPage mass edit — tags, subtype, parent, attributes", () => {
   it("insists on at least one tag", async () => {
     const { user } = renderInventory("/inventory?type=Application");

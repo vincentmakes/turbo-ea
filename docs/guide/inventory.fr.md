@@ -138,6 +138,8 @@ La liste déroulante **Champ** regroupe les éléments modifiables :
 
 Les étiquettes, les relations et le parent proposent chacun un bouton **ajouter / retirer**, afin d'étendre ou de réduire les valeurs existantes plutôt que de les remplacer.
 
+Lorsque vous choisissez **Ajouter un lien** pour un type de relation qui porte des détails — le sens du flux entre deux applications, la manière dont une organisation utilise une application, les indicateurs créer / lire / mettre à jour / supprimer d'un objet de données —, la boîte de dialogue affiche aussi ces champs. Ce que vous définissez est enregistré sur chaque lien ajouté. Les fiches déjà liées à une cible choisie reçoivent aussi ces détails : relancer **Ajouter un lien** est donc la façon de mettre à jour les détails des liens existants ; un détail laissé vide n'est pas modifié.
+
 Le champ de saisie s'adapte au type de champ : une liste à choix multiples affiche ses options avec des cases à cocher, un champ oui/non une liste Oui / Non, un champ date un sélecteur de date. Laisser la valeur vide — **Aucun** pour un champ oui/non — efface le champ sur toutes les fiches sélectionnées. Les champs calculés par une formule, ainsi que les champs de coût que vous n'êtes pas autorisé à voir, ne sont pas proposés.
 
 ### Restructurer la hiérarchie { #mass-edit-parent }

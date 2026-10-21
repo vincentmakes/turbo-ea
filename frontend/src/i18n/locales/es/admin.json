@@ -2908,5 +2908,9 @@
   "extensions.license.remove": "Eliminar licencia",
   "extensions.license.removeTitle": "¿Eliminar licencia?",
   "extensions.license.removeBody": "Las extensiones con licencia se desactivarán hasta que aplique una licencia de nuevo: sus páginas dejan de funcionar y sus tareas se pausan. No se elimina ningún dato, y aplicar una licencia lo restaura todo.",
-  "extensions.license.removed": "Licencia eliminada. Las extensiones con licencia están desactivadas hasta que se aplique una licencia: no se eliminó ningún dato."
+  "extensions.license.removed": "Licencia eliminada. Las extensiones con licencia están desactivadas hasta que se aplique una licencia: no se eliminó ningún dato.",
+  "metamodel.typeDrawer.optionalRelations": "Relaciones no obligatorias para este subtipo",
+  "metamodel.typeDrawer.optionalRelationsHelp": "Marque una relación obligatoria para que sea opcional en las fichas de este subtipo: deja de bloquear la aprobación y de reducir la calidad de datos.",
+  "metamodel.typeDrawer.noMandatoryRelations": "Este tipo de ficha no tiene relaciones obligatorias.",
+  "securityLog.fields.optional_relations": "Relaciones no obligatorias"
 }

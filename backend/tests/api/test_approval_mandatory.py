@@ -123,6 +123,59 @@ class TestApprovalMandatoryRelation:
         assert resp2.status_code == 200, resp2.text
 
 
+class TestApprovalMandatoryRelationPerSubtype:
+    """A subtype's ``optional_relations`` lifts the gate for that subtype only (#1296)."""
+
+    async def _setup(self, db):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.subtypes = [
+            {"key": "saas", "label": "SaaS", "optional_relations": ["app_operated_by_org"]},
+            {"key": "inhouse", "label": "In-house", "optional_relations": []},
+        ]
+        rt = await create_relation_type(
+            db,
+            key="app_operated_by_org",
+            label="operated by",
+            source_type_key="Application",
+            target_type_key="Organization",
+        )
+        rt.source_mandatory = True
+        await db.flush()
+
+    async def test_exempted_subtype_can_be_approved(self, client, db, approval_env):
+        admin = approval_env["admin"]
+        await self._setup(db)
+        card = await create_card(
+            db, card_type="Application", name="CRM", subtype="saas", user_id=admin.id
+        )
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/approval-status?action=approve",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["approval_status"] == "APPROVED"
+
+    async def test_other_subtype_and_no_subtype_stay_blocked(self, client, db, approval_env):
+        admin = approval_env["admin"]
+        await self._setup(db)
+        inhouse = await create_card(
+            db, card_type="Application", name="ERP", subtype="inhouse", user_id=admin.id
+        )
+        for card in (inhouse, approval_env["card"]):
+            resp = await client.post(
+                f"/api/v1/cards/{card.id}/approval-status?action=approve",
+                headers=auth_headers(admin),
+            )
+            assert resp.status_code == 400, resp.text
+            detail = resp.json()["detail"]
+            assert detail["code"] == "approval_blocked_mandatory_missing"
+            assert [m["key"] for m in detail["missing_relations"]] == ["app_operated_by_org"]
+
+
 class TestApprovalMandatoryTagGroup:
     async def _make_group_and_tag(self, client, admin, *, name="Env", restrict=None):
         group_resp = await client.post(

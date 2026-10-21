@@ -273,5 +273,6 @@
   "columns.eolSupport": "支持截止",
   "filter.eol": "生命周期终止",
   "filter.linkType": "关联类型",
-  "filter.eolManual": "手动维护"
+  "filter.eolManual": "手动维护",
+  "massEdit.rel.attributesHint": "应用于每条新增链接。已链接到所选目标的卡片也会获得这些详细信息；留空的详细信息保持不变。"
 }
