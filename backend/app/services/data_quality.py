@@ -19,7 +19,10 @@ A **mandatory-field gate** precedes the ratio: while any visible required field
 (excluding boolean and readonly fields) is empty, the score is pinned to 0.
 
 This is the single source of truth: ``cards.py``, ``ppm.py`` and
-``turbolens_commit.py`` all call :func:`calc_data_quality`. ``seed_demo.py``
+``turbolens_commit.py`` all call :func:`calc_data_quality`, and the batched
+:func:`rescore_cards` runs the same :func:`score_card` over a
+:class:`ScoringContext` loaded once per type and :class:`CardFacts` loaded once
+per chunk. ``seed_demo.py``
 keeps its own dict-based approximation because it runs before relations/tags
 exist and cannot evaluate the mandatory buckets.
 """
@@ -27,7 +30,8 @@ exist and cannot evaluate the mandatory buckets.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +40,15 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
-from app.services.card_completeness import missing_mandatory, optional_relation_sides
+from app.services.card_completeness import (
+    NO_LINKS,
+    LinkFacts,
+    MandatoryConfig,
+    evaluate,
+    load_link_facts,
+    load_mandatory_config,
+    optional_relation_sides,
+)
 from app.services.derived_writes import derived_maintenance
 
 # Reserved key on CardType.section_config holding the built-in weights.
@@ -56,19 +68,115 @@ def _bucket_weight(dq_cfg: dict, name: str) -> float:
     return w if w > 0 else 0.0
 
 
-async def calc_data_quality(db: AsyncSession, card: Card) -> float:
-    """Calculate a card's data-quality score (0-100) from weighted completeness."""
-    result = await db.execute(
-        select(CardType.fields_schema, CardType.subtypes, CardType.section_config).where(
-            CardType.key == card.type
-        )
-    )
-    row = result.one_or_none()
-    if not row:
-        return 0.0
-    schema, subtypes, section_config = row
+@dataclass(frozen=True)
+class ScoringContext:
+    """Everything about a card *type* the scorer reads, loaded once per type.
 
+    ``mandatory`` is ``None`` when both the relations and tags buckets are
+    switched off, and ``counting_role_keys`` is empty when the stakeholders
+    bucket is off — in both cases nothing about the card is loaded for them.
+    """
+
+    fields_schema: list
+    subtypes: list | None
+    dq_cfg: dict
+    mandatory: MandatoryConfig | None
+    counting_role_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CardFacts:
+    """What one card holds of the type's mandatory items and counting roles."""
+
+    links: LinkFacts = NO_LINKS
+    holds_counting_stakeholder: bool = False
+
+
+async def load_scoring_context(db: AsyncSession, type_key: str) -> ScoringContext | None:
+    """Load a type's scoring config; ``None`` when the type does not exist."""
+    row = (
+        await db.execute(
+            select(CardType.fields_schema, CardType.subtypes, CardType.section_config).where(
+                CardType.key == type_key
+            )
+        )
+    ).one_or_none()
+    if not row:
+        return None
+    schema, subtypes, section_config = row
     dq_cfg = (section_config or {}).get(DATA_QUALITY_CONFIG_KEY) or {}
+
+    mandatory = None
+    if _bucket_weight(dq_cfg, "relations") > 0 or _bucket_weight(dq_cfg, "tags") > 0:
+        mandatory = await load_mandatory_config(db, type_key)
+
+    # `counts_for_quality` is what keeps the stakeholders slot honest: a purely
+    # passive role (the built-in `observer`) is excluded, so watching a card can
+    # never stand in for owning it. Archived roles are excluded too, so an
+    # assignment held under one does not fill the slot.
+    role_keys: tuple[str, ...] = ()
+    if _bucket_weight(dq_cfg, "stakeholders") > 0:
+        role_keys = tuple(
+            (
+                await db.execute(
+                    select(StakeholderRoleDefinition.key).where(
+                        StakeholderRoleDefinition.card_type_key == type_key,
+                        StakeholderRoleDefinition.is_archived.is_(False),
+                        StakeholderRoleDefinition.counts_for_quality.is_(True),
+                    )
+                )
+            ).scalars()
+        )
+    return ScoringContext(
+        fields_schema=schema,
+        subtypes=subtypes,
+        dq_cfg=dq_cfg,
+        mandatory=mandatory,
+        counting_role_keys=role_keys,
+    )
+
+
+async def load_scoring_facts(
+    db: AsyncSession, ctx: ScoringContext, card_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, CardFacts]:
+    """The per-card facts for ``card_ids``, in a fixed number of queries.
+
+    Every id gets an entry. The cards must all be of the type ``ctx`` was
+    loaded for.
+    """
+    ids = list(card_ids)
+    links: dict[uuid.UUID, LinkFacts] = {}
+    if ctx.mandatory is not None:
+        links = await load_link_facts(db, ctx.mandatory, ids)
+    holders: set[uuid.UUID] = set()
+    if ctx.counting_role_keys:
+        holders = set(
+            (
+                await db.execute(
+                    select(Stakeholder.card_id)
+                    .where(
+                        Stakeholder.card_id.in_(ids),
+                        Stakeholder.role.in_(ctx.counting_role_keys),
+                    )
+                    .distinct()
+                )
+            ).scalars()
+        )
+    return {
+        cid: CardFacts(
+            links=links.get(cid, NO_LINKS),
+            holds_counting_stakeholder=cid in holders,
+        )
+        for cid in ids
+    }
+
+
+def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
+    """A card's data-quality score (0-100) from weighted completeness.
+
+    Pure: everything it reads about the database is in ``ctx`` and ``facts``.
+    """
+    schema, subtypes, dq_cfg = ctx.fields_schema, ctx.subtypes, ctx.dq_cfg
 
     # Determine hidden fields for the card's subtype
     hidden_keys: set[str] = set()
@@ -136,9 +244,10 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
     # contributes its bucket weight to total, and to filled only when satisfied.
     rel_w = _bucket_weight(dq_cfg, "relations")
     tag_w = _bucket_weight(dq_cfg, "tags")
-    if rel_w > 0 or tag_w > 0:
-        state = await missing_mandatory(
-            db, card, optional_sides=optional_relation_sides(subtypes, card.subtype)
+    # (`mandatory` is loaded exactly when one of the two weights is on.)
+    if ctx.mandatory is not None:
+        state = evaluate(
+            ctx.mandatory, facts.links, optional_relation_sides(subtypes, card.subtype)
         )
         if rel_w > 0:
             total_weight += state["relations_applicable"] * rel_w
@@ -163,35 +272,29 @@ async def calc_data_quality(db: AsyncSession, card: Card) -> float:
     # `counts_for_quality` is what keeps this honest: a purely passive role
     # (the built-in `observer`) is excluded, so watching a card can never stand
     # in for owning it. Archived and non-counting roles are filtered out of
-    # `role_keys`, so an assignment held under one does not fill the slot.
+    # `counting_role_keys` (see `load_scoring_context`), so an assignment
+    # held under one does not fill the slot.
     stake_w = _bucket_weight(dq_cfg, "stakeholders")
-    if stake_w > 0:
-        role_rows = await db.execute(
-            select(StakeholderRoleDefinition.key).where(
-                StakeholderRoleDefinition.card_type_key == card.type,
-                StakeholderRoleDefinition.is_archived.is_(False),
-                StakeholderRoleDefinition.counts_for_quality.is_(True),
-            )
-        )
-        role_keys = list(role_rows.scalars().all())
-        # A type with no counting roles adds no slot at all, rather than one
-        # nobody could ever fill.
-        if role_keys:
-            total_weight += stake_w
-            held = await db.execute(
-                select(Stakeholder.id)
-                .where(
-                    Stakeholder.card_id == card.id,
-                    Stakeholder.role.in_(role_keys),
-                )
-                .limit(1)
-            )
-            if held.scalar_one_or_none() is not None:
-                filled_weight += stake_w
+    # A type with no counting roles adds no slot at all, rather than one
+    # nobody could ever fill. (`counting_role_keys` is only loaded while the
+    # bucket is on.)
+    if stake_w > 0 and ctx.counting_role_keys:
+        total_weight += stake_w
+        if facts.holds_counting_stakeholder:
+            filled_weight += stake_w
 
     if total_weight == 0:
         return 0.0
     return round((filled_weight / total_weight) * 100, 1)
+
+
+async def calc_data_quality(db: AsyncSession, card: Card) -> float:
+    """Calculate a card's data-quality score (0-100) from weighted completeness."""
+    ctx = await load_scoring_context(db, card.type)
+    if ctx is None:
+        return 0.0
+    facts = await load_scoring_facts(db, ctx, [card.id])
+    return score_card(card, ctx, facts[card.id])
 
 
 async def rescore_cards(
@@ -200,9 +303,14 @@ async def rescore_cards(
     """Rescore the given cards; return how many stored scores changed.
 
     For the card-context mutations that feed the score but never go through
-    ``PATCH /cards`` — stakeholders, relations, tags. Those all shape a
-    built-in bucket, so without this the stored score silently reflects
-    whatever the state was at the card's last edit.
+    ``PATCH /cards`` — stakeholders, relations, tags — and for the config
+    changes ``rescore_card_type`` handles. Those all shape a built-in bucket,
+    so without this the stored score silently reflects whatever the state was
+    at the card's last edit.
+
+    The ids may span several types (rollback, bulk stakeholder changes): each
+    type's config is loaded once per call, and each chunk's facts in a fixed
+    number of queries per type, so the cost does not grow with the card count.
 
     Never commits and never flushes: the caller owns the transaction, and in
     the bulk endpoints it owns a dry-run savepoint that must still be able to
@@ -210,11 +318,26 @@ async def rescore_cards(
     """
     ids = list(dict.fromkeys(card_ids))
     changed = 0
+    contexts: dict[str, ScoringContext | None] = {}
     for i in range(0, len(ids), chunk_size):
         chunk = ids[i : i + chunk_size]
         cards = (await db.execute(select(Card).where(Card.id.in_(chunk)))).scalars().all()
+        by_type: dict[str, list[Card]] = {}
         for card in cards:
-            score = await calc_data_quality(db, card)
+            by_type.setdefault(card.type, []).append(card)
+        scores: list[tuple[Card, float]] = []
+        for type_key, group in by_type.items():
+            if type_key not in contexts:
+                contexts[type_key] = await load_scoring_context(db, type_key)
+            ctx = contexts[type_key]
+            if ctx is None:
+                scores.extend((card, 0.0) for card in group)
+                continue
+            facts = await load_scoring_facts(db, ctx, [card.id for card in group])
+            scores.extend((card, score_card(card, ctx, facts[card.id])) for card in group)
+        # Assigned only once every query of the chunk has run, so no autoflush
+        # interleaves an UPDATE per card between them.
+        for card, score in scores:
             if card.data_quality != score:
                 card.data_quality = score
                 changed += 1

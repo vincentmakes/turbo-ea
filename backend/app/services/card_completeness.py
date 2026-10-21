@@ -1,11 +1,27 @@
 """Check whether a card satisfies all mandatory-metamodel items.
 
-Pure, read-only helper. Returns the list of unsatisfied mandatory
-relation sides and tag groups for a card, which the approval-status
-handler and the data-quality calculator consume.
+Read-only. Returns the list of unsatisfied mandatory relation sides and tag
+groups for a card, which the approval-status handler and the data-quality
+calculator consume.
+
+The check is split in three so that rescoring every card of a type costs a
+handful of queries rather than several per card:
+
+* :func:`load_mandatory_config` — what the card *type* requires, loaded once
+  per type;
+* :func:`load_link_facts` — which of those requirements each card holds,
+  loaded in one query per kind for a whole list of cards;
+* :func:`evaluate` — the pure verdict for one card from the two.
+
+:func:`missing_mandatory` is the single-card composition of the three, so the
+approval gate and the batched rescore share one definition.
 """
 
 from __future__ import annotations
+
+import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,10 +54,179 @@ def optional_relation_sides(subtypes: object, subtype: str | None) -> frozenset[
     return frozenset()
 
 
-async def missing_mandatory(
-    db: AsyncSession, card: Card, *, optional_sides: frozenset[str] | None = None
+@dataclass(frozen=True)
+class MandatorySide:
+    """One mandatory relation side a card of the type must hold."""
+
+    key: str  # relation type key
+    label: str  # the verb read from this side
+    side: str  # "source" (outgoing) or "target" (incoming)
+    other_type_key: str
+    side_key: str  # the ``optional_relations`` vocabulary (see ``side_key``)
+
+
+@dataclass(frozen=True)
+class MandatoryTagGroup:
+    id: uuid.UUID
+    name: str
+
+
+@dataclass(frozen=True)
+class MandatoryConfig:
+    """What a card type requires, independent of any one card.
+
+    ``tag_groups`` holds only the groups that apply to the type and have at
+    least one tag: an empty mandatory group is an admin mis-configuration and
+    must not become an unreachable gate.
+    """
+
+    sides: tuple[MandatorySide, ...] = ()
+    tag_groups: tuple[MandatoryTagGroup, ...] = ()
+
+
+@dataclass(frozen=True)
+class LinkFacts:
+    """Which mandatory items one card holds.
+
+    ``sides`` is a set of ``(relation type key, "source" | "target")`` pairs;
+    ``tag_groups`` the ids of the groups the card carries a tag from.
+    """
+
+    sides: frozenset[tuple[str, str]] = frozenset()
+    tag_groups: frozenset[uuid.UUID] = frozenset()
+
+
+NO_LINKS = LinkFacts()
+
+
+async def load_mandatory_config(db: AsyncSession, type_key: str) -> MandatoryConfig:
+    """Load the mandatory relation sides and tag groups of a card type.
+
+    - A RelationType with ``source_mandatory`` and ``source_type_key == type``
+      contributes the outgoing side; one with ``target_mandatory`` and
+      ``target_type_key == type`` the incoming side. A self-referencing type
+      can contribute both.
+    - A TagGroup with ``mandatory`` whose ``restrict_to_types`` is null OR
+      includes the type applies, provided it has at least one tag.
+    """
+    relation_types = (
+        (
+            await db.execute(
+                select(RelationType).where(
+                    or_(
+                        (RelationType.source_type_key == type_key)
+                        & (RelationType.source_mandatory.is_(True)),
+                        (RelationType.target_type_key == type_key)
+                        & (RelationType.target_mandatory.is_(True)),
+                    ),
+                    RelationType.is_hidden.is_(False),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    sides: list[MandatorySide] = []
+    for rt in relation_types:
+        if rt.source_type_key == type_key and rt.source_mandatory:
+            sides.append(
+                MandatorySide(
+                    key=rt.key,
+                    label=rt.label,
+                    side="source",
+                    other_type_key=rt.target_type_key,
+                    side_key=side_key(rt, True),
+                )
+            )
+        if rt.target_type_key == type_key and rt.target_mandatory:
+            sides.append(
+                MandatorySide(
+                    key=rt.key,
+                    label=rt.reverse_label or rt.label,
+                    side="target",
+                    other_type_key=rt.source_type_key,
+                    side_key=side_key(rt, False),
+                )
+            )
+
+    groups = [
+        tg
+        for tg in (await db.execute(select(TagGroup).where(TagGroup.mandatory.is_(True))))
+        .scalars()
+        .all()
+        if not tg.restrict_to_types or type_key in tg.restrict_to_types
+    ]
+    tag_groups: tuple[MandatoryTagGroup, ...] = ()
+    if groups:
+        non_empty = set(
+            (
+                await db.execute(
+                    select(Tag.tag_group_id)
+                    .where(Tag.tag_group_id.in_([tg.id for tg in groups]))
+                    .distinct()
+                )
+            ).scalars()
+        )
+        tag_groups = tuple(
+            MandatoryTagGroup(id=tg.id, name=tg.name) for tg in groups if tg.id in non_empty
+        )
+    return MandatoryConfig(sides=tuple(sides), tag_groups=tag_groups)
+
+
+async def load_link_facts(
+    db: AsyncSession, config: MandatoryConfig, card_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, LinkFacts]:
+    """Which mandatory items each card in ``card_ids`` holds.
+
+    At most three queries whatever the number of cards: outgoing relations,
+    incoming relations, and tags from the applicable groups — each skipped
+    when the type requires nothing of that kind. Every id gets an entry.
+    """
+    ids = list(card_ids)
+    held: dict[uuid.UUID, set[tuple[str, str]]] = {cid: set() for cid in ids}
+    groups: dict[uuid.UUID, set[uuid.UUID]] = {cid: set() for cid in ids}
+    if ids:
+        source_keys = {s.key for s in config.sides if s.side == "source"}
+        if source_keys:
+            rows = await db.execute(
+                select(Relation.source_id, Relation.type)
+                .where(Relation.source_id.in_(ids), Relation.type.in_(source_keys))
+                .distinct()
+            )
+            for card_id, type_key in rows:
+                held[card_id].add((type_key, "source"))
+        target_keys = {s.key for s in config.sides if s.side == "target"}
+        if target_keys:
+            rows = await db.execute(
+                select(Relation.target_id, Relation.type)
+                .where(Relation.target_id.in_(ids), Relation.type.in_(target_keys))
+                .distinct()
+            )
+            for card_id, type_key in rows:
+                held[card_id].add((type_key, "target"))
+        if config.tag_groups:
+            rows = await db.execute(
+                select(CardTag.card_id, Tag.tag_group_id)
+                .join(Tag, Tag.id == CardTag.tag_id)
+                .where(
+                    CardTag.card_id.in_(ids),
+                    Tag.tag_group_id.in_([tg.id for tg in config.tag_groups]),
+                )
+                .distinct()
+            )
+            for card_id, group_id in rows:
+                groups[card_id].add(group_id)
+    return {
+        cid: LinkFacts(sides=frozenset(held[cid]), tag_groups=frozenset(groups[cid])) for cid in ids
+    }
+
+
+def evaluate(
+    config: MandatoryConfig,
+    facts: LinkFacts,
+    optional_sides: frozenset[str] = frozenset(),
 ) -> dict:
-    """Return unsatisfied mandatory items + applicable counts for a card.
+    """The unsatisfied mandatory items + applicable counts for one card.
 
     Shape:
         {
@@ -51,131 +236,55 @@ async def missing_mandatory(
             "tag_groups_applicable": int,  # total applicable mandatory groups
         }
 
-    - A RelationType with ``source_mandatory`` and ``source_type_key == card.type``
-      requires at least one outgoing relation of that type.
-    - A RelationType with ``target_mandatory`` and ``target_type_key == card.type``
-      requires at least one incoming relation of that type.
-    - A TagGroup with ``mandatory`` whose ``restrict_to_types`` is null OR
-      includes the card's type requires at least one tag from that group
-      on the card. Empty mandatory groups (no tags configured) are skipped
-      to avoid an unreachable gate from an admin mis-configuration.
-    - A mandatory side the card's subtype lists in ``optional_relations`` is
-      not required at all for that card — it is neither missing nor counted as
-      applicable, exactly as a subtype's ``hidden_fields`` drop out of the
-      field score. ``optional_sides`` lets a caller that already loaded the
-      type's subtypes (the data-quality scorer) pass the set in; otherwise it
-      is read here.
+    A side the card's subtype lists in ``optional_relations`` (passed as
+    ``optional_sides``) is not required at all for that card — neither missing
+    nor counted as applicable, exactly as a subtype's ``hidden_fields`` drop
+    out of the field score.
     """
     missing_relations: list[dict] = []
-    missing_tag_groups: list[dict] = []
     relations_applicable = 0
-    tag_groups_applicable = 0
-
-    # ── Relation types touching this card's type on a mandatory side ────────
-    rt_rows = await db.execute(
-        select(RelationType).where(
-            or_(
-                (RelationType.source_type_key == card.type)
-                & (RelationType.source_mandatory.is_(True)),
-                (RelationType.target_type_key == card.type)
-                & (RelationType.target_mandatory.is_(True)),
-            ),
-            RelationType.is_hidden.is_(False),
-        )
-    )
-    relation_types = rt_rows.scalars().all()
-
-    if optional_sides is None:
-        optional_sides = frozenset()
-        if card.subtype and relation_types:
-            subtypes = (
-                await db.execute(select(CardType.subtypes).where(CardType.key == card.type))
-            ).scalar_one_or_none()
-            optional_sides = optional_relation_sides(subtypes, card.subtype)
-
-    for rt in relation_types:
-        source_side = (
-            rt.source_type_key == card.type
-            and rt.source_mandatory
-            and side_key(rt, True) not in optional_sides
-        )
-        target_side = (
-            rt.target_type_key == card.type
-            and rt.target_mandatory
-            and side_key(rt, False) not in optional_sides
-        )
-
-        # Outgoing check (source side)
-        if source_side:
-            relations_applicable += 1
-            exists = await db.execute(
-                select(Relation.id)
-                .where(
-                    Relation.source_id == card.id,
-                    Relation.type == rt.key,
-                )
-                .limit(1)
-            )
-            if exists.scalar_one_or_none() is None:
-                missing_relations.append(
-                    {
-                        "key": rt.key,
-                        "label": rt.label,
-                        "side": "source",
-                        "other_type_key": rt.target_type_key,
-                    }
-                )
-
-        # Incoming check (target side)
-        if target_side:
-            relations_applicable += 1
-            exists = await db.execute(
-                select(Relation.id)
-                .where(
-                    Relation.target_id == card.id,
-                    Relation.type == rt.key,
-                )
-                .limit(1)
-            )
-            if exists.scalar_one_or_none() is None:
-                missing_relations.append(
-                    {
-                        "key": rt.key,
-                        "label": rt.reverse_label or rt.label,
-                        "side": "target",
-                        "other_type_key": rt.source_type_key,
-                    }
-                )
-
-    # ── Mandatory tag groups applicable to this card's type ──────────────────
-    tg_rows = await db.execute(select(TagGroup).where(TagGroup.mandatory.is_(True)))
-    tag_groups = tg_rows.scalars().all()
-
-    for tg in tag_groups:
-        if tg.restrict_to_types and card.type not in tg.restrict_to_types:
+    for s in config.sides:
+        if s.side_key in optional_sides:
             continue
-
-        # Skip empty mandatory groups (admin error — don't hard-block)
-        has_any_tag = await db.execute(select(Tag.id).where(Tag.tag_group_id == tg.id).limit(1))
-        if has_any_tag.scalar_one_or_none() is None:
-            continue
-
-        tag_groups_applicable += 1
-        satisfied = await db.execute(
-            select(CardTag.tag_id)
-            .join(Tag, Tag.id == CardTag.tag_id)
-            .where(
-                CardTag.card_id == card.id,
-                Tag.tag_group_id == tg.id,
+        relations_applicable += 1
+        if (s.key, s.side) not in facts.sides:
+            missing_relations.append(
+                {
+                    "key": s.key,
+                    "label": s.label,
+                    "side": s.side,
+                    "other_type_key": s.other_type_key,
+                }
             )
-            .limit(1)
-        )
-        if satisfied.scalar_one_or_none() is None:
-            missing_tag_groups.append({"id": str(tg.id), "name": tg.name})
-
+    missing_tag_groups = [
+        {"id": str(tg.id), "name": tg.name}
+        for tg in config.tag_groups
+        if tg.id not in facts.tag_groups
+    ]
     return {
         "relations": missing_relations,
         "tag_groups": missing_tag_groups,
         "relations_applicable": relations_applicable,
-        "tag_groups_applicable": tag_groups_applicable,
+        "tag_groups_applicable": len(config.tag_groups),
     }
+
+
+async def missing_mandatory(
+    db: AsyncSession, card: Card, *, optional_sides: frozenset[str] | None = None
+) -> dict:
+    """Return unsatisfied mandatory items + applicable counts for a card.
+
+    The shape and rules are :func:`evaluate`'s. ``optional_sides`` lets a
+    caller that already loaded the type's subtypes pass the card's exemptions
+    in; otherwise they are read here.
+    """
+    config = await load_mandatory_config(db, card.type)
+    if optional_sides is None:
+        optional_sides = frozenset()
+        if card.subtype and config.sides:
+            subtypes = (
+                await db.execute(select(CardType.subtypes).where(CardType.key == card.type))
+            ).scalar_one_or_none()
+            optional_sides = optional_relation_sides(subtypes, card.subtype)
+    facts = (await load_link_facts(db, config, [card.id]))[card.id]
+    return evaluate(config, facts, optional_sides)

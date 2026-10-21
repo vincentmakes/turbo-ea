@@ -445,3 +445,324 @@ async def test_relation_side_exempted_by_subtype_is_not_a_slot(db):
     assert await calc_data_quality(db, saas) == 100.0
     # In-house: the unmet mandatory relation is a third, empty slot → 2/3.
     assert await calc_data_quality(db, inhouse) == pytest.approx(200 / 3, abs=0.1)
+
+
+# ── Batched rescoring ───────────────────────────────────────────────
+# `rescore_card_type` runs after every scoring-config change (a weight moved,
+# a stakeholder role toggled) over every active card of the type. It used to
+# cost several statements per card — the type row, the mandatory relation
+# types, one EXISTS per mandatory side, two per tag group, two for
+# stakeholders — which on a remote database turned one Save into seconds. The
+# per-type config is now loaded once and the per-card facts in one query per
+# kind per chunk, so the statement count must not grow with the card count.
+
+
+@pytest.fixture
+def statements(db):
+    """Every statement the session sends while the fixture is live."""
+    from sqlalchemy import event as sa_event
+
+    recorded: list[str] = []
+    bind = db.sync_session.get_bind()
+
+    def _record(conn, cursor, statement, parameters, context, executemany):
+        recorded.append(statement)
+
+    sa_event.listen(bind, "before_cursor_execute", _record)
+    yield recorded
+    sa_event.remove(bind, "before_cursor_execute", _record)
+
+
+async def _scoring_env(db):
+    """Application with two mandatory relation sides (one outgoing, one
+    incoming), one mandatory tag group and one counting stakeholder role.
+
+    Fields, description and lifecycle are switched off, so a card's score is
+    exactly ``satisfied / 4`` over those four slots.
+    """
+    from app.models.tag import Tag, TagGroup
+    from tests.conftest import create_relation_type
+
+    await create_card_type(db, key="Application", fields_schema=[])
+    await create_card_type(db, key="Organization", fields_schema=[])
+    await create_card_type(db, key="Provider", fields_schema=[])
+    await _set_dq(db, description=0, lifecycle=0, relations=1, tags=1, stakeholders=1)
+    out_rt = await create_relation_type(
+        db,
+        key="relAppToOrg",
+        label="is owned by",
+        source_type_key="Application",
+        target_type_key="Organization",
+    )
+    out_rt.source_mandatory = True
+    in_rt = await create_relation_type(
+        db,
+        key="relProviderToApp",
+        label="supplies",
+        source_type_key="Provider",
+        target_type_key="Application",
+    )
+    in_rt.target_mandatory = True
+    group = TagGroup(name="Criticality", mandatory=True, restrict_to_types=["Application"])
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="High")
+    db.add(tag)
+    await create_stakeholder_role_def(db, card_type_key="Application", key="owner", label="Owner")
+    await create_role(db, key="member", label="Member", permissions={})
+    user = await create_user(db, email="owner@test.com", role="member")
+    org = await create_card(db, card_type="Organization", name="Acme")
+    provider = await create_card(db, card_type="Provider", name="Vendor")
+    await db.flush()
+    return {"tag": tag, "user": user, "org": org, "provider": provider}
+
+
+def _expected(i: int) -> float:
+    held = (i % 2 == 0) + (i % 3 == 0) + (i % 5 == 0) + (i % 7 == 0)
+    return round(held / 4 * 100, 1)
+
+
+async def _add_apps(db, env, start: int, stop: int) -> list:
+    """Cards ``start..stop-1``; card ``i`` holds the outgoing side when i%2==0,
+    the incoming side when i%3==0, the tag when i%5==0 and an owner when
+    i%7==0 — so every combination of the four slots occurs."""
+    from app.models.card import Card
+    from app.models.relation import Relation
+    from app.models.stakeholder import Stakeholder
+    from app.models.tag import CardTag
+
+    cards = [Card(type="Application", name=f"App {i}", status="ACTIVE") for i in range(start, stop)]
+    db.add_all(cards)
+    await db.flush()
+    for i, card in zip(range(start, stop), cards):
+        if i % 2 == 0:
+            db.add(Relation(type="relAppToOrg", source_id=card.id, target_id=env["org"].id))
+        if i % 3 == 0:
+            db.add(
+                Relation(type="relProviderToApp", source_id=env["provider"].id, target_id=card.id)
+            )
+        if i % 5 == 0:
+            db.add(CardTag(card_id=card.id, tag_id=env["tag"].id))
+        if i % 7 == 0:
+            db.add(Stakeholder(card_id=card.id, user_id=env["user"].id, role="owner"))
+    await db.flush()
+    return cards
+
+
+async def test_rescore_card_type_statement_count_does_not_grow_with_cards(db, statements):
+    from app.services.data_quality import rescore_card_type
+
+    env = await _scoring_env(db)
+    cards = await _add_apps(db, env, 0, 10)
+
+    statements.clear()
+    assert await rescore_card_type(db, "Application") == sum(_expected(i) != 0 for i in range(10))
+    ten = len(statements)
+
+    cards += await _add_apps(db, env, 10, 100)
+    await db.flush()
+    statements.clear()
+    await rescore_card_type(db, "Application")
+    hundred = len(statements)
+
+    assert hundred == ten
+    assert hundred < 20
+    for i, card in enumerate(cards):
+        assert card.data_quality == _expected(i), f"App {i}"
+
+
+async def test_rescore_matches_the_single_card_scorer(db):
+    """The batched path and `calc_data_quality` are one definition."""
+    from app.services.data_quality import rescore_card_type
+
+    env = await _scoring_env(db)
+    cards = await _add_apps(db, env, 0, 42)
+    await rescore_card_type(db, "Application")
+    for card in cards:
+        assert card.data_quality == await calc_data_quality(db, card)
+    # 0 and 42 hold everything, 1 holds nothing, 6 holds both relation sides.
+    assert [cards[i].data_quality for i in (0, 1, 2, 3, 6, 35)] == [
+        100.0,
+        0.0,
+        25.0,
+        25.0,
+        50.0,
+        50.0,
+    ]
+
+
+async def test_rescore_cards_scores_several_types_in_one_call(db):
+    """Rollback and bulk stakeholder changes hand `rescore_cards` ids of mixed
+    types: each must be scored against its own type's config, across chunk
+    boundaries, and a card of a type that no longer exists scores 0."""
+    from app.services.data_quality import rescore_cards
+
+    env = await _scoring_env(db)
+    apps = await _add_apps(db, env, 0, 7)
+    # Organization: only the description bucket counts.
+    from sqlalchemy import select
+
+    from app.models.card_type import CardType
+
+    org_type = (
+        await db.execute(select(CardType).where(CardType.key == "Organization"))
+    ).scalar_one()
+    org_type.section_config = {
+        "__dataQuality": {
+            "description": 1,
+            "lifecycle": 0,
+            "relations": 0,
+            "tags": 0,
+            "stakeholders": 0,
+        }
+    }
+    described = await create_card(db, card_type="Organization", name="Desc", description="x")
+    bare = await create_card(db, card_type="Organization", name="Bare", data_quality=50.0)
+    orphan = await create_card(db, card_type="NoSuchType", name="Orphan", data_quality=80.0)
+    await db.flush()
+
+    ids = [apps[0].id, described.id, apps[1].id, orphan.id, bare.id, apps[2].id, apps[6].id]
+    # Two cards per chunk: types interleave inside a chunk and across chunks.
+    changed = await rescore_cards(db, ids + [apps[0].id], chunk_size=2)
+
+    assert apps[0].data_quality == 100.0
+    assert apps[1].data_quality == 0.0
+    assert apps[2].data_quality == 25.0
+    assert apps[6].data_quality == 50.0
+    assert described.data_quality == 100.0
+    assert bare.data_quality == 0.0
+    assert orphan.data_quality == 0.0
+    # apps[1] already stored 0.0; every other card moved. The duplicate id is
+    # scored once.
+    assert changed == 6
+
+
+# ── The pure scorer and its context ─────────────────────────────────
+
+
+def _ctx(**overrides):
+    import uuid as _uuid
+
+    from app.services.card_completeness import (
+        MandatoryConfig,
+        MandatorySide,
+        MandatoryTagGroup,
+    )
+    from app.services.data_quality import ScoringContext
+
+    group = _uuid.uuid4()
+    base = {
+        "fields_schema": [],
+        "subtypes": [{"key": "saas", "label": "SaaS", "optional_relations": ["relA"]}],
+        "dq_cfg": {"description": 0, "lifecycle": 0, "relations": 2, "tags": 1, "stakeholders": 3},
+        "mandatory": MandatoryConfig(
+            sides=(
+                MandatorySide("relA", "owns", "source", "Organization", "relA"),
+                MandatorySide("relB", "uses", "target", "Interface", "relB"),
+            ),
+            tag_groups=(MandatoryTagGroup(group, "Criticality"),),
+        ),
+        "counting_role_keys": ("owner",),
+    }
+    base.update(overrides)
+    return ScoringContext(**base), group
+
+
+class TestScoreCard:
+    async def test_weights_each_bucket(self):
+        from app.models.card import Card
+        from app.services.card_completeness import LinkFacts
+        from app.services.data_quality import CardFacts, score_card
+
+        ctx, group = _ctx()
+        card = Card(type="Application", name="X")
+        links = LinkFacts(sides=frozenset({("relA", "source")}), tag_groups=frozenset({group}))
+        # relations 2 sides × 2 + tags 1 × 1 + stakeholders 3 = 8 ; filled 2 + 1.
+        assert score_card(card, ctx, CardFacts(links=links)) == 37.5
+        held = CardFacts(links=links, holds_counting_stakeholder=True)
+        assert score_card(card, ctx, held) == 75.0
+        assert score_card(card, ctx, CardFacts()) == 0.0
+
+    async def test_a_subtype_exempted_side_is_no_slot(self):
+        from app.models.card import Card
+        from app.services.data_quality import CardFacts, score_card
+
+        ctx, group = _ctx()
+        card = Card(type="Application", name="X", subtype="saas")
+        # relB × 2 + tag + stakeholder(3) = 6 ; only the stakeholder is held.
+        assert score_card(card, ctx, CardFacts(holds_counting_stakeholder=True)) == 50.0
+
+    async def test_no_counting_roles_is_no_slot(self):
+        from app.models.card import Card
+        from app.services.card_completeness import LinkFacts
+        from app.services.data_quality import CardFacts, score_card
+
+        ctx, group = _ctx(counting_role_keys=())
+        links = LinkFacts(sides=frozenset({("relB", "target")}))
+        # 2 sides × 2 + 1 tag = 5 ; relB held.
+        assert score_card(Card(type="Application", name="X"), ctx, CardFacts(links=links)) == 40.0
+
+    async def test_no_mandatory_config_scores_fields_alone(self):
+        from app.models.card import Card
+        from app.services.data_quality import CardFacts, score_card
+
+        ctx, _ = _ctx(mandatory=None, counting_role_keys=(), fields_schema=_SCHEMA)
+        card = Card(type="Application", name="X", attributes={"a": "x"})
+        assert score_card(card, ctx, CardFacts()) == 50.0
+
+    async def test_nothing_to_score_is_zero(self):
+        from app.models.card import Card
+        from app.services.data_quality import CardFacts, score_card
+
+        ctx, _ = _ctx(mandatory=None, counting_role_keys=())
+        assert score_card(Card(type="Application", name="X"), ctx, CardFacts()) == 0.0
+
+
+class TestLoadScoringContext:
+    async def test_an_unknown_type_has_no_context(self, db):
+        from app.services.data_quality import load_scoring_context
+
+        assert await load_scoring_context(db, "NoSuchType") is None
+
+    async def test_buckets_switched_off_load_nothing(self, db, statements):
+        from app.services.data_quality import load_scoring_context
+
+        await _type(db)
+        await create_stakeholder_role_def(db, card_type_key="Application", key="owner")
+        await _set_dq(db, relations=0, tags=0, stakeholders=0)
+        statements.clear()
+        ctx = await load_scoring_context(db, "Application")
+        assert len(statements) == 1
+        assert ctx.mandatory is None
+        assert ctx.counting_role_keys == ()
+        assert ctx.fields_schema == _SCHEMA
+        assert ctx.dq_cfg == {"relations": 0, "tags": 0, "stakeholders": 0}
+
+    async def test_one_mandatory_bucket_on_loads_the_config(self, db):
+        from app.services.data_quality import load_scoring_context
+
+        await _type(db, subtypes=[{"key": "s", "label": "S"}])
+        await create_stakeholder_role_def(db, card_type_key="Application", key="owner")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="observer", counts_for_quality=False
+        )
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="legacy", is_archived=True
+        )
+        await create_card_type(db, key="Organization")
+        await create_stakeholder_role_def(db, card_type_key="Organization", key="lead")
+        for buckets in ({"relations": 0}, {"tags": 0}):
+            await _set_dq(db, **buckets)
+            ctx = await load_scoring_context(db, "Application")
+            assert ctx.mandatory is not None
+            assert ctx.counting_role_keys == ("owner",)
+            assert ctx.subtypes == [{"key": "s", "label": "S"}]
+
+    async def test_facts_for_no_cards_are_empty(self, db, statements):
+        from app.services.data_quality import load_scoring_context, load_scoring_facts
+
+        await _type(db)
+        await create_stakeholder_role_def(db, card_type_key="Application", key="owner")
+        ctx = await load_scoring_context(db, "Application")
+        statements.clear()
+        assert await load_scoring_facts(db, ctx, []) == {}
