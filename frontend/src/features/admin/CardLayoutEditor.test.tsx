@@ -18,7 +18,7 @@
  * both are reached through the editor.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
-import { screen, within, waitFor } from "@testing-library/react";
+import { screen, within, waitFor, fireEvent } from "@testing-library/react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -1041,5 +1041,96 @@ describe("CardLayoutEditor — failed save", () => {
     await user.click(within(sectionRoot("Description")).getByRole("checkbox", { name: "Collapsed by default" }));
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("CardLayoutEditor — one save at a time", () => {
+  // A layout save re-scores the type's cards on the server, which can take a
+  // moment on a large landscape: while one is in flight the editor says so,
+  // takes no further input and refuses a second save from the stale layout.
+  function holdPatch(): () => void {
+    let release: () => void = () => {};
+    mockApi.on(
+      "patch",
+      PATCH_PATH,
+      (_path, body) =>
+        new Promise((resolve) => {
+          release = () => resolve({ ...TYPE, ...(body as object) });
+        }),
+    );
+    return () => release();
+  }
+
+  it("says it is saving, goes busy and refuses a second change until the first lands", async () => {
+    const release = holdPatch();
+    const { user, onRefresh } = setup();
+    const body = screen.getByTestId("card-layout-body");
+    expect(body).toHaveAttribute("aria-busy", "false");
+    expect(screen.queryByText("Saving...")).toBeNull();
+
+    await user.click(within(sectionRoot("Description")).getByRole("checkbox", { name: "Collapsed by default" }));
+    expect(await screen.findByText("Saving...")).toBeInTheDocument();
+    expect(body).toHaveAttribute("aria-busy", "true");
+    // The body takes no pointer input now, so dispatch the second change directly.
+    fireEvent.click(within(sectionRoot("Lifecycle")).getByRole("checkbox", { name: "Hidden from card detail" }));
+    expect(mockApi.callsOf("patch")).toHaveLength(1);
+
+    release();
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText("Saving...")).toBeNull());
+    expect(body).toHaveAttribute("aria-busy", "false");
+    expect(lastPatch().section_config?.description).toEqual({ defaultExpanded: false });
+
+    // Once settled, the next change goes through.
+    await user.click(within(sectionRoot("Lifecycle")).getByRole("checkbox", { name: "Hidden from card detail" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(2));
+  });
+
+  it("clears the busy state after a failed save too", async () => {
+    mockApi.fail("patch", PATCH_PATH, 500);
+    const { user, onRefresh } = setup();
+    await user.click(within(sectionRoot("Description")).getByRole("checkbox", { name: "Collapsed by default" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    expect(screen.getByTestId("card-layout-body")).toHaveAttribute("aria-busy", "false");
+    expect(screen.queryByText("Saving...")).toBeNull();
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("locks Add while a new section saves, so Enter cannot add it twice", async () => {
+    const release = holdPatch();
+    const { user, onRefresh } = setup();
+    await user.click(screen.getByRole("button", { name: /Add Section/ }));
+    const input = screen.getByPlaceholderText("Section name");
+    await user.type(input, "Risks{Enter}");
+    const add = await screen.findByRole("button", { name: "Saving..." });
+    expect(add).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(mockApi.callsOf("patch")).toHaveLength(1);
+
+    release();
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByPlaceholderText("Section name")).not.toBeInTheDocument());
+  });
+
+  it("keeps the group translations dialog open and locked while it saves", async () => {
+    const release = holdPatch();
+    const { user, onRefresh } = setup();
+    await user.click(
+      within(groupRoot("Grp", sectionRoot("Details"))).getByRole("button", { name: "Edit group translations" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: /^Save$/ }));
+
+    const saving = within(dialog).getByRole("button", { name: "Saving..." });
+    expect(saving).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: /^Cancel$/ })).toBeDisabled();
+    fireEvent.click(saving);
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeInTheDocument();
+    expect(mockApi.callsOf("patch")).toHaveLength(1);
+
+    release();
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 });

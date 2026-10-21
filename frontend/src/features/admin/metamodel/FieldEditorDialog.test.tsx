@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import FieldEditorDialog from "./FieldEditorDialog";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
@@ -563,5 +563,54 @@ describe("FieldEditorDialog — reordering options (#1292)", () => {
     expect(keys.map((k) => k.disabled)).toEqual([false, true, true, true]);
     await user.click(screen.getByRole("button", { name: /^Save$/ }));
     expect(savedKeys(onSave)).toEqual(["platinum", "gold", "silver", "bronze"]);
+  });
+});
+
+describe("FieldEditorDialog — while the parent saves", () => {
+  const FIELD: FieldDef = { key: "myField", label: "My Field", type: "text" };
+
+  function renderSaving(props: { saving?: boolean; error?: string | null } = {}) {
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    const utils = render(
+      <FieldEditorDialog
+        open
+        field={FIELD}
+        typeKey="Application"
+        fieldKey="myField"
+        onClose={onClose}
+        onSave={onSave}
+        {...props}
+      />,
+    );
+    return { ...utils, onSave, onClose };
+  }
+
+  it("locks Save and Cancel, says it is saving, and cannot be dismissed", async () => {
+    const user = userEvent.setup();
+    const { onSave, onClose } = renderSaving({ saving: true });
+    const save = screen.getByRole("button", { name: "Saving..." });
+    expect(save).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /^Save$/ })).not.toBeInTheDocument();
+    // A disabled button takes no pointer events, so dispatch the click directly.
+    fireEvent.click(save);
+    await user.keyboard("{Escape}");
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("is Save and dismissible again once the parent is done", async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderSaving({ saving: false });
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeEnabled();
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the parent's failed save inside the dialog", () => {
+    renderSaving({ error: "rescore failed" });
+    expect(screen.getByRole("alert")).toHaveTextContent("rescore failed");
+    expect(screen.getByRole("button", { name: /^Save$/ })).toBeEnabled();
   });
 });

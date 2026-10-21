@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Changing which fields a subtype hides now re-scores the type's existing cards straight away, instead of leaving their data quality stale until each one is next edited.
+- Saving a subtype template, a field, a section, the card layout or the data-quality weights in the card-type editor now shows that it is saving and cannot be sent twice (the subtype template dialog used to need two clicks to close), a failed save is reported where you made it, and re-scoring a type's cards after such a change is much faster on large landscapes.
 
 ## [2.174.0] - 2026-10-21
 

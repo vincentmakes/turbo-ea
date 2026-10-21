@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { createContext, useState, useEffect, useCallback, useContext, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
@@ -210,6 +211,20 @@ async function patchLayout(
   return true;
 }
 
+/**
+ * The editor's one save path, provided by `CardLayoutEditor` to the section
+ * panels it renders. A layout change that touches the scoring configuration
+ * re-scores every card of the type on the server, which can take a moment on
+ * a large landscape, so the provider runs one save at a time: a save asked for
+ * while another is in flight is refused (returns false, calls neither
+ * callback), and `saving` lets the panels lock their controls and say so.
+ * The default is the bare `patchLayout`, for a panel rendered on its own.
+ */
+const LayoutSaveContext = createContext<{ save: typeof patchLayout; saving: boolean }>({
+  save: patchLayout,
+  saving: false,
+});
+
 function FieldCard({
   field,
   isCalc,
@@ -299,17 +314,27 @@ function SortableFieldCard({
 // header via the same label resolver, so translated headers appear on the card.
 
 export function GroupTranslationsDialog({
-  groupName, initial, onClose, onSave,
+  groupName, initial, onClose, onSave, saving = false,
 }: {
   groupName: string;
   initial: TranslationMap;
   onClose: () => void;
   onSave: (map: TranslationMap) => void;
+  /** The save is in flight: Save and Cancel are locked and the dialog cannot be dismissed. */
+  saving?: boolean;
 }) {
   const { t } = useTranslation(["admin", "common"]);
   const [map, setMap] = useState<TranslationMap>({ ...initial });
   return (
-    <Dialog open onClose={onClose} maxWidth="xs" fullWidth disableRestoreFocus>
+    <Dialog
+      open
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      maxWidth="xs"
+      fullWidth
+      disableRestoreFocus
+    >
       <DialogTitle>{t("cardLayout.groupTranslationsTitle", { group: groupName })}</DialogTitle>
       <DialogContent>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
@@ -329,9 +354,11 @@ export function GroupTranslationsDialog({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
-        <Button variant="contained" onClick={() => onSave(map)}>
-          {t("common:actions.save")}
+        <Button onClick={onClose} disabled={saving}>
+          {t("common:actions.cancel")}
+        </Button>
+        <Button variant="contained" onClick={() => onSave(map)} disabled={saving}>
+          {saving ? t("metamodel.typeDrawer.saving") : t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -544,6 +571,7 @@ function VisualFieldLayout({
 }) {
   const { t } = useTranslation(["admin", "common"]);
   const rl = useResolveLabel();
+  const { save: saveLayout, saving } = useContext(LayoutSaveContext);
   const cols = section.columns || 1;
   const [containers, setContainers] = useState<Containers>(() => fieldsToContainers(section.fields, cols, section.groups));
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
@@ -579,9 +607,9 @@ function VisualFieldLayout({
       if (!key) return;
       const next = moveFieldBetweenSections(fieldsSchema, sectionIdx, key, targetIdx);
       if (!next) return;
-      await patchLayout(typeKey, { fields_schema: next }, onRefresh, onSaveError);
+      await saveLayout(typeKey, { fields_schema: next }, onRefresh, onSaveError);
     },
-    [moveFieldKey, closeMoveMenu, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError],
+    [moveFieldKey, closeMoveMenu, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError, saveLayout],
   );
 
   const fieldMap = useMemo(() => {
@@ -655,8 +683,8 @@ function VisualFieldLayout({
     const groups = Object.keys(c).filter(k => k.startsWith("group:")).map(k => k.slice(6));
     const schema = [...fieldsSchema];
     schema[sectionIdx] = { ...schema[sectionIdx], fields: newFields, groups, ...(extra ?? {}) };
-    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
-  }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError]);
+    await saveLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
+  }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError, saveLayout]);
 
   // Per-locale group (subsection) header translations, persisted to the
   // section's groupTranslations map. Empty values are pruned.
@@ -674,10 +702,10 @@ function VisualFieldLayout({
         groupTranslations: Object.keys(nextGT).length > 0 ? nextGT : undefined,
       };
       // The dialog stays open on a failed save, so the admin can retry.
-      if (!(await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError))) return;
+      if (!(await saveLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError))) return;
       setGroupTxName(null);
     },
-    [section.groupTranslations, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError],
+    [section.groupTranslations, fieldsSchema, sectionIdx, typeKey, onRefresh, onSaveError, saveLayout],
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -811,7 +839,7 @@ function VisualFieldLayout({
     } else {
       schema[sectionIdx] = { ...schema[sectionIdx], columns: val as 1 | 2 };
     }
-    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
+    await saveLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
   };
 
   // Add a new group
@@ -1034,6 +1062,7 @@ function VisualFieldLayout({
           initial={section.groupTranslations?.[groupTxName] ?? {}}
           onClose={() => setGroupTxName(null)}
           onSave={(map) => saveGroupTranslations(groupTxName, map)}
+          saving={saving}
         />
       )}
     </Box>
@@ -1054,6 +1083,7 @@ function DescriptionFieldsPanel({
   promptDeleteField: (si: number, fi: number) => void;
 }) {
   const { t } = useTranslation(["admin"]);
+  const { save: saveLayout } = useContext(LayoutSaveContext);
   const descIdx = fieldsSchema.findIndex((s) => s.section === "__description");
   const descSection = descIdx >= 0 ? fieldsSchema[descIdx] : null;
   const customFields = descSection?.fields || [];
@@ -1074,7 +1104,7 @@ function DescriptionFieldsPanel({
     const newFields = arrayMove(customFields, oldIdx, newIdx);
     const schema = [...fieldsSchema];
     schema[actualDescIdx] = { ...schema[actualDescIdx], fields: newFields };
-    await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
+    await saveLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
   };
 
   const addFieldToDescription = async () => {
@@ -1082,7 +1112,7 @@ function DescriptionFieldsPanel({
       openAddField(actualDescIdx);
     } else {
       const schema: SectionDef[] = [...fieldsSchema, { section: "__description", fields: [] }];
-      await patchLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
+      await saveLayout(typeKey, { fields_schema: schema }, onRefresh, onSaveError);
     }
   };
 
@@ -1241,10 +1271,38 @@ export default function CardLayoutEditor({
     onRefresh();
   }, [onRefresh]);
 
+  // One save at a time (see LayoutSaveContext). The ref is the guard, since a
+  // second change can land before the re-render; the flag is cleared before
+  // the caller's callback runs, so a refresh never sees the editor still busy.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const saveLayout = useCallback<typeof patchLayout>(async (typeKey, body, refresh, fail) => {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaving(true);
+    const settle = () => {
+      savingRef.current = false;
+      setSaving(false);
+    };
+    return patchLayout(
+      typeKey,
+      body,
+      () => {
+        settle();
+        refresh();
+      },
+      () => {
+        settle();
+        fail();
+      },
+    );
+  }, []);
+  const saveState = useMemo(() => ({ save: saveLayout, saving }), [saveLayout, saving]);
+
   const persistSectionConfig = useCallback(async (patch: Record<string, unknown>) => {
     const updated = { ...secCfg, ...patch };
-    await patchLayout(cardType.key, { section_config: updated }, refreshAfterSave, reportSaveError);
-  }, [secCfg, cardType.key, refreshAfterSave, reportSaveError]);
+    await saveLayout(cardType.key, { section_config: updated }, refreshAfterSave, reportSaveError);
+  }, [secCfg, cardType.key, refreshAfterSave, reportSaveError, saveLayout]);
 
   const updateSectionProp = async (sectionKey: string, prop: Partial<SectionConfig>) => {
     await persistSectionConfig({ [sectionKey]: { ...(secCfg[sectionKey] || {}), ...prop } });
@@ -1275,7 +1333,7 @@ export default function CardLayoutEditor({
     const schema = [...cardType.fields_schema, { section: newSectionName, fields: [] }];
     const newCustomIdx = customSections.length;
     const newOrder = [...sectionOrder, `custom:${newCustomIdx}`];
-    const saved = await patchLayout(
+    const saved = await saveLayout(
       cardType.key,
       { fields_schema: schema, section_config: { ...secCfg, __order: newOrder } },
       refreshAfterSave,
@@ -1288,92 +1346,115 @@ export default function CardLayoutEditor({
   };
 
   return (
-    <Box>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-        {t("cardLayout.title")}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t("cardLayout.dragSections")}
-      </Typography>
-
-      {saveError && (
-        <Alert severity="error" onClose={() => setSaveError(false)} sx={{ mb: 2 }}>
-          {t("metamodel.typeDrawer.failedToSave")}
-        </Alert>
-      )}
-
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
-        <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
-          {sectionOrder.map((key) => {
-            const info = getSectionInfo(key, customSections, cardType);
-            if (!info) return null;
-            const cfgForSection = key.startsWith("custom:")
-              ? (secCfg[key] || secCfg[info.label] || {})
-              : (secCfg[key] || {});
-            const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
-
-            return (
-              <SortableSectionItem
-                key={key} id={key} sectionKey={key} info={info} cfg={cfgForSection}
-                expanded={expandedSections.has(key)}
-                onToggleExpand={() => toggleExpand(key)}
-                // The switch means "collapsed", so a click writes the negation
-                // of the *effective* current state — which, for a section that
-                // was never configured, depends on that section's own default.
-                onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: isSectionCollapsedByDefault(cfgForSection, key) })}
-                onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
-                onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
-                dqWeight={DQ_SECTION_KEYS.has(key) ? (dqConfig[key] ?? 1) : undefined}
-              >
-                {info.isCustom && info.section && schemaIdx >= 0 && (
-                  <VisualFieldLayout
-                    sectionIdx={schemaIdx}
-                    section={info.section}
-                    typeKey={cardType.key}
-                    fieldsSchema={cardType.fields_schema}
-                    calculatedFieldKeys={calculatedFieldKeys}
-                    onRefresh={refreshAfterSave}
-                    onSaveError={reportSaveError}
-                    openAddField={openAddField}
-                    openEditField={openEditField}
-                    promptDeleteField={promptDeleteField}
-                  />
-                )}
-                {key === "description" && (
-                  <DescriptionFieldsPanel
-                    typeKey={cardType.key}
-                    fieldsSchema={cardType.fields_schema}
-                    calculatedFieldKeys={calculatedFieldKeys}
-                    onRefresh={refreshAfterSave}
-                    onSaveError={reportSaveError}
-                    openAddField={openAddField}
-                    openEditField={openEditField}
-                    promptDeleteField={promptDeleteField}
-                  />
-                )}
-              </SortableSectionItem>
-            );
-          })}
-        </SortableContext>
-      </DndContext>
-
-      {addSectionOpen ? (
-        <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
-          <TextField size="small" placeholder={t("cardLayout.sectionName")} value={newSectionName} autoFocus
-            onChange={(e) => setNewSectionName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAddSection(); }}
-            sx={{ flex: 1 }}
-          />
-          <Button size="small" variant="contained" onClick={handleAddSection} disabled={!newSectionName}>{t("common:actions.add")}</Button>
-          <IconButton size="small" onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>
-            <MaterialSymbol icon="close" size={18} />
-          </IconButton>
+    <LayoutSaveContext.Provider value={saveState}>
+      <Box>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {t("cardLayout.title")}
+          </Typography>
+          {saving && (
+            <Box role="status" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <CircularProgress size={14} />
+              <Typography variant="caption" color="text.secondary">
+                {t("metamodel.typeDrawer.saving")}
+              </Typography>
+            </Box>
+          )}
         </Box>
-      ) : (
-        <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSectionOpen(true)} sx={{ mt: 0.5 }}>
-          {t("cardLayout.addSection")}
-        </Button>
-      )}
-    </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("cardLayout.dragSections")}
+        </Typography>
+
+        {saveError && (
+          <Alert severity="error" onClose={() => setSaveError(false)} sx={{ mb: 2 }}>
+            {t("metamodel.typeDrawer.failedToSave")}
+          </Alert>
+        )}
+
+        {/* While a save is in flight the editor takes no pointer input, so a
+            second drag or switch cannot start from the stale layout; the dim
+            only sets in after a beat, so a fast save does not flicker. */}
+        <Box
+          aria-busy={saving}
+          data-testid="card-layout-body"
+          sx={saving ? { pointerEvents: "none", opacity: 0.6, transition: "opacity 150ms 300ms" } : undefined}
+        >
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
+            <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
+              {sectionOrder.map((key) => {
+                const info = getSectionInfo(key, customSections, cardType);
+                if (!info) return null;
+                const cfgForSection = key.startsWith("custom:")
+                  ? (secCfg[key] || secCfg[info.label] || {})
+                  : (secCfg[key] || {});
+                const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
+
+                return (
+                  <SortableSectionItem
+                    key={key} id={key} sectionKey={key} info={info} cfg={cfgForSection}
+                    expanded={expandedSections.has(key)}
+                    onToggleExpand={() => toggleExpand(key)}
+                    // The switch means "collapsed", so a click writes the negation
+                    // of the *effective* current state — which, for a section that
+                    // was never configured, depends on that section's own default.
+                    onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: isSectionCollapsedByDefault(cfgForSection, key) })}
+                    onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
+                    onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
+                    dqWeight={DQ_SECTION_KEYS.has(key) ? (dqConfig[key] ?? 1) : undefined}
+                  >
+                    {info.isCustom && info.section && schemaIdx >= 0 && (
+                      <VisualFieldLayout
+                        sectionIdx={schemaIdx}
+                        section={info.section}
+                        typeKey={cardType.key}
+                        fieldsSchema={cardType.fields_schema}
+                        calculatedFieldKeys={calculatedFieldKeys}
+                        onRefresh={refreshAfterSave}
+                        onSaveError={reportSaveError}
+                        openAddField={openAddField}
+                        openEditField={openEditField}
+                        promptDeleteField={promptDeleteField}
+                      />
+                    )}
+                    {key === "description" && (
+                      <DescriptionFieldsPanel
+                        typeKey={cardType.key}
+                        fieldsSchema={cardType.fields_schema}
+                        calculatedFieldKeys={calculatedFieldKeys}
+                        onRefresh={refreshAfterSave}
+                        onSaveError={reportSaveError}
+                        openAddField={openAddField}
+                        openEditField={openEditField}
+                        promptDeleteField={promptDeleteField}
+                      />
+                    )}
+                  </SortableSectionItem>
+                );
+              })}
+            </SortableContext>
+          </DndContext>
+
+          {addSectionOpen ? (
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
+              <TextField size="small" placeholder={t("cardLayout.sectionName")} value={newSectionName} autoFocus
+                onChange={(e) => setNewSectionName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAddSection(); }}
+                sx={{ flex: 1 }}
+              />
+              <Button size="small" variant="contained" onClick={handleAddSection} disabled={!newSectionName || saving}>
+                {saving ? t("metamodel.typeDrawer.saving") : t("common:actions.add")}
+              </Button>
+              <IconButton size="small" onClick={() => { setAddSectionOpen(false); setNewSectionName(""); }}>
+                <MaterialSymbol icon="close" size={18} />
+              </IconButton>
+            </Box>
+          ) : (
+            <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSectionOpen(true)} sx={{ mt: 0.5 }}>
+              {t("cardLayout.addSection")}
+            </Button>
+          )}
+        </Box>
+      </Box>
+    </LayoutSaveContext.Provider>
   );
 }

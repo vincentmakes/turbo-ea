@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 
@@ -32,5 +32,37 @@ describe("GroupTranslationsDialog — group header translation authoring", () =>
     const map = onSave.mock.calls[0][0] as Record<string, string>;
     expect(map.de).toBe("Dimension Eins");
     expect(map.fr).toBe("Dimension Un");
+  });
+
+  it("locks Save and Cancel and cannot be dismissed while saving", async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <GroupTranslationsDialog
+        groupName="Dimension One"
+        initial={{}}
+        onClose={onClose}
+        onSave={onSave}
+        saving
+      />,
+    );
+    const save = screen.getByRole("button", { name: "Saving..." });
+    expect(save).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Cancel$/ })).toBeDisabled();
+    fireEvent.click(save);
+    await user.keyboard("{Escape}");
+    expect(onSave).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes on Escape when not saving", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(
+      <GroupTranslationsDialog groupName="Dimension One" initial={{}} onClose={onClose} onSave={vi.fn()} />,
+    );
+    await user.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

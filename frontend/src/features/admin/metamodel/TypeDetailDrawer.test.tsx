@@ -43,17 +43,27 @@ vi.mock("./FieldEditorDialog", () => ({
     open,
     field,
     isCalculated,
+    saving,
+    error,
     onSave,
     onClose,
   }: {
     open: boolean;
     field: FieldDef;
     isCalculated: boolean;
+    saving?: boolean;
+    error?: string | null;
     onSave: (f: FieldDef) => void;
     onClose: () => void;
   }) =>
     open ? (
-      <div data-testid="field-editor" data-field-key={field.key} data-calculated={String(isCalculated)}>
+      <div
+        data-testid="field-editor"
+        data-field-key={field.key}
+        data-calculated={String(isCalculated)}
+        data-saving={String(!!saving)}
+      >
+        {error && <div role="alert">{error}</div>}
         <button
           onClick={() =>
             onSave({ ...field, key: field.key || "newField", label: field.label || "New Field" })
@@ -749,6 +759,122 @@ describe("TypeDetailDrawer — subtypes", () => {
     });
   });
 
+  it("disables the dialog while the template saves, so a second click cannot send twice", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer("Application", [
+      { ...APPLICATION_TYPE, subtypes: [{ key: "saas", label: "SaaS" }] },
+      ...CARD_TYPES.slice(1),
+    ]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByText("SaaS (saas)"));
+    const dialog = (await screen.findByTestId("subtype-optional-relations")).closest(
+      '[role="dialog"]',
+    ) as HTMLElement;
+    await user.click(within(dialog).getByRole("button", { name: tc("actions.save") }));
+
+    // The PATCH is in flight: both buttons are locked and Save says so.
+    const saving = within(dialog).getByRole("button", { name: ta("metamodel.typeDrawer.saving") });
+    expect(saving).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: tc("actions.cancel") })).toBeDisabled();
+    // A disabled button takes no pointer events, so dispatch the click directly.
+    fireEvent.click(saving);
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+
+    resolvePatch({});
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByTestId("subtype-optional-relations")).toBeNull());
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+  });
+
+  it("shows a failed template save inside the dialog and keeps it open", async () => {
+    mockApi.on("patch", /^\/metamodel\/types\/[^/]+$/, () => {
+      throw new Error("rescore failed");
+    });
+    const { user, onRefresh } = renderDrawer("Application", [
+      { ...APPLICATION_TYPE, subtypes: [{ key: "saas", label: "SaaS" }] },
+      ...CARD_TYPES.slice(1),
+    ]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByText("SaaS (saas)"));
+    const dialog = (await screen.findByTestId("subtype-optional-relations")).closest(
+      '[role="dialog"]',
+    ) as HTMLElement;
+    await user.click(within(dialog).getByRole("button", { name: tc("actions.save") }));
+
+    expect(await within(dialog).findByText("rescore failed")).toBeInTheDocument();
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("button", { name: tc("actions.save") })).toBeEnabled();
+  });
+
+  it("locks Add while a new subtype saves, so it cannot be added twice", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: endsWith(ta("metamodel.typeDrawer.addSubtype")) }));
+    await user.type(screen.getByRole("textbox", { name: ta("metamodel.typeDrawer.key") }), "saas");
+    await user.type(screen.getByRole("textbox", { name: ta("metamodel.typeDrawer.label") }), "SaaS");
+    await user.click(screen.getByRole("button", { name: tc("actions.add") }));
+
+    const saving = screen.getByRole("button", { name: ta("metamodel.typeDrawer.saving") });
+    expect(saving).toBeDisabled();
+    fireEvent.click(saving);
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+
+    resolvePatch({});
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: endsWith(ta("metamodel.typeDrawer.addSubtype")) })).toBeEnabled(),
+    );
+  });
+
+  it("refuses a second subtype removal while the first is saving, and locks the other type-level controls", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    const deleteIconOf = (text: string) =>
+      screen.getByText(text).closest(".MuiChip-root")!.querySelector(".MuiChip-deleteIcon")!;
+    await user.click(deleteIconOf("Microservice (microservice)"));
+
+    expect(screen.getByRole("progressbar", { name: ta("metamodel.typeDrawer.saving") })).toBeInTheDocument();
+    fireEvent.click(deleteIconOf("Business Application (businessApplication)"));
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+    expect(lastPatchBody()).toEqual({
+      subtypes: [{ key: "businessApplication", label: "Business Application" }],
+    });
+    // The other writes on the type wait for this one.
+    expect(screen.getByRole("button", { name: ta("metamodel.typeDrawer.hideType") })).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: ta("metamodel.typeDrawer.renameSubtypeNamed", { name: "Microservice" }),
+      }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: tc("actions.save") })).toBeDisabled();
+
+    resolvePatch({});
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: ta("metamodel.typeDrawer.hideType") })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("progressbar", { name: ta("metamodel.typeDrawer.saving") })).toBeNull();
+  });
+
   it("shows the hidden-field count on the chip", async () => {
     const withHidden: CardType = {
       ...APPLICATION_TYPE,
@@ -1014,6 +1140,25 @@ describe("TypeDetailDrawer — visibility and translations", () => {
     expect(screen.queryByTestId("delete-type-dialog")).not.toBeInTheDocument();
   });
 
+  it("locks the visibility toggle while it saves, so a double click sends once", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    const hide = screen.getByRole("button", { name: ta("metamodel.typeDrawer.hideType") });
+    await user.click(hide);
+    expect(hide).toBeDisabled();
+    fireEvent.click(hide);
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+    resolvePatch({});
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(hide).toBeEnabled());
+  });
+
   it("reports a failed visibility change", async () => {
     mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 500);
     const { user, onRefresh } = renderDrawer();
@@ -1094,13 +1239,56 @@ describe("TypeDetailDrawer — fields and sections", () => {
     expect(mockApi.callsOf("patch")).toHaveLength(0);
   });
 
-  it("reports a failed field save", async () => {
+  it("reports a failed field save inside the field editor, which stays open", async () => {
+    mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 500);
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-add-field" }));
+    await user.click(screen.getByRole("button", { name: "stub-save-field" }));
+    const editor = screen.getByTestId("field-editor");
+    expect(await within(editor).findByRole("alert")).toHaveTextContent("failed");
+    expect(editor).toHaveAttribute("data-saving", "false");
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it("locks the field editor while the field saves, so it cannot be sent twice or closed", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-add-field" }));
+    expect(screen.getByTestId("field-editor")).toHaveAttribute("data-saving", "false");
+    await user.click(screen.getByRole("button", { name: "stub-save-field" }));
+
+    await waitFor(() => expect(screen.getByTestId("field-editor")).toHaveAttribute("data-saving", "true"));
+    expect(screen.getByRole("progressbar", { name: ta("metamodel.typeDrawer.saving") })).toBeInTheDocument();
+    // A second save and a close are both refused while the first is in flight.
+    await user.click(screen.getByRole("button", { name: "stub-save-field" }));
+    await user.click(screen.getByRole("button", { name: "stub-close-field" }));
+    expect(screen.getByTestId("field-editor")).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+
+    resolvePatch({});
+    await waitFor(() => expect(screen.queryByTestId("field-editor")).not.toBeInTheDocument());
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+    expect(screen.queryByRole("progressbar", { name: ta("metamodel.typeDrawer.saving") })).toBeNull();
+  });
+
+  it("clears a failed field save's message when the editor is opened again", async () => {
     mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 500);
     const { user } = renderDrawer();
     await screen.findByRole("dialog");
     await user.click(screen.getByRole("button", { name: "stub-add-field" }));
     await user.click(screen.getByRole("button", { name: "stub-save-field" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("failed");
+    await within(screen.getByTestId("field-editor")).findByRole("alert");
+    await user.click(screen.getByRole("button", { name: "stub-close-field" }));
+    await user.click(screen.getByRole("button", { name: "stub-edit-field" }));
+    expect(within(screen.getByTestId("field-editor")).queryByRole("alert")).toBeNull();
   });
 
   it("confirms a field deletion with its usage count before removing it", async () => {
@@ -1209,6 +1397,75 @@ describe("TypeDetailDrawer — fields and sections", () => {
     const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteSection") });
     await within(confirm).findByText(ta("metamodel.typeDrawer.sectionSafeToDelete"));
     await user.click(within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.deleteSection") }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("failed");
+    // The failure shows in the confirmation, which stays open for a retry.
+    expect(await within(confirm).findByText(/failed/)).toBeInTheDocument();
+    expect(confirm).toBeInTheDocument();
+    expect(
+      within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.deleteSection") }),
+    ).toBeEnabled();
+  });
+
+  it("keeps the section confirmation open and locked while the deletion saves", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((resolve) => (resolvePatch = resolve)),
+    );
+    const { user, onRefresh } = renderDrawer("Vehicle", [TWO_SECTIONS]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-delete-section" }));
+    const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteSection") });
+    await within(confirm).findByText(ta("metamodel.typeDrawer.sectionSafeToDelete"));
+    await user.click(within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.deleteSection") }));
+
+    const saving = within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.saving") });
+    expect(saving).toBeDisabled();
+    expect(within(confirm).getByRole("button", { name: tc("actions.cancel") })).toBeDisabled();
+    fireEvent.click(saving);
+    await user.keyboard("{Escape}");
+    expect(confirm).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+
+    resolvePatch({});
+    await waitFor(() => expect(confirm).not.toBeInTheDocument());
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the field confirmation open and locked while the deletion saves, and shows a failure there", async () => {
+    let rejectPatch: (e: Error) => void = () => {};
+    mockApi.on(
+      "patch",
+      /^\/metamodel\/types\/[^/]+$/,
+      () => new Promise((_resolve, reject) => (rejectPatch = reject)),
+    );
+    const { user, onRefresh } = renderDrawer();
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-delete-field" }));
+    const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteField") });
+    await within(confirm).findByText(/2 card\(s\)/);
+    await user.click(within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.deleteField") }));
+
+    const saving = within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.saving") });
+    expect(saving).toBeDisabled();
+    expect(within(confirm).getByRole("button", { name: tc("actions.cancel") })).toBeDisabled();
+    fireEvent.click(saving);
+    await user.keyboard("{Escape}");
+    expect(confirm).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", /^\/metamodel\/types\//)).toHaveLength(1);
+
+    rejectPatch(new Error("rescore failed"));
+    expect(await within(confirm).findByText("rescore failed")).toBeInTheDocument();
+    expect(
+      within(confirm).getByRole("button", { name: ta("metamodel.typeDrawer.deleteField") }),
+    ).toBeEnabled();
+    expect(onRefresh).not.toHaveBeenCalled();
+
+    // Cancelling and asking again starts from a clean confirmation.
+    await user.click(within(confirm).getByRole("button", { name: tc("actions.cancel") }));
+    await waitFor(() => expect(confirm).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "stub-delete-field" }));
+    const again = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteField") });
+    expect(within(again).queryByText("rescore failed")).toBeNull();
   });
 });

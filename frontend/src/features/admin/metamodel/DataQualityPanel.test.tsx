@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import DataQualityPanel from "./DataQualityPanel";
+import { api } from "@/api/client";
 import type { CardType } from "@/types";
 
 vi.mock("@/api/client", () => ({
@@ -52,5 +53,72 @@ describe("DataQualityPanel built-in factors", () => {
     expect(screen.getByText("Critical (3)")).toBeInTheDocument();
     expect(screen.getByText("Ignore (0)")).toBeInTheDocument();
     expect(screen.getAllByText("Normal (1)").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("DataQualityPanel saving", () => {
+  const patch = api.patch as unknown as Mock;
+
+  beforeEach(() => {
+    patch.mockReset();
+    patch.mockResolvedValue({});
+  });
+
+  /** The Lifecycle slider: built-ins render in a fixed order, Lifecycle second. */
+  const lifecycleSlider = () => screen.getAllByRole("slider")[1];
+
+  it("locks every slider and says it is saving while a weight change is in flight", async () => {
+    let resolvePatch: (v: unknown) => void = () => {};
+    patch.mockImplementation(() => new Promise((resolve) => (resolvePatch = resolve)));
+    const onRefresh = vi.fn();
+    render(<DataQualityPanel cardType={makeType()} onRefresh={onRefresh} />);
+
+    fireEvent.change(lifecycleSlider(), { target: { value: 3 } });
+
+    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch.mock.calls[0][1]).toEqual({ section_config: { __dataQuality: { lifecycle: 3 } } });
+    expect(await screen.findByRole("status")).toHaveTextContent("Saving...");
+    for (const s of screen.getAllByRole("slider")) expect(s).toBeDisabled();
+    // A second change while the first is in flight is refused.
+    fireEvent.change(screen.getAllByRole("slider")[0], { target: { value: 0 } });
+    expect(patch).toHaveBeenCalledTimes(1);
+
+    resolvePatch({});
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+    for (const s of screen.getAllByRole("slider")) expect(s).toBeEnabled();
+  });
+
+  it("shows a failed save in the panel, does not refresh and snaps the slider back", async () => {
+    patch.mockRejectedValue(new Error("rescore failed"));
+    const onRefresh = vi.fn();
+    render(<DataQualityPanel cardType={makeType()} onRefresh={onRefresh} />);
+    expect(screen.queryByText("Critical (3)")).toBeNull();
+
+    fireEvent.change(lifecycleSlider(), { target: { value: 3 } });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("rescore failed");
+    expect(onRefresh).not.toHaveBeenCalled();
+    // The slider is back on the stored weight (Normal) and usable again.
+    await waitFor(() => expect(screen.queryByText("Critical (3)")).toBeNull());
+    expect(lifecycleSlider()).toBeEnabled();
+
+    // The next successful change clears the message.
+    patch.mockResolvedValue({});
+    fireEvent.change(lifecycleSlider(), { target: { value: 2 } });
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("writes a field weight into fields_schema", async () => {
+    const onRefresh = vi.fn();
+    render(<DataQualityPanel cardType={makeType()} onRefresh={onRefresh} />);
+    fireEvent.change(screen.getAllByRole("slider")[5], { target: { value: 0 } });
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(patch.mock.calls[0][1]).toEqual({
+      fields_schema: [
+        { section: "Details", fields: [{ key: "vendor", label: "Vendor", type: "text", weight: 0 }] },
+      ],
+    });
   });
 });

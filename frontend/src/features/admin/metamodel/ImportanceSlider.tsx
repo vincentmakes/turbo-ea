@@ -44,6 +44,8 @@ export function useTierColor(): (tier: Tier) => string {
 interface ImportanceSliderProps {
   value: number | undefined;
   onChange: (weight: number) => void;
+  /** Locks the slider, e.g. while the parent's save of a previous change is in flight. */
+  disabled?: boolean;
 }
 
 /**
@@ -84,7 +86,7 @@ export function WeightBadge({ weight }: { weight: number | undefined }) {
   );
 }
 
-export default function ImportanceSlider({ value, onChange }: ImportanceSliderProps) {
+export default function ImportanceSlider({ value, onChange, disabled = false }: ImportanceSliderProps) {
   const { t } = useTranslation("admin");
   const theme = useTheme();
   const tierColor = useTierColor();
@@ -109,6 +111,7 @@ export default function ImportanceSlider({ value, onChange }: ImportanceSliderPr
         value={tier}
         onChange={(_, v) => setTier(Number(v) as Tier)}
         onChangeCommitted={(_, v) => onChange(Number(v))}
+        disabled={disabled}
         min={0}
         max={3}
         step={1}

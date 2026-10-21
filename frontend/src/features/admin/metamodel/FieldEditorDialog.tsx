@@ -49,9 +49,17 @@ export interface FieldEditorProps {
   onSave: (field: FieldDef) => void;
   /** True if this field is the target of an active calculation */
   isCalculated?: boolean;
+  /**
+   * The parent's save is in flight. Saving a field re-scores the type's cards,
+   * which can take a moment, so the dialog locks Save and Cancel, says it is
+   * saving and cannot be dismissed until the parent closes it.
+   */
+  saving?: boolean;
+  /** The parent's failed save, shown inside the dialog where the admin is looking. */
+  error?: string | null;
 }
 
-export default function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
+export default function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated, saving = false, error }: FieldEditorProps) {
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const [field, setField] = useState<FieldDef>(initial);
@@ -193,9 +201,22 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
+    <Dialog
+      open={open}
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      maxWidth="sm"
+      fullWidth
+      disableRestoreFocus
+    >
       <DialogTitle>{initial.key ? t("metamodel.fieldEditor.editField") : t("metamodel.fieldEditor.addField")}</DialogTitle>
       <DialogContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, mt: 1 }}>
+            {error}
+          </Alert>
+        )}
         {isCalculated && (
           <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
             {t("metamodel.fieldEditor.calculatedInfo")}
@@ -413,10 +434,13 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
+        <Button onClick={onClose} disabled={saving}>
+          {t("common:actions.cancel")}
+        </Button>
         <Button
           variant="contained"
           onClick={() => {
+            if (saving) return;
             const mergedTranslations = { ...field.translations, [locale]: displayLabel };
             const mergedHelp = { ...field.helpTranslations, [locale]: displayHelp };
             const cleanedField: FieldDef = {
@@ -438,9 +462,9 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
             };
             onSave(cleanedField);
           }}
-          disabled={!field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && ((field.options || []).some((o) => !o._original && !isValidKey(o.key)) || duplicateOptionKeys.size > 0))}
+          disabled={saving || !field.key || !displayLabel || (!initial.key && !isValidKey(field.key)) || (isSelect && ((field.options || []).some((o) => !o._original && !isValidKey(o.key)) || duplicateOptionKeys.size > 0))}
         >
-          {t("common:actions.save")}
+          {saving ? t("metamodel.typeDrawer.saving") : t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

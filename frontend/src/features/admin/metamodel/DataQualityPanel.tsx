@@ -1,5 +1,8 @@
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
 import { api } from "@/api/client";
@@ -32,9 +35,32 @@ export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPan
   };
   const dqConfig: DataQualityConfig = secCfg.__dataQuality || {};
 
+  // A weight change re-scores every card of the type on the server, which can
+  // take a moment on a large landscape. While it is in flight the panel says
+  // so and locks its sliders, so a second change cannot start from the now
+  // stale copy of the type (the ref is the guard; a commit can land before
+  // the re-render). A failure is shown here and the sliders are remounted so
+  // they snap back to the stored weights.
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+
   const patch = async (body: Record<string, unknown>) => {
-    await api.patch(`/metamodel/types/${cardType.key}`, body);
-    onRefresh();
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.patch(`/metamodel/types/${cardType.key}`, body);
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
+      setRevision((r) => r + 1);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const setBuiltin = (bucket: string, weight: number) =>
@@ -82,12 +108,28 @@ export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPan
 
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
-        {t("metamodel.dataQuality.title")}
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+        <Typography variant="subtitle1" fontWeight={700}>
+          {t("metamodel.dataQuality.title")}
+        </Typography>
+        {saving && (
+          <Box role="status" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            <CircularProgress size={14} />
+            <Typography variant="caption" color="text.secondary">
+              {t("metamodel.typeDrawer.saving")}
+            </Typography>
+          </Box>
+        )}
+      </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t("metamodel.dataQuality.subtitle")}
       </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Composition bar — each counted factor's share of the max score */}
       {totalWeight > 0 && (
@@ -124,19 +166,36 @@ export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPan
         </Box>
       )}
 
-      {/* Built-in factors */}
-      <FactorGroup label={t("metamodel.dataQuality.builtInGroup")} factors={builtInFactors} />
+      {/* Keyed on the revision so a failed save remounts the sliders onto the stored weights. */}
+      <Box key={revision}>
+        {/* Built-in factors */}
+        <FactorGroup
+          label={t("metamodel.dataQuality.builtInGroup")}
+          factors={builtInFactors}
+          disabled={saving}
+        />
 
-      {/* Field factors, grouped by section */}
-      {fieldGroups.map(
-        (g, i) =>
-          g.factors.length > 0 && <FactorGroup key={i} label={g.label} factors={g.factors} />,
-      )}
+        {/* Field factors, grouped by section */}
+        {fieldGroups.map(
+          (g, i) =>
+            g.factors.length > 0 && (
+              <FactorGroup key={i} label={g.label} factors={g.factors} disabled={saving} />
+            ),
+        )}
+      </Box>
     </Box>
   );
 }
 
-function FactorGroup({ label, factors }: { label: string; factors: Factor[] }) {
+function FactorGroup({
+  label,
+  factors,
+  disabled,
+}: {
+  label: string;
+  factors: Factor[];
+  disabled: boolean;
+}) {
   return (
     <Box sx={{ mb: 2.5 }}>
       <Typography
@@ -169,7 +228,7 @@ function FactorGroup({ label, factors }: { label: string; factors: Factor[] }) {
             {f.label}
           </Typography>
           <Box sx={{ flex: 1, maxWidth: { sm: 380 }, minWidth: 0 }}>
-            <ImportanceSlider value={f.weight} onChange={f.set} />
+            <ImportanceSlider value={f.weight} onChange={f.set} disabled={disabled} />
           </Box>
         </Box>
       ))}
