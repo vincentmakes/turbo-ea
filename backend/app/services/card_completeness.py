@@ -205,7 +205,7 @@ async def load_link_facts(
             for card_id, type_key in rows:
                 held[card_id].add((type_key, "target"))
         if config.tag_groups:
-            rows = await db.execute(
+            tag_rows = await db.execute(
                 select(CardTag.card_id, Tag.tag_group_id)
                 .join(Tag, Tag.id == CardTag.tag_id)
                 .where(
@@ -214,7 +214,7 @@ async def load_link_facts(
                 )
                 .distinct()
             )
-            for card_id, group_id in rows:
+            for card_id, group_id in tag_rows:
                 groups[card_id].add(group_id)
     return {
         cid: LinkFacts(sides=frozenset(held[cid]), tag_groups=frozenset(groups[cid])) for cid in ids
