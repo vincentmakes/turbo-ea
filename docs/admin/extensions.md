@@ -108,12 +108,9 @@ The whole page and all its API routes are gated by the dedicated `admin.manage_e
 
 ## Advanced field capabilities
 
-Some extensions unlock advanced ways to describe your data that the core does not offer on its own:
+Some extensions unlock **custom field types** — new kinds of field beyond the built-in set (for example a configurable rating from 1–5 or 0–10). They appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the custom types simply disappear from the field editor until the extension is active again.
 
-- **Field help text** — collapsible guidance shown under a field while people enter data, so a form explains itself.
-- **Custom field types** — new kinds of field beyond the built-in set (for example a configurable rating from 1–5 or 0–10).
-
-These options appear in the metamodel field editor **only while the extension that provides them is installed and licensed**. If such an extension is later disabled or its license lapses, the values you already captured keep displaying as plain read-only text — nothing is blanked or deleted — and the authoring options simply disappear until the extension is active again.
+**Field help text** — collapsible guidance shown under a field while people enter data — needs no extension: since version 2.174.0 any metamodel admin writes it in the field editor (see [Metamodel](metamodel.md)). An extension can still ship help text with the fields it contributes; that help is shown read-only in the field editor.
 
 ## Data access grants
 

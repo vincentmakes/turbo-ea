@@ -108,12 +108,9 @@ Hele siden og alle dens API-ruter er beskyttet af den dedikerede tilladelse `adm
 
 ## Avancerede feltfunktioner
 
-Nogle udvidelser låser op for avancerede måder at beskrive dine data på, som kernen ikke tilbyder af sig selv:
+Nogle udvidelser låser op for **brugerdefinerede felttyper** — nye felttyper ud over det indbyggede sæt (for eksempel en konfigurerbar bedømmelse fra 1–5 eller 0–10). De vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og de brugerdefinerede typer forsvinder blot fra felteditoren, indtil udvidelsen er aktiv igen.
 
-- **Felthjælpetekst** — en sammenklappelig vejledning under et felt under dataindtastning, så en formular forklarer sig selv.
-- **Brugerdefinerede felttyper** — nye felttyper ud over det indbyggede sæt (for eksempel en konfigurerbar bedømmelse fra 1–5 eller 0–10).
-
-Disse valgmuligheder vises i metamodellens felteditor **kun, mens den udvidelse, der leverer dem, er installeret og licenseret**. Hvis en sådan udvidelse senere deaktiveres, eller dens licens udløber, vises de værdier, du allerede har indtastet, fortsat som almindelig skrivebeskyttet tekst — intet tømmes eller slettes — og redigeringsmulighederne forsvinder blot, indtil udvidelsen er aktiv igen.
+**Felthjælpetekst** — en sammenklappelig vejledning under et felt under dataindtastning — kræver ingen udvidelse: Siden version 2.174.0 skriver enhver metamodel-administrator den i felteditoren (se [Metamodel](metamodel.md)). En udvidelse kan stadig levere hjælpetekst med de felter, den bidrager med; den hjælpetekst vises skrivebeskyttet i felteditoren.
 
 ## Dataadgangs-grants
 

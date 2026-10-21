@@ -191,9 +191,9 @@ class ExtensionRegistry:
     def grants_for(self, key: str, now: datetime | None = None) -> list[str]:
         """Core capabilities an extension *unlocks*, only while it is usable.
 
-        An extension declares ``"grants": ["metamodel.field_help", ...]`` in its
-        manifest to light up an otherwise-inert core capability (help text,
-        custom field types, …). Grants count only when the extension is enabled,
+        An extension declares ``"grants": ["metamodel.custom_field_types", ...]``
+        in its manifest to light up an otherwise-inert core capability (custom
+        field types, the ``core.*`` bridges, …). Grants count only when the extension is enabled,
         not failed/removed, and holds a usable (active or grace) entitlement — a
         lapse withdraws the authoring affordance without touching stored data.
         """

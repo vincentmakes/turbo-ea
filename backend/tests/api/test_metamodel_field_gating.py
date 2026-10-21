@@ -1,10 +1,12 @@
 """Extension-gated field capabilities on the metamodel API.
 
-Field help text and custom (`ext.*`) field types are inert core plumbing:
-authorable only when an installed, licensed extension grants the matching
-capability. The free core (no extensions) must strip them on write, while
-already-stored values are grandfathered so a lapse never blocks edits or
-mutates data. This is the monetisation boundary — guard it.
+Custom (`ext.*`) field types are inert core plumbing: authorable only when an
+installed, licensed extension grants `metamodel.custom_field_types`. The free
+core (no extensions) must downgrade a new one on write, while an already-stored
+custom type is grandfathered so a lapse never blocks edits or mutates data.
+
+Field help text is a core feature since 2.174.0 (#1297): it is written exactly
+as sent, with or without any grant.
 """
 
 from __future__ import annotations
@@ -59,7 +61,7 @@ def _field(type_json: dict) -> dict:
 
 
 class TestUngatedStripsGatedAttributes:
-    async def test_create_strips_help_and_custom_type(self, client, db, admin):
+    async def test_create_keeps_help_and_strips_custom_type(self, client, db, admin):
         resp = await client.post(
             "/api/v1/metamodel/types",
             headers=auth_headers(admin),
@@ -67,10 +69,36 @@ class TestUngatedStripsGatedAttributes:
         )
         assert resp.status_code == 201
         f = _field(resp.json())
-        # Custom type coerced to text; help dropped entirely.
+        # Custom type coerced to text; help text is core (#1297) and kept.
         assert f["type"] == "text"
-        assert "help" not in f
-        assert "helpTranslations" not in f
+        assert f["help"] == "Rate 1 to 5."
+        assert f["helpTranslations"] == {"en": "Rate 1 to 5.", "de": "Bewerten 1 bis 5."}
+
+    async def test_create_keeps_help_on_a_plain_field(self, client, db, admin):
+        schema = [
+            {
+                "section": "Details",
+                "fields": [
+                    {
+                        "key": "owner",
+                        "label": "Owner",
+                        "type": "text",
+                        "help": "Who answers for it.",
+                        "helpTranslations": {"fr": "Qui en répond."},
+                    }
+                ],
+            }
+        ]
+        resp = await client.post(
+            "/api/v1/metamodel/types",
+            headers=auth_headers(admin),
+            json={"key": "Gadget", "label": "Gadget", "fields_schema": schema},
+        )
+        assert resp.status_code == 201
+        f = _field(resp.json())
+        assert f["type"] == "text"
+        assert f["help"] == "Who answers for it."
+        assert f["helpTranslations"] == {"fr": "Qui en répond."}
 
 
 class TestBuiltInTypesAreNeverGated:
@@ -134,7 +162,7 @@ class TestGrandfathering:
         assert f["type"] == "ext.plus.rating"
         assert f["help"] == "Rate 1 to 5."
 
-    async def test_ungated_update_reverts_changed_help(self, client, db, admin):
+    async def test_ungated_update_writes_changed_help_as_sent(self, client, db, admin):
         await create_card_type(
             db,
             key="Gadget",
@@ -143,9 +171,11 @@ class TestGrandfathering:
         )
         await db.commit()
 
-        # Try to CHANGE the help text while ungated — reverts to the stored value.
+        # Changing the help text needs no grant (#1297): it is written as sent,
+        # while the grandfathered custom type stays untouched.
         changed = _schema_with_gated_field()
-        changed[0]["fields"][0]["help"] = "Totally new help the admin should not be able to set"
+        changed[0]["fields"][0]["help"] = "Rate from one (poor) to five (excellent)."
+        changed[0]["fields"][0]["helpTranslations"] = {"fr": "Notez de 1 à 5."}
         resp = await client.patch(
             "/api/v1/metamodel/types/Gadget",
             headers=auth_headers(admin),
@@ -153,7 +183,52 @@ class TestGrandfathering:
         )
         assert resp.status_code == 200
         f = _field(resp.json())
-        assert f["help"] == "Rate 1 to 5."
+        assert f["help"] == "Rate from one (poor) to five (excellent)."
+        assert f["helpTranslations"] == {"fr": "Notez de 1 à 5."}
+        assert f["type"] == "ext.plus.rating"
+
+    async def test_ungated_update_clears_help_as_sent(self, client, db, admin):
+        await create_card_type(
+            db,
+            key="Gadget",
+            label="Gadget",
+            fields_schema=_schema_with_gated_field(),
+        )
+        await db.commit()
+
+        cleared = _schema_with_gated_field()
+        del cleared[0]["fields"][0]["help"]
+        del cleared[0]["fields"][0]["helpTranslations"]
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gadget",
+            headers=auth_headers(admin),
+            json={"fields_schema": cleared},
+        )
+        assert resp.status_code == 200
+        f = _field(resp.json())
+        assert "help" not in f
+        assert "helpTranslations" not in f
+
+    async def test_ungated_update_reverts_a_changed_custom_type(self, client, db, admin):
+        await create_card_type(
+            db,
+            key="Gadget",
+            label="Gadget",
+            fields_schema=_schema_with_gated_field(),
+        )
+        await db.commit()
+
+        # Switching to a DIFFERENT custom type without the grant is not
+        # grandfathered: the stored value is not ext.*-free, so it falls to text.
+        changed = _schema_with_gated_field()
+        changed[0]["fields"][0]["type"] = "ext.plus.stars"
+        resp = await client.patch(
+            "/api/v1/metamodel/types/Gadget",
+            headers=auth_headers(admin),
+            json={"fields_schema": changed},
+        )
+        assert resp.status_code == 200
+        assert _field(resp.json())["type"] == "text"
 
 
 class TestContributedFieldRemovalPreservesData:

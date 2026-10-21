@@ -9,6 +9,7 @@ import InventoryPage, {
   inventoryPreviewTargets,
   buildInventoryFacetBindings,
   normalizeAttrValue,
+  optionChipItems,
 } from "./InventoryPage";
 import { invalidateCalculatedFields } from "@/hooks/useCalculatedFields";
 import { MAX_SPLIT_VALUES } from "@/components/grid/useCellContextMenu";
@@ -2299,5 +2300,26 @@ describe("InventoryPage — calculated columns", () => {
     await userEvent.click(await screen.findByRole("button", { name: /grid edit/i }));
     await waitFor(() => expect(col("attr_notes")!.editable).toBe(true));
     await waitFor(() => expect(col("attr_progress")!.editable).toBe(false));
+  });
+});
+
+describe("optionChipItems (#1292)", () => {
+  const options = [
+    { key: "gold", label: "Gold", color: "#ffd700" },
+    { key: "silver", label: "Silver" },
+  ];
+  const label = (o: { label: string }) => `L:${o.label}`;
+
+  it("orders the chips by option index, unknown keys last, labels resolved", () => {
+    expect(optionChipItems(options, ["legacy", "silver", "gold"], label)).toEqual([
+      { key: "gold", label: "L:Gold", color: "#ffd700" },
+      { key: "silver", label: "L:Silver", color: undefined },
+      { key: "legacy", label: "legacy", color: undefined },
+    ]);
+  });
+
+  it("renders nothing for a non-array value", () => {
+    expect(optionChipItems(options, "gold", label)).toEqual([]);
+    expect(optionChipItems(options, null, label)).toEqual([]);
   });
 });

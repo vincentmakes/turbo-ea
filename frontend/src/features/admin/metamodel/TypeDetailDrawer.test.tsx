@@ -555,6 +555,117 @@ describe("TypeDetailDrawer — subtypes", () => {
     );
   });
 
+  describe("rename (#1291)", () => {
+    const renameButton = (name: string) =>
+      screen.getByRole("button", { name: ta("metamodel.typeDrawer.renameSubtypeNamed", { name }) });
+    const labelInput = () => screen.getByRole("textbox", { name: ta("metamodel.typeDrawer.label") });
+
+    /** Application whose Microservice subtype carries translations and hidden fields. */
+    const WITH_TRANSLATIONS: CardType = {
+      ...APPLICATION_TYPE,
+      subtypes: [
+        { key: "businessApplication", label: "Business Application" },
+        {
+          key: "microservice",
+          label: "Microservice",
+          hidden_fields: ["alias"],
+          translations: { de: "Mikroservice", fr: "Microservice" },
+        },
+      ],
+    };
+
+    it("saves the new label on Enter, keeping the key, hidden fields and translations", async () => {
+      const { user, onRefresh } = renderDrawer("Application", [WITH_TRANSLATIONS]);
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Microservice"));
+      expect(labelInput()).toHaveValue("Microservice");
+      expect(
+        screen.getByText(ta("metamodel.typeDrawer.subtypeKeyKept", { key: "microservice" })),
+      ).toBeInTheDocument();
+
+      await user.clear(labelInput());
+      await user.type(labelInput(), "  Service  {Enter}");
+
+      await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+      expect(mockApi.callsOf("patch")).toHaveLength(1);
+      expect(lastPatchBody()).toEqual({
+        subtypes: [
+          { key: "businessApplication", label: "Business Application" },
+          {
+            key: "microservice",
+            label: "Service",
+            hidden_fields: ["alias"],
+            translations: { de: "Mikroservice", fr: "Microservice" },
+          },
+        ],
+      });
+      // Back to the chip list.
+      expect(screen.queryByRole("textbox", { name: ta("metamodel.typeDrawer.label") })).not.toBeInTheDocument();
+    });
+
+    it("saves on blur too", async () => {
+      const { user, onRefresh } = renderDrawer();
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Business Application"));
+      await user.clear(labelInput());
+      await user.type(labelInput(), "Line-of-business App");
+      fireEvent.blur(labelInput());
+      await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+      expect(lastPatchBody()).toEqual({
+        subtypes: [
+          { key: "businessApplication", label: "Line-of-business App" },
+          { key: "microservice", label: "Microservice" },
+        ],
+      });
+    });
+
+    it("cancels on Escape without saving or closing the drawer", async () => {
+      const { user, onClose } = renderDrawer();
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Microservice"));
+      await user.clear(labelInput());
+      await user.type(labelInput(), "Nope{Escape}");
+      expect(screen.queryByRole("textbox", { name: ta("metamodel.typeDrawer.label") })).not.toBeInTheDocument();
+      expect(screen.getByText("Microservice (microservice)")).toBeInTheDocument();
+      expect(mockApi.callsOf("patch")).toHaveLength(0);
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("refuses an empty label: Enter keeps the field open with an error, blur abandons", async () => {
+      const { user } = renderDrawer();
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Microservice"));
+      await user.clear(labelInput());
+      await user.type(labelInput(), "   {Enter}");
+      expect(labelInput()).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getByText(ta("metamodel.typeDrawer.subtypeLabelRequired"))).toBeInTheDocument();
+      expect(mockApi.callsOf("patch")).toHaveLength(0);
+
+      fireEvent.blur(labelInput());
+      expect(screen.getByText("Microservice (microservice)")).toBeInTheDocument();
+      expect(mockApi.callsOf("patch")).toHaveLength(0);
+    });
+
+    it("sends nothing when the label is unchanged", async () => {
+      const { user } = renderDrawer();
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Microservice"));
+      await user.type(labelInput(), "{Enter}");
+      expect(screen.getByText("Microservice (microservice)")).toBeInTheDocument();
+      expect(mockApi.callsOf("patch")).toHaveLength(0);
+    });
+
+    it("reports a failed rename", async () => {
+      mockApi.fail("patch", /^\/metamodel\/types\/[^/]+$/, 500, "boom");
+      const { user, onRefresh } = renderDrawer();
+      await screen.findByRole("dialog");
+      await user.click(renameButton("Microservice"));
+      await user.type(labelInput(), "s{Enter}");
+      expect(await screen.findByRole("alert")).toHaveTextContent("failed");
+      expect(onRefresh).not.toHaveBeenCalled();
+    });
+  });
+
   it("shows the hidden-field count on the chip", async () => {
     const withHidden: CardType = {
       ...APPLICATION_TYPE,

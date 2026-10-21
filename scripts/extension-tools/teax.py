@@ -69,6 +69,8 @@ VALID_CAPABILITIES = {"content", "backend", "frontend", "metamodel"}
 # Deliberately duplicated from backend/app/services/extensions/bundle.py
 # (VALID_GRANTS) — teax stays stdlib-vendorable into private repos.
 VALID_GRANTS = {
+    # No-op since core 2.174.0 (#1297): field help text is a core feature.
+    # Still accepted so existing manifests keep linting.
     "metamodel.field_help",
     "metamodel.custom_field_types",
     "core.todos.read",

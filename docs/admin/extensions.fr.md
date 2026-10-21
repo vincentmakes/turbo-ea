@@ -108,12 +108,9 @@ La page entière et toutes ses routes d'API sont protégées par la permission d
 
 ## Fonctionnalités de champ avancées
 
-Certaines extensions débloquent des façons avancées de décrire vos données que le cœur ne propose pas seul :
+Certaines extensions débloquent des **types de champ personnalisés** — de nouveaux types au-delà de l'ensemble intégré (par exemple une note configurable de 1 à 5 ou de 0 à 10). Ils n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les types personnalisés disparaissent simplement de l'éditeur de champ jusqu'à ce que l'extension soit de nouveau active.
 
-- **Texte d'aide de champ** — une aide repliable affichée sous un champ pendant la saisie, pour qu'un formulaire s'explique de lui-même.
-- **Types de champ personnalisés** — de nouveaux types au-delà de l'ensemble intégré (par exemple une note configurable de 1 à 5 ou de 0 à 10).
-
-Ces options n'apparaissent dans l'éditeur de champ du métamodèle **que tant que l'extension qui les fournit est installée et sous licence**. Si une telle extension est ensuite désactivée ou que sa licence expire, les valeurs déjà saisies continuent de s'afficher en texte simple, en lecture seule — rien n'est effacé ni supprimé — et les options d'édition disparaissent simplement jusqu'à ce que l'extension soit de nouveau active.
+Le **texte d'aide de champ** — une aide repliable affichée sous un champ pendant la saisie — ne demande aucune extension : depuis la version 2.174.0, tout administrateur du métamodèle le rédige dans l'éditeur de champ (voir [Métamodèle](metamodel.md)). Une extension peut toujours fournir un texte d'aide avec les champs qu'elle apporte ; cette aide s'affiche en lecture seule dans l'éditeur de champ.
 
 ## Autorisations d'accès aux données
 

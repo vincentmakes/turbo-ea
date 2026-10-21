@@ -11,11 +11,6 @@ vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue({ card_count: 0 }) },
 }));
 
-// Control the unlocked-capabilities signal that gates the Help text input.
-const capsMock = vi.hoisted(() => ({ has: (_cap: string) => false }));
-vi.mock("@/hooks/useExtensionCapabilities", () => ({
-  useExtensionCapabilities: () => ({ has: capsMock.has, loaded: true }),
-}));
 
 describe("FieldEditorDialog — new select option color", () => {
   it("seeds a default color on a newly-added option even when the picker is never touched", async () => {
@@ -288,7 +283,7 @@ describe("FieldEditorDialog — locale-aware option labels (issue #857 follow-up
   });
 });
 
-describe("FieldEditorDialog — extension-gated capabilities", () => {
+describe("FieldEditorDialog — extension-contributed field types", () => {
   const baseField: FieldDef = { key: "score", label: "Score", type: "text" };
 
   const renderDialog = () =>
@@ -305,18 +300,6 @@ describe("FieldEditorDialog — extension-gated capabilities", () => {
 
   beforeEach(() => {
     resetExtensionHost();
-    capsMock.has = () => false;
-  });
-
-  it("hides the Help text input when metamodel.field_help is not granted", () => {
-    renderDialog();
-    expect(screen.queryByLabelText(/Help text/i)).not.toBeInTheDocument();
-  });
-
-  it("shows the Help text input when metamodel.field_help is granted", () => {
-    capsMock.has = (c) => c === "metamodel.field_help";
-    renderDialog();
-    expect(screen.getByLabelText(/Help text/i)).toBeInTheDocument();
   });
 
   it("lists extension-contributed field types in the Type dropdown", async () => {
@@ -364,7 +347,6 @@ describe("FieldEditorDialog — type-aware config editor", () => {
 
   beforeEach(() => {
     resetExtensionHost();
-    capsMock.has = () => false;
   });
 
   it("renders type-aware editors for array/object config — never [object Object]", () => {
@@ -421,6 +403,165 @@ describe("FieldEditorDialog — type-aware config editor", () => {
     expect(screen.getByDisplayValue("low")).toBeDisabled();
     // No editing affordances for owned config (view-only for the object).
     expect(screen.queryByRole("button", { name: /Edit…/ })).not.toBeInTheDocument();
+    // Once under the config and once under the (read-only) help input.
+    expect(screen.getAllByText("Managed by daaf")).toHaveLength(2);
+  });
+});
+
+describe("FieldEditorDialog — help text is core (#1297)", () => {
+  const renderWith = (field: FieldDef, onSave = vi.fn()) => {
+    render(
+      <FieldEditorDialog
+        open
+        field={field}
+        typeKey="Application"
+        fieldKey={field.key}
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+    return onSave;
+  };
+
+  beforeEach(() => resetExtensionHost());
+
+  it("shows the Help text input with no extension installed", () => {
+    renderWith({ key: "owner", label: "Owner", type: "text" });
+    expect(screen.getByLabelText(/Help text/i)).toBeEnabled();
+  });
+
+  it("saves typed help as both the base string and the current locale's translation", async () => {
+    const user = userEvent.setup();
+    const onSave = renderWith({
+      key: "owner",
+      label: "Owner",
+      type: "text",
+      helpTranslations: { fr: "Qui en répond" },
+    });
+    await user.type(screen.getByLabelText(/Help text/i), "  Who answers for it  ");
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    const saved = onSave.mock.calls[0][0] as FieldDef;
+    expect(saved.help).toBe("Who answers for it");
+    expect(saved.helpTranslations).toEqual({ fr: "Qui en répond", en: "Who answers for it" });
+  });
+
+  it("clears help that was emptied", async () => {
+    const user = userEvent.setup();
+    const onSave = renderWith({
+      key: "owner",
+      label: "Owner",
+      type: "text",
+      help: "Old",
+      helpTranslations: { en: "Old" },
+    });
+    await user.clear(screen.getByLabelText(/Help text/i));
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    const saved = onSave.mock.calls[0][0] as FieldDef;
+    expect(saved.help).toBeUndefined();
+    expect(saved.helpTranslations).toBeUndefined();
+  });
+
+  it("keeps an extension-owned field's help read-only and saves it unchanged", async () => {
+    const user = userEvent.setup();
+    const onSave = renderWith({
+      key: "owner",
+      label: "Owner",
+      type: "text",
+      ext: "daaf",
+      help: "From the manifest",
+      helpTranslations: { en: "From the manifest", de: "Aus dem Manifest" },
+    });
+    const help = screen.getByLabelText(/Help text/i);
+    expect(help).toBeDisabled();
+    expect(help).toHaveValue("From the manifest");
     expect(screen.getByText("Managed by daaf")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    const saved = onSave.mock.calls[0][0] as FieldDef;
+    expect(saved.help).toBe("From the manifest");
+    expect(saved.helpTranslations).toEqual({ en: "From the manifest", de: "Aus dem Manifest" });
+  });
+});
+
+describe("FieldEditorDialog — reordering options (#1292)", () => {
+  const initial: FieldDef = {
+    key: "tier",
+    label: "Tier",
+    type: "single_select",
+    options: [
+      { key: "gold", label: "Gold", color: "#ffd700" },
+      { key: "silver", label: "Silver", color: "#c0c0c0" },
+      { key: "bronze", label: "Bronze", color: "#cd7f32" },
+    ],
+  };
+
+  const renderDialog = (onSave = vi.fn()) => {
+    render(
+      <FieldEditorDialog
+        open
+        field={initial}
+        typeKey="Application"
+        fieldKey="tier"
+        onClose={() => {}}
+        onSave={onSave}
+      />,
+    );
+    return onSave;
+  };
+
+  const savedKeys = (onSave: ReturnType<typeof vi.fn>) =>
+    (onSave.mock.calls[0][0] as FieldDef).options!.map((o) => o.key);
+
+  it("disables Move up on the first row and Move down on the last", () => {
+    renderDialog();
+    const ups = screen.getAllByRole("button", { name: "Move option up" });
+    const downs = screen.getAllByRole("button", { name: "Move option down" });
+    expect(ups.map((b) => (b as HTMLButtonElement).disabled)).toEqual([true, false, false]);
+    expect(downs.map((b) => (b as HTMLButtonElement).disabled)).toEqual([false, false, true]);
+  });
+
+  it("moves an option down and saves the new order", async () => {
+    const user = userEvent.setup();
+    const onSave = renderDialog();
+    await user.click(screen.getAllByRole("button", { name: "Move option down" })[0]);
+    expect(screen.getAllByLabelText("Label").slice(-3).map((i) => (i as HTMLInputElement).value)).toEqual([
+      "Silver",
+      "Gold",
+      "Bronze",
+    ]);
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    expect(savedKeys(onSave)).toEqual(["silver", "gold", "bronze"]);
+  });
+
+  it("moves an option up and keeps each option's own colour and lock", async () => {
+    const user = userEvent.setup();
+    const onSave = renderDialog();
+    await user.click(screen.getAllByRole("button", { name: "Move option up" })[2]);
+    // Every pre-existing key stays locked wherever it moved to.
+    expect(screen.getAllByLabelText("Key").slice(-3).every((i) => (i as HTMLInputElement).disabled)).toBe(
+      true,
+    );
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    const saved = (onSave.mock.calls[0][0] as FieldDef).options!;
+    expect(saved.map((o) => o.key)).toEqual(["gold", "bronze", "silver"]);
+    expect(saved[1].color).toBe("#cd7f32");
+    // The editor's transient row markers never reach the saved field.
+    expect(saved.some((o) => "_rowId" in o || "_original" in o)).toBe(false);
+  });
+
+  it("moves a new, unsaved option above an existing one", async () => {
+    const user = userEvent.setup();
+    const onSave = renderDialog();
+    await user.click(screen.getByRole("button", { name: /Add Option/ }));
+    await user.type(screen.getAllByLabelText("Key").at(-1)!, "platinum");
+    await user.type(screen.getAllByLabelText("Label").at(-1)!, "Platinum");
+    for (let i = 0; i < 3; i++) {
+      const ups = screen.getAllByRole("button", { name: "Move option up" });
+      await user.click(ups[ups.length - 1 - i]);
+    }
+    // The new row is still editable at the top; the moved-down rows stay locked.
+    const keys = screen.getAllByLabelText("Key").slice(-4) as HTMLInputElement[];
+    expect(keys.map((k) => k.disabled)).toEqual([false, true, true, true]);
+    await user.click(screen.getByRole("button", { name: /^Save$/ }));
+    expect(savedKeys(onSave)).toEqual(["platinum", "gold", "silver", "bronze"]);
   });
 });

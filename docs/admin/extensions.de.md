@@ -108,12 +108,9 @@ Die gesamte Seite und alle zugehörigen API-Routen sind durch die dedizierte Ber
 
 ## Erweiterte Feldfunktionen
 
-Manche Erweiterungen schalten erweiterte Möglichkeiten frei, Ihre Daten zu beschreiben, die der Kern von sich aus nicht bietet:
+Manche Erweiterungen schalten **benutzerdefinierte Feldtypen** frei — neue Feldarten über den eingebauten Satz hinaus (zum Beispiel eine konfigurierbare Bewertung von 1–5 oder 0–10). Sie erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die benutzerdefinierten Typen verschwinden einfach aus dem Feldeditor, bis die Erweiterung wieder aktiv ist.
 
-- **Feld-Hilfetext** — ein aufklappbarer Hinweis unter einem Feld, der bei der Dateneingabe angezeigt wird, sodass sich ein Formular selbst erklärt.
-- **Benutzerdefinierte Feldtypen** — neue Feldarten über den eingebauten Satz hinaus (zum Beispiel eine konfigurierbare Bewertung von 1–5 oder 0–10).
-
-Diese Optionen erscheinen im Feldeditor des Metamodells **nur, solange die bereitstellende Erweiterung installiert und lizenziert ist**. Wird eine solche Erweiterung später deaktiviert oder läuft ihre Lizenz ab, werden bereits erfasste Werte weiterhin als einfacher, schreibgeschützter Text angezeigt — nichts wird geleert oder gelöscht — und die Bearbeitungsoptionen verschwinden einfach, bis die Erweiterung wieder aktiv ist.
+Der **Feld-Hilfetext** — ein aufklappbarer Hinweis unter einem Feld, der bei der Dateneingabe angezeigt wird — braucht keine Erweiterung: Seit Version 2.174.0 verfasst ihn jeder Metamodell-Administrator im Feldeditor (siehe [Metamodell](metamodel.md)). Eine Erweiterung kann weiterhin Hilfetexte mit den Feldern liefern, die sie beisteuert; dieser Hilfetext wird im Feldeditor schreibgeschützt angezeigt.
 
 ## Datenzugriffs-Grants
 

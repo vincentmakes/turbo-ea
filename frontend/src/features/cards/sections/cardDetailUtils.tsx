@@ -29,6 +29,7 @@ import type { FieldDef, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { bandColor } from "@/lib/dataQualityBands";
 import { booleanOption, facetOptions } from "@/lib/fieldFacets";
+import { orderByOptions } from "@/lib/optionOrder";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -441,7 +442,9 @@ export function FieldValue({
 
   if (field.type === "multiple_select" && field.options) {
     const w = chipWidthForField(field.options);
-    const arr = Array.isArray(value) ? value : [value];
+    // Chips follow the field's option order, not the order they were ticked
+    // in, so reordering options in the metamodel shows on every card (#1292).
+    const arr = orderByOptions(Array.isArray(value) ? value : [value], field.options);
     return (
       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
         {arr.map((v, i) => {
@@ -628,7 +631,7 @@ export function FieldEditor({
               }
               return (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                  {arr.map((key) => {
+                  {orderByOptions(arr, field.options).map((key) => {
                     const opt = field.options?.find((o) => o.key === key);
                     return (
                       <Chip

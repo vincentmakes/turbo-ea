@@ -64,7 +64,8 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 | **Chave** | Identificador único do campo |
 | **Rótulo** | Nome de exibição |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Uma porcentagem é um número de 0 a 100, exibida como uma barra de progresso e editada com um controle deslizante ou digitada com exatidão. Um booleano é escolhido numa lista Sim / Não, com **Nenhum** para o limpar, e é exibido como etiqueta verde *Sim* ou azul *Não*, ou como — quando não definido, o que o filtro **(vazio)** do inventário encontra |
-| **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais |
+| **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais. Reordene-as com as setas para cima e para baixo ao lado de cada opção: os menus e os filtros listam as opções nessa ordem, e os chips de um valor de seleção múltipla a seguem em todos os cards. |
+| **Texto de ajuda** | Orientação opcional mostrada como uma nota recolhível sob o campo enquanto um card é editado. É escrito por idioma e pode ser definido por qualquer administrador do metamodelo; em um campo fornecido por uma extensão, é somente leitura |
 | **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
 | **Somente leitura** | Impede edição manual (útil para campos calculados) |
@@ -81,6 +82,7 @@ Campos são organizados em **seções** na página de detalhe do card. Você pod
 - Definir seções com layout de **1 coluna** ou **2 colunas**
 - Organizar campos em **grupos** dentro de uma seção (renderizados como sub-cabeçalhos recolhíveis)
 - Reordenar campos dentro de uma seção arrastando-os e mover um campo para outra seção pela ação **mover**
+- Tirar um campo do seu grupo soltando-o na zona **Solte aqui para tirar um campo do seu grupo**, no final de cada coluna que contém um grupo — o campo vai para o final dessa coluna, sem grupo
 
 O nome de seção especial `__description` adiciona campos à seção de Descrição da página de detalhe do card.
 
@@ -128,6 +130,8 @@ Por exemplo, o tipo Aplicação possui subtipos: Aplicação de Negócio, Micros
 4. Campos ocultos são excluídos da pontuação de qualidade dos dados, para que os utilizadores não sejam penalizados por campos que não podem ver.
 
 Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), todos os campos são visíveis. Campos ocultos preservam os seus dados — se o subtipo de um card mudar, os valores anteriormente ocultos são mantidos.
+
+**Renomear um subtipo:** clique no lápis ao lado do seu chip, digite o novo rótulo e pressione Enter (ou clique em outro lugar); Escape cancela. Só o rótulo muda: a chave, que os cards armazenam, continua a mesma, e as traduções do subtipo (editadas pelo ícone de traduções do cabeçalho) permanecem como estão.
 
 #### Papéis de Partes Interessadas
 

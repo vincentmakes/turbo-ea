@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { moveFieldBetweenSections } from "./CardLayoutEditor";
+import { moveFieldBetweenSections, ungroupedZoneColumn, ungroupedZoneHit } from "./CardLayoutEditor";
 import type { SectionDef } from "@/types";
 
 function schema(): SectionDef[] {
@@ -55,5 +55,27 @@ describe("moveFieldBetweenSections", () => {
     expect(moveFieldBetweenSections(schema(), 0, "doesNotExist", 1)).toBeNull();
     expect(moveFieldBetweenSections(schema(), 0, "hostingType", 5)).toBeNull();
     expect(moveFieldBetweenSections(schema(), -1, "hostingType", 1)).toBeNull();
+  });
+});
+
+describe("Ungrouped fields drop zone (#1286)", () => {
+  it("names the column a zone id stands for, and nothing for any other id", () => {
+    expect(ungroupedZoneColumn("ungrouped:col-0")).toBe("col-0");
+    expect(ungroupedZoneColumn("ungrouped:col-1")).toBe("col-1");
+    expect(ungroupedZoneColumn("col-0")).toBeUndefined();
+    expect(ungroupedZoneColumn("group:ungrouped:col-0")).toBeUndefined();
+    expect(ungroupedZoneColumn("alpha")).toBeUndefined();
+  });
+
+  const hits = [{ id: "group:Grp" }, { id: "ungrouped:col-1" }, { id: "col-1" }];
+
+  it("lets a dragged field's zone outrank the group it is also inside", () => {
+    expect(ungroupedZoneHit(hits, "field")).toEqual({ id: "ungrouped:col-1" });
+    expect(ungroupedZoneHit(hits, undefined)).toEqual({ id: "ungrouped:col-1" });
+  });
+
+  it("gives a dragged group no zone, and nothing when no zone is hit", () => {
+    expect(ungroupedZoneHit(hits, "group")).toBeUndefined();
+    expect(ungroupedZoneHit([{ id: "group:Grp" }, { id: "col-0" }], "field")).toBeUndefined();
   });
 });

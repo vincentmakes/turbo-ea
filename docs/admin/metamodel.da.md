@@ -63,7 +63,8 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 | **Nøgle** | Unik feltidentifikator |
 | **Etiket** | Visningsnavn |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist. En boolean vælges fra en Ja/Nej-liste med **Ingen** til at rydde den og vises som en grøn *Ja*- eller blå *Nej*-mærkat, eller som — når den ikke er angivet, hvilket inventarets filter **(tom)** finder |
-| **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver |
+| **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver. Ændr rækkefølgen med pilene op og ned ud for hver valgmulighed: menuer og filtre viser valgmulighederne i den rækkefølge, og chips for en flervalgsværdi følger den på alle kort. |
+| **Hjælpetekst** | Valgfri vejledning, der vises som en sammenklappelig note under feltet, mens et kort redigeres. Den skrives pr. sprog og kan angives af enhver metamodel-administrator; på et felt, som en udvidelse har bidraget med, er den skrivebeskyttet |
 | **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
 | **Skrivebeskyttet** | Forhindrer manuel redigering (nyttigt for beregnede felter) |
@@ -80,6 +81,7 @@ Felter er organiseret i **sektioner** på kortdetaljesiden. Du kan:
 - Indstille sektioner til **1-kolonne-** eller **2-kolonne**-layout
 - Organisere felter i **grupper** inden for en sektion (gengivet som sammenklappelige underoverskrifter)
 - Omarranger felter inden for et afsnit ved at trække, og flyt et felt til et andet afsnit via dets **flyt**-handling
+- Tage et felt ud af dets gruppe ved at slippe det på zonen **Slip her for at tage et felt ud af dets gruppe** nederst i enhver kolonne, der indeholder en gruppe — feltet lander sidst i kolonnen, uden gruppe
 
 Det særlige sektionsnavn `__description` tilføjer felter til Beskrivelsessektionen af kortdetaljesiden.
 
@@ -127,6 +129,8 @@ For eksempel har Application-typen undertyperne: Business Application, Microserv
 4. Skjulte felter er udelukket fra datakvalitetsscoren, så brugere ikke straffes for felter, de ikke kan se.
 
 Når der ikke er valgt nogen undertype på et kort (eller typen ikke har nogen undertyper), er alle felter synlige. Skjulte felter bevarer deres data — hvis et korts undertype ændres, bevares tidligere skjulte værdier.
+
+**Omdøb en undertype:** klik på blyanten ved siden af dens chip, skriv den nye etiket, og tryk på Enter (eller klik et andet sted); Escape annullerer. Kun etiketten ændres: nøglen, som kortene gemmer, forbliver den samme, og undertypens oversættelser (redigeres fra oversættelsesikonet i overskriften) bevares.
 
 #### Interessentroller
 

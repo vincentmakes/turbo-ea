@@ -141,6 +141,7 @@ import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubty
 import OptionChip from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
+import { orderByOptions } from "@/lib/optionOrder";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -476,14 +477,15 @@ function ChipListCell({ items }: { items: { key: string; label: string; color?: 
  *
  * Values are option keys; a key the metamodel no longer declares still renders
  * as its raw text rather than vanishing, so a stale or hand-written value stays
- * visible and fixable.
+ * visible and fixable. Chips follow the field's option order (`orderByOptions`,
+ * #1292), the same order card detail shows them in. Exported for tests.
  */
-function optionChipItems(
+export function optionChipItems(
   options: FieldOption[] | undefined,
   value: unknown,
   optLabel: (opt: FieldOption) => string,
 ): { key: string; label: string; color?: string }[] {
-  const arr = Array.isArray(value) ? value : [];
+  const arr = Array.isArray(value) ? orderByOptions(value, options) : [];
   return arr.map((v) => {
     const opt = options?.find((o) => o.key === v);
     return { key: String(v), label: opt ? optLabel(opt) : String(v), color: opt?.color };

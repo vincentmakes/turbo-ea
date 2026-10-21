@@ -423,3 +423,34 @@ describe("links in free text (FieldValue)", () => {
     );
   });
 });
+
+describe("multiple_select chips follow the option order (#1292)", () => {
+  const tiers: FieldDef = {
+    key: "tiers",
+    label: "Tiers",
+    type: "multiple_select",
+    options: [
+      { key: "gold", label: "Gold", color: "#ffd700" },
+      { key: "silver", label: "Silver", color: "#c0c0c0" },
+      { key: "bronze", label: "Bronze", color: "#cd7f32" },
+    ],
+  };
+
+  const chipOrder = (labels: string[]) =>
+    labels
+      .map((l) => ({ l, el: screen.getByText(l) }))
+      .sort((a, b) =>
+        a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+      )
+      .map((x) => x.l);
+
+  it("FieldValue renders stored values in option order, unknown keys last", () => {
+    render(<FieldValue field={tiers} value={["bronze", "legacy", "gold"]} />);
+    expect(chipOrder(["Bronze", "legacy", "Gold"])).toEqual(["Gold", "Bronze", "legacy"]);
+  });
+
+  it("FieldEditor's selected chips use the same order", () => {
+    render(<FieldEditor field={tiers} value={["bronze", "silver"]} onChange={() => {}} />);
+    expect(chipOrder(["Bronze", "Silver"])).toEqual(["Silver", "Bronze"]);
+  });
+});

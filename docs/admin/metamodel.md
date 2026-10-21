@@ -63,7 +63,8 @@ Fields define the custom attributes available on cards of this type. Each field 
 | **Key** | Unique field identifier |
 | **Label** | Display name |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select, or multiple_select. A percentage is a number from 0 to 100, shown as a progress bar and edited with a slider or typed exactly. A boolean is chosen from a Yes / No list, with **None** to clear it, and shows as a green *Yes* or blue *No* pill, or as — when unset, which the Inventory's **(empty)** filter matches |
-| **Options** | For select fields: the available choices with labels and optional colors |
+| **Options** | For select fields: the available choices with labels and optional colors. Reorder them with the up and down arrows beside each option: menus and filters list the options in that order, and the chips of a multi-select value follow it on every card. |
+| **Help text** | Optional guidance shown as a collapsible note under the field while a card is edited. It is written per language and can be set by any metamodel admin; on a field contributed by an extension it is read-only |
 | **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |
 | **Read-only** | Prevents manual editing (useful for calculated fields) |
@@ -80,6 +81,7 @@ Fields are organized into **sections** on the card detail page. You can:
 - Set sections to **1-column** or **2-column** layout
 - Organize fields into **groups** within a section (rendered as collapsible sub-headers)
 - Reorder fields within a section by dragging, and move a field to a different section from its **move** action
+- Take a field out of its group by dropping it on the **Drop here to take a field out of its group** zone at the bottom of any column that holds a group — the field lands at the end of that column, ungrouped
 
 The special section name `__description` adds fields to the Description section of the card detail page.
 
@@ -129,6 +131,8 @@ For example, the Application type has subtypes: Business Application, Microservi
 4. Hidden fields are excluded from the data quality score, so users are not penalized for fields they cannot see.
 
 When no subtype is selected on a card (or the type has no subtypes), all fields are visible. Hidden fields preserve their data — if a card's subtype changes, previously hidden values are retained.
+
+**Renaming a subtype:** click the pencil beside its chip, type the new label and press Enter (or click elsewhere); Escape cancels. Only the label changes: the key, which cards store, stays the same, and the subtype's translations (edited from the translations icon in the header) are left as they are.
 
 #### Stakeholder Roles
 

@@ -186,6 +186,8 @@ function labelsIn(container: HTMLElement, candidates: string[]): string[] {
 }
 
 const BAND = 40;
+/** Keyboard steps from "One" to the Ungrouped zone in the Packed fixture. */
+const ZONE_STEPS_FROM_ONE = 3;
 const ROW = 36;
 
 function rectAt(left: number, top: number, width: number, height: number): DOMRect {
@@ -203,16 +205,18 @@ function rectAt(left: number, top: number, width: number, height: number): DOMRe
 }
 
 /**
- * Elements that take part in a drag: sortable roots (inline `opacity`) and
- * their parents (the droppable columns and group bodies). Pre-order, so a
- * container's band sits just above its first child's.
+ * Elements that take part in a drag: sortable roots (inline `opacity`), their
+ * parents (the droppable columns and group bodies) and the columns'
+ * "Ungrouped fields" drop zones. Pre-order, so a container's band sits just
+ * above its first child's.
  */
 function layoutElements(): Element[] {
   const out: Element[] = [];
   for (const el of Array.from(document.body.querySelectorAll<HTMLElement>("*"))) {
     const own = el.style.opacity !== "";
     const parent = Array.from(el.children).some((c) => (c as HTMLElement).style?.opacity !== "");
-    if (own || parent) out.push(el);
+    const zone = el.hasAttribute("data-ungrouped-drop");
+    if (own || parent || zone) out.push(el);
   }
   return out;
 }
@@ -338,6 +342,15 @@ describe("CardLayoutEditor — rendering", () => {
     expect(badges).toHaveLength(2);
     expect(fieldRoot("Alpha")).toContainElement(badges.find((b) => fieldRoot("Alpha").contains(b)) ?? null);
     expect(fieldRoot("Alias")).toContainElement(badges.find((b) => fieldRoot("Alias").contains(b)) ?? null);
+  });
+
+  it("offers an Ungrouped fields zone only in a column that holds a group (#1286)", () => {
+    setup();
+    const zoneText = "Drop here to take a field out of its group";
+    const details = sectionRoot("Details");
+    expect(within(columnOf(details, "Column 1")).getByText(zoneText)).toBeInTheDocument();
+    expect(within(columnOf(details, "Column 2")).queryByText(zoneText)).not.toBeInTheDocument();
+    expect(within(sectionRoot("Extra")).queryByText(zoneText)).not.toBeInTheDocument();
   });
 
   it("tells an empty column to expect a drop and offers no move when there is nowhere to move to", () => {
@@ -851,6 +864,11 @@ describe("CardLayoutEditor — keyboard drags", () => {
   it("moves a field into the group below it", async () => {
     const { user, onRefresh } = setup();
     await pickUp(user, fieldRoot("Beta"));
+    // The group's card is its droppable: the first step drops Beta in (at the
+    // group's end), the second lands on Gamma inside it — the stub does not
+    // nest the card's band around its body, so the first spot alone would
+    // leave the drop over nothing.
+    await user.keyboard("{ArrowDown}");
     await user.keyboard("{ArrowDown}");
     await user.keyboard("{ }");
     await waitFor(() => expect(onRefresh).toHaveBeenCalled());
@@ -864,29 +882,43 @@ describe("CardLayoutEditor — keyboard drags", () => {
     expect(byKey(section.fields, "delta").column).toBe(1);
   });
 
-  it("moves a field from the second column into a group ahead of its field", async () => {
+  it("moves a field from the second column into a group of the first", async () => {
     const { user, onRefresh } = setup();
     await pickUp(user, fieldRoot("Delta"));
-    // First step lands on the column itself (a no-op), the second on Sigma.
+    // Its own column (a no-op), the first column's Ungrouped zone, then the
+    // Empty group's card above that zone.
+    await user.keyboard("{ArrowUp}");
     await user.keyboard("{ArrowUp}");
     await user.keyboard("{ArrowUp}");
     await user.keyboard("{ }");
     await waitFor(() => expect(onRefresh).toHaveBeenCalled());
     const section = lastPatch().fields_schema![1];
-    expect(byKey(section.fields, "delta").group).toBe("Second");
-    expect(byKey(section.fields, "delta").column).toBe(0);
-    const second = section.fields.filter((f) => f.group === "Second").map((f) => f.key);
-    expect(second).toEqual(expect.arrayContaining(["delta", "sigma"]));
+    expect(byKey(section.fields, "delta")).toMatchObject({ group: "Empty", column: 0 });
+    expect(byKey(section.fields, "sigma").group).toBe("Second");
     expect(section.fields.some((f) => f.column === 1)).toBe(false);
-    expect(keysOf(section.fields).slice(0, 3)).toEqual(["alpha", "beta", "gamma"]);
+    expect(keysOf(section.fields).slice(0, 4)).toEqual(["alpha", "beta", "gamma", "sigma"]);
+  });
+
+  it("moves a field from the second column to the first column's Ungrouped zone", async () => {
+    const { user, onRefresh } = setup();
+    await pickUp(user, fieldRoot("Delta"));
+    // Its own column (a no-op), then the first column's Ungrouped zone.
+    await user.keyboard("{ArrowUp}");
+    await user.keyboard("{ArrowUp}");
+    await user.keyboard("{ }");
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    const section = lastPatch().fields_schema![1];
+    expect(byKey(section.fields, "delta").group).toBeUndefined();
+    expect(byKey(section.fields, "delta").column).toBe(0);
+    // It lands at the end of the column, after the groups.
+    expect(keysOf(section.fields)).toEqual(["alpha", "beta", "gamma", "sigma", "delta"]);
   });
 
   it("reorders a group among its column's groups", async () => {
     const { user, onRefresh } = setup();
     const details = sectionRoot("Details");
     await pickUp(user, groupRoot("Grp", details));
-    // Own body, own field, then the next group's body.
-    await user.keyboard("{ArrowDown}");
+    // Own field, then the next group's card.
     await user.keyboard("{ArrowDown}");
     await user.keyboard("{ArrowDown}");
     await user.keyboard("{ }");
@@ -902,7 +934,9 @@ describe("CardLayoutEditor — keyboard drags", () => {
     const { user, onRefresh } = setup();
     const details = sectionRoot("Details");
     await pickUp(user, groupRoot("Grp", details));
-    for (let i = 0; i < 5; i++) await user.keyboard("{ArrowDown}");
+    // Past the first column's fields and groups and its Ungrouped zone (which a
+    // group ignores) onto the second column, then onto its own field there.
+    for (let i = 0; i < 7; i++) await user.keyboard("{ArrowDown}");
     await user.keyboard("{ }");
     await waitFor(() => expect(onRefresh).toHaveBeenCalled());
     const section = lastPatch().fields_schema![1];
@@ -945,16 +979,53 @@ describe("CardLayoutEditor — keyboard drags", () => {
   });
 
   it("a drop with nothing underneath restores the layout without writing", async () => {
-    const { user, onRefresh } = setup();
-    // Delta is the last item; below it only the empty group's body remains,
-    // which has no size, so the collision rect lands on nothing.
-    await pickUp(user, fieldRoot("Delta"));
+    const solo = makeCardType({
+      key: "Solo",
+      fields_schema: [
+        makeSection({ section: "Only", columns: 2, fields: [makeField({ key: "lonely", label: "Lonely" })] }),
+      ],
+    });
+    const { user, onRefresh } = setup({ cardType: solo });
+    // Below Lonely only the empty second column remains, which has no size,
+    // so the collision rect lands on nothing.
+    await pickUp(user, fieldRoot("Lonely"));
     await user.keyboard("{ArrowDown}");
     await user.keyboard("{ }");
     expect(mockApi.callsOf("patch")).toHaveLength(0);
     expect(onRefresh).not.toHaveBeenCalled();
-    const details = sectionRoot("Details");
-    expect(labelsIn(columnOf(details, "Column 2"), ["Delta"])).toEqual(["Delta"]);
+    expect(labelsIn(columnOf(sectionRoot("Only"), "Column 1"), ["Lonely"])).toEqual(["Lonely"]);
+  });
+
+  it("dragging a grouped field onto the Ungrouped zone takes it out of its group (#1286)", async () => {
+    // A column holding only groups: before the zone existed, a grouped field
+    // had nowhere to land that was not inside a group.
+    const grouped = makeCardType({
+      key: "Grouped",
+      fields_schema: [
+        makeSection({
+          section: "Packed",
+          groups: ["First", "Next"],
+          fields: [
+            makeField({ key: "one", label: "One", column: 0, group: "First" }),
+            makeField({ key: "two", label: "Two", column: 0, group: "Next" }),
+          ],
+        }),
+      ],
+    });
+    mockApi.on("patch", "/metamodel/types/Grouped", (_p, body) => ({ ...grouped, ...(body as object) }));
+    const { user, onRefresh } = setup({ cardType: grouped });
+    const packed = sectionRoot("Packed");
+    expect(within(columnOf(packed, "Column 1")).getByText("Drop here to take a field out of its group")).toBeInTheDocument();
+    await pickUp(user, fieldRoot("One"));
+    for (let i = 0; i < ZONE_STEPS_FROM_ONE; i++) await user.keyboard("{ArrowDown}");
+    await user.keyboard("{ }");
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    const section = lastPatch().fields_schema![0];
+    expect(byKey(section.fields, "one").group).toBeUndefined();
+    expect(byKey(section.fields, "one").column).toBe(0);
+    expect(byKey(section.fields, "two").group).toBe("Next");
+    // Both groups survive, the first now empty.
+    expect(section.groups).toEqual(["First", "Next"]);
   });
 });
 

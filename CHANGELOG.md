@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.174.0] - 2026-10-21
+
+### Added
+- **Rename a subtype**: a pencil beside each subtype chip in the card-type editor edits its label in place (Enter or clicking away saves, Escape cancels); the key cards store and the subtype's translations stay as they are ([#1291](https://github.com/vincentmakes/turbo-ea/issues/1291)).
+- **Reorder select options**: up and down arrows beside each option in the field editor change the order every menu and filter lists them in, and the chips of a multi-select value on cards and in the Inventory now follow that order ([#1292](https://github.com/vincentmakes/turbo-ea/issues/1292)).
+- **Take a field out of its group** in the card layout editor by dropping it on the "Drop here to take a field out of its group" zone at the bottom of any column that holds a group ([#1286](https://github.com/vincentmakes/turbo-ea/issues/1286)).
+
+### Changed
+- **Field help text needs no extension**: every metamodel admin can now write a field's help text in the field editor; only custom field types still come from an extension ([#1297](https://github.com/vincentmakes/turbo-ea/issues/1297)).
+
 ## [2.173.0] - 2026-10-21
 
 ### Added

@@ -108,12 +108,9 @@ Toda la página y sus rutas de API están protegidas por el permiso dedicado `ad
 
 ## Funciones de campo avanzadas
 
-Algunas extensiones habilitan formas avanzadas de describir tus datos que el núcleo no ofrece por sí solo:
+Algunas extensiones habilitan **tipos de campo personalizados** — nuevos tipos más allá del conjunto integrado (por ejemplo, una valoración configurable de 1 a 5 o de 0 a 10). Aparecen en el editor de campos del metamodelo **solo mientras la extensión que los proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y los tipos personalizados simplemente desaparecen del editor de campos hasta que la extensión vuelva a estar activa.
 
-- **Texto de ayuda del campo** — una guía plegable que se muestra debajo de un campo durante la entrada de datos, para que un formulario se explique solo.
-- **Tipos de campo personalizados** — nuevos tipos más allá del conjunto integrado (por ejemplo, una valoración configurable de 1 a 5 o de 0 a 10).
-
-Estas opciones aparecen en el editor de campos del metamodelo **solo mientras la extensión que las proporciona esté instalada y con licencia**. Si dicha extensión se deshabilita más tarde o su licencia caduca, los valores que ya capturaste se siguen mostrando como texto de solo lectura — nada se borra ni se elimina — y las opciones de edición simplemente desaparecen hasta que la extensión vuelva a estar activa.
+El **texto de ayuda del campo** — una guía plegable que se muestra debajo de un campo durante la entrada de datos — no necesita ninguna extensión: desde la versión 2.174.0, cualquier administrador del metamodelo lo escribe en el editor de campos (consulta [Metamodelo](metamodel.md)). Una extensión todavía puede incluir texto de ayuda en los campos que aporta; esa ayuda se muestra como solo lectura en el editor de campos.
 
 ## Permisos de acceso a datos
 

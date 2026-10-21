@@ -64,7 +64,8 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 | **Clave** | Identificador único del campo |
 | **Etiqueta** | Nombre para mostrar |
 | **Tipo** | texto, texto_multilínea, número, costo, porcentaje, booleano, fecha, url, selección_única o selección_múltiple. Un porcentaje es un número de 0 a 100, mostrado como una barra de progreso y editado con un control deslizante o escrito con exactitud. Un booleano se elige en una lista Sí / No, con **Ninguno** para borrarlo, y se muestra como una etiqueta verde *Sí* o azul *No*, o como — si no está definido, lo que encuentra el filtro **(vacío)** del inventario |
-| **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
+| **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales. Reordénelas con las flechas arriba y abajo junto a cada opción: los menús y los filtros muestran las opciones en ese orden, y los chips de un valor de selección múltiple lo siguen en cada ficha. |
+| **Texto de ayuda** | Orientación opcional que se muestra como una nota plegable bajo el campo mientras se edita una ficha. Se redacta por idioma y cualquier administrador del metamodelo puede definirla; en un campo aportado por una extensión es de solo lectura |
 | **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
 | **Solo lectura** | Impide la edición manual (útil para campos calculados) |
@@ -81,6 +82,7 @@ Los campos se organizan en **secciones** en la página de detalle de la ficha. P
 - Configurar secciones con diseño de **1 columna** o **2 columnas**
 - Organizar campos en **grupos** dentro de una sección (renderizados como sub-encabezados colapsables)
 - Reordenar campos dentro de una sección arrastrándolos, y mover un campo a otra sección desde su acción **mover**
+- Sacar un campo de su grupo soltándolo en la zona **Suelte aquí para sacar un campo de su grupo**, al final de cada columna que contiene un grupo: el campo queda al final de esa columna, sin grupo
 
 El nombre de sección especial `__description` agrega campos a la sección Descripción de la página de detalle.
 
@@ -128,6 +130,8 @@ Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microse
 4. Los campos ocultos se excluyen de la puntuación de calidad de datos, de modo que los usuarios no son penalizados por campos que no pueden ver.
 
 Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipos), todos los campos son visibles. Los campos ocultos conservan sus datos — si el subtipo de una ficha cambia, los valores previamente ocultos se mantienen.
+
+**Renombrar un subtipo:** haga clic en el lápiz junto a su chip, escriba la nueva etiqueta y pulse Intro (o haga clic en otro lugar); Escape cancela. Solo cambia la etiqueta: la clave, que guardan las fichas, no cambia, y las traducciones del subtipo (editadas desde el icono de traducciones de la cabecera) se mantienen.
 
 #### Roles de Partes Interesadas
 

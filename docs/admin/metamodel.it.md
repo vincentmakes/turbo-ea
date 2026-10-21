@@ -64,7 +64,8 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Key** | Identificatore univoco del campo |
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select o multiple_select. Una percentuale è un numero da 0 a 100, mostrato come barra di avanzamento e modificato con un cursore o digitato con precisione. Un booleano si sceglie da un elenco Sì / No, con **Nessuno** per svuotarlo, ed è mostrato come etichetta verde *Sì* o blu *No*, oppure come — se non impostato, ciò che il filtro **(vuoto)** dell'inventario trova |
-| **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
+| **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali. Riordinatele con le frecce su e giù accanto a ogni opzione: menu e filtri elencano le opzioni in quell'ordine, e i chip di un valore a scelta multipla lo seguono su ogni card. |
+| **Testo di aiuto** | Indicazione facoltativa mostrata come nota comprimibile sotto il campo durante la modifica di una card. Si scrive per lingua e può essere impostato da qualsiasi amministratore del metamodello; su un campo fornito da un'estensione è di sola lettura |
 | **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
@@ -81,6 +82,7 @@ I campi sono organizzati in **sezioni** nella pagina di dettaglio della card. Po
 - Impostare le sezioni su layout a **1 colonna** o **2 colonne**
 - Organizzare i campi in **gruppi** all'interno di una sezione (visualizzati come sotto-intestazioni comprimibili)
 - Riordinare i campi all'interno di una sezione trascinandoli e spostare un campo in un'altra sezione tramite la sua azione **sposta**
+- Togliere un campo dal suo gruppo rilasciandolo nella zona **Rilasci qui per togliere un campo dal suo gruppo**, in fondo a ogni colonna che contiene un gruppo: il campo finisce alla fine di quella colonna, fuori da qualsiasi gruppo
 
 Il nome speciale di sezione `__description` aggiunge campi alla sezione Descrizione della pagina di dettaglio della card.
 
@@ -128,6 +130,8 @@ Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservi
 4. I campi nascosti sono esclusi dal punteggio di qualità dei dati, in modo che gli utenti non vengano penalizzati per campi che non possono vedere.
 
 Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi), tutti i campi sono visibili. I campi nascosti conservano i propri dati — se il sottotipo di una card cambia, i valori precedentemente nascosti vengono mantenuti.
+
+**Rinominare un sottotipo:** fate clic sulla matita accanto al suo chip, digitate la nuova etichetta e premete Invio (o fate clic altrove); Esc annulla. Cambia solo l'etichetta: la chiave, che le card memorizzano, resta la stessa, e le traduzioni del sottotipo (modificate dall'icona delle traduzioni nell'intestazione) restano invariate.
 
 #### Ruoli stakeholder
 

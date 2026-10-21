@@ -336,15 +336,19 @@ def _scoring_signature(fields_schema: list | None, section_config: dict | None) 
 
 # ── Extension-gated field capabilities ─────────────────────────────────
 #
-# Two advanced field-authoring capabilities ship as INERT core plumbing: the
-# schema understands them and the card detail renders them unconditionally, but
-# an admin can only *author* them when an installed, enabled, licensed extension
-# grants the matching capability (see registry.grants_for). This is the
-# monetisation boundary — the free core never exposes a UI to create these, and
-# the API strips any attempt to add them without the grant. Rendering is never
-# gated (a licence lapse must never blank a card or delete data), and existing
-# values are grandfathered so a lapse can't block unrelated metamodel edits.
-CAP_FIELD_HELP = "metamodel.field_help"
+# Custom field types (``ext.*``) ship as INERT core plumbing: the schema
+# understands them and the card detail renders them unconditionally, but an
+# admin can only *author* one when an installed, enabled, licensed extension
+# grants ``metamodel.custom_field_types`` (see registry.grants_for); the API
+# rewrites any attempt to add one without the grant. Rendering is never gated
+# (a licence lapse must never blank a card or delete data), and an
+# already-stored custom type is grandfathered so a lapse can't block unrelated
+# metamodel edits.
+#
+# Field help text (``help`` / ``helpTranslations``) used to sit behind a second
+# grant, ``metamodel.field_help``. It is a core feature since 2.174.0 (#1297):
+# every metamodel admin authors it and it is written exactly as sent. The grant
+# string is still accepted in manifests (``VALID_GRANTS``) as a no-op.
 CAP_CUSTOM_FIELD_TYPES = "metamodel.custom_field_types"
 _BUILTIN_FIELD_TYPES = frozenset(
     {
@@ -365,20 +369,19 @@ _BUILTIN_FIELD_TYPES = frozenset(
 def _enforce_field_gating(
     new_schema: list | None, old_schema: list | None, granted: set[str]
 ) -> list:
-    """Drop gated field attributes (help text, custom ``ext.*`` types) unless an
-    extension grants them. Grandfathers already-stored values verbatim so a
-    lapse never mutates card data or blocks an unrelated edit."""
+    """Downgrade a new or changed custom ``ext.*`` field type unless an extension
+    grants ``metamodel.custom_field_types``. A type already stored on the field
+    is grandfathered verbatim, so a lapse never mutates card data or blocks an
+    unrelated edit. Every other attribute (help text included) passes through."""
     new_schema = new_schema or []
-    help_granted = CAP_FIELD_HELP in granted
-    custom_granted = CAP_CUSTOM_FIELD_TYPES in granted
-    if help_granted and custom_granted:
+    if CAP_CUSTOM_FIELD_TYPES in granted:
         return new_schema
 
-    old_fields: dict[str, dict] = {}
+    old_types: dict[str, object] = {}
     for section in old_schema or []:
         for f in section.get("fields", []) if isinstance(section, dict) else []:
             if isinstance(f, dict) and "key" in f:
-                old_fields[f["key"]] = f
+                old_types[f["key"]] = f.get("type")
 
     for section in new_schema:
         if not isinstance(section, dict):
@@ -386,22 +389,13 @@ def _enforce_field_gating(
         for f in section.get("fields", []):
             if not isinstance(f, dict):
                 continue
-            old = old_fields.get(f.get("key")) or {}
-            if not help_granted:
-                # Grandfather only the exact stored help; drop anything new/changed.
-                for attr in ("help", "helpTranslations"):
-                    if f.get(attr) != old.get(attr):
-                        if old.get(attr) is None:
-                            f.pop(attr, None)
-                        else:
-                            f[attr] = old[attr]
-            if not custom_granted:
-                ftype = f.get("type")
-                if isinstance(ftype, str) and ftype.startswith("ext."):
-                    old_type = old.get("type")
-                    if old_type == ftype:
-                        continue  # grandfather an already-stored custom type
-                    f["type"] = old_type if old_type in _BUILTIN_FIELD_TYPES else "text"
+            ftype = f.get("type")
+            if not (isinstance(ftype, str) and ftype.startswith("ext.")):
+                continue
+            old_type = old_types.get(f.get("key"))
+            if old_type == ftype:
+                continue  # grandfather an already-stored custom type
+            f["type"] = old_type if old_type in _BUILTIN_FIELD_TYPES else "text"
     return new_schema
 
 
@@ -1115,7 +1109,7 @@ async def create_type(
         body.get("fields_schema", []), [], extension_registry.granted_capabilities()
     )
     # Auto-add the readonly hierarchyLevel field for hierarchical types (after
-    # gating, which only strips help/ext.* fields — a plain number field is safe).
+    # gating, which only rewrites ext.* field types — a plain number field is safe).
     if body.get("has_hierarchy"):
         fields_schema = _inject_hierarchy_level_field(fields_schema)
     try:
@@ -1218,8 +1212,8 @@ async def update_type(
             t.fields_schema or [],
             body["fields_schema"] or [],
         )
-        # Strip extension-gated field attributes (help text, custom types) that
-        # aren't unlocked by a licensed extension — grandfathering stored values.
+        # Downgrade custom ext.* field types that aren't unlocked by a licensed
+        # extension — grandfathering stored values. Help text is core (#1297).
         await extension_registry.refresh_from_db(db)
         body["fields_schema"] = _enforce_field_gating(
             body["fields_schema"] or [],

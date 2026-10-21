@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -118,6 +118,13 @@ export default function TypeDetailDrawer({
   const [addSubOpen, setAddSubOpen] = useState(false);
   const [newSubKey, setNewSubKey] = useState("");
   const [newSubLabel, setNewSubLabel] = useState("");
+
+  /* --- Subtype inline rename (#1291) --- */
+  const [renamingSubKey, setRenamingSubKey] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  // Set once the edit has been settled (Enter, Escape or blur), so the blur
+  // that follows unmounting the field cannot commit a second time.
+  const renameSettled = useRef(false);
 
   /* --- Subtype template editor --- */
   const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
@@ -308,6 +315,45 @@ export default function TypeDetailDrawer({
       onRefresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToRemoveSubtype"));
+    }
+  };
+
+  /* --- Subtype rename (#1291) ---
+   * Only the base `label` changes: the key is what cards store and stays
+   * immutable, and per-locale `translations` are edited in the Translations
+   * dialog, so a rename leaves them as they are. */
+  const startRenameSubtype = (subKey: string, current: string) => {
+    renameSettled.current = false;
+    setRenameDraft(current);
+    setRenamingSubKey(subKey);
+  };
+
+  const cancelRenameSubtype = () => {
+    renameSettled.current = true;
+    setRenamingSubKey(null);
+  };
+
+  const commitRenameSubtype = async (fromBlur: boolean) => {
+    if (renameSettled.current || !renamingSubKey) return;
+    const next = renameDraft.trim();
+    if (!next) {
+      // An empty label is refused: Enter keeps the field open (it shows the
+      // error), leaving the field abandons the rename.
+      if (fromBlur) cancelRenameSubtype();
+      return;
+    }
+    renameSettled.current = true;
+    const subKey = renamingSubKey;
+    setRenamingSubKey(null);
+    const subtypes = cardTypeKey.subtypes || [];
+    const current = subtypes.find((st) => st.key === subKey);
+    if (!current || current.label === next) return;
+    try {
+      const updated = subtypes.map((st) => (st.key === subKey ? { ...st, label: next } : st));
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToRenameSubtype"));
     }
   };
 
@@ -835,29 +881,70 @@ export default function TypeDetailDrawer({
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1.5 }}>
                 {(cardTypeKey.subtypes || []).map((s) => {
                   const hiddenCount = (s.hidden_fields ?? []).length;
+                  if (renamingSubKey === s.key) {
+                    const empty = !renameDraft.trim();
+                    return (
+                      <TextField
+                        key={s.key}
+                        size="small"
+                        autoFocus
+                        label={t("metamodel.typeDrawer.label")}
+                        value={renameDraft}
+                        onChange={(e) => setRenameDraft(e.target.value)}
+                        onBlur={() => void commitRenameSubtype(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void commitRenameSubtype(false);
+                          } else if (e.key === "Escape") {
+                            // Keep Escape from also closing the drawer.
+                            e.stopPropagation();
+                            cancelRenameSubtype();
+                          }
+                        }}
+                        error={empty}
+                        helperText={
+                          empty
+                            ? t("metamodel.typeDrawer.subtypeLabelRequired")
+                            : t("metamodel.typeDrawer.subtypeKeyKept", { key: s.key })
+                        }
+                        sx={{ minWidth: 220 }}
+                      />
+                    );
+                  }
                   return (
-                    <Chip
-                      key={s.key}
-                      label={
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                          <span>{`${s.label} (${s.key})`}</span>
-                          {hiddenCount > 0 && (
-                            <Chip
-                              size="small"
-                              label={t("metamodel.typeDrawer.hiddenFieldCount", { count: hiddenCount })}
-                              color="warning"
-                              sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
-                            />
-                          )}
-                        </Box>
-                      }
-                      onClick={() => openSubtypeTemplate(s.key)}
-                      onDelete={() => handleRemoveSubtype(s.key)}
-                      variant={editingSubtypeKey === s.key ? "filled" : "outlined"}
-                      color={editingSubtypeKey === s.key ? "primary" : "default"}
-                      size="small"
-                      icon={<MaterialSymbol icon="tune" size={16} />}
-                    />
+                    <Box key={s.key} sx={{ display: "inline-flex", alignItems: "center" }}>
+                      <Chip
+                        label={
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <span>{`${s.label} (${s.key})`}</span>
+                            {hiddenCount > 0 && (
+                              <Chip
+                                size="small"
+                                label={t("metamodel.typeDrawer.hiddenFieldCount", { count: hiddenCount })}
+                                color="warning"
+                                sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        onClick={() => openSubtypeTemplate(s.key)}
+                        onDelete={() => handleRemoveSubtype(s.key)}
+                        variant={editingSubtypeKey === s.key ? "filled" : "outlined"}
+                        color={editingSubtypeKey === s.key ? "primary" : "default"}
+                        size="small"
+                        icon={<MaterialSymbol icon="tune" size={16} />}
+                      />
+                      <Tooltip title={t("metamodel.typeDrawer.renameSubtype")}>
+                        <IconButton
+                          size="small"
+                          aria-label={t("metamodel.typeDrawer.renameSubtypeNamed", { name: s.label })}
+                          onClick={() => startRenameSubtype(s.key, s.label)}
+                        >
+                          <MaterialSymbol icon="edit" size={15} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   );
                 })}
               </Box>

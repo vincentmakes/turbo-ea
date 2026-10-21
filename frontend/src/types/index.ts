@@ -170,6 +170,9 @@ export interface FieldOption {
   // dialog opened (so its key is locked). Stripped before persisting — never
   // sent to or stored by the backend.
   _original?: boolean;
+  // Transient, editor-only: a stable React key for the option's row, so a
+  // reordered row keeps its own input state (#1292). Stripped like `_original`.
+  _rowId?: number;
 }
 
 export type BuiltInFieldType =
@@ -198,10 +201,10 @@ export interface FieldDef {
   group?: string;
   column?: 0 | 1;
   translations?: TranslationMap;
-  // Collapsible helper text shown under the field during data entry. Authorable
-  // only when an extension grants `metamodel.field_help`; rendering is
-  // unconditional. `help` is the base (English) string; `helpTranslations` maps
-  // locale → localized help.
+  // Collapsible helper text shown under the field during data entry, authored
+  // in the field editor by any metamodel admin (core since 2.174.0, #1297).
+  // `help` is the base (English) string; `helpTranslations` maps locale →
+  // localized help.
   help?: string;
   helpTranslations?: TranslationMap;
   // Optional visual "badge" chip shown next to the field label, and the basis

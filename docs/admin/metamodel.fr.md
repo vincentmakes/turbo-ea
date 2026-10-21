@@ -64,7 +64,8 @@ Les champs définissent les attributs personnalisés disponibles sur les fiches 
 | **Clé** | Identifiant unique du champ |
 | **Libellé** | Nom d'affichage |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Un pourcentage est un nombre de 0 à 100, affiché sous forme de barre de progression et modifié avec un curseur ou saisi exactement. Un booléen se choisit dans une liste Oui / Non, **Aucun** l'efface ; il s'affiche sous forme de pastille verte *Oui* ou bleue *Non*, ou sous la forme — s'il n'est pas renseigné, ce que le filtre **(vide)** de l'inventaire retrouve |
-| **Options** | Pour les champs de sélection : les choix disponibles avec libellés et couleurs optionnelles |
+| **Options** | Pour les champs de sélection : les choix disponibles avec libellés et couleurs optionnelles. Réordonnez-les avec les flèches haut et bas à côté de chaque option : les menus et les filtres listent les options dans cet ordre, et les puces d'une valeur à choix multiple le suivent sur chaque fiche. |
+| **Texte d'aide** | Conseil facultatif affiché sous forme de note repliable sous le champ pendant l'édition d'une fiche. Il se rédige par langue et peut être défini par tout administrateur du métamodèle ; sur un champ apporté par une extension, il est en lecture seule |
 | **Obligatoire** | Si le champ est obligatoire — voir les règles d'application ci-dessous |
 | **Qualité des données** | La contribution de chaque champ au score est gérée dans le panneau **Qualité des données** (voir ci-dessous) |
 | **Lecture seule** | Empêche la modification manuelle (utile pour les champs calculés) |
@@ -81,6 +82,7 @@ Les champs sont organisés en **sections** sur la page de détail des fiches. Vo
 - Définir les sections en disposition **1 colonne** ou **2 colonnes**
 - Organiser les champs en **groupes** au sein d'une section (rendus comme des sous-en-tetes repliables)
 - Réorganiser les champs au sein d'une section par glisser-déposer, et déplacer un champ vers une autre section via son action **déplacer**
+- Sortir un champ de son groupe en le déposant sur la zone **Déposez ici pour sortir un champ de son groupe**, en bas de chaque colonne qui contient un groupe — le champ arrive à la fin de cette colonne, hors groupe
 
 Le nom de section special `__description` ajoute les champs à la section Description de la page de détail des fiches.
 
@@ -128,6 +130,8 @@ Par exemple, le type Application a pour sous-types : Application Métier, Micros
 4. Les champs masqués sont exclus du score de qualité des données, de sorte que les utilisateurs ne sont pas pénalisés pour des champs qu'ils ne peuvent pas voir.
 
 Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas de sous-types), tous les champs sont visibles. Les champs masqués conservent leurs données — si le sous-type d'une fiche change, les valeurs précédemment masquées sont préservées.
+
+**Renommer un sous-type :** cliquez sur le crayon à côté de sa puce, saisissez le nouveau libellé et appuyez sur Entrée (ou cliquez ailleurs) ; Échap annule. Seul le libellé change : la clé, que les fiches enregistrent, reste la même, et les traductions du sous-type (modifiées depuis l'icône de traduction de l'en-tête) restent telles quelles.
 
 #### Rôles de parties prenantes
 

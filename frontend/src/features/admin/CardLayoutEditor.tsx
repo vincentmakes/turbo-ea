@@ -349,14 +349,14 @@ function SortableGroupCard({
   onEditTranslations?: () => void;
 }) {
   const { t } = useTranslation(["admin"]);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
     id,
     data: { type: "group", groupName },
   });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
-
-  // Inner droppable for accepting fields when group is empty
-  const { setNodeRef: innerRef, isOver } = useDroppable({ id });
+  // `useSortable` registers the card as a droppable under its own id, which is
+  // what accepts a field dropped into the group (empty or not). A second
+  // `useDroppable` under the SAME id used to shadow it with the body's rect.
 
   const [renaming, setRenaming] = useState(false);
   const [rname, setRname] = useState(groupName);
@@ -421,8 +421,8 @@ function SortableGroupCard({
             </Tooltip>
           )}
         </Box>
-        {/* Group body (droppable) */}
-        <Box ref={innerRef} sx={{ p: 0.75, minHeight: 40 }}>
+        {/* Group body */}
+        <Box sx={{ p: 0.75, minHeight: 40 }}>
           {children}
           {(!children || (Array.isArray(children) && (children as React.ReactNode[]).every(c => c == null))) && (
             <Typography variant="body2" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 1 }}>
@@ -431,6 +431,64 @@ function SortableGroupCard({
           )}
         </Box>
       </Box>
+    </Box>
+  );
+}
+
+// ── UngroupedDropZone ────────────────────────────────────────────
+
+/** Droppable id of a column's "Ungrouped fields" zone (#1286). */
+const UNGROUPED_PREFIX = "ungrouped:";
+const ungroupedZoneId = (colKey: string) => `${UNGROUPED_PREFIX}${colKey}`;
+/** The column a zone id belongs to, or undefined for any other id. */
+export function ungroupedZoneColumn(id: string): string | undefined {
+  return id.startsWith(UNGROUPED_PREFIX) ? id.slice(UNGROUPED_PREFIX.length) : undefined;
+}
+
+/**
+ * The "Ungrouped fields" zone a dragged FIELD is over, if any. It outranks a
+ * group the pointer is also inside, which is what lets a field leave its group
+ * (#1286). A dragged group gets none: it treats a zone as that zone's column.
+ */
+export function ungroupedZoneHit<T extends { id: UniqueIdentifier }>(
+  hits: T[],
+  activeType: unknown,
+): T | undefined {
+  if (activeType === "group") return undefined;
+  return hits.find((c) => ungroupedZoneColumn(String(c.id)) !== undefined);
+}
+
+/**
+ * Where a grouped field is dropped to take it OUT of its group (#1286). A
+ * column that holds only groups otherwise has no spot that is not inside a
+ * group, and the collision detection prefers a group whenever the pointer is
+ * over one, so the field could never leave. Rendered at the end of a column
+ * whenever that column contains at least one group.
+ */
+function UngroupedDropZone({ colKey }: { colKey: string }) {
+  const { t } = useTranslation(["admin"]);
+  const { setNodeRef, isOver } = useDroppable({
+    id: ungroupedZoneId(colKey),
+    data: { type: "ungrouped", column: colKey },
+  });
+  return (
+    <Box
+      ref={setNodeRef}
+      data-ungrouped-drop={colKey}
+      sx={{
+        mt: 0.75, py: 1.25, px: 1,
+        border: 2, borderStyle: "dashed", borderRadius: 1.5,
+        borderColor: isOver ? "primary.main" : "divider",
+        bgcolor: isOver ? "primary.50" : "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75,
+        color: "text.disabled",
+        transition: "border-color 0.2s, background-color 0.2s",
+      }}
+    >
+      <MaterialSymbol icon="move_up" size={16} color="inherit" />
+      <Typography variant="body2" color="inherit">
+        {t("cardLayout.ungroupedDropZone")}
+      </Typography>
     </Box>
   );
 }
@@ -555,10 +613,12 @@ function VisualFieldLayout({
 
   // Custom collision detection: prioritize groups (inner containers) over columns
   const collisionDetection: CollisionDetection = useCallback((args) => {
+    const activeType = args.active.data.current?.type;
     const pointer = pointerWithin(args);
     if (pointer.length > 0) {
+      const zoneHit = ungroupedZoneHit(pointer, activeType);
+      if (zoneHit) return [zoneHit];
       const groupHit = pointer.find((c) => String(c.id).startsWith("group:"));
-      const activeType = args.active.data.current?.type;
 
       if (groupHit && activeType !== "group") {
         const groupId = String(groupHit.id);
@@ -634,9 +694,12 @@ function VisualFieldLayout({
     const activeType = active.data.current?.type;
 
     if (activeType === "group") {
-      // Group movement: find source column, resolve target column
+      // Group movement: find source column, resolve target column (a
+      // column's Ungrouped zone stands for that column)
       const fromCol = findGroupColumn(activeStr);
-      const toCol = overStr.startsWith("col-") ? overStr : findGroupColumn(overStr);
+      const toCol =
+        ungroupedZoneColumn(overStr) ??
+        (overStr.startsWith("col-") ? overStr : findGroupColumn(overStr));
       if (!fromCol || !toCol || fromCol === toCol) return;
 
       setContainers((prev) => {
@@ -653,9 +716,12 @@ function VisualFieldLayout({
       return;
     }
 
-    // Field movement: use findContainer (returns group or column)
+    // Field movement: use findContainer (returns group or column). The
+    // "Ungrouped fields" zone stands for its column: the field leaves its group
+    // and lands at the end of the column (containersToFields writes group: undefined).
     const from = findContainer(activeStr);
-    const to = findContainer(overStr);
+    const zoneCol = ungroupedZoneColumn(overStr);
+    const to = zoneCol ?? findContainer(overStr);
     if (!from || !to || from === to) return;
 
     setContainers((prev) => {
@@ -665,7 +731,12 @@ function VisualFieldLayout({
       if (activeIdx === -1) return prev;
       fromItems.splice(activeIdx, 1);
       const overIdx = toItems.indexOf(overStr);
-      const insertAt = overStr in prev ? toItems.length : (overIdx >= 0 ? overIdx : toItems.length);
+      const insertAt =
+        zoneCol !== undefined || overStr in prev
+          ? toItems.length
+          : overIdx >= 0
+            ? overIdx
+            : toItems.length;
       toItems.splice(insertAt, 0, activeStr);
       return { ...prev, [from]: fromItems, [to]: toItems };
     });
@@ -851,6 +922,10 @@ function VisualFieldLayout({
     });
   };
 
+  // A column shows the "Ungrouped fields" zone once it holds a group (#1286).
+  const hasGroup = (colKey: string) =>
+    (containers[colKey] || []).some((id) => id.startsWith("group:"));
+
   // Determine what the active dragged item is for the DragOverlay
   const activeField = activeId && !String(activeId).startsWith("group:") ? fieldMap.get(String(activeId)) : null;
   const activeGroup = activeId && String(activeId).startsWith("group:") ? String(activeId).slice(6) : null;
@@ -908,6 +983,7 @@ function VisualFieldLayout({
           <SortableContext id="col-0" items={containers["col-0"] || []} strategy={verticalListSortingStrategy}>
             <DroppableColumn id="col-0" label={t("cardLayout.column1")} isEmpty={(containers["col-0"] || []).length === 0}>
               {renderItems("col-0")}
+              {hasGroup("col-0") && <UngroupedDropZone colKey="col-0" />}
             </DroppableColumn>
           </SortableContext>
 
@@ -916,6 +992,7 @@ function VisualFieldLayout({
             <SortableContext id="col-1" items={containers["col-1"] || []} strategy={verticalListSortingStrategy}>
               <DroppableColumn id="col-1" label={t("cardLayout.column2")} isEmpty={(containers["col-1"] || []).length === 0}>
                 {renderItems("col-1")}
+                {hasGroup("col-1") && <UngroupedDropZone colKey="col-1" />}
               </DroppableColumn>
             </SortableContext>
           )}
