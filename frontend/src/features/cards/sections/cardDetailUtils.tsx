@@ -160,11 +160,16 @@ export function FieldHelp({ text }: { text: string }) {
           alignItems: "center",
           gap: 0.25,
           color: "primary.main",
-          "&:hover": { textDecoration: "underline" },
         }}
       >
         <MaterialSymbol icon="help" size={14} />
-        <Typography variant="caption" component="span">
+        {/* The hover underline belongs to the caption alone: set on the button
+            it ran under the question mark and the chevron too. */}
+        <Typography
+          variant="caption"
+          component="span"
+          sx={{ "button:hover > &": { textDecoration: "underline" } }}
+        >
           {t("cards:utils.fieldHelp")}
         </Typography>
         <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={14} />

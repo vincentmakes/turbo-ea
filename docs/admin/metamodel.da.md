@@ -198,6 +198,7 @@ Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Over
 - **Hierarkiske forbindelsestyper** — Etiketter for hver hierarkisk forbindelsestype
 - **Sektioner** — Sektionsoverskrifter på kortdetaljesiden
 - **Felter** — Feltetiketter og udvælgelsesindstillingsetiketter
+- **Hjælpetekst** — Et felts hjælpetekst, vist under feltet, når den er indtastet i felteditoren. Redigeres den på engelsk, opdateres feltets standardhjælpetekst også
 - **Interessentroller** — Rollenavne vist i interessenttildelings-UI'et
 
 Oversættelser gemmes sammen med hver korttype og opløses ved render-tid ved hjælp af brugerens valgte lokalitet. Uoversatte etiketter falder tilbage til den engelske standard.

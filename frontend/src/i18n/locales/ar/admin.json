@@ -1339,6 +1339,7 @@
   "metamodel.translationDialog.saveFailed": "تعذّر حفظ الترجمات. يرجى المحاولة مرة أخرى.",
   "metamodel.translationDialog.hierarchyLabels": "أنواع الروابط الهرمية",
   "metamodel.translationDialog.hierarchyLabelsHint": "تُترجَم أسماء أنواع الروابط هنا أيضًا. أما الإنجليزية فهي الاسم في المفردات نفسها — عدّله حيث تُعرَّف أنواع الروابط.",
+  "metamodel.translationDialog.fieldHelp": "نص المساعدة",
   "metamodel.principles.description": "حدّد مبادئ الهندسة التي تحكم مشهد تقنية المعلومات لديك. تُستخدم المبادئ النشطة بواسطة رؤى محفظة الذكاء الاصطناعي لتقييم محفظة تطبيقاتك.",
   "metamodel.principles.add": "مبدأ جديد",
   "metamodel.principles.empty": "لم يتم تعريف مبادئ هندسة المؤسسة بعد. أضف مبادئ لتوجيه قرارات هندستك.",

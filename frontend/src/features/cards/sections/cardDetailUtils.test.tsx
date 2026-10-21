@@ -84,6 +84,62 @@ describe("collapsible field help", () => {
     expect(screen.getByText("Enter the legal name.")).toBeInTheDocument();
   });
 
+  it("opens and closes the guidance from the toggle", () => {
+    // fireEvent, not userEvent.setup(): setup() replaces navigator.clipboard
+    // with a getter-only stub, which breaks the CardIdPill copy test below.
+    render(
+      <FieldEditor
+        field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Help/ });
+    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(within(toggle).getByText("expand_less")).toBeInTheDocument();
+    expect(screen.getByText("Enter the legal name.")).toBeVisible();
+    fireEvent.click(toggle);
+    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
+  });
+
+  it("underlines only the caption on hover, never the icons", () => {
+    render(
+      <FieldEditor
+        field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Help/ });
+    const caption = within(toggle).getByText("Help");
+    const icons = [within(toggle).getByText("help"), within(toggle).getByText("expand_more")];
+    // The caption is its own element, a direct child of the button, which is
+    // what the `button:hover > &` rule needs; the icons are its siblings.
+    expect(caption.parentElement).toBe(toggle);
+    for (const icon of icons) expect(icon.parentElement).toBe(toggle);
+
+    // Emotion injects each rule as text; read them back.
+    const css = Array.from(document.querySelectorAll("style"))
+      .map((el) => el.textContent ?? "")
+      .join("\n");
+    const rulesFor = (el: Element) =>
+      Array.from(el.classList)
+        .filter((c) => c.startsWith("css-"))
+        .flatMap((c) => css.split("}").filter((rule) => rule.includes(`.${c}`)));
+    const captionRules = rulesFor(caption);
+    expect(
+      captionRules.some((r) => /button:hover\s*>\s*\.css-/.test(r) && /text-decoration:\s*underline/.test(r)),
+    ).toBe(true);
+    // The button itself carries no underline any more, so nothing under the
+    // icons can inherit one.
+    expect(rulesFor(toggle).some((r) => /underline/.test(r))).toBe(false);
+    for (const icon of icons) {
+      expect(rulesFor(icon).some((r) => /underline/.test(r))).toBe(false);
+      expect((icon as HTMLElement).style.textDecoration).toBe("");
+    }
+  });
+
   it("shows no help affordance when the field has none", () => {
     render(
       <FieldEditor field={{ key: "name", label: "Name", type: "text" }} value="" onChange={() => {}} />,

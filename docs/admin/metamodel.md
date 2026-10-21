@@ -200,6 +200,7 @@ Click the **Translate** button in the type drawer toolbar to open the **Translat
 - **Hierarchy link types** — Labels for each hierarchy link type
 - **Sections** — Section headings on the card detail page
 - **Fields** — Field labels and select option labels
+- **Help text** — A field's help text, listed under the field once it has been entered in the field editor. Editing it in English also updates the field's default help
 - **Stakeholder Roles** — Role names displayed in the stakeholder assignment UI
 
 Translations are stored alongside each card type and are resolved at render time using the user's selected locale. Untranslated labels fall back to the English default.

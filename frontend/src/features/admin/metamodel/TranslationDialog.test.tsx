@@ -383,3 +383,187 @@ describe("TranslationDialog — closing and errors", () => {
     expect(api.get).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * A field's help text (#1297) is translated here too, under the field's label
+ * row, once it exists in some language. Its English text is the twin of the
+ * base `help`, exactly as an English label is of `label`.
+ */
+describe("TranslationDialog — field help text", () => {
+  const HELP_TYPE = {
+    ...CARD_TYPE,
+    fields_schema: [
+      {
+        section: "__description",
+        fields: [
+          {
+            key: "alias",
+            label: "Alias",
+            type: "text",
+            help: "Short name.",
+            helpTranslations: { en: "Short name." },
+          },
+        ],
+      },
+      {
+        section: "Details",
+        fields: [
+          {
+            key: "criticality",
+            label: "Criticality",
+            type: "single_select",
+            help: "How bad an outage is.",
+            helpTranslations: { de: "Wie schlimm ein Ausfall ist." },
+            options: [{ key: "high", label: "High" }],
+          },
+          { key: "owner", label: "Owner", type: "text" },
+          { key: "legacy", label: "Legacy", type: "text", help: "Who answers for it." },
+          // Help only in a translation, none in the base column.
+          {
+            key: "region",
+            label: "Region",
+            type: "text",
+            helpTranslations: { de: "Wo es läuft." },
+          },
+        ],
+      },
+    ],
+  } as unknown as CardType;
+
+  type PatchedField = {
+    key: string;
+    help?: string;
+    helpTranslations?: Record<string, string>;
+  };
+
+  /** The type PATCH as it goes over the wire (undefined keys dropped). */
+  async function patchedFields(): Promise<PatchedField[]> {
+    await waitFor(() => expect(api.patch).toHaveBeenCalled());
+    const call = vi
+      .mocked(api.patch)
+      .mock.calls.find(([path]) => path === "/metamodel/types/Application")!;
+    const body = JSON.parse(JSON.stringify(call[1])) as {
+      fields_schema: { fields: PatchedField[] }[];
+    };
+    return body.fields_schema.flatMap((s) => s.fields);
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.patch).mockResolvedValue({});
+  });
+
+  it("adds a help row only under fields that have help in some language", async () => {
+    renderDialog({ cardType: HELP_TYPE });
+    await screen.findByText("Fields — Details");
+
+    // One captioned row per field with help, in both field groups.
+    expect(screen.getAllByText("Help text")).toHaveLength(4);
+    // The English help is the reference; a field with only a base `help`
+    // falls back to it, and one with only a German translation has none.
+    expect(screen.getByPlaceholderText("Short name.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Who answers for it.")).toBeInTheDocument();
+    expect(screen.getByText("How bad an outage is.")).toHaveAttribute(
+      "title",
+      "How bad an outage is.",
+    );
+    // The help row is multiline; the label rows are not.
+    expect(screen.getByPlaceholderText("How bad an outage is.").tagName).toBe("TEXTAREA");
+    expect(screen.getByPlaceholderText("criticality").tagName).toBe("INPUT");
+  });
+
+  it("shows no help row for a type without help", async () => {
+    renderDialog({
+      cardType: {
+        ...CARD_TYPE,
+        fields_schema: [
+          { section: "Details", fields: [{ key: "owner", label: "Owner", type: "text" }] },
+        ],
+      } as unknown as CardType,
+    });
+    await screen.findByText("Fields — Details");
+    expect(screen.queryByText("Help text")).not.toBeInTheDocument();
+  });
+
+  it("writes a German edit into helpTranslations.de and leaves help alone", async () => {
+    const user = userEvent.setup();
+    renderDialog({ cardType: HELP_TYPE });
+    await user.click(await screen.findByRole("tab", { name: /Deutsch/ }));
+    await user.type(screen.getByPlaceholderText("Short name."), "Kurzname.");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const alias = (await patchedFields()).find((f) => f.key === "alias")!;
+    expect(alias.helpTranslations).toEqual({ en: "Short name.", de: "Kurzname." });
+    expect(alias.help).toBe("Short name.");
+  });
+
+  it("carries an English edit into the base help", async () => {
+    const user = userEvent.setup();
+    renderDialog({ cardType: HELP_TYPE });
+    await user.click(await screen.findByRole("tab", { name: /English/ }));
+
+    const aliasHelp = screen.getByDisplayValue("Short name.");
+    await user.clear(aliasHelp);
+    await user.type(aliasHelp, "Short alias.");
+    // A base-only help gets its first English translation here.
+    await user.type(screen.getByPlaceholderText("Who answers for it."), "Who is accountable.");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const fields = await patchedFields();
+    const alias = fields.find((f) => f.key === "alias")!;
+    expect(alias.help).toBe("Short alias.");
+    expect(alias.helpTranslations).toEqual({ en: "Short alias." });
+    const legacy = fields.find((f) => f.key === "legacy")!;
+    expect(legacy.help).toBe("Who is accountable.");
+    expect(legacy.helpTranslations).toEqual({ en: "Who is accountable." });
+  });
+
+  it("keeps untouched help intact and never sends an empty help map", async () => {
+    const user = userEvent.setup();
+    renderDialog({ cardType: HELP_TYPE });
+    await user.click(await screen.findByRole("button", { name: /^save$/i }));
+
+    const fields = await patchedFields();
+    const criticality = fields.find((f) => f.key === "criticality")!;
+    expect(criticality.help).toBe("How bad an outage is.");
+    expect(criticality.helpTranslations).toEqual({ de: "Wie schlimm ein Ausfall ist." });
+    const legacy = fields.find((f) => f.key === "legacy")!;
+    expect(legacy.help).toBe("Who answers for it.");
+    expect(legacy).not.toHaveProperty("helpTranslations");
+    const owner = fields.find((f) => f.key === "owner")!;
+    expect(owner).not.toHaveProperty("help");
+    expect(owner).not.toHaveProperty("helpTranslations");
+  });
+
+  it("keeps the row while its last translation is being retyped", async () => {
+    const user = userEvent.setup();
+    renderDialog({ cardType: HELP_TYPE });
+    await user.click(await screen.findByRole("tab", { name: /Deutsch/ }));
+
+    const regionHelp = screen.getByDisplayValue("Wo es läuft.");
+    await user.clear(regionHelp);
+    expect(screen.getAllByText("Help text")).toHaveLength(4);
+    expect(regionHelp).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const region = (await patchedFields()).find((f) => f.key === "region")!;
+    expect(region).not.toHaveProperty("helpTranslations");
+  });
+
+  it("counts each help text towards the locale's completeness", async () => {
+    const user = userEvent.setup();
+    renderDialog({ cardType: HELP_TYPE });
+    await screen.findByText("Fields — Details");
+
+    // 12 strings: label; alias + help; the Details name; criticality + help +
+    // its option; owner; legacy + help; region + help. English has the label
+    // and alias's help; German the label and two help texts.
+    const en = screen.getByRole("tab", { name: /English/ });
+    const de = screen.getByRole("tab", { name: /Deutsch/ });
+    await waitFor(() => expect(en).toHaveTextContent("2/12"));
+    expect(de).toHaveTextContent("3/12");
+
+    await user.click(de);
+    await user.type(screen.getByPlaceholderText("Short name."), "Kurzname.");
+    expect(de).toHaveTextContent("4/12");
+  });
+});

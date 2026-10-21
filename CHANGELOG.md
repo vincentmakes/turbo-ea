@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Field help text needs no extension**: every metamodel admin can now write a field's help text in the field editor; only custom field types still come from an extension ([#1297](https://github.com/vincentmakes/turbo-ea/issues/1297)).
+- **Help text is translated with the rest of the card type**: once a field has help text, the Translations dialog lists it under the field for every language, and an English edit there also updates the field's default help ([#1297](https://github.com/vincentmakes/turbo-ea/issues/1297)).
 
 ## [2.173.0] - 2026-10-21
 

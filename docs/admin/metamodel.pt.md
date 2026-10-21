@@ -199,6 +199,7 @@ Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abr
 - **Tipos de ligação hierárquica** — Rótulos para cada tipo de ligação hierárquica
 - **Seções** — Cabeçalhos de seção na página de detalhe do card
 - **Campos** — Rótulos de campos e rótulos de opções de seleção
+- **Texto de ajuda** — O texto de ajuda de um campo, listado sob o campo depois de ter sido inserido no editor de campos. Editá-lo em inglês também atualiza o texto de ajuda padrão do campo
 - **Papéis de stakeholder** — Nomes de papéis exibidos na interface de atribuição de stakeholders
 
 As traduções são armazenadas junto com cada tipo de card e são resolvidas no momento da renderização de acordo com o idioma selecionado pelo usuário. Rótulos não traduzidos recorrem ao padrão em inglês.

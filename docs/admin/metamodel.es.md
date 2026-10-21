@@ -199,6 +199,7 @@ Haga clic en el botón **Traducir** en la barra de herramientas del cajón de ti
 - **Tipos de vínculo jerárquico** — Etiquetas para cada tipo de vínculo jerárquico
 - **Secciones** — Encabezados de sección en la página de detalle de la ficha
 - **Campos** — Etiquetas de campos y etiquetas de opciones de selección
+- **Texto de ayuda** — El texto de ayuda de un campo, que aparece bajo el campo una vez introducido en el editor de campos. Editarlo en inglés también actualiza el texto de ayuda predeterminado del campo
 - **Roles de Parte Interesada** — Nombres de roles mostrados en la interfaz de asignación de stakeholders
 
 Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tiempo de renderizado según el idioma seleccionado por el usuario. Las etiquetas sin traducir recurren al valor predeterminado en inglés.

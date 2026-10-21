@@ -198,6 +198,7 @@ Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Dr
 - **Hierarchie-Verbindungstypen** — Bezeichnungen für jeden Hierarchie-Verbindungstyp
 - **Sektionen** — Abschnittsüberschriften auf der Kartendetailseite
 - **Felder** — Feldbezeichnungen und Auswahloptionsbezeichnungen
+- **Hilfetext** — Der Hilfetext eines Felds, unter dem Feld aufgeführt, sobald er im Feldeditor eingegeben wurde. Eine Änderung auf Englisch aktualisiert auch den Standard-Hilfetext des Felds
 - **Stakeholder-Rollen** — Rollennamen, die in der Stakeholder-Zuweisungs-UI angezeigt werden
 
 Übersetzungen werden zusammen mit jedem Kartentyp gespeichert und beim Rendern entsprechend der vom Benutzer ausgewählten Sprache aufgelöst. Nicht übersetzte Bezeichnungen fallen auf den englischen Standard zurück.

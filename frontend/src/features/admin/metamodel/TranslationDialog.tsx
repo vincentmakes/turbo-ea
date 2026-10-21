@@ -21,12 +21,30 @@ import { TranslationGroup, TranslationRow } from "./translationParts";
 import { cleanTranslationMap, cleanTranslations } from "./helpers";
 import type {
   CardType,
+  FieldDef,
   FieldOption,
   MetamodelTranslations,
   SectionDef,
   SubtypeDef,
   StakeholderRoleDefinitionFull,
 } from "@/types";
+
+/** A field's help text is translatable once it has one in any language. */
+function hasFieldHelp(f: FieldDef): boolean {
+  return (
+    !!f.help?.trim() || Object.values(f.helpTranslations || {}).some((v) => !!v?.trim())
+  );
+}
+
+/** Identifies a field across the dialog's working copy of `fields_schema`. */
+function fieldId(section: string, key: string): string {
+  return `${section}\u0000${key}`;
+}
+
+/** The help text an untranslated locale falls back to: English, else the base. */
+function helpReference(f: FieldDef): string {
+  return f.helpTranslations?.en || f.help || "";
+}
 
 /* ------------------------------------------------------------------ */
 /*  TranslationDialog                                                   */
@@ -97,6 +115,17 @@ export default function TranslationDialog({
     }
   }, [open, cardType]);
 
+  // Fields that get a help-text row: decided from the type as opened, not the
+  // working copy, so clearing the last translation while typing does not make
+  // the row vanish under the cursor.
+  const helpFieldIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const sec of cardType?.fields_schema || []) {
+      for (const f of sec.fields) if (hasFieldHelp(f)) ids.add(fieldId(sec.section, f.key));
+    }
+    return ids;
+  }, [cardType]);
+
   // --- Update helpers ---
 
   const updateTypeTranslation = useCallback(
@@ -154,6 +183,26 @@ export default function TranslationDialog({
                 fields: sec.fields.map((f, fi) =>
                   fi === fieldIdx
                     ? { ...f, translations: { ...f.translations, [locale]: value } }
+                    : f,
+                ),
+              }
+            : sec,
+        ),
+      );
+    },
+    [],
+  );
+
+  const updateFieldHelpTranslation = useCallback(
+    (secIdx: number, fieldIdx: number, locale: string, value: string) => {
+      setFieldsSchema((prev) =>
+        prev.map((sec, si) =>
+          si === secIdx
+            ? {
+                ...sec,
+                fields: sec.fields.map((f, fi) =>
+                  fi === fieldIdx
+                    ? { ...f, helpTranslations: { ...f.helpTranslations, [locale]: value } }
                     : f,
                 ),
               }
@@ -249,6 +298,10 @@ export default function TranslationDialog({
         sec.fields.forEach((f) => {
           total++;
           if (f.translations?.[locale]?.trim()) filled++;
+          if (helpFieldIds.has(fieldId(sec.section, f.key))) {
+            total++;
+            if (f.helpTranslations?.[locale]?.trim()) filled++;
+          }
           (f.options || []).forEach((o) => {
             total++;
             if (o.translations?.[locale]?.trim()) filled++;
@@ -273,6 +326,7 @@ export default function TranslationDialog({
     stakeholderRoles,
     cardType,
     visibleLocales,
+    helpFieldIds,
   ]);
 
   // --- Save ---
@@ -307,14 +361,25 @@ export default function TranslationDialog({
         fields_schema: fieldsSchema.map((sec) => ({
           ...sec,
           translations: cleanTranslationMap(sec.translations),
-          fields: sec.fields.map((f) => ({
-            ...f,
-            translations: cleanTranslationMap(f.translations),
-            options: f.options?.map((o) => ({
-              ...o,
-              translations: cleanTranslationMap(o.translations),
-            })),
-          })),
+          fields: sec.fields.map((f) => {
+            const helpTranslations = cleanTranslationMap(f.helpTranslations);
+            // Help text has the same English twin as a label: the base `help`
+            // is what an untranslated locale falls back to, so an English edit
+            // here carries into it. Unlike a label, a field may have no help
+            // at all — `cleanTranslationMap` then yields `undefined`, which the
+            // JSON body drops, so `helpTranslations: null` is never sent.
+            const englishHelp = helpTranslations?.en;
+            return {
+              ...f,
+              translations: cleanTranslationMap(f.translations),
+              helpTranslations,
+              ...(englishHelp && englishHelp !== f.help ? { help: englishHelp } : {}),
+              options: f.options?.map((o) => ({
+                ...o,
+                translations: cleanTranslationMap(o.translations),
+              })),
+            };
+          }),
         })),
       });
       // Save stakeholder role translations
@@ -345,6 +410,22 @@ export default function TranslationDialog({
   const visibleSections = fieldsSchema.filter((s) => s.section !== "__description");
   // Description section fields (if any)
   const descSection = fieldsSchema.find((s) => s.section === "__description");
+
+  // A field's help text, indented under its label row like its options, and
+  // only once the field has help in some language — there is nothing to
+  // translate before that, and the field editor is where it is first written.
+  const renderHelpRow = (f: FieldDef, secIdx: number, fi: number) =>
+    helpFieldIds.has(fieldId(fieldsSchema[secIdx].section, f.key)) ? (
+      <Box sx={{ pl: 3, borderLeft: 2, borderColor: "divider", ml: 1, mb: 0.5 }}>
+        <TranslationRow
+          multiline
+          caption={t("metamodel.translationDialog.fieldHelp")}
+          reference={helpReference(f)}
+          value={f.helpTranslations?.[activeLocale] || ""}
+          onChange={(v) => updateFieldHelpTranslation(secIdx, fi, activeLocale, v)}
+        />
+      </Box>
+    ) : null;
 
   return (
     <Dialog
@@ -542,6 +623,7 @@ export default function TranslationDialog({
                       value={f.translations?.[activeLocale] || ""}
                       onChange={(v) => updateFieldTranslation(secIdx, fi, activeLocale, v)}
                     />
+                    {renderHelpRow(f, secIdx, fi)}
                     {/* Options for this field */}
                     {(f.options || []).length > 0 && (
                       <Box sx={{ pl: 3, borderLeft: 2, borderColor: "divider", ml: 1, mb: 0.5 }}>
@@ -584,6 +666,7 @@ export default function TranslationDialog({
                       value={f.translations?.[activeLocale] || ""}
                       onChange={(v) => updateFieldTranslation(secIdx, fi, activeLocale, v)}
                     />
+                    {renderHelpRow(f, secIdx, fi)}
                     {/* Options indented under the field */}
                     {(f.options || []).length > 0 && (
                       <Box

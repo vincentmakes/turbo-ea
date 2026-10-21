@@ -199,6 +199,7 @@ Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour
 - **Types de lien hiérarchique** — Libellés pour chaque type de lien hiérarchique
 - **Sections** — En-têtes de section sur la page de détail de la fiche
 - **Champs** — Libellés des champs et des options de sélection
+- **Texte d'aide** — Le texte d'aide d'un champ, listé sous le champ dès qu'il a été saisi dans l'éditeur de champ. Le modifier en anglais met aussi à jour le texte d'aide par défaut du champ
 - **Rôles des parties prenantes** — Noms de rôles affichés dans l'interface d'attribution des parties prenantes
 
 Les traductions sont stockées avec chaque type de fiche et sont résolues au moment du rendu en fonction de la langue sélectionnée par l'utilisateur. Les libellés non traduits utilisent la valeur anglaise par défaut.

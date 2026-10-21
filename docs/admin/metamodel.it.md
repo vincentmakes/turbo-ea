@@ -199,6 +199,7 @@ Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tip
 - **Tipi di collegamento gerarchico** — Etichette per ogni tipo di collegamento gerarchico
 - **Sezioni** — Intestazioni delle sezioni nella pagina di dettaglio della card
 - **Campi** — Etichette dei campi e delle opzioni di selezione
+- **Testo di aiuto** — Il testo di aiuto di un campo, elencato sotto il campo una volta inserito nell'editor dei campi. Modificarlo in inglese aggiorna anche il testo di aiuto predefinito del campo
 - **Ruoli degli stakeholder** — Nomi dei ruoli visualizzati nell'interfaccia di assegnazione degli stakeholder
 
 Le traduzioni sono memorizzate insieme a ciascun tipo di card e vengono risolte al momento del rendering in base alla lingua selezionata dall'utente. Le etichette non tradotte utilizzano il valore predefinito in inglese.

@@ -16,15 +16,24 @@ import Typography from "@mui/material/Typography";
  * One translatable string: the source text on the left (also the placeholder,
  * so an untranslated field still shows what it will fall back to), the
  * translation input on the right.
+ *
+ * `multiline` is for prose (a field's help text): the input grows to a few
+ * lines and the source is clamped rather than cut to one line, with the full
+ * text still in its `title`. `caption` names what the row is — a small label
+ * above the source, so a sentence of prose is not read as a field key.
  */
 export function TranslationRow({
   reference,
   value,
   onChange,
+  multiline = false,
+  caption,
 }: {
   reference: string;
   value: string;
   onChange: (v: string) => void;
+  multiline?: boolean;
+  caption?: string;
 }) {
   return (
     <Box
@@ -32,30 +41,54 @@ export function TranslationRow({
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
         gap: 2,
-        alignItems: "center",
+        alignItems: multiline ? "start" : "center",
         py: 0.5,
       }}
     >
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontFamily: "monospace",
-          fontSize: 12,
-        }}
-        title={reference}
-      >
-        {reference}
-      </Typography>
+      <Box sx={{ minWidth: 0 }}>
+        {caption && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component="div"
+            sx={{ fontWeight: 600, lineHeight: 1.4 }}
+          >
+            {caption}
+          </Typography>
+        )}
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={
+            multiline
+              ? {
+                  fontSize: 12,
+                  overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  whiteSpace: "pre-wrap",
+                }
+              : {
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                }
+          }
+          title={reference}
+        >
+          {reference}
+        </Typography>
+      </Box>
       <TextField
         size="small"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={reference}
         fullWidth
+        {...(multiline ? { multiline: true, minRows: 2, maxRows: 6 } : {})}
       />
     </Box>
   );
