@@ -13,6 +13,7 @@ from app.services.mutation_batch_service import (
     CONFIRM_TOKEN_TTL,
     CONFIRMED_BATCH_KEY,
     close_summary,
+    commit_batch,
     issue_confirm_token,
     issues_token,
     mark_token_used,
@@ -255,6 +256,27 @@ def test_close_summary_keeps_the_single_use_stamp():
         CONFIRMED_BATCH_KEY: "B-2",
     }
     assert close_summary(None, {"status": "ok"}) == {"status": "ok"}
+
+
+async def test_commit_batch_closes_over_the_stored_summary():
+    """``commit_batch`` must hand the batch's *stored* summary to
+    ``close_summary``: a preview closed after its token was spent keeps the
+    stamp, and one closed with no summary keeps what it had."""
+    flushed: list[bool] = []
+
+    class _Db:
+        async def flush(self):
+            flushed.append(True)
+
+    stamped = _batch(summary={"rows": 52, CONFIRMED_BATCH_KEY: "B-2"})
+    await commit_batch(_Db(), stamped, summary={"rows": 52, "would_update": 52})
+    assert stamped.summary == {"rows": 52, "would_update": 52, CONFIRMED_BATCH_KEY: "B-2"}
+    assert stamped.committed_at is not None
+
+    untouched = _batch(summary={"rows": 3})
+    await commit_batch(_Db(), untouched, summary=None)
+    assert untouched.summary == {"rows": 3}
+    assert flushed == [True, True]
 
 
 # ── Auto-batch skiplist ──────────────────────────────────────────────────

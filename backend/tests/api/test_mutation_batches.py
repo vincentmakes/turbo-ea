@@ -113,8 +113,13 @@ async def test_closing_ignores_a_wrong_token_in_the_body(client, admin_user):
 async def test_a_commit_above_the_threshold_needs_a_token(client, admin_user):
     resp = await _open(client, admin_user, rows=21, dry_run=False)
     assert resp.status_code == 400
-    assert resp.json()["detail"].startswith("confirm_token_required:")
-    assert "above 20 rows" in resp.json()["detail"]
+    # The MCP client surfaces this text verbatim to the agent, so it is
+    # pinned whole: it tells the agent exactly what to do next.
+    assert resp.json()["detail"] == (
+        "confirm_token_required: a commit above 20 rows needs the confirm_token "
+        "returned by a dry-run of the same tool. Re-run with dry_run=True, show "
+        "the preview, then pass its confirm_token."
+    )
 
 
 @pytest.mark.asyncio
@@ -128,8 +133,38 @@ async def test_a_commit_at_the_threshold_needs_nothing(client, admin_user):
 async def test_a_made_up_token_is_refused(client, admin_user):
     resp = await _open(client, admin_user, rows=52, dry_run=False, token="made-up-token")
     assert resp.status_code == 400
-    assert resp.json()["detail"].startswith("confirm_token_invalid: unknown")
-    assert "no dry-run issued this token" in resp.json()["detail"]
+    assert resp.json()["detail"] == (
+        "confirm_token_invalid: unknown (no dry-run issued this token). Re-run the "
+        "dry-run to obtain a fresh token (tokens are single-use and expire 15 minutes "
+        "after issue)."
+    )
+
+
+@pytest.mark.asyncio
+async def test_closing_a_spent_preview_keeps_its_stamp(client, admin_user, db):
+    """The wrapper closes the preview after the commit's batch opened when the
+    agent's own close call arrives late; replacing the summary then would
+    make the token reusable."""
+    opened = await _open(client, admin_user, rows=52, dry_run=True)
+    preview_id, token = opened.json()["id"], opened.json()["confirm_token"]
+    real = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert real.status_code == 201, real.text
+
+    closed = await client.post(
+        f"/api/v1/mutation-batches/{preview_id}/commit",
+        json={"summary": {"rows": 52, "would_update": 52}},
+        headers=auth_headers(admin_user),
+    )
+    assert closed.status_code == 200, closed.text
+    assert closed.json()["summary"] == {
+        "rows": 52,
+        "would_update": 52,
+        "confirmed_batch_id": real.json()["id"],
+    }
+
+    again = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert again.status_code == 400
+    assert again.json()["detail"].startswith("confirm_token_invalid: already_used")
 
 
 @pytest.mark.asyncio
