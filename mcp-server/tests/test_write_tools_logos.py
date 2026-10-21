@@ -282,9 +282,7 @@ class TestSchema:
         mime = self._item_schema()["properties"]["mime"]
         # Tolerate either a flat enum or the anyOf a `Literal | None` yields,
         # so a pydantic minor cannot break this.
-        enum = mime.get("enum") or next(
-            b["enum"] for b in mime.get("anyOf", []) if "enum" in b
-        )
+        enum = mime.get("enum") or next(b["enum"] for b in mime.get("anyOf", []) if "enum" in b)
         assert set(enum) >= {"image/png", "image/jpeg", "image/webp", "image/gif"}
         assert "image/svg+xml" not in enum
         assert mime.get("default", "absent") is None
@@ -558,7 +556,6 @@ class TestGetCardLogo:
         assert _parse(out)["status"] == "no_logo"
 
 
-
 class TestUnknownIconSlugIsActionable:
     """A slug the pack lacks must send the agent to fetch it, not stop it.
 
@@ -587,9 +584,7 @@ class TestUnknownIconSlugIsActionable:
         post, multipart = self._commit(error)
         with (
             patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
-            patch.object(
-                server.TurboEAClient, "post_multipart", AsyncMock(side_effect=multipart)
-            ),
+            patch.object(server.TurboEAClient, "post_multipart", AsyncMock(side_effect=multipart)),
         ):
             out = await server.set_card_logos(
                 items=[{"card_id": "c1", "icon_slug": "acme-corp"}],
@@ -621,9 +616,7 @@ class TestUnknownIconSlugIsActionable:
             raise RuntimeError("connection refused")
 
         with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=unreachable)):
-            out = _parse(
-                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
-            )
+            out = _parse(await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}]))
         assert "image_base64" in out["note"]
 
     @pytest.mark.asyncio
@@ -702,9 +695,7 @@ class TestDryRunIconSlugCheck:
 
     @pytest.mark.asyncio
     async def test_the_note_tells_the_agent_to_go_and_fetch_them(self, fake_token):
-        with patch.object(
-            server.TurboEAClient, "get", AsyncMock(side_effect=self._get(known={}))
-        ):
+        with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self._get(known={}))):
             out = _parse(
                 await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "acme"}])
             )
@@ -718,9 +709,7 @@ class TestDryRunIconSlugCheck:
             "get",
             AsyncMock(side_effect=self._get(known={"sap": "logos:sap"})),
         ):
-            out = _parse(
-                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
-            )
+            out = _parse(await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}]))
         assert out["would_set"] == 1
         assert out["unknown_icon_slugs"] == []
         assert out["icon_check"]["resolved"] == {"sap": "logos:sap"}
@@ -755,17 +744,13 @@ class TestDryRunIconSlugCheck:
             raise RuntimeError("404: Not Found")
 
         with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get_router)):
-            out = _parse(
-                await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}])
-            )
+            out = _parse(await server.set_card_logos(items=[{"card_id": "c1", "icon_slug": "sap"}]))
         assert out["would_set"] == 1
         assert out["icon_check"]["status"] == "unavailable"
         assert "image_base64" in out["note"]
 
     @pytest.mark.asyncio
-    async def test_a_slug_that_is_not_a_ref_at_all_lands_on_the_unknown_side(
-        self, fake_token
-    ):
+    async def test_a_slug_that_is_not_a_ref_at_all_lands_on_the_unknown_side(self, fake_token):
         """Membership is read off `known`, not off `unknown`.
 
         The request joins refs with a comma, so a value carrying one would be
@@ -881,9 +866,7 @@ class TestChunkedCardLookups:
         assert out["would_set"] == 5
 
     @pytest.mark.asyncio
-    async def test_set_preview_batches_the_slug_check_and_merges_the_answers(
-        self, fake_token
-    ):
+    async def test_set_preview_batches_the_slug_check_and_merges_the_answers(self, fake_token):
         calls, router = self._recording_get()
         rows = [{"card_id": f"c{i}", "icon_slug": f"s{i}"} for i in range(1, 4)]
         with patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=router)):
@@ -897,3 +880,63 @@ class TestChunkedCardLookups:
         assert out["icon_check"]["status"] == "ok"
         assert out["icon_check"]["unknown"] == []
         assert set(out["icon_check"]["resolved"]) == {"s1", "s2", "s3"}
+
+
+class TestClearLogosPreviewHelper:
+    """``_clear_logos_preview`` is the plain function behind the dry run, so
+    its whole return value is pinned here: every key and every status string
+    is what an agent reads back, and a renamed key would be a silent
+    regression (the tool above only samples them)."""
+
+    @staticmethod
+    def _client(items: list[dict] | None = None, exc: Exception | None = None):
+        seen: list[str | None] = []
+
+        class Fake:
+            def __init__(self, token):
+                seen.append(token)
+
+            async def get_cards_by_ids(self, ids):
+                if exc is not None:
+                    raise exc
+                return items or []
+
+        return Fake, seen
+
+    @pytest.mark.asyncio
+    async def test_reports_each_card_by_what_the_lookup_found(self):
+        fake, seen = self._client(
+            items=[
+                {"id": "c1", "logo_updated_at": "2026-08-28T10:00:00Z"},
+                {"id": "c2", "logo_updated_at": None},
+            ]
+        )
+        with patch.object(server, "TurboEAClient", fake):
+            out = await server._clear_logos_preview("tok-1", ["c1", "c2", "c-gone"])
+        # The lookup runs under the caller's token, never an anonymous client.
+        assert seen == ["tok-1"]
+        assert out == {
+            "dry_run": True,
+            "would_clear": 1,
+            "results": [
+                {"card_id": "c1", "status": "would_clear"},
+                {"card_id": "c2", "status": "no_logo"},
+                {"card_id": "c-gone", "status": "unknown_card_id"},
+            ],
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_failed_lookup_marks_every_card_unknown_and_says_why(self):
+        fake, seen = self._client(exc=RuntimeError("backend down"))
+        with patch.object(server, "TurboEAClient", fake):
+            out = await server._clear_logos_preview("tok-2", ["a", "b"])
+        assert seen == ["tok-2"]
+        assert out == {
+            "dry_run": True,
+            "would_clear": 2,
+            "results": [
+                {"card_id": "a", "status": "unknown"},
+                {"card_id": "b", "status": "unknown"},
+            ],
+            "note": "Could not check which cards carry a logo: backend down",
+        }
