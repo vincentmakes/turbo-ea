@@ -298,7 +298,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
           anchor="right"
           variant="persistent"
           open={open}
-          slotProps={{ transition: { mountOnEnter: true, unmountOnExit: true } }}
+          slotProps={{ transition: { unmountOnExit: true } }}
           PaperProps={{
             // No Modal ⇒ no built-in Escape handling. Only a keydown that
             // started inside the panel reaches here, and a nested dialog, menu

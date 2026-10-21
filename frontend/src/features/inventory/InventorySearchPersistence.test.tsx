@@ -121,6 +121,17 @@ function OpenCardLink() {
   );
 }
 
+/** The toolbar's global search: a navigation to `/inventory?search=` while
+ * the page is already mounted. */
+function GoToSearchLink() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate("/inventory?search=erp")}>
+      Search ERP
+    </button>
+  );
+}
+
 function mount(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
@@ -130,6 +141,7 @@ function mount(url: string) {
           element={
             <>
               <OpenCardLink />
+              <GoToSearchLink />
               <InventoryPage />
             </>
           }
@@ -160,6 +172,17 @@ describe("Inventory — the search survives Back from a card (#1287)", () => {
     mount("/inventory?search=erp");
     await waitFor(() => expect(lastCardsRequest()).toContain("search=erp"));
     expect(searchBox().value).toBe("erp");
+  });
+
+  it("applies a ?search= that arrives while the page is already open", async () => {
+    seedSearch("sap");
+    mount("/inventory");
+    await waitFor(() => expect(lastCardsRequest()).toContain("search=sap"));
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Search ERP" }));
+
+    await waitFor(() => expect(searchBox().value).toBe("erp"));
+    await waitFor(() => expect(lastCardsRequest()).toContain("search=erp"));
   });
 
   it("still shows the typed search after opening a card and pressing Back", async () => {

@@ -138,6 +138,14 @@ describe("CardDetailSidePanel — nonModal", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("ignores every key but Escape inside the panel", async () => {
+    const { onClose } = mount({ nonModal: true });
+    await screen.findByTestId("card-content");
+    closeButton().focus();
+    await userEvent.keyboard("a{Tab}{ArrowDown}");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("unmounts its content once closed, as the modal drawer does", async () => {
     const { rerenderOpen } = mount({ nonModal: true });
     await screen.findByTestId("card-content");
