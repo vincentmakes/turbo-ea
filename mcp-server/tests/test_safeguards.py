@@ -17,6 +17,7 @@ Covers:
 
 from __future__ import annotations
 
+import base64
 import json
 import pathlib
 from unittest.mock import AsyncMock, patch
@@ -24,6 +25,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from turbo_ea_mcp import server
+from turbo_ea_mcp.batches import BatchContext, mutation_batch
 
 
 @pytest.fixture
@@ -95,6 +97,7 @@ class TestConfirmationGate:
             {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)
         ]
         write_calls: list = []
+        open_calls: list = []
         commit_calls: list = []
 
         async def router(path, json=None):
@@ -102,19 +105,421 @@ class TestConfirmationGate:
                 commit_calls.append(json)
                 return {"id": "b2", "committed_at": "now"}
             if path.startswith("/mutation-batches"):
-                return {"id": "b2", "dry_run": False}
+                open_calls.append(json)
+                # A real batch's open response echoes the token it presented.
+                return {"id": "b2", "dry_run": False, "confirm_token": "ECHOED-TOK"}
             write_calls.append((path, json))
             return {"results": [], "created": 3, "failed": 0, "dry_run": False}
 
         mock = AsyncMock(side_effect=router)
         with patch.object(server.TurboEAClient, "post", mock):
-            await server.create_cards_bulk(
+            out = await server.create_cards_bulk(
                 cards=rows, dry_run=False, confirm_token="ECHOED-TOK"
             )
         assert len(write_calls) == 1
-        # Token is echoed back on the commit call so the backend can
-        # match it against the batch row.
-        assert commit_calls[0]["confirm_token"] == "ECHOED-TOK"
+        # The token travels in the OPEN body — that is where the backend
+        # checks it against the dry-run that issued it, before any write.
+        assert open_calls == [
+            {"tool_name": "create_cards_bulk", "dry_run": False, "confirm_token": "ECHOED-TOK"}
+        ]
+        # ...and is not repeated on the close of a real batch, nor reported
+        # back as if it had been issued.
+        assert "confirm_token" not in commit_calls[0]
+        assert "confirm_token" not in _parse(out)
+
+
+# ── The wrapper's half of the token cycle (#1302) ───────────────────────────
+
+
+def _wrapper_router(open_response: object):
+    calls: list[tuple[str, dict | None]] = []
+
+    async def router(path, json=None):
+        calls.append((path, json))
+        if path.endswith("/commit"):
+            return {"id": "b1", "committed_at": "now"}
+        return open_response
+
+    return router, calls
+
+
+class TestMutationBatchWrapper:
+    @pytest.mark.asyncio
+    async def test_a_dry_run_is_closed_echoing_the_token_it_was_issued(self):
+        router, calls = _wrapper_router({"id": "b1", "confirm_token": "TOK-ISSUED"})
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            async with mutation_batch(
+                "t", tool_name="update_cards_bulk", row_count=52, dry_run=True
+            ) as batch:
+                assert batch.confirm_token_issued == "TOK-ISSUED"
+                batch.summary = {"rows": 52}
+        assert calls == [
+            (
+                "/mutation-batches?row_count=52",
+                {"tool_name": "update_cards_bulk", "dry_run": True},
+            ),
+            (
+                "/mutation-batches/b1/commit",
+                {"summary": {"rows": 52}, "confirm_token": "TOK-ISSUED"},
+            ),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_dry_run_without_a_token_closes_with_the_summary_alone(self):
+        router, calls = _wrapper_router({"id": "b1", "confirm_token": None})
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            async with mutation_batch(
+                "t", tool_name="create_risks", row_count=3, dry_run=True
+            ) as batch:
+                assert batch.confirm_token_issued is None
+        assert calls[1] == ("/mutation-batches/b1/commit", {"summary": {"status": "ok"}})
+
+    @pytest.mark.asyncio
+    async def test_a_real_batch_presents_its_token_on_open_not_on_close(self):
+        # The backend echoes a real batch's token in the open response; it
+        # was not issued here, so it is neither reported nor repeated.
+        router, calls = _wrapper_router({"id": "b1", "confirm_token": "TOK-ISSUED"})
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            async with mutation_batch(
+                "t",
+                tool_name="update_cards_bulk",
+                row_count=52,
+                dry_run=False,
+                confirm_token="TOK-ISSUED",
+            ) as batch:
+                assert batch.confirm_token_issued is None
+        assert calls[0][1] == {
+            "tool_name": "update_cards_bulk",
+            "dry_run": False,
+            "confirm_token": "TOK-ISSUED",
+        }
+        assert calls[1][1] == {"summary": {"status": "ok"}}
+
+    @pytest.mark.asyncio
+    async def test_an_errored_batch_is_closed_without_a_token_and_re_raises(self):
+        router, calls = _wrapper_router({"id": "b1", "confirm_token": "TOK-ISSUED"})
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)),
+            pytest.raises(RuntimeError, match="boom"),
+        ):
+            async with mutation_batch(
+                "t", tool_name="create_risks", row_count=30, dry_run=True
+            ):
+                raise RuntimeError("boom")
+        assert calls[1] == (
+            "/mutation-batches/b1/commit",
+            {"summary": {"status": "errored", "error": "boom"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_non_dict_open_response_yields_no_id_and_no_token(self):
+        router, _calls = _wrapper_router(["not", "a", "dict"])
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            async with mutation_batch(
+                "t", tool_name="create_risks", row_count=30, dry_run=True
+            ) as batch:
+                assert batch.batch_id is None
+                assert batch.open_response == {}
+                assert batch.confirm_token_issued is None
+
+    @pytest.mark.parametrize("value", ["", 123, None])
+    def test_only_a_non_empty_string_counts_as_issued(self, value):
+        ctx = BatchContext(token="t", batch_id="b", open_response={"confirm_token": value})
+        assert ctx.confirm_token_issued is None
+
+    def test_a_batch_defaults_to_dry_run_for_issued_tokens(self):
+        ctx = BatchContext(token="t", batch_id="b", open_response={"confirm_token": "X"})
+        assert ctx.confirm_token_issued == "X"
+        real = BatchContext(
+            token="t", batch_id="b", open_response={"confirm_token": "X"}, dry_run=False
+        )
+        assert real.confirm_token_issued is None
+
+
+# ── The six tools whose preview now opens a batch (#1302) ───────────────────
+
+_PNG_B64 = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32).decode()
+
+
+def _tool_call(tool: str, n: int, **kw):
+    """Call ``tool`` with ``n`` well-formed rows."""
+    if tool == "upsert_relations_bulk":
+        rows = [
+            {"row_index": i, "type": "uses", "source": {"id": f"s{i}"}, "target": {"id": f"t{i}"}}
+            for i in range(n)
+        ]
+        return server.upsert_relations_bulk(operations=rows, **kw)
+    if tool == "assign_stakeholders":
+        rows = [
+            {"action": "assign", "card_id": f"c{i}", "user_id": "u1", "role": "responsible"}
+            for i in range(n)
+        ]
+        return server.assign_stakeholders(operations=rows, **kw)
+    if tool == "create_risks":
+        return server.create_risks(risks=[{"title": f"r{i}"} for i in range(n)], **kw)
+    if tool == "update_risks":
+        rows = [{"risk_id": f"R-{i}", "title": "t"} for i in range(n)]
+        return server.update_risks(updates=rows, **kw)
+    if tool == "set_card_logos":
+        rows = [
+            {"card_id": f"c{i}", "image_base64": _PNG_B64, "mime": "image/png"}
+            for i in range(n)
+        ]
+        return server.set_card_logos(items=rows, **kw)
+    assert tool == "clear_card_logos"
+    return server.clear_card_logos(card_ids=[f"c{i}" for i in range(n)], **kw)
+
+
+# What each preview records on its dry-run batch for 3 rows (``_Backend``
+# reports every card as carrying a logo, and relations as all-zero counts).
+PREVIEW_SUMMARY = {
+    "upsert_relations_bulk": {"rows": 3, "upserted": 0, "deleted": 0, "failed": 0},
+    "assign_stakeholders": {"rows": 3, "status": "previewed"},
+    "create_risks": {"rows": 3, "status": "previewed"},
+    "update_risks": {"rows": 3, "status": "previewed"},
+    "set_card_logos": {"rows": 3, "would_set": 3},
+    "clear_card_logos": {"rows": 3, "would_clear": 3},
+}
+
+NEW_CYCLE_TOOLS = [
+    "upsert_relations_bulk",
+    "assign_stakeholders",
+    "create_risks",
+    "update_risks",
+    "set_card_logos",
+    "clear_card_logos",
+]
+
+
+class _Backend:
+    """Records every call a tool makes. A dry-run open above the threshold
+    (2 in these tests) is issued ``TOK-1``, as the backend would."""
+
+    def __init__(self) -> None:
+        self.posts: list[tuple[str, dict | None]] = []
+        self.writes: list[tuple[str, str]] = []
+
+    async def post(self, path, json=None):
+        self.posts.append((path, json))
+        if path.endswith("/commit"):
+            return {"id": "B-1", "committed_at": "now"}
+        if path.startswith("/mutation-batches"):
+            rows = int(path.split("row_count=")[1])
+            dry = (json or {}).get("dry_run")
+            resp = {"id": "B-1", "dry_run": dry}
+            if dry and rows > 2:
+                resp["confirm_token"] = "TOK-1"
+            return resp
+        return {
+            "results": [],
+            "upserted": 0,
+            "deleted": 0,
+            "failed": 0,
+            "id": "x",
+            "dry_run": (json or {}).get("dry_run", False),
+        }
+
+    async def get(self, path, params=None):
+        if path == "/cards":
+            ids = (params or {}).get("ids", "").split(",")
+            return {"items": [{"id": i, "type": "Application", "logo_updated_at": "x"} for i in ids]}
+        if path == "/metamodel/types":
+            return [{"key": "Application", "allow_card_logo": True}]
+        return {}
+
+    async def patch(self, path, json=None):
+        self.writes.append(("patch", path))
+        return {"id": path}
+
+    async def delete(self, path):
+        self.writes.append(("delete", path))
+        return {}
+
+    async def post_file(self, path, filename, content, mime, field="file"):
+        self.writes.append(("post_file", path))
+        return {"ok": True}
+
+    def non_batch_posts(self) -> list[str]:
+        return [p for p, _ in self.posts if not p.startswith("/mutation-batches")]
+
+    def patched(self):
+        return (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=self.post)),
+            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self.get)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=self.patch)),
+            patch.object(server.TurboEAClient, "delete", AsyncMock(side_effect=self.delete)),
+            patch.object(
+                server.TurboEAClient, "post_file", AsyncMock(side_effect=self.post_file)
+            ),
+        )
+
+
+async def _run(backend: _Backend, coro_factory):
+    p1, p2, p3, p4, p5 = backend.patched()
+    with p1, p2, p3, p4, p5:
+        return _parse(await coro_factory())
+
+
+@pytest.fixture
+def threshold_two(monkeypatch):
+    monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 2)
+    monkeypatch.setattr(server, "MCP_REQUIRE_DRYRUN_FIRST", True)
+
+
+class TestEveryBulkToolFollowsTheCycle:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", NEW_CYCLE_TOOLS)
+    async def test_a_commit_above_the_threshold_without_a_token_is_refused(
+        self, fake_token, threshold_two, tool
+    ):
+        backend = _Backend()
+        data = await _run(backend, lambda: _tool_call(tool, 3, dry_run=False))
+        assert data["error"] == "confirm_token_required"
+        assert data["tool"] == tool
+        assert data["received"] == 3
+        assert backend.posts == []
+        assert backend.writes == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", NEW_CYCLE_TOOLS)
+    async def test_a_dry_run_above_the_threshold_is_issued_a_token(
+        self, fake_token, threshold_two, tool
+    ):
+        backend = _Backend()
+        data = await _run(backend, lambda: _tool_call(tool, 3))
+        assert data["dry_run"] is True
+        assert data["confirm_token"] == "TOK-1"
+        assert data["batch_id"] == "B-1"
+        assert backend.posts[0] == (
+            "/mutation-batches?row_count=3",
+            {"tool_name": tool, "dry_run": True},
+        )
+        close_path, close_body = backend.posts[-1]
+        assert close_path == "/mutation-batches/B-1/commit"
+        assert close_body["confirm_token"] == "TOK-1"
+        assert close_body["summary"] == PREVIEW_SUMMARY[tool]
+        # A preview writes nothing: only relations ask the backend for one,
+        # and that request is itself a dry run.
+        assert backend.writes == []
+        expected = ["/relations/bulk"] if tool == "upsert_relations_bulk" else []
+        assert backend.non_batch_posts() == expected
+        if expected:
+            assert backend.posts[1][1]["dry_run"] is True
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", NEW_CYCLE_TOOLS)
+    async def test_a_dry_run_at_the_threshold_carries_no_token(
+        self, fake_token, threshold_two, tool
+    ):
+        backend = _Backend()
+        data = await _run(backend, lambda: _tool_call(tool, 2))
+        assert "confirm_token" not in data
+        assert data["batch_id"] == "B-1"
+        assert backend.posts[-1][0] == "/mutation-batches/B-1/commit"
+        assert "confirm_token" not in backend.posts[-1][1]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("tool", NEW_CYCLE_TOOLS)
+    async def test_a_commit_with_the_token_presents_it_when_its_batch_opens(
+        self, fake_token, threshold_two, tool
+    ):
+        backend = _Backend()
+        data = await _run(
+            backend, lambda: _tool_call(tool, 3, dry_run=False, confirm_token="TOK-1")
+        )
+        assert "error" not in data
+        assert backend.posts[0] == (
+            "/mutation-batches?row_count=3",
+            {"tool_name": tool, "dry_run": False, "confirm_token": "TOK-1"},
+        )
+        assert backend.posts[-1][0] == "/mutation-batches/B-1/commit"
+        assert "confirm_token" not in backend.posts[-1][1]
+        assert "confirm_token" not in data
+        assert backend.writes or backend.non_batch_posts()
+
+    @pytest.mark.asyncio
+    async def test_relations_run_open_write_close_with_the_batch_header(self, fake_token):
+        seen: list[tuple[str, str | None]] = []
+
+        async def router(self, path, json=None):
+            seen.append((path, self._batch_id))
+            if path.endswith("/commit"):
+                return {"id": "B-7", "committed_at": "now"}
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-7", "dry_run": False}
+            return {"results": [], "upserted": 1, "deleted": 0, "failed": 0}
+
+        with patch.object(server.TurboEAClient, "post", autospec=True, side_effect=router):
+            out = await _tool_call("upsert_relations_bulk", 1, dry_run=False)
+        assert seen == [
+            ("/mutation-batches?row_count=1", None),
+            ("/relations/bulk", "B-7"),
+            ("/mutation-batches/B-7/commit", None),
+        ]
+        data = _parse(out)
+        assert data["batch_id"] == "B-7"
+        assert data["upserted"] == 1
+
+    @pytest.mark.asyncio
+    async def test_relations_record_their_counts_on_the_batch(self, fake_token):
+        backend = _Backend()
+
+        async def post(path, json=None):
+            if path == "/relations/bulk":
+                backend.posts.append((path, json))
+                return {"results": [], "upserted": 4, "deleted": 1, "failed": 2}
+            return await backend.post(path, json)
+
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
+            await _tool_call("upsert_relations_bulk", 1, dry_run=False)
+        assert backend.posts[-1][1] == {
+            "summary": {"rows": 1, "upserted": 4, "deleted": 1, "failed": 2}
+        }
+
+    @pytest.mark.asyncio
+    async def test_clear_logos_lookup_failure_still_carries_the_token(
+        self, fake_token, threshold_two
+    ):
+        backend = _Backend()
+
+        async def failing_get(path, params=None):
+            raise RuntimeError("backend down")
+
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=backend.post)),
+            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=failing_get)),
+        ):
+            data = _parse(await _tool_call("clear_card_logos", 3))
+        assert data["confirm_token"] == "TOK-1"
+        assert data["batch_id"] == "B-1"
+        assert data["would_clear"] == 3
+        assert "backend down" in data["note"]
+        assert backend.posts[-1][1]["summary"] == {"rows": 3, "would_clear": 3}
+
+    @pytest.mark.asyncio
+    async def test_set_logos_preview_counts_every_row_asked_for(
+        self, fake_token, threshold_two
+    ):
+        # Two rows are dropped by the preview's type check; the batch still
+        # opens with all three so the commit (which skips that check) is not
+        # left without a token.
+        backend = _Backend()
+
+        async def get(path, params=None):
+            if path == "/cards":
+                ids = (params or {}).get("ids", "").split(",")
+                return {"items": [{"id": i, "type": "Off" if i != "c0" else "On"} for i in ids]}
+            return [{"key": "On", "allow_card_logo": True}, {"key": "Off"}]
+
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=backend.post)),
+            patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get)),
+        ):
+            data = _parse(await _tool_call("set_card_logos", 3))
+        assert data["would_set"] == 1
+        assert data["confirm_token"] == "TOK-1"
+        assert backend.posts[0][0] == "/mutation-batches?row_count=3"
+        assert backend.posts[-1][1]["summary"] == {"rows": 3, "would_set": 1}
 
 
 # ── Mutation-batch lifecycle (S1 + S6) ──────────────────────────────────────

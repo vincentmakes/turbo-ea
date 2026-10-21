@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-import pytest
+import uuid
+from datetime import datetime, timedelta, timezone
 
+import pytest
+from sqlalchemy import select
+
+from app.models.mutation_batch import MutationBatch
+from app.services.mutation_batch_service import CONFIRM_TOKEN_TTL
 from tests.conftest import auth_headers, create_user
 
 
@@ -35,41 +41,181 @@ async def test_open_dry_run_batch_above_threshold_issues_token(client, admin_use
     assert len(payload["confirm_token"]) >= 16
 
 
-@pytest.mark.asyncio
-async def test_commit_requires_matching_token_when_issued(client, admin_user):
-    open_resp = await client.post(
-        "/api/v1/mutation-batches?row_count=30",
-        json={"tool_name": "create_cards_bulk", "dry_run": True},
-        headers=auth_headers(admin_user),
+async def _open(client, user, *, rows, dry_run, tool="update_cards_bulk", token=None):
+    body: dict = {"tool_name": tool, "dry_run": dry_run}
+    if token is not None:
+        body["confirm_token"] = token
+    return await client.post(
+        f"/api/v1/mutation-batches?row_count={rows}",
+        json=body,
+        headers=auth_headers(user),
     )
-    batch_id = open_resp.json()["id"]
-    token = open_resp.json()["confirm_token"]
 
-    # Commit without the token → 400
-    resp_no_token = await client.post(
+
+async def _preview(client, user, *, rows=52, tool="update_cards_bulk") -> tuple[str, str]:
+    """Open and close a dry-run the way the MCP wrapper does; return
+    ``(batch_id, confirm_token)``."""
+    resp = await _open(client, user, rows=rows, dry_run=True, tool=tool)
+    assert resp.status_code == 201, resp.text
+    batch_id, token = resp.json()["id"], resp.json()["confirm_token"]
+    assert token
+    closed = await client.post(
         f"/api/v1/mutation-batches/{batch_id}/commit",
-        json={"summary": {"rows": 30, "status": "ok"}},
+        json={"summary": {"rows": rows, "would_update": rows}},
+        headers=auth_headers(user),
+    )
+    assert closed.status_code == 200, closed.text
+    return batch_id, token
+
+
+async def _load(db, batch_id) -> MutationBatch:
+    res = await db.execute(
+        select(MutationBatch)
+        .where(MutationBatch.id == uuid.UUID(str(batch_id)))
+        .execution_options(populate_existing=True)
+    )
+    return res.scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_a_dry_run_above_the_threshold_closes_without_a_token(client, admin_user):
+    """#1302: the preview was refused at close, so every dry-run above 20
+    rows failed with "Missing or invalid confirm_token"."""
+    open_resp = await _open(client, admin_user, rows=52, dry_run=True)
+    batch_id = open_resp.json()["id"]
+    assert open_resp.json()["confirm_token"]
+
+    resp = await client.post(
+        f"/api/v1/mutation-batches/{batch_id}/commit",
+        json={"summary": {"rows": 52, "would_update": 52}},
         headers=auth_headers(admin_user),
     )
-    assert resp_no_token.status_code == 400
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["committed_at"] is not None
+    assert resp.json()["summary"] == {"rows": 52, "would_update": 52}
 
-    # Commit with bogus token → 400
-    resp_bad = await client.post(
+
+@pytest.mark.asyncio
+async def test_closing_ignores_a_wrong_token_in_the_body(client, admin_user):
+    # An MCP server older than 2.175.1 still sends one; closing no longer
+    # checks it.
+    open_resp = await _open(client, admin_user, rows=30, dry_run=True)
+    batch_id = open_resp.json()["id"]
+    resp = await client.post(
         f"/api/v1/mutation-batches/{batch_id}/commit",
         json={"confirm_token": "not-the-right-token", "summary": {}},
         headers=auth_headers(admin_user),
     )
-    assert resp_bad.status_code == 400
+    assert resp.status_code == 200, resp.text
 
-    # Commit with the real token → 200, committed_at set
-    resp_ok = await client.post(
-        f"/api/v1/mutation-batches/{batch_id}/commit",
-        json={"confirm_token": token, "summary": {"rows": 30, "status": "ok"}},
-        headers=auth_headers(admin_user),
+
+@pytest.mark.asyncio
+async def test_a_commit_above_the_threshold_needs_a_token(client, admin_user):
+    resp = await _open(client, admin_user, rows=21, dry_run=False)
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_required:")
+    assert "above 20 rows" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_commit_at_the_threshold_needs_nothing(client, admin_user):
+    resp = await _open(client, admin_user, rows=20, dry_run=False)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["confirm_token"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_made_up_token_is_refused(client, admin_user):
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token="made-up-token")
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_invalid: unknown")
+    assert "no dry-run issued this token" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_the_preview_token_authorises_one_commit(client, admin_user, db):
+    preview_id, token = await _preview(client, admin_user)
+
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert resp.status_code == 201, resp.text
+    real_id = resp.json()["id"]
+    assert resp.json()["dry_run"] is False
+
+    real = await _load(db, real_id)
+    assert real.confirm_token == token
+    preview = await _load(db, preview_id)
+    # The preview keeps the summary its close recorded, plus the stamp.
+    assert preview.summary == {
+        "rows": 52,
+        "would_update": 52,
+        "confirmed_batch_id": real_id,
+    }
+
+    again = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert again.status_code == 400
+    assert again.json()["detail"].startswith("confirm_token_invalid: already_used")
+    assert "has already authorised a commit" in again.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_token_a_real_batch_carries_is_not_an_issuer(client, admin_user):
+    # The real batch stores the token as an audit cross-reference; it must
+    # never count as a preview in its own right.
+    _preview_id, token = await _preview(client, admin_user)
+    assert (await _open(client, admin_user, rows=52, dry_run=False, token=token)).status_code == 201
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert resp.json()["detail"].startswith("confirm_token_invalid: already_used")
+
+
+@pytest.mark.asyncio
+async def test_another_users_token_is_refused(client, admin_user, db, member_role):
+    _preview_id, token = await _preview(client, admin_user)
+    other = await create_user(db, email="token-thief@test.com", role="member")
+    resp = await _open(client, other, rows=52, dry_run=False, token=token)
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_invalid: wrong_actor")
+    assert "issued to another user" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_another_tools_token_is_refused(client, admin_user):
+    _preview_id, token = await _preview(client, admin_user, tool="update_cards_bulk")
+    resp = await _open(
+        client, admin_user, rows=52, dry_run=False, tool="archive_cards", token=token
     )
-    assert resp_ok.status_code == 200, resp_ok.text
-    assert resp_ok.json()["committed_at"] is not None
-    assert resp_ok.json()["summary"] == {"rows": 30, "status": "ok"}
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_invalid: wrong_tool")
+    assert "a dry-run of another tool" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_an_expired_token_is_refused(client, admin_user, db):
+    preview_id, token = await _preview(client, admin_user)
+    preview = await _load(db, preview_id)
+    preview.created_at = datetime.now(timezone.utc) - CONFIRM_TOKEN_TTL - timedelta(minutes=1)
+    await db.flush()
+
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token=token)
+    assert resp.status_code == 400
+    assert resp.json()["detail"].startswith("confirm_token_invalid: expired")
+    assert "older than 15 minutes" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_a_refused_open_creates_no_batch(client, admin_user, db):
+    from sqlalchemy import func
+
+    before = (await db.execute(select(func.count()).select_from(MutationBatch))).scalar_one()
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token="made-up-token")
+    assert resp.status_code == 400
+    after = (await db.execute(select(func.count()).select_from(MutationBatch))).scalar_one()
+    assert after == before
+
+
+@pytest.mark.asyncio
+async def test_a_too_long_token_is_a_validation_error(client, admin_user):
+    resp = await _open(client, admin_user, rows=52, dry_run=False, token="x" * 65)
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio

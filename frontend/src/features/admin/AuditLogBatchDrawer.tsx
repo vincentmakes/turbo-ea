@@ -114,7 +114,10 @@ export function statusOf(batch: AuditBatch): {
   key: "committed" | "dry_run" | "open";
   labelKey: string;
 } {
-  if (batch.dry_run && !batch.committed_at) {
+  // A preview is a dry run whether or not it has been closed: the MCP
+  // wrapper closes every batch, previews included, so `committed_at` on a
+  // dry run only means "the preview finished" (#1302).
+  if (batch.dry_run) {
     return { key: "dry_run", labelKey: "auditLog.statuses.dryRun" };
   }
   if (batch.committed_at)

@@ -25,7 +25,7 @@ from starlette.routing import Route
 
 from turbo_ea_mcp import oauth
 from turbo_ea_mcp.api_client import CARD_IDS_CHUNK, TurboEAClient, chunked
-from turbo_ea_mcp.batches import mutation_batch
+from turbo_ea_mcp.batches import BatchContext, mutation_batch
 from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_RELATION_DELETE,
@@ -1044,6 +1044,7 @@ def _translate_risk_row(
 async def create_risks(
     risks: list[dict],
     dry_run: bool = True,
+    confirm_token: str = "",
 ) -> str:
     """Create risks in the EA Risk Register.
 
@@ -1064,6 +1065,9 @@ async def create_risks(
         dry_run: When True (default), validate and translate without
             persisting. The preview shows the exact backend payloads a
             commit would send.
+        confirm_token: For commits above the per-call confirmation
+            threshold (default 20 rows), the ``confirm_token`` returned by
+            the prior dry-run (see ``create_cards_bulk``).
     """
     token = await _get_current_token()
     if not token:
@@ -1076,11 +1080,27 @@ async def create_risks(
         if err is not None:
             return _fmt(err)
         payloads.append(payload)
-    if dry_run:
-        return _fmt({"dry_run": True, "would_create": payloads, "count": len(payloads)})
+    if not dry_run:
+        gate = _confirmation_required_message("create_risks", len(payloads))
+        if gate is not None and not confirm_token:
+            return gate
     async with mutation_batch(
-        token, tool_name="create_risks", row_count=len(payloads), dry_run=False
+        token,
+        tool_name="create_risks",
+        row_count=len(payloads),
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
     ) as batch:
+        if dry_run:
+            batch.summary = {"rows": len(payloads), "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_create": payloads,
+                    "count": len(payloads),
+                    **_preview_fields(batch),
+                }
+            )
         client = batch.client()
         created: list[dict] = []
         for payload in payloads:
@@ -1092,7 +1112,11 @@ async def create_risks(
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
-async def update_risks(updates: list[dict], dry_run: bool = True) -> str:
+async def update_risks(
+    updates: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
     """Update risks in the EA Risk Register.
 
     Each row dict must include ``risk_id`` plus the fields to patch
@@ -1107,6 +1131,9 @@ async def update_risks(updates: list[dict], dry_run: bool = True) -> str:
         updates: List of update dicts.
         dry_run: When True (default), validate and translate without
             persisting.
+        confirm_token: For commits above the per-call confirmation
+            threshold (default 20 rows), the ``confirm_token`` returned by
+            the prior dry-run (see ``create_cards_bulk``).
     """
     token = await _get_current_token()
     if not token:
@@ -1129,23 +1156,33 @@ async def update_risks(updates: list[dict], dry_run: bool = True) -> str:
             return _fmt(err)
         links = u.get("linked_card_ids")
         rows.append((u["risk_id"], payload, list(links) if links is not None else None))
-    if dry_run:
-        return _fmt(
-            {
-                "dry_run": True,
-                "would_update": [
-                    {
-                        "risk_id": rid,
-                        **payload,
-                        **({"add_card_ids": links} if links else {}),
-                    }
-                    for rid, payload, links in rows
-                ],
-            }
-        )
+    if not dry_run:
+        gate = _confirmation_required_message("update_risks", len(rows))
+        if gate is not None and not confirm_token:
+            return gate
     async with mutation_batch(
-        token, tool_name="update_risks", row_count=len(rows), dry_run=False
+        token,
+        tool_name="update_risks",
+        row_count=len(rows),
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
     ) as batch:
+        if dry_run:
+            batch.summary = {"rows": len(rows), "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_update": [
+                        {
+                            "risk_id": rid,
+                            **payload,
+                            **({"add_card_ids": links} if links else {}),
+                        }
+                        for rid, payload, links in rows
+                    ],
+                    **_preview_fields(batch),
+                }
+            )
         client = batch.client()
         out: list[dict] = []
         for rid, payload, links in rows:
@@ -1503,7 +1540,11 @@ def _validate_stakeholder_ops(operations: list[dict]) -> tuple[list[dict], dict 
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
-async def assign_stakeholders(operations: list[dict], dry_run: bool = True) -> str:
+async def assign_stakeholders(
+    operations: list[dict],
+    dry_run: bool = True,
+    confirm_token: str = "",
+) -> str:
     """Assign or remove stakeholder roles on cards.
 
     Each op:
@@ -1520,6 +1561,9 @@ async def assign_stakeholders(operations: list[dict], dry_run: bool = True) -> s
         operations: List of op dicts.
         dry_run: When True (default), validate the op shapes and echo
             the planned ops without persisting.
+        confirm_token: For commits above the per-call confirmation
+            threshold (default 20 rows), the ``confirm_token`` returned by
+            the prior dry-run (see ``create_cards_bulk``).
     """
     token = await _get_current_token()
     if not token:
@@ -1529,14 +1573,20 @@ async def assign_stakeholders(operations: list[dict], dry_run: bool = True) -> s
     ops, op_err = _validate_stakeholder_ops(operations)
     if op_err is not None:
         return _fmt(op_err)
-    if dry_run:
-        return _fmt({"dry_run": True, "operations": ops})
+    if not dry_run:
+        gate = _confirmation_required_message("assign_stakeholders", len(ops))
+        if gate is not None and not confirm_token:
+            return gate
     async with mutation_batch(
         token,
         tool_name="assign_stakeholders",
         row_count=len(ops),
-        dry_run=False,
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
     ) as batch:
+        if dry_run:
+            batch.summary = {"rows": len(ops), "status": "previewed"}
+            return _fmt({"dry_run": True, "operations": ops, **_preview_fields(batch)})
         client = batch.client()
         outcomes: list[dict] = []
         for op in ops:
@@ -1687,12 +1737,24 @@ def _writes_disabled_message() -> str | None:
     )
 
 
+def _preview_fields(batch: BatchContext) -> dict:
+    """The keys every dry-run response carries: the preview's own audit
+    handle and, above the confirmation threshold, the ``confirm_token``
+    the commit call must pass back."""
+    fields: dict = {"batch_id": batch.batch_id}
+    if batch.confirm_token_issued:
+        fields["confirm_token"] = batch.confirm_token_issued
+    return fields
+
+
 def _confirmation_required_message(tool: str, row_count: int) -> str | None:
     """Reject a non-dry-run commit above the confirmation threshold
     that does not carry a ``confirm_token``. The agent must run a dry
-    run first, surface the preview, then echo the issued token back to
-    commit. This is the MCP-side gate (S2 + S3) — the backend also
-    enforces a matching gate independently."""
+    run first, surface the preview, then pass the issued token back to
+    commit. This is the friendly MCP-side error (S2 + S3); the backend
+    enforces the token independently when the commit's batch opens
+    (same user, same tool, 15 minutes, single use), so a made-up or
+    stale token is refused there before any write."""
     if not MCP_REQUIRE_DRYRUN_FIRST:
         return None
     if row_count <= MCP_BATCH_CONFIRMATION_THRESHOLD:
@@ -2439,29 +2501,41 @@ async def set_card_logos(
         problems.extend(unknown_rows)
 
     if dry_run:
-        return _fmt(
-            {
-                "dry_run": True,
-                "would_set": len(prepared),
-                "results": [
-                    {
-                        "row_index": p["row_index"],
-                        "card_id": p["card_id"],
-                        "status": "ok",
-                        "mime": p["mime"],
-                        "bytes_received": len(p["raw"]) if p["raw"] is not None else None,
-                        "sha256_received": p.get("sha256"),
-                        "icon_slug": p["icon_slug"],
-                    }
-                    for p in prepared
-                ]
-                + problems,
-                "type_check": type_check,
-                "icon_check": icon_check,
-                "unknown_icon_slugs": icon_check.get("unknown", []),
-                "note": _logo_preview_note(type_check, icon_check),
-            }
-        )
+        # Opened with every row asked for, never fewer than the commit will
+        # write: the commit skips the type and icon filters above, so a
+        # preview counting only what survived them could issue no token to
+        # a commit that needs one.
+        async with mutation_batch(
+            token,
+            tool_name="set_card_logos",
+            row_count=len(items),
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"rows": len(items), "would_set": len(prepared)}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_set": len(prepared),
+                    "results": [
+                        {
+                            "row_index": p["row_index"],
+                            "card_id": p["card_id"],
+                            "status": "ok",
+                            "mime": p["mime"],
+                            "bytes_received": len(p["raw"]) if p["raw"] is not None else None,
+                            "sha256_received": p.get("sha256"),
+                            "icon_slug": p["icon_slug"],
+                        }
+                        for p in prepared
+                    ]
+                    + problems,
+                    "type_check": type_check,
+                    "icon_check": icon_check,
+                    "unknown_icon_slugs": icon_check.get("unknown", []),
+                    "note": _logo_preview_note(type_check, icon_check),
+                    **_preview_fields(batch),
+                }
+            )
 
     if not prepared:
         return _fmt({"dry_run": False, "set": 0, "results": problems})
@@ -2621,6 +2695,34 @@ async def list_available_icons(search: str = "", limit: int = 50) -> str:
     return _fmt(data)
 
 
+async def _clear_logos_preview(token: str, card_ids: list[str]) -> dict:
+    """Dry-run body of ``clear_card_logos``: how many images would actually
+    disappear, rather than an echo of the ids that were asked for. A failed
+    lookup is informative, never fatal — the preview still comes back."""
+    results: list[dict] = []
+    would = 0
+    try:
+        client = TurboEAClient(token)
+        items = await client.get_cards_by_ids(card_ids)
+        has_logo = {str(c.get("id")): bool(c.get("logo_updated_at")) for c in items}
+    except Exception as exc:  # noqa: BLE001 — informative, never fatal
+        return {
+            "dry_run": True,
+            "would_clear": len(card_ids),
+            "results": [{"card_id": cid, "status": "unknown"} for cid in card_ids],
+            "note": f"Could not check which cards carry a logo: {exc}",
+        }
+    for cid in card_ids:
+        if cid not in has_logo:
+            results.append({"card_id": cid, "status": "unknown_card_id"})
+        elif has_logo[cid]:
+            would += 1
+            results.append({"card_id": cid, "status": "would_clear"})
+        else:
+            results.append({"card_id": cid, "status": "no_logo"})
+    return {"dry_run": True, "would_clear": would, "results": results}
+
+
 @mcp.tool(annotations=_WRITE_DESTRUCTIVE_ANNOT)
 async def clear_card_logos(
     card_ids: list[str],
@@ -2673,32 +2775,15 @@ async def clear_card_logos(
             return gate
 
     if dry_run:
-        # Say how many images would actually disappear, rather than echoing
-        # back the ids that were asked for.
-        results: list[dict] = []
-        would = 0
-        try:
-            client = TurboEAClient(token)
-            items = await client.get_cards_by_ids(card_ids)
-            has_logo = {str(c.get("id")): bool(c.get("logo_updated_at")) for c in items}
-        except Exception as exc:  # noqa: BLE001 — informative, never fatal
-            return _fmt(
-                {
-                    "dry_run": True,
-                    "would_clear": len(card_ids),
-                    "results": [{"card_id": cid, "status": "unknown"} for cid in card_ids],
-                    "note": f"Could not check which cards carry a logo: {exc}",
-                }
-            )
-        for cid in card_ids:
-            if cid not in has_logo:
-                results.append({"card_id": cid, "status": "unknown_card_id"})
-            elif has_logo[cid]:
-                would += 1
-                results.append({"card_id": cid, "status": "would_clear"})
-            else:
-                results.append({"card_id": cid, "status": "no_logo"})
-        return _fmt({"dry_run": True, "would_clear": would, "results": results})
+        async with mutation_batch(
+            token,
+            tool_name="clear_card_logos",
+            row_count=len(card_ids),
+            dry_run=True,
+        ) as batch:
+            preview = await _clear_logos_preview(token, card_ids)
+            batch.summary = {"rows": len(card_ids), "would_clear": preview["would_clear"]}
+            return _fmt({**preview, **_preview_fields(batch)})
 
     async with mutation_batch(
         token,
@@ -2708,7 +2793,7 @@ async def clear_card_logos(
         confirm_token=confirm_token or None,
     ) as batch:
         client = batch.client()
-        results = []
+        results: list[dict] = []
         cleared = 0
         for cid in card_ids:
             # Per-row isolation, as everywhere else: one card the caller may
@@ -3279,6 +3364,7 @@ async def resolve_card_refs(refs: list[dict]) -> str:
 async def upsert_relations_bulk(
     operations: list[dict],
     dry_run: bool = True,
+    confirm_token: str = "",
 ) -> str:
     """Create or delete many relations between cards in one call.
 
@@ -3303,9 +3389,13 @@ async def upsert_relations_bulk(
         dry_run: When True (default), validate every op and return the
             preview without persisting. Call again with dry_run=False to
             commit.
+        confirm_token: For commits above the per-call confirmation
+            threshold (default 20 rows), the ``confirm_token`` returned by
+            the prior dry-run (see ``create_cards_bulk``).
 
-    Returns: JSON with `results[]`, `upserted`, `deleted`, `failed` and
-    `dry_run`.
+    Returns: JSON with `results[]`, `upserted`, `deleted`, `failed`,
+    `dry_run`, `batch_id` (the audit handle) and — on dry-runs above the
+    confirmation threshold — `confirm_token` to pass back on commit.
     """
     token = await _get_current_token()
     if not token:
@@ -3342,12 +3432,33 @@ async def upsert_relations_bulk(
                     "rejected_rows": delete_rows,
                 }
             )
-    client = TurboEAClient(token)
-    data = await client.post(
-        "/relations/bulk",
-        json={"operations": operations, "dry_run": dry_run},
-    )
-    return _fmt(data)
+    if not dry_run:
+        gate = _confirmation_required_message("upsert_relations_bulk", len(operations))
+        if gate is not None and not confirm_token:
+            return gate
+    async with mutation_batch(
+        token,
+        tool_name="upsert_relations_bulk",
+        row_count=len(operations),
+        dry_run=dry_run,
+        confirm_token=confirm_token or None,
+    ) as batch:
+        data = await batch.client().post(
+            "/relations/bulk",
+            json={"operations": operations, "dry_run": dry_run},
+        )
+        if isinstance(data, dict):
+            if dry_run:
+                data.update(_preview_fields(batch))
+            else:
+                data["batch_id"] = batch.batch_id
+            batch.summary = {
+                "rows": len(operations),
+                "upserted": data.get("upserted"),
+                "deleted": data.get("deleted"),
+                "failed": data.get("failed"),
+            }
+        return _fmt(data)
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)

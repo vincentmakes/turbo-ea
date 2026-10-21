@@ -207,7 +207,7 @@ class TestResolveCardRefs:
 class TestUpsertRelationsBulk:
     @pytest.mark.asyncio
     async def test_upsert_dry_run(self, fake_token):
-        patcher, mock = _patched_post(
+        patcher, write_call = _patched_post_batch_aware(
             {
                 "results": [
                     {"row_index": 0, "status": "upserted", "relation_id": "r1"}
@@ -229,9 +229,12 @@ class TestUpsertRelationsBulk:
                     }
                 ]
             )
-        _, kwargs = mock.call_args
-        assert kwargs["json"]["dry_run"] is True
-        assert _parse(out)["upserted"] == 1
+        path, body = write_call()
+        assert path == "/relations/bulk"
+        assert body["dry_run"] is True
+        data = _parse(out)
+        assert data["upserted"] == 1
+        assert data["batch_id"] == "batch-uuid-001"
 
     @pytest.mark.asyncio
     async def test_delete(self, fake_token, monkeypatch):
@@ -239,7 +242,7 @@ class TestUpsertRelationsBulk:
         # this happy-path forwarding test (the guardrail rejection path
         # has its own test).
         monkeypatch.setattr(server, "MCP_ALLOW_RELATION_DELETE", True)
-        patcher, mock = _patched_post(
+        patcher, write_call = _patched_post_batch_aware(
             {
                 "results": [{"row_index": 0, "status": "deleted"}],
                 "upserted": 0,
@@ -261,14 +264,16 @@ class TestUpsertRelationsBulk:
                 ],
                 dry_run=False,
             )
-        _, kwargs = mock.call_args
-        assert kwargs["json"]["operations"][0]["action"] == "delete"
+        path, body = write_call()
+        assert path == "/relations/bulk"
+        assert body["operations"][0]["action"] == "delete"
+        assert body["dry_run"] is False
 
     @pytest.mark.asyncio
     async def test_type_mismatch_surfaces(self, fake_token):
         # Backend rejects per-row when source.type doesn't match the
         # relation type's expected source.
-        patcher, mock = _patched_post(
+        patcher, _write_call = _patched_post_batch_aware(
             {
                 "results": [
                     {
@@ -709,12 +714,15 @@ class TestGuardrails:
                 "target": {"id": "t"},
             }
         ]
-        patcher, mock = _patched_post(
+        patcher, write_call = _patched_post_batch_aware(
             {"results": [], "upserted": 0, "deleted": 1, "failed": 0}
         )
         with patcher:
-            await server.upsert_relations_bulk(operations=ops, dry_run=False)
-        mock.assert_awaited_once()
+            out = await server.upsert_relations_bulk(operations=ops, dry_run=False)
+        path, body = write_call()
+        assert path == "/relations/bulk"
+        assert body["operations"] == ops
+        assert _parse(out)["deleted"] == 1
 
     @pytest.mark.asyncio
     async def test_writes_disabled_blocks_all_write_tools(

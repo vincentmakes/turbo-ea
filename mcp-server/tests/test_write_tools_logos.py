@@ -1,8 +1,12 @@
 """Tests for the ``set_card_logos`` bulk logo tool.
 
-The tool validates every row locally before it opens a batch, so most of
-these need no HTTP at all — which is the point: a dry-run must be able to
-tell an agent that row 7 is a mislabelled SVG without a round trip.
+The tool validates every row locally before it writes anything, so a
+dry-run can tell an agent that row 7 is a mislabelled SVG without touching
+a card. Its only backend calls are the read-only checks and the preview's
+own mutation batch (opened so a preview above the confirmation threshold is
+issued a ``confirm_token``, #1302); ``_batch_posts`` below answers those for
+every test and fails any other POST, so "a preview writes nothing" is
+asserted throughout.
 """
 
 from __future__ import annotations
@@ -27,6 +31,24 @@ SVG = b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"
 def fake_token(monkeypatch):
     monkeypatch.setattr(server, "_stdio_token", "test-token")
     yield "test-token"
+
+
+@pytest.fixture(autouse=True)
+def _batch_posts():
+    """Answer the preview's mutation-batch open / close and refuse any other
+    POST. A test that routes POSTs itself patches over this one."""
+    calls: list[tuple[str, dict | None]] = []
+
+    async def router(path, json=None):
+        calls.append((path, json))
+        if path.startswith("/mutation-batches/") and path.endswith("/commit"):
+            return {"id": "B-PREVIEW", "committed_at": "now"}
+        if path.startswith("/mutation-batches"):
+            return {"id": "B-PREVIEW", "dry_run": (json or {}).get("dry_run", False)}
+        raise AssertionError(f"unexpected write POST {path}")
+
+    with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+        yield calls
 
 
 def _parse(s: str) -> dict:
@@ -436,7 +458,7 @@ class TestClearCardLogos:
             patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=get_router)),
             patch.object(server.TurboEAClient, "delete", AsyncMock(side_effect=delete_router)),
         ):
-            out = await server.clear_card_logos(card_ids=["c1", "c2"])
+            out = await server.clear_card_logos(card_ids=["c1", "c2", "c-gone"])
 
         data = _parse(out)
         assert data["would_clear"] == 1
@@ -444,7 +466,10 @@ class TestClearCardLogos:
         assert {r["card_id"]: r["status"] for r in data["results"]} == {
             "c1": "would_clear",
             "c2": "no_logo",
+            "c-gone": "unknown_card_id",
         }
+        # The preview opened its own dry-run batch, so it carries its handle.
+        assert data["batch_id"] == "B-PREVIEW"
 
     @pytest.mark.asyncio
     async def test_one_failing_row_does_not_abandon_the_rest(self, fake_token):

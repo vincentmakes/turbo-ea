@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.175.1] - 2026-10-21
+
+### Fixed
+- MCP: previewing a bulk write of more than 20 rows (`update_cards_bulk`, `create_cards_bulk`, `archive_cards`) no longer fails with *Missing or invalid confirm_token*; the preview comes back with the `confirm_token` the commit needs ([#1302](https://github.com/vincentmakes/turbo-ea/issues/1302)).
+- MCP: `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos` and `clear_card_logos` now follow the same preview → confirm cycle, so a commit above 20 rows can be confirmed, and every one of their previews and relation writes appears in the audit log with its own batch ([#1302](https://github.com/vincentmakes/turbo-ea/issues/1302)).
+- The audit log shows a finished MCP preview as *Dry run* rather than *Committed*.
+
+### Security
+- MCP: a commit above 20 rows is now accepted only with the `confirm_token` of a preview of the same tool, made by the same user within the last 15 minutes, and each token confirms a single commit; any other value used to be accepted. The backend enforces this limit whatever `MCP_BATCH_CONFIRMATION_THRESHOLD` or `MCP_REQUIRE_DRYRUN_FIRST` are set to, so those settings can only tighten it ([#1302](https://github.com/vincentmakes/turbo-ea/issues/1302)).
+
 ## [2.175.0] - 2026-10-21
 
 ### Added

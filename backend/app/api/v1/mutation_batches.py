@@ -8,9 +8,13 @@ Routes:
 
 - ``POST /mutation-batches`` — open a new batch. Returns the id and,
   for dry-run batches above the per-call confirmation threshold, a
-  ``confirm_token`` the matching commit call must echo back.
+  ``confirm_token``. A real (non-dry-run) batch above the threshold is
+  refused unless its body carries the token a dry-run of the same tool by
+  the same user issued within the last 15 minutes and that has not
+  authorised a commit yet (``resolve_confirm_token``).
 - ``POST /mutation-batches/{id}/commit`` — close the batch with a
-  per-row summary. Validates the confirm token when present.
+  per-row summary. Dry-run batches are closed the same way; the token is
+  not checked here (it is checked when the real batch opens).
 - ``GET /mutation-batches`` — list batches (filters by actor / tool /
   origin / since). Permission: ``admin.events``.
 - ``GET /mutation-batches/{id}`` — single batch metadata.
@@ -52,12 +56,16 @@ from app.schemas.mutation_batch import (
 )
 from app.services.event_bus import request_origin
 from app.services.mutation_batch_service import (
+    CONFIRM_TOKEN_THRESHOLD,
     batch_to_dict,
     commit_batch,
     create_batch,
     get_batch,
     issue_confirm_token,
-    verify_confirm_token,
+    issues_token,
+    mark_token_used,
+    needs_confirmation,
+    resolve_confirm_token,
 )
 from app.services.permission_service import PermissionService
 from app.services.rollback_service import execute_rollback, plan_rollback
@@ -77,11 +85,29 @@ def _actor_name_for(batch: MutationBatch, users_by_id: dict) -> str | None:
     return user.display_name if user else None
 
 
-# Above this row count, the open call issues a confirm token that the
-# commit call must echo. Mirrors the MCP-side BATCH_CONFIRMATION_THRESHOLD
-# (default 20) — the backend value is a floor; the MCP wrapper can be
-# tightened independently via env.
-CONFIRM_TOKEN_THRESHOLD = 20
+_TOKEN_REASON_TEXT = {
+    "unknown": "no dry-run issued this token",
+    "already_used": "this token has already authorised a commit",
+    "wrong_actor": "this token was issued to another user",
+    "wrong_tool": "this token was issued by a dry-run of another tool",
+    "expired": "this token is older than 15 minutes",
+}
+
+
+def _confirm_token_error(reason: str) -> HTTPException:
+    if reason == "missing":
+        detail = (
+            f"confirm_token_required: a commit above {CONFIRM_TOKEN_THRESHOLD} rows needs "
+            "the confirm_token returned by a dry-run of the same tool. Re-run with "
+            "dry_run=True, show the preview, then pass its confirm_token."
+        )
+    else:
+        detail = (
+            f"confirm_token_invalid: {reason} ({_TOKEN_REASON_TEXT[reason]}). "
+            "Re-run the dry-run to obtain a fresh token (tokens are single-use and "
+            "expire 15 minutes after issue)."
+        )
+    return HTTPException(status_code=400, detail=detail)
 
 
 @router.post("", response_model=MutationBatchOut, status_code=201)
@@ -93,10 +119,32 @@ async def open_batch(
 ) -> MutationBatchOut:
     """Open a mutation batch. Returns the batch id and, when the row
     count exceeds the confirmation threshold on a dry-run, a one-shot
-    ``confirm_token`` the commit call must echo back."""
+    ``confirm_token``. A real batch above the threshold must present that
+    token, or the open is refused before any write happens."""
     token: str | None = None
-    if body.dry_run and row_count > CONFIRM_TOKEN_THRESHOLD:
+    issuing: MutationBatch | None = None
+    if issues_token(body.dry_run, row_count):
         token = issue_confirm_token()
+    elif needs_confirmation(body.dry_run, row_count):
+        candidates: list[MutationBatch] = []
+        if body.confirm_token:
+            # Row lock: a second open presenting the same token waits here,
+            # then re-reads the stamped dry-run row and is refused.
+            res = await db.execute(
+                select(MutationBatch)
+                .where(MutationBatch.confirm_token == body.confirm_token)
+                .with_for_update()
+            )
+            candidates = list(res.scalars().all())
+        issuing, reason = resolve_confirm_token(
+            candidates,
+            body.confirm_token or "",
+            actor_id=user.id,
+            tool_name=body.tool_name,
+        )
+        if reason is not None:
+            raise _confirm_token_error(reason)
+        token = body.confirm_token
     batch = await create_batch(
         db,
         tool_name=body.tool_name,
@@ -105,6 +153,8 @@ async def open_batch(
         dry_run=body.dry_run,
         confirm_token=token,
     )
+    if issuing is not None:
+        mark_token_used(issuing, batch.id)
     await db.commit()
     return MutationBatchOut(**batch_to_dict(batch, actor_display_name=user.display_name))
 
@@ -125,14 +175,8 @@ async def close_batch(
         # Cross-actor commit would let a second user finalise a batch
         # opened by someone else and confuse the audit trail. Reject.
         raise HTTPException(status_code=403, detail="Mutation batch belongs to another user")
-    if batch.confirm_token and not verify_confirm_token(batch, body.confirm_token or ""):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Missing or invalid confirm_token. Re-run the dry-run to obtain a "
-                "fresh token (tokens expire 15 minutes after issue)."
-            ),
-        )
+    # The confirm token is not checked here: a dry-run batch is closed like
+    # any other, and the real batch's token was verified when it opened.
     await commit_batch(db, batch, summary=body.summary)
     await db.commit()
     return MutationBatchOut(**batch_to_dict(batch, actor_display_name=user.display_name))

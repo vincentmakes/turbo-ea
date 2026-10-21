@@ -300,7 +300,7 @@ MCP 服务器提供 **51 个工具**，分为两组：**32 个读取工具** 用
 - **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 19 个写入工具。32 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
-- **变更批次。** 每次 MCP 写入调用都会在任何写入发生之前打开一个变更批次；调用期间发出的每个事件都会被标记上批次 id。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传由先前演练签发的一次性 `confirm_token`（15 分钟有效期），因此大型提交总是先经过一次经审阅的预览。
+- **变更批次。** 每次 MCP 写入调用都会在任何写入发生之前打开一个变更批次；调用期间发出的每个事件都会被标记上批次 id。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。
 - **没有硬删除。** 工具集刻意省略了卡片的永久删除。`archive_cards` 和 `update_cards_bulk` *确实*已暴露，但归档是可恢复的软删除（30 天还原窗口），且两者都带有破坏性标注并受演练机制约束。添加任何执行不可逆变更的工具（硬删除、强制清除）都需要进行明确的设计评审。
 
 MCP 容器上的六个防护栏环境变量：
@@ -314,8 +314,8 @@ MCP 容器上的六个防护栏环境变量：
 | `MCP_ALLOW_RELATION_DELETE` | `false` | 当为 `true` 时，`upsert_relations_bulk` 接受 `action: "delete"` 操作。 |
 | `MCP_LOGO_FETCH_ENABLED` | `true` | 为 `true` 时，`set_card_logos` 可接受 `image_url`：由 MCP 服务器下载图片，再经普通上传通道写入，因此权限、大小与格式校验一律照常执行。设为 `false` 则完全拒绝 URL 方式 —— 图标 slug 与直接粘贴的字节仍可使用。 |
 | `MCP_LOGO_FETCH_HOSTS` | *(built-in)* | 允许下载徽标的主机，逗号分隔，精确匹配。默认为 `raw.githubusercontent.com`, `cdn.jsdelivr.net`, `cdn.simpleicons.org`, `upload.wikimedia.org` —— 公共图标托管，请求中只带文件名，不透露任何landscape信息。也可加入按域名查徽标的服务，但代价是让该服务知道你在用哪些供应商。 |
-| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | 涉及行数超过此值的提交需要出示先前演练签发的 `confirm_token`。 |
-| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | 启用上述确认令牌门槛。仅在受信任的、明确跳过预览环节的自动化流水线中设置为 `false`。 |
+| `MCP_BATCH_CONFIRMATION_THRESHOLD` | `20` | 涉及行数超过此值的提交需要出示先前演练签发的 `confirm_token`。无论此值如何设置，后端都会执行自身 20 行的上限，因此此值只能降低该上限，不能提高。 |
+| `MCP_REQUIRE_DRYRUN_FIRST` | `true` | 为 `true` 时，MCP 服务器会在调用后端之前，以说明性错误拒绝超过阈值且未携带 `confirm_token` 的提交。设为 `false` 只会关闭这一提前报错：后端仍要求超过 20 行的每次提交提供令牌。 |
 
 ### 资源
 

@@ -7857,6 +7857,18 @@
       "MutationBatchOpen": {
         "description": "Open a batch before a mutating tool wrapper performs writes.",
         "properties": {
+          "confirm_token": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm Token"
+          },
           "dry_run": {
             "default": false,
             "title": "Dry Run",
@@ -30433,7 +30445,7 @@
         ]
       },
       "post": {
-        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token`` the commit call must echo back.",
+        "description": "Open a mutation batch. Returns the batch id and, when the row\ncount exceeds the confirmation threshold on a dry-run, a one-shot\n``confirm_token``. A real batch above the threshold must present that\ntoken, or the open is refused before any write happens.",
         "operationId": "open_batch_api_v1_mutation_batches_post",
         "parameters": [
           {

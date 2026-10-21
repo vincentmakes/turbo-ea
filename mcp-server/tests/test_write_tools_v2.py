@@ -779,8 +779,8 @@ class TestAssignStakeholders:
 class TestCreateRisks:
     @pytest.mark.asyncio
     async def test_dry_run_shows_translated_payload(self, fake_token):
-        post_mock = AsyncMock()
-        with patch.object(server.TurboEAClient, "post", post_mock):
+        post, _patch, _get, calls = _route_writes_through_batch()
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             out = await server.create_risks(
                 risks=[
                     {
@@ -791,9 +791,17 @@ class TestCreateRisks:
                     }
                 ]
             )
-        post_mock.assert_not_called()
+        # The preview opens and closes its own dry-run batch (#1302) and
+        # writes nothing.
+        assert [c[0] for c in calls["post"]] == [
+            "/mutation-batches?row_count=1",
+            "/mutation-batches/B-001/commit",
+        ]
+        assert calls["post"][0][1] == {"tool_name": "create_risks", "dry_run": True}
         data = _parse(out)
         assert data["dry_run"] is True
+        assert data["batch_id"] == "B-001"
+        assert "confirm_token" not in data
         row = data["would_create"][0]
         # Aliases rewritten onto the real RiskCreate field names.
         assert row["initial_probability"] == "high"

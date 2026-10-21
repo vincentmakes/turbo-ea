@@ -280,6 +280,22 @@ class TestTheToolRow:
     def fake_token(self, monkeypatch):
         monkeypatch.setattr(server, "_stdio_token", "test-token")
 
+    @pytest.fixture(autouse=True)
+    def _batch_posts(self):
+        """The preview opens and closes its own mutation batch (#1302);
+        answer those and refuse any other POST, since a preview writes
+        nothing. A test that routes POSTs itself patches over this."""
+
+        async def router(path, json=None):
+            if path.startswith("/mutation-batches/") and path.endswith("/commit"):
+                return {"id": "B-PREVIEW", "committed_at": "now"}
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-PREVIEW", "dry_run": (json or {}).get("dry_run", False)}
+            raise AssertionError(f"unexpected write POST {path}")
+
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            yield
+
     @pytest.mark.asyncio
     async def test_a_url_row_previews_with_the_bytes_it_would_upload(
         self, fake_token, public_dns

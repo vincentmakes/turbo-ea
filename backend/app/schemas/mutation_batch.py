@@ -12,12 +12,17 @@ class MutationBatchOpen(BaseModel):
 
     tool_name: str = Field(..., min_length=1, max_length=100)
     dry_run: bool = False
+    # Required on a real (non-dry-run) batch above the confirmation
+    # threshold: the token a dry-run of the same tool was issued.
+    confirm_token: str | None = Field(default=None, max_length=64)
 
 
 class MutationBatchCommit(BaseModel):
     """Close a batch after the wrapper's underlying writes complete."""
 
     summary: dict[str, Any] | None = None
+    # Ignored since 2.175.1 (the token is verified when the real batch
+    # opens); still accepted so an older MCP server can close its batches.
     confirm_token: str | None = Field(default=None, max_length=64)
 
 

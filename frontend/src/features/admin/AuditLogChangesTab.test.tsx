@@ -42,6 +42,7 @@ vi.mock("./AuditLogFilterSidebar", async () => {
       <button type="button" data-testid="sb-origin-mcp" onClick={() => p.onFiltersChange({ ...p.filters, origins: ["mcp"] })} />
       <button type="button" data-testid="sb-origin-two" onClick={() => p.onFiltersChange({ ...p.filters, origins: ["mcp", "web"] })} />
       <button type="button" data-testid="sb-status-committed" onClick={() => p.onFiltersChange({ ...p.filters, statuses: ["committed"] })} />
+      <button type="button" data-testid="sb-status-dry-run" onClick={() => p.onFiltersChange({ ...p.filters, statuses: ["dry_run"] })} />
       <button type="button" data-testid="sb-search" onClick={() => p.onFiltersChange({ ...p.filters, search: "  dana " })} />
       <button type="button" data-testid="sb-tool" onClick={() => p.onFiltersChange({ ...p.filters, toolName: " create_cards_bulk " })} />
       <button type="button" data-testid="sb-dates" onClick={() => p.onFiltersChange({ ...p.filters, dateFrom: "2026-03-01", dateTo: "2026-03-05" })} />
@@ -335,6 +336,34 @@ describe("AuditLogChangesTab — filters", () => {
     await waitFor(() => expect(mockApi.callsOf("get", LIST_PATH)).toHaveLength(5));
     expect(listQuery(4).has("origin")).toBe(false);
     expect(listQuery(4).has("since")).toBe(false);
+  });
+
+  it("reads a closed preview as a dry run, not as committed", async () => {
+    // The MCP wrapper closes every batch, previews included (#1302), so a
+    // dry run with committed_at set is still a dry run.
+    const CLOSED_PREVIEW = batch({
+      id: "eeeeeeee-0000-4000-8000-000000000005",
+      dry_run: true,
+      committed_at: "2026-03-02T10:00:09Z",
+      summary: { rows: 52, would_update: 52 },
+    });
+    mockApi.on("get", LIST_PATH, listReply([COMMITTED, CLOSED_PREVIEW]));
+    const { user } = renderPage();
+    await loaded(2);
+
+    expect(gridStub.cellValue("status_derived", CLOSED_PREVIEW)).toBe(t("admin:auditLog.statuses.dryRun"));
+    renderCell("status_derived", CLOSED_PREVIEW);
+    expect(
+      within(screen.getByTestId("cell-status_derived")).getByText(t("admin:auditLog.statuses.dryRun")),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId("sb-status-committed"));
+    await loaded(1);
+    expect((gridStub.rows() as AuditBatch[]).map((b) => b.id)).toEqual([COMMITTED.id]);
+
+    await user.click(screen.getByTestId("sb-status-dry-run"));
+    await loaded(1);
+    expect((gridStub.rows() as AuditBatch[]).map((b) => b.id)).toEqual([CLOSED_PREVIEW.id]);
   });
 
   it("filters several origins, the status and the search text on the loaded page", async () => {
