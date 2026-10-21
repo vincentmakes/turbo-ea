@@ -145,8 +145,11 @@ export function subtypeOptionalSides(
   typeConfig: { subtypes?: { key: string; optional_relations?: string[] }[] } | undefined,
   subtype: string | null | undefined,
 ): Set<string> {
-  if (!subtype) return new Set();
-  const keys = typeConfig?.subtypes?.find((s) => s.key === subtype)?.optional_relations;
+  // No early return on a missing subtype: `find` already answers undefined
+  // for null, "" or an unknown key, so one path serves every miss.
+  const keys = subtype
+    ? typeConfig?.subtypes?.find((s) => s.key === subtype)?.optional_relations
+    : undefined;
   return new Set(Array.isArray(keys) ? keys.filter((k) => typeof k === "string") : []);
 }
 

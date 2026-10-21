@@ -293,6 +293,15 @@ describe("subtypeOptionalSides", () => {
     expect(subtypeOptionalSides(type, "").size).toBe(0);
     expect(subtypeOptionalSides(type, "gone").size).toBe(0);
     expect(subtypeOptionalSides(undefined, "saas").size).toBe(0);
+    // A type with no subtypes array at all (a custom type before any was added).
+    expect(subtypeOptionalSides({}, "saas").size).toBe(0);
+    expect(subtypeOptionalSides({ subtypes: undefined }, "saas").size).toBe(0);
+  });
+
+  it("reads the list only for the matching key, never by position", () => {
+    const type = { subtypes: [{ key: "a", optional_relations: ["x"] }, { key: "b" }] };
+    expect(subtypeOptionalSides(type, "b").size).toBe(0);
+    expect([...subtypeOptionalSides(type, "a")]).toEqual(["x"]);
   });
 
   it("ignores a malformed list", () => {
