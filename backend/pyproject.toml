@@ -26,6 +26,12 @@ dependencies = [
     "python-multipart>=0.0.12",
     "sse-starlette>=2.1.0,<4",
     "httpx>=0.28.0",
+    # certifi reaches the image only through httpx, so it is floored here on
+    # purpose: 2026.10.18 bundles compromised emSign roots
+    # (GHSA-6q48-6c7w-9gw2, CRITICAL), and the publish build keeps the pip
+    # layer cached between releases, so a transitive fix only lands when
+    # this file changes. Raise the floor on the next advisory of this kind.
+    "certifi>=2026.10.19",
     "email-validator>=2.1.0",
     "PyJWT>=2.9.0",
     "cryptography>=42.0.0,<51",

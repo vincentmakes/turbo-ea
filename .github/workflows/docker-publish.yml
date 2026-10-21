@@ -105,8 +105,14 @@ jobs:
           # Without this filter a release could ship `:latest` with a stale
           # cached apk layer (the curl 8.19.0-r0 vs 8.20.0-r0 gap in July 2026).
           # The expensive build stages (frontend-build npm ci/build,
-          # backend-build pip) are NOT listed, so they stay cached and builds
-          # stay fast.
+          # backend-build pip) are NOT listed on a branch push, so they stay
+          # cached and builds stay fast. A RELEASE tag adds `backend-build`:
+          # its `pip install` layer is keyed on backend/pyproject.toml alone,
+          # so a fix to a transitive Python dependency (certifi 2026.10.19 for
+          # GHSA-6q48-6c7w-9gw2, out a day before v2.172.0 was tagged) never
+          # reached a release image while that file was unchanged, and the
+          # CRITICAL gate below failed every re-run of the tag. The mcp-server
+          # stage installs in its runtime stage, which the list already covers.
           #
           # ⚠️ THE `push` GUARD BELOW IS LOAD-BEARING — DO NOT MAKE THIS
           # UNCONDITIONAL. buildx hard-rejects `--no-cache` and
@@ -122,7 +128,7 @@ jobs:
           # NOTE: the input is `no-cache-filters` (plural) — build-push-action
           # silently ignores the singular form. An empty string is parsed as an
           # empty list, so no `--no-cache-filter` flag is emitted at all.
-          no-cache-filters: ${{ github.event_name == 'push' && 'backend,db,frontend,nginx,mcp-server' || '' }}
+          no-cache-filters: ${{ github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/') && 'backend-build,backend,db,frontend,nginx,mcp-server' || 'backend,db,frontend,nginx,mcp-server') || '' }}
           provenance: true
           sbom: true
 

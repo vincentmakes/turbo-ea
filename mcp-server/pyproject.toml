@@ -16,6 +16,9 @@ dependencies = [
     # Lift the cap only together with a port off FastMCP.
     "mcp>=1.9.0,<2",
     "httpx>=0.28.0",
+    # Floored for the same reason as the backend: GHSA-6q48-6c7w-9gw2
+    # (compromised emSign roots in certifi 2026.10.18).
+    "certifi>=2026.10.19",
     # Declared rather than leaned on transitively via `mcp`: `models.py`
     # depends on it directly for the typed tool schema.
     "pydantic>=2,<3",

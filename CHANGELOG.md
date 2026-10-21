@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.172.1] - 2026-10-21
+
+### Security
+- The backend and MCP server images require certifi 2026.10.19 or later, which drops the compromised emSign root certificates that 2026.10.18 still trusted (GHSA-6q48-6c7w-9gw2). A release build now re-resolves the backend's Python dependencies instead of reusing the cached layer, so a fix to a transitive dependency reaches the tagged images without a change to the dependency list.
+
 ## [2.172.0] - 2026-10-20
 
 ### Added
