@@ -72,6 +72,7 @@
   "labels.yes": "Ja",
   "labels.no": "Nej",
   "labels.none": "Ingen",
+  "labels.notSet": "Ikke angivet",
   "labels.selectMultiple": "Vælg én eller flere…",
   "labels.all": "Alle",
   "labels.loading": "Indlæser...",

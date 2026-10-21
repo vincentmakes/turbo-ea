@@ -21,7 +21,7 @@
  * attribute mode and the `__empty__` sentinel in relation mode.
  *
  * Carried filters (all as repeated URL params, parsed by InventoryPage):
- * search, attribute filters (`attr_<key>=<v>` per value), relation filters
+ * search, subtype filters (`subtype=<key>` per key), attribute filters (`attr_<key>=<v>` per value), relation filters
  * (`rel_<typeKey>=<name>` per name), tag filters (`tag=<id>` per id).
  * Relation-subtype filters and the timeline date have no inventory
  * equivalent and are dropped by the caller.
@@ -59,6 +59,9 @@ export interface InventorySliceGroup {
  * already be name-based (the report translates member ids before calling). */
 export interface InventorySliceFilters {
   search?: string;
+  /** The card's own subtype keys, `INVENTORY_EMPTY_VALUE` for "no subtype" —
+   * the inventory reads `?subtype=` with the same sentinel. */
+  subtypes?: string[];
   attributes?: Record<string, string[]>;
   relations?: Record<string, string[]>;
   tagIds?: string[];
@@ -101,6 +104,7 @@ export function buildInventorySliceUrl(opts: {
   params.set("type", cardType);
 
   if (filters?.search) params.set("search", filters.search);
+  for (const subtype of filters?.subtypes ?? []) params.append("subtype", subtype);
   for (const [key, values] of Object.entries(filters?.attributes ?? {})) {
     for (const value of values) params.append(`attr_${key}`, value);
   }

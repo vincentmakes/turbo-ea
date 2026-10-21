@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
+import Portal from "@mui/material/Portal";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Chip from "@mui/material/Chip";
@@ -50,9 +51,19 @@ interface Props {
   cardId: string | null;
   open: boolean;
   onClose: () => void;
+  /**
+   * Leave the page beside the panel usable: no backdrop, no scroll lock, no
+   * focus trap, nothing marked `aria-hidden`, and a click outside the panel
+   * reaches the page instead of closing it. Escape inside the panel and the
+   * close button still close it. The Inventory sets it so a user can keep
+   * scrolling, filtering and clicking other rows while a card is previewed
+   * (#1289). Off by default — every other caller (and the extension SDK)
+   * keeps the modal drawer.
+   */
+  nonModal?: boolean;
 }
 
-export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
+export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = false }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
@@ -126,18 +137,8 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
     setAiResponse(null);
   };
 
-  return (
-    <Drawer
-      anchor="right"
-      open={open}
-      onClose={onClose}
-      PaperProps={{
-        sx: {
-          width: { xs: "100%", sm: 560, md: 640 },
-          overflow: "auto",
-        },
-      }}
-    >
+  const content = (
+    <>
       {/* Header */}
       <Box
         sx={{
@@ -276,6 +277,48 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
           />
         )}
       </Box>
+    </>
+  );
+
+  const paperSx = {
+    width: { xs: "100%", sm: 560, md: 640 },
+    overflow: "auto",
+  };
+
+  if (nonModal) {
+    // MUI's own non-modal drawer, not a temporary one with its backdrop hidden:
+    // a temporary drawer is a Modal, and a Modal marks every sibling of its
+    // portal `aria-hidden` whatever its props say — the page a user is meant
+    // to keep working in would be invisible to a screen reader.
+    // The Portal keeps the panel out of the caller's layout, as the modal
+    // drawer is; the content unmounts on close, as the modal drawer's does.
+    return (
+      <Portal>
+        <Drawer
+          anchor="right"
+          variant="persistent"
+          open={open}
+          slotProps={{ transition: { mountOnEnter: true, unmountOnExit: true } }}
+          PaperProps={{
+            // No Modal ⇒ no built-in Escape handling. Only a keydown that
+            // started inside the panel reaches here, and a nested dialog, menu
+            // or autocomplete that consumed its own Escape stops it first.
+            onKeyDown: (e: KeyboardEvent) => {
+              if (e.key === "Escape" && !e.defaultPrevented) onClose();
+            },
+            // The persistent variant is flat; give it the modal drawer's lift.
+            sx: { ...paperSx, boxShadow: 16 },
+          }}
+        >
+          {content}
+        </Drawer>
+      </Portal>
+    );
+  }
+
+  return (
+    <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: paperSx }}>
+      {content}
     </Drawer>
   );
 }

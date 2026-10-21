@@ -591,11 +591,13 @@ describe("InventoryPage loading and URL parameters", () => {
     });
   });
 
-  it("drops a persisted search the URL no longer carries", async () => {
+  it("keeps a persisted search the URL does not carry (#1287)", async () => {
+    // Back from a card lands on a bare /inventory: typing never wrote ?search=,
+    // so "no param" must not read as "search cleared".
     localStorage.setItem(PREFS_KEY, JSON.stringify({ filters: { types: [], search: "SAP" } }));
     renderInventory();
-    await waitFor(() => expect(prefs().filters.search).toBe(""));
-    await waitFor(() => expect(lastCardsPath()).not.toContain("search="));
+    await waitFor(() => expect(lastCardsPath()).toContain("search=SAP"));
+    expect(prefs().filters.search).toBe("SAP");
   });
 
   it("opens the create dialog from ?create=true and clears the URL on close", async () => {
@@ -605,11 +607,12 @@ describe("InventoryPage loading and URL parameters", () => {
     await waitFor(() => expect(lastCardsPath()).toContain("search=ERP"));
     await user.click(screen.getByTestId("create-close"));
     await waitFor(() => expect(screen.queryByTestId("create-dialog")).toBeNull());
-    // Closing clears the URL; the page re-syncs its search from the (now empty)
-    // ?search= while the type filter it already holds stays in effect.
-    await waitFor(() => expect(lastCardsPath()).not.toContain("search="));
+    // Closing clears the URL, but a URL without ?search= is not an instruction
+    // to clear the search (#1287): the search and the type filter the page
+    // already holds both stay in effect.
+    expect(lastCardsPath()).toContain("search=ERP");
     expect(lastCardsPath()).toContain("type=Application");
-    expect(prefs().filters.search).toBe("");
+    expect(prefs().filters.search).toBe("ERP");
   });
 
   it("creates a card through the dialog and reloads", async () => {

@@ -72,6 +72,7 @@
   "labels.yes": "نعم",
   "labels.no": "لا",
   "labels.none": "لا شيء",
+  "labels.notSet": "غير محدد",
   "labels.selectMultiple": "اختر واحدًا أو أكثر…",
   "labels.all": "الكل",
   "labels.loading": "جارٍ التحميل...",

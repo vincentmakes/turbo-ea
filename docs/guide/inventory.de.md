@@ -34,7 +34,7 @@ Ein **Badge mit der Anzahl aktiver Filter** zeigt an, wie viele Filter derzeit a
 
 Klicken Sie mit der rechten Maustaste auf eine beliebige Zelle im Raster (langes Drücken auf Touch-Geräten), um ein Kontextmenü mit Schnellaktionen für das zu öffnen, was sich unter dem Mauszeiger befindet, ähnlich wie in ServiceNow:
 
-- **Karte vorschauen** — die Karte, die die Zelle benennt, im Seitenbereich öffnen, ohne das Raster zu verlassen
+- **Karte vorschauen** — die Karte, die die Zelle benennt, im Seitenbereich öffnen, ohne das Raster zu verlassen; der Bereich lässt das Raster bedienbar, sodass Sie weiter scrollen, filtern und andere Zeilen anklicken können, solange er geöffnet ist, und ihn über seine Schließen-Schaltfläche schließen
 - **Übereinstimmende anzeigen** — nur die Zeilen behalten, deren Wert dem der angeklickten Zelle entspricht
 - **Herausfiltern** — die Zeilen ausblenden, deren Wert dem der angeklickten Zelle entspricht
 - **Wert kopieren** — den Zellentext in die Zwischenablage kopieren

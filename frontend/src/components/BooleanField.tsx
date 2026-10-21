@@ -95,7 +95,7 @@ export function BooleanField({
         onChange={(e) => onChange(pickedValue(e.target.value))}
       >
         <MenuItem value="">
-          <em>{t("labels.none")}</em>
+          <em>{t("labels.notSet")}</em>
         </MenuItem>
         {options.map((opt) => (
           <MenuItem key={opt.key} value={opt.key}>

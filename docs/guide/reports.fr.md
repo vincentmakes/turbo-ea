@@ -17,6 +17,8 @@ Le **Rapport Portefeuille** affiche un **graphique à bulles** (ou nuage de poin
 
 **Colorer et filtrer par des champs oui/non et à sélection multiple** -- Tout champ de sélection, de sélection multiple ou oui/non du type de fiche peut colorer les fiches et les filtrer -- ici, dans le Portefeuille flexible, dans la carte des capacités (*Colorier les applications par*), dans la vue par plage de dates du rapport de cycle de vie et dans le menu *Colorer par* d'un diagramme. Un champ oui/non s'affiche en **Oui** et **Non**, une fiche portant plusieurs valeurs d'un champ à sélection multiple apparaît comme **Multiples**, et une option qu'un administrateur a laissée sans couleur reçoit sa propre couleur dans la légende au lieu du gris de *Non défini*. Les champs oui/non peuvent aussi regrouper les fiches -- ici, dans le tableau du rapport de coûts et dans l'[inventaire](inventory.md) ; un champ à sélection multiple ne le peut pas, car une fiche à deux valeurs appartiendrait à deux groupes.
 
+**Filtrer par sous-type** — Lorsque le type de fiche possède des sous-types, la ligne de filtres **Champs** commence par un filtre **Sous-type**. Choisissez un ou plusieurs sous-types, ou *(vide)* pour les fiches qui n'en ont pas. Le filtre est enregistré avec le rapport et repris par **Voir dans l'inventaire**.
+
 C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les applications par valeur métier vs adéquation technique pour identifier les candidats à l'investissement, au remplacement ou au retrait.
 
 ### Analyses IA du portefeuille

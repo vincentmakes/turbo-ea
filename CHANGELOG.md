@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.173.0] - 2026-10-21
+
+### Added
+- **Subtype filter on the Application and Flexible Portfolio reports**: the Fields filter row now starts with a Subtype filter for card types that have subtypes, including an *(empty)* choice; it is saved with the report and carried into **View in inventory** ([#1294](https://github.com/vincentmakes/turbo-ea/issues/1294)).
+- The Inventory's card preview panel no longer blocks the page: the grid and the filter sidebar stay scrollable and clickable while a card is previewed, so you can open the next row without closing the panel first ([#1289](https://github.com/vincentmakes/turbo-ea/issues/1289)).
+
+### Fixed
+- Going Back from a card to the Inventory keeps the search you had typed, instead of clearing it while every other filter was restored ([#1287](https://github.com/vincentmakes/turbo-ea/issues/1287)).
+- The empty choice of a yes/no field's editor now reads "Not set" instead of "None" ([#1266](https://github.com/vincentmakes/turbo-ea/issues/1266)).
+
 ## [2.172.1] - 2026-10-21
 
 ### Security

@@ -275,10 +275,10 @@ describe("AiSuggestPanel — details", () => {
     });
   });
 
-  it("can clear a suggested yes/no value through None", async () => {
+  it("can clear a suggested yes/no value through Not set", async () => {
     const user = userEvent.setup();
     const { onApply } = renderPanel({ response: WITH_FIELDS, fieldsSchema: SCHEMA });
-    await choose("Cloud Hosted", "None", user);
+    await choose("Cloud Hosted", "Not set", user);
     expect(comboFor("Cloud Hosted")).not.toHaveTextContent("Yes");
     await user.click(screen.getByRole("button", { name: /Apply suggestions/ }));
     expect(onApply).toHaveBeenCalledWith({

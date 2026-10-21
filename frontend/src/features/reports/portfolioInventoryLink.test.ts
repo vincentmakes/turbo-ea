@@ -13,6 +13,35 @@ function paramsOf(url: string): URLSearchParams {
 }
 
 describe("buildInventorySliceUrl", () => {
+  it("carries the card subtype filter as repeated subtype params (#1294)", () => {
+    const url = buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "attribute", fieldKey: "timeModel" },
+      group: { key: "invest", label: "Invest" },
+      filters: { subtypes: ["saas", INVENTORY_EMPTY_VALUE] },
+    });
+    // The inventory reads `?subtype=` and matches a card with none on the
+    // same sentinel it uses for every "(empty)" pick.
+    expect(paramsOf(url).getAll("subtype")).toEqual(["saas", EMPTY_VALUE]);
+  });
+
+  it("carries the subtype filter in relation mode too, and nothing when it is empty", () => {
+    const withSubtype = buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "Organization" },
+      group: { key: "org-1", label: "Finance" },
+      filters: { subtypes: ["saas"] },
+    });
+    expect(paramsOf(withSubtype).getAll("subtype")).toEqual(["saas"]);
+    const without = buildInventorySliceUrl({
+      cardType: "Application",
+      mode: { kind: "relation", typeKey: "Organization" },
+      group: null,
+      filters: { subtypes: [] },
+    });
+    expect(paramsOf(without).has("subtype")).toBe(false);
+  });
+
   it("mirrors attribute groups: group_by + expand_group, NO value filter for the clicked group", () => {
     const url = buildInventorySliceUrl({
       cardType: "Application",

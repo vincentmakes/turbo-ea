@@ -61,6 +61,7 @@
   "portfolio.clearAll": "مسح الكل",
   "portfolio.relatedBy": "مرتبط بواسطة",
   "portfolio.fields": "الحقول",
+  "portfolio.filters.subtype": "النوع الفرعي",
   "portfolio.tags": "الوسوم",
   "portfolio.attributes": "السمات",
   "portfolio.relatedTypes": "الأنواع المرتبطة",

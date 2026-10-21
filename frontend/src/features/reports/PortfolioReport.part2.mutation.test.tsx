@@ -724,7 +724,10 @@ describe("filter sections", () => {
     expect(facet("Bare Field")).not.toBeInTheDocument();
   });
 
-  it("has no Fields section when no field has options", async () => {
+  it("has no Fields section when no field has options and the type has no subtypes", async () => {
+    // A subtype filter (#1294) also lives in the Fields row; take it away so
+    // this test still pins the option-less-field rule on its own.
+    withMetamodel([{ ...APPLICATION_TYPE, subtypes: [] }, ORG_TYPE, PROVIDER_TYPE, BP_TYPE]);
     mockApi.on("get", "/reports/app-portfolio*", {
       ...PAYLOAD,
       fields_schema: [
@@ -740,6 +743,7 @@ describe("filter sections", () => {
     await renderLoaded("Standalone Tool");
     expect(within(toolbar()).queryByText("Fields")).not.toBeInTheDocument();
     expect(facet("Bare Field")).not.toBeInTheDocument();
+    expect(facet("Subtype")).not.toBeInTheDocument();
   });
 });
 

@@ -17,6 +17,8 @@ Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det m
 
 **Farvning og filtrering efter ja/nej- og multi-select-felter** — Ethvert select-, multi-select- og ja/nej-felt på korttypen kan farve kortene og filtrere dem — her, i den fleksible portefølje, på kapabilitetskortet (*Farvelæg apps efter*), i livscyklusrapportens datointervalvisning og i et diagrams *Farvelæg efter*-menu. Et ja/nej-felt vises som **Ja** og **Nej**, et kort med flere værdier i et multi-select-felt vises som **Flere**, og en mulighed, som en administrator har ladet være uden farve, får sin egen farve i forklaringen i stedet for gråtonen for *Ikke angivet*. Ja/nej-felter kan også gruppere kortene — her, i tabellen i omkostningsrapporten og i [inventaret](inventory.md); et multi-select-felt kan ikke, fordi et kort med to værdier ville høre til to grupper.
 
+**Filtrering efter undertype** — Når korttypen har undertyper, begynder filterrækken **Felter** med et filter **Undertype**. Vælg en eller flere undertyper, eller *(tom)* for de kort, der ikke har nogen. Filteret gemmes sammen med rapporten og tages med af **Vis i lageret**.
+
 Dette er ideelt til porteføljeanalyse — for eksempel at plotte applikationer efter forretningsværdi vs. teknisk egnethed for at identificere kandidater til investering, udskiftning eller pensionering.
 
 ### AI Portfolio Insights

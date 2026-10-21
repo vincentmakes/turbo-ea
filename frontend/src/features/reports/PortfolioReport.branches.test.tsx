@@ -593,6 +593,21 @@ describe("Flexible Portfolio", () => {
     expect(appCalls().filter((p) => p.endsWith("BusinessProcess"))).toHaveLength(1);
   });
 
+  it("drops the subtype filter on a type switch, since subtype keys belong to the type (#1294)", async () => {
+    mockApi.on("get", "/reports/app-portfolio?type=BusinessProcess", EMPTY_PAYLOAD);
+    state.config = { subtypeFilters: ["microservice"] };
+    renderPortfolio({ showTypeSelector: true });
+    expect(await within(document.body).findByText("Salesforce")).toBeInTheDocument();
+    expect(within(chart()).queryByText("SAP ERP")).not.toBeInTheDocument();
+
+    await pick(/card type/i, /Business Process/);
+    await waitFor(() =>
+      expect(state.persistConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ cardType: "BusinessProcess", subtypeFilters: [] }),
+      ),
+    );
+  });
+
   it("restores a saved card type and counts groups by the type label", async () => {
     mockApi.on("get", "/reports/app-portfolio?type=Provider", PAYLOAD);
     state.config = { cardType: "Provider" };
@@ -627,6 +642,16 @@ describe("PortfolioReport shell actions", () => {
     expect(state.resetAll).toHaveBeenCalled();
     expect(state.tlReset).toHaveBeenCalled();
     expect(await screen.findByText("Standalone Tool")).toBeInTheDocument();
+  });
+
+  it("resets the subtype filter with everything else (#1294)", async () => {
+    state.config = { subtypeFilters: ["microservice"] };
+    renderPortfolio();
+    expect(await within(document.body).findByText("Salesforce")).toBeInTheDocument();
+    expect(within(chart()).queryByText("Standalone Tool")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    expect(await within(chart()).findByText("Standalone Tool")).toBeInTheDocument();
+    expect(within(chart()).getByText("SAP ERP")).toBeInTheDocument();
   });
 
   it("saves through the thumbnail capture and closes the dialog", async () => {

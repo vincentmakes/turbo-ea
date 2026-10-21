@@ -61,6 +61,7 @@
   "portfolio.clearAll": "Alle löschen",
   "portfolio.relatedBy": "Verknüpft über",
   "portfolio.fields": "Felder",
+  "portfolio.filters.subtype": "Subtyp",
   "portfolio.tags": "Tags",
   "portfolio.attributes": "Attribute",
   "portfolio.relatedTypes": "Verknüpfte Typen",

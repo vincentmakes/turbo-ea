@@ -125,8 +125,18 @@ vi.mock("./RelationCellPopover", () => ({
 // The real panel drags in the whole card-detail graph; the tests only need to
 // see which card it was opened for.
 vi.mock("@/components/CardDetailSidePanel", () => ({
-  default: ({ cardId, open }: { cardId: string | null; open: boolean }) =>
-    open ? <div data-testid="card-preview" data-card-id={cardId} /> : null,
+  default: ({
+    cardId,
+    open,
+    nonModal,
+  }: {
+    cardId: string | null;
+    open: boolean;
+    nonModal?: boolean;
+  }) =>
+    open ? (
+      <div data-testid="card-preview" data-card-id={cardId} data-non-modal={String(!!nonModal)} />
+    ) : null,
 }));
 
 vi.mock("./excelExport", () => ({
@@ -1405,6 +1415,8 @@ describe("InventoryPage cell context menu — Preview", () => {
 
     const panel = await screen.findByTestId("card-preview");
     expect(panel).toHaveAttribute("data-card-id", MOCK_CARDS.items[0].id);
+    // The grid stays usable while a card is previewed (#1289).
+    expect(panel).toHaveAttribute("data-non-modal", "true");
   });
 
   it("offers no Preview, and no stray divider, on a cell that names no card", async () => {
@@ -1890,12 +1902,12 @@ describe("InventoryPage mass edit attributes", () => {
     await waitFor(() => expect(patchedAttrs()).toEqual({ critical: false }));
   });
 
-  it("clears a boolean through None", async () => {
+  it("clears a boolean through Not set", async () => {
     const dialog = await openField(/^critical$/i);
     await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
     await userEvent.click(await screen.findByRole("option", { name: "Yes" }));
     await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
-    await userEvent.click(await screen.findByRole("option", { name: "None" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Not set" }));
     await apply();
     await waitFor(() => expect(patchedAttrs()).toEqual({ critical: null }));
   });

@@ -251,18 +251,18 @@ describe("CreateCardDialog — required fields of every type", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/cards/new-id"));
   });
 
-  it("drops a yes/no field set back to None from the payload", async () => {
+  it("drops a yes/no field set back to Not set from the payload", async () => {
     const { user } = renderDialog({ initialType: "Widget" });
     await user.click(select(/^Shared/));
     await user.click(await screen.findByRole("option", { name: "Yes" }));
     expect(select(/^Shared/)).toHaveTextContent("Yes");
     await user.click(select(/^Shared/));
-    await user.click(await screen.findByRole("option", { name: "None" }));
+    await user.click(await screen.findByRole("option", { name: "Not set" }));
     expect(select(/^Shared/)).not.toHaveTextContent("Yes");
     await user.type(nameBox(), "Gadget");
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => expect(onCreate).toHaveBeenCalled());
-    // None is "no value": undefined, which the request body drops — never null.
+    // Not set is "no value": undefined, which the request body drops — never null.
     expect(onCreate.mock.calls[0][0].attributes?.shared).toBeUndefined();
   });
 

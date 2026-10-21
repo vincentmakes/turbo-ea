@@ -64,6 +64,7 @@ import {
   useRelationLabel,
   useFieldLabel,
   useOptionLabel,
+  useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import type { PortfolioInsightsResponse, StructuredInsight } from "@/types";
@@ -650,6 +651,7 @@ export default function PortfolioReport({
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const subtypeLabel = useCardSubtypeLabel();
+  const subtypeDefLabel = useSubtypeLabel();
   const saved = useSavedReport(savedReportKey);
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -689,6 +691,8 @@ export default function PortfolioReport({
   // Keyed by RelSubtype.composite (`relTypeKey::fieldKey`).
   const [relSubtypeFilters, setRelSubtypeFilters] = useState<Record<string, string[]>>({});
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
+  // The card's own subtype keys (#1294); EMPTY_FILTER_KEY means "no subtype".
+  const [subtypeFilters, setSubtypeFilters] = useState<string[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
   // Fold the (tall) filter block away. Expanded by default; persisted with
   // the rest of the report config, so a missing key means expanded.
@@ -715,6 +719,7 @@ export default function PortfolioReport({
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       if (cfg.relSubtypeFilters)
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
+      if (Array.isArray(cfg.subtypeFilters)) setSubtypeFilters(cfg.subtypeFilters as string[]);
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
@@ -737,7 +742,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -754,7 +759,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -767,6 +772,7 @@ export default function PortfolioReport({
     setAttrFilters({});
     setRelationFilters({});
     setRelSubtypeFilters({});
+    setSubtypeFilters([]);
     setTagFilterIds([]);
     setShowAllRelFilters(false);
     setFiltersCollapsed(false);
@@ -819,6 +825,7 @@ export default function PortfolioReport({
     setAttrFilters({});
     setRelationFilters({});
     setRelSubtypeFilters({});
+    setSubtypeFilters([]);
     setTagFilterIds([]);
     setShowAllRelFilters(false);
     setNestedGroups(false);
@@ -1058,11 +1065,12 @@ export default function PortfolioReport({
       relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
       relSubtypes,
+      subtypeFilters,
       tagFilterIds,
       tagGroups: data?.tag_groups || [],
       search,
     }),
-    [attrFilters, selectFields, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, tagFilterIds, data, search],
+    [attrFilters, selectFields, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, subtypeFilters, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -1208,6 +1216,7 @@ export default function PortfolioReport({
     Object.values(attrFilters).some((v) => v.length > 0) ||
     Object.values(relationFilters).some((v) => v.length > 0) ||
     Object.values(relSubtypeFilters).some((v) => v.length > 0) ||
+    subtypeFilters.length > 0 ||
     tagFilterIds.length > 0 ||
     search.length > 0;
 
@@ -1215,6 +1224,7 @@ export default function PortfolioReport({
     setAttrFilters({});
     setRelationFilters({});
     setRelSubtypeFilters({});
+    setSubtypeFilters([]);
     setTagFilterIds([]);
     setSearch("");
     tl.reset();
@@ -1352,11 +1362,12 @@ export default function PortfolioReport({
     }
     return {
       search: search || undefined,
+      subtypes: subtypeFilters,
       attributes: attrFilters,
       relations,
       tagIds: tagFilterIds,
     };
-  }, [data, search, attrFilters, relationFilters, tagFilterIds]);
+  }, [data, search, subtypeFilters, attrFilters, relationFilters, tagFilterIds]);
 
   // Build relation filter options from groupable_types
   const relationFilterOptions = useMemo(() => {
@@ -1424,7 +1435,7 @@ export default function PortfolioReport({
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + Object.values(relSubtypeFilters).flat().length + tagFilterIds.length;
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + Object.values(relSubtypeFilters).flat().length + subtypeFilters.length + tagFilterIds.length;
 
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
@@ -1441,6 +1452,13 @@ export default function PortfolioReport({
   }, [readableTypes, typeLabel]);
   const currentType = metamodelTypes.find((tp) => tp.key === cardType);
   const currentTypeLabel = typeLabel(currentType) || cardType;
+  // The card type's own subtypes, for the Subtype filter (#1294). Empty for a
+  // type without subtypes, which hides the control.
+  const subtypeOptions = useMemo(
+    () =>
+      (currentType?.subtypes ?? []).map((st) => ({ key: st.key, label: subtypeDefLabel(st) })),
+    [currentType, subtypeDefLabel],
+  );
   const typeIcon = currentType?.icon || "dashboard";
   const typeColor = currentType?.color || "#0f7eb5";
 
@@ -1896,8 +1914,9 @@ export default function PortfolioReport({
               </Box>
             )}
 
-            {/* Own Fields section */}
-            {selectFields.length > 0 && (
+            {/* Own Fields section — the card's subtype first, then its
+                select fields. */}
+            {(subtypeOptions.length > 0 || selectFields.length > 0) && (
               <Box
                 sx={{
                   display: "flex",
@@ -1916,6 +1935,14 @@ export default function PortfolioReport({
                 >
                   {t("portfolio.fields")}
                 </Typography>
+                {subtypeOptions.length > 0 && (
+                  <FilterSelect
+                    label={t("portfolio.filters.subtype")}
+                    options={subtypeOptions}
+                    value={subtypeFilters}
+                    onChange={setSubtypeFilters}
+                  />
+                )}
                 {selectFields.map((f) => (
                   <FilterSelect
                     key={f.key}

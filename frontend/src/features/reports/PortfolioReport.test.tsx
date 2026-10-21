@@ -912,3 +912,160 @@ describe("PortfolioReport nested column taper", () => {
     expect(colsAround("Payments Team")).toBe("1");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Card subtype filter (#1294)
+// ---------------------------------------------------------------------------
+
+describe("PortfolioReport subtype filter", () => {
+  const SUBTYPE_API_RESPONSE = {
+    ...MOCK_API_RESPONSE,
+    items: [
+      { ...MOCK_API_RESPONSE.items[0], subtype: "businessApp" },
+      { ...MOCK_API_RESPONSE.items[1], subtype: "saas" },
+      {
+        id: "app-3",
+        name: "Untyped Tool",
+        attributes: {},
+        lifecycle: { active: "2020-01-01" },
+        relations: [],
+        org_ids: [],
+      },
+    ],
+  };
+
+  function mockSubtypedMetamodel() {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [
+        { key: "Organization", label: "Organization", icon: "corporate_fare", color: "#2889ff" },
+        {
+          key: "Application",
+          label: "Application",
+          icon: "apps",
+          color: "#0f7eb5",
+          subtypes: [
+            { key: "businessApp", label: "Business Application" },
+            // A translated label must win over both the English label and the key.
+            { key: "saas", label: "SaaS", translations: { en: "Software as a Service" } },
+          ],
+        },
+      ],
+      relationTypes: [],
+      loading: false,
+      getType: () => undefined,
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+  }
+
+  const subtypeBox = () => screen.getByRole("combobox", { name: "Subtype" });
+  const filtersToggle = () => screen.getByRole("button", { name: /Application Filters/ });
+
+  beforeEach(() => {
+    mockSubtypedMetamodel();
+    vi.mocked(api.get).mockResolvedValue(SUBTYPE_API_RESPONSE);
+  });
+
+  it("is hidden when the card type has no subtypes", async () => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: [{ key: "Application", label: "Application", subtypes: [] }],
+      relationTypes: [],
+      loading: false,
+      getType: () => undefined,
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    expect(screen.queryByRole("combobox", { name: "Subtype" })).not.toBeInTheDocument();
+  });
+
+  it("lists the type's subtypes by their display labels, plus (empty)", async () => {
+    const user = userEvent.setup();
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    await user.click(subtypeBox());
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "(empty)",
+      "Business Application",
+      "Software as a Service",
+    ]);
+  });
+
+  it("narrows the chart to the picked subtype and persists the pick", async () => {
+    const user = userEvent.setup();
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    await user.click(subtypeBox());
+    await user.click(within(await screen.findByRole("listbox")).getByText("Software as a Service"));
+
+    await waitFor(() => expect(screen.queryByText("SAP ERP")).not.toBeInTheDocument());
+    expect(screen.getByText("Salesforce")).toBeInTheDocument();
+    expect(screen.queryByText("Untyped Tool")).not.toBeInTheDocument();
+
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ subtypeFilters: ["saas"] }),
+      ),
+    );
+  });
+
+  it("restores the filter from a saved report, including (empty), and counts it", async () => {
+    mockSavedConfig({ filtersCollapsed: true, subtypeFilters: ["__empty__", "businessApp"] });
+    renderPortfolio();
+    await screen.findByText("Untyped Tool");
+    expect(screen.getByText("SAP ERP")).toBeInTheDocument();
+    expect(screen.queryByText("Salesforce")).not.toBeInTheDocument();
+    // Two picks — the same count the other filters contribute to the header.
+    expect(within(filtersToggle()).getByText("2")).toBeInTheDocument();
+  });
+
+  it("is offered even when the type has no select fields of its own", async () => {
+    vi.mocked(api.get).mockResolvedValue({ ...SUBTYPE_API_RESPONSE, fields_schema: [] });
+    renderPortfolio();
+    await screen.findByText("SAP ERP");
+    expect(subtypeBox()).toBeInTheDocument();
+    expect(screen.getByText("Fields")).toBeInTheDocument();
+  });
+
+  it("ignores a stored value that is not a list", async () => {
+    mockSavedConfig({ subtypeFilters: "saas" });
+    renderPortfolio();
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(screen.getByText("Salesforce")).toBeInTheDocument();
+    expect(screen.getByText("Untyped Tool")).toBeInTheDocument();
+  });
+
+  it("is cleared by Clear all", async () => {
+    mockSavedConfig({ subtypeFilters: ["saas"] });
+    renderPortfolio();
+    await screen.findByText("Salesforce");
+    expect(screen.queryByText("SAP ERP")).not.toBeInTheDocument();
+
+    const toolbar = document.querySelector(".report-toolbar") as HTMLElement;
+    const clear = within(toolbar).getByText("Clear all").closest(".MuiChip-root") as HTMLElement;
+    await userEvent.setup().click(within(clear).getByTestId("CancelIcon"));
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(screen.getByText("Untyped Tool")).toBeInTheDocument();
+  });
+
+  it("carries the subtype into the View in inventory link", async () => {
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      subtypeFilters: ["businessApp", "__empty__"],
+    });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByText("Finance")).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByText("Finance"));
+    await waitFor(() => {
+      const href = screen.getByRole("link").getAttribute("href") ?? "";
+      const params = new URLSearchParams(href.split("?")[1]);
+      expect(params.getAll("subtype")).toEqual(["businessApp", "__empty__"]);
+      expect(params.getAll("rel_Organization")).toEqual(["Finance"]);
+    });
+  });
+});

@@ -72,6 +72,7 @@
   "labels.yes": "Sim",
   "labels.no": "Não",
   "labels.none": "Nenhum",
+  "labels.notSet": "Não definido",
   "labels.selectMultiple": "Selecione uma ou mais…",
   "labels.all": "Todos",
   "labels.loading": "Carregando...",

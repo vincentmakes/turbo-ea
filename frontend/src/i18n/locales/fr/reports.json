@@ -61,6 +61,7 @@
   "portfolio.clearAll": "Tout effacer",
   "portfolio.relatedBy": "Lié par",
   "portfolio.fields": "Champs",
+  "portfolio.filters.subtype": "Sous-type",
   "portfolio.tags": "Étiquettes",
   "portfolio.attributes": "Attributs",
   "portfolio.relatedTypes": "Types associés",

@@ -17,6 +17,8 @@ El **Informe de Portafolio** muestra un **gráfico de burbujas** (o diagrama de 
 
 **Colorear y filtrar por campos de sí/no y de selección múltiple** — Cualquier campo de selección, de selección múltiple o de sí/no del tipo de ficha puede colorear las fichas y filtrarlas — aquí, en el Portafolio flexible, en el Mapa de capacidades (*Colorear apps por*), en la vista por rango de fechas del Informe de ciclo de vida y en el menú *Colorear por* de un diagrama. Un campo de sí/no se muestra como **Sí** y **No**, una ficha con varios valores de un campo de selección múltiple aparece como **Múltiples**, y una opción que un administrador dejó sin color recibe un color propio en la leyenda en lugar del gris de *No definido*. Los campos de sí/no también pueden agrupar las fichas — aquí, en la tabla del Informe de costos y en el [Inventario](inventory.md); un campo de selección múltiple no, porque una ficha con dos valores pertenecería a dos grupos.
 
+**Filtrar por subtipo** — Cuando el tipo de ficha tiene subtipos, la fila de filtros **Campos** empieza con un filtro **Subtipo**. Elija uno o varios subtipos, o *(vacío)* para las fichas que no tienen ninguno. El filtro se guarda con el informe y lo traslada **Ver en el inventario**.
+
 Esto es ideal para el análisis de portafolio — por ejemplo, representar aplicaciones por valor de negocio vs. aptitud técnica para identificar candidatos para inversión, reemplazo o retiro.
 
 ### Análisis IA del portafolio

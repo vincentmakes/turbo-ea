@@ -61,6 +61,7 @@
   "portfolio.clearAll": "清除全部",
   "portfolio.relatedBy": "关联方式",
   "portfolio.fields": "字段",
+  "portfolio.filters.subtype": "子类型",
   "portfolio.tags": "标签",
   "portfolio.attributes": "属性",
   "portfolio.relatedTypes": "关联类型",

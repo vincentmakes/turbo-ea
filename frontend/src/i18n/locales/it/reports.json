@@ -61,6 +61,7 @@
   "portfolio.clearAll": "Cancella tutto",
   "portfolio.relatedBy": "Correlato per",
   "portfolio.fields": "Campi",
+  "portfolio.filters.subtype": "Sottotipo",
   "portfolio.tags": "Tag",
   "portfolio.attributes": "Attributi",
   "portfolio.relatedTypes": "Tipi correlati",

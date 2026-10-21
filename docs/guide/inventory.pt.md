@@ -34,7 +34,7 @@ Um **contador de filtros ativos** mostra quantos filtros estão atualmente aplic
 
 Clique com o botão direito em qualquer célula da grelha (toque longo em dispositivos táteis) para abrir um menu de contexto com ações rápidas sobre o que está sob o cursor, ao estilo do ServiceNow:
 
-- **Pré-visualizar ficha** — abrir a ficha que a célula indica no painel lateral, sem sair da grelha
+- **Pré-visualizar ficha** — abrir a ficha que a célula indica no painel lateral, sem sair da grelha; o painel deixa a grelha utilizável, pelo que pode continuar a deslocar-se, filtrar e clicar noutras linhas enquanto está aberto, e fechá-lo com o respetivo botão de fechar
 - **Mostrar correspondências** — manter apenas as linhas cujo valor é igual ao da célula clicada
 - **Excluir** — ocultar as linhas cujo valor é igual ao da célula clicada
 - **Copiar valor** — copiar o texto da célula para a área de transferência

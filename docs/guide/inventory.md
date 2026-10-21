@@ -34,7 +34,7 @@ An **active filter count** badge shows how many filters are currently applied.
 
 Right-click any cell in the grid (long-press on a touch device) to open a context menu of quick actions on whatever is under the cursor, similar to ServiceNow:
 
-- **Preview card** — open the card the cell names in the side panel, without leaving the grid
+- **Preview card** — open the card the cell names in the side panel, without leaving the grid; the panel leaves the grid usable, so you can keep scrolling, filtering and clicking other rows while it is open, and close it with its close button
 - **Show matching** — keep only the rows whose value equals the clicked cell's
 - **Filter out** — hide the rows whose value equals the clicked cell's
 - **Copy value** — copy the cell text to the clipboard

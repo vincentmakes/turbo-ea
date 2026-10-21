@@ -394,7 +394,7 @@ describe("SurveyRespond — maintain fields", () => {
     expect(box).not.toHaveTextContent(tc("labels.yes"));
     await user.click(box);
     const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).getByRole("option", { name: tc("labels.none") })).toHaveAttribute(
+    expect(within(listbox).getByRole("option", { name: tc("labels.notSet") })).toHaveAttribute(
       "aria-selected",
       "true",
     );

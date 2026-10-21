@@ -92,6 +92,7 @@ function baseFilters(over: Partial<FilterState> = {}): FilterState {
     relationFilters: {},
     relSubtypeFilters: {},
     relSubtypes: [usageSub],
+    subtypeFilters: [],
     tagFilterIds: [],
     tagGroups: [],
     timelineDate: Date.now(),
@@ -959,5 +960,48 @@ describe("boolean and multi-select own fields", () => {
     );
     expect(attributeLabel(withAttrs("a", { other: true }), "other", fields, LABELS)).toBe("true");
     expect(attributeLabel({ ...app("a"), attributes: undefined }, "other", fields, LABELS)).toBe("");
+  });
+});
+
+describe("matchesStaticFilters — the card's own subtype (#1294)", () => {
+  const withSubtype = (subtype?: string): AppData => ({ ...app(subtype ?? "none"), subtype });
+  const only = (...subtypeFilters: string[]) => baseFilters({ subtypeFilters });
+
+  it("matches every card when nothing is selected", () => {
+    expect(matchesStaticFilters(withSubtype("saas"), only())).toBe(true);
+    expect(matchesStaticFilters(withSubtype(undefined), only())).toBe(true);
+  });
+
+  it("keeps a card whose subtype is selected and drops one whose is not", () => {
+    expect(matchesStaticFilters(withSubtype("saas"), only("saas"))).toBe(true);
+    expect(matchesStaticFilters(withSubtype("microservice"), only("saas"))).toBe(false);
+    expect(matchesStaticFilters(withSubtype("microservice"), only("saas", "microservice"))).toBe(true);
+  });
+
+  it("drops a card with no subtype unless (empty) is selected", () => {
+    expect(matchesStaticFilters(withSubtype(undefined), only("saas"))).toBe(false);
+    expect(matchesStaticFilters(withSubtype(""), only("saas"))).toBe(false);
+    expect(matchesStaticFilters(withSubtype(undefined), only(EMPTY_FILTER_KEY))).toBe(true);
+    expect(matchesStaticFilters(withSubtype(""), only(EMPTY_FILTER_KEY, "saas"))).toBe(true);
+  });
+
+  it("(empty) alone drops every card that has a subtype", () => {
+    expect(matchesStaticFilters(withSubtype("saas"), only(EMPTY_FILTER_KEY))).toBe(false);
+    expect(matchesStaticFilters(withSubtype("saas"), only(EMPTY_FILTER_KEY, "saas"))).toBe(true);
+  });
+
+  it("a subtype key spelled like the sentinel is not the empty selection", () => {
+    expect(matchesStaticFilters(withSubtype(EMPTY_FILTER_KEY), only(EMPTY_FILTER_KEY))).toBe(false);
+  });
+
+  it("is ANDed with the other filters", () => {
+    const a: AppData = { ...withSubtype("saas"), name: "Salesforce" };
+    expect(matchesStaticFilters(a, baseFilters({ subtypeFilters: ["saas"], search: "sales" }))).toBe(true);
+    expect(matchesStaticFilters(a, baseFilters({ subtypeFilters: ["saas"], search: "sap" }))).toBe(false);
+  });
+
+  it("applies under the timeline wrapper too", () => {
+    expect(matchesFilters(withSubtype("microservice"), only("saas"))).toBe(false);
+    expect(matchesFilters(withSubtype("saas"), only("saas"))).toBe(true);
   });
 });

@@ -61,6 +61,7 @@
   "portfolio.clearAll": "Ryd alle",
   "portfolio.relatedBy": "Relateret via",
   "portfolio.fields": "Felter",
+  "portfolio.filters.subtype": "Undertype",
   "portfolio.tags": "Tags",
   "portfolio.attributes": "Egenskaber",
   "portfolio.relatedTypes": "Relaterede typer",

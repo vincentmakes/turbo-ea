@@ -129,6 +129,10 @@ export interface FilterState {
   /** Keyed by RelSubtype.composite. */
   relSubtypeFilters: Record<string, string[]>;
   relSubtypes: RelSubtype[];
+  /** The card's OWN subtype keys (not a relation attribute — that is
+   *  `relSubtypeFilters`). Empty = no filter; `EMPTY_FILTER_KEY` matches a card
+   *  with no subtype. */
+  subtypeFilters: string[];
   /** The card's own facet fields (`pickSelectFields`). An `attributeFilters`
    *  key naming one is matched through the shared facet rule — so a boolean
    *  reads `"true"` / `"false"` and a multi-select matches any one value.
@@ -466,6 +470,15 @@ export function matchesStaticFilters(
   app: AppData,
   filters: Omit<FilterState, "timelineDate">,
 ): boolean {
+  // Card subtype filter (#1294). "(empty)" matches a card with no subtype; a
+  // subtype key spelled like the sentinel is data, as with the filters below.
+  if (filters.subtypeFilters.length > 0) {
+    const realSubtypes = filters.subtypeFilters.filter((x) => x !== EMPTY_FILTER_KEY);
+    const ok = app.subtype
+      ? realSubtypes.includes(app.subtype)
+      : filters.subtypeFilters.includes(EMPTY_FILTER_KEY);
+    if (!ok) return false;
+  }
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {

@@ -365,14 +365,14 @@ describe("boolean field type (#1266)", () => {
     expect(document.querySelector(".MuiChip-root")).toBeNull();
   });
 
-  it("FieldEditor is a Yes / No dropdown with None to clear", async () => {
+  it("FieldEditor is a Yes / No dropdown with Not set to clear", async () => {
     const onChange = vi.fn();
     render(<FieldEditor field={flag} value={undefined} onChange={onChange} />);
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("combobox", { name: /Commercial Application/ }));
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "None",
+      "Not set",
       "Yes",
       "No",
     ]);
@@ -380,12 +380,12 @@ describe("boolean field type (#1266)", () => {
     expect(onChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("FieldEditor clears a set value through None", async () => {
+  it("FieldEditor clears a set value through Not set", async () => {
     const onChange = vi.fn();
     render(<FieldEditor field={flag} value={true} onChange={onChange} />);
     expect(screen.getByRole("combobox")).toHaveTextContent("Yes");
     await userEvent.click(screen.getByRole("combobox"));
-    await userEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: "None" }));
+    await userEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name: "Not set" }));
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
 

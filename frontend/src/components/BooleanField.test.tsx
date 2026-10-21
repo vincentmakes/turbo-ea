@@ -28,7 +28,7 @@ describe("BooleanField", () => {
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getByRole("option", { name: "Yes" })).toHaveAttribute("aria-selected", "false");
     expect(within(listbox).getByRole("option", { name: "No" })).toHaveAttribute("aria-selected", "false");
-    expect(within(listbox).getByRole("option", { name: "None" })).toHaveAttribute("aria-selected", "true");
+    expect(within(listbox).getByRole("option", { name: "Not set" })).toHaveAttribute("aria-selected", "true");
   });
 
   it.each([
@@ -43,12 +43,14 @@ describe("BooleanField", () => {
     expect(screen.getByRole("combobox")).toHaveTextContent(text);
   });
 
-  it("offers None, Yes and No, the last two with the report colours", async () => {
+  // The empty choice reads "Not set", not "None" — "Has AI features? None"
+  // reads as an answer rather than the absence of one (#1266).
+  it("offers Not set, Yes and No, the last two with the report colours", async () => {
     renderField(null);
     await userEvent.click(screen.getByRole("combobox"));
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "None",
+      "Not set",
       "Yes",
       "No",
     ]);
@@ -69,9 +71,9 @@ describe("BooleanField", () => {
     expect(onChange).toHaveBeenCalledWith(false);
   });
 
-  it("writes null for None", async () => {
+  it("writes null for Not set", async () => {
     const { onChange } = renderField(true);
-    await pick("None");
+    await pick("Not set");
     expect(onChange).toHaveBeenCalledWith(null);
   });
 

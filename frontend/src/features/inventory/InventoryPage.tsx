@@ -1213,8 +1213,12 @@ export default function InventoryPage() {
     }
   }, [searchParams, canCreateSelectedType]);
 
-  // Sync ?search= URL param into filters when navigating to inventory from elsewhere (e.g. toolbar)
+  // Sync ?search= URL param into filters when navigating to inventory from elsewhere (e.g. toolbar).
+  // Only a URL that actually carries `search` may set it: typing in the sidebar never writes
+  // `?search=`, so Back from a card (`navigate(-1)`) lands on a bare `/inventory` whose restored
+  // search must survive (#1287) — as must closing the create dialog, which clears the params.
   useEffect(() => {
+    if (!searchParams.has("search")) return;
     const urlSearch = searchParams.get("search") || "";
     if (urlSearch !== filters.search) {
       setFilters((prev) => ({ ...prev, search: urlSearch }));
@@ -4702,6 +4706,7 @@ export default function InventoryPage() {
         cardId={previewCardId}
         open={!!previewCardId}
         onClose={() => setPreviewCardId(null)}
+        nonModal
       />
 
       {relEditRelTypes.length > 0 && (

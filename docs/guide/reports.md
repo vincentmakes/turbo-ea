@@ -17,6 +17,8 @@ The **Portfolio Report** displays a configurable **bubble chart** (or scatter pl
 
 **Colouring and filtering by yes/no and multi-select fields** — Every select, multi-select and yes/no field of the card type can colour the cards and filter them — here, in the Flexible Portfolio, in the [Capability Map](#capability-map) (*Color Apps By*), in the [Lifecycle Report](#lifecycle-report)'s date-range view and in a diagram's *Color by* menu. A yes/no field shows as **Yes** and **No**, a card carrying several values of a multi-select field is shown as **Multiple**, and an option an administrator left without a colour gets a colour of its own in the legend instead of the grey of *Not set*. Yes/no fields can also group the cards — here, in the [Cost Report](#cost-report)'s table and in the [Inventory](inventory.md); a multi-select field cannot, because a card with two values would belong to two groups.
 
+**Filtering by subtype** — When the card type has subtypes, the **Fields** filter row starts with a **Subtype** filter. Pick one or more subtypes, or *(empty)* for the cards that have none. The filter is saved with the report and carried over by **View in inventory**.
+
 This is ideal for portfolio analysis — plotting applications by business value vs. technical fitness, for example, to identify candidates for investment, replacement, or retirement.
 
 ### AI Portfolio Insights
