@@ -46,6 +46,8 @@ Three built-in fields in the **Assessment** section of every Application card fe
 
 Business Criticality groups the report in Step 4. The two suitability ratings are what the TIME calculation in Step 3 reads.
 
+Editing these fields on an approved card flips its approval status to **Broken**. Re-approve the cards in a batch after the workshop.
+
 ## Step 3 — Derive TIME with a calculated field
 
 The built-in **TIME Model** field on Application (`timeModel`, four options: `tolerate` / `invest` / `migrate` / `eliminate`) is the decision column that drives the rest of the analysis. Rather than asking every Application Owner to pick one, derive it from the two suitability ratings with a **calculation** — the classic Gartner placement:

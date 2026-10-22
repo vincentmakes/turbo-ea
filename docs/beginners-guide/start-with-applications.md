@@ -19,10 +19,10 @@ For every Application card in your initial scope, populate these fields and **on
 | **Name** | Identity. Use the name people actually use, not the licence label. | Your existing source |
 | **Description** | One sentence: what does this app do for the business? | Owner interview, or AI suggestion (see [Inventory](../guide/inventory.md#ai-description-suggestions)) |
 | **Lifecycle phase** | Plan / Phase In / Active / Phase Out / End of Life | CMDB, or owner interview |
-| **Business Owner** (stakeholder) | The person accountable for the app | Org chart |
+| **Business Application Owner** (stakeholder) | The person accountable for the app | Org chart |
 | **Total Annual Cost** | Used by the Cost report and to prioritise the TIME decisions | Finance, or rough estimate |
 
-Five fields. That's it. The Data Quality ring will read ~50% and that's fine — you can refine in pass two.
+Five fields. That's it. The Data Quality ring will read **0%** — that's expected: **Business Criticality** and **TIME Model** are required on Application, and the score stays at 0 until both are filled. You'll fill them on the [final page](your-first-analysis.md).
 
 !!! warning "Don't"
     Don't try to fill the **End of Life date**, **Vendor**, **Technology stack**, and 12 custom fields on the first pass. You will burn out around card 30.
@@ -35,21 +35,21 @@ Pick the path that matches your data source. You can mix them — import the bul
 
 If your applications live in a spreadsheet (or you can export them from a CMDB), this is the fastest path. **Don't start by hand-crafting the spreadsheet** — let Turbo EA give you the template.
 
-1. **Create one dummy Application card manually**. Go to **Inventory → + Create**, type = `Application`, name something like *"_TEMPLATE — delete me"*. Fill in the five minimum fields (description, lifecycle, owner, cost) so the export contains real values you can use as examples.
-2. **Filter the inventory to Type = `Application`** and click **Export** in the toolbar. You get an `.xlsx` file with one row of real data and a column per field — that's your template. The column headers match the field keys the importer expects.
+1. **Create one dummy Application card manually**. Go to **Inventory → Create**, type = `Application`, name something like *"_TEMPLATE — delete me"*. Fill in the five minimum fields (description, lifecycle, owner, cost) so the export contains real values you can use as examples.
+2. **Filter the inventory to Type = `Application`** and click **Export → Export all fields** in the toolbar. You get an `.xlsx` file with one row of real data and a column per field — that's your template. The column headers match the field keys the importer expects, and the `id` column identifies each existing card.
 3. **Edit the spreadsheet offline**: keep the column structure, replace the single row with all your real applications, and delete the dummy row at the end (or leave it — you'll remove the card from Turbo EA after the import).
-4. **Import the edited file**: **Inventory → Import**, drag in the `.xlsx`. The validation report shows you exactly which rows will create new cards, which will update existing cards (matched by name or ID), and which will fail.
+4. **Import the edited file**: **Inventory → Import**, drag in the `.xlsx`. The validation report shows you exactly which rows will create new cards, which will update existing cards (matched by the `id` column — rows without an id create new cards), and which have errors to fix first. A warning on every row about the empty required fields Business Criticality and TIME Model is expected — the cards are still created.
 5. Run the import, then archive the `_TEMPLATE` card.
 
 Full reference: [Inventory → Excel Import](../guide/inventory.md#excel-import).
 
-**Tip for first import:** include just the five minimum fields, plus a column for Business Owner email (the importer will try to match it to existing users). Skip everything else. You can do a second import later with more columns by repeating the export-edit-import loop.
+**Tip for first import:** include just the five minimum fields, plus the `stakeholder:businessApplicationOwner` column with the owner's email (the importer matches it to existing users and ignores unknown emails with a warning). Skip everything else. You can do a second import later with more columns by repeating the export-edit-import loop.
 
 ### Path B — ServiceNow sync
 
 If you have a ServiceNow CMDB and admin access to its API, the integration pulls Application records directly.
 
-1. Go to **Admin → ServiceNow Integration**.
+1. Go to **Admin → Settings → Integrations → ServiceNow**.
 2. Create a connection (URL, credentials — credentials are stored encrypted).
 3. Define a mapping: ServiceNow `cmdb_ci_business_app` → Turbo EA `Application`, with field-level rules.
 4. Run a **pull** sync. By default records land in a **staging** area for admin review before being applied.
@@ -60,9 +60,9 @@ See [Admin → ServiceNow Integration](../admin/servicenow.md) for the full conf
 
 For small estates (under ~30 apps) or when no usable source exists:
 
-1. **Inventory** → **+ Create** (top-right).
+1. **Inventory** → **Create** (top-right).
 2. Type = **Application**, fill in Name and (optionally) Description.
-3. Click **Suggest with AI** if you want a starter description pulled from a web search.
+3. Click **Suggest with AI** (shown when an admin has enabled AI) if you want a starter description pulled from a web search.
 4. Save and move on. You'll fill in the rest from the card detail page.
 
 Manual entry is slow but produces the highest-quality data because every card is owner-touched on entry.
@@ -88,7 +88,6 @@ You are done with this page when:
 
 - Every application in your scope has a card.
 - Every card has the five minimum fields filled.
-- Average data quality across the set is **≥ 40%**.
 - At least 50% of cards are approved.
 
 Don't wait for perfection. Move to the next page — [Leverage reference catalogues](leverage-reference-catalogues.md) — and come back to enrich after you've mapped capabilities.

@@ -36,10 +36,10 @@ If you're not sure, **pick Application Portfolio Rationalisation**. It's the mos
 
 ## 3. Identify your stakeholders
 
-Turbo EA has a built-in **Stakeholder** model (see [Card Details](../guide/card-details.md)): every card carries a list of people in defined roles (Business Owner, Technical Owner, etc.), defined per card type in the metamodel. Decide up front who fills each role for an Application:
+Turbo EA has a built-in **Stakeholder** model (see [Card Details](../guide/card-details.md)): every card carries a list of people in defined roles (for an Application: Business Application Owner, Technical Application Owner, Owner, Observer), defined per card type in the metamodel. Decide up front who fills each role for an Application:
 
-- **Application Owner** — accountable for the application in the business. One person per app. They sign off on TIME disposition.
-- **Technical Owner** — accountable for keeping it running. Often the engineering manager.
+- **Application Owner** (the *Business Application Owner* role) — accountable for the application in the business. One person per app. They sign off on TIME disposition.
+- **Technical Owner** (the *Technical Application Owner* role) — accountable for keeping it running. Often the engineering manager.
 - **Architect** — you, probably. Acts as the EA-side reviewer and approves cards.
 
 You don't need to assign stakeholders on day one for every card, but you do need to know who they *will* be — because in week three you'll be sending them surveys to validate the data.
@@ -55,9 +55,11 @@ Realistic targets for the first 90 days:
 
 | Phase | Target avg. data quality (Applications) | What's filled |
 |-------|----------------------------------------|---------------|
-| End of week 2 (Crawl) | **40–60%** | Name, Lifecycle phase, Description, Business Owner |
-| End of week 6 (Walk) | **60–75%** | + Capability mapping, Cost, TIME disposition |
+| End of week 2 (Crawl) | **0%** — expected, see below | Name, Lifecycle phase, Description, Business Application Owner, Cost |
+| End of week 6 (Walk) | **60–75%** | + Capability mapping, Cost, Business Criticality, Functional and Technical Suitability, TIME disposition |
 | End of month 3 (Run) | **75–90%** | + Technology stack, interfaces, custom domain fields |
+
+Business Criticality and TIME Model are **required** fields on Application, and while a required field is empty the card's score is pinned to 0%. During crawl, measure progress by the share of cards with the crawl fields filled; the score becomes meaningful in walk, once both required fields are set.
 
 Don't push for 100%. The last 10% costs more than the first 60% and rarely changes a decision.
 

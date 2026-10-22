@@ -22,20 +22,20 @@ You don't need 500 capabilities to get value. You need **20–60 capabilities, t
 
 ## Import a starter capability map
 
-1. Navigate to **Capability Catalogue** in the main menu (under User Guide).
+1. Open the user menu (your avatar, top right) → **Reference Catalogues** → **Capability Catalogue**.
 2. Use the filters at the top:
-    - **Industry** — pick yours (or "Cross-industry" if nothing fits).
+    - **Industry** — pick yours (or **Cross-Industry** if nothing fits).
     - **Level** — start with L1 and L2 visible. You can always go deeper later.
 3. Browse the tree. Expand a few branches to get a feel for the depth.
-4. Tick the capabilities you want to import. **Selection cascades**: ticking an L1 ticks its descendants; ticking an L2 also ticks its L1 ancestor so the hierarchy stays connected.
-5. Click **Create cards from selection**.
+4. Tick the capabilities you want to import. Ticking a capability also ticks everything beneath it. Ticking a child does **not** tick its parent — tick the parent too, so the hierarchy is preserved.
+5. Click **Create N capabilities** at the bottom and confirm.
 
 Turbo EA creates one `BusinessCapability` card per ticked node, preserves the parent-child hierarchy, and stamps each card with a stable `catalogueId` so re-imports are **idempotent** — running the import twice doesn't create duplicates.
 
 Full reference: [Capability Catalogue](../guide/capability-catalogue.md).
 
 !!! tip "Best practice"
-    Pick a subtree, not the whole catalogue. For an Application Portfolio Rationalisation in the Sales domain, importing the L1 capability "Sales & Customer Management" plus its L2 children is usually enough — that's 10–15 capabilities, not 300.
+    Pick a subtree, not the whole catalogue. For an Application Portfolio Rationalisation in the Sales domain, importing the L1 capability "Sales Management" (and perhaps "Customer Relationship Management") plus their L2 children is usually enough — that's 10–15 capabilities, not 300.
 
 ## How deep to go
 
@@ -63,8 +63,8 @@ You'll want them when:
 
 Two options:
 
-1. **Pick the closest industry** and prune. The "Cross-industry" entries (Finance, HR, IT, Procurement) apply to virtually every company.
-2. **Combine catalogues** — import "Cross-industry" first, then top up with a few items from a specific industry catalogue.
+1. **Pick the closest industry** and prune. The **Cross-Industry** entries (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) apply to virtually every company.
+2. **Combine catalogues** — import **Cross-Industry** first, then top up with a few items from a specific industry catalogue.
 
 Either way, **import first, customise after**. Renaming an imported capability or adding a child is much faster than typing the whole structure from scratch. And you keep the `catalogueId` so future catalogue updates merge cleanly.
 
