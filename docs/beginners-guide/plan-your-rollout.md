@@ -36,7 +36,7 @@ If you're not sure, **pick Application Portfolio Rationalisation**. It's the mos
 
 ## 3. Identify your stakeholders
 
-Turbo EA has a built-in **Stakeholder** model (see [Card Details](../guide/card-details.md)): every card carries a list of people in defined roles (for an Application: Business Application Owner, Technical Application Owner, Owner, Observer), defined per card type in the metamodel. Decide up front who fills each role for an Application:
+Turbo EA has a built-in **Stakeholder** model (see [Card Details](../guide/card-details.md)): every card carries a list of people in defined roles (for an Application: Business Application Owner, Technical Application Owner, Responsible, Observer), defined per card type in the metamodel. Decide up front who fills each role for an Application:
 
 - **Application Owner** (the *Business Application Owner* role) — accountable for the application in the business. One person per app. They sign off on TIME disposition.
 - **Technical Owner** (the *Technical Application Owner* role) — accountable for keeping it running. Often the engineering manager.
