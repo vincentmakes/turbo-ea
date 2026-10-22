@@ -167,6 +167,13 @@ async def env(db):
     )
     await create_relation_type(
         db,
+        key="relAppToOrg",
+        label="serves",
+        source_type_key="Application",
+        target_type_key="Organization",
+    )
+    await create_relation_type(
+        db,
         key="relOrgToApp",
         label="uses",
         reverse_label="is used by",
@@ -195,7 +202,16 @@ async def env(db):
     )
     zeta = await create_card(db, card_type="Organization", name="Zeta Org")
     alpha = await create_card(db, card_type="Organization", name="Alpha Org")
-    await create_relation(db, type_key="relAppToBC", source_id=erp.id, target_id=leaf.id)
+    await create_card(db, card_type="Organization", name="Old Org", status="ARCHIVED")
+    await create_relation(
+        db,
+        type_key="relAppToBC",
+        source_id=erp.id,
+        target_id=leaf.id,
+        attributes={"supportType": "core"},
+    )
+    # The app on the source side of an organisation relation this time.
+    await create_relation(db, type_key="relAppToOrg", source_id=erp.id, target_id=alpha.id)
     await create_relation(db, type_key="relAppToBC", source_id=erp.id, target_id=former.id)
     await create_relation(db, type_key="relAppToBC", source_id=crm.id, target_id=orphaned.id)
     await create_relation(db, type_key="relInitToApp", source_id=program.id, target_id=erp.id)
@@ -240,6 +256,7 @@ async def env(db):
         "alpha": alpha,
         "in_house": in_house,
         "bought": bought,
+        "origin_group": for_apps,
         "admin": admin,
         "viewer": viewer,
         "reports_only": reports_only,
@@ -261,8 +278,14 @@ async def test_relations_are_listed_on_the_side_each_card_sits(db, env):
     erp = _item(payload, "ERP")
     crm = _item(payload, "CRM")
     by_type = {(r["relation_type"], r["direction"]): r for r in erp["relations"]}
-    assert by_type["relAppToBC", "outgoing"]["related_id"] == str(env["leaf"].id)
-    assert by_type["relAppToBC", "outgoing"]["related_type"] == "BusinessCapability"
+    assert by_type["relAppToBC", "outgoing"] == {
+        "relation_type": "relAppToBC",
+        "direction": "outgoing",
+        "related_id": str(env["leaf"].id),
+        "related_name": "Shipping",
+        "related_type": "BusinessCapability",
+        "attributes": {"supportType": "core"},
+    }
     assert by_type["relInitToApp", "incoming"]["related_name"] == "Program"
     # The whole entry, attributes included, on the incoming side.
     assert by_type["relOrgToApp", "incoming"] == {
@@ -304,8 +327,12 @@ async def test_relations_are_listed_on_the_side_each_card_sits(db, env):
 async def test_related_capabilities_carry_their_ancestors(db, env):
     payload = await _payload(db, env["admin"], env["app_type"])
     caps = {m["name"]: m for m in payload["groupable_types"]["BusinessCapability"]}
-    assert caps["Shipping"]["parent_id"] == str(env["mid"].id)
-    assert "ancestor_only" not in caps["Shipping"]
+    assert caps["Shipping"] == {
+        "id": str(env["leaf"].id),
+        "name": "Shipping",
+        "type": "BusinessCapability",
+        "parent_id": str(env["mid"].id),
+    }
     # The chain up to the root is there so a parent pick can cover its children.
     assert caps["Fulfilment"] == {
         "id": str(env["mid"].id),
@@ -348,7 +375,7 @@ async def test_tags_and_the_tag_groups_that_apply_to_the_type(db, env):
     assert [g["name"] for g in payload["tag_groups"]] == ["Audit", "Origin"]
     origin = payload["tag_groups"][1]
     assert origin == {
-        "id": str(origin["id"]),
+        "id": str(env["origin_group"].id),
         "name": "Origin",
         "mode": "multi",
         "tags": [
@@ -366,6 +393,7 @@ async def test_a_hidden_card_type_offers_no_filter_options(db, env):
         "relInitToApp",
         "relAppToApp",
         "relAppToRetired",
+        "relAppToOrg",
         "relOrgToApp",
     }
     org = next(rt for rt in payload["relation_types"] if rt["key"] == "relOrgToApp")
@@ -388,7 +416,8 @@ async def test_the_legacy_organisation_filter(db, env):
         {"id": str(env["alpha"].id), "name": "Alpha Org"},
         {"id": str(env["zeta"].id), "name": "Zeta Org"},
     ]
-    assert _item(payload, "ERP")["org_ids"] == [str(env["zeta"].id)]
+    # Both sides count, sorted; the archived organisation is on neither list.
+    assert _item(payload, "ERP")["org_ids"] == sorted([str(env["zeta"].id), str(env["alpha"].id)])
     assert _item(payload, "CRM")["org_ids"] == []
 
 
@@ -402,6 +431,7 @@ async def test_a_reports_only_role_reads_everything_in_module_mode(db, env):
         "relInitToApp",
         "relAppToApp",
         "relAppToRetired",
+        "relAppToOrg",
         "relOrgToApp",
     }
     assert set(payload["groupable_types"]) == {
@@ -411,6 +441,9 @@ async def test_a_reports_only_role_reads_everything_in_module_mode(db, env):
         "Organization",
     }
     assert len(payload["organizations"]) == 2
+    # Unrestricted in module mode, so a dangling parent pointer is kept.
+    caps = {m["name"]: m for m in payload["groupable_types"]["BusinessCapability"]}
+    assert caps["Orphaned"]["parent_id"] == str(env["former"].id)
 
 
 async def test_a_reader_denied_the_type_itself_gets_no_cards(db, env):
@@ -429,12 +462,17 @@ async def test_a_reader_denied_the_type_itself_gets_no_cards(db, env):
 async def test_a_type_the_reader_may_not_see_is_left_out(db, env):
     ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
     ct.role_permissions = {"viewer": {"inventory.view": False}}
+    org_ct = (await db.execute(select(CardType).where(CardType.key == "Organization"))).scalar_one()
+    org_ct.role_permissions = {"viewer": {"inventory.view": False}}
     await db.flush()
     PermissionService.invalidate_type_permission_cache()
     try:
         payload = await _payload(db, env["viewer"], env["app_type"])
     finally:
         PermissionService.invalidate_type_permission_cache()
+    # The legacy organisation list honours the deny as well.
+    assert payload["organizations"] == []
+    assert _item(payload, "ERP")["org_ids"] == []
     erp = _item(payload, "ERP")
     assert all(r["related_type"] != "Initiative" for r in erp["relations"])
     assert "Initiative" not in payload["groupable_types"]
