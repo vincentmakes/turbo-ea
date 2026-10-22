@@ -10,7 +10,7 @@ Es handelt sich um eine sequenzierte, fundierte Anleitung für die **erste konkr
 - **Solution Architects und Anwendungsverantwortliche**, die ohne viel Kontext gebeten werden, „das EA-Tool zu befüllen".
 - **Admins**, die die Plattform für einen breiteren Rollout vorbereiten.
 
-Sie benötigen die Rolle **admin** (oder mindestens `admin.metamodel` und `inventory.edit`), um jedem Schritt zu folgen. Read-Only-Rollen können trotzdem profitieren — sie können nur die Metamodelländerungen auf Seite 5 nicht vornehmen.
+Sie benötigen die Rolle **admin** (oder mindestens `admin.metamodel` und `inventory.edit`), um jedem Schritt zu folgen. Read-Only-Rollen können trotzdem profitieren — sie können nur die Metamodell- und Berechnungsänderungen auf den Seiten 4 und 5 nicht vornehmen.
 
 ## Der Bogen Crawl → Walk → Run
 
@@ -20,7 +20,7 @@ Versuchen Sie nicht, das gesamte Unternehmen in der ersten Woche zu modellieren.
 2. **Walk** — Fügen Sie Business Capabilities aus dem mitgelieferten Katalog hinzu. Ordnen Sie Anwendungen den Capabilities zu. Führen Sie Ihre erste Portfolio-Analyse durch. Präsentieren Sie sie einem Stakeholder.
 3. **Run** — Erweitern Sie auf Prozesse, Schnittstellen, Datenobjekte. Fügen Sie weitere benutzerdefinierte Felder hinzu. Öffnen Sie die fortgeschritteneren Module.
 
-Dieser Leitfaden deckt **Crawl** und den Beginn von **Walk** ab. Am Ende werden Sie ein funktionierendes Anwendungsportfolio mit einer TIME-Disposition (**T**olerieren / **I**nvestieren / **M**igrieren / **E**liminieren) und einen Portfolio-Bericht haben, den Sie einem CIO vorlegen können.
+Dieser Leitfaden deckt **Crawl** und den Beginn von **Walk** ab. Am Ende werden Sie ein funktionierendes Anwendungsportfolio mit einer TIME-Disposition (**T**olerieren / **I**nvestieren / **M**igrieren / **E**liminieren) und einen Bericht Anwendungsportfolio haben, den Sie einem CIO vorlegen können.
 
 ## Was in diesem Leitfaden enthalten ist
 
@@ -29,8 +29,8 @@ Dieser Leitfaden deckt **Crawl** und den Beginn von **Walk** ab. Am Ende werden 
 | 1 | [Planen Sie Ihren Rollout](plan-your-rollout.md) | Initiative abgrenzen, Stakeholder auswählen, realistisches Datenqualitätsziel setzen |
 | 2 | [Beginnen Sie mit Ihrem Anwendungsinventar](start-with-applications.md) | Anwendungen via Import, ServiceNow oder manueller Eingabe befüllen |
 | 3 | [Referenzkataloge nutzen](leverage-reference-catalogues.md) | Sparen Sie Monate manueller Modellierung durch den Import von Capabilities und Prozessen |
-| 4 | [Metamodell anpassen — behutsam](customise-the-metamodel.md) | Ein benutzerdefiniertes Feld (TIME) auf die richtige Art hinzufügen |
-| 5 | [Ihre erste Analyse: Anwendungsharmonisierung](your-first-analysis.md) | Anwendungen Capabilities zuordnen, Portfolio-Bericht und Capability Heatmap ausführen |
+| 4 | [Metamodell anpassen — behutsam](customise-the-metamodel.md) | Die integrierten Felder kennen, nur bei Bedarf ein benutzerdefiniertes Feld hinzufügen und TIME mit einer Berechnung ableiten |
+| 5 | [Ihre erste Analyse: Anwendungsharmonisierung](your-first-analysis.md) | Anwendungen Capabilities zuordnen, den Bericht Anwendungsportfolio und die Geschäftsfähigkeiten-Karte ausführen |
 
 !!! tip "Bewährte Praxis"
     Lesen Sie alle fünf Seiten der Reihe nach, bevor Sie Turbo EA öffnen. Der Plan in Ihrem Kopf ist wertvoller als die ersten 50 Karten im Inventar.

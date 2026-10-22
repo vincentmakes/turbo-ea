@@ -10,7 +10,7 @@ Il s'agit d'un parcours séquencé et orienté, couvrant la **première initiati
 - Aux **Architectes de solution et propriétaires d'applications** à qui l'on demande de « remplir l'outil EA » sans grand contexte.
 - Aux **Administrateurs** préparant la plateforme pour un déploiement plus large.
 
-Vous aurez besoin du rôle **admin** (ou au minimum de `admin.metamodel` et `inventory.edit`) pour suivre chaque étape. Les rôles en lecture seule peuvent toujours en tirer parti — ils ne pourront simplement pas effectuer les modifications du métamodèle en page 5.
+Vous aurez besoin du rôle **admin** (ou au minimum de `admin.metamodel` et `inventory.edit`) pour suivre chaque étape. Les rôles en lecture seule peuvent toujours en tirer parti — ils ne pourront simplement pas effectuer les modifications du métamodèle et des calculs des pages 4 et 5.
 
 ## L'arc crawl → walk → run
 
@@ -20,7 +20,7 @@ N'essayez pas de modéliser toute l'entreprise dès la première semaine. Les é
 2. **Walk** — Ajouter les capacités métier depuis le catalogue intégré. Cartographier les applications par rapport aux capacités. Lancer votre première analyse de portefeuille. La montrer à une partie prenante.
 3. **Run** — Étendre aux processus, interfaces, objets de données. Ajouter davantage de champs personnalisés. Ouvrir les modules plus avancés.
 
-Ce guide couvre la phase **crawl** et le début de **walk**. À la fin, vous disposerez d'un portefeuille applicatif fonctionnel avec une disposition TIME (**T**olérer / **I**nvestir / **M**igrer / **É**liminer) et d'un Rapport de portefeuille que vous pourrez présenter à un DSI.
+Ce guide couvre la phase **crawl** et le début de **walk**. À la fin, vous disposerez d'un portefeuille applicatif fonctionnel avec une disposition TIME (**T**olérer / **I**nvestir / **M**igrer / **É**liminer) et d'un rapport Portefeuille applicatif que vous pourrez présenter à un DSI.
 
 ## Que contient ce guide
 
@@ -29,8 +29,8 @@ Ce guide couvre la phase **crawl** et le début de **walk**. À la fin, vous dis
 | 1 | [Planifiez votre déploiement](plan-your-rollout.md) | Cadrer l'initiative, choisir les parties prenantes, fixer un objectif réaliste de qualité de données |
 | 2 | [Commencez par votre inventaire applicatif](start-with-applications.md) | Peupler les Applications via import, ServiceNow ou saisie manuelle |
 | 3 | [Tirez parti des catalogues de référence](leverage-reference-catalogues.md) | Éviter des mois de modélisation manuelle en important capacités et processus |
-| 4 | [Personnalisez le métamodèle — légèrement](customise-the-metamodel.md) | Ajouter un champ personnalisé (TIME) de la bonne manière |
-| 5 | [Votre première analyse : Harmonisation applicative](your-first-analysis.md) | Cartographier les applis vers les capacités, lancer le Rapport de portefeuille et la Carte thermique des capacités |
+| 4 | [Personnalisez le métamodèle — légèrement](customise-the-metamodel.md) | Connaître les champs intégrés, n'ajouter un champ personnalisé qu'en cas de besoin et dériver TIME avec un calcul |
+| 5 | [Votre première analyse : Harmonisation applicative](your-first-analysis.md) | Cartographier les applis vers les capacités, lancer le rapport Portefeuille applicatif et la Carte des capacités |
 
 !!! tip "Bonne pratique"
     Lisez les cinq pages dans l'ordre avant d'ouvrir Turbo EA. Le plan dans votre tête vaut plus que les 50 premières fiches dans l'inventaire.

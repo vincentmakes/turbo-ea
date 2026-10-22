@@ -27,7 +27,7 @@ Andere gültige erste Anwendungsfälle — aber wählen Sie **einen**:
 
 | Anwendungsfall | Was Sie hauptsächlich befüllen | Was Sie überspringen |
 |----------|----------------------------|------------------|
-| **Anwendungsportfolio-Rationalisierung** | Anwendungen, Kosten, Lebenszyklus, Geschäftswert | Detailliertes Prozessmodell, Schnittstellen |
+| **Anwendungsportfolio-Rationalisierung** | Anwendungen, Kosten, Lebenszyklus, Geschäftskritikalität, funktionale und technische Eignung | Detailliertes Prozessmodell, Schnittstellen |
 | **Capability-basierte Planung** | Business Capabilities, Anwendungen, Capability Heatmap | Kostendetails, Technologie-Stack |
 | **Cloud-Migrationsbewertung** | Anwendungen, IT-Komponenten, Bereitstellungsmodell | Geschäftswert, Prozesse |
 | **M&A-Integration** | Beide Portfolios als Anwendungen, Überschneidungsanalyse | Langfristige Lebenszyklusdaten |
@@ -36,10 +36,10 @@ Wenn Sie unsicher sind, **wählen Sie Anwendungsportfolio-Rationalisierung**. Es
 
 ## 3. Identifizieren Sie Ihre Stakeholder
 
-Turbo EA verfügt über ein integriertes **Stakeholder**-Modell (siehe [Kartendetails](../guide/card-details.md)): Jede Karte trägt eine Liste von Personen in definierten Rollen (Business Owner, Technical Owner usw.), pro Kartentyp im Metamodell definiert. Entscheiden Sie im Voraus, wer jede Rolle für eine Anwendung ausfüllt:
+Turbo EA verfügt über ein integriertes **Stakeholder**-Modell (siehe [Kartendetails](../guide/card-details.md)): Jede Karte trägt eine Liste von Personen in definierten Rollen (für eine Anwendung: Fachlicher Anwendungsverantwortlicher, Technischer Anwendungsverantwortlicher, Verantwortlicher, Beobachter), pro Kartentyp im Metamodell definiert. Entscheiden Sie im Voraus, wer jede Rolle für eine Anwendung ausfüllt:
 
-- **Application Owner** — verantwortlich für die Anwendung im Geschäftsbereich. Eine Person pro App. Sie zeichnet die TIME-Disposition ab.
-- **Technical Owner** — verantwortlich dafür, dass sie läuft. Häufig der Engineering Manager.
+- **Application Owner** (die Rolle *Fachlicher Anwendungsverantwortlicher*) — verantwortlich für die Anwendung im Geschäftsbereich. Eine Person pro App. Sie zeichnet die TIME-Disposition ab.
+- **Technical Owner** (die Rolle *Technischer Anwendungsverantwortlicher*) — verantwortlich dafür, dass sie läuft. Häufig der Engineering Manager.
 - **Architect** — wahrscheinlich Sie. Agiert als EA-seitiger Prüfer und genehmigt Karten.
 
 Sie müssen nicht am ersten Tag Stakeholder für jede Karte zuweisen, aber Sie müssen wissen, wer sie *sein werden* — denn in Woche drei werden Sie ihnen Umfragen senden, um die Daten zu validieren.
@@ -55,9 +55,11 @@ Realistische Ziele für die ersten 90 Tage:
 
 | Phase | Ziel-Ø-Datenqualität (Anwendungen) | Was befüllt ist |
 |-------|----------------------------------------|---------------|
-| Ende Woche 2 (Crawl) | **40–60 %** | Name, Lebenszyklusphase, Beschreibung, Business Owner |
-| Ende Woche 6 (Walk) | **60–75 %** | + Capability-Mapping, Kosten, TIME-Disposition |
+| Ende Woche 2 (Crawl) | **0 %** — erwartet, siehe unten | Name, Lebenszyklusphase, Beschreibung, Fachlicher Anwendungsverantwortlicher, Kosten |
+| Ende Woche 6 (Walk) | **60–75 %** | + Capability-Mapping, Kosten, Geschäftskritikalität, Funktionale und Technische Eignung, TIME-Disposition |
 | Ende Monat 3 (Run) | **75–90 %** | + Technologie-Stack, Schnittstellen, benutzerdefinierte Domänenfelder |
+
+Geschäftskritikalität und TIME-Modell sind **Pflichtfelder** auf Application, und solange ein Pflichtfeld leer ist, ist der Score der Karte auf 0 % fixiert. Messen Sie den Fortschritt während Crawl am Anteil der Karten, bei denen die Crawl-Felder ausgefüllt sind; aussagekräftig wird der Score in Walk, sobald beide Pflichtfelder gesetzt sind.
 
 Streben Sie nicht 100 % an. Die letzten 10 % kosten mehr als die ersten 60 % und ändern selten eine Entscheidung.
 
@@ -65,7 +67,7 @@ Streben Sie nicht 100 % an. Die letzten 10 % kosten mehr als die ersten 60 % und
 
 Beenden Sie Ihre Planungssitzung mit einer schriftlichen Aussage wie:
 
-> *„Bis Ende Woche 6 wird das Inventar der Vertriebsdomäne jede Anwendung mit jährlichen Kosten > 50.000 € enthalten, die jeweils mindestens einer Business Capability zugeordnet ist und eine TIME-Disposition trägt. Wir werden den Portfolio-Bericht in Woche 7 dem Vertriebs-CIO präsentieren."*
+> *„Bis Ende Woche 6 wird das Inventar der Vertriebsdomäne jede Anwendung mit jährlichen Kosten > 50.000 € enthalten, die jeweils mindestens einer Business Capability zugeordnet ist und eine TIME-Disposition trägt. Wir werden den Bericht Anwendungsportfolio in Woche 7 dem Vertriebs-CIO präsentieren."*
 
 Heften Sie ihn an ein Wiki, in eine Kickoff-Folie, in eine Slack-Kanalbeschreibung — irgendwo sichtbar. Dieser Satz ist es, der den Rollout davon abhält, in das Fegefeuer „wir sammeln noch Daten" abzudriften.
 

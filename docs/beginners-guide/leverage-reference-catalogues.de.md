@@ -8,7 +8,7 @@ Der klassische Fehler in dieser Phase: drei Wochen mit Workshops zu einem maßge
 - **Process Catalogue** — Referenzgeschäftsprozesse pro Branche, bereit zum Import als `BusinessProcess`-Karten.
 - **Value Stream Catalogue** — End-to-End-Wertströme, um die Capability Map einzurahmen.
 
-Diese Seite konzentriert sich auf den Business Capability Catalogue, weil er die Capability Heatmap auf der letzten Seite antreibt. Die anderen beiden funktionieren auf die gleiche Weise.
+Diese Seite konzentriert sich auf den Business Capability Catalogue, weil er die Geschäftsfähigkeiten-Karte auf der letzten Seite antreibt. Die anderen beiden funktionieren auf die gleiche Weise.
 
 ## Warum mit Capabilities beginnen
 
@@ -22,20 +22,20 @@ Sie brauchen keine 500 Capabilities, um Wert zu erzielen. Sie brauchen **20–60
 
 ## Importieren Sie eine Starter-Capability-Map
 
-1. Navigieren Sie zu **Capability Catalogue** im Hauptmenü (unter User Guide).
+1. Öffnen Sie das Benutzermenü (Ihr Avatar, oben rechts) → **Referenzkataloge** → **Capability-Katalog**.
 2. Verwenden Sie die Filter oben:
-    - **Branche** — wählen Sie Ihre (oder „Branchenübergreifend", wenn nichts passt).
+    - **Branche** — wählen Sie Ihre (oder **Cross-Industry**, wenn nichts passt).
     - **Ebene** — beginnen Sie mit sichtbarem L1 und L2. Sie können später immer tiefer gehen.
 3. Durchsuchen Sie den Baum. Erweitern Sie ein paar Zweige, um ein Gefühl für die Tiefe zu bekommen.
-4. Setzen Sie Häkchen bei den Capabilities, die Sie importieren möchten. **Die Auswahl kaskadiert**: Das Anklicken einer L1 klickt ihre Nachkommen an; das Anklicken einer L2 klickt auch ihren L1-Vorfahren an, damit die Hierarchie verbunden bleibt.
-5. Klicken Sie auf **Karten aus Auswahl erstellen**.
+4. Setzen Sie Häkchen bei den Capabilities, die Sie importieren möchten. Das Anhaken einer Capability hakt auch alles darunter an. Das Anhaken eines Kindes hakt seinen Elternknoten **nicht** an — haken Sie den Elternknoten ebenfalls an, damit die Hierarchie erhalten bleibt.
+5. Klicken Sie unten auf **N Capabilities erstellen** und bestätigen Sie.
 
 Turbo EA erstellt eine `BusinessCapability`-Karte pro angeklicktem Knoten, bewahrt die Eltern-Kind-Hierarchie und stempelt jede Karte mit einer stabilen `catalogueId`, sodass erneute Importe **idempotent** sind — das zweimalige Ausführen des Imports erzeugt keine Duplikate.
 
 Vollständige Referenz: [Capability Catalogue](../guide/capability-catalogue.md).
 
 !!! tip "Bewährte Praxis"
-    Wählen Sie einen Teilbaum, nicht den gesamten Katalog. Für eine Anwendungsportfolio-Rationalisierung in der Vertriebsdomäne reicht der Import der L1-Capability „Sales & Customer Management" plus ihrer L2-Kinder normalerweise aus — das sind 10–15 Capabilities, nicht 300.
+    Wählen Sie einen Teilbaum, nicht den gesamten Katalog. Für eine Anwendungsportfolio-Rationalisierung in der Vertriebsdomäne reicht der Import der L1-Capability „Sales Management" (und eventuell „Customer Relationship Management") plus ihrer L2-Kinder normalerweise aus — das sind 10–15 Capabilities, nicht 300.
 
 ## Wie tief gehen
 
@@ -63,8 +63,8 @@ Sie werden sie wollen, wenn:
 
 Zwei Optionen:
 
-1. **Wählen Sie die nächstgelegene Branche** und beschneiden Sie. Die Einträge „Branchenübergreifend" (Finanzen, HR, IT, Beschaffung) gelten für praktisch jedes Unternehmen.
-2. **Kataloge kombinieren** — importieren Sie zuerst „Branchenübergreifend", dann ergänzen Sie mit ein paar Elementen aus einem bestimmten Branchenkatalog.
+1. **Wählen Sie die nächstgelegene Branche** und beschneiden Sie. Die Einträge unter **Cross-Industry** (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) gelten für praktisch jedes Unternehmen.
+2. **Kataloge kombinieren** — importieren Sie zuerst **Cross-Industry**, dann ergänzen Sie mit ein paar Elementen aus einem bestimmten Branchenkatalog.
 
 So oder so: **Zuerst importieren, dann anpassen**. Eine importierte Capability umzubenennen oder ein Kind hinzuzufügen ist viel schneller, als die gesamte Struktur von Grund auf einzutippen. Und Sie behalten die `catalogueId`, sodass zukünftige Katalogupdates sauber zusammengeführt werden.
 
@@ -79,6 +79,6 @@ Sie sind mit dieser Seite fertig, wenn:
 - Die Hierarchie intakt ist — öffnen Sie ein paar L2-Capabilities und prüfen Sie, ob die Eltern-Breadcrumb die richtige L1 anzeigt.
 - Die Capability-Anzahl zwischen 20 und 60 liegt.
 
-Sie haben noch keine Anwendungen Capabilities zugeordnet — das kommt auf der letzten Seite. Zuerst fügen wir den Anwendungen ein benutzerdefiniertes Feld hinzu, um die Analyse wirklich nützlich zu machen.
+Sie haben noch keine Anwendungen Capabilities zugeordnet — das kommt auf der letzten Seite. Zuerst ein kurzer Blick auf das Metamodell — und darauf, warum die Analyse überhaupt kein benutzerdefiniertes Feld benötigt.
 
 Weiter: [Metamodell anpassen — behutsam](customise-the-metamodel.md).

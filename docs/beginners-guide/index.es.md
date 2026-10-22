@@ -10,7 +10,7 @@ Es un recorrido secuenciado y con opiniones de la **primera iniciativa concreta 
 - **Arquitectos de Soluciones y Propietarios de Aplicaciones** a quienes se les ha pedido "llenar la herramienta de EA" sin mucho contexto.
 - **Administradores** preparando la plataforma para un despliegue más amplio.
 
-Necesitará el rol de **admin** (o al menos `admin.metamodel` e `inventory.edit`) para seguir cada paso. Los roles de solo lectura aún pueden beneficiarse — simplemente no podrán realizar los cambios en el metamodelo de la página 5.
+Necesitará el rol de **admin** (o al menos `admin.metamodel` e `inventory.edit`) para seguir cada paso. Los roles de solo lectura aún pueden beneficiarse — simplemente no podrán realizar los cambios en el metamodelo y los cálculos de las páginas 4 y 5.
 
 ## El arco gatear → caminar → correr
 
@@ -20,7 +20,7 @@ No intente modelar toda la empresa en la primera semana. Los equipos que tienen 
 2. **Caminar** — Agregue Capacidades de Negocio desde el catálogo incluido. Mapee aplicaciones a capacidades. Ejecute su primer análisis de portafolio. Muéstreselo a un interesado.
 3. **Correr** — Expanda a procesos, interfaces, objetos de datos. Agregue más campos personalizados. Abra los módulos más avanzados.
 
-Esta guía cubre **gatear** y el inicio de **caminar**. Al final, tendrá un portafolio de aplicaciones funcional con una disposición TIME (**T**olerar / **I**nvertir / **M**igrar / **E**liminar) y un Informe de Portafolio que puede presentar a un CIO.
+Esta guía cubre **gatear** y el inicio de **caminar**. Al final, tendrá un portafolio de aplicaciones funcional con una disposición TIME (**T**olerar / **I**nvertir / **M**igrar / **E**liminar) y un informe Portafolio de aplicaciones que puede presentar a un CIO.
 
 ## Qué hay en esta guía
 
@@ -29,8 +29,8 @@ Esta guía cubre **gatear** y el inicio de **caminar**. Al final, tendrá un por
 | 1 | [Planifique su despliegue](plan-your-rollout.md) | Defina el alcance de la iniciativa, elija interesados, establezca un objetivo realista de calidad de datos |
 | 2 | [Comience con su inventario de aplicaciones](start-with-applications.md) | Pueble Aplicaciones mediante importación, ServiceNow o entrada manual |
 | 3 | [Aproveche los catálogos de referencia](leverage-reference-catalogues.md) | Ahorre meses de modelado manual importando capacidades y procesos |
-| 4 | [Personalice el metamodelo — ligeramente](customise-the-metamodel.md) | Agregue un campo personalizado (TIME) de la manera correcta |
-| 5 | [Su primer análisis: Armonización de Aplicaciones](your-first-analysis.md) | Mapee aplicaciones a capacidades, ejecute el Informe de Portafolio y el Mapa de Calor de Capacidades |
+| 4 | [Personalice el metamodelo — ligeramente](customise-the-metamodel.md) | Conozca los campos integrados, agregue uno personalizado solo cuando haga falta y derive TIME con un cálculo |
+| 5 | [Su primer análisis: Armonización de Aplicaciones](your-first-analysis.md) | Mapee aplicaciones a capacidades, ejecute el informe Portafolio de aplicaciones y el Mapa de capacidades |
 
 !!! tip "Buena práctica"
     Lea las cinco páginas en orden antes de abrir Turbo EA. El plan en su cabeza es más valioso que las primeras 50 fichas en el inventario.

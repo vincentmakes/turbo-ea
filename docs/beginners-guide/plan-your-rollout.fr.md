@@ -27,7 +27,7 @@ Autres premiers cas d'usage valables — mais n'en choisissez qu'**un** :
 
 | Cas d'usage | Ce que vous peuplerez surtout | Ce que vous laisserez de côté |
 |-------------|------------------------------|-------------------------------|
-| **Rationalisation du portefeuille applicatif** | Applications, coûts, cycle de vie, valeur métier | Modèle de processus détaillé, interfaces |
+| **Rationalisation du portefeuille applicatif** | Applications, coûts, cycle de vie, criticité métier, adéquation fonctionnelle et technique | Modèle de processus détaillé, interfaces |
 | **Planification par capacités** | Capacités métier, Applications, carte thermique des capacités | Détail des coûts, pile technologique |
 | **Évaluation de migration cloud** | Applications, Composants IT, modèle de déploiement | Valeur métier, processus |
 | **Intégration M&A** | Les deux portefeuilles en tant qu'Applications, analyse des recouvrements | Dates de cycle de vie à long terme |
@@ -36,10 +36,10 @@ Si vous hésitez, **choisissez la Rationalisation du portefeuille applicatif**. 
 
 ## 3. Identifiez vos parties prenantes
 
-Turbo EA inclut un modèle **Stakeholder** intégré (voir [Détails de la fiche](../guide/card-details.md)) : chaque fiche porte une liste de personnes avec des rôles définis (Propriétaire métier, Propriétaire technique, etc.), définis par type de fiche dans le métamodèle. Décidez d'emblée qui occupe chaque rôle pour une Application :
+Turbo EA inclut un modèle **Stakeholder** intégré (voir [Détails de la fiche](../guide/card-details.md)) : chaque fiche porte une liste de personnes avec des rôles définis (pour une Application : Responsable métier de l'application, Responsable technique de l'application, Responsable, Observateur), définis par type de fiche dans le métamodèle. Décidez d'emblée qui occupe chaque rôle pour une Application :
 
-- **Application Owner** — responsable de l'application côté métier. Une personne par appli. Cette personne valide la disposition TIME.
-- **Technical Owner** — responsable de son maintien en condition opérationnelle. Souvent le manager d'ingénierie.
+- **Application Owner** (le rôle *Responsable métier de l'application*) — responsable de l'application côté métier. Une personne par appli. Cette personne valide la disposition TIME.
+- **Technical Owner** (le rôle *Responsable technique de l'application*) — responsable de son maintien en condition opérationnelle. Souvent le manager d'ingénierie.
 - **Architect** — vous, probablement. Joue le rôle de relecteur côté EA et approuve les fiches.
 
 Vous n'avez pas besoin d'assigner des parties prenantes dès le premier jour pour chaque fiche, mais vous devez savoir qui elles *seront* — car en semaine trois, vous leur enverrez des enquêtes pour valider les données.
@@ -55,9 +55,11 @@ Objectifs réalistes pour les 90 premiers jours :
 
 | Phase | Qualité moyenne cible (Applications) | Ce qui est rempli |
 |-------|--------------------------------------|-------------------|
-| Fin de la semaine 2 (Crawl) | **40–60 %** | Nom, phase de cycle de vie, Description, Business Owner |
-| Fin de la semaine 6 (Walk) | **60–75 %** | + Mapping capacités, Coût, disposition TIME |
+| Fin de la semaine 2 (Crawl) | **0 %** — attendu, voir ci-dessous | Nom, phase de cycle de vie, Description, Responsable métier de l'application, Coût |
+| Fin de la semaine 6 (Walk) | **60–75 %** | + Mapping capacités, Coût, Criticité métier, Adéquation fonctionnelle et technique, disposition TIME |
 | Fin du mois 3 (Run) | **75–90 %** | + Pile technologique, interfaces, champs métier personnalisés |
+
+Criticité métier et Modèle TIME sont des champs **obligatoires** sur Application, et tant qu'un champ obligatoire est vide, le score de la fiche reste bloqué à 0 %. Pendant la phase crawl, mesurez l'avancement à la part des fiches dont les champs crawl sont remplis ; le score devient significatif en phase walk, une fois les deux champs obligatoires renseignés.
 
 Ne visez pas 100 %. Les 10 derniers pour cent coûtent plus cher que les 60 premiers et changent rarement une décision.
 
@@ -65,7 +67,7 @@ Ne visez pas 100 %. Les 10 derniers pour cent coûtent plus cher que les 60 prem
 
 Terminez votre session de planification par une déclaration écrite du type :
 
-> *« D'ici la fin de la semaine 6, l'inventaire du domaine Ventes contiendra toutes les applications dont le coût annuel dépasse 50 k€, chacune cartographiée à au moins une capacité métier et portant une disposition TIME. Nous présenterons le Rapport de portefeuille au DSI Ventes en semaine 7. »*
+> *« D'ici la fin de la semaine 6, l'inventaire du domaine Ventes contiendra toutes les applications dont le coût annuel dépasse 50 k€, chacune cartographiée à au moins une capacité métier et portant une disposition TIME. Nous présenterons le rapport Portefeuille applicatif au DSI Ventes en semaine 7. »*
 
 Affichez-la sur un wiki, dans une slide de kickoff, dans la description d'un canal Slack — quelque part de visible. Cette phrase est ce qui empêche le déploiement de dériver vers le purgatoire du « on collecte encore des données ».
 

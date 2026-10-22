@@ -27,7 +27,7 @@ Otros primeros casos de uso válidos — pero elija **uno**:
 
 | Caso de uso | Qué poblará principalmente | Qué omitirá |
 |-------------|----------------------------|-------------|
-| **Racionalización del portafolio de aplicaciones** | Aplicaciones, costos, ciclo de vida, valor de negocio | Modelo de procesos detallado, interfaces |
+| **Racionalización del portafolio de aplicaciones** | Aplicaciones, costos, ciclo de vida, criticidad de negocio, idoneidad funcional y técnica | Modelo de procesos detallado, interfaces |
 | **Planificación basada en capacidades** | Capacidades de Negocio, Aplicaciones, mapa de calor de capacidades | Detalle de costos, stack tecnológico |
 | **Evaluación de migración a la nube** | Aplicaciones, Componentes de TI, modelo de implementación | Valor de negocio, procesos |
 | **Integración de M&A** | Ambos portafolios como Aplicaciones, análisis de solapamiento | Fechas de ciclo de vida a largo plazo |
@@ -36,10 +36,10 @@ Si no está seguro, **elija Racionalización del portafolio de aplicaciones**. E
 
 ## 3. Identifique a sus interesados
 
-Turbo EA tiene un modelo de **Interesados** integrado (vea [Detalles de la ficha](../guide/card-details.md)): cada ficha lleva una lista de personas en roles definidos (Propietario de Negocio, Propietario Técnico, etc.), definidos por tipo de ficha en el metamodelo. Decida desde el principio quién ocupa cada rol para una Aplicación:
+Turbo EA tiene un modelo de **Interesados** integrado (vea [Detalles de la ficha](../guide/card-details.md)): cada ficha lleva una lista de personas en roles definidos (para una Aplicación: Responsable de negocio de la aplicación, Responsable técnico de la aplicación, Responsable, Observador), definidos por tipo de ficha en el metamodelo. Decida desde el principio quién ocupa cada rol para una Aplicación:
 
-- **Propietario de la Aplicación** — responsable de la aplicación en el negocio. Una persona por aplicación. Aprueba la disposición TIME.
-- **Propietario Técnico** — responsable de mantenerla en funcionamiento. A menudo el gerente de ingeniería.
+- **Propietario de la Aplicación** (el rol *Responsable de negocio de la aplicación*) — responsable de la aplicación en el negocio. Una persona por aplicación. Aprueba la disposición TIME.
+- **Propietario Técnico** (el rol *Responsable técnico de la aplicación*) — responsable de mantenerla en funcionamiento. A menudo el gerente de ingeniería.
 - **Arquitecto** — usted, probablemente. Actúa como revisor del lado de EA y aprueba las fichas.
 
 No necesita asignar interesados el primer día para cada ficha, pero sí necesita saber quiénes *serán* — porque en la tercera semana les estará enviando encuestas para validar los datos.
@@ -55,9 +55,11 @@ Objetivos realistas para los primeros 90 días:
 
 | Fase | Calidad promedio de datos objetivo (Aplicaciones) | Qué se ha llenado |
 |------|--------------------------------------------------|-------------------|
-| Final de la semana 2 (Gatear) | **40–60%** | Nombre, Fase del ciclo de vida, Descripción, Propietario de Negocio |
-| Final de la semana 6 (Caminar) | **60–75%** | + Mapeo de capacidades, Costo, disposición TIME |
+| Final de la semana 2 (Gatear) | **0%** — esperado, vea más abajo | Nombre, Fase del ciclo de vida, Descripción, Responsable de negocio de la aplicación, Costo |
+| Final de la semana 6 (Caminar) | **60–75%** | + Mapeo de capacidades, Costo, Criticidad de negocio, Idoneidad funcional y técnica, disposición TIME |
 | Final del mes 3 (Correr) | **75–90%** | + Stack tecnológico, interfaces, campos personalizados del dominio |
+
+Criticidad de negocio y Modelo TIME son campos **obligatorios** en Application, y mientras un campo obligatorio esté vacío la puntuación de la ficha queda fijada en 0%. Durante la fase de gatear, mida el avance por la proporción de fichas con los campos de esa fase completos; la puntuación cobra sentido en la fase de caminar, una vez establecidos ambos campos obligatorios.
 
 No empuje hacia el 100%. El último 10% cuesta más que el primer 60% y rara vez cambia una decisión.
 
@@ -65,7 +67,7 @@ No empuje hacia el 100%. El último 10% cuesta más que el primer 60% y rara vez
 
 Termine su sesión de planificación con una declaración escrita como:
 
-> *"Para el final de la semana 6, el inventario del dominio de Ventas contendrá todas las aplicaciones con un costo anual > 50k€, cada una mapeada al menos a una Capacidad de Negocio y con una disposición TIME. Presentaremos el Informe de Portafolio al CIO de Ventas en la semana 7."*
+> *"Para el final de la semana 6, el inventario del dominio de Ventas contendrá todas las aplicaciones con un costo anual > 50k€, cada una mapeada al menos a una Capacidad de Negocio y con una disposición TIME. Presentaremos el informe Portafolio de aplicaciones al CIO de Ventas en la semana 7."*
 
 Péguelo en una wiki, en una diapositiva de inicio, en la descripción de un canal de Slack — en algún lugar visible. Esa frase es lo que evita que el despliegue se desvíe al purgatorio de "todavía estamos recopilando datos".
 

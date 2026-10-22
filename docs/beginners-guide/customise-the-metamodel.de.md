@@ -10,16 +10,14 @@ Bevor Sie etwas hinzufügen, wissen Sie, was Sie bereits haben. Der integrierte 
 
 | Integriertes Feld | Typ | Wofür es ist |
 |----------------|------|--------------|
-| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
-| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
-| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
-| `timeModel` | `single_select` (erforderlich) | **Tolerate / Invest / Migrate / Eliminate** — die kanonische Gartner-TIME-Disposition |
-| `riskLevel` | `single_select` | Low / Medium / High / Critical |
-| `businessValue` | `single_select` | Treibt die Y-Achse des Portfolio-Berichts an |
-| `costTotalAnnual` | `cost` | Gesamte jährliche Kosten |
+| `businessCriticality` | `single_select` (erforderlich) | Geschäftskritisch / Unternehmenskritisch / Geschäftsbetrieb / Administrativ |
+| `functionalSuitability` | `single_select` | Perfekt / Angemessen / Unzureichend / Ungeeignet |
+| `technicalSuitability` | `single_select` | Vollständig geeignet / Ausreichend / Ungeeignet / Unpassend |
+| `timeModel` | `single_select` (erforderlich) | **Tolerieren / Investieren / Migrieren / Eliminieren** — die kanonische Gartner-TIME-Disposition |
+| `costTotalAnnual` | `cost` | Jährliche Gesamtkosten |
 | `lifecycle.*` | Daten | Plan / Phase In / Active / Phase Out / End of Life |
 
-Alles, was eine Application-Portfolio-Rationalisierung benötigt, ist bereits vorhanden, einschließlich des **TIME Model**. Sie müssen kein TIME-Feld hinzufügen — Sie füllen es aus (manuell oder über eine Berechnung, siehe [Ihre erste Analyse](your-first-analysis.md)). Dasselbe gilt für `functionalSuitability` und `technicalSuitability`, die beiden Eignungsdimensionen, die klassischerweise eine TIME-Platzierung steuern.
+Alles, was eine Application-Portfolio-Rationalisierung benötigt, ist bereits vorhanden, einschließlich des **TIME-Modells**. Sie müssen kein TIME-Feld hinzufügen — Sie leiten es mit einer Berechnung ab (siehe unten) oder füllen es von Hand aus, siehe [Ihre erste Analyse](your-first-analysis.md). Dasselbe gilt für `functionalSuitability` und `technicalSuitability`, die beiden Eignungsdimensionen, die klassischerweise eine TIME-Platzierung steuern, sowie für `businessCriticality`, das den Bericht Anwendungsportfolio gruppiert.
 
 ## Der Zwei-Fragen-Test vor dem Hinzufügen eines Feldes
 
@@ -34,16 +32,16 @@ Wenn Sie nicht beide Fragen mit „ja" beantworten können, fügen Sie das Feld 
 
 Für den seltenen Fall, dass tatsächlich ein neues Feld benötigt wird (z. B. ein `cloudReadiness`-Flag, eine regulatorische Klassifizierung, ein Kundensegment-Marker), lautet der Arbeitsablauf:
 
-1. Gehen Sie zu **Admin → Metamodell**, klicken Sie auf den Typ und wechseln Sie zum Tab **Fields**.
-2. Wählen Sie den Abschnitt (oder erstellen Sie einen neuen) und klicken Sie auf **+ Feld hinzufügen**.
+1. Gehen Sie zu **Admin → Metamodell** und klicken Sie auf den Typ. Das Kartenlayout befindet sich auf dem Tab **Allgemein**.
+2. Wählen Sie den Abschnitt (oder erstellen Sie einen mit **Abschnitt hinzufügen**) und klicken Sie auf **+ Feld**.
 3. Füllen Sie aus:
-    - **Key** in Lower-CamelCase (z. B. `cloudReadiness`) — wird zum Attribut-Schlüssel im JSON und in Formeln.
-    - **Label** (und eine Übersetzung für jede von Ihnen unterstützte Sprache — sonst sehen nicht-englische Benutzer den rohen Schlüssel).
-    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
-    - **Weight** — `0`, um es aus der Datenqualität auszuschließen, `1`+, um es einzubeziehen und zu gewichten.
-    - **Required** — lassen Sie es beim ersten Rollout **aus**; Required blockiert die Genehmigung jeder bestehenden Karte.
+    - **Schlüssel** in Lower-CamelCase (z. B. `cloudReadiness`) — wird zum Attribut-Schlüssel im JSON und in Formeln.
+    - **Bezeichnung** (und eine Übersetzung für jede von Ihnen unterstützte Sprache — sonst sehen nicht-englische Benutzer den rohen Schlüssel).
+    - **Typ** — `text`, `multiline_text`, `number`, `cost`, `percentage`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Pflichtfeld** — lassen Sie es beim ersten Rollout **aus**; solange ein Pflichtfeld leer ist, ist der Datenqualitäts-Score der Karte auf 0 fixiert.
 4. Bei Select-Typen fügen Sie die Optionen hinzu (Key + Label + Farbe) und übersetzen Sie jede Option.
 5. Speichern.
+6. Optional: Legen Sie im Tab **Datenqualität** des Typs fest, wie stark das Feld in die Datenqualität einfließt.
 
 Das Feld ist sofort im **Inventar** (Columns, Filter), in der Kartendetailansicht und in **Berechnungen**-Formeln als `<fieldKey>` verfügbar. Vollständige Referenz: [Admin → Metamodell](../admin/metamodel.md).
 
@@ -51,18 +49,29 @@ Das Feld ist sofort im **Inventar** (Columns, Filter), in der Kartendetailansich
 
 Neben der Standardoption, dass Benutzer ein Feld manuell ausfüllen, kann Turbo EA einen Feldwert **automatisch** aus anderen Feldern derselben Karte — einschließlich der integrierten Felder — über die Funktion **Berechnungen** berechnen. Das berechnete Feld wird schreibgeschützt und trägt ein „calculated"-Badge, sodass Benutzer nicht von der Regel abweichen können.
 
-Das kanonische Beispiel ist die **TIME-Model**-Berechnung, die das integrierte Feld `timeModel` auf Application aus einer Business-Fit- und einer Technical-Fit-Dimension ableitet. Sie wird als einer der Einträge im Panel **Formelreferenz** unter **Admin → Metamodell → Berechnungen** ausgeliefert, wenn Sie eine neue Berechnung anlegen, sodass Sie sie direkt aus dem Panel auswählen können. Zieltyp = `Application`, Zielfeld = `timeModel`; die vom Panel bereitgestellte Formel ist in [Admin → Berechnungen → Beispielformeln](../admin/calculations.md#example-formulas) wiedergegeben.
+Das kanonische Beispiel ist die Berechnung des **TIME-Modells**, die das integrierte Feld `timeModel` auf Application aus den beiden integrierten Eignungsbewertungen ableitet. Legen Sie sie unter **Admin → Metamodell → Berechnungen** mit **Neue Berechnung** an: Ziel-Kartentyp = `Application`, Zielfeld = **TIME-Modell**, und diese Formel:
 
-Die Formel setzt zwei `single_select`-Felder namens `businessFit` und `technicalFit` mit den Optionen `excellent` / `adequate` / `insufficient` / `unreasonable` voraus. Sie sind nicht im integrierten Metamodell enthalten — fügen Sie sie auf Application gemäss den oben beschriebenen Schritten für benutzerdefinierte Felder hinzu, wenn Sie diese Berechnung verwenden möchten.
+```
+# TIME Model from the built-in Functional and Technical Suitability (Gartner quadrants)
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+Jede Bewertung wird in einen Wert von 4 (am besten) bis 1 (am schlechtesten) umgerechnet, und die beiden Werte platzieren die Anwendung in einem der vier Quadranten: hohe funktionale + hohe technische Eignung = **Investieren**, hohe funktionale + niedrige technische Eignung = **Migrieren**, niedrige funktionale + hohe technische Eignung = **Tolerieren**, beide niedrig = **Eliminieren**. Eine Anwendung, der eine der beiden Bewertungen fehlt, erhält keinen TIME-Wert, sodass die Lücken sichtbar bleiben.
+
+Das Panel **Formelreferenz** im Berechnungseditor zeigt ein TIME-Beispiel, das auf zwei benutzerdefinierten Feldern aufbaut, `businessFit` und `technicalFit`. Die obige Formel ist dieselbe Logik, angepasst an die Felder, die Application bereits hat — **Sie müssen also kein Feld hinzufügen**, und Sie sollten es auch nicht (siehe *Duplizieren Sie keine integrierten Felder* unten). Weitere Formelsyntax: [Admin → Berechnungen](../admin/calculations.md).
+
+Schalten Sie die Berechnung nach dem Speichern auf **Aktiv** und klicken Sie in ihrer Zeile auf **Alle neu berechnen**, damit jede bestehende Anwendung ihren Wert erhält. Die Schritt-für-Schritt-Anleitung finden Sie unter [Ihre erste Analyse → Schritt 3](your-first-analysis.md).
 
 !!! warning "Nicht tun"
-    Ein berechnetes TIME ist eine **Ausgangshypothese**, kein Urteil. Überprüfen Sie entweder jedes Ergebnis mit dem Application Owner, bevor Sie ihm vertrauen, oder schalten Sie die Berechnung aus und verlassen Sie sich auf die manuelle Eingabe, sobald der Validierungs-Workshop abgeschlossen ist.
+    Ein berechnetes TIME ist eine **Ausgangshypothese**, kein Urteil. Überprüfen Sie jedes Ergebnis mit dem Application Owner, bevor Sie ihm vertrauen.
 
-Das hybride Muster, das sich in der Praxis bewährt: Lassen Sie die Berechnung eingeschaltet, während Sie das Inventar aufbauen und überwiegend Eignungsdaten haben; schalten Sie sie für den Validierungs-Workshop aus; lassen Sie sie dann ausgeschaltet, damit manuelle Entscheidungen bestehen bleiben.
+Das hybride Muster, das sich in der Praxis bewährt: Lassen Sie die Berechnung aktiv, während Sie das Inventar aufbauen und Eignungsbewertungen sammeln; überprüfen Sie die Ergebnisse im Validierungs-Workshop; und wenn Entscheidungen von der Formel abweichen müssen, schalten Sie die Berechnung aus (Schalter **Aktiv**), damit das Feld wieder bearbeitbar wird und die manuellen Entscheidungen bestehen bleiben.
 
 ## Alternative: Verwenden Sie stattdessen eine Tag-Gruppe
 
-Wenn der Wert informativ statt abfragbar ist, ist eine **Tag-Gruppe** (Admin → Tags) leichter als ein benutzerdefiniertes Feld — keine Metamodelländerung, keine Migration, einfacher weiterzuentwickeln. Verwenden Sie eine Tag-Gruppe, wenn:
+Wenn der Wert informativ statt abfragbar ist, ist eine **Tag-Gruppe** (Admin → Metamodell → Tags) leichter als ein benutzerdefiniertes Feld — keine Metamodelländerung, keine Migration, einfacher weiterzuentwickeln. Verwenden Sie eine Tag-Gruppe, wenn:
 
 - Der Wert beschreibend ist („Customer-facing", „Internal-only", „Acquired in 2024").
 - Sie häufig neue Optionen hinzufügen können.
@@ -70,7 +79,7 @@ Wenn der Wert informativ statt abfragbar ist, ist eine **Tag-Gruppe** (Admin →
 
 Verwenden Sie ein benutzerdefiniertes Feld, wenn:
 
-- Sie den Wert auf den Portfolio-Bericht-Achsen benötigen (X, Y, Farbe).
+- Sie einen Bericht danach gruppieren oder einfärben möchten (zum Beispiel das Anwendungsportfolio).
 - Sie ihn in die Datenqualität gewichten möchten.
 - Es ein kontrolliertes Vokabular ist, das sich nicht oft ändert.
 
@@ -79,16 +88,16 @@ Verwenden Sie ein benutzerdefiniertes Feld, wenn:
 Dies sind die häufigsten Metamodell-Fehler in ersten Rollouts:
 
 !!! warning "Benennen Sie integrierte Kartentypen nicht um"
-    `Application` in `Solution` umzubenennen sieht ordentlich aus, bricht aber die konzeptionelle Zuordnung, die Capability Heatmap, Portfolio-Bericht und die Kataloge alle voraussetzen. Wenn Ihre Organisation sie „Solutions" nennt, setzen Sie die **Label**-Übersetzung — der zugrunde liegende `key` bleibt `Application`.
+    `Application` in `Solution` umzubenennen sieht ordentlich aus, bricht aber die konzeptionelle Zuordnung, die die Geschäftsfähigkeiten-Karte, der Bericht Anwendungsportfolio und die Kataloge alle voraussetzen. Wenn Ihre Organisation sie „Solutions" nennt, setzen Sie die **Label**-Übersetzung — der zugrunde liegende `key` bleibt `Application`.
 
 !!! warning "Fügen Sie nicht am ersten Tag 30 benutzerdefinierte Felder hinzu"
     Jedes benutzerdefinierte Feld fügt der Datenerfassung Reibung hinzu und verwässert den Datenqualitäts-Score. Fügen Sie ein Feld hinzu, verwenden Sie es einen Monat lang, fügen Sie dann das nächste hinzu.
 
 !!! warning "Duplizieren Sie keine integrierten Felder"
-    Bevor Sie `timeDisposition`, `funcFit`, `techFit` oder `appBusinessValue` hinzufügen, prüfen Sie die bestehende Feldliste — wahrscheinlich existiert bereits ein gleichwertiges integriertes Feld (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplikate teilen Ihre Daten auf und brechen Berichte.
+    Bevor Sie `timeDisposition`, `funcFit`, `techFit` oder `appCriticality` hinzufügen, prüfen Sie die bestehende Feldliste — wahrscheinlich existiert bereits ein gleichwertiges integriertes Feld (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessCriticality`). Duplikate teilen Ihre Daten auf und brechen Berichte.
 
 !!! warning "Machen Sie neue Felder nicht am ersten Tag `required`"
-    `Required` blockiert die Genehmigung für jede bestehende Karte, die keinen Wert hat. Machen Sie ein Feld erst dann required, **nachdem** Sie es für 80 %+ der Population ausgefüllt haben.
+    Solange ein Pflichtfeld leer ist, ist der Datenqualitäts-Score der Karte auf 0 fixiert, und ein Warnbanner listet auf, was fehlt — auf jeder bestehenden Karte gleichzeitig. Machen Sie ein Feld erst dann zum Pflichtfeld, **nachdem** Sie es für 80 %+ der Population ausgefüllt haben.
 
 !!! warning "Erstellen Sie keine benutzerdefinierten Kartentypen anstelle von benutzerdefinierten Feldern"
     „Mobile App" sollte ein Subtyp von `Application` sein, kein neuer Kartentyp. Neue Typen erhalten Capability-Mapping, Portfolio-Berichte oder Katalog-Importe nicht automatisch.

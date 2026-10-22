@@ -8,7 +8,7 @@ L'erreur classique à ce stade : passer trois semaines à co-construire un modè
 - **Catalogue de processus** — processus métier de référence par secteur, prêts à être importés comme fiches `BusinessProcess`.
 - **Catalogue de chaînes de valeur** — chaînes de valeur de bout en bout pour encadrer la carte des capacités.
 
-Cette page se concentre sur le Catalogue de capacités métier, car c'est celui qui alimente la Carte thermique des capacités sur la dernière page. Les deux autres fonctionnent de la même manière.
+Cette page se concentre sur le Catalogue de capacités métier, car c'est celui qui alimente la Carte des capacités sur la dernière page. Les deux autres fonctionnent de la même manière.
 
 ## Pourquoi commencer par les capacités
 
@@ -22,20 +22,20 @@ Vous n'avez pas besoin de 500 capacités pour en tirer de la valeur. Vous avez b
 
 ## Importez une carte des capacités de départ
 
-1. Naviguez vers **Capability Catalogue** dans le menu principal (sous User Guide).
+1. Ouvrez le menu utilisateur (votre avatar, en haut à droite) → **Catalogues de référence** → **Catalogue de capacités**.
 2. Utilisez les filtres en haut :
-    - **Industrie** — choisissez la vôtre (ou « Cross-industry » si rien ne correspond).
+    - **Industrie** — choisissez la vôtre (ou **Cross-Industry** si rien ne correspond).
     - **Niveau** — commencez avec L1 et L2 visibles. Vous pourrez toujours descendre plus tard.
 3. Parcourez l'arbre. Dépliez quelques branches pour vous faire une idée de la profondeur.
-4. Cochez les capacités que vous souhaitez importer. **La sélection cascade** : cocher un L1 coche ses descendants ; cocher un L2 coche également son ancêtre L1 pour que la hiérarchie reste connectée.
-5. Cliquez sur **Créer des fiches depuis la sélection**.
+4. Cochez les capacités que vous souhaitez importer. Cocher une capacité coche aussi tout ce qui se trouve en dessous. Cocher un enfant ne coche **pas** son parent — cochez aussi le parent pour que la hiérarchie soit préservée.
+5. Cliquez sur **Créer N capacités** en bas et confirmez.
 
 Turbo EA crée une fiche `BusinessCapability` par nœud coché, préserve la hiérarchie parent-enfant et estampille chaque fiche avec un `catalogueId` stable, ce qui rend les ré-imports **idempotents** — lancer l'import deux fois ne crée pas de doublons.
 
 Référence complète : [Catalogue des capacités](../guide/capability-catalogue.md).
 
 !!! tip "Bonne pratique"
-    Choisissez un sous-arbre, pas le catalogue complet. Pour une Rationalisation du portefeuille applicatif dans le domaine Ventes, importer la capacité L1 « Sales & Customer Management » plus ses enfants L2 suffit généralement — soit 10 à 15 capacités, pas 300.
+    Choisissez un sous-arbre, pas le catalogue complet. Pour une Rationalisation du portefeuille applicatif dans le domaine Ventes, importer la capacité L1 « Sales Management » (et éventuellement « Customer Relationship Management ») plus leurs enfants L2 suffit généralement — soit 10 à 15 capacités, pas 300.
 
 ## Jusqu'à quelle profondeur descendre
 
@@ -63,8 +63,8 @@ Vous les voudrez quand :
 
 Deux options :
 
-1. **Choisissez le secteur le plus proche** et élaguez. Les entrées « Cross-industry » (Finance, RH, IT, Achats) s'appliquent à pratiquement toutes les entreprises.
-2. **Combinez les catalogues** — importez d'abord « Cross-industry », puis complétez avec quelques éléments d'un catalogue sectoriel spécifique.
+1. **Choisissez le secteur le plus proche** et élaguez. Les entrées **Cross-Industry** (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) s'appliquent à pratiquement toutes les entreprises.
+2. **Combinez les catalogues** — importez d'abord **Cross-Industry**, puis complétez avec quelques éléments d'un catalogue sectoriel spécifique.
 
 Dans tous les cas, **importez d'abord, personnalisez ensuite**. Renommer une capacité importée ou ajouter un enfant est bien plus rapide que taper toute la structure de zéro. Et vous conservez le `catalogueId` afin que les futures mises à jour de catalogue se fusionnent proprement.
 
@@ -79,6 +79,6 @@ Vous en avez terminé avec cette page lorsque :
 - La hiérarchie est intacte — ouvrez quelques capacités L2 et vérifiez que le fil d'Ariane parent affiche le bon L1.
 - Le nombre de capacités est compris entre 20 et 60.
 
-Vous n'avez encore mappé aucune application aux capacités — ce sera l'objet de la dernière page. D'abord, ajoutons un champ personnalisé aux Applications pour rendre l'analyse vraiment utile.
+Vous n'avez encore mappé aucune application aux capacités — ce sera l'objet de la dernière page. D'abord, un rapide coup d'œil au métamodèle — et à la raison pour laquelle l'analyse n'a besoin d'aucun champ personnalisé.
 
 Suite : [Personnalisez le métamodèle — légèrement](customise-the-metamodel.md).
