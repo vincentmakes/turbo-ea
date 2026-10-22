@@ -27,7 +27,7 @@ Other valid first use cases — but pick **one**:
 
 | Use case | What you'll mostly populate | What you'll skip |
 |----------|----------------------------|------------------|
-| **Application Portfolio Rationalisation** | Applications, costs, lifecycle, business value | Detailed process model, interfaces |
+| **Application Portfolio Rationalisation** | Applications, costs, lifecycle, business criticality, functional and technical fit | Detailed process model, interfaces |
 | **Capability-based planning** | Business Capabilities, Applications, capability heatmap | Cost detail, technology stack |
 | **Cloud migration assessment** | Applications, IT Components, deployment model | Business value, processes |
 | **M&A integration** | Both portfolios as Applications, overlap analysis | Long-term lifecycle dates |
@@ -65,7 +65,7 @@ Don't push for 100%. The last 10% costs more than the first 60% and rarely chang
 
 End your planning session with a written statement like:
 
-> *"By the end of week 6, the Sales domain inventory will contain every application with annual cost > 50k€, each mapped to at least one Business Capability and carrying a TIME disposition. We will present the Portfolio Report to the Sales CIO in week 7."*
+> *"By the end of week 6, the Sales domain inventory will contain every application with annual cost > 50k€, each mapped to at least one Business Capability and carrying a TIME disposition. We will present the Application Portfolio report to the Sales CIO in week 7."*
 
 Stick it on a wiki, in a kickoff slide, in a Slack channel description — somewhere visible. That sentence is what stops the rollout from drifting into "we're still gathering data" purgatory.
 

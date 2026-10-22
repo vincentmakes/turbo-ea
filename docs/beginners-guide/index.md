@@ -10,7 +10,7 @@ It's a sequenced, opinionated walkthrough of the **first concrete EA initiative*
 - **Solution Architects and Application Owners** asked to "fill in the EA tool" without much context.
 - **Admins** preparing the platform for a wider rollout.
 
-You'll need the **admin** role (or at least `admin.metamodel` and `inventory.edit`) to follow every step. Read-only roles can still benefit — they just won't be able to make the metamodel changes in page 5.
+You'll need the **admin** role (or at least `admin.metamodel` and `inventory.edit`) to follow every step. Read-only roles can still benefit — they just won't be able to make the metamodel and calculation changes on pages 4 and 5.
 
 ## The crawl → walk → run arc
 
@@ -20,7 +20,7 @@ Don't try to model the entire enterprise in week one. The teams that succeed wit
 2. **Walk** — Add Business Capabilities from the bundled catalogue. Map applications to capabilities. Run your first portfolio analysis. Show it to a stakeholder.
 3. **Run** — Expand to processes, interfaces, data objects. Add more custom fields. Open the more advanced modules.
 
-This guide covers **crawl** and the beginning of **walk**. By the end of it, you'll have a working application portfolio with a TIME disposition (**T**olerate / **I**nvest / **M**igrate / **E**liminate) and a Portfolio Report you can put in front of a CIO.
+This guide covers **crawl** and the beginning of **walk**. By the end of it, you'll have a working application portfolio with a TIME disposition (**T**olerate / **I**nvest / **M**igrate / **E**liminate) and an Application Portfolio report you can put in front of a CIO.
 
 ## What's in this guide
 
@@ -29,8 +29,8 @@ This guide covers **crawl** and the beginning of **walk**. By the end of it, you
 | 1 | [Plan your rollout](plan-your-rollout.md) | Scope the initiative, pick stakeholders, set a realistic data-quality target |
 | 2 | [Start with your application inventory](start-with-applications.md) | Populate Applications via import, ServiceNow, or manual entry |
 | 3 | [Leverage reference catalogues](leverage-reference-catalogues.md) | Skip months of hand-modelling by importing capabilities and processes |
-| 4 | [Customise the metamodel — lightly](customise-the-metamodel.md) | Add one custom field (TIME) the right way |
-| 5 | [Your first analysis: Application Harmonisation](your-first-analysis.md) | Map apps to capabilities, run the Portfolio Report and Capability Heatmap |
+| 4 | [Customise the metamodel — lightly](customise-the-metamodel.md) | Know the built-in fields, add a custom one only when needed, and derive TIME with a calculation |
+| 5 | [Your first analysis: Application Harmonisation](your-first-analysis.md) | Map apps to capabilities, run the Application Portfolio report and the Capability Map |
 
 !!! tip "Best practice"
     Read all five pages in order before opening Turbo EA. The plan in your head is more valuable than the first 50 cards in the inventory.

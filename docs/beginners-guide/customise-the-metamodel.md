@@ -10,16 +10,14 @@ Before adding anything, know what you already have. The built-in **Application**
 
 | Built-in field | Type | What it's for |
 |----------------|------|--------------|
-| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
+| `businessCriticality` | `single_select` (required) | Mission Critical / Business Critical / Business Operational / Administrative |
 | `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
 | `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
 | `timeModel` | `single_select` (required) | **Tolerate / Invest / Migrate / Eliminate** — the canonical Gartner TIME disposition |
-| `riskLevel` | `single_select` | Low / Medium / High / Critical |
-| `businessValue` | `single_select` | Drives the Portfolio Report Y axis |
-| `costTotalAnnual` | `cost` | Total annual cost |
+| `costTotalAnnual` | `cost` | Total Annual Cost |
 | `lifecycle.*` | dates | Plan / Phase In / Active / Phase Out / End of Life |
 
-Everything an Application Portfolio Rationalisation needs is already there, including **TIME Model**. You don't need to add a TIME field — you fill it in (manually or via a calculation, see [Your First Analysis](your-first-analysis.md)). The same is true for `functionalSuitability` and `technicalSuitability`, the two suitability dimensions that classically drive a TIME placement.
+Everything an Application Portfolio Rationalisation needs is already there, including **TIME Model**. You don't need to add a TIME field — you derive it with a calculation (below) or fill it in by hand, see [Your First Analysis](your-first-analysis.md). The same is true for `functionalSuitability` and `technicalSuitability`, the two suitability dimensions that classically drive a TIME placement, and for `businessCriticality`, which groups the Application Portfolio report.
 
 ## The two-question test before adding a field
 
@@ -34,16 +32,16 @@ If you can't answer "yes" to both, don't add the field.
 
 For the rare case where a genuinely new field is needed (e.g., a `cloudReadiness` flag, a regulatory classification, a customer-segment marker), the workflow is:
 
-1. Go to **Admin → Metamodel**, click the type, switch to the **Fields** tab.
-2. Pick the section (or create a new one) and click **+ Add field**.
+1. Go to **Admin → Metamodel** and click the type. The card layout is on the **Main** tab.
+2. Pick the section (or create one with **Add Section**) and click **+ Field**.
 3. Fill in:
     - **Key** in lower camel-case (e.g., `cloudReadiness`) — becomes the attribute key in JSON and in formulas.
     - **Label** (and a translation for every locale you support — non-English users will see the raw key otherwise).
-    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
-    - **Weight** — `0` to exclude from Data Quality, `1`+ to include and weight it.
-    - **Required** — leave **off** for the first rollout; required blocks approval of every existing card.
+    - **Type** — `text`, `multiline_text`, `number`, `cost`, `percentage`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Required** — leave **off** for the first rollout; while a required field is empty, the card's Data Quality score is pinned to 0.
 4. For select types, add the options (key + label + colour) and translate each option.
 5. Save.
+6. Optional: set how much the field counts towards Data Quality in the type's **Data quality** tab.
 
 The field is immediately available in **Inventory** (Columns, filters), on the Card Detail, and in **Calculations** formulas as `<fieldKey>`. Full reference: [Admin → Metamodel](../admin/metamodel.md).
 
@@ -51,18 +49,29 @@ The field is immediately available in **Inventory** (Columns, filters), on the C
 
 Beside the standard option of having users fill a field manually, Turbo EA can **compute a field value automatically** from other fields on the same card — including the built-in ones — using the **Calculations** feature. The computed field becomes read-only and carries a "calculated" badge so users can't drift from the rule.
 
-The canonical example is the **TIME Model** calculation that derives the built-in `timeModel` field on Application from a business-fit and a technical-fit dimension. It ships as one of the entries in the **Formula Reference** panel inside **Admin → Metamodel → Calculations** when you create a new calculation, so you can pick it from the panel directly. Target type = `Application`, target field = `timeModel`; the panel-provided formula is reproduced in [Admin → Calculations → Example Formulas](../admin/calculations.md#example-formulas).
+The canonical example is the **TIME Model** calculation, which derives the built-in `timeModel` field on Application from the two built-in suitability ratings. Create it in **Admin → Metamodel → Calculations** with **New Calculation**: Target Card Type = `Application`, Target Field = **TIME Model**, and this formula:
 
-The formula assumes two `single_select` fields named `businessFit` and `technicalFit` with options `excellent` / `adequate` / `insufficient` / `unreasonable`. They are not in the built-in metamodel — add them on Application per the custom-field steps above if you want to use this calculation.
+```
+# TIME Model from the built-in Functional and Technical Suitability (Gartner quadrants)
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+Each rating is turned into a score from 4 (best) to 1 (worst), and the two scores place the application in one of the four quadrants: high functional + high technical = **Invest**, high functional + low technical = **Migrate**, low functional + high technical = **Tolerate**, low on both = **Eliminate**. An application missing either rating gets no TIME value, so the gaps stay visible.
+
+The **Formula Reference** panel in the calculation editor shows a TIME example built on two custom fields, `businessFit` and `technicalFit`. The formula above is the same logic adapted to the fields Application already has, so **you don't need to add any field** — and you shouldn't (see *Don't duplicate built-in fields* below). More formula syntax: [Admin → Calculations](../admin/calculations.md).
+
+After saving, switch the calculation **Active** and click **Recalculate all** on its row so every existing application gets its value. The step-by-step walkthrough is in [Your First Analysis → Step 3](your-first-analysis.md).
 
 !!! warning "Don't"
-    A calculated TIME is a **starting hypothesis**, not a verdict. Either review every result with the Application Owner before trusting it, or turn the calculation off and rely on manual entry once the validation workshop is done.
+    A calculated TIME is a **starting hypothesis**, not a verdict. Review every result with the Application Owner before trusting it.
 
-The hybrid pattern that works well in practice: keep the calculation on while you're building the inventory and you mostly have suitability data; turn it off for the validation workshop; then leave it off so manual decisions stick.
+The hybrid pattern that works well in practice: keep the calculation active while you're building the inventory and collecting suitability ratings; review the results in the validation workshop; and if decisions need to depart from the formula, turn the calculation off (the **Active** switch) so the field becomes editable again and the manual decisions stick.
 
 ## Alternative: use a Tag Group instead
 
-If the value is informational rather than queryable, a **Tag Group** (Admin → Tags) is lighter than a custom field — no metamodel change, no migration, easier to evolve. Use a Tag Group when:
+If the value is informational rather than queryable, a **Tag Group** (Admin → Metamodel → Tags) is lighter than a custom field — no metamodel change, no migration, easier to evolve. Use a Tag Group when:
 
 - The value is descriptive ("Customer-facing", "Internal-only", "Acquired in 2024").
 - You may add new options frequently.
@@ -70,7 +79,7 @@ If the value is informational rather than queryable, a **Tag Group** (Admin → 
 
 Use a custom field when:
 
-- You need the value on the Portfolio Report axes (X, Y, colour).
+- You want to group or colour a report by it (for example the Application Portfolio).
 - You want it weighted into Data Quality.
 - It's a controlled vocabulary that won't change often.
 
@@ -79,16 +88,16 @@ Use a custom field when:
 These are the most common metamodel mistakes in first rollouts:
 
 !!! warning "Don't rename built-in card types"
-    Renaming `Application` to `Solution` looks tidy but breaks the conceptual mapping that Capability Heatmap, Portfolio Report, and the catalogues all assume. If your organisation calls them "Solutions", set the **label** translation — the underlying `key` stays as `Application`.
+    Renaming `Application` to `Solution` looks tidy but breaks the conceptual mapping that the Capability Map, the Application Portfolio report, and the catalogues all assume. If your organisation calls them "Solutions", set the **label** translation — the underlying `key` stays as `Application`.
 
 !!! warning "Don't add 30 custom fields on day one"
     Each custom field adds friction to data collection and dilutes the Data Quality score. Add one field, use it for a month, then add the next.
 
 !!! warning "Don't duplicate built-in fields"
-    Before adding `timeDisposition`, `funcFit`, `techFit`, or `appBusinessValue`, check the existing field list — chances are an equivalent built-in field already exists (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplicates split your data and break reports.
+    Before adding `timeDisposition`, `funcFit`, `techFit`, or `appCriticality`, check the existing field list — chances are an equivalent built-in field already exists (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessCriticality`). Duplicates split your data and break reports.
 
 !!! warning "Don't make new fields `required` on day one"
-    `Required` blocks approval for every existing card that doesn't have a value. Make a field required only **after** you've filled it in for 80%+ of the population.
+    While a required field is empty, the card's Data Quality score is pinned to 0 and a warning banner lists what is missing — on every existing card at once. Make a field required only **after** you've filled it in for 80%+ of the population.
 
 !!! warning "Don't create custom card types instead of custom fields"
     "Mobile App" should be a subtype of `Application`, not a new card type. New types don't get capability mapping, portfolio reports, or catalogue imports for free.

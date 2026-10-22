@@ -8,7 +8,7 @@ The classic mistake at this stage: spending three weeks workshopping a bespoke b
 - **Process Catalogue** — reference business processes per industry, ready to import as `BusinessProcess` cards.
 - **Value Stream Catalogue** — end-to-end value streams to bracket the capability map.
 
-This page focuses on the Business Capability Catalogue, because it's the one that powers the Capability Heatmap on the final page. The other two work the same way.
+This page focuses on the Business Capability Catalogue, because it's the one that powers the Capability Map on the final page. The other two work the same way.
 
 ## Why start with capabilities
 
@@ -79,6 +79,6 @@ You're done with this page when:
 - The hierarchy is intact — open a few L2 capabilities and check that the parent breadcrumb shows the right L1.
 - The capability count is between 20 and 60.
 
-You haven't mapped any applications to capabilities yet — that's on the final page. First, let's add one custom field to Applications to make the analysis really useful.
+You haven't mapped any applications to capabilities yet — that's on the final page. First, a short look at the metamodel — and why the analysis needs no custom field at all.
 
 Next: [Customise the metamodel — lightly](customise-the-metamodel.md).

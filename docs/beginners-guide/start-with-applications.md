@@ -20,7 +20,7 @@ For every Application card in your initial scope, populate these fields and **on
 | **Description** | One sentence: what does this app do for the business? | Owner interview, or AI suggestion (see [Inventory](../guide/inventory.md#ai-description-suggestions)) |
 | **Lifecycle phase** | Plan / Phase In / Active / Phase Out / End of Life | CMDB, or owner interview |
 | **Business Owner** (stakeholder) | The person accountable for the app | Org chart |
-| **Cost — Total Annual** | Used by the Portfolio Report and TIME formula | Finance, or rough estimate |
+| **Total Annual Cost** | Used by the Cost report and to prioritise the TIME decisions | Finance, or rough estimate |
 
 Five fields. That's it. The Data Quality ring will read ~50% and that's fine — you can refine in pass two.
 
@@ -77,7 +77,7 @@ A practical workflow:
 2. Once the minimum fields are filled, **approve** the card. This signals to downstream consumers that the card is trustworthy.
 3. If anyone later edits a substantive field, Turbo EA automatically flips the status to **Broken** until re-approved.
 
-Filter the inventory by `Approval Status = Approved` to get a clean view for the portfolio report at the end of this guide.
+Filter the inventory by `Approval Status = Approved` to get a clean view for the Application Portfolio report at the end of this guide.
 
 !!! tip "Best practice"
     Approve in batches at the end of each day. It forces you to re-read what you imported and catch the worst data-quality issues early.
