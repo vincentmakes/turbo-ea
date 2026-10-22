@@ -529,6 +529,18 @@ describe("PortfolioReport Include sub-cards (#1305)", () => {
     await waitFor(() => expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(1));
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+
+  it("keeps the link for an (empty) pick, which sub-cards never widen", async () => {
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      relationFilters: { Organization: ["__empty__"] },
+      includeDescendants: true,
+    });
+    renderPortfolio();
+    // Only the card with no organisation matches, in the ungrouped section.
+    await userEvent.setup().click(await screen.findByText("Not assigned to any Organization"));
+    await waitFor(() => expect(screen.getByRole("link")).toBeInTheDocument());
+  });
 });
 
 // ---------------------------------------------------------------------------

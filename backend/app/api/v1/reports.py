@@ -1309,6 +1309,12 @@ async def roadmap(
     groups the Lifecycle report's filter section reads (the same payload as
     ``/reports/app-portfolio``). Without it — *All types* — or for a type that
     is unknown or hidden, the rows are the plain timeline rows.
+
+    Deliberately behind this report's own gate rather than ``reports.portfolio``:
+    the extra payload is metamodel and tag-group configuration, and every card
+    in it — the rows, their related cards, the ancestor closure — stays inside
+    the reader's ``CardReadScope``, so a reports-only role sees nothing here it
+    could not see on the report itself.
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     read_scope = await CardReadScope.load(db, user)

@@ -33,6 +33,7 @@ import TimelineSlider from "@/components/TimelineSlider";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
 import {
   columnGridProps,
@@ -1418,9 +1419,11 @@ export default function PortfolioReport({
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
   const activeFilterCount = countActiveFilters(cardFilters);
   const anyFilterActive = hasActiveFilters(cardFilters, search);
-  // A sub-card pick is a subtree the inventory's relation filter cannot express.
+  // A sub-card pick is a subtree the inventory's relation filter cannot
+  // express; "(empty)" is never widened, so it keeps the link.
   const relationPicksWidened =
-    includeDescendants && Object.values(relationFilters).some((ids) => ids.length > 0);
+    includeDescendants &&
+    Object.values(relationFilters).some((ids) => ids.some((id) => id !== EMPTY_FILTER_KEY));
 
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
@@ -1790,7 +1793,10 @@ export default function PortfolioReport({
           )}
 
           {/* Row 2: Filters — collapsible, state persisted as filtersCollapsed */}
+          {/* Keyed on the type: a switch remounts the section, which folds
+              the relation facets back the way the old inline state reset. */}
           <CardFilterSection
+            key={cardType}
             label={t("portfolio.typeFilters", { type: currentTypeLabel })}
             collapsed={filtersCollapsed}
             onToggle={() => setFiltersCollapsed((v) => !v)}

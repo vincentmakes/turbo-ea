@@ -715,6 +715,7 @@ export default function LifecycleReport() {
           </Box>
 
           <CardFilterSection
+            key={cardTypeKey}
             label={
               cardTypeKey
                 ? t("portfolio.typeFilters", { type: cardTypeLabel(cardTypeKey) })

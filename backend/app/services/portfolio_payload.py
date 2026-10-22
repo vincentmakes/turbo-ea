@@ -43,8 +43,6 @@ async def build_portfolio_payload(
     type_key = card_type.key
     readable = read_scope.where(Card, mode="module")
 
-    readable = read_scope.where(Card, mode="module")
-
     # 1. Get all active cards of the requested type
     apps_result = await db.execute(
         select(Card).where(Card.type == type_key, Card.status == "ACTIVE", *readable)
