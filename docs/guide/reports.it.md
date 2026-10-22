@@ -1,6 +1,6 @@
 # Report
 
-Turbo EA include un potente modulo di **reportistica visiva** che consente di analizzare l'enterprise architecture da diverse prospettive. Tutti i report possono essere [salvati per il riutilizzo](saved-reports.md) con la configurazione attuale di filtri e assi.
+Turbo EA include un potente modulo di **reportistica visiva** che consente di analizzare l'enterprise architecture da diverse prospettive. Tutti i report possono essere [salvati per il riutilizzo](saved-reports.md) con i filtri e le impostazioni di visualizzazione attuali.
 
 ![Menu dei report disponibili](../assets/img/it/09_menu_report.png)
 
@@ -8,18 +8,18 @@ Turbo EA include un potente modulo di **reportistica visiva** che consente di an
 
 ![Report Portfolio](../assets/img/it/10_report_portfolio.png)
 
-Il **Report Portfolio** mostra un **grafico a bolle** (o scatter plot) configurabile delle vostre card. Scegliete cosa rappresenta ogni asse:
+Il **Report Portfolio** (**Report → Portfolio applicazioni**) mostra le vostre applicazioni come chip colorati, raggruppati in riquadri. Due scelte nella barra degli strumenti lo determinano:
 
-- **Asse X** — Selezionate qualsiasi campo numerico o di selezione (es. Idoneità Tecnica)
-- **Asse Y** — Selezionate qualsiasi campo numerico o di selezione (es. Criticità Aziendale)
-- **Dimensione bolla** — Mappate su un campo numerico (es. Costo Annuale)
-- **Colore bolla** — Mappate su un campo di selezione, a selezione multipla o sì/no, oppure sullo stato del ciclo di vita
+- **Raggruppa per** — qualsiasi campo a selezione singola o sì/no del tipo di card (es. Criticità aziendale, Modello TIME), oppure un tipo di card correlato (es. Organizzazione, Capacità aziendale). Ogni valore diventa un riquadro con un conteggio e una barra che ne mostra la composizione dei colori; le applicazioni senza valore finiscono in un riquadro *Non assegnato a nessun …*.
+- **Colora applicazioni per** — qualsiasi campo di selezione, a selezione multipla o sì/no (es. Modello TIME), oppure *Nessun colore*.
+
+Accanto si trovano una casella **Cerca**, i filtri comprimibili (**Correlato per**, **Tag**, **Campi**, **Sottotipi di relazione**), il selettore delle colonne e il selettore **Vista grafico** / **Vista tabella**, che elenca le stesse card in una tabella ordinabile.
 
 **Colorare e filtrare per campi sì/no e a selezione multipla** — Ogni campo di selezione, a selezione multipla o sì/no del tipo di card può colorare le card e filtrarle — qui, nel Portfolio flessibile, nella Mappa delle capability (*Colora applicazioni per*), nella vista per intervallo di date del Report del ciclo di vita e nel menu *Colora per* di un diagramma. Un campo sì/no appare come **Sì** e **No**, una card con più valori di un campo a selezione multipla appare come **Multipli**, e un'opzione che un amministratore ha lasciato senza colore riceve un colore proprio nella legenda invece del grigio di *Non impostato*. I campi sì/no possono anche raggruppare le card — qui, nella tabella del Report dei costi e nell'[Inventario](inventory.md); un campo a selezione multipla no, perché una card con due valori apparterrebbe a due gruppi.
 
 **Filtrare per sottotipo** — Quando il tipo di scheda ha dei sottotipi, la riga di filtri **Campi** inizia con un filtro **Sottotipo**. Scegliete uno o più sottotipi, oppure *(vuoto)* per le schede che non ne hanno. Il filtro viene salvato con il report e riportato da **Visualizza nell'inventario**.
 
-Questo è ideale per l'analisi del portfolio — ad esempio, posizionare le applicazioni per valore aziendale vs. idoneità tecnica per identificare candidati per investimento, sostituzione o ritiro.
+Un uso tipico: raggruppate per **Criticità aziendale** e colorate per **Modello TIME**. Le applicazioni critiche contrassegnate come *Migrare* sono le vostre prime priorità di modernizzazione, mentre le applicazioni amministrative contrassegnate come *Eliminare* o *Migrare* sono le candidate alla dismissione e al consolidamento. La [Guida per principianti EA](../beginners-guide/your-first-analysis.md) mostra come ricavare il Modello TIME dalle valutazioni di idoneità con un calcolo.
 
 ### Analisi IA del portafoglio
 

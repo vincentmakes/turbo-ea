@@ -1,12 +1,12 @@
 # Report salvati
 
-Turbo EA consente di **salvare le configurazioni dei report** per poter tornare rapidamente a viste specifiche senza dover riconfigurare filtri e assi ogni volta.
+Turbo EA consente di **salvare le configurazioni dei report** per poter tornare rapidamente a viste specifiche senza dover riconfigurare filtri, raggruppamento e colorazione ogni volta.
 
 ## Salvare un report
 
 Da qualsiasi pagina di report (Portfolio, Mappa delle Capability, Ciclo di vita, Dipendenze, Costi, Matrice, Qualità dei Dati o EOL):
 
-1. Configurate il report con i filtri, i raggruppamenti e le selezioni degli assi desiderati
+1. Configurate il report con i filtri, il raggruppamento e le impostazioni di colore desiderati
 2. Cliccate sull'icona **Salva report** (un segnalibro) nella barra degli strumenti del report
 3. Inserite un **nome** per il report salvato
 4. Scegliete la **visibilità**:

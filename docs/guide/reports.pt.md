@@ -1,6 +1,6 @@
 # Relatórios
 
-O Turbo EA inclui um poderoso módulo de **relatórios visuais** que permite analisar a arquitetura empresarial a partir de diferentes perspectivas. Todos os relatórios podem ser [salvos para reutilização](saved-reports.md) com sua configuração atual de filtros e eixos.
+O Turbo EA inclui um poderoso módulo de **relatórios visuais** que permite analisar a arquitetura empresarial a partir de diferentes perspectivas. Todos os relatórios podem ser [salvos para reutilização](saved-reports.md) com os filtros e as configurações de exibição atuais.
 
 ![Menu de Relatórios Disponíveis](../assets/img/pt/09_menu_relatorios.png)
 
@@ -8,18 +8,18 @@ O Turbo EA inclui um poderoso módulo de **relatórios visuais** que permite ana
 
 ![Relatório de Portfólio](../assets/img/pt/10_relatorio_portfolio.png)
 
-O **Relatório de Portfólio** exibe um **gráfico de bolhas** (ou gráfico de dispersão) configurável dos seus cards. Você escolhe o que cada eixo representa:
+O **Relatório de Portfólio** (**Relatórios → Portfólio de aplicações**) mostra suas aplicações como chips coloridos, agrupados em caixas. Duas escolhas na barra de ferramentas o determinam:
 
-- **Eixo X** — Selecione qualquer campo numérico ou de seleção (ex.: Adequação Técnica)
-- **Eixo Y** — Selecione qualquer campo numérico ou de seleção (ex.: Criticidade de Negócio)
-- **Tamanho da bolha** — Mapeie para um campo numérico (ex.: Custo Anual)
-- **Cor da bolha** — Mapeie para um campo de seleção, de seleção múltipla ou sim/não, ou para o estado do ciclo de vida
+- **Agrupar por** — qualquer campo de seleção única ou sim/não do tipo de card (ex.: Criticidade de negócio, Modelo TIME), ou um tipo de card relacionado (ex.: Organização, Capacidade de negócio). Cada valor vira uma caixa com uma contagem e uma barra que mostra sua composição de cores; as aplicações sem valor vão para uma caixa *Não atribuído a nenhum …*.
+- **Colorir aplicações por** — qualquer campo de seleção, de seleção múltipla ou sim/não (ex.: Modelo TIME), ou *Sem cor*.
+
+Ao lado ficam uma caixa **Pesquisar**, os filtros recolhíveis (**Relacionado por**, **Etiquetas**, **Campos**, **Subtipos de relação**), o seletor de colunas e a alternância **Visualização de gráfico** / **Visualização de tabela**, que lista os mesmos cards numa tabela ordenável.
 
 **Colorir e filtrar por campos sim/não e de seleção múltipla** — Qualquer campo de seleção, de seleção múltipla ou sim/não do tipo de card pode colorir os cards e filtrá-los — aqui, no Portfólio flexível, no Mapa de capacidades (*Colorir aplicações por*), na visão por intervalo de datas do Relatório de ciclo de vida e no menu *Colorir por* de um diagrama. Um campo sim/não aparece como **Sim** e **Não**, um card com vários valores de um campo de seleção múltipla aparece como **Múltiplos**, e uma opção que um administrador deixou sem cor recebe uma cor própria na legenda em vez do cinza de *Não definido*. Os campos sim/não também podem agrupar os cards — aqui, na tabela do Relatório de custos e no [Inventário](inventory.md); um campo de seleção múltipla não, porque um card com dois valores pertenceria a dois grupos.
 
 **Filtrar por subtipo** — Quando o tipo de cartão tem subtipos, a linha de filtros **Campos** começa com um filtro **Subtipo**. Escolha um ou mais subtipos, ou *(vazio)* para os cartões que não têm nenhum. O filtro é guardado com o relatório e transportado por **Ver no inventário**.
 
-Isso é ideal para análise de portfólio — plotando aplicações por valor de negócio versus adequação técnica, por exemplo, para identificar candidatos a investimento, substituição ou aposentadoria.
+Um uso típico: agrupe por **Criticidade de negócio** e escolha **Modelo TIME** em **Colorir aplicações por**. As aplicações críticas marcadas como *Migrar* são suas primeiras prioridades de modernização, e as aplicações administrativas marcadas como *Eliminar* ou *Migrar* são suas candidatas à desativação e à consolidação. O [Guia para iniciantes EA](../beginners-guide/your-first-analysis.md) mostra como derivar o Modelo TIME das avaliações de adequação com um cálculo.
 
 ### Análises IA do portfólio
 

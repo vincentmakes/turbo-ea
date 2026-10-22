@@ -1,6 +1,6 @@
 # Rapporter
 
-Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det muligt at analysere virksomheds­arkitekturen fra forskellige perspektiver. Alle rapporter kan [gemmes til genbrug](saved-reports.md) med deres aktuelle filter- og akse­konfiguration.
+Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det muligt at analysere virksomheds­arkitekturen fra forskellige perspektiver. Alle rapporter kan [gemmes til genbrug](saved-reports.md) med deres aktuelle filtre og visningsindstillinger.
 
 ![Menu over tilgængelige rapporter](../assets/img/da/09_reports_menu.png)
 
@@ -8,18 +8,18 @@ Turbo EA indeholder et kraftfuldt **visuelt rapporteringsmodul**, der gør det m
 
 ![Porteføljerapport](../assets/img/da/10_report_portfolio.png)
 
-**Porteføljerapporten** viser et konfigurerbart **boblediagram** (eller scatter plot) over dine kort. Du vælger, hvad hver akse repræsenterer:
+**Porteføljerapporten** (**Rapporter → Applikationsportefølje**) viser dine applikationer som farvede chips, grupperet i bokse. To valg i værktøjslinjen styrer den:
 
-- **X-akse** — Vælg et hvilket som helst numerisk eller select-felt (f.eks. Technical Suitability)
-- **Y-akse** — Vælg et hvilket som helst numerisk eller select-felt (f.eks. Business Criticality)
-- **Boblestørrelse** — Tildel et numerisk felt (f.eks. Annual Cost)
-- **Boblefarve** — Tildel et select-, multi-select- eller ja/nej-felt eller livscyklus­tilstanden
+- **Gruppér efter** — et hvilket som helst single-select- eller ja/nej-felt på korttypen (f.eks. Forretningskritikalitet, TIME-model) eller en relateret korttype (f.eks. Organisation, Forretningskompetence). Hver værdi bliver til en boks med et antal og en bjælke, der viser dens farvefordeling; applikationer uden værdi havner i en boks *Ikke tildelt nogen …*.
+- **Farvelæg apps efter** — et hvilket som helst select-, multi-select- eller ja/nej-felt (f.eks. TIME-model) eller *Ingen farve*.
+
+Ved siden af dem finder du et **Søg**-felt, de sammenfoldelige filtre (**Relateret via**, **Tags**, **Felter**, **Relationsundertyper**), kolonnevælgeren og skiftet mellem **Diagramvisning** / **Tabelvisning**, der viser de samme kort i en sorterbar tabel.
 
 **Farvning og filtrering efter ja/nej- og multi-select-felter** — Ethvert select-, multi-select- og ja/nej-felt på korttypen kan farve kortene og filtrere dem — her, i den fleksible portefølje, på kapabilitetskortet (*Farvelæg apps efter*), i livscyklusrapportens datointervalvisning og i et diagrams *Farvelæg efter*-menu. Et ja/nej-felt vises som **Ja** og **Nej**, et kort med flere værdier i et multi-select-felt vises som **Flere**, og en mulighed, som en administrator har ladet være uden farve, får sin egen farve i forklaringen i stedet for gråtonen for *Ikke angivet*. Ja/nej-felter kan også gruppere kortene — her, i tabellen i omkostningsrapporten og i [inventaret](inventory.md); et multi-select-felt kan ikke, fordi et kort med to værdier ville høre til to grupper.
 
 **Filtrering efter undertype** — Når korttypen har undertyper, begynder filterrækken **Felter** med et filter **Undertype**. Vælg en eller flere undertyper, eller *(tom)* for de kort, der ikke har nogen. Filteret gemmes sammen med rapporten og tages med af **Vis i lageret**.
 
-Dette er ideelt til porteføljeanalyse — for eksempel at plotte applikationer efter forretningsværdi vs. teknisk egnethed for at identificere kandidater til investering, udskiftning eller pensionering.
+En typisk anvendelse: gruppér efter **Forretningskritikalitet** og farvelæg efter **TIME-model**. Kritiske applikationer markeret *Migrér* er dine første moderniseringsprioriteter, og administrative applikationer markeret *Eliminér* eller *Migrér* er dine kandidater til udfasning og konsolidering. [EA-begyndervejledningen](../beginners-guide/your-first-analysis.md) viser, hvordan du udleder TIME-model af egnethedsvurderingerne med en beregning.
 
 ### AI Portfolio Insights
 

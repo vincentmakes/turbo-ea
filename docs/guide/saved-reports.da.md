@@ -1,12 +1,12 @@
 # Gemte rapporter
 
-Turbo EA lader dig **gemme rapportkonfigurationer**, så du hurtigt kan vende tilbage til specifikke visninger uden at omkonfigurere filtre og akser hver gang.
+Turbo EA lader dig **gemme rapportkonfigurationer**, så du hurtigt kan vende tilbage til specifikke visninger uden at omkonfigurere filtre, gruppering og farvelægning hver gang.
 
 ## Lagring af en rapport
 
 Fra enhver rapportside (Portefølje, Kompetencekort, Livscyklus, Afhængigheder, Omkostning, Matrix, Datakvalitet eller EOL):
 
-1. Konfigurer rapporten med dine ønskede filtre, grupperinger og aksevalg
+1. Konfigurer rapporten med dine ønskede filtre, gruppering og farveindstillinger
 2. Klik på ikonet **Gem rapport** (et bogmærke) i rapportens værktøjslinje
 3. Indtast et **navn** for den gemte rapport
 4. Vælg **synligheden**:

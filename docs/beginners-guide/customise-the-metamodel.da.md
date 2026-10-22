@@ -60,7 +60,7 @@ IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrat
 
 Hver vurdering omsættes til en score fra 4 (bedst) til 1 (dårligst), og de to scorer placerer applikationen i en af de fire kvadranter: høj funktionel + høj teknisk = **Invester**, høj funktionel + lav teknisk = **Migrér**, lav funktionel + høj teknisk = **Tolerér**, lav på begge = **Eliminér**. En applikation, der mangler en af vurderingerne, får ingen TIME-værdi, så hullerne forbliver synlige.
 
-Panelet **Formelreference** i beregningseditoren viser et TIME-eksempel bygget på to brugerdefinerede felter, `businessFit` og `technicalFit`. Formlen ovenfor er den samme logik tilpasset de felter, Application allerede har, så **du behøver ikke at tilføje noget felt** — og det bør du heller ikke (se *Dupliker ikke indbyggede felter* nedenfor). Mere formelsyntaks: [Admin → Beregninger](../admin/calculations.md).
+Det er det samme TIME-eksempel, som du finder i panelet **Formelreference** i beregningseditoren, så du kan også kopiere det derfra. Den læser kun felter, Application allerede har, så **du behøver ikke at tilføje noget felt** — og det bør du heller ikke (se *Dupliker ikke indbyggede felter* nedenfor). Mere formelsyntaks: [Admin → Beregninger](../admin/calculations.md).
 
 Når du har gemt, så slå beregningen til (**Aktiv**), og klik på **Genberegn alle** på dens række, så hver eksisterende applikation får sin værdi. Trin-for-trin-gennemgangen findes i [Din første analyse → Trin 3](your-first-analysis.md).
 
