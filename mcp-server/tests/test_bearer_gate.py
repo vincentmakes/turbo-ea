@@ -18,10 +18,11 @@ import json
 import pytest
 
 from turbo_ea_mcp import oauth
+from turbo_ea_mcp.api_client import RefreshUnavailable
 from turbo_ea_mcp.server import RequireBearerForMcp
 
 METADATA = "https://mcp.example/.well-known/oauth-protected-resource"
-KNOWN = {"abc": "jwt-abc", "": "jwt-empty"}
+KNOWN = {"abc": "jwt-abc"}
 
 
 class Resolver:
@@ -94,9 +95,7 @@ def test_an_unauthenticated_protocol_request_gets_the_oauth_challenge(path, auth
     }
 
 
-@pytest.mark.parametrize(
-    "auth", [b"Bearer abc", b"bearer abc", b"BEARER abc", b"Bearer "]
-)
+@pytest.mark.parametrize("auth", [b"Bearer abc", b"bearer abc", b"BEARER abc"])
 def test_a_bearer_request_with_a_known_token_passes_through(auth):
     resolver = Resolver()
     reached, sent = call(auth=auth, resolver=resolver)
@@ -105,7 +104,9 @@ def test_a_bearer_request_with_a_known_token_passes_through(auth):
 
 
 @pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/mcp/messages"])
-@pytest.mark.parametrize("auth", [b"Bearer stale", b"bearer nope", b"Bearer abcd"])
+@pytest.mark.parametrize(
+    "auth", [b"Bearer stale", b"bearer nope", b"Bearer abcd", b"Bearer "]
+)
 def test_a_token_that_does_not_resolve_gets_the_invalid_token_challenge(path, auth):
     resolver = Resolver()
     reached, sent = call(path=path, auth=auth, resolver=resolver)
@@ -120,6 +121,31 @@ def test_a_token_that_does_not_resolve_gets_the_invalid_token_challenge(path, au
         "error_description": "The access token is unknown or expired",
     }
     assert resolver.asked == [auth.decode()[7:]]
+
+
+class Failing:
+    def __init__(self, exc):
+        self.exc = exc
+
+    async def __call__(self, token):
+        raise self.exc
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/"])
+@pytest.mark.parametrize(
+    "exc", [RefreshUnavailable("backend answered 502"), RuntimeError("boom")]
+)
+def test_a_backend_failure_while_resolving_is_a_503_not_a_500(path, exc):
+    reached, sent = call(path=path, auth=b"Bearer abc", resolver=Failing(exc))
+    assert not reached
+    status, headers, body = response_of(sent)
+    assert status == 503
+    assert headers["retry-after"] == "5"
+    assert "www-authenticate" not in headers
+    assert body == {
+        "error": "temporarily_unavailable",
+        "error_description": "Turbo EA is not reachable, retry shortly",
+    }
 
 
 def test_the_header_without_a_token_is_never_resolved():

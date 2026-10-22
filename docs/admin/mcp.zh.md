@@ -68,7 +68,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Turbo EA 实例的公共 URL |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp`（docker compose） | MCP 服务器的公共 URL（用于 OAuth 重定向 URI）。单独运行容器时，代码默认值为 `http://localhost:8001` |
 | `MCP_PORT` | `8001` | MCP 容器的内部端口（很少需要更改） |
-| `SECRET_KEY` | *（必填）* | 与后端使用的值相同。用于签名 MCP 服务器颁发的 OAuth 客户端 ID，使注册过一次的客户端在重启后仍可继续使用。Docker Compose、Helm Chart 和各云平台模板会自动传入 |
+| `SECRET_KEY` | *（无）* | 设置为与后端相同的值。用于签名 MCP 服务器颁发的 OAuth 客户端 ID，使注册过一次的客户端在重启后仍可继续使用；未设置时，服务器使用随进程消失的密钥签名并记录一条警告。Docker Compose、Helm Chart 和各云平台模板会自动传入 |
 | `MCP_ALLOWED_ORIGINS` | *（空）* | 以逗号分隔的额外来源（Origin），MCP 端点会接受来自这些来源的浏览器请求。不带 `Origin` 请求头的请求始终会被接受 |
 
 ### 步骤 3：将 OAuth 重定向 URI 添加到 SSO 应用

@@ -15,6 +15,7 @@ import pytest
 
 from turbo_ea_mcp import api_client
 from turbo_ea_mcp.api_client import (
+    RefreshUnavailable,
     TurboEAClient,
     _raise_for_status_with_detail,
     chunked,
@@ -239,6 +240,37 @@ class TestRefreshToken:
         wire.reply = lambda request: httpx.Response(200, json={})
         await client.get("/x")
         assert wire.last.headers["authorization"] == "Bearer old"
+
+
+class TestRefreshUnavailable:
+    """An outage is not a refusal: the caller must not end the session."""
+
+    @pytest.mark.parametrize("status", [500, 502, 503, 504])
+    @pytest.mark.asyncio
+    async def test_a_5xx_raises(self, wire, status):
+        wire.reply = lambda request: httpx.Response(status, json={"detail": "down"})
+        client = TurboEAClient("old")
+        with pytest.raises(RefreshUnavailable, match=str(status)):
+            await client.refresh_token()
+        wire.reply = lambda request: httpx.Response(200, json={})
+        await client.get("/x")
+        assert wire.last.headers["authorization"] == "Bearer old"
+
+    @pytest.mark.asyncio
+    async def test_an_unreachable_backend_raises(self, wire):
+        def refuse(request):
+            raise httpx.ConnectError("connection refused", request=request)
+
+        wire.reply = refuse
+        with pytest.raises(RefreshUnavailable) as excinfo:
+            await TurboEAClient("old").refresh_token()
+        assert isinstance(excinfo.value.__cause__, httpx.ConnectError)
+
+    @pytest.mark.parametrize("status", [400, 401, 403, 499])
+    @pytest.mark.asyncio
+    async def test_a_4xx_is_still_a_refusal(self, wire, status):
+        wire.reply = lambda request: httpx.Response(status, json={"detail": "no"})
+        assert await TurboEAClient("old").refresh_token() is None
 
 
 class TestCardsByIds:

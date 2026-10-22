@@ -3949,7 +3949,26 @@ class RequireBearerForMcp:
                         "",
                     )
                     return
-                if await self.resolve(auth[7:]) is None:
+                try:
+                    resolved = await self.resolve(auth[7:])
+                except Exception:  # noqa: BLE001 — the backend, not the token, failed
+                    # Turbo EA could not be asked about the session. That is no
+                    # reason to end it, and an unhandled error here would be a
+                    # 500 on every request for the length of the outage.
+                    logger.warning("Could not resolve an MCP token", exc_info=True)
+                    from starlette.responses import JSONResponse
+
+                    response = JSONResponse(
+                        {
+                            "error": "temporarily_unavailable",
+                            "error_description": "Turbo EA is not reachable, retry shortly",
+                        },
+                        status_code=503,
+                        headers={"Retry-After": "5"},
+                    )
+                    await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
+                    return
+                if resolved is None:
                     await self._challenge(
                         scope,
                         receive,
@@ -3992,6 +4011,12 @@ def create_app() -> Starlette:
     # the upstream serves both at the right paths without an extra Starlette
     # mount (a mount would push the protocol to /mcp/mcp and trigger a 307
     # redirect for clients hitting /mcp without a trailing slash).
+    if oauth.CLIENT_KEY_IS_EPHEMERAL:
+        logger.warning(
+            "SECRET_KEY is not set for the MCP server: dynamically registered "
+            "OAuth clients will not survive a restart. Pass the instance's "
+            "SECRET_KEY to the mcp-server container."
+        )
     app = mcp.streamable_http_app()
     app.router.routes.extend(oauth_routes)
     resource_metadata_url = (

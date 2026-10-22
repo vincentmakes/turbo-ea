@@ -132,7 +132,8 @@ MCP_OAUTH_ALLOWED_REDIRECT_URIS: list[str] = [
 # Origins, beyond the two public URLs above, whose browser-borne requests the
 # MCP endpoint accepts. FastMCP's DNS-rebinding guard refuses a request that
 # carries any other ``Origin`` header (a request with none always passes).
-# Comma-separated, exact match. Empty by default.
+# Comma-separated; matched as the SDK matches them — exactly, or any port for
+# an entry written ``scheme://host:*``. Empty by default.
 def parse_origins(raw: str) -> list[str]:
     """Comma-separated origins, trimmed, without a trailing slash (an Origin
     header never carries one)."""

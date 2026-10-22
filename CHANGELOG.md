@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - MCP: a connection made through Microsoft Copilot Studio (or any client that registers once and keeps its client id) keeps working after the MCP server restarts or is upgraded; it used to fail at sign-in with *redirect_uri is not registered for this client* until the tool was recreated. Tools created before this version need recreating once ([#1307](https://github.com/vincentmakes/turbo-ea/discussions/1307)).
 - MCP: a request with an expired or unknown access token now gets a `401` that tells the client to refresh or sign in again, instead of reaching the tools and answering *Not authenticated* ([#1307](https://github.com/vincentmakes/turbo-ea/discussions/1307)).
+- MCP: a Turbo EA backend that is restarting or unreachable no longer signs every MCP user out; the session is kept, and the client is told to retry.
 - MCP: the OpenID discovery address `/.well-known/openid-configuration/mcp`, which some clients probe, now reaches the MCP server instead of returning the web app's page; token requests sent as JSON are accepted, and token responses are marked as not cacheable.
 
 ### Added

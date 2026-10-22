@@ -21,6 +21,9 @@ from starlette.testclient import TestClient
 
 from turbo_ea_mcp import config, oauth
 from turbo_ea_mcp.oauth import (
+    MAX_CACHED_CLIENTS,
+    MAX_CLIENT_ID_LENGTH,
+    MAX_CLIENT_NAME_LENGTH,
     MAX_REDIRECT_URI_LENGTH,
     MAX_REDIRECT_URIS,
     OAuthStore,
@@ -162,9 +165,17 @@ class TestForgedIds:
         payload = base64.urlsafe_b64encode(b"not json").rstrip(b"=").decode()
         assert client_from_id(f"tea1.{payload}.{oauth._client_id_signature(payload)}") is None
 
-    def test_the_bounds_themselves_are_accepted(self):
-        uris = ["x" * MAX_REDIRECT_URI_LENGTH] + [CB] * (MAX_REDIRECT_URIS - 1)
-        assert client_from_id(resign("", {"r": uris})).redirect_uris == uris
+    def test_the_per_uri_bounds_themselves_are_accepted(self):
+        for uris in (["x" * MAX_REDIRECT_URI_LENGTH], ["u"] * MAX_REDIRECT_URIS):
+            assert client_from_id(resign("", {"r": uris})).redirect_uris == uris
+
+    def test_an_id_over_the_length_cap_is_refused_before_it_is_verified(self, monkeypatch):
+        cid = resign("", {"r": ["x" * MAX_CLIENT_ID_LENGTH]})
+        assert len(cid) > MAX_CLIENT_ID_LENGTH
+        signed = []
+        monkeypatch.setattr(oauth, "_client_id_signature", lambda p: signed.append(p) or "")
+        assert client_from_id(cid) is None
+        assert signed == []
 
 
 class TestRegistrationBounds:
@@ -193,10 +204,71 @@ class TestRegistrationBounds:
         assert resp.status_code == 400
         assert store.clients == {}
 
-    def test_the_bounds_are_accepted_at_registration(self, app, store):
-        uris = ["x" * MAX_REDIRECT_URI_LENGTH] + [CB] * (MAX_REDIRECT_URIS - 1)
+    def test_the_per_uri_bounds_are_accepted_at_registration(self, app, store):
+        for uris in (["x" * MAX_REDIRECT_URI_LENGTH], [CB] * MAX_REDIRECT_URIS):
+            resp = app.post("/oauth/register", json={"redirect_uris": uris})
+            assert resp.status_code == 201
+            assert len(resp.json()["client_id"]) <= MAX_CLIENT_ID_LENGTH
+
+    def test_uris_too_long_together_are_refused(self, app, store):
+        # Each URI is within its own bound; together the id would not fit the
+        # authorize request line the edge nginx accepts.
+        uris = ["https://x/" + "a" * (MAX_REDIRECT_URI_LENGTH - 10)] * 3
         resp = app.post("/oauth/register", json={"redirect_uris": uris})
+        assert resp.status_code == 400
+        assert resp.json() == {
+            "error": "invalid_client_metadata",
+            "error_description": "redirect_uris are too long in total",
+        }
+        assert store.clients == {}
+
+    def test_the_longest_accepted_id_fits_an_authorize_request_line(self, app, store):
+        # nginx's default large_client_header_buffers is 8 KB per request line.
+        cid = "tea1." + "x" * (MAX_CLIENT_ID_LENGTH - 5)
+        query = "&".join(
+            [
+                "response_type=code",
+                f"client_id={cid}",
+                "redirect_uri=" + "%2F" * MAX_REDIRECT_URI_LENGTH,
+                "state=" + "s" * 256,
+                "code_challenge=" + "c" * 43,
+                "code_challenge_method=S256",
+                "scope=mcp%3Aread",
+            ]
+        )
+        assert len(f"GET /mcp/oauth/authorize?{query} HTTP/1.1") < 8192
+
+    @pytest.mark.parametrize("payload", [[CB], "text", 7, None])
+    def test_a_body_that_is_not_an_object_is_refused(self, app, store, payload):
+        resp = app.post("/oauth/register", json=payload)
+        assert resp.status_code == 400
+        assert resp.json() == {"error": "invalid_request"}
+        assert store.clients == {}
+
+    @pytest.mark.parametrize("name", [{"a": 1}, 7, ["n"], "", "   ", None])
+    def test_a_client_name_that_is_not_text_takes_the_default(self, app, store, name):
+        resp = app.post("/oauth/register", json={"client_name": name, "redirect_uris": [CB]})
         assert resp.status_code == 201
+        assert resp.json()["client_name"] == "MCP Client"
+
+    def test_a_long_client_name_is_cut(self, app, store):
+        resp = app.post(
+            "/oauth/register",
+            json={"client_name": "n" * (MAX_CLIENT_NAME_LENGTH + 50), "redirect_uris": [CB]},
+        )
+        assert resp.json()["client_name"] == "n" * MAX_CLIENT_NAME_LENGTH
+        assert store.clients[resp.json()["client_id"]].client_name == resp.json()["client_name"]
+
+    def test_the_in_memory_cache_is_bounded_and_drops_the_oldest(self, app, store):
+        for i in range(MAX_CACHED_CLIENTS):
+            store.clients[f"c{i}"] = oauth.RegisteredClient(client_id=f"c{i}", redirect_uris=[CB])
+        cid = app.post("/oauth/register", json={"redirect_uris": [CB]}).json()["client_id"]
+        assert len(store.clients) == MAX_CACHED_CLIENTS
+        assert "c0" not in store.clients and "c1" in store.clients
+        assert cid in store.clients
+        # An evicted registration still authorizes from its id alone.
+        del store.clients[cid]
+        assert authorize(app, cid).status_code == 302
 
 
 class TestSigningKey:

@@ -59,6 +59,12 @@ def _raise_for_status_with_detail(resp: httpx.Response) -> None:
         ) from None
 
 
+
+class RefreshUnavailable(Exception):
+    """The backend could not be asked to refresh a JWT (unreachable, or a 5xx).
+
+    Distinct from a refusal: the session behind the token is still good."""
+
 class TurboEAClient:
     """Thin wrapper around httpx for authenticated Turbo EA API calls."""
 
@@ -225,12 +231,22 @@ class TurboEAClient:
 
     async def refresh_token(self) -> str | None:
         """Call POST /auth/refresh to get a new JWT. Returns the new token
-        or None if the current token is expired/invalid."""
+        or None if the current token is expired/invalid.
+
+        Raises ``RefreshUnavailable`` when the backend could not answer — it
+        is unreachable or replied 5xx — because that says nothing about the
+        token, and a caller that treated it as a rejection would end a
+        session over a restarting backend."""
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(
-                f"{self._base}/auth/refresh",
-                headers=self._headers(),
-            )
+            try:
+                resp = await client.post(
+                    f"{self._base}/auth/refresh",
+                    headers=self._headers(),
+                )
+            except httpx.HTTPError as exc:
+                raise RefreshUnavailable(str(exc)) from exc
+            if resp.status_code >= 500:
+                raise RefreshUnavailable(f"backend answered {resp.status_code}")
             if resp.status_code == 200:
                 data = resp.json()
                 new_token = data.get("access_token")

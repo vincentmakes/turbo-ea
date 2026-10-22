@@ -68,7 +68,7 @@ MCP_PUBLIC_URL=https://votre-domaine.exemple.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | L'URL publique de votre instance Turbo EA |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | L'URL publique du serveur MCP (utilisée dans les URIs de redirection OAuth). Lorsque le conteneur est exécuté de façon autonome, la valeur par défaut du code est `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Port interne du conteneur MCP (rarement besoin de changer) |
-| `SECRET_KEY` | *(obligatoire)* | La même valeur que celle du backend. Signe les identifiants de client OAuth que le serveur MCP délivre, de sorte qu'un client enregistré une fois continue de fonctionner après un redémarrage. Docker Compose, le chart Helm et les modèles cloud la transmettent automatiquement |
+| `SECRET_KEY` | *(aucune)* | À définir sur la valeur du backend. Signe les identifiants de client OAuth que le serveur MCP délivre, de sorte qu'un client enregistré une fois continue de fonctionner après un redémarrage ; sans elle, le serveur signe avec une clé qui disparaît avec le processus et journalise un avertissement. Docker Compose, le chart Helm et les modèles cloud la transmettent automatiquement |
 | `MCP_ALLOWED_ORIGINS` | *(vide)* | Origines supplémentaires, séparées par des virgules, dont le point de terminaison MCP accepte les requêtes de navigateur. Les requêtes sans en-tête `Origin` sont toujours acceptées |
 
 ### Étape 3 : Ajouter l'URI de redirection OAuth à votre application SSO

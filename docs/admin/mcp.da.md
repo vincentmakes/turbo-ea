@@ -68,7 +68,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Den offentlige URL til din Turbo EA-instans |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | Den offentlige URL til MCP-serveren (bruges i OAuth-redirect-URI'er). Når containeren køres selvstændigt, er kode-standarden `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
-| `SECRET_KEY` | *(påkrævet)* | Samme værdi som backend bruger. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
+| `SECRET_KEY` | *(ingen)* | Sæt den til backends værdi. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart; uden den signerer serveren med en nøgle, der forsvinder med processen, og logger en advarsel. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
 | `MCP_ALLOWED_ORIGINS` | *(tom)* | Kommaseparerede ekstra origins, hvis browserforespørgsler MCP-endpointet accepterer. Forespørgsler uden `Origin`-header accepteres altid |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
