@@ -125,7 +125,10 @@ function offerTrail() {
   if (files.length === 0) return;
   const field = (text, key) => {
     const line = text.split('\n').find((l) => l.startsWith(key + ':'));
-    return line ? line.slice(key.length + 1).trim().replace(/^"|"$/g, '') : '';
+    const v = line ? line.slice(key.length + 1).trim() : '';
+    if (/^'.*'$/.test(v)) return v.slice(1, -1).replace(/''/g, "'");
+    if (/^".*"$/.test(v)) { try { return JSON.parse(v); } catch { return v.slice(1, -1); } }
+    return v;
   };
   const lines = [];
   for (const f of files.slice(0, 12)) {
