@@ -125,6 +125,7 @@ export function sortLifecycleItems<T extends LifecycleSortItem>(
         typeof a.v === "number" && typeof b.v === "number"
           ? a.v - b.v
           : String(a.v).localeCompare(String(b.v));
+      // Stryker disable next-line ArithmeticOperator: sign is 1 or -1, so * and / agree
       if (c !== 0) return c * sign;
     }
     return a.item.name.localeCompare(b.item.name);

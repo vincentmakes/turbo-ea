@@ -141,6 +141,10 @@ describe("expandRelationFilters", () => {
     expect(new Set(out.relOrgToAppOwns)).toEqual(new Set(["hq", "eu"]));
   });
 
+  it("leaves a pick on a type with no members as it is", () => {
+    expect(expandRelationFilters({ Ghost: ["g1"] }, GROUPABLE, REL_TYPES)).toEqual({ Ghost: ["g1"] });
+  });
+
   it("keeps the (empty) pick and an empty pick list as they are", () => {
     const out = expandRelationFilters(
       { BusinessCapability: [EMPTY_FILTER_KEY, "ful"], Organization: [] },
@@ -266,6 +270,10 @@ describe("restoreCardFilters", () => {
     });
     expect(restoreCardFilters({ includeDescendants: true }).includeDescendants).toBe(true);
     expect(restoreCardFilters({})).toEqual(EMPTY_CARD_FILTERS);
+    // A null, a scalar and a list in place of a record all read as empty.
+    expect(
+      restoreCardFilters({ attrFilters: null, relationFilters: 7, relSubtypeFilters: [["x"]] }),
+    ).toEqual(EMPTY_CARD_FILTERS);
   });
 });
 
@@ -290,6 +298,29 @@ describe("counting and describing", () => {
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, tagFilterIds: ["t"] }, "")).toBe(true);
     // The sub-card switch alone narrows nothing.
     expect(hasActiveFilters({ ...EMPTY_CARD_FILTERS, includeDescendants: true }, "")).toBe(false);
+  });
+
+  it("names nothing when nothing is picked, whatever options are offered", () => {
+    expect(
+      describeActiveFilters({
+        value: { ...EMPTY_CARD_FILTERS, includeDescendants: true },
+        relationOptions: buildOptions(true),
+        tagGroups: [{ id: "g", name: "Origin", mode: "multi", tags: [{ id: "t1", name: "In-house" }] }],
+        subtypeOptions: [{ key: "saas", label: "SaaS" }],
+        fields: [{ key: "fit", label: "Fit", type: "single_select", options: [{ key: "good", label: "Good" }] }],
+        relSubtypes: [
+          {
+            composite: "relOrgToApp::usageType",
+            relTypeKey: "relOrgToApp",
+            fieldKey: "usageType",
+            relatedTypeKey: "Organization",
+            comboLabel: "used by · Usage Type",
+            options: [{ key: "owner", label: "Owner" }],
+          },
+        ],
+        labels: { subtype: "Subtype", tags: "Tags", empty: "(empty)", subCards: "(incl. sub-cards)" },
+      }),
+    ).toEqual([]);
   });
 
   it("names each active filter by its labels for an export header", () => {

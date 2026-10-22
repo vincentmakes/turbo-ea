@@ -169,6 +169,28 @@ describe("sortLifecycleItems", () => {
     ]);
   });
 
+  it("compares option positions as numbers, so the tenth option follows the ninth", () => {
+    const many: LifecycleSortContext = {
+      ...ctx,
+      optionOrder: () => ["o0", "o1", "o2", "o3", "o4", "o5", "o6", "o7", "o8", "o9", "o10", "o11"],
+    };
+    const items = [
+      item("Ten", { attributes: { level: "o10" } }),
+      item("Two", { attributes: { level: "o2" } }),
+      item("Nine", { attributes: { level: "o9" } }),
+      item("Eleven", { attributes: { level: "o11" } }),
+    ];
+    expect(names(sortLifecycleItems(items, "attr:level", "asc", many))).toEqual(["Two", "Nine", "Ten", "Eleven"]);
+    expect(names(sortLifecycleItems(items, "attr:level", "desc", many))).toEqual(["Eleven", "Ten", "Nine", "Two"]);
+  });
+
+  it("reads a card with no attributes at all as missing every attribute value", () => {
+    const bare: LifecycleSortItem = { id: "b", name: "Bare", type: "Application", lifecycle: {} };
+    for (const key of ["startDate", "endDate", "attr:criticality"]) expect(sortValue(bare, key, ctx)).toBeNull();
+    const dated = item("Dated", { attributes: { contractStart: "2020-01-01" } });
+    expect(names(sortLifecycleItems([bare, dated], "startDate", "desc", ctx))).toEqual(["Dated", "Bare"]);
+  });
+
   it("does not change the list it was given", () => {
     const before = names(items);
     sortLifecycleItems(items, "name", "desc", ctx);

@@ -73,6 +73,16 @@ def test_roadmap_view_keeps_drawable_cards_and_the_filter_payload():
                 "org_ids": [],
                 "tag_ids": [],
             },
+            {
+                "id": "c",
+                "name": "Ranged",
+                "subtype": None,
+                "attributes": {"startDate": "2024-01-01"},
+                "lifecycle": {},
+                "relations": [],
+                "org_ids": [],
+                "tag_ids": [],
+            },
         ],
         "fields_schema": [{"section": "S", "fields": []}],
         "relation_types": [{"key": "r"}],
@@ -91,7 +101,17 @@ def test_roadmap_view_keeps_drawable_cards_and_the_filter_payload():
                 "attributes": {},
                 "relations": [{"relation_type": "r", "related_id": "x"}],
                 "tag_ids": ["t"],
-            }
+            },
+            {
+                "id": "c",
+                "name": "Ranged",
+                "type": "Application",
+                "subtype": None,
+                "lifecycle": {},
+                "attributes": {"startDate": "2024-01-01"},
+                "relations": [],
+                "tag_ids": [],
+            },
         ],
         "fields_schema": [{"section": "S", "fields": []}],
         "relation_types": [{"key": "r"}],
@@ -113,6 +133,10 @@ async def env(db):
     await create_card_type(db, key="BusinessCapability", label="Capability", has_hierarchy=True)
     await create_card_type(db, key="Initiative", label="Initiative")
     await create_card_type(db, key="Retired", label="Retired", is_hidden=True)
+    await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+    await create_role(
+        db, key="reports_only", label="Reports", permissions={"reports.ea_dashboard": True}
+    )
     await create_relation_type(
         db,
         key="relAppToBC",
@@ -141,19 +165,50 @@ async def env(db):
         source_type_key="Application",
         target_type_key="Retired",
     )
+    await create_relation_type(
+        db,
+        key="relOrgToApp",
+        label="uses",
+        reverse_label="is used by",
+        source_type_key="Organization",
+        target_type_key="Application",
+        translations={"de": {"label": "nutzt"}},
+        attributes_schema=[{"key": "usageType", "label": "Usage", "type": "single_select"}],
+    )
     root = await create_card(db, card_type="BusinessCapability", name="Operations")
     mid = await create_card(
         db, card_type="BusinessCapability", name="Fulfilment", parent_id=root.id
     )
     leaf = await create_card(db, card_type="BusinessCapability", name="Shipping", parent_id=mid.id)
     erp = await create_card(db, card_type="Application", name="ERP")
-    crm = await create_card(db, card_type="Application", name="CRM")
-    program = await create_card(db, card_type="Initiative", name="Program")
+    # CRM sits beneath ERP: a portfolio card's own parent travels with it.
+    crm = await create_card(db, card_type="Application", name="CRM", parent_id=erp.id)
+    lone = await create_card(db, card_type="Application", name="Lone")
+    gone = await create_card(db, card_type="Application", name="Gone", status="ARCHIVED")
+    portfolio = await create_card(db, card_type="Initiative", name="Portfolio")
+    # A parent on a type without hierarchy is never walked.
+    program = await create_card(db, card_type="Initiative", name="Program", parent_id=portfolio.id)
     old = await create_card(db, card_type="Retired", name="Mainframe")
+    former = await create_card(db, card_type="BusinessCapability", name="Former", status="ARCHIVED")
+    orphaned = await create_card(
+        db, card_type="BusinessCapability", name="Orphaned", parent_id=former.id
+    )
+    zeta = await create_card(db, card_type="Organization", name="Zeta Org")
+    alpha = await create_card(db, card_type="Organization", name="Alpha Org")
     await create_relation(db, type_key="relAppToBC", source_id=erp.id, target_id=leaf.id)
+    await create_relation(db, type_key="relAppToBC", source_id=erp.id, target_id=former.id)
+    await create_relation(db, type_key="relAppToBC", source_id=crm.id, target_id=orphaned.id)
     await create_relation(db, type_key="relInitToApp", source_id=program.id, target_id=erp.id)
     await create_relation(db, type_key="relAppToApp", source_id=erp.id, target_id=crm.id)
     await create_relation(db, type_key="relAppToRetired", source_id=erp.id, target_id=old.id)
+    await create_relation(db, type_key="relAppToBC", source_id=gone.id, target_id=leaf.id)
+    await create_relation(
+        db,
+        type_key="relOrgToApp",
+        source_id=zeta.id,
+        target_id=erp.id,
+        attributes={"usageType": "owner"},
+    )
 
     for_apps = TagGroup(name="Origin", mode="multi", restrict_to_types=["Application"])
     for_caps = TagGroup(name="Maturity", mode="single", restrict_to_types=["BusinessCapability"])
@@ -161,24 +216,33 @@ async def env(db):
     db.add_all([for_apps, for_caps, everywhere])
     await db.flush()
     in_house = Tag(tag_group_id=for_apps.id, name="Internally Developed", color="#123456")
-    db.add(in_house)
+    bought = Tag(tag_group_id=for_apps.id, name="Bought", color=None)
+    db.add_all([in_house, bought])
     await db.flush()
     db.add(CardTag(card_id=erp.id, tag_id=in_house.id))
     await db.flush()
 
     admin = await create_user(db, email="admin@t.com", role="admin")
     viewer = await create_user(db, email="viewer@t.com", role="viewer")
+    reports_only = await create_user(db, email="reports@t.com", role="reports_only")
     return {
         "app_type": app_type,
         "root": root,
         "mid": mid,
         "leaf": leaf,
+        "former": former,
+        "orphaned": orphaned,
         "erp": erp,
         "crm": crm,
+        "lone": lone,
         "program": program,
+        "zeta": zeta,
+        "alpha": alpha,
         "in_house": in_house,
+        "bought": bought,
         "admin": admin,
         "viewer": viewer,
+        "reports_only": reports_only,
     }
 
 
@@ -200,12 +264,41 @@ async def test_relations_are_listed_on_the_side_each_card_sits(db, env):
     assert by_type["relAppToBC", "outgoing"]["related_id"] == str(env["leaf"].id)
     assert by_type["relAppToBC", "outgoing"]["related_type"] == "BusinessCapability"
     assert by_type["relInitToApp", "incoming"]["related_name"] == "Program"
+    # The whole entry, attributes included, on the incoming side.
+    assert by_type["relOrgToApp", "incoming"] == {
+        "relation_type": "relOrgToApp",
+        "direction": "incoming",
+        "related_id": str(env["zeta"].id),
+        "related_name": "Zeta Org",
+        "related_type": "Organization",
+        "attributes": {"usageType": "owner"},
+    }
     # A self-referencing row lands on both of its cards, once per side.
-    assert by_type["relAppToApp", "outgoing"]["related_id"] == str(env["crm"].id)
-    assert [(r["relation_type"], r["direction"]) for r in crm["relations"]] == [
-        ("relAppToApp", "incoming")
+    assert by_type["relAppToApp", "outgoing"] == {
+        "relation_type": "relAppToApp",
+        "direction": "outgoing",
+        "related_id": str(env["crm"].id),
+        "related_name": "CRM",
+        "related_type": "Application",
+        "attributes": {},
+    }
+    assert sorted((r["relation_type"], r["direction"]) for r in crm["relations"]) == [
+        ("relAppToApp", "incoming"),
+        ("relAppToBC", "outgoing"),
     ]
-    assert crm["tag_ids"] == []
+    # An archived related card is no relation at all.
+    assert all(r["related_name"] != "Former" for r in erp["relations"])
+    assert _item(payload, "Lone") == {
+        "id": str(env["lone"].id),
+        "name": "Lone",
+        "subtype": None,
+        "attributes": {},
+        "lifecycle": {},
+        "relations": [],
+        "org_ids": [],
+        "tag_ids": [],
+    }
+    assert [i["name"] for i in payload["items"]] == ["ERP", "CRM", "Lone"]
 
 
 async def test_related_capabilities_carry_their_ancestors(db, env):
@@ -221,18 +314,48 @@ async def test_related_capabilities_carry_their_ancestors(db, env):
         "parent_id": str(env["root"].id),
         "ancestor_only": True,
     }
-    assert caps["Operations"]["parent_id"] is None
-    assert caps["Operations"]["ancestor_only"] is True
+    assert caps["Operations"] == {
+        "id": str(env["root"].id),
+        "name": "Operations",
+        "type": "BusinessCapability",
+        "parent_id": None,
+        "ancestor_only": True,
+    }
+    # An archived parent is not loaded; an unrestricted reader keeps the
+    # dangling pointer (the client files such a member as a root).
+    assert "Former" not in caps
+    assert caps["Orphaned"]["parent_id"] == str(env["former"].id)
+    # The portfolio's own cards are members too (a self-pair reaches them),
+    # each with its own parent.
+    apps = {m["name"]: m for m in payload["groupable_types"]["Application"]}
+    assert apps["CRM"] == {
+        "id": str(env["crm"].id),
+        "name": "CRM",
+        "type": "Application",
+        "parent_id": str(env["erp"].id),
+    }
+    assert apps["ERP"]["parent_id"] is None
+    assert "Gone" not in apps
+    # A parent on a type without hierarchy is not walked up.
+    assert [m["name"] for m in payload["groupable_types"]["Initiative"]] == ["Program"]
+    assert payload["groupable_types"]["Initiative"][0]["parent_id"] == str(env["program"].parent_id)
 
 
 async def test_tags_and_the_tag_groups_that_apply_to_the_type(db, env):
     payload = await _payload(db, env["admin"], env["app_type"])
     assert _item(payload, "ERP")["tag_ids"] == [str(env["in_house"].id)]
-    groups = {g["name"]: g for g in payload["tag_groups"]}
-    assert set(groups) == {"Audit", "Origin"}
-    assert groups["Origin"]["tags"] == [
-        {"id": str(env["in_house"].id), "name": "Internally Developed", "color": "#123456"}
-    ]
+    # Groups and tags come back by name, whatever order they were made in.
+    assert [g["name"] for g in payload["tag_groups"]] == ["Audit", "Origin"]
+    origin = payload["tag_groups"][1]
+    assert origin == {
+        "id": str(origin["id"]),
+        "name": "Origin",
+        "mode": "multi",
+        "tags": [
+            {"id": str(env["bought"].id), "name": "Bought", "color": None},
+            {"id": str(env["in_house"].id), "name": "Internally Developed", "color": "#123456"},
+        ],
+    }
 
 
 async def test_a_hidden_card_type_offers_no_filter_options(db, env):
@@ -243,7 +366,64 @@ async def test_a_hidden_card_type_offers_no_filter_options(db, env):
         "relInitToApp",
         "relAppToApp",
         "relAppToRetired",
+        "relOrgToApp",
     }
+    org = next(rt for rt in payload["relation_types"] if rt["key"] == "relOrgToApp")
+    assert org == {
+        "key": "relOrgToApp",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "Organization",
+        "target_type_key": "Application",
+        "other_type_key": "Organization",
+        "translations": {"de": {"label": "nutzt"}},
+        "attributes_schema": [{"key": "usageType", "label": "Usage", "type": "single_select"}],
+    }
+    assert payload["fields_schema"] == []
+
+
+async def test_the_legacy_organisation_filter(db, env):
+    payload = await _payload(db, env["admin"], env["app_type"])
+    assert payload["organizations"] == [
+        {"id": str(env["alpha"].id), "name": "Alpha Org"},
+        {"id": str(env["zeta"].id), "name": "Zeta Org"},
+    ]
+    assert _item(payload, "ERP")["org_ids"] == [str(env["zeta"].id)]
+    assert _item(payload, "CRM")["org_ids"] == []
+
+
+async def test_a_reports_only_role_reads_everything_in_module_mode(db, env):
+    """No ``inventory.view`` and no View cells: module mode is the whole
+    landscape, where inventory mode would be nothing."""
+    payload = await _payload(db, env["reports_only"], env["app_type"])
+    assert [i["name"] for i in payload["items"]] == ["ERP", "CRM", "Lone"]
+    assert {rt["key"] for rt in payload["relation_types"]} == {
+        "relAppToBC",
+        "relInitToApp",
+        "relAppToApp",
+        "relAppToRetired",
+        "relOrgToApp",
+    }
+    assert set(payload["groupable_types"]) == {
+        "Application",
+        "BusinessCapability",
+        "Initiative",
+        "Organization",
+    }
+    assert len(payload["organizations"]) == 2
+
+
+async def test_a_reader_denied_the_type_itself_gets_no_cards(db, env):
+    ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+    ct.role_permissions = {"viewer": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+    try:
+        payload = await _payload(db, env["viewer"], env["app_type"])
+    finally:
+        PermissionService.invalidate_type_permission_cache()
+    assert payload["items"] == []
+    assert payload["groupable_types"] == {}
 
 
 async def test_a_type_the_reader_may_not_see_is_left_out(db, env):
@@ -259,3 +439,10 @@ async def test_a_type_the_reader_may_not_see_is_left_out(db, env):
     assert all(r["related_type"] != "Initiative" for r in erp["relations"])
     assert "Initiative" not in payload["groupable_types"]
     assert all(rt["other_type_key"] != "Initiative" for rt in payload["relation_types"])
+    # A restricted reader never sees a pointer to a card that was not loaded —
+    # the archived parent is scrubbed — while an intact chain keeps its parents.
+    caps = {m["name"]: m for m in payload["groupable_types"]["BusinessCapability"]}
+    assert caps["Orphaned"]["parent_id"] is None
+    assert caps["Shipping"]["parent_id"] == str(env["mid"].id)
+    assert caps["Fulfilment"]["parent_id"] == str(env["root"].id)
+    assert caps["Operations"]["parent_id"] is None

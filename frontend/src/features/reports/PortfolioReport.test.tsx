@@ -517,6 +517,17 @@ describe("PortfolioReport Include sub-cards (#1305)", () => {
     );
   });
 
+  it("is switched off again by Reset to defaults", async () => {
+    mockSavedConfig({ relationFilters: { Organization: ["org-root"] }, includeDescendants: true });
+    renderPortfolio();
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: /reset to defaults/i }));
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(expect.objectContaining({ includeDescendants: false, relationFilters: {} })),
+    );
+  });
+
   it("drops the View in inventory link while a pick is widened", async () => {
     mockSavedConfig({
       groupByRaw: "rel:Organization",

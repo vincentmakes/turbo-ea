@@ -57,6 +57,28 @@ describe("CardFilterSection", () => {
     for (const name of ["Organization", "Subtype", "Fit", "uses · Usage"]) expect(facet(name)).toBeInTheDocument();
   });
 
+  it("reports a tag pick as the new tag list", () => {
+    const value = { ...EMPTY_CARD_FILTERS, tagFilterIds: ["t1"] };
+    const props = renderSection({
+      value,
+      tagGroups: [
+        { id: "g", name: "Origin", mode: "multi", tags: [{ id: "t1", name: "In-house" }, { id: "t2", name: "Bought" }] },
+      ],
+    });
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Tags" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByText("Bought"));
+    expect(props.onChange).toHaveBeenLastCalledWith({ ...value, tagFilterIds: ["t1", "t2"] });
+  });
+
+  it("reports a field pick under the field's key", () => {
+    const props = renderSection({
+      fields: [{ key: "fit", label: "Fit", type: "single_select", options: [{ key: "good", label: "Good" }] }],
+    });
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Fit" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByText("Good"));
+    expect(props.onChange).toHaveBeenLastCalledWith({ ...EMPTY_CARD_FILTERS, attrFilters: { fit: ["good"] } });
+  });
+
   it("renders no empty rows", () => {
     renderSection();
     for (const row of ["Related By", "Tags", "Fields", "Relation Subtypes"]) {

@@ -261,6 +261,46 @@ describe("LifecycleReport filters (#1305)", () => {
     expect(screen.queryByText("Related By")).not.toBeInTheDocument();
   });
 
+  it("restores the search, the folded section and ignores a sort direction it does not know", async () => {
+    config = { cardTypeKey: "Application", view: "table", search: "led", filtersCollapsed: true, sortD: "sideways" };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toEqual(["Ledger"]));
+    expect(screen.getByRole("textbox", { name: "Search" })).toHaveValue("led");
+    expect(screen.getByRole("button", { name: /Application Filters/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Ascending" })).toBeInTheDocument();
+    expect(lastPersisted()).toMatchObject({ search: "led", filtersCollapsed: true, sortD: "asc" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Application Filters/ }));
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ filtersCollapsed: false }));
+  });
+
+  it("reset to defaults clears the filters and the search", async () => {
+    config = { cardTypeKey: "Application", view: "table", tagFilterIds: ["in-house"], search: "dis", includeDescendants: true };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toEqual(["Dispatch"]));
+    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    await waitFor(() =>
+      expect(lastPersisted()).toMatchObject({
+        cardTypeKey: "",
+        tagFilterIds: [],
+        search: "",
+        includeDescendants: false,
+        filtersCollapsed: false,
+      }),
+    );
+  });
+
+  it("keeps the filters when the same card type is picked again", async () => {
+    config = { cardTypeKey: "Application", view: "table", tagFilterIds: ["in-house"] };
+    renderReport();
+    await waitFor(() => expect(tableRows()).toEqual(["Dispatch", "Ledger", "Router"]));
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Card Type" }));
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: "Application" }));
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    expect(tableRows()).toEqual(["Dispatch", "Ledger", "Router"]);
+    expect(lastPersisted()).toMatchObject({ cardTypeKey: "Application", tagFilterIds: ["in-house"] });
+  });
+
   it("starts a newly picked card type unfiltered, keeping the sub-card preference", async () => {
     config = {
       cardTypeKey: "Application",
@@ -293,6 +333,36 @@ describe("LifecycleReport sorting (#1305)", () => {
     await waitFor(() => expect(chartNames()).toEqual(["Router", "Dispatch", "Ledger", "Concur"]));
     expect(screen.getByRole("button", { name: "Descending" })).toBeInTheDocument();
     expect(lastPersisted()).toMatchObject({ sortK: "phaseOut", sortD: "desc" });
+  });
+
+  it("offers every sort key by its label, the select field included", async () => {
+    config = { cardTypeKey: "Application" };
+    renderReport();
+    await screen.findByText("Dispatch");
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Sort by" }));
+    const options = within(screen.getByRole("listbox"))
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(options).toEqual([
+      "Name",
+      "Type",
+      "Subtype",
+      "Current Phase",
+      "Plan",
+      "Phase In",
+      "Active",
+      "Phase Out",
+      "End of Life",
+      "Business Criticality",
+    ]);
+    fireEvent.click(within(screen.getByRole("listbox")).getByRole("option", { name: "Subtype" }));
+    await waitFor(() => expect(lastPersisted()).toMatchObject({ sortK: "subtype" }));
+    // Business Application < Microservice < no subtype, by label.
+    const chartNames = () => Array.from(document.querySelectorAll("[data-export-row]")).map((r) => r.textContent);
+    await waitFor(() => expect(chartNames()).toEqual(["Concur", "Dispatch", "Ledger", "Router"]));
+    fireEvent.click(screen.getByRole("button", { name: "Ascending" }));
+    await waitFor(() => expect(chartNames()).toEqual(["Ledger", "Concur", "Dispatch", "Router"]));
+    expect(printParams()).toContain("Sort by: Subtype ↓");
   });
 
   it("sorts by a select field in its option order, most critical first descending", async () => {

@@ -163,13 +163,8 @@ export function hasActiveFilters(v: CardFilterValue, search: string): boolean {
  * relation-type facet from a card-type one.
  */
 export function relationTypeKeys(relationTypes: RelTypeDef[]): Set<string> {
-  return new Set(
-    relationTypes.flatMap((rt) =>
-      rt.source_type_key === rt.target_type_key
-        ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
-        : [rt.key],
-    ),
-  );
+  // `sideKey` is the bare key for a cross-type rt, so the set dedups it.
+  return new Set(relationTypes.flatMap((rt) => [rt.key, sideKey(rt, true), sideKey(rt, false)]));
 }
 
 /**
