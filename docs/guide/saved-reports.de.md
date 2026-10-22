@@ -1,12 +1,12 @@
 # Gespeicherte Berichte
 
-Turbo EA ermöglicht es Ihnen, **Berichtskonfigurationen zu speichern**, damit Sie schnell zu bestimmten Ansichten zurückkehren können, ohne jedes Mal Filter und Achsen neu konfigurieren zu müssen.
+Turbo EA ermöglicht es Ihnen, **Berichtskonfigurationen zu speichern**, damit Sie schnell zu bestimmten Ansichten zurückkehren können, ohne jedes Mal Filter, Gruppierung und Einfärbung neu konfigurieren zu müssen.
 
 ## Einen Bericht speichern
 
 Von jeder Berichtsseite aus (Portfolio, Fähigkeitskarte, Lebenszyklus, Abhängigkeiten, Kosten, Matrix, Datenqualität oder EOL):
 
-1. Konfigurieren Sie den Bericht mit Ihren gewünschten Filtern, Gruppierungen und Achsenauswahlen
+1. Konfigurieren Sie den Bericht mit Ihren gewünschten Filtern, Gruppierungs- und Farbeinstellungen
 2. Klicken Sie in der Berichtswerkzeugleiste auf das Symbol **Bericht speichern** (ein Lesezeichen)
 3. Geben Sie einen **Namen** für den gespeicherten Bericht ein
 4. Wählen Sie die **Sichtbarkeit**:

@@ -1,6 +1,6 @@
 # Berichte
 
-Turbo EA enthält ein leistungsstarkes **visuelles Berichtsmodul**, das die Analyse der Unternehmensarchitektur aus verschiedenen Perspektiven ermöglicht. Alle Berichte können mit ihrer aktuellen Filter- und Achsenkonfiguration [zur Wiederverwendung gespeichert](saved-reports.md) werden.
+Turbo EA enthält ein leistungsstarkes **visuelles Berichtsmodul**, das die Analyse der Unternehmensarchitektur aus verschiedenen Perspektiven ermöglicht. Alle Berichte können mit ihren aktuellen Filtern und Anzeigeeinstellungen [zur Wiederverwendung gespeichert](saved-reports.md) werden.
 
 ![Verfügbare Berichte - Menü](../assets/img/de/09_berichte_menu.png)
 
@@ -8,18 +8,18 @@ Turbo EA enthält ein leistungsstarkes **visuelles Berichtsmodul**, das die Anal
 
 ![Portfoliobericht](../assets/img/de/10_bericht_portfolio.png)
 
-Der **Portfoliobericht** zeigt ein konfigurierbares **Blasendiagramm** (oder Streudiagramm) Ihrer Karten. Sie wählen, was jede Achse darstellt:
+Der **Portfoliobericht** (**Berichte → Anwendungsportfolio**) zeigt Ihre Anwendungen als farbige Chips, gruppiert in Boxen. Zwei Auswahlen in der Werkzeugleiste steuern ihn:
 
-- **X-Achse** — Ein beliebiges numerisches oder Auswahlfeld wählen (z.B. Technische Eignung)
-- **Y-Achse** — Ein beliebiges numerisches oder Auswahlfeld wählen (z.B. Geschäftskritikalität)
-- **Blasengröße** — Einem numerischen Feld zuordnen (z.B. Jährliche Kosten)
-- **Blasenfarbe** — Einem Auswahl-, Mehrfachauswahl- oder Ja/Nein-Feld oder dem Lebenszyklusstatus zuordnen
+- **Gruppieren nach** — ein beliebiges Einfachauswahl- oder Ja/Nein-Feld des Kartentyps (z. B. Geschäftskritikalität, TIME-Modell) oder ein verknüpfter Kartentyp (z. B. Organisation, Geschäftsfähigkeit). Jeder Wert wird zu einer Box mit einer Anzahl und einem Balken, der ihre Farbverteilung zeigt; Anwendungen ohne Wert landen in einer Box *Keinem … zugeordnet*.
+- **Anwendungen einfärben nach** — ein beliebiges Auswahl-, Mehrfachauswahl- oder Ja/Nein-Feld (z. B. TIME-Modell) oder *Keine Farbe*.
+
+Daneben befinden sich ein Feld **Suchen**, die einklappbaren Filter (**Verknüpft über**, **Tags**, **Felder**, **Beziehungs-Untertypen**), die Spaltenauswahl und der Umschalter **Diagrammansicht** / **Tabellenansicht**, der dieselben Karten als sortierbare Tabelle auflistet.
 
 **Färben und Filtern nach Ja/Nein- und Mehrfachauswahlfeldern** — Jedes Auswahl-, Mehrfachauswahl- und Ja/Nein-Feld des Kartentyps kann die Karten färben und filtern — hier, im Flexiblen Portfolio, in der Fähigkeitenkarte (*Apps einfärben nach*), in der Datumsbereichsansicht des Lebenszyklusberichts und im Menü *Färben nach* eines Diagramms. Ein Ja/Nein-Feld erscheint als **Ja** und **Nein**, eine Karte mit mehreren Werten eines Mehrfachauswahlfelds als **Mehrere**, und eine Option, der ein Administrator keine Farbe gegeben hat, erhält in der Legende eine eigene Farbe statt des Graus von *Nicht gesetzt*. Ja/Nein-Felder können die Karten auch gruppieren — hier, in der Tabelle des Kostenberichts und im [Inventar](inventory.md); ein Mehrfachauswahlfeld nicht, weil eine Karte mit zwei Werten zu zwei Gruppen gehören würde.
 
 **Filtern nach Subtyp** — Hat der Kartentyp Subtypen, beginnt die Filterzeile **Felder** mit einem Filter **Subtyp**. Wählen Sie einen oder mehrere Subtypen oder *(leer)* für die Karten ohne Subtyp. Der Filter wird mit dem Bericht gespeichert und von **Im Inventar anzeigen** übernommen.
 
-Dies ist ideal für Portfolioanalysen — zum Beispiel Anwendungen nach Geschäftswert vs. technischer Eignung aufzutragen, um Kandidaten für Investition, Ablösung oder Stilllegung zu identifizieren.
+Ein typischer Einsatz: nach **Geschäftskritikalität** gruppieren und nach **TIME-Modell** einfärben. Geschäftskritische Anwendungen mit *Migrieren* sind Ihre ersten Modernisierungsprioritäten, administrative Anwendungen mit *Eliminieren* oder *Migrieren* Ihre Kandidaten für Stilllegung und Konsolidierung. Das [EA-Einsteigerhandbuch](../beginners-guide/your-first-analysis.md) zeigt, wie Sie das TIME-Modell mit einer Berechnung aus den Eignungsbewertungen ableiten.
 
 ### KI-Portfolio-Erkenntnisse
 

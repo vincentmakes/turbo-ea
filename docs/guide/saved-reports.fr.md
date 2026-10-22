@@ -1,12 +1,12 @@
 # Rapports sauvegardés
 
-Turbo EA vous permet de **sauvegarder des configurations de rapports** afin de pouvoir revenir rapidement à des vues spécifiques sans reconfigurer les filtres et les axes à chaque fois.
+Turbo EA vous permet de **sauvegarder des configurations de rapports** afin de pouvoir revenir rapidement à des vues spécifiques sans reconfigurer les filtres, le regroupement et la coloration à chaque fois.
 
 ## Sauvegarder un rapport
 
 Depuis n'importe quelle page de rapport (Portefeuille, Carte de capacités, Cycle de vie, Dépendances, Coûts, Matrice, Qualité des données ou EOL) :
 
-1. Configurez le rapport avec les filtres, regroupements et selections d'axes souhaites
+1. Configurez le rapport avec les filtres, le regroupement et les réglages de couleur souhaités
 2. Cliquez sur l'icône **Enregistrer le rapport** (un marque-page) dans la barre d'outils du rapport
 3. Entrez un **nom** pour le rapport sauvegarde
 4. Choisissez la **visibilité** :

@@ -1,6 +1,6 @@
 # Rapports
 
-Turbo EA inclut un puissant module de **rapports visuels** permettant d'analyser l'architecture d'entreprise sous différents angles. Tous les rapports peuvent être [sauvegardés pour réutilisation](saved-reports.md) avec leur configuration actuelle de filtres et d'axes.
+Turbo EA inclut un puissant module de **rapports visuels** permettant d'analyser l'architecture d'entreprise sous différents angles. Tous les rapports peuvent être [sauvegardés pour réutilisation](saved-reports.md) avec leurs filtres et paramètres d'affichage actuels.
 
 ![Menu des rapports disponibles](../assets/img/fr/09_menu_rapports.png)
 
@@ -8,18 +8,18 @@ Turbo EA inclut un puissant module de **rapports visuels** permettant d'analyser
 
 ![Rapport Portefeuille](../assets/img/fr/10_rapport_portfolio.png)
 
-Le **Rapport Portefeuille** affiche un **graphique à bulles** (ou nuage de points) configurable de vos fiches. Vous choisissez ce que chaque axe représente :
+Le **Rapport Portefeuille** (**Rapports → Portefeuille applicatif**) présente vos applications sous forme de pastilles colorées, regroupées dans des boîtes. Deux choix de la barre d'outils le pilotent :
 
-- **Axe X** -- Sélectionnez n'importe quel champ numérique ou de sélection (par ex. Adéquation Technique)
-- **Axe Y** -- Sélectionnez n'importe quel champ numérique ou de sélection (par ex. Criticité Métier)
-- **Taille de la bulle** -- Associer à un champ numérique (par ex. Coût Annuel)
-- **Couleur de la bulle** -- Associer à un champ de sélection, de sélection multiple ou oui/non, ou à l'état du cycle de vie
+- **Regrouper par** -- n'importe quel champ à sélection unique ou oui/non du type de fiche (par ex. Criticité métier, Modèle TIME), ou un type de fiche lié (par ex. Organisation, Capacité métier). Chaque valeur devient une boîte avec un compteur et une barre montrant sa répartition de couleurs ; les applications sans valeur atterrissent dans une boîte *Non assigné à un …*.
+- **Colorier les applications par** -- n'importe quel champ de sélection, de sélection multiple ou oui/non (par ex. Modèle TIME), ou *Aucune couleur*.
+
+À côté se trouvent un champ **Rechercher**, les filtres repliables (**Lié par**, **Étiquettes**, **Champs**, **Sous-types de relation**), le sélecteur de colonnes et la bascule **Vue graphique** / **Vue tableau**, qui liste les mêmes fiches dans un tableau triable.
 
 **Colorer et filtrer par des champs oui/non et à sélection multiple** -- Tout champ de sélection, de sélection multiple ou oui/non du type de fiche peut colorer les fiches et les filtrer -- ici, dans le Portefeuille flexible, dans la carte des capacités (*Colorier les applications par*), dans la vue par plage de dates du rapport de cycle de vie et dans le menu *Colorer par* d'un diagramme. Un champ oui/non s'affiche en **Oui** et **Non**, une fiche portant plusieurs valeurs d'un champ à sélection multiple apparaît comme **Multiples**, et une option qu'un administrateur a laissée sans couleur reçoit sa propre couleur dans la légende au lieu du gris de *Non défini*. Les champs oui/non peuvent aussi regrouper les fiches -- ici, dans le tableau du rapport de coûts et dans l'[inventaire](inventory.md) ; un champ à sélection multiple ne le peut pas, car une fiche à deux valeurs appartiendrait à deux groupes.
 
 **Filtrer par sous-type** — Lorsque le type de fiche possède des sous-types, la ligne de filtres **Champs** commence par un filtre **Sous-type**. Choisissez un ou plusieurs sous-types, ou *(vide)* pour les fiches qui n'en ont pas. Le filtre est enregistré avec le rapport et repris par **Voir dans l'inventaire**.
 
-C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les applications par valeur métier vs adéquation technique pour identifier les candidats à l'investissement, au remplacement ou au retrait.
+Un usage typique : regrouper par **Criticité métier** et colorier par **Modèle TIME**. Les applications critiques marquées *Migrer* sont vos premières priorités de modernisation, et les applications administratives marquées *Éliminer* ou *Migrer* sont vos candidates au retrait et à la consolidation. Le [Guide du débutant EA](../beginners-guide/your-first-analysis.md) montre comment dériver le Modèle TIME des évaluations d'adéquation à l'aide d'un calcul.
 
 ### Analyses IA du portefeuille
 

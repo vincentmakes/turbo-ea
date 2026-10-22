@@ -60,7 +60,7 @@ IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrat
 
 Cada valoración se convierte en una puntuación de 4 (la mejor) a 1 (la peor), y las dos puntuaciones sitúan la aplicación en uno de los cuatro cuadrantes: idoneidad funcional alta + técnica alta = **Invertir**, funcional alta + técnica baja = **Migrar**, funcional baja + técnica alta = **Tolerar**, baja en ambas = **Eliminar**. Una aplicación a la que le falte cualquiera de las dos valoraciones no recibe valor TIME, de modo que los huecos siguen siendo visibles.
 
-El panel **Referencia de fórmulas** del editor de cálculos muestra un ejemplo de TIME basado en dos campos personalizados, `businessFit` y `technicalFit`. La fórmula anterior es la misma lógica adaptada a los campos que Application ya tiene, así que **no necesita agregar ningún campo** — y no debería hacerlo (vea *No duplique campos integrados* más abajo). Más sintaxis de fórmulas: [Admin → Cálculos](../admin/calculations.md).
+Es el mismo ejemplo de TIME que encontrará en el panel **Referencia de fórmulas** del editor de cálculos, así que también puede copiarlo desde allí. Solo lee campos que Application ya tiene, así que **no necesita agregar ningún campo** — y no debería hacerlo (vea *No duplique campos integrados* más abajo). Más sintaxis de fórmulas: [Admin → Cálculos](../admin/calculations.md).
 
 Después de guardar, ponga el cálculo en **Activo** y haga clic en **Recalcular todo** en su fila para que cada aplicación existente reciba su valor. El recorrido paso a paso está en [Su primer análisis → Paso 3](your-first-analysis.md).
 

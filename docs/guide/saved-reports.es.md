@@ -1,12 +1,12 @@
 # Informes Guardados
 
-Turbo EA permite **guardar configuraciones de informes** para que pueda volver rápidamente a vistas específicas sin reconfigurar filtros y ejes cada vez.
+Turbo EA permite **guardar configuraciones de informes** para que pueda volver rápidamente a vistas específicas sin reconfigurar filtros, agrupación y coloreado cada vez.
 
 ## Guardar un Informe
 
 Desde cualquier página de informe (Portafolio, Mapa de Capacidades, Ciclo de Vida, Dependencias, Costos, Matriz, Calidad de Datos o EOL):
 
-1. Configure el informe con los filtros, agrupaciones y selecciones de ejes deseados
+1. Configure el informe con los filtros, la agrupación y los ajustes de color deseados
 2. Haga clic en el icono **Guardar informe** (un marcador) en la barra de herramientas del informe
 3. Ingrese un **nombre** para el informe guardado
 4. Elija la **visibilidad**:

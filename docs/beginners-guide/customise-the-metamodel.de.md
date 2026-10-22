@@ -60,7 +60,7 @@ IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrat
 
 Jede Bewertung wird in einen Wert von 4 (am besten) bis 1 (am schlechtesten) umgerechnet, und die beiden Werte platzieren die Anwendung in einem der vier Quadranten: hohe funktionale + hohe technische Eignung = **Investieren**, hohe funktionale + niedrige technische Eignung = **Migrieren**, niedrige funktionale + hohe technische Eignung = **Tolerieren**, beide niedrig = **Eliminieren**. Eine Anwendung, der eine der beiden Bewertungen fehlt, erhält keinen TIME-Wert, sodass die Lücken sichtbar bleiben.
 
-Das Panel **Formelreferenz** im Berechnungseditor zeigt ein TIME-Beispiel, das auf zwei benutzerdefinierten Feldern aufbaut, `businessFit` und `technicalFit`. Die obige Formel ist dieselbe Logik, angepasst an die Felder, die Application bereits hat — **Sie müssen also kein Feld hinzufügen**, und Sie sollten es auch nicht (siehe *Duplizieren Sie keine integrierten Felder* unten). Weitere Formelsyntax: [Admin → Berechnungen](../admin/calculations.md).
+Es ist dasselbe TIME-Beispiel, das Sie im Panel **Formelreferenz** des Berechnungseditors finden; Sie können es also auch von dort kopieren. Es liest nur Felder, die Application bereits hat — **Sie müssen also kein Feld hinzufügen**, und Sie sollten es auch nicht (siehe *Duplizieren Sie keine integrierten Felder* unten). Weitere Formelsyntax: [Admin → Berechnungen](../admin/calculations.md).
 
 Schalten Sie die Berechnung nach dem Speichern auf **Aktiv** und klicken Sie in ihrer Zeile auf **Alle neu berechnen**, damit jede bestehende Anwendung ihren Wert erhält. Die Schritt-für-Schritt-Anleitung finden Sie unter [Ihre erste Analyse → Schritt 3](your-first-analysis.md).
 

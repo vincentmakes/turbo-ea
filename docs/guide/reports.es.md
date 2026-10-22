@@ -1,6 +1,6 @@
 # Informes
 
-Turbo EA incluye un potente módulo de **informes visuales** que permite analizar la arquitectura empresarial desde diferentes perspectivas. Todos los informes pueden ser [guardados para reutilización](saved-reports.es.md) con su configuración actual de filtros y ejes.
+Turbo EA incluye un potente módulo de **informes visuales** que permite analizar la arquitectura empresarial desde diferentes perspectivas. Todos los informes pueden ser [guardados para reutilización](saved-reports.es.md) con sus filtros y ajustes de visualización actuales.
 
 ![Menú de Informes Disponibles](../assets/img/es/09_menu_informes.png)
 
@@ -8,18 +8,18 @@ Turbo EA incluye un potente módulo de **informes visuales** que permite analiza
 
 ![Informe de Portafolio](../assets/img/es/10_informe_portafolio.png)
 
-El **Informe de Portafolio** muestra un **gráfico de burbujas** (o diagrama de dispersión) configurable de sus fichas. Usted elige qué representa cada eje:
+El **Informe de Portafolio** (**Informes → Portafolio de aplicaciones**) muestra sus aplicaciones como chips de color, agrupados en cajas. Dos opciones de la barra de herramientas lo controlan:
 
-- **Eje X** — Seleccione cualquier campo numérico o de selección (por ejemplo, Idoneidad Técnica)
-- **Eje Y** — Seleccione cualquier campo numérico o de selección (por ejemplo, Criticidad de Negocio)
-- **Tamaño de burbuja** — Asigne a un campo numérico (por ejemplo, Costo Anual)
-- **Color de burbuja** — Asigne a un campo de selección, de selección múltiple o de sí/no, o al estado del ciclo de vida
+- **Agrupar por** — cualquier campo de selección única o de sí/no del tipo de ficha (por ejemplo, Criticidad de negocio, Modelo TIME), o un tipo de ficha relacionado (por ejemplo, Organización, Capacidad de negocio). Cada valor se convierte en una caja con un recuento y una barra que muestra su mezcla de colores; las aplicaciones sin valor van a una caja *No asignado a ningún …*.
+- **Colorear aplicaciones por** — cualquier campo de selección, de selección múltiple o de sí/no (por ejemplo, Modelo TIME), o *Sin color*.
+
+Junto a ellas se encuentran un cuadro **Buscar**, los filtros plegables (**Relacionado por**, **Etiquetas**, **Campos**, **Subtipos de relación**), el selector de columnas y el conmutador **Vista de gráfico** / **Vista de tabla**, que lista las mismas fichas en una tabla ordenable.
 
 **Colorear y filtrar por campos de sí/no y de selección múltiple** — Cualquier campo de selección, de selección múltiple o de sí/no del tipo de ficha puede colorear las fichas y filtrarlas — aquí, en el Portafolio flexible, en el Mapa de capacidades (*Colorear apps por*), en la vista por rango de fechas del Informe de ciclo de vida y en el menú *Colorear por* de un diagrama. Un campo de sí/no se muestra como **Sí** y **No**, una ficha con varios valores de un campo de selección múltiple aparece como **Múltiples**, y una opción que un administrador dejó sin color recibe un color propio en la leyenda en lugar del gris de *No definido*. Los campos de sí/no también pueden agrupar las fichas — aquí, en la tabla del Informe de costos y en el [Inventario](inventory.md); un campo de selección múltiple no, porque una ficha con dos valores pertenecería a dos grupos.
 
 **Filtrar por subtipo** — Cuando el tipo de ficha tiene subtipos, la fila de filtros **Campos** empieza con un filtro **Subtipo**. Elija uno o varios subtipos, o *(vacío)* para las fichas que no tienen ninguno. El filtro se guarda con el informe y lo traslada **Ver en el inventario**.
 
-Esto es ideal para el análisis de portafolio — por ejemplo, representar aplicaciones por valor de negocio vs. aptitud técnica para identificar candidatos para inversión, reemplazo o retiro.
+Un uso típico: agrupar por **Criticidad de negocio** y colorear por **Modelo TIME**. Las aplicaciones críticas marcadas como *Migrar* son sus primeras prioridades de modernización, y las aplicaciones administrativas marcadas como *Eliminar* o *Migrar* son sus candidatas a retirada y consolidación. La [Guía para principiantes EA](../beginners-guide/your-first-analysis.md) muestra cómo derivar el Modelo TIME de las valoraciones de idoneidad mediante un cálculo.
 
 ### Análisis IA del portafolio
 
