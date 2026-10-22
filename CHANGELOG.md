@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.176.0] - 2026-10-22
+
+### Added
+- **Lifecycle report filters**: once a card type is picked, the Lifecycle report offers the same filters as the Flexible Portfolio (related cards, tags, subtype, select fields, relation subtypes) plus a search box. A caption shows how many cards match, and the filters are saved with the report and listed in the header of a print or export ([#1305](https://github.com/vincentmakes/turbo-ea/discussions/1305)).
+- **Lifecycle report sorting**: a **Sort by** menu orders the timeline and the table by name, type, subtype, current phase, any phase date or a select field such as Business Criticality (in the order of its options), ascending or descending ([#1305](https://github.com/vincentmakes/turbo-ea/discussions/1305)).
+- **Include sub-cards**: in the Portfolio, Flexible Portfolio and Lifecycle reports, picking a related card such as a parent capability can also match the cards linked to anything beneath it ([#1305](https://github.com/vincentmakes/turbo-ea/discussions/1305)).
+
+### Changed
+- Lifecycle report: cards without a value for the sorted column now come last in both directions, and the timeline rows follow the same order as the table instead of the order the server returned them in.
+
 ## [2.175.2] - 2026-10-22
 
 ### Fixed

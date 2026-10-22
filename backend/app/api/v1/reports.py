@@ -58,6 +58,11 @@ from app.services.kpi_snapshot_service import (
 )
 from app.services.lifecycle import current_lifecycle_phase, is_live_in_fiscal_year
 from app.services.permission_service import PermissionService
+from app.services.portfolio_payload import (
+    build_portfolio_payload,
+    has_timeline_dates,
+    roadmap_from_portfolio,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -1012,250 +1017,7 @@ async def app_portfolio(
         raise HTTPException(status_code=404, detail=f"Card type '{type}' not found")
 
     read_scope = await CardReadScope.load(db, user)
-    readable = read_scope.where(Card, mode="module")
-
-    # 1. Get all active cards of the requested type
-    apps_result = await db.execute(
-        select(Card).where(Card.type == type, Card.status == "ACTIVE", *readable)
-    )
-    apps = apps_result.scalars().all()
-    app_ids = [a.id for a in apps]
-    app_id_set = {str(a.id) for a in apps}
-
-    # 2. Get all relations touching those cards
-    rels_result = await db.execute(
-        select(Relation).where(
-            (Relation.source_id.in_(app_ids)) | (Relation.target_id.in_(app_ids))
-        )
-    )
-    rels = rels_result.scalars().all()
-
-    # Collect all related card IDs
-    related_ids: set[str] = set()
-    for r in rels:
-        sid, tid = str(r.source_id), str(r.target_id)
-        if sid in app_id_set:
-            related_ids.add(tid)
-        else:
-            related_ids.add(sid)
-    related_ids -= app_id_set
-
-    # 3. Fetch related cards in bulk. The portfolio's own cards are seeded
-    # first: a self-referencing relation type links two portfolio cards, and
-    # excluding them from `related_map` used to drop that relation entirely —
-    # neither branch of the loop below could resolve its far end.
-    related_map: dict[str, dict] = {
-        str(a.id): {
-            "id": str(a.id),
-            "name": a.name,
-            "type": a.type,
-            "parent_id": str(a.parent_id) if a.parent_id else None,
-        }
-        for a in apps
-    }
-    if related_ids:
-        rel_result = await db.execute(
-            select(Card).where(
-                Card.id.in_(list(related_ids)),
-                Card.status == "ACTIVE",
-                *readable,
-            )
-        )
-        for card in rel_result.scalars().all():
-            related_map[str(card.id)] = {
-                "id": str(card.id),
-                "name": card.name,
-                "type": card.type,
-                "parent_id": str(card.parent_id) if card.parent_id else None,
-            }
-
-    # 4. Build card -> relations lookup. Each entry carries the card's side
-    # (`direction`): for a self-referencing type the same row is outgoing on
-    # one portfolio card and incoming on the other, and the report's facets
-    # split the two verbs on it. `if`/`if`, not `elif` — such a row must land
-    # on BOTH cards.
-    app_relations: dict[str, list[dict]] = {str(a.id): [] for a in apps}
-    for r in rels:
-        sid, tid = str(r.source_id), str(r.target_id)
-        if sid in app_id_set and tid in related_map:
-            app_relations[sid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "outgoing",
-                    "related_id": tid,
-                    "related_name": related_map[tid]["name"],
-                    "related_type": related_map[tid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
-        if tid in app_id_set and sid in related_map:
-            app_relations[tid].append(
-                {
-                    "relation_type": r.type,
-                    "direction": "incoming",
-                    "related_id": sid,
-                    "related_name": related_map[sid]["name"],
-                    "related_type": related_map[sid]["type"],
-                    "attributes": r.attributes or {},
-                }
-            )
-
-    # 4b. Ancestor closure for hierarchical related types: nested grouping needs
-    # the full parent chain of every related member, including ancestors that
-    # have no direct relation to any portfolio card. Added members are flagged
-    # ancestor_only so the client can exclude them from direct-relation filters.
-    hierarchical_type_keys = {t.key for t in all_types if t.has_hierarchy and not t.is_hidden}
-    pending = {
-        m["parent_id"]
-        for m in related_map.values()
-        if m["type"] in hierarchical_type_keys
-        and m["parent_id"]
-        and m["parent_id"] not in related_map
-    }
-    for _ in range(10):  # hierarchy depth is capped well below this
-        if not pending:
-            break
-        anc_result = await db.execute(
-            select(Card).where(Card.id.in_(list(pending)), Card.status == "ACTIVE", *readable)
-        )
-        pending = set()
-        for card in anc_result.scalars().all():
-            cid = str(card.id)
-            if cid in related_map:
-                continue
-            parent_id = str(card.parent_id) if card.parent_id else None
-            related_map[cid] = {
-                "id": cid,
-                "name": card.name,
-                "type": card.type,
-                "parent_id": parent_id,
-                "ancestor_only": True,
-            }
-            if parent_id and parent_id not in related_map:
-                pending.add(parent_id)
-
-    # A parent the reader may not see was never loaded; drop the dangling
-    # pointer so the member renders as a root instead of naming a hidden card.
-    if not read_scope.is_unrestricted(mode="module"):
-        for member in related_map.values():
-            if member.get("parent_id") and member["parent_id"] not in related_map:
-                member["parent_id"] = None
-
-    # 5. Get relation types for label resolution
-    rt_result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))
-    relation_types_list = rt_result.scalars().all()
-    # One entry per relation type touching this card type. Several may share an
-    # ``other_type_key`` (the metamodel allows any number of relation types per
-    # ordered card-type pair); the grid groups them into a single column per related
-    # type, so the payload must carry them all or the extra types become invisible.
-    rel_type_defs = []
-    for rt in relation_types_list:
-        other = None
-        if rt.source_type_key == type:
-            other = rt.target_type_key
-        elif rt.target_type_key == type:
-            other = rt.source_type_key
-        if other and read_scope.type_readable(other, mode="module"):
-            rel_type_defs.append(
-                {
-                    "key": rt.key,
-                    "label": rt.label,
-                    "reverse_label": rt.reverse_label,
-                    "source_type_key": rt.source_type_key,
-                    "target_type_key": rt.target_type_key,
-                    "other_type_key": other,
-                    "translations": rt.translations or {},
-                    "attributes_schema": rt.attributes_schema or [],
-                }
-            )
-
-    # 6. Get card types (schema + visibility)
-    visible_type_keys = {t.key for t in all_types if not t.is_hidden}
-    fields_schema = target_type.fields_schema if target_type else []
-
-    # 7. Get all organizations for org filter options (backwards-compat)
-    orgs_result = await db.execute(
-        select(Card)
-        .where(Card.type == "Organization", Card.status == "ACTIVE", *readable)
-        .order_by(Card.name)
-    )
-    orgs = orgs_result.scalars().all()
-
-    # Build org mapping from relations
-    org_ids = {str(o.id) for o in orgs}
-    app_orgs: dict[str, set[str]] = {}
-    for r in rels:
-        sid, tid = str(r.source_id), str(r.target_id)
-        if sid in org_ids and tid in app_id_set:
-            app_orgs.setdefault(tid, set()).add(sid)
-        elif tid in org_ids and sid in app_id_set:
-            app_orgs.setdefault(sid, set()).add(tid)
-
-    # Tag assignments + tag groups applicable to the requested card type
-    app_tag_ids: dict[str, list[str]] = {}
-    if app_ids:
-        ct_rows = await db.execute(select(CardTag).where(CardTag.card_id.in_(app_ids)))
-        for ct in ct_rows.scalars().all():
-            app_tag_ids.setdefault(str(ct.card_id), []).append(str(ct.tag_id))
-
-    tg_rows = await db.execute(select(TagGroup).order_by(TagGroup.name))
-    tag_groups_payload = []
-    for tg in tg_rows.scalars().all():
-        if tg.restrict_to_types and type not in tg.restrict_to_types:
-            continue
-        t_rows = await db.execute(select(Tag).where(Tag.tag_group_id == tg.id).order_by(Tag.name))
-        tag_groups_payload.append(
-            {
-                "id": str(tg.id),
-                "name": tg.name,
-                "mode": tg.mode,
-                "tags": [
-                    {"id": str(t.id), "name": t.name, "color": t.color}
-                    for t in t_rows.scalars().all()
-                ],
-            }
-        )
-
-    # 8. Build response items
-    items = []
-    for a in apps:
-        aid = str(a.id)
-        items.append(
-            {
-                "id": aid,
-                "name": a.name,
-                "subtype": a.subtype,
-                "attributes": a.attributes,
-                "lifecycle": a.lifecycle,
-                "relations": app_relations.get(aid, []),
-                "org_ids": sorted(app_orgs.get(aid, set())),
-                "tag_ids": app_tag_ids.get(aid, []),
-            }
-        )
-
-    # 9. Collect groupable related types (visible only, with linked apps)
-    groupable_types: dict[str, list[dict]] = {}
-    for fs_data in related_map.values():
-        ft = fs_data["type"]
-        if ft not in visible_type_keys:
-            continue
-        if ft not in groupable_types:
-            groupable_types[ft] = []
-        groupable_types[ft].append(fs_data)
-    # Sort members within each type
-    for members in groupable_types.values():
-        members.sort(key=lambda x: x["name"])
-
-    organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
-
-    return {
-        "items": items,
-        "fields_schema": fields_schema,
-        "relation_types": rel_type_defs,
-        "groupable_types": groupable_types,
-        "organizations": organizations,
-        "tag_groups": tag_groups_payload,
-    }
+    return await build_portfolio_payload(db, read_scope, target_type, all_types)
 
 
 #: Hard ceiling on the number of relation edges the matrix will serialise. A
@@ -1540,9 +1302,22 @@ async def roadmap(
     user: User = Depends(get_current_user),
     type: str | None = Query(None),
 ):
-    """Roadmap: lifecycle timeline data."""
+    """Roadmap: lifecycle timeline data.
+
+    With ``type`` naming a visible card type the cards also carry their
+    relations and tags, with the relation types, related-card options and tag
+    groups the Lifecycle report's filter section reads (the same payload as
+    ``/reports/app-portfolio``). Without it — *All types* — or for a type that
+    is unknown or hidden, the rows are the plain timeline rows.
+    """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     read_scope = await CardReadScope.load(db, user)
+    if type:
+        all_types = (await db.execute(select(CardType))).scalars().all()
+        target_type = next((t for t in all_types if t.key == type), None)
+        if target_type is not None and not target_type.is_hidden:
+            payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+            return roadmap_from_portfolio(payload, type)
     q = select(Card).where(Card.status == "ACTIVE", *read_scope.where(Card, mode="module"))
     if type:
         q = q.where(Card.type == type)
@@ -1552,7 +1327,7 @@ async def roadmap(
     for card in sheets:
         lc = card.lifecycle or {}
         attrs = card.attributes or {}
-        if any(lc.values()) or attrs.get("startDate") or attrs.get("endDate"):
+        if has_timeline_dates(lc, attrs):
             items.append(
                 {
                     "id": str(card.id),

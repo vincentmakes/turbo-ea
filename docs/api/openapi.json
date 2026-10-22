@@ -34014,7 +34014,7 @@
     },
     "/api/v1/reports/roadmap": {
       "get": {
-        "description": "Roadmap: lifecycle timeline data.",
+        "description": "Roadmap: lifecycle timeline data.\n\nWith ``type`` naming a visible card type the cards also carry their\nrelations and tags, with the relation types, related-card options and tag\ngroups the Lifecycle report's filter section reads (the same payload as\n``/reports/app-portfolio``). Without it \u2014 *All types* \u2014 or for a type that\nis unknown or hidden, the rows are the plain timeline rows.",
         "operationId": "roadmap_api_v1_reports_roadmap_get",
         "parameters": [
           {

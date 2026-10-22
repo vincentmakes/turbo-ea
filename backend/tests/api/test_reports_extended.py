@@ -992,6 +992,80 @@ class TestRoadmap:
         types = {item["type"] for item in data["items"]}
         assert types == {"Application", "BusinessCapability"}
 
+    async def test_roadmap_with_type_carries_the_filter_payload(self, client, db, env):
+        """With a type, the rows carry relations and tags for the shared filters (#1305)."""
+        admin = env["admin"]
+        parent = await create_card(db, card_type="BusinessCapability", name="Operations")
+        child = await create_card(
+            db, card_type="BusinessCapability", name="Shipping", parent_id=parent.id
+        )
+        app = await create_card(
+            db,
+            card_type="Application",
+            name="Dispatch",
+            subtype="microservice",
+            lifecycle={"phaseOut": "2027-01-01"},
+            attributes={"businessCriticality": "mission_critical"},
+        )
+        await create_card(db, card_type="Application", name="Undated")
+        await create_relation(db, type_key="app_to_bc", source_id=app.id, target_id=child.id)
+
+        resp = await client.get(
+            "/api/v1/reports/roadmap",
+            params={"type": "Application"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert set(data) == {
+            "items",
+            "fields_schema",
+            "relation_types",
+            "groupable_types",
+            "tag_groups",
+        }
+        assert [i["name"] for i in data["items"]] == ["Dispatch"]
+        item = data["items"][0]
+        assert item["type"] == "Application"
+        assert item["subtype"] == "microservice"
+        assert item["attributes"] == {"businessCriticality": "mission_critical"}
+        assert item["tag_ids"] == []
+        assert [(r["relation_type"], r["related_id"]) for r in item["relations"]] == [
+            ("app_to_bc", str(child.id))
+        ]
+        caps = {m["name"]: m for m in data["groupable_types"]["BusinessCapability"]}
+        assert caps["Operations"]["ancestor_only"] is True
+        assert caps["Shipping"]["parent_id"] == str(parent.id)
+        assert data["fields_schema"] == APP_FIELDS_SCHEMA
+
+    async def test_roadmap_without_type_keeps_the_plain_rows(self, client, db, env):
+        """All types: no filter payload, rows unchanged."""
+        await create_card(
+            db, card_type="Application", name="Plain", lifecycle={"active": "2022-01-01"}
+        )
+        resp = await client.get("/api/v1/reports/roadmap", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert set(data) == {"items"}
+        assert set(data["items"][0]) == {"id", "name", "type", "subtype", "lifecycle", "attributes"}
+
+    async def test_roadmap_unknown_or_hidden_type_is_not_an_error(self, client, db, env):
+        """A saved report naming a type that is gone or hidden still opens."""
+        await create_card_type(db, key="Legacy", label="Legacy", is_hidden=True)
+        await create_card(
+            db, card_type="Legacy", name="Old Box", lifecycle={"active": "2010-01-01"}
+        )
+        for type_key, names in (("Ghost", []), ("Legacy", ["Old Box"])):
+            resp = await client.get(
+                "/api/v1/reports/roadmap",
+                params={"type": type_key},
+                headers=auth_headers(env["admin"]),
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert set(data) == {"items"}
+            assert [i["name"] for i in data["items"]] == names
+
     async def test_roadmap_permission_denied(self, client, db, env):
         """User without reports.ea_dashboard gets 403."""
         resp = await client.get(

@@ -51,6 +51,10 @@ Ved skift af korttype ryddes valg af gruppering, farvelægning og filtre (de ref
 
 Når et korts relationer bærer en «type»-værdi — for eksempel **anvendelsestypen** (Ejer / Bruger / Interessent) på Organisation→Applikation-relationer eller **supporttypen** på Applikation→Forretningskapabilitet-relationer — kan du farve kortene efter den værdi og filtrere på den. **Gruppér rapporten efter den relaterede korttype** for at bruge dem (f.eks. *Gruppér efter → Organisation* for at låse op for *anvendelsestype*): undertypen vises derefter under gruppen **Relationsundertyper** i *Farvelæg efter*-rullelisten og som sin egen filterrække. Da hvert kort vises under ét relateret kort, farves det efter *den* relation — en applikation, der er *Bruger* af én organisation, vises som Bruger der, selv om den ejes af en anden.
 
+### Medtag underkort
+
+Når en relateret korttype har et hierarki (som Business Capability eller Organisation), har rækken **Relateret via** en **Medtag underkort**-kontakt. Når den er slået til, dækker et valg også alt under det: en overordnet kompetence finder så de kort, der er knyttet til en af dens underkompetencer, og overordnede kort uden egen direkte relation kan også vælges. Kontakten gemmes med rapporten og gælder også i livscyklusrapporten. Så længe den udvider et valg, er knappen **Vis i lageret** i gruppepanelet skjult, fordi inventaret kun filtrerer på direkte relationer.
+
 ### Indlejrede grupper
 
 Når du grupperer efter en relateret korttype, der understøtter hierarki (såsom Forretningskompetence eller Organisation), vises en **Indlejrede grupper**-kontakt ved siden af *Gruppér efter*-vælgeren. Aktivér den for at vise grupperne som bokse i bokse efter den relaterede types forælder/barn-hierarki — ligesom kompetencekortet. Vælgeren **Visningsdybde** styrer, hvor mange niveauer der udfoldes: hvert kort vises under sin dybeste synlige gruppe, og grupper under dybdegrænsen ruller deres kort op i den nærmeste synlige forfader. Grene uden kort skjules.
@@ -91,6 +95,10 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 Komponenter vises som vandrette bjælker, der spænder over deres livscyklus-faser: Plan, Phase In, Active, Phase Out og End of Life.
 
 **Afgrænsning til bestemte kort** — Når du har valgt en korttype, åbner chippen ved siden af en vælger: vælg et eller flere kort, og tidslinjen viser kun disse og alt under dem. Underkort medtages automatisk. Chippen er deaktiveret, så længe vælgeren står på *Alle typer*, fordi en afgrænsning kræver ét hierarki.
+
+**Filtrering** — Når en korttype er valgt, tilbyder rapporten den samme **Filtre**-række som **Fleksibel portefølje**: relaterede kort (med *Medtag underkort*), tags, kortets undertype og dets valgfelter samt relationsundertyper, plus et søgefelt. Forskellige filtre virker sammen (et kort skal opfylde dem alle), mens værdierne valgt inden for ét filter er alternativer. En tekst viser, hvor mange kort der matcher, og **Ryd alle** fjerner alle filtre. Filtrene gemmes med rapporten og nævnes enkeltvis i overskriften på en udskrift eller eksport, så publikum ved, hvad tidslinjen dækker. Vælg for eksempel jeres driftskompetencer med *Medtag underkort* slået til og tagget *Egenudviklet* for kun at gennemgå de egenudviklede applikationer bag kernedriften — et udgiftsværktøj som Concur bliver i inventaret, men forsvinder fra denne visning. Under *Alle typer* er filtrene ikke tilgængelige, fordi de læser én korttypes felter, relationer og tags.
+
+**Sortering** — Menuen **Sortér efter** ordner tidslinjen og tabellen ens: efter navn, type, undertype, aktuel fase, en fasedato (Planlagt, Indfasning, Aktiv, Udfasning, Udløb) eller et af korttypens enkeltvalgsfelter, som forretningskritikalitet, der følger rækkefølgen af feltets muligheder i stedet for alfabetet. I datointervalvisningen tilbydes i stedet startdato, slutdato og farvefeltet. Pilen ved siden af skifter mellem stigende og faldende; kort uden værdi kommer altid sidst, uanset retningen. Et klik på en kolonneoverskrift i tabellen sorterer på samme måde. Sorteringen gemmes med rapporten, og enhver sortering ud over efter navn står i eksportoverskriften.
 
 ## Afhængighedsrapport
 

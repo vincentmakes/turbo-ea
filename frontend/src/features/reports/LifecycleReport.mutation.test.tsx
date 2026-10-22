@@ -353,6 +353,14 @@ const DEFAULT_CONFIG = {
   useCustomDates: false,
   customColorBy: "",
   scopeIds: [],
+  attrFilters: {},
+  relationFilters: {},
+  relSubtypeFilters: {},
+  subtypeFilters: [],
+  tagFilterIds: [],
+  includeDescendants: false,
+  search: "",
+  filtersCollapsed: false,
 };
 
 beforeEach(() => {
@@ -400,11 +408,12 @@ describe("LifecycleReport phase timeline geometry", () => {
     expect(mockApi.callsOf("get", "/reports/roadmap*").map((c) => c.path)).toEqual(["/reports/roadmap"]);
 
     const g = axis("2015-03-15", "2036-03-15");
+    // Rows follow the sort, by name by default.
     expect(rowLabels()).toEqual([
-      ["Plan: 2015-03-15", "Active: 2019-03-15", "Phase Out: 2030-03-15", "End of Life: 2036-03-15"],
       ["Phase In: 2024-05-15", "Active: 2024-05-15", "End of Life: 2028-09-15"],
       ["Active: 2023-01-15"],
       ["Active: 2017-06-15", "End of Life: 2024-01-15"],
+      ["Plan: 2015-03-15", "Active: 2019-03-15", "Phase Out: 2030-03-15", "End of Life: 2036-03-15"],
     ]);
 
     // Plan runs to Active: the unset Phase In in between is skipped.
@@ -548,7 +557,7 @@ describe("LifecycleReport date-range geometry", () => {
     expect(widthOf(chart().content)).toBeCloseTo((g.range / (2 * FIVE_YEARS)) * 100, 6);
     expect(leftOf(chart().today)).toBeCloseTo(g.pct(NOW), 6);
     // Phase mode still draws the lifecycle, not the attribute range.
-    expect(rowLabels()).toEqual([[], [], [], [], [], ["Active: 2021-09-15"]]);
+    expect(rowLabels()).toEqual([["Active: 2021-09-15"], [], [], [], [], []]);
   });
 
   it("draws one bar from the start field to the end field", async () => {
@@ -560,13 +569,14 @@ describe("LifecycleReport date-range geometry", () => {
     await screen.findByLabelText("2014-02-15 → 2026-02-15 · Good");
 
     const g = axis("2014-02-15", "2037-08-15");
+    // Rows follow the sort, by name by default.
     expect(rowLabels()).toEqual([
+      [],
       ["2014-02-15 → 2026-02-15 · Good"],
-      ["2037-08-15 → — · Not set"],
-      ["2027-06-15 → — · Bad"],
       ["— → 2029-04-15 · Pending"],
+      ["2037-08-15 → — · Not set"],
       [],
-      [],
+      ["2027-06-15 → — · Bad"],
     ]);
     expectBar("2014-02-15 → 2026-02-15 · Good", g.pct("2014-02-15"), g.pct("2026-02-15") - g.pct("2014-02-15"));
     // A start with no end runs to the end of the axis.
@@ -660,13 +670,15 @@ describe("LifecycleReport current phase and phase table", () => {
 
     // A newly picked column starts ascending, even from an ascending sort.
     fireEvent.click(sortHeader("Type"));
-    // By the type's label: Application < Solo Type < Supplier Contract.
-    expect(bodyRows()).toEqual(["Delta", "Charlie", "Alpha", "Bravo"]);
+    // By the type's label: Application < Solo Type < Supplier Contract, and
+    // by name within a type.
+    expect(bodyRows()).toEqual(["Charlie", "Delta", "Alpha", "Bravo"]);
     expect(sortHeader("Type")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
     expect(sortHeader("Name")).not.toHaveClass("Mui-active");
 
     fireEvent.click(sortHeader("Type"));
-    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Delta", "Charlie"]);
+    // Ties stay in name order whichever way the column runs.
+    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Charlie", "Delta"]);
     expect(sortHeader("Type")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
     expect(sortHeader("Name")).toHaveClass("MuiTableSortLabel-directionAsc");
     expect(sortHeader("Current Phase")).toHaveClass("MuiTableSortLabel-directionAsc");
@@ -688,14 +700,15 @@ describe("LifecycleReport current phase and phase table", () => {
     storeConfig({ view: "table", sortK: "eol", sortD: "asc" });
     renderReport();
     await screen.findByRole("table", undefined, LONG);
-    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Delta", "Charlie"]);
+    // The legacy `eol` key reads as the End of Life date; undated by name.
+    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Charlie", "Delta"]);
   });
 
-  it("restores a descending end-of-life sort", async () => {
+  it("restores a descending end-of-life sort, the undated cards still last", async () => {
     storeConfig({ view: "table", sortK: "eol", sortD: "desc" });
     renderReport();
     await screen.findByRole("table", undefined, LONG);
-    expect(bodyRows()).toEqual(["Delta", "Charlie", "Alpha", "Bravo"]);
+    expect(bodyRows()).toEqual(["Alpha", "Bravo", "Charlie", "Delta"]);
   });
 
   it("restores a descending name sort", async () => {
@@ -755,7 +768,8 @@ describe("LifecycleReport date-range mode", () => {
     storeConfig({ cardTypeKey: "Contract" });
     renderReport();
     await screen.findByText("Retired Feed", undefined, LONG);
-    await waitFor(() => expect(rowLabels()).toEqual([["Active: 2019-05-15", "End of Life: 2025-01-15"], ["Active: 2022-05-15"]]));
+    // By name: Live Feed before Retired Feed.
+    await waitFor(() => expect(rowLabels()).toEqual([["Active: 2022-05-15"], ["Active: 2019-05-15", "End of Life: 2025-01-15"]]));
     expect(screen.getByRole("alert")).toHaveTextContent("1 item at End of Life");
     expect(hasWarning("Retired Feed")).toBe(true);
     expect(hasWarning("Live Feed")).toBe(false);
@@ -763,7 +777,7 @@ describe("LifecycleReport date-range mode", () => {
 
     fireEvent.click(rangeToggle());
     await screen.findByLabelText("2023-03-15 → 2028-03-15 · Good");
-    expect(rowLabels()).toEqual([["2023-03-15 → 2028-03-15 · Good"], ["2024-03-15 → — · Bad"]]);
+    expect(rowLabels()).toEqual([["2024-03-15 → — · Bad"], ["2023-03-15 → 2028-03-15 · Good"]]);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(hasWarning("Retired Feed")).toBe(false);
     expect(printParams()).toBe("Type: Supplier Contract|Mode: Date Range View|Color by: Health");
@@ -797,11 +811,12 @@ describe("LifecycleReport date-range mode", () => {
     for (const h of ["Spend Start", "Spend End", "Health"]) expect(sortHeader(h)).not.toHaveClass("Mui-active");
 
     fireEvent.click(sortHeader("Spend Start"));
-    expect(bodyRows()).toEqual(["Kilo Two", "Kilo One", "Kilo Three", "Kilo Four"]);
+    expect(bodyRows()).toEqual(["Kilo Two", "Kilo One", "Kilo Four", "Kilo Three"]);
     expect(sortHeader("Spend Start")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
     expect(sortHeader("Name")).not.toHaveClass("Mui-active");
     fireEvent.click(sortHeader("Spend Start"));
-    expect(bodyRows()).toEqual(["Kilo Three", "Kilo Four", "Kilo One", "Kilo Two"]);
+    // Blanks stay last in a descending sort too.
+    expect(bodyRows()).toEqual(["Kilo One", "Kilo Two", "Kilo Four", "Kilo Three"]);
     expect(sortHeader("Spend Start")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
     expect(sortHeader("Spend End")).toHaveClass("MuiTableSortLabel-directionAsc");
     expect(sortHeader("Health")).toHaveClass("MuiTableSortLabel-directionAsc");
@@ -811,7 +826,7 @@ describe("LifecycleReport date-range mode", () => {
     expect(sortHeader("Spend End")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
     expect(sortHeader("Spend Start")).not.toHaveClass("Mui-active");
     fireEvent.click(sortHeader("Spend End"));
-    expect(bodyRows()).toEqual(["Kilo Four", "Kilo Two", "Kilo One", "Kilo Three"]);
+    expect(bodyRows()).toEqual(["Kilo One", "Kilo Three", "Kilo Four", "Kilo Two"]);
     expect(sortHeader("Spend End")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
     expect(sortHeader("Spend Start")).toHaveClass("MuiTableSortLabel-directionAsc");
     expect(sortHeader("Health")).toHaveClass("MuiTableSortLabel-directionAsc");
@@ -821,13 +836,13 @@ describe("LifecycleReport date-range mode", () => {
     expect(sortHeader("Health")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
     expect(sortHeader("Spend End")).not.toHaveClass("Mui-active");
     fireEvent.click(sortHeader("Health"));
-    expect(bodyRows()).toEqual(["Kilo Four", "Kilo Three", "Kilo Two", "Kilo One"]);
+    expect(bodyRows()).toEqual(["Kilo Three", "Kilo Two", "Kilo One", "Kilo Four"]);
     expect(sortHeader("Health")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
     expect(sortHeader("Spend End")).toHaveClass("MuiTableSortLabel-directionAsc");
     expect(sortHeader("Spend Start")).toHaveClass("MuiTableSortLabel-directionAsc");
   });
 
-  it("sorts a card without a colour value after the coloured ones", async () => {
+  it("sorts a card without a colour value after the coloured ones, both ways", async () => {
     mockApi.on("get", "/reports/roadmap?type=Contract", {
       items: [KILO_ITEMS[2], KILO_ITEMS[1]],
     });
@@ -838,7 +853,7 @@ describe("LifecycleReport date-range mode", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Health" }));
     expect(bodyRows()).toEqual(["Kilo One", "Kilo Four"]);
     fireEvent.click(sortHeader("Health"));
-    expect(bodyRows()).toEqual(["Kilo Four", "Kilo One"]);
+    expect(bodyRows()).toEqual(["Kilo One", "Kilo Four"]);
   });
 
   it("colours by the field picked, not by the first one", async () => {
@@ -892,12 +907,11 @@ describe("LifecycleReport date-range mode", () => {
     });
   });
 
-  it("restores sorting by a column the table does not have as no sort at all", async () => {
+  it("restores sorting by a column the table does not have as a sort by name", async () => {
     storeConfig({ cardTypeKey: "Contract", view: "table", sortK: "bogus" });
     renderReport();
     await screen.findByText("Kilo One", undefined, LONG);
-    // Data order.
-    expect(bodyRows()).toEqual(["Kilo Three", "Kilo One", "Kilo Four", "Kilo Two"]);
+    expect(bodyRows()).toEqual(["Kilo Four", "Kilo One", "Kilo Three", "Kilo Two"]);
   });
 });
 
@@ -1022,7 +1036,7 @@ describe("LifecycleReport saved configuration", () => {
     mockApi.on("get", "/reports/roadmap", { items: PHASE_TABLE_ITEMS });
     renderReport();
     await screen.findByRole("table", undefined, LONG);
-    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Delta", "Charlie"]);
+    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Charlie", "Delta"]);
     await waitFor(() =>
       expect(persisted()).toEqual({ ...DEFAULT_CONFIG, view: "table", sortK: "type", sortD: "desc" }),
     );
@@ -1077,7 +1091,7 @@ describe("LifecycleReport saved configuration", () => {
     renderReport({ query: "?saved_report_id=s4" });
     await screen.findByText("Sparse", undefined, LONG);
     await screen.findByRole("table", undefined, LONG);
-    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Delta", "Charlie"]);
+    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Charlie", "Delta"]);
     const cfg = await openSaveDialog();
     expect(screen.getByTestId("save-dialog")).toHaveAttribute("data-report-type", "lifecycle");
     expect(cfg).toEqual({ ...DEFAULT_CONFIG, view: "table", sortK: "type", sortD: "desc" });
@@ -1232,9 +1246,9 @@ describe("LifecycleReport fixes", () => {
     // A type the metamodel no longer has is named by its key.
     expect(typeCell("Echo")).toBe("Ghost");
     // Application < Ghost < Solo Type < Supplier Contract (by key, Contract would come before Solo).
-    expect(bodyRows()).toEqual(["Delta", "Charlie", "Echo", "Alpha", "Bravo"]);
+    expect(bodyRows()).toEqual(["Charlie", "Delta", "Echo", "Alpha", "Bravo"]);
     fireEvent.click(sortHeader("Type"));
-    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Echo", "Delta", "Charlie"]);
+    expect(bodyRows()).toEqual(["Bravo", "Alpha", "Echo", "Charlie", "Delta"]);
   });
 
   it("formats dates in the workspace format and names the end-of-life pin in the UI language", async () => {

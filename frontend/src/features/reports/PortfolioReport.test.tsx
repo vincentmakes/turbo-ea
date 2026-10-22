@@ -482,7 +482,7 @@ describe("PortfolioReport nested groups", () => {
     await waitFor(() => {
       expect(screen.getByText("Nested groups")).toBeInTheDocument();
     });
-    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox", { name: "Nested groups" }));
 
     const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
     await waitFor(() => {
@@ -490,6 +490,44 @@ describe("PortfolioReport nested groups", () => {
         expect.objectContaining({ nestedGroups: true, groupDepth: 2 }),
       );
     });
+  });
+});
+
+describe("PortfolioReport Include sub-cards (#1305)", () => {
+  beforeEach(() => {
+    vi.mocked(api.get).mockResolvedValue(HIER_API_RESPONSE);
+    mockHierarchicalMetamodel();
+  });
+
+  it("widens a related-card pick to the cards beneath it", async () => {
+    const user = userEvent.setup();
+    mockSavedConfig({ relationFilters: { Organization: ["org-root"] } });
+    renderPortfolio();
+    // Only the direct link to Finance HQ while the switch is off.
+    await screen.findByText("Salesforce");
+    expect(screen.queryByText("SAP ERP")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("checkbox", { name: "Include sub-cards" }));
+    // SAP ERP is linked to Payments Team, beneath Finance HQ.
+    expect(await screen.findByText("SAP ERP")).toBeInTheDocument();
+    expect(screen.queryByText("Standalone Tool")).not.toBeInTheDocument();
+    const persistConfig = vi.mocked(useSavedReport).mock.results[0].value.persistConfig;
+    await waitFor(() =>
+      expect(persistConfig).toHaveBeenCalledWith(expect.objectContaining({ includeDescendants: true })),
+    );
+  });
+
+  it("drops the View in inventory link while a pick is widened", async () => {
+    mockSavedConfig({
+      groupByRaw: "rel:Organization",
+      relationFilters: { Organization: ["org-root"] },
+      includeDescendants: true,
+    });
+    renderPortfolio();
+    await waitFor(() => expect(screen.getByText("Payments Team")).toBeInTheDocument());
+    await userEvent.setup().click(screen.getByText("Payments Team"));
+    await waitFor(() => expect(screen.getAllByText("SAP ERP").length).toBeGreaterThan(1));
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });
 

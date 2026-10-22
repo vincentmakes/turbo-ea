@@ -239,10 +239,10 @@ describe("LifecycleReport table (phases)", () => {
     expect(bodyRows()[3]).toBe("PostgreSQL");
 
     await user.click(screen.getByRole("button", { name: "Current Phase" }));
-    // In lifecycle order: plan < active < endOfLife
-    expect(bodyRows()).toEqual(["Future Thing", "Bare", "PostgreSQL", "Oracle DB"]);
+    // In lifecycle order: plan < active < endOfLife; a tie goes by name.
+    expect(bodyRows()).toEqual(["Bare", "Future Thing", "PostgreSQL", "Oracle DB"]);
     await user.click(screen.getByRole("button", { name: "Current Phase" }));
-    expect(bodyRows()).toEqual(["Oracle DB", "PostgreSQL", "Future Thing", "Bare"]);
+    expect(bodyRows()).toEqual(["Oracle DB", "PostgreSQL", "Bare", "Future Thing"]);
 
     // Phase chips and dashes for unset dates.
     const oracle = screen.getByRole("row", { name: /Oracle DB/ });
@@ -393,12 +393,14 @@ describe("LifecycleReport date-range mode", () => {
     await user.click(screen.getByRole("button", { name: "Contract Start" }));
     expect(bodyRows()).toEqual(["Start Only", "Both Dates", "End Only", "No Dates"]);
     await user.click(screen.getByRole("button", { name: "Contract End" }));
-    expect(bodyRows()).toEqual(["Both Dates", "End Only", "Start Only", "No Dates"]);
+    // Undated cards last, by name.
+    expect(bodyRows()).toEqual(["Both Dates", "End Only", "No Dates", "Start Only"]);
     // By the label the column shows (Colourless < Running < unknown), unset last.
     await user.click(screen.getByRole("button", { name: "Status" }));
     expect(bodyRows()).toEqual(["End Only", "Both Dates", "Start Only", "No Dates"]);
     await user.click(screen.getByRole("button", { name: "Status" }));
-    expect(bodyRows()).toEqual(["No Dates", "Start Only", "Both Dates", "End Only"]);
+    // Unset stays last in a descending sort too.
+    expect(bodyRows()).toEqual(["Start Only", "Both Dates", "End Only", "No Dates"]);
 
     await user.click(screen.getByRole("row", { name: /End Only/ }));
     expect(screen.getByTestId("side-panel")).toHaveTextContent("end");
@@ -508,9 +510,9 @@ describe("LifecycleReport date-range mode with a yes/no field (#1256)", () => {
     expect(status("Lease Four")).toBe("No");
 
     await user.click(screen.getByRole("button", { name: "Renewable" }));
-    expect(bodyRows()).toEqual(["Lease Two", "Lease Four", "Lease One", "Lease Three"]);
+    expect(bodyRows()).toEqual(["Lease Four", "Lease Two", "Lease One", "Lease Three"]);
     await user.click(screen.getByRole("button", { name: "Renewable" }));
-    expect(bodyRows()).toEqual(["Lease Three", "Lease One", "Lease Two", "Lease Four"]);
+    expect(bodyRows()).toEqual(["Lease One", "Lease Four", "Lease Two", "Lease Three"]);
   });
 });
 

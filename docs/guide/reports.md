@@ -51,6 +51,10 @@ Switching the card type clears the group-by, colour-by, and filter selections (t
 
 When a card's relations carry a "type" value — for example the **Usage Type** (Owner / User / Stakeholder) on Organization→Application relations, or the **Support Type** on Application→Business Capability relations — you can colour the cards by that value and filter on it. **Group the report by the related card type** to use them (e.g. *Group by → Organization* to unlock *Usage Type*): the subtype then appears under a **Relation Subtypes** group in the *Color by* dropdown and as its own filter row. Because each card is shown under one related card, it is coloured by *that* relation — an application that is a *User* of one organisation shows as User there, even if it is owned by another.
 
+### Including sub-cards
+
+When a related card type has a hierarchy (such as Business Capability or Organization), the **Related By** row carries an **Include sub-cards** switch. Turn it on and a pick also covers everything beneath it: choosing a parent capability then matches the cards linked to any of its sub-capabilities, and parents with no direct link of their own can be picked too. The switch is saved with the report, and the [Lifecycle Report](#lifecycle-report) offers it too. While it widens a pick, the group drawer's **View in inventory** button is hidden, because the inventory filters on direct links only.
+
 ### Nested groups
 
 When grouping by a related card type that supports hierarchy (such as Business Capability or Organization), a **Nested groups** toggle appears next to the *Group by* selector. Enable it to render the groups as boxes within boxes following the related type's parent/child hierarchy — like the Capability Map. A **Display Depth** selector controls how many levels are expanded: each card appears under its deepest visible group, and groups below the depth limit roll their cards up into the closest visible ancestor. Branches that contain no cards are hidden.
@@ -91,6 +95,10 @@ The **Lifecycle Report** shows a **timeline visualization** of when technology c
 Components are displayed as horizontal bars spanning their lifecycle phases: Plan, Phase In, Active, Phase Out, and End of Life.
 
 **Scoping to specific cards** — Once you have picked a card type, the chip beside it opens a picker: select one or more cards and the timeline shows only those and everything beneath them in the hierarchy. Sub-cards are included automatically. The chip stays disabled while the type selector is on *All types*, because a scope needs one hierarchy to work from.
+
+**Filtering** — Once a card type is picked, the report offers the same **Filters** row as the [Flexible Portfolio](#flexible-portfolio): related cards (with *Include sub-cards*), tags, the card's subtype and its select fields, and relation subtypes, plus a search box. Different filters combine (a card must match all of them), while the values picked within one filter are alternatives. A caption shows how many cards match, and **Clear all** removes every filter. The filters are saved with the report and named one by one in the header of a print or export, so the audience knows what the timeline covers. For example, pick your operational capabilities with *Include sub-cards* on and the tag *Internally Developed* to review only the in-house applications behind core operations — an expense tool such as Concur stays in the inventory but leaves this view. On *All types* the filters are unavailable, because they read one card type's fields, relations and tags.
+
+**Sorting** — The **Sort by** menu orders the timeline and the table alike: by name, type, subtype, current phase, any phase date (Plan, Phase In, Active, Phase Out, End of Life) or one of the card type's single-select fields such as Business Criticality, which follows the order of the field's options rather than the alphabet. In the date-range view it offers the start date, the end date and the colour field instead. The arrow beside it switches between ascending and descending, and cards without a value always come last, whichever the direction. Clicking a column header in the table sorts the same way. The sort is saved with the report, and any sort other than by name appears in the export header.
 
 ## Dependencies Report
 

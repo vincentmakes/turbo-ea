@@ -18,18 +18,51 @@ import TableSortLabel from "@mui/material/TableSortLabel";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
+import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
+import CardFilterSection from "./CardFilterSection";
+import {
+  EMPTY_CARD_FILTERS,
+  buildRelationFilterOptions,
+  buildRelSubtypes,
+  describeActiveFilters,
+  expandRelationFilters,
+  hasActiveFilters,
+  relationTypeKeys,
+  restoreCardFilters,
+  type CardFilterValue,
+  type FilterMember,
+} from "./cardFilters";
+import { matchesStaticFilters } from "./portfolioHelpers";
+import type { AppData, AppRelation, RelTypeDef, TagGroupDef } from "./portfolioHelpers";
+import {
+  ATTR_SORT_PREFIX,
+  availableSortKeys,
+  currentPhase,
+  normalizeSortKey,
+  parseDate,
+  phaseRank,
+  sortLifecycleItems,
+  type LifecycleSortContext,
+  type SortDir,
+} from "./lifecycleSort";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
+import {
+  useTypeLabel,
+  useFieldLabel,
+  useOptionLabel,
+  useRelationLabel,
+  useSubtypeLabel,
+} from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -53,6 +86,22 @@ interface RoadmapItem {
   subtype?: string;
   lifecycle: Record<string, string>;
   attributes?: Record<string, unknown>;
+  /** Present once a card type is chosen: what the filter section reads. */
+  relations?: AppRelation[];
+  tag_ids?: string[];
+}
+
+/** `GET /reports/roadmap`. The filter payload comes only with a `type`. */
+interface RoadmapResponse {
+  items: RoadmapItem[];
+  relation_types?: RelTypeDef[];
+  groupable_types?: Record<string, FilterMember[]>;
+  tag_groups?: TagGroupDef[];
+}
+
+/** The shape the shared matcher reads; the roadmap has no organisation list. */
+function asMatchable(item: RoadmapItem): AppData {
+  return { ...item, relations: item.relations ?? [], org_ids: [] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,26 +145,6 @@ const phaseChipSx =
     ({ bgcolor: color, color: theme.palette.common.white, fontWeight: 600, height: 22, fontSize: "0.72rem" });
 // Stryker restore all
 
-function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
-
-function currentPhase(lc: Record<string, string>): string {
-  const now = Date.now();
-  for (let i = PHASES.length - 1; i >= 0; i--) {
-    const d = parseDate(lc[PHASES[i].key]);
-    if (d && d <= now) return PHASES[i].key;
-  }
-  return "plan";
-}
-
-/** Position of a phase in the lifecycle, so phases sort plan → end of life. */
-function phaseRank(key: string): number {
-  return PHASES.findIndex((p) => p.key === key);
-}
-
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
@@ -128,15 +157,22 @@ export default function LifecycleReport() {
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+  const relLabel = useRelationLabel();
+  const subtypeDefLabel = useSubtypeLabel();
   const { formatDate } = useDateFormat();
   const fmtDate = (s: string | undefined) => (s ? formatDate(s) : "\u2014");
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
-  const [data, setData] = useState<RoadmapItem[] | null>(null);
+  const [payload, setPayload] = useState<RoadmapResponse | null>(null);
+  const data = payload?.items ?? null;
   const [view, setView] = useState<"chart" | "table">("chart");
   const [sortK, setSortK] = useState("name");
-  const [sortD, setSortD] = useState<"asc" | "desc">("asc");
+  const [sortD, setSortD] = useState<SortDir>("asc");
+  // The shared card filters (#1305); they need one card type to apply to.
+  const [filters, setFilters] = useState<CardFilterValue>(EMPTY_CARD_FILTERS);
+  const [search, setSearch] = useState("");
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   // Custom date-range mode controls
@@ -159,8 +195,11 @@ export default function LifecycleReport() {
         typeof cfg.cardTypeKey === "string" && cfg.cardTypeKey ? cfg.cardTypeKey : undefined;
       if (restoredType) setCardTypeKey(restoredType);
       if (cfg.view) setView(cfg.view as "chart" | "table");
-      if (cfg.sortK) setSortK(cfg.sortK as string);
-      if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+      if (typeof cfg.sortK === "string") setSortK(cfg.sortK);
+      if (cfg.sortD === "asc" || cfg.sortD === "desc") setSortD(cfg.sortD);
+      setFilters(restoreCardFilters(cfg));
+      if (typeof cfg.search === "string") setSearch(cfg.search);
+      if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       // Backwards compat: old key was useInitiativeDates
       if (cfg.useCustomDates !== undefined) setUseCustomDates(cfg.useCustomDates as boolean);
       else if (cfg.useInitiativeDates !== undefined) setUseCustomDates(cfg.useInitiativeDates as boolean);
@@ -177,12 +216,23 @@ export default function LifecycleReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds });
+  const getConfig = () => ({
+    cardTypeKey,
+    view,
+    sortK,
+    sortD,
+    useCustomDates,
+    customColorBy,
+    scopeIds,
+    ...filters,
+    search,
+    filtersCollapsed,
+  });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy, scopeIds, filters, search, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -194,7 +244,18 @@ export default function LifecycleReport() {
     setUseCustomDates(false);
     setCustomColorBy("");
     setScopeIds([]);
+    setFilters(EMPTY_CARD_FILTERS);
+    setSearch("");
+    setFiltersCollapsed(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A filter names the old type's fields, relations and options, so a new
+  // type starts unfiltered; whether picks cover sub-cards is a preference.
+  const handleCardTypeChange = (next: string) => {
+    if (next === cardTypeKey) return;
+    setCardTypeKey(next);
+    setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }));
+  };
 
   // Derive date fields and single_select fields from selected type's schema
   const selectedType = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
@@ -271,10 +332,10 @@ export default function LifecycleReport() {
   // and repopulate the timeline (#882).
   useAbortableEffect(
     async ({ signal, isCurrent }) => {
-      const params = cardTypeKey ? `?type=${cardTypeKey}` : "";
-      const r = await api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`, { signal });
+      const params = cardTypeKey ? `?type=${encodeURIComponent(cardTypeKey)}` : "";
+      const r = await api.get<RoadmapResponse>(`/reports/roadmap${params}`, { signal });
       if (!isCurrent()) return;
-      setData(r.items);
+      setPayload(r);
     },
     [cardTypeKey],
   );
@@ -284,8 +345,75 @@ export default function LifecycleReport() {
     [data, scope.closure],
   );
 
+  /* ---- The shared card filters ---------------------------------------- */
+
+  const relationTypes = useMemo(() => payload?.relation_types ?? [], [payload]);
+  const groupableTypes = useMemo(() => payload?.groupable_types ?? {}, [payload]);
+  const tagGroups = useMemo(() => payload?.tag_groups ?? [], [payload]);
+
+  const relationFilterOptions = useMemo(
+    () =>
+      cardTypeKey
+        ? buildRelationFilterOptions({
+            groupableTypes,
+            relationTypes,
+            cardType: cardTypeKey,
+            includeDescendants: filters.includeDescendants,
+            typeMeta: (typeKey) => {
+              const tm = types.find((tp) => tp.key === typeKey);
+              return { label: typeLabel(tm) || typeKey, icon: tm?.icon, hierarchical: !!tm?.has_hierarchy };
+            },
+            relationVerb: (rt, reverse) => relLabel(rt, reverse),
+          })
+        : [],
+    [cardTypeKey, groupableTypes, relationTypes, filters.includeDescendants, types, typeLabel, relLabel],
+  );
+
+  // No Group By here to narrow them by, so every relation subtype of the type.
+  const relSubtypes = useMemo(
+    () =>
+      cardTypeKey
+        ? buildRelSubtypes(relationTypes, cardTypeKey, {
+            relationVerb: (rt, reverse) => relLabel(rt, reverse),
+            fieldLabel,
+            optionLabel: optLabel,
+          })
+        : [],
+    [cardTypeKey, relationTypes, relLabel, fieldLabel, optLabel],
+  );
+
+  const subtypeOptions = useMemo(
+    () => (selectedType?.subtypes ?? []).map((st) => ({ key: st.key, label: subtypeDefLabel(st) })),
+    [selectedType, subtypeDefLabel],
+  );
+
+  const relTypeKeys = useMemo(() => relationTypeKeys(relationTypes), [relationTypes]);
+
+  const filteredData = useMemo(() => {
+    if (!scopedData) return null;
+    const matchFilters = {
+      attributeFilters: filters.attrFilters,
+      facetFields: selectFields,
+      // With sub-cards included a pick is widened to itself plus everything
+      // beneath it, then matched by the very rules the portfolio uses.
+      relationFilters: filters.includeDescendants
+        ? expandRelationFilters(filters.relationFilters, groupableTypes, relationTypes)
+        : filters.relationFilters,
+      relTypeKeys,
+      relSubtypeFilters: filters.relSubtypeFilters,
+      relSubtypes,
+      subtypeFilters: filters.subtypeFilters,
+      tagFilterIds: filters.tagFilterIds,
+      tagGroups,
+      search,
+    };
+    return scopedData.filter((item) => matchesStaticFilters(asMatchable(item), matchFilters));
+  }, [scopedData, filters, selectFields, groupableTypes, relationTypes, relTypeKeys, relSubtypes, tagGroups, search]);
+
+  const filtersActive = hasActiveFilters(filters, search);
+
   const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
-    const data = scopedData;
+    const data = filteredData;
     if (!data || !data.length) return { items: [], totalMin: 0, totalRange: 1, viewMin: 0, contentPct: 100, todayPct: 50, eolCount: 0 };
     const now = Date.now();
     const fiveYears = 5 * 365.25 * 86400000;
@@ -320,7 +448,7 @@ export default function LifecycleReport() {
       todayPct: ((now - tMin) / tRange) * 100,
       eolCount: eol,
     };
-  }, [scopedData, startDateKey, endDateKey]);
+  }, [filteredData, startDateKey, endDateKey]);
 
   // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
@@ -365,6 +493,39 @@ export default function LifecycleReport() {
     el.scrollLeft = el.scrollWidth * viewMinPct;
   }, [items.length, viewMin, totalMin, totalRange]);
 
+  const singleSelectFields = useMemo(
+    () => selectFields.filter((f) => f.type === "single_select"),
+    [selectFields],
+  );
+  const sortKeys = useMemo(
+    () =>
+      availableSortKeys({
+        customDates: useCustomDates,
+        hasSubtypes: subtypeOptions.length > 0,
+        selectFieldKeys: singleSelectFields.map((f) => f.key),
+      }),
+    [useCustomDates, subtypeOptions, singleSelectFields],
+  );
+  // Read, never written back: a restored key the metamodel has not resolved
+  // yet must survive until it has.
+  const effectiveSortK = normalizeSortKey(sortK, sortKeys);
+  const sortLabel = useCallback(
+    (key: string): string => {
+      if (key === "name") return t("common:labels.name");
+      if (key === "type") return t("common:labels.type");
+      if (key === "subtype") return t("portfolio.filters.subtype");
+      if (key === "phase") return t("lifecycle.currentPhase");
+      const phase = PHASES.find((p) => p.key === key);
+      if (phase) return t(phase.labelKey);
+      if (key === "startDate") return dateFields.find((f) => f.key === startDateKey)?.label || t("lifecycle.start");
+      if (key === "endDate") return dateFields.find((f) => f.key === endDateKey)?.label || t("lifecycle.end");
+      if (key === "status") return colorByOptions.find((o) => o.key === customColorBy)?.label || t("lifecycle.status");
+      const fieldKey = key.slice(ATTR_SORT_PREFIX.length);
+      return singleSelectFields.find((f) => f.key === fieldKey)?.label || fieldKey;
+    },
+    [t, dateFields, startDateKey, endDateKey, colorByOptions, customColorBy, singleSelectFields],
+  );
+
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const tp = types.find((tp) => tp.key === cardTypeKey);
@@ -383,36 +544,60 @@ export default function LifecycleReport() {
       params.push({ label: t("common.colorBy"), value: cLabel });
     }
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    // Each active filter by name, so an exported deck says what it shows.
+    params.push(
+      ...describeActiveFilters({
+        value: filters,
+        relationOptions: relationFilterOptions,
+        tagGroups,
+        subtypeOptions,
+        fields: selectFields,
+        relSubtypes,
+        labels: {
+          subtype: t("portfolio.filters.subtype"),
+          tags: t("portfolio.tags"),
+          empty: t("common:labels.empty"),
+          subCards: t("cardFilters.inclSubCards"),
+        },
+      }),
+    );
+    if (search) params.push({ label: t("common.search"), value: search });
+    // The default order (by name, A→Z) goes without saying.
+    if (effectiveSortK !== "name" || sortD !== "asc") {
+      params.push({
+        label: t("lifecycle.sortBy"),
+        value: `${sortLabel(effectiveSortK)} ${sortD === "asc" ? "\u2191" : "\u2193"}`,
+      });
+    }
     return params;
-  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, effectiveScopeIds, typeLabel, t]);
+  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view, effectiveScopeIds, typeLabel, t, filters, relationFilterOptions, tagGroups, subtypeOptions, selectFields, relSubtypes, search, sortLabel, effectiveSortK, sortD]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
-  const sort = (k: string) => { setSortD(sortK === k && sortD === "asc" ? "desc" : "asc"); setSortK(k); };
+  const sort = (k: string) => {
+    setSortD(effectiveSortK === k && sortD === "asc" ? "desc" : "asc");
+    setSortK(k);
+  };
   const cardTypeLabel = (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key;
-  const sorted = [...items].sort((a, b) => {
-    const d = sortD === "asc" ? 1 : -1;
-    if (sortK === "name") return a.name.localeCompare(b.name) * d;
-    // Stryker disable next-line ArithmeticOperator: d is 1 or -1, so * and / agree
-    if (sortK === "type") return cardTypeLabel(a.type).localeCompare(cardTypeLabel(b.type)) * d;
-    // Stryker disable next-line ArithmeticOperator: d is 1 or -1, so * and / agree
-    if (sortK === "phase") return (phaseRank(currentPhase(a.lifecycle)) - phaseRank(currentPhase(b.lifecycle))) * d;
-    if (sortK === "eol") return ((a.lifecycle.endOfLife || "z").localeCompare(b.lifecycle.endOfLife || "z")) * d;
-    if (sortK === "startDate") return ((a.attributes?.[startDateKey] as string || "z").localeCompare(b.attributes?.[startDateKey] as string || "z")) * d;
-    if (sortK === "endDate") return ((a.attributes?.[endDateKey] as string || "z").localeCompare(b.attributes?.[endDateKey] as string || "z")) * d;
-    if (sortK === "status") {
-      // By the label the column shows (Yes / No for a yes/no field, whose raw
-      // value `localeCompare` cannot take), with unset after every value.
-      const ba = getCustomBucket(a);
-      const bb = getCustomBucket(b);
-      if (ba.kind === "unset" || bb.kind === "unset") {
-        return ((ba.kind === "unset" ? 1 : 0) - (bb.kind === "unset" ? 1 : 0)) * d;
-      }
-      return ba.label.localeCompare(bb.label) * d;
-    }
-    return 0;
-  });
+  const sortCtx: LifecycleSortContext = {
+    typeLabel: cardTypeLabel,
+    subtypeLabel: (item) => {
+      if (!item.subtype) return "";
+      const st = types.find((tp) => tp.key === item.type)?.subtypes?.find((x) => x.key === item.subtype);
+      return st ? subtypeDefLabel(st) : item.subtype;
+    },
+    startDateKey,
+    endDateKey,
+    statusLabel: (item) => {
+      const bucket = getCustomBucket(item as RoadmapItem);
+      return bucket.kind === "unset" ? null : bucket.label;
+    },
+    optionOrder: (fieldKey) =>
+      (singleSelectFields.find((f) => f.key === fieldKey)?.options ?? []).map((o) => o.key),
+  };
+  // One order for the timeline rows and the table alike.
+  const sorted = sortLifecycleItems(items, effectiveSortK, sortD, sortCtx);
 
   function getCustomBucket(item: RoadmapItem): FacetBucket {
     const fd = selectFields.find((f) => f.key === customColorBy);
@@ -444,7 +629,7 @@ export default function LifecycleReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
+          <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => handleCardTypeChange(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
             {readableTypes.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{typeLabel(tp)}</MenuItem>)}
           </TextField>
@@ -496,10 +681,70 @@ export default function LifecycleReport() {
               )}
             </>
           )}
+
+          <TextField
+            size="small"
+            label={t("common.search")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ minWidth: 160 }}
+          />
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <TextField
+              select
+              size="small"
+              label={t("lifecycle.sortBy")}
+              value={effectiveSortK}
+              onChange={(e) => setSortK(e.target.value)}
+              sx={{ minWidth: 170 }}
+            >
+              {sortKeys.map((k) => (
+                <MenuItem key={k} value={k}>{sortLabel(k)}</MenuItem>
+              ))}
+            </TextField>
+            <Tooltip title={t("lifecycle.sortMissingLast")}>
+              <IconButton
+                size="small"
+                aria-label={sortD === "asc" ? t("lifecycle.sortAscending") : t("lifecycle.sortDescending")}
+                onClick={() => setSortD(sortD === "asc" ? "desc" : "asc")}
+              >
+                <MaterialSymbol icon={sortD === "asc" ? "arrow_upward" : "arrow_downward"} size={18} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          <CardFilterSection
+            label={
+              cardTypeKey
+                ? t("portfolio.typeFilters", { type: cardTypeLabel(cardTypeKey) })
+                : t("common.filters")
+            }
+            collapsed={filtersCollapsed}
+            onToggle={() => setFiltersCollapsed((v) => !v)}
+            value={filters}
+            onChange={setFilters}
+            relationOptions={relationFilterOptions}
+            tagGroups={tagGroups}
+            subtypeOptions={subtypeOptions}
+            fields={selectFields}
+            relSubtypes={relSubtypes}
+            search={search}
+            onClearAll={() => {
+              setFilters((prev) => ({ ...EMPTY_CARD_FILTERS, includeDescendants: prev.includeDescendants }));
+              setSearch("");
+            }}
+            disabledReason={cardTypeKey ? undefined : t("lifecycle.filtersNeedType")}
+          />
         </>
       }
       legend={
         <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center" }}>
+          {filtersActive && (
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+              {t("lifecycle.matchCount", { shown: items.length, total: scopedData?.length ?? 0 })}
+            </Typography>
+          )}
           {useCustomDates && customColorLegend ? (
             <>
               <ReportLegend
@@ -536,7 +781,7 @@ export default function LifecycleReport() {
               {/* Fixed name column */}
               <Box sx={{ width: 200, flexShrink: 0, pr: 1 }}>
                 <Box sx={{ height: 24, mb: 1 }} />
-                {items.map((item) => {
+                {sorted.map((item) => {
                   const cp = currentPhase(item.lifecycle);
                   const isEol = !useCustomDates && cp === "endOfLife";
                   return (
@@ -572,7 +817,7 @@ export default function LifecycleReport() {
                   </Box>
 
                   {/* Timeline bars */}
-                  {items.map((item) => {
+                  {sorted.map((item) => {
                     if (useCustomDates && startDateKey && endDateKey) {
                       // Custom date range mode: single bar from start to end date field
                       const startMs = parseDate(item.attributes?.[startDateKey] as string);
@@ -687,18 +932,24 @@ export default function LifecycleReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
-                <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={effectiveSortK === "name"} direction={effectiveSortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={effectiveSortK === "type"} direction={effectiveSortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
                 {useCustomDates ? (
                   <>
-                    <TableCell><TableSortLabel active={sortK === "startDate"} direction={sortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || t("lifecycle.start")}</TableSortLabel></TableCell>
-                    <TableCell><TableSortLabel active={sortK === "endDate"} direction={sortK === "endDate" ? sortD : "asc"} onClick={() => sort("endDate")}>{dateFields.find((f) => f.key === endDateKey)?.label || t("lifecycle.end")}</TableSortLabel></TableCell>
-                    <TableCell><TableSortLabel active={sortK === "status"} direction={sortK === "status" ? sortD : "asc"} onClick={() => sort("status")}>{colorByOptions.find((o) => o.key === customColorBy)?.label || t("lifecycle.status")}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={effectiveSortK === "startDate"} direction={effectiveSortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || t("lifecycle.start")}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={effectiveSortK === "endDate"} direction={effectiveSortK === "endDate" ? sortD : "asc"} onClick={() => sort("endDate")}>{dateFields.find((f) => f.key === endDateKey)?.label || t("lifecycle.end")}</TableSortLabel></TableCell>
+                    <TableCell><TableSortLabel active={effectiveSortK === "status"} direction={effectiveSortK === "status" ? sortD : "asc"} onClick={() => sort("status")}>{colorByOptions.find((o) => o.key === customColorBy)?.label || t("lifecycle.status")}</TableSortLabel></TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>{t("lifecycle.currentPhase")}</TableSortLabel></TableCell>
-                    {PHASES.map((p) => <TableCell key={p.key}>{t(p.labelKey)}</TableCell>)}
+                    <TableCell><TableSortLabel active={effectiveSortK === "phase"} direction={effectiveSortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>{t("lifecycle.currentPhase")}</TableSortLabel></TableCell>
+                    {PHASES.map((p) => (
+                      <TableCell key={p.key}>
+                        <TableSortLabel active={effectiveSortK === p.key} direction={effectiveSortK === p.key ? sortD : "asc"} onClick={() => sort(p.key)}>
+                          {t(p.labelKey)}
+                        </TableSortLabel>
+                      </TableCell>
+                    ))}
                   </>
                 )}
               </TableRow>

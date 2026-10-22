@@ -30,9 +30,6 @@ import {
   type InventorySliceGroup,
 } from "./portfolioInventoryLink";
 import TimelineSlider from "@/components/TimelineSlider";
-import FilterSelect from "@/components/FilterSelect";
-import TagPicker from "@/components/TagPicker";
-import type { TagGroup } from "@/types";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -47,7 +44,16 @@ import {
   type ColumnCount,
 } from "@/components/cardColumns";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
-import ReportFilterSection from "./ReportFilterSection";
+import CardFilterSection from "./CardFilterSection";
+import {
+  buildRelationFilterOptions,
+  buildRelSubtypes,
+  countActiveFilters,
+  expandRelationFilters,
+  hasActiveFilters,
+  relationTypeKeys,
+  type CardFilterValue,
+} from "./cardFilters";
 import { api, isAbortError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
 import { toIsoDate } from "@/lib/dates";
@@ -80,7 +86,6 @@ import {
   attributeLabel,
   buildColorLegend,
   buildColorSegments,
-  extractRelSubtypes,
   getAppColor,
   getAppColorLabel,
   isAppAliveAtDate,
@@ -89,7 +94,6 @@ import {
   pickSelectFields,
   relationMemberMatchesSubtypeFilters,
   relationOnSide,
-  relSubtypeComposite,
   REL_SUBTYPE_PREFIX,
   resolveColorBy,
   UNSET_COLOR,
@@ -693,7 +697,8 @@ export default function PortfolioReport({
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   // The card's own subtype keys (#1294); EMPTY_FILTER_KEY means "no subtype".
   const [subtypeFilters, setSubtypeFilters] = useState<string[]>([]);
-  const [showAllRelFilters, setShowAllRelFilters] = useState(false);
+  // A related-card pick also covers the cards beneath it (#1305).
+  const [includeDescendants, setIncludeDescendants] = useState(false);
   // Fold the (tall) filter block away. Expanded by default; persisted with
   // the rest of the report config, so a missing key means expanded.
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -720,6 +725,7 @@ export default function PortfolioReport({
       if (cfg.relSubtypeFilters)
         setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
       if (Array.isArray(cfg.subtypeFilters)) setSubtypeFilters(cfg.subtypeFilters as string[]);
+      if (cfg.includeDescendants != null) setIncludeDescendants(!!cfg.includeDescendants);
       if (cfg.filtersCollapsed != null) setFiltersCollapsed(!!cfg.filtersCollapsed);
       if (cfg.nestedGroups != null) setNestedGroups(!!cfg.nestedGroups);
       if (cfg.groupDepth != null) setGroupDepth(cfg.groupDepth as number);
@@ -742,7 +748,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, timelineDate: tl.persistValue, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -759,7 +765,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants, tl.timelineDate, sortK, sortD, nestedGroups, groupDepth, columns, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -774,7 +780,7 @@ export default function PortfolioReport({
     setRelSubtypeFilters({});
     setSubtypeFilters([]);
     setTagFilterIds([]);
-    setShowAllRelFilters(false);
+    setIncludeDescendants(false);
     setFiltersCollapsed(false);
     tl.reset();
     setSortK("name");
@@ -827,7 +833,6 @@ export default function PortfolioReport({
     setRelSubtypeFilters({});
     setSubtypeFilters([]);
     setTagFilterIds([]);
-    setShowAllRelFilters(false);
     setNestedGroups(false);
     setGroupDepth(2);
     setDefaultsApplied(false);
@@ -859,29 +864,17 @@ export default function PortfolioReport({
   // the current card type (e.g. "is used by · Usage Type"), tagged with the
   // related card type they connect to. The active subset (scoped to the
   // current Group By, below) drives the Color By and filter controls.
-  const allRelSubtypes = useMemo<RelSubtype[]>(() => {
-    if (!data) return [];
-    return extractRelSubtypes(data.relation_types as RelTypeDef[], cardType).map(
-      ({ relType, field }) => {
-        const relVerb =
-          relType.source_type_key === cardType
-            ? relLabel(relType)
-            : relLabel(relType, true);
-        const fieldVerb = fieldLabel(field);
-        return {
-          composite: relSubtypeComposite(relType.key, field.key),
-          relTypeKey: relType.key,
-          fieldKey: field.key,
-          relatedTypeKey: relType.other_type_key,
-          comboLabel: `${relVerb} · ${fieldVerb}`,
-          options: (field.options ?? []).map((o) => ({
-            ...o,
-            label: optLabel(o),
-          })),
-        };
-      },
-    );
-  }, [data, cardType, relLabel, fieldLabel, optLabel]);
+  const allRelSubtypes = useMemo<RelSubtype[]>(
+    () =>
+      data
+        ? buildRelSubtypes(data.relation_types, cardType, {
+            relationVerb: (rt, reverse) => relLabel(rt, reverse),
+            fieldLabel,
+            optionLabel: optLabel,
+          })
+        : [],
+    [data, cardType, relLabel, fieldLabel, optLabel],
+  );
 
   // Build group-by options from schema + relation types
   const groupByOptions = useMemo(() => {
@@ -1045,23 +1038,23 @@ export default function PortfolioReport({
    *  relation type is told apart from one keyed by a card type. */
   // Bare keys plus, for a self-referencing type, its two side keys — the
   // matcher tells a relation-type facet from a card-type one by this set.
-  const allRelTypeKeys = useMemo(
+  const allRelTypeKeys = useMemo(() => relationTypeKeys(data?.relation_types || []), [data]);
+
+  // With sub-cards included, a pick is widened to itself plus everything
+  // beneath it before matching, so the matcher's own rules are unchanged.
+  const matchedRelationFilters = useMemo(
     () =>
-      new Set(
-        (data?.relation_types || []).flatMap((rt) =>
-          rt.source_type_key === rt.target_type_key
-            ? [rt.key, sideKey(rt, true), sideKey(rt, false)]
-            : [rt.key],
-        ),
-      ),
-    [data],
+      includeDescendants && data
+        ? expandRelationFilters(relationFilters, data.groupable_types, data.relation_types || [])
+        : relationFilters,
+    [includeDescendants, data, relationFilters],
   );
 
   const staticFilters = useMemo<Omit<FilterState, "timelineDate">>(
     () => ({
       attributeFilters: attrFilters,
       facetFields: selectFields,
-      relationFilters,
+      relationFilters: matchedRelationFilters,
       relTypeKeys: allRelTypeKeys,
       relSubtypeFilters,
       relSubtypes,
@@ -1070,7 +1063,7 @@ export default function PortfolioReport({
       tagGroups: data?.tag_groups || [],
       search,
     }),
-    [attrFilters, selectFields, relationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, subtypeFilters, tagFilterIds, data, search],
+    [attrFilters, selectFields, matchedRelationFilters, allRelTypeKeys, relSubtypeFilters, relSubtypes, subtypeFilters, tagFilterIds, data, search],
   );
 
   // Resolve the active Color By into a descriptor + shared bucket labels.
@@ -1212,13 +1205,19 @@ export default function PortfolioReport({
     [colorRes, colorLabels, filteredApps],
   );
 
-  const hasActiveFilters =
-    Object.values(attrFilters).some((v) => v.length > 0) ||
-    Object.values(relationFilters).some((v) => v.length > 0) ||
-    Object.values(relSubtypeFilters).some((v) => v.length > 0) ||
-    subtypeFilters.length > 0 ||
-    tagFilterIds.length > 0 ||
-    search.length > 0;
+  // The shared filter section edits these as one value.
+  const cardFilters = useMemo<CardFilterValue>(
+    () => ({ attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants }),
+    [attrFilters, relationFilters, relSubtypeFilters, subtypeFilters, tagFilterIds, includeDescendants],
+  );
+  const setCardFilters = useCallback((next: CardFilterValue) => {
+    setAttrFilters(next.attrFilters);
+    setRelationFilters(next.relationFilters);
+    setRelSubtypeFilters(next.relSubtypeFilters);
+    setSubtypeFilters(next.subtypeFilters);
+    setTagFilterIds(next.tagFilterIds);
+    setIncludeDescendants(next.includeDescendants);
+  }, []);
 
   const clearFilters = useCallback(() => {
     setAttrFilters({});
@@ -1369,41 +1368,23 @@ export default function PortfolioReport({
     };
   }, [data, search, subtypeFilters, attrFilters, relationFilters, tagFilterIds]);
 
-  // Build relation filter options from groupable_types
+  // "Related by" facets, from the related cards in the payload
   const relationFilterOptions = useMemo(() => {
     if (!data) return [];
-    const out: { typeKey: string; label: string; icon: string; options: { key: string; label: string }[] }[] = [];
-    for (const [typeKey, members] of Object.entries(data.groupable_types)) {
-      // Ancestor-only members exist purely to complete the nested-group
-      // hierarchy — they have no direct relations, so a filter on them could
-      // never match anything.
-      const directMembers = members.filter((m) => !m.ancestor_only);
-      if (directMembers.length === 0) continue;
-      const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-      const label = typeLabel(typeMeta) || typeKey;
-      const icon = typeMeta?.icon || "link";
-      const options = directMembers.map((m) => ({ key: m.id, label: m.name }));
-      out.push({ typeKey, label, icon, options });
-
-      // When several relation types reach this card type, "related to an
-      // Organization" is not the question a user wants to ask — "owned by" and
-      // "used by" are. Add a facet per relation type, keyed by the relation-type
-      // key (the matcher tells the two kinds of key apart via `relTypeKeys`).
-      const reaching = expandSides(
-        (data.relation_types || []).filter((rt) => rt.other_type_key === typeKey),
-        // The type `data` was loaded for, not the picker's: on a switch the
-        // picker moves one render before the old data is cleared.
-        dataCardType ?? cardType,
-      );
-      if (reaching.length > 1) {
-        for (const { rt, isSource } of reaching) {
-          const verb = isSource ? relLabel(rt) : relLabel(rt, true);
-          out.push({ typeKey: sideKey(rt, isSource), label: `${label} · ${verb}`, icon, options });
-        }
-      }
-    }
-    return out;
-  }, [data, dataCardType, cardType, metamodelTypes, typeLabel, relLabel]);
+    return buildRelationFilterOptions({
+      groupableTypes: data.groupable_types,
+      relationTypes: data.relation_types || [],
+      // The type `data` was loaded for, not the picker's: on a switch the
+      // picker moves one render before the old data is cleared.
+      cardType: dataCardType ?? cardType,
+      includeDescendants,
+      typeMeta: (typeKey) => {
+        const tm = metamodelTypes.find((tp) => tp.key === typeKey);
+        return { label: typeLabel(tm) || typeKey, icon: tm?.icon, hierarchical: !!tm?.has_hierarchy };
+      },
+      relationVerb: (rt, reverse) => relLabel(rt, reverse),
+    });
+  }, [data, dataCardType, cardType, includeDescendants, metamodelTypes, typeLabel, relLabel]);
 
   // Table helpers
   const tableSort = (k: string) => {
@@ -1435,7 +1416,11 @@ export default function PortfolioReport({
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + Object.values(relSubtypeFilters).flat().length + subtypeFilters.length + tagFilterIds.length;
+  const activeFilterCount = countActiveFilters(cardFilters);
+  const anyFilterActive = hasActiveFilters(cardFilters, search);
+  // A sub-card pick is a subtree the inventory's relation filter cannot express.
+  const relationPicksWidened =
+    includeDescendants && Object.values(relationFilters).some((ids) => ids.length > 0);
 
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
@@ -1805,201 +1790,20 @@ export default function PortfolioReport({
           )}
 
           {/* Row 2: Filters — collapsible, state persisted as filtersCollapsed */}
-          <ReportFilterSection
+          <CardFilterSection
             label={t("portfolio.typeFilters", { type: currentTypeLabel })}
             collapsed={filtersCollapsed}
             onToggle={() => setFiltersCollapsed((v) => !v)}
-            count={activeFilterCount}
-            clearAllLabel={hasActiveFilters ? t("portfolio.clearAll") : undefined}
-            onClearAll={hasActiveFilters ? clearFilters : undefined}
-          >
-            {/* Related By section */}
-            {relationFilterOptions.length > 0 && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  flexWrap: "wrap",
-                  bgcolor: "action.hover",
-                  borderRadius: 1.5,
-                  px: 1.5,
-                  py: 0.75,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                >
-                  {t("portfolio.relatedBy")}
-                </Typography>
-                {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
-                  <FilterSelect
-                    key={rf.typeKey}
-                    label={rf.label}
-                    options={rf.options}
-                    value={relationFilters[rf.typeKey] || []}
-                    onChange={(v) =>
-                      setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
-                    }
-                  />
-                ))}
-                {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                  <Tooltip title={t("portfolio.showMore", { count: relationFilterOptions.length - 2 })}>
-                    <Chip
-                      size="small"
-                      icon={<MaterialSymbol icon="add" size={14} />}
-                      label={t("portfolio.more", { count: relationFilterOptions.length - 2 })}
-                      onClick={() => setShowAllRelFilters(true)}
-                      sx={{
-                        height: 26,
-                        fontSize: "0.72rem",
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        bgcolor: "background.paper",
-                        border: "1px dashed",
-                        borderColor: "divider",
-                        "&:hover": { bgcolor: "action.hover" },
-                      }}
-                    />
-                  </Tooltip>
-                )}
-                {showAllRelFilters && relationFilterOptions.length > 2 && (
-                  <Chip
-                    size="small"
-                    label={t("portfolio.less")}
-                    onClick={() => setShowAllRelFilters(false)}
-                    sx={{
-                      height: 26,
-                      fontSize: "0.72rem",
-                      cursor: "pointer",
-                      bgcolor: "background.paper",
-                      border: 1,
-                      borderColor: "divider",
-                    }}
-                  />
-                )}
-              </Box>
-            )}
-
-            {/* Tags section */}
-            {(data?.tag_groups || []).length > 0 && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  flexWrap: "wrap",
-                  bgcolor: "action.hover",
-                  borderRadius: 1.5,
-                  px: 1.5,
-                  py: 0.75,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                >
-                  {t("portfolio.tags")}
-                </Typography>
-                <TagPicker
-                  groups={(data?.tag_groups || []) as unknown as TagGroup[]}
-                  value={tagFilterIds}
-                  onChange={setTagFilterIds}
-                  size="small"
-                  label={t("portfolio.tags")}
-                  placeholder=""
-                  sx={{ minWidth: 180, maxWidth: 320 }}
-                />
-              </Box>
-            )}
-
-            {/* Own Fields section — the card's subtype first, then its
-                select fields. */}
-            {(subtypeOptions.length > 0 || selectFields.length > 0) && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  flexWrap: "wrap",
-                  bgcolor: "action.hover",
-                  borderRadius: 1.5,
-                  px: 1.5,
-                  py: 0.75,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                >
-                  {t("portfolio.fields")}
-                </Typography>
-                {subtypeOptions.length > 0 && (
-                  <FilterSelect
-                    label={t("portfolio.filters.subtype")}
-                    options={subtypeOptions}
-                    value={subtypeFilters}
-                    onChange={setSubtypeFilters}
-                  />
-                )}
-                {selectFields.map((f) => (
-                  <FilterSelect
-                    key={f.key}
-                    label={f.label}
-                    options={(f.options || []).map((o) => ({
-                      key: o.key,
-                      label: o.label,
-                      color: o.color,
-                    }))}
-                    value={attrFilters[f.key] || []}
-                    onChange={(v) =>
-                      setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                    }
-                  />
-                ))}
-              </Box>
-            )}
-
-            {/* Relation Subtypes section — hidden when the card type's
-                relations carry no single_select subtype attributes. */}
-            {relSubtypes.length > 0 && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  flexWrap: "wrap",
-                  bgcolor: "action.hover",
-                  borderRadius: 1.5,
-                  px: 1.5,
-                  py: 0.75,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                >
-                  {t("portfolio.relationSubtypes")}
-                </Typography>
-                {relSubtypes.map((sub) => (
-                  <FilterSelect
-                    key={sub.composite}
-                    label={sub.comboLabel}
-                    options={sub.options.map((o) => ({
-                      key: o.key,
-                      label: o.label,
-                      color: o.color,
-                    }))}
-                    value={relSubtypeFilters[sub.composite] || []}
-                    onChange={(v) =>
-                      setRelSubtypeFilters((prev) => ({ ...prev, [sub.composite]: v }))
-                    }
-                  />
-                ))}
-              </Box>
-            )}
-          </ReportFilterSection>
+            value={cardFilters}
+            onChange={setCardFilters}
+            relationOptions={relationFilterOptions}
+            tagGroups={data?.tag_groups || []}
+            subtypeOptions={subtypeOptions}
+            fields={selectFields}
+            relSubtypes={relSubtypes}
+            search={search}
+            onClearAll={clearFilters}
+          />
         </>
       }
       legend={
@@ -2189,7 +1993,7 @@ export default function PortfolioReport({
           ungrouped.length === 0 ? (
             <Box sx={{ py: 8, textAlign: "center" }}>
               <Typography color="text.secondary">
-                {hasActiveFilters ? noItemsFiltered : noItemsEmpty}
+                {anyFilterActive ? noItemsFiltered : noItemsEmpty}
               </Typography>
             </Box>
           ) : (
@@ -2484,8 +2288,9 @@ export default function PortfolioReport({
         emptyLabel={noItemsInGroup}
         inventoryHref={
           // A rolled-up nested subtree is not expressible as an inventory
-          // filter, so those drawers deliberately carry no link.
-          drawer?.groupRef && !nestedActive
+          // filter, and neither is a related-card pick widened to its
+          // sub-cards, so those drawers deliberately carry no link.
+          drawer?.groupRef && !nestedActive && !relationPicksWidened
             ? buildInventorySliceUrl({
                 cardType,
                 mode: groupByMode,
