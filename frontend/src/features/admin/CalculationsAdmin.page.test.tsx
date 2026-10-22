@@ -900,6 +900,29 @@ describe("FormulaReference", () => {
     expect(example?.innerHTML).toContain('<span class="hl-comment"># Total Budget</span>');
     expect(example?.innerHTML).toContain('<span class="hl-function">MAP_SCORE</span>');
   });
+
+  it("builds the TIME Model example on the built-in suitability fields, so it saves on a stock install", async () => {
+    const { user } = await renderPage();
+    const dialog = await openEditorFor(user);
+
+    await user.click(within(dialog).getByRole("button", { name: /^Formula Reference/ }));
+
+    const text =
+      within(dialog).getByText("Example Formulas").parentElement?.querySelector("pre")?.textContent ?? "";
+    expect(text).toContain("# Target: Application → TIME Model.");
+    expect(text).toContain(
+      'ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})',
+    );
+    expect(text).toContain(
+      'tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})',
+    );
+    expect(text).toContain(
+      'IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))',
+    );
+    // The previous example read two fields no built-in type has, so the backend refused to save it.
+    expect(text).not.toContain("businessFit");
+    expect(text).not.toContain("technicalFit");
+  });
 });
 
 // ---------------------------------------------------------------------------

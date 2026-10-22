@@ -528,9 +528,9 @@ def _evaluate_formula(
 
     Supports multi-line formulas with intermediate variable assignments::
 
-        bf = MAP_SCORE(data.businessFit, {"excellent": 4, ...})
-        tf = MAP_SCORE(data.technicalFit, {"excellent": 4, ...})
-        IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), ...)
+        ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, ...})
+        tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, ...})
+        IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), ...)
 
     Assignment lines (``name = expr``) store the result in the context so
     subsequent lines can reference them.  The value of the *last* line is
