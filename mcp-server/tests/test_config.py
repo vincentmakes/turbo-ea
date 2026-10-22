@@ -93,6 +93,13 @@ class TestParseOrigins:
             "https://b.example:8443",
         ]
 
+    def test_only_the_trailing_slash_is_removed(self):
+        # An origin can end in any host character; only "/" is stripped.
+        assert config.parse_origins("https://BOX/,https://x.example:8X") == [
+            "https://BOX",
+            "https://x.example:8X",
+        ]
+
     @pytest.mark.parametrize("raw", ["", " ", ",", " , "])
     def test_nothing_set_is_no_origin(self, raw):
         assert config.parse_origins(raw) == []

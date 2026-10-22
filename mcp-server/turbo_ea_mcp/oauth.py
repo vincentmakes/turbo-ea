@@ -61,6 +61,10 @@ MAX_CLIENT_NAME_LENGTH = 200
 # letting open registration grow memory without limit.
 MAX_CACHED_CLIENTS = 1000
 
+# A module constant rather than a literal at the call: header names are
+# case-insensitive, so a mutated spelling could never fail a test.
+RETRY_AFTER = "Retry-After"  # pragma: no mutate, header names are case-insensitive
+
 # RFC 6749 §5.1: a response carrying tokens must not be cached.
 _TOKEN_RESPONSE_HEADERS = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
@@ -164,7 +168,7 @@ _client_id_key: bytes = MCP_OAUTH_CLIENT_KEY or secrets.token_bytes(32)
 
 
 def _b64encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
 def _client_id_signature(payload: str) -> str:
@@ -576,7 +580,8 @@ async def _read_token_body(request: Request) -> dict | None:
     The content type is read first because ``request.form()`` does not raise
     on a JSON body — it returns an empty form, so a JSON request used to be
     answered ``unsupported_grant_type``."""
-    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    content_type = request.headers.get("content-type", "")  # pragma: no mutate, header names are case-insensitive and any non-JSON default reads as form
+    media_type = content_type.split(";")[0].strip().lower()
     if media_type != "application/json":
         try:
             return dict(await request.form())
@@ -725,7 +730,7 @@ async def _handle_refresh(body: dict) -> Response:
                 "error_description": "Turbo EA is not reachable, retry shortly",
             },
             status_code=503,
-            headers={"Retry-After": "5"},
+            headers={RETRY_AFTER: "5"},
         )
 
     if new_jwt:

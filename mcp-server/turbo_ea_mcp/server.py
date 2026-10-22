@@ -3891,6 +3891,17 @@ async def _get_current_token() -> str | None:
 # case-insensitive, so a mutated spelling of the literal could never fail a test.
 _WWW_AUTHENTICATE = "WWW-Authenticate"
 
+# The two challenges the gate answers with: the body and the WWW-Authenticate
+# parameters that precede ``resource_metadata``.
+_TOKEN_REQUIRED = (
+    {"error": "unauthorized", "error_description": "Bearer token required"},
+    "",
+)
+_TOKEN_INVALID = (
+    {"error": "invalid_token", "error_description": "The access token is unknown or expired"},
+    'error="invalid_token", ',
+)
+
 
 class RequireBearerForMcp:
     """Return 401 + WWW-Authenticate for unauthenticated /mcp requests —
@@ -3941,13 +3952,7 @@ class RequireBearerForMcp:
                 headers = dict(scope.get("headers", []))
                 auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, any default reads as unauthenticated
                 if not auth.lower().startswith("bearer "):
-                    await self._challenge(
-                        scope,
-                        receive,
-                        send,
-                        {"error": "unauthorized", "error_description": "Bearer token required"},
-                        "",
-                    )
+                    await self._challenge(scope, receive, send, *_TOKEN_REQUIRED)  # pragma: no mutate, a JSON response never reads the body
                     return
                 try:
                     resolved = await self.resolve(auth[7:])
@@ -3964,21 +3969,12 @@ class RequireBearerForMcp:
                             "error_description": "Turbo EA is not reachable, retry shortly",
                         },
                         status_code=503,
-                        headers={"Retry-After": "5"},
+                        headers={oauth.RETRY_AFTER: "5"},
                     )
                     await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
                     return
                 if resolved is None:
-                    await self._challenge(
-                        scope,
-                        receive,
-                        send,
-                        {
-                            "error": "invalid_token",
-                            "error_description": "The access token is unknown or expired",
-                        },
-                        'error="invalid_token", ',
-                    )
+                    await self._challenge(scope, receive, send, *_TOKEN_INVALID)  # pragma: no mutate, a JSON response never reads the body
                     return
         await self.app(scope, receive, send)
 
