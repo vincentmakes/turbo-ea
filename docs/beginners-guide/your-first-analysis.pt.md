@@ -1,21 +1,20 @@
 # Sua Primeira Análise: Harmonização de Aplicações
 
-Este é o retorno. Você tem um inventário de aplicações, um mapa de capacidades e um campo de disposição TIME. Agora você os conecta e produz os dois relatórios que justificam todo o programa de EA para um CIO:
+Este é o retorno. Você tem um inventário de aplicações, um mapa de capacidades e o campo integrado Modelo TIME. Agora você os conecta e produz os dois relatórios que justificam todo o programa de EA para um CIO:
 
-- Um **Relatório de Portfólio** que mostra cada aplicação dimensionada por custo, colorida pela disposição TIME.
-- Um **Mapa de Calor de Capacidades** que mostra onde você tem redundância (várias aplicações por capacidade) e fragilidade (uma única aplicação por capacidade).
+- O relatório **Portfólio de aplicações**, com cada aplicação agrupada por **Criticidade de negócio** e colorida pela sua disposição **TIME** (**T**olerar / **I**nvestir / **M**igrar / **E**liminar).
+- O **Mapa de capacidades**, um mapa de calor que mostra onde você tem redundância (várias aplicações por capacidade) e fragilidade (uma única aplicação por capacidade).
 
 ## Etapa 1 — Mapeie aplicações para capacidades
 
-A relação mais valiosa em todo o metamodelo é **Application → Business Capability** (`supports` / `supported by`). Você a definirá para cada aplicação no escopo.
+A relação mais valiosa em todo o metamodelo é **Application → Business Capability** (`suporta` / `é suportado por`). Você a definirá para cada aplicação no escopo.
 
 ### Caminho em massa: modo de edição em grade do inventário
 
 1. Vá para **Inventário**, filtre por Tipo = `Application`.
 2. Certifique-se de que a coluna de relação **Business Capability** está visível (aba Colunas → Relações).
-3. Alterne o modo **Grid Edit** na barra de ferramentas.
-4. Clique na célula de capacidade em cada linha e escolha uma ou mais capacidades.
-5. Salve.
+3. Alterne o modo **Edição em grade** na barra de ferramentas.
+4. Clique na célula de capacidade em cada linha e escolha uma ou mais capacidades. Cada alteração é salva assim que você a faz.
 
 Para 50–200 apps, isso leva uma tarde e um café.
 
@@ -35,50 +34,65 @@ Para mapeamentos de alto julgamento (ou quando um workshop com o Dono da Aplica�
 !!! tip "Boa prática"
     O mapeamento do primeiro passe é rápido e bruto. O segundo passe — feito com o Dono da Aplicação revisando — é o que torna os dados confiáveis. Planeje para ambos.
 
-## Etapa 2 — Escolha como você preencherá o TIME Model
+## Etapa 2 — Avalie criticidade e adequação
 
-O campo integrado **TIME Model** em Application (`timeModel`, obrigatório, quatro opções: `tolerate` / `invest` / `migrate` / `eliminate`) é a coluna de decisão que conduz o restante da análise. Você tem duas maneiras de preenchê-lo.
+Três campos integrados na seção **Avaliação** de cada card de Aplicação alimentam a análise. Preencha-os com o Dono da Aplicação — em um workshop de uma hora você normalmente pode avaliar 30–50 aplicações usando a **Edição em grade** com as três colunas visíveis.
 
-### Opção A — Entrada manual de TIME (recomendada para o primeiro passe)
+| Campo | Opções | O que responde |
+|-------|--------|----------------|
+| **Criticidade de negócio** | Crítico para a missão / Crítico para o negócio / Operacional / Administrativo | Quanto o negócio depende desta aplicação? |
+| **Adequação funcional** | Perfeito / Apropriado / Insuficiente / Inadequado | Quão bem ela faz o que o negócio precisa? |
+| **Adequação técnica** | Totalmente apropriado / Adequado / Inadequado / Inapropriado | Quão saudável é a tecnologia por baixo? |
 
-Com o Dono da Aplicação em um workshop de uma hora, você normalmente pode classificar 30–50 aplicações:
+A Criticidade de negócio agrupa o relatório da Etapa 4. As duas avaliações de adequação são o que o cálculo TIME da Etapa 3 lê.
 
-- **Tolerar** — funciona, baixo custo, não é um diferencial estratégico. Deixe como está.
-- **Investir** — estratégico, área de crescimento, financie melhorias.
-- **Migrar** — substituir ou mover para uma nova plataforma dentro do horizonte de planejamento.
-- **Eliminar** — duplicado, fim de vida, descomissionar.
+Editar esses campos em um card aprovado muda seu status de aprovação para **Quebrado**. Reaprove os cards em lote após o workshop.
 
-Use o modo **Grid Edit** do inventário com a coluna **TIME Model** visível para capturar decisões com velocidade.
+## Etapa 3 — Derive o TIME com um campo calculado
 
-### Opção B — TIME calculado via uma fórmula
+O campo integrado **Modelo TIME** em Application (`timeModel`, quatro opções: `tolerate` / `invest` / `migrate` / `eliminate`) é a coluna de decisão que conduz o restante da análise. Em vez de pedir a cada Dono de Aplicação que escolha uma, derive-o das duas avaliações de adequação com um **cálculo** — o posicionamento clássico do Gartner:
 
-Em vez de pedir a cada Dono de Aplicação para definir TIME manualmente, você pode derivar `timeModel` automaticamente a partir das duas dimensões integradas de adequação (`functionalSuitability` × `technicalSuitability`) usando o recurso **Cálculos**. Este é o posicionamento canônico de quatro quadrantes do Gartner.
+| | Adequação técnica alta | Adequação técnica baixa |
+|---|---|---|
+| **Adequação funcional alta** | **Investir** | **Migrar** |
+| **Adequação funcional baixa** | **Tolerar** | **Eliminar** |
 
-O exemplo prático — a fórmula, a tabela de quadrantes e o padrão híbrido recomendado — está em [Personalize o metamodelo → Opção: derivar um campo automaticamente com um Cálculo](customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation). Use-o como uma recomendação inicial que os donos então validam, não como um veredito.
+1. Vá para **Admin → Metamodelo → Cálculos** e clique em **Novo cálculo**.
+2. Defina **Tipo de ficha alvo** = `Application` e **Campo alvo** = **Modelo TIME**.
+3. Cole a fórmula de [Personalize o metamodelo → Opção: derivar um campo automaticamente com um Cálculo](customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation). Ela usa os campos de adequação integrados, então nenhum campo personalizado é necessário.
+4. Clique em **Validar**, salve e depois use **Testar** em algumas aplicações que você conhece bem para conferir o resultado.
+5. Ative o cálculo (**Ativo**) na lista e depois clique em **Recalcular todos** na sua linha para preencher o Modelo TIME em todas as aplicações.
 
-## Etapa 3 — Execute o Relatório de Portfólio
+A partir daí, o Modelo TIME é recalculado sempre que uma aplicação é salva, exibe um selo **calculado** e não pode mais ser editado manualmente. Uma aplicação sem uma das duas avaliações de adequação não recebe valor TIME — isso é intencional: mostra quais avaliações ainda estão faltando.
 
-1. Vá para **Relatórios → Portfólio**.
-2. Configure os eixos:
-    - **Tipo de card**: `Application`
-    - **Eixo X**: `technicalSuitability` (o campo integrado de adequação técnica).
-    - **Eixo Y**: `functionalSuitability` ou `businessValue` (campos integrados de adequação ao negócio).
-    - **Tamanho**: `costTotalAnnual` — quanto maior o gasto, maior a bolha.
-    - **Cor**: `timeModel` — isso é o que torna o relatório pronto para decisão.
-3. Salve a configuração como uma visão nomeada ("Portfólio de Aplicações — Domínio de Vendas") para poder voltar a ela.
+!!! warning "Don't"
+    Um TIME calculado é uma **hipótese inicial**, não um veredito. Revise os resultados com os Donos das Aplicações antes de apresentá-los. Quando uma decisão precisar prevalecer sobre a fórmula, desligue o cálculo (o interruptor **Ativo**) e edite o Modelo TIME manualmente na **Edição em grade**.
+
+Referência: [Admin → Cálculos](../admin/calculations.md).
+
+## Etapa 4 — Execute o relatório Portfólio de aplicações
+
+1. Vá para **Relatórios → Portfólio de aplicações**.
+2. Defina **Agrupar por** = **Criticidade de negócio**.
+3. Defina **Colorir aplicações por** = **Modelo TIME**.
+4. Clique no ícone de marcador (**Salvar relatório**) e dê um nome à visão ("Portfólio de Aplicações — Domínio de Vendas"). Você a encontrará novamente em **Relatórios → Relatórios salvos**.
+
+Cada nível de Criticidade de negócio vira uma caixa, com um chip por aplicação colorido pela sua disposição TIME e uma barra mostrando a composição. Para focar em um domínio, use o filtro **Relacionado por** com as capacidades do seu escopo.
 
 O que procurar:
 
-- **Bolhas vermelhas grandes** (candidatos a Eliminar de alto custo) — sua economia mais rápida.
-- **Bolhas âmbar grandes** (candidatos a Migrar de alto custo) — suas decisões de transformação mais consequentes.
-- **Aglomerados no canto superior direito da matriz** que não estão verdes — apps estratégicos que não estão recebendo o investimento.
+- **Aplicações «Crítico para a missão» e «Crítico para o negócio» marcadas como Migrar** — suas decisões de modernização mais consequentes. Elas vêm primeiro.
+- **Aplicações «Administrativo» e «Operacional» marcadas como Eliminar ou Migrar** — seus ganhos de simplificação mais rápidos: aposente-as ou consolide-as em outra plataforma.
+- **Aplicações «Crítico para a missão» marcadas como Investir** — confirme que elas estão realmente recebendo o investimento.
+- **Aplicações sem cor** (TIME *Não definido*) — uma das duas avaliações de adequação está faltando. Volte à Etapa 2.
 
-Referência: [Relatórios](../guide/reports.md).
+Referência: [Relatórios → Relatório de Portfólio](../guide/reports.md#relatorio-de-portfolio).
 
-## Etapa 4 — Execute o Mapa de Calor de Capacidades
+## Etapa 5 — Execute o Mapa de capacidades
 
-1. Vá para **Relatórios → Mapa de Capacidades**.
-2. O mapa de calor mostra sua hierarquia de capacidades de negócio com a intensidade da cor da célula proporcional ao **número de aplicações que dão suporte àquela capacidade**.
+1. Vá para **Relatórios → Mapa de capacidades**.
+2. Mantenha a **Métrica do mapa de calor** em **Contagem de aplicações**: a intensidade da cor da célula é proporcional ao número de aplicações que dão suporte àquela capacidade.
+3. Opcional: ative **Mostrar aplicações** e defina **Colorir aplicações por** = **Modelo TIME** para ver a disposição TIME das aplicações dentro de cada capacidade.
 
 O que procurar:
 
@@ -86,13 +100,13 @@ O que procurar:
 - **Células frias** com aplicações que você esperaria — lacunas em seu mapeamento, ou capacidades genuinamente subatendidas.
 - **Células brancas** no meio de um ramo ativo — aplicações não mapeadas, ou capacidades não modeladas.
 
-Referência: [Relatórios → Mapa de Capacidades](../guide/reports.md).
+Referência: [Relatórios → Mapa de Capacidades](../guide/reports.md#mapa-de-capacidades).
 
-## Etapa 5 — Apresente e itere
+## Etapa 6 — Apresente e itere
 
 Você agora tem uma visão de portfólio defensável. Coloque os dois relatórios diante do CIO de Vendas (ou de quem quer que seja dono do seu escopo) e:
 
-- Confirme as decisões TIME nas 10 aplicações de maior custo.
+- Confirme as decisões TIME nas aplicações «Crítico para a missão» e «Crítico para o negócio».
 - Identifique as 3 principais células quentes no mapa de calor como candidatos a projetos de racionalização.
 - Capture acompanhamentos como comentários ou todos nas próprias aplicações — o Turbo EA os rastreia por card.
 

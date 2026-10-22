@@ -8,7 +8,7 @@ O erro clássico nesta fase: gastar três semanas em workshops elaborando um mod
 - **Catálogo de Processos** — processos de negócio de referência por setor, prontos para serem importados como cards `BusinessProcess`.
 - **Catálogo de Cadeias de Valor** — cadeias de valor ponta a ponta para emoldurar o mapa de capacidades.
 
-Esta página foca no Catálogo de Capacidades de Negócio, porque é aquele que alimenta o Mapa de Calor de Capacidades na página final. Os outros dois funcionam da mesma forma.
+Esta página foca no Catálogo de Capacidades de Negócio, porque é aquele que alimenta o Mapa de capacidades na página final. Os outros dois funcionam da mesma forma.
 
 ## Por que começar com capacidades
 
@@ -22,20 +22,20 @@ Você não precisa de 500 capacidades para obter valor. Você precisa de **20–
 
 ## Importe um mapa inicial de capacidades
 
-1. Navegue até **Catálogo de Capacidades** no menu principal (sob Guia do Usuário).
+1. Abra o menu do usuário (seu avatar, no canto superior direito) → **Catálogos de referência** → **Catálogo de capacidades**.
 2. Use os filtros no topo:
-    - **Setor** — escolha o seu (ou "Intersetorial" se nada se encaixar).
+    - **Indústria** — escolha a sua (ou **Cross-Industry** se nada se encaixar).
     - **Nível** — comece com L1 e L2 visíveis. Você sempre pode aprofundar depois.
 3. Navegue pela árvore. Expanda alguns ramos para ter uma noção da profundidade.
-4. Marque as capacidades que você quer importar. **A seleção cascateia**: marcar um L1 marca seus descendentes; marcar um L2 também marca seu ancestral L1 para que a hierarquia permaneça conectada.
-5. Clique em **Criar cards a partir da seleção**.
+4. Marque as capacidades que você quer importar. Marcar uma capacidade também marca tudo o que está abaixo dela. Marcar um filho **não** marca o seu pai — marque o pai também, para que a hierarquia seja preservada.
+5. Clique em **Criar N capacidades** na parte inferior e confirme.
 
 O Turbo EA cria um card `BusinessCapability` por nó marcado, preserva a hierarquia pai-filho e carimba cada card com um `catalogueId` estável para que reimportações sejam **idempotentes** — executar a importação duas vezes não cria duplicatas.
 
 Referência completa: [Catálogo de Capacidades](../guide/capability-catalogue.md).
 
 !!! tip "Boa prática"
-    Escolha uma subárvore, não o catálogo inteiro. Para uma Racionalização do Portfólio de Aplicações no domínio de Vendas, importar a capacidade L1 "Vendas e Gestão de Clientes" mais seus filhos L2 geralmente é suficiente — isso são 10–15 capacidades, não 300.
+    Escolha uma subárvore, não o catálogo inteiro. Para uma Racionalização do Portfólio de Aplicações no domínio de Vendas, importar a capacidade L1 "Sales Management" (e talvez "Customer Relationship Management") mais seus filhos L2 geralmente é suficiente — isso são 10–15 capacidades, não 300.
 
 ## Quão fundo ir
 
@@ -63,8 +63,8 @@ Você os quererá quando:
 
 Duas opções:
 
-1. **Escolha o setor mais próximo** e pode. As entradas "Intersetoriais" (Finanças, RH, TI, Compras) aplicam-se a praticamente toda empresa.
-2. **Combine catálogos** — importe "Intersetorial" primeiro, depois complete com alguns itens de um catálogo setorial específico.
+1. **Escolha o setor mais próximo** e pode. As entradas **Cross-Industry** (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) aplicam-se a praticamente toda empresa.
+2. **Combine catálogos** — importe **Cross-Industry** primeiro, depois complete com alguns itens de um catálogo setorial específico.
 
 De qualquer forma, **importe primeiro, personalize depois**. Renomear uma capacidade importada ou adicionar um filho é muito mais rápido do que digitar toda a estrutura do zero. E você mantém o `catalogueId` para que futuras atualizações do catálogo se mesclem de forma limpa.
 
@@ -79,6 +79,6 @@ Você terminou esta página quando:
 - A hierarquia está intacta — abra algumas capacidades L2 e verifique se o breadcrumb pai mostra o L1 correto.
 - A contagem de capacidades está entre 20 e 60.
 
-Você ainda não mapeou nenhuma aplicação para capacidades — isso fica para a página final. Primeiro, vamos adicionar um campo personalizado às Aplicações para tornar a análise realmente útil.
+Você ainda não mapeou nenhuma aplicação para capacidades — isso fica para a página final. Primeiro, um rápido olhar sobre o metamodelo — e por que a análise não precisa de nenhum campo personalizado.
 
 Próximo: [Personalize o metamodelo — levemente](customise-the-metamodel.md).

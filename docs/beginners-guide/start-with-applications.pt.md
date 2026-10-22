@@ -19,10 +19,10 @@ Para cada card de Aplicação no seu escopo inicial, preencha estes campos e **a
 | **Nome** | Identidade. Use o nome que as pessoas realmente usam, não o rótulo da licença. | Sua fonte existente |
 | **Descrição** | Uma frase: o que esta aplicação faz pelo negócio? | Entrevista com o dono, ou sugestão de IA (veja [Inventário](../guide/inventory.md#ai-description-suggestions)) |
 | **Fase do ciclo de vida** | Plan / Phase In / Active / Phase Out / End of Life | CMDB, ou entrevista com o dono |
-| **Dono de Negócio** (stakeholder) | A pessoa responsável pela aplicação | Organograma |
-| **Custo — Total Anual** | Usado pelo Relatório de Portfólio e fórmula TIME | Finanças, ou estimativa aproximada |
+| **Responsável de negócio da aplicação** (stakeholder) | A pessoa responsável pela aplicação | Organograma |
+| **Custo anual total** | Usado pelo relatório Custos e para priorizar as decisões TIME | Finanças, ou estimativa aproximada |
 
-Cinco campos. Só isso. O anel de Qualidade de Dados marcará ~50% e tudo bem — você pode refinar no segundo passe.
+Cinco campos. Só isso. O anel de Qualidade de Dados marcará **0%** — isso é esperado: **Criticidade de negócio** e **Modelo TIME** são obrigatórios em Application, e a pontuação fica em 0 até que ambos estejam preenchidos. Você os preencherá na [página final](your-first-analysis.md).
 
 !!! warning "Não faça"
     Não tente preencher a **data de End of Life**, **Fornecedor**, **Stack tecnológica** e 12 campos personalizados no primeiro passe. Você vai se esgotar por volta do card 30.
@@ -35,21 +35,21 @@ Escolha o caminho que combina com sua fonte de dados. Você pode misturá-los �
 
 Se suas aplicações estão em uma planilha (ou você pode exportá-las de um CMDB), este é o caminho mais rápido. **Não comece montando a planilha à mão** — deixe o Turbo EA fornecer o modelo.
 
-1. **Crie primeiro um card de Application fictício manualmente**. Vá para **Inventário → + Criar**, Tipo = `Application`, dê um nome como *"_TEMPLATE — apagar"*. Preencha os cinco campos mínimos (descrição, ciclo de vida, dono, custo) para que a exportação contenha valores reais que sirvam de exemplo.
-2. **Filtre o inventário por Tipo = `Application`** e clique em **Exportar** na barra de ferramentas. Você obtém um arquivo `.xlsx` com uma linha de dados reais e uma coluna por campo — esse é o seu modelo. Os cabeçalhos de coluna correspondem às chaves de campo que o importador espera.
+1. **Crie primeiro um card de Application fictício manualmente**. Vá para **Inventário → Criar**, Tipo = `Application`, dê um nome como *"_TEMPLATE — apagar"*. Preencha os cinco campos mínimos (descrição, ciclo de vida, dono, custo) para que a exportação contenha valores reais que sirvam de exemplo.
+2. **Filtre o inventário por Tipo = `Application`** e clique em **Exportar → Exportar todos os campos** na barra de ferramentas. Você obtém um arquivo `.xlsx` com uma linha de dados reais e uma coluna por campo — esse é o seu modelo. Os cabeçalhos de coluna correspondem às chaves de campo que o importador espera, e a coluna `id` identifica cada card existente.
 3. **Edite a planilha offline**: preserve a estrutura das colunas, substitua a linha única por todas as suas aplicações reais e remova a linha fictícia no final (ou deixe-a — você remove o card do Turbo EA após a importação).
-4. **Importe o arquivo editado**: **Inventário → Importar**, arraste o `.xlsx`. O relatório de validação mostra exatamente quais linhas criarão novos cards, quais atualizarão cards existentes (correspondidos por nome ou ID) e quais falharão.
+4. **Importe o arquivo editado**: **Inventário → Importar**, arraste o `.xlsx`. O relatório de validação mostra exatamente quais linhas criarão novos cards, quais atualizarão cards existentes (correspondidos pela coluna `id` — linhas sem id criam novos cards) e quais têm erros a corrigir primeiro. Um aviso em cada linha sobre os campos obrigatórios vazios Criticidade de negócio e Modelo TIME é esperado — os cards são criados mesmo assim.
 5. Execute a importação e, em seguida, arquive o card `_TEMPLATE`.
 
 Referência completa: [Inventário → Importação de Excel](../guide/inventory.md#excel-import).
 
-**Dica para a primeira importação:** inclua apenas os cinco campos mínimos, mais uma coluna para o e-mail do Dono de Negócio (o importador tentará casá-lo com usuários existentes). Pule todo o resto. Você pode fazer uma segunda importação depois com mais colunas repetindo o ciclo exportar-editar-importar.
+**Dica para a primeira importação:** inclua apenas os cinco campos mínimos, mais a coluna `stakeholder:businessApplicationOwner` com o e-mail do dono (o importador o associa a usuários existentes e ignora e-mails desconhecidos com um aviso). Pule todo o resto. Você pode fazer uma segunda importação depois com mais colunas repetindo o ciclo exportar-editar-importar.
 
 ### Caminho B — Sincronização com ServiceNow
 
 Se você tem um CMDB do ServiceNow e acesso de administrador à sua API, a integração busca registros de Aplicação diretamente.
 
-1. Vá para **Admin → Integração com ServiceNow**.
+1. Vá para **Admin → Configurações → Integrações → ServiceNow**.
 2. Crie uma conexão (URL, credenciais — as credenciais são armazenadas criptografadas).
 3. Defina um mapeamento: ServiceNow `cmdb_ci_business_app` → Turbo EA `Application`, com regras em nível de campo.
 4. Execute uma sincronização **pull**. Por padrão, os registros chegam em uma área de **staging** para revisão pelo administrador antes de serem aplicados.
@@ -60,9 +60,9 @@ Veja [Admin → Integração com ServiceNow](../admin/servicenow.md) para a conf
 
 Para parques pequenos (menos de ~30 apps) ou quando nenhuma fonte utilizável existe:
 
-1. **Inventário** → **+ Criar** (canto superior direito).
+1. **Inventário** → **Criar** (canto superior direito).
 2. Tipo = **Application**, preencha Nome e (opcionalmente) Descrição.
-3. Clique em **Sugerir com IA** se quiser uma descrição inicial obtida de uma busca na web.
+3. Clique em **Sugerir com IA** (exibido quando um administrador habilitou a IA) se quiser uma descrição inicial obtida de uma busca na web.
 4. Salve e siga em frente. Você preencherá o resto a partir da página de detalhes do card.
 
 A entrada manual é lenta, mas produz os dados de mais alta qualidade porque cada card é tocado pelo dono na entrada.
@@ -77,7 +77,7 @@ Um fluxo prático:
 2. Uma vez que os campos mínimos estão preenchidos, **aprove** o card. Isso sinaliza para os consumidores downstream que o card é confiável.
 3. Se alguém depois editar um campo substancial, o Turbo EA automaticamente vira o status para **Broken** até ser re-aprovado.
 
-Filtre o inventário por `Approval Status = Approved` para obter uma visão limpa para o relatório de portfólio ao final deste guia.
+Filtre o inventário por `Approval Status = Approved` para obter uma visão limpa para o relatório Portfólio de aplicações ao final deste guia.
 
 !!! tip "Boa prática"
     Aprove em lotes ao final de cada dia. Isso o força a reler o que você importou e a pegar os piores problemas de qualidade de dados cedo.
@@ -88,7 +88,6 @@ Você terminou esta página quando:
 
 - Toda aplicação no seu escopo tem um card.
 - Cada card tem os cinco campos mínimos preenchidos.
-- A qualidade média de dados em todo o conjunto é **≥ 40%**.
 - Pelo menos 50% dos cards estão aprovados.
 
 Não espere pela perfeição. Vá para a próxima página — [Aproveite os catálogos de referência](leverage-reference-catalogues.md) — e volte para enriquecer depois que você tiver mapeado as capacidades.

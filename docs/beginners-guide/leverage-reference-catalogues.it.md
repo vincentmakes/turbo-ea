@@ -8,7 +8,7 @@ L'errore classico in questa fase: passare tre settimane a fare workshop per un m
 - **Catalogo dei processi** — processi di business di riferimento per settore, pronti da importare come card `BusinessProcess`.
 - **Catalogo dei value stream** — value stream end-to-end che fanno da cornice alla mappa delle capability.
 
-Questa pagina si concentra sul Catalogo Business Capability, perché è quello che alimenta la Capability Heatmap nell'ultima pagina. Gli altri due funzionano allo stesso modo.
+Questa pagina si concentra sul Catalogo Business Capability, perché è quello che alimenta la Mappa delle capacità nell'ultima pagina. Gli altri due funzionano allo stesso modo.
 
 ## Perché iniziare dalle capability
 
@@ -22,20 +22,20 @@ Non servono 500 capability per ottenere valore. Servono **20–60 capability, pr
 
 ## Importare una mappa di capability iniziale
 
-1. Navigare a **Capability Catalogue** nel menu principale (sotto User Guide).
+1. Aprire il menu utente (il proprio avatar, in alto a destra) → **Cataloghi di riferimento** → **Catalogo delle capacità**.
 2. Usare i filtri in alto:
-    - **Settore** — scegliere il proprio (o "Cross-industry" se nulla è adatto).
+    - **Settore** — scegliere il proprio (o **Cross-Industry** se nulla è adatto).
     - **Livello** — iniziare con L1 e L2 visibili. Si può sempre approfondire più tardi.
 3. Esplorare l'albero. Espandere alcuni rami per farsi un'idea della profondità.
-4. Spuntare le capability da importare. **La selezione si propaga**: spuntare una L1 spunta i suoi discendenti; spuntare una L2 spunta anche la sua L1 antenata in modo che la gerarchia rimanga connessa.
-5. Cliccare **Crea card dalla selezione**.
+4. Spuntare le capability da importare. Spuntare una capability spunta anche tutto ciò che sta sotto di essa. Spuntare un figlio **non** spunta il suo padre — spuntare anche il padre, in modo che la gerarchia venga preservata.
+5. Cliccare **Crea N capacità** in basso e confermare.
 
 Turbo EA crea una card `BusinessCapability` per ogni nodo spuntato, preserva la gerarchia padre-figlio e marca ogni card con un `catalogueId` stabile in modo che gli import successivi siano **idempotenti** — eseguire l'import due volte non crea duplicati.
 
 Riferimento completo: [Capability Catalogue](../guide/capability-catalogue.md).
 
 !!! tip "Buona pratica"
-    Scegliere un sottoalbero, non l'intero catalogo. Per una Razionalizzazione del portfolio applicativo nel dominio Vendite, importare la capability L1 "Sales & Customer Management" più i suoi figli L2 è di solito sufficiente — sono 10–15 capability, non 300.
+    Scegliere un sottoalbero, non l'intero catalogo. Per una Razionalizzazione del portfolio applicativo nel dominio Vendite, importare la capability L1 "Sales Management" (ed eventualmente "Customer Relationship Management") più i loro figli L2 è di solito sufficiente — sono 10–15 capability, non 300.
 
 ## Quanto andare in profondità
 
@@ -63,8 +63,8 @@ Diventeranno utili quando:
 
 Due opzioni:
 
-1. **Scegliere il settore più simile** e potare. Le voci "Cross-industry" (Finanza, HR, IT, Procurement) si applicano praticamente a ogni azienda.
-2. **Combinare cataloghi** — importare prima "Cross-industry", poi integrare con alcuni elementi da un catalogo settoriale specifico.
+1. **Scegliere il settore più simile** e potare. Le voci **Cross-Industry** (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) si applicano praticamente a ogni azienda.
+2. **Combinare cataloghi** — importare prima **Cross-Industry**, poi integrare con alcuni elementi da un catalogo settoriale specifico.
 
 In ogni caso, **prima importare, poi personalizzare**. Rinominare una capability importata o aggiungere un figlio è molto più veloce che digitare l'intera struttura da zero. E si mantiene il `catalogueId` in modo che i futuri aggiornamenti del catalogo si integrino senza problemi.
 
@@ -79,6 +79,6 @@ Questa pagina è completata quando:
 - La gerarchia è intatta — aprire alcune capability L2 e controllare che il breadcrumb del padre mostri la L1 giusta.
 - Il numero di capability è compreso tra 20 e 60.
 
-Non è ancora stata mappata alcuna applicazione sulle capability — quello è nell'ultima pagina. Prima, aggiungiamo un campo personalizzato alle Applicazioni per rendere l'analisi davvero utile.
+Non è ancora stata mappata alcuna applicazione sulle capability — quello è nell'ultima pagina. Prima, un breve sguardo al metamodello — e al perché l'analisi non ha bisogno di alcun campo personalizzato.
 
 Successivo: [Personalizzare il metamodello — con leggerezza](customise-the-metamodel.md).

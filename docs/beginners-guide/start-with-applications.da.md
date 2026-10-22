@@ -19,10 +19,10 @@ For hvert applikationskort i dit oprindelige område, befolk disse felter og **k
 | **Navn** | Identitet. Brug det navn, folk faktisk bruger, ikke licensbetegnelsen. | Din eksisterende kilde |
 | **Beskrivelse** | Én sætning: hvad gør denne app for forretningen? | Ejerinterview eller AI-forslag (se [Lager](../guide/inventory.md#ai-description-suggestions)) |
 | **Livscyklusfase** | Plan / Faseind / Aktiv / Faseud / Udløb | CMDB eller ejerinterview |
-| **Forretningsejer** (interessent) | Den person, der er ansvarlig for app'en | Organisationsdiagram |
-| **Omkostning — total årlig** | Bruges af porteføljerapporten og TIME-formlen | Økonomi eller groft skøn |
+| **Forretningsapplikationsejer** (interessent) | Den person, der er ansvarlig for app'en | Organisationsdiagram |
+| **Samlet årlig omkostning** | Bruges af rapporten Omkostninger og til at prioritere TIME-beslutningerne | Økonomi eller groft skøn |
 
-Fem felter. Det er det. Datakvalitetsringen vil vise ~50 %, og det er fint — du kan forfine i runde to.
+Fem felter. Det er det. Datakvalitetsringen vil vise **0 %** — det er forventet: **Forretningskritikalitet** og **TIME-model** er påkrævede på Application, og scoren forbliver 0, indtil begge er udfyldt. Du udfylder dem på den [sidste side](your-first-analysis.md).
 
 !!! warning "Lad være"
     Prøv ikke at udfylde **udløbsdato**, **leverandør**, **teknologistak** og 12 brugerdefinerede felter i første runde. Du vil brænde ud omkring kort 30.
@@ -35,21 +35,21 @@ Vælg den vej, der matcher din datakilde. Du kan blande dem — importer massen,
 
 Hvis dine applikationer bor i et regneark (eller du kan eksportere dem fra en CMDB), er dette den hurtigste vej. **Start ikke med at håndlave regnearket** — lad Turbo EA give dig skabelonen.
 
-1. **Opret ét dummy-applikationskort manuelt**. Gå til **Lager → + Opret**, type = `Application`, navngiv det noget i retning af *"_TEMPLATE — slet mig"*. Udfyld de fem minimumsfelter (beskrivelse, livscyklus, ejer, omkostning), så eksporten indeholder rigtige værdier, du kan bruge som eksempler.
-2. **Filtrér lageret til Type = `Application`** og klik på **Eksporter** i værktøjslinjen. Du får en `.xlsx`-fil med én række rigtige data og en kolonne pr. felt — det er din skabelon. Kolonneoverskrifterne matcher de feltnøgler, importøren forventer.
+1. **Opret ét dummy-applikationskort manuelt**. Gå til **Lager → Opret**, type = `Application`, navngiv det noget i retning af *"_TEMPLATE — slet mig"*. Udfyld de fem minimumsfelter (beskrivelse, livscyklus, ejer, omkostning), så eksporten indeholder rigtige værdier, du kan bruge som eksempler.
+2. **Filtrér lageret til Type = `Application`** og klik på **Eksportér → Eksportér alle felter** i værktøjslinjen. Du får en `.xlsx`-fil med én række rigtige data og en kolonne pr. felt — det er din skabelon. Kolonneoverskrifterne matcher de feltnøgler, importøren forventer, og kolonnen `id` identificerer hvert eksisterende kort.
 3. **Rediger regnearket offline**: behold kolonnestrukturen, erstat den enkelte række med alle dine rigtige applikationer, og slet dummy-rækken til sidst (eller lad den stå — du fjerner kortet fra Turbo EA efter importen).
-4. **Importer den redigerede fil**: **Lager → Importer**, træk `.xlsx`-filen ind. Valideringsrapporten viser dig nøjagtigt, hvilke rækker der vil oprette nye kort, hvilke der vil opdatere eksisterende kort (matchet efter navn eller ID), og hvilke der vil fejle.
+4. **Importer den redigerede fil**: **Lager → Importer**, træk `.xlsx`-filen ind. Valideringsrapporten viser dig nøjagtigt, hvilke rækker der vil oprette nye kort, hvilke der vil opdatere eksisterende kort (matchet via kolonnen `id` — rækker uden id opretter nye kort), og hvilke der har fejl, som skal rettes først. En advarsel på hver række om de tomme påkrævede felter Forretningskritikalitet og TIME-model er forventet — kortene oprettes alligevel.
 5. Kør importen, og arkivér derefter `_TEMPLATE`-kortet.
 
 Fuld reference: [Lager → Excel-import](../guide/inventory.md#excel-import).
 
-**Tip til første import:** medtag kun de fem minimumsfelter plus en kolonne til forretningsejerens e-mail (importøren vil forsøge at matche den med eksisterende brugere). Spring alt andet over. Du kan lave en anden import senere med flere kolonner ved at gentage eksporter-rediger-importer-løkken.
+**Tip til første import:** medtag kun de fem minimumsfelter plus kolonnen `stakeholder:businessApplicationOwner` med ejerens e-mail (importøren matcher den med eksisterende brugere og ignorerer ukendte e-mails med en advarsel). Spring alt andet over. Du kan lave en anden import senere med flere kolonner ved at gentage eksporter-rediger-importer-løkken.
 
 ### Vej B — ServiceNow-synkronisering
 
 Hvis du har en ServiceNow-CMDB og administratoradgang til dens API, henter integrationen applikationsposter direkte.
 
-1. Gå til **Admin → ServiceNow-integration**.
+1. Gå til **Admin → Indstillinger → Integrationer → ServiceNow**.
 2. Opret en forbindelse (URL, legitimationsoplysninger — legitimationsoplysninger gemmes krypteret).
 3. Definér en mapping: ServiceNow `cmdb_ci_business_app` → Turbo EA `Application`, med regler på feltniveau.
 4. Kør en **pull**-synkronisering. Som standard lander poster i et **staging**-område til administratorgennemgang, før de anvendes.
@@ -60,9 +60,9 @@ Se [Admin → ServiceNow-integration](../admin/servicenow.md) for den fulde konf
 
 For små miljøer (under ~30 apps), eller når der ikke findes en brugbar kilde:
 
-1. **Lager** → **+ Opret** (øverst til højre).
+1. **Lager** → **Opret** (øverst til højre).
 2. Type = **Application**, udfyld navn og (valgfrit) beskrivelse.
-3. Klik på **Foreslå med AI**, hvis du vil have en startbeskrivelse hentet fra en websøgning.
+3. Klik på **Foreslå med AI** (vises, når en administrator har aktiveret AI), hvis du vil have en startbeskrivelse hentet fra en websøgning.
 4. Gem og gå videre. Du udfylder resten fra kortdetaljesiden.
 
 Manuel indtastning er langsom, men producerer den højeste datakvalitet, fordi hvert kort er ejer-berørt ved indtastning.
@@ -77,7 +77,7 @@ En praktisk arbejdsproces:
 2. Når minimumsfelterne er udfyldt, **godkend** kortet. Dette signalerer til downstream-forbrugere, at kortet er troværdigt.
 3. Hvis nogen senere redigerer et væsentligt felt, vipper Turbo EA automatisk status til **Brudt**, indtil det godkendes igen.
 
-Filtrér lageret efter `Godkendelsesstatus = Godkendt` for at få en ren visning til porteføljerapporten i slutningen af denne guide.
+Filtrér lageret efter `Godkendelsesstatus = Godkendt` for at få en ren visning til rapporten Applikationsportefølje i slutningen af denne guide.
 
 !!! tip "Bedste praksis"
     Godkend i bunker i slutningen af hver dag. Det tvinger dig til at genlæse, hvad du har importeret, og fange de værste datakvalitetsproblemer tidligt.
@@ -88,7 +88,6 @@ Du er færdig med denne side, når:
 
 - Hver applikation i dit område har et kort.
 - Hvert kort har de fem minimumsfelter udfyldt.
-- Den gennemsnitlige datakvalitet på tværs af sættet er **≥ 40 %**.
 - Mindst 50 % af kortene er godkendt.
 
 Vent ikke på perfektion. Gå videre til den næste side — [Udnyt referencekataloger](leverage-reference-catalogues.md) — og kom tilbage for at berige, efter du har kortlagt kompetencer.

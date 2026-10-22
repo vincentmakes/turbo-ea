@@ -8,7 +8,7 @@ Den klassiske fejl på dette tidspunkt: at bruge tre uger på at workshoppe en s
 - **Proceskatalog** — referenceforretningsprocesser pr. branche, klar til at importere som `BusinessProcess`-kort.
 - **Værdistrømskatalog** — end-to-end-værdistrømme til at indramme kompetencekortet.
 
-Denne side fokuserer på forretningskompetencekataloget, fordi det er det, der driver kompetenceheatmappet på den sidste side. De to andre fungerer på samme måde.
+Denne side fokuserer på forretningskompetencekataloget, fordi det er det, der driver kompetencekortet på den sidste side. De to andre fungerer på samme måde.
 
 ## Hvorfor starte med kompetencer
 
@@ -22,20 +22,20 @@ Du har ikke brug for 500 kompetencer for at få værdi. Du har brug for **20–6
 
 ## Importer et start-kompetencekort
 
-1. Naviger til **Kompetencekatalog** i hovedmenuen (under brugervejledning).
+1. Åbn brugermenuen (din avatar, øverst til højre) → **Referencekataloger** → **Kompetencekatalog**.
 2. Brug filtrene øverst:
-    - **Branche** — vælg din (eller "Tværindustriel", hvis intet passer).
+    - **Branche** — vælg din (eller **Cross-Industry**, hvis intet passer).
     - **Niveau** — start med L1 og L2 synlige. Du kan altid gå dybere senere.
 3. Browse træet. Udvid et par grene for at få en fornemmelse af dybden.
-4. Sæt flueben ved de kompetencer, du vil importere. **Markering kaskaderer**: at sætte flueben ved en L1 sætter flueben ved dens efterkommere; at sætte flueben ved en L2 sætter også flueben ved dens L1-forfader, så hierarkiet forbliver forbundet.
-5. Klik på **Opret kort fra udvalg**.
+4. Sæt flueben ved de kompetencer, du vil importere. Et flueben ved en kompetence sætter også flueben ved alt under den. Et flueben ved et barn sætter **ikke** flueben ved dets forælder — sæt også flueben ved forælderen, så hierarkiet bevares.
+5. Klik på **Opret N kompetencer** nederst, og bekræft.
 
 Turbo EA opretter ét `BusinessCapability`-kort pr. afkrydset node, bevarer forælder-barn-hierarkiet og stempler hvert kort med et stabilt `catalogueId`, så genimport er **idempotent** — at køre importen to gange opretter ikke dubletter.
 
 Fuld reference: [Kompetencekatalog](../guide/capability-catalogue.md).
 
 !!! tip "Bedste praksis"
-    Vælg et undertræ, ikke hele kataloget. For en rationalisering af applikationsportefølje i salgsdomænet er det normalt nok at importere L1-kompetencen "Salg & kundestyring" plus dens L2-børn — det er 10–15 kompetencer, ikke 300.
+    Vælg et undertræ, ikke hele kataloget. For en rationalisering af applikationsportefølje i salgsdomænet er det normalt nok at importere L1-kompetencen "Sales Management" (og måske "Customer Relationship Management") plus deres L2-børn — det er 10–15 kompetencer, ikke 300.
 
 ## Hvor dybt skal man gå
 
@@ -63,8 +63,8 @@ Du vil have brug for dem, når:
 
 To muligheder:
 
-1. **Vælg den nærmeste branche** og beskær. "Tværindustriel"-poster (økonomi, HR, IT, indkøb) gælder for stort set alle virksomheder.
-2. **Kombiner kataloger** — importer "Tværindustriel" først, og fyld derefter op med et par poster fra et specifikt branchekatalog.
+1. **Vælg den nærmeste branche** og beskær. **Cross-Industry**-posterne (Financial Management, Human Capital Management, Information Technology Management, Procurement Management, …) gælder for stort set alle virksomheder.
+2. **Kombiner kataloger** — importer **Cross-Industry** først, og fyld derefter op med et par poster fra et specifikt branchekatalog.
 
 Uanset hvad, **importer først, tilpas efter**. At omdøbe en importeret kompetence eller tilføje et barn er meget hurtigere end at indtaste hele strukturen fra bunden. Og du beholder `catalogueId`, så fremtidige katalogopdateringer flettes pænt.
 
@@ -79,6 +79,6 @@ Du er færdig med denne side, når:
 - Hierarkiet er intakt — åbn et par L2-kompetencer, og kontrollér, at forælderbrødkrummestien viser den rigtige L1.
 - Kompetenceantallet er mellem 20 og 60.
 
-Du har endnu ikke kortlagt nogen applikationer til kompetencer — det kommer på sidste side. Lad os først tilføje ét brugerdefineret felt til applikationer for at gøre analysen virkelig nyttig.
+Du har endnu ikke kortlagt nogen applikationer til kompetencer — det kommer på sidste side. Først et kort kig på metamodellen — og på, hvorfor analysen slet ikke har brug for et brugerdefineret felt.
 
 Næste: [Tilpas metamodellen — let](customise-the-metamodel.md).

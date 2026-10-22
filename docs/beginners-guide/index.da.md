@@ -10,7 +10,7 @@ Det er en sekventieret, holdningsdrevet gennemgang af det **første konkrete EA-
 - **Løsningsarkitekter og applikationsejere**, der bliver bedt om at "udfylde EA-værktøjet" uden megen kontekst.
 - **Administratorer**, der forbereder platformen til en bredere udrulning.
 
-Du skal bruge **admin**-rollen (eller mindst `admin.metamodel` og `inventory.edit`) for at følge hvert trin. Skrivebeskyttede roller kan stadig drage nytte — de vil bare ikke kunne foretage metamodelændringerne på side 5.
+Du skal bruge **admin**-rollen (eller mindst `admin.metamodel` og `inventory.edit`) for at følge hvert trin. Skrivebeskyttede roller kan stadig drage nytte — de vil bare ikke kunne foretage metamodel- og beregningsændringerne på side 4 og 5.
 
 ## Kravl → gå → løb-buen
 
@@ -20,7 +20,7 @@ Forsøg ikke at modellere hele virksomheden i uge ét. Holdene, der lykkes med E
 2. **Gå** — Tilføj forretningskompetencer fra det medfølgende katalog. Knyt applikationer til kompetencer. Kør din første porteføljeanalyse. Vis den til en interessent.
 3. **Løb** — Udvid til processer, grænseflader, dataobjekter. Tilføj flere brugerdefinerede felter. Åbn de mere avancerede moduler.
 
-Denne guide dækker **kravl** og begyndelsen af **gå**. Når du er færdig, vil du have en fungerende applikationsportefølje med en TIME-disposition (**T**oler / **I**nvester / **M**igrer / **E**liminer) og en porteføljerapport, du kan lægge foran en CIO.
+Denne guide dækker **kravl** og begyndelsen af **gå**. Når du er færdig, vil du have en fungerende applikationsportefølje med en TIME-disposition (**T**oler / **I**nvester / **M**igrer / **E**liminer) og en Applikationsportefølje-rapport, du kan lægge foran en CIO.
 
 ## Hvad er der i denne guide
 
@@ -29,8 +29,8 @@ Denne guide dækker **kravl** og begyndelsen af **gå**. Når du er færdig, vil
 | 1 | [Planlæg din udrulning](plan-your-rollout.md) | Afgræns initiativet, vælg interessenter, sæt et realistisk datakvalitetsmål |
 | 2 | [Start med dit applikationslager](start-with-applications.md) | Befolk applikationer via import, ServiceNow eller manuel indtastning |
 | 3 | [Udnyt referencekataloger](leverage-reference-catalogues.md) | Spring måneders håndmodellering over ved at importere kompetencer og processer |
-| 4 | [Tilpas metamodellen — let](customise-the-metamodel.md) | Tilføj ét brugerdefineret felt (TIME) på den rigtige måde |
-| 5 | [Din første analyse: applikationsharmonisering](your-first-analysis.md) | Knyt apps til kompetencer, kør porteføljerapporten og kompetenceheatmappet |
+| 4 | [Tilpas metamodellen — let](customise-the-metamodel.md) | Kend de indbyggede felter, tilføj kun et brugerdefineret felt, når det er nødvendigt, og udled TIME med en beregning |
+| 5 | [Din første analyse: applikationsharmonisering](your-first-analysis.md) | Knyt apps til kompetencer, kør rapporten Applikationsportefølje og kompetencekortet |
 
 !!! tip "Bedste praksis"
     Læs alle fem sider i rækkefølge, før du åbner Turbo EA. Planen i dit hoved er mere værd end de første 50 kort i lageret.

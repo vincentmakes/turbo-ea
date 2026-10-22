@@ -10,16 +10,14 @@ Antes de adicionar qualquer coisa, conheça o que você já tem. O tipo de card 
 
 | Campo integrado | Tipo | Para que serve |
 |-----------------|------|----------------|
-| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
-| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
-| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
+| `businessCriticality` | `single_select` (obrigatório) | Crítico para a missão / Crítico para o negócio / Operacional / Administrativo |
+| `functionalSuitability` | `single_select` | Perfeito / Apropriado / Insuficiente / Inadequado |
+| `technicalSuitability` | `single_select` | Totalmente apropriado / Adequado / Inadequado / Inapropriado |
 | `timeModel` | `single_select` (obrigatório) | **Tolerar / Investir / Migrar / Eliminar** — a disposição canônica TIME do Gartner |
-| `riskLevel` | `single_select` | Low / Medium / High / Critical |
-| `businessValue` | `single_select` | Conduz o eixo Y do Relatório de Portfólio |
 | `costTotalAnnual` | `cost` | Custo anual total |
 | `lifecycle.*` | datas | Plan / Phase In / Active / Phase Out / End of Life |
 
-Tudo o que uma Racionalização do Portfólio de Aplicações precisa já está lá, incluindo o **TIME Model**. Você não precisa adicionar um campo TIME — você o preenche (manualmente ou via um cálculo, veja [Sua Primeira Análise](your-first-analysis.md)). O mesmo vale para `functionalSuitability` e `technicalSuitability`, as duas dimensões de adequação que classicamente conduzem o posicionamento TIME.
+Tudo o que uma Racionalização do Portfólio de Aplicações precisa já está lá, incluindo o **Modelo TIME**. Você não precisa adicionar um campo TIME — você o deriva com um cálculo (abaixo) ou o preenche manualmente, veja [Sua Primeira Análise](your-first-analysis.md). O mesmo vale para `functionalSuitability` e `technicalSuitability`, as duas dimensões de adequação que classicamente conduzem o posicionamento TIME, e para `businessCriticality`, que agrupa o relatório Portfólio de aplicações.
 
 ## O teste das duas perguntas antes de adicionar um campo
 
@@ -34,16 +32,16 @@ Se você não consegue responder "sim" a ambas, não adicione o campo.
 
 Para o caso raro em que um campo genuinamente novo é necessário (por exemplo, uma flag `cloudReadiness`, uma classificação regulatória, um marcador de segmento de cliente), o fluxo é:
 
-1. Vá para **Admin → Metamodelo**, clique no tipo, mude para a aba **Campos**.
-2. Escolha a seção (ou crie uma nova) e clique em **+ Adicionar campo**.
+1. Vá para **Admin → Metamodelo** e clique no tipo. O layout do card está na aba **Geral**.
+2. Escolha a seção (ou crie uma com **Adicionar seção**) e clique em **+ Campo**.
 3. Preencha:
     - **Chave** em lower camel-case (por exemplo, `cloudReadiness`) — torna-se a chave do atributo no JSON e nas fórmulas.
     - **Rótulo** (e uma tradução para cada localidade que você suporta — usuários não anglófonos verão a chave bruta caso contrário).
-    - **Tipo** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
-    - **Peso** — `0` para excluir da Qualidade de Dados, `1`+ para incluir e ponderar.
-    - **Obrigatório** — deixe **desligado** para o primeiro rollout; obrigatório bloqueia a aprovação de todo card existente.
+    - **Tipo** — `text`, `multiline_text`, `number`, `cost`, `percentage`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Obrigatório** — deixe **desligado** para o primeiro rollout; enquanto um campo obrigatório estiver vazio, a pontuação de Qualidade de Dados do card fica fixada em 0.
 4. Para tipos select, adicione as opções (chave + rótulo + cor) e traduza cada opção.
 5. Salve.
+6. Opcional: defina quanto o campo conta para a Qualidade de Dados na aba **Qualidade dos dados** do tipo.
 
 O campo fica imediatamente disponível no **Inventário** (Colunas, filtros), no Detalhe do Card e em fórmulas de **Cálculos** como `<fieldKey>`. Referência completa: [Admin → Metamodelo](../admin/metamodel.md).
 
@@ -51,18 +49,29 @@ O campo fica imediatamente disponível no **Inventário** (Colunas, filtros), no
 
 Além da opção padrão de fazer com que os usuários preencham um campo manualmente, o Turbo EA pode **computar o valor de um campo automaticamente** a partir de outros campos no mesmo card — incluindo os integrados — usando o recurso **Cálculos**. O campo computado torna-se somente leitura e carrega um selo "calculado" para que os usuários não se desviem da regra.
 
-O exemplo canônico é o cálculo **TIME Model** que deriva o campo integrado `timeModel` em Application a partir de uma dimensão de adequação de negócio e uma de adequação técnica. Ele vem como uma das entradas do painel **Formula Reference** dentro de **Admin → Metamodelo → Cálculos** quando você cria um novo cálculo, então você pode escolhê-lo diretamente do painel. Tipo alvo = `Application`, campo alvo = `timeModel`; a fórmula fornecida pelo painel está reproduzida em [Admin → Cálculos → Exemplos de Fórmulas](../admin/calculations.md#example-formulas).
+O exemplo canônico é o cálculo do **Modelo TIME**, que deriva o campo integrado `timeModel` em Application a partir das duas avaliações de adequação integradas. Crie-o em **Admin → Metamodelo → Cálculos** com **Novo cálculo**: Tipo de ficha alvo = `Application`, Campo alvo = **Modelo TIME**, e esta fórmula:
 
-A fórmula assume dois campos `single_select` chamados `businessFit` e `technicalFit` com as opções `excellent` / `adequate` / `insufficient` / `unreasonable`. Eles não estão no metamodelo integrado — adicione-os em Application seguindo os passos de campo personalizado acima se você quiser usar este cálculo.
+```
+# TIME Model from the built-in Functional and Technical Suitability (Gartner quadrants)
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+Cada avaliação é convertida em uma pontuação de 4 (melhor) a 1 (pior), e as duas pontuações posicionam a aplicação em um dos quatro quadrantes: funcional alta + técnica alta = **Investir**, funcional alta + técnica baixa = **Migrar**, funcional baixa + técnica alta = **Tolerar**, baixa em ambas = **Eliminar**. Uma aplicação sem uma das avaliações não recebe valor TIME, de modo que as lacunas permanecem visíveis.
+
+O painel **Referência de fórmulas** no editor de cálculos mostra um exemplo de TIME construído sobre dois campos personalizados, `businessFit` e `technicalFit`. A fórmula acima é a mesma lógica adaptada aos campos que Application já possui, então **você não precisa adicionar nenhum campo** — e não deveria (veja *Não duplique campos integrados* abaixo). Mais sintaxe de fórmulas: [Admin → Cálculos](../admin/calculations.md).
+
+Depois de salvar, ative o cálculo (**Ativo**) e clique em **Recalcular todos** na sua linha para que cada aplicação existente receba seu valor. O passo a passo está em [Sua Primeira Análise → Etapa 3](your-first-analysis.md).
 
 !!! warning "Don't"
-    Um TIME calculado é uma **hipótese inicial**, não um veredito. Ou revise cada resultado com o Dono da Aplicação antes de confiar nele, ou desligue o cálculo e confie na entrada manual uma vez que o workshop de validação esteja feito.
+    Um TIME calculado é uma **hipótese inicial**, não um veredito. Revise cada resultado com o Dono da Aplicação antes de confiar nele.
 
-O padrão híbrido que funciona bem na prática: mantenha o cálculo ligado enquanto você está construindo o inventário e tem majoritariamente dados de adequação; desligue-o para o workshop de validação; depois deixe-o desligado para que as decisões manuais permaneçam.
+O padrão híbrido que funciona bem na prática: mantenha o cálculo ativo enquanto você constrói o inventário e coleta as avaliações de adequação; revise os resultados no workshop de validação; e, se as decisões precisarem se afastar da fórmula, desligue o cálculo (o interruptor **Ativo**) para que o campo volte a ser editável e as decisões manuais permaneçam.
 
 ## Alternativa: usar um Grupo de Tags
 
-Se o valor é informativo em vez de consultável, um **Grupo de Tags** (Admin → Tags) é mais leve do que um campo personalizado — sem mudança de metamodelo, sem migração, mais fácil de evoluir. Use um Grupo de Tags quando:
+Se o valor é informativo em vez de consultável, um **Grupo de Tags** (Admin → Metamodelo → Etiquetas) é mais leve do que um campo personalizado — sem mudança de metamodelo, sem migração, mais fácil de evoluir. Use um Grupo de Tags quando:
 
 - O valor é descritivo ("Voltado ao cliente", "Apenas interno", "Adquirido em 2024").
 - Você pode adicionar novas opções com frequência.
@@ -70,7 +79,7 @@ Se o valor é informativo em vez de consultável, um **Grupo de Tags** (Admin �
 
 Use um campo personalizado quando:
 
-- Você precisa do valor nos eixos do Relatório de Portfólio (X, Y, cor).
+- Você quer agrupar ou colorir um relatório por ele (por exemplo, o Portfólio de aplicações).
 - Você quer que seja ponderado na Qualidade de Dados.
 - É um vocabulário controlado que não mudará com frequência.
 
@@ -79,16 +88,16 @@ Use um campo personalizado quando:
 Estes são os erros mais comuns de metamodelo em primeiros rollouts:
 
 !!! warning "Não renomeie tipos de card integrados"
-    Renomear `Application` para `Solution` parece arrumado mas quebra o mapeamento conceitual que o Mapa de Calor de Capacidades, o Relatório de Portfólio e os catálogos todos assumem. Se sua organização os chama de "Soluções", configure a tradução do **rótulo** — a `key` subjacente permanece como `Application`.
+    Renomear `Application` para `Solution` parece arrumado mas quebra o mapeamento conceitual que o Mapa de capacidades, o relatório Portfólio de aplicações e os catálogos todos assumem. Se sua organização os chama de "Soluções", configure a tradução do **rótulo** — a `key` subjacente permanece como `Application`.
 
 !!! warning "Não adicione 30 campos personalizados no primeiro dia"
     Cada campo personalizado adiciona atrito à coleta de dados e dilui a pontuação de Qualidade de Dados. Adicione um campo, use-o por um mês, depois adicione o próximo.
 
 !!! warning "Não duplique campos integrados"
-    Antes de adicionar `timeDisposition`, `funcFit`, `techFit` ou `appBusinessValue`, verifique a lista de campos existentes — provavelmente um campo integrado equivalente já existe (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplicatas dividem seus dados e quebram relatórios.
+    Antes de adicionar `timeDisposition`, `funcFit`, `techFit` ou `appCriticality`, verifique a lista de campos existentes — provavelmente um campo integrado equivalente já existe (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessCriticality`). Duplicatas dividem seus dados e quebram relatórios.
 
 !!! warning "Não torne novos campos `required` no primeiro dia"
-    `Required` bloqueia a aprovação para todo card existente que não tenha um valor. Torne um campo obrigatório somente **depois** de tê-lo preenchido em 80%+ da população.
+    Enquanto um campo obrigatório estiver vazio, a pontuação de Qualidade de Dados do card fica fixada em 0 e um banner de aviso lista o que está faltando — em todos os cards existentes de uma só vez. Torne um campo obrigatório somente **depois** de tê-lo preenchido em 80%+ da população.
 
 !!! warning "Não crie tipos de card personalizados em vez de campos personalizados"
     "Mobile App" deveria ser um subtipo de `Application`, não um novo tipo de card. Novos tipos não obtêm mapeamento de capacidades, relatórios de portfólio ou importações de catálogo de graça.

@@ -10,7 +10,7 @@ Então você instalou o Turbo EA. A tela de login funciona, os dados de demonstr
 - **Arquitetos de Soluções e Donos de Aplicações** solicitados a "preencher a ferramenta de EA" sem muito contexto.
 - **Administradores** preparando a plataforma para uma adoção mais ampla.
 
-Você precisará do papel de **admin** (ou pelo menos `admin.metamodel` e `inventory.edit`) para seguir cada etapa. Papéis somente leitura ainda podem se beneficiar — eles apenas não poderão fazer as mudanças de metamodelo na página 5.
+Você precisará do papel de **admin** (ou pelo menos `admin.metamodel` e `inventory.edit`) para seguir cada etapa. Papéis somente leitura ainda podem se beneficiar — eles apenas não poderão fazer as mudanças de metamodelo e de cálculos nas páginas 4 e 5.
 
 ## A jornada crawl → walk → run
 
@@ -20,7 +20,7 @@ Não tente modelar a empresa inteira na primeira semana. As equipes que têm suc
 2. **Walk (andar)** — Adicione Capacidades de Negócio do catálogo incluído. Mapeie aplicações para capacidades. Execute sua primeira análise de portfólio. Mostre-a a um stakeholder.
 3. **Run (correr)** — Expanda para processos, interfaces, objetos de dados. Adicione mais campos personalizados. Abra os módulos mais avançados.
 
-Este guia cobre **crawl** e o início de **walk**. Ao final, você terá um portfólio de aplicações funcional com uma disposição TIME (**T**olerar / **I**nvestir / **M**igrar / **E**liminar) e um Relatório de Portfólio que você pode colocar diante de um CIO.
+Este guia cobre **crawl** e o início de **walk**. Ao final, você terá um portfólio de aplicações funcional com uma disposição TIME (**T**olerar / **I**nvestir / **M**igrar / **E**liminar) e um relatório Portfólio de aplicações que você pode colocar diante de um CIO.
 
 ## O que há neste guia
 
@@ -29,8 +29,8 @@ Este guia cobre **crawl** e o início de **walk**. Ao final, você terá um port
 | 1 | [Planeje seu rollout](plan-your-rollout.md) | Defina o escopo da iniciativa, escolha stakeholders, estabeleça uma meta realista de qualidade de dados |
 | 2 | [Comece com seu inventário de aplicações](start-with-applications.md) | Popule as Aplicações via importação, ServiceNow ou entrada manual |
 | 3 | [Aproveite os catálogos de referência](leverage-reference-catalogues.md) | Pule meses de modelagem manual importando capacidades e processos |
-| 4 | [Personalize o metamodelo — levemente](customise-the-metamodel.md) | Adicione um campo personalizado (TIME) da maneira correta |
-| 5 | [Sua primeira análise: Harmonização de Aplicações](your-first-analysis.md) | Mapeie aplicações para capacidades, execute o Relatório de Portfólio e o Mapa de Calor de Capacidades |
+| 4 | [Personalize o metamodelo — levemente](customise-the-metamodel.md) | Conheça os campos integrados, adicione um personalizado só quando necessário e derive o TIME com um cálculo |
+| 5 | [Sua primeira análise: Harmonização de Aplicações](your-first-analysis.md) | Mapeie aplicações para capacidades, execute o relatório Portfólio de aplicações e o Mapa de capacidades |
 
 !!! tip "Boa prática"
     Leia todas as cinco páginas em ordem antes de abrir o Turbo EA. O plano em sua cabeça vale mais do que os primeiros 50 cards no inventário.

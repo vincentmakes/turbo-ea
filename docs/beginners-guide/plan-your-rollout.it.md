@@ -27,7 +27,7 @@ Altri primi casi d'uso validi — ma sceglierne **uno**:
 
 | Caso d'uso | Cosa popolerai principalmente | Cosa salterai |
 |------------|------------------------------|---------------|
-| **Razionalizzazione del portfolio applicativo** | Applicazioni, costi, ciclo di vita, valore di business | Modello di processo dettagliato, interfacce |
+| **Razionalizzazione del portfolio applicativo** | Applicazioni, costi, ciclo di vita, criticità aziendale, idoneità funzionale e tecnica | Modello di processo dettagliato, interfacce |
 | **Pianificazione basata sulle capability** | Business Capability, Applicazioni, heatmap delle capability | Dettaglio dei costi, stack tecnologico |
 | **Valutazione di cloud migration** | Applicazioni, IT Component, modello di deployment | Valore di business, processi |
 | **Integrazione post M&A** | Entrambi i portfolio come Applicazioni, analisi sovrapposizioni | Date di ciclo di vita a lungo termine |
@@ -36,10 +36,10 @@ In caso di dubbio, **scegliere Razionalizzazione del portfolio applicativo**. È
 
 ## 3. Identificare gli stakeholder
 
-Turbo EA ha un modello **Stakeholder** integrato (vedere [Dettagli card](../guide/card-details.md)): ogni card porta con sé un elenco di persone in ruoli definiti (Business Owner, Technical Owner, ecc.), definiti per tipo di card nel metamodello. Decidere in anticipo chi ricopre ciascun ruolo per un'Applicazione:
+Turbo EA ha un modello **Stakeholder** integrato (vedere [Dettagli card](../guide/card-details.md)): ogni card porta con sé un elenco di persone in ruoli definiti (per un'Applicazione: Responsabile aziendale dell'applicazione, Responsabile tecnico dell'applicazione, Responsabile, Osservatore), definiti per tipo di card nel metamodello. Decidere in anticipo chi ricopre ciascun ruolo per un'Applicazione:
 
-- **Application Owner** — responsabile dell'applicazione nel business. Una persona per app. Approva la disposizione TIME.
-- **Technical Owner** — responsabile del suo funzionamento. Spesso l'engineering manager.
+- **Application Owner** (il ruolo *Responsabile aziendale dell'applicazione*) — responsabile dell'applicazione nel business. Una persona per app. Approva la disposizione TIME.
+- **Technical Owner** (il ruolo *Responsabile tecnico dell'applicazione*) — responsabile del suo funzionamento. Spesso l'engineering manager.
 - **Architect** — probabilmente sei tu. Agisce come revisore lato EA e approva le card.
 
 Non è necessario assegnare gli stakeholder il primo giorno per ogni card, ma occorre sapere chi *saranno* — perché nella terza settimana si invieranno loro dei sondaggi per validare i dati.
@@ -55,9 +55,11 @@ Obiettivi realistici per i primi 90 giorni:
 
 | Fase | Qualità dei dati media obiettivo (Applicazioni) | Cosa è compilato |
 |------|------------------------------------------------|-----------------|
-| Fine settimana 2 (Crawl) | **40–60%** | Nome, Fase del ciclo di vita, Descrizione, Business Owner |
-| Fine settimana 6 (Walk) | **60–75%** | + Mappatura capability, Costo, Disposizione TIME |
+| Fine settimana 2 (Crawl) | **0%** — previsto, vedere sotto | Nome, Fase del ciclo di vita, Descrizione, Responsabile aziendale dell'applicazione, Costo |
+| Fine settimana 6 (Walk) | **60–75%** | + Mappatura capability, Costo, Criticità aziendale, Idoneità funzionale e tecnica, Disposizione TIME |
 | Fine mese 3 (Run) | **75–90%** | + Stack tecnologico, interfacce, campi di dominio personalizzati |
+
+Criticità aziendale e Modello TIME sono campi **obbligatori** su Application, e finché un campo obbligatorio è vuoto il punteggio della card resta bloccato allo 0%. Durante il crawl, misurare i progressi con la quota di card che hanno compilato i campi del crawl; il punteggio diventa significativo nel walk, una volta impostati entrambi i campi obbligatori.
 
 Non puntare al 100%. L'ultimo 10% costa più del primo 60% e raramente cambia una decisione.
 
@@ -65,7 +67,7 @@ Non puntare al 100%. L'ultimo 10% costa più del primo 60% e raramente cambia un
 
 Concludere la sessione di pianificazione con una dichiarazione scritta del tipo:
 
-> *"Entro la fine della settimana 6, l'inventario del dominio Vendite conterrà ogni applicazione con costo annuo > 50k€, ciascuna mappata su almeno una Business Capability e con una disposizione TIME assegnata. Presenteremo il Portfolio Report al CIO Vendite nella settimana 7."*
+> *"Entro la fine della settimana 6, l'inventario del dominio Vendite conterrà ogni applicazione con costo annuo > 50k€, ciascuna mappata su almeno una Business Capability e con una disposizione TIME assegnata. Presenteremo il report Portfolio applicazioni al CIO Vendite nella settimana 7."*
 
 Pubblicarla su un wiki, in una slide di kickoff, nella descrizione di un canale Slack — ovunque sia visibile. Quella frase è ciò che impedisce al rollout di scivolare nel purgatorio del "stiamo ancora raccogliendo dati".
 

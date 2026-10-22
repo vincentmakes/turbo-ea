@@ -10,16 +10,14 @@ Inden du tilføjer noget, så vid, hvad du allerede har. Den indbyggede **Applic
 
 | Indbygget felt | Type | Hvad det er til |
 |----------------|------|--------------|
-| `businessCriticality` | `single_select` | Mission-kritisk / Vigtig / Nyttig / Marginal |
+| `businessCriticality` | `single_select` (påkrævet) | Missionskritisk / Forretningskritisk / Forretningsoperationel / Administrativ |
 | `functionalSuitability` | `single_select` | Perfekt / Passende / Utilstrækkelig / Urimelig |
-| `technicalSuitability` | `single_select` | Fuldt passende / Tilstrækkelig / Urimelig / Upassende |
-| `timeModel` | `single_select` (påkrævet) | **Tolerere / Investere / Migrere / Eliminere** — den kanoniske Gartner-TIME-disposition |
-| `riskLevel` | `single_select` | Lav / Medium / Høj / Kritisk |
-| `businessValue` | `single_select` | Driver porteføljerapportens Y-akse |
-| `costTotalAnnual` | `cost` | Total årlig omkostning |
+| `technicalSuitability` | `single_select` | Helt passende / Tilstrækkelig / Urimelig / Upassende |
+| `timeModel` | `single_select` (påkrævet) | **Tolerér / Invester / Migrér / Eliminér** — den kanoniske Gartner-TIME-disposition |
+| `costTotalAnnual` | `cost` | Samlet årlig omkostning |
 | `lifecycle.*` | datoer | Plan / Faseind / Aktiv / Faseud / Udløb |
 
-Alt, hvad en rationalisering af applikationsportefølje har brug for, er allerede der, inklusive **TIME-model**. Du behøver ikke at tilføje et TIME-felt — du udfylder det (manuelt eller via en beregning, se [Din første analyse](your-first-analysis.md)). Det samme gælder for `functionalSuitability` og `technicalSuitability`, de to egnethedsdimensioner, der klassisk driver en TIME-placering.
+Alt, hvad en rationalisering af applikationsportefølje har brug for, er allerede der, inklusive **TIME-model**. Du behøver ikke at tilføje et TIME-felt — du udleder det med en beregning (nedenfor) eller udfylder det manuelt, se [Din første analyse](your-first-analysis.md). Det samme gælder for `functionalSuitability` og `technicalSuitability`, de to egnethedsdimensioner, der klassisk driver en TIME-placering, og for `businessCriticality`, som grupperer rapporten Applikationsportefølje.
 
 ## To-spørgsmåls-testen før du tilføjer et felt
 
@@ -34,35 +32,46 @@ Hvis du ikke kan svare "ja" til begge, så tilføj ikke feltet.
 
 I det sjældne tilfælde, hvor et reelt nyt felt er nødvendigt (f.eks. et `cloudReadiness`-flag, en regulatorisk klassifikation, en kundesegmentmarkør), er arbejdsgangen:
 
-1. Gå til **Admin → Metamodel**, klik på typen, skift til fanen **Felter**.
-2. Vælg sektionen (eller opret en ny), og klik på **+ Tilføj felt**.
+1. Gå til **Admin → Metamodel**, og klik på typen. Kortlayoutet findes på fanen **Generelt**.
+2. Vælg sektionen (eller opret en med **Tilføj afsnit**), og klik på **+ Felt**.
 3. Udfyld:
     - **Nøgle** i lower camel-case (f.eks. `cloudReadiness`) — bliver attributnøglen i JSON og i formler.
     - **Etiket** (og en oversættelse for hvert sprog, du understøtter — ikke-engelske brugere vil ellers se den rå nøgle).
-    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
-    - **Vægt** — `0` for at udelukke fra datakvalitet, `1`+ for at inkludere og vægte det.
-    - **Påkrævet** — lad det stå **fra** for den første udrulning; påkrævet blokerer godkendelse af alle eksisterende kort.
+    - **Type** — `text`, `multiline_text`, `number`, `cost`, `percentage`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Påkrævet** — lad det stå **fra** for den første udrulning; så længe et påkrævet felt er tomt, er kortets datakvalitetsscore låst til 0.
 4. For select-typer, tilføj indstillingerne (nøgle + etiket + farve) og oversæt hver mulighed.
 5. Gem.
+6. Valgfrit: angiv, hvor meget feltet tæller i datakvaliteten, på typens fane **Datakvalitet**.
 
 Feltet er straks tilgængeligt i **Lager** (kolonner, filtre), på kortdetaljen og i **beregnings**-formler som `<fieldKey>`. Fuld reference: [Admin → Metamodel](../admin/metamodel.md).
 
 ## Mulighed: udled et felt automatisk med en beregning { #option-derive-a-field-automatically-with-a-calculation }
 
-Ud over standardmuligheden for at lade brugerne udfylde et felt manuelt, kan Turbo EA **beregne en feltværdi automatisk** ud fra andre felter på samme kort — inklusive de indbyggede — ved hjælp af **beregninger**-funktionen. Det beregnede felt bliver skrivebeskyttet og bærer et "calculated"-mærke, så brugerne ikke kan afvige fra reglen.
+Ud over standardmuligheden for at lade brugerne udfylde et felt manuelt, kan Turbo EA **beregne en feltværdi automatisk** ud fra andre felter på samme kort — inklusive de indbyggede — ved hjælp af **beregninger**-funktionen. Det beregnede felt bliver skrivebeskyttet og bærer et "beregnet"-mærke, så brugerne ikke kan afvige fra reglen.
 
-Det kanoniske eksempel er **TIME-model**-beregningen, der udleder det indbyggede `timeModel`-felt på Application ud fra en forretningsegnetheds- og en teknisk egnetheds-dimension. Det leveres som en af posterne i panelet **Formelreference** inde i **Admin → Metamodel → Beregninger**, når du opretter en ny beregning, så du kan vælge det direkte fra panelet. Måltype = `Application`, målfelt = `timeModel`; den panel-leverede formel er gengivet i [Admin → Beregninger → Eksempler på formler](../admin/calculations.md#example-formulas).
+Det kanoniske eksempel er **TIME-model**-beregningen, der udleder det indbyggede `timeModel`-felt på Application ud fra de to indbyggede egnethedsvurderinger. Opret den i **Admin → Metamodel → Beregninger** med **Ny beregning**: Målkorttype = `Application`, Målfelt = **TIME-model**, og denne formel:
 
-Formlen antager to `single_select`-felter ved navn `businessFit` og `technicalFit` med indstillingerne `excellent` / `adequate` / `insufficient` / `unreasonable`. De er ikke i den indbyggede metamodel — tilføj dem på Application via trinene for brugerdefinerede felter ovenfor, hvis du vil bruge denne beregning.
+```
+# TIME Model from the built-in Functional and Technical Suitability (Gartner quadrants)
+ff = MAP_SCORE(data.functionalSuitability, {"perfect": 4, "appropriate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalSuitability, {"fullyAppropriate": 4, "adequate": 3, "unreasonable": 2, "inappropriate": 1})
+IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+Hver vurdering omsættes til en score fra 4 (bedst) til 1 (dårligst), og de to scorer placerer applikationen i en af de fire kvadranter: høj funktionel + høj teknisk = **Invester**, høj funktionel + lav teknisk = **Migrér**, lav funktionel + høj teknisk = **Tolerér**, lav på begge = **Eliminér**. En applikation, der mangler en af vurderingerne, får ingen TIME-værdi, så hullerne forbliver synlige.
+
+Panelet **Formelreference** i beregningseditoren viser et TIME-eksempel bygget på to brugerdefinerede felter, `businessFit` og `technicalFit`. Formlen ovenfor er den samme logik tilpasset de felter, Application allerede har, så **du behøver ikke at tilføje noget felt** — og det bør du heller ikke (se *Dupliker ikke indbyggede felter* nedenfor). Mere formelsyntaks: [Admin → Beregninger](../admin/calculations.md).
+
+Når du har gemt, så slå beregningen til (**Aktiv**), og klik på **Genberegn alle** på dens række, så hver eksisterende applikation får sin værdi. Trin-for-trin-gennemgangen findes i [Din første analyse → Trin 3](your-first-analysis.md).
 
 !!! warning "Lad være"
-    En beregnet TIME er en **starthypotese**, ikke en dom. Enten gennemgå hvert resultat med applikationsejeren, før du stoler på det, eller slå beregningen fra og stol på manuel indtastning, når valideringsworkshoppen er færdig.
+    En beregnet TIME er en **starthypotese**, ikke en dom. Gennemgå hvert resultat med applikationsejeren, før du stoler på det.
 
-Det hybridmønster, der fungerer godt i praksis: behold beregningen tændt, mens du opbygger lageret, og du primært har egnethedsdata; sluk den til valideringsworkshoppen; lad den derefter være slukket, så manuelle beslutninger holder.
+Det hybridmønster, der fungerer godt i praksis: behold beregningen aktiv, mens du opbygger lageret og indsamler egnethedsvurderinger; gennemgå resultaterne i valideringsworkshoppen; og hvis beslutningerne skal afvige fra formlen, så slå beregningen fra (kontakten **Aktiv**), så feltet bliver redigerbart igen, og de manuelle beslutninger holder.
 
 ## Alternativ: brug en taggruppe i stedet
 
-Hvis værdien er informativ snarere end forespørgbar, er en **taggruppe** (Admin → Tags) lettere end et brugerdefineret felt — ingen metamodelændring, ingen migration, lettere at udvikle. Brug en taggruppe, når:
+Hvis værdien er informativ snarere end forespørgbar, er en **taggruppe** (Admin → Metamodel → Tags) lettere end et brugerdefineret felt — ingen metamodelændring, ingen migration, lettere at udvikle. Brug en taggruppe, når:
 
 - Værdien er beskrivende ("Kundevendt", "Kun internt", "Erhvervet i 2024").
 - Du kan tilføje nye muligheder ofte.
@@ -70,7 +79,7 @@ Hvis værdien er informativ snarere end forespørgbar, er en **taggruppe** (Admi
 
 Brug et brugerdefineret felt, når:
 
-- Du har brug for værdien på porteføljerapportens akser (X, Y, farve).
+- Du vil gruppere eller farvelægge en rapport efter den (for eksempel Applikationsportefølje).
 - Du vil have det vægtet ind i datakvaliteten.
 - Det er et kontrolleret vokabular, der ikke ændres ofte.
 
@@ -79,16 +88,16 @@ Brug et brugerdefineret felt, når:
 Dette er de mest almindelige metamodelfejl i første udrulninger:
 
 !!! warning "Omdøb ikke indbyggede korttyper"
-    At omdøbe `Application` til `Solution` ser ryddeligt ud, men bryder den konceptuelle mapping, som kompetenceheatmap, porteføljerapport og kataloger alle antager. Hvis din organisation kalder dem "Solutions", så sæt **etiket**-oversættelsen — den underliggende `key` forbliver som `Application`.
+    At omdøbe `Application` til `Solution` ser ryddeligt ud, men bryder den konceptuelle mapping, som kompetencekortet, rapporten Applikationsportefølje og kataloger alle antager. Hvis din organisation kalder dem "Solutions", så sæt **etiket**-oversættelsen — den underliggende `key` forbliver som `Application`.
 
 !!! warning "Tilføj ikke 30 brugerdefinerede felter på dag ét"
     Hvert brugerdefineret felt tilføjer friktion til dataindsamling og udvander datakvalitetsscoren. Tilføj ét felt, brug det i en måned, tilføj derefter det næste.
 
 !!! warning "Dupliker ikke indbyggede felter"
-    Inden du tilføjer `timeDisposition`, `funcFit`, `techFit` eller `appBusinessValue`, så tjek den eksisterende feltliste — chancerne er, at et tilsvarende indbygget felt allerede findes (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Dubletter splitter dine data og bryder rapporter.
+    Inden du tilføjer `timeDisposition`, `funcFit`, `techFit` eller `appCriticality`, så tjek den eksisterende feltliste — chancerne er, at et tilsvarende indbygget felt allerede findes (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessCriticality`). Dubletter splitter dine data og bryder rapporter.
 
 !!! warning "Gør ikke nye felter `required` på dag ét"
-    `Required` blokerer godkendelse for hvert eksisterende kort, der ikke har en værdi. Gør kun et felt påkrævet **efter**, du har udfyldt det for 80 %+ af populationen.
+    Så længe et påkrævet felt er tomt, er kortets datakvalitetsscore låst til 0, og et advarselsbanner viser, hvad der mangler — på alle eksisterende kort på én gang. Gør kun et felt påkrævet **efter**, du har udfyldt det for 80 %+ af populationen.
 
 !!! warning "Opret ikke brugerdefinerede korttyper i stedet for brugerdefinerede felter"
     "Mobile App" skal være en undertype af `Application`, ikke en ny korttype. Nye typer får ikke kompetencekortlægning, porteføljerapporter eller katalogimport gratis.

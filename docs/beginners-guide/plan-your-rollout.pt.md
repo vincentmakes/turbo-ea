@@ -27,7 +27,7 @@ Outros casos de uso iniciais válidos — mas escolha **um**:
 
 | Caso de uso | O que você populará principalmente | O que você pulará |
 |-------------|-----------------------------------|-------------------|
-| **Racionalização do Portfólio de Aplicações** | Aplicações, custos, ciclo de vida, valor de negócio | Modelo detalhado de processos, interfaces |
+| **Racionalização do Portfólio de Aplicações** | Aplicações, custos, ciclo de vida, criticidade de negócio, adequação funcional e técnica | Modelo detalhado de processos, interfaces |
 | **Planejamento baseado em capacidades** | Capacidades de Negócio, Aplicações, mapa de calor de capacidades | Detalhe de custos, stack tecnológica |
 | **Avaliação de migração para nuvem** | Aplicações, Componentes de TI, modelo de implantação | Valor de negócio, processos |
 | **Integração de fusões e aquisições** | Ambos os portfólios como Aplicações, análise de sobreposição | Datas de ciclo de vida de longo prazo |
@@ -36,10 +36,10 @@ Se você não tem certeza, **escolha Racionalização do Portfólio de Aplicaç�
 
 ## 3. Identifique seus stakeholders
 
-O Turbo EA tem um modelo de **Stakeholder** integrado (veja [Detalhes do Card](../guide/card-details.md)): cada card carrega uma lista de pessoas em papéis definidos (Dono de Negócio, Dono Técnico, etc.), definidos por tipo de card no metamodelo. Decida antecipadamente quem preenche cada papel para uma Aplicação:
+O Turbo EA tem um modelo de **Stakeholder** integrado (veja [Detalhes do Card](../guide/card-details.md)): cada card carrega uma lista de pessoas em papéis definidos (para uma Aplicação: Responsável de negócio da aplicação, Responsável técnico da aplicação, Responsável, Observador), definidos por tipo de card no metamodelo. Decida antecipadamente quem preenche cada papel para uma Aplicação:
 
-- **Dono da Aplicação** — responsável pela aplicação no negócio. Uma pessoa por app. Eles aprovam a disposição TIME.
-- **Dono Técnico** — responsável por mantê-la rodando. Frequentemente o gerente de engenharia.
+- **Dono da Aplicação** (o papel *Responsável de negócio da aplicação*) — responsável pela aplicação no negócio. Uma pessoa por app. Eles aprovam a disposição TIME.
+- **Dono Técnico** (o papel *Responsável técnico da aplicação*) — responsável por mantê-la rodando. Frequentemente o gerente de engenharia.
 - **Arquiteto** — você, provavelmente. Atua como o revisor do lado de EA e aprova cards.
 
 Você não precisa atribuir stakeholders no primeiro dia para cada card, mas precisa saber quem eles *serão* — porque na terceira semana você estará enviando pesquisas a eles para validar os dados.
@@ -55,9 +55,11 @@ Metas realistas para os primeiros 90 dias:
 
 | Fase | Meta de qualidade de dados média (Aplicações) | O que está preenchido |
 |------|----------------------------------------------|----------------------|
-| Fim da semana 2 (Crawl) | **40–60%** | Nome, Fase do ciclo de vida, Descrição, Dono de Negócio |
-| Fim da semana 6 (Walk) | **60–75%** | + Mapeamento de capacidades, Custo, Disposição TIME |
+| Fim da semana 2 (Crawl) | **0%** — esperado, veja abaixo | Nome, Fase do ciclo de vida, Descrição, Responsável de negócio da aplicação, Custo |
+| Fim da semana 6 (Walk) | **60–75%** | + Mapeamento de capacidades, Custo, Criticidade de negócio, Adequação funcional e técnica, Disposição TIME |
 | Fim do mês 3 (Run) | **75–90%** | + Stack tecnológica, interfaces, campos personalizados do domínio |
+
+Criticidade de negócio e Modelo TIME são campos **obrigatórios** em Application, e enquanto um campo obrigatório estiver vazio a pontuação do card fica fixada em 0%. Durante o crawl, meça o progresso pela proporção de cards com os campos do crawl preenchidos; a pontuação passa a ter significado no walk, quando ambos os campos obrigatórios estiverem definidos.
 
 Não busque 100%. Os últimos 10% custam mais do que os primeiros 60% e raramente mudam uma decisão.
 
@@ -65,7 +67,7 @@ Não busque 100%. Os últimos 10% custam mais do que os primeiros 60% e rarament
 
 Encerre sua sessão de planejamento com uma declaração escrita como:
 
-> *"Até o fim da semana 6, o inventário do domínio de Vendas conterá toda aplicação com custo anual > 50k€, cada uma mapeada para pelo menos uma Capacidade de Negócio e carregando uma disposição TIME. Apresentaremos o Relatório de Portfólio ao CIO de Vendas na semana 7."*
+> *"Até o fim da semana 6, o inventário do domínio de Vendas conterá toda aplicação com custo anual > 50k€, cada uma mapeada para pelo menos uma Capacidade de Negócio e carregando uma disposição TIME. Apresentaremos o relatório Portfólio de aplicações ao CIO de Vendas na semana 7."*
 
 Coloque-a em uma wiki, em um slide de kickoff, na descrição de um canal do Slack — em algum lugar visível. Essa frase é o que impede o rollout de derivar para o purgatório do "ainda estamos coletando dados".
 

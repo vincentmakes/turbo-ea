@@ -10,7 +10,7 @@ Turbo EA è stato installato. La schermata di login funziona, i dati demo vengon
 - **Solution Architect e Application Owner** ai quali è stato chiesto di "popolare lo strumento EA" senza molto contesto.
 - **Amministratori** che preparano la piattaforma per un rollout più ampio.
 
-È necessario il ruolo **admin** (o almeno `admin.metamodel` e `inventory.edit`) per seguire ogni passaggio. I ruoli in sola lettura possono comunque trarne beneficio — semplicemente non potranno effettuare le modifiche al metamodello descritte a pagina 5.
+È necessario il ruolo **admin** (o almeno `admin.metamodel` e `inventory.edit`) per seguire ogni passaggio. I ruoli in sola lettura possono comunque trarne beneficio — semplicemente non potranno effettuare le modifiche al metamodello e ai calcoli descritte alle pagine 4 e 5.
 
 ## Il percorso crawl → walk → run
 
@@ -20,7 +20,7 @@ Non bisogna provare a modellare l'intera azienda nella prima settimana. I team c
 2. **Walk** — Aggiungere le Business Capability dal catalogo incluso. Mappare le applicazioni sulle capability. Eseguire la prima analisi di portfolio. Mostrarla a uno stakeholder.
 3. **Run** — Espandere a processi, interfacce, oggetti dati. Aggiungere più campi personalizzati. Aprire i moduli più avanzati.
 
-Questa guida copre la fase **crawl** e l'inizio della fase **walk**. Alla fine si avrà un portfolio applicativo funzionante con una disposizione TIME (**T**olerate / **I**nvest / **M**igrate / **E**liminate) e un Portfolio Report da presentare a un CIO.
+Questa guida copre la fase **crawl** e l'inizio della fase **walk**. Alla fine si avrà un portfolio applicativo funzionante con una disposizione TIME (**T**olerate / **I**nvest / **M**igrate / **E**liminate) e un report Portfolio applicazioni da presentare a un CIO.
 
 ## Cosa contiene questa guida
 
@@ -29,8 +29,8 @@ Questa guida copre la fase **crawl** e l'inizio della fase **walk**. Alla fine s
 | 1 | [Pianificare il rollout](plan-your-rollout.md) | Definire l'ambito dell'iniziativa, scegliere gli stakeholder, fissare un obiettivo realistico di qualità dei dati |
 | 2 | [Iniziare con l'inventario applicativo](start-with-applications.md) | Popolare le Applicazioni tramite import, ServiceNow o inserimento manuale |
 | 3 | [Sfruttare i cataloghi di riferimento](leverage-reference-catalogues.md) | Risparmiare mesi di modellazione manuale importando capability e processi |
-| 4 | [Personalizzare il metamodello — con leggerezza](customise-the-metamodel.md) | Aggiungere un campo personalizzato (TIME) nel modo corretto |
-| 5 | [La prima analisi: Armonizzazione applicativa](your-first-analysis.md) | Mappare le applicazioni alle capability, eseguire il Portfolio Report e la Capability Heatmap |
+| 4 | [Personalizzare il metamodello — con leggerezza](customise-the-metamodel.md) | Conoscere i campi integrati, aggiungerne uno personalizzato solo quando serve e derivare il TIME con un calcolo |
+| 5 | [La prima analisi: Armonizzazione applicativa](your-first-analysis.md) | Mappare le applicazioni alle capability, eseguire il report Portfolio applicazioni e la Mappa delle capacità |
 
 !!! tip "Buona pratica"
     Leggere tutte e cinque le pagine in ordine prima di aprire Turbo EA. Il piano in mente vale più delle prime 50 card nell'inventario.

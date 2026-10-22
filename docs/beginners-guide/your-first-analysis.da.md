@@ -1,21 +1,20 @@
 # Din første analyse: applikationsharmonisering
 
-Dette er belønningen. Du har et applikationslager, et kompetencekort og et TIME-dispositionsfelt. Nu forbinder du dem og producerer de to rapporter, der retfærdiggør hele EA-programmet over for en CIO:
+Dette er belønningen. Du har et applikationslager, et kompetencekort og det indbyggede felt TIME-model. Nu forbinder du dem og producerer de to rapporter, der retfærdiggør hele EA-programmet over for en CIO:
 
-- En **porteføljerapport**, der viser hver applikation størrelsesmæssigt efter omkostning, farvet efter TIME-disposition.
-- Et **kompetenceheatmap**, der viser, hvor du har redundans (flere apps pr. kompetence) og skrøbelighed (én app pr. kompetence).
+- Rapporten **Applikationsportefølje**, med hver applikation grupperet efter **Forretningskritikalitet** og farvet efter dens **TIME**-disposition (**T**olerér / **I**nvester / **M**igrér / **E**liminér).
+- **Kompetencekortet**, et heatmap, der viser, hvor du har redundans (flere apps pr. kompetence) og skrøbelighed (én app pr. kompetence).
 
 ## Trin 1 — Knyt applikationer til kompetencer
 
-Den enkelt mest værdifulde relation i hele metamodellen er **Applikation → Forretningskompetence** (`supports` / `supported by`). Du vil indstille den for hver applikation i området.
+Den enkelt mest værdifulde relation i hele metamodellen er **Applikation → Forretningskompetence** (`understøtter` / `understøttes af`). Du vil indstille den for hver applikation i området.
 
 ### Massevej: redigeringstilstand i lageret
 
 1. Gå til **Lager**, filtrér efter Type = `Application`.
 2. Sørg for, at relationskolonnen **Forretningskompetence** er synlig (fanen Kolonner → Relationer).
-3. Slå **Gitter-redigering**-tilstand til i værktøjslinjen.
-4. Klik på kompetencecellen på hver række, og vælg en eller flere kompetencer.
-5. Gem.
+3. Slå **Gitterredigering**-tilstand til i værktøjslinjen.
+4. Klik på kompetencecellen på hver række, og vælg en eller flere kompetencer. Hver ændring gemmes, så snart du foretager den.
 
 For 50–200 apps tager dette en eftermiddag og en kop kaffe.
 
@@ -35,50 +34,65 @@ For mappinger med høj dømmekraft (eller når en workshop med applikationsejere
 !!! tip "Bedste praksis"
     Den første mapping er hurtig og grov. Den anden runde — udført med applikationsejeren gennemgående — er det, der gør dataene troværdige. Planlæg for begge.
 
-## Trin 2 — Vælg, hvordan du udfylder TIME-modellen
+## Trin 2 — Vurdér kritikalitet og egnethed
 
-Det indbyggede **TIME-model**-felt på Application (`timeModel`, påkrævet, fire muligheder: `tolerate` / `invest` / `migrate` / `eliminate`) er beslutningskolonnen, der driver resten af analysen. Du har to måder at befolke det på.
+Tre indbyggede felter i sektionen **Vurdering** på hvert applikationskort fodrer analysen. Udfyld dem sammen med applikationsejeren — i en en-times workshop kan du typisk vurdere 30–50 applikationer med **Gitterredigering** og de tre kolonner synlige.
 
-### Mulighed A — Manuel TIME-indtastning (anbefales til første runde)
+| Felt | Muligheder | Hvad det besvarer |
+|------|------------|-------------------|
+| **Forretningskritikalitet** | Missionskritisk / Forretningskritisk / Forretningsoperationel / Administrativ | Hvor meget afhænger forretningen af denne app? |
+| **Funktionel egnethed** | Perfekt / Passende / Utilstrækkelig / Urimelig | Hvor godt gør den det, forretningen har brug for? |
+| **Teknisk egnethed** | Helt passende / Tilstrækkelig / Urimelig / Upassende | Hvor sund er teknologien nedenunder? |
 
-Med applikationsejeren i en en-times workshop kan du typisk klassificere 30–50 applikationer:
+Forretningskritikalitet grupperer rapporten i trin 4. De to egnethedsvurderinger er det, som TIME-beregningen i trin 3 læser.
 
-- **Tolerere** — fungerer, lav omkostning, ikke en strategisk differentiator. Lad være.
-- **Investere** — strategisk, vækstområde, finansier forbedringer.
-- **Migrere** — erstat eller flyt til en ny platform inden for planlægningshorisonten.
-- **Eliminere** — duplikat, udløb, nedlæg.
+Hvis du redigerer disse felter på et godkendt kort, skifter dets godkendelsesstatus til **Brudt**. Gengodkend kortene samlet efter workshoppen.
 
-Brug lagerets **Gitter-redigering**-tilstand med kolonnen **TIME-model** synlig for at fange beslutninger i fart.
+## Trin 3 — Udled TIME med et beregnet felt
 
-### Mulighed B — Beregnet TIME via en formel
+Det indbyggede felt **TIME-model** på Application (`timeModel`, fire muligheder: `tolerate` / `invest` / `migrate` / `eliminate`) er beslutningskolonnen, der driver resten af analysen. I stedet for at bede hver applikationsejer om at vælge en, udleder du den fra de to egnethedsvurderinger med en **beregning** — den klassiske Gartner-placering:
 
-I stedet for at bede hver applikationsejer om at sætte TIME manuelt, kan du udlede `timeModel` automatisk fra de to indbyggede egnethedsdimensioner (`functionalSuitability` × `technicalSuitability`) ved hjælp af **beregninger**-funktionen. Dette er den kanoniske Gartner-fire-kvadrant-placering.
+| | Teknisk egnethed høj | Teknisk egnethed lav |
+|---|---|---|
+| **Funktionel egnethed høj** | **Invester** | **Migrér** |
+| **Funktionel egnethed lav** | **Tolerér** | **Eliminér** |
 
-Det gennemarbejdede eksempel — formlen, kvadranttabellen og det anbefalede hybridmønster — bor i [Tilpas metamodellen → Mulighed: udled et felt automatisk med en beregning](customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation). Brug det som en startanbefaling, som ejerne derefter validerer, ikke som en dom.
+1. Gå til **Admin → Metamodel → Beregninger**, og klik på **Ny beregning**.
+2. Sæt **Målkorttype** = `Application` og **Målfelt** = **TIME-model**.
+3. Indsæt formlen fra [Tilpas metamodellen → Mulighed: udled et felt automatisk med en beregning](customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation). Den bruger de indbyggede egnethedsfelter, så der er ikke brug for noget brugerdefineret felt.
+4. Klik på **Validér**, gem, og brug derefter **Test** på et par applikationer, du kender godt, for at kontrollere resultatet.
+5. Slå beregningen til (**Aktiv**) i listen, og klik derefter på **Genberegn alle** på dens række for at udfylde TIME-model på alle applikationer.
 
-## Trin 3 — Kør porteføljerapporten
+Fra da af genberegnes TIME-model, hver gang en applikation gemmes, viser et **beregnet**-mærke og kan ikke længere redigeres manuelt. En applikation, der mangler en af de to egnethedsvurderinger, får ingen TIME-værdi — det er bevidst: det viser dig, hvilke vurderinger der stadig mangler.
 
-1. Gå til **Rapporter → Portefølje**.
-2. Konfigurer akserne:
-    - **Korttype**: `Application`
-    - **X-akse**: `technicalSuitability` (det indbyggede teknisk-egnethedsfelt).
-    - **Y-akse**: `functionalSuitability` eller `businessValue` (indbyggede forretnings-egnethedsfelter).
-    - **Størrelse**: `costTotalAnnual` — jo større forbrug, jo større boble.
-    - **Farve**: `timeModel` — det er det, der gør rapporten beslutningsklar.
-3. Gem konfigurationen som en navngivet visning ("Applikationsportefølje — salgsdomæne"), så du kan komme tilbage til den.
+!!! warning "Lad være"
+    En beregnet TIME er en **starthypotese**, ikke en dom. Gennemgå resultaterne med applikationsejerne, før du præsenterer dem. Hvor en beslutning skal tilsidesætte formlen, så slå beregningen fra (kontakten **Aktiv**), og redigér TIME-model manuelt i **Gitterredigering**.
+
+Reference: [Admin → Beregninger](../admin/calculations.md).
+
+## Trin 4 — Kør rapporten Applikationsportefølje
+
+1. Gå til **Rapporter → Applikationsportefølje**.
+2. Sæt **Gruppér efter** = **Forretningskritikalitet**.
+3. Sæt **Farvelæg apps efter** = **TIME-model**.
+4. Klik på bogmærkeikonet (**Gem rapport**), og navngiv visningen ("Applikationsportefølje — salgsdomæne"). Du finder den igen under **Rapporter → Gemte rapporter**.
+
+Hvert niveau af forretningskritikalitet bliver en boks med én chip pr. applikation, farvet efter dens TIME-disposition, og en bjælke, der viser fordelingen. For at fokusere på ét domæne skal du bruge filteret **Relateret via** med kompetencerne i dit område.
 
 Hvad du skal kigge efter:
 
-- **Store røde bobler** (højomkostnings-Eliminer-kandidater) — dine hurtigste besparelser.
-- **Store gule bobler** (højomkostnings-Migrer-kandidater) — dine mest konsekvente transformationsbeslutninger.
-- **Klynger i øverste højre hjørne af matrixen**, der ikke er grønne — strategiske apps, der ikke får investering.
+- **»Missionskritisk«- og »Forretningskritisk«-apps markeret Migrér** — dine mest konsekvensrige moderniseringsbeslutninger. De kommer først.
+- **»Administrativ«- og »Forretningsoperationel«-apps markeret Eliminér eller Migrér** — dine hurtigste forenklingsgevinster: udfas dem, eller konsolidér dem på en anden platform.
+- **»Missionskritisk«-apps markeret Invester** — bekræft, at de faktisk får investeringen.
+- **Apps uden farve** (TIME *Ikke angivet*) — en af de to egnethedsvurderinger mangler. Gå tilbage til trin 2.
 
-Reference: [Rapporter](../guide/reports.md).
+Reference: [Rapporter → Porteføljerapport](../guide/reports.md#portefljerapport).
 
-## Trin 4 — Kør kompetenceheatmappet
+## Trin 5 — Kør kompetencekortet
 
 1. Gå til **Rapporter → Kompetencekort**.
-2. Heatmappet viser dit forretningskompetencehierarki med cellefarveintensitet proportional med **antallet af applikationer, der understøtter den kompetence**.
+2. Behold **Heatmap-metrik** på **Antal applikationer**: cellefarveintensiteten er proportional med antallet af applikationer, der understøtter den kompetence.
+3. Valgfrit: slå **Vis applikationer** til, og sæt **Farvelæg apps efter** = **TIME-model** for at se TIME-dispositionen for apps inden for hver kompetence.
 
 Hvad du skal kigge efter:
 
@@ -86,13 +100,13 @@ Hvad du skal kigge efter:
 - **Kolde celler** med applikationer, du ville forvente — huller i din mapping eller reelt underdækkede kompetencer.
 - **Hvide celler** midt i en aktiv gren — ikke-mappede applikationer eller umodellerede kompetencer.
 
-Reference: [Rapporter → Kompetencekort](../guide/reports.md).
+Reference: [Rapporter → Kompetencekort](../guide/reports.md#kompetencekort).
 
-## Trin 5 — Præsentér og iterer
+## Trin 6 — Præsentér og iterer
 
 Du har nu en forsvarlig porteføljevisning. Læg de to rapporter foran salgs-CIO'en (eller hvem der ejer dit område) og:
 
-- Bekræft TIME-vurderingerne på de top-10 højest-omkostende applikationer.
+- Bekræft TIME-vurderingerne på »Missionskritisk«- og »Forretningskritisk«-applikationerne.
 - Identificér de top-3 varme celler i heatmappet som kandidat-rationaliseringsprojekter.
 - Fang opfølgninger som kommentarer eller opgaver på applikationerne selv — Turbo EA sporer dem pr. kort.
 

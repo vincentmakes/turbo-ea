@@ -27,7 +27,7 @@ Andre gyldige første use cases — men vælg **én**:
 
 | Use case | Hvad du primært vil befolke | Hvad du springer over |
 |----------|----------------------------|------------------|
-| **Rationalisering af applikationsportefølje** | Applikationer, omkostninger, livscyklus, forretningsværdi | Detaljeret procesmodel, grænseflader |
+| **Rationalisering af applikationsportefølje** | Applikationer, omkostninger, livscyklus, forretningskritikalitet, funktionel og teknisk egnethed | Detaljeret procesmodel, grænseflader |
 | **Kompetencebaseret planlægning** | Forretningskompetencer, applikationer, kompetenceheatmap | Omkostningsdetaljer, teknologistak |
 | **Vurdering af cloudmigration** | Applikationer, IT-komponenter, deployment-model | Forretningsværdi, processer |
 | **M&A-integration** | Begge porteføljer som applikationer, overlapsanalyse | Langsigtede livscyklusdatoer |
@@ -36,10 +36,10 @@ Hvis du er i tvivl, **vælg rationalisering af applikationsportefølje**. Det er
 
 ## 3. Identificér dine interessenter
 
-Turbo EA har en indbygget **interessent**-model (se [Kortdetaljer](../guide/card-details.md)): hvert kort bærer en liste over personer i definerede roller (forretningsejer, teknisk ejer osv.), defineret pr. korttype i metamodellen. Beslut på forhånd, hvem der udfylder hver rolle for en applikation:
+Turbo EA har en indbygget **interessent**-model (se [Kortdetaljer](../guide/card-details.md)): hvert kort bærer en liste over personer i definerede roller (for en applikation: Forretningsapplikationsejer, Teknisk applikationsejer, Ansvarlig, Observatør), defineret pr. korttype i metamodellen. Beslut på forhånd, hvem der udfylder hver rolle for en applikation:
 
-- **Applikationsejer** — ansvarlig for applikationen i forretningen. Én person pr. app. De godkender TIME-dispositionen.
-- **Teknisk ejer** — ansvarlig for at holde den kørende. Ofte engineering-lederen.
+- **Applikationsejer** (rollen *Forretningsapplikationsejer*) — ansvarlig for applikationen i forretningen. Én person pr. app. De godkender TIME-dispositionen.
+- **Teknisk ejer** (rollen *Teknisk applikationsejer*) — ansvarlig for at holde den kørende. Ofte engineering-lederen.
 - **Arkitekt** — det er dig, sandsynligvis. Fungerer som EA-side-anmelder og godkender kort.
 
 Du behøver ikke tildele interessenter på dag ét for hvert kort, men du har brug for at vide, hvem de *vil* være — for i uge tre vil du sende dem undersøgelser for at validere dataene.
@@ -55,9 +55,11 @@ Realistiske mål for de første 90 dage:
 
 | Fase | Mål for gns. datakvalitet (applikationer) | Hvad der er udfyldt |
 |-------|----------------------------------------|---------------|
-| Slutningen af uge 2 (kravl) | **40–60 %** | Navn, livscyklusfase, beskrivelse, forretningsejer |
-| Slutningen af uge 6 (gå) | **60–75 %** | + kompetencekortlægning, omkostning, TIME-disposition |
+| Slutningen af uge 2 (kravl) | **0 %** — forventet, se nedenfor | Navn, livscyklusfase, beskrivelse, forretningsapplikationsejer, omkostning |
+| Slutningen af uge 6 (gå) | **60–75 %** | + kompetencekortlægning, omkostning, forretningskritikalitet, funktionel og teknisk egnethed, TIME-disposition |
 | Slutningen af måned 3 (løb) | **75–90 %** | + teknologistak, grænseflader, brugerdefinerede domænefelter |
+
+Forretningskritikalitet og TIME-model er **påkrævede** felter på Application, og så længe et påkrævet felt er tomt, er kortets score låst til 0 %. Under kravl måler du fremskridtet på andelen af kort, hvor kravl-felterne er udfyldt; scoren bliver meningsfuld i gå-fasen, når begge påkrævede felter er sat.
 
 Pres ikke for 100 %. De sidste 10 % koster mere end de første 60 % og ændrer sjældent en beslutning.
 
@@ -65,7 +67,7 @@ Pres ikke for 100 %. De sidste 10 % koster mere end de første 60 % og ændrer s
 
 Afslut din planlægningssession med en skriftlig erklæring som:
 
-> *"Ved udgangen af uge 6 vil salgsdomænets lager indeholde hver applikation med årlige omkostninger > 50.000 €, hver knyttet til mindst én forretningskompetence og bærende en TIME-disposition. Vi vil præsentere porteføljerapporten for salgs-CIO'en i uge 7."*
+> *"Ved udgangen af uge 6 vil salgsdomænets lager indeholde hver applikation med årlige omkostninger > 50.000 €, hver knyttet til mindst én forretningskompetence og bærende en TIME-disposition. Vi vil præsentere rapporten Applikationsportefølje for salgs-CIO'en i uge 7."*
 
 Sæt den på en wiki, i et kickoff-slide, i en Slack-kanalbeskrivelse — et synligt sted. Den sætning er det, der forhindrer udrulningen i at drive ind i "vi indsamler stadig data"-skærsilden.
 
