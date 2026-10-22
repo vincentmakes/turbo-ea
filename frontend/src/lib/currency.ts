@@ -8,6 +8,9 @@ export const CURRENCY_SYMBOL_OVERRIDES: Record<string, string> = {
   // U+20C1 SAUDI RIYAL SIGN — assigned in Unicode 17.0 (Sept 2025). Most
   // installed fonts don't carry it yet, so rendering is feature-detected below.
   SAR: "⃁",
+  // U+20B8 TENGE SIGN — Intl's standard symbol for KZT is the ISO code; only its
+  // narrow symbol is ₸, so without the override every amount reads "KZT 1,234".
+  KZT: "₸",
 };
 
 const _glyphSupport: Record<string, boolean> = {};

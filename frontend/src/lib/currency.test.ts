@@ -18,6 +18,11 @@ describe("currency symbol overrides", () => {
     expect(currencySymbolOverride("SAR")).toBe("⃁");
   });
 
+  it("maps KZT to the U+20B8 Tenge sign, which Intl only gives as a narrow symbol", () => {
+    expect(CURRENCY_SYMBOL_OVERRIDES.KZT).toBe("₸");
+    expect(currencySymbolOverride("KZT")).toBe("₸");
+  });
+
   it("returns null for currencies without an override", () => {
     expect(currencySymbolOverride("USD")).toBeNull();
     expect(currencySymbolOverride("EUR")).toBeNull();

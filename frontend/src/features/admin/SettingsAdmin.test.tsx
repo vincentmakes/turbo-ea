@@ -409,6 +409,27 @@ describe("SettingsAdmin — currency, date format, fiscal year", () => {
     expect(h.currencyInvalidate).toHaveBeenCalledWith("EUR");
   });
 
+  it("offers Kazakhstan Tenge and saves it as KZT", async () => {
+    const { user } = await renderGeneral();
+    mockApi.on("patch", "/settings/currency", {});
+    const card = section(t("settings.currency.title"));
+
+    // installCanvas measures every glyph at the same width, so the glyph probe
+    // reads ₸ as unrenderable and the label falls back to the ISO code — the
+    // guard working. The ₸ path itself is pinned in lib/currency.test.ts and
+    // hooks/useCurrency.test.ts.
+    await pickOption(
+      user,
+      card.getByRole("combobox", { name: t("settings.currency.label") }),
+      /^KZT — Kazakhstani Tenge \(KZT\)$/,
+    );
+    await user.click(card.getByRole("button", { name: endsWith(tc("actions.save")) }));
+
+    await screen.findByText(t("settings.currency.updated"));
+    expect(mockApi.callsOf("patch", "/settings/currency")[0].body).toEqual({ currency: "KZT" });
+    expect(h.currencyInvalidate).toHaveBeenCalledWith("KZT");
+  });
+
   it("saves a new date format and updates the chip", async () => {
     const { user } = await renderGeneral();
     mockApi.on("patch", "/settings/date-format", {});

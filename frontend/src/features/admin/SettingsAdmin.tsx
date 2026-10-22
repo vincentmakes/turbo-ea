@@ -102,7 +102,7 @@ const CURRENCY_CODES = [
   "USD", "EUR", "GBP", "CHF", "JPY", "CNY", "CAD", "AUD", "SEK", "NOK", "DKK",
   "PLN", "INR", "BRL", "KRW", "SGD", "HKD", "ZAR", "MXN", "TRY", "IDR", "THB",
   "MYR", "PHP", "VND", "NZD", "TWD", "AED", "SAR", "ILS", "QAR", "CZK", "HUF",
-  "RON", "RUB", "UAH", "ARS", "CLP", "COP", "EGP", "NGN", "PKR", "BDT",
+  "RON", "RUB", "UAH", "KZT", "ARS", "CLP", "COP", "EGP", "NGN", "PKR", "BDT",
 ];
 
 /** Localized "Name (symbol)" label for a currency code in the given locale. */

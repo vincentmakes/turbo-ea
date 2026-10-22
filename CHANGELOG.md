@@ -5,7 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.176.1] - 2026-10-22
+## [2.177.0] - 2026-10-22
+
+### Added
+- **Kazakhstan Tenge (KZT, ₸)** is available in the currency selector under Admin → Settings → General, and cost values show the ₸ sign.
 
 ### Fixed
 - The **TIME Model** example in the calculation editor's **Formula Reference** now uses the built-in **Functional Suitability** and **Technical Suitability** fields, so it can be copied into a calculation on Application and saved as-is. It used to read two fields no built-in type has, which the editor refused to save ([#1310](https://github.com/vincentmakes/turbo-ea/discussions/1310)).
