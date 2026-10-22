@@ -60,7 +60,7 @@ IF(ff is None or tf is None, None, IF(ff >= 2.5, IF(tf >= 2.5, "invest", "migrat
 
 Each rating is turned into a score from 4 (best) to 1 (worst), and the two scores place the application in one of the four quadrants: high functional + high technical = **Invest**, high functional + low technical = **Migrate**, low functional + high technical = **Tolerate**, low on both = **Eliminate**. An application missing either rating gets no TIME value, so the gaps stay visible.
 
-The **Formula Reference** panel in the calculation editor shows a TIME example built on two custom fields, `businessFit` and `technicalFit`. The formula above is the same logic adapted to the fields Application already has, so **you don't need to add any field** — and you shouldn't (see *Don't duplicate built-in fields* below). More formula syntax: [Admin → Calculations](../admin/calculations.md).
+It is the same TIME example you'll find in the **Formula Reference** panel of the calculation editor, so you can also copy it from there. It reads only fields Application already has, so **you don't need to add any field** — and you shouldn't (see *Don't duplicate built-in fields* below). More formula syntax: [Admin → Calculations](../admin/calculations.md).
 
 After saving, switch the calculation **Active** and click **Recalculate all** on its row so every existing application gets its value. The step-by-step walkthrough is in [Your First Analysis → Step 3](your-first-analysis.md).
 

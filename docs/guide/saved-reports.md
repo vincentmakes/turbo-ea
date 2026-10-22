@@ -1,12 +1,12 @@
 # Saved Reports
 
-Turbo EA lets you **save report configurations** so you can quickly return to specific views without reconfiguring filters and axes each time.
+Turbo EA lets you **save report configurations** so you can quickly return to specific views without reconfiguring filters, grouping and colouring each time.
 
 ## Saving a Report
 
 From any report page (Portfolio, Capability Map, Lifecycle, Dependencies, Cost, Matrix, Data Quality, or EOL):
 
-1. Configure the report with your desired filters, groupings, and axis selections
+1. Configure the report with your desired filters, grouping and colour settings
 2. Click the **Save report** icon (a bookmark) in the report toolbar
 3. Enter a **name** for the saved report
 4. Choose the **visibility**:

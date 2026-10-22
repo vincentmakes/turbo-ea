@@ -1,6 +1,6 @@
 # Reports
 
-Turbo EA includes a powerful **visual reporting** module that allows analyzing the enterprise architecture from different perspectives. All reports can be [saved for reuse](saved-reports.md) with their current filter and axis configuration.
+Turbo EA includes a powerful **visual reporting** module that allows analyzing the enterprise architecture from different perspectives. All reports can be [saved for reuse](saved-reports.md) with their current filters and display settings.
 
 ![Available Reports Menu](../assets/img/en/09_reports_menu.png)
 
@@ -8,18 +8,18 @@ Turbo EA includes a powerful **visual reporting** module that allows analyzing t
 
 ![Portfolio Report](../assets/img/en/10_report_portfolio.png)
 
-The **Portfolio Report** displays a configurable **bubble chart** (or scatter plot) of your cards. You choose what each axis represents:
+The **Portfolio Report** (**Reports → Application Portfolio**) shows your applications as coloured chips, grouped into boxes. Two choices in the toolbar drive it:
 
-- **X axis** — Select any numeric or select field (e.g., Technical Suitability)
-- **Y axis** — Select any numeric or select field (e.g., Business Criticality)
-- **Bubble size** — Map to a numeric field (e.g., Annual Cost)
-- **Bubble color** — Map to a select, multi-select or yes/no field, or to the lifecycle state
+- **Group by** — any single-select or yes/no field of the card type (e.g. Business Criticality, TIME Model), or a related card type (e.g. Organization, Business Capability). Each value becomes a box with a count and a bar showing its colour mix; applications with no value land in a *Not assigned to any …* box.
+- **Color apps by** — any select, multi-select or yes/no field (e.g. TIME Model), or *No color*.
+
+Next to them sit a **Search** box, the collapsible filters (**Related By**, **Tags**, **Fields**, **Relation Subtypes**), the column picker and the **Chart view** / **Table view** toggle, which lists the same cards as a sortable table.
 
 **Colouring and filtering by yes/no and multi-select fields** — Every select, multi-select and yes/no field of the card type can colour the cards and filter them — here, in the Flexible Portfolio, in the [Capability Map](#capability-map) (*Color Apps By*), in the [Lifecycle Report](#lifecycle-report)'s date-range view and in a diagram's *Color by* menu. A yes/no field shows as **Yes** and **No**, a card carrying several values of a multi-select field is shown as **Multiple**, and an option an administrator left without a colour gets a colour of its own in the legend instead of the grey of *Not set*. Yes/no fields can also group the cards — here, in the [Cost Report](#cost-report)'s table and in the [Inventory](inventory.md); a multi-select field cannot, because a card with two values would belong to two groups.
 
 **Filtering by subtype** — When the card type has subtypes, the **Fields** filter row starts with a **Subtype** filter. Pick one or more subtypes, or *(empty)* for the cards that have none. The filter is saved with the report and carried over by **View in inventory**.
 
-This is ideal for portfolio analysis — plotting applications by business value vs. technical fitness, for example, to identify candidates for investment, replacement, or retirement.
+A typical use: group by **Business Criticality** and colour by **TIME Model**. Critical applications marked *Migrate* are your first modernisation priorities, and administrative applications marked *Eliminate* or *Migrate* are your retirement and consolidation candidates. The [EA Beginner's Guide](../beginners-guide/your-first-analysis.md) shows how to derive TIME Model from the suitability ratings with a calculation.
 
 ### AI Portfolio Insights
 
