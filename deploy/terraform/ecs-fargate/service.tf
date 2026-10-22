@@ -112,6 +112,10 @@ locals {
     environment = [
       for k, v in local.mcp_env : { name = k, value = v }
     ]
+    # Signs the OAuth client ids the MCP server registers, so they survive a restart.
+    secrets = [
+      { name = "SECRET_KEY", valueFrom = aws_secretsmanager_secret.secret_key.arn },
+    ]
     healthCheck = {
       command = [
         "CMD-SHELL",

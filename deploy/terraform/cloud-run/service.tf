@@ -177,6 +177,17 @@ resource "google_cloud_run_v2_service" "this" {
           }
         }
 
+        # Signs the OAuth client ids the MCP server registers, so they survive a restart.
+        env {
+          name = "SECRET_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.secret_key.secret_id
+              version = "latest"
+            }
+          }
+        }
+
         resources {
           limits            = { cpu = "0.5", memory = "1Gi" }
           cpu_idle          = false

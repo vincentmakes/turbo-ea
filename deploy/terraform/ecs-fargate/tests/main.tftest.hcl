@@ -187,6 +187,13 @@ run "mcp" {
   }
 
   assert {
+    condition = [for c in jsondecode(aws_ecs_task_definition.this.container_definitions) : c.secrets if c.name == "mcp-server"][0] == [
+      { name = "SECRET_KEY", valueFrom = aws_secretsmanager_secret.secret_key.arn },
+    ]
+    error_message = "the MCP server signs its OAuth client ids with the instance's SECRET_KEY"
+  }
+
+  assert {
     condition     = sum([for c in jsondecode(aws_ecs_task_definition.this.container_definitions) : c.cpu]) == 2048 && sum([for c in jsondecode(aws_ecs_task_definition.this.container_definitions) : c.memory]) == 4096
     error_message = "with the MCP server the containers fill the task exactly"
   }

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.175.2] - 2026-10-22
+
+### Fixed
+- MCP: a connection made through Microsoft Copilot Studio (or any client that registers once and keeps its client id) keeps working after the MCP server restarts or is upgraded; it used to fail at sign-in with *redirect_uri is not registered for this client* until the tool was recreated. Tools created before this version need recreating once ([#1307](https://github.com/vincentmakes/turbo-ea/discussions/1307)).
+- MCP: a request with an expired or unknown access token now gets a `401` that tells the client to refresh or sign in again, instead of reaching the tools and answering *Not authenticated* ([#1307](https://github.com/vincentmakes/turbo-ea/discussions/1307)).
+- MCP: the OpenID discovery address `/.well-known/openid-configuration/mcp`, which some clients probe, now reaches the MCP server instead of returning the web app's page; token requests sent as JSON are accepted, and token responses are marked as not cacheable.
+
+### Added
+- `MCP_ALLOWED_ORIGINS` lists extra browser origins the MCP endpoint accepts. The MCP admin guide has a Microsoft Copilot Studio section.
+
 ## [2.175.1] - 2026-10-21
 
 ### Fixed

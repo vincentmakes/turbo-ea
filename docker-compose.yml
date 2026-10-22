@@ -137,6 +137,9 @@ services:
       TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
       MCP_PORT: ${MCP_PORT:-8001}
       MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
+      # Signs the OAuth client ids the MCP server registers, so a client that
+      # registered once (Copilot Studio) keeps working across restarts.
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       # Logo fetching. Passed through so the kill switch is reachable without
       # editing the compose file: an empty host list means the built-in
       # allowlist of public icon CDNs.

@@ -436,6 +436,9 @@ Resources:
               - { Name: MCP_PUBLIC_URL, Value: !Sub "${PublicUrl}/mcp" }
               - { Name: MCP_PORT, Value: "8001" }
               - { Name: HOME, Value: /tmp }
+            Secrets:
+              - Name: SECRET_KEY
+                ValueFrom: !Ref SecretKeySecretArn
             HealthCheck:
               Command:
                 - CMD-SHELL

@@ -68,6 +68,8 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | The public URL of your Turbo EA instance |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | The public URL of the MCP server (used in OAuth redirect URIs). When running the container standalone, the code default is `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Internal port for the MCP container (rarely needs changing) |
+| `SECRET_KEY` | *(required)* | The same value the backend uses. Signs the OAuth client ids the MCP server hands out, so a client that registered once keeps working after a restart. Docker compose, the Helm chart and the cloud templates pass it in automatically |
+| `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated extra origins whose browser requests the MCP endpoint accepts. Requests without an `Origin` header are always accepted |
 
 ### Step 3: Add the OAuth redirect URI to your SSO app
 
@@ -120,6 +122,17 @@ Add to your workspace `.vscode/mcp.json`:
 ```
 
 Use `https://your-domain.example.com/mcp` as the endpoint. The older doubled form `https://your-domain.example.com/mcp/mcp` still works, so existing connectors keep functioning without changes.
+
+### Microsoft Copilot Studio
+
+Copilot Studio connects to MCP servers from Microsoft's cloud, not from the user's machine. The instance must therefore be reachable from the public internet over HTTPS, with a certificate from a public certificate authority. An instance that only answers on an internal network or a VPN works from desktop tools and fails in Copilot Studio.
+
+1. In your agent, open **Tools > Add a tool > New tool > Model Context Protocol**.
+2. Enter the server URL `https://your-domain.example.com/mcp`.
+3. Under **Authentication**, choose **OAuth 2.0**, then **Dynamic discovery**.
+4. Create the connection and sign in with your SSO account when prompted.
+
+Copilot Studio registers itself once and keeps the client id it receives. That id carries its own redirect URIs, signed with the instance's `SECRET_KEY`, so the connection keeps working when the MCP container restarts or is upgraded. Changing `SECRET_KEY` invalidates every registered client: recreate the tool in Copilot Studio afterwards.
 
 ---
 
@@ -370,3 +383,5 @@ Data access through MCP — read or write — follows the same RBAC model as the
 | AI tool cannot connect | Check that `MCP_PUBLIC_URL` matches the URL accessible from the user's machine. Ensure HTTPS is working. |
 | User gets empty results | MCP respects RBAC permissions. If a user has restricted access, they will only see the cards their role allows. |
 | Connection drops after 1 hour | The AI tool should handle token refresh automatically. If not, reconnect. |
+| Copilot Studio reports "Connection creation failed" | Copilot Studio calls from Microsoft's cloud. Check that `https://your-domain.example.com/mcp` is reachable from the internet with a publicly trusted certificate, and that `MCP_PUBLIC_URL` is that public address. The Nginx log during an attempt shows the last request that arrived; no request at all means the instance is not reachable. |
+| A Copilot Studio tool stopped working after upgrading to 2.175.2 | Tools created before 2.175.2 hold a client id that did not survive a restart. Delete the tool and add it again once; the new id survives later restarts. |

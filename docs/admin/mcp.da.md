@@ -68,6 +68,8 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Den offentlige URL til din Turbo EA-instans |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | Den offentlige URL til MCP-serveren (bruges i OAuth-redirect-URI'er). Når containeren køres selvstændigt, er kode-standarden `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
+| `SECRET_KEY` | *(påkrævet)* | Samme værdi som backend bruger. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
+| `MCP_ALLOWED_ORIGINS` | *(tom)* | Kommaseparerede ekstra origins, hvis browserforespørgsler MCP-endpointet accepterer. Forespørgsler uden `Origin`-header accepteres altid |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
 
@@ -120,6 +122,17 @@ Tilføj til dit workspace `.vscode/mcp.json`:
 ```
 
 Brug `https://your-domain.example.com/mcp` som endpoint. Den tidligere dobbelte form `https://your-domain.example.com/mcp/mcp` fungerer stadig, så eksisterende connectorer fortsætter med at fungere uden ændringer.
+
+### Microsoft Copilot Studio
+
+Copilot Studio forbinder til MCP-servere fra Microsofts cloud, ikke fra brugerens computer. Instansen skal derfor kunne nås fra det offentlige internet via HTTPS med et certifikat fra en offentlig certifikatudsteder. En instans, der kun svarer på et internt netværk eller via VPN, virker med desktopværktøjer, men fejler i Copilot Studio.
+
+1. Åbn **Værktøjer > Tilføj et værktøj > Nyt værktøj > Model Context Protocol** i din agent.
+2. Indtast server-URL'en `https://your-domain.example.com/mcp`.
+3. Vælg **OAuth 2.0** under **Godkendelse** og derefter **Dynamisk registrering** (Dynamic discovery).
+4. Opret forbindelsen, og log ind med din SSO-konto, når du bliver bedt om det.
+
+Copilot Studio registrerer sig én gang og beholder det klient-id, den får. Id'et bærer sine egne redirect-URI'er, signeret med instansens `SECRET_KEY`, så forbindelsen fortsat virker, når MCP-containeren genstartes eller opgraderes. Ændres `SECRET_KEY`, bliver alle registrerede klienter ugyldige: opret derefter værktøjet igen i Copilot Studio.
 
 ---
 
@@ -370,3 +383,5 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 | AI-værktøjet kan ikke oprette forbindelse | Tjek, at `MCP_PUBLIC_URL` matcher den URL, der er tilgængelig fra brugerens maskine. Sørg for, at HTTPS virker. |
 | Brugeren får tomme resultater | MCP respekterer RBAC-tilladelser. Hvis en bruger har begrænset adgang, vil de kun se de kort, deres rolle tillader. |
 | Forbindelse droppes efter 1 time | AI-værktøjet bør håndtere token-fornyelse automatisk. Hvis ikke, genopret forbindelse. |
+| Copilot Studio melder "Connection creation failed" | Copilot Studio kalder fra Microsofts cloud. Tjek, at `https://your-domain.example.com/mcp` kan nås fra internettet med et offentligt betroet certifikat, og at `MCP_PUBLIC_URL` er netop den offentlige adresse. Nginx-loggen under et forsøg viser den sidste forespørgsel, der nåede frem; når der slet ingen kommer, kan instansen ikke nås. |
+| Et Copilot Studio-værktøj holdt op med at virke efter opgradering til 2.175.2 | Værktøjer oprettet før 2.175.2 har et klient-id, der ikke overlevede en genstart. Slet værktøjet, og tilføj det igen én gang; det nye id overlever senere genstarter. |

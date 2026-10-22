@@ -165,6 +165,11 @@ spec:
               value: https://ea.example.com/mcp
             - name: MCP_PORT
               value: "8001"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: turbo-ea-secret-key
+                  key: latest
             - name: HOME
               value: /tmp
           resources:

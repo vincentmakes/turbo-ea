@@ -174,7 +174,9 @@ class TestRegister:
         assert resp.status_code == 201
         data = resp.json()
         cid = data.pop("client_id")
-        assert len(cid) == 32
+        assert oauth.client_from_id(cid).redirect_uris == [CB]
+        issued_at = data.pop("client_id_issued_at")
+        assert isinstance(issued_at, int) and abs(issued_at - time.time()) < 5
         assert data == {
             "client_name": "Tool",
             "redirect_uris": [CB],

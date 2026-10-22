@@ -181,6 +181,12 @@ resource "azurerm_container_app" "this" {
           }
         }
 
+        # Signs the OAuth client ids the MCP server registers, so they survive a restart.
+        env {
+          name        = "SECRET_KEY"
+          secret_name = "secret-key"
+        }
+
         startup_probe {
           transport               = "HTTP"
           port                    = 8001

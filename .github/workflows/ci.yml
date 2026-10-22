@@ -1416,6 +1416,8 @@ jobs:
           curl -fsS http://localhost:8080/ | grep -q '<div id="root"'
           # MCP routing: the OAuth discovery document is served by the MCP pod.
           curl -fsS http://localhost:8080/.well-known/oauth-protected-resource | grep -q resource
+          # The OIDC fallback Copilot Studio probes reaches the MCP pod, not the SPA.
+          curl -fsS http://localhost:8080/.well-known/openid-configuration/mcp | grep -q issuer
           # The backend root filesystem is read-only; only the data volume is writable.
           pod="$(kubectl get pod -n "$NS" -l app.kubernetes.io/component=backend -o jsonpath='{.items[0].metadata.name}')"
           if kubectl exec -n "$NS" "$pod" -- touch /app/ro-probe 2>/dev/null; then

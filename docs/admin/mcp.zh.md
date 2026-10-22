@@ -68,6 +68,8 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | Turbo EA 实例的公共 URL |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp`（docker compose） | MCP 服务器的公共 URL（用于 OAuth 重定向 URI）。单独运行容器时，代码默认值为 `http://localhost:8001` |
 | `MCP_PORT` | `8001` | MCP 容器的内部端口（很少需要更改） |
+| `SECRET_KEY` | *（必填）* | 与后端使用的值相同。用于签名 MCP 服务器颁发的 OAuth 客户端 ID，使注册过一次的客户端在重启后仍可继续使用。Docker Compose、Helm Chart 和各云平台模板会自动传入 |
+| `MCP_ALLOWED_ORIGINS` | *（空）* | 以逗号分隔的额外来源（Origin），MCP 端点会接受来自这些来源的浏览器请求。不带 `Origin` 请求头的请求始终会被接受 |
 
 ### 步骤 3：将 OAuth 重定向 URI 添加到 SSO 应用
 
@@ -120,6 +122,17 @@ https://your-domain.example.com/mcp/oauth/callback
 ```
 
 请使用 `https://your-domain.example.com/mcp` 作为端点。旧的双重形式 `https://your-domain.example.com/mcp/mcp` 仍然有效，因此现有连接器无需更改即可继续正常工作。
+
+### Microsoft Copilot Studio
+
+Copilot Studio 从 Microsoft 云端连接 MCP 服务器，而不是从用户的计算机连接。因此，实例必须能够通过 HTTPS 从公共互联网访问，并使用由公共证书颁发机构签发的证书。仅在内部网络或 VPN 上可访问的实例可用于桌面工具，但在 Copilot Studio 中会失败。
+
+1. 在您的智能体中，打开 **工具 > 添加工具 > 新建工具 > Model Context Protocol**。
+2. 输入服务器 URL `https://your-domain.example.com/mcp`。
+3. 在 **身份验证** 下选择 **OAuth 2.0**，然后选择 **动态发现**（Dynamic discovery）。
+4. 创建连接，并在提示时使用您的 SSO 账户登录。
+
+Copilot Studio 只注册一次，并保留收到的客户端 ID。该 ID 自带其重定向 URI，并使用实例的 `SECRET_KEY` 签名，因此 MCP 容器重启或升级后连接仍然有效。更改 `SECRET_KEY` 会使所有已注册的客户端失效：之后请在 Copilot Studio 中重新创建该工具。
 
 ---
 
@@ -370,3 +383,5 @@ MCP 容器上的六个防护栏环境变量：
 | AI 工具无法连接 | 检查 `MCP_PUBLIC_URL` 是否与用户机器可访问的 URL 匹配。确保 HTTPS 正常工作。 |
 | 用户获得空结果 | MCP 遵循 RBAC 权限。如果用户访问受限，他们只能看到其角色允许的卡片。 |
 | 连接在 1 小时后断开 | AI 工具应自动处理令牌刷新。如果不行，请重新连接。 |
+| Copilot Studio 报告「Connection creation failed」 | Copilot Studio 从 Microsoft 云端发起调用。请检查 `https://your-domain.example.com/mcp` 能否从互联网通过公共受信任的证书访问，以及 `MCP_PUBLIC_URL` 是否就是该公共地址。尝试连接期间的 Nginx 日志会显示最后到达的请求；如果没有任何请求到达，说明实例无法访问。 |
+| 升级到 2.175.2 后 Copilot Studio 工具停止工作 | 在 2.175.2 之前创建的工具持有的客户端 ID 无法在重启后保留。请删除该工具并重新添加一次；新的 ID 可在之后的重启中保留。 |

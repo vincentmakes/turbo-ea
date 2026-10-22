@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import re
@@ -31,7 +32,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from turbo_ea_mcp import api_client
-from turbo_ea_mcp.config import MCP_OAUTH_ALLOWED_REDIRECT_URIS, MCP_PUBLIC_URL
+from turbo_ea_mcp.config import (
+    MCP_OAUTH_ALLOWED_REDIRECT_URIS,
+    MCP_OAUTH_CLIENT_KEY,
+    MCP_PUBLIC_URL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +46,14 @@ REFRESH_TOKEN_TTL = 30 * 24 * 3600  # 30 days
 AUTH_CODE_TTL = 600  # 10 minutes
 # Proactive refresh: renew the Turbo EA JWT when less than this much TTL remains
 TURBO_JWT_REFRESH_BUFFER = 3600  # 1 hour
+
+# Registration bounds. A client id carries its redirect URIs (see
+# ``mint_client_id``), so these also bound how long an id can get.
+MAX_REDIRECT_URIS = 10
+MAX_REDIRECT_URI_LENGTH = 2048
+
+# RFC 6749 §5.1: a response carrying tokens must not be cached.
+_TOKEN_RESPONSE_HEADERS = {"Cache-Control": "no-store", "Pragma": "no-cache"}
 
 
 @dataclass
@@ -123,6 +136,76 @@ class OAuthStore:
 
 
 store = OAuthStore()
+
+# ── Self-describing client ids ─────────────────────────────────────────────
+#
+# Copilot Studio registers once and stores the client id in its connector; it
+# never registers again. A registration that lived only in ``store.clients``
+# was therefore gone after any restart of this process, and the connector was
+# left failing at /oauth/authorize for good. The id now carries the client's
+# redirect URIs, signed, so ``authorize`` can rebuild the registration from
+# the id alone and the exact-match check below is unchanged.
+
+_CLIENT_ID_PREFIX = "tea1."
+
+if MCP_OAUTH_CLIENT_KEY is None:
+    logger.warning(
+        "SECRET_KEY is not set for the MCP server: dynamically registered "
+        "OAuth clients will not survive a restart. Pass the instance's "
+        "SECRET_KEY to the mcp-server container."
+    )
+_client_id_key: bytes = MCP_OAUTH_CLIENT_KEY or secrets.token_bytes(32)
+
+
+def _b64encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _client_id_signature(payload: str) -> str:
+    digest = hmac.new(_client_id_key, payload.encode(), hashlib.sha256).digest()
+    return _b64encode(digest)
+
+
+def mint_client_id(redirect_uris: list[str]) -> str:
+    """A client id that names its own redirect URIs under a signature.
+
+    The nonce keeps two registrations of the same URIs apart."""
+    claims = {"r": redirect_uris, "n": secrets.token_urlsafe(8)}
+    payload = _b64encode(json.dumps(claims, separators=(",", ":")).encode())
+    return f"{_CLIENT_ID_PREFIX}{payload}.{_client_id_signature(payload)}"
+
+
+def client_from_id(client_id: str) -> RegisteredClient | None:
+    """The registration a minted client id describes, or ``None`` for an id
+    that was not minted here with the current key."""
+    if not client_id.startswith(_CLIENT_ID_PREFIX):
+        return None
+    payload, _, signature = client_id[len(_CLIENT_ID_PREFIX) :].partition(".")
+    expected = _client_id_signature(payload)
+    if not hmac.compare_digest(expected.encode(), signature.encode()):
+        return None
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=="))
+    except ValueError:
+        return None
+    uris = claims.get("r") if isinstance(claims, dict) else None
+    if not _valid_redirect_uris(uris):
+        return None
+    return RegisteredClient(client_id=client_id, redirect_uris=list(uris))
+
+
+def _lookup_client(client_id: str) -> RegisteredClient | None:
+    """The registration behind ``client_id``: this process's record first,
+    else the one the id itself carries."""
+    return store.clients.get(client_id) or client_from_id(client_id)
+
+
+def _valid_redirect_uris(uris: object) -> bool:
+    return (
+        isinstance(uris, list)
+        and 0 < len(uris) <= MAX_REDIRECT_URIS
+        and all(isinstance(u, str) and 0 < len(u) <= MAX_REDIRECT_URI_LENGTH for u in uris)
+    )
 
 # ── SSO config cache (refreshed periodically) ──────────────────────────────
 
@@ -211,17 +294,33 @@ async def register_client(request: Request) -> Response:
             },
             status_code=400,
         )
+    if len(redirect_uris) > MAX_REDIRECT_URIS or any(
+        len(u) > MAX_REDIRECT_URI_LENGTH for u in redirect_uris
+    ):
+        return JSONResponse(
+            {
+                "error": "invalid_client_metadata",
+                "error_description": (
+                    f"at most {MAX_REDIRECT_URIS} redirect_uris of at most "
+                    f"{MAX_REDIRECT_URI_LENGTH} characters each"
+                ),
+            },
+            status_code=400,
+        )
 
-    client_id = secrets.token_urlsafe(24)
+    issued_at = time.time()
+    client_id = mint_client_id(list(redirect_uris))
     store.clients[client_id] = RegisteredClient(
         client_id=client_id,
         redirect_uris=list(redirect_uris),
         client_name=client_name,
+        created_at=issued_at,
     )
 
     return JSONResponse(
         {
             "client_id": client_id,
+            "client_id_issued_at": int(issued_at),
             "client_name": client_name,
             "redirect_uris": redirect_uris,
             "grant_types": ["authorization_code", "refresh_token"],
@@ -278,7 +377,7 @@ async def authorize(request: Request) -> Response:
     # never issue a redirect to the supplied URI — redirecting an unvalidated
     # redirect_uri is exactly the flaw this guards against (an attacker could
     # otherwise have a victim's authorization code delivered to their own URI).
-    client = store.clients.get(client_id)
+    client = _lookup_client(client_id)
     if not _redirect_uri_registered(client, redirect_uri):
         return JSONResponse(
             {
@@ -448,16 +547,32 @@ def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
     return secrets.compare_digest(computed.encode(), code_challenge.encode())
 
 
+async def _read_token_body(request: Request) -> dict | None:
+    """The token request's parameters: a JSON object when the client says it
+    sent JSON, else the form (RFC 6749's encoding), falling back to JSON when
+    the form cannot be parsed. ``None`` when neither yields an object.
+
+    The content type is read first because ``request.form()`` does not raise
+    on a JSON body — it returns an empty form, so a JSON request used to be
+    answered ``unsupported_grant_type``."""
+    media_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if media_type != "application/json":
+        try:
+            return dict(await request.form())
+        except Exception:  # noqa: BLE001, S110 — an unparseable form tries JSON next
+            pass
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — anything unreadable is a bad request
+        return None
+    return body if isinstance(body, dict) else None
+
+
 async def token_endpoint(request: Request) -> Response:
     """Exchange authorization code or refresh token for access token."""
-    try:
-        form = await request.form()
-        body = dict(form)
-    except Exception:
-        try:
-            body = await request.json()
-        except Exception:
-            return JSONResponse({"error": "invalid_request"}, status_code=400)
+    body = await _read_token_body(request)
+    if body is None:
+        return JSONResponse({"error": "invalid_request"}, status_code=400)
 
     grant_type = body.get("grant_type")
 
@@ -549,7 +664,8 @@ async def _handle_code_exchange(body: dict) -> Response:
             "expires_in": ACCESS_TOKEN_TTL,
             "refresh_token": refresh_token,
             "scope": auth_code.scope,
-        }
+        },
+        headers=_TOKEN_RESPONSE_HEADERS,
     )
 
 
@@ -616,7 +732,8 @@ async def _handle_refresh(body: dict) -> Response:
             "expires_in": ACCESS_TOKEN_TTL,
             "refresh_token": new_refresh,
             "scope": old_entry.scope,
-        }
+        },
+        headers=_TOKEN_RESPONSE_HEADERS,
     )
 
 

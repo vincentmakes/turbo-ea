@@ -169,6 +169,13 @@ run "mcp" {
     }["MCP_PUBLIC_URL"] == "https://ea.example.com/mcp"
     error_message = "the MCP server is published under /mcp"
   }
+
+  assert {
+    condition = {
+      for e in [for c in azurerm_container_app.this.template[0].container : c.env if c.name == "mcp-server"][0] : e.name => e.secret_name if e.secret_name != null
+    } == { SECRET_KEY = "secret-key" }
+    error_message = "the MCP server signs its OAuth client ids with the instance's SECRET_KEY"
+  }
 }
 
 run "byo_database" {

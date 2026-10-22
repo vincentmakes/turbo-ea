@@ -1,7 +1,10 @@
 """``RequireBearerForMcp``: the 401 that tells an MCP client to do OAuth.
 
 Without it an anonymous POST to ``/mcp`` is accepted and handed a session id,
-and the client never learns it must authenticate. The gate covers ``/mcp``
+and the client never learns it must authenticate. A bearer token that does not
+resolve gets the same challenge with ``error="invalid_token"``, so a client
+holding a token lost in a restart refreshes instead of calling tools that can
+only answer "Not authenticated". The gate covers ``/mcp``
 and everything under it, nothing else: the OAuth and well-known routes have
 to stay public, or a client could never fetch the metadata that the 401
 points it to.
@@ -14,13 +17,31 @@ import json
 
 import pytest
 
+from turbo_ea_mcp import oauth
 from turbo_ea_mcp.server import RequireBearerForMcp
 
 METADATA = "https://mcp.example/.well-known/oauth-protected-resource"
+KNOWN = {"abc": "jwt-abc", "": "jwt-empty"}
+
+
+class Resolver:
+    """Stands in for ``oauth.resolve_token``; records what it was asked."""
+
+    def __init__(self, known=KNOWN):
+        self.known = known
+        self.asked: list[str] = []
+
+    async def __call__(self, token):
+        self.asked.append(token)
+        return self.known.get(token)
 
 
 def call(
-    scope_type: str = "http", path: str = "/mcp", auth: bytes | None = None, **extra
+    scope_type: str = "http",
+    path: str = "/mcp",
+    auth: bytes | None = None,
+    resolver: Resolver | None = None,
+    **extra,
 ):
     """Run the gate once; return (inner app reached?, messages sent)."""
     reached = []
@@ -41,7 +62,9 @@ def call(
     scope = {"type": scope_type, "path": path, "headers": headers, **extra}
     if scope_type == "http":
         scope.update(method="POST", query_string=b"", http_version="1.1")
-    gate = RequireBearerForMcp(inner, resource_metadata_url=METADATA)
+    gate = RequireBearerForMcp(
+        inner, resource_metadata_url=METADATA, resolve=resolver or Resolver()
+    )
     asyncio.run(gate(scope, receive, send))
     return bool(reached), sent
 
@@ -74,9 +97,40 @@ def test_an_unauthenticated_protocol_request_gets_the_oauth_challenge(path, auth
 @pytest.mark.parametrize(
     "auth", [b"Bearer abc", b"bearer abc", b"BEARER abc", b"Bearer "]
 )
-def test_a_bearer_request_passes_through(auth):
-    reached, sent = call(auth=auth)
+def test_a_bearer_request_with_a_known_token_passes_through(auth):
+    resolver = Resolver()
+    reached, sent = call(auth=auth, resolver=resolver)
     assert reached and sent == []
+    assert resolver.asked == [auth.decode()[7:]]
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/mcp/messages"])
+@pytest.mark.parametrize("auth", [b"Bearer stale", b"bearer nope", b"Bearer abcd"])
+def test_a_token_that_does_not_resolve_gets_the_invalid_token_challenge(path, auth):
+    resolver = Resolver()
+    reached, sent = call(path=path, auth=auth, resolver=resolver)
+    assert not reached
+    status, headers, body = response_of(sent)
+    assert status == 401
+    assert headers["www-authenticate"] == (
+        f'Bearer error="invalid_token", resource_metadata="{METADATA}"'
+    )
+    assert body == {
+        "error": "invalid_token",
+        "error_description": "The access token is unknown or expired",
+    }
+    assert resolver.asked == [auth.decode()[7:]]
+
+
+def test_the_header_without_a_token_is_never_resolved():
+    resolver = Resolver()
+    call(auth=b"Basic dXNlcjpwYXNz", resolver=resolver)
+    assert resolver.asked == []
+
+
+def test_the_default_resolver_is_the_oauth_store():
+    gate = RequireBearerForMcp(lambda *a: None, resource_metadata_url=METADATA)
+    assert gate.resolve is oauth.resolve_token
 
 
 @pytest.mark.parametrize(
@@ -91,8 +145,10 @@ def test_a_bearer_request_passes_through(auth):
     ],
 )
 def test_other_paths_stay_public(path):
-    reached, sent = call(path=path)
+    resolver = Resolver()
+    reached, sent = call(path=path, auth=b"Bearer stale", resolver=resolver)
     assert reached and sent == []
+    assert resolver.asked == []
 
 
 def test_a_scope_without_a_path_passes_through():
@@ -118,7 +174,8 @@ def run_raw(scope):
     async def send(message):
         sent.append(message)
 
-    asyncio.run(RequireBearerForMcp(inner, METADATA)(scope, receive, send))
+    gate = RequireBearerForMcp(inner, METADATA, resolve=Resolver())
+    asyncio.run(gate(scope, receive, send))
     return bool(reached), sent
 
 

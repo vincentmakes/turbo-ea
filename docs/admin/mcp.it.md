@@ -68,6 +68,8 @@ MCP_PUBLIC_URL=https://il-tuo-dominio.esempio.com/mcp
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | L'URL pubblico dell'istanza Turbo EA |
 | `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` (docker compose) | L'URL pubblico del server MCP (usato negli URI di reindirizzamento OAuth). Quando il container viene eseguito in modalità standalone, il valore predefinito nel codice è `http://localhost:8001` |
 | `MCP_PORT` | `8001` | Porta interna del container MCP (raramente necessita di modifica) |
+| `SECRET_KEY` | *(obbligatorio)* | Lo stesso valore usato dal backend. Firma gli identificativi client OAuth emessi dal server MCP, così un client registrato una volta continua a funzionare dopo un riavvio. Docker Compose, il chart Helm e i modelli cloud lo passano automaticamente |
+| `MCP_ALLOWED_ORIGINS` | *(vuoto)* | Origini aggiuntive, separate da virgole, le cui richieste del browser l'endpoint MCP accetta. Le richieste senza intestazione `Origin` sono sempre accettate |
 
 ### Passaggio 3: Aggiungere l'URI di reindirizzamento OAuth all'app SSO
 
@@ -120,6 +122,17 @@ Aggiungere al file `.vscode/mcp.json` del workspace:
 ```
 
 Utilizzare `https://il-tuo-dominio.esempio.com/mcp` come endpoint. La precedente forma doppia `https://il-tuo-dominio.esempio.com/mcp/mcp` continua a funzionare, quindi i connettori esistenti continuano a funzionare senza modifiche.
+
+### Microsoft Copilot Studio
+
+Copilot Studio si connette ai server MCP dal cloud di Microsoft, non dal computer dell'utente. L'istanza deve quindi essere raggiungibile da internet pubblico tramite HTTPS, con un certificato rilasciato da un'autorità di certificazione pubblica. Un'istanza che risponde solo su una rete interna o una VPN funziona con gli strumenti desktop ma non in Copilot Studio.
+
+1. Nel tuo agente, apri **Strumenti > Aggiungi uno strumento > Nuovo strumento > Model Context Protocol**.
+2. Inserisci l'URL del server `https://il-tuo-dominio.esempio.com/mcp`.
+3. In **Autenticazione**, scegli **OAuth 2.0**, poi **Individuazione dinamica** (Dynamic discovery).
+4. Crea la connessione e accedi con il tuo account SSO quando richiesto.
+
+Copilot Studio si registra una sola volta e conserva l'identificativo client ricevuto. Quell'identificativo contiene i propri URI di reindirizzamento, firmati con la `SECRET_KEY` dell'istanza, perciò la connessione continua a funzionare quando il container MCP viene riavviato o aggiornato. Cambiare `SECRET_KEY` invalida tutti i client registrati: ricrea poi lo strumento in Copilot Studio.
 
 ---
 
@@ -370,3 +383,5 @@ L'accesso ai dati tramite MCP — in lettura o in scrittura — segue lo stesso 
 | Lo strumento IA non riesce a connettersi | Verificare che `MCP_PUBLIC_URL` corrisponda all'URL accessibile dalla macchina dell'utente. Assicurarsi che HTTPS funzioni. |
 | L'utente ottiene risultati vuoti | MCP rispetta i permessi RBAC. Se un utente ha accesso limitato, vedrà solo le card consentite dal suo ruolo. |
 | La connessione si interrompe dopo 1 ora | Lo strumento IA dovrebbe gestire il rinnovo dei token automaticamente. In caso contrario, riconnettersi. |
+| Copilot Studio segnala «Connection creation failed» | Copilot Studio chiama dal cloud di Microsoft. Verificare che `https://il-tuo-dominio.esempio.com/mcp` sia raggiungibile da internet con un certificato pubblicamente attendibile e che `MCP_PUBLIC_URL` sia quell'indirizzo pubblico. Il log di Nginx durante un tentativo mostra l'ultima richiesta arrivata; se non ne arriva nessuna, l'istanza non è raggiungibile. |
+| Uno strumento di Copilot Studio ha smesso di funzionare dopo l'aggiornamento a 2.175.2 | Gli strumenti creati prima della 2.175.2 hanno un identificativo client che non sopravviveva a un riavvio. Eliminare lo strumento e aggiungerlo di nuovo una volta; il nuovo identificativo sopravvive ai riavvii successivi. |

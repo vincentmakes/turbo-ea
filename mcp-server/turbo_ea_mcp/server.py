@@ -29,6 +29,7 @@ from turbo_ea_mcp.batches import BatchContext, mutation_batch
 from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_RELATION_DELETE,
+    MCP_ALLOWED_ORIGINS,
     MCP_BATCH_CONFIRMATION_THRESHOLD,
     MCP_MAX_CARDS_PER_CALL,
     MCP_MAX_LOGOS_PER_CALL,
@@ -84,10 +85,11 @@ def _build_transport_security() -> TransportSecuritySettings:
     server return 421 when fronted by a reverse proxy on a real domain. Add
     the hostnames derived from MCP_PUBLIC_URL and TURBO_EA_PUBLIC_URL so the
     public deployment passes the check; localhost stays allowed for stdio
-    tests and local development.
+    tests and local development. ``MCP_ALLOWED_ORIGINS`` adds origins an
+    operator has to admit beyond those two.
     """
     hosts: set[str] = {"localhost", "127.0.0.1"}
-    origins: set[str] = set()
+    origins: set[str] = set(MCP_ALLOWED_ORIGINS)
     for url in (MCP_PUBLIC_URL, TURBO_EA_PUBLIC_URL):
         parsed = urlparse(url)
         if parsed.hostname:
@@ -3891,7 +3893,8 @@ _WWW_AUTHENTICATE = "WWW-Authenticate"
 
 
 class RequireBearerForMcp:
-    """Return 401 + WWW-Authenticate for unauthenticated /mcp requests.
+    """Return 401 + WWW-Authenticate for unauthenticated /mcp requests —
+    and for requests whose bearer token does not resolve.
 
     Without this, anonymous POSTs are silently accepted, the streamable
     session manager hands out a session id, and the MCP client (Claude
@@ -3901,13 +3904,35 @@ class RequireBearerForMcp:
     ``WWW-Authenticate: Bearer resource_metadata="…"`` so the client knows
     where to discover the OAuth metadata and initiate the flow.
 
+    A bearer token that is unknown or expired gets the same 401, carrying
+    ``error="invalid_token"`` (RFC 6750 §3.1). Tokens live in this process's
+    memory, so every restart invalidates them; before this check such a token
+    reached the tools, which answered "Not authenticated" as a *result*, and a
+    client that only refreshes on a 401 — Copilot Studio's token broker — was
+    left with a dead connection it never tried to renew.
+
     The OAuth and well-known routes themselves remain public — the gate
     only fires for the protocol endpoint at ``/mcp``.
     """
 
-    def __init__(self, app, resource_metadata_url: str):
+    def __init__(self, app, resource_metadata_url: str, resolve=oauth.resolve_token):
         self.app = app
         self.resource_metadata_url = resource_metadata_url
+        self.resolve = resolve
+
+    async def _challenge(self, scope, receive, send, body: dict, params: str) -> None:
+        from starlette.responses import JSONResponse
+
+        response = JSONResponse(
+            body,
+            status_code=401,
+            headers={
+                _WWW_AUTHENTICATE: (
+                    f'Bearer {params}resource_metadata="{self.resource_metadata_url}"'
+                ),
+            },
+        )
+        await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
@@ -3916,21 +3941,25 @@ class RequireBearerForMcp:
                 headers = dict(scope.get("headers", []))
                 auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, any default reads as unauthenticated
                 if not auth.lower().startswith("bearer "):
-                    from starlette.responses import JSONResponse
-
-                    response = JSONResponse(
-                        {
-                            "error": "unauthorized",
-                            "error_description": "Bearer token required",
-                        },
-                        status_code=401,
-                        headers={
-                            _WWW_AUTHENTICATE: (
-                                f'Bearer resource_metadata="{self.resource_metadata_url}"'
-                            ),
-                        },
+                    await self._challenge(
+                        scope,
+                        receive,
+                        send,
+                        {"error": "unauthorized", "error_description": "Bearer token required"},
+                        "",
                     )
-                    await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
+                    return
+                if await self.resolve(auth[7:]) is None:
+                    await self._challenge(
+                        scope,
+                        receive,
+                        send,
+                        {
+                            "error": "invalid_token",
+                            "error_description": "The access token is unknown or expired",
+                        },
+                        'error="invalid_token", ',
+                    )
                     return
         await self.app(scope, receive, send)
 

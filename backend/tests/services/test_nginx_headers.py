@@ -162,3 +162,33 @@ class TestEveryLocationKeepsTheSecurityHeaders:
         openers = [opener for opener, _ in _LOCATION_RE.findall(_entrypoint())]
         assert sum("/drawio/" in o for o in openers) >= 4, openers
         assert sum("/drawio-embed/" in o for o in openers) >= 2, openers
+
+
+class TestOAuthDiscoveryRouting:
+    """Every server block that proxies the MCP endpoint also routes the three
+    discovery prefixes to it. A prefix that falls through reaches the SPA
+    catch-all, which answers ``index.html`` with a 200; a client that accepts
+    the 200 then fails to parse it, which is how Copilot Studio's OIDC fallback
+    (``/.well-known/openid-configuration/mcp``) failed before 2.175.2 (#1307)."""
+
+    @pytest.mark.parametrize(
+        "prefix",
+        [
+            "oauth-authorization-server",
+            "oauth-protected-resource",
+            "openid-configuration",
+        ],
+    )
+    def test_each_prefix_is_routed_wherever_mcp_is(self, prefix):
+        script = _entrypoint()
+        mcp_blocks = script.count("    location = /mcp {")
+        assert mcp_blocks >= 2, "expected the HTTPS and plain-HTTP server blocks"
+        blocks = [
+            body
+            for head, body in _LOCATION_RE.findall(script)
+            if head == f"    location ^~ /.well-known/{prefix} {{"
+        ]
+        assert len(blocks) == mcp_blocks
+        for body in blocks:
+            assert f"rewrite ^ /.well-known/{prefix} break;" in body
+            assert "proxy_pass \\$mcp_upstream;" in body

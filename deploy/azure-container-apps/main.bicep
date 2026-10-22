@@ -174,6 +174,7 @@ var mcpContainer = {
     { name: 'TURBO_EA_PUBLIC_URL', value: publicUrl }
     { name: 'MCP_PUBLIC_URL', value: mcpPublicUrl }
     { name: 'MCP_PORT', value: '8001' }
+    { name: 'SECRET_KEY', secretRef: 'secret-key' }
     { name: 'HOME', value: '/tmp' }
   ]
   probes: [

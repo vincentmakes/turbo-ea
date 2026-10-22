@@ -55,6 +55,13 @@ spec:
               value: {{ printf "%s/mcp" (include "turbo-ea.publicOrigin" .) | quote }}
             - name: MCP_PORT
               value: "8001"
+            # Signs the OAuth client ids this server registers, so a client
+            # that registered once keeps working across pod restarts.
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "turbo-ea.secretName" . }}
+                  key: {{ .Values.existingSecretKeys.secretKey }}
             - name: MCP_WRITES_ENABLED
               value: {{ .Values.mcp.writesEnabled | quote }}
             - name: MCP_LOGO_FETCH_ENABLED

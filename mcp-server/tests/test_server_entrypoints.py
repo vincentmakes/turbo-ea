@@ -38,6 +38,16 @@ class TestTransportSecurity:
             "https://mcp.example.com:8443",
         ]
 
+    def test_operator_origins_are_added(self, monkeypatch):
+        monkeypatch.setattr(server, "MCP_PUBLIC_URL", "")
+        monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "")
+        monkeypatch.setattr(
+            server, "MCP_ALLOWED_ORIGINS", ["https://b.example", "https://a.example"]
+        )
+        settings = server._build_transport_security()
+        assert settings.allowed_origins == ["https://a.example", "https://b.example"]
+        assert settings.allowed_hosts == ["127.0.0.1", "localhost"]
+
     def test_a_url_without_a_host_adds_nothing(self, monkeypatch):
         monkeypatch.setattr(server, "MCP_PUBLIC_URL", "")
         monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "ea.example.com/path")

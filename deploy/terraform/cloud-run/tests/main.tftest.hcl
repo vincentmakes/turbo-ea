@@ -190,6 +190,13 @@ run "mcp" {
     }["MCP_PUBLIC_URL"] == "https://ea.example.com/mcp"
     error_message = "the MCP server is published under /mcp"
   }
+
+  assert {
+    condition = {
+      for e in [for c in google_cloud_run_v2_service.this.template[0].containers : c.env if c.name == "mcp-server"][0] : e.name => e.value_source[0].secret_key_ref[0].secret if length(e.value_source) > 0
+    } == { SECRET_KEY = google_secret_manager_secret.secret_key.secret_id }
+    error_message = "the MCP server signs its OAuth client ids with the instance's SECRET_KEY"
+  }
 }
 
 run "byo_database" {
