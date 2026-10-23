@@ -28,6 +28,8 @@ import { mockApi } from "@/test/apiMock";
 import {
   APPLICATION_TYPE,
   BUSINESS_CAPABILITY_TYPE,
+  HOSTING_GROUP,
+  RISK_GROUP,
   IT_COMPONENT_TYPE,
   RELATION_TYPES,
   TAG_GROUPS,
@@ -422,6 +424,22 @@ describe("WebPortalsAdmin — card filters", () => {
     await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
     await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
     expect(lastBody("patch")).toMatchObject({ filters: { approval_statuses: ["APPROVED"] } });
+  });
+
+  it("warns before a resave changes how tags from several groups match", async () => {
+    const portal: WebPortal = {
+      ...CARDS_PORTAL,
+      access_mode: "public",
+      allowed_email_domains: null,
+      filters: { tag_ids: [HOSTING_GROUP.tags[0].id, RISK_GROUP.tags[0].id] },
+    };
+    const { user } = await renderList([portal]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    expect(await dialog().findByText(t("webPortals.legacyTagsWarning"))).toBeInTheDocument();
+
+    // Another card type starts from scratch: nothing of the old preset is kept.
+    await selectOption(user, tc("labels.type"), "IT Component");
+    expect(dialog().queryByText(t("webPortals.legacyTagsWarning"))).toBeNull();
   });
 
   it("says the filters are loading until their options arrive", async () => {

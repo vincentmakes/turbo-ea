@@ -74,6 +74,12 @@ class TestBuildChatPayload:
             "response_format": {"type": "json_object"},
         }
 
+    def test_no_model_for_azure(self):
+        assert build_chat_payload(None, MSGS, max_tokens=4) == {
+            "messages": MSGS,
+            "max_completion_tokens": 4,
+        }
+
     def test_zero_values_are_still_sent(self):
         payload = build_chat_payload("m", MSGS, max_tokens=0, temperature=0.0)
         assert payload["max_completion_tokens"] == 0
@@ -232,6 +238,17 @@ class TestPostChat:
         payload = build_chat_payload("m", MSGS, temperature=0.1)
         await post_chat(client, "u", headers={}, payload=payload, timeout=30.0)
         assert [c.kwargs["timeout"] for c in client.post.call_args_list] == [30.0, 30.0]
+
+    async def test_params_are_forwarded_and_a_modelless_retry_logs(self, caplog):
+        caplog.set_level("INFO", logger=openai_chat.logger.name)
+        client = _client(_refusal("temperature"), _resp(200, {}))
+        payload = build_chat_payload(None, MSGS, temperature=0.1)
+        await post_chat(client, "u", headers={}, payload=payload, params={"api-version": "v"})
+        assert [c.kwargs["params"] for c in client.post.call_args_list] == [
+            {"api-version": "v"},
+            {"api-version": "v"},
+        ]
+        assert "for model -" in caplog.text
 
     async def test_the_retry_is_logged_with_param_and_model(self, caplog):
         caplog.set_level("INFO", logger=openai_chat.logger.name)

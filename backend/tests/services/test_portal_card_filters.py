@@ -290,6 +290,20 @@ class TestRelations:
         filters = _cf(relationFilters={"appCallsApp__out": [EMPTY_KEY]})
         assert await _names(db, filters) == ALL - {"Alpha"}
 
+    async def test_a_hidden_relation_type_key_reads_as_a_card_type(self, db, land):
+        """The report's payload leaves hidden types out, so their key falls to
+        the card-type branch — which no card type answers to."""
+        from app.models.relation_type import RelationType
+
+        rt = (
+            await db.execute(select(RelationType).where(RelationType.key == "orgUsesApp"))
+        ).scalar_one()
+        rt.is_hidden = True
+        await db.flush()
+        filters = _cf(relationFilters={"orgUsesApp": [str(land.corp.id)]})
+        assert await _names(db, filters) == set()
+        assert await _names(db, _cf(relationFilters={"orgUsesApp": [EMPTY_KEY]})) == ALL
+
     async def test_malformed_ids_are_dropped(self, db, land):
         assert await _names(db, _cf(relationFilters={"Organization": ["nope"]})) == ALL
 
@@ -320,6 +334,16 @@ class TestTags:
         filters = _cf(tagFilterIds=[str(land.finance.id), str(land.gold.id)])
         assert await _names(db, filters) == {"Alpha"}
 
+    async def test_a_group_restricted_to_other_types_is_ignored(self, db, land):
+        """The report never offers or matches such a group, so neither does the portal."""
+        tier = await db.get(TagGroup, land.gold.tag_group_id)
+        tier.restrict_to_types = ["ITComponent"]
+        await db.flush()
+        assert await _names(db, _cf(tagFilterIds=[str(land.gold.id)])) == ALL
+        tier.restrict_to_types = ["Application", "ITComponent"]
+        await db.flush()
+        assert await _names(db, _cf(tagFilterIds=[str(land.gold.id)])) == {"Alpha", "Gamma"}
+
     async def test_unknown_and_malformed_tags_are_ignored(self, db, land):
         filters = _cf(tagFilterIds=["nope", str(uuid.uuid4())])
         assert await _names(db, filters) == ALL
@@ -337,6 +361,15 @@ class TestLegacyAndApproval:
     async def test_a_malformed_legacy_tag_list_is_ignored_whole(self, db, land):
         filters = {"tag_ids": [str(land.gold.id), "nope"]}
         assert await _names(db, filters) == ALL
+
+    @pytest.mark.parametrize(
+        "card_filters", [{}, {"includeDescendants": True}, {"subtypeFilters": []}, "junk"]
+    )
+    async def test_card_filters_narrowing_nothing_leave_the_legacy_keys(
+        self, db, land, card_filters
+    ):
+        filters = {"subtypes": ["business"], "card_filters": card_filters}
+        assert await _names(db, filters) == {"Alpha"}
 
     async def test_card_filters_replace_the_legacy_keys(self, db, land):
         filters = {"subtypes": ["business"], **_cf(subtypeFilters=["micro"])}

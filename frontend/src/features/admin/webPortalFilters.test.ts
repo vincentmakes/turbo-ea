@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EMPTY_CARD_FILTERS } from "@/features/reports/cardFilters";
-import { portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
 
 describe("portalCardFilters", () => {
   it("reads stored card filters, dropping anything malformed", () => {
@@ -68,5 +68,32 @@ describe("portalFiltersBody", () => {
     expect(
       portalFiltersBody({ ...base, view: "ppm_portfolio", subtypes: ["p"], approvalStatuses: ["APPROVED"] }),
     ).toEqual({ subtypes: ["p"], approval_statuses: ["APPROVED"] });
+  });
+});
+
+describe("legacyTagsSpanGroups", () => {
+  const groups = [
+    { id: "g1", name: "Domain", mode: "multi", tags: [{ id: "t1", name: "Finance" }, { id: "t2", name: "Sales" }] },
+    { id: "g2", name: "Tier", mode: "single", tags: [{ id: "t3", name: "Gold" }] },
+  ];
+
+  it("is true for legacy tags from two groups", () => {
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1", "t3"] }, groups)).toBe(true);
+  });
+
+  it("is false for tags of one group, or none", () => {
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1", "t2"] }, groups)).toBe(false);
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1"] }, groups)).toBe(false);
+    expect(legacyTagsSpanGroups({ subtypes: ["a"] }, groups)).toBe(false);
+    expect(legacyTagsSpanGroups(null, groups)).toBe(false);
+  });
+
+  it("is false once the portal has card filters", () => {
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1", "t3"], card_filters: {} }, groups)).toBe(false);
+  });
+
+  it("counts an unlisted tag as a group of its own", () => {
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1", "gone"] }, groups)).toBe(true);
+    expect(legacyTagsSpanGroups({ tag_ids: ["t1"] }, [])).toBe(false);
   });
 });

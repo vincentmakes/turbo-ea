@@ -49,7 +49,7 @@ import {
 import type { RelTypeDef, TagGroupDef } from "@/features/reports/portfolioHelpers";
 import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
-import { portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
 
 interface ToggleEntry {
   card: boolean;
@@ -856,6 +856,15 @@ export default function WebPortalsAdmin() {
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
                 {t("webPortals.cardFiltersHelper")}
               </Typography>
+              {editingPortal?.card_type === cardType &&
+                legacyTagsSpanGroups(
+                  editingPortal.filters as Record<string, unknown> | undefined,
+                  filterOptions?.tag_groups ?? EMPTY_TAG_GROUPS,
+                ) && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    {t("webPortals.legacyTagsWarning")}
+                  </Alert>
+                )}
             </Box>
           )}
 

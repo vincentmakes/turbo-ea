@@ -1273,6 +1273,32 @@ class TestProviderConnection:
 
 class TestCallAzureOpenAI:
     @pytest.mark.asyncio
+    async def test_a_refused_temperature_is_dropped(self):
+        """#1319 on Azure: a reasoning deployment refuses the temperature too."""
+        refused = MagicMock(status_code=400)
+        refused.json.return_value = {"error": {"param": "temperature", "code": "unsupported_value"}}
+        ok = MagicMock(status_code=200)
+        ok.raise_for_status = MagicMock()
+        ok.json.return_value = {"choices": [{"message": {"content": '{"a": 1}'}}]}
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(side_effect=[refused, ok])
+            result = await _call_azure_openai(
+                "https://my-resource.openai.azure.com",
+                "azure-api-key",
+                "gpt6-deployment",
+                [{"role": "user", "content": "test"}],
+                "2025-01-01",
+            )
+        assert result == {"a": 1}
+        first, second = mock_client.post.call_args_list
+        assert first.kwargs["json"]["temperature"] == 0.1
+        assert "temperature" not in second.kwargs["json"]
+        assert "model" not in second.kwargs["json"]
+        assert second.kwargs["params"] == {"api-version": "2025-01-01"}
+
+    @pytest.mark.asyncio
     async def test_successful_response(self):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {

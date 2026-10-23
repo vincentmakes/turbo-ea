@@ -169,13 +169,22 @@ async def _validate_view(
 
 def _normalise_filters(filters: object, view: str) -> object:
     """A portal's ``filters`` as stored: ``card_filters`` (the shared card
-    filter set) only on a card-list portal and only in its canonical shape; a
-    board portal has its own scope and never reads it."""
+    filter set) only on a card-list portal, only in its canonical shape and
+    only when it says something — an empty one would otherwise sit beside a
+    legacy preset it does not replace. A board portal has its own scope and
+    never reads it."""
     if not isinstance(filters, dict) or "card_filters" not in filters:
         return filters
     out = dict(filters)
     card_filters = portal_card_filters.normalise_card_filters(out.pop("card_filters"))
-    if view == "cards" and card_filters is not None:
+    if (
+        view == "cards"
+        and card_filters is not None
+        and (
+            portal_card_filters.has_active_card_filters(card_filters)
+            or card_filters["includeDescendants"]
+        )
+    ):
         out["card_filters"] = card_filters
     return out
 
@@ -258,6 +267,8 @@ class _PortalAuditLabels:
     cards: dict[str, str] = field(default_factory=dict)
     facets: dict[str, str] = field(default_factory=dict)
     options: dict[str, str] = field(default_factory=dict)
+    #: A picked tag's group id, by tag id.
+    tag_groups: dict[str, str] = field(default_factory=dict)
 
     def type_label(self, key: object) -> object:
         return self.types.get(key, key) if isinstance(key, str) else key
@@ -411,8 +422,12 @@ async def _portal_audit_labels(db: AsyncSession, *snapshots: dict) -> _PortalAud
         await _card_filter_labels(db, labels, type_keys, filter_values)
     tag_ids = _filter_tag_ids(*(s.get("filters") for s in snapshots))
     if tag_ids:
-        rows = await db.execute(select(Tag.id, Tag.name).where(Tag.id.in_(tag_ids)))
-        labels.tags = {str(tag_id): name for tag_id, name in rows.all()}
+        rows = await db.execute(
+            select(Tag.id, Tag.name, Tag.tag_group_id).where(Tag.id.in_(tag_ids))
+        )
+        for tag_id, name, group_id in rows.all():
+            labels.tags[str(tag_id)] = name
+            labels.tag_groups[str(tag_id)] = str(group_id)
     rel_keys = _toggle_relation_keys(*(s.get("card_config") for s in snapshots))
     if rel_keys:
         rows = await db.execute(
@@ -451,6 +466,7 @@ def _portal_audit_changes(
             card_labels=labels.cards,
             facet_labels=labels.facets,
             option_labels=labels.options,
+            tag_groups=labels.tag_groups,
         ),
         *audit_changes.portal_card_config_items(
             before.get("card_config"),
@@ -610,9 +626,17 @@ async def update_portal(
         if card_type is not None:
             updates["card_type"] = card_type
 
-    if "filters" in updates or "view" in updates:
+    if "filters" in updates or "view" in updates or "card_type" in updates:
         eff_view = updates.get("view", portal.view) or "cards"
-        updates["filters"] = _normalise_filters(updates.get("filters", portal.filters), eff_view)
+        filters = updates.get("filters", portal.filters)
+        if (
+            "filters" not in updates
+            and updates.get("card_type", portal.card_type) != portal.card_type
+            and isinstance(filters, dict)
+        ):
+            # Card filters name the old type's fields, relations and options.
+            filters = {k: v for k, v in filters.items() if k != "card_filters"}
+        updates["filters"] = _normalise_filters(filters, eff_view)
         if "filters" not in body.model_fields_set and updates["filters"] == portal.filters:
             del updates["filters"]
 

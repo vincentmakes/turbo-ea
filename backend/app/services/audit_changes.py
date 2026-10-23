@@ -643,6 +643,7 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
     view: dict[str, Any] = {"approval_statuses": _as_list(d.get("approval_statuses"))}
     if not isinstance(cf, Mapping):
         view.update(
+            tag_matching="any_tag",
             subtypes=_as_list(d.get("subtypes")),
             tags=_as_list(d.get("tag_ids")),
             related_cards={},
@@ -652,6 +653,7 @@ def _portal_filter_view(filters: Any) -> dict[str, Any]:
         )
         return view
     view.update(
+        tag_matching="tag_per_group",
         subtypes=_as_list(cf.get("subtypeFilters")),
         tags=_as_list(cf.get("tagFilterIds")),
         related_cards=_as_dict(cf.get("relationFilters")),
@@ -678,6 +680,7 @@ def portal_filter_items(
     card_labels: Mapping[str, str] | None = None,
     facet_labels: Mapping[str, str] | None = None,
     option_labels: Mapping[str, str] | None = None,
+    tag_groups: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """``portal_filter.changed`` {filter, old, new} for a portal's ``filters``,
     each side a list of labels; order alone is not a change.
@@ -691,11 +694,33 @@ def portal_filter_items(
     ``facet_labels`` maps a facet key (a relation-filter key, an attribute
     key, a ``<relation type>::<field>`` composite) to its label;
     ``option_labels`` maps ``<facet key>:<option key>`` to the option's.
+
+    ``tag_matching`` (codes ``any_tag`` / ``tag_per_group``) records the one
+    change a move between the two storage shapes makes with the same picks:
+    the legacy preset kept a card carrying any picked tag, the card filter set
+    wants one from every group. It is logged only when that changes what the
+    portal shows — when the picks span more than one group (``tag_groups``
+    maps a tag id to its group id).
     """
     before, after = _portal_filter_view(old), _portal_filter_view(new)
     subtypes, tags = _as_dict(subtype_labels), _as_dict(tag_labels)
     cards, facets, options = _as_dict(card_labels), _as_dict(facet_labels), _as_dict(option_labels)
     out: list[dict[str, Any]] = []
+
+    groups = _as_dict(tag_groups)
+    picked = {str(v) for v in [*before["tags"], *after["tags"]] if v is not None}
+    if (
+        before["tag_matching"] != after["tag_matching"]
+        and len({groups.get(t, t) for t in picked}) > 1
+    ):
+        out.append(
+            item(
+                "portal_filter.changed",
+                filter="tag_matching",
+                old=before["tag_matching"],
+                new=after["tag_matching"],
+            )
+        )
 
     for name, labels in (("subtypes", subtypes), ("tags", tags)):
         a = [v for v in before[name] if v is not None]

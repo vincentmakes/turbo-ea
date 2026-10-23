@@ -607,6 +607,51 @@ class TestPortalCardFilters:
             "card_filters": _card_filters(subtypeFilters=["a"]),
         }
 
+    async def test_an_empty_card_filter_value_is_not_stored(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Legacy",
+                "slug": "legacy",
+                "card_type": "Application",
+                "filters": {"subtypes": ["saas"], "card_filters": {}},
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["filters"] == {"subtypes": ["saas"]}
+
+    async def test_include_sub_cards_alone_is_kept(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Sub",
+                "slug": "sub",
+                "card_type": "Application",
+                "filters": {"card_filters": {"includeDescendants": True}},
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.json()["filters"] == {"card_filters": _card_filters(includeDescendants=True)}
+
+    async def test_changing_the_card_type_drops_card_filters(self, client, db, portal_env):
+        portal = portal_env["portal"]
+        portal.filters = {
+            "approval_statuses": ["APPROVED"],
+            "card_filters": _card_filters(subtypeFilters=["micro"]),
+        }
+        await db.flush()
+        headers = auth_headers(portal_env["admin"])
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}", json={"card_type": "Application"}, headers=headers
+        )
+        assert resp.json()["filters"]["card_filters"]["subtypeFilters"] == ["micro"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}", json={"card_type": "ITComponent"}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == {"approval_statuses": ["APPROVED"]}
+
     async def test_a_board_portal_drops_card_filters(self, client, db, portal_env, monkeypatch):
         from app.api.v1 import web_portals as wp
 

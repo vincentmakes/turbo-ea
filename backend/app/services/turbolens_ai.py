@@ -217,7 +217,7 @@ async def call_ai(
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = {"max_tokens": max_tokens, "messages": msgs}
+        body = openai_chat.build_chat_payload(None, msgs, max_tokens=max_tokens)
     elif provider == "deepseek":
         url = "https://api.deepseek.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
@@ -257,7 +257,7 @@ async def call_ai(
 
     client = await _get_llm_client()
     all_headers = {"Content-Type": "application/json", **headers}
-    if provider == "openai":
+    if provider in ("openai", "azure"):
         resp = await openai_chat.post_chat(client, url, headers=all_headers, payload=body)
     else:
         resp = await client.post(url, json=body, headers=all_headers)

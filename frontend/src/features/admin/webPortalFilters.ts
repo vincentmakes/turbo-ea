@@ -3,6 +3,7 @@ import {
   restoreCardFilters,
   type CardFilterValue,
 } from "@/features/reports/cardFilters";
+import type { TagGroupDef } from "@/features/reports/portfolioHelpers";
 import type { PortalView } from "@/types";
 
 /**
@@ -42,4 +43,22 @@ export function portalFiltersBody(input: {
   }
   if (approvalStatuses.length > 0) out.approval_statuses = approvalStatuses;
   return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * Does a portal saved before card filters carry tags from more than one tag
+ * group? Its preset kept a card with any one of them; once the dialog saves
+ * it as card filters, a card needs one from every group — the dialog says so
+ * before that happens. A tag in no listed group counts as its own group.
+ */
+export function legacyTagsSpanGroups(
+  filters: Record<string, unknown> | null | undefined,
+  tagGroups: TagGroupDef[],
+): boolean {
+  if (!filters || filters.card_filters !== undefined) return false;
+  const picked = Array.isArray(filters.tag_ids) ? filters.tag_ids : [];
+  const groupOf = new Map<string, string>();
+  for (const g of tagGroups) for (const tag of g.tags) groupOf.set(tag.id, g.id);
+  const groups = new Set(picked.map((id) => groupOf.get(String(id)) ?? `tag:${String(id)}`));
+  return groups.size > 1;
 }

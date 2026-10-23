@@ -550,6 +550,46 @@ class TestPortalAudit:
             },
         ]
 
+    async def test_moving_tags_across_groups_records_the_matching_change(
+        self, client, db, portals_env
+    ):
+        from app.models.tag import Tag, TagGroup
+
+        domain, tier = TagGroup(name="Domain"), TagGroup(name="Tier")
+        db.add_all([domain, tier])
+        await db.flush()
+        finance = Tag(tag_group_id=domain.id, name="Finance")
+        gold = Tag(tag_group_id=tier.id, name="Gold")
+        db.add_all([finance, gold])
+        await db.flush()
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Catalog",
+                "slug": "catalog",
+                "card_type": "Application",
+                "filters": {"tag_ids": [str(finance.id), str(gold.id)]},
+            },
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={"filters": {"card_filters": {"tagFilterIds": [str(gold.id), str(finance.id)]}}},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert updated.details["items"] == [
+            {
+                "kind": "portal_filter.changed",
+                "filter": "tag_matching",
+                "old": "any_tag",
+                "new": "tag_per_group",
+            }
+        ]
+
     async def test_toggles_and_display_fields_are_recorded_by_label(self, client, db, portals_env):
         from sqlalchemy import select
 

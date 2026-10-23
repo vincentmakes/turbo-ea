@@ -967,6 +967,30 @@ def test_portal_filter_items_read_the_card_filter_set():
     assert portal_filter_items(new, {**new}) == []
 
 
+def test_portal_filter_items_log_the_tag_matching_change():
+    legacy = {"tag_ids": ["t1", "t2"]}
+    moved = {"card_filters": {"tagFilterIds": ["t2", "t1"]}}
+    two_groups = {"t1": "g1", "t2": "g2"}
+    item = {
+        "kind": "portal_filter.changed",
+        "filter": "tag_matching",
+        "old": "any_tag",
+        "new": "tag_per_group",
+    }
+    assert portal_filter_items(legacy, moved, tag_groups=two_groups) == [item]
+    assert portal_filter_items(moved, legacy, tag_groups=two_groups) == [
+        {**item, "old": "tag_per_group", "new": "any_tag"}
+    ]
+    # One group: any tag and one per group mean the same thing.
+    assert portal_filter_items(legacy, moved, tag_groups={"t1": "g1", "t2": "g1"}) == []
+    # No tags at all: nothing to match differently.
+    assert (
+        portal_filter_items({"subtypes": ["a"]}, {"card_filters": {"subtypeFilters": ["a"]}}) == []
+    )
+    # Unknown groups count apart, the safe reading.
+    assert portal_filter_items(legacy, moved) == [item]
+
+
 def test_portal_card_config_items():
     old = {
         "toggles": {"description": {"card": True, "detail": True}, "cost": {"card": False}},

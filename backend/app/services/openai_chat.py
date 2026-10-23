@@ -1,13 +1,13 @@
 """OpenAI Chat Completions — one request shape, adapted to what the model accepts.
 
 Both OpenAI call paths (card suggestions in ``ai_service`` and TurboLens in
-``turbolens_ai``) post to ``/v1/chat/completions``, and that endpoint stopped
-accepting one fixed payload for every model: the reasoning models refuse a
-custom ``temperature`` unless their reasoning effort is ``none`` — which the
-GPT-6 family either lacks or does not default to — and refuse ``max_tokens`` in
-favour of ``max_completion_tokens`` ([#1319]). The same ``openai`` provider type
-also serves OpenAI-compatible servers (Gemini, OpenRouter, LM Studio, vLLM),
-which may only know the legacy names.
+``turbolens_ai``), and their Azure Hosted OpenAI twins, post Chat Completions,
+and that endpoint stopped accepting one fixed payload for every model: the
+reasoning models refuse a custom ``temperature`` unless their reasoning effort
+is ``none`` — which the GPT-6 family either lacks or does not default to — and
+refuse ``max_tokens`` in favour of ``max_completion_tokens`` ([#1319]). The
+same ``openai`` provider type also serves OpenAI-compatible servers (Gemini,
+OpenRouter, LM Studio, vLLM), which may only know the legacy names.
 
 So the payload is not chosen by model name — a rule keyed on ``gpt-5*`` is
 exactly what a new family breaks — but corrected from the error itself: OpenAI
@@ -46,15 +46,18 @@ MAX_ADAPTATIONS = 2
 
 
 def build_chat_payload(
-    model: str,
+    model: str | None,
     messages: list[dict[str, str]],
     *,
     max_tokens: int | None = None,
     temperature: float | None = None,
     json_mode: bool = False,
 ) -> dict[str, Any]:
-    """Build a Chat Completions payload in the current OpenAI shape."""
-    payload: dict[str, Any] = {"model": model, "messages": messages}
+    """Build a Chat Completions payload in the current OpenAI shape. ``model``
+    is ``None`` for Azure, whose deployment is named in the URL instead."""
+    payload: dict[str, Any] = {"messages": messages}
+    if model is not None:
+        payload = {"model": model, **payload}
     if max_tokens is not None:
         payload["max_completion_tokens"] = max_tokens
     if temperature is not None:
@@ -117,6 +120,7 @@ async def post_chat(
     headers: dict[str, str],
     payload: dict[str, Any],
     timeout: float | None = None,
+    params: dict[str, str] | None = None,
 ) -> httpx.Response:
     """POST ``payload``, re-posting without each parameter the server refuses.
 
@@ -126,6 +130,8 @@ async def post_chat(
     kwargs: dict[str, Any] = {"json": payload, "headers": headers}
     if timeout is not None:
         kwargs["timeout"] = timeout
+    if params is not None:
+        kwargs["params"] = params
     resp = await client.post(url, **kwargs)
     tried: set[str] = set()
     while resp.status_code == 400 and len(tried) < MAX_ADAPTATIONS:
@@ -135,7 +141,9 @@ async def post_chat(
             break
         param = _error_object(body)["param"]
         tried.add(param)
-        logger.info("Chat Completions refused %r for model %s; retrying", param, payload["model"])
+        logger.info(
+            "Chat Completions refused %r for model %s; retrying", param, payload.get("model", "-")
+        )
         payload = adapted
         kwargs["json"] = payload
         resp = await client.post(url, **kwargs)

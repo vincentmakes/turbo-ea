@@ -491,7 +491,9 @@ async def _call_azure_openai(
     model/deployment name is embedded in the URL rather than the request body.
     URL format: {endpoint}/openai/deployments/{deployment}/chat/completions
 
-    Payload mirrors `_call_openai_compatible` so the suggestion quality stays
+    Payload mirrors `_call_openai_compatible` — and is posted through the same
+    `openai_chat.post_chat`, so a reasoning deployment that refuses the
+    temperature is asked again without it — so the suggestion quality stays
     identical across providers: low temperature for deterministic output, and
     `response_format: json_object` so we get structured JSON back. The system
     prompt built by `build_llm_prompt` always contains the literal word "json",
@@ -504,17 +506,14 @@ async def _call_azure_openai(
         "api-key": api_key,
         "Content-Type": "application/json",
     }
-    payload: dict[str, Any] = {
-        "messages": messages,
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
+    payload = openai_chat.build_chat_payload(None, messages, temperature=0.1, json_mode=True)
 
     try:
-        resp = await client.post(
+        resp = await openai_chat.post_chat(
+            client,
             url,
-            json=payload,
             headers=headers,
+            payload=payload,
             params={"api-version": api_version},
         )
         resp.raise_for_status()
@@ -522,7 +521,7 @@ async def _call_azure_openai(
         logger.warning(
             "Azure OpenAI API call failed: %s — %s",
             type(exc).__name__,
-            exc.response.text[:200],
+            openai_chat.error_detail(exc.response),
         )
         raise
     except httpx.HTTPError as exc:

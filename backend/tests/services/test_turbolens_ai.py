@@ -179,7 +179,7 @@ class TestCallAiAzure:
         assert "model" not in kwargs["json"]
         # System prompt threaded as a system message
         assert kwargs["json"]["messages"][0] == {"role": "system", "content": "be nice"}
-        assert kwargs["json"]["max_tokens"] == 512
+        assert kwargs["json"]["max_completion_tokens"] == 512
 
 
 # ---------------------------------------------------------------------------

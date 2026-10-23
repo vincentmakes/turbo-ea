@@ -38,7 +38,7 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.models.tag import CardTag, Tag
+from app.models.tag import CardTag, Tag, TagGroup
 
 #: The "(empty)" option of every filter (``EMPTY_FILTER_KEY`` in
 #: ``FilterSelect.tsx``): a card with no value, no relation, no subtype.
@@ -369,7 +369,10 @@ async def _card_filter_conditions(
                 or_(
                     RelationType.source_type_key == card_type,
                     RelationType.target_type_key == card_type,
-                )
+                ),
+                # A hidden type is not in the report's payload either, so a
+                # key naming one reads as a card type there; keep it so here.
+                RelationType.is_hidden.is_(False),
             )
         )
         rel_keys = set(rows.scalars().all())
@@ -387,9 +390,17 @@ async def _card_filter_conditions(
 
     tag_ids = uuids(card_filters["tagFilterIds"])
     if tag_ids:
-        rows = await db.execute(select(Tag.id, Tag.tag_group_id).where(Tag.id.in_(tag_ids)))
+        rows = await db.execute(
+            select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
+            .join(TagGroup, TagGroup.id == Tag.tag_group_id)
+            .where(Tag.id.in_(tag_ids))
+        )
         groups: dict[uuid.UUID, list[uuid.UUID]] = {}
-        for tag_id, group_id in rows.all():
+        for tag_id, group_id, restrict in rows.all():
+            # A group restricted to other types does not apply to this one —
+            # the report never offers or matches it — so its picks are ignored.
+            if restrict and card_type not in restrict:
+                continue
             groups.setdefault(group_id, []).append(tag_id)
         conditions.extend(tag_conditions(groups))
 
@@ -418,9 +429,9 @@ async def preset_conditions(
 ) -> list[ColumnElement[bool]]:
     """The where-clauses a card-list portal's ``filters`` impose on ``Card``.
 
-    ``card_filters`` when the portal has them (a portal saved by this dialog),
-    the legacy ``subtypes`` / ``tag_ids`` otherwise; ``approval_statuses`` in
-    both cases.
+    ``card_filters`` when they narrow anything (a portal saved by this
+    dialog), the legacy ``subtypes`` / ``tag_ids`` otherwise;
+    ``approval_statuses`` in both cases.
     """
     if not isinstance(filters, dict):
         return []
@@ -429,8 +440,10 @@ async def preset_conditions(
     if approval:
         conditions.append(Card.approval_status.in_(approval))
     card_filters = normalise_card_filters(filters.get("card_filters"))
-    if card_filters is None:
-        conditions.extend(_legacy_conditions(filters))
-    else:
+    if card_filters is not None and has_active_card_filters(card_filters):
         conditions.extend(await _card_filter_conditions(db, card_type, card_filters))
+    else:
+        # No card filters, or ones that narrow nothing: the legacy keys (which
+        # the dialog never writes beside card filters) are what is left.
+        conditions.extend(_legacy_conditions(filters))
     return conditions
