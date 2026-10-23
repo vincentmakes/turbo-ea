@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.177.1] - 2026-10-23
+
+### Security
+- The frontend and edge nginx images now run **nginx 1.30.6** (on Alpine 3.24.3), fixing CVE-2026-15176, CVE-2026-93479 and CVE-2026-97205 in nginx's core HTTP module.
+- **DOMPurify** is updated to 3.4.17, which fixes three sanitizer bypasses (GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, GHSA-c6gr-qvv4-5v3f). Turbo EA does not use any of the affected options.
+
 ## [2.177.0] - 2026-10-22
 
 ### Added
