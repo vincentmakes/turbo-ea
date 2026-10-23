@@ -148,6 +148,26 @@ O **modo SSO** reutiliza o logon único já configurado em **Admin > Configuraç
 | **Subtipos** | Opcionalmente restringir a subtipos específicos |
 | **Mostrar Logo** | Se deve exibir o logotipo da plataforma no portal |
 
+### Filtros de cartões
+
+Num portal do tipo **Lista de cartões**, a secção **Filtros de cartões** restringe o portal aos cartões correspondentes. É o mesmo conjunto de filtros do [relatório de portefólio de aplicações](../guide/reports.md):
+
+![Filtros de cartões na caixa de diálogo do portal](../assets/img/pt/102_admin_portal_web_filtros_cartoes.png)
+
+| Linha | Mostra apenas os cartões… |
+|-------|---------------------------|
+| **Relacionado por** | relacionados com um dos cartões escolhidos: um controlo por tipo de cartão relacionado, mais um por relação quando várias relações chegam ao mesmo tipo. **Incluir subcartões** conta também um cartão relacionado com qualquer elemento abaixo de uma seleção |
+| **Etiquetas** | que têm uma etiqueta escolhida: qualquer etiqueta dentro de um grupo, e uma de cada grupo de onde escolhe |
+| **Campos** | com um subtipo escolhido, ou um valor escolhido num dos campos de seleção ou sim/não do cartão |
+| **Subtipos de relação** | com uma relação cujo atributo (por exemplo *Tipo de utilização*) tem um valor escolhido |
+
+Cada controlo oferece também **(vazio)**, para os cartões sem valor, sem relação ou sem subtipo. Os visitantes só veem os cartões correspondentes: os filtros que escolhem no portal restringem ainda mais a lista, nunca a alargam, e as próprias definições dos filtros nunca são enviadas para o navegador do visitante.
+
+!!! note
+    Um portal criado antes da versão 2.178.0 mantém os seus filtros de subtipos e etiquetas tal como estavam até o voltar a guardar. A partir daí, etiquetas escolhidas de dois grupos diferentes têm de estar ambas num cartão, como no relatório de portefólio.
+
+Os portais de portefólio PPM e de navegador de processos mantêm os seus próprios seletores de **Subtipos** e **Etiquetas**.
+
 ## Configurando Visibilidade
 
 Para cada portal, você controla exatamente quais informações são visíveis. Há dois contextos:

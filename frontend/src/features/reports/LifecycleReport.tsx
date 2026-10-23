@@ -25,10 +25,9 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
 import CardFilterSection from "./CardFilterSection";
+import { useCardFilterOptions } from "./useCardFilterOptions";
 import {
   EMPTY_CARD_FILTERS,
-  buildRelationFilterOptions,
-  buildRelSubtypes,
   describeActiveFilters,
   expandRelationFilters,
   hasActiveFilters,
@@ -60,7 +59,6 @@ import {
   useTypeLabel,
   useFieldLabel,
   useOptionLabel,
-  useRelationLabel,
   useSubtypeLabel,
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -70,8 +68,6 @@ import {
   defaultColorField,
   facetBucket,
   facetLegend,
-  isFacetField,
-  resolveFacetField,
   type FacetBucket,
 } from "@/lib/fieldFacets";
 
@@ -157,7 +153,6 @@ export default function LifecycleReport() {
   const typeLabel = useTypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
-  const relLabel = useRelationLabel();
   const subtypeDefLabel = useSubtypeLabel();
   const { formatDate } = useDateFormat();
   const fmtDate = (s: string | undefined) => (s ? formatDate(s) : "\u2014");
@@ -260,29 +255,45 @@ export default function LifecycleReport() {
   // Derive date fields and single_select fields from selected type's schema
   const selectedType = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
 
-  const { dateFields, selectFields } = useMemo(() => {
+  const dateFields = useMemo(() => {
     const dFields: FieldDef[] = [];
-    const sFields: FieldDef[] = [];
-    if (!selectedType) return { dateFields: dFields, selectFields: sFields };
-    const yesNo = { yes: t("common:labels.yes"), no: t("common:labels.no") };
+    if (!selectedType) return dFields;
     for (const section of selectedType.fields_schema) {
       for (const f of section.fields) {
-        const resolved: FieldDef = {
+        if (f.type !== "date") continue;
+        dFields.push({
           ...f,
           label: fieldLabel(f),
           options: f.options?.map((o) => ({
             ...o,
             label: optLabel(o),
           })),
-        };
-        if (f.type === "date") dFields.push(resolved);
-        // Every facet field — selects with options and yes/no fields — can
-        // colour the date-range bars.
-        if (isFacetField(f)) sFields.push(resolveFacetField(resolved, yesNo));
+        });
       }
     }
-    return { dateFields: dFields, selectFields: sFields };
-  }, [selectedType, fieldLabel, optLabel, t]);
+    return dFields;
+  }, [selectedType, fieldLabel, optLabel]);
+
+  /* ---- The shared card filters ---------------------------------------- */
+
+  const relationTypes = useMemo(() => payload?.relation_types ?? [], [payload]);
+  const groupableTypes = useMemo(() => payload?.groupable_types ?? {}, [payload]);
+  const tagGroups = useMemo(() => payload?.tag_groups ?? [], [payload]);
+
+  // The filter rows' options, shared with the web portal dialog. Every facet
+  // field — selects with options and yes/no fields — can also colour the
+  // date-range bars.
+  const {
+    relationOptions: relationFilterOptions,
+    relSubtypes,
+    subtypeOptions,
+    facetFields: selectFields,
+  } = useCardFilterOptions({
+    cardTypeKey,
+    relationTypes,
+    groupableTypes,
+    includeDescendants: filters.includeDescendants,
+  });
 
   // The labels a bar's colour bucket is named with.
   const colorLabels = useMemo(
@@ -343,48 +354,6 @@ export default function LifecycleReport() {
   const scopedData = useMemo(
     () => (data ? applyScope(data, scope.closure) : null),
     [data, scope.closure],
-  );
-
-  /* ---- The shared card filters ---------------------------------------- */
-
-  const relationTypes = useMemo(() => payload?.relation_types ?? [], [payload]);
-  const groupableTypes = useMemo(() => payload?.groupable_types ?? {}, [payload]);
-  const tagGroups = useMemo(() => payload?.tag_groups ?? [], [payload]);
-
-  const relationFilterOptions = useMemo(
-    () =>
-      cardTypeKey
-        ? buildRelationFilterOptions({
-            groupableTypes,
-            relationTypes,
-            cardType: cardTypeKey,
-            includeDescendants: filters.includeDescendants,
-            typeMeta: (typeKey) => {
-              const tm = types.find((tp) => tp.key === typeKey);
-              return { label: typeLabel(tm) || typeKey, icon: tm?.icon, hierarchical: !!tm?.has_hierarchy };
-            },
-            relationVerb: (rt, reverse) => relLabel(rt, reverse),
-          })
-        : [],
-    [cardTypeKey, groupableTypes, relationTypes, filters.includeDescendants, types, typeLabel, relLabel],
-  );
-
-  // No Group By here to narrow them by, so every relation subtype of the type.
-  const relSubtypes = useMemo(
-    () =>
-      cardTypeKey
-        ? buildRelSubtypes(relationTypes, cardTypeKey, {
-            relationVerb: (rt, reverse) => relLabel(rt, reverse),
-            fieldLabel,
-            optionLabel: optLabel,
-          })
-        : [],
-    [cardTypeKey, relationTypes, relLabel, fieldLabel, optLabel],
-  );
-
-  const subtypeOptions = useMemo(
-    () => (selectedType?.subtypes ?? []).map((st) => ({ key: st.key, label: subtypeDefLabel(st) })),
-    [selectedType, subtypeDefLabel],
   );
 
   const relTypeKeys = useMemo(() => relationTypeKeys(relationTypes), [relationTypes]);

@@ -905,6 +905,68 @@ def test_portal_filter_items():
     assert portal_filter_items(old, copy.deepcopy(old)) == []
 
 
+def test_portal_filter_items_read_the_card_filter_set():
+    legacy = {"subtypes": ["app"], "tag_ids": ["t1"]}
+    moved = {"card_filters": {"subtypeFilters": ["app"], "tagFilterIds": ["t1"]}}
+    assert portal_filter_items(legacy, moved) == [], "same picks in the new shape: no change"
+
+    new = {
+        "approval_statuses": ["APPROVED"],
+        "card_filters": {
+            "subtypeFilters": ["app"],
+            "tagFilterIds": ["t1"],
+            "relationFilters": {"Organization": ["o1", "__empty__"], "orgOwnsApp": ["o2"]},
+            "attrFilters": {"crit": ["high", "zzz"]},
+            "relSubtypeFilters": {"orgUsesApp::usage": ["daily"]},
+            "includeDescendants": True,
+        },
+    }
+    items = portal_filter_items(
+        moved,
+        new,
+        card_labels={"o1": "Corp"},
+        facet_labels={
+            "Organization": "Organization",
+            "orgOwnsApp": "owns",
+            "crit": "Criticality",
+            "orgUsesApp::usage": "uses · Usage",
+        },
+        option_labels={"crit:high": "High", "orgUsesApp::usage:daily": "Daily"},
+    )
+    assert items == [
+        {
+            "kind": "portal_filter.changed",
+            "filter": "related_cards",
+            "old": [],
+            "new": ["Organization: —", "Organization: Corp", "owns: o2"],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_fields",
+            "old": [],
+            "new": ["Criticality: High", "Criticality: zzz"],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "relation_subtypes",
+            "old": [],
+            "new": ["uses · Usage: Daily"],
+        },
+        {"kind": "portal_filter.changed", "filter": "include_sub_cards", "old": False, "new": True},
+        {
+            "kind": "portal_filter.changed",
+            "filter": "approval_statuses",
+            "old": [],
+            "new": ["APPROVED"],
+        },
+    ]
+    # Unlabelled facets and options fall back to their keys.
+    assert portal_filter_items(None, {"card_filters": {"attrFilters": {"k": ["v"]}}}) == [
+        {"kind": "portal_filter.changed", "filter": "card_fields", "old": [], "new": ["k: v"]}
+    ]
+    assert portal_filter_items(new, {**new}) == []
+
+
 def test_portal_card_config_items():
     old = {
         "toggles": {"description": {"card": True, "detail": True}, "cost": {"card": False}},

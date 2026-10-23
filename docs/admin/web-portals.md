@@ -131,6 +131,26 @@ do not have to unpublish them one by one.
 | **Who can view this portal** | Access mode — **Anyone with the link** or **Sign in with SSO** (see [Access Protection](#access-protection)) |
 | **Show Logo** | Whether to display the platform logo on the portal |
 
+### Card filters
+
+On a **Card list** portal, the **Card filters** section narrows the portal to the cards that match. It is the same filter set as the [Application Portfolio report](../guide/reports.md):
+
+![Card filters in the portal dialog](../assets/img/en/102_admin_web_portal_card_filters.png)
+
+| Row | Shows only cards… |
+|-----|-------------------|
+| **Related By** | related to one of the picked cards — one control per related card type, plus one per relation where several relations reach the same type. **Include sub-cards** also counts a card related to anything beneath a pick |
+| **Tags** | carrying a picked tag: any tag within one group, and one from every group you pick from |
+| **Fields** | with a picked subtype, or a picked value in one of the card's select or yes/no fields |
+| **Relation Subtypes** | with a relation whose attribute (for example *Usage Type*) holds a picked value |
+
+Every control also offers **(empty)**, for cards with no value, no relation or no subtype. Visitors only ever see the matching cards: the filters they choose on the portal narrow the list further, never wider, and the filter settings themselves are never sent to the visitor's browser.
+
+!!! note
+    A portal created before version 2.178.0 keeps its subtype and tag filters exactly as they were until you next save it. After that, tags picked from two different tag groups must both be on a card, as in the portfolio report.
+
+The PPM portfolio and process navigator portals keep their own **Subtypes** and **Tags** pickers.
+
 ## Configuring Visibility
 
 For each portal, you control exactly which information is visible. There are two contexts:

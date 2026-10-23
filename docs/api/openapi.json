@@ -42516,6 +42516,47 @@
         ]
       }
     },
+    "/api/v1/web-portals/filter-options": {
+      "get": {
+        "description": "What the portal dialog's card filters offer for one card type.\n\nThe same relation types, related cards, fields and tag groups the\nportfolio reports filter on (``build_portfolio_payload``), without the\ncards themselves, and gated on the portal permission rather than the\nreport one: configuring a portal must not depend on reading reports. The\nrelated cards stay inside the admin's own read scope.",
+        "operationId": "get_portal_filter_options_api_v1_web_portals_filter_options_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "title": "Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Portal Filter Options",
+        "tags": [
+          "web-portals"
+        ]
+      }
+    },
     "/api/v1/web-portals/public/{slug}": {
       "get": {
         "operationId": "get_public_portal_api_v1_web_portals_public__slug__get",

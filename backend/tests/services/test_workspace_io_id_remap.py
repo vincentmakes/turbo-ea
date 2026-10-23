@@ -285,6 +285,17 @@ async def _seed_every_blob(db, user):
                 card_type="Application",
                 filters={"tag_ids": [str(tag.id)]},
             ),
+            WebPortal(
+                name="Sales apps",
+                slug="sales-apps",
+                card_type="Application",
+                filters={
+                    "card_filters": {
+                        "relationFilters": {"Organization": [str(org.id), "__empty__"]},
+                        "tagFilterIds": [str(tag.id)],
+                    }
+                },
+            ),
             Bookmark(user_id=user.id, name="Cloud apps", filters={"tagIds": [str(tag.id)]}),
             Todo(description="Review", card_id=crm.id, link=f"/cards/{crm.id}"),
             TurboLensComplianceFinding(

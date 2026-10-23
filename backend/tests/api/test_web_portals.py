@@ -450,6 +450,106 @@ class TestPortalAudit:
             "context": {"slug": "catalog", "is_published": False},
         }
 
+    async def test_card_filters_are_recorded_by_label(self, client, db, portals_env):
+        from sqlalchemy import select
+
+        from app.models.card_type import CardType
+        from tests.conftest import create_card, create_relation_type
+
+        app_type = (
+            await db.execute(select(CardType).where(CardType.key == "Application"))
+        ).scalar_one()
+        app_type.fields_schema = [
+            {
+                "section": "Main",
+                "fields": [
+                    {
+                        "key": "crit",
+                        "label": "Criticality",
+                        "type": "single_select",
+                        "options": [{"key": "high", "label": "High"}, "junk"],
+                    }
+                ],
+            },
+            "junk",
+        ]
+        await create_card_type(db, key="Organization", label="Organisation")
+        await create_relation_type(
+            db,
+            key="orgUsesApp",
+            label="uses",
+            reverse_label="is used by",
+            source_type_key="Organization",
+            target_type_key="Application",
+            attributes_schema=[
+                {
+                    "key": "usage",
+                    "label": "Usage",
+                    "type": "single_select",
+                    "options": [{"key": "daily", "label": "Daily"}],
+                }
+            ],
+        )
+        await create_relation_type(
+            db,
+            key="appCallsApp",
+            label="calls",
+            reverse_label="is called by",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
+        corp = await create_card(db, card_type="Organization", name="Corp")
+        headers = auth_headers(portals_env["admin"])
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={"name": "Catalog", "slug": "catalog", "card_type": "Application"},
+            headers=headers,
+        )
+        pid = resp.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{pid}",
+            json={
+                "filters": {
+                    "card_filters": {
+                        "relationFilters": {
+                            "Organization": [str(corp.id)],
+                            "orgUsesApp": ["__empty__"],
+                            "appCallsApp__in": [str(corp.id)],
+                        },
+                        "attrFilters": {"crit": ["high"]},
+                        "relSubtypeFilters": {
+                            "orgUsesApp::usage": ["daily"],
+                            "gone::field": ["x"],
+                        },
+                    }
+                }
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+        [updated] = [r for r in await _audit_rows(db) if r.action == "admin.web_portal.updated"]
+        assert updated.details["items"] == [
+            {
+                "kind": "portal_filter.changed",
+                "filter": "related_cards",
+                "old": [],
+                "new": ["Organisation: Corp", "is called by: Corp", "is used by: —"],
+            },
+            {
+                "kind": "portal_filter.changed",
+                "filter": "card_fields",
+                "old": [],
+                "new": ["Criticality: High"],
+            },
+            {
+                "kind": "portal_filter.changed",
+                "filter": "relation_subtypes",
+                "old": [],
+                "new": ["gone · field: x", "is used by · Usage: Daily"],
+            },
+        ]
+
     async def test_toggles_and_display_fields_are_recorded_by_label(self, client, db, portals_env):
         from sqlalchemy import select
 

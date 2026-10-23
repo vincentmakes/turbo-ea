@@ -149,6 +149,26 @@ Der **SSO-Modus** nutzt das bereits unter **Admin > Einstellungen > Authentifizi
 | **Subtypen** | Optional auf bestimmte Subtypen beschränken |
 | **Logo anzeigen** | Ob das Plattform-Logo im Portal angezeigt werden soll |
 
+### Kartenfilter
+
+Bei einem Portal vom Typ **Kartenliste** schränkt der Abschnitt **Kartenfilter** das Portal auf die passenden Karten ein. Es ist derselbe Filtersatz wie im [Application-Portfolio-Bericht](../guide/reports.md):
+
+![Kartenfilter im Portaldialog](../assets/img/de/102_admin_webportal_kartenfilter.png)
+
+| Zeile | Zeigt nur Karten, … |
+|-------|---------------------|
+| **Verknüpft über** | die mit einer der gewählten Karten verknüpft sind – ein Steuerelement pro verknüpftem Kartentyp, dazu eines pro Beziehung, wenn mehrere Beziehungen denselben Typ erreichen. **Unterkarten einbeziehen** zählt auch Karten, die mit etwas unterhalb einer Auswahl verknüpft sind |
+| **Tags** | die einen gewählten Tag tragen: einen beliebigen Tag innerhalb einer Gruppe und je einen aus jeder Gruppe, aus der Sie wählen |
+| **Felder** | mit einem gewählten Subtyp oder einem gewählten Wert in einem der Auswahl- oder Ja/Nein-Felder der Karte |
+| **Beziehungs-Untertypen** | mit einer Beziehung, deren Attribut (zum Beispiel *Nutzungsart*) einen gewählten Wert hat |
+
+Jedes Steuerelement bietet zusätzlich **(leer)** für Karten ohne Wert, ohne Beziehung oder ohne Subtyp. Besucher sehen ausschließlich die passenden Karten: Die Filter, die sie im Portal wählen, schränken die Liste weiter ein, erweitern sie aber nie, und die Filtereinstellungen selbst werden nie an den Browser des Besuchers gesendet.
+
+!!! note
+    Ein Portal, das vor Version 2.178.0 erstellt wurde, behält seine Subtyp- und Tag-Filter unverändert, bis Sie es das nächste Mal speichern. Danach müssen Tags aus zwei verschiedenen Tag-Gruppen beide an einer Karte vorhanden sein, wie im Portfolio-Bericht.
+
+PPM-Portfolio- und Prozessnavigator-Portale behalten ihre eigenen Auswahlfelder für **Subtypen** und **Tags**.
+
 ## Sichtbarkeit konfigurieren
 
 Für jedes Portal steuern Sie genau, welche Informationen sichtbar sind. Es gibt zwei Kontexte:

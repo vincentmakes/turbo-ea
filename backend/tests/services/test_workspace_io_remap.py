@@ -694,6 +694,25 @@ def test_survey_portal_and_bookmark_filters_are_translated():
     kw = {"filters": {"tag_ids": [OLD_TAG], "card_ids": [OLD_A]}}
     rm.rewrite_portal_row(kw, _ctx())
     assert kw["filters"] == {"tag_ids": [NEW_TAG], "card_ids": [NEW_A]}
+    kw = {
+        "filters": {
+            "approval_statuses": ["APPROVED"],
+            "card_filters": {
+                "relationFilters": {"Organization": [OLD_A, "__empty__"]},
+                "tagFilterIds": [OLD_TAG],
+                "subtypeFilters": ["micro"],
+            },
+        }
+    }
+    assert rm.rewrite_portal_row(kw, _ctx()).counts == {rm.REMAPPED: 2}
+    assert kw["filters"] == {
+        "approval_statuses": ["APPROVED"],
+        "card_filters": {
+            "relationFilters": {"Organization": [NEW_A, "__empty__"]},
+            "tagFilterIds": [NEW_TAG],
+            "subtypeFilters": ["micro"],
+        },
+    }
     kw = {"filters": {"tagIds": [OLD_TAG], "relations": {"relX": ["Some App"]}}}
     rm.rewrite_bookmark_row(kw, _ctx())
     assert kw["filters"] == {"tagIds": [NEW_TAG], "relations": {"relX": ["Some App"]}}
