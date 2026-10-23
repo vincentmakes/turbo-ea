@@ -252,6 +252,7 @@ AI_MODEL=gemma3:4b          # 或 mistral、llama3:8b 等
 | 连接测试失败 | 验证提供商 URL 是否可从后端容器访问。对于 Docker 设置，确保两个容器在同一网络上。 |
 | Bedrock 返回「AccessDeniedException」 | 有两种可能原因：IAM 角色缺少 `bedrock:InvokeModel` 权限，或未在 Bedrock 控制台中为该模型启用访问权限。请检查这两项。 |
 | Bedrock 提示不支持按需吞吐量 | 该模型只能通过区域推理配置文件访问。运行测试连接，并选择前缀为 `eu.`、`us.` 或 `apac.` 的 ID。 |
+| OpenAI 以 403 拒绝某个模型 | 密钥有效，但该 OpenAI 项目无权调用此模型。测试连接会向所配置的模型发送一个简短请求，并显示 OpenAI 给出的原因。请在 OpenAI 控制台中为项目开通该模型的访问权限（或完成组织验证），或改用其他模型。 |
 
 ---
 

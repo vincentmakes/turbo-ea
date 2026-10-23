@@ -266,6 +266,7 @@ Custom roles can be granted these permissions through the Roles administration p
 | Connection test fails | Verify the provider URL is reachable from the backend container. For Docker setups, ensure both containers are on the same network. |
 | Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
 | Bedrock says on-demand throughput is not supported | The model is only reachable through a regional inference profile. Run Test Connection and pick an ID prefixed `eu.`, `us.` or `apac.`. |
+| OpenAI refuses a model with 403 | The key is valid, but the OpenAI project may not call that model. Test Connection sends a short request to the configured model and shows OpenAI's own reason. Grant the project access to the model (or complete organization verification) in the OpenAI dashboard, or pick another model. |
 
 ---
 

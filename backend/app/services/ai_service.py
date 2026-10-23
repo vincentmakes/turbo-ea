@@ -22,7 +22,7 @@ from typing import Any
 
 import httpx
 
-from app.services import bedrock
+from app.services import bedrock, openai_chat
 
 logger = logging.getLogger("turboea.ai")
 
@@ -542,7 +542,10 @@ async def _call_openai_compatible(
 ) -> dict[str, Any]:
     """Call an OpenAI-compatible /v1/chat/completions endpoint.
 
-    Works with OpenAI, Google Gemini, OpenRouter, LM Studio, vLLM.
+    Works with OpenAI, Google Gemini, OpenRouter, LM Studio, vLLM. The low
+    temperature and JSON mode are requests, not requirements: a model that
+    refuses either (the GPT-6 reasoning models refuse ``temperature``) is asked
+    again without it by ``openai_chat.post_chat``.
     """
     client = await _get_llm_client()
     url = f"{provider_url.rstrip('/')}/v1/chat/completions"
@@ -551,16 +554,18 @@ async def _call_openai_compatible(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
+    payload = openai_chat.build_chat_payload(model, messages, temperature=0.1, json_mode=True)
 
     try:
-        resp = await client.post(url, json=payload, headers=headers)
+        resp = await openai_chat.post_chat(client, url, headers=headers, payload=payload)
         resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "OpenAI-compatible API call failed: %s — %s",
+            type(exc).__name__,
+            openai_chat.error_detail(exc.response),
+        )
+        raise
     except httpx.HTTPError as exc:
         logger.warning("OpenAI-compatible API call failed: %s", type(exc).__name__)
         raise
@@ -684,6 +689,38 @@ async def call_llm(
 # ---------------------------------------------------------------------------
 
 
+async def _probe_openai_model(
+    client: httpx.AsyncClient,
+    base_url: str,
+    headers: dict[str, str],
+    model: str,
+) -> None:
+    """Make the smallest completion the configured model accepts.
+
+    16 output tokens rather than 1: a reasoning model spends tokens before it
+    writes any, and a cut-off answer still proves the model can be called.
+    Raises ``httpx.HTTPError`` carrying the provider's own reason.
+    """
+    payload = openai_chat.build_chat_payload(
+        model, [{"role": "user", "content": "Hi"}], max_tokens=16
+    )
+    try:
+        resp = await openai_chat.post_chat(
+            client,
+            f"{base_url}/v1/chat/completions",
+            headers={**headers, "Content-Type": "application/json"},
+            payload=payload,
+            timeout=30.0,
+        )
+    except httpx.HTTPError as exc:
+        raise httpx.HTTPError(f"Cannot reach provider: {type(exc).__name__}") from exc
+    if not resp.is_success:
+        raise httpx.HTTPError(
+            f"Model '{model}' refused the test request "
+            f"({resp.status_code}): {openai_chat.error_detail(resp)}"
+        )
+
+
 async def check_provider_connection(
     provider_url: str,
     provider_type: str = "ollama",
@@ -738,17 +775,22 @@ async def check_provider_connection(
             raise httpx.HTTPError(f"Cannot reach Azure OpenAI: {type(exc).__name__}") from exc
 
     if provider_type == "openai":
-        url = f"{provider_url.rstrip('/')}/v1/models"
+        base = provider_url.rstrip("/")
         headers = {"Authorization": f"Bearer {api_key}"}
         try:
-            resp = await client.get(url, headers=headers, timeout=10.0)
+            resp = await client.get(f"{base}/v1/models", headers=headers, timeout=10.0)
             resp.raise_for_status()
             data = resp.json()
             available = [m.get("id", "") for m in data.get("data", [])]
             model_found = any(model in m for m in available) if model else False
-            return {"ok": True, "available_models": available[:20], "model_found": model_found}
         except httpx.HTTPError as exc:
             raise httpx.HTTPError(f"Cannot reach provider: {type(exc).__name__}") from exc
+        if model_found:
+            # Listing a model is not permission to call it: a project without
+            # access to it is refused with a 403 only at completion time, which
+            # is how a passing test used to sit beside failing calls (#1319).
+            await _probe_openai_model(client, base, headers, model)
+        return {"ok": True, "available_models": available[:20], "model_found": model_found}
 
     if provider_type == "anthropic":
         # Anthropic has no model-list endpoint; make a minimal test call

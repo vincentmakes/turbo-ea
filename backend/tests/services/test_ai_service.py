@@ -796,6 +796,56 @@ class TestCallOpenAICompatible:
             assert payload["temperature"] == 0.1
 
     @pytest.mark.asyncio
+    async def test_a_refused_temperature_is_dropped(self):
+        """#1319: GPT-6 reasoning models refuse a custom temperature."""
+        refused = MagicMock(status_code=400)
+        refused.json.return_value = {"error": {"param": "temperature", "code": "unsupported_value"}}
+        ok = MagicMock(status_code=200)
+        ok.raise_for_status = MagicMock()
+        ok.json.return_value = {
+            "choices": [{"message": {"content": '{"description": {"value": "A tool"}}'}}]
+        }
+
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(side_effect=[refused, ok])
+
+            result = await _call_openai_compatible(
+                "https://api.openai.com",
+                "sk-test",
+                "gpt-6.1-sol",
+                [{"role": "user", "content": "test"}],
+            )
+
+        assert result == {"description": {"value": "A tool"}}
+        retried = mock_client.post.call_args_list[1].kwargs["json"]
+        assert "temperature" not in retried
+        assert retried["response_format"] == {"type": "json_object"}
+
+    @pytest.mark.asyncio
+    async def test_a_refusal_logs_the_providers_reason(self, caplog):
+        request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+        denied = httpx.Response(
+            403,
+            json={"error": {"message": "Project has no access to model gpt-6.1-sol"}},
+            request=request,
+        )
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=denied)
+
+            with pytest.raises(httpx.HTTPStatusError):
+                await _call_openai_compatible(
+                    "https://api.openai.com",
+                    "sk-test",
+                    "gpt-6.1-sol",
+                    [{"role": "user", "content": "test"}],
+                )
+        assert "Project has no access to model gpt-6.1-sol" in caplog.text
+
+    @pytest.mark.asyncio
     async def test_http_error_raises(self):
         with patch("app.services.ai_service._get_llm_client") as mock_get:
             mock_client = AsyncMock()
@@ -1071,6 +1121,7 @@ class TestProviderConnection:
             mock_client = AsyncMock()
             mock_get.return_value = mock_client
             mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.post = AsyncMock(return_value=MagicMock(status_code=200, is_success=True))
 
             result = await check_provider_connection(
                 "https://api.openai.com",
@@ -1085,6 +1136,109 @@ class TestProviderConnection:
             call_args = mock_client.get.call_args
             assert "/v1/models" in call_args[0][0]
             assert call_args[1]["headers"]["Authorization"] == "Bearer sk-test"
+
+    @staticmethod
+    def _openai_client(probe):
+        listed = MagicMock()
+        listed.raise_for_status = MagicMock()
+        listed.json.return_value = {"data": [{"id": "gpt-4o"}, {"id": "gpt-6.1-sol"}]}
+        client = AsyncMock()
+        client.get = AsyncMock(return_value=listed)
+        client.post = AsyncMock(**probe)
+        return client
+
+    @pytest.mark.asyncio
+    async def test_openai_probes_the_configured_model(self):
+        client = self._openai_client({"return_value": MagicMock(status_code=200, is_success=True)})
+        with patch("app.services.ai_service._get_llm_client", return_value=client):
+            result = await check_provider_connection(
+                "https://api.openai.com/",
+                provider_type="openai",
+                api_key="sk-test",
+                model="gpt-6.1-sol",
+            )
+        assert result == {
+            "ok": True,
+            "available_models": ["gpt-4o", "gpt-6.1-sol"],
+            "model_found": True,
+        }
+        args, kwargs = client.post.call_args
+        assert args == ("https://api.openai.com/v1/chat/completions",)
+        assert kwargs["json"] == {
+            "model": "gpt-6.1-sol",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_completion_tokens": 16,
+        }
+        assert kwargs["headers"] == {
+            "Authorization": "Bearer sk-test",
+            "Content-Type": "application/json",
+        }
+        assert kwargs["timeout"] == 30.0
+
+    @pytest.mark.asyncio
+    async def test_openai_probe_surfaces_a_403(self):
+        """#1319: the test used to pass while every real call was refused."""
+        denied = MagicMock(status_code=403, is_success=False, text="")
+        denied.json.return_value = {
+            "error": {"message": "Project has no access to model gpt-6.1-sol"}
+        }
+        client = self._openai_client({"return_value": denied})
+        with (
+            patch("app.services.ai_service._get_llm_client", return_value=client),
+            pytest.raises(httpx.HTTPError) as exc,
+        ):
+            await check_provider_connection(
+                "https://api.openai.com",
+                provider_type="openai",
+                api_key="sk-test",
+                model="gpt-6.1-sol",
+            )
+        assert str(exc.value) == (
+            "Model 'gpt-6.1-sol' refused the test request (403): "
+            "Project has no access to model gpt-6.1-sol"
+        )
+
+    @pytest.mark.asyncio
+    async def test_openai_probe_network_failure(self):
+        client = self._openai_client({"side_effect": httpx.ConnectTimeout("slow")})
+        with (
+            patch("app.services.ai_service._get_llm_client", return_value=client),
+            pytest.raises(httpx.HTTPError, match="Cannot reach provider: ConnectTimeout"),
+        ):
+            await check_provider_connection(
+                "https://api.openai.com",
+                provider_type="openai",
+                api_key="sk-test",
+                model="gpt-6.1-sol",
+            )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("model", ["", "gpt-9-unlisted"])
+    async def test_openai_skips_the_probe_without_a_listed_model(self, model):
+        client = self._openai_client({"return_value": MagicMock()})
+        with patch("app.services.ai_service._get_llm_client", return_value=client):
+            result = await check_provider_connection(
+                "https://api.openai.com",
+                provider_type="openai",
+                api_key="sk-test",
+                model=model,
+            )
+        assert result["ok"] is True
+        assert result["model_found"] is False
+        client.post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_openai_listing_failure(self):
+        client = AsyncMock()
+        client.get = AsyncMock(side_effect=httpx.ConnectError("down"))
+        with (
+            patch("app.services.ai_service._get_llm_client", return_value=client),
+            pytest.raises(httpx.HTTPError, match="Cannot reach provider: ConnectError"),
+        ):
+            await check_provider_connection(
+                "https://api.openai.com", provider_type="openai", api_key="k", model="m"
+            )
+        client.post.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_anthropic_makes_test_call(self):

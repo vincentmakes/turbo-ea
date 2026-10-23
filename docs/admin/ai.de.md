@@ -252,6 +252,7 @@ Die Berechtigungsschlüssel sind `ai.suggest` und `ai.portfolio_insights`. Benut
 | Verbindungstest schlägt fehl | Überprüfen Sie, ob die Anbieter-URL vom Backend-Container aus erreichbar ist. Bei Docker-Setups stellen Sie sicher, dass beide Container im selben Netzwerk sind. |
 | Bedrock meldet «AccessDeniedException» | Zwei mögliche Ursachen: Der IAM-Rolle fehlt die Berechtigung `bedrock:InvokeModel`, oder der Modellzugriff wurde für dieses Modell in der Bedrock-Konsole nicht aktiviert. Prüfen Sie beides. |
 | Bedrock meldet, dass On-Demand-Durchsatz nicht unterstützt wird | Das Modell ist nur über ein regionales Inferenzprofil erreichbar. Führen Sie den Verbindungstest aus und wählen Sie eine ID mit dem Präfix `eu.`, `us.` oder `apac.`. |
+| OpenAI lehnt ein Modell mit 403 ab | Der Schlüssel ist gültig, aber das OpenAI-Projekt darf dieses Modell nicht aufrufen. Der Verbindungstest sendet eine kurze Anfrage an das konfigurierte Modell und zeigt die Begründung von OpenAI an. Geben Sie dem Projekt im OpenAI-Dashboard Zugriff auf das Modell (oder schließen Sie die Organisationsverifizierung ab) oder wählen Sie ein anderes Modell. |
 
 ---
 
