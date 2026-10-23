@@ -390,13 +390,13 @@ async def _card_filter_conditions(
 
     tag_ids = uuids(card_filters["tagFilterIds"])
     if tag_ids:
-        rows = await db.execute(
+        tag_rows = await db.execute(
             select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
             .join(TagGroup, TagGroup.id == Tag.tag_group_id)
             .where(Tag.id.in_(tag_ids))
         )
         groups: dict[uuid.UUID, list[uuid.UUID]] = {}
-        for tag_id, group_id, restrict in rows.all():
+        for tag_id, group_id, restrict in tag_rows.all():
             # A group restricted to other types does not apply to this one —
             # the report never offers or matches it — so its picks are ignored.
             if restrict and card_type not in restrict:
