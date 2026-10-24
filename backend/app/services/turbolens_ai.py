@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.encryption import decrypt_value
 from app.database import async_session
 from app.models.app_settings import AppSettings
-from app.services import bedrock
+from app.services import bedrock, openai_chat
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 
 logger = logging.getLogger("turboea.turbolens.ai")
@@ -204,7 +204,9 @@ async def call_ai(
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = {"model": model or "gpt-4o", "max_tokens": max_tokens, "messages": msgs}
+        # Sent in the current shape (``max_completion_tokens``); ``post_chat``
+        # falls back to ``max_tokens`` for a compatible server that wants it.
+        body = openai_chat.build_chat_payload(model or "gpt-4o", msgs, max_tokens=max_tokens)
     elif provider == "azure":
         # Azure Hosted OpenAI: deployment name goes in the URL (not the body),
         # auth is the `api-key` header, and an api-version query param is required.
@@ -215,7 +217,7 @@ async def call_ai(
         msgs = (
             [{"role": "system", "content": system_prompt}, *messages] if system_prompt else messages
         )
-        body = {"max_tokens": max_tokens, "messages": msgs}
+        body = openai_chat.build_chat_payload(None, msgs, max_tokens=max_tokens)
     elif provider == "deepseek":
         url = "https://api.deepseek.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}"}
@@ -254,15 +256,18 @@ async def call_ai(
         raise ValueError(f"Unknown AI provider: {provider}")
 
     client = await _get_llm_client()
-    resp = await client.post(
-        url,
-        json=body,
-        headers={"Content-Type": "application/json", **headers},
-    )
+    all_headers = {"Content-Type": "application/json", **headers}
+    if provider in ("openai", "azure"):
+        resp = await openai_chat.post_chat(client, url, headers=all_headers, payload=body)
+    else:
+        resp = await client.post(url, json=body, headers=all_headers)
 
     if not resp.is_success:
-        text = resp.text[:200]
-        if resp.status_code in (401, 403):
+        text = openai_chat.error_detail(resp)
+        # Only a 401 means the key is wrong. A 403 is the provider refusing
+        # something this key may not use — most often a model the project has
+        # no access to — and the provider's own message is what says which.
+        if resp.status_code == 401:
             raise ValueError(f"AI_KEY_INVALID:{provider}")
         if resp.status_code in (429, 402):
             raise ValueError(f"AI_QUOTA_EXCEEDED:{provider}")

@@ -31,12 +31,21 @@ from app.models.web_portal import WebPortal
 from app.schemas.bpm_public import BpmPublicFlow, BpmPublicProcessMap
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
 from app.schemas.ppm_public import PpmPublicPortfolio
-from app.services import audit_changes, audit_labels, audit_log, portal_visibility, sso_service
+from app.services import (
+    audit_changes,
+    audit_labels,
+    audit_log,
+    portal_card_filters,
+    portal_visibility,
+    sso_service,
+)
 from app.services import ppm_portfolio_service as ppm_portfolio
 from app.services import process_map_service as process_map
+from app.services.card_read_scope import CardReadScope
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
+from app.services.portfolio_payload import build_portfolio_payload
 from app.services.public_access import (
     PUBLIC_ACCESS_COOKIE,
     build_sso_gate_config,
@@ -158,6 +167,28 @@ async def _validate_view(
     return v, _VIEW_CARD_TYPES[v]
 
 
+def _normalise_filters(filters: object, view: str) -> object:
+    """A portal's ``filters`` as stored: ``card_filters`` (the shared card
+    filter set) only on a card-list portal, only in its canonical shape and
+    only when it says something — an empty one would otherwise sit beside a
+    legacy preset it does not replace. A board portal has its own scope and
+    never reads it."""
+    if not isinstance(filters, dict) or "card_filters" not in filters:
+        return filters
+    out = dict(filters)
+    card_filters = portal_card_filters.normalise_card_filters(out.pop("card_filters"))
+    if (
+        view == "cards"
+        and card_filters is not None
+        and (
+            portal_card_filters.has_active_card_filters(card_filters)
+            or card_filters["includeDescendants"]
+        )
+    ):
+        out["card_filters"] = card_filters
+    return out
+
+
 def _portal_to_dict(p: WebPortal) -> dict:
     return {
         "id": str(p.id),
@@ -231,6 +262,13 @@ class _PortalAuditLabels:
     tags: dict[str, str] = field(default_factory=dict)
     fields: dict[str, str] = field(default_factory=dict)
     relations: dict[str, str] = field(default_factory=dict)
+    #: The shared card filter set: a related card's name by id, a facet's
+    #: label by its key, an option's label by ``<facet key>:<option key>``.
+    cards: dict[str, str] = field(default_factory=dict)
+    facets: dict[str, str] = field(default_factory=dict)
+    options: dict[str, str] = field(default_factory=dict)
+    #: A picked tag's group id, by tag id.
+    tag_groups: dict[str, str] = field(default_factory=dict)
 
     def type_label(self, key: object) -> object:
         return self.types.get(key, key) if isinstance(key, str) else key
@@ -264,13 +302,96 @@ def _schema_field_labels(fields_schema: object) -> dict[str, str]:
 def _filter_tag_ids(*filters: object) -> set[uuid.UUID]:
     ids: set[uuid.UUID] = set()
     for value in filters:
-        raw = value.get("tag_ids") if isinstance(value, dict) else None
+        if not isinstance(value, dict):
+            continue
+        # The same reading the audit items make: card filters' tags when the
+        # portal has card filters, the legacy ``tag_ids`` otherwise.
+        card_filters = value.get("card_filters")
+        if isinstance(card_filters, dict):
+            raw = card_filters.get("tagFilterIds")
+        else:
+            raw = value.get("tag_ids")
         for tag_id in raw if isinstance(raw, list) else []:
             try:
                 ids.add(uuid.UUID(str(tag_id)))
             except ValueError:
                 continue
     return ids
+
+
+def _card_filter_values(*filters: object) -> list[dict]:
+    """Each snapshot's ``card_filters``, normalised; absent ones skipped."""
+    out = []
+    for value in filters:
+        raw = value.get("card_filters") if isinstance(value, dict) else None
+        cf = portal_card_filters.normalise_card_filters(raw)
+        if cf is not None:
+            out.append(cf)
+    return out
+
+
+def _option_labels(prefix: str, fdef: dict) -> dict[str, str]:
+    return {
+        f"{prefix}:{o['key']}": o.get("label") or o["key"]
+        for o in fdef.get("options") or []
+        if isinstance(o, dict) and isinstance(o.get("key"), str)
+    }
+
+
+async def _card_filter_labels(
+    db: AsyncSession, labels: _PortalAuditLabels, portal_types: set, values: list[dict]
+) -> None:
+    """Fill ``labels.cards`` / ``facets`` / ``options`` for every pick the
+    snapshots' card filters name, a few queries in all."""
+    rel_keys = {k for cf in values for k in cf["relationFilters"]}
+    sub_keys = {k for cf in values for k in cf["relSubtypeFilters"]}
+    bare = {portal_card_filters.parse_side_key(k)[0] for k in rel_keys}
+    bare |= {k.partition("::")[0] for k in sub_keys}
+    rows = await db.execute(select(RelationType).where(RelationType.key.in_(bare)))
+    rts = {rt.key: rt for rt in rows.scalars().all()}
+
+    def verb(rt: RelationType, is_source: bool | None) -> str:
+        if is_source is None:
+            is_source = rt.source_type_key in portal_types
+        return (rt.label if is_source else rt.reverse_label) or rt.label or rt.key
+
+    type_keys = {k for k in rel_keys if portal_card_filters.parse_side_key(k)[0] not in rts}
+    if type_keys - set(labels.types):
+        rows = await db.execute(
+            select(CardType.key, CardType.label).where(CardType.key.in_(type_keys))
+        )
+        labels.types.update({key: label or key for key, label in rows.all()})
+    # A key with no label is left out: the audit builder falls back to the key.
+    for key in rel_keys:
+        rel_key, is_source = portal_card_filters.parse_side_key(key)
+        rt = rts.get(rel_key)
+        if rt:
+            labels.facets[key] = verb(rt, is_source)
+        elif key in labels.types:
+            labels.facets[key] = labels.types[key]
+    for composite in sub_keys:
+        rel_key, _, field_key = composite.partition("::")
+        rt = rts.get(rel_key)
+        fdef = next(
+            (
+                f
+                for f in (rt.attributes_schema if rt else None) or []
+                if isinstance(f, dict) and f.get("key") == field_key
+            ),
+            {},
+        )
+        rel_label = verb(rt, None) if rt else rel_key
+        labels.facets[composite] = f"{rel_label} · {fdef.get('label') or field_key}"
+        labels.options.update(_option_labels(composite, fdef))
+    for cf in values:
+        labels.facets.update({k: labels.fields[k] for k in cf["attrFilters"] if k in labels.fields})
+
+    card_ids = portal_card_filters.uuids(
+        v for cf in values for vals in cf["relationFilters"].values() for v in vals
+    )
+    if card_ids:
+        rows = await db.execute(select(Card.id, Card.name).where(Card.id.in_(card_ids)))
+        labels.cards = {str(card_id): name for card_id, name in rows.all()}
 
 
 def _toggle_relation_keys(*configs: object) -> set[str]:
@@ -297,10 +418,23 @@ async def _portal_audit_labels(db: AsyncSession, *snapshots: dict) -> _PortalAud
                     labels.subtypes.setdefault(sub["key"], sub.get("label") or sub["key"])
             for key, label in _schema_field_labels(ct.fields_schema).items():
                 labels.fields.setdefault(key, label)
+            for section in ct.fields_schema or []:
+                if not isinstance(section, dict):
+                    continue
+                for fdef in section.get("fields") or []:
+                    if isinstance(fdef, dict) and isinstance(fdef.get("key"), str):
+                        labels.options.update(_option_labels(fdef["key"], fdef))
+    filter_values = _card_filter_values(*(s.get("filters") for s in snapshots))
+    if filter_values:
+        await _card_filter_labels(db, labels, type_keys, filter_values)
     tag_ids = _filter_tag_ids(*(s.get("filters") for s in snapshots))
     if tag_ids:
-        rows = await db.execute(select(Tag.id, Tag.name).where(Tag.id.in_(tag_ids)))
-        labels.tags = {str(tag_id): name for tag_id, name in rows.all()}
+        rows = await db.execute(
+            select(Tag.id, Tag.name, Tag.tag_group_id).where(Tag.id.in_(tag_ids))
+        )
+        for tag_id, name, group_id in rows.all():
+            labels.tags[str(tag_id)] = name
+            labels.tag_groups[str(tag_id)] = str(group_id)
     rel_keys = _toggle_relation_keys(*(s.get("card_config") for s in snapshots))
     if rel_keys:
         rows = await db.execute(
@@ -336,6 +470,10 @@ def _portal_audit_changes(
             after.get("filters"),
             subtype_labels=labels.subtypes,
             tag_labels=labels.tags,
+            card_labels=labels.cards,
+            facet_labels=labels.facets,
+            option_labels=labels.options,
+            tag_groups=labels.tag_groups,
         ),
         *audit_changes.portal_card_config_items(
             before.get("card_config"),
@@ -377,7 +515,7 @@ async def create_portal(
         slug=body.slug,
         description=body.description,
         card_type=card_type,
-        filters=body.filters,
+        filters=_normalise_filters(body.filters, view),
         display_fields=body.display_fields,
         card_config=body.card_config,
         is_published=body.is_published,
@@ -407,6 +545,35 @@ async def create_portal(
     await db.commit()
     await db.refresh(portal)
     return _portal_to_dict(portal)
+
+
+@router.get("/filter-options")
+async def get_portal_filter_options(
+    type: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """What the portal dialog's card filters offer for one card type.
+
+    The same relation types, related cards, fields and tag groups the
+    portfolio reports filter on (``build_portfolio_payload``), without the
+    cards themselves, and gated on the portal permission rather than the
+    report one: configuring a portal must not depend on reading reports. The
+    related cards stay inside the admin's own read scope.
+    """
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    all_types = (await db.execute(select(CardType))).scalars().all()
+    target_type = next((t for t in all_types if t.key == type), None)
+    if target_type is None or target_type.is_hidden:
+        raise HTTPException(404, f"Card type '{type}' not found")
+    read_scope = await CardReadScope.load(db, user)
+    payload = await build_portfolio_payload(db, read_scope, target_type, all_types)
+    return {
+        "fields_schema": payload["fields_schema"],
+        "relation_types": payload["relation_types"],
+        "groupable_types": payload["groupable_types"],
+        "tag_groups": payload["tag_groups"],
+    }
 
 
 @router.get("/{portal_id}")
@@ -465,6 +632,20 @@ async def update_portal(
         updates["view"] = view
         if card_type is not None:
             updates["card_type"] = card_type
+
+    if "filters" in updates or "view" in updates or "card_type" in updates:
+        eff_view = updates.get("view", portal.view) or "cards"
+        filters = updates.get("filters", portal.filters)
+        if (
+            "filters" not in updates
+            and updates.get("card_type", portal.card_type) != portal.card_type
+            and isinstance(filters, dict)
+        ):
+            # Card filters name the old type's fields, relations and options.
+            filters = {k: v for k, v in filters.items() if k != "card_filters"}
+        updates["filters"] = _normalise_filters(filters, eff_view)
+        if "filters" not in body.model_fields_set and updates["filters"] == portal.filters:
+            del updates["filters"]
 
     if "access_mode" in updates or "allowed_email_domains" in updates:
         eff_mode = updates.get("access_mode", portal.access_mode)
@@ -732,7 +913,7 @@ async def get_public_portal(
         "description": portal.description,
         "card_type": portal.card_type,
         "view": portal.view or "cards",
-        "filters": portal.filters,
+        "filters": portal_card_filters.public_filters(portal.filters),
         "display_fields": portal.display_fields,
         "card_config": portal.card_config,
         "type_info": type_info,
@@ -767,20 +948,8 @@ async def get_public_portal_relation_options(
     visible_q = select(Card.id).where(
         Card.type == portal.card_type,
         Card.status == "ACTIVE",
+        *await portal_card_filters.preset_conditions(db, portal.card_type, portal.filters),
     )
-    portal_filters = portal.filters or {}
-    if portal_filters.get("subtypes"):
-        visible_q = visible_q.where(Card.subtype.in_(portal_filters["subtypes"]))
-    if portal_filters.get("approval_statuses"):
-        visible_q = visible_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
-    preset_tag_ids = portal_filters.get("tag_ids") or []
-    if preset_tag_ids:
-        try:
-            preset_uuids = [uuid.UUID(str(tid)) for tid in preset_tag_ids]
-            preset_cards = select(CardTag.card_id).where(CardTag.tag_id.in_(preset_uuids))
-            visible_q = visible_q.where(Card.id.in_(preset_cards))
-        except ValueError:
-            pass
 
     # Only return cards of type_key that are related to a portal-visible card
     related_ids = (
@@ -840,24 +1009,12 @@ async def get_public_portal_cards(
         Card.status == "ACTIVE",
     )
 
-    # Apply portal-level preset filters
-    portal_filters = portal.filters or {}
-    if portal_filters.get("subtypes"):
-        q = q.where(Card.subtype.in_(portal_filters["subtypes"]))
-        count_q = count_q.where(Card.subtype.in_(portal_filters["subtypes"]))
-    if portal_filters.get("approval_statuses"):
-        q = q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
-        count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
-    preset_tag_ids = portal_filters.get("tag_ids") or []
-    if preset_tag_ids:
-        try:
-            preset_uuids = [uuid.UUID(str(tid)) for tid in preset_tag_ids]
-            preset_cards = select(CardTag.card_id).where(CardTag.tag_id.in_(preset_uuids))
-            q = q.where(Card.id.in_(preset_cards))
-            count_q = count_q.where(Card.id.in_(preset_cards))
-        except ValueError:
-            # Malformed preset — ignore rather than 500 on a public endpoint
-            pass
+    # Apply the portal's preset: what the admin narrowed the page to, which no
+    # visitor filter below can widen.
+    preset = await portal_card_filters.preset_conditions(db, portal.card_type, portal.filters)
+    if preset:
+        q = q.where(*preset)
+        count_q = count_q.where(*preset)
 
     # Apply user-supplied search
     if search:

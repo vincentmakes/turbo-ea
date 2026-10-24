@@ -626,7 +626,49 @@ def permission_items(old: Any, new: Any) -> list[dict[str, Any]]:
     return out
 
 
-_PORTAL_FILTERS = (("subtypes", "subtypes"), ("tags", "tag_ids"))
+#: The "(empty)" pick of the shared card filter set (``EMPTY_FILTER_KEY``).
+_EMPTY_PICK = "__empty__"
+#: What an "(empty)" pick reads as in a ``Facet: value`` label.
+_EMPTY_LABEL = "—"
+
+
+def _portal_filter_view(filters: Any) -> dict[str, Any]:
+    """What a portal's ``filters`` narrow the page to, one entry per filter
+    row, whichever shape stores it: the shared card filter set under
+    ``card_filters``, or the ``subtypes`` / ``tag_ids`` every portal had
+    before. Moving a portal from one shape to the other with the same picks is
+    therefore not a change."""
+    d = _as_dict(filters)
+    cf = d.get("card_filters")
+    view: dict[str, Any] = {"approval_statuses": _as_list(d.get("approval_statuses"))}
+    if not isinstance(cf, Mapping):
+        view.update(
+            tag_matching="any_tag",
+            subtypes=_as_list(d.get("subtypes")),
+            tags=_as_list(d.get("tag_ids")),
+            related_cards={},
+            card_fields={},
+            relation_subtypes={},
+            include_sub_cards=False,
+        )
+        return view
+    view.update(
+        tag_matching="tag_per_group",
+        subtypes=_as_list(cf.get("subtypeFilters")),
+        tags=_as_list(cf.get("tagFilterIds")),
+        related_cards=_as_dict(cf.get("relationFilters")),
+        card_fields=_as_dict(cf.get("attrFilters")),
+        relation_subtypes=_as_dict(cf.get("relSubtypeFilters")),
+        include_sub_cards=cf.get("includeDescendants") is True,
+    )
+    return view
+
+
+def _picks(value: Mapping[Any, Any]) -> list[tuple[str, str]]:
+    """``{key: [values]}`` as sorted ``(key, value)`` pairs."""
+    return sorted(
+        (str(k), str(v)) for k, vals in value.items() for v in _as_list(vals) if v is not None
+    )
 
 
 def portal_filter_items(
@@ -635,27 +677,102 @@ def portal_filter_items(
     *,
     subtype_labels: Mapping[str, str] | None = None,
     tag_labels: Mapping[str, str] | None = None,
+    card_labels: Mapping[str, str] | None = None,
+    facet_labels: Mapping[str, str] | None = None,
+    option_labels: Mapping[str, str] | None = None,
+    tag_groups: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
-    """``portal_filter.changed`` {filter, old, new} for a portal's ``filters``:
-    ``subtypes`` (subtype keys) and ``tags`` (``tag_ids``), each side a list of
-    labels. Order alone is not a change."""
-    before, after = _as_dict(old), _as_dict(new)
-    label_maps = {"subtypes": _as_dict(subtype_labels), "tags": _as_dict(tag_labels)}
-    out = []
-    for name, stored in _PORTAL_FILTERS:
-        a = [v for v in _as_list(before.get(stored)) if v is not None]
-        b = [v for v in _as_list(after.get(stored)) if v is not None]
-        if sorted(map(str, a)) == sorted(map(str, b)):
-            continue
-        labels = label_maps[name]
+    """``portal_filter.changed`` {filter, old, new} for a portal's ``filters``,
+    each side a list of labels; order alone is not a change.
+
+    ``filter`` is one row of the filter set: ``subtypes``, ``tags``,
+    ``related_cards`` / ``card_fields`` / ``relation_subtypes`` (each value a
+    ``Facet: value`` label — the facet a relation verb, a card type or a
+    field, the value a card name or an option label), ``include_sub_cards``
+    (``old`` / ``new`` booleans) and ``approval_statuses`` (status codes).
+
+    ``facet_labels`` maps a facet key (a relation-filter key, an attribute
+    key, a ``<relation type>::<field>`` composite) to its label;
+    ``option_labels`` maps ``<facet key>:<option key>`` to the option's.
+
+    ``tag_matching`` (codes ``any_tag`` / ``tag_per_group``) records the one
+    change a move between the two storage shapes makes with the same picks:
+    the legacy preset kept a card carrying any picked tag, the card filter set
+    wants one from every group. It is logged only when that changes what the
+    portal shows — tags on both sides, spanning more than one group
+    (``tag_groups`` maps a tag id to its group id).
+    """
+    before, after = _portal_filter_view(old), _portal_filter_view(new)
+    subtypes, tags = _as_dict(subtype_labels), _as_dict(tag_labels)
+    cards, facets, options = _as_dict(card_labels), _as_dict(facet_labels), _as_dict(option_labels)
+    out: list[dict[str, Any]] = []
+
+    groups = _as_dict(tag_groups)
+    picked = {str(v) for v in [*before["tags"], *after["tags"]] if v is not None}
+    if (
+        before["tag_matching"] != after["tag_matching"]
+        and before["tags"]
+        and after["tags"]
+        and len({groups.get(t, t) for t in picked}) > 1
+    ):
         out.append(
             item(
                 "portal_filter.changed",
-                filter=name,
-                old=[labels.get(str(v)) or str(v) for v in a],
-                new=[labels.get(str(v)) or str(v) for v in b],
+                filter="tag_matching",
+                old=before["tag_matching"],
+                new=after["tag_matching"],
             )
         )
+
+    for name, labels in (("subtypes", subtypes), ("tags", tags)):
+        a = [v for v in before[name] if v is not None]
+        b = [v for v in after[name] if v is not None]
+        if sorted(map(str, a)) != sorted(map(str, b)):
+            out.append(
+                item(
+                    "portal_filter.changed",
+                    filter=name,
+                    old=[labels.get(str(v)) or str(v) for v in a],
+                    new=[labels.get(str(v)) or str(v) for v in b],
+                )
+            )
+
+    def pick_label(name: str, key: str, value: str) -> str:
+        facet = facets.get(key) or key
+        if value == _EMPTY_PICK:
+            shown = _EMPTY_LABEL
+        elif name == "related_cards":
+            shown = cards.get(value) or value
+        else:
+            shown = options.get(f"{key}:{value}") or value
+        return f"{facet}: {shown}"
+
+    for name in ("related_cards", "card_fields", "relation_subtypes"):
+        a, b = _picks(before[name]), _picks(after[name])
+        if a != b:
+            out.append(
+                item(
+                    "portal_filter.changed",
+                    filter=name,
+                    old=[pick_label(name, k, v) for k, v in a],
+                    new=[pick_label(name, k, v) for k, v in b],
+                )
+            )
+
+    if before["include_sub_cards"] != after["include_sub_cards"]:
+        out.append(
+            item(
+                "portal_filter.changed",
+                filter="include_sub_cards",
+                old=before["include_sub_cards"],
+                new=after["include_sub_cards"],
+            )
+        )
+
+    a = sorted(str(v) for v in before["approval_statuses"] if v is not None)
+    b = sorted(str(v) for v in after["approval_statuses"] if v is not None)
+    if a != b:
+        out.append(item("portal_filter.changed", filter="approval_statuses", old=a, new=b))
     return out
 
 

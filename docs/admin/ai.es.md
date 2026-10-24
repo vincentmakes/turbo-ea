@@ -252,6 +252,7 @@ Las claves de permiso son `ai.suggest` y `ai.portfolio_insights`. Los roles pers
 | La prueba de conexión falla | Verifique que la URL del proveedor sea accesible desde el contenedor del backend. Para configuraciones Docker, asegúrese de que ambos contenedores estén en la misma red. |
 | Bedrock devuelve «AccessDeniedException» | Dos causas posibles: al rol IAM le falta el permiso `bedrock:InvokeModel`, o no se ha habilitado el acceso a ese modelo en la consola de Bedrock. Compruebe ambas. |
 | Bedrock dice que no se admite el rendimiento bajo demanda | El modelo solo es accesible mediante un perfil de inferencia regional. Ejecute la prueba de conexión y elija un ID con prefijo `eu.`, `us.` o `apac.`. |
+| OpenAI rechaza un modelo con un 403 | La clave es válida, pero el proyecto de OpenAI no puede llamar a ese modelo. La prueba de conexión envía una petición breve al modelo configurado y muestra el motivo indicado por OpenAI. Conceda al proyecto acceso al modelo (o complete la verificación de la organización) en el panel de OpenAI, o elija otro modelo. |
 
 ---
 

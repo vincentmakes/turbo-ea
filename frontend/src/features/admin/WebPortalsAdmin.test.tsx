@@ -28,6 +28,8 @@ import { mockApi } from "@/test/apiMock";
 import {
   APPLICATION_TYPE,
   BUSINESS_CAPABILITY_TYPE,
+  HOSTING_GROUP,
+  RISK_GROUP,
   IT_COMPONENT_TYPE,
   RELATION_TYPES,
   TAG_GROUPS,
@@ -41,6 +43,35 @@ import WebPortalsAdmin from "./WebPortalsAdmin";
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`admin:${key}`, opts) as string;
 const tc = (key: string) => i18n.t(`common:${key}`) as string;
+const tr = (key: string) => i18n.t(`reports:${key}`) as string;
+
+/** A card-list portal's preset with `picks` set, the shape a save sends. */
+const cardFilters = (picks: Record<string, unknown> = {}) => ({
+  attrFilters: {},
+  relationFilters: {},
+  relSubtypeFilters: {},
+  subtypeFilters: [],
+  tagFilterIds: [],
+  includeDescendants: false,
+  ...picks,
+});
+
+/** What `/web-portals/filter-options` offers: one Organization to filter by. */
+const FILTER_OPTIONS = {
+  relation_types: [
+    {
+      key: "relOrgToApp",
+      label: "owns",
+      reverse_label: "is owned by",
+      source_type_key: "Organization",
+      target_type_key: "Application",
+      other_type_key: "Organization",
+      attributes_schema: [],
+    },
+  ],
+  groupable_types: { Organization: [{ id: "org-1", name: "Finance Dept", parent_id: null }] },
+  tag_groups: TAG_GROUPS,
+};
 
 const BUSINESS_PROCESS_TYPE = makeCardType({
   key: "BusinessProcess",
@@ -106,6 +137,7 @@ function scriptLoad(portals: WebPortal[] = [], ssoEnabled = false) {
   mockApi.on("get", "/tag-groups", TAG_GROUPS);
   mockApi.on("get", "/reports/ppm/group-options", GROUP_OPTIONS);
   mockApi.on("get", "/auth/sso/config", { enabled: ssoEnabled });
+  mockApi.on("get", /^\/web-portals\/filter-options/, FILTER_OPTIONS);
   mockApi.on("post", "/web-portals", { id: "new" });
   mockApi.on("patch", /^\/web-portals\/[^/]+$/, {});
   mockApi.on("delete", /^\/web-portals\/[^/]+$/, {});
@@ -297,7 +329,12 @@ describe("WebPortalsAdmin — editing", () => {
     );
     expect(d.getByText("acme.com")).toBeInTheDocument();
     expect(d.getByRole("combobox", { name: tc("labels.type") })).toHaveTextContent("Application");
-    expect(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") })).toHaveTextContent("Microservice");
+    // A portal saved before card filters keeps its subtypes, now in the shared section.
+    expect(await d.findByText(t("webPortals.cardFilters"))).toBeInTheDocument();
+    await waitFor(() =>
+      expect(d.getByRole("combobox", { name: tr("portfolio.filters.subtype") })).toBeInTheDocument(),
+    );
+    expect(d.getByText("Microservice")).toBeInTheDocument();
     expect(d.getByRole("checkbox", { name: new RegExp(t("webPortals.published")) })).toBeChecked();
     expect(d.getByRole("checkbox", { name: new RegExp(t("webPortals.showLogo")) })).not.toBeChecked();
 
@@ -328,7 +365,7 @@ describe("WebPortalsAdmin — editing", () => {
       is_published: true,
       access_mode: "sso",
       allowed_email_domains: ["acme.com"],
-      filters: { subtypes: ["microservice"], tag_ids: ["tag-9"] },
+      filters: { card_filters: cardFilters({ subtypeFilters: ["microservice"], tagFilterIds: ["tag-9"] }) },
       card_config: {
         toggles: CARDS_PORTAL.card_config!.toggles,
         show_logo: false,
@@ -361,6 +398,68 @@ describe("WebPortalsAdmin — editing", () => {
     expect(await dialog().findByRole("alert")).toHaveTextContent("PATCH /web-portals/p1 failed");
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(mockApi.callsOf("get", "/web-portals")).toHaveLength(1);
+  });
+});
+
+describe("WebPortalsAdmin — card filters", () => {
+  it("restores stored card filters and keeps approval statuses it has no control for", async () => {
+    const portal: WebPortal = {
+      ...CARDS_PORTAL,
+      access_mode: "public",
+      allowed_email_domains: null,
+      filters: {
+        approval_statuses: ["APPROVED"],
+        card_filters: cardFilters({ relationFilters: { Organization: ["org-1"] } }),
+      },
+    };
+    const { user } = await renderList([portal]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    expect(await d.findByText("Finance Dept")).toBeInTheDocument();
+
+    // Clear all keeps nothing but the approval statuses.
+    const clearAll = d.getByText(tr("portfolio.clearAll")).closest(".MuiChip-root") as HTMLElement;
+    await user.click(within(clearAll).getByTestId("CancelIcon"));
+    expect(d.queryByText("Finance Dept")).toBeNull();
+    await user.click(d.getByRole("button", { name: t("webPortals.saveChanges") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/web-portals/p1")).toHaveLength(1));
+    expect(lastBody("patch")).toMatchObject({ filters: { approval_statuses: ["APPROVED"] } });
+  });
+
+  it("warns before a resave changes how tags from several groups match", async () => {
+    const portal: WebPortal = {
+      ...CARDS_PORTAL,
+      access_mode: "public",
+      allowed_email_domains: null,
+      filters: { tag_ids: [HOSTING_GROUP.tags[0].id, RISK_GROUP.tags[0].id] },
+    };
+    const { user } = await renderList([portal]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    expect(await dialog().findByText(t("webPortals.legacyTagsWarning"))).toBeInTheDocument();
+
+    // Another card type starts from scratch: nothing of the old preset is kept.
+    await selectOption(user, tc("labels.type"), "IT Component");
+    expect(dialog().queryByText(t("webPortals.legacyTagsWarning"))).toBeNull();
+  });
+
+  it("says the filters are loading until their options arrive", async () => {
+    let release: (v: unknown) => void = () => {};
+    scriptLoad([CARDS_PORTAL]);
+    mockApi.on("get", /^\/web-portals\/filter-options/, () => new Promise((r) => (release = r)));
+    const { user } = renderWithProviders(<WebPortalsAdmin />);
+    await user.click(await screen.findByRole("button", { name: t("webPortals.editPortal") }));
+    expect(await dialog().findByText(t("webPortals.cardFiltersLoading"))).toBeInTheDocument();
+    release(FILTER_OPTIONS);
+    await waitFor(() => expect(dialog().queryByText(t("webPortals.cardFiltersLoading"))).toBeNull());
+  });
+
+  it("keeps the subtype and tag pickers on a board portal and asks for no filter options", async () => {
+    const { user } = await renderList([PPM_PORTAL]);
+    await user.click(screen.getByRole("button", { name: t("webPortals.editPortal") }));
+    const d = dialog();
+    expect(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") })).toBeInTheDocument();
+    expect(d.queryByText(t("webPortals.cardFilters"))).toBeNull();
+    expect(mockApi.callsOf("get", /^\/web-portals\/filter-options/)).toHaveLength(0);
   });
 });
 
@@ -427,12 +526,16 @@ describe("WebPortalsAdmin — creating a cards portal", () => {
     await user.click(within(row("Alias")).getAllByRole("checkbox")[1]);
     await user.click(relDetail);
 
-    // Subtype filter (multi-select) and the tag pre-filter.
-    await user.click(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") }));
+    // The shared card filters: a subtype, a related card and a tag.
+    expect(d.getByText(t("webPortals.cardFiltersHelper"))).toBeInTheDocument();
+    await user.click(await d.findByRole("combobox", { name: tr("portfolio.filters.subtype") }));
     await user.click(await screen.findByRole("option", { name: "Microservice" }));
     await user.keyboard("{Escape}");
+    await user.click(d.getByRole("combobox", { name: "Organization" }));
+    await user.click(await screen.findByRole("option", { name: "Finance Dept" }));
+    await user.keyboard("{Escape}");
     await user.click(d.getByTestId("tag-picker"));
-    expect(d.getByText(t("webPortals.filterTagsHelper"))).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/web-portals/filter-options?type=Application")).toHaveLength(1);
 
     await user.click(d.getByRole("checkbox", { name: new RegExp(t("webPortals.showLogo")) }));
     await user.click(d.getByRole("checkbox", { name: new RegExp(t("webPortals.published")) }));
@@ -449,7 +552,13 @@ describe("WebPortalsAdmin — creating a cards portal", () => {
       access_mode: "public",
       allowed_email_domains: null,
       display_fields: null,
-      filters: { subtypes: ["microservice"], tag_ids: ["tag-1"] },
+      filters: {
+        card_filters: cardFilters({
+          subtypeFilters: ["microservice"],
+          relationFilters: { Organization: ["org-1"] },
+          tagFilterIds: ["tag-1"],
+        }),
+      },
       card_config: {
         toggles: {
           approval_status: { card: true, detail: true },
@@ -467,7 +576,8 @@ describe("WebPortalsAdmin — creating a cards portal", () => {
     await user.type(screen.getByRole("textbox", { name: /^portal name/i }), "Caps");
     await selectOption(user, tc("labels.type"), "Business Capability");
     // A type without subtypes shows no subtype filter.
-    expect(screen.queryByRole("combobox", { name: t("webPortals.filterSubtypes") })).toBeNull();
+    expect(await screen.findByText(t("webPortals.cardFilters"))).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: tr("portfolio.filters.subtype") })).toBeNull();
     await user.click(screen.getByRole("button", { name: /^create$/i }));
     await waitFor(() => expect(mockApi.callsOf("post", "/web-portals")).toHaveLength(1));
     expect(lastBody("post")).toMatchObject({ card_type: "BusinessCapability", card_config: null, filters: null });
@@ -477,13 +587,16 @@ describe("WebPortalsAdmin — creating a cards portal", () => {
     const { user } = await openNewPortalForm();
     await selectOption(user, tc("labels.type"), "Application");
     const d = dialog();
-    await user.click(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") }));
+    await user.click(await d.findByRole("combobox", { name: tr("portfolio.filters.subtype") }));
     await user.click(await screen.findByRole("option", { name: "Microservice" }));
     await user.keyboard("{Escape}");
-    expect(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") })).toHaveTextContent("Microservice");
+    expect(d.getByText("Microservice")).toBeInTheDocument();
 
     await selectOption(user, tc("labels.type"), "IT Component");
-    expect(d.getByRole("combobox", { name: t("webPortals.filterSubtypes") })).not.toHaveTextContent("Microservice");
+    expect(d.queryByText("Microservice")).toBeNull();
+    await waitFor(() =>
+      expect(mockApi.callsOf("get", "/web-portals/filter-options?type=ITComponent")).toHaveLength(1),
+    );
     // IT Component's relations are read from the target side: the reverse verb.
     expect(d.getByText("(is used by)")).toBeInTheDocument();
     // A relation whose other end is not a type this metamodel carries (Provider is

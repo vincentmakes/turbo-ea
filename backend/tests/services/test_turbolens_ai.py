@@ -179,7 +179,7 @@ class TestCallAiAzure:
         assert "model" not in kwargs["json"]
         # System prompt threaded as a system message
         assert kwargs["json"]["messages"][0] == {"role": "system", "content": "be nice"}
-        assert kwargs["json"]["max_tokens"] == 512
+        assert kwargs["json"]["max_completion_tokens"] == 512
 
 
 # ---------------------------------------------------------------------------
@@ -419,8 +419,8 @@ class TestCallAiProviders:
         assert kwargs["headers"]["Authorization"] == "Bearer k"
         assert kwargs["json"] == {
             "model": "gpt-4o",
-            "max_tokens": 2048,
             "messages": [{"role": "user", "content": "p"}],
+            "max_completion_tokens": 2048,
         }
 
         factory = _fake_session_factory(
@@ -503,7 +503,6 @@ class TestCallAiProviders:
         "status,token",
         [
             (401, "AI_KEY_INVALID:openai"),
-            (403, "AI_KEY_INVALID:openai"),
             (429, "AI_QUOTA_EXCEEDED:openai"),
             (402, "AI_QUOTA_EXCEEDED:openai"),
         ],
@@ -513,6 +512,82 @@ class TestCallAiProviders:
         ctx, _ = _patched_http(factory, status=status, text="denied")
         with ctx, pytest.raises(ValueError, match=token):
             await call_ai("p")
+
+    async def test_a_403_carries_the_providers_reason(self):
+        """#1319: a 403 is a model-access refusal, not a bad key — say why."""
+        factory = _fake_session_factory({"providerType": "openai", "apiKey": "enc:x"})
+        ctx, _ = _patched_http(
+            factory,
+            status=403,
+            payload={"error": {"message": "Project has no access to model gpt-6.1-sol"}},
+            text="raw",
+        )
+        with ctx, pytest.raises(ValueError) as exc:
+            await call_ai("p")
+        assert str(exc.value) == (
+            "openai API error 403: Project has no access to model gpt-6.1-sol"
+        )
+
+    async def test_openai_retries_a_refused_parameter(self):
+        """A compatible server that only knows ``max_tokens`` gets it on retry."""
+        factory = _fake_session_factory(
+            {
+                "providerType": "openai_compatible",
+                "apiKey": "enc:x",
+                "model": "m",
+                "providerUrl": "https://llm.local",
+            }
+        )
+        ctx, client = _patched_http(factory)
+        refused = MagicMock(status_code=400, is_success=False, text="")
+        refused.json.return_value = {
+            "error": {"param": "max_completion_tokens", "code": "unsupported_parameter"}
+        }
+        ok = MagicMock(status_code=200, is_success=True)
+        ok.json.return_value = {"choices": [{"message": {"content": "done"}}]}
+        client.post = AsyncMock(side_effect=[refused, ok])
+        with ctx:
+            out = await call_ai("p", max_tokens=64)
+        assert out == {"text": "done", "truncated": False}
+        first, second = (c.kwargs["json"] for c in client.post.call_args_list)
+        assert first["max_completion_tokens"] == 64
+        assert second["max_tokens"] == 64
+        assert "max_completion_tokens" not in second
+
+    async def test_azure_retries_a_refused_parameter(self):
+        factory = _fake_session_factory(
+            {
+                "providerType": "azure_openai",
+                "apiKey": "enc:x",
+                "model": "gpt6",
+                "providerUrl": "https://r.openai.azure.com",
+            }
+        )
+        ctx, client = _patched_http(factory)
+        refused = MagicMock(status_code=400, is_success=False, text="")
+        refused.json.return_value = {
+            "error": {"param": "max_completion_tokens", "code": "unsupported_parameter"}
+        }
+        ok = MagicMock(status_code=200, is_success=True)
+        ok.json.return_value = {"choices": [{"message": {"content": "done"}}]}
+        client.post = AsyncMock(side_effect=[refused, ok])
+        with ctx:
+            out = await call_ai("p", max_tokens=32)
+        assert out == {"text": "done", "truncated": False}
+        assert client.post.call_args_list[1].kwargs["json"]["max_tokens"] == 32
+
+    async def test_only_openai_is_adapted(self):
+        """DeepSeek keeps its own payload and is never re-posted on a 400."""
+        factory = _fake_session_factory({"providerType": "deepseek", "apiKey": "enc:x"})
+        ctx, client = _patched_http(
+            factory,
+            status=400,
+            payload={"error": {"param": "max_tokens", "code": "unsupported_parameter"}},
+        )
+        with ctx, pytest.raises(ValueError, match="deepseek API error 400"):
+            await call_ai("p", max_tokens=10)
+        assert client.post.await_count == 1
+        assert client.post.call_args.kwargs["json"]["max_tokens"] == 10
 
     async def test_other_http_errors_carry_status_and_text(self):
         factory = _fake_session_factory({"providerType": "openai", "apiKey": "enc:x"})

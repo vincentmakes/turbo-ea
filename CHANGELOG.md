@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.178.0] - 2026-10-23
+
+### Added
+- A card-list web portal can now be narrowed with the same filters as the Application Portfolio report: related cards (optionally including their sub-cards), tags, the card's subtype and select or yes/no fields, and relation subtypes. Visitors only ever see the matching cards, and the filter settings are never sent to the visitor's browser.
+
+### Changed
+- On a card-list portal, tags picked from two different tag groups must both be on a card, as in the portfolio report. A portal created before this version keeps its previous subtype and tag filters exactly as they were until it is next saved; the portal dialog warns before that save changes which cards it shows, and the Security log records the change.
+
+### Fixed
+- Saving a web portal in the settings dialog no longer drops an approval-status filter set through the API or the demo data.
+- AI suggestions and TurboLens work again with OpenAI's GPT-6 models, on OpenAI and Azure Hosted OpenAI alike, which refuse the custom temperature and the older `max_tokens` setting that Turbo EA used to send. When a model refuses a setting, the request is retried without it ([#1319](https://github.com/vincentmakes/turbo-ea/discussions/1319)).
+- **Test Connection** for OpenAI now sends a short request to the configured model. A model your OpenAI project may not use fails the test with OpenAI's own reason, instead of passing the test and failing every real request with an unexplained 403.
+
 ## [2.177.1] - 2026-10-23
 
 ### Security

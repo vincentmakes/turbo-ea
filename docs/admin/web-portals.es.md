@@ -150,6 +150,26 @@ El **modo SSO** reutiliza el inicio de sesión único ya configurado en **Admin 
 | **Subtipos** | Opcionalmente, restringir a subtipos específicos |
 | **Mostrar Logotipo** | Si se muestra el logotipo de la plataforma en el portal |
 
+### Filtros de tarjetas
+
+En un portal de tipo **Lista de tarjetas**, la sección **Filtros de tarjetas** limita el portal a las tarjetas que coinciden. Es el mismo conjunto de filtros que el del [informe de portafolio de aplicaciones](../guide/reports.md):
+
+![Filtros de tarjetas en el diálogo del portal](../assets/img/es/102_admin_portal_web_filtros_tarjetas.png)
+
+| Fila | Muestra solo las tarjetas… |
+|------|----------------------------|
+| **Relacionado por** | relacionadas con alguna de las tarjetas elegidas: un control por tipo de tarjeta relacionado, más uno por relación cuando varias relaciones llegan al mismo tipo. **Incluir subtarjetas** cuenta también una tarjeta relacionada con cualquier elemento por debajo de una selección |
+| **Etiquetas** | que llevan una etiqueta elegida: cualquier etiqueta dentro de un grupo, y una de cada grupo del que elija |
+| **Campos** | con un subtipo elegido, o un valor elegido en uno de los campos de selección o sí/no de la tarjeta |
+| **Subtipos de relación** | con una relación cuyo atributo (por ejemplo *Tipo de uso*) tiene un valor elegido |
+
+Cada control ofrece además **(vacío)**, para las tarjetas sin valor, sin relación o sin subtipo. Los visitantes solo ven las tarjetas que coinciden: los filtros que eligen en el portal reducen aún más la lista, nunca la amplían, y la propia configuración de los filtros nunca se envía al navegador del visitante.
+
+!!! note
+    Un portal creado antes de la versión 2.178.0 conserva sus filtros de subtipos y etiquetas tal como estaban hasta que lo vuelva a guardar. A partir de entonces, las etiquetas elegidas de dos grupos distintos deben estar ambas en una tarjeta, como en el informe de portafolio.
+
+Los portales de portafolio PPM y de navegador de procesos conservan sus propios selectores de **Subtipos** y **Etiquetas**.
+
 ## Configuración de Visibilidad
 
 Para cada portal, usted controla exactamente qué información es visible. Hay dos contextos:

@@ -905,6 +905,132 @@ def test_portal_filter_items():
     assert portal_filter_items(old, copy.deepcopy(old)) == []
 
 
+def test_portal_filter_items_read_the_card_filter_set():
+    legacy = {"subtypes": ["app"], "tag_ids": ["t1"]}
+    moved = {"card_filters": {"subtypeFilters": ["app"], "tagFilterIds": ["t1"]}}
+    assert portal_filter_items(legacy, moved) == [], "same picks in the new shape: no change"
+
+    new = {
+        "approval_statuses": ["APPROVED"],
+        "card_filters": {
+            "subtypeFilters": ["app"],
+            "tagFilterIds": ["t1"],
+            "relationFilters": {"Organization": ["o1", "__empty__"], "orgOwnsApp": ["o2"]},
+            "attrFilters": {"crit": ["high", "zzz"]},
+            "relSubtypeFilters": {"orgUsesApp::usage": ["daily"]},
+            "includeDescendants": True,
+        },
+    }
+    items = portal_filter_items(
+        moved,
+        new,
+        card_labels={"o1": "Corp"},
+        facet_labels={
+            "Organization": "Organization",
+            "orgOwnsApp": "owns",
+            "crit": "Criticality",
+            "orgUsesApp::usage": "uses · Usage",
+        },
+        option_labels={"crit:high": "High", "orgUsesApp::usage:daily": "Daily"},
+    )
+    assert items == [
+        {
+            "kind": "portal_filter.changed",
+            "filter": "related_cards",
+            "old": [],
+            "new": ["Organization: —", "Organization: Corp", "owns: o2"],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_fields",
+            "old": [],
+            "new": ["Criticality: High", "Criticality: zzz"],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "relation_subtypes",
+            "old": [],
+            "new": ["uses · Usage: Daily"],
+        },
+        {"kind": "portal_filter.changed", "filter": "include_sub_cards", "old": False, "new": True},
+        {
+            "kind": "portal_filter.changed",
+            "filter": "approval_statuses",
+            "old": [],
+            "new": ["APPROVED"],
+        },
+    ]
+    # Unlabelled facets and options fall back to their keys.
+    assert portal_filter_items(None, {"card_filters": {"attrFilters": {"k": ["v"]}}}) == [
+        {"kind": "portal_filter.changed", "filter": "card_fields", "old": [], "new": ["k: v"]}
+    ]
+    assert portal_filter_items(new, {**new}) == []
+
+
+def test_portal_filter_items_label_the_old_side_too():
+    old = {
+        "card_filters": {
+            "tagFilterIds": ["t1", "t9"],
+            "relationFilters": {"Organization": ["o1", "o9"]},
+            "attrFilters": {"crit": ["high", "zzz"]},
+        }
+    }
+    items = portal_filter_items(
+        old,
+        None,
+        tag_labels={"t1": "Gold"},
+        card_labels={"o1": "Corp"},
+        facet_labels={"Organization": "Organisation", "crit": "Criticality"},
+        option_labels={"crit:high": "High"},
+    )
+    assert items == [
+        {"kind": "portal_filter.changed", "filter": "tags", "old": ["Gold", "t9"], "new": []},
+        {
+            "kind": "portal_filter.changed",
+            "filter": "related_cards",
+            "old": ["Organisation: Corp", "Organisation: o9"],
+            "new": [],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_fields",
+            "old": ["Criticality: High", "Criticality: zzz"],
+            "new": [],
+        },
+    ]
+
+
+def test_portal_filter_items_log_the_tag_matching_change():
+    legacy = {"tag_ids": ["t1", "t2"]}
+    moved = {"card_filters": {"tagFilterIds": ["t2", "t1"]}}
+    two_groups = {"t1": "g1", "t2": "g2"}
+    item = {
+        "kind": "portal_filter.changed",
+        "filter": "tag_matching",
+        "old": "any_tag",
+        "new": "tag_per_group",
+    }
+    assert portal_filter_items(legacy, moved, tag_groups=two_groups) == [item]
+    assert portal_filter_items(moved, legacy, tag_groups=two_groups) == [
+        {**item, "old": "tag_per_group", "new": "any_tag"}
+    ]
+    # One group: any tag and one per group mean the same thing.
+    assert portal_filter_items(legacy, moved, tag_groups={"t1": "g1", "t2": "g1"}) == []
+    # Tags dropped altogether: there is nothing left to match either way.
+    assert portal_filter_items(
+        legacy, {"card_filters": {"subtypeFilters": ["a"]}}, tag_groups=two_groups
+    ) == [
+        {"kind": "portal_filter.changed", "filter": "subtypes", "old": [], "new": ["a"]},
+        {"kind": "portal_filter.changed", "filter": "tags", "old": ["t1", "t2"], "new": []},
+    ]
+    # No tags at all: nothing to match differently.
+    assert (
+        portal_filter_items({"subtypes": ["a"]}, {"card_filters": {"subtypeFilters": ["a"]}}) == []
+    )
+    # Unknown groups count apart, the safe reading.
+    assert portal_filter_items(legacy, moved) == [item]
+
+
 def test_portal_card_config_items():
     old = {
         "toggles": {"description": {"card": True, "detail": True}, "cost": {"card": False}},

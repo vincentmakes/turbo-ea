@@ -510,3 +510,241 @@ class TestPortalCrudEdgeCases:
         assert "key" in rt
         assert "other_type_key" in rt
         assert "other_type_label" in rt
+
+
+# ---------------------------------------------------------------------------
+# The shared card filter set as a portal preset (``filters.card_filters``)
+# ---------------------------------------------------------------------------
+
+
+def _card_filters(**kwargs) -> dict:
+    value = {
+        "subtypeFilters": [],
+        "attrFilters": {},
+        "relationFilters": {},
+        "relSubtypeFilters": {},
+        "tagFilterIds": [],
+        "includeDescendants": False,
+    }
+    value.update(kwargs)
+    return value
+
+
+class TestPortalCardFilters:
+    @pytest.fixture
+    async def linked(self, db, portal_env):
+        admin = portal_env["admin"]
+        crm = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        erp = await create_card(db, card_type="Application", name="ERP", user_id=admin.id)
+        db_server = await create_card(db, card_type="ITComponent", name="DB", user_id=admin.id)
+        web = await create_card(db, card_type="ITComponent", name="Web", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=crm.id, target_id=db_server.id)
+        await create_relation(db, type_key="app_to_itc", source_id=erp.id, target_id=web.id)
+        return {"crm": crm, "erp": erp, "db": db_server, "web": web}
+
+    async def test_cards_and_relation_options_honour_the_preset(
+        self, client, db, portal_env, linked
+    ):
+        portal = portal_env["portal"]
+        portal.filters = {
+            "card_filters": _card_filters(relationFilters={"ITComponent": [str(linked["db"].id)]})
+        }
+        await db.flush()
+
+        resp = await client.get("/api/v1/web-portals/public/app-portal/cards")
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 1
+        assert [i["name"] for i in resp.json()["items"]] == ["CRM"]
+
+        resp = await client.get(
+            "/api/v1/web-portals/public/app-portal/relation-options?type_key=ITComponent"
+        )
+        assert [o["name"] for o in resp.json()] == ["DB"]
+
+    async def test_a_visitor_filter_cannot_widen_the_preset(self, client, db, portal_env, linked):
+        portal = portal_env["portal"]
+        portal.filters = {
+            "card_filters": _card_filters(relationFilters={"ITComponent": [str(linked["db"].id)]})
+        }
+        await db.flush()
+        rel = json.dumps({"app_to_itc": str(linked["web"].id)})
+        resp = await client.get(
+            f"/api/v1/web-portals/public/app-portal/cards?relation_filters={rel}"
+        )
+        assert resp.json()["total"] == 0
+
+    async def test_the_public_payload_never_carries_the_preset(self, client, db, portal_env):
+        portal = portal_env["portal"]
+        hidden_id = str(uuid.uuid4())
+        portal.filters = {
+            "approval_statuses": ["APPROVED"],
+            "card_filters": _card_filters(relationFilters={"ITComponent": [hidden_id]}),
+        }
+        await db.flush()
+        resp = await client.get("/api/v1/web-portals/public/app-portal")
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == {"approval_statuses": ["APPROVED"]}
+        assert hidden_id not in resp.text
+
+    async def test_create_stores_the_canonical_shape(self, client, portal_env):
+        admin = portal_env["admin"]
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Filtered",
+                "slug": "filtered",
+                "card_type": "Application",
+                "filters": {
+                    "approval_statuses": ["APPROVED"],
+                    "card_filters": {"subtypeFilters": ["a", 3], "bogus": True},
+                },
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["filters"] == {
+            "approval_statuses": ["APPROVED"],
+            "card_filters": _card_filters(subtypeFilters=["a"]),
+        }
+
+    async def test_an_empty_card_filter_value_is_not_stored(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Legacy",
+                "slug": "legacy",
+                "card_type": "Application",
+                "filters": {"subtypes": ["saas"], "card_filters": {}},
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["filters"] == {"subtypes": ["saas"]}
+
+    async def test_include_sub_cards_alone_is_kept(self, client, portal_env):
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Sub",
+                "slug": "sub",
+                "card_type": "Application",
+                "filters": {"card_filters": {"includeDescendants": True}},
+            },
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.json()["filters"] == {"card_filters": _card_filters(includeDescendants=True)}
+
+    async def test_changing_the_card_type_drops_card_filters(self, client, db, portal_env):
+        portal = portal_env["portal"]
+        portal.filters = {
+            "approval_statuses": ["APPROVED"],
+            "card_filters": _card_filters(subtypeFilters=["micro"]),
+        }
+        await db.flush()
+        headers = auth_headers(portal_env["admin"])
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}", json={"card_type": "Application"}, headers=headers
+        )
+        assert resp.json()["filters"]["card_filters"]["subtypeFilters"] == ["micro"]
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}", json={"card_type": "ITComponent"}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == {"approval_statuses": ["APPROVED"]}
+
+    async def test_a_board_portal_drops_card_filters(self, client, db, portal_env, monkeypatch):
+        from app.api.v1 import web_portals as wp
+
+        async def _enabled(_db):
+            return True
+
+        monkeypatch.setattr(wp, "_bpm_enabled", _enabled)
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        admin = portal_env["admin"]
+        resp = await client.post(
+            "/api/v1/web-portals",
+            json={
+                "name": "Processes",
+                "slug": "processes",
+                "card_type": "BusinessProcess",
+                "view": "process_navigator",
+                "filters": {"subtypes": ["core"], "card_filters": _card_filters()},
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["filters"] == {"subtypes": ["core"]}
+
+    async def test_switching_to_a_board_strips_stored_card_filters(
+        self, client, db, portal_env, monkeypatch
+    ):
+        from app.api.v1 import web_portals as wp
+
+        async def _enabled(_db):
+            return True
+
+        monkeypatch.setattr(wp, "_bpm_enabled", _enabled)
+        await create_card_type(db, key="BusinessProcess", label="Business Process")
+        portal = portal_env["portal"]
+        portal.filters = {"approval_statuses": ["APPROVED"], "card_filters": _card_filters()}
+        await db.flush()
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}",
+            json={"view": "process_navigator"},
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == {"approval_statuses": ["APPROVED"]}
+
+    async def test_an_unrelated_patch_leaves_filters_alone(self, client, db, portal_env):
+        portal = portal_env["portal"]
+        stored = {"approval_statuses": ["APPROVED"], "card_filters": _card_filters()}
+        portal.filters = stored
+        await db.flush()
+        resp = await client.patch(
+            f"/api/v1/web-portals/{portal.id}",
+            json={"name": "Renamed"},
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == stored
+
+
+class TestPortalFilterOptions:
+    async def test_returns_the_option_payload_without_cards(self, client, db, portal_env):
+        admin = portal_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        itc = await create_card(db, card_type="ITComponent", name="DB", user_id=admin.id)
+        await create_relation(db, type_key="app_to_itc", source_id=app.id, target_id=itc.id)
+
+        resp = await client.get(
+            "/api/v1/web-portals/filter-options?type=Application", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert set(data) == {"fields_schema", "relation_types", "groupable_types", "tag_groups"}
+        assert [m["name"] for m in data["groupable_types"]["ITComponent"]] == ["DB"]
+        assert [rt["key"] for rt in data["relation_types"]] == ["app_to_itc"]
+
+    async def test_needs_the_portal_permission(self, client, db, portal_env):
+        await create_role(db, key="viewer", permissions={"reports.portfolio": True})
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        resp = await client.get(
+            "/api/v1/web-portals/filter-options?type=Application", headers=auth_headers(viewer)
+        )
+        assert resp.status_code == 403
+
+    @pytest.mark.parametrize("type_key", ["Nope", "Hidden"])
+    async def test_unknown_or_hidden_type_is_404(self, client, db, portal_env, type_key):
+        await create_card_type(db, key="Hidden", label="Hidden", is_hidden=True)
+        resp = await client.get(
+            f"/api/v1/web-portals/filter-options?type={type_key}",
+            headers=auth_headers(portal_env["admin"]),
+        )
+        assert resp.status_code == 404
+
+    async def test_requires_a_type(self, client, portal_env):
+        resp = await client.get(
+            "/api/v1/web-portals/filter-options", headers=auth_headers(portal_env["admin"])
+        )
+        assert resp.status_code == 422

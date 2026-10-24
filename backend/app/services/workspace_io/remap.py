@@ -725,11 +725,18 @@ def rewrite_survey_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTall
 
 
 def rewrite_portal_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    """A portal's legacy ``tag_ids`` preset, and its ``card_filters`` — the
+    card filter set the portfolio reports share, stored in the very shape a
+    saved report config stores it, so the report rewriter translates it."""
     tally = RewriteTally()
-    if "filters" in kwargs:
-        kwargs["filters"] = _rewrite_filter_keys(
-            kwargs["filters"], (), ("tag_ids",), ctx.ids, tally
-        )
+    filters = kwargs.get("filters")
+    if isinstance(filters, dict):
+        out = dict(filters)
+        if "card_filters" in out:
+            out["card_filters"] = rewrite_saved_report_config(out["card_filters"], ctx.ids, tally)
+        if "tag_ids" in out:
+            out["tag_ids"] = map_id_list(out["tag_ids"], ctx.ids.tags, tally)
+        kwargs["filters"] = _walk_unknown_keys(out, {"tag_ids", "card_filters"}, ctx.ids, tally)
     return tally
 
 

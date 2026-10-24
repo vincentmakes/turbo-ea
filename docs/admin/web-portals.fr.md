@@ -151,6 +151,26 @@ Le **mode SSO** réutilise l'authentification unique déjà configurée sous **A
 | **Sous-types** | Optionnellement restreindre à des sous-types spécifiques |
 | **Afficher le logo** | Si le logo de la plateforme doit être affiché sur le portail |
 
+### Filtres des fiches
+
+Sur un portail **Liste de fiches**, la section **Filtres des fiches** restreint le portail aux fiches correspondantes. C'est le même jeu de filtres que celui du [rapport de portefeuille d'applications](../guide/reports.md) :
+
+![Filtres des fiches dans la boîte de dialogue du portail](../assets/img/fr/102_admin_portail_web_filtres_fiches.png)
+
+| Ligne | N'affiche que les fiches… |
+|-------|---------------------------|
+| **Lié par** | liées à l'une des fiches choisies — un contrôle par type de fiche lié, plus un par relation lorsque plusieurs relations mènent au même type. **Inclure les sous-fiches** compte aussi une fiche liée à un élément situé sous une sélection |
+| **Étiquettes** | portant une étiquette choisie : n'importe quelle étiquette d'un même groupe, et une de chaque groupe dans lequel vous choisissez |
+| **Champs** | ayant un sous-type choisi, ou une valeur choisie dans l'un des champs de sélection ou oui/non de la fiche |
+| **Sous-types de relation** | ayant une relation dont l'attribut (par exemple *Type d'usage*) porte une valeur choisie |
+
+Chaque contrôle propose aussi **(vide)**, pour les fiches sans valeur, sans relation ou sans sous-type. Les visiteurs ne voient jamais que les fiches correspondantes : les filtres qu'ils choisissent sur le portail restreignent davantage la liste, sans jamais l'élargir, et les réglages de filtre eux-mêmes ne sont jamais envoyés au navigateur du visiteur.
+
+!!! note
+    Un portail créé avant la version 2.178.0 conserve ses filtres de sous-types et d'étiquettes tels quels jusqu'à son prochain enregistrement. Ensuite, des étiquettes choisies dans deux groupes différents doivent toutes deux figurer sur une fiche, comme dans le rapport de portefeuille.
+
+Les portails de portefeuille PPM et de navigateur de processus conservent leurs propres sélecteurs **Sous-types** et **Étiquettes**.
+
 ## Configuration de la visibilité
 
 Pour chaque portail, vous contrôlez exactement quelles informations sont visibles. Il y a deux contextes :

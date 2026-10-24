@@ -149,6 +149,26 @@ La **modalità SSO** riutilizza il Single Sign-On già configurato in **Admin > 
 | **Sottotipi** | Opzionalmente limitate a sottotipi specifici |
 | **Mostra logo** | Se visualizzare il logo della piattaforma sul portale |
 
+### Filtri delle schede
+
+In un portale di tipo **Elenco di schede**, la sezione **Filtri delle schede** limita il portale alle schede corrispondenti. È lo stesso insieme di filtri del [report del portafoglio applicativo](../guide/reports.md):
+
+![Filtri delle schede nella finestra del portale](../assets/img/it/102_admin_portale_web_filtri_schede.png)
+
+| Riga | Mostra solo le schede… |
+|------|------------------------|
+| **Correlato per** | collegate a una delle schede scelte: un controllo per ogni tipo di scheda collegato, più uno per relazione quando più relazioni raggiungono lo stesso tipo. **Includi sotto-schede** conta anche una scheda collegata a qualcosa sotto una selezione |
+| **Tag** | che hanno un tag scelto: un tag qualsiasi all'interno di un gruppo, e uno di ogni gruppo da cui scegliete |
+| **Campi** | con un sottotipo scelto, o un valore scelto in uno dei campi di selezione o sì/no della scheda |
+| **Sottotipi di relazione** | con una relazione il cui attributo (per esempio *Tipo di utilizzo*) ha un valore scelto |
+
+Ogni controllo offre anche **(vuoto)**, per le schede senza valore, senza relazione o senza sottotipo. I visitatori vedono soltanto le schede corrispondenti: i filtri che scelgono nel portale restringono ulteriormente l'elenco, senza mai allargarlo, e le impostazioni dei filtri non vengono mai inviate al browser del visitatore.
+
+!!! note
+    Un portale creato prima della versione 2.178.0 mantiene i suoi filtri per sottotipi e tag così come sono fino al successivo salvataggio. Da quel momento, i tag scelti da due gruppi di tag diversi devono essere presenti entrambi su una scheda, come nel report del portafoglio.
+
+I portali del portafoglio PPM e del navigatore dei processi mantengono i propri selettori **Sottotipi** e **Tag**.
+
 ## Configurazione della visibilità
 
 Per ogni portale, controllate esattamente quali informazioni sono visibili. Ci sono due contesti:

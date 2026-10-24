@@ -29,6 +29,7 @@ import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
+import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import {
   useTypeLabel,
@@ -39,7 +40,16 @@ import {
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { subtypeGroupBy } from "@/features/ppm/ppmPortfolioModel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
+import CardFilterSection from "@/features/reports/CardFilterSection";
+import {
+  EMPTY_CARD_FILTERS,
+  type CardFilterValue,
+  type FilterMember,
+} from "@/features/reports/cardFilters";
+import type { RelTypeDef, TagGroupDef } from "@/features/reports/portfolioHelpers";
+import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
+import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
 
 interface ToggleEntry {
   card: boolean;
@@ -74,12 +84,23 @@ const DEFAULT_DETAIL: Record<string, boolean> = {
   approval_status: true,
 };
 
+/** What `GET /web-portals/filter-options` returns for one card type. */
+interface FilterOptionsResponse {
+  relation_types: RelTypeDef[];
+  groupable_types: Record<string, FilterMember[]>;
+  tag_groups: TagGroupDef[];
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 }
+
+const EMPTY_REL_TYPES: RelTypeDef[] = [];
+const EMPTY_GROUPABLE: Record<string, FilterMember[]> = {};
+const EMPTY_TAG_GROUPS: TagGroupDef[] = [];
 
 export default function WebPortalsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
@@ -109,6 +130,12 @@ export default function WebPortalsAdmin() {
   const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
   const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
+  // A card-list portal's preset: the filter set the portfolio reports share.
+  const [cardFilters, setCardFilters] = useState<CardFilterValue>(EMPTY_CARD_FILTERS);
+  const [cardFiltersCollapsed, setCardFiltersCollapsed] = useState(false);
+  // Approval statuses have no control here (seeds and the API set them), so
+  // a save carries back whatever the portal already had.
+  const [approvalStatuses, setApprovalStatuses] = useState<string[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
   const [accessMode, setAccessMode] = useState<"public" | "sso">("public");
@@ -170,6 +197,9 @@ export default function WebPortalsAdmin() {
     setToggles({});
     setFilterSubtypes([]);
     setFilterTagIds([]);
+    setCardFilters(EMPTY_CARD_FILTERS);
+    setCardFiltersCollapsed(false);
+    setApprovalStatuses([]);
     setShowLogo(true);
     setAccessMode("public");
     setView("cards");
@@ -212,6 +242,12 @@ export default function WebPortalsAdmin() {
     setFilterTagIds(
       ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
+    setCardFilters(portalCardFilters(portal.filters));
+    setCardFiltersCollapsed(false);
+    const approval = (portal.filters as Record<string, unknown> | undefined)?.approval_statuses;
+    setApprovalStatuses(
+      Array.isArray(approval) ? approval.filter((v): v is string => typeof v === "string") : [],
+    );
     setAccessMode(portal.access_mode === "sso" ? "sso" : "public");
     setView(
       portal.view === "ppm_portfolio" || portal.view === "process_navigator"
@@ -244,6 +280,22 @@ export default function WebPortalsAdmin() {
   };
 
   const selectedType = visibleTypes.find((tp) => tp.key === cardType);
+
+  // The options the card filters offer, for a card-list portal with a type.
+  const filterOptionsPath =
+    dialogOpen && view === "cards" && cardType
+      ? `/web-portals/filter-options?type=${encodeURIComponent(cardType)}`
+      : null;
+  const { data: filterOptions, loading: filterOptionsLoading } = useApiQuery<FilterOptionsResponse>(
+    filterOptionsPath,
+    { keepPreviousData: false },
+  );
+  const { relationOptions, relSubtypes, subtypeOptions, facetFields } = useCardFilterOptions({
+    cardTypeKey: filterOptionsPath ? cardType : "",
+    relationTypes: filterOptions?.relation_types ?? EMPTY_REL_TYPES,
+    groupableTypes: filterOptions?.groupable_types ?? EMPTY_GROUPABLE,
+    includeDescendants: cardFilters.includeDescendants,
+  });
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
@@ -332,13 +384,13 @@ export default function WebPortalsAdmin() {
       allowed_email_domains:
         accessMode === "sso" && effectiveDomains.length > 0 ? effectiveDomains : null,
       display_fields: null,
-      filters:
-        filterSubtypes.length > 0 || filterTagIds.length > 0
-          ? {
-              ...(filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : {}),
-              ...(filterTagIds.length > 0 ? { tag_ids: filterTagIds } : {}),
-            }
-          : null,
+      filters: portalFiltersBody({
+        view,
+        cardFilters,
+        subtypes: filterSubtypes,
+        tagIds: filterTagIds,
+        approvalStatuses,
+      }),
       card_config: hasCardConfig
         ? {
             ...(hasToggles ? { toggles } : {}),
@@ -701,6 +753,7 @@ export default function WebPortalsAdmin() {
               setToggles({});
               setFilterSubtypes([]);
               setFilterTagIds([]);
+              setCardFilters(EMPTY_CARD_FILTERS);
               if (next === "ppm_portfolio") setCardType("Initiative");
               if (next === "process_navigator") setCardType("BusinessProcess");
             }}
@@ -755,6 +808,7 @@ export default function WebPortalsAdmin() {
               setToggles({});
               setFilterSubtypes([]);
               setFilterTagIds([]);
+              setCardFilters(EMPTY_CARD_FILTERS);
             }}
             helperText={
               view === "ppm_portfolio"
@@ -778,7 +832,43 @@ export default function WebPortalsAdmin() {
             ))}
           </TextField>
 
-          {selectedType?.subtypes && selectedType.subtypes.length > 0 && (
+          {view === "cards" && cardType && (
+            <Box sx={{ mt: 2 }}>
+              <CardFilterSection
+                label={t("webPortals.cardFilters")}
+                collapsed={cardFiltersCollapsed}
+                onToggle={() => setCardFiltersCollapsed((v) => !v)}
+                value={cardFilters}
+                onChange={setCardFilters}
+                relationOptions={relationOptions}
+                tagGroups={filterOptions?.tag_groups ?? EMPTY_TAG_GROUPS}
+                subtypeOptions={subtypeOptions}
+                fields={facetFields}
+                relSubtypes={relSubtypes}
+                onClearAll={() =>
+                  setCardFilters((prev) => ({
+                    ...EMPTY_CARD_FILTERS,
+                    includeDescendants: prev.includeDescendants,
+                  }))
+                }
+                disabledReason={filterOptionsLoading ? t("webPortals.cardFiltersLoading") : undefined}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                {t("webPortals.cardFiltersHelper")}
+              </Typography>
+              {editingPortal?.card_type === cardType &&
+                legacyTagsSpanGroups(
+                  editingPortal.filters as Record<string, unknown> | undefined,
+                  filterOptions?.tag_groups ?? EMPTY_TAG_GROUPS,
+                ) && (
+                  <Alert severity="info" sx={{ mt: 1 }}>
+                    {t("webPortals.legacyTagsWarning")}
+                  </Alert>
+                )}
+            </Box>
+          )}
+
+          {view !== "cards" && selectedType?.subtypes && selectedType.subtypes.length > 0 && (
             <TextField
               fullWidth
               select
@@ -803,7 +893,7 @@ export default function WebPortalsAdmin() {
             </TextField>
           )}
 
-          {cardType && tagGroups.length > 0 && (
+          {view !== "cards" && cardType && tagGroups.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <TagPicker
                 groups={tagGroups}

@@ -1020,6 +1020,34 @@ export const DOC_PAGES: PageDef[] = [
       ru: "30_admin_nastroyki_veb_portaly",
     },
   },
+  // The edit dialog of the demo's card-list portal (the Application Catalogue,
+  // seeded first and so listed last), scrolled to its card filters.
+  {
+    id: "102_admin_web_portal_card_filters",
+    route: "/admin/settings?tab=web-portals",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "waitFor", selector: "button:has(span.material-symbols-outlined:text-is('edit'))" },
+      { type: "click", selector: "button:has(span.material-symbols-outlined:text-is('edit'))", nth: -1 },
+      { type: "waitFor", selector: ".MuiDialog-root span.material-symbols-outlined:text-is('filter_alt')" },
+      {
+        type: "scroll",
+        target: ".MuiDialog-root span.material-symbols-outlined:text-is('filter_alt')",
+        align: "start",
+      },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "102_admin_web_portal_card_filters",
+      de: "102_admin_webportal_kartenfilter",
+      fr: "102_admin_portail_web_filtres_fiches",
+      es: "102_admin_portal_web_filtros_tarjetas",
+      it: "102_admin_portale_web_filtri_schede",
+      pt: "102_admin_portal_web_filtros_cartoes",
+      zh: "102_admin_web_portal_card_filters",
+      ru: "102_admin_veb_portal_filtry_kartochek",
+    },
+  },
 
   // ── Admin Settings: ServiceNow ──────────────────────────────────────────
   {

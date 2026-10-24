@@ -266,6 +266,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
 | Bedrock returnerer «AccessDeniedException» | To mulige årsager: IAM-rollen mangler rettigheden `bedrock:InvokeModel`, eller modeladgang er ikke aktiveret for den model i Bedrock-konsollen. Tjek begge. |
 | Bedrock siger, at on-demand-gennemløb ikke understøttes | Modellen kan kun nås via en regional inferensprofil. Kør forbindelsestesten, og vælg et ID med præfikset `eu.`, `us.` eller `apac.`. |
+| OpenAI afviser en model med 403 | Nøglen er gyldig, men OpenAI-projektet må ikke kalde den model. Forbindelsestesten sender en kort forespørgsel til den konfigurerede model og viser OpenAIs egen begrundelse. Giv projektet adgang til modellen (eller gennemfør organisationsverificeringen) i OpenAI-dashboardet, eller vælg en anden model. |
 
 ---
 
