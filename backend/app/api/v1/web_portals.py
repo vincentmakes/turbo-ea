@@ -302,10 +302,15 @@ def _schema_field_labels(fields_schema: object) -> dict[str, str]:
 def _filter_tag_ids(*filters: object) -> set[uuid.UUID]:
     ids: set[uuid.UUID] = set()
     for value in filters:
-        raw = value.get("tag_ids") if isinstance(value, dict) else None
-        card_filters = value.get("card_filters") if isinstance(value, dict) else None
-        if isinstance(card_filters, dict) and isinstance(card_filters.get("tagFilterIds"), list):
-            raw = [*(raw if isinstance(raw, list) else []), *card_filters["tagFilterIds"]]
+        if not isinstance(value, dict):
+            continue
+        # The same reading the audit items make: card filters' tags when the
+        # portal has card filters, the legacy ``tag_ids`` otherwise.
+        card_filters = value.get("card_filters")
+        if isinstance(card_filters, dict):
+            raw = card_filters.get("tagFilterIds")
+        else:
+            raw = value.get("tag_ids")
         for tag_id in raw if isinstance(raw, list) else []:
             try:
                 ids.add(uuid.UUID(str(tag_id)))
@@ -342,10 +347,8 @@ async def _card_filter_labels(
     sub_keys = {k for cf in values for k in cf["relSubtypeFilters"]}
     bare = {portal_card_filters.parse_side_key(k)[0] for k in rel_keys}
     bare |= {k.partition("::")[0] for k in sub_keys}
-    rts = {}
-    if bare:
-        rows = await db.execute(select(RelationType).where(RelationType.key.in_(bare)))
-        rts = {rt.key: rt for rt in rows.scalars().all()}
+    rows = await db.execute(select(RelationType).where(RelationType.key.in_(bare)))
+    rts = {rt.key: rt for rt in rows.scalars().all()}
 
     def verb(rt: RelationType, is_source: bool | None) -> str:
         if is_source is None:
@@ -358,10 +361,14 @@ async def _card_filter_labels(
             select(CardType.key, CardType.label).where(CardType.key.in_(type_keys))
         )
         labels.types.update({key: label or key for key, label in rows.all()})
+    # A key with no label is left out: the audit builder falls back to the key.
     for key in rel_keys:
         rel_key, is_source = portal_card_filters.parse_side_key(key)
         rt = rts.get(rel_key)
-        labels.facets[key] = verb(rt, is_source) if rt else labels.types.get(key, key)
+        if rt:
+            labels.facets[key] = verb(rt, is_source)
+        elif key in labels.types:
+            labels.facets[key] = labels.types[key]
     for composite in sub_keys:
         rel_key, _, field_key = composite.partition("::")
         rt = rts.get(rel_key)
@@ -377,7 +384,7 @@ async def _card_filter_labels(
         labels.facets[composite] = f"{rel_label} · {fdef.get('label') or field_key}"
         labels.options.update(_option_labels(composite, fdef))
     for cf in values:
-        labels.facets.update({k: labels.fields.get(k, k) for k in cf["attrFilters"]})
+        labels.facets.update({k: labels.fields[k] for k in cf["attrFilters"] if k in labels.fields})
 
     card_ids = portal_card_filters.uuids(
         v for cf in values for vals in cf["relationFilters"].values() for v in vals
