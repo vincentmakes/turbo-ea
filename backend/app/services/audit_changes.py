@@ -699,8 +699,8 @@ def portal_filter_items(
     change a move between the two storage shapes makes with the same picks:
     the legacy preset kept a card carrying any picked tag, the card filter set
     wants one from every group. It is logged only when that changes what the
-    portal shows — when the picks span more than one group (``tag_groups``
-    maps a tag id to its group id).
+    portal shows — tags on both sides, spanning more than one group
+    (``tag_groups`` maps a tag id to its group id).
     """
     before, after = _portal_filter_view(old), _portal_filter_view(new)
     subtypes, tags = _as_dict(subtype_labels), _as_dict(tag_labels)
@@ -711,6 +711,8 @@ def portal_filter_items(
     picked = {str(v) for v in [*before["tags"], *after["tags"]] if v is not None}
     if (
         before["tag_matching"] != after["tag_matching"]
+        and before["tags"]
+        and after["tags"]
         and len({groups.get(t, t) for t in picked}) > 1
     ):
         out.append(

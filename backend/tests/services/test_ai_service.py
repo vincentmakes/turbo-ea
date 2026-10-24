@@ -794,6 +794,8 @@ class TestCallOpenAICompatible:
             payload = mock_client.post.call_args[1]["json"]
             assert payload["response_format"] == {"type": "json_object"}
             assert payload["temperature"] == 0.1
+            assert payload["model"] == "gpt-4o"
+            assert payload["messages"] == [{"role": "user", "content": "test"}]
 
     @pytest.mark.asyncio
     async def test_a_refused_temperature_is_dropped(self):
@@ -843,7 +845,10 @@ class TestCallOpenAICompatible:
                     "gpt-6.1-sol",
                     [{"role": "user", "content": "test"}],
                 )
-        assert "Project has no access to model gpt-6.1-sol" in caplog.text
+        assert (
+            "OpenAI-compatible API call failed: HTTPStatusError — "
+            "Project has no access to model gpt-6.1-sol"
+        ) in caplog.text
 
     @pytest.mark.asyncio
     async def test_http_error_raises(self):
@@ -1162,6 +1167,9 @@ class TestProviderConnection:
             "available_models": ["gpt-4o", "gpt-6.1-sol"],
             "model_found": True,
         }
+        get_args, get_kwargs = client.get.call_args
+        assert get_args == ("https://api.openai.com/v1/models",)
+        assert get_kwargs["timeout"] == 10.0
         args, kwargs = client.post.call_args
         assert args == ("https://api.openai.com/v1/chat/completions",)
         assert kwargs["json"] == {
@@ -1226,6 +1234,17 @@ class TestProviderConnection:
         assert result["ok"] is True
         assert result["model_found"] is False
         client.post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_openai_lists_at_most_twenty_models(self):
+        client = self._openai_client({"return_value": MagicMock(status_code=200, is_success=True)})
+        client.get.return_value.json.return_value = {"data": [{"id": f"m{i}"} for i in range(21)]}
+        with patch("app.services.ai_service._get_llm_client", return_value=client):
+            result = await check_provider_connection(
+                "https://api.openai.com", provider_type="openai", api_key="k", model="m20"
+            )
+        assert result["available_models"] == [f"m{i}" for i in range(20)]
+        assert result["model_found"] is True
 
     @pytest.mark.asyncio
     async def test_openai_listing_failure(self):
@@ -1294,9 +1313,28 @@ class TestCallAzureOpenAI:
         assert result == {"a": 1}
         first, second = mock_client.post.call_args_list
         assert first.kwargs["json"]["temperature"] == 0.1
+        assert first.kwargs["json"]["messages"] == [{"role": "user", "content": "test"}]
         assert "temperature" not in second.kwargs["json"]
         assert "model" not in second.kwargs["json"]
         assert second.kwargs["params"] == {"api-version": "2025-01-01"}
+
+    @pytest.mark.asyncio
+    async def test_a_refusal_logs_the_providers_reason(self, caplog):
+        request = httpx.Request("POST", "https://r.openai.azure.com/openai/deployments/d")
+        denied = httpx.Response(
+            403, json={"error": {"message": "Deployment is disabled"}}, request=request
+        )
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=denied)
+            with pytest.raises(httpx.HTTPStatusError):
+                await _call_azure_openai(
+                    "https://r.openai.azure.com", "k", "d", [{"role": "user", "content": "t"}]
+                )
+        assert "Azure OpenAI API call failed: HTTPStatusError — Deployment is disabled" in (
+            caplog.text
+        )
 
     @pytest.mark.asyncio
     async def test_successful_response(self):

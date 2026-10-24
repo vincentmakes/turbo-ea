@@ -967,6 +967,39 @@ def test_portal_filter_items_read_the_card_filter_set():
     assert portal_filter_items(new, {**new}) == []
 
 
+def test_portal_filter_items_label_the_old_side_too():
+    old = {
+        "card_filters": {
+            "tagFilterIds": ["t1", "t9"],
+            "relationFilters": {"Organization": ["o1", "o9"]},
+            "attrFilters": {"crit": ["high", "zzz"]},
+        }
+    }
+    items = portal_filter_items(
+        old,
+        None,
+        tag_labels={"t1": "Gold"},
+        card_labels={"o1": "Corp"},
+        facet_labels={"Organization": "Organisation", "crit": "Criticality"},
+        option_labels={"crit:high": "High"},
+    )
+    assert items == [
+        {"kind": "portal_filter.changed", "filter": "tags", "old": ["Gold", "t9"], "new": []},
+        {
+            "kind": "portal_filter.changed",
+            "filter": "related_cards",
+            "old": ["Organisation: Corp", "Organisation: o9"],
+            "new": [],
+        },
+        {
+            "kind": "portal_filter.changed",
+            "filter": "card_fields",
+            "old": ["Criticality: High", "Criticality: zzz"],
+            "new": [],
+        },
+    ]
+
+
 def test_portal_filter_items_log_the_tag_matching_change():
     legacy = {"tag_ids": ["t1", "t2"]}
     moved = {"card_filters": {"tagFilterIds": ["t2", "t1"]}}
@@ -983,6 +1016,13 @@ def test_portal_filter_items_log_the_tag_matching_change():
     ]
     # One group: any tag and one per group mean the same thing.
     assert portal_filter_items(legacy, moved, tag_groups={"t1": "g1", "t2": "g1"}) == []
+    # Tags dropped altogether: there is nothing left to match either way.
+    assert portal_filter_items(
+        legacy, {"card_filters": {"subtypeFilters": ["a"]}}, tag_groups=two_groups
+    ) == [
+        {"kind": "portal_filter.changed", "filter": "subtypes", "old": [], "new": ["a"]},
+        {"kind": "portal_filter.changed", "filter": "tags", "old": ["t1", "t2"], "new": []},
+    ]
     # No tags at all: nothing to match differently.
     assert (
         portal_filter_items({"subtypes": ["a"]}, {"card_filters": {"subtypeFilters": ["a"]}}) == []

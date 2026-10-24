@@ -29,7 +29,7 @@ import uuid
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from sqlalchemy import ColumnElement, Text, and_, exists, false, func, literal, not_, or_, select
+from sqlalchemy import ColumnElement, Text, and_, exists, false, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -48,10 +48,6 @@ EMPTY_KEY = "__empty__"
 #: ``lib/fieldFacets.ts``); the facet keys themselves are ``"true"`` / ``"false"``.
 _LEGACY_TRUE = ("true", "yes")
 _LEGACY_FALSE = ("false", "no")
-
-#: Deep enough for any hierarchy the metamodel allows (6 levels) many times
-#: over, and a stop for a parent cycle a bad import might have written.
-_MAX_DEPTH = 64
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +214,7 @@ def _related(*, outgoing: bool, where: Iterable[ColumnElement[bool]]) -> ColumnE
         else (Relation.target_id, Relation.source_id)
     )
     return exists(
-        select(literal(1))
+        select(Relation.id)
         .select_from(Relation)
         .join(_OTHER, _OTHER.id == far)
         .where(near == Card.id, _OTHER.status == "ACTIVE", *where)
@@ -292,7 +288,7 @@ def tag_conditions(groups: Mapping[uuid.UUID, list[uuid.UUID]]) -> list[ColumnEl
     group), every group with a pick required (AND across groups)."""
     return [
         Card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(tag_ids)))
-        for _, tag_ids in sorted(groups.items(), key=lambda kv: str(kv[0]))
+        for tag_ids in groups.values()
         if tag_ids
     ]
 
@@ -307,18 +303,12 @@ async def descendant_ids(db: AsyncSession, roots: Iterable[uuid.UUID]) -> set[uu
     root_list = list(roots)
     if not root_list:
         return set()
-    tree = (
-        select(Card.id.label("id"), literal(1).label("depth"))
-        .where(Card.parent_id.in_(root_list))
-        .cte("portal_filter_descendants", recursive=True)
-    )
+    # UNION, not UNION ALL: a card already reached is not walked again, which
+    # is also what stops a parent cycle a bad import might have written.
+    tree = select(Card.id).where(Card.parent_id.in_(root_list)).cte(recursive=True)
     child = aliased(Card)
-    tree = tree.union_all(
-        select(child.id, tree.c.depth + 1).where(
-            child.parent_id == tree.c.id, tree.c.depth < _MAX_DEPTH
-        )
-    )
-    rows = await db.execute(select(tree.c.id).distinct())
+    tree = tree.union(select(child.id).where(child.parent_id == tree.c.id))
+    rows = await db.execute(select(tree.c.id))
     return set(rows.scalars().all())
 
 
@@ -364,17 +354,11 @@ async def _card_filter_conditions(
         )
 
     if card_filters["relationFilters"] or card_filters["relSubtypeFilters"]:
-        rows = await db.execute(
-            select(RelationType.key).where(
-                or_(
-                    RelationType.source_type_key == card_type,
-                    RelationType.target_type_key == card_type,
-                ),
-                # A hidden type is not in the report's payload either, so a
-                # key naming one reads as a card type there; keep it so here.
-                RelationType.is_hidden.is_(False),
-            )
-        )
+        # Every visible relation type: one that does not touch this card type
+        # matches no card whichever branch reads its key, so it needs no
+        # filtering out. A hidden type is not in the report's payload either,
+        # so a key naming one reads as a card type there; keep it so here.
+        rows = await db.execute(select(RelationType.key).where(RelationType.is_hidden.is_(False)))
         rel_keys = set(rows.scalars().all())
         relation_filters = card_filters["relationFilters"]
         if card_filters["includeDescendants"]:
@@ -392,16 +376,15 @@ async def _card_filter_conditions(
     if tag_ids:
         tag_rows = await db.execute(
             select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
-            .join(TagGroup, TagGroup.id == Tag.tag_group_id)
+            .join(TagGroup)
             .where(Tag.id.in_(tag_ids))
         )
         groups: dict[uuid.UUID, list[uuid.UUID]] = {}
         for tag_id, group_id, restrict in tag_rows.all():
             # A group restricted to other types does not apply to this one —
             # the report never offers or matches it — so its picks are ignored.
-            if restrict and card_type not in restrict:
-                continue
-            groups.setdefault(group_id, []).append(tag_id)
+            if not restrict or card_type in restrict:
+                groups.setdefault(group_id, []).append(tag_id)
         conditions.extend(tag_conditions(groups))
 
     return [c for c in conditions if c is not None]

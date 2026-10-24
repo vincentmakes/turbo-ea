@@ -554,6 +554,28 @@ class TestCallAiProviders:
         assert second["max_tokens"] == 64
         assert "max_completion_tokens" not in second
 
+    async def test_azure_retries_a_refused_parameter(self):
+        factory = _fake_session_factory(
+            {
+                "providerType": "azure_openai",
+                "apiKey": "enc:x",
+                "model": "gpt6",
+                "providerUrl": "https://r.openai.azure.com",
+            }
+        )
+        ctx, client = _patched_http(factory)
+        refused = MagicMock(status_code=400, is_success=False, text="")
+        refused.json.return_value = {
+            "error": {"param": "max_completion_tokens", "code": "unsupported_parameter"}
+        }
+        ok = MagicMock(status_code=200, is_success=True)
+        ok.json.return_value = {"choices": [{"message": {"content": "done"}}]}
+        client.post = AsyncMock(side_effect=[refused, ok])
+        with ctx:
+            out = await call_ai("p", max_tokens=32)
+        assert out == {"text": "done", "truncated": False}
+        assert client.post.call_args_list[1].kwargs["json"]["max_tokens"] == 32
+
     async def test_only_openai_is_adapted(self):
         """DeepSeek keeps its own payload and is never re-posted on a 400."""
         factory = _fake_session_factory({"providerType": "deepseek", "apiKey": "enc:x"})

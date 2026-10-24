@@ -220,6 +220,18 @@ class TestAttributes:
     async def test_boolean_empty_is_anything_unreadable(self, db, land):
         assert await _names(db, _cf(attrFilters={"cloud": [EMPTY_KEY]})) == {"Delta"}
 
+    async def test_boolean_empty_includes_no_value_at_all(self, db, land):
+        await create_card(db, name="Zeta", attributes={})
+        assert await _names(db, _cf(attrFilters={"cloud": [EMPTY_KEY]})) == {"Delta", "Zeta"}
+
+    async def test_single_select_stored_as_a_list_still_matches(self, db, land):
+        """Legacy data; the report reads a list on any field (``rawValues``)."""
+        await create_card(db, name="Eta", attributes={"criticality": ["high"]})
+        assert await _names(db, _cf(attrFilters={"criticality": ["high"]})) == {"Alpha", "Eta"}
+
+    async def test_a_card_type_with_no_row_does_not_fail(self, db, land):
+        assert await _names(db, _cf(attrFilters={"k": ["v"]}), card_type="Ghost") == set()
+
     async def test_boolean_unknown_value_matches_nothing(self, db, land):
         assert await _names(db, _cf(attrFilters={"cloud": ["maybe"]})) == set()
 
@@ -290,6 +302,10 @@ class TestRelations:
         filters = _cf(relationFilters={"appCallsApp__out": [EMPTY_KEY]})
         assert await _names(db, filters) == ALL - {"Alpha"}
 
+    async def test_a_relation_type_the_card_is_the_source_of(self, db, land):
+        filters = _cf(relationFilters={"appToItc": [str(land.itc.id)]})
+        assert await _names(db, filters) == {"Epsilon"}
+
     async def test_a_hidden_relation_type_key_reads_as_a_card_type(self, db, land):
         """The report's payload leaves hidden types out, so their key falls to
         the card-type branch — which no card type answers to."""
@@ -316,6 +332,24 @@ class TestRelationSubtypes:
     async def test_empty_is_a_relation_without_a_value(self, db, land):
         filters = _cf(relSubtypeFilters={"orgUsesApp::usage": [EMPTY_KEY]})
         assert await _names(db, filters) == {"Gamma"}
+
+    async def test_a_relation_the_card_is_the_source_of(self, db, land):
+        await create_relation_type(
+            db,
+            key="appRunsOn",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            attributes_schema=[{"key": "env", "type": "single_select"}],
+        )
+        await create_relation(
+            db,
+            type_key="appRunsOn",
+            source_id=land.epsilon.id,
+            target_id=land.itc.id,
+            attributes={"env": "prod"},
+        )
+        filters = _cf(relSubtypeFilters={"appRunsOn::env": ["prod"]})
+        assert await _names(db, filters) == {"Epsilon"}
 
     @pytest.mark.parametrize("composite", ["orgUsesApp", "orgUsesApp::", "unknown::usage"])
     async def test_unusable_keys_are_ignored(self, db, land, composite):
@@ -382,6 +416,13 @@ class TestLegacyAndApproval:
 
 
 class TestDescendantIds:
+    async def test_a_parent_cycle_terminates(self, db, land):
+        a = await create_card(db, card_type="Organization", name="Loop A")
+        b = await create_card(db, card_type="Organization", name="Loop B", parent_id=a.id)
+        a.parent_id = b.id
+        await db.flush()
+        assert await pcf.descendant_ids(db, [a.id]) == {a.id, b.id}
+
     async def test_every_depth_and_none_for_no_roots(self, db, land):
         leaf = await create_card(db, card_type="Organization", name="Leaf", parent_id=land.team.id)
         assert await pcf.descendant_ids(db, [land.corp.id]) == {land.team.id, leaf.id}
@@ -457,6 +498,12 @@ class TestPublicFilters:
     @pytest.mark.parametrize("value", [None, {}, {"subtypes": ["a"]}, "junk"])
     def test_everything_else_passes_unchanged(self, value):
         assert public_filters(value) is value
+
+
+class TestUuids:
+    def test_keeps_every_valid_id_past_a_malformed_one(self):
+        valid = str(uuid.uuid4())
+        assert pcf.uuids(["nope", valid, 3]) == [uuid.UUID(valid)]
 
 
 class TestParseSideKey:

@@ -171,6 +171,7 @@ class TestPostChat:
         payload = build_chat_payload("gpt-6.1-sol", MSGS, temperature=0.1, json_mode=True)
         resp = await post_chat(client, "u", headers={"h": "v"}, payload=payload)
         assert resp.status_code == 200
+        assert [c.args for c in client.post.call_args_list] == [("u",), ("u",)]
         first, second = _sent(client)
         assert first["temperature"] == 0.1
         assert "temperature" not in second
@@ -255,8 +256,9 @@ class TestPostChat:
         client = _client(_refusal("temperature"), _resp(200, {}))
         payload = build_chat_payload("gpt-6.1-sol", MSGS, temperature=0.1)
         await post_chat(client, "u", headers={}, payload=payload)
-        assert "'temperature'" in caplog.text
-        assert "gpt-6.1-sol" in caplog.text
+        assert (
+            "Chat Completions refused 'temperature' for model gpt-6.1-sol; retrying" in caplog.text
+        )
 
 
 class TestErrorDetail:

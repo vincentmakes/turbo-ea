@@ -718,6 +718,32 @@ def test_survey_portal_and_bookmark_filters_are_translated():
     assert kw["filters"] == {"tagIds": [NEW_TAG], "relations": {"relX": ["Some App"]}}
 
 
+def test_a_portal_filter_id_is_translated_exactly_once():
+    """A chained map — the target's new id is also another source id — shows
+    whether a value is walked again after its named rewrite: it must not be,
+    or the card filter set and the legacy tags would point one hop too far."""
+    ids = _ids()
+    ids.record(rm.CARDS, NEW_A, NEW_C)
+    ids.record(rm.TAGS, NEW_TAG, OLD_C)
+    kw = {
+        "filters": {
+            "tag_ids": [OLD_TAG],
+            "card_filters": {
+                "relationFilters": {"Organization": [OLD_A]},
+                "tagFilterIds": [OLD_TAG],
+            },
+        }
+    }
+    assert rm.rewrite_portal_row(kw, _ctx(ids=ids)).counts == {rm.REMAPPED: 3}
+    assert kw["filters"] == {
+        "tag_ids": [NEW_TAG],
+        "card_filters": {
+            "relationFilters": {"Organization": [NEW_A]},
+            "tagFilterIds": [NEW_TAG],
+        },
+    }
+
+
 def test_filter_rows_without_their_column_or_with_junk_are_untouched():
     for fn, col in (
         (rm.rewrite_survey_row, "target_filters"),
