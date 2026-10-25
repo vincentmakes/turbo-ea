@@ -19,5 +19,12 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "bettercallclaude@synced": false,
+    "design@synced": false,
+    "legal@synced": false,
+    "productivity@synced": false,
+    "cowork-plugin-management@synced": false
   }
 }

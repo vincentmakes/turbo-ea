@@ -420,7 +420,10 @@ def test_mutmut_is_pinned_identically_in_both_python_suites():
 
 
 def test_every_floor_is_documented_in_the_rule_that_owns_it():
-    claude = (ROOT / "CLAUDE.md").read_text()
+    # The gate is summarised in CLAUDE.md and spelled out in its path-scoped rule file.
+    claude = (ROOT / "CLAUDE.md").read_text() + (
+        ROOT / ".claude" / "rules" / "testing-ci.md"
+    ).read_text()
     assert "scripts/mutation/floors.toml" in claude
     for job in ("Backend Mutation Tests", "Frontend Mutation Tests", "MCP Mutation Tests"):
         assert job in claude

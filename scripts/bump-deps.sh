@@ -49,8 +49,8 @@ fail() { echo "bump-deps: $*" >&2; exit 1; }
 # quoted in the docs below. The occurrence counts are asserted so that a
 # new/removed mention fails this script instead of silently drifting
 # (the README once claimed a DrawIO version the image never shipped).
-DRAWIO_DOC_FILES=(README.md CLAUDE.md THIRD-PARTY-NOTICES.md)
-declare -A DRAWIO_EXPECTED=( [Dockerfile]=1 [README.md]=1 [CLAUDE.md]=3 [THIRD-PARTY-NOTICES.md]=1 )
+DRAWIO_DOC_FILES=(README.md CLAUDE.md .claude/rules/diagrams.md .claude/rules/deploy.md THIRD-PARTY-NOTICES.md)
+declare -A DRAWIO_EXPECTED=( [Dockerfile]=1 [README.md]=1 [CLAUDE.md]=1 [.claude/rules/diagrams.md]=1 [.claude/rules/deploy.md]=1 [THIRD-PARTY-NOTICES.md]=1 )
 
 current_drawio="$(grep -oP -- '--branch \Kv[0-9.]+(?= https://github\.com/jgraph/drawio\.git)' Dockerfile)"
 [ -n "$current_drawio" ] || fail "could not read the DrawIO tag from the Dockerfile"
