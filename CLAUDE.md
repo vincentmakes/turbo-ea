@@ -207,8 +207,6 @@ The codebase uses **"cards"** throughout (models, routes, UI). Earlier documenta
 
 ---
 
----
-
 ## Version Management
 
 Single source of truth: `/VERSION` file at project root.
@@ -218,8 +216,6 @@ Single source of truth: `/VERSION` file at project root.
 - **Docker**: Both Dockerfiles `COPY VERSION ./VERSION` before building
 - **Local dev**: Frontend checks `../VERSION` (from frontend dir) then `./VERSION` (Docker)
 - **Packaging metadata**: `backend/pyproject.toml` and `frontend/package.json` use a static `"0.0.0"` placeholder — do not bump them. This avoids triggering CI path filters on version-only changes.
-
----
 
 ---
 
