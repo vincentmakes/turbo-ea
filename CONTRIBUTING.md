@@ -88,6 +88,8 @@ Example: `feature/add-csv-import-validation`, `fix/stakeholder-permission-check`
 - Check existing [issues](../../issues) and [discussions](../../discussions) to avoid duplicate work.
 - For larger changes, open a discussion or issue first to get feedback on the approach.
 - Read `CLAUDE.md` for codebase conventions — it is the single source of truth for architecture decisions and coding standards.
+- Area-specific conventions live in path-scoped files under `.claude/rules/` (Claude Code loads each when a matching file is touched); read the one for the area you are changing.
+- Reference tables — environment variables, database schema, metamodel defaults, RBAC registry, security runtime — are in [`dev/ARCHITECTURE.md`](dev/ARCHITECTURE.md).
 
 ### While You Code
 

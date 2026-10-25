@@ -117,6 +117,8 @@ archive/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/skills/
+!.claude/rules/
+!.claude/agents/
 
 # Terraform (deploy/terraform): provider binaries, state and personal tfvars.
 # The .terraform.lock.hcl files ARE committed.
