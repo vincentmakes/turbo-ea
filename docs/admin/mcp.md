@@ -137,7 +137,7 @@ Copilot Studio registers itself once and keeps the client id it receives. That i
 
 ### Behind a proxy that changes the host name { #proxy-host-name }
 
-The MCP endpoint protects itself against DNS rebinding by checking the `Host` header of every request. It accepts the host names of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`, plus `localhost`. Any other host name is refused with `421 Misdirected Request`, and the MCP container logs `Invalid Host header: <name>`.
+The MCP endpoint protects itself against DNS rebinding by checking the `Host` header of every request. It accepts the host names of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`, plus `localhost` and `127.0.0.1`. The MCP container logs the full list once at startup. Any other host name is refused with `421 Misdirected Request`, and the MCP container logs `Invalid Host header: <name>`.
 
 Some proxies forward a host name other than the public one. Azure Front Door in front of an Azure Container Apps HTTP route, for example, sends the route's own `<route>.<environment>.azurecontainerapps.io` name. Sign-in still works in that case, but every MCP connection fails. List the forwarded name in `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ Some proxies forward a host name other than the public one. Azure Front Door in 
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Entries are exact host names, comma-separated. Add `:port` when the proxy sends one, or `:*` to accept any port. Subdomain wildcards are not supported. On Kubernetes, set the variable through `mcp.extraEnv` in the Helm values.
+Entries are host names alone, comma-separated, without `https://` or a path; the container logs a warning for an entry that can never match. Matching is exact, against the header as the proxy sends it, in lower case. Add `:port` when the proxy sends one, or `:*` to accept any port. Subdomain wildcards are not supported. On Kubernetes, set the variable through `mcp.extraEnv` in the Helm values.
 
 ---
 

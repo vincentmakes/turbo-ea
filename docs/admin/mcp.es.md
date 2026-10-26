@@ -137,7 +137,7 @@ Copilot Studio se registra una sola vez y conserva el identificador de cliente q
 
 ### Detrás de un proxy que cambia el nombre de host { #proxy-host-name }
 
-El endpoint MCP se protege contra el DNS rebinding comprobando la cabecera `Host` de cada solicitud. Acepta los nombres de host de `TURBO_EA_PUBLIC_URL` y `MCP_PUBLIC_URL`, además de `localhost`. Cualquier otro nombre de host se rechaza con `421 Misdirected Request`, y el contenedor MCP registra `Invalid Host header: <name>`.
+El endpoint MCP se protege contra el DNS rebinding comprobando la cabecera `Host` de cada solicitud. Acepta los nombres de host de `TURBO_EA_PUBLIC_URL` y `MCP_PUBLIC_URL`, además de `localhost` y `127.0.0.1`. El contenedor MCP registra la lista completa una vez al iniciarse. Cualquier otro nombre de host se rechaza con `421 Misdirected Request`, y el contenedor MCP registra `Invalid Host header: <name>`.
 
 Algunos proxies reenvían un nombre de host distinto del público. Azure Front Door delante de una ruta HTTP de Azure Container Apps, por ejemplo, envía el nombre propio de la ruta, `<route>.<environment>.azurecontainerapps.io`. El inicio de sesión sigue funcionando en ese caso, pero todas las conexiones MCP fallan. Indique el nombre reenviado en `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ Algunos proxies reenvían un nombre de host distinto del público. Azure Front D
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Las entradas son nombres de host exactos, separados por comas. Añada `:port` cuando el proxy envíe un puerto, o `:*` para aceptar cualquier puerto. No se admiten comodines de subdominio. En Kubernetes, defina la variable mediante `mcp.extraEnv` en los valores de Helm.
+Las entradas son solo nombres de host, separados por comas, sin `https://` ni ruta; el contenedor registra una advertencia para una entrada que nunca podrá coincidir. La coincidencia es exacta, con la cabecera tal como la envía el proxy, en minúsculas. Añada `:port` cuando el proxy envíe un puerto, o `:*` para aceptar cualquier puerto. No se admiten comodines de subdominio. En Kubernetes, defina la variable mediante `mcp.extraEnv` en los valores de Helm.
 
 ---
 

@@ -137,7 +137,7 @@ Copilot Studio registrerer sig én gang og beholder det klient-id, den får. Id'
 
 ### Bag en proxy, der ændrer værtsnavnet { #proxy-host-name }
 
-MCP-endpointet beskytter sig mod DNS rebinding ved at kontrollere `Host`-headeren i hver forespørgsel. Det accepterer værtsnavnene fra `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL` samt `localhost`. Alle andre værtsnavne afvises med `421 Misdirected Request`, og MCP-containeren logger `Invalid Host header: <name>`.
+MCP-endpointet beskytter sig mod DNS rebinding ved at kontrollere `Host`-headeren i hver forespørgsel. Det accepterer værtsnavnene fra `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL` samt `localhost` og `127.0.0.1`. MCP-containeren logger den fulde liste én gang ved start. Alle andre værtsnavne afvises med `421 Misdirected Request`, og MCP-containeren logger `Invalid Host header: <name>`.
 
 Nogle proxyer videresender et andet værtsnavn end det offentlige. Azure Front Door foran en HTTP-rute i Azure Container Apps sender for eksempel rutens eget navn, `<route>.<environment>.azurecontainerapps.io`. Login fungerer stadig i så fald, men alle MCP-forbindelser fejler. Angiv det videresendte navn i `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ Nogle proxyer videresender et andet værtsnavn end det offentlige. Azure Front D
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Indtastningerne er præcise værtsnavne, adskilt af kommaer. Tilføj `:port`, når proxyen sender en port, eller `:*` for at acceptere enhver port. Wildcards for underdomæner understøttes ikke. På Kubernetes sættes variablen via `mcp.extraEnv` i Helm-værdierne.
+Indtastningerne er kun værtsnavne, adskilt af kommaer, uden `https://` eller sti; containeren logger en advarsel for en indtastning, der aldrig kan matche. Matchningen er præcis, mod headeren som proxyen sender den, med små bogstaver. Tilføj `:port`, når proxyen sender en port, eller `:*` for at acceptere enhver port. Wildcards for underdomæner understøttes ikke. På Kubernetes sættes variablen via `mcp.extraEnv` i Helm-værdierne.
 
 ---
 

@@ -137,7 +137,7 @@ O Copilot Studio se registra uma única vez e guarda o identificador de cliente 
 
 ### Atrás de um proxy que altera o nome do host { #proxy-host-name }
 
-O endpoint MCP protege-se contra DNS rebinding verificando o cabeçalho `Host` de cada requisição. Aceita os nomes de host de `TURBO_EA_PUBLIC_URL` e `MCP_PUBLIC_URL`, além de `localhost`. Qualquer outro nome de host é recusado com `421 Misdirected Request`, e o contêiner MCP regista `Invalid Host header: <name>`.
+O endpoint MCP protege-se contra DNS rebinding verificando o cabeçalho `Host` de cada requisição. Aceita os nomes de host de `TURBO_EA_PUBLIC_URL` e `MCP_PUBLIC_URL`, além de `localhost` e `127.0.0.1`. O contêiner MCP regista a lista completa uma vez no arranque. Qualquer outro nome de host é recusado com `421 Misdirected Request`, e o contêiner MCP regista `Invalid Host header: <name>`.
 
 Alguns proxies encaminham um nome de host diferente do público. O Azure Front Door à frente de uma rota HTTP do Azure Container Apps, por exemplo, envia o nome próprio da rota, `<route>.<environment>.azurecontainerapps.io`. O início de sessão continua a funcionar nesse caso, mas todas as conexões MCP falham. Indique o nome encaminhado em `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ Alguns proxies encaminham um nome de host diferente do público. O Azure Front D
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-As entradas são nomes de host exatos, separados por vírgulas. Adicione `:port` quando o proxy enviar uma porta, ou `:*` para aceitar qualquer porta. Curingas de subdomínio não são suportados. No Kubernetes, defina a variável através de `mcp.extraEnv` nos valores do Helm.
+As entradas são apenas nomes de host, separados por vírgulas, sem `https://` nem caminho; o contêiner regista um aviso para uma entrada que nunca poderá corresponder. A correspondência é exata, com o cabeçalho tal como o proxy o envia, em minúsculas. Adicione `:port` quando o proxy enviar uma porta, ou `:*` para aceitar qualquer porta. Curingas de subdomínio não são suportados. No Kubernetes, defina a variável através de `mcp.extraEnv` nos valores do Helm.
 
 ---
 

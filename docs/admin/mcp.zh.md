@@ -137,7 +137,7 @@ Copilot Studio 只注册一次，并保留收到的客户端 ID。该 ID 自带�
 
 ### 位于会更改主机名的代理之后 { #proxy-host-name }
 
-MCP 端点通过检查每个请求的 `Host` 请求头来防御 DNS 重绑定。它接受 `TURBO_EA_PUBLIC_URL` 和 `MCP_PUBLIC_URL` 中的主机名，以及 `localhost`。任何其他主机名都会被拒绝并返回 `421 Misdirected Request`，同时 MCP 容器会记录 `Invalid Host header: <name>`。
+MCP 端点通过检查每个请求的 `Host` 请求头来防御 DNS 重绑定。它接受 `TURBO_EA_PUBLIC_URL` 和 `MCP_PUBLIC_URL` 中的主机名，以及 `localhost` 和 `127.0.0.1`。MCP 容器会在启动时记录一次完整列表。任何其他主机名都会被拒绝并返回 `421 Misdirected Request`，同时 MCP 容器会记录 `Invalid Host header: <name>`。
 
 某些代理转发的主机名并非公开主机名。例如，位于 Azure Container Apps HTTP 路由之前的 Azure Front Door 会发送该路由自己的 `<route>.<environment>.azurecontainerapps.io` 名称。此时登录仍然正常，但所有 MCP 连接都会失败。请将转发的主机名列入 `MCP_ALLOWED_HOSTS`：
 
@@ -145,7 +145,7 @@ MCP 端点通过检查每个请求的 `Host` 请求头来防御 DNS 重绑定。
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-各项为精确的主机名，以逗号分隔。如果代理发送了端口，请添加 `:port`；添加 `:*` 则接受任意端口。不支持子域名通配符。在 Kubernetes 上，请通过 Helm values 中的 `mcp.extraEnv` 设置该变量。
+各项仅为主机名，以逗号分隔，不含 `https://` 或路径；对于永远无法匹配的条目，容器会记录一条警告。匹配为精确匹配，针对代理发送的请求头原样比较，且为小写。如果代理发送了端口，请添加 `:port`；添加 `:*` 则接受任意端口。不支持子域名通配符。在 Kubernetes 上，请通过 Helm values 中的 `mcp.extraEnv` 设置该变量。
 
 ---
 

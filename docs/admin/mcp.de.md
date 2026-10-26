@@ -137,7 +137,7 @@ Copilot Studio registriert sich einmal und behält die erhaltene Client-ID. Dies
 
 ### Hinter einem Proxy, der den Hostnamen ändert { #proxy-host-name }
 
-Der MCP-Endpunkt schützt sich vor DNS-Rebinding, indem er den `Host`-Header jeder Anfrage prüft. Er akzeptiert die Hostnamen von `TURBO_EA_PUBLIC_URL` und `MCP_PUBLIC_URL` sowie `localhost`. Jeder andere Hostname wird mit `421 Misdirected Request` abgewiesen, und der MCP-Container protokolliert `Invalid Host header: <name>`.
+Der MCP-Endpunkt schützt sich vor DNS-Rebinding, indem er den `Host`-Header jeder Anfrage prüft. Er akzeptiert die Hostnamen von `TURBO_EA_PUBLIC_URL` und `MCP_PUBLIC_URL` sowie `localhost` und `127.0.0.1`. Der MCP-Container protokolliert die vollständige Liste einmal beim Start. Jeder andere Hostname wird mit `421 Misdirected Request` abgewiesen, und der MCP-Container protokolliert `Invalid Host header: <name>`.
 
 Manche Proxys leiten einen anderen Hostnamen als den öffentlichen weiter. Azure Front Door vor einer HTTP-Route von Azure Container Apps sendet zum Beispiel den eigenen Namen der Route `<route>.<environment>.azurecontainerapps.io`. Die Anmeldung funktioniert in diesem Fall weiterhin, aber jede MCP-Verbindung schlägt fehl. Tragen Sie den weitergeleiteten Namen in `MCP_ALLOWED_HOSTS` ein:
 
@@ -145,7 +145,7 @@ Manche Proxys leiten einen anderen Hostnamen als den öffentlichen weiter. Azure
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Die Einträge sind exakte Hostnamen, durch Kommas getrennt. Ergänzen Sie `:port`, wenn der Proxy einen Port sendet, oder `:*`, um jeden Port zu akzeptieren. Subdomain-Wildcards werden nicht unterstützt. Unter Kubernetes setzen Sie die Variable über `mcp.extraEnv` in den Helm-Values.
+Die Einträge sind reine Hostnamen, durch Kommas getrennt, ohne `https://` und ohne Pfad; der Container protokolliert eine Warnung für einen Eintrag, der nie zutreffen kann. Der Abgleich ist exakt, gegen den Header, wie ihn der Proxy sendet, in Kleinbuchstaben. Ergänzen Sie `:port`, wenn der Proxy einen Port sendet, oder `:*`, um jeden Port zu akzeptieren. Subdomain-Wildcards werden nicht unterstützt. Unter Kubernetes setzen Sie die Variable über `mcp.extraEnv` in den Helm-Values.
 
 ---
 

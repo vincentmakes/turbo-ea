@@ -137,7 +137,7 @@ Copilot Studio si registra una sola volta e conserva l'identificativo client ric
 
 ### Dietro un proxy che cambia il nome host { #proxy-host-name }
 
-L'endpoint MCP si protegge dal DNS rebinding controllando l'intestazione `Host` di ogni richiesta. Accetta i nomi host di `TURBO_EA_PUBLIC_URL` e `MCP_PUBLIC_URL`, oltre a `localhost`. Qualsiasi altro nome host viene rifiutato con `421 Misdirected Request` e il container MCP registra `Invalid Host header: <name>`.
+L'endpoint MCP si protegge dal DNS rebinding controllando l'intestazione `Host` di ogni richiesta. Accetta i nomi host di `TURBO_EA_PUBLIC_URL` e `MCP_PUBLIC_URL`, oltre a `localhost` e `127.0.0.1`. Il container MCP registra l'elenco completo una volta all'avvio. Qualsiasi altro nome host viene rifiutato con `421 Misdirected Request` e il container MCP registra `Invalid Host header: <name>`.
 
 Alcuni proxy inoltrano un nome host diverso da quello pubblico. Azure Front Door davanti a una route HTTP di Azure Container Apps, ad esempio, invia il nome proprio della route, `<route>.<environment>.azurecontainerapps.io`. In questo caso l'accesso continua a funzionare, ma ogni connessione MCP fallisce. Indicare il nome inoltrato in `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ Alcuni proxy inoltrano un nome host diverso da quello pubblico. Azure Front Door
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Le voci sono nomi host esatti, separati da virgole. Aggiungere `:port` quando il proxy invia una porta, oppure `:*` per accettare qualsiasi porta. I caratteri jolly per i sottodomini non sono supportati. Su Kubernetes, impostare la variabile tramite `mcp.extraEnv` nei valori Helm.
+Le voci sono solo nomi host, separati da virgole, senza `https://` e senza percorso; il container registra un avviso per una voce che non potrà mai corrispondere. La corrispondenza è esatta, rispetto all'intestazione così come la invia il proxy, in minuscolo. Aggiungere `:port` quando il proxy invia una porta, oppure `:*` per accettare qualsiasi porta. I caratteri jolly per i sottodomini non sono supportati. Su Kubernetes, impostare la variabile tramite `mcp.extraEnv` nei valori Helm.
 
 ---
 

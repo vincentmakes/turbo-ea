@@ -65,6 +65,32 @@ class TestTransportSecurity:
         ]
         assert settings.allowed_origins == []
 
+    def test_the_admitted_hosts_are_logged_once(self, monkeypatch, caplog):
+        monkeypatch.setattr(server, "MCP_PUBLIC_URL", "")
+        monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "")
+        monkeypatch.setattr(server, "MCP_ALLOWED_HOSTS", ["route.example"])
+        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"):
+            server._build_transport_security()
+        assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
+            (logging.INFO, "MCP accepts these Host headers: 127.0.0.1, localhost, route.example")
+        ]
+
+    def test_an_entry_that_can_never_match_is_warned_about(self, monkeypatch, caplog):
+        monkeypatch.setattr(server, "MCP_PUBLIC_URL", "")
+        monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "")
+        monkeypatch.setattr(
+            server, "MCP_ALLOWED_HOSTS", ["https://route.example", "ok.example"]
+        )
+        with caplog.at_level(logging.WARNING, logger="turbo_ea_mcp"):
+            server._build_transport_security()
+        assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
+            (
+                logging.WARNING,
+                "MCP_ALLOWED_HOSTS entry 'https://route.example' never matches a Host "
+                "header: list the host name alone, without a scheme or a path",
+            )
+        ]
+
     def test_an_operator_host_equal_to_a_public_one_is_listed_once(self, monkeypatch):
         monkeypatch.setattr(server, "MCP_PUBLIC_URL", "https://ea.example.com/mcp")
         monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "")

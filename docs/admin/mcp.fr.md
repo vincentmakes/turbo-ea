@@ -137,7 +137,7 @@ Copilot Studio s'enregistre une seule fois et conserve l'identifiant de client r
 
 ### Derrière un proxy qui modifie le nom d'hôte { #proxy-host-name }
 
-Le point de terminaison MCP se protège contre le DNS rebinding en vérifiant l'en-tête `Host` de chaque requête. Il accepte les noms d'hôte de `TURBO_EA_PUBLIC_URL` et `MCP_PUBLIC_URL`, ainsi que `localhost`. Tout autre nom d'hôte est refusé avec `421 Misdirected Request`, et le conteneur MCP journalise `Invalid Host header: <name>`.
+Le point de terminaison MCP se protège contre le DNS rebinding en vérifiant l'en-tête `Host` de chaque requête. Il accepte les noms d'hôte de `TURBO_EA_PUBLIC_URL` et `MCP_PUBLIC_URL`, ainsi que `localhost` et `127.0.0.1`. Le conteneur MCP journalise la liste complète une fois au démarrage. Tout autre nom d'hôte est refusé avec `421 Misdirected Request`, et le conteneur MCP journalise `Invalid Host header: <name>`.
 
 Certains proxys transmettent un nom d'hôte autre que le nom public. Azure Front Door devant une route HTTP d'Azure Container Apps, par exemple, envoie le nom propre de la route, `<route>.<environment>.azurecontainerapps.io`. La connexion fonctionne alors toujours, mais chaque connexion MCP échoue. Indiquez le nom transmis dans `MCP_ALLOWED_HOSTS` :
 
@@ -145,7 +145,7 @@ Certains proxys transmettent un nom d'hôte autre que le nom public. Azure Front
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-Les entrées sont des noms d'hôte exacts, séparés par des virgules. Ajoutez `:port` lorsque le proxy envoie un port, ou `:*` pour accepter n'importe quel port. Les jokers de sous-domaine ne sont pas pris en charge. Sur Kubernetes, définissez la variable via `mcp.extraEnv` dans les valeurs Helm.
+Les entrées sont uniquement des noms d'hôte, séparés par des virgules, sans `https://` ni chemin ; le conteneur journalise un avertissement pour une entrée qui ne pourra jamais correspondre. La correspondance est exacte, avec l'en-tête tel que le proxy l'envoie, en minuscules. Ajoutez `:port` lorsque le proxy envoie un port, ou `:*` pour accepter n'importe quel port. Les jokers de sous-domaine ne sont pas pris en charge. Sur Kubernetes, définissez la variable via `mcp.extraEnv` dans les valeurs Helm.
 
 ---
 

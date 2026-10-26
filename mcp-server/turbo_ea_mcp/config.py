@@ -149,10 +149,13 @@ MCP_ALLOWED_ORIGINS: list[str] = parse_origins(os.environ.get("MCP_ALLOWED_ORIGI
 # route's ``*.azurecontainerapps.io`` name — FastMCP's DNS-rebinding guard
 # otherwise answers 421. Comma-separated; matched as the SDK matches them —
 # exactly (``host`` or ``host:port``), or any port for ``host:*``. No subdomain
-# wildcards. Empty by default.
+# wildcards. The SDK compares the header as the proxy sends it, and proxies
+# send host names in lower case, so entries are lower-cased. Empty by default.
 def parse_hosts(raw: str) -> list[str]:
-    """Comma-separated host names, trimmed and lower-cased."""
-    return [h.strip().lower() for h in raw.split(",") if h.strip()]
+    """Comma-separated host names, trimmed, lower-cased and without a trailing
+    slash (a Host header never carries one)."""
+    hosts = (h.strip().rstrip("/").lower() for h in raw.split(","))
+    return [h for h in hosts if h]
 
 
 MCP_ALLOWED_HOSTS: list[str] = parse_hosts(os.environ.get("MCP_ALLOWED_HOSTS", ""))

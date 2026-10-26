@@ -137,7 +137,7 @@ https://your-domain.example.com/mcp/oauth/callback
 
 ### خلف وكيل يغيّر اسم المضيف { #proxy-host-name }
 
-تحمي نقطة نهاية MCP نفسها من هجمات DNS rebinding بفحص ترويسة `Host` في كل طلب. وهي تقبل أسماء المضيفين الواردة في `TURBO_EA_PUBLIC_URL` و`MCP_PUBLIC_URL` إضافةً إلى `localhost`. يُرفض أي اسم مضيف آخر مع الرمز `421 Misdirected Request`، وتسجّل حاوية MCP الرسالة `Invalid Host header: <name>`.
+تحمي نقطة نهاية MCP نفسها من هجمات DNS rebinding بفحص ترويسة `Host` في كل طلب. وهي تقبل أسماء المضيفين الواردة في `TURBO_EA_PUBLIC_URL` و`MCP_PUBLIC_URL` إضافةً إلى `localhost` و`127.0.0.1`. تسجّل حاوية MCP القائمة الكاملة مرة واحدة عند بدء التشغيل. يُرفض أي اسم مضيف آخر مع الرمز `421 Misdirected Request`، وتسجّل حاوية MCP الرسالة `Invalid Host header: <name>`.
 
 تمرّر بعض الوكلاء اسم مضيف غير الاسم العام. فعلى سبيل المثال، يرسل Azure Front Door الموضوع أمام مسار HTTP في Azure Container Apps اسم المسار نفسه `<route>.<environment>.azurecontainerapps.io`. يظل تسجيل الدخول يعمل في هذه الحالة، لكن كل اتصال MCP يفشل. أدرج الاسم الممرَّر في `MCP_ALLOWED_HOSTS`:
 
@@ -145,7 +145,7 @@ https://your-domain.example.com/mcp/oauth/callback
 MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
 ```
 
-المدخلات أسماء مضيفين مطابقة تمامًا، مفصولة بفواصل. أضف `:port` عندما يرسل الوكيل منفذًا، أو `:*` لقبول أي منفذ. أحرف البدل للنطاقات الفرعية غير مدعومة. على Kubernetes، اضبط المتغير عبر `mcp.extraEnv` في قيم Helm.
+المدخلات أسماء مضيفين فقط، مفصولة بفواصل، دون `https://` أو مسار؛ وتسجّل الحاوية تحذيرًا لمدخل لا يمكن أن يطابق أبدًا. المطابقة تامة، مع الترويسة كما يرسلها الوكيل، بأحرف صغيرة. أضف `:port` عندما يرسل الوكيل منفذًا، أو `:*` لقبول أي منفذ. أحرف البدل للنطاقات الفرعية غير مدعومة. على Kubernetes، اضبط المتغير عبر `mcp.extraEnv` في قيم Helm.
 
 ---
 
