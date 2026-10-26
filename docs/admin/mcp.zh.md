@@ -70,6 +70,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `MCP_PORT` | `8001` | MCP 容器的内部端口（很少需要更改） |
 | `SECRET_KEY` | *（无）* | 设置为与后端相同的值。用于签名 MCP 服务器颁发的 OAuth 客户端 ID，使注册过一次的客户端在重启后仍可继续使用；未设置时，服务器使用随进程消失的密钥签名并记录一条警告。Docker Compose、Helm Chart 和各云平台模板会自动传入 |
 | `MCP_ALLOWED_ORIGINS` | *（空）* | 以逗号分隔的额外来源（Origin），MCP 端点会接受来自这些来源的浏览器请求。不带 `Origin` 请求头的请求始终会被接受 |
+| `MCP_ALLOWED_HOSTS` | *（空）* | 以逗号分隔的额外主机名，MCP 端点除接受 `TURBO_EA_PUBLIC_URL` 和 `MCP_PUBLIC_URL` 的主机外，还会在 `Host` 请求头中接受这些主机名。仅当代理转发了不同的主机名时才需要；参见[位于会更改主机名的代理之后](#proxy-host-name) |
 
 ### 步骤 3：将 OAuth 重定向 URI 添加到 SSO 应用
 
@@ -133,6 +134,18 @@ Copilot Studio 从 Microsoft 云端连接 MCP 服务器，而不是从用户的�
 4. 创建连接，并在提示时使用您的 SSO 账户登录。
 
 Copilot Studio 只注册一次，并保留收到的客户端 ID。该 ID 自带其重定向 URI，并使用实例的 `SECRET_KEY` 签名，因此 MCP 容器重启或升级后连接仍然有效。更改 `SECRET_KEY` 会使所有已注册的客户端失效：之后请在 Copilot Studio 中重新创建该工具。
+
+### 位于会更改主机名的代理之后 { #proxy-host-name }
+
+MCP 端点通过检查每个请求的 `Host` 请求头来防御 DNS 重绑定。它接受 `TURBO_EA_PUBLIC_URL` 和 `MCP_PUBLIC_URL` 中的主机名，以及 `localhost`。任何其他主机名都会被拒绝并返回 `421 Misdirected Request`，同时 MCP 容器会记录 `Invalid Host header: <name>`。
+
+某些代理转发的主机名并非公开主机名。例如，位于 Azure Container Apps HTTP 路由之前的 Azure Front Door 会发送该路由自己的 `<route>.<environment>.azurecontainerapps.io` 名称。此时登录仍然正常，但所有 MCP 连接都会失败。请将转发的主机名列入 `MCP_ALLOWED_HOSTS`：
+
+```dotenv
+MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
+```
+
+各项为精确的主机名，以逗号分隔。如果代理发送了端口，请添加 `:port`；添加 `:*` 则接受任意端口。不支持子域名通配符。在 Kubernetes 上，请通过 Helm values 中的 `mcp.extraEnv` 设置该变量。
 
 ---
 
@@ -385,3 +398,4 @@ MCP 容器上的六个防护栏环境变量：
 | 连接在 1 小时后断开 | AI 工具应自动处理令牌刷新。如果不行，请重新连接。 |
 | Copilot Studio 报告「Connection creation failed」 | Copilot Studio 从 Microsoft 云端发起调用。请检查 `https://your-domain.example.com/mcp` 能否从互联网通过公共受信任的证书访问，以及 `MCP_PUBLIC_URL` 是否就是该公共地址。尝试连接期间的 Nginx 日志会显示最后到达的请求；如果没有任何请求到达，说明实例无法访问。 |
 | 升级到 2.175.2 后 Copilot Studio 工具停止工作 | 在 2.175.2 之前创建的工具持有的客户端 ID 无法在重启后保留。请删除该工具并重新添加一次；新的 ID 可在之后的重启中保留。 |
+| MCP 连接失败并返回 `421 Misdirected Request`，MCP 日志显示 `Invalid Host header` | Turbo EA 前面的代理转发了不同于公开主机名的主机名。请将日志行中的名称添加到 `MCP_ALLOWED_HOSTS` 并重启 MCP 容器；参见[位于会更改主机名的代理之后](#proxy-host-name)。 |

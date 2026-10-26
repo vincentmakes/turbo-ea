@@ -70,6 +70,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `MCP_PORT` | `8001` | Intern port for MCP-containeren (sjældent behov for at ændre) |
 | `SECRET_KEY` | *(ingen)* | Sæt den til backends værdi. Signerer de OAuth-klient-id'er, MCP-serveren udsteder, så en klient, der er registreret én gang, fortsat virker efter en genstart; uden den signerer serveren med en nøgle, der forsvinder med processen, og logger en advarsel. Docker Compose, Helm-chartet og cloud-skabelonerne sender den automatisk med |
 | `MCP_ALLOWED_ORIGINS` | *(tom)* | Kommaseparerede ekstra origins, hvis browserforespørgsler MCP-endpointet accepterer. Forespørgsler uden `Origin`-header accepteres altid |
+| `MCP_ALLOWED_HOSTS` | *(tom)* | Kommaseparerede ekstra værtsnavne, som MCP-endpointet accepterer i `Host`-headeren ud over værterne i `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL`. Kun nødvendig, når en proxy videresender et andet værtsnavn; se [Bag en proxy, der ændrer værtsnavnet](#proxy-host-name) |
 
 ### Trin 3: Tilføj OAuth-redirect-URI'en til din SSO-app
 
@@ -133,6 +134,18 @@ Copilot Studio forbinder til MCP-servere fra Microsofts cloud, ikke fra brugeren
 4. Opret forbindelsen, og log ind med din SSO-konto, når du bliver bedt om det.
 
 Copilot Studio registrerer sig én gang og beholder det klient-id, den får. Id'et bærer sine egne redirect-URI'er, signeret med instansens `SECRET_KEY`, så forbindelsen fortsat virker, når MCP-containeren genstartes eller opgraderes. Ændres `SECRET_KEY`, bliver alle registrerede klienter ugyldige: opret derefter værktøjet igen i Copilot Studio.
+
+### Bag en proxy, der ændrer værtsnavnet { #proxy-host-name }
+
+MCP-endpointet beskytter sig mod DNS rebinding ved at kontrollere `Host`-headeren i hver forespørgsel. Det accepterer værtsnavnene fra `TURBO_EA_PUBLIC_URL` og `MCP_PUBLIC_URL` samt `localhost`. Alle andre værtsnavne afvises med `421 Misdirected Request`, og MCP-containeren logger `Invalid Host header: <name>`.
+
+Nogle proxyer videresender et andet værtsnavn end det offentlige. Azure Front Door foran en HTTP-rute i Azure Container Apps sender for eksempel rutens eget navn, `<route>.<environment>.azurecontainerapps.io`. Login fungerer stadig i så fald, men alle MCP-forbindelser fejler. Angiv det videresendte navn i `MCP_ALLOWED_HOSTS`:
+
+```dotenv
+MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
+```
+
+Indtastningerne er præcise værtsnavne, adskilt af kommaer. Tilføj `:port`, når proxyen sender en port, eller `:*` for at acceptere enhver port. Wildcards for underdomæner understøttes ikke. På Kubernetes sættes variablen via `mcp.extraEnv` i Helm-værdierne.
 
 ---
 
@@ -385,3 +398,4 @@ Dataadgang gennem MCP — læse eller skrive — følger den samme RBAC-model so
 | Forbindelse droppes efter 1 time | AI-værktøjet bør håndtere token-fornyelse automatisk. Hvis ikke, genopret forbindelse. |
 | Copilot Studio melder "Connection creation failed" | Copilot Studio kalder fra Microsofts cloud. Tjek, at `https://your-domain.example.com/mcp` kan nås fra internettet med et offentligt betroet certifikat, og at `MCP_PUBLIC_URL` er netop den offentlige adresse. Nginx-loggen under et forsøg viser den sidste forespørgsel, der nåede frem; når der slet ingen kommer, kan instansen ikke nås. |
 | Et Copilot Studio-værktøj holdt op med at virke efter opgradering til 2.175.2 | Værktøjer oprettet før 2.175.2 har et klient-id, der ikke overlevede en genstart. Slet værktøjet, og tilføj det igen én gang; det nye id overlever senere genstarter. |
+| MCP-forbindelser fejler med `421 Misdirected Request`, og MCP-loggen viser `Invalid Host header` | En proxy foran Turbo EA videresender et andet værtsnavn end det offentlige. Tilføj navnet fra loglinjen til `MCP_ALLOWED_HOSTS`, og genstart MCP-containeren; se [Bag en proxy, der ændrer værtsnavnet](#proxy-host-name). |

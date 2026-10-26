@@ -70,7 +70,7 @@ MCP_PUBLIC_URL=https://your-domain.example.com/mcp
 | `MCP_PORT` | `8001` | Internal port for the MCP container (rarely needs changing) |
 | `SECRET_KEY` | *(none)* | Set it to the backend's value. Signs the OAuth client ids the MCP server hands out, so a client that registered once keeps working after a restart; without it the server signs with a key that dies with the process and logs a warning. Docker compose, the Helm chart and the cloud templates pass it in automatically |
 | `MCP_ALLOWED_ORIGINS` | *(empty)* | Comma-separated extra origins whose browser requests the MCP endpoint accepts. Requests without an `Origin` header are always accepted |
-| `MCP_ALLOWED_HOSTS` | *(empty)* | Comma-separated extra host names the MCP endpoint accepts in the `Host` header, beyond the hosts of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`. Needed only when a proxy forwards a different host name; see [Behind a proxy that changes the host name](#behind-a-proxy-that-changes-the-host-name) |
+| `MCP_ALLOWED_HOSTS` | *(empty)* | Comma-separated extra host names the MCP endpoint accepts in the `Host` header, beyond the hosts of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`. Needed only when a proxy forwards a different host name; see [Behind a proxy that changes the host name](#proxy-host-name) |
 
 ### Step 3: Add the OAuth redirect URI to your SSO app
 
@@ -135,7 +135,7 @@ Copilot Studio connects to MCP servers from Microsoft's cloud, not from the user
 
 Copilot Studio registers itself once and keeps the client id it receives. That id carries its own redirect URIs, signed with the instance's `SECRET_KEY`, so the connection keeps working when the MCP container restarts or is upgraded. Changing `SECRET_KEY` invalidates every registered client: recreate the tool in Copilot Studio afterwards.
 
-### Behind a proxy that changes the host name
+### Behind a proxy that changes the host name { #proxy-host-name }
 
 The MCP endpoint protects itself against DNS rebinding by checking the `Host` header of every request. It accepts the host names of `TURBO_EA_PUBLIC_URL` and `MCP_PUBLIC_URL`, plus `localhost`. Any other host name is refused with `421 Misdirected Request`, and the MCP container logs `Invalid Host header: <name>`.
 
@@ -398,4 +398,4 @@ Data access through MCP — read or write — follows the same RBAC model as the
 | Connection drops after 1 hour | The AI tool should handle token refresh automatically. If not, reconnect. |
 | Copilot Studio reports "Connection creation failed" | Copilot Studio calls from Microsoft's cloud. Check that `https://your-domain.example.com/mcp` is reachable from the internet with a publicly trusted certificate, and that `MCP_PUBLIC_URL` is that public address. The Nginx log during an attempt shows the last request that arrived; no request at all means the instance is not reachable. |
 | A Copilot Studio tool stopped working after upgrading to 2.175.2 | Tools created before 2.175.2 hold a client id that did not survive a restart. Delete the tool and add it again once; the new id survives later restarts. |
-| MCP connections fail with `421 Misdirected Request`, and the MCP log shows `Invalid Host header` | A proxy in front of Turbo EA forwards a host name other than the public one. Add the name from the log line to `MCP_ALLOWED_HOSTS` and restart the MCP container; see [Behind a proxy that changes the host name](#behind-a-proxy-that-changes-the-host-name). |
+| MCP connections fail with `421 Misdirected Request`, and the MCP log shows `Invalid Host header` | A proxy in front of Turbo EA forwards a host name other than the public one. Add the name from the log line to `MCP_ALLOWED_HOSTS` and restart the MCP container; see [Behind a proxy that changes the host name](#proxy-host-name). |

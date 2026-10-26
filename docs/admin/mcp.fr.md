@@ -70,6 +70,7 @@ MCP_PUBLIC_URL=https://votre-domaine.exemple.com/mcp
 | `MCP_PORT` | `8001` | Port interne du conteneur MCP (rarement besoin de changer) |
 | `SECRET_KEY` | *(aucune)* | À définir sur la valeur du backend. Signe les identifiants de client OAuth que le serveur MCP délivre, de sorte qu'un client enregistré une fois continue de fonctionner après un redémarrage ; sans elle, le serveur signe avec une clé qui disparaît avec le processus et journalise un avertissement. Docker Compose, le chart Helm et les modèles cloud la transmettent automatiquement |
 | `MCP_ALLOWED_ORIGINS` | *(vide)* | Origines supplémentaires, séparées par des virgules, dont le point de terminaison MCP accepte les requêtes de navigateur. Les requêtes sans en-tête `Origin` sont toujours acceptées |
+| `MCP_ALLOWED_HOSTS` | *(vide)* | Noms d'hôte supplémentaires, séparés par des virgules, que le point de terminaison MCP accepte dans l'en-tête `Host`, en plus des hôtes de `TURBO_EA_PUBLIC_URL` et `MCP_PUBLIC_URL`. Nécessaire uniquement lorsqu'un proxy transmet un autre nom d'hôte ; voir [Derrière un proxy qui modifie le nom d'hôte](#proxy-host-name) |
 
 ### Étape 3 : Ajouter l'URI de redirection OAuth à votre application SSO
 
@@ -133,6 +134,18 @@ Copilot Studio se connecte aux serveurs MCP depuis le cloud de Microsoft, et non
 4. Créez la connexion et connectez-vous avec votre compte SSO lorsque cela vous est demandé.
 
 Copilot Studio s'enregistre une seule fois et conserve l'identifiant de client reçu. Cet identifiant porte ses propres URI de redirection, signées avec la `SECRET_KEY` de l'instance, si bien que la connexion survit au redémarrage ou à la mise à jour du conteneur MCP. Changer `SECRET_KEY` invalide tous les clients enregistrés : recréez ensuite l'outil dans Copilot Studio.
+
+### Derrière un proxy qui modifie le nom d'hôte { #proxy-host-name }
+
+Le point de terminaison MCP se protège contre le DNS rebinding en vérifiant l'en-tête `Host` de chaque requête. Il accepte les noms d'hôte de `TURBO_EA_PUBLIC_URL` et `MCP_PUBLIC_URL`, ainsi que `localhost`. Tout autre nom d'hôte est refusé avec `421 Misdirected Request`, et le conteneur MCP journalise `Invalid Host header: <name>`.
+
+Certains proxys transmettent un nom d'hôte autre que le nom public. Azure Front Door devant une route HTTP d'Azure Container Apps, par exemple, envoie le nom propre de la route, `<route>.<environment>.azurecontainerapps.io`. La connexion fonctionne alors toujours, mais chaque connexion MCP échoue. Indiquez le nom transmis dans `MCP_ALLOWED_HOSTS` :
+
+```dotenv
+MCP_ALLOWED_HOSTS=my-route.my-environment.westeurope.azurecontainerapps.io
+```
+
+Les entrées sont des noms d'hôte exacts, séparés par des virgules. Ajoutez `:port` lorsque le proxy envoie un port, ou `:*` pour accepter n'importe quel port. Les jokers de sous-domaine ne sont pas pris en charge. Sur Kubernetes, définissez la variable via `mcp.extraEnv` dans les valeurs Helm.
 
 ---
 
@@ -385,3 +398,4 @@ L'accès aux données via MCP — en lecture ou en écriture — suit le même m
 | La connexion s'interrompt après 1 heure | L'outil IA devrait gérer le renouvellement des jetons automatiquement. Sinon, reconnectez-vous. |
 | Copilot Studio signale « Connection creation failed » | Copilot Studio appelle depuis le cloud de Microsoft. Vérifiez que `https://votre-domaine.exemple.com/mcp` est accessible depuis internet avec un certificat publiquement reconnu, et que `MCP_PUBLIC_URL` est bien cette adresse publique. Le journal Nginx pendant une tentative montre la dernière requête reçue ; si aucune n'arrive, l'instance n'est pas accessible. |
 | Un outil Copilot Studio ne fonctionne plus après la mise à jour vers 2.175.2 | Les outils créés avant 2.175.2 détiennent un identifiant de client qui ne survivait pas à un redémarrage. Supprimez l'outil et ajoutez-le de nouveau une fois ; le nouvel identifiant survit aux redémarrages suivants. |
+| Les connexions MCP échouent avec `421 Misdirected Request`, et le journal MCP affiche `Invalid Host header` | Un proxy placé devant Turbo EA transmet un nom d'hôte autre que le nom public. Ajoutez le nom indiqué dans la ligne de journal à `MCP_ALLOWED_HOSTS` et redémarrez le conteneur MCP ; voir [Derrière un proxy qui modifie le nom d'hôte](#proxy-host-name). |
