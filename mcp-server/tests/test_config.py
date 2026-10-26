@@ -116,8 +116,12 @@ class TestParseHosts:
         ]
 
     def test_only_the_trailing_slash_is_removed(self):
-        # A pasted URL keeps its scheme and path; the server warns about it.
-        assert config.parse_hosts("https://Box.example/mcp/") == ["https://box.example/mcp"]
+        # A host can end in any character ("BOX"); only "/" is stripped. A
+        # pasted URL keeps its scheme and path; the server warns about it.
+        assert config.parse_hosts("BOX/,https://Box.example/mcp/") == [
+            "box",
+            "https://box.example/mcp",
+        ]
 
     @pytest.mark.parametrize("raw", ["", " ", ",", " , ", "/", " / ,"])
     def test_nothing_set_is_no_host(self, raw):
