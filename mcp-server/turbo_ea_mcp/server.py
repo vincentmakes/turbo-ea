@@ -29,6 +29,7 @@ from turbo_ea_mcp.batches import BatchContext, mutation_batch
 from turbo_ea_mcp.config import (
     APP_VERSION,
     MCP_ALLOW_RELATION_DELETE,
+    MCP_ALLOWED_HOSTS,
     MCP_ALLOWED_ORIGINS,
     MCP_BATCH_CONFIRMATION_THRESHOLD,
     MCP_MAX_CARDS_PER_CALL,
@@ -86,9 +87,12 @@ def _build_transport_security() -> TransportSecuritySettings:
     the hostnames derived from MCP_PUBLIC_URL and TURBO_EA_PUBLIC_URL so the
     public deployment passes the check; localhost stays allowed for stdio
     tests and local development. ``MCP_ALLOWED_ORIGINS`` adds origins an
-    operator has to admit beyond those two.
+    operator has to admit beyond those two, and ``MCP_ALLOWED_HOSTS`` adds
+    host names for a proxy that forwards a name other than the public one
+    (Azure Front Door in front of a Container Apps route). An extra host is
+    not an origin: no browser page is served from it.
     """
-    hosts: set[str] = {"localhost", "127.0.0.1"}
+    hosts: set[str] = {"localhost", "127.0.0.1", *MCP_ALLOWED_HOSTS}
     origins: set[str] = set(MCP_ALLOWED_ORIGINS)
     for url in (MCP_PUBLIC_URL, TURBO_EA_PUBLIC_URL):
         parsed = urlparse(url)

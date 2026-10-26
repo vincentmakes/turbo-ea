@@ -145,6 +145,11 @@ services:
       # allowlist of public icon CDNs.
       MCP_LOGO_FETCH_ENABLED: ${MCP_LOGO_FETCH_ENABLED:-true}
       MCP_LOGO_FETCH_HOSTS: ${MCP_LOGO_FETCH_HOSTS:-}
+      # Extra Host names / browser origins the MCP endpoint accepts beyond the
+      # two public URLs, and static OAuth redirect URIs. Empty = none.
+      MCP_ALLOWED_HOSTS: ${MCP_ALLOWED_HOSTS:-}
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
+      MCP_OAUTH_ALLOWED_REDIRECT_URIS: ${MCP_OAUTH_ALLOWED_REDIRECT_URIS:-}
     depends_on:
       backend:
         condition: service_healthy

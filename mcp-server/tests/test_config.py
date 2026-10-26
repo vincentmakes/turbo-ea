@@ -103,3 +103,18 @@ class TestParseOrigins:
     @pytest.mark.parametrize("raw", ["", " ", ",", " , "])
     def test_nothing_set_is_no_origin(self, raw):
         assert config.parse_origins(raw) == []
+
+
+class TestParseHosts:
+    def test_trims_lower_cases_and_drops_empty_entries(self):
+        assert config.parse_hosts(
+            " Route.Env.AzureContainerApps.io , ,proxy.internal:* ,box:8443"
+        ) == [
+            "route.env.azurecontainerapps.io",
+            "proxy.internal:*",
+            "box:8443",
+        ]
+
+    @pytest.mark.parametrize("raw", ["", " ", ",", " , "])
+    def test_nothing_set_is_no_host(self, raw):
+        assert config.parse_hosts(raw) == []

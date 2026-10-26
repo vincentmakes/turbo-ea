@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.179.0] - 2026-10-26
+
+### Added
+- MCP: `MCP_ALLOWED_HOSTS` lists extra host names the MCP endpoint accepts, for a proxy that forwards a host name other than the public one, such as Azure Front Door in front of an Azure Container Apps route. Without it, those connections fail with *421 Misdirected Request* ([#1323](https://github.com/vincentmakes/turbo-ea/discussions/1323)).
+
+### Fixed
+- MCP: with Docker Compose, `MCP_ALLOWED_ORIGINS` and `MCP_OAUTH_ALLOWED_REDIRECT_URIS` set in `.env` now reach the MCP server; they were previously ignored.
+
 ## [2.178.0] - 2026-10-23
 
 ### Added
