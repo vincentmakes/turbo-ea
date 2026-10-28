@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.card_type import CardType
-from app.models.diagram import Diagram
+from app.models.diagram import Diagram, diagram_cards
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.services.permission_service import PermissionService
@@ -298,6 +298,13 @@ async def _diagram_count(db) -> int:
     return (await db.execute(select(func.count()).select_from(Diagram))).scalar_one()
 
 
+async def _diagram_card_ids(db, diagram_id: str) -> list[str]:
+    rows = await db.execute(
+        select(diagram_cards.c.card_id).where(diagram_cards.c.diagram_id == uuid.UUID(diagram_id))
+    )
+    return sorted(str(r[0]) for r in rows.all())
+
+
 async def _diagram_events(db) -> list[Event]:
     rows = await db.execute(select(Event).where(Event.event_type.startswith("diagram.")))
     return list(rows.scalars().all())
@@ -402,10 +409,15 @@ class TestDiagramDryRun:
         await _hide_applications_from_members(db)
         resp = await client.patch(
             f"{DIAGRAMS}/{did}",
-            json={"card_ids": [cards_env["a"]], "dry_run": True},
+            json={"name": "Renamed", "card_ids": [cards_env["a"]], "dry_run": True},
             headers=auth_headers(cards_env["member"]),
         )
         assert resp.status_code == 404
+        # Validated before anything was touched: no rename, no link, no event.
+        row = (await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(did)))).scalar_one()
+        assert row.name == "Mine"
+        assert await _diagram_card_ids(db, did) == []
+        assert [e.event_type for e in await _diagram_events(db)] == ["diagram.created"]
 
     async def test_viewer_dry_run_is_still_403(self, client, db, cards_env):
         resp = await client.post(

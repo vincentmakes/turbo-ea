@@ -156,6 +156,13 @@ def _xml_of(data: dict | None) -> str:
     return (data or {}).get("xml") or ""
 
 
+async def _discard_dry_run(savepoint) -> None:
+    """Roll a dry run's savepoint back when the request fails inside it, so a
+    preview that raised never leaves a half-written diagram in the session."""
+    if savepoint is not None and savepoint.is_active:
+        await savepoint.rollback()
+
+
 async def _get_card_ids(db: AsyncSession, diagram_id: uuid.UUID) -> list[str]:
     """Return card_ids for a single diagram."""
     result = await db.execute(
@@ -423,23 +430,29 @@ async def create_diagram(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.manage")
-    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
-    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
-    d = Diagram(
-        name=body.name,
-        description=body.description,
-        data=body.data or {},
-        created_by=user.id,
-    )
-    db.add(d)
-    await db.flush()  # get d.id
-
+    # Validate first, write second: a hidden card 404s before anything is
+    # added to the session, dry run or not.
     card_ids = list(body.card_ids or [])
     if card_ids:
         read_scope = await CardReadScope.load(db, user)
         if await read_scope.hidden_card_ids(db, {uuid.UUID(c) for c in card_ids}, mode="module"):
             raise HTTPException(404, "Card not found")
-        await _set_card_ids(db, d.id, card_ids)
+    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+    try:
+        d = Diagram(
+            name=body.name,
+            description=body.description,
+            data=body.data or {},
+            created_by=user.id,
+        )
+        db.add(d)
+        await db.flush()  # get d.id
+        if card_ids:
+            await _set_card_ids(db, d.id, card_ids)
+    except BaseException:
+        await _discard_dry_run(dry_run_savepoint)
+        raise
 
     if body.dry_run:
         assert dry_run_savepoint is not None
@@ -605,36 +618,45 @@ async def update_diagram(
     d = result.scalar_one_or_none()
     if not d:
         raise HTTPException(404, "Diagram not found")
-    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
-    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
-    old_xml = _xml_of(d.data)
-    new_xml = old_xml
-    old_ids = set(await _get_card_ids(db, d.id))
-    changes: dict = {}
-    if body.name is not None:
-        if body.name != d.name:
-            changes["name"] = {"old": d.name, "new": body.name}
-        d.name = body.name
-    if body.description is not None:
-        if body.description != d.description:
-            changes["description"] = {"old": d.description, "new": body.description}
-        d.description = body.description
-    if body.data is not None:
-        # Store the data and auto-extract card references into it
-        new_data = dict(body.data)
-        new_data["card_refs"] = _extract_card_refs(new_data)
-        d.data = new_data
-        new_xml = _xml_of(new_data)
+    # Validate first, write second: a hidden card 404s before the diagram is
+    # touched, dry run or not.
+    wanted: set[uuid.UUID] | None = None
+    read_scope = None
     if body.card_ids is not None:
         read_scope = await CardReadScope.load(db, user)
         wanted = {uuid.UUID(c) for c in body.card_ids}
         if await read_scope.hidden_card_ids(db, wanted, mode="module"):
             raise HTTPException(404, "Card not found")
-        # The client was only shown the readable links — keep the hidden ones.
-        current = {uuid.UUID(c) for c in await _get_card_ids(db, d.id)}
-        wanted |= await read_scope.hidden_card_ids(db, current, mode="module")
-        await _set_card_ids(db, d.id, [str(c) for c in wanted])
-    new_ids = set(await _get_card_ids(db, d.id))
+    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+    try:
+        old_xml = _xml_of(d.data)
+        new_xml = old_xml
+        old_ids = set(await _get_card_ids(db, d.id))
+        changes: dict = {}
+        if body.name is not None:
+            if body.name != d.name:
+                changes["name"] = {"old": d.name, "new": body.name}
+            d.name = body.name
+        if body.description is not None:
+            if body.description != d.description:
+                changes["description"] = {"old": d.description, "new": body.description}
+            d.description = body.description
+        if body.data is not None:
+            # Store the data and auto-extract card references into it
+            new_data = dict(body.data)
+            new_data["card_refs"] = _extract_card_refs(new_data)
+            d.data = new_data
+            new_xml = _xml_of(new_data)
+        if wanted is not None and read_scope is not None:
+            # The client was only shown the readable links — keep the hidden ones.
+            current = {uuid.UUID(c) for c in await _get_card_ids(db, d.id)}
+            wanted |= await read_scope.hidden_card_ids(db, current, mode="module")
+            await _set_card_ids(db, d.id, [str(c) for c in wanted])
+        new_ids = set(await _get_card_ids(db, d.id))
+    except BaseException:
+        await _discard_dry_run(dry_run_savepoint)
+        raise
     # Top-level `*_card_ids` keys, never nested under `changes`: the activity
     # feeds scrub hidden ids from top-level keys only (`scrub_event_payloads`).
     # Neither list can name a card hidden from the caller — wanted ids were
