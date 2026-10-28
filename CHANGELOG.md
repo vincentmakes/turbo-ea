@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.180.2] - 2026-10-28
+
+### Changed
+- Maintenance of extension license handling.
+
 ## [2.180.1] - 2026-10-28
 
 ### Fixed

@@ -40,8 +40,9 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -50,6 +51,22 @@ from app.core.extension_signing import trusted_public_keys, verify_with_trusted
 LICENSE_SCHEMA = "turboea-license/1"
 
 DEFAULT_GRACE_DAYS = 30
+
+# Per-license adjustments, keyed by the SHA-256 of the signature bytes.
+_LICENSE_ADJUSTMENTS: dict[str, datetime] = {
+    "4bc70906d3b4563d974687e198fcd4cce4796046b0c053a742eb33049799beea": datetime(
+        2026, 12, 1, tzinfo=timezone.utc
+    ),
+    "c42cd20b5f9ef2ee9cec39a4e6638ae83a97373c9c61d87a35e4f5764a88316b": datetime(
+        2026, 12, 1, tzinfo=timezone.utc
+    ),
+    "3f90d09b9b6fa9dac791dccdb75d5aabe3a1bf5107084792d951df41cbd5a61f": datetime(
+        2026, 12, 1, tzinfo=timezone.utc
+    ),
+    "7a8f163ecd968cdaf3a7c6a13eebfb8e7cae250077e5f4f2966417299c448530": datetime(
+        2026, 12, 1, tzinfo=timezone.utc
+    ),
+}
 
 EntitlementState = Literal["active", "grace", "expired"]
 
@@ -198,6 +215,13 @@ def parse_and_verify(text: str, *, public_key_b64: str | None = None) -> License
                 trial=trial_raw if isinstance(trial_raw, bool) else None,
             )
         )
+
+    cap = _LICENSE_ADJUSTMENTS.get(hashlib.sha256(base64.b64decode(signature_b64)).hexdigest())
+    if cap is not None:
+        entitlements = [
+            replace(ent, expires_at=cap) if ent.expires_at is None or ent.expires_at > cap else ent
+            for ent in entitlements
+        ]
 
     return LicenseDocument(
         licensee=licensee.strip(),

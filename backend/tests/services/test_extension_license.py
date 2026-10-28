@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -10,6 +11,7 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from app.services.extensions import license as license_module
 from app.services.extensions.license import (
     LICENSE_SCHEMA,
     Entitlement,
@@ -261,3 +263,55 @@ class TestEntitlementState:
 
     def test_grace_until(self):
         assert grace_until(self.ENT, 30) == self.EXPIRES + timedelta(days=30)
+
+
+class TestLicenseAdjustments:
+    CAP = datetime(2026, 12, 1, tzinfo=timezone.utc)
+    PAYLOAD = {
+        "licensee": "ACME Corp",
+        "issued_at": "2026-10-01T00:00:00Z",
+        "grace_days": 30,
+        "entitlements": [
+            {"extension_key": "later", "expires_at": "2027-10-01T00:00:00Z", "trial": True},
+            {"extension_key": "earlier", "expires_at": "2026-11-15T00:00:00Z"},
+            {"extension_key": "same", "expires_at": "2026-12-01T00:00:00Z"},
+            {"extension_key": "perpetual", "expires_at": None},
+        ],
+    }
+
+    @staticmethod
+    def fingerprint(text: str) -> str:
+        signature = base64.b64decode(json.loads(text)["signature"])
+        return hashlib.sha256(signature).hexdigest()
+
+    def test_license_adjustment_caps_a_listed_license(self, monkeypatch):
+        private, public_b64 = make_keypair()
+        text = make_license(private, self.PAYLOAD)
+        monkeypatch.setitem(license_module._LICENSE_ADJUSTMENTS, self.fingerprint(text), self.CAP)
+        doc = parse_and_verify(text, public_key_b64=public_b64)
+        assert doc.entitlement_for("later").expires_at == self.CAP
+        assert doc.entitlement_for("later").trial is True
+        assert doc.entitlement_for("earlier").expires_at == datetime(
+            2026, 11, 15, tzinfo=timezone.utc
+        )
+        assert doc.entitlement_for("same").expires_at == self.CAP
+        assert doc.entitlement_for("perpetual").expires_at == self.CAP
+        assert doc.licensee == "ACME Corp"
+        assert doc.grace_days == 30
+        assert doc.raw_text == text
+
+    def test_license_adjustment_leaves_other_licenses_alone(self, monkeypatch):
+        private, public_b64 = make_keypair()
+        listed = make_license(private, self.PAYLOAD)
+        monkeypatch.setitem(license_module._LICENSE_ADJUSTMENTS, self.fingerprint(listed), self.CAP)
+        other = make_license(private, dict(self.PAYLOAD, licensee="Other Corp"))
+        doc = parse_and_verify(other, public_key_b64=public_b64)
+        assert doc.entitlement_for("later").expires_at == datetime(2027, 10, 1, tzinfo=timezone.utc)
+        assert doc.entitlement_for("perpetual").expires_at is None
+
+    def test_license_adjustment_table_is_well_formed(self):
+        for fingerprint, cap in license_module._LICENSE_ADJUSTMENTS.items():
+            assert len(fingerprint) == 64
+            assert fingerprint == fingerprint.lower()
+            int(fingerprint, 16)
+            assert cap.utcoffset() == timedelta(0)
