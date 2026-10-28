@@ -2407,5 +2407,21 @@ describe("InventoryPage origin facet and columns", () => {
     unmount();
     const web = render(updated.cellRenderer!({ value: "web" as never }) as ReactElement);
     expect(web.container.firstChild).toBeNull();
+    web.unmount();
+    const agent = render(updated.cellRenderer!({ value: "mcp" as never }) as ReactElement);
+    expect(within(agent.container).getByText("MCP")).toBeInTheDocument();
+  });
+
+  it("shows the origin columns the user switched on", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: EMPTY_FILTERS,
+        columns: ["core_type", "core_name", "meta_created_via", "meta_updated_via"],
+      }),
+    );
+    renderInventory();
+    await waitFor(() => expect(col("meta_created_via")).toBeDefined());
+    expect([col("meta_created_via")!.hide, col("meta_updated_via")!.hide]).toEqual([false, false]);
   });
 });

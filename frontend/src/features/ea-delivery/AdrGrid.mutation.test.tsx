@@ -266,6 +266,12 @@ describe("AdrGrid columns", () => {
     expect(gridStub.colDef("createdBy").cellRenderer({ data: undefined })).toBeNull();
   });
 
+  it("shows only the channel when the author is unknown", () => {
+    renderGrid();
+    const orphan = renderCell("createdBy", { ...DRAFT, creator_name: null, created_via: "mcp" })!;
+    expect(orphan.container.textContent).toBe("smart_toyMCP");
+  });
+
   it("hides every hideable column the chooser lists", () => {
     const hideable = NATURAL.filter((id) => id !== "reference" && id !== "title");
     renderGrid({ hiddenColumns: new Set(hideable) });

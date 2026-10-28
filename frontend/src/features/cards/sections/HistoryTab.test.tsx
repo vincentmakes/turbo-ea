@@ -273,6 +273,15 @@ describe("HistoryTab — event detail lines", () => {
     expect(marked.map((el) => el.getAttribute("data-origin"))).toEqual(["mcp"]);
   });
 
+  it("renders an event recorded with no payload, and marks no channel on it", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      { ...event("e10", "card.teleported", {}), data: null },
+    ]);
+    const { container } = renderTab();
+    expect(await screen.findByText("card.teleported")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-origin]")).toHaveLength(0);
+  });
+
   it("shows an event type this build does not know by its raw name", async () => {
     vi.mocked(api.get).mockResolvedValue([event("e5", "card.teleported", { summary: "Moved" })]);
     renderTab();

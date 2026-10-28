@@ -662,6 +662,20 @@ describe("InventoryFilterSidebar — subtype, approval, lifecycle, quality chips
     expect(last().origins).toEqual(["ext"]);
   });
 
+  it("starts the Origin section collapsed and counts its picks on the header", async () => {
+    await renderSidebar({ initialFilters: { origins: ["mcp", "api"] } });
+    const header = () => screen.getByText("Origin").parentElement!;
+    expect(header()).toHaveTextContent("chevron_right");
+    expect(within(header()).getByText("2")).toBeInTheDocument();
+    expandSection("Origin");
+    expect(header()).toHaveTextContent("expand_more");
+  });
+
+  it("counts origins in Clear all, also on filters saved before link types", async () => {
+    await renderSidebar({ initialFilters: { linkTypes: undefined, origins: ["mcp", "api"] } });
+    expect(screen.getByText("Clear all (2)")).toBeInTheDocument();
+  });
+
   it("toggles lifecycle phases and the (empty) phase", async () => {
     const { last } = await renderSidebar();
     expandSection("Lifecycle");
@@ -1544,6 +1558,18 @@ describe("InventoryFilterSidebar — Views tab", () => {
 /* ========================================================================= */
 
 describe("InventoryFilterSidebar — save dialog", () => {
+  it("saves no origins for filters made before the Origin facet", async () => {
+    mockApi.on("post", "/bookmarks", { id: "bm-new" });
+    await renderSidebar({ initialFilters: { types: ["Application"], origins: undefined } });
+    fireEvent.click(screen.getByRole("button", { name: /Save view/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Apps" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post", "/bookmarks")).toHaveLength(1));
+    const [call] = mockApi.callsOf("post", "/bookmarks");
+    expect((call.body as { filters: Filters }).filters.origins).toEqual([]);
+  });
+
   it("saves the current state as a new view and reloads", async () => {
     mockApi.on("post", "/bookmarks", { id: "bm-new" });
     const { changes } = await renderSidebar({
