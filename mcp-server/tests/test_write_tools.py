@@ -305,6 +305,13 @@ class TestUpsertRelationsBulk:
 # ── create_diagram ─────────────────────────────────────────────────────────
 
 
+_IGNORED_DRY_RUN_MESSAGE = (
+    "The Turbo EA backend did not honour dry_run (it is older "
+            "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
+            "upgrade the backend before using diagram previews."
+)
+
+
 class TestCreateDiagram:
     @pytest.mark.asyncio
     async def test_a_backend_that_ignored_dry_run_is_reported_as_persisted(
@@ -327,6 +334,7 @@ class TestCreateDiagram:
         assert data["error"] == "backend_ignored_dry_run"
         assert data["persisted"] == created
         assert data["batch_id"] == "B-1"
+        assert data["message"] == _IGNORED_DRY_RUN_MESSAGE
         assert "would_create" not in data
         assert calls[-1] == (
             "/mutation-batches/B-1/commit",

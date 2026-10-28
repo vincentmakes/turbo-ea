@@ -731,6 +731,13 @@ class TestCreateSoaw:
         assert _parse(out_not_dict)["error"] == "invalid_section"
 
 
+_IGNORED_DRY_RUN_MESSAGE = (
+    "The Turbo EA backend did not honour dry_run (it is older "
+            "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
+            "upgrade the backend before using diagram previews."
+)
+
+
 class TestUpdateDiagramDryRun:
     @pytest.mark.asyncio
     async def test_dry_run_is_a_backend_dry_run_inside_a_dry_run_batch(self, fake_token):
@@ -795,7 +802,7 @@ class TestUpdateDiagramDryRun:
         assert data["error"] == "backend_ignored_dry_run"
         assert data["persisted"] == committed
         assert data["batch_id"] == "B-001"
-        assert "WAS PERSISTED" in data["message"]
+        assert data["message"] == _IGNORED_DRY_RUN_MESSAGE
         assert "dry_run" not in data
         assert calls["post"][-1] == (
             "/mutation-batches/B-001/commit",
