@@ -71,6 +71,22 @@ describe("relationValueErrorMessage", () => {
     );
   });
 
+  it("names a value it cannot resolve by its key, or by nothing", () => {
+    const numeric = locked({ error: "relation_value_locked", attribute: "usageType", value: 7 });
+    expect(relationValueErrorMessage(numeric, t, SCHEMA, labelOf)).toBe(
+      "The built-in value “” cannot be edited. Hide it instead.",
+    );
+    const missing = locked({ error: "relation_value_required", attribute: "usageType" });
+    expect(relationValueErrorMessage(missing, t, SCHEMA, labelOf)).toBe(
+      "The built-in value “” cannot be removed. Hide it instead.",
+    );
+    const noOptions = [makeField({ key: "usageType", label: "Usage", type: "single_select" })];
+    const err = locked({ error: "relation_value_locked", attribute: "usageType", value: "creates" });
+    expect(relationValueErrorMessage(err, t, noOptions, labelOf)).toBe(
+      "The built-in value “creates” cannot be edited. Hide it instead.",
+    );
+  });
+
   it("shows a string detail as is", () => {
     const err = new ApiError("PATCH failed", 400, "Key already exists");
     expect(relationValueErrorCode(err)).toBeNull();
