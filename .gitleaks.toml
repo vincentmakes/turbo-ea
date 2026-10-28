@@ -55,3 +55,13 @@ regexes = [
   '''^rk_0123456789abcdef$''',
   '''^OtherPass1234$''',
 ]
+
+# The 50-character role key the #1330 regression tests assign (``LONG_ROLE_KEY``):
+# a readable role name at the width ``POST /roles`` accepts, flagged only because
+# the constant's name ends in KEY.
+[[allowlists]]
+description = "backend/tests/conftest.py — the 50-character role key fixture"
+condition = "AND"
+paths = ['''^backend/tests/conftest\.py$''']
+regexTarget = "secret"
+regexes = ['''^regional_application_owner_for_emea_and_apac_zone1$''']
