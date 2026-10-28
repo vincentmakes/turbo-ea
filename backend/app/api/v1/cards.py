@@ -171,6 +171,8 @@ def _card_to_response(
         archived_at=card.archived_at,
         created_by=str(card.created_by) if card.created_by else None,
         updated_by=str(card.updated_by) if card.updated_by else None,
+        created_via=card.created_via,
+        updated_via=card.updated_via,
         created_at=card.created_at,
         updated_at=card.updated_at,
         logo_updated_at=logo_updated_at,
@@ -262,6 +264,7 @@ _ALLOWED_SORT_COLUMNS = {
     "created_at",
     "updated_at",
     "subtype",
+    "created_via",
 }
 
 
@@ -302,6 +305,15 @@ async def list_cards(
         False,
         description=(
             "Keep only cards not updated in the last 90 days (`card_flags.STALE_AFTER_DAYS`)."
+        ),
+    ),
+    created_via: str | None = Query(
+        None,
+        pattern="^(mcp|web|api|ext|system)$",
+        description=(
+            "Keep only cards created through this channel: `web` (the web UI), "
+            "`mcp` (an AI agent through the MCP server), `api` (a direct API "
+            "call), `ext` (an extension) or `system` (a background job)."
         ),
     ),
     page: int = Query(1, ge=1),
@@ -400,6 +412,9 @@ async def list_cards(
     if stale:
         q = q.where(stale_condition())
         count_q = count_q.where(stale_condition())
+    if created_via:
+        q = q.where(Card.created_via == created_via)
+        count_q = count_q.where(Card.created_via == created_via)
 
     # Sorting — H9: whitelist sort columns
     effective_sort = sort_by if sort_by in _ALLOWED_SORT_COLUMNS else "name"
@@ -1107,7 +1122,24 @@ async def get_card(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
-    return await _card_response_with_cost_check(db, user, card)
+    response = await _card_response_with_cost_check(db, user, card)
+    # The header's provenance chip names the person beside the channel: one
+    # query for both ids, and only ``display_name`` — never more of the user.
+    names = await _user_display_names(db, card.created_by, card.updated_by)
+    response.created_by_name = names.get(card.created_by)
+    response.updated_by_name = names.get(card.updated_by)
+    return response
+
+
+async def _user_display_names(
+    db: AsyncSession, *user_ids: uuid.UUID | None
+) -> dict[uuid.UUID, str]:
+    """``{user_id: display_name}`` for the given ids, in one query."""
+    ids = {uid for uid in user_ids if uid is not None}
+    if not ids:
+        return {}
+    rows = await db.execute(select(User.id, User.display_name).where(User.id.in_(ids)))
+    return {uid: name for uid, name in rows.all()}
 
 
 @router.get("/{card_id}/hierarchy")

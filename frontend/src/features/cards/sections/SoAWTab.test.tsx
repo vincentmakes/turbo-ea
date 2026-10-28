@@ -153,6 +153,20 @@ describe("SoAWTab", () => {
     expect(second.getByText("—")).toBeInTheDocument();
   });
 
+  it("marks a SoAW an AI agent created beside its title, and a web one not at all", async () => {
+    mockApi.on("get", LIST, [
+      soaw("a", { name: "Agent plan", created_via: "mcp" }),
+      soaw("b", { name: "Hand plan", created_via: "web" }),
+    ]);
+    renderTab();
+    const rows = await screen.findAllByRole("row");
+    expect(within(rows[1]).getByText("MCP").closest("[data-origin]")).toHaveAttribute(
+      "data-origin",
+      "mcp",
+    );
+    expect(rows[2].querySelector("[data-origin]")).toBeNull();
+  });
+
   it("previews and opens a SoAW", async () => {
     mockApi.on("get", LIST, [soaw("a")]);
     const user = renderTab();

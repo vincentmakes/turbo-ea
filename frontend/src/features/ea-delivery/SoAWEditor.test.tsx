@@ -296,6 +296,15 @@ describe("SoAWEditor — loading an existing document", () => {
     expect(button(t("editor.preview"))).toBeInTheDocument();
     expect(button(t("editor.requestSignatures"))).toBeInTheDocument();
     expect(screen.queryByText(t("editor.revisionLabel", { number: 1 }))).not.toBeInTheDocument();
+    // Made in the web UI (the fixture carries no channel): no origin chip.
+    expect(document.querySelector("[data-origin]")).toBeNull();
+  });
+
+  it("marks a document an AI agent created in its title row", async () => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, created_via: "mcp" });
+    renderEdit();
+    await waitForLoaded();
+    expect(screen.getByText("MCP").closest("[data-origin]")).toHaveAttribute("data-origin", "mcp");
   });
 
   it("re-hydrates a custom section in its anchored place and marks a hidden section", async () => {

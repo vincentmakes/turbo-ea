@@ -37,6 +37,7 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import LinkifiedText from "@/components/LinkifiedText";
+import OriginChip from "@/components/OriginChip";
 import CardPicker from "@/components/CardPicker";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
@@ -450,6 +451,7 @@ export default function RiskDetailPage() {
                 label={t(`risks.source.${risk.source_type}`)}
               />
             )}
+            <OriginChip origin={risk.created_via} />
           </Stack>
           <Typography variant="h5" fontWeight={700} sx={{ mt: 0.5 }}>
             {risk.title}

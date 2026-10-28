@@ -394,6 +394,7 @@ def test_card_record_carries_every_card_column():
         status="ACTIVE",
         lifecycle={"active": "2024-01-01"},
         attributes={"criticality": "high"},
+        created_via="mcp",
     )
     record = exp._card_record(card, {parent.id: parent, card.id: card})
     assert record == {
@@ -410,6 +411,7 @@ def test_card_record_carries_every_card_column():
         "status": "ACTIVE",
         "lifecycle": {"active": "2024-01-01"},
         "attributes": {"criticality": "high"},
+        "created_via": "mcp",
         "source_id": str(card.id),
     }
     assert set(record) == set(exp.CARD_SHEET_COLUMNS)
@@ -430,6 +432,7 @@ def test_card_record_writes_empty_dicts_for_missing_json():
         status="ACTIVE",
         lifecycle=None,
         attributes=None,
+        created_via=None,
     )
     record = exp._card_record(card, {card.id: card})
     assert (record["parent_path"], record["lifecycle"], record["attributes"]) == ("", {}, {})

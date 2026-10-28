@@ -7,9 +7,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
+class ArchitectureDecision(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     """Architecture Decision Record (ADR) — documents key architecture decisions."""
 
     __tablename__ = "architecture_decisions"

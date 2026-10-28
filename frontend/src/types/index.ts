@@ -403,6 +403,12 @@ export interface Card {
   created_by?: string;
   updated_by?: string;
   created_at?: string;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
+  /** Display names of created_by / updated_by — only on GET /cards/{id}. */
+  created_by_name?: string | null;
+  updated_by_name?: string | null;
   updated_at?: string;
   /** When this card's custom logo was last written, or null when it has none —
    *  or when its type has logos switched off, so no client-side rule is needed
@@ -623,6 +629,9 @@ export interface Comment {
   content: string;
   parent_id?: string;
   created_at?: string;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   updated_at?: string;
   replies: Comment[];
 }
@@ -933,6 +942,9 @@ export interface SoAW {
   sections: Record<string, SoAWSectionData>;
   created_by?: string;
   created_at?: string;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   updated_at?: string;
   revision_number: number;
   parent_id: string | null;
@@ -965,6 +977,9 @@ export interface ArchitectureDecision {
   parent_id: string | null;
   linked_cards?: { id: string; name: string; type: string }[];
   created_at: string | null;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   updated_at: string | null;
 }
 
@@ -1308,6 +1323,9 @@ export interface DiagramSummary {
   created_by_name?: string | null;
   is_favorite?: boolean;
   created_at?: string;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   updated_at?: string;
 }
 
@@ -1616,6 +1634,9 @@ export interface ProcessFlowVersion {
   created_by?: string;
   created_by_name?: string;
   created_at?: string;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   submitted_by?: string;
   submitted_by_name?: string;
   submitted_at?: string;
@@ -2351,6 +2372,9 @@ export interface Risk {
 
   created_by: string | null;
   created_at: string | null;
+  /** Channel behind the create / last change: web | mcp | api | ext | system (null = before tracking). */
+  created_via?: string | null;
+  updated_via?: string | null;
   updated_at: string | null;
 
   cards: RiskCardLink[];

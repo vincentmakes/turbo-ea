@@ -346,6 +346,26 @@ describe("ProcessFlowTab", () => {
       });
     });
 
+    it("marks a draft an AI agent imported with the MCP chip, and a web one not at all", async () => {
+      const drafts = [{ ...mockDrafts[0], created_via: "mcp" }, { ...mockDrafts[1], created_via: "web" }];
+      vi.mocked(api.get).mockImplementation((url: string) => {
+        if (url.includes("/flow/permissions")) return Promise.resolve(mockPerms);
+        if (url.includes("/flow/published")) return Promise.resolve(mockPublished);
+        if (url.includes("/message-flows")) return Promise.resolve(mockMessageFlows);
+        if (url.includes("/elements")) return Promise.resolve(mockElements);
+        if (url.includes("/flow/drafts")) return Promise.resolve(drafts);
+        if (url.includes("/flow/archived")) return Promise.resolve(mockArchived);
+        return Promise.reject(new Error(`no mock for ${url}`));
+      });
+      const { container } = renderTab();
+      await waitForLoad();
+      await userEvent.click(screen.getByText("Drafts"));
+
+      const chip = await screen.findByText("MCP");
+      expect(chip.closest("[data-origin]")).toHaveAttribute("data-origin", "mcp");
+      expect(container.querySelectorAll("[data-origin]")).toHaveLength(1);
+    });
+
     it("has New Draft from Template button", async () => {
       renderTab();
       await waitForLoad();

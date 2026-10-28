@@ -27,6 +27,7 @@ from app.services import audit_log
 from app.services.card_read_scope import CardReadScope
 from app.services.diagram_legend import build_public_legend
 from app.services.drawio_refs import extract_card_refs
+from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 from app.services.public_access import (
     PUBLIC_ACCESS_COOKIE,
@@ -134,6 +135,9 @@ class DiagramCreate(BaseModel):
     description: str | None = None
     data: dict | None = None
     card_ids: list[str] | None = None
+    # Validate everything (permission, card ids, read scope), then roll back:
+    # the MCP `create_diagram` preview is verified by the backend, not guessed.
+    dry_run: bool = False
 
 
 class DiagramUpdate(BaseModel):
@@ -141,9 +145,15 @@ class DiagramUpdate(BaseModel):
     description: str | None = None
     data: dict | None = None
     card_ids: list[str] | None = None
+    dry_run: bool = False
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+
+def _xml_of(data: dict | None) -> str:
+    """The DrawIO XML a diagram's ``data`` carries ("" when none)."""
+    return (data or {}).get("xml") or ""
 
 
 async def _get_card_ids(db: AsyncSession, diagram_id: uuid.UUID) -> list[str]:
@@ -337,6 +347,8 @@ async def list_diagrams(
             "card_count": len(_extract_card_refs(d.data)),
             "created_by": str(d.created_by) if d.created_by else None,
             "created_by_name": creator_names.get(str(d.created_by)) if d.created_by else None,
+            "created_via": d.created_via,
+            "updated_via": d.updated_via,
             "is_favorite": str(d.id) in favorite_ids,
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "updated_at": d.updated_at.isoformat() if d.updated_at else None,
@@ -411,6 +423,8 @@ async def create_diagram(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "diagrams.manage")
+    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
     d = Diagram(
         name=body.name,
         description=body.description,
@@ -420,20 +434,43 @@ async def create_diagram(
     db.add(d)
     await db.flush()  # get d.id
 
-    if body.card_ids:
+    card_ids = list(body.card_ids or [])
+    if card_ids:
         read_scope = await CardReadScope.load(db, user)
-        if await read_scope.hidden_card_ids(
-            db, {uuid.UUID(c) for c in body.card_ids}, mode="module"
-        ):
+        if await read_scope.hidden_card_ids(db, {uuid.UUID(c) for c in card_ids}, mode="module"):
             raise HTTPException(404, "Card not found")
-        await _set_card_ids(db, d.id, body.card_ids)
+        await _set_card_ids(db, d.id, card_ids)
 
+    if body.dry_run:
+        assert dry_run_savepoint is not None
+        # Built before the rollback: the rolled-back row cannot be read after it.
+        preview = {
+            "dry_run": True,
+            "id": None,
+            "name": body.name,
+            "card_ids": card_ids,
+            "card_refs": _extract_card_refs(body.data),
+            "xml_chars": len(_xml_of(body.data)),
+        }
+        await dry_run_savepoint.rollback()
+        return preview
+
+    # Never the XML itself in an event: a canvas can be megabytes.
+    await event_bus.publish(
+        "diagram.created",
+        {"id": str(d.id), "name": d.name, "card_ids": card_ids},
+        db=db,
+        card_id=None,
+        user_id=user.id,
+    )
     await db.commit()
     await db.refresh(d)
     return {
         "id": str(d.id),
         "name": d.name,
-        "card_ids": body.card_ids or [],
+        "card_ids": card_ids,
+        "created_via": d.created_via,
+        "updated_via": d.updated_via,
     }
 
 
@@ -547,6 +584,8 @@ async def get_diagram(
         "group_ids": group_ids,
         "created_by": str(d.created_by) if d.created_by else None,
         "created_by_name": creator_names.get(str(d.created_by)) if d.created_by else None,
+        "created_via": d.created_via,
+        "updated_via": d.updated_via,
         "is_favorite": str(d.id) in favorite_ids,
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
@@ -566,15 +605,26 @@ async def update_diagram(
     d = result.scalar_one_or_none()
     if not d:
         raise HTTPException(404, "Diagram not found")
+    # Dry-run isolation — the same savepoint pattern as `bpm.save_diagram`.
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+    old_xml = _xml_of(d.data)
+    new_xml = old_xml
+    old_ids = set(await _get_card_ids(db, d.id))
+    changes: dict = {}
     if body.name is not None:
+        if body.name != d.name:
+            changes["name"] = {"old": d.name, "new": body.name}
         d.name = body.name
     if body.description is not None:
+        if body.description != d.description:
+            changes["description"] = {"old": d.description, "new": body.description}
         d.description = body.description
     if body.data is not None:
         # Store the data and auto-extract card references into it
         new_data = dict(body.data)
         new_data["card_refs"] = _extract_card_refs(new_data)
         d.data = new_data
+        new_xml = _xml_of(new_data)
     if body.card_ids is not None:
         read_scope = await CardReadScope.load(db, user)
         wanted = {uuid.UUID(c) for c in body.card_ids}
@@ -584,10 +634,62 @@ async def update_diagram(
         current = {uuid.UUID(c) for c in await _get_card_ids(db, d.id)}
         wanted |= await read_scope.hidden_card_ids(db, current, mode="module")
         await _set_card_ids(db, d.id, [str(c) for c in wanted])
+    new_ids = set(await _get_card_ids(db, d.id))
+    # Top-level `*_card_ids` keys, never nested under `changes`: the activity
+    # feeds scrub hidden ids from top-level keys only (`scrub_event_payloads`).
+    # Neither list can name a card hidden from the caller — wanted ids were
+    # checked above and hidden links are kept on both sides.
+    added_card_ids = sorted(new_ids - old_ids)
+    removed_card_ids = sorted(old_ids - new_ids)
+    xml_changed = new_xml != old_xml
+
+    if body.dry_run:
+        assert dry_run_savepoint is not None
+        # Built before the rollback: the rolled-back row cannot be read after it.
+        preview = {
+            "dry_run": True,
+            "id": str(d.id),
+            "name": d.name,
+            "card_ids": await _readable_card_ids(db, user, await _get_card_ids(db, d.id)),
+            "card_refs": _extract_card_refs(d.data),
+            "xml_chars": len(new_xml),
+            "xml_changed": xml_changed,
+            "changes": changes,
+            "added_card_ids": added_card_ids,
+            "removed_card_ids": removed_card_ids,
+        }
+        await dry_run_savepoint.rollback()
+        return preview
+
+    # Never the XML itself in an event: a canvas can be megabytes. A PATCH that
+    # changed nothing writes no event — the audit log would say "updated"
+    # about a diagram whose row SQLAlchemy never touched.
+    if changes or added_card_ids or removed_card_ids or xml_changed:
+        await event_bus.publish(
+            "diagram.updated",
+            {
+                "id": str(d.id),
+                "name": d.name,
+                "changes": changes,
+                "added_card_ids": added_card_ids,
+                "removed_card_ids": removed_card_ids,
+                "xml_changed": xml_changed,
+                "xml_chars": {"old": len(old_xml), "new": len(new_xml)},
+            },
+            db=db,
+            card_id=None,
+            user_id=user.id,
+        )
     await db.commit()
     await db.refresh(d)
     linked_card_ids = await _readable_card_ids(db, user, await _get_card_ids(db, d.id))
-    return {"id": str(d.id), "name": d.name, "card_ids": linked_card_ids}
+    return {
+        "id": str(d.id),
+        "name": d.name,
+        "card_ids": linked_card_ids,
+        "created_via": d.created_via,
+        "updated_via": d.updated_via,
+    }
 
 
 @router.delete("/{diagram_id}", status_code=204)
@@ -601,7 +703,9 @@ async def delete_diagram(
     d = result.scalar_one_or_none()
     if not d:
         raise HTTPException(404, "Diagram not found")
+    deleted = {"id": str(d.id), "name": d.name}
     await db.delete(d)
+    await event_bus.publish("diagram.deleted", deleted, db=db, card_id=None, user_id=user.id)
     await db.commit()
 
 

@@ -44,6 +44,8 @@ def _comment_to_dict(c: Comment) -> dict:
         "user_display_name": c.user.display_name if c.user else None,
         "content": c.content,
         "parent_id": str(c.parent_id) if c.parent_id else None,
+        "created_via": c.created_via,
+        "updated_via": c.updated_via,
         "created_at": c.created_at.isoformat() if c.created_at else None,
         "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         "replies": [_comment_to_dict(r) for r in (c.replies or [])],

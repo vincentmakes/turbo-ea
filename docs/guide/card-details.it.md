@@ -12,6 +12,7 @@ La parte superiore della card mostra:
 - **Nome della card** — Modificabile in linea
 - **Alias** — L'altro nome della card, mostrato sotto il titolo quando è impostato. La matita di modifica del titolo consente di cambiare nome e alias insieme. Gli alias sono considerati da ogni casella di ricerca, così una card si ritrova con il nome realmente usato nella vostra organizzazione.
 - **Sottotipo** — Classificazione secondaria (se applicabile)
+- **Chip di origine** — Mostrato quando la card non è stata creata nell'interfaccia web: **MCP** per una card creata da un assistente IA tramite il [server MCP](../admin/mcp.md), **API** per uno script o un'integrazione, **Estensione** per un'estensione installata, **Sistema** per un job in background. Passateci sopra il mouse per vedere chi ha creato la card e quando: la persona resta il creatore; il chip indica quale canale ha usato. Le card create nell'interfaccia web, e quelle create prima che Turbo EA registrasse il canale, non mostrano alcun chip.
 - **Badge dello stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Pulsante suggerimento AI** — Cliccate per generare una descrizione con AI (visibile quando l'AI è abilitata per questo tipo di card e l'utente ha il permesso di modifica)
 - **Anello della qualità dei dati** — Indicatore visivo della completezza delle informazioni (0-100%)
@@ -167,7 +168,7 @@ Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazion
 
 - **Aggiungi commenti** — Lasciate note, domande o decisioni sul componente
 - **Risposte con thread** — Rispondete a commenti specifici per creare conversazioni con thread
-- **Timestamp** — Visualizzate quando ogni commento è stato pubblicato e da chi
+- **Timestamp** — Visualizzate quando ogni commento è stato pubblicato e da chi. Un commento pubblicato da un assistente IA tramite il server MCP riporta un chip **MCP** accanto all'autore
 - **Link** — Un indirizzo web in un commento è cliccabile e si apre in una nuova scheda
 
 ## Scheda Todo
@@ -205,6 +206,8 @@ Il percorso di invito richiede il permesso **`users.invite`**, una forma delegat
 ## Scheda Cronologia
 
 ![Cronologia modifiche della card](../assets/img/it/08_scheda_cronologia.png)
+
+Una modifica che non proviene dall'interfaccia web riporta un chip accanto al nome della persona: **MCP** quando un assistente IA l'ha effettuata tramite il [server MCP](../admin/mcp.md) per conto di quella persona, altrimenti **API**, **Estensione** o **Sistema**.
 
 Mostra il **registro di audit completo** delle modifiche apportate alla card: **chi** ha effettuato la modifica, **quando** è stata fatta e **cosa** è stato modificato (valore precedente vs. nuovo valore). Questo consente la completa tracciabilità di tutte le modifiche nel tempo.
 

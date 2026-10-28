@@ -190,6 +190,10 @@ class RiskOut(BaseModel):
     accepted_at: datetime | None = None
 
     created_by: str | None = None
+    # The channel behind the create / the last change (``web``, ``mcp``,
+    # ``api``, ``ext``, ``system``); None for risks made before migration 157.
+    created_via: str | None = None
+    updated_via: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

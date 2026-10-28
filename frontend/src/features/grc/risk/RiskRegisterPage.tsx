@@ -29,6 +29,7 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
@@ -111,6 +112,7 @@ export const RISK_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = [
   { id: "title", labelKey: "risks.col.title" },
   { id: "category", labelKey: "risks.col.category" },
   { id: "source_type", labelKey: "risks.col.source" },
+  { id: "created_via", labelKey: "risks.col.origin" },
   { id: "initial_level", labelKey: "risks.col.initialLevel" },
   { id: "residual_level", labelKey: "risks.col.residualLevel" },
   { id: "status", labelKey: "risks.col.status" },
@@ -685,6 +687,18 @@ export default function RiskRegisterPage() {
           p.value ? (
             <Chip size="small" variant="outlined" label={t(`risks.source.${p.value}`)} />
           ) : null,
+      },
+      {
+        // The channel the risk was created through — an AI agent (MCP), the
+        // API, an extension; the chip shows nothing for the web UI.
+        field: "created_via",
+        headerName: t("risks.col.origin"),
+        width: 110,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`common:origin.${p.value}`) : ""),
+        cellRenderer: (p: ICellRendererParams<Risk, string | null>) => (
+          <OriginChip origin={p.value} />
+        ),
       },
       {
         field: "initial_level",

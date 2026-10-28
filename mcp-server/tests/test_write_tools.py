@@ -307,39 +307,158 @@ class TestUpsertRelationsBulk:
 
 class TestCreateDiagram:
     @pytest.mark.asyncio
-    async def test_dry_run_short_circuits(self, fake_token):
-        # Dry-run never calls the backend.
-        patcher, mock = _patched_post({"id": "should-not-be-called"})
-        xml = '<mxGraphModel><object cardId="11111111-2222-3333-4444-555555555555"/></mxGraphModel>'
-        with patcher:
-            out = await server.create_diagram(name="My Diag", drawio_xml=xml)
-        mock.assert_not_called()
+    async def test_a_backend_that_ignored_dry_run_is_reported_as_persisted(
+        self, fake_token
+    ):
+        # A backend older than 2.180.0 drops the unknown `dry_run` flag and
+        # creates the diagram: the tool must say so, not call it a preview.
+        calls: list = []
+        created = {"id": "D9", "name": "X", "card_ids": []}
+
+        async def router(path, json=None):
+            calls.append((path, json))
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-1", "dry_run": True}
+            return created
+
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            out = await server.create_diagram(name="X", drawio_xml="<mxGraphModel/>")
         data = _parse(out)
-        assert data["dry_run"] is True
-        assert data["would_create"]["extracted_card_refs_from_xml"] == [
-            "11111111-2222-3333-4444-555555555555"
+        assert data["error"] == "backend_ignored_dry_run"
+        assert data["persisted"] == created
+        assert data["batch_id"] == "B-1"
+        assert "would_create" not in data
+        assert calls[-1] == (
+            "/mutation-batches/B-1/commit",
+            {"summary": {"status": "backend_ignored_dry_run"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_dry_run_is_verified_by_the_backend_inside_a_dry_run_batch(
+        self, fake_token
+    ):
+        ref = "11111111-2222-3333-4444-555555555555"
+        xml = f'<mxGraphModel><object cardId="{ref}"/></mxGraphModel>'
+        calls: list = []
+
+        async def router(path, json=None):
+            calls.append((path, json))
+            if path == "/mutation-batches/B-1/commit":
+                return {"id": "B-1", "committed_at": "now"}
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-1", "dry_run": True}
+            # The backend's verified, rolled-back preview.
+            return {
+                "dry_run": True,
+                "id": None,
+                "name": "My Diag",
+                "card_ids": ["c1"],
+                "card_refs": [ref],
+                "xml_chars": len(xml),
+            }
+
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)):
+            out = await server.create_diagram(
+                name="My Diag", drawio_xml=xml, linked_card_ids=["c1"]
+            )
+        assert calls == [
+            ("/mutation-batches?row_count=1", {"tool_name": "create_diagram", "dry_run": True}),
+            (
+                "/diagrams",
+                {
+                    "name": "My Diag",
+                    "description": None,
+                    "data": {"xml": xml},
+                    "card_ids": ["c1"],
+                    "dry_run": True,
+                },
+            ),
+            (
+                "/mutation-batches/B-1/commit",
+                {"summary": {"diagram_id": None, "status": "previewed"}},
+            ),
         ]
+        data = _parse(out)
+        assert data == {
+            "dry_run": True,
+            "would_create": {
+                "name": "My Diag",
+                "card_ids": ["c1"],
+                "card_refs": [ref],
+                "xml_chars": len(xml),
+                "description": "",
+                "extracted_card_refs_from_xml": [ref],
+            },
+            "note": data["note"],
+            "batch_id": "B-1",
+        }
+        assert "nothing was persisted" in data["note"]
 
     @pytest.mark.asyncio
     async def test_commit_passes_xml(self, fake_token):
-        patcher, mock = _patched_post({"id": "diag-1", "name": "My Diag"})
+        patcher, write_call = _patched_post_batch_aware(
+            {"id": "diag-1", "name": "My Diag", "card_ids": ["c1"]}
+        )
         xml = "<mxGraphModel/>"
         with patcher:
-            await server.create_diagram(
+            out = await server.create_diagram(
                 name="My Diag",
                 drawio_xml=xml,
                 description="…",
                 linked_card_ids=["c1"],
                 dry_run=False,
             )
-        args, kwargs = mock.call_args
-        assert args[0] == "/diagrams"
-        assert kwargs["json"]["data"]["xml"] == xml
-        assert kwargs["json"]["card_ids"] == ["c1"]
-        assert "type" not in kwargs["json"]
+        path, body = write_call()
+        assert path == "/diagrams"
+        assert body == {
+            "name": "My Diag",
+            "description": "…",
+            "data": {"xml": xml},
+            "card_ids": ["c1"],
+            "dry_run": False,
+        }
+        assert _parse(out) == {
+            "id": "diag-1",
+            "name": "My Diag",
+            "card_ids": ["c1"],
+            "batch_id": "batch-uuid-001",
+        }
+
+    @pytest.mark.asyncio
+    async def test_commit_closes_its_batch_with_the_diagram_id(self, fake_token):
+        post = AsyncMock(
+            side_effect=lambda path, json=None: (
+                {"id": "B-2"} if path.startswith("/mutation-batches") else {"id": "diag-9"}
+            )
+        )
+        with patch.object(server.TurboEAClient, "post", post):
+            await server.create_diagram(name="D", drawio_xml="<x/>", dry_run=False)
+        assert post.call_args_list[0].kwargs["json"] == {
+            "tool_name": "create_diagram",
+            "dry_run": False,
+        }
+        assert post.call_args_list[-1].args[0] == "/mutation-batches/B-2/commit"
+        assert post.call_args_list[-1].kwargs["json"] == {"summary": {"diagram_id": "diag-9"}}
 
 
 # ── import_bpmn ────────────────────────────────────────────────────────────
+
+
+def _bpmn_batch_post():
+    """POST router for ``import_bpmn``: answers the batch open / close and
+    records every path, so a preview can prove it posted nothing else."""
+    paths: list[str] = []
+
+    async def router(path, json=None):
+        paths.append(path)
+        if path.startswith("/mutation-batches"):
+            return {"id": "B-1", "dry_run": (json or {}).get("dry_run")}
+        raise AssertionError(f"a preview must not POST {path}")
+
+    return AsyncMock(side_effect=router), paths
+
+
+PREVIEW_BATCH_PATHS = ["/mutation-batches?row_count=1", "/mutation-batches/B-1/commit"]
 
 
 class TestImportBpmn:
@@ -354,7 +473,7 @@ class TestImportBpmn:
                 "total": 1,
             }
         )
-        post_mock = AsyncMock()  # must not be called
+        post_mock, posted = _bpmn_batch_post()
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "post", post_mock),
@@ -368,12 +487,29 @@ class TestImportBpmn:
             out = await server.import_bpmn(
                 business_process_name="Order to Cash", bpmn_xml=bpmn
             )
-        post_mock.assert_not_called()
+        # Only the preview's own dry-run batch — no draft, submit or approve.
+        assert posted == PREVIEW_BATCH_PATHS
+        assert post_mock.call_args_list[0].kwargs["json"] == {
+            "tool_name": "import_bpmn",
+            "dry_run": True,
+        }
+        assert post_mock.call_args_list[1].kwargs["json"] == {
+            "summary": {"status": "previewed", "verified": False}
+        }
         data = _parse(out)
-        assert data["dry_run"] is True
-        assert data["committed"] is False
-        assert data["business_process_id"] == "bp-1"
-        assert data["diagram_preview"]["flow_nodes_estimated"] == 3
+        assert data == {
+            "dry_run": True,
+            "committed": False,
+            "business_process_id": "bp-1",
+            "diagram_preview": {
+                "flow_nodes_estimated": 3,
+                "message_flows_estimated": 0,
+                "bpmn_xml_bytes": len(bpmn),
+            },
+            "next_action": data["next_action"],
+            "verified": False,
+            "batch_id": "B-1",
+        }
 
     @pytest.mark.asyncio
     async def test_dry_run_counts_unprefixed_bpmn(self, fake_token):
@@ -386,7 +522,7 @@ class TestImportBpmn:
                 "total": 1,
             }
         )
-        post_mock = AsyncMock()  # must not be called
+        post_mock, posted = _bpmn_batch_post()
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "post", post_mock),
@@ -400,7 +536,7 @@ class TestImportBpmn:
             out = await server.import_bpmn(
                 business_process_name="Order to Cash", bpmn_xml=bpmn
             )
-        post_mock.assert_not_called()
+        assert posted == PREVIEW_BATCH_PATHS
         data = _parse(out)
         assert data["diagram_preview"]["flow_nodes_estimated"] == 3
         assert data["diagram_preview"]["message_flows_estimated"] == 0
@@ -416,7 +552,7 @@ class TestImportBpmn:
                 "total": 1,
             }
         )
-        post_mock = AsyncMock()
+        post_mock, posted = _bpmn_batch_post()
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "post", post_mock),
@@ -436,7 +572,7 @@ class TestImportBpmn:
             out = await server.import_bpmn(
                 business_process_name="Order to Cash", bpmn_xml=bpmn
             )
-        post_mock.assert_not_called()
+        assert posted == PREVIEW_BATCH_PATHS
         data = _parse(out)
         assert data["diagram_preview"]["flow_nodes_estimated"] == 5
         assert data["diagram_preview"]["message_flows_estimated"] == 2
@@ -477,7 +613,7 @@ class TestImportBpmn:
                 "total": 1,
             }
         )
-        post_mock = AsyncMock()
+        post_mock, posted = _bpmn_batch_post()
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "post", post_mock),
@@ -485,9 +621,11 @@ class TestImportBpmn:
             out = await server.import_bpmn(
                 business_process_name="X", bpmn_xml="<bpmn:definitions/>"
             )
-        post_mock.assert_not_called()
+        assert posted == PREVIEW_BATCH_PATHS
         data = _parse(out)
         assert data["committed"] is False
+        assert data["verified"] is False
+        assert data["batch_id"] == "B-1"
         assert "NOT" in data["next_action"]
 
     @pytest.mark.asyncio
@@ -545,6 +683,10 @@ class TestImportBpmn:
 
         async def _post(path, json=None):
             post_calls.append((path, json or {}))
+            if path == "/mutation-batches/B-1/commit":
+                return {"id": "B-1", "committed_at": "now"}
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-1", "dry_run": False}
             if path == "/bpm/processes/bp-1/flow/drafts":
                 return {"id": "draft-1", "status": "draft", "revision": 1}
             if path.endswith("/submit"):
@@ -564,11 +706,22 @@ class TestImportBpmn:
             )
         paths = [p for p, _ in post_calls]
         assert paths == [
+            "/mutation-batches?row_count=1",
             "/bpm/processes/bp-1/flow/drafts",
             "/bpm/processes/bp-1/flow/versions/draft-1/submit",
             "/bpm/processes/bp-1/flow/versions/draft-1/approve",
+            "/mutation-batches/B-1/commit",
         ]
+        assert post_calls[0][1] == {"tool_name": "import_bpmn", "dry_run": False}
+        assert post_calls[-1][1] == {
+            "summary": {
+                "business_process_id": "bp-1",
+                "draft_id": "draft-1",
+                "workflow_state": "published",
+            }
+        }
         data = _parse(out)
+        assert data["batch_id"] == "B-1"
         assert data["committed"] is True
         assert data["workflow_state"] == "published"
         assert data["draft_id"] == "draft-1"
@@ -591,6 +744,8 @@ class TestImportBpmn:
         import httpx
 
         async def _post(path, json=None):
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-1"}
             if path.endswith("/flow/drafts"):
                 return {"id": "draft-1", "status": "draft"}
             if path.endswith("/submit"):
@@ -613,8 +768,45 @@ class TestImportBpmn:
         data = _parse(out)
         assert data["committed"] is True
         assert data["workflow_state"] == "pending"
+        assert data["batch_id"] == "B-1"
         assert "warning" in data
         assert "processOwner" in data["warning"]
+
+    @pytest.mark.asyncio
+    async def test_a_draft_that_was_not_created_closes_the_batch_as_failed(
+        self, fake_token
+    ):
+        get_mock = AsyncMock(
+            return_value={"items": [{"id": "bp-1", "name": "P", "parent_id": None}]}
+        )
+        calls: list = []
+
+        async def _post(path, json=None):
+            calls.append((path, json))
+            if path.startswith("/mutation-batches"):
+                return {"id": "B-1"}
+            return {"detail": "nope"}  # no draft id
+
+        with (
+            patch.object(server.TurboEAClient, "get", get_mock),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=_post)),
+        ):
+            out = await server.import_bpmn(
+                business_process_name="P", bpmn_xml="<bpmn:definitions/>", dry_run=False
+            )
+        assert _parse(out) == {
+            "error": "draft_create_failed",
+            "draft_response": {"detail": "nope"},
+            "batch_id": "B-1",
+        }
+        assert [p for p, _ in calls] == [
+            "/mutation-batches?row_count=1",
+            "/bpm/processes/bp-1/flow/drafts",
+            "/mutation-batches/B-1/commit",
+        ]
+        assert calls[-1][1] == {
+            "summary": {"status": "draft_create_failed", "business_process_id": "bp-1"}
+        }
 
 
 # ── Unauthenticated paths ──────────────────────────────────────────────────

@@ -276,6 +276,39 @@ describe("CardDetail", () => {
     });
   });
 
+  it("marks a card an agent created with the MCP chip naming the person", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({
+        ...mockCard,
+        created_via: "mcp",
+        created_by_name: "Ada Admin",
+        created_at: "2026-10-28T10:00:00Z",
+      });
+    });
+
+    renderCardDetail();
+
+    const chip = await screen.findByText("MCP");
+    expect(chip.closest("[data-origin]")).toHaveAttribute("data-origin", "mcp");
+    await userEvent.hover(chip);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      /^Created via MCP by Ada Admin on /,
+    );
+  });
+
+  it("shows no origin chip on a card made in the web UI", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
+      return Promise.resolve({ ...mockCard, created_via: "web", created_by_name: "Ada Admin" });
+    });
+
+    renderCardDetail();
+
+    await screen.findByText("My Application");
+    expect(document.querySelector("[data-origin]")).toBeNull();
+  });
+
   it("renders standard tabs (Card, Comments, Todos, Stakeholders, History)", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);

@@ -32,6 +32,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, darken, lighten, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import LifecycleBadge, { getCurrentPhase } from "@/components/LifecycleBadge";
 import ArchiveDeleteDialog from "@/features/cards/ArchiveDeleteDialog";
 import BulkRestoreDialog from "@/features/cards/BulkRestoreDialog";
@@ -363,6 +364,7 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
     searchParams.has("stale") ||
     searchParams.has("eol") ||
     searchParams.has("link") ||
+    searchParams.has("created_via") ||
     Array.from(searchParams.keys()).some((k) => k.startsWith("attr_") || k.startsWith("rel_"))
   );
 }
@@ -773,6 +775,12 @@ export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { formatDate, formatDateTime } = useDateFormat();
+  // Text for the Created via / Modified via columns (filtering, export); the
+  // cell itself renders `OriginChip`, which shows nothing for the web UI.
+  const originLabel = useCallback(
+    (value?: string | null) => (value ? t(`common:origin.${value}`) : ""),
+    [t],
+  );
   const { types, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
@@ -852,6 +860,8 @@ export default function InventoryPage() {
         staleOnly: searchParams.get("stale") === "true",
         eolStatuses: searchParams.getAll("eol"),
         linkTypes: searchParams.getAll("link"),
+        // Repeatable, like the sidebar's Origin facet (`created_via=mcp`).
+        origins: searchParams.getAll("created_via"),
       };
     }
 
@@ -875,6 +885,7 @@ export default function InventoryPage() {
         staleOnly: saved.filters.staleOnly || false,
         eolStatuses: saved.filters.eolStatuses || [],
         linkTypes: saved.filters.linkTypes || [],
+        origins: saved.filters.origins || [],
       };
     }
 
@@ -894,6 +905,7 @@ export default function InventoryPage() {
       staleOnly: false,
       eolStatuses: [],
       linkTypes: [],
+      origins: [],
     };
   });
   // Current filters, readable from the facet bindings' stable callbacks
@@ -1610,6 +1622,11 @@ export default function InventoryPage() {
         if (filters.staleOnly) {
           params.set("stale", "true");
         }
+        // One origin narrows on the server; several are applied client-side
+        // (GET /cards takes a single `created_via`), like the audit log does.
+        if (filters.origins?.length === 1) {
+          params.set("created_via", filters.origins[0]);
+        }
         params.set("page_size", "10000");
         const res = await api.get<CardListResponse>(`/cards?${params}`, { signal });
         if (!isCurrent()) return; // superseded — the newer request owns the grid
@@ -1634,6 +1651,7 @@ export default function InventoryPage() {
     filters.mineScope,
     filters.orphanedOnly,
     filters.staleOnly,
+    filters.origins,
   ]);
 
   useEffect(() => {
@@ -1785,6 +1803,14 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card) || EMPTY_VALUE));
     }
 
+    // Origin filter — the channel each card was created through. Server-side
+    // already when exactly one is picked; re-applying it then is a no-op.
+    // A card made before the channel was tracked (null) matches none.
+    const origins = filters.origins ?? [];
+    if (origins.length > 0) {
+      result = result.filter((card) => !!card.created_via && origins.includes(card.created_via));
+    }
+
     // End-of-life filter. "(empty)" matches cards with nothing recorded —
     // absent from the resolved map is exactly that state, which is why the
     // endpoint omits them rather than returning a null status.
@@ -1924,7 +1950,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.origins, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
   const grouping = useRowGrouping<Card>(gridRef, {
@@ -3744,6 +3770,24 @@ export default function InventoryPage() {
         hide: !selectedColumns.has("meta_updated_by"),
         valueFormatter: (p: { value?: string }) =>
           p.value ? userNameMap[p.value] ?? p.value : "",
+      },
+      {
+        colId: "meta_created_via",
+        field: "created_via",
+        headerName: t("columns.createdVia"),
+        width: 130,
+        hide: !selectedColumns.has("meta_created_via"),
+        valueFormatter: (p: { value?: string | null }) => originLabel(p.value),
+        cellRenderer: (p: { value?: string | null }) => <OriginChip origin={p.value} />,
+      },
+      {
+        colId: "meta_updated_via",
+        field: "updated_via",
+        headerName: t("columns.updatedVia"),
+        width: 130,
+        hide: !selectedColumns.has("meta_updated_via"),
+        valueFormatter: (p: { value?: string | null }) => originLabel(p.value),
+        cellRenderer: (p: { value?: string | null }) => <OriginChip origin={p.value} />,
       }
     );
 
@@ -3754,7 +3798,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice

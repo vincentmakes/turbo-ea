@@ -68,6 +68,7 @@ const EMPTY_FILTERS: Filters = {
   staleOnly: false,
   eolStatuses: [],
   linkTypes: [],
+  origins: [],
 };
 
 /* ------------------------------------------------------------------------- */
@@ -375,10 +376,11 @@ describe("InventoryFilterSidebar — collapsed rail", () => {
         staleOnly: true,
         eolStatuses: ["eol"],
         linkTypes: ["primary"],
+        origins: ["mcp", "api"],
       },
     });
-    // 1+1+1+1+1+1+1+1+1+2+1+1+1+1+1
-    expect(screen.getByText("16")).toBeInTheDocument();
+    // 1+1+1+1+1+1+1+1+1+2+1+1+1+1+1+2
+    expect(screen.getByText("18")).toBeInTheDocument();
   });
 });
 
@@ -485,9 +487,9 @@ describe("InventoryFilterSidebar — search and scopes", () => {
 
   it("shows Clear all with the active count and resets every facet", async () => {
     const { last } = await renderSidebar({
-      initialFilters: { types: ["Application"], search: "erp", orphanedOnly: true },
+      initialFilters: { types: ["Application"], search: "erp", orphanedOnly: true, origins: ["mcp"] },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Clear all \(3\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Clear all \(4\)/ }));
     expect(last()).toEqual(EMPTY_FILTERS);
     expect(screen.queryByRole("button", { name: /Clear all/ })).not.toBeInTheDocument();
   });
@@ -632,6 +634,32 @@ describe("InventoryFilterSidebar — subtype, approval, lifecycle, quality chips
     expect(last().approvalStatuses).toEqual(["APPROVED", "BROKEN"]);
     fireEvent.click(chip("Approved"));
     expect(last().approvalStatuses).toEqual(["BROKEN"]);
+  });
+
+  it("toggles origins as coloured chips, web included", async () => {
+    const { last } = await renderSidebar();
+    expandSection("Origin");
+    const options = Array.from(document.querySelectorAll("[data-origin-option]")).map((el) =>
+      el.getAttribute("data-origin-option"),
+    );
+    expect(options).toEqual(["web", "mcp", "api", "ext", "system"]);
+    expect(chip(/MCP$/)).toHaveClass("MuiChip-outlined");
+
+    fireEvent.click(chip(/MCP$/));
+    expect(last().origins).toEqual(["mcp"]);
+    expect(chip(/MCP$/)).toHaveClass("MuiChip-filled");
+    fireEvent.click(chip(/Web UI$/));
+    expect(last().origins).toEqual(["mcp", "web"]);
+    fireEvent.click(chip(/MCP$/));
+    expect(last().origins).toEqual(["web"]);
+    expect(chip(/MCP$/)).toHaveClass("MuiChip-outlined");
+  });
+
+  it("starts the Origin facet from no selection on filters saved before it", async () => {
+    const { last } = await renderSidebar({ initialFilters: { origins: undefined } });
+    expandSection("Origin");
+    fireEvent.click(chip(/Extension$/));
+    expect(last().origins).toEqual(["ext"]);
   });
 
   it("toggles lifecycle phases and the (empty) phase", async () => {
@@ -1173,7 +1201,16 @@ describe("InventoryFilterSidebar — Columns tab", () => {
 
     fireEvent.click(metaSelectAll);
     expect(lastColumns()).toEqual(
-      new Set(["core_type", "core_name", "meta_created_at", "meta_updated_at", "meta_created_by", "meta_updated_by"]),
+      new Set([
+        "core_type",
+        "core_name",
+        "meta_created_at",
+        "meta_updated_at",
+        "meta_created_by",
+        "meta_updated_by",
+        "meta_created_via",
+        "meta_updated_via",
+      ]),
     );
     fireEvent.click(metaSelectAll);
     expect(lastColumns()).toEqual(new Set(["core_type", "core_name"]));
@@ -1341,14 +1378,14 @@ describe("InventoryFilterSidebar — Columns tab", () => {
     openTab("Columns");
     const pins = screen.getAllByRole("button", { name: /freeze column/i });
     // Core rows (Type, Name, Logo, ID, Alias, Parent, Path, Description,
-    // Lifecycle, Approval, Quality, Tags) plus the four metadata rows.
-    expect(pins).toHaveLength(16);
+    // Lifecycle, Approval, Quality, Tags) plus the six metadata rows.
+    expect(pins).toHaveLength(18);
     expect(pins[0]).toHaveAttribute("aria-label", "Unfreeze column");
     expect(pins[0]).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(pins[0]);
     expect(onToggleFrozen).toHaveBeenCalledWith("core_type");
     fireEvent.click(pins[pins.length - 1]);
-    expect(onToggleFrozen).toHaveBeenCalledWith("meta_updated_by");
+    expect(onToggleFrozen).toHaveBeenCalledWith("meta_updated_via");
   });
 });
 
@@ -1448,6 +1485,21 @@ describe("InventoryFilterSidebar — Views tab", () => {
     expect(onGroupByChange).toHaveBeenLastCalledWith(null);
   });
 
+  it("applies a view's origins, and none for a view saved before the facet", async () => {
+    const agentView = makeBookmark({
+      id: "bm-9",
+      name: "Agent made",
+      filters: { types: ["Application"], origins: ["mcp", "api"] },
+    });
+    mockApi.on("get", "/bookmarks", [agentView, MY_VIEW]);
+    const { last } = await renderSidebar();
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Agent made/ }));
+    expect(last().origins).toEqual(["mcp", "api"]);
+    fireEvent.click(screen.getByRole("button", { name: /My App View/ }));
+    expect(last().origins).toEqual([]);
+  });
+
   it("restores the persisted active view as selected", async () => {
     localStorage.setItem(LS_KEY, JSON.stringify({ tab: 2, activeViewId: "bm-1" }));
     mockApi.on("get", "/bookmarks", [MY_VIEW, MY_ALL]);
@@ -1537,6 +1589,7 @@ describe("InventoryFilterSidebar — save dialog", () => {
         staleOnly: false,
         eolStatuses: [],
         linkTypes: [],
+        origins: [],
         attributes: {},
         relations: {},
         tagIds: ["t1"],

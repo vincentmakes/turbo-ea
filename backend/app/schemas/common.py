@@ -70,6 +70,10 @@ class CommentResponse(BaseModel):
     user_display_name: str | None = None
     content: str
     parent_id: str | None = None
+    # The channel behind the create / the last edit (``web``, ``mcp``, ``api``,
+    # ``ext``, ``system``); None for comments made before migration 157.
+    created_via: str | None = None
+    updated_via: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     replies: list[CommentResponse] = []

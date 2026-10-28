@@ -12,6 +12,7 @@ A parte superior do card mostra:
 - **Nome do card** — Editável inline
 - **Alias** — O outro nome do card, exibido sob o título quando definido. O lápis de edição do título permite alterar o nome e o alias em conjunto. Os aliases são considerados por todas as caixas de pesquisa, de modo que um card é encontrado pelo nome que a sua organização realmente usa.
 - **Subtipo** — Classificação secundária (se aplicável)
+- **Chip de origem** — Exibido quando o card não foi criado na interface web: **MCP** para um card criado por um assistente de IA pelo [servidor MCP](../admin/mcp.md), **API** para um script ou integração, **Extensão** para uma extensão instalada, **Sistema** para uma tarefa em segundo plano. Passe o mouse sobre ele para ver quem criou o card e quando — a pessoa continua sendo o criador; o chip indica qual canal ela usou. Cards criados na interface web, e cards criados antes de o Turbo EA registrar o canal, não exibem chip.
 - **Badge de status de aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Botão de sugestão IA** — Clique para gerar uma descrição com IA (visível quando a IA está habilitada para este tipo de card e o usuário tem permissão de edição)
 - **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%)
@@ -166,7 +167,7 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 
 - **Adicionar comentários** — Deixe notas, perguntas ou decisões sobre o componente
 - **Respostas em thread** — Responda a comentários específicos para criar conversações encadeadas
-- **Timestamps** — Veja quando cada comentário foi postado e por quem
+- **Timestamps** — Veja quando cada comentário foi postado e por quem. Um comentário publicado por um assistente de IA pelo servidor MCP traz um chip **MCP** ao lado do autor
 - **Links** — Um endereço web em um comentário é clicável e abre em uma nova aba
 
 ## Aba de Tarefas
@@ -204,6 +205,8 @@ O caminho de convite requer a permissão **`users.invite`**, uma forma delegada 
 ## Aba de Histórico
 
 ![Histórico de Alterações do Card](../assets/img/pt/08_ficha_historico.png)
+
+Uma alteração que não veio da interface web traz um chip ao lado do nome da pessoa: **MCP** quando um assistente de IA a fez pelo [servidor MCP](../admin/mcp.md) em nome dessa pessoa, ou **API**, **Extensão** ou **Sistema** nos demais casos.
 
 Mostra a **trilha de auditoria completa** das alterações feitas no card: **quem** fez a alteração, **quando** foi feita e **o que** foi modificado (valor anterior vs. novo valor). Isso permite total rastreabilidade de todas as modificações ao longo do tempo.
 

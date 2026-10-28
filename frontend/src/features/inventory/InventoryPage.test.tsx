@@ -2323,3 +2323,89 @@ describe("optionChipItems (#1292)", () => {
     expect(optionChipItems(options, null, label)).toEqual([]);
   });
 });
+
+describe("InventoryPage origin facet and columns", () => {
+  const rowCount = () => screen.getByTestId("ag-grid").getAttribute("data-row-count");
+  const ORIGIN_CARDS = {
+    ...MOCK_CARDS,
+    items: [
+      { ...MOCK_CARDS.items[0], created_via: "mcp", updated_via: "web" },
+      { ...MOCK_CARDS.items[1], created_via: "web", updated_via: "web" },
+      { ...MOCK_CARDS.items[1], id: "c3", name: "Legacy", created_via: null, updated_via: null },
+    ],
+    total: 3,
+  };
+  const cardPaths = () =>
+    vi
+      .mocked(api.get)
+      .mock.calls.map(([path]) => path as string)
+      .filter((path) => path.startsWith("/cards?"));
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(ORIGIN_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  it("shows every card when no origin is picked", async () => {
+    renderInventory();
+    await waitFor(() => expect(rowCount()).toBe("3"));
+    expect(cardPaths().every((p) => !p.includes("created_via"))).toBe(true);
+  });
+
+  it("sends a single origin to the server and keeps only its cards", async () => {
+    renderInventory("/inventory?created_via=mcp");
+    await waitFor(() => expect(rowCount()).toBe("1"));
+    expect(new URLSearchParams(cardPaths()[0].split("?")[1]).get("created_via")).toBe("mcp");
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("turboea_inventory") ?? "{}").filters.origins).toEqual(
+        ["mcp"],
+      ),
+    );
+  });
+
+  it("filters several origins client-side, never matching a card from before tracking", async () => {
+    renderInventory("/inventory?created_via=mcp&created_via=web");
+    await waitFor(() => expect(rowCount()).toBe("2"));
+    expect(cardPaths().every((p) => !p.includes("created_via"))).toBe(true);
+  });
+
+  it("restores the origin filter from saved preferences", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { ...EMPTY_FILTERS, origins: ["web"] } }),
+    );
+    renderInventory();
+    await waitFor(() => expect(rowCount()).toBe("1"));
+    expect(cardPaths()[0]).toContain("created_via=web");
+  });
+
+  it("offers Created via / Modified via columns, hidden until switched on", async () => {
+    renderInventory();
+    await waitFor(() => expect(col("meta_created_via")).toBeDefined());
+    const created = col("meta_created_via")!;
+    const updated = col("meta_updated_via")!;
+    expect([created.field, created.headerName, created.hide]).toEqual([
+      "created_via",
+      "Created via",
+      true,
+    ]);
+    expect([updated.field, updated.headerName, updated.hide]).toEqual([
+      "updated_via",
+      "Modified via",
+      true,
+    ]);
+    expect(created.valueFormatter!({ value: "mcp" })).toBe("MCP");
+    expect(created.valueFormatter!({ value: "web" })).toBe("Web UI");
+    expect(updated.valueFormatter!({ value: null })).toBe("");
+
+    const { container, unmount } = render(created.cellRenderer!({ value: "mcp" as never }) as ReactElement);
+    expect(within(container).getByText("MCP")).toBeInTheDocument();
+    unmount();
+    const web = render(updated.cellRenderer!({ value: "web" as never }) as ReactElement);
+    expect(web.container.firstChild).toBeNull();
+  });
+});

@@ -12,6 +12,7 @@ Le haut de la fiche affiche :
 - **Nom de la fiche** -- Modifiable en ligne
 - **Alias** -- L'autre nom de la fiche, affiché sous le titre lorsqu'il est renseigné. Le crayon d'édition du titre permet de modifier le nom et l'alias ensemble. Les alias sont pris en compte par tous les champs de recherche : une fiche se retrouve donc par le nom réellement employé dans votre organisation.
 - **Sous-type** -- Classification secondaire (le cas échéant)
+- **Pastille d'origine** -- Affichée lorsque la fiche n'a pas été créée dans l'interface web : **MCP** pour une fiche créée par un assistant IA via le [serveur MCP](../admin/mcp.md), **API** pour un script ou une intégration, **Extension** pour une extension installée, **Système** pour une tâche de fond. Survolez-la pour voir qui a créé la fiche et quand — la personne reste le créateur ; la pastille indique le canal utilisé. Les fiches créées dans l'interface web, ainsi que celles créées avant que Turbo EA ne consigne le canal, n'affichent aucune pastille.
 - **Badge de statut d'approbation** -- Brouillon, Approuvé, Cassé ou Rejeté
 - **Bouton de suggestion IA** -- Cliquez pour générer une description avec l'IA (visible lorsque l'IA est activée pour ce type de fiche et que l'utilisateur a la permission de modification)
 - **Anneau de qualité des données** -- Indicateur visuel de complétude des informations (0-100%)
@@ -167,7 +168,7 @@ Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](
 
 - **Ajouter des commentaires** -- Laissez des notes, questions ou décisions concernant le composant
 - **Réponses en fil** -- Répondez à des commentaires spécifiques pour créer des fils de conversation
-- **Horodatages** -- Voyez quand chaque commentaire a été publié et par qui
+- **Horodatages** -- Voyez quand chaque commentaire a été publié et par qui. Un commentaire publié par un assistant IA via le serveur MCP porte une pastille **MCP** à côté de l'auteur
 - **Liens** -- Une adresse web dans un commentaire est cliquable et s'ouvre dans un nouvel onglet
 
 ## Onglet Tâches
@@ -205,6 +206,8 @@ Le chemin d'invitation nécessite la permission **`users.invite`**, une forme d�
 ## Onglet Historique
 
 ![Historique des modifications de la fiche](../assets/img/fr/08_fiche_historique.png)
+
+Une modification qui ne vient pas de l'interface web porte une pastille à côté du nom de la personne : **MCP** lorsqu'un assistant IA l'a effectuée via le [serveur MCP](../admin/mcp.md) au nom de cette personne, **API**, **Extension** ou **Système** dans les autres cas.
 
 Affiche la **piste d'audit complète** des modifications apportées à la fiche : **qui** a effectué la modification, **quand** elle a été effectuée, et **ce qui** a été modifié (valeur précédente vs nouvelle valeur). Cela permet une traçabilité complète de toutes les modifications au fil du temps.
 

@@ -28,6 +28,7 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import ShareDiagramDialog from "./ShareDiagramDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -318,6 +319,7 @@ export default function DiagramsPage() {
               {d.created_by_name ? `${t("gallery.byAuthor", { name: d.created_by_name })} · ` : ""}
               {fmtDate(d.updated_at)}
             </Typography>
+            <OriginChip origin={d.created_via} name={d.created_by_name} at={d.created_at} />
           </Box>
         </CardContent>
       </CardActionArea>

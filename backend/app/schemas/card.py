@@ -176,6 +176,14 @@ class CardResponse(BaseModel):
     archived_at: datetime | None = None
     created_by: str | None = None
     updated_by: str | None = None
+    # The channel behind the create / the last change (``web``, ``mcp``,
+    # ``api``, ``ext``, ``system``); None for cards made before migration 157.
+    created_via: str | None = None
+    updated_via: str | None = None
+    # Display names of ``created_by`` / ``updated_by``. Filled only by
+    # ``GET /cards/{id}``; list rows resolve names through the client's user map.
+    created_by_name: str | None = None
+    updated_by_name: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     # When the card's custom logo was last written, or None when it has none —

@@ -74,6 +74,8 @@ def _row_to_dict(s: SoAW) -> dict:
         "version_history": s.version_history or [],
         "sections": s.sections or {},
         "created_by": str(s.created_by) if s.created_by else None,
+        "created_via": s.created_via,
+        "updated_via": s.updated_via,
         "created_at": s.created_at.isoformat() if s.created_at else None,
         "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         "revision_number": s.revision_number,

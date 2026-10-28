@@ -7,9 +7,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class SoAW(Base, UUIDMixin, TimestampMixin):
+class SoAW(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     """Statement of Architecture Work — a TOGAF artefact linked to an Initiative."""
 
     __tablename__ = "statement_of_architecture_works"

@@ -79,6 +79,7 @@
   "risks.col.title": "Titel",
   "risks.col.category": "Kategori",
   "risks.col.source": "Kilde",
+  "risks.col.origin": "Oprindelse",
   "risks.col.initialLevel": "Initial",
   "risks.col.residualLevel": "Residual",
   "risks.col.status": "Status",

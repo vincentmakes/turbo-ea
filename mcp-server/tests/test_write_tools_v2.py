@@ -195,8 +195,8 @@ class TestArchiveCards:
 class TestAdrTools:
     @pytest.mark.asyncio
     async def test_create_adr_dry_run_shows_translated_payload(self, fake_token):
-        post_mock = AsyncMock()  # must not be called
-        with patch.object(server.TurboEAClient, "post", post_mock):
+        post, _patch, _get, calls = _route_writes_through_batch()
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             out = await server.create_adr(
                 title="Use Postgres",
                 sections=[
@@ -204,9 +204,14 @@ class TestAdrTools:
                     {"heading": "Alternatives Considered", "body": "MySQL."},
                 ],
             )
-        post_mock.assert_not_called()
+        # A preview posts no ADR: only its own dry-run batch, opened and closed.
+        assert calls["post"] == [
+            ("/mutation-batches?row_count=1", {"tool_name": "create_adr", "dry_run": True}),
+            ("/mutation-batches/B-001/commit", {"summary": {"status": "previewed"}}),
+        ]
         data = _parse(out)
         assert data["dry_run"] is True
+        assert data["batch_id"] == "B-001"
         # The preview is the exact backend payload — sections are already
         # mapped onto the stored columns (#800).
         assert data["would_create"]["title"] == "Use Postgres"
@@ -311,17 +316,30 @@ class TestAdrTools:
 
     @pytest.mark.asyncio
     async def test_update_adr_dry_run_shows_translated_payload(self, fake_token):
+        post, _patch, _get, calls = _route_writes_through_batch()
         patch_mock = AsyncMock()  # must not be called
-        with patch.object(server.TurboEAClient, "patch", patch_mock):
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(server.TurboEAClient, "patch", patch_mock),
+        ):
             out = await server.update_adr(
                 adr_id="A-1",
                 sections=[{"heading": "alternatives_considered", "body": "alt"}],
             )
         patch_mock.assert_not_called()
-        data = _parse(out)
-        assert data["dry_run"] is True
-        assert data["would_update"]["alternatives_considered"] == "alt"
-        assert "sections" not in data["would_update"]
+        assert calls["post"] == [
+            ("/mutation-batches?row_count=1", {"tool_name": "update_adr", "dry_run": True}),
+            (
+                "/mutation-batches/B-001/commit",
+                {"summary": {"adr_id": "A-1", "status": "previewed"}},
+            ),
+        ]
+        assert _parse(out) == {
+            "dry_run": True,
+            "adr_id": "A-1",
+            "would_update": {"alternatives_considered": "alt"},
+            "batch_id": "B-001",
+        }
 
     @pytest.mark.asyncio
     async def test_update_adr_rejects_signed_status(self, fake_token):
@@ -346,26 +364,40 @@ class TestAdrTools:
 
     @pytest.mark.asyncio
     async def test_sign_adr_403_returns_pending_deep_link(self, fake_token):
-        async def raising(*args, **kwargs):
+        post, _patch, _get, calls = _route_writes_through_batch()
+
+        async def raising(path, json=None):
+            if path.startswith("/mutation-batches"):
+                return await post(path, json)
             raise RuntimeError("HTTP 403 Forbidden: Not enough permissions")
 
         with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=raising)):
             out = await server.sign_adr(adr_id="ADR-9", dry_run=False)
         data = _parse(out)
         assert data["status"] == "pending"
+        assert data["reason"] == "missing_adr_sign_permission"
         assert data["deep_link"] == "/ea-delivery/adr/ADR-9?action=sign"
+        assert data["batch_id"] == "B-001"
+        # The attempt is still a closed batch in the audit log.
+        assert calls["post"][-1] == (
+            "/mutation-batches/B-001/commit",
+            {"summary": {"adr_id": "ADR-9", "status": "pending"}},
+        )
 
 
 class TestTransitionLifecycle:
     @pytest.mark.asyncio
     async def test_approve_action_posts(self, fake_token):
-        post_mock = AsyncMock(return_value={"approval_status": "APPROVED"})
-        with patch.object(server.TurboEAClient, "post", post_mock):
-            await server.transition_card_lifecycle(
+        post, _patch, _get, calls = _route_writes_through_batch(
+            write_responses={"/cards/c1/approval-status": {"approval_status": "APPROVED"}}
+        )
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
+            out = await server.transition_card_lifecycle(
                 card_id="c1", target="approve", dry_run=False
             )
-        path, body = post_mock.call_args[0][0], None
-        assert "approval-status?action=approve" in path
+        writes = [c for c in calls["post"] if not c[0].startswith("/mutation-batches")]
+        assert writes == [("/cards/c1/approval-status?action=approve", None)]
+        assert _parse(out) == {"approval_status": "APPROVED", "batch_id": "B-001"}
 
     @pytest.mark.asyncio
     async def test_phase_target_merges_lifecycle(self, fake_token):
@@ -382,6 +414,11 @@ class TestTransitionLifecycle:
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(
+                server.TurboEAClient,
+                "post",
+                AsyncMock(side_effect=_route_writes_through_batch()[0]),
+            ),
         ):
             await server.transition_card_lifecycle(
                 card_id="c1",
@@ -405,6 +442,11 @@ class TestTransitionLifecycle:
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(
+                server.TurboEAClient,
+                "post",
+                AsyncMock(side_effect=_route_writes_through_batch()[0]),
+            ),
         ):
             await server.transition_card_lifecycle(
                 card_id="c1", target="active", dry_run=False
@@ -421,6 +463,11 @@ class TestTransitionLifecycle:
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(
+                server.TurboEAClient,
+                "post",
+                AsyncMock(side_effect=_route_writes_through_batch()[0]),
+            ),
         ):
             out = await server.transition_card_lifecycle(
                 card_id="c1", target="plan", effective_date="2026-01-01", dry_run=False
@@ -438,16 +485,28 @@ class TestTransitionLifecycle:
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
             patch.object(server.TurboEAClient, "patch", patch_mock),
+            patch.object(
+                server.TurboEAClient,
+                "post",
+                AsyncMock(side_effect=_route_writes_through_batch()[0]),
+            ),
         ):
             out = await server.transition_card_lifecycle(
                 card_id="c1", target="active", effective_date="2026-03-01"
             )
         patch_mock.assert_not_called()
-        data = _parse(out)
-        assert data["dry_run"] is True
-        wt = data["would_transition"]
-        assert wt["lifecycle_before"] == {"plan": "2025-01-01"}
-        assert wt["lifecycle_after"] == {"plan": "2025-01-01", "active": "2026-03-01"}
+        assert _parse(out) == {
+            "dry_run": True,
+            "would_transition": {
+                "card_id": "c1",
+                "target": "active",
+                "family": "lifecycle_phase",
+                "effective_date": "2026-03-01",
+                "lifecycle_before": {"plan": "2025-01-01"},
+                "lifecycle_after": {"plan": "2025-01-01", "active": "2026-03-01"},
+            },
+            "batch_id": "B-001",
+        }
 
     @pytest.mark.asyncio
     async def test_invalid_target_rejected(self, fake_token):
@@ -551,13 +610,16 @@ class TestDiagramReadTools:
 class TestAddCardComment:
     @pytest.mark.asyncio
     async def test_threaded_reply(self, fake_token):
-        post_mock = AsyncMock(return_value={"id": "cmt-1"})
-        with patch.object(server.TurboEAClient, "post", post_mock):
-            await server.add_card_comment(
+        post, _patch, _get, calls = _route_writes_through_batch(
+            write_responses={"/cards/c1/comments": {"id": "cmt-1"}}
+        )
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
+            out = await server.add_card_comment(
                 card_id="c1", body="reply", parent_id="cmt-0", dry_run=False
             )
-        path = post_mock.call_args[0][0]
-        body = post_mock.call_args[1]["json"]
+        assert _parse(out) == {"id": "cmt-1", "batch_id": "B-001"}
+        (write,) = [c for c in calls["post"] if not c[0].startswith("/mutation-batches")]
+        path, body = write
         assert path == "/cards/c1/comments"
         # Backend CommentCreate names the field `content` — sending `body`
         # was an unconditional 422 (#802 audit).
@@ -574,14 +636,19 @@ class TestCreateSoaw:
 
     @pytest.mark.asyncio
     async def test_dry_run_shows_translated_payload(self, fake_token):
-        post_mock = AsyncMock()  # must not be called
-        with patch.object(server.TurboEAClient, "post", post_mock):
+        post, _patch, _get, calls = _route_writes_through_batch()
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             out = await server.create_soaw(
                 initiative_id="i1", title="SoAW for X", sections=self.SECTIONS
             )
-        post_mock.assert_not_called()
+        # A preview posts no SoAW: only its own dry-run batch, opened and closed.
+        assert calls["post"] == [
+            ("/mutation-batches?row_count=1", {"tool_name": "create_soaw", "dry_run": True}),
+            ("/mutation-batches/B-001/commit", {"summary": {"status": "previewed"}}),
+        ]
         data = _parse(out)
         assert data["dry_run"] is True
+        assert data["batch_id"] == "B-001"
         wc = data["would_create"]
         # Backend field is `name`, not `title` — sending `title` was the
         # unconditional 422 of #802.
@@ -666,41 +733,77 @@ class TestCreateSoaw:
 
 class TestUpdateDiagramDryRun:
     @pytest.mark.asyncio
-    async def test_dry_run_never_patches(self, fake_token):
-        # Regression: the old implementation forwarded `dry_run` in the
-        # PATCH body; the backend has no such field and persisted anyway —
-        # the default preview call silently overwrote the diagram.
-        get_mock = AsyncMock(
-            return_value={
-                "id": "D1",
-                "name": "Landscape",
-                "description": "",
-                "card_ids": ["c1"],
-                "data": {"xml": "<mxGraphModel/>"},
-            }
+    async def test_dry_run_is_a_backend_dry_run_inside_a_dry_run_batch(self, fake_token):
+        # Regression: before the backend had a `dry_run` flag, forwarding one
+        # in the PATCH body silently overwrote the diagram. The preview now
+        # always carries `dry_run: true`, which the backend rolls back.
+        verified = {
+            "dry_run": True,
+            "id": "D1",
+            "name": "New name",
+            "card_ids": ["c1"],
+            "card_refs": ["11111111-2222-3333-4444-555555555555"],
+            "xml_chars": 92,
+            "xml_changed": True,
+            "changes": {"name": {"old": "Landscape", "new": "New name"}},
+            "added_card_ids": [],
+            "removed_card_ids": [],
+        }
+        post, patch_, _get, calls = _route_writes_through_batch(
+            patch_responses={"/diagrams/D1": verified}
         )
-        patch_mock = AsyncMock()
-        post_mock = AsyncMock()
+        xml = '<mxGraphModel><object cardId="11111111-2222-3333-4444-555555555555"/></mxGraphModel>'
         with (
-            patch.object(server.TurboEAClient, "get", get_mock),
-            patch.object(server.TurboEAClient, "patch", patch_mock),
-            patch.object(server.TurboEAClient, "post", post_mock),
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_)),
         ):
-            out = await server.update_diagram(
-                diagram_id="D1",
-                drawio_xml='<mxGraphModel><object cardId="11111111-2222-3333-4444-555555555555"/></mxGraphModel>',
-                name="New name",
-            )
-        patch_mock.assert_not_called()
-        post_mock.assert_not_called()  # no mutation batch opened either
-        data = _parse(out)
-        assert data["dry_run"] is True
-        assert data["would_update"]["name"] == "New name"
-        assert data["current"]["name"] == "Landscape"
-        assert data["new_card_refs"] == ["11111111-2222-3333-4444-555555555555"]
+            out = await server.update_diagram(diagram_id="D1", drawio_xml=xml, name="New name")
+        assert calls["patch"] == [
+            ("/diagrams/D1", {"data": {"xml": xml}, "name": "New name", "dry_run": True})
+        ]
+        assert calls["post"] == [
+            ("/mutation-batches?row_count=1", {"tool_name": "update_diagram", "dry_run": True}),
+            (
+                "/mutation-batches/B-001/commit",
+                {"summary": {"diagram_id": "D1", "status": "previewed"}},
+            ),
+        ]
+        assert _parse(out) == {
+            "dry_run": True,
+            "diagram_id": "D1",
+            "would_update": {"data": {"xml": xml}, "name": "New name"},
+            "verified": verified,
+            "batch_id": "B-001",
+            "new_card_refs": ["11111111-2222-3333-4444-555555555555"],
+        }
 
     @pytest.mark.asyncio
-    async def test_commit_body_has_no_dry_run_key(self, fake_token):
+    async def test_a_backend_that_ignored_dry_run_is_reported_as_persisted(self, fake_token):
+        # A backend older than 2.180.0 drops the unknown `dry_run` flag and
+        # commits: the response then lacks `dry_run: true`, and the tool must
+        # say the diagram was overwritten, never present it as a preview.
+        committed = {"id": "D1", "name": "n", "card_ids": []}
+        post, patch_, _get, calls = _route_writes_through_batch(
+            patch_responses={"/diagrams/D1": committed}
+        )
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_)),
+        ):
+            out = await server.update_diagram(diagram_id="D1", name="n")
+        data = _parse(out)
+        assert data["error"] == "backend_ignored_dry_run"
+        assert data["persisted"] == committed
+        assert data["batch_id"] == "B-001"
+        assert "WAS PERSISTED" in data["message"]
+        assert "dry_run" not in data
+        assert calls["post"][-1] == (
+            "/mutation-batches/B-001/commit",
+            {"summary": {"status": "backend_ignored_dry_run"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_commit_body_carries_dry_run_false(self, fake_token):
         post, patch_, get, calls = _route_writes_through_batch(
             patch_responses={"/diagrams/D1": {"id": "D1"}}
         )
@@ -709,12 +812,30 @@ class TestUpdateDiagramDryRun:
             patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_)),
         ):
             out = await server.update_diagram(diagram_id="D1", name="n", dry_run=False)
-        data = _parse(out)
-        assert data["batch_id"] == "B-001"
-        assert len(calls["patch"]) == 1
-        body = calls["patch"][0][1]
-        assert "dry_run" not in body
-        assert body["name"] == "n"
+        assert _parse(out) == {"id": "D1", "batch_id": "B-001"}
+        assert calls["patch"] == [("/diagrams/D1", {"name": "n", "dry_run": False})]
+        assert calls["post"] == [
+            ("/mutation-batches?row_count=1", {"tool_name": "update_diagram", "dry_run": False}),
+            (
+                "/mutation-batches/B-001/commit",
+                {"summary": {"diagram_id": "D1", "xml_sent": False}},
+            ),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_commit_with_xml_records_it_changed(self, fake_token):
+        post, patch_, _get, calls = _route_writes_through_batch(
+            patch_responses={"/diagrams/D1": {"id": "D1"}}
+        )
+        with (
+            patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)),
+            patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=patch_)),
+        ):
+            await server.update_diagram(diagram_id="D1", drawio_xml="<x/>", dry_run=False)
+        assert calls["post"][-1] == (
+            "/mutation-batches/B-001/commit",
+            {"summary": {"diagram_id": "D1", "xml_sent": True}},
+        )
 
 
 class TestAssignStakeholders:
@@ -913,17 +1034,21 @@ class TestUpdateRisks:
 class TestSignAdrComment:
     @pytest.mark.asyncio
     async def test_commit_sends_comment_body(self, fake_token):
-        post_mock = AsyncMock(return_value={"signed": True})
-        with patch.object(server.TurboEAClient, "post", post_mock):
+        post, _patch, _get, calls = _route_writes_through_batch(
+            write_responses={"/adr/A-1/sign": {"signed": True}}
+        )
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             await server.sign_adr(adr_id="A-1", comment="LGTM", dry_run=False)
-        assert post_mock.call_args[1]["json"] == {"comment": "LGTM"}
+        assert ("/adr/A-1/sign", {"comment": "LGTM"}) in calls["post"]
 
     @pytest.mark.asyncio
     async def test_commit_without_comment_sends_empty_body(self, fake_token):
-        post_mock = AsyncMock(return_value={"signed": True})
-        with patch.object(server.TurboEAClient, "post", post_mock):
+        post, _patch, _get, calls = _route_writes_through_batch(
+            write_responses={"/adr/A-1/sign": {"signed": True}}
+        )
+        with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
             await server.sign_adr(adr_id="A-1", dry_run=False)
-        assert post_mock.call_args[1]["json"] == {}
+        assert ("/adr/A-1/sign", {}) in calls["post"]
 
 
 class TestArchiveCardsValidation:

@@ -79,6 +79,7 @@ def test_the_inverse_table():
         "tag.added": rs._plan_tag_added,
         "tag.removed": rs._plan_tag_removed,
         "adr.created": rs._plan_adr_created,
+        "diagram.created": rs._plan_diagram_created,
         "todo.created": rs._plan_todo_created,
         "survey.sent": rs._plan_survey_sent,
     }
@@ -89,12 +90,15 @@ def test_the_declined_and_dedupe_tables():
         "todo.": "Todos are requests to people; reopening or deleting one is not an undo.",
         "notification.": "A notification has already been delivered.",
         "risk.removed": "A deleted risk cannot be rebuilt — no snapshot is recorded.",
+        "diagram.updated": "The previous canvas is not snapshotted.",
+        "diagram.deleted": "A deleted diagram cannot be rebuilt — no snapshot is recorded.",
     }
     assert rs._DEDUPE_KEYS == {
         "delete_risk": ("risk_id",),
         "restore_risk_fields": ("risk_id",),
         "delete_relation": ("relation_id",),
         "delete_adr": ("adr_id",),
+        "delete_diagram": ("diagram_id",),
         "delete_card": ("card_id",),
         "delete_todo": ("todo_id",),
         "close_survey": ("survey_id",),
@@ -117,6 +121,7 @@ def test_the_applier_table_covers_every_planned_op():
         "remove_card_tag",
         "add_card_tag",
         "delete_adr",
+        "delete_diagram",
         "delete_todo",
         "close_survey",
     }
@@ -134,6 +139,7 @@ def test_the_applier_table_covers_every_planned_op():
     assert rs._APPLIERS["remove_card_tag"] is rs._apply_remove_card_tag
     assert rs._APPLIERS["add_card_tag"] is rs._apply_add_card_tag
     assert rs._APPLIERS["delete_adr"] is rs._apply_delete_adr
+    assert rs._APPLIERS["delete_diagram"] is rs._apply_delete_diagram
     assert rs._APPLIERS["delete_todo"] is rs._apply_delete_todo
     assert rs._APPLIERS["close_survey"] is rs._apply_close_survey
 
@@ -338,6 +344,19 @@ def test_adr_created():
     )
 
 
+def test_diagram_created():
+    assert plan("diagram.created", {"id": "d-1", "name": "N" * 100, "card_ids": ["c"]}) == {
+        "event_id": str(EID),
+        "op": "delete_diagram",
+        "diagram_id": "d-1",
+        "detail": "N" * 80,
+    }
+    assert plan("diagram.created", {"id": "d-1"})["detail"] == ""
+    assert plan("diagram.created", {"name": "No id"}) == unsupported(
+        "diagram.created", "diagram.created carries no diagram id"
+    )
+
+
 def test_survey_sent():
     assert plan("survey.sent", {"survey_id": "s-1", "name": "N" * 100}) == {
         "event_id": str(EID),
@@ -385,6 +404,11 @@ def test_todos_that_are_not_the_extensions_to_take_back():
         ("todo.updated", "Todos are requests to people; reopening or deleting one is not an undo."),
         ("notification.created", "A notification has already been delivered."),
         ("risk.removed", "A deleted risk cannot be rebuilt — no snapshot is recorded."),
+        ("diagram.updated", "The previous canvas is not snapshotted."),
+        (
+            "diagram.deleted",
+            "A deleted diagram cannot be rebuilt — no snapshot is recorded.",
+        ),
     ],
 )
 def test_declined_families(event_type, reason):
@@ -442,6 +466,7 @@ def test_unsupported_events_are_all_reported():
     [
         ("relation.created", {"id": "r"}, "relation_id"),
         ("adr.created", {"adr_id": "a"}, "adr_id"),
+        ("diagram.created", {"id": "d"}, "diagram_id"),
         ("card.created", {"id": "c"}, "card_id"),
         ("todo.created", {"ext": "x", "todo_id": "t"}, "todo_id"),
         ("survey.sent", {"survey_id": "s"}, "survey_id"),
@@ -475,6 +500,9 @@ def test_each_dedupe_key(event_type, data, key):
         ("adr.created", {"adr_id": "a", "id": "x"}, CID, ("adr", "a")),
         ("adr.signed", {"id": "x"}, CID, ("adr", "x")),
         ("adr.signed", {}, CID, None),
+        ("diagram.created", {"id": "d-1", "card_ids": ["c"]}, None, ("diagram", "d-1")),
+        ("diagram.updated", {"id": "d-1"}, None, ("diagram", "d-1")),
+        ("diagram.deleted", {}, None, None),
         ("stakeholder.added", {"id": "x"}, CID, ("card", str(CID))),
         ("tag.added", {}, CID, ("card", str(CID))),
         ("tag.added", {}, None, None),
@@ -538,3 +566,70 @@ def test_coerce_risk_values():
     assert rs._coerce_risk_value("accepted_at", "2026-03-04T10:00:00+00:00") == datetime(
         2026, 3, 4, 10, tzinfo=timezone.utc
     )
+
+
+# ── deleting a diagram the batch created ────────────────────────────────────
+
+
+class _OneRowSession:
+    """Just enough of an AsyncSession for ``_apply_delete_diagram``: the one
+    row its lookup returns, and a record of what it deleted."""
+
+    def __init__(self, row):
+        self.row = row
+        self.deleted: list = []
+
+    async def execute(self, _stmt):
+        row = self.row
+
+        class _Result:
+            def scalar_one_or_none(self):
+                return row
+
+        return _Result()
+
+    async def delete(self, obj):
+        self.deleted.append(obj)
+
+
+DIAGRAM_OP = {"op": "delete_diagram", "diagram_id": str(EID), "detail": "D"}
+
+
+async def test_delete_diagram_without_an_id_is_skipped():
+    op = {"op": "delete_diagram", "diagram_id": ""}
+    assert await rs._apply_delete_diagram(_OneRowSession(None), op) == {
+        **op,
+        "status": "skipped",
+        "reason": "missing_diagram_id",
+    }
+
+
+async def test_delete_diagram_already_gone_is_skipped():
+    db = _OneRowSession(None)
+    assert await rs._apply_delete_diagram(db, DIAGRAM_OP) == {
+        **DIAGRAM_OP,
+        "status": "skipped",
+        "reason": "already_deleted",
+    }
+    assert db.deleted == []
+
+
+async def test_a_published_diagram_is_left_alone():
+    from app.models.diagram import Diagram
+
+    db = _OneRowSession(Diagram(id=EID, name="D", is_published=True))
+    assert await rs._apply_delete_diagram(db, DIAGRAM_OP) == {
+        **DIAGRAM_OP,
+        "status": "skipped",
+        "reason": "diagram_published",
+    }
+    assert db.deleted == []
+
+
+async def test_an_unpublished_diagram_is_deleted():
+    from app.models.diagram import Diagram
+
+    diagram = Diagram(id=EID, name="D", is_published=False)
+    db = _OneRowSession(diagram)
+    assert await rs._apply_delete_diagram(db, DIAGRAM_OP) == {**DIAGRAM_OP, "status": "ok"}
+    assert db.deleted == [diagram]

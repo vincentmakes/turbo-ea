@@ -14,6 +14,7 @@ The left sidebar panel allows you to **filter** cards by different criteria:
 - **Types** — Filter by one or more card types, grouped by the architecture layer each type belongs to: Strategy & Transformation (Objective, Platform, Initiative), Business Architecture (Organization, Business Capability, Business Context, Business Process), Application & Data (Application, Interface, Data Object) and Technical Architecture (IT Component, Tech Category, Provider). A type your administrator places in a layer of its own gets its own heading after those four, and any type with no layer set is listed last under **Uncategorized**
 - **Subtypes** — When a type is selected, filter further by subtype (e.g., Application → Business Application, Microservice, AI Agent, Deployment)
 - **Approval Status** — Draft, Approved, Broken, or Rejected
+- **Origin** — The channel each card was created through: **Web UI**, **MCP** (an AI assistant connected through the [MCP server](../admin/mcp.md)), **API** (a script or integration), **Extension** or **System** (a background job). Pick **MCP** to review everything an agent added. Cards created before Turbo EA recorded the channel match none of the options
 - **Lifecycle** — Filter by lifecycle phase: Plan, Phase In, Active, Phase Out, End of Life
 - **Data Quality** — Band filtering (multi-select): Complete (≥80%), Partial (40–79%), Minimal (below 40%). Same bands the [Data Quality report](reports.md#data-quality-report) charts, so clicking a bar segment there lands here.
 - **Orphaned** — Only cards with no relation in either direction. Evaluated server-side, so it works with no card type selected.
@@ -57,7 +58,7 @@ Columns are grouped into five categories:
 | Category | Description |
 |----------|-------------|
 | **Default columns** | Always-on columns: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Untick any of these to hide them from the grid — useful when tightening a saved view to just the columns you actually use. |
-| **Metadata** | Created, Modified, Created by, Modified by. **Modified** is when the card's content last changed — by a person or an integration, never when the system last recomputed a score — so you can filter it by date to find cards due for an owner review. |
+| **Metadata** | Created, Modified, Created by, Modified by, Created via, Modified via. **Modified** is when the card's content last changed — by a person or an integration, never when the system last recomputed a score — so you can filter it by date to find cards due for an owner review. **Created via** and **Modified via** show the channel behind the create and the last change as a chip (MCP, API, Extension, System); a cell stays empty for the web interface. |
 | **Attributes** | Custom fields defined in the metamodel (text, number, cost, date, select, etc.) |
 | **Relations** | Related card types (e.g., Applications linked to a Business Capability) |
 | **Stakeholders** | One column per stakeholder role defined for the selected card type (e.g. *Stakeholders: Responsible*), showing the assigned users as chips. In grid edit mode, double-click a cell to assign or remove users for that role directly from the grid (requires the *manage stakeholders* permission). |

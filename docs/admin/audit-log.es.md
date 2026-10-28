@@ -4,7 +4,7 @@ El **Registro de auditoría**, en **Admin → Configuración → Registro de aud
 
 | Subpestaña | URL | Qué registra |
 |------------|-----|--------------|
-| **Cambios** | `/admin/settings?tab=audit-log` | Cada escritura en el panorama — fichas, relaciones, riesgos, etiquetas, roles de partes interesadas, borradores de decisión —, agrupada en lotes de mutación, con un diff por evento y un **Revertir (Rollback)** |
+| **Cambios** | `/admin/settings?tab=audit-log` | Cada escritura en el panorama — fichas, relaciones, riesgos, etiquetas, roles de partes interesadas, borradores de decisión, diagramas —, agrupada en lotes de mutación, con un diff por evento y un **Revertir (Rollback)** |
 | **Seguridad y administración** | `/admin/settings?tab=audit-log&view=security` | Inicios y cierres de sesión, intentos fallidos, bloqueos, sesiones SSO y de proxy, eventos de contraseña, suplantación de rol y cada acción administrativa |
 
 Las dos están separadas a propósito. **Cambios** es una herramienta de trabajo — existe para que pueda ver y deshacer una escritura errónea — y conserva un historial corto. **Seguridad y administración** es un rastro de evidencias: sus entradas no se pueden editar ni eliminar, y se conserva un año por defecto.
@@ -24,7 +24,11 @@ La subpestaña **Cambios** es el registro de lotes de mutación. Cada escritura 
 | **Herramienta de IA** | Un asistente de IA conectado a través del [servidor MCP](mcp.md) |
 | **Extensión** | Una [extensión](extensions.md) instalada, registrada como lote `ext:<key>` |
 
-Haga clic en un lote para abrir su panel: el diff por evento muestra el valor anterior y el nuevo de cada campo, y **Revertir** deshace las escrituras en fichas, relaciones, riesgos, roles de partes interesadas, etiquetas y borradores de decisión que realizó.
+Haga clic en un lote para abrir su panel: el diff por evento muestra el valor anterior y el nuevo de cada campo, y **Revertir** deshace las escrituras en fichas, relaciones, riesgos, roles de partes interesadas, etiquetas y borradores de decisión que realizó, y elimina un diagrama que creó (salvo que el diagrama se haya publicado desde entonces). Las ediciones y eliminaciones de diagramas también se listan, pero no se pueden revertir: no se conserva el lienzo anterior. Un evento de diagrama registra qué vínculos con fichas cambiaron y el tamaño del lienzo, nunca el dibujo en sí.
+
+Cada llamada que una herramienta de IA realiza a través del servidor MCP es un lote aquí, incluidas sus **ejecuciones en seco**: una vista previa aparece como un lote de *Ejecución en seco*, de modo que se ve lo que un agente propuso además de lo que confirmó.
+
+El canal también permanece en los propios registros tras purgarse su lote. Las fichas, diagramas, riesgos, decisiones de arquitectura, SoAW, comentarios y versiones de flujo BPM recuerdan el canal por el que fueron **creados** y **modificados** por última vez, junto a la persona que lo hizo. Todo lo que no se hizo en la interfaz web muestra una insignia — **MCP**, **API**, **Extensión** o **Sistema** — en la cabecera de la ficha, la pestaña Historial, el Inventario (columnas **Creado mediante** / **Modificado mediante** y filtro **Origen**), la galería de diagramas, el Registro de riesgos y la indicación «creado por» de cada módulo. Los registros creados antes de que se guardara esto no muestran insignia.
 
 Los lotes se conservan **`MUTATION_BATCH_RETENTION_DAYS`** días (una variable de entorno, **15** por defecto) y después se purgan automáticamente. Los eventos en sí permanecen en la pestaña **Historial** de cada ficha cuando el lote ya ha desaparecido.
 

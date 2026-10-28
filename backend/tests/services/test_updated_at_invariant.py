@@ -457,6 +457,38 @@ class TestDerivedMaintenanceDoesNotBump:
             "a weight change is not an edit to every card of the type"
         )
 
+    async def test_rescore_keeps_the_channel_of_the_last_real_edit(self, db, env):
+        """``derived_maintenance`` pins ``updated_via`` exactly as it pins
+        ``updated_at``: a rescore outside any request would otherwise re-stamp
+        a card an agent last edited as ``system``."""
+        from app.services.data_quality import rescore_card_type
+        from app.services.event_bus import request_endpoint, request_origin
+
+        origin_token = request_origin.set("mcp")
+        endpoint_token = request_endpoint.set("PATCH /api/v1/cards/x")
+        try:
+            env["card"].attributes = {"owner": "Alice"}
+            await db.commit()
+        finally:
+            request_origin.reset(origin_token)
+            request_endpoint.reset(endpoint_token)
+        assert env["card"].updated_via == "mcp", "the edit was not stamped — vacuous below"
+
+        env["type"].fields_schema = [
+            {
+                "section": "Detail",
+                "fields": [{"key": "owner", "label": "Owner", "type": "text", "weight": 5}],
+            }
+        ]
+        await db.commit()
+        changed = await rescore_card_type(db, "Application")
+        await db.flush()
+        assert changed > 0, "the rescore was a no-op — the assertion below would be vacuous"
+
+        await db.refresh(env["card"])
+        assert env["card"].updated_via == "mcp"
+        assert env["card"].created_via == "system"
+
     async def test_bulk_calculation_run_does_not_bump(self, db, env, card_update_sql):
         from app.models.calculation import Calculation
         from app.services.calculation_engine import run_calculations_for_type

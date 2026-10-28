@@ -143,6 +143,22 @@ describe("DiagramsPage", () => {
     });
   });
 
+  it("marks a diagram an AI agent created with the MCP chip, naming the author", async () => {
+    setupApi([
+      { ...diagrams[0], created_via: "mcp", created_at: "2025-06-01T10:00:00Z" },
+      { ...diagrams[1], created_via: "web" },
+    ]);
+    renderPage();
+    const chip = await screen.findByText("MCP");
+    const card = chip.closest(".MuiCard-root") as HTMLElement;
+    expect(within(card).getByText("Architecture Overview")).toBeInTheDocument();
+    expect(document.querySelectorAll("[data-origin]")).toHaveLength(1);
+    await userEvent.hover(chip);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Created via MCP by Ada Admin on 2025-06-01T10:00:00Z",
+    );
+  });
+
   it("shows empty state when no diagrams", async () => {
     setupApi([]);
     renderPage();

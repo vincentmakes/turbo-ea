@@ -4,7 +4,7 @@
 
 | Underfane | URL | Hvad den registrerer |
 |-----------|-----|----------------------|
-| **Ændringer** | `/admin/settings?tab=audit-log` | Hver skrivning til landskabet — kort, relationer, risici, tags, interessentroller, beslutningsudkast — samlet i mutationsbatches, med en diff pr. hændelse og en **Rul tilbage** |
+| **Ændringer** | `/admin/settings?tab=audit-log` | Hver skrivning til landskabet — kort, relationer, risici, tags, interessentroller, beslutningsudkast, diagrammer — samlet i mutationsbatches, med en diff pr. hændelse og en **Rul tilbage** |
 | **Sikkerhed og administration** | `/admin/settings?tab=audit-log&view=security` | Log ind og log ud, mislykkede forsøg, låsninger, SSO- og proxysessioner, adgangskodehændelser, rolleefterligning og hver administrativ handling |
 
 De to er bevidst holdt adskilt. **Ændringer** er et arbejdsværktøj — det findes, så du kan se og fortryde en forkert skrivning — og gemmer kun en kort historik. **Sikkerhed og administration** er et bevisspor: dens poster kan hverken redigeres eller slettes, og den gemmes som standard i et år.
@@ -24,7 +24,11 @@ Underfanen **Ændringer** er registret over mutationsbatches. Hver ændrende skr
 | **AI-værktøj** | En AI-assistent forbundet via [MCP-serveren](mcp.md) |
 | **Udvidelse** | En installeret [udvidelse](extensions.md), registreret som et `ext:<key>`-batch |
 
-Klik på et batch for at åbne dets panel: diffen pr. hændelse viser hvert felts gamle og nye værdi, og **Rul tilbage** omgør de skrivninger på kort, relationer, risici, interessentroller, tags og beslutningsudkast, som batchet foretog.
+Klik på et batch for at åbne dets panel: diffen pr. hændelse viser hvert felts gamle og nye værdi, og **Rul tilbage** omgør de skrivninger på kort, relationer, risici, interessentroller, tags og beslutningsudkast, som batchet foretog, og sletter et diagram, det oprettede (medmindre diagrammet er blevet publiceret siden). Redigeringer og sletninger af diagrammer er også anført, men kan ikke rulles tilbage: det tidligere lærred gemmes ikke. En diagramhændelse registrerer, hvilke kortlinks der er ændret, og lærredets størrelse, aldrig selve tegningen.
+
+Hvert kald, et AI-værktøj foretager gennem MCP-serveren, er et batch her, også dets **dry-runs**: en forhåndsvisning vises som et *Dry run*-batch, så du kan se både det, en agent foreslog, og det, den committede.
+
+Kanalen forbliver også på selve posterne, efter at deres batch er ryddet. Kort, diagrammer, risici, arkitekturbeslutninger, SoAW'er, kommentarer og BPM-flowversioner husker den kanal, de blev **oprettet via** og sidst **ændret via**, ved siden af den person, der gjorde det. Alt, der ikke er lavet i webgrænsefladen, viser en chip — **MCP**, **API**, **Udvidelse** eller **System** — i kortets header, på History-fanen, i Lageret (kolonnerne **Oprettet via** / **Ændret via** og filteret **Oprindelse**), i diagramgalleriet, i risikoregisteret og i hvert moduls visning af «oprettet af». Poster oprettet, før dette blev registreret, viser ingen chip.
 
 Batches gemmes i **`MUTATION_BATCH_RETENTION_DAYS`** dage (en miljøvariabel, standard **15**) og slettes derefter automatisk. Selve hændelserne bliver på hvert korts fane **Historik**, også når batchet er væk.
 

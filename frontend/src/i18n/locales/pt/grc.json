@@ -79,6 +79,7 @@
   "risks.col.title": "Título",
   "risks.col.category": "Categoria",
   "risks.col.source": "Origem",
+  "risks.col.origin": "Origem",
   "risks.col.initialLevel": "Inicial",
   "risks.col.residualLevel": "Residual",
   "risks.col.status": "Estado",

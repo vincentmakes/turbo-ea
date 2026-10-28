@@ -79,6 +79,7 @@
   "risks.col.title": "Название",
   "risks.col.category": "Категория",
   "risks.col.source": "Источник",
+  "risks.col.origin": "Источник",
   "risks.col.initialLevel": "Первичный",
   "risks.col.residualLevel": "Остаточный",
   "risks.col.status": "Статус",

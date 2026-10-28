@@ -831,7 +831,9 @@ async def transition_card_lifecycle(
         dry_run: When True (default), validate the target and return a
             preview of the transition without applying it. Lifecycle
             previews fetch the card and show the merged before/after
-            record. Re-run with ``dry_run=False`` to commit.
+            record. The approval and status endpoints have no dry run,
+            so the preview is built here; it is still recorded as a
+            dry-run batch. Re-run with ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
@@ -863,9 +865,7 @@ async def transition_card_lifecycle(
             }
         )
 
-    client = TurboEAClient(token)
-
-    async def _merged_lifecycle() -> tuple[dict, dict]:
+    async def _merged_lifecycle(client: TurboEAClient) -> tuple[dict, dict]:
         """Fetch the card's current lifecycle record and return
         ``(before, after)`` with the target phase's date set.
 
@@ -879,42 +879,57 @@ async def transition_card_lifecycle(
         after[target] = effective_date or datetime.now(timezone.utc).date().isoformat()
         return before, after
 
-    try:
-        if dry_run:
-            preview: dict = {
-                "card_id": card_id,
-                "target": target,
-                "family": family,
-                "effective_date": effective_date or None,
-            }
-            if family == "lifecycle_phase":
-                before, after = await _merged_lifecycle()
-                preview["lifecycle_before"] = before
-                preview["lifecycle_after"] = after
-            return _fmt({"dry_run": True, "would_transition": preview})
-
-        if family == "approval":
-            data = await client.post(
-                f"/cards/{card_id}/approval-status?action={target}", json=None
-            )
-        elif family == "lifecycle_phase":
-            _, after = await _merged_lifecycle()
-            data = await client.patch(f"/cards/{card_id}", json={"lifecycle": after})
-        else:  # status
-            data = await client.patch(f"/cards/{card_id}", json={"status": target})
-        return _fmt(data)
-    except Exception as exc:  # noqa: BLE001
-        msg = str(exc)
-        if "403" in msg or "Forbidden" in msg or "Not enough permissions" in msg:
-            return _fmt(
-                {
-                    "status": "pending",
-                    "reason": "missing_permission",
-                    "deep_link": f"/cards/{card_id}?tab=approval",
+    async with mutation_batch(
+        token,
+        tool_name="transition_card_lifecycle",
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        client = batch.client()
+        try:
+            if dry_run:
+                preview: dict = {
+                    "card_id": card_id,
                     "target": target,
+                    "family": family,
+                    "effective_date": effective_date or None,
                 }
-            )
-        raise
+                if family == "lifecycle_phase":
+                    before, after = await _merged_lifecycle(client)
+                    preview["lifecycle_before"] = before
+                    preview["lifecycle_after"] = after
+                batch.summary = {"card_id": card_id, "target": target, "status": "previewed"}
+                return _fmt(
+                    {"dry_run": True, "would_transition": preview, **_preview_fields(batch)}
+                )
+
+            if family == "approval":
+                data = await client.post(
+                    f"/cards/{card_id}/approval-status?action={target}", json=None
+                )
+            elif family == "lifecycle_phase":
+                _, after = await _merged_lifecycle(client)
+                data = await client.patch(f"/cards/{card_id}", json={"lifecycle": after})
+            else:  # status
+                data = await client.patch(f"/cards/{card_id}", json={"status": target})
+            batch.summary = {"card_id": card_id, "target": target}
+            if isinstance(data, dict):
+                data["batch_id"] = batch.batch_id
+            return _fmt(data)
+        except Exception as exc:  # noqa: BLE001
+            msg = str(exc)
+            if "403" in msg or "Forbidden" in msg or "Not enough permissions" in msg:
+                batch.summary = {"card_id": card_id, "target": target, "status": "pending"}
+                return _fmt(
+                    {
+                        "status": "pending",
+                        "reason": "missing_permission",
+                        "deep_link": f"/cards/{card_id}?tab=approval",
+                        "target": target,
+                        "batch_id": batch.batch_id,
+                    }
+                )
+            raise
 
 
 # Mirrors of the backend's typed literals in backend/app/schemas/risk.py.
@@ -1226,7 +1241,9 @@ async def add_card_comment(
         body: Comment body.
         parent_id: Reply-to comment id for threading.
         dry_run: When True (default), return a preview of the comment
-            without posting it. Re-run with ``dry_run=False`` to commit.
+            without posting it (the comment route has no dry run; the
+            preview is still recorded as a dry-run batch). Re-run with
+            ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
@@ -1238,11 +1255,26 @@ async def add_card_comment(
     payload: dict = {"content": body}
     if parent_id:
         payload["parent_id"] = parent_id
-    if dry_run:
-        return _fmt({"dry_run": True, "would_comment": {"card_id": card_id, **payload}})
-    client = TurboEAClient(token)
-    data = await client.post(f"/cards/{card_id}/comments", json=payload)
-    return _fmt(data)
+    async with mutation_batch(
+        token,
+        tool_name="add_card_comment",
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        if dry_run:
+            batch.summary = {"card_id": card_id, "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_comment": {"card_id": card_id, **payload},
+                    **_preview_fields(batch),
+                }
+            )
+        data = await batch.client().post(f"/cards/{card_id}/comments", json=payload)
+        if isinstance(data, dict):
+            data["batch_id"] = batch.batch_id
+            batch.summary = {"card_id": card_id, "comment_id": data.get("id")}
+        return _fmt(data)
 
 
 @mcp.tool(annotations=_READ_ANNOT)
@@ -1465,7 +1497,8 @@ async def create_soaw(
             the review/signature workflow.
         dry_run: When True (default), validate and translate without
             persisting. The preview shows the exact backend payload a
-            commit would send.
+            commit would send; the SoAW route has no dry run, so the
+            preview is built here and recorded as a dry-run batch.
     """
     token = await _get_current_token()
     if not token:
@@ -1484,17 +1517,25 @@ async def create_soaw(
         "status": "draft",
     }
     if dry_run:
-        return _fmt(
-            {
-                "dry_run": True,
-                "would_create": payload,
-                "note": (
-                    "Re-run with dry_run=False to persist. The backend "
-                    "will validate the initiative UUID and the caller's "
-                    "soaw.manage permission."
-                ),
-            }
-        )
+        async with mutation_batch(
+            token,
+            tool_name="create_soaw",
+            row_count=1,
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_create": payload,
+                    "note": (
+                        "Re-run with dry_run=False to persist. The backend "
+                        "will validate the initiative UUID and the caller's "
+                        "soaw.manage permission."
+                    ),
+                    **_preview_fields(batch),
+                }
+            )
     async with mutation_batch(
         token,
         tool_name="create_soaw",
@@ -1665,9 +1706,10 @@ async def update_diagram(
         name: New name (omit to leave unchanged).
         description: New description (omit to leave unchanged).
         linked_card_ids: Replacement link list (M:N).
-        dry_run: When True (default), nothing is written — the wrapper
-            fetches the current diagram (surfacing 404/permission
-            errors early) and returns a client-side change preview.
+        dry_run: When True (default), the backend runs the whole update
+            (permission, 404, card ids, read scope) and rolls it back,
+            returning the verified diff (``changes``, added / removed
+            card ids, whether the XML changed). Nothing is written.
     """
     token = await _get_current_token()
     if not token:
@@ -1683,40 +1725,34 @@ async def update_diagram(
         payload["description"] = description
     if linked_card_ids is not None:
         payload["card_ids"] = list(linked_card_ids)
-    if dry_run:
-        # The backend PATCH has no dry_run mode and persists
-        # unconditionally (sending the old `dry_run` body flag silently
-        # overwrote the diagram). Preview client-side instead: fetch the
-        # current state and summarise what a commit would change.
-        client = TurboEAClient(token)
-        current = await client.get(f"/diagrams/{diagram_id}")
-        preview: dict = {
-            "dry_run": True,
-            "diagram_id": diagram_id,
-            "would_update": payload,
-        }
-        if isinstance(current, dict):
-            current_xml = (current.get("data") or {}).get("xml") or ""
-            preview["current"] = {
-                "name": current.get("name"),
-                "description": current.get("description"),
-                "card_ids": current.get("card_ids"),
-                "xml_chars": len(current_xml),
-            }
-        if drawio_xml:
-            preview["new_card_refs"] = _DRAWIO_CARD_ID_RE.findall(drawio_xml)
-        return _fmt(preview)
     async with mutation_batch(
         token,
         tool_name="update_diagram",
         row_count=1,
-        dry_run=False,
+        dry_run=dry_run,
     ) as batch:
-        client = batch.client()
-        data = await client.patch(f"/diagrams/{diagram_id}", json=payload)
+        # The backend validates then rolls back on `dry_run: true`, so the
+        # preview is verified; a commit sends `dry_run: false`.
+        data = await batch.client().patch(
+            f"/diagrams/{diagram_id}", json={**payload, "dry_run": dry_run}
+        )
+        if dry_run:
+            if (ignored := _backend_ignored_dry_run(data, batch)) is not None:
+                return ignored
+            batch.summary = {"diagram_id": diagram_id, "status": "previewed"}
+            preview: dict = {
+                "dry_run": True,
+                "diagram_id": diagram_id,
+                "would_update": payload,
+                "verified": data,
+                **_preview_fields(batch),
+            }
+            if drawio_xml:
+                preview["new_card_refs"] = _DRAWIO_CARD_ID_RE.findall(drawio_xml)
+            return _fmt(preview)
         if isinstance(data, dict):
             data["batch_id"] = batch.batch_id
-            batch.summary = {"diagram_id": diagram_id}
+            batch.summary = {"diagram_id": diagram_id, "xml_sent": bool(drawio_xml)}
         return _fmt(data)
 
 
@@ -1752,6 +1788,43 @@ def _writes_disabled_message() -> str | None:
     )
 
 
+def _backend_ignored_dry_run(data: object, batch: BatchContext) -> str | None:
+    """A diagram preview sends the real write with ``dry_run: true`` and
+    trusts the backend to roll it back. A backend older than 2.180.0 drops
+    the unknown flag and *commits* — so a response that does not echo
+    ``dry_run: true`` is reported as persisted, never as a preview."""
+    if isinstance(data, dict) and data.get("dry_run") is True:
+        return None
+    batch.summary = {"status": "backend_ignored_dry_run"}
+    return _fmt(
+        {
+            "error": "backend_ignored_dry_run",
+            "message": (
+                "The Turbo EA backend did not honour dry_run (it is older "
+                "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
+                "upgrade the backend before using diagram previews."
+            ),
+            "persisted": data,
+            "batch_id": batch.batch_id,
+        }
+    )
+
+
+# The batch rule — every write tool, no exceptions but ``rollback_batch``
+# (the backend records a rollback as its own batch):
+#
+# - It opens ``mutation_batch(..., dry_run=dry_run)`` before its first backend
+#   write, on the preview as on the commit. A preview is a row in the audit
+#   log like any other call (and is how a bulk tool is issued its token).
+# - Every backend write inside goes through ``batch.client()``, so the
+#   events it publishes carry the batch id.
+# - The preview returns ``**_preview_fields(batch)``; the commit returns
+#   ``batch_id``.
+#
+# Lookups that can refuse the call before anything is written (a card that
+# does not exist, an ambiguous name) may run before the batch opens.
+# Enforced for every write tool in the registry by
+# ``tests/test_safeguards.py::TestEveryWriteToolIsABatch``.
 def _preview_fields(batch: BatchContext) -> dict:
     """The keys every dry-run response carries: the preview's own audit
     handle and, above the confirmation threshold, the ``confirm_token``
@@ -2918,7 +2991,7 @@ async def archive_cards(
             # endpoint and aggregate the responses.
             previews: list[dict] = []
             for cid in card_ids:
-                imp = await TurboEAClient(token).get(f"/cards/{cid}/archive-impact")
+                imp = await client.get(f"/cards/{cid}/archive-impact")
                 previews.append({"card_id": cid, "impact": imp})
             data = {
                 "dry_run": True,
@@ -3081,7 +3154,9 @@ async def create_adr(
             (stored as the ADR's related-decisions list).
         dry_run: When True (default), validate and translate without
             persisting. The preview shows the exact backend payload a
-            commit would send, so heading typos surface here.
+            commit would send, so heading typos surface here. The ADR
+            route has no dry run, so the preview is built here and
+            recorded as a dry-run batch.
     """
     token = await _get_current_token()
     if not token:
@@ -3100,17 +3175,25 @@ async def create_adr(
         payload["related_decisions"] = list(related_adr_ids)
 
     if dry_run:
-        return _fmt(
-            {
-                "dry_run": True,
-                "would_create": payload,
-                "note": (
-                    "Re-run with dry_run=False to persist. The backend "
-                    "will validate the linked-card UUIDs and the "
-                    "caller's adr.manage permission."
-                ),
-            }
-        )
+        async with mutation_batch(
+            token,
+            tool_name="create_adr",
+            row_count=1,
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_create": payload,
+                    "note": (
+                        "Re-run with dry_run=False to persist. The backend "
+                        "will validate the linked-card UUIDs and the "
+                        "caller's adr.manage permission."
+                    ),
+                    **_preview_fields(batch),
+                }
+            )
 
     async with mutation_batch(
         token,
@@ -3178,7 +3261,21 @@ async def update_adr(
         payload["linked_card_ids"] = list(linked_card_ids)
 
     if dry_run:
-        return _fmt({"dry_run": True, "adr_id": adr_id, "would_update": payload})
+        async with mutation_batch(
+            token,
+            tool_name="update_adr",
+            row_count=1,
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"adr_id": adr_id, "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "adr_id": adr_id,
+                    "would_update": payload,
+                    **_preview_fields(batch),
+                }
+            )
 
     async with mutation_batch(
         token,
@@ -3207,41 +3304,58 @@ async def sign_adr(adr_id: str, comment: str = "", dry_run: bool = True) -> str:
         adr_id: ADR UUID.
         comment: Optional comment recorded on the signature.
         dry_run: When True (default), return a preview of the signature
-            without applying it. Re-run with ``dry_run=False`` to commit.
+            without applying it (the sign route has no dry run; the
+            preview is still recorded as a dry-run batch). Re-run with
+            ``dry_run=False`` to commit.
     """
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
     if (disabled := _writes_disabled_message()) is not None:
         return disabled
-    if dry_run:
-        return _fmt(
-            {"dry_run": True, "would_sign": {"adr_id": adr_id, "comment": comment}}
-        )
-    client = TurboEAClient(token)
-    try:
-        data = await client.post(
-            f"/adr/{adr_id}/sign",
-            json={"comment": comment} if comment else {},
-        )
-        return _fmt(data)
-    except Exception as exc:  # noqa: BLE001
-        # 403 / 401 → graceful degradation: return the deep-link the
-        # human can use to complete the action through the UI.
-        msg = str(exc)
-        if "403" in msg or "Forbidden" in msg or "Not enough permissions" in msg:
+    async with mutation_batch(
+        token,
+        tool_name="sign_adr",
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        if dry_run:
+            batch.summary = {"adr_id": adr_id, "status": "previewed"}
             return _fmt(
                 {
-                    "status": "pending",
-                    "reason": "missing_adr_sign_permission",
-                    "deep_link": f"/ea-delivery/adr/{adr_id}?action=sign",
-                    "message": (
-                        "You don't hold the adr.sign permission. Click "
-                        "the deep_link to complete the signing in the UI."
-                    ),
+                    "dry_run": True,
+                    "would_sign": {"adr_id": adr_id, "comment": comment},
+                    **_preview_fields(batch),
                 }
             )
-        raise
+        try:
+            data = await batch.client().post(
+                f"/adr/{adr_id}/sign",
+                json={"comment": comment} if comment else {},
+            )
+            batch.summary = {"adr_id": adr_id}
+            if isinstance(data, dict):
+                data["batch_id"] = batch.batch_id
+            return _fmt(data)
+        except Exception as exc:  # noqa: BLE001
+            # 403 / 401 → graceful degradation: return the deep-link the
+            # human can use to complete the action through the UI.
+            msg = str(exc)
+            if "403" in msg or "Forbidden" in msg or "Not enough permissions" in msg:
+                batch.summary = {"adr_id": adr_id, "status": "pending"}
+                return _fmt(
+                    {
+                        "status": "pending",
+                        "reason": "missing_adr_sign_permission",
+                        "deep_link": f"/ea-delivery/adr/{adr_id}?action=sign",
+                        "message": (
+                            "You don't hold the adr.sign permission. Click "
+                            "the deep_link to complete the signing in the UI."
+                        ),
+                        "batch_id": batch.batch_id,
+                    }
+                )
+            raise
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
@@ -3500,12 +3614,15 @@ async def create_diagram(
         description: Optional description.
         linked_card_ids: Optional list of card UUIDs to link to this
             diagram (M:N).
-        dry_run: When True (default), validate client-side (scan the XML
-            for cardId refs, echo the inputs) without calling the backend.
-            Call again with dry_run=False to actually create the diagram.
+        dry_run: When True (default), the backend runs the whole create
+            (permission, card ids, read scope) and rolls it back, so the
+            preview's ``card_ids`` are verified, not echoed. Nothing is
+            written; the preview is recorded as a dry-run batch. Call
+            again with dry_run=False to actually create the diagram.
 
-    Returns: JSON with either the dry-run preview (extracted_card_refs
-    from the XML, linked_card_ids echoed back) or the created diagram.
+    Returns: JSON with either the dry-run preview (the backend's verified
+    ``card_ids`` / ``card_refs`` / ``xml_chars``, plus the cardId refs
+    scanned from the XML) or the created diagram, each with ``batch_id``.
     """
     token = await _get_current_token()
     if not token:
@@ -3514,33 +3631,49 @@ async def create_diagram(
         return disabled
     linked_card_ids = list(linked_card_ids or [])
     extracted_refs = list(dict.fromkeys(_DRAWIO_CARD_ID_RE.findall(drawio_xml)))
-    if dry_run:
-        # Client-side preview only — no backend round-trip. The agent
-        # surfaces this to the user; on confirmation, we'll commit.
-        preview = {
-            "dry_run": True,
-            "would_create": {
-                "name": name,
-                "description": description,
-                "linked_card_ids": linked_card_ids,
-                "extracted_card_refs_from_xml": extracted_refs,
-            },
-            "note": (
-                "Card IDs are not verified in dry-run mode; the backend "
-                "will reject unknown UUIDs on commit. Re-run with "
-                "dry_run=False to create the diagram."
-            ),
-        }
-        return _fmt(preview)
-    client = TurboEAClient(token)
     payload: dict = {
         "name": name,
         "description": description or None,
         "data": {"xml": drawio_xml},
         "card_ids": linked_card_ids,
+        "dry_run": dry_run,
     }
-    data = await client.post("/diagrams", json=payload)
-    return _fmt(data)
+    async with mutation_batch(
+        token,
+        tool_name="create_diagram",
+        row_count=1,
+        dry_run=dry_run,
+    ) as batch:
+        data = await batch.client().post("/diagrams", json=payload)
+        if dry_run:
+            if (ignored := _backend_ignored_dry_run(data, batch)) is not None:
+                return ignored
+            verified = (
+                {k: v for k, v in data.items() if k not in ("dry_run", "id")}
+                if isinstance(data, dict)
+                else {}
+            )
+            batch.summary = {"diagram_id": None, "status": "previewed"}
+            return _fmt(
+                {
+                    "dry_run": True,
+                    "would_create": {
+                        **verified,
+                        "description": description,
+                        "extracted_card_refs_from_xml": extracted_refs,
+                    },
+                    "note": (
+                        "Validated by the backend (permission, card ids, read "
+                        "scope) and rolled back: nothing was persisted. Re-run "
+                        "with dry_run=False to create the diagram."
+                    ),
+                    **_preview_fields(batch),
+                }
+            )
+        if isinstance(data, dict):
+            data["batch_id"] = batch.batch_id
+            batch.summary = {"diagram_id": data.get("id")}
+        return _fmt(data)
 
 
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
@@ -3583,8 +3716,10 @@ async def import_bpmn(
         svg_thumbnail: Optional SVG snapshot of the diagram.
         dry_run: When True (default), validate the existing-card lookup
             and return a flow-node count preview without persisting the
-            diagram. Call again with `dry_run=False` to walk the
-            draft → submit → approve workflow.
+            diagram. The flow endpoints have no dry run, so the counts are
+            estimated here (``verified: false``); the preview is still
+            recorded as a dry-run batch. Call again with `dry_run=False`
+            to walk the draft → submit → approve workflow.
     """
     token = await _get_current_token()
     if not token:
@@ -3683,98 +3818,124 @@ async def import_bpmn(
             )
         )
         preview_message_flow_count = len(re.findall(r"<(?:\w+:)?messageFlow\b", bpmn_xml))
-        response: dict = {
-            "dry_run": True,
-            "committed": False,
-            "business_process_id": process_id,
-            "diagram_preview": {
-                "flow_nodes_estimated": preview_node_count,
-                "message_flows_estimated": preview_message_flow_count,
-                "bpmn_xml_bytes": len(bpmn_xml),
-            },
-            "next_action": (
-                "NOTHING HAS BEEN PERSISTED YET. Surface this preview to "
-                "the user; on their confirmation, re-call import_bpmn "
-                "with dry_run=False to create a draft, submit it, and "
-                "publish it as the active process flow."
-            ),
-        }
-        return _fmt(response)
+        async with mutation_batch(
+            token,
+            tool_name="import_bpmn",
+            row_count=1,
+            dry_run=True,
+        ) as batch:
+            batch.summary = {"status": "previewed", "verified": False}
+            response: dict = {
+                "dry_run": True,
+                "committed": False,
+                "business_process_id": process_id,
+                "diagram_preview": {
+                    "flow_nodes_estimated": preview_node_count,
+                    "message_flows_estimated": preview_message_flow_count,
+                    "bpmn_xml_bytes": len(bpmn_xml),
+                },
+                "next_action": (
+                    "NOTHING HAS BEEN PERSISTED YET. Surface this preview to "
+                    "the user; on their confirmation, re-call import_bpmn "
+                    "with dry_run=False to create a draft, submit it, and "
+                    "publish it as the active process flow."
+                ),
+                # The flow endpoints have no dry run: these counts are a
+                # regex estimate, not the backend's parse.
+                "verified": False,
+                **_preview_fields(batch),
+            }
+            return _fmt(response)
 
     # --- Commit path: draft -> submit -> approve ---
-    draft = await client.post(
-        f"/bpm/processes/{process_id}/flow/drafts",
-        json={"bpmn_xml": bpmn_xml, "svg_thumbnail": svg_thumbnail or None},
-    )
-    draft_id = draft.get("id") if isinstance(draft, dict) else None
-    if not draft_id:
-        return _fmt(
-            {
-                "error": "draft_create_failed",
-                "draft_response": draft,
-            }
+    async with mutation_batch(
+        token,
+        tool_name="import_bpmn",
+        row_count=1,
+        dry_run=False,
+    ) as batch:
+        client = batch.client()
+        draft = await client.post(
+            f"/bpm/processes/{process_id}/flow/drafts",
+            json={"bpmn_xml": bpmn_xml, "svg_thumbnail": svg_thumbnail or None},
         )
+        draft_id = draft.get("id") if isinstance(draft, dict) else None
+        if not draft_id:
+            batch.summary = {"status": "draft_create_failed", "business_process_id": process_id}
+            return _fmt(
+                {
+                    "error": "draft_create_failed",
+                    "draft_response": draft,
+                    "batch_id": batch.batch_id,
+                }
+            )
 
-    workflow_state = "draft"
-    submit_result: dict | list | None = None
-    approve_result: dict | list | None = None
-    publish_warning: str | None = None
-    try:
-        submit_result = await client.post(
-            f"/bpm/processes/{process_id}/flow/versions/{draft_id}/submit",
-            json={},
-        )
-        workflow_state = "pending"
+        workflow_state = "draft"
+        submit_result: dict | list | None = None
+        approve_result: dict | list | None = None
+        publish_warning: str | None = None
         try:
-            approve_result = await client.post(
-                f"/bpm/processes/{process_id}/flow/versions/{draft_id}/approve",
+            submit_result = await client.post(
+                f"/bpm/processes/{process_id}/flow/versions/{draft_id}/submit",
                 json={},
             )
-            workflow_state = "published"
-        except Exception as exc:  # noqa: BLE001 — surface verbatim
+            workflow_state = "pending"
+            try:
+                approve_result = await client.post(
+                    f"/bpm/processes/{process_id}/flow/versions/{draft_id}/approve",
+                    json={},
+                )
+                workflow_state = "published"
+            except Exception as exc:  # noqa: BLE001 — surface verbatim
+                publish_warning = (
+                    "Diagram submitted for approval but the user does not have "
+                    "permission to publish it (requires the processOwner "
+                    "stakeholder role, admin, or bpm_admin). The pending "
+                    f"draft is visible at /cards/{process_id} under "
+                    f"Process Flow → Drafts. Approve from there to publish. "
+                    f"(Error: {exc})"
+                )
+        except Exception as exc:  # noqa: BLE001
             publish_warning = (
-                "Diagram submitted for approval but the user does not have "
-                "permission to publish it (requires the processOwner "
-                "stakeholder role, admin, or bpm_admin). The pending "
-                f"draft is visible at /cards/{process_id} under "
-                f"Process Flow → Drafts. Approve from there to publish. "
-                f"(Error: {exc})"
+                "Draft created but could not be submitted for approval. "
+                f"It is editable at /cards/{process_id}. (Error: {exc})"
             )
-    except Exception as exc:  # noqa: BLE001
-        publish_warning = (
-            "Draft created but could not be submitted for approval. "
-            f"It is editable at /cards/{process_id}. (Error: {exc})"
-        )
 
-    response = {
-        "dry_run": False,
-        "committed": True,
-        "business_process_id": process_id,
-        "workflow_state": workflow_state,
-        "draft_id": draft_id,
-        "submit_result": submit_result,
-        "approve_result": approve_result,
-        "verify_urls": {
-            # Reads what the editor reads — null until status=published.
-            "flow_published": f"/api/v1/bpm/processes/{process_id}/flow/published",
-            # GET this for the draft view (always available post-create).
-            "flow_draft": (
-                f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"
+        response = {
+            "dry_run": False,
+            "committed": True,
+            "business_process_id": process_id,
+            "workflow_state": workflow_state,
+            "draft_id": draft_id,
+            "submit_result": submit_result,
+            "approve_result": approve_result,
+            "verify_urls": {
+                # Reads what the editor reads — null until status=published.
+                "flow_published": f"/api/v1/bpm/processes/{process_id}/flow/published",
+                # GET this for the draft view (always available post-create).
+                "flow_draft": (
+                    f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"
+                ),
+                # Open in browser — Process Flow tab.
+                "card_detail": f"/cards/{process_id}",
+            },
+            "rendering_note": (
+                "The Process Flow tab in the card detail reads from the "
+                "/flow/published endpoint. If `workflow_state` is "
+                "'published' the diagram should render; if it's 'pending' "
+                "or 'draft', open the card and approve from the Drafts "
+                "sub-tab to make it the published flow."
             ),
-            # Open in browser — Process Flow tab.
-            "card_detail": f"/cards/{process_id}",
-        },
-        "rendering_note": (
-            "The Process Flow tab in the card detail reads from the "
-            "/flow/published endpoint. If `workflow_state` is "
-            "'published' the diagram should render; if it's 'pending' "
-            "or 'draft', open the card and approve from the Drafts "
-            "sub-tab to make it the published flow."
-        ),
-    }
-    if publish_warning:
-        response["warning"] = publish_warning
-    return _fmt(response)
+        }
+        if publish_warning:
+            response["warning"] = publish_warning
+        response["batch_id"] = batch.batch_id
+        batch.summary = {
+            "business_process_id": process_id,
+            "draft_id": draft_id,
+            "workflow_state": workflow_state,
+        }
+        return _fmt(response)
 
 
 # ── Resources ───────────────────────────────────────────────────────────────

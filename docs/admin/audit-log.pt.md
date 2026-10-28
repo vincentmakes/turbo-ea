@@ -4,7 +4,7 @@ O **Registro de auditoria**, em **Admin → Configurações → Registro de audi
 
 | Subaba | URL | O que registra |
 |--------|-----|----------------|
-| **Alterações** | `/admin/settings?tab=audit-log` | Cada escrita no panorama — cards, relações, riscos, etiquetas, papéis de partes interessadas, rascunhos de decisão —, agrupada em lotes de mutação, com um diff por evento e um **Reverter (Rollback)** |
+| **Alterações** | `/admin/settings?tab=audit-log` | Cada escrita no panorama — cards, relações, riscos, etiquetas, papéis de partes interessadas, rascunhos de decisão, diagramas —, agrupada em lotes de mutação, com um diff por evento e um **Reverter (Rollback)** |
 | **Segurança e administração** | `/admin/settings?tab=audit-log&view=security` | Entradas e saídas, tentativas falhadas, bloqueios, sessões SSO e de proxy, eventos de senha, personificação de papel e cada ação administrativa |
 
 As duas são separadas de propósito. **Alterações** é uma ferramenta de trabalho — existe para que você veja e desfaça uma escrita errada — e mantém um histórico curto. **Segurança e administração** é uma trilha de evidências: suas entradas não podem ser editadas nem excluídas, e ela é mantida por um ano por padrão.
@@ -24,7 +24,11 @@ A subaba **Alterações** é o registro dos lotes de mutação. Cada escrita que
 | **Ferramenta de IA** | Um assistente de IA conectado pelo [servidor MCP](mcp.md) |
 | **Extensão** | Uma [extensão](extensions.md) instalada, registrada como lote `ext:<key>` |
 
-Clique em um lote para abrir seu painel: o diff por evento mostra o valor antigo e o novo de cada campo, e **Reverter** desfaz as escritas em cards, relações, riscos, papéis de partes interessadas, etiquetas e rascunhos de decisão que ele fez.
+Clique em um lote para abrir seu painel: o diff por evento mostra o valor antigo e o novo de cada campo, e **Reverter** desfaz as escritas em cards, relações, riscos, papéis de partes interessadas, etiquetas e rascunhos de decisão que ele fez, e exclui um diagrama que ele criou (a menos que o diagrama tenha sido publicado desde então). Edições e exclusões de diagramas também são listadas, mas não podem ser revertidas: o canvas anterior não é guardado. Um evento de diagrama registra quais vínculos com cards mudaram e o tamanho do canvas, nunca o desenho em si.
+
+Toda chamada que uma ferramenta de IA faz pelo servidor MCP é um lote aqui, incluindo suas **execuções simuladas**: uma prévia aparece como um lote de *Execução simulada*, para que você veja o que um agente propôs e também o que ele confirmou.
+
+O canal também permanece nos próprios registros depois que o lote é removido. Cards, diagramas, riscos, decisões de arquitetura, SoAWs, comentários e versões de fluxo BPM lembram o canal pelo qual foram **criados** e modificados por último, ao lado da pessoa que o fez. Tudo que não foi feito na interface web mostra um chip — **MCP**, **API**, **Extensão** ou **Sistema** — no cabeçalho do card, na aba Histórico, no Inventário (colunas **Criado via** / **Modificado via** e filtro **Origem**), na galeria de diagramas, no Registro de riscos e na exibição de «criado por» de cada módulo. Registros criados antes de isso ser gravado não mostram chip.
 
 Os lotes são mantidos por **`MUTATION_BATCH_RETENTION_DAYS`** dias (uma variável de ambiente, padrão **15**) e depois removidos automaticamente. Os eventos em si continuam na aba **Histórico** de cada card depois que o lote some.
 

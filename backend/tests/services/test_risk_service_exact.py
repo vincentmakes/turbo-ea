@@ -496,6 +496,9 @@ class TestRiskToDict:
             "accepted_by": str(actor.id),
             "accepted_at": "2026-03-15T12:00:00+00:00",
             "created_by": str(actor.id),
+            # Written outside any request: the channel is ``system``.
+            "created_via": "system",
+            "updated_via": "system",
             "created_at": r.created_at.isoformat(),
             "updated_at": r.updated_at.isoformat(),
             "cards": [

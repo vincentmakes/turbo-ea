@@ -68,6 +68,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.card import Card
+from app.models.diagram import Diagram
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.models.relation import Relation
@@ -222,6 +223,17 @@ def _plan_adr_created(event: Event, data: dict) -> dict[str, Any]:
     return {"op": "delete_adr", "adr_id": adr_id, "detail": data.get("reference_number") or ""}
 
 
+def _plan_diagram_created(event: Event, data: dict) -> dict[str, Any]:
+    diagram_id = data.get("id")
+    if not diagram_id:
+        return _unsupported(event, "diagram.created carries no diagram id")
+    return {
+        "op": "delete_diagram",
+        "diagram_id": diagram_id,
+        "detail": (data.get("name") or "")[:80],
+    }
+
+
 def _plan_survey_sent(event: Event, data: dict) -> dict[str, Any]:
     """One ``survey.sent`` event per surveyed card, one reversal per survey
     (deduped on ``survey_id``): close it and drop the requests nobody has
@@ -274,6 +286,7 @@ _INVERSES: dict[str, Callable[[Event, dict], dict[str, Any]]] = {
     "tag.added": _plan_tag_added,
     "tag.removed": _plan_tag_removed,
     "adr.created": _plan_adr_created,
+    "diagram.created": _plan_diagram_created,
     "todo.created": _plan_todo_created,
     "survey.sent": _plan_survey_sent,
 }
@@ -283,6 +296,8 @@ _DECLINED: dict[str, str] = {
     "todo.": "Todos are requests to people; reopening or deleting one is not an undo.",
     "notification.": "A notification has already been delivered.",
     "risk.removed": "A deleted risk cannot be rebuilt — no snapshot is recorded.",
+    "diagram.updated": "The previous canvas is not snapshotted.",
+    "diagram.deleted": "A deleted diagram cannot be rebuilt — no snapshot is recorded.",
 }
 
 # Ops whose events repeat per linked card or per relation end: one reversal.
@@ -291,6 +306,7 @@ _DEDUPE_KEYS: dict[str, tuple[str, ...]] = {
     "restore_risk_fields": ("risk_id",),
     "delete_relation": ("relation_id",),
     "delete_adr": ("adr_id",),
+    "delete_diagram": ("diagram_id",),
     "delete_card": ("card_id",),
     "delete_todo": ("todo_id",),
     "close_survey": ("survey_id",),
@@ -353,6 +369,9 @@ def _entity_ref(event: Event) -> tuple[str, str] | None:
     if et.startswith("adr."):
         ent = data.get("adr_id") or data.get("id")
         return ("adr", ent) if ent else None
+    if et.startswith("diagram."):
+        ent = data.get("id")
+        return ("diagram", ent) if ent else None
     if et.startswith(("stakeholder.", "tag.")):
         return ("card", str(event.card_id)) if event.card_id else None
     return None
@@ -753,6 +772,21 @@ async def _apply_delete_adr(db: AsyncSession, op: dict[str, Any]) -> dict[str, A
     return _ok(op)
 
 
+async def _apply_delete_diagram(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:
+    did = _uuid(op.get("diagram_id"))
+    if did is None:
+        return _skip(op, "missing_diagram_id")
+    diagram = (await db.execute(select(Diagram).where(Diagram.id == did))).scalar_one_or_none()
+    if diagram is None:
+        return _skip(op, "already_deleted")
+    if diagram.is_published:
+        # Publishing is a human act on top of the creation, and deleting the
+        # diagram would break the live link it handed out.
+        return _skip(op, "diagram_published")
+    await db.delete(diagram)
+    return _ok(op)
+
+
 async def _apply_delete_todo(db: AsyncSession, op: dict[str, Any]) -> dict[str, Any]:
     """Take back a todo an extension created — while nobody has acted on it.
     A completed one records that a person did something and stays; a system
@@ -814,6 +848,7 @@ _APPLIERS: dict[str, Callable[[AsyncSession, dict[str, Any]], Awaitable[dict[str
     "remove_card_tag": _apply_remove_card_tag,
     "add_card_tag": _apply_add_card_tag,
     "delete_adr": _apply_delete_adr,
+    "delete_diagram": _apply_delete_diagram,
     "delete_todo": _apply_delete_todo,
     "close_survey": _apply_close_survey,
 }

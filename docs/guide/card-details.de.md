@@ -12,6 +12,7 @@ Der obere Bereich der Karte zeigt:
 - **Kartenname** — Inline bearbeitbar
 - **Alias** — Der zweite Name der Karte, unter dem Titel angezeigt, wenn gesetzt. Über das Bearbeiten-Symbol am Titel lassen sich Name und Alias gemeinsam ändern. Aliasse werden von jedem Suchfeld berücksichtigt, sodass eine Karte über den in Ihrer Organisation tatsächlich verwendeten Namen gefunden wird.
 - **Subtyp** — Sekundäre Klassifizierung (falls zutreffend)
+- **Herkunfts-Chip** — Wird angezeigt, wenn die Karte nicht in der Weboberfläche erstellt wurde: **MCP** für eine Karte, die ein KI-Assistent über den [MCP-Server](../admin/mcp.md) angelegt hat, **API** für ein Skript oder eine Integration, **Erweiterung** für eine installierte Erweiterung, **System** für einen Hintergrundjob. Fahren Sie mit der Maus darüber, um zu sehen, wer die Karte wann erstellt hat — die Person bleibt der Ersteller; der Chip nennt den genutzten Kanal. Karten, die in der Weboberfläche erstellt wurden, sowie Karten, die vor der Erfassung des Kanals durch Turbo EA angelegt wurden, zeigen keinen Chip.
 - **Genehmigungsstatus-Badge** — Entwurf, Genehmigt, Ungültig oder Abgelehnt
 - **KI-Vorschlags-Schaltfläche** — Klicken, um eine Beschreibung mit KI zu generieren (sichtbar, wenn KI für diesen Kartentyp aktiviert ist und der Benutzer Bearbeitungsrechte hat)
 - **Datenqualitätsring** — Visueller Indikator der Informationsvollständigkeit (0–100%)
@@ -169,7 +170,7 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 
 - **Kommentare hinzufügen** — Notizen, Fragen oder Entscheidungen über die Komponente hinterlassen
 - **Verschachtelte Antworten** — Auf bestimmte Kommentare antworten, um Gesprächsfäden zu erstellen
-- **Zeitstempel** — Sehen, wann jeder Kommentar gepostet wurde und von wem
+- **Zeitstempel** — Sehen, wann jeder Kommentar gepostet wurde und von wem. Ein Kommentar, den ein KI-Assistent über den MCP-Server gepostet hat, trägt neben dem Autor einen **MCP**-Chip
 - **Links** — Eine Webadresse in einem Kommentar ist anklickbar und öffnet sich in einem neuen Tab
 
 ## Aufgaben-Tab
@@ -207,6 +208,8 @@ Der Einladungspfad erfordert die **`users.invite`**-Berechtigung, eine delegiert
 ## Verlauf-Tab
 
 ![Kartenänderungsverlauf](../assets/img/de/08_karten_historie.png)
+
+Eine Änderung, die nicht aus der Weboberfläche stammt, trägt neben dem Namen der Person einen Chip: **MCP**, wenn ein KI-Assistent sie im Auftrag dieser Person über den [MCP-Server](../admin/mcp.md) vorgenommen hat, sonst **API**, **Erweiterung** oder **System**.
 
 Zeigt die **vollständige Historie** der an der Karte vorgenommenen Änderungen: **Wer** hat die Änderung vorgenommen, **wann** wurde sie durchgeführt und **was** wurde geändert (vorheriger Wert vs. neuer Wert). Dies ermöglicht die vollständige Nachverfolgbarkeit aller Änderungen über die Zeit.
 

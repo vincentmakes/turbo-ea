@@ -1151,6 +1151,10 @@ def _make_cards_applier(user: User, id_map: rm.IdMap | None = None):
                     alias=data.get("alias"),
                     status=data.get("status") or "ACTIVE",
                     approval_status=data.get("approval_status") or "DRAFT",
+                    # The exported channel, verbatim. A pre-157 bundle carries
+                    # none: None lets ``ProvenanceMixin`` stamp the importing
+                    # request's channel instead.
+                    created_via=data.get("created_via"),
                     created_by=user.id,
                     updated_by=user.id,
                 )

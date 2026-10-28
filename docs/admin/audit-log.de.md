@@ -4,7 +4,7 @@ Das **Audit-Log** unter **Admin → Einstellungen → Audit-Log** (`/admin/setti
 
 | Unterregisterkarte | URL | Was sie aufzeichnet |
 |--------------------|-----|---------------------|
-| **Änderungen** | `/admin/settings?tab=audit-log` | Jeden Schreibvorgang in der Landschaft — Karten, Beziehungen, Risiken, Tags, Stakeholder-Rollen, Entscheidungsentwürfe —, gruppiert in Mutations-Batches, mit einem Diff pro Ereignis und einem **Rollback** |
+| **Änderungen** | `/admin/settings?tab=audit-log` | Jeden Schreibvorgang in der Landschaft — Karten, Beziehungen, Risiken, Tags, Stakeholder-Rollen, Entscheidungsentwürfe, Diagramme —, gruppiert in Mutations-Batches, mit einem Diff pro Ereignis und einem **Rollback** |
 | **Sicherheit & Administration** | `/admin/settings?tab=audit-log&view=security` | Anmeldungen und Abmeldungen, fehlgeschlagene Versuche, Sperrungen, SSO- und Proxy-Sitzungen, Passwortereignisse, Rollenübernahme und jede administrative Aktion |
 
 Die beiden sind bewusst getrennt. **Änderungen** ist ein Arbeitswerkzeug — es existiert, damit Sie einen fehlerhaften Schreibvorgang sehen und rückgängig machen können — und hält nur eine kurze Historie vor. **Sicherheit & Administration** ist eine Beweisspur: Ihre Einträge lassen sich weder bearbeiten noch löschen, und sie wird standardmäßig ein Jahr lang aufbewahrt.
@@ -24,7 +24,11 @@ Die Unterregisterkarte **Änderungen** ist das Register der Mutations-Batches. J
 | **KI-Werkzeug** | Ein KI-Assistent, der über den [MCP-Server](mcp.md) verbunden ist |
 | **Erweiterung** | Eine installierte [Erweiterung](extensions.md), aufgezeichnet als `ext:<key>`-Batch |
 
-Klicken Sie auf einen Batch, um seine Seitenleiste zu öffnen: Der Diff pro Ereignis zeigt den alten und neuen Wert jedes Felds, und **Rollback** nimmt die Schreibvorgänge an Karten, Beziehungen, Risiken, Stakeholder-Rollen, Tags und Entscheidungsentwürfen zurück, die er vorgenommen hat.
+Klicken Sie auf einen Batch, um seine Seitenleiste zu öffnen: Der Diff pro Ereignis zeigt den alten und neuen Wert jedes Felds, und **Rollback** nimmt die Schreibvorgänge an Karten, Beziehungen, Risiken, Stakeholder-Rollen, Tags und Entscheidungsentwürfen zurück, die er vorgenommen hat, und löscht ein Diagramm, das er angelegt hat (es sei denn, das Diagramm wurde seither veröffentlicht). Bearbeitungen und Löschungen von Diagrammen werden ebenfalls aufgeführt, lassen sich aber nicht zurücknehmen: Die bisherige Zeichenfläche wird nicht aufbewahrt. Ein Diagramm-Ereignis hält fest, welche Kartenverknüpfungen sich geändert haben und wie groß die Zeichenfläche ist, nie aber die Zeichnung selbst.
+
+Jeder Aufruf, den ein KI-Werkzeug über den MCP-Server ausführt, ist hier ein Batch, einschließlich seiner **Trockenläufe**: Eine Vorschau erscheint als Batch vom Typ *Trockenlauf*, sodass Sie sehen, was ein Agent vorgeschlagen hat und was er übernommen hat.
+
+Der Kanal bleibt auch an den Datensätzen selbst erhalten, nachdem ihr Batch bereinigt wurde. Karten, Diagramme, Risiken, Architekturentscheidungen, SoAWs, Kommentare und BPM-Flow-Versionen merken sich den Kanal, über den sie **erstellt** und zuletzt **geändert** wurden, neben der Person, die es getan hat. Alles, was nicht in der Weboberfläche entstanden ist, zeigt einen Chip — **MCP**, **API**, **Erweiterung** oder **System** — im Kartenkopf, im Verlauf-Tab, im Inventar (Spalten **Erstellt über** / **Geändert über** und Filter **Herkunft**), in der Diagrammgalerie, im Risikoregister und in der Anzeige „Erstellt von“ jedes Moduls. Datensätze, die vor dieser Erfassung angelegt wurden, zeigen keinen Chip.
 
 Batches werden **`MUTATION_BATCH_RETENTION_DAYS`** Tage lang aufbewahrt (eine Umgebungsvariable, Standard **15**) und danach automatisch bereinigt. Die Ereignisse selbst bleiben auch danach in der Registerkarte **Historie** jeder Karte erhalten.
 

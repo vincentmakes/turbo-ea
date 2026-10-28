@@ -4,7 +4,7 @@ Il **Registro di audit**, in **Admin → Impostazioni → Registro di audit** (`
 
 | Sotto-scheda | URL | Che cosa registra |
 |--------------|-----|-------------------|
-| **Modifiche** | `/admin/settings?tab=audit-log` | Ogni scrittura nel panorama — schede, relazioni, rischi, tag, ruoli di stakeholder, bozze di decisione —, raggruppata in batch di modifiche, con le differenze per evento e un **Rollback** |
+| **Modifiche** | `/admin/settings?tab=audit-log` | Ogni scrittura nel panorama — schede, relazioni, rischi, tag, ruoli di stakeholder, bozze di decisione, diagrammi —, raggruppata in batch di modifiche, con le differenze per evento e un **Rollback** |
 | **Sicurezza e amministrazione** | `/admin/settings?tab=audit-log&view=security` | Accessi e disconnessioni, tentativi falliti, blocchi, sessioni SSO e proxy, eventi relativi alle password, impersonificazione di ruolo e ogni azione amministrativa |
 
 Le due sono separate di proposito. **Modifiche** è uno strumento di lavoro — serve a vedere e annullare una scrittura errata — e conserva una cronologia breve. **Sicurezza e amministrazione** è una traccia probatoria: le sue voci non si possono modificare né eliminare, e per impostazione predefinita viene conservata per un anno.
@@ -24,7 +24,11 @@ La sotto-scheda **Modifiche** è il registro dei batch di modifiche. Ogni scritt
 | **Strumento IA** | Un assistente IA collegato tramite il [server MCP](mcp.md) |
 | **Estensione** | Un'[estensione](extensions.md) installata, registrata come batch `ext:<key>` |
 
-Fate clic su un batch per aprirne il pannello: le differenze per evento mostrano il valore precedente e quello nuovo di ogni campo, e **Rollback** annulla le scritture su schede, relazioni, rischi, ruoli di stakeholder, tag e bozze di decisione che ha effettuato.
+Fate clic su un batch per aprirne il pannello: le differenze per evento mostrano il valore precedente e quello nuovo di ogni campo, e **Rollback** annulla le scritture su schede, relazioni, rischi, ruoli di stakeholder, tag e bozze di decisione che ha effettuato, ed elimina un diagramma che ha creato (a meno che il diagramma non sia stato nel frattempo pubblicato). Anche le modifiche e le eliminazioni dei diagrammi sono elencate, ma non possono essere annullate: il canvas precedente non viene conservato. Un evento di diagramma registra quali collegamenti alle schede sono cambiati e le dimensioni del canvas, mai il disegno in sé.
+
+Ogni chiamata che uno strumento IA effettua tramite il server MCP è qui un batch, comprese le sue **esecuzioni di prova**: un'anteprima appare come batch *Esecuzione di prova*, così potete vedere sia ciò che un agente ha proposto sia ciò che ha confermato.
+
+Il canale resta anche sui record stessi dopo l'eliminazione del loro batch. Schede, diagrammi, rischi, decisioni architetturali, SoAW, commenti e versioni dei flussi BPM ricordano il canale con cui sono stati **creati** e modificati per ultimi, accanto alla persona che l'ha fatto. Tutto ciò che non è stato fatto nell'interfaccia web mostra un chip — **MCP**, **API**, **Estensione** o **Sistema** — nell'intestazione della scheda, nella scheda Cronologia, nell'Inventario (colonne **Creato tramite** / **Modificato tramite** e filtro **Origine**), nella galleria dei diagrammi, nel Registro dei rischi e nella dicitura «creato da» di ogni modulo. I record creati prima che questo venisse registrato non mostrano alcun chip.
 
 I batch vengono conservati per **`MUTATION_BATCH_RETENTION_DAYS`** giorni (una variabile d'ambiente, predefinita **15**) e poi eliminati automaticamente. Gli eventi stessi restano nella scheda **Cronologia** di ogni scheda anche dopo che il batch è stato eliminato.
 

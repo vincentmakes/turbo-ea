@@ -8,6 +8,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import { api } from "@/api/client";
 import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -230,6 +231,11 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
                 <Typography variant="body2" color="text.secondary">
                   {t("history.by", { user: e.user_display_name || t("common:labels.system") })}
                 </Typography>
+                {/* The channel the change came through — an AI agent (MCP),
+                    the API, an extension; nothing for the web UI. */}
+                <OriginChip
+                  origin={typeof e.data?.origin === "string" ? e.data.origin : null}
+                />
                 {survey && (
                   <SurveyChip
                     survey={survey}

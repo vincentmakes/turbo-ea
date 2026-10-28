@@ -15,6 +15,7 @@ import pytest
 from sqlalchemy import select
 
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.diagram import Diagram
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.models.risk import Risk, RiskCard
@@ -23,7 +24,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.services import adr_service, risk_service, stakeholder_service, tag_service
-from app.services.event_bus import request_batch_id
+from app.services.event_bus import event_bus, request_batch_id
 from app.services.rollback_service import execute_rollback, plan_rollback
 from tests.conftest import create_card, create_user
 
@@ -343,6 +344,48 @@ class TestDecisionRollback:
         }
         remaining = (await db.execute(select(ArchitectureDecision.id))).scalars().all()
         assert remaining == [signed.id]
+
+
+class TestDiagramRollback:
+    async def test_created_diagram_is_deleted_and_a_published_one_is_left(self, db, actor):
+        draft = Diagram(name="Draft canvas", data={"xml": "<x/>"}, created_by=actor.id)
+        shared = Diagram(name="Shared canvas", data={}, created_by=actor.id)
+        db.add_all([draft, shared])
+        await db.flush()
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            for d in (draft, shared):
+                await event_bus.publish(
+                    "diagram.created",
+                    {"id": str(d.id), "name": d.name, "card_ids": []},
+                    db=db,
+                    user_id=actor.id,
+                )
+            await event_bus.publish(
+                "diagram.updated",
+                {"id": str(draft.id), "name": draft.name, "changes": {}},
+                db=db,
+                user_id=actor.id,
+            )
+        shared.is_published = True
+        await db.flush()
+
+        plan = await plan_rollback(db, batch)
+        assert sorted(o["diagram_id"] for o in plan["operations"]) == sorted(
+            [str(draft.id), str(shared.id)]
+        )
+        assert [u["event_type"] for u in plan["unsupported_events"]] == ["diagram.updated"]
+        assert plan["unsupported_events"][0]["reason"] == (
+            "diagram.updated is not reversed: The previous canvas is not snapshotted."
+        )
+
+        result = await execute_rollback(db, batch, actor.id)
+        by_id = {r["diagram_id"]: r for r in _ops(result, "delete_diagram")}
+        assert by_id[str(draft.id)]["status"] == "ok"
+        assert by_id[str(shared.id)]["status"] == "skipped"
+        assert by_id[str(shared.id)]["reason"] == "diagram_published"
+        remaining = (await db.execute(select(Diagram.id))).scalars().all()
+        assert remaining == [shared.id]
 
 
 class TestMixedBatch:

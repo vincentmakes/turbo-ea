@@ -12,6 +12,7 @@ Toppen af kortet viser:
 - **Kortnavn** — Redigerbar inline
 - **Alias** — Kortets andet navn, vist under titlen når det er sat. Blyanten ved titlen ændrer navn og alias samtidig. Alias matches af alle søgefelter, så et kort kan findes med det navn, din organisation faktisk bruger.
 - **Undertype** — Sekundær klassifikation (hvis relevant)
+- **Oprindelses-chip** — Vises, når kortet ikke er oprettet i webgrænsefladen: **MCP** for et kort, en AI-assistent har oprettet via [MCP-serveren](../admin/mcp.md), **API** for et script eller en integration, **Udvidelse** for en installeret udvidelse, **System** for et baggrundsjob. Hold musen over den for at se, hvem der oprettede kortet og hvornår — personen er stadig skaberen; chippen angiver, hvilken kanal vedkommende brugte. Kort oprettet i webgrænsefladen og kort oprettet, før Turbo EA registrerede kanalen, viser ingen chip.
 - **Godkendelsesstatus-badge** — Draft, Approved, Broken eller Rejected
 - **AI suggest-knap** — Klik for at generere en beskrivelse med AI (synlig når AI er aktiveret for denne korttype, og brugeren har redigeringstilladelse)
 - **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%)
@@ -164,7 +165,7 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 
 - **Tilføj kommentarer** — Efterlad noter, spørgsmål eller beslutninger om komponenten
 - **Trådede svar** — Svar på specifikke kommentarer for at oprette samtaletråde
-- **Tidsstempler** — Se hvornår hver kommentar blev sendt og af hvem
+- **Tidsstempler** — Se hvornår hver kommentar blev sendt og af hvem. En kommentar, som en AI-assistent har sendt via MCP-serveren, har en **MCP**-chip ved siden af forfatteren
 - **Links** — En webadresse i en kommentar kan klikkes på og åbner i en ny fane
 
 ## Todos-fane
@@ -202,6 +203,8 @@ Invitations-stien kræver tilladelsen **`users.invite`**, en delegeret form af `
 ## History-fane
 
 ![Kortets ændringshistorik](../assets/img/da/08_card_history.png)
+
+En ændring, der ikke kom fra webgrænsefladen, har en chip ved siden af personens navn: **MCP**, når en AI-assistent foretog den via [MCP-serveren](../admin/mcp.md) på personens vegne, ellers **API**, **Udvidelse** eller **System**.
 
 Viser det **komplette audit-spor** over ændringer foretaget på kortet: **hvem** der foretog ændringen, **hvornår** den blev foretaget, og **hvad** der blev ændret (tidligere værdi vs. ny værdi). Dette giver fuld sporbarhed over alle ændringer over tid.
 

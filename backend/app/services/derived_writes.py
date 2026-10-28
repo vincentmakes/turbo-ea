@@ -6,7 +6,8 @@ user intent behind it. The Inventory's **Modified** column and a card's
 **History** tab are two views of the same fact (see the invariant in
 ``CLAUDE.md``), so rather than inventing a per-card event nobody asked for —
 one metamodel weight change would write an event for every card of the type —
-these paths pin ``updated_at`` to its stored value
+these paths pin ``updated_at`` (and the ``updated_via`` channel beside it) to
+its stored value
 (`#995 <https://github.com/vincentmakes/turbo-ea/discussions/995>`_).
 
 Mechanism: ``TimestampMixin.updated_at`` carries ``onupdate=func.now()``, which
@@ -56,16 +57,23 @@ def _sync_session(session: AsyncSession | Session) -> Session:
     return session.sync_session if isinstance(session, AsyncSession) else session
 
 
-def pin_updated_at(card: Card) -> None:
-    """Force ``card``'s stored ``updated_at`` into the pending UPDATE.
+# Columns whose ``onupdate`` would otherwise re-stamp a derived write:
+# ``updated_at`` (``TimestampMixin``) and ``updated_via`` (``ProvenanceMixin``,
+# which would turn every rescore into a ``system`` / ``web`` change).
+_PINNED_COLUMNS = ("updated_at", "updated_via")
 
-    No-op for a card whose ``updated_at`` is not loaded — ``flag_modified``
-    raises on an unloaded attribute, and there is nothing to preserve anyway.
+
+def pin_updated_at(card: Card) -> None:
+    """Force ``card``'s stored ``updated_at`` and ``updated_via`` into the
+    pending UPDATE.
+
+    Each column is skipped when it is not loaded — ``flag_modified`` raises on
+    an unloaded attribute, and there is nothing to preserve anyway.
     """
     state = inspect(card)
-    if "updated_at" not in state.dict:
-        return
-    flag_modified(card, "updated_at")
+    for column in _PINNED_COLUMNS:
+        if column in state.dict:
+            flag_modified(card, column)
 
 
 def _pin_dirty_cards(sync: Session, exclude: set[Card]) -> None:

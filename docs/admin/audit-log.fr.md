@@ -4,7 +4,7 @@ Le **Journal d'audit**, sous **Admin → Paramètres → Journal d'audit** (`/ad
 
 | Sous-onglet | URL | Ce qu'il enregistre |
 |-------------|-----|---------------------|
-| **Modifications** | `/admin/settings?tab=audit-log` | Chaque écriture dans le paysage — fiches, relations, risques, étiquettes, rôles de parties prenantes, brouillons de décision —, regroupée en lots de mutations, avec le diff de chaque événement et une **annulation (Rollback)** |
+| **Modifications** | `/admin/settings?tab=audit-log` | Chaque écriture dans le paysage — fiches, relations, risques, étiquettes, rôles de parties prenantes, brouillons de décision, diagrammes —, regroupée en lots de mutations, avec le diff de chaque événement et une **annulation (Rollback)** |
 | **Sécurité et administration** | `/admin/settings?tab=audit-log&view=security` | Connexions et déconnexions, tentatives échouées, verrouillages, sessions SSO et proxy, événements de mot de passe, emprunt de rôle et chaque action administrative |
 
 Les deux sont séparés à dessein. **Modifications** est un outil de travail — il sert à voir et à annuler une écriture erronée — et ne conserve qu'un historique court. **Sécurité et administration** est une piste de preuves : ses entrées ne peuvent être ni modifiées ni supprimées, et elle est conservée un an par défaut.
@@ -24,7 +24,11 @@ Le sous-onglet **Modifications** est le registre des lots de mutations. Chaque �
 | **Outil IA** | Un assistant IA connecté via le [serveur MCP](mcp.md) |
 | **Extension** | Une [extension](extensions.md) installée, enregistrée comme lot `ext:<key>` |
 
-Cliquez sur un lot pour ouvrir son panneau : le diff de chaque événement montre l'ancienne et la nouvelle valeur de chaque champ, et **Rollback** rétablit les écritures sur les fiches, relations, risques, rôles de parties prenantes, étiquettes et brouillons de décision qu'il a effectuées.
+Cliquez sur un lot pour ouvrir son panneau : le diff de chaque événement montre l'ancienne et la nouvelle valeur de chaque champ, et **Rollback** rétablit les écritures sur les fiches, relations, risques, rôles de parties prenantes, étiquettes et brouillons de décision qu'il a effectuées, et supprime un diagramme qu'il a créé (sauf si le diagramme a été publié depuis). Les modifications et suppressions de diagrammes sont également listées, mais ne peuvent pas être annulées : le canevas précédent n'est pas conservé. Un événement de diagramme enregistre les liens vers des fiches qui ont changé et la taille du canevas, jamais le dessin lui-même.
+
+Chaque appel qu'un outil d'IA effectue via le serveur MCP est un lot ici, y compris ses **exécutions à blanc** : un aperçu apparaît comme un lot *Exécution à blanc*, ce qui permet de voir ce qu'un agent a proposé comme ce qu'il a validé.
+
+Le canal reste aussi sur les enregistrements eux-mêmes une fois leur lot purgé. Les fiches, diagrammes, risques, décisions d'architecture, SoAW, commentaires et versions de flux BPM mémorisent le canal par lequel ils ont été **créés** et **modifiés** en dernier, à côté de la personne qui l'a fait. Tout ce qui n'a pas été fait dans l'interface web affiche une pastille — **MCP**, **API**, **Extension** ou **Système** — dans l'en-tête de la fiche, l'onglet Historique, l'inventaire (colonnes **Créé via** / **Modifié via** et filtre **Origine**), la galerie de diagrammes, le registre des risques et l'affichage « créé par » de chaque module. Les enregistrements créés avant que cela ne soit consigné n'affichent aucune pastille.
 
 Les lots sont conservés **`MUTATION_BATCH_RETENTION_DAYS`** jours (une variable d'environnement, **15** par défaut), puis purgés automatiquement. Les événements eux-mêmes restent dans l'onglet **Historique** de chaque fiche une fois le lot disparu.
 

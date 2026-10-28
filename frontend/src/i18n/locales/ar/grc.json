@@ -79,6 +79,7 @@
   "risks.col.title": "العنوان",
   "risks.col.category": "الفئة",
   "risks.col.source": "المصدر",
+  "risks.col.origin": "المصدر",
   "risks.col.initialLevel": "الأولي",
   "risks.col.residualLevel": "المتبقي",
   "risks.col.status": "الحالة",

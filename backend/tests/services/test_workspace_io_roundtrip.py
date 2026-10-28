@@ -1487,11 +1487,16 @@ async def test_card_reference_survives_export_and_reimport(db):
     card.reference = "APP-0042"
     card.alias = "BIL"
     card.external_id = "ext-7"
+    # The channel that created it (migration 157) travels too: the applier
+    # builds the row from explicit kwargs, so the column constant alone would
+    # export it and drop it on import.
+    card.created_via = "mcp"
     await db.flush()
 
     raw = await build_bundle(db)
     row = next(r for r in parse_bundle(raw).rows(schema.SHEET_CARDS) if r["name"] == "Billing")
     assert (row["reference"], row["alias"], row["external_id"]) == ("APP-0042", "BIL", "ext-7")
+    assert row["created_via"] == "mcp"
 
     await db.execute(delete(Card).where(Card.name == "Billing"))
     await db.flush()
@@ -1503,6 +1508,9 @@ async def test_card_reference_survives_export_and_reimport(db):
         "BIL",
         "ext-7",
     )
+    # ``created_via`` is the exported channel; ``updated_via`` is not exported
+    # and is stamped by the import itself — outside any request, ``system``.
+    assert (restored.created_via, restored.updated_via) == ("mcp", "system")
 
 
 async def _billing_bundle_then_a_clash(db, reference_config):

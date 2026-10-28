@@ -20,6 +20,7 @@ from __future__ import annotations
 import base64
 import json
 import pathlib
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -657,3 +658,167 @@ class TestDocumentedToolCounts:
         missing = [name for name in server.mcp._tool_manager._tools if f"`{name}`" not in doc]
         assert not missing, f"tools missing from docs/admin/mcp.md: {missing}"
 
+
+
+# ── The batch rule, on every write tool ─────────────────────────────────────
+#
+# Every write tool opens a mutation batch before its first backend write — on
+# the preview as on the commit — sends every write inside it with the batch
+# header, closes it last, and returns its id. Discovered from the registry's
+# annotations, so a new write tool is covered (and must be given arguments
+# below) without anyone remembering to add it.
+
+_NOT_A_BATCH = {"rollback_batch": "the backend records a rollback as its own batch"}
+
+_BATCH_TOOLS_EXPECTED = [
+    "add_card_comment",
+    "archive_cards",
+    "assign_stakeholders",
+    "clear_card_logos",
+    "create_adr",
+    "create_cards_bulk",
+    "create_diagram",
+    "create_risks",
+    "create_soaw",
+    "import_bpmn",
+    "set_card_logos",
+    "sign_adr",
+    "transition_card_lifecycle",
+    "update_adr",
+    "update_cards_bulk",
+    "update_diagram",
+    "update_risks",
+    "upsert_relations_bulk",
+]
+
+
+def _batch_write_tools() -> list[str]:
+    write_annots = (server._WRITE_ADDITIVE_ANNOT, server._WRITE_DESTRUCTIVE_ANNOT)
+    return sorted(
+        name
+        for name, tool in server.mcp._tool_manager._tools.items()
+        if tool.annotations in write_annots and name not in _NOT_A_BATCH
+    )
+
+
+# One minimal, valid call per write tool, as ``(dry_run) -> coroutine``.
+_BATCH_TOOL_CALLS = {
+    **{
+        tool: (lambda dry_run, tool=tool: _tool_call(tool, 1, dry_run=dry_run))
+        for tool in NEW_CYCLE_TOOLS
+    },
+    "update_cards_bulk": lambda dry_run: server.update_cards_bulk(
+        updates=[{"card_id": "c1", "name": "n"}], dry_run=dry_run
+    ),
+    "archive_cards": lambda dry_run: server.archive_cards(card_ids=["c1"], dry_run=dry_run),
+    "create_cards_bulk": lambda dry_run: server.create_cards_bulk(
+        cards=[{"row_index": 0, "type": "Application", "name": "A"}], dry_run=dry_run
+    ),
+    "create_diagram": lambda dry_run: server.create_diagram(
+        name="D", drawio_xml="<mxGraphModel/>", dry_run=dry_run
+    ),
+    "update_diagram": lambda dry_run: server.update_diagram(
+        diagram_id="D1", name="n", dry_run=dry_run
+    ),
+    "import_bpmn": lambda dry_run: server.import_bpmn(
+        business_process_name="P", bpmn_xml="<bpmn:definitions/>", dry_run=dry_run
+    ),
+    "transition_card_lifecycle": lambda dry_run: server.transition_card_lifecycle(
+        card_id="c1", target="approve", dry_run=dry_run
+    ),
+    "add_card_comment": lambda dry_run: server.add_card_comment(
+        card_id="c1", body="hi", dry_run=dry_run
+    ),
+    "sign_adr": lambda dry_run: server.sign_adr(adr_id="a1", dry_run=dry_run),
+    "create_adr": lambda dry_run: server.create_adr(
+        title="t", sections=[{"heading": "Context", "body": "b"}], dry_run=dry_run
+    ),
+    "update_adr": lambda dry_run: server.update_adr(adr_id="a1", title="t", dry_run=dry_run),
+    "create_soaw": lambda dry_run: server.create_soaw(
+        initiative_id="i1",
+        title="t",
+        sections=[{"heading": "h", "body": "b"}],
+        dry_run=dry_run,
+    ),
+}
+
+
+class _BatchRecorder(_Backend):
+    """``_Backend`` that also records, for every call of every method, the
+    batch id of the client that made it (``autospec`` hands the client in)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls: list[tuple[str, str, str | None]] = []
+
+    async def get(self, path, params=None):
+        if path == "/cards" and "search" in (params or {}):
+            # import_bpmn's lookup of the BusinessProcess card by name.
+            return {"items": [{"id": "bp-1", "name": params["search"], "parent_id": None}]}
+        return await super().get(path, params)
+
+    async def post_multipart(self, path, data=None, **kwargs):
+        self.writes.append(("post_multipart", path))
+        return {"ok": True}
+
+    def patched(self):
+        def wrap(method):
+            inner = getattr(self, method)
+
+            async def recorded(client, path, *args, **kwargs):
+                self.calls.append((method, path, client._batch_id))
+                return await inner(path, *args, **kwargs)
+
+            return patch.object(
+                server.TurboEAClient, method, autospec=True, side_effect=recorded
+            )
+
+        return [
+            wrap(m) for m in ("post", "get", "patch", "delete", "post_file", "post_multipart")
+        ]
+
+
+class TestEveryWriteToolIsABatch:
+    def test_the_registry_holds_the_known_batch_tools(self):
+        """A new write tool fails here first: add it to the list above and
+        to ``_BATCH_TOOL_CALLS``, and make it follow the rule."""
+        assert _batch_write_tools() == _BATCH_TOOLS_EXPECTED
+
+    def test_every_write_tool_has_an_argument_set(self):
+        missing = [t for t in _batch_write_tools() if t not in _BATCH_TOOL_CALLS]
+        assert not missing, (
+            f"write tools with no argument set in _BATCH_TOOL_CALLS: {missing} — "
+            "a new write tool must be added there"
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("dry_run", [True, False], ids=["preview", "commit"])
+    @pytest.mark.parametrize("tool", _batch_write_tools())
+    async def test_the_call_opens_writes_in_and_closes_one_batch(
+        self, fake_token, tool, dry_run
+    ):
+        if tool not in _BATCH_TOOL_CALLS:
+            pytest.fail(f"{tool} has no argument set in _BATCH_TOOL_CALLS")
+        rec = _BatchRecorder()
+        with ExitStack() as stack:
+            for p in rec.patched():
+                stack.enter_context(p)
+            data = _parse(await _BATCH_TOOL_CALLS[tool](dry_run))
+
+        writes = [c for c in rec.calls if c[0] != "get"]
+        # 1. The first write opens the batch (lookups may come before it).
+        assert writes[0] == ("post", "/mutation-batches?row_count=1", None), rec.calls
+        assert rec.posts[0] == (
+            "/mutation-batches?row_count=1",
+            {"tool_name": tool, "dry_run": dry_run},
+        )
+        # 3. The last call of any kind closes it.
+        assert rec.calls[-1] == ("post", "/mutation-batches/B-1/commit", None), rec.calls
+        assert writes[-1] == rec.calls[-1]
+        # 2. Every write in between is stamped with the batch.
+        inner = writes[1:-1]
+        assert all(batch == "B-1" for _, _, batch in inner), inner
+        if not dry_run:
+            assert inner, f"{tool} committed without writing anything"
+        # 4. The caller is handed the batch id.
+        assert data["batch_id"] == "B-1", data

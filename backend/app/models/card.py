@@ -8,9 +8,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class Card(Base, UUIDMixin, TimestampMixin):
+class Card(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     __tablename__ = "cards"
 
     type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)

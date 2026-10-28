@@ -4,7 +4,7 @@ The **Audit log** at **Admin → Settings → Audit log** (`/admin/settings?tab=
 
 | Sub-tab | URL | What it records |
 |---------|-----|-----------------|
-| **Changes** | `/admin/settings?tab=audit-log` | Every write to the landscape — cards, relations, risks, tags, stakeholder roles, draft decisions — grouped into mutation batches, with a per-event diff and a **Rollback** |
+| **Changes** | `/admin/settings?tab=audit-log` | Every write to the landscape — cards, relations, risks, tags, stakeholder roles, draft decisions, diagrams — grouped into mutation batches, with a per-event diff and a **Rollback** |
 | **Security & admin** | `/admin/settings?tab=audit-log&view=security` | Sign-ins and sign-outs, failed attempts, lockouts, SSO and proxy sessions, password events, role impersonation and every administrative action |
 
 The two are kept apart on purpose. **Changes** is a working tool — it exists so you can see and undo a bad write — and it keeps a short history. **Security & admin** is an evidence trail: its entries cannot be edited or deleted, and it is kept for a year by default.
@@ -24,7 +24,11 @@ The **Changes** sub-tab is the mutation-batch ledger. Every mutating write lands
 | **AI tool** | An AI assistant connected through the [MCP server](mcp.md) |
 | **Extension** | An installed [extension](extensions.md), recorded as an `ext:<key>` batch |
 
-Click a batch to open its drawer: the per-event diff shows each field's old and new value, and **Rollback** reverts the card, relation, risk, stakeholder-role, tag and draft-decision writes it made.
+Click a batch to open its drawer: the per-event diff shows each field's old and new value, and **Rollback** reverts the card, relation, risk, stakeholder-role, tag and draft-decision writes it made, and deletes a diagram it created (unless the diagram has been published since). Diagram edits and deletions are listed too, but cannot be rolled back: the previous canvas is not kept. A diagram event records which card links changed and how large the canvas is, never the drawing itself.
+
+Every call an AI tool makes through the MCP server is a batch here, including its **dry runs**: a preview appears as a *Dry run* batch, so you can see what an agent proposed as well as what it committed.
+
+The channel also stays on the records themselves after their batch is purged. Cards, diagrams, risks, architecture decisions, SoAWs, comments and BPM flow versions remember the channel they were **created via** and last **modified via**, next to the person who did it. Anything not made in the web interface shows a chip — **MCP**, **API**, **Extension** or **System** — in the card header, the History tab, the Inventory (**Created via** / **Modified via** columns and the **Origin** filter), the diagrams gallery, the Risk Register and each module's "created by" display. Records created before this was recorded show no chip.
 
 Batches are kept for **`MUTATION_BATCH_RETENTION_DAYS`** days (an environment variable, default **15**) and then purged automatically. The events themselves stay on each card's **History** tab after the batch is gone.
 

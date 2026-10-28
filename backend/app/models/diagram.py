@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 # Many-to-many: diagrams <-> cards
 diagram_cards = Table(
@@ -27,7 +28,7 @@ diagram_cards = Table(
 )
 
 
-class Diagram(Base, UUIDMixin, TimestampMixin):
+class Diagram(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     __tablename__ = "diagrams"
 
     name: Mapped[str] = mapped_column(String(500), nullable=False)

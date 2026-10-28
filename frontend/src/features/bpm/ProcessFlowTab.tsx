@@ -41,6 +41,7 @@ import TextField from "@mui/material/TextField";
 import Collapse from "@mui/material/Collapse";
 import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import CardPicker from "@/components/CardPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useLinkTypeColors } from "./useLinkTypeColors";
@@ -1072,6 +1073,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             variant="outlined"
                           />
                         )}
+                        {/* The channel the draft came through — an AI agent
+                            importing BPMN over MCP, the API, an extension. */}
+                        <OriginChip origin={d.created_via} />
                       </Box>
                     }
                     secondary={

@@ -7,9 +7,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class Comment(Base, UUIDMixin, TimestampMixin):
+class Comment(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     __tablename__ = "comments"
 
     card_id: Mapped[uuid.UUID] = mapped_column(

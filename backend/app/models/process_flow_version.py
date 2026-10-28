@@ -10,9 +10,10 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
+class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     """A versioned process flow with approval workflow.
 
     States:

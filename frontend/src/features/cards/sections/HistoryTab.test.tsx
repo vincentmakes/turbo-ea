@@ -261,6 +261,18 @@ describe("HistoryTab — event detail lines", () => {
     expect(screen.getByText("Revision 4")).toBeInTheDocument();
   });
 
+  it("marks an event an AI agent made with the MCP chip, and a web edit with none", async () => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e7", "card.created", { origin: "mcp", summary: "Made by the agent" }),
+      event("e8", "card.updated", { origin: "web", summary: "Edited by hand" }),
+      event("e9", "card.updated", { origin: 42, summary: "Malformed origin" }),
+    ]);
+    const { container } = renderTab();
+    expect(await screen.findByText("MCP")).toBeInTheDocument();
+    const marked = Array.from(container.querySelectorAll("[data-origin]"));
+    expect(marked.map((el) => el.getAttribute("data-origin"))).toEqual(["mcp"]);
+  });
+
   it("shows an event type this build does not know by its raw name", async () => {
     vi.mocked(api.get).mockResolvedValue([event("e5", "card.teleported", { summary: "Moved" })]);
     renderTab();

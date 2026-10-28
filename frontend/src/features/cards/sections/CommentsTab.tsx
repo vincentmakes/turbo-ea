@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
+import OriginChip from "@/components/OriginChip";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
@@ -68,6 +69,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
               <Typography variant="subtitle2">
                 {c.user_display_name || t("stakeholders.user")}
               </Typography>
+              <OriginChip origin={c.created_via} />
               <Typography variant="caption" color="text.secondary">
                 {c.created_at ? formatDateTime(c.created_at) : ""}
               </Typography>

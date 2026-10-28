@@ -144,6 +144,8 @@ def _version_response(v: ProcessFlowVersion) -> dict:
         "svg_thumbnail": v.svg_thumbnail,
         "created_by": str(v.created_by) if v.created_by else None,
         "created_by_name": v.creator.display_name if v.creator else None,
+        "created_via": v.created_via,
+        "updated_via": v.updated_via,
         "created_at": v.created_at.isoformat() if v.created_at else None,
         "submitted_by": str(v.submitted_by) if v.submitted_by else None,
         "submitted_by_name": v.submitter.display_name if v.submitter else None,

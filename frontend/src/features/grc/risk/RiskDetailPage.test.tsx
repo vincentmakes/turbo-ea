@@ -313,6 +313,19 @@ describe("RiskDetailPage — loading", () => {
     expect(screen.getByText(t("risks.field.acceptedAt"))).toBeInTheDocument();
   });
 
+  it("marks a risk an AI agent created with the MCP chip, and a web one with none", async () => {
+    scriptRisk({ ...RISK, created_via: "mcp" });
+    const first = renderPage();
+    await waitForLoaded();
+    expect(screen.getByText("MCP").closest("[data-origin]")).toHaveAttribute("data-origin", "mcp");
+    first.unmount();
+
+    scriptRisk({ ...RISK, created_via: "web" });
+    const { container } = renderPage();
+    await waitForLoaded();
+    expect(container.querySelector("[data-origin]")).toBeNull();
+  });
+
   it("renders the not-found state when the risk cannot be read", async () => {
     mockApi.fail("get", "/risks/r1", 404, "nope");
     renderPage();

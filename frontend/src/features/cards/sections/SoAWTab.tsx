@@ -19,6 +19,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import CreateSoAWDialog from "@/features/ea-delivery/CreateSoAWDialog";
 import type { SoAW } from "@/types";
 
@@ -140,6 +141,9 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
                     >
                       {s.name}
                     </RouterLink>
+                    <Box component="span" sx={{ ml: 1 }}>
+                      <OriginChip origin={s.created_via} />
+                    </Box>
                   </TableCell>
                   <TableCell>
                     <Chip

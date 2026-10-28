@@ -419,6 +419,8 @@ describe("RiskRegisterPage — column definitions", () => {
     // Empty values format to the empty string, not "undefined".
     expect(gridStub.cellValue("category", { ...r1, category: null }, { formatted: true })).toBe("");
     expect(gridStub.cellValue("source_type", { ...r1, source_type: null }, { formatted: true })).toBe("");
+    expect(gridStub.cellValue("created_via", { ...r1, created_via: "mcp" }, { formatted: true })).toBe("MCP");
+    expect(gridStub.cellValue("created_via", { ...r1, created_via: null }, { formatted: true })).toBe("");
     expect(gridStub.cellValue("status", { ...r1, status: null }, { formatted: true })).toBe("");
     expect(gridStub.cellValue("initial_level", { ...r1, initial_level: null }, { formatted: true })).toBe("");
   });
@@ -477,6 +479,9 @@ describe("RiskRegisterPage — column definitions", () => {
 
     expect(cell("source_type", { value: "extension" }).getByText(t("risks.source.extension"))).toBeInTheDocument();
     expect(gridStub.colDef("source_type").cellRenderer({ value: null })).toBeNull();
+
+    expect(cell("created_via", { value: "mcp" }).getByText("MCP")).toBeInTheDocument();
+    expect(cell("created_via", { value: "web" }).queryByText(/./)).toBeNull();
 
     expect(cell("initial_level", { value: "critical" }).getByText(t("risks.level.critical"))).toBeInTheDocument();
     expect(gridStub.colDef("initial_level").cellRenderer({ value: null })).toBeNull();

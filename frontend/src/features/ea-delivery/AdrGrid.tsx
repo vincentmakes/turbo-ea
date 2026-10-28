@@ -18,6 +18,7 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import OriginChip from "@/components/OriginChip";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
 import { useCellContextMenu } from "@/components/grid/useCellContextMenu";
@@ -388,6 +389,19 @@ export default function AdrGrid({
         width: 150,
         minWidth: 120,
         hide: hiddenColumns.has("createdBy"),
+        // The author, plus the channel when it was not the web UI (an AI
+        // agent through MCP, the API, an extension).
+        cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
+          if (!params.data) return null;
+          return (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, height: "100%", minWidth: 0 }}>
+              <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                {params.data.creator_name ?? ""}
+              </Box>
+              <OriginChip origin={params.data.created_via} />
+            </Box>
+          );
+        },
       },
       {
         headerName: t("adr.grid.created"),

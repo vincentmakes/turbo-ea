@@ -12,6 +12,7 @@ The top of the card shows:
 - **Card name** — Editable inline
 - **Alias** — The card's other name, shown under the title when set. Click the title's edit pencil to change the name and the alias together. Aliases are matched by every search box, so a card can be found by the name your organisation actually uses for it.
 - **Subtype** — Secondary classification (if applicable)
+- **Origin chip** — Shown when the card was not created in the web interface: **MCP** for a card an AI assistant created through the [MCP server](../admin/mcp.md), **API** for a script or integration, **Extension** for an installed extension, **System** for a background job. Hover it to see who created the card and when — the person stays the creator; the chip says which channel they used. Cards created in the web interface, and cards created before Turbo EA recorded the channel, show no chip.
 - **Approval status badge** — Draft, Approved, Broken, or Rejected
 - **AI suggest button** — Click to generate a description with AI (visible when AI is enabled for this card type and the user has edit permission)
 - **Data quality ring** — Visual indicator of information completeness (0–100%)
@@ -166,7 +167,7 @@ If the card is linked to an [endoflife.date](https://endoflife.date/) product (v
 
 - **Add comments** — Leave notes, questions, or decisions about the component
 - **Threaded replies** — Reply to specific comments to create conversation threads
-- **Timestamps** — See when each comment was posted and by whom
+- **Timestamps** — See when each comment was posted and by whom. A comment an AI assistant posted through the MCP server carries an **MCP** chip beside the author
 - **Links** — A web address in a comment is clickable and opens in a new tab
 
 ## Todos Tab
@@ -206,6 +207,8 @@ The invite path requires the **`users.invite`** permission, a delegated form of 
 ![Card Change History](../assets/img/en/08_card_history.png)
 
 Shows the **complete audit trail** of changes made to the card: **who** made the change, **when** it was made, and **what** was modified (previous value vs. new value). This enables full traceability of all modifications over time.
+
+A change that did not come from the web interface carries a chip beside the person's name: **MCP** when an AI assistant made it through the [MCP server](../admin/mcp.md) on that person's behalf, **API**, **Extension** or **System** otherwise.
 
 Everything that moves the card's **Modified** date appears here — an edit by hand, a spreadsheet import, a platform migration or ServiceNow sync, a tag change, a bulk edit, or a hierarchy move that pulled this card along. System housekeeping changes neither: recalculating data-quality scores, re-running calculated fields, and backfilling hierarchy levels or card IDs leave both the history and the **Modified** date alone.
 

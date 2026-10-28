@@ -32,9 +32,10 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 
-class Risk(UUIDMixin, TimestampMixin, Base):
+class Risk(UUIDMixin, TimestampMixin, ProvenanceMixin, Base):
     """A single risk, across its full TOGAF lifecycle."""
 
     __tablename__ = "risks"

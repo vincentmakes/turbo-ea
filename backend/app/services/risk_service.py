@@ -602,6 +602,8 @@ async def risk_to_dict(
         "accepted_by": str(risk.accepted_by) if risk.accepted_by else None,
         "accepted_at": risk.accepted_at.isoformat() if risk.accepted_at else None,
         "created_by": str(risk.created_by) if risk.created_by else None,
+        "created_via": risk.created_via,
+        "updated_via": risk.updated_via,
         "created_at": risk.created_at.isoformat() if risk.created_at else None,
         "updated_at": risk.updated_at.isoformat() if risk.updated_at else None,
         "cards": cards,

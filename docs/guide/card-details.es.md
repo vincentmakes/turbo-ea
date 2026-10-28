@@ -12,6 +12,7 @@ La parte superior de la ficha muestra:
 - **Nombre de la ficha** — Editable en línea
 - **Alias** — El otro nombre de la ficha, mostrado bajo el título cuando está definido. El lápiz de edición del título permite cambiar el nombre y el alias a la vez. Los alias se tienen en cuenta en todos los cuadros de búsqueda, de modo que una ficha se encuentra por el nombre que su organización usa realmente.
 - **Subtipo** — Clasificación secundaria (si aplica)
+- **Insignia de origen** — Se muestra cuando la ficha no se creó en la interfaz web: **MCP** para una ficha creada por un asistente de IA a través del [servidor MCP](../admin/mcp.md), **API** para un script o una integración, **Extensión** para una extensión instalada, **Sistema** para una tarea en segundo plano. Pase el cursor sobre ella para ver quién creó la ficha y cuándo: la persona sigue siendo el creador; la insignia indica qué canal usó. Las fichas creadas en la interfaz web, y las creadas antes de que Turbo EA registrara el canal, no muestran insignia.
 - **Insignia de estado de aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Botón de sugerencia IA** — Haga clic para generar una descripción con IA (visible cuando la IA está habilitada para este tipo de ficha y el usuario tiene permiso de edición)
 - **Anillo de calidad de datos** — Indicador visual de la completitud de la información (0–100%)
@@ -169,7 +170,7 @@ Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.
 
 - **Agregar comentarios** — Deje notas, preguntas o decisiones sobre el componente
 - **Respuestas en hilo** — Responda a comentarios específicos para crear hilos de conversación
-- **Marcas de tiempo** — Vea cuándo se publicó cada comentario y por quién
+- **Marcas de tiempo** — Vea cuándo se publicó cada comentario y por quién. Un comentario publicado por un asistente de IA a través del servidor MCP lleva una insignia **MCP** junto al autor
 - **Enlaces** — Una dirección web en un comentario es clicable y se abre en una pestaña nueva
 
 ## Pestaña de Tareas
@@ -207,6 +208,8 @@ La ruta de invitación requiere el permiso **`users.invite`**, una forma delegad
 ## Pestaña de Historial
 
 ![Historial de Cambios de una Ficha](../assets/img/es/08_ficha_historial.png)
+
+Un cambio que no procede de la interfaz web lleva una insignia junto al nombre de la persona: **MCP** cuando un asistente de IA lo realizó a través del [servidor MCP](../admin/mcp.md) en nombre de esa persona; **API**, **Extensión** o **Sistema** en los demás casos.
 
 Muestra el **registro completo de auditoría** de los cambios realizados en la ficha: **quién** hizo el cambio, **cuándo** se realizó y **qué** se modificó (valor anterior vs. valor nuevo). Esto permite la trazabilidad completa de todas las modificaciones a lo largo del tiempo.
 
