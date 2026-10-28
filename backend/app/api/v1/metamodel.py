@@ -613,6 +613,21 @@ def _sanitize_relation_attribute_schema(schema: object) -> list[dict]:
     return out
 
 
+def _locked_relation_value(
+    code: str, message: str, attribute: object, value: object = None
+) -> HTTPException:
+    """A 403 for an edit of a built-in relation attribute or value.
+
+    ``error`` is a stable code the admin UI translates (``relationValueErrors.ts``),
+    naming ``attribute`` / ``value`` by their labels; ``message`` stays the
+    English sentence for API and MCP callers.
+    """
+    detail: dict = {"error": code, "message": message, "attribute": attribute}
+    if value is not None:
+        detail["value"] = value
+    return HTTPException(403, detail=detail)
+
+
 def _merge_relation_attributes_schema(existing: object, incoming: object) -> list[dict]:
     """Validate + merge an incoming ``attributes_schema`` against the stored one.
 
@@ -623,7 +638,8 @@ def _merge_relation_attributes_schema(existing: object, incoming: object) -> lis
     client can never escalate a custom value into a locked one.
 
     Raises ``HTTPException(403)`` when a built-in field/option is removed or its
-    locked attributes are mutated.
+    locked attributes are mutated; ``detail.error`` names which (see
+    ``_locked_relation_value``).
     """
     existing_list = existing if isinstance(existing, list) else []
     incoming_list = incoming if isinstance(incoming, list) else []
@@ -639,7 +655,11 @@ def _merge_relation_attributes_schema(existing: object, incoming: object) -> lis
     # Every built-in field must survive the edit.
     for fkey in existing_fields:
         if fkey not in incoming_by_key:
-            raise HTTPException(403, f"Built-in relation attribute '{fkey}' cannot be removed.")
+            raise _locked_relation_value(
+                "relation_attribute_required",
+                f"Built-in relation attribute '{fkey}' cannot be removed.",
+                fkey,
+            )
 
     merged: list[dict] = []
     for field in incoming_list:
@@ -661,9 +681,10 @@ def _merge_relation_attributes_schema(existing: object, incoming: object) -> lis
             if attr == "options":
                 continue
             if field.get(attr) != base.get(attr):
-                raise HTTPException(
-                    403,
+                raise _locked_relation_value(
+                    "relation_attribute_locked",
                     f"Built-in relation attribute '{field['key']}' cannot be edited.",
+                    field["key"],
                 )
         f = dict(base)
         f["built_in"] = True
@@ -685,9 +706,11 @@ def _merge_field_options(base_field: dict, incoming_field: dict, target: dict) -
 
     for okey in base_opts:
         if okey not in incoming_keys:
-            raise HTTPException(
-                403,
+            raise _locked_relation_value(
+                "relation_value_required",
                 f"Built-in relation value '{okey}' cannot be removed (hide it instead).",
+                base_field.get("key"),
+                okey,
             )
 
     merged_opts: list[dict] = []
@@ -701,9 +724,11 @@ def _merge_field_options(base_field: dict, incoming_field: dict, target: dict) -
         # Built-in option: locked except `hidden`.
         for attr in ("key", "label", "color", "translations"):
             if opt.get(attr) != base_opt.get(attr):
-                raise HTTPException(
-                    403,
+                raise _locked_relation_value(
+                    "relation_value_locked",
                     f"Built-in relation value '{opt['key']}' cannot be edited (hide it instead).",
+                    base_field.get("key"),
+                    opt["key"],
                 )
         merged_opts.append({**base_opt, "built_in": True, "hidden": bool(opt.get("hidden", False))})
 

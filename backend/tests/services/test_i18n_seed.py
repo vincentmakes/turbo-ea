@@ -355,6 +355,32 @@ class TestRelationTranslations:
             )
 
 
+def _relation_attribute_entries():
+    """Every attribute field and option on a built-in relation, as a pytest param."""
+    for r in RELATIONS:
+        for field in r.get("attributes_schema") or []:
+            yield pytest.param(field, id=f"{r['key']}.{field['key']}")
+            for opt in field.get("options") or []:
+                yield pytest.param(opt, id=f"{r['key']}.{field['key']}.{opt['key']}")
+
+
+class TestRelationAttributeTranslations:
+    """Relation attributes are labelled in card detail, the inventory and the
+    value editor like any field. Business Process → Application's Usage and its
+    values, the CRUD flags and the support / usage types shipped without
+    translations and read in English in every locale (#1327)."""
+
+    @pytest.mark.parametrize("entry", list(_relation_attribute_entries()))
+    def test_translated_to_all_locales(self, entry):
+        translations = entry.get("translations") or {}
+        missing = [
+            loc
+            for loc in SUPPORTED_LOCALES
+            if not (isinstance(translations.get(loc), str) and translations[loc].strip())
+        ]
+        assert not missing, f"'{entry['label']}' has no translation for {missing}"
+
+
 # ---------------------------------------------------------------------------
 # A parent's translation must not be one of its children's
 # ---------------------------------------------------------------------------
@@ -411,6 +437,14 @@ def _parent_child_pairs():
         for item in r.get("attributes_schema") or []:
             for f in item.get("fields") or [item]:
                 attrs += _field_entries(f)
+                # Business Process → Application's Usage read «Orchestriert», like
+                # its last value, in every language when it was first translated.
+                if f.get("options"):
+                    yield (
+                        f"relation '{r['key']}' attribute '{f['key']}'",
+                        _entry(f.get("label"), f.get("translations")),
+                        _option_entries(f),
+                    )
         if attrs:
             yield f"relation '{r['key']}'", _entry(r["label"], r.get("translations")), attrs
 

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.180.1] - 2026-10-28
+
+### Fixed
+- **Manage relation values** on Business Process → Application saves again: hiding a built-in Usage value or adding a value was always refused with "cannot be edited" ([#1327](https://github.com/vincentmakes/turbo-ea/issues/1327)).
+- When **Manage relation values** refuses a change to a built-in type or value, the message is now in the user's language and names the value by its label.
+- Relation attributes are translated in every language: the Usage values of Business Process → Application (Creates, Reads, Updates, Deletes, Orchestrates), Usage Type, Support Type, the Create / Read / Update / Delete flags and Annual Cost. Existing installations receive them on the next restart.
+- Arabic: four relation verbs showed the name of an attribute (“usage type”, “support type”, “usage”) instead of the verb; they now read *uses*, *supports* and *is supported by*.
+
 ## [2.180.0] - 2026-10-28
 
 ### Added

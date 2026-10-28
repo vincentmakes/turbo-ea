@@ -4084,6 +4084,75 @@ FLOW_DIRECTION_OPTIONS = [
     },
 ]
 
+# The CRUD flags shared by Application → Data Object and Business Process →
+# Data Object. Stamped ``built_in`` per relation by ``_mark_builtin_attributes_schema``.
+CRUD_RELATION_ATTRIBUTES = [
+    {
+        "key": "crudCreate",
+        "label": "Create",
+        "type": "boolean",
+        "translations": {
+            "de": "Erstellen",
+            "fr": "Créer",
+            "es": "Crear",
+            "it": "Crea",
+            "pt": "Criar",
+            "zh": "创建",
+            "ru": "Создание",
+            "da": "Opret",
+            "ar": "إنشاء",
+        },
+    },
+    {
+        "key": "crudRead",
+        "label": "Read",
+        "type": "boolean",
+        "translations": {
+            "de": "Lesen",
+            "fr": "Lire",
+            "es": "Leer",
+            "it": "Leggi",
+            "pt": "Ler",
+            "zh": "读取",
+            "ru": "Чтение",
+            "da": "Læs",
+            "ar": "قراءة",
+        },
+    },
+    {
+        "key": "crudUpdate",
+        "label": "Update",
+        "type": "boolean",
+        "translations": {
+            "de": "Aktualisieren",
+            "fr": "Mettre à jour",
+            "es": "Actualizar",
+            "it": "Aggiorna",
+            "pt": "Atualizar",
+            "zh": "更新",
+            "ru": "Обновление",
+            "da": "Opdater",
+            "ar": "تحديث",
+        },
+    },
+    {
+        "key": "crudDelete",
+        "label": "Delete",
+        "type": "boolean",
+        "translations": {
+            "de": "Löschen",
+            "fr": "Supprimer",
+            "es": "Eliminar",
+            "it": "Elimina",
+            "pt": "Eliminar",
+            "zh": "删除",
+            "ru": "Удаление",
+            "da": "Slet",
+            "ar": "حذف",
+        },
+    },
+]
+
 FLOW_DIRECTION_FIELD = {
     "key": "flowDirection",
     "label": "Flow direction",
@@ -4667,6 +4736,17 @@ RELATIONS = [
                 "label": "Usage Type",
                 "type": "single_select",
                 "options": USAGE_TYPE_OPTIONS,
+                "translations": {
+                    "de": "Nutzungsart",
+                    "fr": "Type d'utilisation",
+                    "es": "Tipo de uso",
+                    "it": "Tipo di utilizzo",
+                    "pt": "Tipo de utilização",
+                    "zh": "使用类型",
+                    "ru": "Тип использования",
+                    "da": "Brugstype",
+                    "ar": "نوع الاستخدام",
+                },
             },
         ],
         "translations": {
@@ -4679,7 +4759,7 @@ RELATIONS = [
                 "zh": "使用",
                 "ru": "использует",
                 "da": "bruger",
-                "ar": "نوع الاستخدام",
+                "ar": "يستخدم",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -4742,6 +4822,17 @@ RELATIONS = [
                 "label": "Support Type",
                 "type": "single_select",
                 "options": SUPPORT_TYPE_OPTIONS,
+                "translations": {
+                    "de": "Unterstützungsart",
+                    "fr": "Type de support",
+                    "es": "Tipo de soporte",
+                    "it": "Tipo di supporto",
+                    "pt": "Tipo de suporte",
+                    "zh": "支持类型",
+                    "ru": "Тип поддержки",
+                    "da": "Støttetype",
+                    "ar": "نوع الدعم",
+                },
             },
         ],
         "translations": {
@@ -4754,7 +4845,7 @@ RELATIONS = [
                 "zh": "支持",
                 "ru": "поддерживает",
                 "da": "understøtter",
-                "ar": "نوع الدعم",
+                "ar": "يدعم",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -4844,12 +4935,7 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 20,
-        "attributes_schema": [
-            {"key": "crudCreate", "label": "Create", "type": "boolean"},
-            {"key": "crudRead", "label": "Read", "type": "boolean"},
-            {"key": "crudUpdate", "label": "Update", "type": "boolean"},
-            {"key": "crudDelete", "label": "Delete", "type": "boolean"},
-        ],
+        "attributes_schema": CRUD_RELATION_ATTRIBUTES,
         "translations": {
             "label": {
                 "de": "CRUD",
@@ -4884,7 +4970,22 @@ RELATIONS = [
         "cardinality": "n:m",
         "sort_order": 21,
         "attributes_schema": [
-            {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
+            {
+                "key": "costTotalAnnual",
+                "label": "Annual Cost",
+                "type": "cost",
+                "translations": {
+                    "de": "Jährliche Kosten",
+                    "fr": "Coût annuel",
+                    "es": "Coste anual",
+                    "it": "Costo annuale",
+                    "pt": "Custo anual",
+                    "zh": "年度成本",
+                    "ru": "Годовая стоимость",
+                    "da": "Årlig omkostning",
+                    "ar": "التكلفة السنوية",
+                },
+            },
         ],
         "translations": {
             "label": {
@@ -5194,6 +5295,17 @@ RELATIONS = [
                 "label": "Support Type",
                 "type": "single_select",
                 "options": SUPPORT_TYPE_OPTIONS,
+                "translations": {
+                    "de": "Unterstützungsart",
+                    "fr": "Type de support",
+                    "es": "Tipo de soporte",
+                    "it": "Tipo di supporto",
+                    "pt": "Tipo de suporte",
+                    "zh": "支持类型",
+                    "ru": "Тип поддержки",
+                    "da": "Støttetype",
+                    "ar": "نوع الدعم",
+                },
             },
         ],
         "translations": {
@@ -5206,7 +5318,7 @@ RELATIONS = [
                 "zh": "支持",
                 "ru": "поддерживает",
                 "da": "understøtter",
-                "ar": "نوع الدعم",
+                "ar": "يدعم",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -5235,12 +5347,93 @@ RELATIONS = [
                 "label": "Usage",
                 "type": "single_select",
                 "options": [
-                    {"key": "creates", "label": "Creates"},
-                    {"key": "reads", "label": "Reads"},
-                    {"key": "updates", "label": "Updates"},
-                    {"key": "deletes", "label": "Deletes"},
-                    {"key": "orchestrates", "label": "Orchestrates"},
+                    {
+                        "key": "creates",
+                        "label": "Creates",
+                        "translations": {
+                            "de": "Erstellt",
+                            "fr": "Crée",
+                            "es": "Crea",
+                            "it": "Crea",
+                            "pt": "Cria",
+                            "zh": "创建",
+                            "ru": "Создаёт",
+                            "da": "Opretter",
+                            "ar": "ينشئ",
+                        },
+                    },
+                    {
+                        "key": "reads",
+                        "label": "Reads",
+                        "translations": {
+                            "de": "Liest",
+                            "fr": "Lit",
+                            "es": "Lee",
+                            "it": "Legge",
+                            "pt": "Lê",
+                            "zh": "读取",
+                            "ru": "Читает",
+                            "da": "Læser",
+                            "ar": "يقرأ",
+                        },
+                    },
+                    {
+                        "key": "updates",
+                        "label": "Updates",
+                        "translations": {
+                            "de": "Aktualisiert",
+                            "fr": "Met à jour",
+                            "es": "Actualiza",
+                            "it": "Aggiorna",
+                            "pt": "Atualiza",
+                            "zh": "更新",
+                            "ru": "Обновляет",
+                            "da": "Opdaterer",
+                            "ar": "يحدّث",
+                        },
+                    },
+                    {
+                        "key": "deletes",
+                        "label": "Deletes",
+                        "translations": {
+                            "de": "Löscht",
+                            "fr": "Supprime",
+                            "es": "Elimina",
+                            "it": "Elimina",
+                            "pt": "Elimina",
+                            "zh": "删除",
+                            "ru": "Удаляет",
+                            "da": "Sletter",
+                            "ar": "يحذف",
+                        },
+                    },
+                    {
+                        "key": "orchestrates",
+                        "label": "Orchestrates",
+                        "translations": {
+                            "de": "Orchestriert",
+                            "fr": "Orchestre",
+                            "es": "Orquesta",
+                            "it": "Orchestra",
+                            "pt": "Orquestra",
+                            "zh": "编排",
+                            "ru": "Оркестрирует",
+                            "da": "Orkestrerer",
+                            "ar": "ينسّق",
+                        },
+                    },
                 ],
+                "translations": {
+                    "de": "Nutzung",
+                    "fr": "Utilisation",
+                    "es": "Uso",
+                    "it": "Utilizzo",
+                    "pt": "Utilização",
+                    "zh": "使用方式",
+                    "ru": "Использование",
+                    "da": "Brug",
+                    "ar": "الاستخدام",
+                },
             },
         ],
         "translations": {
@@ -5253,7 +5446,7 @@ RELATIONS = [
                 "zh": "被支持",
                 "ru": "поддерживается",
                 "da": "understøttes af",
-                "ar": "الاستخدام",
+                "ar": "مدعوم بواسطة",
             },
             "reverse_label": {
                 "de": "unterstützt",
@@ -5276,12 +5469,7 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 33,
-        "attributes_schema": [
-            {"key": "crudCreate", "label": "Create", "type": "boolean"},
-            {"key": "crudRead", "label": "Read", "type": "boolean"},
-            {"key": "crudUpdate", "label": "Update", "type": "boolean"},
-            {"key": "crudDelete", "label": "Delete", "type": "boolean"},
-        ],
+        "attributes_schema": CRUD_RELATION_ATTRIBUTES,
         "translations": {
             "label": {
                 "de": "nutzt",
@@ -5652,6 +5840,56 @@ def _fill_missing_meta_locales(existing: dict | None, seed: dict | None) -> dict
     return merged
 
 
+def _fill_builtin_attribute_translations(stored: object, seed: list[dict]) -> list | None:
+    """Fill missing locales on a built-in relation type's attribute definitions.
+
+    Walks the stored ``attributes_schema``, matches each field marked
+    ``built_in`` to the seed by key (options likewise within the field) and adds
+    only the locales it lacks. Custom fields and values, and everything but
+    ``translations`` (order, ``hidden``, colour), are left as stored. Built-in
+    labels and translations are locked in the API, so no admin wording can be
+    overwritten. Returns the new schema, or ``None`` when nothing was missing.
+    """
+    if not isinstance(stored, list):
+        return None
+    seed_fields = {f["key"]: f for f in seed or [] if isinstance(f, dict) and "key" in f}
+    changed = False
+
+    def filled(entry: dict, seed_entry: dict | None) -> dict:
+        nonlocal changed
+        seed_tr = (seed_entry or {}).get("translations")
+        if not entry.get("built_in") or not seed_tr:
+            return entry
+        merged = _fill_missing_locales(entry.get("translations"), seed_tr)
+        if merged == entry.get("translations"):
+            return entry
+        changed = True
+        return {**entry, "translations": merged}
+
+    out: list = []
+    for field in stored:
+        if not isinstance(field, dict):
+            out.append(field)
+            continue
+        seed_field = seed_fields.get(field.get("key"))
+        new_field = filled(field, seed_field)
+        options = field.get("options")
+        if field.get("built_in") and seed_field and isinstance(options, list):
+            seed_opts = {
+                o["key"]: o
+                for o in seed_field.get("options") or []
+                if isinstance(o, dict) and "key" in o
+            }
+            new_opts = [
+                filled(o, seed_opts.get(o.get("key"))) if isinstance(o, dict) else o
+                for o in options
+            ]
+            if any(a is not b for a, b in zip(new_opts, options)):
+                new_field = {**new_field, "options": new_opts}
+        out.append(new_field)
+    return out if changed else None
+
+
 def _inject_english_translations_relation(rel_def: dict) -> dict:
     """Copy English labels into the translations JSONB for a relation type."""
     r = rel_def
@@ -5898,13 +6136,20 @@ async def seed_metamodel(db: AsyncSession) -> None:
             # cardinality and the attributes schema stay as the admin left them —
             # only locales the row does not already carry are added, which is how
             # an install seeded before a locale existed (Danish, Arabic) finally
-            # receives its relation verbs.
+            # receives its relation verbs, and how a built-in attribute shipped
+            # without translations receives them later (#1327).
             existing_rel = existing_rels_by_key[r["key"]]
             seed_rel_translations = r.get("translations", {})
             if existing_rel.built_in and seed_rel_translations:
                 existing_rel.translations = _fill_missing_meta_locales(
                     existing_rel.translations, seed_rel_translations
                 )
+            if existing_rel.built_in:
+                filled_schema = _fill_builtin_attribute_translations(
+                    existing_rel.attributes_schema, r.get("attributes_schema", [])
+                )
+                if filled_schema is not None:
+                    existing_rel.attributes_schema = filled_schema
             continue
 
         rt = RelationType(

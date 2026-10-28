@@ -137,8 +137,9 @@ describe("RelationTypeValuesDialog", () => {
         built_in: true,
         options: [
           { key: "owner", label: "Owner", color: "#111111", built_in: true, hidden: true },
-          // A value without a colour is persisted with the picker's default.
-          { key: "user", label: "User", color: "#1976d2", built_in: true, hidden: false },
+          // A built-in value goes back as stored — no default colour added,
+          // which the server would refuse as an edit (#1327).
+          { key: "user", label: "User", built_in: true, hidden: false },
           { key: "partner", label: "Partner", color: "#222222" },
         ],
       },

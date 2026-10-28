@@ -18,11 +18,12 @@ import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { LOCALE_LABELS } from "@/i18n";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/types";
 import { DEFAULT_OPTION_COLOR } from "./constants";
 import { cleanTranslationMap } from "./helpers";
+import { relationValueErrorMessage } from "./relationValueErrors";
 
 /** A dimension or a value, as far as its name goes. */
 type LabelledRow = { label?: string; translations?: TranslationMap };
@@ -162,17 +163,24 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
     submit(async () => {
       if (!relationType) return;
       setError(null);
-      // Clean translations before persisting.
+      // Clean translations before persisting. A built-in dimension or value is
+      // locked: it goes back exactly as stored, because the server refuses any
+      // change but `hidden` — a default color stamped on a built-in value that
+      // has none made every save on that relation fail (issue #1327).
       const cleaned = schema.map(({ _original, ...f }) => ({
         ...f,
-        translations: cleanTranslationMap(f.translations),
-        options: (f.options ?? []).map(({ _original: _o, ...o }) => ({
-          ...o,
-          // Persist the picker's displayed default so an untouched swatch still
-          // saves a color and its badge renders (issue #718).
-          color: o.color || DEFAULT_OPTION_COLOR,
-          translations: cleanTranslationMap(o.translations),
-        })),
+        translations: f.built_in ? f.translations : cleanTranslationMap(f.translations),
+        options: (f.options ?? []).map(({ _original: _o, ...o }) =>
+          o.built_in
+            ? o
+            : {
+                ...o,
+                // Persist the picker's displayed default so an untouched swatch
+                // still saves a color and its badge renders (issue #718).
+                color: o.color || DEFAULT_OPTION_COLOR,
+                translations: cleanTranslationMap(o.translations),
+              },
+        ),
       }));
       try {
         await api.patch(`/metamodel/relation-types/${relationType.key}`, {
@@ -181,13 +189,11 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
         onSaved();
         onClose();
       } catch (e) {
-        const msg =
-          e instanceof ApiError && typeof e.detail === "string"
-            ? e.detail
-            : e instanceof Error
-              ? e.message
-              : t("metamodel.relationValuesSaveFailed");
-        setError(msg);
+        // Names come from the stored schema: a removed built-in is not in the
+        // edited one.
+        setError(
+          relationValueErrorMessage(e, t, relationType.attributes_schema ?? [], fieldLabel),
+        );
       }
     });
 

@@ -353,3 +353,38 @@ class TestSeedPreservesAdminTranslations:
 
         result = await db.execute(select(RelationType).where(RelationType.key == key))
         assert result.scalar_one().translations["label"]["da"] == seeded_da
+
+    async def test_relation_attribute_translations_are_backfilled(self, db):
+        """Business Process → Application's Usage attribute shipped with no
+        translations (#1327); a restart fills them in without touching what the
+        admin set — a hidden value, a custom value — or the attribute's order."""
+        await seed_metamodel(db)
+        result = await db.execute(select(RelationType).where(RelationType.key == "relProcessToApp"))
+        rel = result.scalar_one()
+        # As an install seeded before the fix stores it, plus the admin's edits.
+        stored = copy.deepcopy(rel.attributes_schema)
+        usage = stored[0]
+        usage.pop("translations")
+        for opt in usage["options"]:
+            opt.pop("translations")
+        usage["options"][3]["hidden"] = True
+        usage["options"].append({"key": "approves", "label": "Approves", "built_in": False})
+        rel.attributes_schema = stored
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        result = await db.execute(select(RelationType).where(RelationType.key == "relProcessToApp"))
+        usage = result.scalar_one().attributes_schema[0]
+        assert usage["translations"]["de"]
+        assert [o["key"] for o in usage["options"]] == [
+            "creates",
+            "reads",
+            "updates",
+            "deletes",
+            "orchestrates",
+            "approves",
+        ]
+        assert all(o["translations"]["de"] for o in usage["options"][:5])
+        assert usage["options"][3]["hidden"] is True
+        assert usage["options"][5] == {"key": "approves", "label": "Approves", "built_in": False}

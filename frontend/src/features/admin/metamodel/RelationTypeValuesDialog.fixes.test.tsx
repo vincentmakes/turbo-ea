@@ -286,3 +286,88 @@ describe("RelationTypeValuesDialog — a language switch while editing", () => {
     }
   });
 });
+
+describe("RelationTypeValuesDialog — built-in values without a colour (#1327)", () => {
+  // Business Process → Application's Usage values ship with no colour. Saving
+  // stamped the picker's default onto them, which the server refuses as an
+  // edit of a locked value — so no hide and no add could ever be saved there.
+  const usage = () =>
+    makeField({
+      key: "usageType",
+      label: "Usage",
+      type: "single_select",
+      built_in: true,
+      options: [
+        makeOption({ key: "creates", label: "Creates", built_in: true }),
+        makeOption({ key: "reads", label: "Reads", built_in: true }),
+      ],
+    });
+
+  const savedField = () =>
+    (mockApi.callsOf("patch", PATH)[0].body as { attributes_schema: FieldDef[] })
+      .attributes_schema[0];
+
+  it("sends a hidden built-in value back as stored, with no colour added", async () => {
+    const { user, dialog } = renderDialog(usage());
+    const row = within(dialog).getByText("Creates").parentElement!;
+    await user.click(within(row).getByRole("button", { name: "Hide value" }));
+    await user.click(saveButton());
+
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    expect(savedField().options).toEqual([
+      { key: "creates", label: "Creates", built_in: true, hidden: true },
+      { key: "reads", label: "Reads", built_in: true },
+    ]);
+  });
+
+  it("still gives an added value the default colour", async () => {
+    const { user, dialog } = renderDialog(usage());
+    await user.click(within(dialog).getByRole("button", { name: /Add value/ }));
+    await user.type(within(dialog).getByLabelText("Key"), "approves");
+    await user.type(within(dialog).getByLabelText("Label"), "Approves");
+    await user.click(saveButton());
+
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    const options = savedField().options ?? [];
+    expect(options[2]).toMatchObject({ key: "approves", label: "Approves", color: "#1976d2" });
+    expect(options[0]).not.toHaveProperty("color");
+    expect(options[1]).not.toHaveProperty("color");
+  });
+
+  it("names a refused value by its label, in the user's language", async () => {
+    mockApi.fail("patch", PATH, 403, {
+      error: "relation_value_locked",
+      message: "Built-in relation value 'creates' cannot be edited (hide it instead).",
+      attribute: "usageType",
+      value: "creates",
+    });
+    const { user, dialog } = renderDialog(usage());
+    await user.click(saveButton());
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The built-in value “Creates” cannot be edited. Hide it instead.",
+    );
+  });
+});
+
+describe("RelationTypeValuesDialog — a built-in dimension's translations", () => {
+  it("sends them back as stored, even an empty map the server holds", async () => {
+    const { user } = renderDialog(
+      makeField({
+        key: "usageType",
+        label: "Usage",
+        type: "single_select",
+        built_in: true,
+        translations: {},
+        options: [makeOption({ key: "reads", label: "Reads", built_in: true, translations: {} })],
+      }),
+    );
+    await user.click(saveButton());
+
+    await waitFor(() => expect(mockApi.callsOf("patch", PATH)).toHaveLength(1));
+    const [saved] = (mockApi.callsOf("patch", PATH)[0].body as { attributes_schema: FieldDef[] })
+      .attributes_schema;
+    expect(saved.translations).toEqual({});
+    expect(saved.options?.[0].translations).toEqual({});
+  });
+});
