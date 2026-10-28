@@ -1246,6 +1246,62 @@ CARD_TYPE_CATEGORIES: list[dict[str, Any]] = [
 # The keys above — the strings that are never adopted as a custom category.
 DEFAULT_CATEGORY_KEYS = frozenset(c["key"] for c in CARD_TYPE_CATEGORIES)
 
+# ── Built-in homepage dashboards ─────────────────────────────────────
+#
+# The names of the three dashboards the homepage opens with, seeded insert-only
+# into ``dashboards`` by ``seed_dashboards`` (``services/dashboard_service.py``).
+# Their widget layouts live in ``services/dashboard_defaults.py``; the names live
+# here so the ``/translate`` seed pass and ``test_i18n_seed.py`` find them. The
+# frontend shows ``translations[locale]`` and falls back to ``label``.
+
+DASHBOARD_NAMES: list[dict[str, Any]] = [
+    {
+        "key": "overview",
+        "label": "Overview",
+        "translations": {
+            "de": "Übersicht",
+            "fr": "Vue d'ensemble",
+            "es": "Resumen",
+            "it": "Panoramica",
+            "pt": "Visão geral",
+            "zh": "概览",
+            "ru": "Обзор",
+            "da": "Oversigt",
+            "ar": "نظرة عامة",
+        },
+    },
+    {
+        "key": "workspace",
+        "label": "My Workspace",
+        "translations": {
+            "de": "Mein Arbeitsbereich",
+            "fr": "Mon espace",
+            "es": "Mi espacio de trabajo",
+            "it": "Il mio spazio",
+            "pt": "Meu espaço",
+            "zh": "我的工作区",
+            "ru": "Моё рабочее пространство",
+            "da": "Mit arbejdsområde",
+            "ar": "مساحة عملي",
+        },
+    },
+    {
+        "key": "admin",
+        "label": "Admin",
+        "translations": {
+            "de": "Administration",
+            "fr": "Administration",
+            "es": "Administración",
+            "it": "Amministrazione",
+            "pt": "Administração",
+            "zh": "管理",
+            "ru": "Администрирование",
+            "da": "Administration",
+            "ar": "المسؤول",
+        },
+    },
+]
+
 
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
@@ -6665,5 +6721,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
     from app.services.card_type_categories import seed_default_categories
 
     await seed_default_categories(db)
+
+    # ── Built-in homepage dashboards (Overview, My Workspace, Admin; insert-only) ──
+    from app.services.dashboard_service import seed_dashboards
+
+    await seed_dashboards(db)
 
     await db.commit()

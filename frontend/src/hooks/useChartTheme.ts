@@ -1,7 +1,7 @@
 /**
  * Theme-aware Recharts chrome — the single source of truth for how charts
  * look in Turbo EA (grid, axis ticks, tooltip), matching the conventions the
- * core reports use (OverviewTab, DataQualityReport). Spread the pieces into
+ * core reports use (DataQualityReport and the other reports). Spread the pieces into
  * Recharts elements:
  *
  *   const { axisTick, gridStroke, tooltipProps } = useChartTheme();

@@ -22,37 +22,134 @@ At the top of the screen, you will find the **main navigation bar** with the fol
 - **Profile icon**: Language selection, theme toggle, notification preferences, and administration access
 - **Sponsor**: A purple-to-pink button next to the version number in the profile menu opens a dialog explaining why sponsorship matters, with a link to the blog and one-time or monthly options via GitHub Sponsors
 
-## Summary Cards
+## Dashboards and widgets
 
-The main section of the Dashboard displays **summary cards** indicating:
+The homepage is made of **dashboards**, shown as tabs at the top of the page. Three dashboards ship with Turbo EA:
 
-- **Total number of cards**: Count of all components registered in the platform
-- **Distribution by type**: How many elements of each type exist (Applications, Organizations, Objectives, Capabilities, etc.)
-- **Status overview**: Quick visualizations of the overall status
+| Dashboard | What it shows |
+|-----------|---------------|
+| **Overview** | The state of the whole landscape: KPI tiles, charts, the card types to browse and the latest activity |
+| **My Workspace** | Everything assigned to you — favorites, roles, todos, surveys, your recent changes (see [Workspace tab](#workspace-tab)) |
+| **Admin** | User activity, stakeholder coverage, approvals waiting and the stakeholder directory (see [Admin tab](#admin-tab-stakeholder-directory)) |
 
-Clicking on a type card navigates to the [Inventory](inventory.md) pre-filtered to that type.
+Each dashboard is a grid of **widgets**. You only see the widgets your role allows — the Overview widgets need the `reports.ea_dashboard` permission, the Admin widgets need `admin.users` — and a tab disappears when none of its widgets is visible to you. Administrators can change the built-in dashboards and add their own (see [Customizing dashboards](#customizing-dashboards)).
+
+Click the **pin** icon on a tab to make it the dashboard you land on when you open Turbo EA.
+
+## KPI tiles
+
+The row of tiles at the top of the Overview dashboard shows the headline figures of the landscape:
+
+- **Total cards**: Count of all components registered in the platform
+- **Average data quality**: The average completeness of all cards — click it to open the [Data Quality report](reports.md)
+- **Approved** and **Broken**: How many cards carry each approval status
+
+Each tile shows a **trend arrow** comparing today's value with the value at the start of the comparison window — 30 days, or less while the history is still being collected. The caption under the tiles names the window actually used. Snapshots are taken every day at 02:00 UTC. Trends describe the whole landscape, so they are shown only to users who can read every card; a user whose role hides some cards sees the value without the arrow.
 
 ![Dashboard - Bottom View with Charts](../assets/img/en/02_dashboard_bottom.png)
 
-## Charts and Statistics
+## Charts and lists
 
-In the bottom section of the Dashboard you will find:
+Below the tiles, the Overview dashboard shows:
 
-- **Distribution by type chart**: Shows the proportion of each card type in your landscape
-- **Approval status**: Indicates how many cards are approved, pending, broken, or rejected
-- **Data quality**: Overall percentage of information completeness across all cards
+- **Cards by type**: The proportion of each card type in your landscape
+- **Approval status**: How many cards are approved, pending, broken or rejected
+- **Completion distribution**: How many cards fall into each data-quality bucket
+- **Lifecycle overview**: How many cards are in each lifecycle phase
+- **Browse by type**: Every card type with its count — click one to open the [Inventory](inventory.md) pre-filtered to that type
 - **Recent activity**: A feed of the latest changes — who edited what and when
+
+Clicking a bar or a slice of a chart opens what is behind it: the [Inventory](inventory.md) filtered to those cards for a card type or an approval status, the Lifecycle report for a lifecycle phase, the Data Quality report for a completion bucket.
 
 ## Workspace tab
 
-The **Workspace** tab pulls together everything assigned to you: favorites, todos, pending surveys, recent activity on your cards, and the **Cards I Have a Role In** section.
+The **My Workspace** dashboard pulls together everything assigned to you: favorites, saved reports, todos, pending surveys, the cards you created, recent activity on your cards, and the **Cards I Have a Role In** section. Each of these is a widget, so an administrator can rearrange them or place them on another dashboard.
 
 That last section groups cards by the stakeholder role you hold (Application Owner, Business Owner, etc.) and lists the cards under each. If your role grants the `stakeholders.view` permission (admin, member and viewer roles by default), a small **person search** icon next to the section title lets you point it at **someone else** — pick a user from the autocomplete and the section refetches and re-renders with that user's roles and cards. The section title flips to "Roles held by {name}". Click the small close icon to return to your own roles. Useful for answering "what does this person own?" in one click.
 
 ## Admin tab — Stakeholder directory
 
-Administrators (any role with `admin.users`) get a **Stakeholder directory** widget at the bottom of the Admin tab. It lists every card type that has at least one stakeholder, with the count of distinct holders for each. Expand a card type to see its roles, and inside each role the users who hold it together with the number of cards they cover. Click a user chip to expand its card list inline — each card name is itself a link to the card detail page. The whole tree (card type → role → user → cards) comes back in a single round-trip, so navigation is instant.
+The **Admin** dashboard is shown to roles with `admin.users`. Next to its KPI tiles (active users, cards without stakeholders, overdue todos, approvals stuck, overall quality) and its lists (top contributors, stakeholder coverage, idle users, approval pipeline, system activity, unassigned todos), it ends with a **Stakeholder directory** widget. It lists every card type that has at least one stakeholder, with the count of distinct holders for each. Expand a card type to see its roles, and inside each role the users who hold it together with the number of cards they cover. Click a user chip to expand its card list inline — each card name is itself a link to the card detail page. The whole tree (card type → role → user → cards) comes back in a single round-trip, so navigation is instant.
 
 A **name filter** at the top of the widget narrows the tree to users matching the typed name or email; matching card types auto-expand so the matches are visible without an extra click. Use it to answer "where does Alice appear in the org?" in one second.
 
 Beyond the directory, a small **hover popover** opens whenever the cursor pauses on a stakeholder name elsewhere in the app — on a card's Stakeholders tab, on a risk owner in the Risk Register, or on the Risk Detail page — and shows that user's full role-grouped stakeholder portfolio. Click any card in the popover to jump to it. The popover fetches once per user per session.
+
+## Customizing dashboards
+
+Users whose role grants `admin.dashboards` (**Manage homepage dashboards** — the Admin role by default) can change every dashboard and create new ones. Everyone else sees the dashboards as configured.
+
+![Dashboard - Customize mode](../assets/img/en/03_dashboard_customize.png)
+
+### Customize mode
+
+Click **Customize** next to the dashboard tabs to edit the current dashboard. In customize mode:
+
+- **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
+- **Resize** a widget from its bottom-right corner.
+- **Remove** a widget with its close button.
+- **Configure** a KPI tile, a chart or the activity feed with its gear button.
+
+Click **Save** to keep the changes for everyone, or **Discard** to return to the dashboard as it was.
+
+### Adding and restoring widgets
+
+**Add widget** opens a drawer listing every widget, grouped as **KPIs**, **Charts**, **Overview**, **My Workspace** and **Admin**. Click one to add it to the dashboard; a KPI tile or a chart opens its configuration first. Every built-in widget stays in the catalogue, so a widget removed by mistake — **Recent activity**, say — is restored by adding it again. Widgets that can appear only once on a dashboard are greyed out and marked as already added when they are there.
+
+A widget keeps its own permission wherever it is placed: an Admin widget added to the Overview dashboard is still shown only to users with `admin.users`.
+
+### Configuring a KPI tile
+
+A KPI tile shows either one of the built-in metrics (total cards, data quality, open todos, and so on) or a figure you define:
+
+- **Card type** (optional): Count only cards of one type, optionally narrowed to a subtype, an approval status or a lifecycle phase.
+- **Metric**: **Count** of cards, or the **Sum** or **Average** of a number, cost or percentage field of that type.
+- **A rise is**: **Good** or **Bad** — sets whether an upward trend is shown in green or in red.
+
+A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs.
+
+### Configuring a chart
+
+A chart groups cards by one **dimension** and measures each group with a **metric**:
+
+| Dimension | Groups cards by |
+|-----------|-----------------|
+| **Card type** | Card type |
+| **Subtype** | Subtype of the chosen card type |
+| **Approval status** | Approved, pending, broken, rejected |
+| **Lifecycle phase** | The current lifecycle phase |
+| **Data quality** | Data-quality bucket (0–25 %, 25–50 %, …) |
+| **Month created** | Month the card was created |
+| **A field** | Any single-select or yes/no field of the chosen card type |
+
+The metric is **Number of cards**, or the **Sum** or **Average** of a number, cost or percentage field. Only the card types you can read are offered, and cost fields only to users who may see costs.
+
+| Chart | Best for |
+|-------|----------|
+| **Bar** / **Column** | Comparing groups, horizontally or vertically |
+| **Line** | A trend over time, such as cards created per month |
+| **Pie** / **Donut** | Shares of a whole |
+| **Gauge** | One value against a maximum (no grouping) |
+| **Heatmap** | Two dimensions at once — for example lifecycle phase against approval status |
+| **Treemap** | Shares when there are many groups |
+| **Sankey** | The flow of a relation type between the cards it connects |
+
+Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, line, pie, donut and treemap charts). A preview in the dialog shows the chart as it will appear.
+
+### Managing dashboards
+
+The **⋮** menu next to the tabs acts on the current dashboard:
+
+| Action | What it does |
+|--------|--------------|
+| **New dashboard** | Creates an empty dashboard, ready to fill with widgets |
+| **Duplicate** | Copies the dashboard with all its widgets — a quick start for a variant of a built-in dashboard |
+| **Settings** | Name, description, icon and **Access**: the roles allowed to see the dashboard. Leave Access empty to show it to everyone. Users with `admin.dashboards` always see every dashboard |
+| **Hide** / **Show** | Removes the dashboard from everyone else's tabs without deleting it |
+| **Move left** / **Move right** | Changes the order of the tabs |
+| **Reset to default** | Built-in dashboards only: restores the widgets and layout Turbo EA ships with |
+| **Delete** | Custom dashboards only: deletes the dashboard for everyone |
+
+Upgrading Turbo EA never overwrites a dashboard you have changed. When a release improves a built-in dashboard, **Reset to default** brings in the new version.
+
+Every change to a dashboard — created, edited, duplicated, reset or deleted, including which widgets were added or removed — is recorded in the [Audit log](../admin/audit-log.md#administrative-actions). Dashboards travel with a [workspace transfer](../admin/workspace-transfer.md).

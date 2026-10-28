@@ -64,3 +64,30 @@ describe("colour tokens", () => {
     ]);
   });
 });
+
+describe("dashboard chart tokens", () => {
+  it("give each mode the same number of fixed-order categorical hues, at most eight", async () => {
+    const t = await freshTokens();
+    expect(t.CHART_CATEGORICAL.light.length).toBe(t.CHART_CATEGORICAL.dark.length);
+    expect(t.CHART_CATEGORICAL.light.length).toBeLessThanOrEqual(8);
+    for (const mode of ["light", "dark"] as const) {
+      const hues = t.CHART_CATEGORICAL[mode];
+      expect(new Set(hues).size).toBe(hues.length);
+      for (const c of [...hues, ...t.CHART_SEQUENTIAL[mode]]) expect(c, mode).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(t.CHART_SEQUENTIAL[mode]).toHaveLength(2);
+    }
+  });
+
+  it("keep status hues out of the categorical palette", async () => {
+    const t = await freshTokens();
+    const status = new Set<string>(Object.values(t.STATUS_COLORS));
+    for (const c of [...t.CHART_CATEGORICAL.light, ...t.CHART_CATEGORICAL.dark]) expect(status.has(c)).toBe(false);
+  });
+
+  it("name every homepage KPI accent as a hex colour", async () => {
+    const t = await freshTokens();
+    for (const [key, value] of Object.entries(t.DASHBOARD_KPI_COLORS)) {
+      expect(value, key).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+});

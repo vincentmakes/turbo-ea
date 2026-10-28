@@ -115,6 +115,55 @@ async def get_comparison_snapshot(
     return min(rows, key=lambda r: abs((r.snapshot_date - target).days))
 
 
+def _delta_pct(curr: float, prev: float | None) -> float | None:
+    if prev is None or prev == 0:
+        return None
+    return round(((curr - prev) / prev) * 100, 1)
+
+
+def _delta_abs(curr: float, prev: float | None) -> float | None:
+    if prev is None:
+        return None
+    diff = curr - prev
+    # Preserve int for count KPIs; round the float KPI (avg_data_quality).
+    if isinstance(curr, int) and isinstance(prev, int):
+        return int(diff)
+    return round(diff, 1)
+
+
+def trend_for(
+    current: float,
+    previous_value: float | None,
+    previous_date: date | None,
+    preferred_days: int = 30,
+) -> dict:
+    """One KPI's trend against the snapshot taken on ``previous_date``.
+
+    Shared by the four built-in KPIs (``compute_trend_block``) and the generic
+    dashboard KPIs (``dashboard_kpi_service``) so the two arrows cannot read
+    differently. ``comparison_days`` is the snapshot's actual age (at least 1,
+    so a same-day startup baseline reads "vs 1 day"), or ``preferred_days``
+    when there is no snapshot to compare against.
+    """
+    if previous_date is not None:
+        today = datetime.now(timezone.utc).date()
+        comparison_days = max((today - previous_date).days, 1)
+    else:
+        comparison_days = preferred_days
+    return {
+        "current": current,
+        "previous": previous_value,
+        "delta_abs": _delta_abs(current, previous_value),
+        "delta_pct": _delta_pct(current, previous_value),
+        "comparison_days": comparison_days,
+        "snapshot_date": previous_date.isoformat() if previous_date is not None else None,
+        "snapshot_available": previous_date is not None,
+    }
+
+
+_TREND_FIELD_KEYS = ("current", "previous", "delta_abs", "delta_pct")
+
+
 def compute_trend_block(
     *,
     current: dict,
@@ -127,40 +176,14 @@ def compute_trend_block(
     differ from ``preferred_days`` when the dataset is new (fallback to
     whatever snapshot is available).
     """
-
-    def _delta_pct(curr: float, prev: float | None) -> float | None:
-        if prev is None or prev == 0:
-            return None
-        return round(((curr - prev) / prev) * 100, 1)
-
-    def _delta_abs(curr: float, prev: float | None) -> float | None:
-        if prev is None:
-            return None
-        diff = curr - prev
-        # Preserve int for count KPIs; round the float KPI (avg_data_quality).
-        if isinstance(curr, int) and isinstance(prev, int):
-            return int(diff)
-        return round(diff, 1)
-
-    if previous is not None:
-        today = datetime.now(timezone.utc).date()
-        comparison_days = max((today - previous.snapshot_date).days, 1)
-    else:
-        comparison_days = preferred_days
-
+    previous_date = previous.snapshot_date if previous is not None else None
     fields = ("total_cards", "avg_data_quality", "approved_count", "broken_count")
-    trends: dict = {
-        "comparison_days": comparison_days,
-        "snapshot_available": previous is not None,
-        "snapshot_date": previous.snapshot_date.isoformat() if previous else None,
-    }
+    trends: dict = {}
     for field in fields:
-        curr_val = current[field]
         prev_val = getattr(previous, field) if previous is not None else None
-        trends[field] = {
-            "current": curr_val,
-            "previous": prev_val,
-            "delta_abs": _delta_abs(curr_val, prev_val),
-            "delta_pct": _delta_pct(curr_val, prev_val),
-        }
+        one = trend_for(current[field], prev_val, previous_date, preferred_days)
+        trends.setdefault("comparison_days", one["comparison_days"])
+        trends.setdefault("snapshot_available", one["snapshot_available"])
+        trends.setdefault("snapshot_date", one["snapshot_date"])
+        trends[field] = {k: one[k] for k in _TREND_FIELD_KEYS}
     return trends

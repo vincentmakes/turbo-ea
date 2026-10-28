@@ -154,6 +154,7 @@ AI 工具通过 MCP 服务器发出的每一次调用在这里都是一个批次
 | **工作区迁移与平台迁移** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | 上传的[工作区包](workspace-transfer.md)及其导入的开始、完成或丢弃；上传的[平台迁移](migration.md)及其字段映射的编辑、应用或删除 |
 | **集成** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | ServiceNow 连接（凭据已遮蔽）和映射；每一次拉取、推送以及暂存记录的应用 |
 | **公开暴露** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Web 门户](web-portals.md)和已发布的图表——所有让数据无需账户即可访问的内容 |
+| **主页仪表盘** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [仪表盘](../guide/dashboard.md#customizing-dashboards)的创建、编辑、删除、复制或重置为默认，并记录更改的名称、描述、图标、可见性、顺序和访问角色；每个添加或移除的小部件都按名称列出（移动或调整小部件大小不会被记录） |
 | **调查** | `admin.survey.sent`, `admin.survey.closed` | 发送给收件人或已关闭的调查 |
 | **运维访问** | `admin.ops.rescue_access.granted`, `.revoked` | 通过[运维 API](ops-api.md) 授予或撤销的救援访问，与现有的 `ops.*` 事件一同记录 |
 

@@ -19,6 +19,7 @@ import {
  * would otherwise be silently fail-closed and lock everyone out of a page.
  */
 const KNOWN_PERMISSIONS = new Set([
+  "admin.dashboards",
   "admin.events",
   "admin.export_workspace",
   "admin.impersonate",

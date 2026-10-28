@@ -343,6 +343,7 @@ async def _kpi_snapshot_loop() -> None:
     from datetime import datetime, timedelta, timezone
 
     from app.database import async_session
+    from app.services.dashboard_kpi_service import capture_dashboard_kpis
     from app.services.kpi_snapshot_service import capture_snapshot
 
     while True:
@@ -364,6 +365,15 @@ async def _kpi_snapshot_loop() -> None:
                     snap.approved_count,
                     snap.broken_count,
                 )
+            # The admins' own KPI widgets, in a session of their own: a stale
+            # widget query must not cost the built-in KPIs their day.
+            try:
+                async with async_session() as db:
+                    captured = await capture_dashboard_kpis(db)
+                    await db.commit()
+                    logger.info("Captured %d dashboard KPI snapshot(s)", len(captured))
+            except Exception:
+                logger.exception("Error capturing dashboard KPI snapshots")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -614,6 +624,33 @@ async def _ensure_initial_kpi_snapshot() -> None:
             logger.info("Captured initial KPI snapshot baseline")
     except Exception:
         logger.exception("Failed to capture initial KPI snapshot")
+
+
+async def _ensure_initial_dashboard_kpi_snapshot() -> None:
+    """Capture the dashboard KPI widgets once on startup if their table is empty.
+
+    Separate from ``_ensure_initial_kpi_snapshot``, which returns early on
+    every install that already has a built-in snapshot — i.e. every upgrade —
+    so it would never record a baseline for the KPI widgets an upgraded
+    install's admins add before the first 02:00 UTC tick.
+    """
+    from sqlalchemy import select as _sel
+
+    from app.database import async_session
+    from app.models.dashboard import DashboardKpiSnapshot
+    from app.services.dashboard_kpi_service import capture_dashboard_kpis
+
+    try:
+        async with async_session() as db:
+            existing = await db.execute(_sel(DashboardKpiSnapshot.id).limit(1))
+            if existing.scalar_one_or_none() is not None:
+                return
+            captured = await capture_dashboard_kpis(db)
+            await db.commit()
+            if captured:
+                logger.info("Captured initial dashboard KPI baseline (%d)", len(captured))
+    except Exception:
+        logger.exception("Failed to capture initial dashboard KPI snapshot")
 
 
 async def _auto_configure_ai() -> None:
@@ -1046,6 +1083,7 @@ async def lifespan(app: FastAPI):
     # Capture an initial KPI baseline (no-op if table already has rows) and
     # start the daily snapshot loop that powers dashboard trend indicators.
     await _ensure_initial_kpi_snapshot()
+    await _ensure_initial_dashboard_kpi_snapshot()
     kpi_task = asyncio.create_task(_kpi_snapshot_loop())
 
     # Start the daily mitigation-task promotion loop that lifts

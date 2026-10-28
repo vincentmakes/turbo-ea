@@ -154,6 +154,7 @@
 | **نقل مساحة العمل والترحيل** | `admin.workspace.import.uploaded`, `.applied`, `.completed`, `.discarded`; `admin.migration.uploaded`, `.field_mappings.updated`, `.applied`, `.deleted` | [حزمة مساحة عمل](workspace-transfer.md) مرفوعة، وبدء استيرادها أو اكتماله أو تجاهله؛ و[ترحيل منصة](migration.md) مرفوع، وتحرير تعيينات حقوله أو تطبيقه أو حذفه |
 | **التكاملات** | `admin.servicenow.connection.*`, `admin.servicenow.mapping.*`, `admin.servicenow.sync.pulled`, `.pushed`, `.applied` | اتصالات ServiceNow مع إخفاء بيانات الاعتماد، والتعيينات؛ وكل عملية سحب ودفع وتطبيق للسجلات المرحلية |
 | **الإتاحة العامة** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [البوابات الإلكترونية](web-portals.md) والمخططات المنشورة — كل ما يجعل البيانات متاحة دون حساب |
+| **لوحات معلومات الصفحة الرئيسية** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [لوحات المعلومات](../guide/dashboard.md#customizing-dashboards) التي أُنشئت أو عُدّلت أو حُذفت أو كُرّرت أو أُعيدت إلى الوضع الافتراضي، مع الاسم والوصف والأيقونة والرؤية والترتيب وأدوار الوصول التي تغيّرت؛ وتُسرد كل أداة أُضيفت أو أُزيلت بالاسم (لا يُسجَّل نقل الأداة أو تغيير حجمها) |
 | **الاستبيانات** | `admin.survey.sent`, `admin.survey.closed` | استبيان أُرسل إلى مستلميه أو أُغلق |
 | **وصول المشغّل** | `admin.ops.rescue_access.granted`, `.revoked` | وصول الإنقاذ الممنوح أو الملغى عبر [واجهة برمجة العمليات](ops-api.md)، ويُسجَّل إلى جانب أحداث `ops.*` الموجودة |
 

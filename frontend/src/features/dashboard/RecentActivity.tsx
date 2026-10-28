@@ -25,13 +25,17 @@ interface Props {
   events: EventEntry[];
   /** Max rows after filtering / grouping. Defaults to 12. */
   maxRows?: number;
+  /** The filter tab selected on mount. Defaults to "all". */
+  defaultFilter?: ActivityFilter;
 }
 
 const FILTER_TABS: ActivityFilter[] = ["all", "cards", "approvals", "relations", "comments"];
 
-export default function RecentActivity({ events, maxRows = 12 }: Props) {
+export default function RecentActivity({ events, maxRows = 12, defaultFilter = "all" }: Props) {
   const { t } = useTranslation("common");
-  const [filter, setFilter] = useState<ActivityFilter>("all");
+  const [filter, setFilter] = useState<ActivityFilter>(
+    FILTER_TABS.includes(defaultFilter) ? defaultFilter : "all",
+  );
 
   const filteredGroups = useMemo<ActivityGroup[]>(() => {
     const filtered = events.filter((e) => {

@@ -61,6 +61,7 @@ PURE_ADMIN_MODULES = (
     "servicenow.py",
     "web_portals.py",
     "principles_catalogue.py",
+    "dashboards.py",
 )
 
 # Mostly content routes; only these handlers are administrative.

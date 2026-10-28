@@ -1,0 +1,298 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import i18n from "@/i18n";
+import type { DashboardWidget, User } from "@/types";
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
+vi.mock("../charts/EChart", () => ({
+  default: (props: { ariaLabel?: string }) => <div data-testid="echart" aria-label={props.ariaLabel} />,
+}));
+
+import { mockApi } from "@/test/apiMock";
+import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
+import { hookState, withMetamodel } from "@/test/hooks";
+import { adminUser, renderWithProviders, userWith } from "@/test/render";
+import WidgetConfigDialog from "./WidgetConfigDialog";
+
+const tc = (k: string) => i18n.t(`common:${k}`) as string;
+
+function widget(type: DashboardWidget["type"], config: Record<string, unknown>, title: string | null = null): DashboardWidget {
+  return { id: "w-new", type, title, config, layout: { x: 0, y: 4, w: 6, h: 5 } };
+}
+
+const NEW_CHART = widget("chart", { query: { group_by: "type" }, chart: "bar", drill: true });
+
+function renderDialog(w: DashboardWidget, { mode = "create", user = adminUser() }: { mode?: "create" | "edit"; user?: User } = {}) {
+  const onSave = vi.fn();
+  const onClose = vi.fn();
+  const result = renderWithProviders(<WidgetConfigDialog open widget={w} mode={mode} onClose={onClose} onSave={onSave} />, {
+    user,
+  });
+  return { ...result, onSave, onClose };
+}
+
+const combo = (label: string) => screen.getByRole("combobox", { name: new RegExp(`^${label}`) });
+const saveButton = (mode: "create" | "edit" = "create") =>
+  screen.getByRole("button", { name: mode === "create" ? tc("actions.add") : tc("actions.apply") });
+
+async function choose(user: ReturnType<typeof renderDialog>["user"], label: string, option: string) {
+  await user.click(combo(label));
+  const listbox = await screen.findByRole("listbox");
+  await user.click(within(listbox).getByRole("option", { name: option }));
+  await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+}
+
+async function options(user: ReturnType<typeof renderDialog>["user"], label: string): Promise<string[]> {
+  await user.click(combo(label));
+  const listbox = await screen.findByRole("listbox");
+  const out = within(listbox).getAllByRole("option").map((o) => o.textContent ?? "");
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  return out;
+}
+
+const problem = () => screen.queryByTestId("config-problem")?.textContent ?? null;
+
+beforeEach(() => {
+  mockApi.reset();
+  mockApi.lenient({ dimension: null, dimension_2: null, rows: [], total: 0 });
+  hookState.reset();
+  withMetamodel(CARD_TYPES, RELATION_TYPES);
+});
+
+describe("WidgetConfigDialog — chart", () => {
+  it("adds a valid chart and previews it with the real widget", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=type", {
+      dimension: "type",
+      dimension_2: null,
+      rows: [{ key: "Application", value: 3 }],
+      total: 3,
+    });
+    const { user, onSave } = renderDialog(NEW_CHART);
+    expect(screen.getByText(tc("dashboard.config.createTitle"))).toBeInTheDocument();
+    expect(problem()).toBeNull();
+    expect(await within(screen.getByTestId("config-preview")).findByTestId("echart")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", "/dashboards/query?group_by=type")).not.toHaveLength(0));
+    await user.type(screen.getByLabelText(tc("dashboard.config.title")), "  Landscape  ");
+    await user.click(saveButton());
+    expect(onSave).toHaveBeenCalledWith({
+      ...NEW_CHART,
+      title: "Landscape",
+      config: { query: { group_by: "type" }, chart: "bar", drill: true },
+    });
+  });
+
+  it("needs two different groupings for a heatmap", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.heatmap"));
+    expect(problem()).toBe(tc("dashboard.config.problem.secondDimensionRequired"));
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText(tc("dashboard.config.previewInvalid"))).toBeInTheDocument();
+    // The first grouping is not offered again.
+    expect(await options(user, tc("dashboard.config.secondDimension"))).not.toContain(tc("dashboard.query.dimension.type"));
+    await choose(user, tc("dashboard.config.secondDimension"), tc("dashboard.query.dimension.approval_status"));
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { group_by: "type", group_by_2: "approval_status" },
+      chart: "heatmap",
+      drill: true,
+    });
+  });
+
+  it("offers the chosen card type's fields and subtypes as groupings", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    expect(await options(user, tc("dashboard.config.dimension"))).not.toContain(tc("dashboard.query.dimension.subtype"));
+    // A hidden type is never offered.
+    expect(await options(user, tc("dashboard.config.cardType"))).toEqual([
+      tc("dashboard.config.allCardTypes"),
+      "Business Capability",
+      "Application",
+      "IT Component",
+      "Provider",
+    ]);
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    const dims = await options(user, tc("dashboard.config.dimension"));
+    expect(dims).toContain(tc("dashboard.query.dimension.subtype"));
+    expect(dims).toContain("Business Criticality");
+    expect(dims).toContain("Cloud Hosted");
+    expect(dims).not.toContain("Regions");
+    await choose(user, tc("dashboard.config.dimension"), "Business Criticality");
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.query).toEqual({
+      card_type: "Application",
+      group_by: "field:businessCriticality",
+    });
+  });
+
+  it("drops a field grouping the new card type does not have", async () => {
+    const { user } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await choose(user, tc("dashboard.config.dimension"), "Cloud Hosted");
+    expect(problem()).toBeNull();
+    await choose(user, tc("dashboard.config.cardType"), "Provider");
+    expect(problem()).toBe(tc("dashboard.config.problem.dimensionRequired"));
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("needs the field of a sum, offering cost fields to cost readers only", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    expect(combo(tc("dashboard.config.metricField"))).toHaveAttribute("aria-disabled", "true");
+    await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.sum"));
+    expect(problem()).toBe(tc("dashboard.config.problem.metricFieldRequired"));
+    expect(await options(user, tc("dashboard.config.metricField"))).toEqual([
+      "Total Annual Cost",
+      "Test Coverage",
+      "Vendor Score",
+    ]);
+    await choose(user, tc("dashboard.config.metricField"), "Total Annual Cost");
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.query).toEqual({
+      card_type: "Application",
+      group_by: "type",
+      metric: "sum",
+      metric_field: "costTotalAnnual",
+    });
+  });
+
+  it("hides cost fields from a reader without costs.view", async () => {
+    const { user } = renderDialog(NEW_CHART, { user: userWith("reports.ea_dashboard", "admin.dashboards") });
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.avg"));
+    expect(await options(user, tc("dashboard.config.metricField"))).toEqual(["Test Coverage", "Vendor Score"]);
+  });
+
+  it("builds a sankey from a relation type alone", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.sankey"));
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.cardType")}`) })).toBeNull();
+    expect(problem()).toBe(tc("dashboard.config.problem.relationTypeRequired"));
+    await choose(user, tc("dashboard.config.relationType"), "Application → uses → IT Component");
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({ query: { relation_type: "relAppToITC" }, chart: "sankey", drill: true });
+  });
+
+  it("does not offer a sankey without a relation type", async () => {
+    withMetamodel(CARD_TYPES, []);
+    const { user } = renderDialog(NEW_CHART);
+    const kinds = await options(user, tc("dashboard.config.chartKind"));
+    expect(kinds).toHaveLength(8);
+    expect(kinds).not.toContain(tc("dashboard.query.chart.sankey"));
+  });
+
+  it("draws a gauge without grouping and with an optional maximum", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.gauge"));
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.dimension")}`) })).toBeNull();
+    const max = screen.getByLabelText(tc("dashboard.config.gaugeMax"));
+    await user.type(max, "0");
+    expect(problem()).toBe(tc("dashboard.config.problem.maxPositive"));
+    await user.clear(max);
+    await user.type(max, "250");
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({ query: {}, chart: "gauge", drill: true, max: 250 });
+  });
+
+  it("turns click-through off", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await user.click(screen.getByLabelText(tc("dashboard.config.drill")));
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.drill).toBe(false);
+  });
+
+  it("filters by approval status and lifecycle phase", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.approvalFilter"), tc("status.approved"));
+    await choose(user, tc("dashboard.config.lifecycleFilter"), tc("lifecycle.active"));
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.query).toEqual({
+      group_by: "type",
+      approval_status: "APPROVED",
+      lifecycle_phase: "active",
+    });
+  });
+
+  it("forgets a built-in chart's title key once it shows something else", async () => {
+    const builtIn = widget("chart", {
+      query: { group_by: "type" },
+      chart: "bar",
+      drill: true,
+      title_key: "dashboard.cardsByType",
+    });
+    const { user, onSave } = renderDialog(builtIn, { mode: "edit" });
+    expect(screen.getByText(tc("dashboard.config.editTitle"))).toBeInTheDocument();
+    await choose(user, tc("dashboard.config.dimension"), tc("dashboard.query.dimension.lifecycle_phase"));
+    await user.click(saveButton("edit"));
+    expect(onSave.mock.calls[0][0].config).toEqual({ query: { group_by: "lifecycle_phase" }, chart: "bar", drill: true });
+  });
+
+  it("cancels", async () => {
+    const { user, onClose, onSave } = renderDialog(NEW_CHART);
+    await user.click(screen.getByRole("button", { name: tc("actions.cancel") }));
+    expect(onClose).toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+});
+
+describe("WidgetConfigDialog — KPI", () => {
+  it("configures a query KPI's direction and format", async () => {
+    mockApi.on("get", /^\/dashboards\/kpi/, { value: 12, trend: null });
+    const kpi = widget("kpi", { query: {}, good_direction: "up", format: "number" });
+    const { user, onSave } = renderDialog(kpi);
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.chartKind")}`) })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.dimension")}`) })).toBeNull();
+    expect(await within(screen.getByTestId("config-preview")).findByText("12")).toBeInTheDocument();
+    await choose(user, tc("dashboard.config.cardType"), "IT Component");
+    await choose(user, tc("dashboard.kpi.goodDirection"), tc("dashboard.kpi.goodDirection.down"));
+    await choose(user, tc("dashboard.config.format"), tc("dashboard.kpi.format.percent"));
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { card_type: "ITComponent" },
+      good_direction: "down",
+      format: "percent",
+    });
+  });
+
+  it("lets a preset KPI change only its title", async () => {
+    const preset = widget("kpi", { metric: "total_cards" });
+    const { user, onSave } = renderDialog(preset, { mode: "edit" });
+    expect(screen.queryAllByRole("combobox")).toEqual([]);
+    expect(screen.queryByTestId("config-preview")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(tc("dashboard.config.title")), "Everything");
+    await user.click(saveButton("edit"));
+    expect(onSave).toHaveBeenCalledWith({ ...preset, title: "Everything", config: { metric: "total_cards" } });
+  });
+
+  it("limits the title length", async () => {
+    const { user } = renderDialog(widget("kpi", { metric: "total_cards" }), { mode: "edit" });
+    await user.click(screen.getByLabelText(tc("dashboard.config.title")));
+    await user.paste("x".repeat(121));
+    expect(problem()).toBe(tc("dashboard.config.problem.titleTooLong"));
+    expect(saveButton("edit")).toBeDisabled();
+  });
+});
+
+describe("WidgetConfigDialog — recent activity", () => {
+  it("bounds the row count and saves the default filter", async () => {
+    const activity = widget("recent_activity", { max_rows: 12 });
+    const { user, onSave } = renderDialog(activity, { mode: "edit" });
+    const rows = screen.getByLabelText(tc("dashboard.config.maxRows"));
+    await user.clear(rows);
+    await user.type(rows, "0");
+    expect(problem()).toBe(tc("dashboard.config.problem.maxRowsRange"));
+    await user.clear(rows);
+    await user.type(rows, "20");
+    await choose(user, tc("dashboard.config.activityFilter"), tc("dashboard.activity.filter.approvals"));
+    await user.click(saveButton("edit"));
+    expect(onSave.mock.calls[0][0].config).toEqual({ max_rows: 20, filter: "approvals" });
+  });
+});
+
+it("renders nothing without a widget", () => {
+  renderWithProviders(<WidgetConfigDialog open widget={null} mode="edit" onClose={() => {}} onSave={() => {}} />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});

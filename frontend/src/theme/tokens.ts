@@ -285,6 +285,51 @@ export const CATEGORICAL_COLORS = [
   "#d32f2f",
 ] as const;
 
+// ── Dashboard charts (ECharts) ──────────────────────────────────────────
+
+/**
+ * Fixed-order categorical hues for dashboard charts, selected per mode (the
+ * dark column is the same eight hues stepped for the dark paper, not a flip).
+ * Assign by slot index in a fixed order, never cycled: a ninth category folds
+ * into "Other". The order is part of the colour-blind safety — validated with
+ * the dataviz palette script against `surface.*.paper` (light: worst adjacent
+ * CVD ΔE 9.1, normal-vision 19.6; dark: 8.4 / 19.3). Three light slots sit
+ * under 3:1 on white, so dashboard charts always carry a tooltip and a legend
+ * or direct labels. Status dimensions use their status tokens instead.
+ */
+export const CHART_CATEGORICAL = {
+  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"],
+  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
+} as const;
+
+/** Single-hue sequential ramp ends (low → high) for heatmaps, per mode: the
+ *  low end recedes toward the surface, the high end is the strongest blue. */
+export const CHART_SEQUENTIAL = {
+  light: ["#cde2fb", "#104281"],
+  dark: ["#184f95", "#9ec5f4"],
+} as const;
+
+/** Accent colours of the homepage KPI tiles — the values the Overview,
+ *  My Workspace and Admin tiles have always used, named once here. */
+export const DASHBOARD_KPI_COLORS = {
+  total: brand.primary,
+  completion: STATUS_COLORS.success,
+  approved: RAG_COLORS.green,
+  broken: RAG_COLORS.amber,
+  favorites: "#f5a623",
+  stakeholders: brand.primary,
+  todos: "#43a047",
+  surveys: "#7b1fa2",
+  activeUsers: "#43a047",
+  noStakeholders: "#ef6c00",
+  overdue: RAG_COLORS.red,
+  stuck: "#7b1fa2",
+  /** Overall data quality: ≥ 75 %, ≥ 50 %, below. */
+  qualityGood: "#43a047",
+  qualityFair: "#f5a623",
+  qualityPoor: RAG_COLORS.red,
+} as const;
+
 // ── Non-color tokens ────────────────────────────────────────────────────
 
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */

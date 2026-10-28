@@ -5,6 +5,20 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.181.0] - 2026-10-28
+
+### Added
+- **Editable homepage dashboards**: administrators can click **Customize** on the homepage to drag, resize and remove widgets on a 12-column grid, then **Save** or **Discard** the changes. A new permission, **Manage homepage dashboards** (`admin.dashboards`), granted to the Admin role by default, controls who may do this.
+- **Add widget** catalogue, grouped as KPIs, Charts, Overview, My Workspace and Admin: any built-in widget can be placed on any dashboard, and a widget removed by mistake, such as Recent activity, is restored by adding it again.
+- **KPI tiles** of your own: count cards of a type (optionally by subtype, approval status or lifecycle phase), or sum or average a number, cost or percentage field. Each tile keeps a trend arrow, which starts the day after the tile is saved.
+- **Chart widgets** drawn as bar, column, line, pie, donut, gauge, heatmap (two dimensions), treemap or sankey (a relation type), grouping cards by type, subtype, approval status, lifecycle phase, data quality, month created or a single-select or yes/no field. A click on a bar or slice opens the inventory or report behind it.
+- New dashboards, **Duplicate** of an existing one, and **Access** by role: each dashboard can be limited to chosen roles, or left open to everyone.
+- **Hide**, reorder and **Reset to default** for dashboards: a built-in dashboard can always be restored to the widgets Turbo EA ships with, and a custom one can be deleted. Every dashboard change is recorded in the Security & admin audit log, and dashboards travel with a workspace transfer.
+
+### Changed
+- The homepage tabs Overview, My Workspace and Admin are now dashboards built from widgets; they look as before until an administrator changes them, and upgrades never overwrite a customized dashboard.
+- The trend caption under the KPI tiles now shows the comparison window actually used, instead of always saying 30 days while the history is shorter.
+
 ## [2.180.2] - 2026-10-28
 
 ### Changed

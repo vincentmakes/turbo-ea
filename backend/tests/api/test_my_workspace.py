@@ -82,7 +82,8 @@ class TestUiPreferences:
 
         resp = await client.patch(
             "/api/v1/users/me/ui-preferences",
-            json={"dashboard_default_tab": "garbage"},
+            # Any dashboard key is accepted now; one that is not key-shaped is not.
+            json={"dashboard_default_tab": "Garbage Value!"},
             headers=auth_headers(user),
         )
         assert resp.status_code == 422

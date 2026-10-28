@@ -122,6 +122,8 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
 
+The **Manage homepage dashboards** permission (`admin.dashboards`, granted to the Admin role by default) lets a role customize the homepage: edit the widgets and layout of every dashboard, create, duplicate, hide, reorder, reset and delete dashboards, and choose which roles see each one. Seeing a dashboard needs no special permission — each widget on it still requires its own (for example `reports.ea_dashboard` for the Overview charts). See [Customizing dashboards](../guide/dashboard.md#customizing-dashboards).
+
 Permissions apply to the address bar as well as the menu. A page a role cannot open shows an **Access denied** notice with a link back to the dashboard, whether it is reached from the navigation, a bookmark, or a link someone shared — so hiding a menu entry and blocking the page are always the same decision.
 A role's permissions apply to every card type by default. An administrator can narrow that per card type — allowing or denying **View**, **Create**, **Edit**, **Archive** and **Delete** for one type at a time — on the **Permissions** tab of the card type in [Metamodel](metamodel.md#permissions). That is how you let everyone create Applications while reserving Organizations and Initiatives for a central team. Denying **View** goes further: cards of that type disappear for the role everywhere, except the cards its users hold a stakeholder role on (see [Hiding a card type from a role](metamodel.md#hiding-a-card-type-from-a-role)).
 

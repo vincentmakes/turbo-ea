@@ -122,6 +122,8 @@ A aba de **Papéis** permite gerenciar papéis em nível de aplicação. Cada pa
 
 Papéis personalizados podem ser criados com controle granular de permissões sobre inventário, relacionamentos, partes interessadas, comentários, documentos, diagramas, BPM, relatórios e mais.
 
+A permissão **Gerir os painéis da página inicial** (`admin.dashboards`, concedida por predefinição ao papel Admin) permite a um papel personalizar a página inicial: editar os widgets e o esquema de todos os painéis; criar, duplicar, ocultar, reordenar, repor e eliminar painéis; e escolher que papéis veem cada um. Ver um painel não exige nenhuma permissão especial — cada widget nele continua a exigir a sua (por exemplo, `reports.ea_dashboard` para os gráficos da Visão geral). Ver [Personalizar painéis](../guide/dashboard.md#customizing-dashboards).
+
 As permissões aplicam-se à barra de endereços tanto quanto ao menu. Uma página que uma função não pode abrir mostra o aviso **Acesso negado** com uma ligação de volta ao painel, quer se chegue pela navegação, por um marcador ou por uma ligação partilhada — ocultar uma entrada de menu e bloquear a página são sempre a mesma decisão.
 
 As permissões de um papel aplicam-se por predefinição a todos os tipos de card. Um administrador pode restringi-las por tipo de card — permitindo ou negando **Ver**, **Criar**, **Editar**, **Arquivar** e **Eliminar** — no separador **Permissões** do tipo de card no [Metamodelo](metamodel.md#permissions). Negar **Ver** vai mais longe: os cards desse tipo desaparecem para o papel em todo o lado, exceto aqueles em que os seus utilizadores detêm um papel de parte interessada (consulte [Ocultar um tipo de cartão a um papel](metamodel.md#hiding-a-card-type-from-a-role)).

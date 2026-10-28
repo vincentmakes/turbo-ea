@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.seed import CARD_TYPE_CATEGORIES, RELATIONS, TYPES
+from app.services.seed import CARD_TYPE_CATEGORIES, DASHBOARD_NAMES, RELATIONS, TYPES
 
 SUPPORTED_LOCALES = ["de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"]
 
@@ -501,4 +501,21 @@ class TestCardTypeCategoryTranslations:
             )
             assert value != category["label"], (
                 f"Category '{category['key']}' '{locale}' is the untranslated English label"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Built-in homepage dashboards
+# ---------------------------------------------------------------------------
+
+
+class TestDashboardNameTranslations:
+    @pytest.mark.parametrize("entry", [pytest.param(d, id=d["key"]) for d in DASHBOARD_NAMES])
+    def test_dashboard_name_translated_to_all_locales(self, entry):
+        """Every built-in dashboard names its tab in every non-English locale."""
+        translations = entry.get("translations", {})
+        for locale in SUPPORTED_LOCALES:
+            value = translations.get(locale)
+            assert isinstance(value, str) and value.strip(), (
+                f"Dashboard '{entry['key']}' missing '{locale}' translation"
             )

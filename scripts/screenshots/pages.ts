@@ -289,7 +289,9 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "01_dashboard",
     route: "/",
-    waitFor: ".recharts-responsive-container",
+    // The homepage is a react-grid-layout grid of widgets; charts are ECharts
+    // canvases (Recharts is no longer used here).
+    waitFor: ".react-grid-item canvas",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "01_dashboard",
@@ -305,7 +307,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "02_dashboard_bottom",
     route: "/",
-    waitFor: ".recharts-responsive-container",
+    waitFor: ".react-grid-item canvas",
     // Scroll partway down so the chart row (Cards by Type, Approval Status,
     // Data Quality, Lifecycle) is the focal point — going all the way to
     // "bottom" lands on the activity feed alone, which is not what the doc
@@ -324,6 +326,34 @@ export const DOC_PAGES: PageDef[] = [
       pt: "02_painel_inferior",
       zh: "02_dashboard_bottom",
       ru: "02_panel_upravleniya_nizhniy",
+    },
+  },
+  {
+    // Customize mode: the admin toggle next to the dashboard tabs turns on the
+    // drag handles, resize corners and per-widget configure / remove buttons.
+    id: "03_dashboard_customize",
+    route: "/",
+    waitFor: ".react-grid-item canvas",
+    actions: [
+      { type: "wait", ms: 800 },
+      {
+        type: "click",
+        selector: [
+          buttonSelector(...i18nLabels("common:dashboard.customize.customize")),
+          ariaSelector("button", ...i18nLabels("common:dashboard.customize.customize")),
+        ].join(", "),
+      },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "03_dashboard_customize",
+      de: "03_dashboard_anpassen",
+      fr: "03_tableau_de_bord_personnaliser",
+      es: "03_panel_personalizar",
+      it: "03_dashboard_personalizza",
+      pt: "03_painel_personalizar",
+      zh: "03_dashboard_customize",
+      ru: "03_panel_upravleniya_nastroyka",
     },
   },
 

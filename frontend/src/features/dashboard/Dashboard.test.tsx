@@ -1,178 +1,402 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
-import type { User } from "@/types";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import { useLocation } from "react-router";
+import i18n from "@/i18n";
+import type { Dashboard as DashboardModel, DashboardWidget, User } from "@/types";
 
-vi.mock("@/api/client", () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
+/* eslint-disable @typescript-eslint/no-explicit-any -- stubs capture their props as plain data */
+
+vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+
+const grid = vi.hoisted(() => ({ props: null as any }));
+vi.mock("./DashboardGrid", () => ({
+  default: (props: any) => {
+    grid.props = props;
+    return (
+      <div data-testid="grid" data-editing={String(props.editing)}>
+        {props.widgets.map((w: DashboardWidget) => (
+          <span key={w.id}>{`widget:${w.id}`}</span>
+        ))}
+      </div>
+    );
   },
 }));
-vi.mock("./OverviewTab", () => ({ default: () => <div data-testid="overview-tab" /> }));
-vi.mock("./workspace/WorkspaceTab", () => ({
-  default: () => <div data-testid="workspace-tab" />,
+vi.mock("./DashboardSources", () => ({
+  DashboardSourcesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-vi.mock("./admin/AdminTab", () => ({ default: () => <div data-testid="admin-tab" /> }));
+const menu = vi.hoisted(() => ({ props: null as any }));
+vi.mock("./customize/DashboardsMenu", () => ({
+  default: (props: any) => {
+    menu.props = props;
+    return <div data-testid="dashboards-menu">{props.label}</div>;
+  },
+}));
+vi.mock("./customize/WidgetConfigDialog", () => ({
+  default: (p: any) =>
+    p.open && p.widget ? (
+      <div data-testid="config-dialog" data-mode={p.mode} data-widget={p.widget.id}>
+        <button onClick={() => p.onSave({ ...p.widget, title: "Configured" })}>stub-save</button>
+        <button onClick={p.onClose}>stub-close</button>
+      </div>
+    ) : null,
+}));
 
-import { api } from "@/api/client";
-import { AuthProvider } from "@/hooks/AuthContext";
+import { mockApi } from "@/test/apiMock";
+import { makeUser, renderWithProviders } from "@/test/render";
 import Dashboard from "./Dashboard";
 
-function renderWith(user: Partial<User>, route = "/") {
-  const refreshUser = vi.fn().mockResolvedValue(undefined);
-  const fullUser: User = {
-    id: "u1",
-    email: "u@test",
-    display_name: "U",
-    role: "member",
-    is_active: true,
-    ...user,
-    // These cases are about tab routing and pinning, not about who may read
-    // the EA dashboard — so every fixture holds `reports.ea_dashboard` unless
-    // it deliberately overrides it. The Overview tab is hidden without it; see
-    // the "EA dashboard permission" block at the bottom.
-    permissions: { "reports.ea_dashboard": true, ...user.permissions },
-  };
+const tc = (k: string, o?: Record<string, unknown>) => i18n.t(`common:${k}`, o) as string;
+
+function w(id: string, type: DashboardWidget["type"], config: Record<string, unknown> = {}, y = 0): DashboardWidget {
+  return { id, type, title: null, config, layout: { x: 0, y, w: 6, h: 6 } };
+}
+
+function dash(key: string, widgets: DashboardWidget[], extra: Partial<DashboardModel> = {}): DashboardModel {
   return {
-    refreshUser,
-    ...render(
-      <MemoryRouter initialEntries={[route]}>
-        <AuthProvider user={fullUser} refreshUser={refreshUser}>
-          <Dashboard />
-        </AuthProvider>
-      </MemoryRouter>,
-    ),
+    id: `id-${key}`,
+    key,
+    name: key[0].toUpperCase() + key.slice(1),
+    translations: {},
+    description: null,
+    icon: null,
+    built_in: true,
+    is_hidden: false,
+    sort_order: 0,
+    widgets,
+    can_manage: false,
+    ...extra,
   };
 }
 
+const OVERVIEW = dash("overview", [w("kpi-total", "kpi", { metric: "total_cards" }), w("chart-type", "chart", { query: { group_by: "type" }, chart: "bar" })], {
+  translations: { fr: "Vue d'ensemble" },
+});
+const WORKSPACE = dash("workspace", [w("todos", "my_todos"), w("roles", "my_roles", {}, 6)], { sort_order: 1 });
+const ADMIN = dash("admin", [w("contributors", "top_contributors")], { sort_order: 2 });
+const TEAM = dash("team", [w("team-todos", "my_todos")], { built_in: false, is_hidden: true, sort_order: 3 });
+const EMPTY = dash("empty", [], { built_in: false, sort_order: 4 });
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.search}</div>;
+}
+
+function renderDashboard(
+  user: User,
+  { route = "/", dashboards = [OVERVIEW, WORKSPACE, ADMIN] }: { route?: string; dashboards?: DashboardModel[] } = {},
+) {
+  mockApi.on("get", "/dashboards", dashboards);
+  const refreshUser = vi.fn(async () => {});
+  const result = renderWithProviders(
+    <>
+      <Dashboard />
+      <LocationProbe />
+    </>,
+    { route, user, refreshUser },
+  );
+  return { ...result, refreshUser };
+}
+
+const member = (permissions: Record<string, boolean>, extra: Partial<User> = {}) =>
+  makeUser({ id: "member-1", role: "member", permissions, ...extra });
+const manager = (extra: Record<string, boolean> = {}) =>
+  member({ "admin.dashboards": true, "reports.ea_dashboard": true, "admin.users": true, ...extra });
+
+const tabNames = () =>
+  screen.getAllByRole("tab").map((tab) => tab.querySelector(".dashboard-tab-label")?.textContent);
+/** A button by its text; the Material Symbol ligature of its icon is part of its accessible name. */
+const button = (key: string) => screen.getByRole("button", { name: new RegExp(`${tc(key)}$`) });
+const queryButton = (key: string) => screen.queryByRole("button", { name: new RegExp(`${tc(key)}$`) });
+const location = () => screen.getByTestId("location").textContent;
+
 beforeEach(() => {
-  vi.clearAllMocks();
+  mockApi.reset();
+  grid.props = null;
+  menu.props = null;
 });
 
-describe("Dashboard tab routing", () => {
-  it("falls back to Overview when no preference is set and no ?tab=", () => {
-    renderWith({});
-    expect(screen.getByTestId("overview-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("workspace-tab")).not.toBeInTheDocument();
+describe("Dashboard tabs", () => {
+  it("shows one tab per dashboard in API order, opens on the first and writes it to the URL", async () => {
+    renderDashboard(member({ "reports.ea_dashboard": true, "admin.users": true }));
+    await waitFor(() => expect(tabNames()).toEqual(["Overview", "Workspace", "Admin"]));
+    expect(screen.getByText("widget:kpi-total")).toBeInTheDocument();
+    await waitFor(() => expect(location()).toBe("?tab=overview"));
   });
 
-  it("uses the user's pinned default tab when no ?tab= is supplied", () => {
-    renderWith({ ui_preferences: { dashboard_default_tab: "workspace" } });
-    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
+  it("names a dashboard in the reader's language", async () => {
+    await act(() => i18n.changeLanguage("fr"));
+    try {
+      renderDashboard(member({ "reports.ea_dashboard": true }));
+      await waitFor(() => expect(tabNames()[0]).toBe("Vue d'ensemble"));
+      expect(tabNames()[1]).toBe("Workspace");
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
   });
 
-  it("respects an explicit ?tab=overview even when workspace is pinned", () => {
-    renderWith(
-      { ui_preferences: { dashboard_default_tab: "workspace" } },
-      "/?tab=overview",
+  it("hides a tab with no widget the viewer may see, and opens on the next one", async () => {
+    renderDashboard(member({}));
+    await waitFor(() => expect(tabNames()).toEqual(["Workspace"]));
+    expect(screen.getByText("widget:todos")).toBeInTheDocument();
+    await waitFor(() => expect(location()).toBe("?tab=workspace"));
+  });
+
+  it("passes the grid only the widgets the viewer may see", async () => {
+    const mixed = dash("mixed", [w("todos", "my_todos"), w("contributors", "top_contributors")]);
+    renderDashboard(member({}), { dashboards: [mixed] });
+    await screen.findByText("widget:todos");
+    expect(grid.props.widgets.map((x: DashboardWidget) => x.id)).toEqual(["todos"]);
+    expect(screen.queryByText("widget:contributors")).not.toBeInTheDocument();
+  });
+
+  it("falls back from a ?tab= the viewer may not see without rewriting the link", async () => {
+    renderDashboard(member({ "reports.ea_dashboard": true }), { route: "/?tab=admin" });
+    await screen.findByText("widget:kpi-total");
+    expect(screen.queryByText("widget:contributors")).not.toBeInTheDocument();
+    expect(location()).toBe("?tab=admin");
+  });
+
+  it("opens on the pinned dashboard, unless ?tab= says otherwise", async () => {
+    const user = member({ "reports.ea_dashboard": true }, { ui_preferences: { dashboard_default_tab: "workspace" } });
+    const { unmount } = renderDashboard(user);
+    await screen.findByText("widget:todos");
+    await waitFor(() => expect(location()).toBe("?tab=workspace"));
+    unmount();
+    renderDashboard(user, { route: "/?tab=overview" });
+    expect(await screen.findByText("widget:kpi-total")).toBeInTheDocument();
+  });
+
+  it("ignores a stale pin (a dashboard that is gone)", async () => {
+    renderDashboard(member({ "reports.ea_dashboard": true }, { ui_preferences: { dashboard_default_tab: "deleted" } }));
+    await screen.findByText("widget:kpi-total");
+    await waitFor(() => expect(location()).toBe("?tab=overview"));
+  });
+
+  it("switches dashboards from the tabs", async () => {
+    const { user } = renderDashboard(member({ "reports.ea_dashboard": true }));
+    await screen.findByText("widget:kpi-total");
+    await user.click(screen.getByRole("tab", { name: /Workspace/ }));
+    expect(await screen.findByText("widget:todos")).toBeInTheDocument();
+    expect(location()).toBe("?tab=workspace");
+  });
+
+  it("pins a dashboard as the default", async () => {
+    mockApi.on("patch", "/users/me/ui-preferences", {});
+    const { user, refreshUser } = renderDashboard(member({ "reports.ea_dashboard": true }));
+    await screen.findByText("widget:kpi-total");
+    // The first tab is the implicit default; the others offer "Pin".
+    const pins = screen.getAllByLabelText(tc("dashboard.pinAsDefault"));
+    expect(pins).toHaveLength(1);
+    await user.click(pins[0]);
+    await waitFor(() =>
+      expect(mockApi.callsOf("patch", "/users/me/ui-preferences")).toEqual([
+        { method: "patch", path: "/users/me/ui-preferences", body: { dashboard_default_tab: "workspace" } },
+      ]),
     );
-    expect(screen.getByTestId("overview-tab")).toBeInTheDocument();
-  });
-
-  it("hides the Admin tab from non-admins", () => {
-    renderWith({ permissions: {} });
-    expect(screen.queryByRole("tab", { name: /Admin/i })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("admin-tab")).not.toBeInTheDocument();
-  });
-
-  it("falls back to overview when a non-admin requests ?tab=admin", () => {
-    renderWith({ permissions: {} }, "/?tab=admin");
-    expect(screen.getByTestId("overview-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("admin-tab")).not.toBeInTheDocument();
-  });
-
-  it("renders the Admin tab when the user has admin.users permission", () => {
-    renderWith({ permissions: { "admin.users": true } }, "/?tab=admin");
-    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
-  });
-
-  it("renders the Admin tab for wildcard admins (permissions['*'] = true)", () => {
-    renderWith({ permissions: { "*": true } }, "/?tab=admin");
-    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
-  });
-
-  it("clicking the pin icon sends the right ui-preferences payload", async () => {
-    vi.mocked(api.patch).mockResolvedValue({});
-    const { refreshUser } = renderWith({});
-
-    // Two pin buttons (one per tab). The Overview tab is currently default,
-    // so clicking its pin should toggle it OFF (send null).
-    const pinButtons = screen.getAllByLabelText(/Unpin default tab|Pin as default tab/);
-    expect(pinButtons.length).toBeGreaterThanOrEqual(2);
-
-    // Click the workspace tab's pin button (the second one — it should be "Pin as default")
-    const workspacePin = screen.getByLabelText("Pin as default tab");
-    await userEvent.click(workspacePin);
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/users/me/ui-preferences", {
-        dashboard_default_tab: "workspace",
-      });
-    });
     expect(refreshUser).toHaveBeenCalled();
   });
 
-  it("admins can pin the Admin tab as default (regression for #606)", async () => {
-    vi.mocked(api.patch).mockResolvedValue({});
-    const { refreshUser } = renderWith(
-      { permissions: { "admin.users": true } },
-      "/?tab=admin",
+  it("unpins the default dashboard", async () => {
+    mockApi.on("patch", "/users/me/ui-preferences", {});
+    const { user } = renderDashboard(
+      member({ "reports.ea_dashboard": true }, { ui_preferences: { dashboard_default_tab: "workspace" } }),
     );
+    await screen.findByText("widget:todos");
+    await user.click(screen.getByLabelText(tc("dashboard.unpinDefault")));
+    await waitFor(() =>
+      expect(mockApi.callsOf("patch", "/users/me/ui-preferences")[0].body).toEqual({ dashboard_default_tab: null }),
+    );
+  });
 
-    // Three tabs render in order: overview (pinned by default) / workspace / admin.
-    // The two non-pinned ones share the "Pin as default tab" label; the admin
-    // pin is the last one in DOM order.
-    const pinButtons = screen.getAllByLabelText("Pin as default tab");
-    expect(pinButtons.length).toBe(2);
-    await userEvent.click(pinButtons[pinButtons.length - 1]);
-
-    await waitFor(() => {
-      expect(api.patch).toHaveBeenCalledWith("/users/me/ui-preferences", {
-        dashboard_default_tab: "admin",
-      });
-    });
-    expect(refreshUser).toHaveBeenCalled();
+  it("says so when the dashboards cannot be loaded", async () => {
+    mockApi.fail("get", "/dashboards", 500);
+    renderWithProviders(<Dashboard />, { user: member({}) });
+    expect(await screen.findByText(tc("dashboard.loadFailed"))).toBeInTheDocument();
   });
 });
 
-describe("Dashboard — EA dashboard permission", () => {
-  it("drops Overview and opens on My Workspace for a role that cannot read it", () => {
-    renderWith({ permissions: { "reports.ea_dashboard": false } });
-
-    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
-    expect(screen.queryByRole("tab", { name: /Overview/i })).not.toBeInTheDocument();
+describe("Dashboard management", () => {
+  it("offers neither Customize nor the menu to a non-manager", async () => {
+    renderDashboard(member({ "reports.ea_dashboard": true, "admin.users": true }));
+    await screen.findByText("widget:kpi-total");
+    expect(queryButton("dashboard.customize.customize")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dashboards-menu")).not.toBeInTheDocument();
   });
 
-  it("ignores a stale ?tab=overview rather than rendering an empty tab", () => {
-    renderWith({ permissions: { "reports.ea_dashboard": false } }, "/?tab=overview");
-
-    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
-    expect(screen.queryByTestId("overview-tab")).not.toBeInTheDocument();
+  it("shows a manager every dashboard, hidden and empty ones included, and the menu", async () => {
+    renderDashboard(manager(), { dashboards: [OVERVIEW, WORKSPACE, ADMIN, TEAM, EMPTY] });
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(5));
+    const hiddenTab = screen.getByRole("tab", { name: /Team/ });
+    expect(within(hiddenTab).getByText(tc("dashboard.menu.hiddenChip"))).toBeInTheDocument();
+    expect(within(screen.getByRole("tab", { name: /Overview/ })).queryByText(tc("dashboard.menu.hiddenChip"))).toBeNull();
+    expect(button("dashboard.customize.customize")).toBeInTheDocument();
+    expect(screen.getByTestId("dashboards-menu")).toHaveTextContent("Overview");
+    expect(menu.props.dashboard).toEqual(OVERVIEW);
+    expect(menu.props.dashboards.map((d: DashboardModel) => d.key)).toEqual(["overview", "workspace", "admin", "team", "empty"]);
   });
 
-  it("ignores a stale pinned Overview preference too", () => {
-    renderWith({
-      permissions: { "reports.ea_dashboard": false },
-      ui_preferences: { dashboard_default_tab: "overview" },
+  it("tells a manager how to fill an empty dashboard", async () => {
+    renderDashboard(manager(), { route: "/?tab=empty", dashboards: [OVERVIEW, EMPTY] });
+    expect(await screen.findByText(tc("dashboard.customize.empty"))).toBeInTheDocument();
+    expect(screen.getByText(tc("dashboard.customize.emptyHint"))).toBeInTheDocument();
+    expect(screen.queryByTestId("grid")).not.toBeInTheDocument();
+  });
+
+  it("saves a rearranged layout with one PATCH and leaves customize mode", async () => {
+    mockApi.on("patch", "/dashboards/id-workspace", (_p: string, body: any) => ({ ...WORKSPACE, ...body }));
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+
+    expect(screen.getByTestId("grid")).toHaveAttribute("data-editing", "true");
+    expect(screen.getByText(tc("dashboard.customize.editingHint"))).toBeInTheDocument();
+    expect(screen.queryByTestId("dashboards-menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Overview/ })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: /Workspace/ })).toBeEnabled();
+    const save = screen.getByRole("button", { name: tc("actions.save") });
+    expect(save).toBeDisabled();
+    expect(screen.getByRole("button", { name: tc("actions.done") })).toBeInTheDocument();
+
+    const moved = [{ ...WORKSPACE.widgets[0], layout: { x: 6, y: 0, w: 6, h: 6 } }, WORKSPACE.widgets[1]];
+    act(() => grid.props.onLayoutChange(moved));
+    expect(screen.getByText(tc("dashboard.customize.unsavedChanges"))).toBeInTheDocument();
+    expect(save).toBeEnabled();
+
+    await user.click(save);
+    await waitFor(() => expect(screen.getByTestId("grid")).toHaveAttribute("data-editing", "false"));
+    expect(mockApi.callsOf("patch", "/dashboards/id-workspace")).toEqual([
+      { method: "patch", path: "/dashboards/id-workspace", body: { widgets: moved } },
+    ]);
+    // The page refetched the list after saving.
+    await waitFor(() => expect(mockApi.callsOf("get", "/dashboards")).toHaveLength(2));
+  });
+
+  it("keeps the widgets the manager cannot see when saving", async () => {
+    mockApi.on("patch", "/dashboards/id-mixed", (_p: string, body: any) => body);
+    const mixed = dash("mixed", [w("todos", "my_todos"), w("contributors", "top_contributors"), w("roles", "my_roles")]);
+    const { user } = renderDashboard(member({ "admin.dashboards": true }), { dashboards: [mixed] });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    expect(grid.props.widgets.map((x: DashboardWidget) => x.id)).toEqual(["todos", "roles"]);
+    act(() => grid.props.onRemove(mixed.widgets[0]));
+    expect(grid.props.widgets.map((x: DashboardWidget) => x.id)).toEqual(["roles"]);
+    act(() => grid.props.onLayoutChange([{ ...mixed.widgets[2], layout: { x: 3, y: 0, w: 6, h: 6 } }]));
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/dashboards/id-mixed")).toHaveLength(1));
+    expect(mockApi.callsOf("patch", "/dashboards/id-mixed")[0].body).toEqual({
+      widgets: [mixed.widgets[1], { ...mixed.widgets[2], layout: { x: 3, y: 0, w: 6, h: 6 } }],
     });
-
-    expect(screen.getByTestId("workspace-tab")).toBeInTheDocument();
   });
 
-  it("still gives an admin without it the Workspace and Admin tabs", () => {
-    renderWith(
-      { permissions: { "reports.ea_dashboard": false, "admin.users": true } },
-      "/?tab=admin",
-    );
+  it("discards changes", async () => {
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+    expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: tc("dashboard.customize.discard") }));
+    expect(screen.getByText("widget:todos")).toBeInTheDocument();
+    expect(screen.getByTestId("grid")).toHaveAttribute("data-editing", "false");
+    expect(mockApi.callsOf("patch")).toEqual([]);
+  });
 
-    expect(screen.getByTestId("admin-tab")).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").length).toBe(2);
+  it("reports a failed save and stays in customize mode", async () => {
+    mockApi.fail("patch", "/dashboards/id-workspace", 422, "invalid");
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    act(() => grid.props.onRemove(WORKSPACE.widgets[1]));
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    expect(await screen.findByText("PATCH /dashboards/id-workspace failed")).toBeInTheDocument();
+    expect(screen.getByTestId("grid")).toHaveAttribute("data-editing", "true");
+  });
+
+  it("adds a widget from the catalogue at the bottom of the dashboard", async () => {
+    mockApi.on("patch", "/dashboards/id-workspace", (_p: string, body: any) => ({ ...WORKSPACE, ...body }));
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    await user.click(button("dashboard.customize.addWidget"));
+    // Already on the dashboard: greyed.
+    expect(screen.getByTestId("catalogue-my_todos")).toHaveAttribute("aria-disabled", "true");
+    await user.click(screen.getByTestId("catalogue-my_favorites"));
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    await waitFor(() => expect(mockApi.callsOf("patch", "/dashboards/id-workspace")).toHaveLength(1));
+    const saved = (mockApi.callsOf("patch", "/dashboards/id-workspace")[0].body as any).widgets;
+    expect(saved).toHaveLength(3);
+    expect(saved[2]).toEqual({
+      id: expect.stringMatching(/^myfavorites-/),
+      type: "my_favorites",
+      title: null,
+      config: {},
+      layout: { x: 0, y: 12, w: 6, h: 6 },
+    });
+  });
+
+  it("configures a generic chart before adding it", async () => {
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    await user.click(button("dashboard.customize.addWidget"));
+    await user.click(screen.getByTestId("catalogue-chart"));
+    const dialog = screen.getByTestId("config-dialog");
+    expect(dialog).toHaveAttribute("data-mode", "create");
+    // Nothing is added until the dialog saves.
+    expect(grid.props.widgets).toHaveLength(2);
+    await user.click(within(dialog).getByText("stub-save"));
+    expect(screen.queryByTestId("config-dialog")).not.toBeInTheDocument();
+    expect(grid.props.widgets).toHaveLength(3);
+    expect(grid.props.widgets[2]).toMatchObject({
+      type: "chart",
+      title: "Configured",
+      config: { query: { group_by: "type" }, chart: "bar", drill: true },
+    });
+  });
+
+  it("drops a configured-but-cancelled new widget", async () => {
+    const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+    await screen.findByText("widget:todos");
+    await user.click(button("dashboard.customize.customize"));
+    await user.click(button("dashboard.customize.addWidget"));
+    await user.click(screen.getByTestId("catalogue-kpi"));
+    await user.click(screen.getByText("stub-close"));
+    expect(grid.props.widgets).toHaveLength(2);
+  });
+
+  it("reconfigures an existing widget in place", async () => {
+    const { user } = renderDashboard(manager());
+    await screen.findByText("widget:kpi-total");
+    await user.click(button("dashboard.customize.customize"));
+    act(() => grid.props.onConfigure(OVERVIEW.widgets[1]));
+    const dialog = screen.getByTestId("config-dialog");
+    expect(dialog).toHaveAttribute("data-mode", "edit");
+    expect(dialog).toHaveAttribute("data-widget", "chart-type");
+    await user.click(within(dialog).getByText("stub-save"));
+    expect(grid.props.widgets.map((x: DashboardWidget) => [x.id, x.title])).toEqual([
+      ["kpi-total", null],
+      ["chart-type", "Configured"],
+    ]);
+  });
+
+  it("opens a newly created dashboard in customize mode", async () => {
+    const created = dash("q3-review", [], { id: "id-new", built_in: false, sort_order: 5 });
+    renderDashboard(manager());
+    await screen.findByText("widget:kpi-total");
+    mockApi.on("get", "/dashboards", [OVERVIEW, WORKSPACE, ADMIN, created]);
+    act(() => menu.props.onChanged({ select: "q3-review", edit: true }));
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(4));
+    expect(location()).toBe("?tab=q3-review");
+    await waitFor(() => expect(button("dashboard.customize.addWidget")).toBeInTheDocument());
+  });
+
+  it("returns to the default dashboard after one is deleted", async () => {
+    const { user } = renderDashboard(manager(), { dashboards: [OVERVIEW, WORKSPACE, EMPTY] });
+    await screen.findByText("widget:kpi-total");
+    await user.click(screen.getByRole("tab", { name: /Empty/ }));
+    expect(location()).toBe("?tab=empty");
+    mockApi.on("get", "/dashboards", [OVERVIEW, WORKSPACE]);
+    act(() => menu.props.onChanged({ removed: true }));
+    await waitFor(() => expect(screen.getAllByRole("tab")).toHaveLength(2));
+    await waitFor(() => expect(location()).toBe("?tab=overview"));
   });
 });

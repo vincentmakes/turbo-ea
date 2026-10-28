@@ -122,6 +122,8 @@ Fanebladet **Roller** giver mulighed for at administrere applikationsroller. Hve
 
 Brugerdefinerede roller kan oprettes med granulær tilladelseskontrol over lager, relationer, interessenter, kommentarer, dokumenter, diagrammer, BPM, rapporter og mere.
 
+Tilladelsen **Administrer dashboards på startsiden** (`admin.dashboards`, som standard givet til Admin-rollen) lader en rolle tilpasse startsiden: redigere widgets og layout for alle dashboards, oprette, duplikere, skjule, omarrangere, nulstille og slette dashboards og vælge, hvilke roller der ser hvert enkelt. At se et dashboard kræver ingen særlig tilladelse — hver widget på det kræver stadig sin egen (for eksempel `reports.ea_dashboard` for diagrammerne i Oversigt). Se [Tilpasning af dashboards](../guide/dashboard.md#customizing-dashboards).
+
 Tilladelser gælder for adresselinjen såvel som for menuen. En side, som en rolle ikke må åbne, viser meddelelsen **Adgang nægtet** med et link tilbage til dashboardet — uanset om den nås fra navigationen, et bogmærke eller et delt link. At skjule et menupunkt og at blokere siden er dermed altid den samme beslutning.
 En rolles tilladelser gælder som standard for alle korttyper. En administrator kan indsnævre dem pr. korttype — tillade eller nægte **Vis**, **Opret**, **Rediger**, **Arkivér** og **Slet** — på fanen **Tilladelser** for korttypen i [Metamodellen](metamodel.md#permissions). At nægte **Vis** går videre: kort af den type forsvinder overalt for rollen, undtagen de kort, hvor dens brugere har en interessentrolle (se [Skjul en korttype for en rolle](metamodel.md#hiding-a-card-type-from-a-role)).
 

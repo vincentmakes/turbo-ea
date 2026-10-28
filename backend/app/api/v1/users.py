@@ -5,7 +5,7 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -68,7 +68,13 @@ class NotificationPreferencesUpdate(BaseModel):
 
 
 class UiPreferencesUpdate(BaseModel):
-    dashboard_default_tab: Literal["overview", "workspace", "admin"] | None = None
+    # The key of the dashboard the homepage opens on — a built-in one
+    # (``overview``, ``workspace``, ``admin``) or an admin's own. Not checked
+    # against the table: a pin on a dashboard deleted or hidden later is
+    # ignored by the frontend's stale-preference guard, like a tab it cannot see.
+    dashboard_default_tab: str | None = Field(
+        None, min_length=1, max_length=60, pattern=r"^[a-z0-9_-]+$"
+    )
     # Enabled Draw.io "More Shapes" libraries the user chose to remember, in the
     # order Draw.io reports them (e.g. ["general", "uml", "archimate3"]). Restored
     # as the embedded editor's `libs` URL param so the selection survives sessions.

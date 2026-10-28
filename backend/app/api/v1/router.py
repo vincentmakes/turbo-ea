@@ -15,6 +15,7 @@ from app.api.v1 import (
     card_logos,
     cards,
     comments,
+    dashboards,
     diagram_groups,
     diagrams,
     documents,
@@ -79,6 +80,7 @@ api_router.include_router(notifications.router)
 api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
 api_router.include_router(web_portals.router)
+api_router.include_router(dashboards.router)
 api_router.include_router(bpm.router)
 api_router.include_router(bpm_assessments.router)
 api_router.include_router(bpm_reports.router)

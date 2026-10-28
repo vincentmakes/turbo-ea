@@ -82,6 +82,8 @@ def test_the_kinds_are_the_vocabulary():
         "portal_filter.changed",
         "portal_toggle.changed",
         "portal_option.changed",
+        "dashboard_widget.added",
+        "dashboard_widget.removed",
         "locale.enabled",
         "locale.disabled",
         "image.replaced",

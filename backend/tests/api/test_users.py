@@ -991,11 +991,23 @@ class TestUiPreferences:
         assert resp.status_code == 200
         assert "dashboard_default_tab" not in resp.json()
 
-    async def test_rejects_unknown_tab(self, client, db, users_env):
+    async def test_accepts_a_custom_dashboard_key(self, client, db, users_env):
+        # Since dashboards became editable the pin holds any dashboard key.
         admin = users_env["admin"]
         resp = await client.patch(
             "/api/v1/users/me/ui-preferences",
-            json={"dashboard_default_tab": "not-a-tab"},
+            json={"dashboard_default_tab": "sales-board-a1b2c3"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["dashboard_default_tab"] == "sales-board-a1b2c3"
+
+    @pytest.mark.parametrize("tab", ["Not a key!", "x" * 61, ""])
+    async def test_rejects_a_value_that_is_not_a_dashboard_key(self, client, db, users_env, tab):
+        admin = users_env["admin"]
+        resp = await client.patch(
+            "/api/v1/users/me/ui-preferences",
+            json={"dashboard_default_tab": tab},
             headers=auth_headers(admin),
         )
         assert resp.status_code == 422

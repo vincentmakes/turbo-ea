@@ -78,6 +78,9 @@ AUDIT_ITEM_KINDS: frozenset[str] = frozenset(
         "portal_filter.changed",
         "portal_toggle.changed",
         "portal_option.changed",
+        # Homepage dashboards (``dashboards.widgets``).
+        "dashboard_widget.added",
+        "dashboard_widget.removed",
         # Settings, users, misc.
         "locale.enabled",
         "locale.disabled",

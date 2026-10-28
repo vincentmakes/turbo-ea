@@ -22,37 +22,134 @@ En haut de l'écran, vous trouverez la **barre de navigation principale** avec l
 - **Icône de profil** : Sélection de la langue, bascule de thème, préférences de notification et accès à l'administration
 - **Soutenir** : Un bouton violet-rose à côté du numéro de version dans le menu de profil ouvre une boîte de dialogue expliquant pourquoi le parrainage est important, avec un lien vers le blog et des options ponctuelles ou mensuelles via GitHub Sponsors
 
-## Fiches récapitulatives
+## Tableaux de bord et widgets
 
-La section principale du tableau de bord affiche des **fiches récapitulatives** indiquant :
+La page d’accueil est composée de **tableaux de bord**, affichés sous forme d’onglets en haut de la page. Trois tableaux de bord sont livrés avec Turbo EA :
 
-- **Nombre total de fiches** : Comptage de tous les composants enregistrés dans la plateforme
-- **Répartition par type** : Combien d'éléments de chaque type existent (Applications, Organisations, Objectifs, Capacités, etc.)
-- **Aperçu des statuts** : Visualisations rapides de l'état général
+| Tableau de bord | Ce qu’il affiche |
+|-----------------|------------------|
+| **Vue d’ensemble** | L’état de l’ensemble du paysage : tuiles KPI, graphiques, les types de fiche à parcourir et les dernières activités |
+| **Mon espace** | Tout ce qui vous est attribué — favoris, rôles, tâches, enquêtes, vos modifications récentes (voir [Onglet «Espace de travail»](#workspace-tab)) |
+| **Administration** | L’activité des utilisateurs, la couverture des parties prenantes, les approbations en attente et l’annuaire des parties prenantes (voir [Onglet «Administration»](#admin-tab-stakeholder-directory)) |
 
-Cliquer sur une fiche de type redirige vers l'[Inventaire](inventory.md) pré-filtré sur ce type.
+Chaque tableau de bord est une grille de **widgets**. Vous ne voyez que les widgets autorisés par votre rôle — les widgets de la vue d’ensemble nécessitent la permission `reports.ea_dashboard`, ceux d’administration `admin.users` — et un onglet disparaît lorsqu’aucun de ses widgets ne vous est visible. Les administrateurs peuvent modifier les tableaux de bord intégrés et ajouter les leurs (voir [Personnaliser les tableaux de bord](#customizing-dashboards)).
+
+Cliquez sur l’icône **épingle** d’un onglet pour en faire le tableau de bord affiché à l’ouverture de Turbo EA.
+
+## Tuiles KPI
+
+La rangée de tuiles en haut du tableau de bord « Vue d’ensemble » affiche les chiffres clés du paysage :
+
+- **Total des fiches** : nombre de tous les composants enregistrés dans la plateforme
+- **Qualité moyenne des données** : la complétude moyenne de toutes les fiches — cliquez dessus pour ouvrir le [rapport Qualité des données](reports.md)
+- **Approuvées** et **Cassées** : nombre de fiches portant chaque statut d’approbation
+
+Chaque tuile affiche une **flèche de tendance** comparant la valeur du jour à celle du début de la fenêtre de comparaison — 30 jours, ou moins tant que l’historique est en cours de constitution. La légende sous les tuiles indique la fenêtre réellement utilisée. Les instantanés sont pris chaque jour à 02:00 UTC. Les tendances décrivent l’ensemble du paysage ; elles ne sont donc affichées qu’aux utilisateurs qui peuvent lire toutes les fiches : un utilisateur dont le rôle masque certaines fiches voit la valeur sans la flèche.
 
 ![Tableau de bord - Vue inférieure avec graphiques](../assets/img/fr/02_tableau_de_bord_bas.png)
 
-## Graphiques et statistiques
+## Graphiques et listes
 
-Dans la section inférieure du tableau de bord, vous trouverez :
+Sous les tuiles, le tableau de bord « Vue d’ensemble » affiche :
 
-- **Graphique de répartition par type** : Montre la proportion de chaque type de fiche dans votre paysage
-- **Statut d'approbation** : Indique combien de fiches sont approuvées, en attente, cassées ou rejetées
-- **Qualité des données** : Pourcentage global de complétude des informations sur toutes les fiches
-- **Activité récente** : Un fil des derniers changements -- qui a modifié quoi et quand
+- **Fiches par type** : la proportion de chaque type de fiche dans votre paysage
+- **Statut d’approbation** : combien de fiches sont approuvées, en attente, cassées ou rejetées
+- **Répartition de la complétude** : combien de fiches se trouvent dans chaque tranche de qualité des données
+- **Vue d’ensemble du cycle de vie** : combien de fiches se trouvent dans chaque phase du cycle de vie
+- **Parcourir par type** : chaque type de fiche avec son nombre — cliquez sur l’un d’eux pour ouvrir l’[Inventaire](inventory.md) pré-filtré sur ce type
+- **Activité récente** : un fil des dernières modifications — qui a modifié quoi et quand
 
-## Onglet «Espace de travail»
+Cliquer sur une barre ou une portion de graphique ouvre ce qui se cache derrière : l’[Inventaire](inventory.md) filtré sur ces fiches pour un type de fiche ou un statut d’approbation, le rapport Cycle de vie pour une phase du cycle de vie, le rapport Qualité des données pour une tranche de complétude.
 
-L'onglet **Espace de travail** rassemble tout ce qui vous est assigné : favoris, tâches, sondages en attente, activité récente sur vos fiches et la section **Cartes où j'ai un rôle**.
+## Onglet «Espace de travail» { #workspace-tab }
 
-Cette dernière groupe les fiches par rôle de partie prenante que vous occupez (Application Owner, Business Owner, etc.) et liste les fiches sous chaque rôle. Si votre rôle accorde la permission `stakeholders.view` (admin, member et viewer par défaut), une petite icône **person_search** apparaît à côté du titre de la section : sélectionnez un utilisateur dans l'autocomplétion et la section se recharge avec ses rôles et ses fiches. Le titre devient «Rôles tenus par {name}». Cliquez sur la petite icône de fermeture pour revenir à vos propres rôles. Utile pour répondre à «que possède cette personne ?» en un clic.
+Le tableau de bord **Mon espace** rassemble tout ce qui vous est attribué : favoris, rapports enregistrés, tâches, enquêtes en attente, les fiches que vous avez créées, l’activité récente sur vos fiches et la section **Fiches où j’ai un rôle**. Chacun de ces éléments est un widget : un administrateur peut donc les réorganiser ou les placer sur un autre tableau de bord.
 
-## Onglet «Administration» — Annuaire des parties prenantes
+Cette dernière section regroupe les fiches selon le rôle de partie prenante que vous détenez (Application Owner, Business Owner, etc.) et liste les fiches sous chaque rôle. Si votre rôle accorde la permission `stakeholders.view` (rôles admin, member et viewer par défaut), une petite icône de **recherche de personne** à côté du titre de la section vous permet de la pointer vers **quelqu’un d’autre** : choisissez un utilisateur dans la saisie semi-automatique et la section se recharge avec les rôles et les fiches de cet utilisateur. Le titre devient « Rôles détenus par {name} ». Cliquez sur la petite icône de fermeture pour revenir à vos propres rôles. Utile pour répondre à « qu’est-ce que cette personne possède ? » en un clic.
 
-Les administrateurs (tout rôle disposant de `admin.users`) voient un widget **Annuaire des parties prenantes** en bas de l'onglet Administration. Il liste chaque type de fiche ayant au moins une partie prenante, avec le nombre de titulaires distincts. Dépliez un type de fiche pour voir ses rôles, et dans chaque rôle les utilisateurs avec le nombre de fiches qu'ils couvrent. Cliquez sur un chip d'utilisateur pour déplier sa liste de fiches juste en dessous — chaque nom de fiche est un lien vers la fiche de détail. Tout l'arbre (type de fiche → rôle → utilisateur → fiches) revient en un seul aller-retour, la navigation est instantanée.
+## Onglet «Administration» — Annuaire des parties prenantes { #admin-tab-stakeholder-directory }
 
-Un **filtre par nom** en haut du widget restreint l'arbre aux utilisateurs correspondant au nom ou à l'e-mail saisi ; les types de fiche correspondants s'auto-déplient afin que les correspondances soient visibles sans clic supplémentaire. Pratique pour répondre à «où apparaît Alice dans l'organisation ?» en une seconde.
+Le tableau de bord **Administration** est affiché aux rôles disposant de `admin.users`. Outre ses tuiles KPI (utilisateurs actifs, fiches sans partie prenante, tâches en retard, approbations bloquées, qualité globale) et ses listes (principaux contributeurs, couverture des parties prenantes, utilisateurs inactifs, pipeline d’approbation, activité système, tâches non attribuées), il se termine par un widget **Annuaire des parties prenantes**. Il liste chaque type de fiche comptant au moins une partie prenante, avec le nombre de détenteurs distincts. Développez un type de fiche pour voir ses rôles et, dans chaque rôle, les utilisateurs qui le détiennent avec le nombre de fiches qu’ils couvrent. Cliquez sur la pastille d’un utilisateur pour déplier sa liste de fiches sur place — chaque nom de fiche est lui-même un lien vers la page de détail de la fiche. L’arbre complet (type de fiche → rôle → utilisateur → fiches) est récupéré en un seul aller-retour, la navigation est donc instantanée.
 
-Au-delà de l'annuaire, un petit **popover de survol** s'ouvre dès que le curseur s'attarde sur un nom de partie prenante ailleurs dans l'application — dans l'onglet Parties prenantes d'une fiche, sur un propriétaire de risque dans le Registre des risques ou sur la page de détail d'un risque — et affiche le portefeuille complet de cette personne groupé par rôle. Cliquez sur une fiche dans le popover pour y accéder. Le popover n'effectue qu'une seule récupération par utilisateur et par session.
+Un **filtre par nom** en haut du widget restreint l’arbre aux utilisateurs dont le nom ou l’e-mail correspond à la saisie ; les types de fiche correspondants se déplient automatiquement pour que les résultats soient visibles sans clic supplémentaire. Utilisez-le pour répondre à « où Alice apparaît-elle dans l’organisation ? » en une seconde.
+
+Au-delà de l’annuaire, une petite **bulle au survol** s’ouvre dès que le curseur s’arrête sur un nom de partie prenante ailleurs dans l’application — sur l’onglet Parties prenantes d’une fiche, sur le propriétaire d’un risque dans le registre des risques ou sur la page de détail du risque — et affiche le portefeuille complet de cet utilisateur, regroupé par rôle. Cliquez sur n’importe quelle fiche dans la bulle pour y accéder. La bulle ne récupère les données qu’une fois par utilisateur et par session.
+
+## Personnaliser les tableaux de bord { #customizing-dashboards }
+
+Les utilisateurs dont le rôle accorde `admin.dashboards` (**Gérer les tableaux de bord de la page d’accueil** — le rôle Admin par défaut) peuvent modifier chaque tableau de bord et en créer de nouveaux. Tous les autres voient les tableaux de bord tels qu’ils sont configurés.
+
+![Tableau de bord - Mode de personnalisation](../assets/img/fr/03_tableau_de_bord_personnaliser.png)
+
+### Mode de personnalisation
+
+Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour modifier le tableau de bord actuel. En mode de personnalisation :
+
+- **Déplacez** un widget en le faisant glisser par sa poignée ; la grille compte 12 colonnes de large et les autres widgets lui laissent la place.
+- **Redimensionnez** un widget depuis son coin inférieur droit.
+- **Retirez** un widget avec son bouton de fermeture.
+- **Configurez** une tuile KPI, un graphique ou le fil d’activité avec son bouton en forme d’engrenage.
+
+Cliquez sur **Enregistrer** pour conserver les modifications pour tout le monde, ou sur **Annuler** pour revenir au tableau de bord tel qu’il était.
+
+### Ajouter et restaurer des widgets
+
+**Ajouter un widget** ouvre un panneau listant tous les widgets, regroupés en **KPI**, **Graphiques**, **Vue d’ensemble**, **Mon espace** et **Administration**. Cliquez sur l’un d’eux pour l’ajouter au tableau de bord ; une tuile KPI ou un graphique ouvre d’abord sa configuration. Chaque widget intégré reste dans le catalogue : un widget retiré par erreur — **Activité récente**, par exemple — est restauré en l’ajoutant de nouveau. Les widgets qui ne peuvent apparaître qu’une seule fois sur un tableau de bord sont grisés et marqués comme déjà ajoutés lorsqu’ils sont présents.
+
+Un widget conserve sa propre permission où qu’il soit placé : un widget d’administration ajouté au tableau de bord « Vue d’ensemble » n’est toujours affiché qu’aux utilisateurs disposant de `admin.users`.
+
+### Configurer une tuile KPI
+
+Une tuile KPI affiche soit l’une des mesures intégrées (total des fiches, qualité des données, tâches ouvertes, etc.), soit un chiffre que vous définissez :
+
+- **Type de fiche** (facultatif) : ne compter que les fiches d’un type, éventuellement restreint à un sous-type, un statut d’approbation ou une phase du cycle de vie.
+- **Mesure** : **Nombre** de fiches, ou **Somme** ou **Moyenne** d’un champ numérique, de coût ou de pourcentage de ce type.
+- **Une hausse est** : **Positive** ou **Négative** — détermine si une tendance à la hausse s’affiche en vert ou en rouge.
+
+Une nouvelle tuile KPI enregistre sa première valeur dès que le tableau de bord est enregistré ; sa tendance démarre donc le lendemain. Une somme ou une moyenne d’un champ de coût n’est affichée qu’aux utilisateurs autorisés à voir les coûts.
+
+### Configurer un graphique
+
+Un graphique regroupe les fiches selon une **dimension** et mesure chaque groupe avec une **mesure** :
+
+| Dimension | Regroupe les fiches par |
+|-----------|-------------------------|
+| **Type de fiche** | Type de fiche |
+| **Sous-type** | Sous-type du type de fiche choisi |
+| **Statut d’approbation** | Approuvée, en attente, cassée, rejetée |
+| **Phase du cycle de vie** | La phase actuelle du cycle de vie |
+| **Qualité des données** | Tranche de qualité des données (0–25 %, 25–50 %, …) |
+| **Mois de création** | Mois de création de la fiche |
+| **Un champ** | Tout champ à choix unique ou oui/non du type de fiche choisi |
+
+La mesure est le **Nombre de fiches**, ou la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts.
+
+| Graphique | Idéal pour |
+|-----------|------------|
+| **Barres** / **Colonnes** | Comparer des groupes, horizontalement ou verticalement |
+| **Courbe** | Une tendance dans le temps, comme les fiches créées par mois |
+| **Secteurs** / **Anneau** | Les parts d’un tout |
+| **Jauge** | Une valeur par rapport à un maximum (sans regroupement) |
+| **Carte de chaleur** | Deux dimensions à la fois — par exemple la phase du cycle de vie en fonction du statut d’approbation |
+| **Treemap** | Les parts lorsqu’il y a de nombreux groupes |
+| **Sankey** | Le flux d’un type de relation entre les fiches qu’il relie |
+
+Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, courbe, secteurs, anneau et treemap). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
+
+### Gérer les tableaux de bord
+
+Le menu **⋮** à côté des onglets agit sur le tableau de bord actuel :
+
+| Action | Ce qu’elle fait |
+|--------|-----------------|
+| **Nouveau tableau de bord** | Crée un tableau de bord vide, prêt à recevoir des widgets |
+| **Dupliquer** | Copie le tableau de bord avec tous ses widgets — un bon point de départ pour une variante d’un tableau de bord intégré |
+| **Paramètres** | Nom, description, icône et **Accès** : les rôles autorisés à voir le tableau de bord. Laissez l’accès vide pour l’afficher à tout le monde. Les utilisateurs disposant de `admin.dashboards` voient toujours tous les tableaux de bord |
+| **Masquer** / **Afficher** | Retire le tableau de bord des onglets de tous les autres sans le supprimer |
+| **Déplacer vers la gauche** / **Déplacer vers la droite** | Modifie l’ordre des onglets |
+| **Réinitialiser par défaut** | Tableaux de bord intégrés uniquement : restaure les widgets et la disposition livrés avec Turbo EA |
+| **Supprimer** | Tableaux de bord personnalisés uniquement : supprime le tableau de bord pour tout le monde |
+
+Une mise à niveau de Turbo EA n’écrase jamais un tableau de bord que vous avez modifié. Lorsqu’une version améliore un tableau de bord intégré, **Réinitialiser par défaut** apporte la nouvelle version.
+
+Chaque modification d’un tableau de bord — création, modification, duplication, réinitialisation ou suppression, y compris les widgets ajoutés ou retirés — est consignée dans le [Journal d’audit](../admin/audit-log.md#administrative-actions). Les tableaux de bord sont inclus dans un [transfert d’espace de travail](../admin/workspace-transfer.md).
