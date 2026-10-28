@@ -382,7 +382,7 @@
   "roles.saveChanges": "Guardar cambios",
   "roles.savedSuccess": "Rol guardado correctamente",
   "roles.createRole": "Crear rol",
-  "roles.createKeyHelperText": "Identificador único (minúsculas, solo guiones bajos). No se puede cambiar después.",
+  "roles.createKeyHelperText": "Identificador único (minúsculas, solo guiones bajos, de 3 a 50 caracteres). No se puede cambiar después.",
   "roles.creating": "Creando...",
   "roles.createdSuccess": "Rol creado correctamente",
   "roles.archiveRole": "Archivar rol",

@@ -940,6 +940,8 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
               size="small"
               helperText={t("roles.createKeyHelperText")}
               autoFocus
+              // The width of roles.key and the API's cap (#1330).
+              slotProps={{ htmlInput: { maxLength: 50 } }}
             />
             <TextField
               label={t("common:labels.name")}

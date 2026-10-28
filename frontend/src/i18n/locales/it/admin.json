@@ -382,7 +382,7 @@
   "roles.saveChanges": "Salva modifiche",
   "roles.savedSuccess": "Ruolo salvato con successo",
   "roles.createRole": "Crea ruolo",
-  "roles.createKeyHelperText": "Identificatore univoco (minuscolo, solo underscore). Non può essere modificato successivamente.",
+  "roles.createKeyHelperText": "Identificatore univoco (minuscolo, solo underscore, da 3 a 50 caratteri). Non può essere modificato successivamente.",
   "roles.creating": "Creazione...",
   "roles.createdSuccess": "Ruolo creato con successo",
   "roles.archiveRole": "Archivia ruolo",

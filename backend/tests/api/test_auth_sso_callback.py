@@ -13,7 +13,7 @@ from sqlalchemy import select
 import app.services.sso_service as sso
 from app.core.permissions import MEMBER_PERMISSIONS
 from app.models.user import User
-from tests.conftest import create_role, create_user
+from tests.conftest import LONG_ROLE_KEY, create_role, create_user, stored_role
 
 CALLBACK = "/api/v1/auth/sso/callback"
 BODY = {"code": "authz-code", "redirect_uri": "http://test/auth/callback"}
@@ -133,6 +133,23 @@ class TestProvisioning:
         assert (
             await db.execute(select(SsoInvitation).where(SsoInvitation.email == "invited@acme.com"))
         ).scalar_one_or_none() is None
+
+    async def test_an_invitation_with_a_50_character_role_is_honoured(
+        self, client, db, env, monkeypatch
+    ):
+        """An invitation can carry any role key ``POST /roles`` accepts (#1330)."""
+        from app.models.sso_invitation import SsoInvitation
+
+        await create_role(
+            db, key=LONG_ROLE_KEY, label="Regional", permissions=MEMBER_PERMISSIONS, is_system=False
+        )
+        db.add(SsoInvitation(email="regional@acme.com", role=LONG_ROLE_KEY))
+        await db.flush()
+        _exchange(monkeypatch, {"oid": "reg-oid", "email": "regional@acme.com"})
+
+        resp = await client.post(CALLBACK, json=BODY)
+        assert resp.status_code == 200, resp.text
+        assert await stored_role(db, User, "regional@acme.com") == LONG_ROLE_KEY
 
 
 class TestClaimValidation:

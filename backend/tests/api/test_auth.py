@@ -5,7 +5,7 @@ These tests require a PostgreSQL test database and an HTTP test client.
 
 from __future__ import annotations
 
-from tests.conftest import auth_headers, create_role, create_user
+from tests.conftest import LONG_ROLE_KEY, auth_headers, create_role, create_user, stored_role
 
 # ---------------------------------------------------------------------------
 # POST /auth/register
@@ -78,6 +78,31 @@ class TestRegister:
             await db.execute(select(User).where(User.email == "second@test.com"))
         ).scalar_one()
         assert created.role == "viewer"
+
+    async def test_second_user_gets_a_50_character_default_role(self, client, db):
+        """A default role whose key is the full 50 characters is assignable (#1330)."""
+        from app.models.user import User
+
+        await create_user(db, email="admin@test.com", role="admin")
+        await create_role(
+            db,
+            key=LONG_ROLE_KEY,
+            label="Regional Application Owner",
+            permissions={},
+            is_system=False,
+            is_default=True,
+        )
+
+        response = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "regional@test.com",
+                "display_name": "Regional User",
+                "password": "ValidPassword1",
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert await stored_role(db, User, "regional@test.com") == LONG_ROLE_KEY
 
     async def test_second_user_falls_back_to_member_without_default(self, client, db):
         """With no role flagged default, a non-first registration falls back to member."""

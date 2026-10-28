@@ -382,7 +382,7 @@
   "roles.saveChanges": "حفظ التغييرات",
   "roles.savedSuccess": "تم حفظ الدور بنجاح",
   "roles.createRole": "إنشاء دور",
-  "roles.createKeyHelperText": "معرّف فريد (أحرف صغيرة وشرطات سفلية فقط). لا يمكن تغييره لاحقًا.",
+  "roles.createKeyHelperText": "معرّف فريد (أحرف صغيرة وشرطات سفلية فقط، من 3 إلى 50 حرفًا). لا يمكن تغييره لاحقًا.",
   "roles.creating": "جارٍ الإنشاء...",
   "roles.createdSuccess": "تم إنشاء الدور بنجاح",
   "roles.archiveRole": "أرشفة الدور",

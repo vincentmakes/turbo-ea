@@ -298,8 +298,16 @@ def _disable_rate_limiter():
 # Factory helpers
 # ---------------------------------------------------------------------------
 
+# The longest role key ``POST /roles`` accepts (50 characters, the width of
+# ``roles.key``). Every column that stores an assigned role key must hold it
+# (#1330: ``users.role`` and ``sso_invitations.role`` were ``VARCHAR(20)``).
+LONG_ROLE_KEY = "regional_application_owner_for_emea_and_apac_zone1"
+assert len(LONG_ROLE_KEY) == 50
 
-async def create_role(db, *, key="admin", label="Admin", permissions=None, is_system=True):
+
+async def create_role(
+    db, *, key="admin", label="Admin", permissions=None, is_system=True, is_default=False
+):
     """Insert a role into the test database."""
     from app.models.role import Role
 
@@ -308,11 +316,25 @@ async def create_role(db, *, key="admin", label="Admin", permissions=None, is_sy
         label=label,
         permissions=permissions if permissions is not None else {"*": True},
         is_system=is_system,
+        is_default=is_default,
         color="#757575",
     )
     db.add(role)
     await db.flush()
     return role
+
+
+async def stored_role(db, model, email: str) -> str:
+    """The ``role`` column as the database holds it for ``email``, not the
+    session's cached copy — what a request actually wrote."""
+    from sqlalchemy import select
+
+    row = (
+        await db.execute(
+            select(model).where(model.email == email).execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    return row.role
 
 
 async def create_user(

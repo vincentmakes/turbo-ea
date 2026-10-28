@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.180.3] - 2026-10-28
+
+### Fixed
+- Roles with keys longer than 20 characters can now be assigned to users, used in SSO invitations and set as the default sign-up role; saving such a user used to fail with a server error ([#1330](https://github.com/vincentmakes/turbo-ea/issues/1330)).
+
 ## [2.180.2] - 2026-10-28
 
 ### Changed

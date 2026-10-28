@@ -8,9 +8,11 @@ import pytest
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from tests.conftest import (
+    LONG_ROLE_KEY,
     auth_headers,
     create_role,
     create_user,
+    stored_role,
 )
 
 
@@ -50,6 +52,28 @@ class TestBulkUpdate:
         body = resp.json()
         assert len(body) == 2
         assert all(u["role"] == "member" for u in body)
+
+    async def test_admin_can_bulk_change_to_a_50_character_role(self, client, db, bulk_env):
+        """A role key of the full width ``POST /roles`` accepts is assignable (#1330)."""
+        from app.models.user import User
+
+        await create_role(
+            db,
+            key=LONG_ROLE_KEY,
+            label="Regional Application Owner",
+            permissions=MEMBER_PERMISSIONS,
+            is_system=False,
+        )
+        targets = [bulk_env["viewer1"], bulk_env["viewer2"]]
+        resp = await client.patch(
+            "/api/v1/users/bulk",
+            json={"ids": [str(u.id) for u in targets], "updates": {"role": LONG_ROLE_KEY}},
+            headers=auth_headers(bulk_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert [u["role"] for u in resp.json()] == [LONG_ROLE_KEY, LONG_ROLE_KEY]
+        for target in targets:
+            assert await stored_role(db, User, target.email) == LONG_ROLE_KEY
 
     async def test_admin_can_bulk_deactivate(self, client, db, bulk_env):
         admin = bulk_env["admin"]

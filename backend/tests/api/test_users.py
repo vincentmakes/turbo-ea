@@ -11,9 +11,11 @@ import pytest
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from tests.conftest import (
+    LONG_ROLE_KEY,
     auth_headers,
     create_role,
     create_user,
+    stored_role,
 )
 
 
@@ -1145,3 +1147,83 @@ async def test_unlock_unknown_user_is_404(client, db, users_env, user_id):
         f"/api/v1/users/{user_id}/unlock", headers=auth_headers(users_env["admin"])
     )
     assert resp.status_code == 404
+
+
+# -------------------------------------------------------------------
+# A role key of the full 50 characters ``POST /roles`` accepts (#1330)
+# -------------------------------------------------------------------
+
+
+class TestLongRoleKey:
+    """``users.role`` and ``sso_invitations.role`` were ``VARCHAR(20)`` while a
+    role key may be 50 characters, so a longer role could be created and then
+    never assigned: every write 500'd with "value too long"."""
+
+    @pytest.fixture
+    async def long_role(self, db, users_env):
+        return await create_role(
+            db,
+            key=LONG_ROLE_KEY,
+            label="Regional Application Owner",
+            permissions=MEMBER_PERMISSIONS,
+            is_system=False,
+        )
+
+    async def test_create_user_with_a_50_character_role(self, client, db, users_env, long_role):
+        from app.models.user import User
+
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "regional@test.com",
+                "display_name": "Regional Owner",
+                "password": "StrongPass1",
+                "role": LONG_ROLE_KEY,
+            },
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["role"] == LONG_ROLE_KEY
+        assert await stored_role(db, User, "regional@test.com") == LONG_ROLE_KEY
+
+    async def test_change_a_user_to_a_50_character_role(self, client, db, users_env, long_role):
+        from app.models.user import User
+
+        member = users_env["member"]
+        resp = await client.patch(
+            f"/api/v1/users/{member.id}",
+            json={"role": LONG_ROLE_KEY},
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["role"] == LONG_ROLE_KEY
+        assert await stored_role(db, User, "member@test.com") == LONG_ROLE_KEY
+
+    async def test_sso_invitation_carries_a_50_character_role(
+        self, client, db, users_env, long_role
+    ):
+        from app.models.app_settings import AppSettings
+        from app.models.sso_invitation import SsoInvitation
+        from app.models.user import User
+
+        db.add(
+            AppSettings(
+                id="default",
+                general_settings={"sso": {"enabled": True, "provider": "generic_oidc"}},
+            )
+        )
+        await db.commit()
+
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "sso-regional@test.com",
+                "display_name": "SSO Regional",
+                "role": LONG_ROLE_KEY,
+                "send_email": True,
+            },
+            headers=auth_headers(users_env["admin"]),
+        )
+        assert resp.status_code == 201, resp.text
+        assert await stored_role(db, SsoInvitation, "sso-regional@test.com") == LONG_ROLE_KEY
+        assert await stored_role(db, User, "sso-regional@test.com") == LONG_ROLE_KEY
