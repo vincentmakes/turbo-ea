@@ -1,8 +1,8 @@
 /**
  * The dashboard's widget grid: react-grid-layout on 12 columns with 60 px
- * rows. Only the 12-column layout is stored; on narrower screens the library
- * derives a 6- or 2-column one, and moving widgets there is switched off so
- * a phone never rewrites the desktop layout.
+ * rows. Only the 12-column layout is stored; on narrower screens it is
+ * scaled and reflowed onto 6 or 2 columns (`reflowLayout`), and moving
+ * widgets there is switched off so a phone never rewrites the desktop layout.
  *
  * react-grid-layout has no right-to-left mode, so in an RTL locale the grid
  * is laid out `dir="ltr"` and every item's `x` is mirrored on the way in and
@@ -44,6 +44,7 @@ import {
   applyGridLayout,
   fitRowNeighbour,
   mirrorLayout,
+  reflowLayout,
   toGridItem,
   type GridItem,
 } from "./layoutUtils";
@@ -76,13 +77,21 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
   const { width, containerRef, mounted } = useContainerWidth();
   const breakpoint = getBreakpointFromWidth(BREAKPOINTS, width);
 
-  const layout = useMemo<GridItem[]>(() => {
-    const items = widgets.map(toGridItem);
-    return isRtl ? mirrorLayout(items, GRID_COLS) : items;
-  }, [widgets, isRtl]);
+  const items = useMemo<GridItem[]>(() => widgets.map(toGridItem), [widgets]);
+  const layout = useMemo<GridItem[]>(() => (isRtl ? mirrorLayout(items, GRID_COLS) : items), [items, isRtl]);
 
-  // The same layout serves both 12-column breakpoints.
-  const layouts = useMemo(() => ({ lg: layout, md: layout }), [layout]);
+  // The stored layout serves both 12-column breakpoints as it is; the narrow
+  // ones get it scaled and flowed in reading order (`reflowLayout`) instead of
+  // the library's clamp, which piles a row of tiles into the last column.
+  // The reflow runs on the left-to-right layout and is mirrored afterwards, so
+  // in a right-to-left locale the first widget still opens the top-right row.
+  const layouts = useMemo(() => {
+    const narrow = (cols: number) => {
+      const flowed = reflowLayout(items, GRID_COLS, cols);
+      return isRtl ? mirrorLayout(flowed, cols) : flowed;
+    };
+    return { lg: layout, md: layout, sm: narrow(COLS.sm), xs: narrow(COLS.xs) };
+  }, [items, layout, isRtl]);
 
   const canArrange = editing && FULL_WIDTH.has(breakpoint);
   const handleSx = useMemo(() => handleStyles(theme, canArrange), [theme, canArrange]);

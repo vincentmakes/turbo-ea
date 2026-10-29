@@ -5,9 +5,10 @@
  *
  * Mark rules (dataviz): thin bars with 4px rounded data ends, 2px lines, a 2px
  * surface gap between adjacent fills, recessive axes and grid, no number on
- * every mark (pie / donut slices keep their value label, as the homepage
- * always had), a legend wherever colour carries identity across several
- * categories, a hover tooltip on every form.
+ * every mark unless the widget asks for it (`showValues`, on bars, columns,
+ * stacked columns, treemaps and heatmaps; pie / donut slices always keep
+ * their value label, as the homepage always had), a legend wherever colour
+ * carries identity across several categories, a hover tooltip on every form.
  */
 import type { EChartsCoreOption } from "echarts/core";
 import type {
@@ -69,6 +70,9 @@ export interface BuildContext {
   seriesName?: string;
   /** Mark cursor — "pointer" when a click drills somewhere. */
   cursor?: "pointer" | "default";
+  /** Print each mark's figure — bars, columns, stacked segments, treemap
+   *  tiles and heatmap cells (`VALUE_LABEL_KINDS`); ignored elsewhere. */
+  showValues?: boolean;
 }
 
 export function defaultValueFormatter(value: number): string {
@@ -248,7 +252,13 @@ function axisLabel(ctx: BuildContext, extra: Record<string, unknown> = {}): Reco
  * label reaches past its column.
  */
 function grid(ctx: BuildContext, top: number, bottom: number): Record<string, unknown> {
-  return { left: ctx.isRtl ? 16 : 8, right: ctx.isRtl ? 8 : 16, top, bottom, containLabel: true };
+  return {
+    left: ctx.isRtl ? GRID_TRAILING_INSET : 8,
+    right: ctx.isRtl ? 8 : GRID_TRAILING_INSET,
+    top,
+    bottom,
+    containLabel: true,
+  };
 }
 
 function splitLine(ctx: BuildContext): Record<string, unknown> {
@@ -263,6 +273,38 @@ export const LABEL_CHAR_WIDTH = 6.6;
 
 /** Widest a legend entry's name is drawn before it is ellipsised. */
 export const LEGEND_LABEL_WIDTH = 120;
+
+/** Font size of a value printed on a mark (`showValues`). */
+export const VALUE_LABEL_FONT_SIZE = 11;
+/** ECharts' gap between a bar's end and an outside label, in px. */
+const VALUE_LABEL_DISTANCE = 5;
+/** The trailing inset a cartesian grid keeps when nothing is printed past a bar. */
+const GRID_TRAILING_INSET = 16;
+
+/**
+ * The trailing inset a horizontal bar chart keeps when it prints its values:
+ * the widest bar can end at the grid's edge, and its figure is drawn past
+ * it, so the inset holds the longest formatted value at the 11 px estimate
+ * plus the label's gap — never less than the plain grid's inset. Pure.
+ */
+export function valueLabelInset(values: number[], format: (value: number) => string): number {
+  const chars = values.reduce((m, v) => Math.max(m, format(v).length), 0);
+  const width = (chars * LABEL_CHAR_WIDTH * VALUE_LABEL_FONT_SIZE) / 12;
+  return Math.max(GRID_TRAILING_INSET, Math.ceil(width + VALUE_LABEL_DISTANCE + 4));
+}
+
+/** A value label on a bar or column, read through the widget's formatter. */
+function valueLabel(ctx: BuildContext, position: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
+  const valueOf = fmt(ctx);
+  return {
+    show: true,
+    position,
+    color: ctx.theme.textSecondary,
+    fontSize: VALUE_LABEL_FONT_SIZE,
+    formatter: (p: { value?: unknown }) => valueOf(Number(p.value ?? 0)),
+    ...extra,
+  };
+}
 
 /**
  * A legend in a fixed band at the bottom: one row that pages (arrows) when
@@ -304,9 +346,12 @@ function keyRows(rows: DashboardQueryRow[]): DashboardKeyRow[] {
 function buildBar(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOption {
   const data = keyRows(rows);
   const radius = ctx.isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0];
+  const plot = grid(ctx, 8, 8);
+  // A printed value sits past the bar's end: keep room for the longest.
+  if (ctx.showValues) plot[ctx.isRtl ? "left" : "right"] = valueLabelInset(data.map((r) => r.value), fmt(ctx));
   return {
     ...base(ctx),
-    grid: grid(ctx, 8, 8),
+    grid: plot,
     tooltip: tooltip(ctx, { trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: ctx.theme.hover } } }),
     xAxis: {
       type: "value",
@@ -332,6 +377,7 @@ function buildBar(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOpti
         barMaxWidth: 24,
         barCategoryGap: "30%",
         cursor: ctx.cursor ?? "default",
+        ...(ctx.showValues && { label: valueLabel(ctx, ctx.isRtl ? "left" : "right") }),
         data: data.map((r, i) => ({
           value: r.value,
           key: r.key,
@@ -371,6 +417,7 @@ function buildColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
         barMaxWidth: 32,
         barCategoryGap: "30%",
         cursor: ctx.cursor ?? "default",
+        ...(ctx.showValues && { label: valueLabel(ctx, "top") }),
         data: data.map((r, i) => ({
           value: r.value,
           key: r.key,
@@ -638,12 +685,38 @@ function buildHeatmap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
         type: "heatmap",
         name: ctx.seriesName,
         cursor: ctx.cursor ?? "default",
-        label: { show: false },
+        // A printed figure keeps a surface-coloured halo, so it reads on the
+        // pale and the deep end of the ramp alike.
+        label: ctx.showValues
+          ? {
+              show: true,
+              formatter: (p: { value?: [number, number, number] }) => fmt(ctx)(Number(p.value?.[2] ?? 0)),
+              color: ctx.theme.textPrimary,
+              textBorderColor: ctx.theme.surface,
+              textBorderWidth: 2,
+              fontSize: VALUE_LABEL_FONT_SIZE,
+            }
+          : { show: false },
         itemStyle: { borderColor: ctx.theme.surface, borderWidth: 2, borderRadius: 2 },
         emphasis: { itemStyle: { borderColor: ctx.theme.textPrimary, borderWidth: 1 } },
         data: cells.map((c) => [xs.indexOf(c.x), ys.indexOf(c.y), c.value]),
       },
     ],
+  };
+}
+
+/**
+ * A treemap tile's label: its name, and with `showValues` its figure on a
+ * second, smaller line in the same surface colour.
+ */
+function treemapLabel(ctx: BuildContext): Record<string, unknown> {
+  const label: Record<string, unknown> = { show: true, color: ctx.theme.surface, fontSize: 12, overflow: "truncate" };
+  if (!ctx.showValues) return label;
+  const valueOf = fmt(ctx);
+  return {
+    ...label,
+    formatter: (p: { name?: string; value?: unknown }) => `${p.name ?? ""}\n{value|${valueOf(Number(p.value ?? 0))}}`,
+    rich: { value: { color: ctx.theme.surface, fontSize: VALUE_LABEL_FONT_SIZE, lineHeight: 16 } },
   };
 }
 
@@ -666,7 +739,7 @@ function buildTreemap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
         left: 0,
         cursor: ctx.cursor ?? "default",
         itemStyle: { borderColor: ctx.theme.surface, borderWidth: 2, gapWidth: 2, borderRadius: 4 },
-        label: { show: true, color: ctx.theme.surface, fontSize: 12, overflow: "truncate" },
+        label: treemapLabel(ctx),
         data: data.map((r, i) => ({
           value: r.value,
           key: r.key,
@@ -788,6 +861,17 @@ function buildStackedColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChar
     barCategoryGap: "30%",
     cursor: ctx.cursor ?? "default",
     emphasis: { focus: "series" },
+    // An empty segment prints nothing; a label too big for its segment is hidden.
+    ...(ctx.showValues && {
+      label: valueLabel(ctx, "inside", {
+        color: ctx.theme.surface,
+        formatter: (p: { value?: unknown }) => {
+          const v = Number(p.value ?? 0);
+          return v === 0 ? "" : fmt(ctx)(v);
+        },
+      }),
+      labelLayout: { hideOverlap: true },
+    }),
     itemStyle: {
       color: colorY(y, yi),
       borderColor: ctx.theme.surface,

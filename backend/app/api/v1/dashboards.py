@@ -29,7 +29,7 @@ from app.services import audit_log
 from app.services import dashboard_kpi_service as kpis
 from app.services import dashboard_service as svc
 from app.services.card_read_scope import CardReadScope
-from app.services.dashboard_defaults import default_widgets
+from app.services.dashboard_defaults import DEFAULT_DASHBOARDS, default_widgets
 from app.services.dashboard_query import (
     DashboardQuery,
     DashboardQueryError,
@@ -342,7 +342,14 @@ async def reset_dashboard(
         raise HTTPException(409, "not_built_in")
     before = svc.audit_snapshot(dashboard)
     dashboard.widgets = widgets
-    changes, items = svc.audit_changes_for(before, svc.audit_snapshot(dashboard), {})
+    # Reset means the whole default: a built-in that states its access (the
+    # Admin dashboard) gets the seeded roles back too.
+    spec = DEFAULT_DASHBOARDS[dashboard.key]
+    if spec.get("access_permission"):
+        dashboard.allowed_roles = await svc.seeded_access(db, spec)
+    after = svc.audit_snapshot(dashboard)
+    labels = await svc.role_labels(db, before["allowed_roles"], after["allowed_roles"])
+    changes, items = svc.audit_changes_for(before, after, labels)
     await _audit(db, user, "reset", dashboard, changes=changes, items=items)
     await db.commit()
     return svc.dashboard_payload(dashboard, can_manage=True)

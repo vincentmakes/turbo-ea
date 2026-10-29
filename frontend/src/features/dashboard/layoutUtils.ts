@@ -42,6 +42,45 @@ export function mirrorLayout<T extends { x: number; w: number }>(layout: readonl
   return layout.map((item) => ({ ...item, x: Math.max(0, cols - item.x - item.w) }));
 }
 
+/**
+ * The stored 12-column layout scaled and flowed onto a narrower grid.
+ *
+ * react-grid-layout derives a missing breakpoint's layout by clamping each
+ * item (`x = min(x, cols - w)`), which piles a row of narrow widgets into the
+ * last column: four 3-wide KPI tiles at x = 0, 3, 6, 9 become x = 0, 3, 3, 3
+ * on six columns. Instead, items are taken in reading order (`y`, then `x`),
+ * each width is scaled to the new grid (`round(w * toCols / fromCols)`,
+ * between 1 and `toCols`; on two columns or fewer every item is full width,
+ * so a phone stacks one widget per row), heights are kept, and the items are
+ * flowed left to right: one that does not fit beside the previous one starts
+ * a new row, under the tallest item of the row before.
+ *
+ * Returns new items with the same ids and heights and a new `x`, `y` and `w`
+ * (a stored `minW` is capped at the new width); the input is not mutated.
+ * Only ever used for display: a reflowed layout is never written back.
+ */
+export function reflowLayout(layout: readonly GridItem[], fromCols: number, toCols: number): GridItem[] {
+  const ordered = [...layout].sort((a, b) => a.y - b.y || a.x - b.x);
+  const out: GridItem[] = [];
+  let cursor = 0;
+  let rowY = 0;
+  let rowBottom = 0;
+  for (const item of ordered) {
+    const scaled = Math.round((item.w * toCols) / fromCols);
+    const w = toCols <= 2 ? toCols : Math.min(toCols, Math.max(1, scaled));
+    if (cursor + w > toCols) {
+      rowY = rowBottom;
+      cursor = 0;
+    }
+    const next: GridItem = { ...item, x: cursor, y: rowY, w };
+    if (item.minW !== undefined) next.minW = Math.min(item.minW, w);
+    out.push(next);
+    cursor += w;
+    rowBottom = Math.max(rowBottom, rowY + item.h);
+  }
+  return out;
+}
+
 /** A widget's grid item, with the catalogue's minimum size when it stores none. */
 export function toGridItem(widget: DashboardWidget): GridItem {
   const { x, y, w, h } = widget.layout;

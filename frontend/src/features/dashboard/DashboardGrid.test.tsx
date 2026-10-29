@@ -102,6 +102,65 @@ describe("DashboardGrid", () => {
     expect(p.layouts.md).toBe(p.layouts.lg);
   });
 
+  describe("narrow breakpoints", () => {
+    const KPI_ROW: DashboardWidget[] = [0, 3, 6, 9].map((x, n) => ({
+      id: `kpi-${n + 1}`,
+      type: "kpi",
+      title: null,
+      config: {},
+      layout: { x, y: 0, w: 3, h: 2 },
+    }));
+    const BELOW: DashboardWidget = { ...CHART, id: "chart-below", layout: { x: 0, y: 2, w: 12, h: 5 } };
+
+    it("hands the library reflowed 6- and 2-column layouts instead of letting it clamp", () => {
+      renderGrid({ widgets: [...KPI_ROW, BELOW] });
+      const { sm, xs } = rgl.props.layouts;
+      expect(sm.map((item: any) => [item.i, item.x, item.y, item.w, item.h])).toEqual([
+        ["kpi-1", 0, 0, 2, 2],
+        ["kpi-2", 2, 0, 2, 2],
+        ["kpi-3", 4, 0, 2, 2],
+        ["kpi-4", 0, 2, 2, 2],
+        ["chart-below", 0, 4, 6, 5],
+      ]);
+      expect(xs.map((item: any) => [item.i, item.x, item.y, item.w])).toEqual([
+        ["kpi-1", 0, 0, 2],
+        ["kpi-2", 0, 2, 2],
+        ["kpi-3", 0, 4, 2],
+        ["kpi-4", 0, 6, 2],
+        ["chart-below", 0, 8, 2],
+      ]);
+    });
+
+    it("never puts two tiles of a row in the same column on six columns", () => {
+      renderGrid({ widgets: KPI_ROW });
+      const cells = rgl.props.layouts.sm.map((item: any) => `${item.y}:${item.x}`);
+      expect(new Set(cells).size).toBe(KPI_ROW.length);
+      expect(rgl.props.layouts.sm.every((item: any) => item.x + item.w <= 6)).toBe(true);
+    });
+
+    it("leaves the stored layout alone for the 12-column breakpoints", () => {
+      renderGrid({ widgets: KPI_ROW });
+      expect(rgl.props.layouts.lg.map((item: any) => item.x)).toEqual([0, 3, 6, 9]);
+    });
+
+    it("mirrors the reflowed layout in a right-to-left locale, the first widget opening the top-right row", () => {
+      hookState.isRtl = true;
+      renderGrid({ widgets: KPI_ROW });
+      expect(rgl.props.layouts.sm.map((item: any) => [item.i, item.x, item.y])).toEqual([
+        ["kpi-1", 4, 0],
+        ["kpi-2", 2, 0],
+        ["kpi-3", 0, 0],
+        ["kpi-4", 4, 2],
+      ]);
+      expect(rgl.props.layouts.xs.map((item: any) => [item.i, item.x, item.y])).toEqual([
+        ["kpi-1", 0, 0],
+        ["kpi-2", 0, 2],
+        ["kpi-3", 0, 4],
+        ["kpi-4", 0, 6],
+      ]);
+    });
+  });
+
   it("locks the grid outside customize mode and shows no widget toolbar", () => {
     renderGrid();
     expect(rgl.props.dragConfig).toEqual({ enabled: false, handle: ".dashboard-widget-drag-handle" });

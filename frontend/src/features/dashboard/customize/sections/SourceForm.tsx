@@ -2,7 +2,7 @@
  * A module widget (a series of the risks, compliance, PPM or BPM report):
  * the series it reads is fixed by the catalogue entry; a chart can change its
  * kind (among those that fit the series' shape) and how many categories it
- * shows — or, as a gauge, its target and bands (a module score is a rate on
+ * shows and whether its bars or columns print their figures — or, as a gauge, its target and bands (a module score is a rate on
  * the fixed 0–100 scale).
  */
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import type { DashboardChartKind, DashboardWidget } from "@/types";
 import { PERCENT_SERIES } from "../../widgets/chartConfig";
 import { seriesLabelKey } from "../../widgets/sourceSeries";
-import { GaugeFields } from "./PresentationSection";
+import { GaugeFields, ShowValuesSwitch } from "./PresentationSection";
 import { sourceChartKinds } from "../widgetConfigModel";
 import SelectField from "./SelectField";
 import type { DraftProps } from "./types";
@@ -54,6 +54,7 @@ export default function SourceForm({ widget, draft, set }: Props) {
           slotProps={{ htmlInput: { min: 1, "data-testid": "config-max" } }}
         />
       )}
+      {isChart && <ShowValuesSwitch draft={draft} set={set} />}
     </Stack>
   );
 }

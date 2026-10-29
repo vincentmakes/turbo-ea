@@ -507,6 +507,36 @@ describe("ChartWidget — relation-aware and module charts", () => {
     expect(echart.last!.option.xAxis.data).toEqual([i18n.t("admin:compliance_regulation_gdpr"), "Our policy"]);
   });
 
+  it("prints the figures when the widget asks for them, on a query chart and a module chart", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=type", {
+      dimension: "type",
+      dimension_2: null,
+      rows: [{ key: "Application", value: 8 }],
+      total: 8,
+    });
+    const { unmount } = renderChart(chart({ query: { group_by: "type" }, chart: "column", show_values: true }));
+    await screen.findByTestId("echart");
+    expect(series().label).toMatchObject({ show: true, position: "top" });
+    expect(series().label.formatter({ value: 8 })).toBe("8");
+    unmount();
+    renderChart(chart({ query: { group_by: "type" }, chart: "column" }));
+    await screen.findByTestId("echart");
+    expect(series()).not.toHaveProperty("label");
+  });
+
+  it("prints a module chart's figures too", async () => {
+    mockApi.on("get", "/risks/metrics", {
+      total: 7,
+      by_status: {},
+      by_level: { critical: 1, low: 6 },
+      by_category: {},
+      overdue: 0,
+    });
+    renderChart(chart({ source: "risks_metrics", series: "by_level", chart: "bar", show_values: true }));
+    await screen.findByTestId("echart");
+    expect(series().label).toMatchObject({ show: true, position: "right" });
+  });
+
   it("says when a module report has nothing to draw", async () => {
     mockApi.on("get", "/reports/bpm/dashboard", { total_processes: 0, by_maturity: {} });
     renderChart(chart({ source: "bpm_dashboard", series: "by_maturity", chart: "pie" }));

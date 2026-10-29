@@ -29,7 +29,7 @@ import {
 } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 import type { DashboardChartKind, DashboardQueryRow } from "@/types";
-import { CHART_KINDS } from "../widgets/chartConfig";
+import { CHART_KINDS, VALUE_LABEL_KINDS } from "../widgets/chartConfig";
 import { buildOption, type BuildContext } from "./buildOption";
 import { buildEChartsChrome } from "./echartsTheme";
 
@@ -100,14 +100,18 @@ function rowsFor(kind: DashboardChartKind): DashboardQueryRow[] {
   }
 }
 
-function ctxFor(kind: DashboardChartKind, isRtl: boolean): BuildContext {
+function ctxFor(kind: DashboardChartKind, isRtl: boolean, showValues = false): BuildContext {
   const palette = chrome.categorical;
   return {
     labels: (k) => k,
     colors: (_k, i) => palette[i % palette.length],
     theme: chrome,
     isRtl,
+    showValues,
     seriesName: longName("Measure", 0),
+    // A printed value can be longer than the axis' own tick label (a share
+    // with a decimal and a unit): the plot must keep room for it.
+    ...(showValues ? { valueFormatter: (v: number) => `${v.toFixed(1)}%` } : {}),
     ...(kind === "gauge" ? { unit: "%", valueFormatter: (v: number) => `${v}%` } : {}),
   };
 }
@@ -289,11 +293,17 @@ function problemsOf(boxes: TextBox[], width: number, height: number): string[] {
   return problems;
 }
 
-function overflowing(kind: DashboardChartKind, width: number, height: number, isRtl: boolean): string[] {
+function overflowing(
+  kind: DashboardChartKind,
+  width: number,
+  height: number,
+  isRtl: boolean,
+  showValues = false,
+): string[] {
   const div = document.createElement("div");
   document.body.appendChild(div);
   chart = echarts.init(div, null, { renderer: "svg", width, height });
-  const option = buildOption(kind, rowsFor(kind), ctxFor(kind, isRtl)) as Record<string, unknown>;
+  const option = buildOption(kind, rowsFor(kind), ctxFor(kind, isRtl, showValues)) as Record<string, unknown>;
   chart.setOption({ ...option, animation: false });
   const boxes = textBoxes(div);
   // The guard must see the text it guards: the long names, or the gauge's reading.
@@ -312,6 +322,25 @@ describe("every chart keeps its text inside the canvas", () => {
       }
     }
   }
+});
+
+describe("every chart that prints its values keeps them inside the canvas", () => {
+  for (const kind of CHART_KINDS.filter((k) => VALUE_LABEL_KINDS.has(k))) {
+    for (const { width, height } of SIZES) {
+      for (const isRtl of [false, true]) {
+        it(`${kind} with values at ${width}×${height}${isRtl ? " (RTL)" : ""}`, () => {
+          expect(overflowing(kind, width, height, isRtl, true)).toEqual([]);
+        });
+      }
+    }
+  }
+
+  it("draws the figures it guards", () => {
+    overflowing("bar", 600, 300, false, true);
+    // The widest bar's value is drawn, through the widget's formatter, past the bar's end.
+    const texts = Array.from(document.querySelectorAll("text")).map((t) => t.textContent);
+    expect(texts).toContain("120.0%");
+  });
 });
 
 describe("the guard itself", () => {

@@ -312,11 +312,15 @@ export const CHART_CATEGORICAL = {
   dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"],
 } as const;
 
-/** Single-hue sequential ramp ends (low → high) for heatmaps, per mode: the
- *  low end recedes toward the surface, the high end is the strongest blue. */
+/** Single-hue sequential ramp ends (low → high) for heatmaps and their
+ *  legend, per mode, anchored on the brand blue so a heatmap reads as the
+ *  app's own colour. Light: Material Blue 50 (`#e3f2fd`, recedes into the
+ *  white paper) → `brand.primary` (`#1976d2`, 4.6:1 on white). Dark: a deep
+ *  navy (`#1e3a5f`, recedes into the dark paper) → `brand.primaryLight`
+ *  (Material Blue 200), the brand's legible variant on dark surfaces. */
 export const CHART_SEQUENTIAL = {
-  light: ["#cde2fb", "#104281"],
-  dark: ["#184f95", "#9ec5f4"],
+  light: ["#e3f2fd", brand.primary],
+  dark: ["#1e3a5f", brand.primaryLight],
 } as const;
 
 /** Accent colours of the homepage KPI tiles — the values the Overview,

@@ -83,7 +83,7 @@ Os utilizadores cujo papel concede `admin.dashboards` (**Gerir os painéis da p�
 
 ### Modo de personalização
 
-Clique em **Personalizar**, junto às abas dos painéis, para editar o painel atual. No modo de personalização:
+Clique em **Personalizar**, junto às abas dos painéis, para editar o painel atual. O esquema tem 12 colunas de largura; numa janela mais estreita os widgets reorganizam-se em seis colunas, e num telemóvel numa só, pela ordem em que estão dispostos. No modo de personalização:
 
 - **Mova** um widget arrastando-o pela sua pega; a grelha tem 12 colunas de largura e os outros widgets abrem espaço.
 - **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto, com o rato ou por toque (num telemóvel ou tablet na vertical, o layout é só de leitura). O widget ao lado abre espaço: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias.
@@ -148,17 +148,17 @@ Além de um status de aprovação e de uma fase do ciclo de vida, um gráfico ou
 | **Linhas** | Uma tendência ao longo do tempo, como os cards criados por mês |
 | **Pizza** / **Rosca** | Partes de um todo |
 | **Indicador** | Uma taxa face a uma meta: uma proporção (as aplicações aprovadas), a qualidade média dos dados, um campo de percentagem ou uma pontuação de conformidade num mostrador de 0–100, ou uma contagem ou soma face a uma **Meta**. Dois limiares (**Aviso acima de**, **Bom acima de**) dividem o mostrador em faixas vermelha, âmbar e verde, invertidas quando um aumento é mau; dois indicadores prontos a usar, **Qualidade dos dados** e **Aplicações aprovadas**, estão no catálogo |
-| **Mapa de calor** | Duas dimensões em simultâneo — por exemplo, a fase do ciclo de vida face ao status de aprovação |
-| **Treemap** | Partes quando há muitos grupos |
+| **Mapa de calor** | Duas dimensões em simultâneo — por exemplo, a fase do ciclo de vida face ao status de aprovação; **Mostrar os valores no gráfico** imprime o valor em cada célula |
+| **Treemap** | Partes quando há muitos grupos; **Mostrar os valores no gráfico** imprime o valor em cada bloco |
 | **Sankey** | O fluxo de um tipo de relação entre os cards que liga, com uma dimensão à sua escolha em cada extremidade |
 
 Um diagrama Sankey recebe um tipo de relação e agrupa **cada extremidade** separadamente: por tipo de card, subtipo, status de aprovação, fase do ciclo de vida, qualidade dos dados, um campo do tipo dessa extremidade ou os **próprios cards** — Organização → Aplicação mostra que organizações usam que aplicações, mantendo os vinte maiores fluxos e agrupando o resto em *Outros*. Clicar num nó de card abre o card.
 
 Os gráficos também podem representar um relatório de módulo: riscos por nível ou estado, pontuações de conformidade por regulamento, estado do calendário do PPM e maturidade do BPM constam do catálogo quando o módulo está ativado e tem a respetiva permissão. As etiquetas ainda não podem ser usadas como dimensão ou filtro.
 
-Cinco gráficos prontos a usar estão na família **Gráficos** do catálogo, cada um oferecido quando o seu metamodelo tem os elementos necessários: **Custo por aplicação** (um treemap, um bloco por aplicação dimensionado pelo seu custo anual), **Aplicações por organização**, **Calendário de fim de vida**, **Fichas desatualizadas por tipo** e o diagrama Sankey **Organização → Aplicação**.
+Quatro gráficos prontos a usar estão na família **Gráficos** do catálogo, cada um oferecido quando o seu metamodelo tem os elementos necessários: **Aplicações por organização**, **Calendário de fim de vida**, **Fichas desatualizadas por tipo** e o diagrama Sankey **Organização → Aplicação**.
 
-Ative o clique para permitir que os leitores abram o [Inventário](inventory.md) ou o relatório por trás de uma barra ou fatia (gráficos de barras, colunas, colunas empilhadas, linhas, pizza, rosca e treemap, e os nós de card de um Sankey). Uma pré-visualização na caixa de diálogo mostra o gráfico tal como vai aparecer.
+Ative o clique para permitir que os leitores abram o [Inventário](inventory.md) ou o relatório por trás de uma barra ou fatia (gráficos de barras, colunas, colunas empilhadas, linhas, pizza, rosca e treemap, e os nós de card de um Sankey). **Mostrar os valores no gráfico** imprime o valor em cada barra, coluna, bloco ou célula (gráficos de barras, colunas, colunas empilhadas, treemap e mapa de calor). Uma pré-visualização na caixa de diálogo mostra o gráfico tal como vai aparecer.
 
 ### Gerir painéis
 
@@ -171,7 +171,7 @@ O menu **⋮** junto às abas atua sobre o painel atual:
 | **Definições** | Nome, descrição, ícone e **Acesso**: os papéis autorizados a ver o painel. Deixe o acesso vazio para o mostrar a todos; o painel Admin integrado é fornecido com o acesso definido para os papéis que podem gerir utilizadores (o papel Admin numa instalação nova). Por baixo do campo são listadas as permissões de que os widgets do painel precisam: um papel sem elas não vê nada aí, independentemente do acesso. Os utilizadores com `admin.dashboards` veem sempre todos os painéis |
 | **Ocultar** / **Mostrar** | Retira o painel das abas de todos os outros sem o eliminar |
 | **Mover para a esquerda** / **Mover para a direita** | Altera a ordem das abas |
-| **Repor o padrão** | Apenas painéis integrados: restaura os widgets e o esquema com que o Turbo EA é fornecido |
+| **Repor o padrão** | Apenas painéis integrados: restaura os widgets e o esquema com que o Turbo EA é fornecido e, no painel Admin, as funções que o seu acesso lista |
 | **Eliminar** | Apenas painéis personalizados: elimina o painel para todos |
 
 Atualizar o Turbo EA nunca substitui um painel que tenha alterado. Quando uma versão melhora um painel integrado, **Repor o padrão** traz a nova versão.

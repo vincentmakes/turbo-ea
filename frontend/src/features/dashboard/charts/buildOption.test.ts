@@ -7,6 +7,7 @@ import {
   OTHER_KEY,
   SANKEY_INSET_MAX,
   SANKEY_INSET_MIN,
+  VALUE_LABEL_FONT_SIZE,
   bandColor,
   buildOption,
   buildSparkline,
@@ -20,6 +21,7 @@ import {
   niceMax,
   orderRows,
   sankeyInset,
+  valueLabelInset,
   type BuildContext,
 } from "./buildOption";
 import { buildEChartsChrome } from "./echartsTheme";
@@ -54,6 +56,138 @@ const ROWS: DashboardQueryRow[] = [
 
 const opt = (kind: DashboardChartKind, rows: DashboardQueryRow[] = ROWS, c: Partial<BuildContext> = {}) =>
   buildOption(kind, rows, ctx(c)) as any;
+
+/** An option tree with every function replaced by a marker, so two builds compare structurally. */
+function shape(value: unknown): unknown {
+  if (typeof value === "function") return "[fn]";
+  if (Array.isArray(value)) return value.map(shape);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shape(v)]));
+  }
+  return value;
+}
+
+const CELLS: DashboardQueryRow[] = [
+  { x: "A", y: "P", value: 4 },
+  { x: "A", y: "Q", value: 0 },
+  { x: "B", y: "P", value: 2.5 },
+  { x: "B", y: "Q", value: 7 },
+];
+const ALL_KINDS: DashboardChartKind[] = [
+  "bar",
+  "column",
+  "line",
+  "pie",
+  "donut",
+  "gauge",
+  "heatmap",
+  "treemap",
+  "sankey",
+  "stacked_column",
+];
+const rowsOf = (kind: DashboardChartKind): DashboardQueryRow[] =>
+  kind === "heatmap" || kind === "stacked_column"
+    ? CELLS
+    : kind === "sankey"
+      ? [{ source: "A", target: "B", value: 2 }]
+      : ROWS;
+
+describe("show values", () => {
+  it("changes nothing on any kind while it is off", () => {
+    for (const kind of ALL_KINDS) {
+      expect(shape(opt(kind, rowsOf(kind), { showValues: false })), kind).toEqual(shape(opt(kind, rowsOf(kind))));
+    }
+  });
+
+  it("changes nothing on a line, pie, donut, gauge or sankey", () => {
+    for (const kind of ["line", "pie", "donut", "gauge", "sankey"] as const) {
+      expect(shape(opt(kind, rowsOf(kind), { showValues: true })), kind).toEqual(shape(opt(kind, rowsOf(kind))));
+    }
+  });
+
+  it("prints each bar's figure past its end, through the formatter, with room kept for the longest", () => {
+    const fmt = (v: number) => `${v}€`;
+    const o = opt("bar", ROWS, { showValues: true, valueFormatter: fmt });
+    const label = o.series[0].label;
+    expect(label).toMatchObject({ show: true, position: "right", color: "#555555", fontSize: VALUE_LABEL_FONT_SIZE });
+    expect(label.formatter({ value: 3 })).toBe("3€");
+    expect(label.formatter({})).toBe("0€");
+    expect(o.grid.right).toBe(valueLabelInset([3, 0, 5], fmt));
+    expect(o.grid.left).toBe(8);
+    const rtl = opt("bar", ROWS, { showValues: true, valueFormatter: fmt, isRtl: true });
+    expect(rtl.series[0].label.position).toBe("left");
+    expect(rtl.grid.left).toBe(valueLabelInset([3, 0, 5], fmt));
+    expect(rtl.grid.right).toBe(8);
+    // Off, the grid keeps its plain insets.
+    expect(opt("bar").grid).toMatchObject({ left: 8, right: 16 });
+    expect(opt("bar", ROWS, { isRtl: true }).grid).toMatchObject({ left: 16, right: 8 });
+  });
+
+  it("sizes the bar inset from the longest formatted value, never under the plain inset", () => {
+    const pct = (v: number) => `${v.toFixed(1)}%`;
+    expect(valueLabelInset([], pct)).toBe(16);
+    expect(valueLabelInset([3], String)).toBe(16);
+    expect(valueLabelInset([42], String)).toBe(Math.ceil((2 * 6.6 * 11) / 12 + 9));
+    expect(valueLabelInset([3, 120, 7], pct)).toBe(Math.ceil((6 * 6.6 * 11) / 12 + 9));
+    // The formatted text decides, not the number.
+    expect(valueLabelInset([1], () => "x".repeat(10))).toBe(Math.ceil((10 * 6.6 * 11) / 12 + 9));
+  });
+
+  it("prints each column's figure on top", () => {
+    const label = opt("column", ROWS, { showValues: true, valueFormatter: (v) => `${v}%` }).series[0].label;
+    expect(label).toMatchObject({ show: true, position: "top", fontSize: VALUE_LABEL_FONT_SIZE, color: "#555555" });
+    expect(label.formatter({ value: 5 })).toBe("5%");
+  });
+
+  it("prints each stacked segment's figure inside it, and nothing on an empty one", () => {
+    const o = opt("stacked_column", CELLS, { showValues: true });
+    for (const series of o.series) {
+      expect(series.label).toMatchObject({
+        show: true,
+        position: "inside",
+        fontSize: VALUE_LABEL_FONT_SIZE,
+        color: chrome.surface,
+      });
+      expect(series.labelLayout).toEqual({ hideOverlap: true });
+    }
+    const format = o.series[0].label.formatter;
+    expect(format({ value: 0 })).toBe("");
+    expect(format({})).toBe("");
+    expect(format({ value: 2.5 })).toBe("2.5");
+    expect(opt("stacked_column", CELLS, { showValues: true, valueFormatter: (v) => `${v}€` }).series[1].label.formatter({ value: 7 })).toBe(
+      "7€",
+    );
+  });
+
+  it("puts a treemap tile's figure on a second, smaller line under its name", () => {
+    const label = opt("treemap", ROWS, { showValues: true, valueFormatter: (v) => `${v}%` }).series[0].label;
+    expect(label).toMatchObject({ show: true, color: chrome.surface, fontSize: 12, overflow: "truncate" });
+    expect(label.formatter({ name: "L:A", value: 3 })).toBe("L:A\n{value|3%}");
+    expect(label.formatter({})).toBe("\n{value|0%}");
+    expect(label.rich.value).toEqual({ color: chrome.surface, fontSize: VALUE_LABEL_FONT_SIZE, lineHeight: 16 });
+    // Off, the tile shows its name only.
+    expect(opt("treemap").series[0].label).toEqual({
+      show: true,
+      color: chrome.surface,
+      fontSize: 12,
+      overflow: "truncate",
+    });
+  });
+
+  it("prints each heatmap cell's figure with a surface halo", () => {
+    const label = opt("heatmap", CELLS, { showValues: true, valueFormatter: (v) => `${v}€` }).series[0].label;
+    expect(label).toMatchObject({
+      show: true,
+      color: "#111111",
+      textBorderColor: chrome.surface,
+      textBorderWidth: 2,
+      fontSize: VALUE_LABEL_FONT_SIZE,
+    });
+    expect(label.formatter({ value: [1, 1, 7] })).toBe("7€");
+    expect(label.formatter({})).toBe("0€");
+    expect(opt("heatmap", CELLS).series[0].label).toEqual({ show: false });
+  });
+});
 
 describe("shared chrome", () => {
   it("is transparent, accessible and themed on every kind", () => {

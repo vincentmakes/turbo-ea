@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CardType } from "@/types";
 import {
   CHART_KINDS,
+  VALUE_LABEL_KINDS,
   chartPath,
   chartTop,
   isPercentMeasure,
@@ -15,18 +16,52 @@ describe("readChartConfig", () => {
   it("reads a stored config", () => {
     expect(
       readChartConfig({ query: { group_by: "type" }, chart: "donut", drill: true, max: 5, series: "kpi_history" }),
-    ).toEqual({ query: { group_by: "type" }, chart: "donut", drill: true, max: 5, series: "kpi_history" });
+    ).toEqual({
+      query: { group_by: "type" },
+      chart: "donut",
+      drill: true,
+      showValues: false,
+      max: 5,
+      series: "kpi_history",
+    });
   });
 
   it("defaults anything missing or malformed", () => {
-    expect(readChartConfig(undefined)).toEqual({ query: {}, chart: "bar", drill: false, max: undefined, series: undefined });
+    expect(readChartConfig(undefined)).toEqual({
+      query: {},
+      chart: "bar",
+      drill: false,
+      showValues: false,
+      max: undefined,
+      series: undefined,
+    });
     expect(readChartConfig({ chart: "radar", drill: "yes", max: -1, query: "x", series: 3 })).toEqual({
       query: {},
       chart: "bar",
       drill: false,
+      showValues: false,
       max: undefined,
       series: undefined,
     });
+  });
+});
+
+describe("show values", () => {
+  it("reads show_values only when it is literally true", () => {
+    expect(readChartConfig({ chart: "treemap", show_values: true }).showValues).toBe(true);
+    expect(readChartConfig({ chart: "treemap", show_values: "true" }).showValues).toBe(false);
+    expect(readChartConfig({ chart: "treemap", show_values: 1 }).showValues).toBe(false);
+    expect(readChartConfig({ chart: "treemap" }).showValues).toBe(false);
+  });
+
+  it("offers value labels on bars, columns, stacked columns, treemaps and heatmaps only", () => {
+    expect(CHART_KINDS.filter((kind) => VALUE_LABEL_KINDS.has(kind))).toEqual([
+      "bar",
+      "column",
+      "heatmap",
+      "treemap",
+      "stacked_column",
+    ]);
   });
 });
 

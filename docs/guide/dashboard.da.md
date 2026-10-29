@@ -83,7 +83,7 @@ Brugere, hvis rolle giver `admin.dashboards` (**Administrer dashboards på start
 
 ### Tilpasningstilstand
 
-Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle dashboard. I tilpasningstilstand:
+Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle dashboard. Layoutet er 12 kolonner bredt; i et smallere vindue omarrangeres widgets til seks kolonner, og på en telefon til én, i den rækkefølge de er placeret. I tilpasningstilstand:
 
 - **Flyt** en widget ved at trække i dens håndtag; gitteret er 12 kolonner bredt, og de andre widgets giver plads.
 - **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet, med mus eller berøring (på en telefon eller tablet holdt lodret er layoutet skrivebeskyttet). Widgetten ved siden af giver plads: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv.
@@ -148,17 +148,17 @@ Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI i
 | **Linje** | En tendens over tid, f.eks. kort oprettet pr. måned |
 | **Cirkel** / **Donut** | Andele af en helhed |
 | **Måler** | En rate i forhold til et mål: en andel (de godkendte applikationer), den gennemsnitlige datakvalitet, et procentfelt eller en compliance-score på en skala fra 0–100, eller et antal eller en sum i forhold til et **Mål**. To tærskler (**Advarsel over**, **God over**) deler skalaen i røde, ravgule og grønne bånd, omvendt når en stigning er dårlig; to færdige målere, **Datakvalitet** og **Godkendte applikationer**, findes i kataloget |
-| **Heatmap** | To dimensioner på én gang — for eksempel livscyklusfase mod godkendelsesstatus |
-| **Treemap** | Andele, når der er mange grupper |
+| **Heatmap** | To dimensioner på én gang — for eksempel livscyklusfase mod godkendelsesstatus; **Vis værdier på diagrammet** skriver tallet i hver celle |
+| **Treemap** | Andele, når der er mange grupper; **Vis værdier på diagrammet** skriver tallet på hver flise |
 | **Sankey** | Strømmen af en relationstype mellem de kort, den forbinder, med en dimension efter eget valg i hver ende |
 
 Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største strømme beholdes, og resten samles under *Andre*. Et klik på en kortknude åbner kortet.
 
 Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PPM og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
 
-Fem færdige diagrammer findes i familien **Diagrammer** i kataloget, hvert tilbudt, når din metamodel har de nødvendige dele: **Omkostning pr. applikation** (et trækort, én flise pr. applikation, dimensioneret efter dens årlige omkostning), **Applikationer pr. organisation**, **Kalender for livscyklusafslutning**, **Forældede kort efter type** og Sankey-diagrammet **Organisation → Applikation**.
+Fire færdige diagrammer findes i familien **Diagrammer** i kataloget, hvert tilbudt, når din metamodel har de nødvendige dele: **Applikationer pr. organisation**, **Kalender for livscyklusafslutning**, **Forældede kort efter type** og Sankey-diagrammet **Organisation → Applikation**.
 
-Slå klik-igennem til, så læsere kan åbne [Inventar](inventory.md) eller rapporten bag en søjle eller et udsnit (søjle-, stablede søjle-, linje-, cirkel-, donut- og treemap-diagrammer samt kortknuderne i et Sankey-diagram). En forhåndsvisning i dialogen viser diagrammet, som det vil se ud.
+Slå klik-igennem til, så læsere kan åbne [Inventar](inventory.md) eller rapporten bag en søjle eller et udsnit (søjle-, stablede søjle-, linje-, cirkel-, donut- og treemap-diagrammer samt kortknuderne i et Sankey-diagram). **Vis værdier på diagrammet** skriver tallet på hver søjle, flise eller celle (søjle-, stablede søjle-, treemap- og heatmap-diagrammer). En forhåndsvisning i dialogen viser diagrammet, som det vil se ud.
 
 ### Administration af dashboards
 
@@ -171,7 +171,7 @@ Menuen **⋮** ved siden af fanerne virker på det aktuelle dashboard:
 | **Indstillinger** | Navn, beskrivelse, ikon og **Adgang**: de roller, der må se dashboardet. Lad adgang være tom for at vise det for alle; det indbyggede Admin-dashboard leveres med adgang sat til de roller, der må administrere brugere (Admin-rollen på en ny installation). Under feltet står de rettigheder, dashboardets widgets har brug for: en rolle uden dem ser intet der, uanset hvad adgang er sat til. Brugere med `admin.dashboards` ser altid alle dashboards |
 | **Skjul** / **Vis** | Fjerner dashboardet fra alle andres faner uden at slette det |
 | **Flyt til venstre** / **Flyt til højre** | Ændrer rækkefølgen af fanerne |
-| **Nulstil til standard** | Kun indbyggede dashboards: gendanner de widgets og det layout, Turbo EA leveres med |
+| **Nulstil til standard** | Kun indbyggede dashboards: gendanner de widgets og det layout, Turbo EA leveres med — og for Admin-dashboardet de roller, dets adgang angiver |
 | **Slet** | Kun brugerdefinerede dashboards: sletter dashboardet for alle |
 
 En opgradering af Turbo EA overskriver aldrig et dashboard, du har ændret. Når en udgivelse forbedrer et indbygget dashboard, henter **Nulstil til standard** den nye version.

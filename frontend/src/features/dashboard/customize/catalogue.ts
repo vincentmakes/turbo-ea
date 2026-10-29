@@ -122,15 +122,6 @@ const NO_METAMODEL: CatalogueMetamodel = { types: [], relationTypes: [] };
 const APPLICATION = "Application";
 const ORGANIZATION = "Organization";
 
-/** A type's first field of a field type, in schema order. */
-function firstFieldOfType(type: CardType, fieldType: string): string | null {
-  for (const section of type.fields_schema ?? []) {
-    const field = (section.fields ?? []).find((f) => f.type === fieldType);
-    if (field) return field.key;
-  }
-  return null;
-}
-
 /**
  * The relation type joining Organizations to Applications: the first one
  * running Organization → Application, else the first running the other way.
@@ -147,35 +138,18 @@ function organizationApplicationRelation(relationTypes: RelationType[]): Relatio
 }
 
 /**
- * Five charts and two gauges that answer common EA questions, each offered
- * only when the metamodel has what it needs (and, for the cost treemap, the viewer may read
- * costs). Every one names itself by a `title_key`, so it is titled in the
- * reader's language and `isAlreadyAdded` recognises it like the Overview
- * presets. Keys only — never an id (`widget_config_problem`).
+ * Four charts and two gauges that answer common EA questions, each offered
+ * only when the metamodel has what it needs. Every one names itself by a
+ * `title_key`, so it is titled in the reader's language and `isAlreadyAdded`
+ * recognises it like the Overview presets. Keys only — never an id
+ * (`widget_config_problem`).
  */
-export function presetsFor(
-  types: CardType[],
-  relationTypes: RelationType[],
-  permissions: Record<string, boolean> | undefined,
-): ChartPreset[] {
+export function presetsFor(types: CardType[], relationTypes: RelationType[]): ChartPreset[] {
   const visibleTypes = types.filter((ct) => !ct.is_hidden);
   const application = visibleTypes.find((ct) => ct.key === APPLICATION);
   const organization = visibleTypes.find((ct) => ct.key === ORGANIZATION);
   const orgRelation = application && organization ? organizationApplicationRelation(relationTypes) : null;
-  const costField = application ? firstFieldOfType(application, "cost") : null;
   const out: ChartPreset[] = [];
-  if (application && costField && hasPermission(permissions, "costs.view")) {
-    out.push({
-      id: "cost_per_application",
-      config: {
-        query: { card_type: APPLICATION, group_by: "card", metric: "sum", metric_field: costField },
-        chart: "treemap",
-        drill: true,
-        max: 30,
-        title_key: "dashboard.preset.costPerApplication",
-      },
-    });
-  }
   if (orgRelation) {
     out.push({
       id: "applications_per_organization",
@@ -363,7 +337,7 @@ export function catalogueFor(
   modules: DashboardModules = NO_MODULES,
   metamodel: CatalogueMetamodel = NO_METAMODEL,
 ): CatalogueEntry[] {
-  const presets = presetsFor(metamodel.types, metamodel.relationTypes, permissions).map(presetEntry);
+  const presets = presetsFor(metamodel.types, metamodel.relationTypes).map(presetEntry);
   const lastBuiltIn = CATALOGUE.findIndex((e) => e.id === `chart:${CHART_PRESETS[CHART_PRESETS.length - 1].id}`);
   const all = [...CATALOGUE.slice(0, lastBuiltIn + 1), ...presets, ...CATALOGUE.slice(lastBuiltIn + 1)];
   return all.filter((entry) => {

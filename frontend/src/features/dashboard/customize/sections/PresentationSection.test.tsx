@@ -14,6 +14,7 @@ const base: ConfigDraft = {
   query: {},
   chart: "bar",
   drill: true,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",
@@ -138,5 +139,35 @@ describe("PresentationSection — chart", () => {
     await user.type(screen.getByLabelText(tc("dashboard.config.limit")), "7");
     await user.click(screen.getByLabelText(tc("dashboard.config.drill")));
     await waitFor(() => expect(last()).toMatchObject({ max: "7", drill: false }));
+  });
+
+  it("offers Show values on a treemap and toggles the draft", async () => {
+    const { user, last } = renderSection("chart", { initial: { ...base, chart: "treemap" } });
+    const toggle = within(screen.getByTestId("config-show-values")).getByRole("checkbox", {
+      name: tc("dashboard.config.showValues"),
+    });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(last().showValues).toBe(true));
+    expect(toggle).toBeChecked();
+  });
+
+  it("offers Show values on bars and stacked columns, never on a line or a gauge", () => {
+    const { unmount } = renderSection("chart", { initial: { ...base, chart: "line" } });
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
+    unmount();
+    const gauge = renderSection("chart", { initial: { ...base, chart: "gauge" } });
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
+    gauge.unmount();
+    const stacked = renderSection("chart", { initial: { ...base, chart: "stacked_column", showValues: true } });
+    expect(within(screen.getByTestId("config-show-values")).getByRole("checkbox")).toBeChecked();
+    stacked.unmount();
+    renderSection("chart");
+    expect(screen.getByTestId("config-show-values")).toBeInTheDocument();
+  });
+
+  it("asks a KPI nothing about values on a chart", () => {
+    renderSection("kpi", { initial: { ...base, chart: "treemap" } });
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
   });
 });

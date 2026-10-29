@@ -271,6 +271,50 @@ class TestWidgetConfig:
                 None,
             ),
             ("chart", {"query": QUERY, "chart": "bar", "drill": "yes"}, "invalid_drill"),
+            # show_values prints the figures on the marks: a bool, on both branches.
+            ("chart", {"query": QUERY, "chart": "bar", "show_values": True}, None),
+            ("chart", {"query": QUERY, "chart": "treemap", "show_values": False}, None),
+            (
+                "chart",
+                {"query": QUERY, "chart": "bar", "show_values": "yes"},
+                "invalid_show_values",
+            ),
+            ("chart", {"query": QUERY, "chart": "bar", "show_values": 1}, "invalid_show_values"),
+            (
+                "chart",
+                {"query": QUERY, "chart": "bar", "show_values": None},
+                "invalid_show_values",
+            ),
+            (
+                "chart",
+                {
+                    "source": "risks_metrics",
+                    "series": "by_level",
+                    "chart": "column",
+                    "show_values": True,
+                },
+                None,
+            ),
+            (
+                "chart",
+                {
+                    "source": "risks_metrics",
+                    "series": "by_level",
+                    "chart": "column",
+                    "show_values": "yes",
+                },
+                "invalid_show_values",
+            ),
+            (
+                "chart",
+                {
+                    "source": "risks_metrics",
+                    "series": "by_level",
+                    "chart": "bar",
+                    "show_values": 1,
+                },
+                "invalid_show_values",
+            ),
             ("chart", {"query": QUERY, "chart": "bar", "max": "10"}, "invalid_max"),
             ("chart", {"query": QUERY, "chart": "bar", "max": True}, "invalid_max"),
             # Gauge bands: [warn, good], ascending, within the scale (max, else 100).

@@ -83,7 +83,7 @@ Benutzer, deren Rolle `admin.dashboards` (**Dashboards der Startseite verwalten*
 
 ### Anpassungsmodus
 
-Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard zu bearbeiten. Im Anpassungsmodus:
+Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard zu bearbeiten. Das Layout ist 12 Spalten breit; in einem schmaleren Fenster ordnen sich die Widgets auf sechs Spalten um, auf einem Telefon auf eine, in der Reihenfolge ihrer Anordnung. Im Anpassungsmodus:
 
 - **Verschieben** Sie ein Widget, indem Sie es am Griff ziehen; das Raster ist 12 Spalten breit, und die anderen Widgets machen Platz.
 - **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke, per Maus oder Touch (auf einem hochkant gehaltenen Smartphone oder Tablet ist das Layout schreibgeschützt). Das benachbarte Widget macht Platz: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben.
@@ -148,17 +148,17 @@ Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm ode
 | **Linie** | Einen Verlauf über die Zeit, etwa pro Monat erstellte Karten |
 | **Kreis** / **Ring** | Anteile an einem Ganzen |
 | **Tachometer** | Eine Rate gegenüber einem Ziel: ein Anteil (die genehmigten Anwendungen), die durchschnittliche Datenqualität, ein Prozentfeld oder ein Compliance-Wert auf einer Skala von 0–100, oder eine Anzahl bzw. Summe gegenüber einem **Ziel**. Zwei Schwellenwerte (**Warnung ab**, **Gut ab**) teilen die Skala in rote, gelbe und grüne Bereiche, umgekehrt, wenn ein Anstieg schlecht ist; zwei vorgefertigte Tachometer, **Datenqualität** und **Genehmigte Anwendungen**, stehen im Katalog bereit |
-| **Heatmap** | Zwei Dimensionen gleichzeitig — zum Beispiel Lebenszyklusphase gegen Genehmigungsstatus |
-| **Treemap** | Anteile bei vielen Gruppen |
+| **Heatmap** | Zwei Dimensionen gleichzeitig — zum Beispiel Lebenszyklusphase gegen Genehmigungsstatus; **Werte im Diagramm anzeigen** gibt den Wert in jeder Zelle aus |
+| **Treemap** | Anteile bei vielen Gruppen; **Werte im Diagramm anzeigen** gibt den Wert auf jeder Kachel aus |
 | **Sankey** | Den Fluss eines Beziehungstyps zwischen den verbundenen Karten, mit einer Dimension Ihrer Wahl an jedem Ende |
 
 Ein Sankey nimmt einen Beziehungstyp und gruppiert **jedes Ende** für sich: nach Kartentyp, Untertyp, Genehmigungsstatus, Lebenszyklusphase, Datenqualität, einem Feld des Typs dieses Endes oder den **Karten selbst** — Organisation → Anwendung zeigt, welche Organisationen welche Anwendungen nutzen, wobei die zwanzig größten Flüsse erhalten bleiben und der Rest unter *Sonstige* zusammengefasst wird. Ein Klick auf einen Kartenknoten öffnet die Karte.
 
 Diagramme können auch einen Modulbericht darstellen: Risiken nach Stufe oder Status, Compliance-Scores nach Regulierung, Terminplan-Status im PPM und BPM-Reifegrad stehen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen. Tags können noch nicht als Dimension oder Filter verwendet werden.
 
-Fünf vorgefertigte Diagramme stehen in der Familie **Diagramme** des Katalogs, jeweils angeboten, wenn Ihr Metamodell die nötigen Bausteine enthält: **Kosten pro Anwendung** (eine Treemap, eine Kachel pro Anwendung, bemessen an ihren jährlichen Kosten), **Anwendungen pro Organisation**, **Lebensende-Kalender**, **Veraltete Karten nach Typ** und das Sankey **Organisation → Anwendung**.
+Vier vorgefertigte Diagramme stehen in der Familie **Diagramme** des Katalogs, jeweils angeboten, wenn Ihr Metamodell die nötigen Bausteine enthält: **Anwendungen pro Organisation**, **Lebensende-Kalender**, **Veraltete Karten nach Typ** und das Sankey **Organisation → Anwendung**.
 
-Aktivieren Sie den Klick-Durchgriff, damit Leser das [Inventar](inventory.md) oder den Bericht hinter einem Balken oder Segment öffnen können (Balken-, Säulen-, gestapelte Säulen-, Linien-, Kreis-, Ring- und Treemap-Diagramme sowie die Kartenknoten eines Sankey). Eine Vorschau im Dialog zeigt das Diagramm so, wie es erscheinen wird.
+Aktivieren Sie den Klick-Durchgriff, damit Leser das [Inventar](inventory.md) oder den Bericht hinter einem Balken oder Segment öffnen können (Balken-, Säulen-, gestapelte Säulen-, Linien-, Kreis-, Ring- und Treemap-Diagramme sowie die Kartenknoten eines Sankey). **Werte im Diagramm anzeigen** gibt den Wert auf jedem Balken, jeder Säule, Kachel oder Zelle aus (Balken-, Säulen-, gestapelte Säulen-, Treemap- und Heatmap-Diagramme). Eine Vorschau im Dialog zeigt das Diagramm so, wie es erscheinen wird.
 
 ### Dashboards verwalten
 
@@ -171,7 +171,7 @@ Das Menü **⋮** neben den Tabs wirkt auf das aktuelle Dashboard:
 | **Einstellungen** | Name, Beschreibung, Symbol und **Zugriff**: die Rollen, die das Dashboard sehen dürfen. Lassen Sie den Zugriff leer, um es allen anzuzeigen; das integrierte Admin-Dashboard wird mit einem Zugriff ausgeliefert, der auf die Rollen gesetzt ist, die Benutzer verwalten dürfen (bei einer Neuinstallation die Admin-Rolle). Unter dem Feld sind die Berechtigungen aufgeführt, die die Widgets des Dashboards benötigen: Eine Rolle ohne sie sieht dort nichts, unabhängig vom Zugriff. Benutzer mit `admin.dashboards` sehen immer jedes Dashboard |
 | **Ausblenden** / **Einblenden** | Entfernt das Dashboard aus den Tabs aller anderen, ohne es zu löschen |
 | **Nach links verschieben** / **Nach rechts verschieben** | Ändert die Reihenfolge der Tabs |
-| **Auf Standard zurücksetzen** | Nur integrierte Dashboards: stellt die Widgets und das Layout wieder her, die Turbo EA mitliefert |
+| **Auf Standard zurücksetzen** | Nur integrierte Dashboards: stellt die Widgets und das Layout wieder her, die Turbo EA mitliefert — und beim Admin-Dashboard die Rollen, die sein Zugriff auflistet |
 | **Löschen** | Nur benutzerdefinierte Dashboards: löscht das Dashboard für alle |
 
 Ein Upgrade von Turbo EA überschreibt nie ein von Ihnen geändertes Dashboard. Wenn ein Release ein integriertes Dashboard verbessert, bringt **Auf Standard zurücksetzen** die neue Version ein.

@@ -18,6 +18,7 @@ describe("queryProblems", () => {
     );
     expect(problemOfError({ message: "x", detail: { code: "relation_type_conflict" } })).toBe("relationTypeConflict");
     expect(problemOfError({ message: "", detail: "unknown_phase" })).toBe("unknownPhase");
+    expect(problemOfError({ message: "x", detail: { code: "invalid_show_values" } })).toBe("invalidShowValues");
     // A code is matched whole, never inside a longer word.
     expect(problemOfError(new Error("my_unknown_flags"))).toBeNull();
     expect(problemOfError(null)).toBeNull();

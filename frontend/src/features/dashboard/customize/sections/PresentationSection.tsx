@@ -2,7 +2,8 @@
  * How the widget is drawn. A chart: its kind, how many categories it shows
  * (for card-keyed groupings also how many cards the server keeps before
  * folding the rest into "Other") and whether a click opens the matching
- * cards. A gauge instead reads against a scale — fixed 0–100 for a rate, or
+ * cards, and — on a bar, column, stacked column, treemap or heatmap — whether
+ * each mark prints its figure. A gauge instead reads against a scale — fixed 0–100 for a rate, or
  * the Target of a count or sum — with optional bands (`GaugeFields`). A KPI: whether a rise is good, how the number reads, a
  * 30-day sparkline and a secondary figure measured against the unfiltered
  * count.
@@ -15,6 +16,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { DEFAULT_GAUGE_THRESHOLDS } from "../../charts/buildOption";
+import { VALUE_LABEL_KINDS } from "../../widgets/chartConfig";
 import type { DashboardChartKind } from "@/types";
 import type { KpiSecondaryChoice } from "../widgetConfigModel";
 import SelectField from "./SelectField";
@@ -88,6 +90,19 @@ export function GaugeFields({ draft, set, percent }: Pick<DraftProps, "draft" | 
         testId="config-good-direction"
       />
     </Stack>
+  );
+}
+
+/** "Show values on the chart", for the kinds that can print a figure on each mark. */
+export function ShowValuesSwitch({ draft, set }: Pick<DraftProps, "draft" | "set">) {
+  const { t } = useTranslation("common");
+  if (!VALUE_LABEL_KINDS.has(draft.chart)) return null;
+  return (
+    <FormControlLabel
+      data-testid="config-show-values"
+      control={<Switch checked={draft.showValues} onChange={(e) => set("showValues", e.target.checked)} />}
+      label={t("dashboard.config.showValues")}
+    />
   );
 }
 
@@ -169,6 +184,7 @@ export default function PresentationSection({ draft, set, kind, chartKinds, seco
           label={t("dashboard.config.drill")}
         />
       )}
+      <ShowValuesSwitch draft={draft} set={set} />
     </Stack>
   );
 }

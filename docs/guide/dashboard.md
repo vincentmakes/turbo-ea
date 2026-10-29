@@ -83,7 +83,7 @@ Users whose role grants `admin.dashboards` (**Manage homepage dashboards** — t
 
 ### Customize mode
 
-Click **Customize** next to the dashboard tabs to edit the current dashboard. In customize mode:
+Click **Customize** next to the dashboard tabs to edit the current dashboard. The layout is 12 columns wide; on a narrower window the widgets reflow to six columns, and on a phone to one, in the order they are laid out. In customize mode:
 
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
 - **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
@@ -148,17 +148,17 @@ Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed
 | **Line** | A trend over time, such as cards created per month |
 | **Pie** / **Donut** | Shares of a whole |
 | **Gauge** | A rate against a target: a share (the approved Applications), the average data quality, a percentage field or a compliance score on a 0–100 dial, or a count or sum against a **Target**. Two thresholds (**Warn above**, **Good above**) split the dial into red, amber and green bands, reversed when a rise is bad; two ready-made gauges, **Data quality** and **Approved applications**, sit in the catalogue |
-| **Heatmap** | Two dimensions at once — for example lifecycle phase against approval status |
-| **Treemap** | Shares when there are many groups |
+| **Heatmap** | Two dimensions at once — for example lifecycle phase against approval status; **Show values on the chart** prints the figure in each cell |
+| **Treemap** | Shares when there are many groups; **Show values on the chart** prints the figure on each tile |
 | **Sankey** | The flow of a relation type between the cards it connects, with a dimension of your choice at each end |
 
 A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest flows kept and the rest folded into *Other*. Clicking a card node opens the card.
 
 Charts can also draw a module report: risks by level or status, compliance scores by regulation, PPM schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
 
-Five ready-made charts sit in the **Charts** family of the catalogue, each offered when your metamodel has the pieces it needs: **Cost per application** (a treemap, one tile per Application sized by its annual cost), **Applications per organization**, **End-of-life calendar**, **Stale cards by type** and the **Organization → Application** sankey.
+Four ready-made charts sit in the **Charts** family of the catalogue, each offered when your metamodel has the pieces it needs: **Applications per organization**, **End-of-life calendar**, **Stale cards by type** and the **Organization → Application** sankey.
 
-Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, stacked column, line, pie, donut and treemap charts, and the card nodes of a sankey). A preview in the dialog shows the chart as it will appear.
+Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, stacked column, line, pie, donut and treemap charts, and the card nodes of a sankey). **Show values on the chart** prints the figure on each bar, column, tile or cell (bar, column, stacked column, treemap and heatmap charts). A preview in the dialog shows the chart as it will appear.
 
 ### Managing dashboards
 
@@ -171,7 +171,7 @@ The **⋮** menu next to the tabs acts on the current dashboard:
 | **Settings** | Name, description, icon and **Access**: the roles allowed to see the dashboard. Leave Access empty to show it to everyone; the built-in Admin dashboard ships with Access set to the roles that may manage users (the admin role on a fresh install). Under the field, the permissions the dashboard's widgets need are listed: a role without them sees nothing there whatever Access says. Users with `admin.dashboards` always see every dashboard |
 | **Hide** / **Show** | Removes the dashboard from everyone else's tabs without deleting it |
 | **Move left** / **Move right** | Changes the order of the tabs |
-| **Reset to default** | Built-in dashboards only: restores the widgets and layout Turbo EA ships with |
+| **Reset to default** | Built-in dashboards only: restores the widgets and layout Turbo EA ships with — and, for the Admin dashboard, the roles its Access lists |
 | **Delete** | Custom dashboards only: deletes the dashboard for everyone |
 
 Upgrading Turbo EA never overwrites a dashboard you have changed. When a release improves a built-in dashboard, **Reset to default** brings in the new version.

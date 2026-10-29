@@ -18,6 +18,7 @@ const base: ConfigDraft = {
   query: { relation_type: "relAppToITC" },
   chart: "sankey",
   drill: true,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",

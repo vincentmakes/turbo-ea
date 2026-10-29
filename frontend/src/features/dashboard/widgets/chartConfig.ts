@@ -38,6 +38,21 @@ export const PART_TO_WHOLE: DashboardChartKind[] = ["pie", "donut", "treemap"];
 /** Kinds that read two dimensions (`group_by` + `group_by_2`). */
 export const TWO_DIMENSION_KINDS: DashboardChartKind[] = ["heatmap", "stacked_column"];
 
+/**
+ * Kinds that can print each mark's figure on the chart (`show_values`). Pie
+ * and donut label their slices with the value already, a gauge *is* its
+ * value, and a line or a sankey has no single mark per figure to carry one
+ * (a point per day, a flow between two ends), so the switch is not offered
+ * there and a stored `show_values` is dropped on save.
+ */
+export const VALUE_LABEL_KINDS: ReadonlySet<DashboardChartKind> = new Set<DashboardChartKind>([
+  "bar",
+  "column",
+  "stacked_column",
+  "treemap",
+  "heatmap",
+]);
+
 /** Server-side fold of a card-keyed dimension: the default and bounds of `top`. */
 export const DEFAULT_TOP = 20;
 export const MAX_TOP = 200;
@@ -46,6 +61,8 @@ export interface ChartConfig {
   query: DashboardQuery;
   chart: DashboardChartKind;
   drill: boolean;
+  /** Print each bar's, column's, tile's or cell's figure (`VALUE_LABEL_KINDS`). */
+  showValues: boolean;
   max?: number;
   /** `kpi_history` on a query chart; a source series on a source chart. */
   series?: string;
@@ -100,6 +117,7 @@ export function readChartConfig(config: Record<string, unknown> | undefined): Ch
     query: c.query && typeof c.query === "object" ? (c.query as DashboardQuery) : {},
     chart,
     drill: c.drill === true,
+    showValues: c.show_values === true,
     max,
     series,
     source,

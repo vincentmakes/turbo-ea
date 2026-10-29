@@ -14,6 +14,7 @@ const base: ConfigDraft = {
   query: {},
   chart: "donut",
   drill: false,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",
@@ -98,5 +99,28 @@ describe("SourceForm", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
     expect(screen.queryByLabelText(tc("dashboard.config.limit"))).toBeNull();
     expect(screen.getByTestId("config-source-series")).toHaveTextContent(tc("dashboard.source.series.risks_metrics.open"));
+  });
+
+  it("offers Show values on a module bar chart and toggles the draft", async () => {
+    const { user, last } = renderForm(w("chart", { source: "risks_metrics", series: "by_level", chart: "bar" }), {
+      ...base,
+      chart: "bar",
+    });
+    await user.click(within(screen.getByTestId("config-show-values")).getByRole("checkbox"));
+    await waitFor(() => expect(last().showValues).toBe(true));
+  });
+
+  it("does not offer Show values on a donut, a gauge or a KPI", () => {
+    const donut = renderForm(w("chart", { source: "risks_metrics", series: "by_level", chart: "donut" }));
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
+    donut.unmount();
+    const gauge = renderForm(w("chart", { source: "risks_metrics", series: "open", chart: "gauge" }), {
+      ...base,
+      chart: "gauge",
+    });
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
+    gauge.unmount();
+    renderForm(w("kpi", { source: "risks_metrics", series: "open" }), { ...base, chart: "bar" });
+    expect(screen.queryByTestId("config-show-values")).toBeNull();
   });
 });

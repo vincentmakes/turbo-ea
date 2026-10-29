@@ -78,6 +78,15 @@ describe("dashboard chart tokens", () => {
     }
   });
 
+  it("run the heatmap ramp up to the brand blue in each mode", async () => {
+    const t = await freshTokens();
+    expect(t.CHART_SEQUENTIAL.light[1]).toBe(t.brand.primary);
+    expect(t.CHART_SEQUENTIAL.dark[1]).toBe(t.brand.primaryLight);
+    // The low end is a paler step of the same blue in light mode, a deeper one in dark mode.
+    expect(t.CHART_SEQUENTIAL.light[0]).not.toBe(t.CHART_SEQUENTIAL.light[1]);
+    expect(t.CHART_SEQUENTIAL.dark[0]).not.toBe(t.CHART_SEQUENTIAL.dark[1]);
+  });
+
   it("keep status hues out of the categorical palette", async () => {
     const t = await freshTokens();
     const status = new Set<string>(Object.values(t.STATUS_COLORS));

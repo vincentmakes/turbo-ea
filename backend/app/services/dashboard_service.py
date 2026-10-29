@@ -186,6 +186,14 @@ def _gauge_problem(config: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _show_values_problem(config: Mapping[str, Any]) -> str | None:
+    """``show_values`` prints the figures on the marks — a bool when present
+    (``isinstance(1, bool)`` is false, so a ``1`` is refused too)."""
+    if "show_values" in config and not isinstance(config["show_values"], bool):
+        return "invalid_show_values"
+    return None
+
+
 def _chart_problem(config: Mapping[str, Any]) -> str | None:
     """A chart draws a ``query`` or a module ``source`` series — exactly one."""
     if ("query" in config) == ("source" in config):
@@ -197,7 +205,12 @@ def _chart_problem(config: Mapping[str, Any]) -> str | None:
         if chart in TWO_DIMENSION_CHARTS:
             return "source_chart_kind"
         problem = _source_problem(config, "single" if chart == "gauge" else "keyed")
-        return problem or _max_problem(config) or _gauge_problem(config)
+        return (
+            problem
+            or _max_problem(config)
+            or _gauge_problem(config)
+            or _show_values_problem(config)
+        )
     problem = _query_config_problem(config.get("query"))
     if problem:
         return problem
@@ -213,7 +226,7 @@ def _chart_problem(config: Mapping[str, Any]) -> str | None:
         return "stacked_column_needs_two_dimensions"
     if "drill" in config and not isinstance(config["drill"], bool):
         return "invalid_drill"
-    return _max_problem(config) or _gauge_problem(config)
+    return _max_problem(config) or _gauge_problem(config) or _show_values_problem(config)
 
 
 def _kpi_problem(config: Mapping[str, Any]) -> str | None:

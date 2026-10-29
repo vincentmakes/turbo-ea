@@ -395,6 +395,31 @@ class TestReset:
             entry.details["items"]
         )
 
+    @pytest.mark.parametrize("restricted", [[], ["member"]])
+    async def test_reset_restores_the_seeded_access(self, client, db, env, restricted):
+        """Reset means the whole default: the Admin dashboard gets back the
+        roles holding ``admin.users`` (only ``admin`` here — the curator
+        manages dashboards but not users), named by label in the log."""
+        admin_dashboard = await _by_key(db, "admin")
+        admin_dashboard.allowed_roles = restricted
+        await db.flush()
+        r = await client.post(
+            f"{BASE}/{admin_dashboard.id}/reset", headers=auth_headers(env["admin"])
+        )
+        assert r.status_code == 200
+        assert r.json()["allowed_roles"] == ["admin"]
+        (entry,) = await _audit(db, "admin.dashboard.reset")
+        old_labels = ["Member"] if restricted else []
+        assert entry.details["changes"] == {"allowed_roles": {"old": old_labels, "new": ["Admin"]}}
+
+    async def test_reset_leaves_the_access_of_a_dashboard_stating_none(self, client, db, env):
+        overview = await _by_key(db, "overview")
+        r = await client.post(f"{BASE}/{overview.id}/reset", headers=auth_headers(env["admin"]))
+        assert r.status_code == 200
+        assert r.json()["allowed_roles"] == []
+        (entry,) = await _audit(db, "admin.dashboard.reset")
+        assert "allowed_roles" not in (entry.details.get("changes") or {})
+
     async def test_a_custom_dashboard_has_no_default(self, client, env):
         created = (await _create(client, env["admin"])).json()
         r = await client.post(f"{BASE}/{created['id']}/reset", headers=auth_headers(env["admin"]))

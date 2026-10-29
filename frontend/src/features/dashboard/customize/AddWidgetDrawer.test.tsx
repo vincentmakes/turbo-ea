@@ -124,20 +124,20 @@ describe("AddWidgetDrawer — metamodel presets", () => {
       layout: { x: 0, y: 0, w: 6, h: 5 },
     };
     const { user, onPick } = renderDrawer(adminUser(), [stale]);
-    expect(entry("chart:cost_per_application")).toHaveTextContent(tc("dashboard.preset.costPerApplication"));
     expect(entry("chart:organization_to_application")).toHaveTextContent(tc("dashboard.preset.organizationToApplication"));
     expect(entry("chart:stale_by_type")).toHaveAttribute("aria-disabled", "true");
-    await user.click(entry("chart:cost_per_application"));
+    // No cost-per-application treemap, even for an admin who reads costs.
+    expect(screen.queryByTestId("catalogue-chart:cost_per_application")).toBeNull();
+    await user.click(entry("chart:end_of_life_calendar"));
     expect(onPick.mock.calls[0][0].config).toMatchObject({
-      query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
-      chart: "treemap",
+      query: { card_type: "Application", group_by: "phase_month:endOfLife" },
+      chart: "column",
     });
   });
 
-  it("leaves out the relation presets without an Organization type, and the cost one without costs.view", () => {
+  it("leaves out the relation presets without an Organization type", () => {
     renderDrawer(userWith("reports.ea_dashboard", "admin.dashboards"), []);
     expect(entry("chart:end_of_life_calendar")).toBeInTheDocument();
-    expect(screen.queryByTestId("catalogue-chart:cost_per_application")).toBeNull();
     expect(screen.queryByTestId("catalogue-chart:applications_per_organization")).toBeNull();
     expect(screen.queryByTestId("catalogue-chart:organization_to_application")).toBeNull();
   });

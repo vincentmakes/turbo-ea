@@ -40,6 +40,7 @@ export const BACKEND_PROBLEMS: Record<string, string> = {
   source_chart_kind: "sourceChartKind",
   invalid_thresholds: "invalidThresholds",
   invalid_good_direction: "invalidGoodDirection",
+  invalid_show_values: "invalidShowValues",
 };
 
 // Longest first, so a code that contains another is matched whole.

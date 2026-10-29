@@ -83,7 +83,7 @@ Les utilisateurs dont le rôle accorde `admin.dashboards` (**Gérer les tableaux
 
 ### Mode de personnalisation
 
-Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour modifier le tableau de bord actuel. En mode de personnalisation :
+Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour modifier le tableau de bord actuel. La disposition fait 12 colonnes de large ; dans une fenêtre plus étroite, les widgets se réorganisent sur six colonnes, et sur un téléphone sur une seule, dans l’ordre de leur disposition. En mode de personnalisation :
 
 - **Déplacez** un widget en le faisant glisser par sa poignée ; la grille compte 12 colonnes de large et les autres widgets lui laissent la place.
 - **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin, à la souris ou au toucher (sur un téléphone ou une tablette tenus à la verticale, la disposition est en lecture seule). Le widget voisin lui laisse la place : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes.
@@ -148,17 +148,17 @@ Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un
 | **Courbe** | Une tendance dans le temps, comme les fiches créées par mois |
 | **Secteurs** / **Anneau** | Les parts d’un tout |
 | **Jauge** | Un taux par rapport à une cible : une part (les applications approuvées), la qualité moyenne des données, un champ en pourcentage ou un score de conformité sur un cadran de 0 à 100, ou un nombre ou une somme par rapport à une **Cible**. Deux seuils (**Avertissement au-dessus de**, **Bon au-dessus de**) répartissent le cadran en zones rouge, orange et verte, inversées lorsqu’une hausse est mauvaise ; deux jauges prêtes à l’emploi, **Qualité des données** et **Applications approuvées**, figurent dans le catalogue |
-| **Carte de chaleur** | Deux dimensions à la fois — par exemple la phase du cycle de vie en fonction du statut d’approbation |
-| **Treemap** | Les parts lorsqu’il y a de nombreux groupes |
+| **Carte de chaleur** | Deux dimensions à la fois — par exemple la phase du cycle de vie en fonction du statut d’approbation; **Afficher les valeurs sur le graphique** inscrit la valeur dans chaque cellule |
+| **Treemap** | Les parts lorsqu’il y a de nombreux groupes; **Afficher les valeurs sur le graphique** inscrit la valeur sur chaque tuile |
 | **Sankey** | Le flux d’un type de relation entre les fiches qu’il relie, avec une dimension de votre choix à chaque extrémité |
 
 Un diagramme de Sankey prend un type de relation et regroupe **chaque extrémité** séparément : par type de fiche, sous-type, statut d’approbation, phase du cycle de vie, qualité des données, un champ du type de cette extrémité, ou les **fiches elles-mêmes** — Organisation → Application montre quelles organisations utilisent quelles applications, les vingt plus grands flux étant conservés et le reste regroupé sous *Autres*. Cliquer sur un nœud de fiche ouvre la fiche.
 
 Les graphiques peuvent aussi représenter un rapport de module : risques par niveau ou statut, scores de conformité par réglementation, état du calendrier PPM et maturité BPM figurent au catalogue lorsque le module est activé et que vous en détenez la permission. Les tags ne peuvent pas encore servir de dimension ni de filtre.
 
-Cinq graphiques prêts à l’emploi figurent dans la famille **Graphiques** du catalogue, chacun proposé lorsque votre métamodèle contient les éléments nécessaires : **Coût par application** (une treemap, une tuile par application dimensionnée selon son coût annuel), **Applications par organisation**, **Calendrier de fin de vie**, **Fiches obsolètes par type** et le diagramme de Sankey **Organisation → Application**.
+Quatre graphiques prêts à l’emploi figurent dans la famille **Graphiques** du catalogue, chacun proposé lorsque votre métamodèle contient les éléments nécessaires : **Applications par organisation**, **Calendrier de fin de vie**, **Fiches obsolètes par type** et le diagramme de Sankey **Organisation → Application**.
 
-Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, colonnes empilées, courbe, secteurs, anneau et treemap, ainsi que les nœuds de fiche d’un diagramme de Sankey). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
+Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, colonnes empilées, courbe, secteurs, anneau et treemap, ainsi que les nœuds de fiche d’un diagramme de Sankey). **Afficher les valeurs sur le graphique** inscrit la valeur sur chaque barre, colonne, tuile ou cellule (graphiques en barres, colonnes, colonnes empilées, treemap et carte de chaleur). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
 
 ### Gérer les tableaux de bord
 
@@ -171,7 +171,7 @@ Le menu **⋮** à côté des onglets agit sur le tableau de bord actuel :
 | **Paramètres** | Nom, description, icône et **Accès** : les rôles autorisés à voir le tableau de bord. Laissez l’accès vide pour l’afficher à tout le monde ; le tableau de bord Admin intégré est livré avec un accès réservé aux rôles autorisés à gérer les utilisateurs (le rôle Admin sur une installation neuve). Sous le champ figurent les permissions dont les widgets du tableau de bord ont besoin : un rôle qui ne les a pas n’y voit rien, quel que soit l’accès. Les utilisateurs disposant de `admin.dashboards` voient toujours tous les tableaux de bord |
 | **Masquer** / **Afficher** | Retire le tableau de bord des onglets de tous les autres sans le supprimer |
 | **Déplacer vers la gauche** / **Déplacer vers la droite** | Modifie l’ordre des onglets |
-| **Réinitialiser par défaut** | Tableaux de bord intégrés uniquement : restaure les widgets et la disposition livrés avec Turbo EA |
+| **Réinitialiser par défaut** | Tableaux de bord intégrés uniquement : restaure les widgets et la disposition livrés avec Turbo EA — et, pour le tableau de bord Admin, les rôles que liste son accès |
 | **Supprimer** | Tableaux de bord personnalisés uniquement : supprime le tableau de bord pour tout le monde |
 
 Une mise à niveau de Turbo EA n’écrase jamais un tableau de bord que vous avez modifié. Lorsqu’une version améliore un tableau de bord intégré, **Réinitialiser par défaut** apporte la nouvelle version.

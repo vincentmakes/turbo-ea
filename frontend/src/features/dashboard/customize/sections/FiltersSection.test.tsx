@@ -18,6 +18,7 @@ const base: ConfigDraft = {
   query: { card_type: "ITComponent" },
   chart: "bar",
   drill: true,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",

@@ -28,6 +28,7 @@ import {
   CHART_KINDS,
   PERCENT_SERIES,
   TWO_DIMENSION_KINDS,
+  VALUE_LABEL_KINDS,
   isPercentMeasure,
   readChartConfig,
 } from "../widgets/chartConfig";
@@ -353,6 +354,8 @@ export interface ConfigDraft {
   query: DashboardQuery;
   chart: DashboardChartKind;
   drill: boolean;
+  /** Print each mark's figure on the chart (offered on `VALUE_LABEL_KINDS` only). */
+  showValues: boolean;
   /** Text of the numeric `max` input ("" = none). */
   max: string;
   goodDirection: "up" | "down";
@@ -410,6 +413,7 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
     query,
     chart: chart.chart,
     drill: chart.drill,
+    showValues: chart.showValues,
     max: chart.max !== undefined ? String(chart.max) : "",
     goodDirection: config.good_direction === "down" ? "down" : "up",
     thresholdWarn: chart.thresholds ? String(chart.thresholds[0]) : "",
@@ -725,6 +729,16 @@ function applyGauge(config: Record<string, unknown>, draft: ConfigDraft, percent
   config.good_direction = draft.goodDirection;
 }
 
+/**
+ * `show_values` on a saved chart config: written only when switched on for a
+ * kind that can print values, removed otherwise — so a config that never
+ * used it saves byte-identical, and switching to a line drops it.
+ */
+function applyShowValues(config: Record<string, unknown>, draft: ConfigDraft): void {
+  if (draft.showValues && VALUE_LABEL_KINDS.has(draft.chart)) config.show_values = true;
+  else delete config.show_values;
+}
+
 /** The widget a valid draft saves (`ctx` tells a percentage field's gauge from a target gauge). */
 export function widgetFromDraft(
   widget: DashboardWidget,
@@ -749,6 +763,7 @@ export function widgetFromDraft(
         if (draft.max.trim() !== "") config.max = Number(draft.max);
         else delete config.max;
         applyGauge(config, draft, gaugeIsPercent(kind, draft, ctx, widget));
+        applyShowValues(config, draft);
       }
       break;
     case "kpi": {
@@ -768,6 +783,7 @@ export function widgetFromDraft(
       config = { query, chart: draft.chart, drill: draft.drill };
       if (draft.max.trim() !== "") config.max = Number(draft.max);
       applyGauge(config, draft, gaugeIsPercent(kind, draft, ctx));
+      applyShowValues(config, draft);
       // A built-in chart names itself by an i18n key; keep it only while the
       // chart still shows what that name says.
       const original = readChartConfig(base);

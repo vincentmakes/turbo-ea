@@ -217,9 +217,10 @@ function QueryChart({ widget, config }: ChartProps) {
         seriesName: metric === "count" ? t("labels.cards") : t(`dashboard.query.metric.${metric}`),
         valueFormatter: metric === "share" ? percentFormatter : undefined,
         cursor: drillable ? "pointer" : "default",
+        showValues: config.showValues,
         ...gauge,
       }),
-    [config.chart, config.max, rows, dim, dim2, isSankey, theme, metric, t, drillable, gauge],
+    [config.chart, config.max, config.showValues, rows, dim, dim2, isSankey, theme, metric, t, drillable, gauge],
   );
 
   const handleClick = useCallback(
@@ -315,9 +316,10 @@ function SourceChart({
         isRtl: theme.isRtl,
         max: config.max,
         seriesName: t(seriesLabelKey(source, series)),
+        showValues: config.showValues,
         ...gauge,
       }),
-    [config.chart, config.max, rows, resolver, theme, t, source, series, gauge],
+    [config.chart, config.max, config.showValues, rows, resolver, theme, t, source, series, gauge],
   );
 
   return (

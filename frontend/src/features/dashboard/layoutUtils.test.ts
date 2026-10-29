@@ -11,6 +11,7 @@ import {
   rowNeighbour,
   newWidgetId,
   newWidgetLayout,
+  reflowLayout,
   toGridItem,
 } from "./layoutUtils";
 
@@ -268,5 +269,117 @@ describe("fitRowNeighbour", () => {
 
   it("offers the right edge, the bottom edge and the corner as handles", () => {
     expect(RESIZE_HANDLES).toEqual(["e", "s", "se"]);
+  });
+});
+
+describe("reflowLayout", () => {
+  const KPIS = [
+    { i: "k1", x: 0, y: 0, w: 3, h: 2, minW: 2 },
+    { i: "k2", x: 3, y: 0, w: 3, h: 2, minW: 2 },
+    { i: "k3", x: 6, y: 0, w: 3, h: 2, minW: 2 },
+    { i: "k4", x: 9, y: 0, w: 3, h: 2, minW: 2 },
+  ];
+
+  it("scales a row of four KPI tiles to 2 of 6 columns, three on the first row and one on the next", () => {
+    expect(reflowLayout(KPIS, 12, 6)).toEqual([
+      { i: "k1", x: 0, y: 0, w: 2, h: 2, minW: 2 },
+      { i: "k2", x: 2, y: 0, w: 2, h: 2, minW: 2 },
+      { i: "k3", x: 4, y: 0, w: 2, h: 2, minW: 2 },
+      { i: "k4", x: 0, y: 2, w: 2, h: 2, minW: 2 },
+    ]);
+  });
+
+  it("makes a 12-wide chart 6 wide and a 6-wide one 3 wide, capping a stored minimum", () => {
+    const out = reflowLayout(
+      [
+        { i: "wide", x: 0, y: 0, w: 12, h: 7, minW: 6 },
+        { i: "half", x: 0, y: 7, w: 6, h: 5, minW: 4 },
+      ],
+      12,
+      6,
+    );
+    expect(out).toEqual([
+      { i: "wide", x: 0, y: 0, w: 6, h: 7, minW: 6 },
+      { i: "half", x: 0, y: 7, w: 3, h: 5, minW: 3 },
+    ]);
+  });
+
+  it("never scales a width below one column or above the grid", () => {
+    const out = reflowLayout(
+      [
+        { i: "thin", x: 0, y: 0, w: 1, h: 2 },
+        { i: "huge", x: 1, y: 0, w: 14, h: 2 },
+      ],
+      12,
+      6,
+    );
+    expect(out.map((item) => [item.i, item.w])).toEqual([
+      ["thin", 1],
+      ["huge", 6],
+    ]);
+  });
+
+  it("starts the next row under the tallest item of the row before", () => {
+    const out = reflowLayout(
+      [
+        { i: "short", x: 0, y: 0, w: 4, h: 2 },
+        { i: "tall", x: 4, y: 0, w: 4, h: 6 },
+        { i: "mid", x: 8, y: 0, w: 4, h: 3 },
+        { i: "after", x: 0, y: 6, w: 4, h: 2 },
+      ],
+      12,
+      6,
+    );
+    expect(out).toEqual([
+      { i: "short", x: 0, y: 0, w: 2, h: 2 },
+      { i: "tall", x: 2, y: 0, w: 2, h: 6 },
+      { i: "mid", x: 4, y: 0, w: 2, h: 3 },
+      { i: "after", x: 0, y: 6, w: 2, h: 2 },
+    ]);
+  });
+
+  it("takes the items in reading order whatever order they are stored in", () => {
+    const out = reflowLayout(
+      [
+        { i: "second-row", x: 0, y: 2, w: 6, h: 3 },
+        { i: "right", x: 6, y: 0, w: 6, h: 2 },
+        { i: "left", x: 0, y: 0, w: 6, h: 2 },
+      ],
+      12,
+      6,
+    );
+    expect(out).toEqual([
+      { i: "left", x: 0, y: 0, w: 3, h: 2 },
+      { i: "right", x: 3, y: 0, w: 3, h: 2 },
+      { i: "second-row", x: 0, y: 2, w: 3, h: 3 },
+    ]);
+  });
+
+  it("stacks everything full width on two columns, in reading order", () => {
+    const out = reflowLayout([...KPIS, { i: "chart", x: 0, y: 2, w: 12, h: 5, minW: 6 }], 12, 2);
+    expect(out).toEqual([
+      { i: "k1", x: 0, y: 0, w: 2, h: 2, minW: 2 },
+      { i: "k2", x: 0, y: 2, w: 2, h: 2, minW: 2 },
+      { i: "k3", x: 0, y: 4, w: 2, h: 2, minW: 2 },
+      { i: "k4", x: 0, y: 6, w: 2, h: 2, minW: 2 },
+      { i: "chart", x: 0, y: 8, w: 2, h: 5, minW: 2 },
+    ]);
+  });
+
+  it("forces full width even for a width that would round below the grid on one column", () => {
+    expect(reflowLayout([{ i: "a", x: 0, y: 0, w: 1, h: 2 }], 12, 1)).toEqual([{ i: "a", x: 0, y: 0, w: 1, h: 2 }]);
+    expect(reflowLayout([{ i: "a", x: 0, y: 0, w: 2, h: 2 }], 12, 2)[0].w).toBe(2);
+  });
+
+  it("does not mutate its input", () => {
+    const input = KPIS.map((item) => ({ ...item }));
+    const snapshot = structuredClone(input);
+    reflowLayout(input, 12, 6);
+    reflowLayout(input, 12, 2);
+    expect(input).toEqual(snapshot);
+  });
+
+  it("returns an empty layout for no items", () => {
+    expect(reflowLayout([], 12, 6)).toEqual([]);
   });
 });

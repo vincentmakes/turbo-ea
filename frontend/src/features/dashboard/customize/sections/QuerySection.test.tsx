@@ -19,6 +19,7 @@ const base: ConfigDraft = {
   query: { card_type: "Application", group_by: "type" },
   chart: "stacked_column",
   drill: true,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",

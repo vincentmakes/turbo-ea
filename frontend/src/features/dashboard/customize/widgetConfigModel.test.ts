@@ -59,6 +59,7 @@ const draft = (patch: Partial<ConfigDraft> = {}): ConfigDraft => ({
   query: { group_by: "type" },
   chart: "bar",
   drill: true,
+  showValues: false,
   max: "",
   goodDirection: "up",
   thresholdWarn: "",
@@ -577,6 +578,65 @@ describe("gauge", () => {
       series: "by_level",
       chart: "donut",
     });
+  });
+});
+
+describe("show values", () => {
+  it("reads the switch from a stored chart", () => {
+    expect(draftFromWidget(widget("chart", { query: {}, chart: "treemap", show_values: true })).showValues).toBe(true);
+    expect(draftFromWidget(widget("chart", { query: {}, chart: "treemap" })).showValues).toBe(false);
+  });
+
+  it("saves show_values on a query chart that can print values", () => {
+    const treemap = widget("chart", { query: { group_by: "type" }, chart: "treemap", drill: true });
+    expect(widgetFromDraft(treemap, "chart", draft({ chart: "treemap", showValues: true })).config).toEqual({
+      query: { group_by: "type" },
+      chart: "treemap",
+      drill: true,
+      show_values: true,
+    });
+    expect(widgetFromDraft(treemap, "chart", draft({ chart: "heatmap", showValues: true })).config.show_values).toBe(true);
+    expect(widgetFromDraft(treemap, "chart", draft({ chart: "bar", showValues: true })).config.show_values).toBe(true);
+  });
+
+  it("drops show_values when switched off or on a kind that cannot print values", () => {
+    const stored = widget("chart", { query: { group_by: "type" }, chart: "treemap", drill: true, show_values: true });
+    expect(widgetFromDraft(stored, "chart", draft({ chart: "treemap", showValues: false })).config).not.toHaveProperty(
+      "show_values",
+    );
+    expect(widgetFromDraft(stored, "chart", draft({ chart: "line", showValues: true })).config).not.toHaveProperty(
+      "show_values",
+    );
+    expect(widgetFromDraft(stored, "chart", draft({ chart: "donut", showValues: true })).config).not.toHaveProperty(
+      "show_values",
+    );
+  });
+
+  it("leaves a config that never used it unchanged", () => {
+    const plain = { query: { group_by: "type" }, chart: "bar", drill: true };
+    const out = widgetFromDraft(widget("chart", plain), "chart", draftFromWidget(widget("chart", plain)));
+    expect(JSON.stringify(out.config)).toBe(JSON.stringify(plain));
+  });
+
+  it("saves and drops it on a module chart too, keeping the source", () => {
+    const chart = widget("chart", { source: "risks_metrics", series: "by_level", chart: "bar" });
+    expect(widgetFromDraft(chart, "source", draft({ chart: "column", showValues: true })).config).toEqual({
+      source: "risks_metrics",
+      series: "by_level",
+      chart: "column",
+      show_values: true,
+    });
+    const stored = widget("chart", { source: "risks_metrics", series: "by_level", chart: "bar", show_values: true });
+    expect(widgetFromDraft(stored, "source", draft({ chart: "pie", showValues: true })).config).not.toHaveProperty(
+      "show_values",
+    );
+    expect(widgetFromDraft(stored, "source", draft({ chart: "bar", showValues: false })).config).not.toHaveProperty(
+      "show_values",
+    );
+    const single = widget("chart", { source: "risks_metrics", series: "open", chart: "gauge", max: 10 });
+    expect(widgetFromDraft(single, "source", draft({ chart: "gauge", max: "10", showValues: true })).config).not.toHaveProperty(
+      "show_values",
+    );
   });
 });
 

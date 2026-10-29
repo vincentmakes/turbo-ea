@@ -83,7 +83,7 @@ Los usuarios cuyo rol concede `admin.dashboards` (**Gestionar los paneles de la 
 
 ### Modo de personalización
 
-Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar el panel actual. En el modo de personalización:
+Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar el panel actual. El diseño tiene 12 columnas de ancho; en una ventana más estrecha los widgets se reorganizan en seis columnas, y en un teléfono en una, en el orden en que están dispuestos. En el modo de personalización:
 
 - **Mueva** un widget arrastrándolo por su asa; la cuadrícula tiene 12 columnas de ancho y los demás widgets le hacen sitio.
 - **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina, con el ratón o con el tacto (en un móvil o una tableta en vertical el diseño es de solo lectura). El widget contiguo le hace sitio: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas.
@@ -148,17 +148,17 @@ Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o 
 | **Líneas** | Una tendencia en el tiempo, como las fichas creadas por mes |
 | **Circular** / **Anillo** | Partes de un todo |
 | **Indicador** | Una tasa frente a un objetivo: una proporción (las aplicaciones aprobadas), la calidad media de los datos, un campo de porcentaje o una puntuación de cumplimiento en una esfera de 0–100, o un recuento o una suma frente a un **Objetivo**. Dos umbrales (**Advertencia por encima de**, **Bueno por encima de**) dividen la esfera en franjas roja, ámbar y verde, invertidas cuando un aumento es malo; dos indicadores predefinidos, **Calidad de los datos** y **Aplicaciones aprobadas**, figuran en el catálogo |
-| **Mapa de calor** | Dos dimensiones a la vez; por ejemplo, la fase del ciclo de vida frente al estado de aprobación |
-| **Treemap** | Partes cuando hay muchos grupos |
+| **Mapa de calor** | Dos dimensiones a la vez; por ejemplo, la fase del ciclo de vida frente al estado de aprobación; **Mostrar los valores en el gráfico** muestra la cifra en cada celda |
+| **Treemap** | Partes cuando hay muchos grupos; **Mostrar los valores en el gráfico** muestra la cifra en cada bloque |
 | **Sankey** | El flujo de un tipo de relación entre las fichas que conecta, con una dimensión a su elección en cada extremo |
 
 Un diagrama de Sankey toma un tipo de relación y agrupa **cada extremo** por separado: por tipo de ficha, subtipo, estado de aprobación, fase del ciclo de vida, calidad de los datos, un campo del tipo de ese extremo o las **propias fichas**: Organización → Aplicación muestra qué organizaciones usan qué aplicaciones, conservando los veinte flujos más grandes y agrupando el resto en *Otros*. Al hacer clic en un nodo de ficha se abre la ficha.
 
 Los gráficos también pueden representar un informe de módulo: riesgos por nivel o estado, puntuaciones de cumplimiento por normativa, estado del calendario de PPM y madurez de BPM figuran en el catálogo cuando el módulo está activado y usted tiene su permiso. Las etiquetas aún no pueden usarse como dimensión ni como filtro.
 
-Cinco gráficos predefinidos están en la familia **Gráficos** del catálogo, y cada uno se ofrece cuando su metamodelo tiene las piezas necesarias: **Coste por aplicación** (un treemap, un bloque por aplicación dimensionado según su coste anual), **Aplicaciones por organización**, **Calendario de fin de vida**, **Fichas obsoletas por tipo** y el diagrama de Sankey **Organización → Aplicación**.
+Cuatro gráficos predefinidos están en la familia **Gráficos** del catálogo, y cada uno se ofrece cuando su metamodelo tiene las piezas necesarias: **Aplicaciones por organización**, **Calendario de fin de vida**, **Fichas obsoletas por tipo** y el diagrama de Sankey **Organización → Aplicación**.
 
-Active el clic para que los lectores puedan abrir el [Inventario](inventory.md) o el informe que hay detrás de una barra o un sector (gráficos de barras, columnas, columnas apiladas, líneas, circulares, anillo y treemap, y los nodos de ficha de un diagrama de Sankey). Una vista previa en el cuadro de diálogo muestra el gráfico tal como aparecerá.
+Active el clic para que los lectores puedan abrir el [Inventario](inventory.md) o el informe que hay detrás de una barra o un sector (gráficos de barras, columnas, columnas apiladas, líneas, circulares, anillo y treemap, y los nodos de ficha de un diagrama de Sankey). **Mostrar los valores en el gráfico** muestra la cifra en cada barra, columna, bloque o celda (gráficos de barras, columnas, columnas apiladas, treemap y mapa de calor). Una vista previa en el cuadro de diálogo muestra el gráfico tal como aparecerá.
 
 ### Gestionar paneles
 
@@ -171,7 +171,7 @@ El menú **⋮** junto a las pestañas actúa sobre el panel actual:
 | **Ajustes** | Nombre, descripción, icono y **Acceso**: los roles autorizados a ver el panel. Deje el acceso vacío para mostrarlo a todos; el panel Admin integrado se entrega con el acceso limitado a los roles que pueden gestionar usuarios (el rol Admin en una instalación nueva). Bajo el campo se enumeran los permisos que necesitan los widgets del panel: un rol que no los tenga no ve nada allí, sea cual sea el acceso. Los usuarios con `admin.dashboards` siempre ven todos los paneles |
 | **Ocultar** / **Mostrar** | Quita el panel de las pestañas de los demás sin eliminarlo |
 | **Mover a la izquierda** / **Mover a la derecha** | Cambia el orden de las pestañas |
-| **Restablecer valores predeterminados** | Solo paneles integrados: restaura los widgets y el diseño con los que se entrega Turbo EA |
+| **Restablecer valores predeterminados** | Solo paneles integrados: restaura los widgets y el diseño con los que se entrega Turbo EA y, en el panel Admin, los roles que lista su acceso |
 | **Eliminar** | Solo paneles personalizados: elimina el panel para todos |
 
 Actualizar Turbo EA nunca sobrescribe un panel que haya modificado. Cuando una versión mejora un panel integrado, **Restablecer valores predeterminados** incorpora la nueva versión.

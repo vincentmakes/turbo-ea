@@ -83,7 +83,7 @@ Gli utenti il cui ruolo concede `admin.dashboards` (**Gestisci le dashboard dell
 
 ### Modalità di personalizzazione
 
-Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare la dashboard corrente. In modalità di personalizzazione:
+Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare la dashboard corrente. Il layout è largo 12 colonne; in una finestra più stretta i widget si riorganizzano su sei colonne, e su un telefono su una, nell'ordine in cui sono disposti. In modalità di personalizzazione:
 
 - **Sposta** un widget trascinandolo per la sua maniglia; la griglia è larga 12 colonne e gli altri widget gli fanno spazio.
 - **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo, con il mouse o con il tocco (su uno smartphone o un tablet tenuto in verticale il layout è di sola lettura). Il widget accanto gli fa spazio: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole.
@@ -148,17 +148,17 @@ Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o u
 | **Linee** | Una tendenza nel tempo, come le card create al mese |
 | **Torta** / **Ciambella** | Quote di un tutto |
 | **Indicatore** | Un tasso rispetto a un obiettivo: una quota (le applicazioni approvate), la qualità media dei dati, un campo percentuale o un punteggio di conformità su un quadrante 0–100, oppure un conteggio o una somma rispetto a un **Obiettivo**. Due soglie (**Avviso sopra**, **Buono sopra**) dividono il quadrante in fasce rossa, ambra e verde, invertite quando un aumento è negativo; due indicatori pronti all'uso, **Qualità dei dati** e **Applicazioni approvate**, sono nel catalogo |
-| **Mappa di calore** | Due dimensioni insieme — per esempio fase del ciclo di vita contro stato di approvazione |
-| **Treemap** | Quote quando i gruppi sono molti |
+| **Mappa di calore** | Due dimensioni insieme — per esempio fase del ciclo di vita contro stato di approvazione; **Mostra i valori nel grafico** stampa il valore in ogni cella |
+| **Treemap** | Quote quando i gruppi sono molti; **Mostra i valori nel grafico** stampa il valore su ogni riquadro |
 | **Sankey** | Il flusso di un tipo di relazione tra le card che collega, con una dimensione a scelta a ciascuna estremità |
 
 Un diagramma Sankey prende un tipo di relazione e raggruppa **ciascuna estremità** separatamente: per tipo di card, sottotipo, stato di approvazione, fase del ciclo di vita, qualità dei dati, un campo del tipo di quell'estremità o le **card stesse** — Organizzazione → Applicazione mostra quali organizzazioni usano quali applicazioni, mantenendo i venti flussi più grandi e raggruppando il resto in *Altro*. Facendo clic su un nodo card si apre la card.
 
 I grafici possono anche rappresentare un report di modulo: rischi per livello o stato, punteggi di conformità per normativa, stato della pianificazione PPM e maturità BPM sono nel catalogo quando il modulo è abilitato e hai il relativo permesso. I tag non possono ancora essere usati come dimensione o filtro.
 
-Cinque grafici pronti all'uso si trovano nella famiglia **Grafici** del catalogo, ciascuno offerto quando il tuo metamodello ha gli elementi necessari: **Costo per applicazione** (una treemap, un riquadro per applicazione dimensionato in base al costo annuo), **Applicazioni per organizzazione**, **Calendario di fine vita**, **Schede obsolete per tipo** e il diagramma Sankey **Organizzazione → Applicazione**.
+Quattro grafici pronti all'uso si trovano nella famiglia **Grafici** del catalogo, ciascuno offerto quando il tuo metamodello ha gli elementi necessari: **Applicazioni per organizzazione**, **Calendario di fine vita**, **Schede obsolete per tipo** e il diagramma Sankey **Organizzazione → Applicazione**.
 
-Attiva il clic per consentire ai lettori di aprire l'[Inventario](inventory.md) o il report dietro una barra o una fetta (grafici a barre, colonne, colonne impilate, linee, torta, ciambella e treemap, e i nodi card di un Sankey). Un'anteprima nella finestra di dialogo mostra il grafico come apparirà.
+Attiva il clic per consentire ai lettori di aprire l'[Inventario](inventory.md) o il report dietro una barra o una fetta (grafici a barre, colonne, colonne impilate, linee, torta, ciambella e treemap, e i nodi card di un Sankey). **Mostra i valori nel grafico** stampa il valore su ogni barra, colonna, riquadro o cella (grafici a barre, colonne, colonne impilate, treemap e mappa di calore). Un'anteprima nella finestra di dialogo mostra il grafico come apparirà.
 
 ### Gestire le dashboard
 
@@ -171,7 +171,7 @@ Il menu **⋮** accanto alle schede agisce sulla dashboard corrente:
 | **Impostazioni** | Nome, descrizione, icona e **Accesso**: i ruoli autorizzati a vedere la dashboard. Lascia l'accesso vuoto per mostrarla a tutti; la dashboard Admin integrata viene fornita con l'accesso impostato sui ruoli che possono gestire gli utenti (il ruolo Admin in un'installazione nuova). Sotto il campo sono elencati i permessi di cui hanno bisogno i widget della dashboard: un ruolo che non li ha non vede nulla, qualunque sia l'accesso. Gli utenti con `admin.dashboards` vedono sempre ogni dashboard |
 | **Nascondi** / **Mostra** | Rimuove la dashboard dalle schede di tutti gli altri senza eliminarla |
 | **Sposta a sinistra** / **Sposta a destra** | Cambia l'ordine delle schede |
-| **Ripristina valori predefiniti** | Solo dashboard integrate: ripristina i widget e il layout forniti con Turbo EA |
+| **Ripristina valori predefiniti** | Solo dashboard integrate: ripristina i widget e il layout forniti con Turbo EA — e, per la dashboard Admin, i ruoli elencati nel suo accesso |
 | **Elimina** | Solo dashboard personalizzate: elimina la dashboard per tutti |
 
 L'aggiornamento di Turbo EA non sovrascrive mai una dashboard che hai modificato. Quando una release migliora una dashboard integrata, **Ripristina valori predefiniti** porta la nuova versione.
