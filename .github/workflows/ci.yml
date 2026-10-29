@@ -1103,8 +1103,11 @@ jobs:
     runs-on: ubuntu-latest
     # Stryker's single-threaded dry run alone may take up to its
     # dryRunTimeoutMinutes (60, stryker.config.json) on a widely imported
-    # module; the mutants need room after it, as in backend-mutation.
-    timeout-minutes: 150
+    # module; the mutants need room after it, as in backend-mutation. A
+    # feature PR that changes some 50 files (#1332: 6,500 mutants on the
+    # changed lines) spends 25 minutes in the dry run and over two hours on
+    # the mutants, so 150 cut it off at 97 % with no verdict.
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
