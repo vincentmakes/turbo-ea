@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CHART_CATEGORICAL, CHART_SEQUENTIAL, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardChartKind, DashboardQueryRow } from "@/types";
 import {
+  BAR_MAX_THICKNESS,
+  COLUMN_MAX_WIDTH,
   DEFAULT_GAUGE_THRESHOLDS,
   LEGEND_LABEL_WIDTH,
   OTHER_KEY,
@@ -133,6 +135,13 @@ describe("show values", () => {
     expect(valueLabelInset([1], () => "x".repeat(10))).toBe(Math.ceil((10 * 6.6 * 11) / 12 + 9));
   });
 
+  it("lets a column or a stacked column grow to the cap, so four of them do not look like sticks", () => {
+    expect(COLUMN_MAX_WIDTH).toBeGreaterThanOrEqual(64);
+    expect(opt("column", ROWS).series[0].barMaxWidth).toBe(COLUMN_MAX_WIDTH);
+    expect(opt("stacked_column", CELLS).series[0].barMaxWidth).toBe(COLUMN_MAX_WIDTH);
+    expect(BAR_MAX_THICKNESS).toBeGreaterThanOrEqual(32);
+  });
+
   it("prints each column's figure on top", () => {
     const label = opt("column", ROWS, { showValues: true, valueFormatter: (v) => `${v}%` }).series[0].label;
     expect(label).toMatchObject({ show: true, position: "top", fontSize: VALUE_LABEL_FONT_SIZE, color: "#555555" });
@@ -225,7 +234,7 @@ describe("bar (horizontal)", () => {
     expect(o.xAxis.minInterval).toBe(1);
     const s = o.series[0];
     expect(s.type).toBe("bar");
-    expect(s.barMaxWidth).toBe(24);
+    expect(s.barMaxWidth).toBe(BAR_MAX_THICKNESS);
     expect(s.data.map((d: any) => d.value)).toEqual([3, 0, 5]);
     expect(s.data.map((d: any) => d.key)).toEqual(["A", "B", "C"]);
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual(["#aa0000", "#00bb00", "#0000cc"]);

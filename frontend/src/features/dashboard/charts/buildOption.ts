@@ -266,6 +266,16 @@ function splitLine(ctx: BuildContext): Record<string, unknown> {
 }
 
 /**
+ * Widest a column (`buildColumn`, `buildStackedColumn`) and thickest a bar
+ * (`buildBar`) is drawn. A cap at all because one column across a wide
+ * widget reads as a block, not a mark; this high because four columns on a
+ * six-column widget looked like sticks under the old 32 px. Dense charts are
+ * bounded by `barCategoryGap` long before either cap.
+ */
+export const COLUMN_MAX_WIDTH = 72;
+export const BAR_MAX_THICKNESS = 40;
+
+/**
  * Average glyph width of a 12 px label — the estimate insets are sized from
  * (ECharts measures the real text only when it draws it).
  */
@@ -374,7 +384,7 @@ function buildBar(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOpti
       {
         type: "bar",
         name: ctx.seriesName,
-        barMaxWidth: 24,
+        barMaxWidth: BAR_MAX_THICKNESS,
         barCategoryGap: "30%",
         cursor: ctx.cursor ?? "default",
         ...(ctx.showValues && { label: valueLabel(ctx, ctx.isRtl ? "left" : "right") }),
@@ -414,7 +424,7 @@ function buildColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
       {
         type: "bar",
         name: ctx.seriesName,
-        barMaxWidth: 32,
+        barMaxWidth: COLUMN_MAX_WIDTH,
         barCategoryGap: "30%",
         cursor: ctx.cursor ?? "default",
         ...(ctx.showValues && { label: valueLabel(ctx, "top") }),
@@ -857,7 +867,7 @@ function buildStackedColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChar
     type: "bar",
     name: labelY(y),
     stack: "total",
-    barMaxWidth: 32,
+    barMaxWidth: COLUMN_MAX_WIDTH,
     barCategoryGap: "30%",
     cursor: ctx.cursor ?? "default",
     emphasis: { focus: "series" },
