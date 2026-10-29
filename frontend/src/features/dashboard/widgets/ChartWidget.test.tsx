@@ -460,6 +460,115 @@ describe("ChartWidget — relation-aware and module charts", () => {
     expect(screen.queryByTestId("chart-caption")).toBeNull();
   });
 
+  it("says how many cards a folded treemap merged into Other", async () => {
+    mockApi.on("get", "/dashboards/query?card_type=Application&group_by=card&top=20", {
+      dimension: "card",
+      dimension_2: null,
+      rows: [
+        { key: "app-1", value: 1 },
+        { key: "__other__", value: 5 },
+      ],
+      total: 6,
+      labels: { "app-1": "CRM" },
+      folded: { top: 20, cards: 5 },
+    });
+    renderChart(chart({ query: { card_type: "Application", group_by: "card" }, chart: "treemap", drill: false }));
+    const caption = await screen.findByTestId("chart-caption");
+    expect(caption).toHaveTextContent(tc("dashboard.chart.folded", { count: 5, top: 20 }));
+    expect(caption).toHaveTextContent("Showing the 20 largest cards; 5 more are in Other");
+  });
+
+  it("says how many cards a folded sankey merged into Other", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=field%3AbusinessCriticality&group_by_2=card&relation_type=relAppToITC&top=20", {
+      dimension: "field:businessCriticality",
+      dimension_2: "card",
+      rows: [{ source: "missionCritical", target: "itc-1", value: 2 }],
+      total: 2,
+      labels: { "itc-1": "Postgres" },
+      folded: { top: 20, cards: 1 },
+    });
+    renderChart(
+      chart({
+        query: { relation_type: "relAppToITC", group_by: "field:businessCriticality", group_by_2: "card" },
+        chart: "sankey",
+        drill: false,
+      }),
+    );
+    expect(await screen.findByTestId("chart-caption")).toHaveTextContent(
+      "Showing the 20 largest cards; 1 more is in Other",
+    );
+  });
+
+  it("says an average dropped the cards past the largest ones rather than merging them", async () => {
+    mockApi.on(
+      "get",
+      "/dashboards/query?card_type=Application&group_by=card&metric=avg&metric_field=vendorScore&top=10",
+      {
+        dimension: "card",
+        dimension_2: null,
+        rows: [{ key: "app-1", value: 4 }],
+        total: 4,
+        labels: { "app-1": "CRM" },
+        folded: { top: 10, cards: 3 },
+      },
+    );
+    renderChart(
+      chart({
+        query: { card_type: "Application", group_by: "card", metric: "avg", metric_field: "vendorScore" },
+        chart: "bar",
+        drill: false,
+        max: 10,
+      }),
+    );
+    const caption = await screen.findByTestId("chart-caption");
+    expect(caption).toHaveTextContent(tc("dashboard.chart.foldedDropped", { count: 3, top: 10 }));
+    expect(caption).toHaveTextContent("Showing the 10 largest cards; 3 more are not shown");
+    expect(caption).not.toHaveTextContent("Other");
+  });
+
+  it("says nothing of a fold when a card-keyed result kept every card", async () => {
+    mockApi.on("get", "/dashboards/query?card_type=Application&group_by=card&top=20", {
+      dimension: "card",
+      dimension_2: null,
+      rows: [{ key: "app-1", value: 1 }],
+      total: 1,
+      labels: { "app-1": "CRM" },
+    });
+    renderChart(chart({ query: { card_type: "Application", group_by: "card" }, chart: "treemap", drill: false }));
+    await screen.findByTestId("echart");
+    expect(screen.queryByTestId("chart-caption")).toBeNull();
+  });
+
+  it("joins the fiscal year and the fold on a folded cost treemap", async () => {
+    mockApi.on(
+      "get",
+      "/dashboards/query?card_type=Application&group_by=card&metric=sum&metric_field=costTotalAnnual&top=20",
+      {
+        dimension: "card",
+        dimension_2: null,
+        rows: [{ key: "app-1", value: 1200 }],
+        total: 1200,
+        labels: { "app-1": "CRM" },
+        fiscal_year: 2026,
+        fiscal_year_start: 1,
+        folded: { top: 20, cards: 37 },
+      },
+    );
+    renderChart(
+      chart({
+        query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
+        chart: "treemap",
+        drill: false,
+      }),
+    );
+    expect(await screen.findByTestId("chart-caption")).toHaveTextContent(
+      `${tc("dashboard.config.fiscalYear", { year: tc("fiscalYear.single", { year: 2026 }) })} · ${tc(
+        "dashboard.chart.folded",
+        { count: 37, top: 20 },
+      )}`,
+    );
+  });
+
   it("says what the server refused", async () => {
     mockApi.fail("get", "/dashboards/query?flags=x&group_by=type", 400, "unknown_flag");
     renderChart(chart({ query: { group_by: "type", flags: "x" }, chart: "bar", drill: false }));

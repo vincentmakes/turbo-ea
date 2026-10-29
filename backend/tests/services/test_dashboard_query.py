@@ -699,20 +699,20 @@ class TestNewPureHelpers:
     def test_fold_rows_only_folds_card_keyed_results(self):
         keyed = [{"key": "a", "value": 2}, {"key": "b", "value": 1}]
         related = ResolvedQuery(query=Q(card_type="A", group_by="related:r"))
-        assert fold_rows(keyed, related, 1) == [
-            {"key": "a", "value": 2},
-            {"key": OTHER_KEY, "value": 1},
-        ]
+        assert fold_rows(keyed, related, 1) == (
+            [{"key": "a", "value": 2}, {"key": OTHER_KEY, "value": 1}],
+            1,
+        )
         averaged = ResolvedQuery(
             query=Q(card_type="A", group_by="related:r", metric="avg", metric_field="x")
         )
-        assert fold_rows(keyed, averaged, 1) == [{"key": "a", "value": 2}]
+        assert fold_rows(keyed, averaged, 1) == ([{"key": "a", "value": 2}], 1)
         summed = ResolvedQuery(
             query=Q(card_type="A", group_by="related:r", metric="sum", metric_field="x")
         )
-        assert fold_rows(keyed, summed, 1)[-1] == {"key": OTHER_KEY, "value": 1}
+        assert fold_rows(keyed, summed, 1)[0][-1] == {"key": OTHER_KEY, "value": 1}
         by_type = ResolvedQuery(query=Q(group_by="type"))
-        assert fold_rows(keyed, by_type, 1) == keyed
+        assert fold_rows(keyed, by_type, 1) == (keyed, 0)
         # Each card of a type folds like a related card: a count or a sum
         # merges the rest, an average or a share drops it.
         each = {"card_type": "A", "group_by": "card"}
@@ -723,28 +723,79 @@ class TestNewPureHelpers:
             ("share", {"flags": "stale"}, False),
         ):
             resolved = ResolvedQuery(query=Q(**each, metric=metric, **extra))
-            folded = fold_rows(keyed, resolved, 1)
+            folded, count = fold_rows(keyed, resolved, 1)
             assert folded[0] == {"key": "a", "value": 2}
             assert (folded[-1] == {"key": OTHER_KEY, "value": 1}) is merged
             assert len(folded) == (2 if merged else 1)
+            assert count == 1
         flows = [
             {"source": "a", "target": "x", "value": 2},
             {"source": "b", "target": "y", "value": 1},
         ]
         rel = object()
         cards = ResolvedQuery(query=Q(group_by="card"), relation=rel)  # type: ignore[arg-type]
-        assert fold_rows(flows, cards, 1) == [
-            {"source": "a", "target": "x", "value": 2},
-            {"source": OTHER_KEY, "target": "y", "value": 1},
-        ]
+        assert fold_rows(flows, cards, 1) == (
+            [
+                {"source": "a", "target": "x", "value": 2},
+                {"source": OTHER_KEY, "target": "y", "value": 1},
+            ],
+            1,
+        )
         targets = ResolvedQuery(query=Q(group_by_2="card"), relation=rel)  # type: ignore[arg-type]
-        assert fold_rows(flows, targets, 1)[-1] == {
+        assert fold_rows(flows, targets, 1)[0][-1] == {
             "source": "b",
             "target": OTHER_KEY,
             "value": 1,
         }
         types = ResolvedQuery(query=Q(), relation=rel)  # type: ignore[arg-type]
-        assert fold_rows(flows, types, 1) == flows
+        assert fold_rows(flows, types, 1) == (flows, 0)
+
+    def test_fold_rows_counts_the_cards_not_kept(self):
+        # 25 cards valued 25..1 (and ``none``, never a card): the top 20 stay,
+        # the 5 smallest (5+4+3+2+1) fold into Other.
+        keyed = [{"key": f"c{n:02d}", "value": n} for n in range(25, 0, -1)]
+        keyed.append({"key": "none", "value": 100})
+        each = ResolvedQuery(query=Q(card_type="A", group_by="card"))
+        rows, folded = fold_rows(keyed, each, 20)
+        assert folded == 5
+        assert rows[-1] == {"key": OTHER_KEY, "value": 15}
+        assert len(rows) == 22
+        assert {"key": "none", "value": 100} in rows
+        # An average drops the same 5 instead of merging them.
+        averaged = ResolvedQuery(
+            query=Q(card_type="A", group_by="card", metric="avg", metric_field="x")
+        )
+        rows, folded = fold_rows(keyed, averaged, 20)
+        assert folded == 5
+        assert OTHER_KEY not in {r["key"] for r in rows}
+        assert len(rows) == 21
+        # Under ``top`` nothing folds and nothing is counted.
+        assert fold_rows(keyed, each, 25) == (keyed, 0)
+        assert fold_rows(keyed[:3], each, 20) == (keyed[:3], 0)
+
+    def test_fold_rows_counts_each_folded_sankey_end(self):
+        # 30 sources over 3 targets; the source with value n flows to t{n % 3}.
+        flows = [{"source": f"s{n:02d}", "target": f"t{n % 3}", "value": n} for n in range(1, 31)]
+        rel = object()
+        sources = ResolvedQuery(query=Q(group_by="card"), relation=rel)  # type: ignore[arg-type]
+        rows, folded = fold_rows(flows, sources, 20)
+        assert folded == 10
+        assert {r["target"] for r in rows} == {"t0", "t1", "t2"}
+        assert sum(r["value"] for r in rows if r["source"] == OTHER_KEY) == sum(range(1, 11))
+        # Both ends card-keyed: the sources' 10 and the targets' 1 (top=2).
+        both = ResolvedQuery(
+            query=Q(group_by="card", group_by_2="card"),
+            relation=rel,  # type: ignore[arg-type]
+        )
+        assert fold_rows(flows, both, 20)[1] == 10
+        assert fold_rows(flows, both, 2)[1] == 28 + 1
+        # A card at both ends counts once per end.
+        loop = [
+            {"source": "a", "target": "a", "value": 1},
+            {"source": "b", "target": "c", "value": 2},
+        ]
+        assert fold_rows(loop, both, 1)[1] == 2
+        assert fold_rows(flows, both, 30) == (fold_flows(flows, 30), 0)
 
     def test_row_keys(self):
         rows = [{"key": "a", "value": 1}, {"source": "b", "target": "c", "value": 1}]
@@ -1151,6 +1202,10 @@ class TestSankeyCards:
         }
         assert result["labels"] == {str(a1.id): "A1", str(it1.id): "IT1"}
         assert result["total"] == 3
+        # One application and one IT component folded, one per end.
+        assert result["folded"] == {"top": 1, "cards": 2}
+        unfolded = await run_query(db, resolved, CardReadScope.everything(), top=2)
+        assert "folded" not in unfolded
 
     async def test_a_type_end_is_never_folded_nor_labelled(self, db, landscape):
         a1, a2 = landscape["a1"], landscape["a2"]

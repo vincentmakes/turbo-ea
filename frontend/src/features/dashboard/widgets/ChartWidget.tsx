@@ -245,12 +245,22 @@ function QueryChart({ widget, config }: ChartProps) {
     [drillable, isSankey, query, sides, dimension, dimension2, result?.dimension, navigate],
   );
 
-  const caption =
+  const fiscalLine =
     result?.fiscalYear != null
       ? t("dashboard.config.fiscalYear", {
           year: fiscalYearLabel(result.fiscalYear, result.fiscalYearStart ?? 1, t),
         })
       : null;
+  // A card-keyed result keeps its largest cards: the rest are merged into
+  // Other for a count or sum, and dropped for an average or share.
+  const folded = result?.folded;
+  const foldLine = folded
+    ? t(metric === "avg" || metric === "share" ? "dashboard.chart.foldedDropped" : "dashboard.chart.folded", {
+        count: folded.cards,
+        top: folded.top,
+      })
+    : null;
+  const caption = [fiscalLine, foldLine].filter(Boolean).join(" · ") || null;
 
   return (
     <ChartBody

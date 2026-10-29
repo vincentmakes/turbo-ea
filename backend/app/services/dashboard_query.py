@@ -130,8 +130,8 @@ RELATED_FLAG = "related:"
 UNRELATED_FLAG = "unrelated:"
 # The filters a ``share`` divides by, and a KPI's ``base`` strips.
 NARROWING_FIELDS: tuple[str, ...] = ("approval_status", "lifecycle_phase", "flags")
-# A card-keyed chart keeps its ``top`` largest keys and folds the rest here
-# (the frontend's ``OTHER_KEY``).
+# A card-keyed chart keeps its ``top`` largest cards and folds the rest here
+# (the frontend's ``OTHER_KEY``), or drops them for an average or a share.
 OTHER_KEY = "__other__"
 SIDE_SUFFIXES: tuple[str, ...] = ("out", "in")
 # The same six keys as ``GET /reports/dashboard``'s lifecycle distribution.
@@ -811,6 +811,19 @@ def _ranked(values: Mapping[str, float | int], top: int) -> set[str]:
     return set(sorted(values, key=lambda k: (-values[k], k))[:top])
 
 
+def _fold_keyed(
+    rows: Sequence[Mapping[str, Any]], top: int, merge: bool
+) -> tuple[list[dict[str, Any]], int]:
+    """``fold_keyed``'s rows and the number of card keys it did not keep."""
+    cards = {r["key"]: r["value"] for r in rows if r["key"] != NONE_KEY}
+    kept = _ranked(cards, top)
+    out = [dict(r) for r in rows if r["key"] in kept or r["key"] == NONE_KEY]
+    rest = [v for k, v in cards.items() if k not in kept]
+    if rest and merge:
+        out.append({"key": OTHER_KEY, "value": tidy_number(sum(rest))})
+    return out, len(cards) - len(kept)
+
+
 def fold_keyed(
     rows: Sequence[Mapping[str, Any]], top: int, *, merge: bool = True
 ) -> list[dict[str, Any]]:
@@ -818,13 +831,34 @@ def fold_keyed(
     ``OTHER_KEY``, appended last. ``none`` (no related card) is not a card and
     is never folded. ``merge=False`` drops the rest instead — an average or a
     share of several cards is not their sum."""
-    cards = {r["key"]: r["value"] for r in rows if r["key"] != NONE_KEY}
-    kept = _ranked(cards, top)
-    out = [dict(r) for r in rows if r["key"] in kept or r["key"] == NONE_KEY]
-    rest = [v for k, v in cards.items() if k not in kept]
-    if rest and merge:
-        out.append({"key": OTHER_KEY, "value": tidy_number(sum(rest))})
-    return out
+    return _fold_keyed(rows, top, merge)[0]
+
+
+def _fold_flows(
+    rows: Sequence[Mapping[str, Any]], top: int, sides: Sequence[str]
+) -> tuple[list[dict[str, Any]], int]:
+    """``fold_flows``'s rows and the number of keys it did not keep, summed
+    over the folded sides (a card at both ends counts once per side)."""
+    kept: dict[str, set[str]] = {}
+    folded_count = 0
+    for side in sides:
+        totals: dict[str, float | int] = {}
+        for r in rows:
+            totals[r[side]] = totals.get(r[side], 0) + r["value"]
+        kept[side] = _ranked(totals, top)
+        folded_count += len(totals) - len(kept[side])
+
+    def folded(row: Mapping[str, Any], side: str) -> str:
+        if side in kept and row[side] not in kept[side]:
+            return OTHER_KEY
+        return row[side]
+
+    merged: dict[tuple[str, str], float | int] = {}
+    for r in rows:
+        pair = (folded(r, "source"), folded(r, "target"))
+        merged[pair] = merged.get(pair, 0) + r["value"]
+    flows = sorted(merged.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
+    return [{"source": s, "target": t, "value": v} for (s, t), v in flows], folded_count
 
 
 def fold_flows(
@@ -837,24 +871,7 @@ def fold_flows(
     own total, ties by key), merge that side's other keys into ``OTHER_KEY``,
     and re-sort the flows like ``aggregate``. A side not in ``sides`` (one
     that is not card-keyed) is never folded."""
-    kept: dict[str, set[str]] = {}
-    for side in sides:
-        totals: dict[str, float | int] = {}
-        for r in rows:
-            totals[r[side]] = totals.get(r[side], 0) + r["value"]
-        kept[side] = _ranked(totals, top)
-
-    def folded(row: Mapping[str, Any], side: str) -> str:
-        if side in kept and row[side] not in kept[side]:
-            return OTHER_KEY
-        return row[side]
-
-    merged: dict[tuple[str, str], float | int] = {}
-    for r in rows:
-        pair = (folded(r, "source"), folded(r, "target"))
-        merged[pair] = merged.get(pair, 0) + r["value"]
-    flows = sorted(merged.items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1]))
-    return [{"source": s, "target": t, "value": v} for (s, t), v in flows]
+    return _fold_flows(rows, top, sides)[0]
 
 
 def row_keys(rows: Iterable[Mapping[str, Any]]) -> set[str]:
@@ -1297,17 +1314,20 @@ def with_query(resolved: ResolvedQuery, query: DashboardQuery) -> ResolvedQuery:
 
 def fold_rows(
     rows: list[dict[str, Any]], resolved: ResolvedQuery, top: int
-) -> list[dict[str, Any]]:
-    """Fold a card-keyed result to its ``top`` keys (a sankey per card end)."""
+) -> tuple[list[dict[str, Any]], int]:
+    """Fold a card-keyed result to the ``top`` largest cards (a sankey per card
+    end): the rest into ``OTHER_KEY``, or dropped for an average or a share.
+    Returns the rows and the number of cards not kept — for a sankey, summed
+    over its folded ends; ``none`` is not a card and never counts."""
     shape = result_shape(resolved)
     dim_1, dim_2 = resolved.dimension, resolved.dimension_2
     if shape == "keyed" and is_card_keyed(dim_1):
-        return fold_keyed(rows, top, merge=resolved.query.metric in ("count", "sum"))
+        return _fold_keyed(rows, top, resolved.query.metric in ("count", "sum"))
     if shape == "flow":
         sides = [s for s, d in (("source", dim_1), ("target", dim_2)) if d == CARD_DIMENSION]
         if sides:
-            return fold_flows(rows, top, sides=sides)
-    return rows
+            return _fold_flows(rows, top, sides)
+    return rows, 0
 
 
 async def run_query(
@@ -1328,8 +1348,10 @@ async def run_query(
     tiles and charts must not stream the card table once per widget); the rest
     reads one row per card. ``force_python`` takes the per-card path always —
     the parity test runs every fast-path query both ways. A ``share`` runs the
-    count twice (narrowed and base), each on its own best path. ``top`` folds
-    a card-keyed result's smaller keys into ``OTHER_KEY``.
+    count twice (narrowed and base), each on its own best path. ``top`` keeps
+    a card-keyed result's ``top`` largest cards and folds the rest into
+    ``OTHER_KEY``, or drops them for an average or a share; when any card is
+    not kept, ``folded`` says so: ``{"top": top, "cards": <cards not kept>}``.
     """
     day = today or datetime.now(timezone.utc).date()
     fiscal = await fiscal_year_keys(db, resolved, day)
@@ -1351,10 +1373,13 @@ async def run_query(
         rows, total = share_rows(full_rows, base_rows, full_total, base_total)
     else:
         rows, total, labels = await _compute(db, resolved, read_scope, window, force_python)
+    folded = 0
     if top is not None:
-        rows = fold_rows(rows, resolved, top)
+        rows, folded = fold_rows(rows, resolved, top)
     dim_1, dim_2 = resolved.dimension, resolved.dimension_2
     out: dict[str, Any] = {"dimension": dim_1, "dimension_2": dim_2, "rows": rows, "total": total}
+    if folded > 0:
+        out["folded"] = {"top": top, "cards": folded}
     if is_card_keyed(dim_1) or is_card_keyed(dim_2):
         named = row_keys(rows)
         out["labels"] = {k: v for k, v in labels.items() if k in named}

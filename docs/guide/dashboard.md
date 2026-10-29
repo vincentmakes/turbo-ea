@@ -126,7 +126,7 @@ A chart groups cards by one **dimension** and measures each group with a **metri
 | **Data quality** | Data-quality bucket (0–25 %, 25–50 %, …) |
 | **Month created** | Month the card was created |
 | **A field** | Any single-select or yes/no field of the chosen card type |
-| **Each card** | One group per card of the chosen type — a treemap of cost per application, the applications with the most IT components. The largest groups are kept (the chart's maximum, twenty by default) and the rest folded into *Other*; clicking a card opens it |
+| **Each card** | One group per card of the chosen type — a treemap of cost per application, the applications with the most IT components. The largest groups are kept (**Categories shown (at most)**, twenty by default, up to two hundred) and the rest folded into *Other* — or left out of an average or a share, which cannot be summed. When that happens the widget says so under the chart: «Showing the 20 largest cards; 37 more are in Other». Clicking a card opens it |
 | **Related card** | The card at the other end of a relation type — Applications per Organization, IT Components per Provider, cost per Business Capability. A card linked to several related cards counts under each; cards with none fall under *None*; the twenty largest groups are kept and the rest folded into *Other* |
 | **EOL coverage** | Whether an Application or IT Component has an endoflife.date link, a manual end-of-life date, or neither |
 | **Go-live month** / **End-of-life month** | The month the card's active or end-of-life date falls in, over 18 months: six back and eleven ahead — go-lives per month, or an end-of-life calendar |
@@ -152,7 +152,7 @@ Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed
 | **Treemap** | Shares when there are many groups; **Show values on the chart** prints the figure on each tile |
 | **Sankey** | The flow of a relation type between the cards it connects, with a dimension of your choice at each end |
 
-A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest flows kept and the rest folded into *Other*. Clicking a card node opens the card.
+A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest cards on each end kept and the rest folded into *Other*; the widget says so under the chart when it happens, and **Categories shown (at most)** raises the limit. Clicking a card node opens the card.
 
 Charts can also draw a module report: risks by level or status, compliance scores by regulation, PPM schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
 

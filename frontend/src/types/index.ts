@@ -915,6 +915,10 @@ export interface DashboardQueryResult {
   /** Present when the metric sums or averages a cost field. */
   fiscal_year?: number;
   fiscal_year_start?: number;
+  /** Present when a card-keyed result kept only its `top` largest cards:
+   *  `cards` is how many more were folded into Other (a count or sum), or
+   *  dropped (an average or share, where a merged Other would be wrong). */
+  folded?: { top: number; cards: number };
 }
 
 export interface DashboardKpiTrend {

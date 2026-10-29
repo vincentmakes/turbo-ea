@@ -208,8 +208,9 @@ describe("normalizeChartResult", () => {
       labels: {},
       fiscalYear: null,
       fiscalYearStart: null,
+      folded: null,
     });
-    const empty = { rows: [], total: 0, labels: {}, fiscalYear: null, fiscalYearStart: null };
+    const empty = { rows: [], total: 0, labels: {}, fiscalYear: null, fiscalYearStart: null, folded: null };
     expect(normalizeChartResult({}, cfg)).toEqual({ dimension: "type", dimension2: "subtype", ...empty });
     expect(normalizeChartResult({}, readChartConfig({}))).toEqual({ dimension: null, dimension2: null, ...empty });
   });
@@ -250,9 +251,21 @@ describe("normalizeChartResult", () => {
       labels: {},
       fiscalYear: null,
       fiscalYearStart: null,
+      folded: null,
     });
     expect(normalizeChartResult([{ date: "2026-10-01", value: 2 }], line)?.rows).toHaveLength(1);
     expect(normalizeChartResult({}, line)?.total).toBe(0);
+  });
+
+  it("carries how many cards the server folded, and nothing malformed", () => {
+    const keyed = readChartConfig({ query: { group_by: "card" } });
+    expect(normalizeChartResult({ rows: [], total: 0, folded: { top: 20, cards: 5 } }, keyed)?.folded).toEqual({
+      top: 20,
+      cards: 5,
+    });
+    expect(normalizeChartResult({ rows: [], total: 0 }, keyed)?.folded).toBeNull();
+    expect(normalizeChartResult({ folded: { top: "20", cards: 5 } }, keyed)?.folded).toBeNull();
+    expect(normalizeChartResult({ folded: { top: 20, cards: "5" } }, keyed)?.folded).toBeNull();
   });
 
   it("is null before data arrives", () => {

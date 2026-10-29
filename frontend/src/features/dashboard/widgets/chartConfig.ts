@@ -156,6 +156,8 @@ export interface NormalizedChartResult {
   labels: Record<string, string>;
   fiscalYear: number | null;
   fiscalYearStart: number | null;
+  /** Set when the server kept only the `top` largest cards of a card-keyed result. */
+  folded: { top: number; cards: number } | null;
 }
 
 export function normalizeChartResult(raw: unknown, config: ChartConfig): NormalizedChartResult | null {
@@ -171,6 +173,7 @@ export function normalizeChartResult(raw: unknown, config: ChartConfig): Normali
       labels: {},
       fiscalYear: null,
       fiscalYearStart: null,
+      folded: null,
     };
   }
   const r = raw as DashboardQueryResult;
@@ -182,5 +185,9 @@ export function normalizeChartResult(raw: unknown, config: ChartConfig): Normali
     labels: r.labels && typeof r.labels === "object" ? r.labels : {},
     fiscalYear: typeof r.fiscal_year === "number" ? r.fiscal_year : null,
     fiscalYearStart: typeof r.fiscal_year_start === "number" ? r.fiscal_year_start : null,
+    folded:
+      r.folded && typeof r.folded.top === "number" && typeof r.folded.cards === "number"
+        ? { top: r.folded.top, cards: r.folded.cards }
+        : null,
   };
 }

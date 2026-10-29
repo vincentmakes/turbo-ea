@@ -126,7 +126,7 @@ Et diagram grupperer kort efter én **dimension** og måler hver gruppe med en *
 | **Datakvalitet** | Datakvalitetsinterval (0–25 %, 25–50 %, …) |
 | **Oprettelsesmåned** | Måneden, hvor kortet blev oprettet |
 | **Et felt** | Ethvert enkeltvalgs- eller ja/nej-felt for den valgte korttype |
-| **Hvert kort** | Én gruppe pr. kort af den valgte type — et trækort over omkostning pr. applikation, de applikationer med flest IT-komponenter. De største grupper beholdes (diagrammets maksimum, som standard tyve), og resten samles under *Andre*; et klik på et kort åbner det |
+| **Hvert kort** | Én gruppe pr. kort af den valgte type — et trækort over omkostning pr. applikation, de applikationer med flest IT-komponenter. De største grupper beholdes (**Viste kategorier (højst)**, som standard tyve, op til to hundrede), og resten samles under *Andet* — eller udelades fra et gennemsnit eller en andel, som ikke kan summeres. Widgetten fortæller det under diagrammet: «Viser de 20 største kort; 37 mere er i «Andet»». Et klik på et kort åbner det |
 | **Relateret kort** | Kortet i den anden ende af en relationstype — applikationer pr. organisation, IT-komponenter pr. leverandør, omkostninger pr. forretningsevne. Et kort, der er knyttet til flere relaterede kort, tælles under hvert af dem; kort uden nogen falder under *Ingen*; de tyve største grupper beholdes, og resten samles under *Andre* |
 | **EOL-dækning** | Om en applikation eller IT-komponent har et link til endoflife.date, en manuel end-of-life-dato eller ingen af delene |
 | **Go-live-måned** / **Måned for livscyklusafslutning** | Den måned, kortets aktive dato eller slutdato for livscyklus falder i, over 18 måneder: seks tilbage og elleve frem — go-lives pr. måned eller en kalender for livscyklusafslutning |
@@ -152,7 +152,7 @@ Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI i
 | **Treemap** | Andele, når der er mange grupper; **Vis værdier på diagrammet** skriver tallet på hver flise |
 | **Sankey** | Strømmen af en relationstype mellem de kort, den forbinder, med en dimension efter eget valg i hver ende |
 
-Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største strømme beholdes, og resten samles under *Andre*. Et klik på en kortknude åbner kortet.
+Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største kort i hver ende beholdes, og resten samles under *Andet*; widgetten fortæller det under diagrammet, og **Viste kategorier (højst)** hæver grænsen. Et klik på en kortknude åbner kortet.
 
 Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PPM og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
 

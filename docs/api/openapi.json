@@ -26377,7 +26377,7 @@
     },
     "/api/v1/dashboards/query": {
       "get": {
-        "description": "Rows for a chart widget: ``{dimension, dimension_2, rows, total}``, plus\n``labels`` (card id \u2192 name) for a card-keyed dimension \u2014 whose ``top``\nlargest keys are kept and the rest folded into ``__other__`` \u2014 and\n``fiscal_year`` / ``fiscal_year_start`` for a cost.",
+        "description": "Rows for a chart widget: ``{dimension, dimension_2, rows, total}``, plus\n``labels`` (card id \u2192 name) for a card-keyed dimension \u2014 whose ``top``\nlargest cards are kept and the rest folded into ``__other__``, or dropped\nfor an average or a share; ``folded`` (``{top, cards}``, only when a card\nwas not kept) says how many \u2014 and ``fiscal_year`` / ``fiscal_year_start``\nfor a cost.",
         "operationId": "dashboard_query_api_v1_dashboards_query_get",
         "parameters": [
           {

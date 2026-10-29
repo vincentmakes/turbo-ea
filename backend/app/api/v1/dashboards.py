@@ -165,8 +165,10 @@ async def dashboard_query(
 ):
     """Rows for a chart widget: ``{dimension, dimension_2, rows, total}``, plus
     ``labels`` (card id → name) for a card-keyed dimension — whose ``top``
-    largest keys are kept and the rest folded into ``__other__`` — and
-    ``fiscal_year`` / ``fiscal_year_start`` for a cost."""
+    largest cards are kept and the rest folded into ``__other__``, or dropped
+    for an average or a share; ``folded`` (``{top, cards}``, only when a card
+    was not kept) says how many — and ``fiscal_year`` / ``fiscal_year_start``
+    for a cost."""
     resolved, read_scope = await _prepare(db, user, query)
     return await run_query(db, resolved, read_scope, top=top)
 

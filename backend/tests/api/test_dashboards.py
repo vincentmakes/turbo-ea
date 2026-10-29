@@ -536,10 +536,37 @@ class TestQuery:
         assert body["dimension"] == "card"
         assert [row["value"] for row in body["rows"]] == [10, 5]
         assert body["rows"][1]["key"] == "__other__"
+        assert body["folded"] == {"top": 1, "cards": 1}
         assert list(body["labels"].values()) == ["A1"]
         assert body["labels"].keys() == {body["rows"][0]["key"]}
         assert body["total"] == 15
         assert body["fiscal_year"] == TODAY.year
+
+    async def test_folded_says_how_many_cards_top_left_out(self, client, db, env):
+        for n in range(3, 6):
+            await create_card(db, card_type="Application", name=f"A{n}", attributes={"users": 1})
+        params = {"card_type": "Application", "group_by": "card"}
+        headers = auth_headers(env["viewer"])
+        r = await client.get(f"{BASE}/query", params={**params, "top": 2}, headers=headers)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["folded"] == {"top": 2, "cards": 3}
+        assert body["rows"][-1] == {"key": "__other__", "value": 3}
+        assert len(body["labels"]) == 2
+        # Exactly ``top`` cards, or the default 20: nothing is folded or said.
+        for extra in ({"top": 5}, {}):
+            r = await client.get(f"{BASE}/query", params={**params, **extra}, headers=headers)
+            assert "folded" not in r.json()
+            assert len(r.json()["rows"]) == 5
+        # An average drops the rest rather than merging it, and says so too.
+        avg = {**params, "metric": "avg", "metric_field": "users", "top": 1}
+        body = (await client.get(f"{BASE}/query", params=avg, headers=headers)).json()
+        assert body["rows"] == [{"key": next(iter(body["labels"])), "value": 3}]
+        assert body["folded"] == {"top": 1, "cards": 4}
+        # A dimension that is not card-keyed never folds.
+        by_type = {"group_by": "type", "top": 1}
+        body = (await client.get(f"{BASE}/query", params=by_type, headers=headers)).json()
+        assert "folded" not in body
 
     @pytest.mark.parametrize(("top", "status"), [(0, 422), (201, 422), (1, 200), (200, 200)])
     async def test_top_bounds(self, client, env, top, status):
