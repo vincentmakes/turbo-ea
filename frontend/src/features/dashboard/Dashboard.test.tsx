@@ -407,6 +407,129 @@ describe("Dashboard management", () => {
     ]);
   });
 
+  describe("undo and redo", () => {
+    const undoButton = () => screen.getByTestId("dashboard-undo");
+    const redoButton = () => screen.getByTestId("dashboard-redo");
+    const saveButton = () => screen.getByRole("button", { name: tc("actions.save") });
+    const unsaved = () => screen.queryByText(tc("dashboard.customize.unsavedChanges"));
+
+    async function customizeWorkspace() {
+      const rendered = renderDashboard(manager(), { route: "/?tab=workspace" });
+      await screen.findByText("widget:todos");
+      await rendered.user.click(button("dashboard.customize.customize"));
+      return rendered;
+    }
+
+    it("has nothing to undo or redo on entering customize mode, nor after the grid echoes its layout", async () => {
+      await customizeWorkspace();
+      expect(undoButton()).toBeDisabled();
+      expect(redoButton()).toBeDisabled();
+      expect(undoButton()).toHaveAccessibleName(tc("actions.undo"));
+      expect(redoButton()).toHaveAccessibleName(tc("actions.redo"));
+      act(() => grid.props.onLayoutChange(structuredClone(WORKSPACE.widgets)));
+      expect(undoButton()).toBeDisabled();
+      expect(saveButton()).toBeDisabled();
+    });
+
+    it("undoes a removal back to the saved state, and redoes it", async () => {
+      const { user } = await customizeWorkspace();
+      act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+      expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+      expect(saveButton()).toBeEnabled();
+
+      await user.click(undoButton());
+      expect(screen.getByText("widget:todos")).toBeInTheDocument();
+      expect(saveButton()).toBeDisabled();
+      expect(unsaved()).not.toBeInTheDocument();
+      expect(undoButton()).toBeDisabled();
+      expect(redoButton()).toBeEnabled();
+
+      await user.click(redoButton());
+      expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+      expect(screen.getByText("widget:roles")).toBeInTheDocument();
+      expect(saveButton()).toBeEnabled();
+      expect(unsaved()).toBeInTheDocument();
+      expect(redoButton()).toBeDisabled();
+      expect(undoButton()).toBeEnabled();
+    });
+
+    it("saves the state undo returned to", async () => {
+      mockApi.on("patch", "/dashboards/id-workspace", (_p: string, body: any) => ({ ...WORKSPACE, ...body }));
+      const { user } = await customizeWorkspace();
+      const moved = [{ ...WORKSPACE.widgets[0], layout: { x: 6, y: 0, w: 6, h: 6 } }, WORKSPACE.widgets[1]];
+      act(() => grid.props.onLayoutChange(moved));
+      act(() => grid.props.onRemove(WORKSPACE.widgets[1]));
+      await user.click(undoButton());
+      await user.click(saveButton());
+      await waitFor(() => expect(mockApi.callsOf("patch", "/dashboards/id-workspace")).toHaveLength(1));
+      expect(mockApi.callsOf("patch", "/dashboards/id-workspace")[0].body).toEqual({ widgets: moved });
+    });
+
+    it("undoes with Ctrl+Z and redoes with Ctrl+Shift+Z or Ctrl+Y", async () => {
+      const { user } = await customizeWorkspace();
+      act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+
+      await user.keyboard("{Control>}z{/Control}");
+      expect(screen.getByText("widget:todos")).toBeInTheDocument();
+      expect(saveButton()).toBeDisabled();
+
+      await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
+      expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+
+      await user.keyboard("{Control>}z{/Control}");
+      expect(screen.getByText("widget:todos")).toBeInTheDocument();
+      await user.keyboard("{Control>}y{/Control}");
+      expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+    });
+
+    it("leaves the draft alone when Ctrl+Z is pressed in a text field", async () => {
+      const { user } = await customizeWorkspace();
+      act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+      const field = document.createElement("input");
+      document.body.appendChild(field);
+      try {
+        field.focus();
+        await user.keyboard("{Control>}z{/Control}");
+        expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+        expect(saveButton()).toBeEnabled();
+      } finally {
+        field.remove();
+      }
+    });
+
+    it("leaves the draft alone while the widget settings dialog is open", async () => {
+      const { user } = await customizeWorkspace();
+      act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+      act(() => grid.props.onConfigure(WORKSPACE.widgets[1]));
+      expect(screen.getByTestId("config-dialog")).toBeInTheDocument();
+      await user.keyboard("{Control>}z{/Control}");
+      expect(screen.queryByText("widget:todos")).not.toBeInTheDocument();
+    });
+
+    it("ignores the shortcuts outside customize mode", async () => {
+      const { user } = renderDashboard(manager(), { route: "/?tab=workspace" });
+      await screen.findByText("widget:todos");
+      await user.keyboard("{Control>}z{/Control}");
+      expect(screen.queryByTestId("dashboard-undo")).not.toBeInTheDocument();
+      expect(screen.getByTestId("grid")).toHaveAttribute("data-editing", "false");
+    });
+
+    it("starts a fresh history after Discard", async () => {
+      const { user } = await customizeWorkspace();
+      act(() => grid.props.onRemove(WORKSPACE.widgets[0]));
+      await user.click(undoButton());
+      act(() => grid.props.onRemove(WORKSPACE.widgets[1]));
+      await user.click(screen.getByRole("button", { name: tc("dashboard.customize.discard") }));
+      expect(screen.queryByTestId("dashboard-undo")).not.toBeInTheDocument();
+
+      await user.click(button("dashboard.customize.customize"));
+      expect(undoButton()).toBeDisabled();
+      expect(redoButton()).toBeDisabled();
+      expect(screen.getByText("widget:todos")).toBeInTheDocument();
+      expect(screen.getByText("widget:roles")).toBeInTheDocument();
+    });
+  });
+
   it("opens a newly created dashboard in customize mode", async () => {
     const created = dash("q3-review", [], { id: "id-new", built_in: false, sort_order: 5 });
     renderDashboard(manager());

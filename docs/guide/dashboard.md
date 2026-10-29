@@ -89,6 +89,7 @@ Click **Customize** next to the dashboard tabs to edit the current dashboard. In
 - **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
 - **Remove** a widget with its close button.
 - **Configure** a KPI tile, a chart or the activity feed with its gear button.
+- **Undo** and **Redo** step through the changes made since Customize was opened, one move, resize, addition, removal or configuration at a time — with the two toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac). **Discard** still drops them all at once.
 
 Click **Save** to keep the changes for everyone, or **Discard** to return to the dashboard as it was.
 

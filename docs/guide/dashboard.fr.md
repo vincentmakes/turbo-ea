@@ -89,6 +89,7 @@ Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour mod
 - **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin, à la souris ou au toucher (sur un téléphone ou une tablette tenus à la verticale, la disposition est en lecture seule). Le widget voisin lui laisse la place : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes.
 - **Retirez** un widget avec son bouton de fermeture.
 - **Configurez** une tuile KPI, un graphique ou le fil d’activité avec son bouton en forme d’engrenage.
+- **Annulez** et **rétablissez** vos modifications : **Annuler** et **Rétablir** parcourent pas à pas les changements effectués depuis l’ouverture de Personnaliser (un déplacement, un redimensionnement, un ajout, un retrait ou une configuration à la fois) — avec les deux boutons de la barre d’outils ou Ctrl+Z / Ctrl+Maj+Z (⌘ sur Mac). **Abandonner** les supprime toujours tous d’un coup.
 
 Cliquez sur **Enregistrer** pour conserver les modifications pour tout le monde, ou sur **Annuler** pour revenir au tableau de bord tel qu’il était.
 

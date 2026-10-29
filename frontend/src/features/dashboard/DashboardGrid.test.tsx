@@ -131,7 +131,6 @@ describe("DashboardGrid", () => {
     const rules = rulesOf(grid);
     expect(rules.some((r) => r.includes(".react-resizable-handle{") && r.includes("touch-action:none"))).toBe(true);
     expect(rules.some((r) => r.includes(".dashboard-widget-drag-handle") && r.includes("touch-action:none"))).toBe(true);
-    expect(rules.some((r) => r.includes("react-resizable-handle-se") && r.includes("width:28px"))).toBe(true);
     unmount();
     const locked = renderGrid({ editing: false }).container.querySelector(".dashboard-grid")!;
     expect(rulesOf(locked)).toEqual([]);

@@ -1,71 +1,46 @@
 /**
- * The customize-mode look of the grid's resize and drag handles, as `sx`
- * rules for the `.dashboard-grid` container. react-grid-layout listens to
- * touch as well as mouse, but out of the box a touch on a 20 px handle starts
- * the page's scroll gesture instead, and the handles only show on `:hover`,
- * which a touch screen never has. While arranging, the handles therefore
- * take `touch-action: none` (the page still scrolls from anywhere else on a
- * widget), never start a text selection on a long press, and are drawn big
- * and always visible: a 28 px rounded corner, and full-length 12 px bars on
- * the right and bottom edges, in the primary colour at a low alpha, stronger
- * on hover / press. Pointer users keep the resize cursors. Outside customize
- * mode there are no handle rules at all. Pure.
+ * The customize-mode rules for the grid's resize and drag handles, as `sx`
+ * for the `.dashboard-grid` container. The handles themselves are the
+ * library's: react-grid-layout and react-resizable draw 20 px handles with
+ * their own positions, rotations and cursors, and those are left alone.
+ *
+ * What is added while arranging:
+ * - a touch on a handle resizes or moves instead of starting the page's
+ *   scroll gesture (`touch-action: none`; the page still scrolls from
+ *   anywhere else on a widget), and a long press never selects text;
+ * - the corner keeps the library's mark, recoloured from its hard-coded
+ *   black (invisible in dark mode) to the theme's secondary text colour;
+ * - the right and bottom edges stay grabbable but draw no mark: the library
+ *   rotates the same corner mark onto each edge, which reads as three
+ *   corners;
+ * - the library reveals handles only on `:hover`, which a touch screen never
+ *   produces, so where there is no hover the handles are always shown; a
+ *   mouse user keeps the hover reveal.
+ *
+ * Outside customize mode there are no handle rules at all. Pure.
  */
-import { alpha, type Theme } from "@mui/material/styles";
+import type { Theme } from "@mui/material/styles";
 import { DRAG_HANDLE_CLASS } from "./widgets/WidgetFrame";
 
 const HANDLE = "& .react-grid-item > .react-resizable-handle";
-const BAR = 12;
-const CORNER = 28;
+
+const TOUCH = { touchAction: "none", WebkitUserSelect: "none", userSelect: "none" };
+
+// react-resizable's own stylesheet also paints a corner glyph as a
+// background image on every handle; on an edge it is rotated like the
+// `::after` mark, so both go.
+const NO_EDGE_MARK = { backgroundImage: "none", "&::after": { display: "none" } };
 
 export function handleStyles(theme: Theme, editing: boolean): Record<string, unknown> {
   if (!editing) return {};
-  const primary = theme.palette.primary.main;
-  const bar = {
-    backgroundColor: alpha(primary, 0.08),
-    transform: "none",
-    "&::after": { display: "none" },
-    "&:hover, &:active": { backgroundColor: alpha(primary, 0.2) },
-  };
   return {
-    [HANDLE]: {
-      opacity: 1,
-      touchAction: "none",
-      WebkitUserSelect: "none",
-      userSelect: "none",
-      backgroundImage: "none",
-      padding: 0,
-    },
+    [HANDLE]: { ...TOUCH },
     [`${HANDLE}.react-resizable-handle-se`]: {
-      width: CORNER,
-      height: CORNER,
-      right: 0,
-      bottom: 0,
-      borderRadius: 1,
-      zIndex: 2,
-      cursor: "se-resize",
-      backgroundColor: alpha(primary, 0.18),
-      "&::after": { borderColor: primary },
-      "&:hover, &:active": { backgroundColor: alpha(primary, 0.35) },
+      "&::after": { borderColor: theme.palette.text.secondary },
     },
-    [`${HANDLE}.react-resizable-handle-e`]: {
-      ...bar,
-      top: 0,
-      right: 0,
-      height: "100%",
-      width: BAR,
-      marginTop: 0,
-      cursor: "ew-resize",
-    },
-    [`${HANDLE}.react-resizable-handle-s`]: {
-      ...bar,
-      left: 0,
-      bottom: 0,
-      width: "100%",
-      height: BAR,
-      marginLeft: 0,
-      cursor: "ns-resize",
-    },
-    [`& .${DRAG_HANDLE_CLASS}`]: { touchAction: "none" },
+    [`${HANDLE}.react-resizable-handle-e`]: NO_EDGE_MARK,
+    [`${HANDLE}.react-resizable-handle-s`]: NO_EDGE_MARK,
+    [`& .${DRAG_HANDLE_CLASS}`]: { ...TOUCH },
+    "@media (hover: none)": { [HANDLE]: { opacity: 1 } },
   };
 }

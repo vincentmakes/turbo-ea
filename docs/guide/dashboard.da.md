@@ -89,6 +89,7 @@ Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle d
 - **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet, med mus eller berøring (på en telefon eller tablet holdt lodret er layoutet skrivebeskyttet). Widgetten ved siden af giver plads: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv.
 - **Fjern** en widget med dens lukkeknap.
 - **Konfigurer** et KPI-felt, et diagram eller aktivitetsfeedet med tandhjulsknappen.
+- **Fortryd** og **gentag** ændringer: **Fortryd** og **Gentag** gennemgår trin for trin de ændringer, der er foretaget, siden Tilpas blev åbnet (ét flyt, én størrelsesændring, tilføjelse, fjernelse eller konfiguration ad gangen) — med de to knapper på værktøjslinjen eller med Ctrl+Z / Ctrl+Shift+Z (⌘ på Mac). **Kassér** fjerner stadig alle på én gang.
 
 Klik på **Gem** for at beholde ændringerne for alle, eller **Kassér ændringer** for at vende tilbage til dashboardet, som det var.
 

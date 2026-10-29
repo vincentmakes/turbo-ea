@@ -13,8 +13,9 @@
  * hole when a widget shrinks. Heights stay the library's: rows below move
  * down and compact back up on their own.
  *
- * While arranging, the resize and drag handles are sized and styled for
- * touch as well as a mouse (`handleStyles`).
+ * While arranging, the library's resize and drag handles respond to touch
+ * as well as a mouse, the corner mark follows the theme and the edge marks
+ * are hidden (`handleStyles`).
  *
  * Layout changes go to the parent's local state only — the page saves.
  */

@@ -89,6 +89,7 @@ Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare 
 - **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo, con il mouse o con il tocco (su uno smartphone o un tablet tenuto in verticale il layout è di sola lettura). Il widget accanto gli fa spazio: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole.
 - **Rimuovi** un widget con il suo pulsante di chiusura.
 - **Configura** un tile KPI, un grafico o il feed delle attività con il suo pulsante a forma di ingranaggio.
+- **Annulla** e **ripeti** le modifiche: **Annulla** e **Ripeti** scorrono passo dopo passo le modifiche fatte da quando è stato aperto Personalizza (uno spostamento, ridimensionamento, aggiunta, rimozione o configurazione alla volta) — con i due pulsanti della barra degli strumenti o con Ctrl+Z / Ctrl+Maiusc+Z (⌘ su Mac). **Scarta** continua ad annullarle tutte in una volta.
 
 Fai clic su **Salva** per mantenere le modifiche per tutti, oppure su **Annulla modifiche** per tornare alla dashboard com'era.
 

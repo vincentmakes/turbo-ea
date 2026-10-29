@@ -89,6 +89,7 @@ Clique em **Personalizar**, junto às abas dos painéis, para editar o painel at
 - **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto, com o rato ou por toque (num telemóvel ou tablet na vertical, o layout é só de leitura). O widget ao lado abre espaço: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias.
 - **Remova** um widget com o seu botão de fechar.
 - **Configure** um bloco de KPI, um gráfico ou o feed de atividade com o seu botão de engrenagem.
+- **Desfaça** e **refaça** as alterações: **Desfazer** e **Refazer** percorrem passo a passo as alterações feitas desde que Personalizar foi aberto (um movimento, redimensionamento, adição, remoção ou configuração de cada vez) — com os dois botões da barra de ferramentas ou com Ctrl+Z / Ctrl+Shift+Z (⌘ num Mac). **Descartar** continua a eliminá-las todas de uma só vez.
 
 Clique em **Salvar** para manter as alterações para todos, ou em **Descartar** para voltar ao painel como estava.
 

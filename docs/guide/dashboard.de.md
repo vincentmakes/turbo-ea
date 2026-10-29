@@ -89,6 +89,7 @@ Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard
 - **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke, per Maus oder Touch (auf einem hochkant gehaltenen Smartphone oder Tablet ist das Layout schreibgeschützt). Das benachbarte Widget macht Platz: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben.
 - **Entfernen** Sie ein Widget mit seiner Schließen-Schaltfläche.
 - **Konfigurieren** Sie eine KPI-Kachel, ein Diagramm oder den Aktivitäts-Feed mit der Zahnrad-Schaltfläche.
+- **Machen Sie Änderungen rückgängig** oder **wiederholen** Sie sie: **Rückgängig** und **Wiederholen** gehen die seit dem Öffnen von Anpassen vorgenommenen Änderungen Schritt für Schritt durch (je ein Verschieben, Ändern der Größe, Hinzufügen, Entfernen oder Konfigurieren) — mit den beiden Schaltflächen der Symbolleiste oder mit Strg+Z / Strg+Umschalt+Z (⌘ auf dem Mac). **Verwerfen** verwirft weiterhin alle auf einmal.
 
 Klicken Sie auf **Speichern**, um die Änderungen für alle zu übernehmen, oder auf **Verwerfen**, um zum Dashboard im bisherigen Zustand zurückzukehren.
 

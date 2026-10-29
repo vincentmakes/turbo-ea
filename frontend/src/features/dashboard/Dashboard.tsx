@@ -9,6 +9,9 @@
  * `?tab=<key>` selects the dashboard; the user's pinned default
  * (`ui_preferences.dashboard_default_tab`) is used when there is none, and a
  * stale pin or link falls back to the first tab.
+ *
+ * Customize mode edits a local draft with undo / redo (`useDraftHistory`,
+ * also on Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z or +Y); Save sends it in one PATCH.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,6 +41,7 @@ import WidgetConfigDialog from "./customize/WidgetConfigDialog";
 import { canManageDashboards, dashboardLabel } from "./customize/dashboardUtils";
 import { newWidgetId, newWidgetLayout } from "./layoutUtils";
 import { useDashboardModules } from "./useDashboardModules";
+import { isEditableTarget, undoRedoAction, useDraftHistory } from "./useDraftHistory";
 import { visibleWidgets } from "./widgets/widgetMeta";
 
 interface PinTabLabelProps {
@@ -116,7 +120,15 @@ export default function Dashboard() {
   const dashboards = useMemo(() => (data ?? []).map((d) => saved[d.id] ?? d), [data, saved]);
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<DashboardWidget[] | null>(null);
+  const {
+    present: draft,
+    set: setDraft,
+    reset: resetDraft,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useDraftHistory<DashboardWidget[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -172,19 +184,39 @@ export default function Dashboard() {
     [preferredTab, refreshUser],
   );
 
-  const startEditing = useCallback((dashboard: DashboardModel) => {
-    setDraft(dashboard.widgets ?? []);
-    setSaveError(null);
-    setEditing(true);
-  }, []);
+  const startEditing = useCallback(
+    (dashboard: DashboardModel) => {
+      resetDraft(dashboard.widgets ?? []);
+      setSaveError(null);
+      setEditing(true);
+    },
+    [resetDraft],
+  );
 
   const stopEditing = useCallback(() => {
     setEditing(false);
-    setDraft(null);
+    resetDraft(null);
     setSaveError(null);
     setDrawerOpen(false);
     setConfigTarget(null);
-  }, []);
+  }, [resetDraft]);
+
+  // Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or +Y) step through the draft while
+  // the grid has the stage; a text field keeps its own undo.
+  const shortcutsActive = editing && !drawerOpen && configTarget === null;
+  useEffect(() => {
+    if (!shortcutsActive) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      const action = undoRedoAction(event);
+      if (!action) return;
+      event.preventDefault();
+      if (action === "undo") undo();
+      else redo();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [shortcutsActive, undo, redo]);
 
   // A dashboard just created opens in customize mode once it has arrived.
   useEffect(() => {
@@ -221,7 +253,7 @@ export default function Dashboard() {
         return (current ?? []).map((w) => byId.get(w.id) ?? w);
       });
     },
-    [],
+    [setDraft],
   );
 
   const handleSave = async () => {
@@ -283,6 +315,33 @@ export default function Dashboard() {
         {editing && (
           <>
             {dirty && <Chip size="small" color="warning" variant="outlined" label={t("dashboard.customize.unsavedChanges")} />}
+            <Tooltip title={t("actions.undo")}>
+              {/* span wrapper so the Tooltip works while the button is disabled */}
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={t("actions.undo")}
+                  disabled={!canUndo}
+                  onClick={undo}
+                  data-testid="dashboard-undo"
+                >
+                  <MaterialSymbol icon="undo" size={20} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title={t("actions.redo")}>
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label={t("actions.redo")}
+                  disabled={!canRedo}
+                  onClick={redo}
+                  data-testid="dashboard-redo"
+                >
+                  <MaterialSymbol icon="redo" size={20} />
+                </IconButton>
+              </span>
+            </Tooltip>
             <Button
               variant="outlined"
               size="small"

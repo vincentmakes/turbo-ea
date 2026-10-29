@@ -89,6 +89,7 @@ Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar
 - **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina, con el ratón o con el tacto (en un móvil o una tableta en vertical el diseño es de solo lectura). El widget contiguo le hace sitio: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas.
 - **Elimine** un widget con su botón de cierre.
 - **Configure** una tarjeta KPI, un gráfico o el feed de actividad con su botón de engranaje.
+- **Deshaga** y **rehaga** los cambios: **Deshacer** y **Rehacer** recorren paso a paso los cambios realizados desde que se abrió Personalizar (un movimiento, cambio de tamaño, adición, eliminación o configuración cada vez) — con los dos botones de la barra de herramientas o con Ctrl+Z / Ctrl+Mayús+Z (⌘ en Mac). **Descartar** sigue eliminándolos todos a la vez.
 
 Haga clic en **Guardar** para conservar los cambios para todos, o en **Descartar** para volver al panel tal como estaba.
 
