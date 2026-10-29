@@ -52,11 +52,13 @@ describe("handleStyles", () => {
     );
   });
 
-  it("always shows the corner handle, with a larger mark in the theme's disabled text colour", () => {
+  it("always shows the corner handle, with one larger mark in the theme's disabled text colour", () => {
     for (const theme of [light, dark]) {
       const corner = (handleStyles(theme, true) as any)[CORNER];
       expect(corner).toEqual({
         opacity: 1,
+        // react-resizable's own background glyph goes, or the corner shows two marks.
+        backgroundImage: "none",
         "&::after": { width: 8, height: 8, right: 4, bottom: 4, borderColor: theme.palette.text.disabled },
       });
     }

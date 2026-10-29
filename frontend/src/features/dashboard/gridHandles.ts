@@ -50,6 +50,9 @@ export function handleStyles(theme: Theme, editing: boolean): Record<string, unk
     [HANDLE]: { ...TOUCH },
     [`${HANDLE}.react-resizable-handle-se`]: {
       opacity: 1,
+      // react-resizable paints its own corner glyph as a background image on
+      // every handle; with the `::after` mark that made two corners.
+      backgroundImage: "none",
       "&::after": { width: 8, height: 8, right: 4, bottom: 4, borderColor: theme.palette.text.disabled },
     },
     [`${HANDLE}.react-resizable-handle-e`]: NO_EDGE_MARK,
