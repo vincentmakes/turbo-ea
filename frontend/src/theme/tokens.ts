@@ -349,6 +349,19 @@ export const DASHBOARD_KPI_COLORS = {
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */
 export const radius = { sm: 4, md: 8, lg: 12 } as const;
 
+/**
+ * Shadows for an outlined card in an arrange mode (the dashboard's customize
+ * mode). `soft` is the resting cue that the card can be picked up and moved;
+ * `lifted` says it is in hand while it is dragged. Both are faint and widely
+ * diffused on purpose — a large blur at a low alpha reads as a card floating
+ * well above the page rather than a rim around it; the card keeps its
+ * outlined border, and the shadow only adds to it.
+ */
+export const CARD_SHADOW = {
+  soft: "0 8px 24px rgba(0, 0, 0, 0.06)",
+  lifted: "0 16px 40px rgba(0, 0, 0, 0.14)",
+} as const;
+
 /** Spacing aliases for the MUI scale (1 unit = 8px by default). */
 export const spacing = { xs: 0.5, sm: 1, md: 1.5, lg: 2, xl: 3 } as const;
 

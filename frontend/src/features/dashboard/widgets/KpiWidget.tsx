@@ -1,13 +1,18 @@
 /**
  * A KPI tile. Either a named preset — the homepage's historical tiles, read
- * from the dashboard's shared sources and drawn exactly as before (the
- * Overview tiles with their trend arrow, the My Workspace and Admin tiles as
- * `MetricCard`s) — a generic query KPI (`config.query`), which reads
+ * from the dashboard's shared sources (the Overview tiles with their trend
+ * arrow, the My Workspace and Admin tiles with their subtitles) — a generic
+ * query KPI (`config.query`), which reads
  * `GET /dashboards/kpi` and shows its trend against the oldest snapshot in
  * the comparison window (plus, when configured, a 30-day sparkline and a
  * secondary figure from the query's `base`) — or one number of a module's
  * report (`config.source` + `config.series`), which has no history and so no
  * trend.
+ *
+ * Every one of them is drawn by `KpiTile`, the one component that carries the
+ * customize-mode controls: the widget frame draws no header or card around a
+ * tile, so the tile looks the same in customize mode as on the live
+ * dashboard, plus the drag handle and the buttons in its own top row.
  */
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +23,6 @@ import CardContent from "@mui/material/CardContent";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import MetricCard from "@/features/reports/MetricCard";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
@@ -41,7 +45,7 @@ import {
 } from "./kpiPresets";
 import { SOURCE_ICONS, extractSeries, isSourceSeries, type ModuleSourceName } from "./sourceSeries";
 import { widgetTitle, type WidgetProps } from "./widgetMeta";
-import { useWidgetEditing } from "./WidgetFrame";
+import { DRAG_HANDLE_CLASS, useWidgetControls, useWidgetEditing } from "./WidgetFrame";
 
 interface TileTrend {
   deltaPct: number | null;
@@ -60,53 +64,106 @@ interface TileProps {
   error?: boolean;
   /** The error's own message (defaults to the generic one). */
   errorText?: string;
+  /** A line under the number saying what it counts (the admin tiles'). */
+  subtitle?: string;
   /** Extra lines under the number: the secondary figure, the fiscal year. */
   captions?: string[];
   /** A small line under the number. */
   sparkline?: ReactNode;
+  /** Makes the tile a drill-down (the overall quality tile); off while arranging. */
+  onClick?: () => void;
 }
 
 /**
- * The Overview's tile: icon + label, trend top-right, big number, window
- * caption. In customize mode the frame's toolbar takes a row of the tile's
- * height, so the tile tightens its padding and number instead of clipping
- * the caption.
+ * The dashboard's KPI tile: icon + label, trend top-right, big number, then
+ * the subtitle, captions, sparkline and trend window. In customize mode it
+ * stays exactly that, plus the frame's controls in its top row — the drag
+ * handle before the icon (the whole icon + label group drags), the configure
+ * and remove buttons in the trend's place (the frame draws the customize-mode
+ * shadow around it). A drill-down tile does not navigate while
+ * arranging: a drag released on the tile, or a click on a button, would
+ * otherwise open its report.
  */
-function KpiTile({ icon, iconColor, label, value, trend, loading, error, errorText, captions, sparkline }: TileProps) {
+function KpiTile({
+  icon,
+  iconColor,
+  label,
+  value,
+  trend,
+  loading,
+  error,
+  errorText,
+  subtitle,
+  captions,
+  sparkline,
+  onClick,
+}: TileProps) {
   const { t } = useTranslation("common");
-  const compact = useWidgetEditing();
+  const editing = useWidgetEditing();
+  const controls = useWidgetControls();
+  const click = editing ? undefined : onClick;
   return (
-    <Card sx={{ flex: 1, height: "100%", overflow: "hidden" }} data-compact={compact || undefined}>
-      <CardContent sx={{ p: compact ? 1.25 : 2, "&:last-child": { pb: compact ? 1.25 : 2 } }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: compact ? 0.5 : 1,
-            gap: 1,
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+    <Card
+      onClick={click}
+      sx={{
+        flex: 1,
+        height: "100%",
+        overflow: "hidden",
+        ...(click && {
+          cursor: "pointer",
+          transition: "background-color 120ms",
+          "&:hover": { bgcolor: "action.hover" },
+        }),
+      }}
+    >
+      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
+          <Box
+            className={controls ? DRAG_HANDLE_CLASS : undefined}
+            sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, ...(controls && { cursor: "grab" }) }}
+          >
+            {controls?.handle}
             <MaterialSymbol icon={icon} size={24} color={iconColor} />
-            <Typography variant="subtitle2" color="text.secondary" noWrap>
+            <Typography variant="subtitle2" color="text.secondary" noWrap sx={{ minWidth: 0 }}>
               {label}
             </Typography>
           </Box>
-          {trend && (
-            <TrendIndicator deltaPct={trend.deltaPct} deltaAbs={trend.deltaAbs} goodDirection={trend.goodDirection} />
+          {(trend || controls) && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+              {/* While arranging, the buttons take the trend's place: with both,
+                  a three-column tile has no room left for its own label. */}
+              {trend && !controls && (
+                <TrendIndicator
+                  deltaPct={trend.deltaPct}
+                  deltaAbs={trend.deltaAbs}
+                  goodDirection={trend.goodDirection}
+                />
+              )}
+              {controls && (
+                // The 28 px buttons overhang the 24 px row instead of growing it,
+                // so the tile keeps its live height.
+                <Box data-testid="kpi-actions" sx={{ display: "flex", alignItems: "center", my: -0.5 }}>
+                  {controls.actions}
+                </Box>
+              )}
+            </Box>
           )}
         </Box>
         {loading ? (
           <LinearProgress sx={{ my: 2 }} />
         ) : (
-          <Typography variant={compact ? "h5" : "h4"} fontWeight={700}>
+          <Typography variant="h4" fontWeight={700}>
             {error ? "—" : value}
           </Typography>
         )}
         {error && (
           <Typography variant="caption" color="error">
             {errorText || t("errors.generic")}
+          </Typography>
+        )}
+        {!error && !loading && subtitle && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }} data-testid="kpi-subtitle">
+            {subtitle}
           </Typography>
         )}
         {!error &&
@@ -118,18 +175,13 @@ function KpiTile({ icon, iconColor, label, value, trend, loading, error, errorTe
           ))}
         {!error && !loading && sparkline}
         {trend && !error && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: compact ? 0 : 0.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
             {t("dashboard.trend.vsDays", { count: trend.comparisonDays })}
           </Typography>
         )}
       </CardContent>
     </Card>
   );
-}
-
-/** Stretches a `MetricCard` to the grid cell. */
-function MetricBox({ children }: { children: ReactNode }) {
-  return <Box sx={{ display: "flex", flex: 1, minHeight: 0, height: "100%" }}>{children}</Box>;
 }
 
 const OVERVIEW_TILES: Record<
@@ -191,11 +243,7 @@ const WORKSPACE_TILES: Record<
 function WorkspaceKpi({ metric, label }: { metric: keyof typeof WORKSPACE_TILES; label: string }) {
   const { data } = useDashboardSource("my_workspace");
   const tile = WORKSPACE_TILES[metric];
-  return (
-    <MetricBox>
-      <MetricCard icon={tile.icon} iconColor={tile.color} label={label} value={data?.[tile.field] ?? 0} />
-    </MetricBox>
-  );
+  return <KpiTile icon={tile.icon} iconColor={tile.color} label={label} value={data?.[tile.field] ?? 0} />;
 }
 
 type AdminMetric = "active_users" | "cards_without_stakeholders" | "overdue_todos" | "stuck_approvals";
@@ -205,11 +253,10 @@ function AdminKpi({ metric, label }: { metric: AdminMetric; label: string }) {
   const { data } = useDashboardSource("admin_dashboard");
   const k = data?.kpis;
   const n = (v: number | undefined) => v ?? 0;
-  let card: ReactNode;
   switch (metric) {
     case "active_users":
-      card = (
-        <MetricCard
+      return (
+        <KpiTile
           icon="trending_up"
           iconColor={DASHBOARD_KPI_COLORS.activeUsers}
           label={label}
@@ -217,20 +264,18 @@ function AdminKpi({ metric, label }: { metric: AdminMetric; label: string }) {
           subtitle={t("dashboard.admin.metric.activeUsersSubtitle")}
         />
       );
-      break;
     case "cards_without_stakeholders":
-      card = (
-        <MetricCard
+      return (
+        <KpiTile
           icon="person_off"
           iconColor={DASHBOARD_KPI_COLORS.noStakeholders}
           label={label}
           value={n(k?.cards_without_stakeholders)}
         />
       );
-      break;
     case "overdue_todos":
-      card = (
-        <MetricCard
+      return (
+        <KpiTile
           icon="schedule"
           iconColor={DASHBOARD_KPI_COLORS.overdue}
           label={label}
@@ -242,10 +287,9 @@ function AdminKpi({ metric, label }: { metric: AdminMetric; label: string }) {
           }
         />
       );
-      break;
     case "stuck_approvals":
-      card = (
-        <MetricCard
+      return (
+        <KpiTile
           icon="hourglass_bottom"
           iconColor={DASHBOARD_KPI_COLORS.stuck}
           label={label}
@@ -257,9 +301,7 @@ function AdminKpi({ metric, label }: { metric: AdminMetric; label: string }) {
           }
         />
       );
-      break;
   }
-  return <MetricBox>{card}</MetricBox>;
 }
 
 function QualityKpi({ label }: { label: string }) {
@@ -268,16 +310,14 @@ function QualityKpi({ label }: { label: string }) {
   const { data } = useDashboardSource("data_quality");
   const pct = data?.overall_data_quality ?? 0;
   return (
-    <MetricBox>
-      <MetricCard
-        icon="verified"
-        iconColor={qualityColor(pct)}
-        label={label}
-        value={`${pct}%`}
-        subtitle={t("dashboard.admin.metric.overallQualityLink")}
-        onClick={() => navigate("/reports/data-quality")}
-      />
-    </MetricBox>
+    <KpiTile
+      icon="verified"
+      iconColor={qualityColor(pct)}
+      label={label}
+      value={`${pct}%`}
+      subtitle={t("dashboard.admin.metric.overallQualityLink")}
+      onClick={() => navigate("/reports/data-quality")}
+    />
   );
 }
 

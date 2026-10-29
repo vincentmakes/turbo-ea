@@ -22,7 +22,17 @@ vi.mock("react-grid-layout", async (importOriginal) => {
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 vi.mock("./widgets/registry", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./widgets/registry")>();
-  const Stub = ({ widget }: { widget: DashboardWidget }) => <div>body {widget.id}</div>;
+  const { useWidgetControls } = await import("./widgets/WidgetFrame");
+  // Places the customize controls it is handed, as every widget that draws its own surface does.
+  const Stub = ({ widget }: { widget: DashboardWidget }) => {
+    const controls = useWidgetControls();
+    return (
+      <div>
+        {controls?.handle}body {widget.id}
+        {controls?.actions}
+      </div>
+    );
+  };
   return {
     ...actual,
     WIDGET_REGISTRY: Object.fromEntries(

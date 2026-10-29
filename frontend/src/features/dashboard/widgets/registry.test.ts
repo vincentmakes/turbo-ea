@@ -254,3 +254,19 @@ describe("built-in chart titles", () => {
     expect(widgetTitle(w("chart", { title_key: "dashboard.cardsByType" }, "Mine"), t)).toBe("Mine");
   });
 });
+
+describe("widget chrome", () => {
+  it("lets every KPI tile and every section draw its own surface and place the customize controls itself", () => {
+    for (const type of WIDGET_TYPE_KEYS) {
+      const { Component, chrome } = WIDGET_REGISTRY[type];
+      const self = Component === SectionWidget || Component === KpiWidget;
+      expect(chrome === "self", type).toBe(self);
+    }
+    expect(WIDGET_META.kpi.chrome).toBe("self");
+    expect(WIDGET_META.my_todos.chrome).toBe("self");
+    expect(WIDGET_META.needs_attention.chrome).toBe("self");
+    expect(WIDGET_META.chart.chrome).toBe("titled");
+    expect(WIDGET_META.browse_by_type.chrome).toBe("titled");
+    expect(WIDGET_META.recent_activity.chrome).toBe("card");
+  });
+});

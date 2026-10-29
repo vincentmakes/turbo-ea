@@ -130,4 +130,25 @@ describe("ErrorBoundary", () => {
     expect(screen.getByText("Inline recovered")).toBeInTheDocument();
     expect(screen.queryByText("Failed to render")).not.toBeInTheDocument();
   });
+
+  it("draws the fallback header above the fallback, inline or not, and only on error", () => {
+    for (const inline of [true, false]) {
+      const { unmount } = render(
+        <ErrorBoundary inline={inline} label="Widget" fallbackHeader={<div>controls</div>}>
+          <ThrowingComponent shouldThrow />
+        </ErrorBoundary>,
+      );
+      const header = screen.getByText("controls");
+      const retry = screen.getByRole("button", { name: /retry/i });
+      expect(header.compareDocumentPosition(retry) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      unmount();
+    }
+    render(
+      <ErrorBoundary inline fallbackHeader={<div>controls</div>}>
+        <ThrowingComponent shouldThrow={false} />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText("Child content")).toBeInTheDocument();
+    expect(screen.queryByText("controls")).toBeNull();
+  });
 });

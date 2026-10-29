@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import type { DashboardWidget, WidgetType } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -29,6 +29,7 @@ import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
 import { DashboardSourcesProvider } from "../DashboardSources";
 import SectionWidget from "./SectionWidget";
+import WidgetFrame from "./WidgetFrame";
 
 function w(type: WidgetType): DashboardWidget {
   return { id: type, type, title: null, config: {}, layout: { x: 0, y: 0, w: 6, h: 6 } };
@@ -64,13 +65,20 @@ const ADMIN = {
   oldest_overdue_todos: [{ id: "t1" }],
 };
 
-function renderSections(types: WidgetType[]) {
+/** The sections bare, or inside their frames when `editing` is given. */
+function renderSections(types: WidgetType[], editing?: boolean) {
   const widgets = types.map(w);
   return renderWithProviders(
     <DashboardSourcesProvider widgets={widgets}>
-      {widgets.map((x) => (
-        <SectionWidget key={x.id} widget={x} />
-      ))}
+      {widgets.map((x) =>
+        editing === undefined ? (
+          <SectionWidget key={x.id} widget={x} />
+        ) : (
+          <WidgetFrame key={x.id} widget={x} editing={editing}>
+            <SectionWidget widget={x} />
+          </WidgetFrame>
+        ),
+      )}
     </DashboardSourcesProvider>,
   );
 }
@@ -105,6 +113,18 @@ describe("SectionWidget", () => {
     renderSections(["needs_attention", "my_created"]);
     expect(await screen.findByText(/"createdCount":7/)).toBeInTheDocument();
     expect(screen.queryByTestId("needs_attention")).toBeNull();
+  });
+
+  it("keeps the attention banner in customize mode with nothing waiting, so it can be moved or removed", async () => {
+    mockApi.on("get", "/reports/my-workspace", { ...WORKSPACE, attention_count: 0 });
+    renderSections(["needs_attention", "my_created"], true);
+    expect(await screen.findByText(/"createdCount":7/)).toBeInTheDocument();
+    expect(props("needs_attention")).toEqual({ overdueTodoCount: 0, brokenCardCount: 0 });
+  });
+
+  it("hands the attention banner its counts in customize mode too", async () => {
+    renderSections(["needs_attention"], true);
+    await waitFor(() => expect(props("needs_attention")).toEqual({ overdueTodoCount: 2, brokenCardCount: 1 }));
   });
 
   it("feeds the six admin sections from one admin fetch", async () => {

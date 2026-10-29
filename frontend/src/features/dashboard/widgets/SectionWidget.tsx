@@ -21,16 +21,23 @@ import ApprovalPipelineSection from "../admin/ApprovalPipelineSection";
 import SystemActivitySection from "../admin/SystemActivitySection";
 import UnassignedTodosSection from "../admin/UnassignedTodosSection";
 import StakeholderDirectorySection from "../admin/StakeholderDirectorySection";
+import { useWidgetEditing } from "./WidgetFrame";
 import type { WidgetProps } from "./widgetMeta";
 
-/** Rendered only while something needs attention, as on the old tab. */
+/**
+ * Rendered only while something needs attention, as on the old tab — except
+ * in customize mode, where the section keeps its title row and controls so
+ * the widget can still be moved or removed.
+ */
 function NeedsAttentionWidget() {
   const { data } = useDashboardSource("my_workspace");
-  if (!data || data.attention_count <= 0) return null;
+  const editing = useWidgetEditing();
+  const waiting = !!data && data.attention_count > 0;
+  if (!waiting && !editing) return null;
   return (
     <NeedsAttentionSection
-      overdueTodoCount={data.overdue_todo_count}
-      brokenCardCount={data.broken_card_count}
+      overdueTodoCount={waiting ? data.overdue_todo_count : 0}
+      brokenCardCount={waiting ? data.broken_card_count : 0}
     />
   );
 }

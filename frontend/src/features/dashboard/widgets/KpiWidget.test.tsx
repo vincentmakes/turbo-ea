@@ -16,10 +16,10 @@ vi.mock("../charts/EChart", () => ({
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
-import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
+import { CARD_SHADOW, DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 import { DashboardSourcesProvider } from "../DashboardSources";
 import KpiWidget from "./KpiWidget";
-import WidgetFrame from "./WidgetFrame";
+import WidgetFrame, { DRAG_HANDLE_CLASS } from "./WidgetFrame";
 import { formatKpiValue, qualityColor, secondaryCaption } from "./kpiPresets";
 
 const tc = (k: string, o?: Record<string, unknown>) => i18n.t(`common:${k}`, o) as string;
@@ -98,6 +98,39 @@ function renderKpis(widgets: DashboardWidget[], route = "/", modules = { bpm: tr
   );
 }
 
+/** The tiles inside their frames, as the grid mounts them. */
+function renderFramed(
+  widgets: DashboardWidget[],
+  editing: boolean,
+  handlers: { onConfigure?: () => void; onRemove?: () => void } = {},
+) {
+  return renderWithProviders(
+    <DashboardSourcesProvider widgets={widgets}>
+      {widgets.map((w) => (
+        <WidgetFrame key={w.id} widget={w} editing={editing} {...handlers}>
+          <KpiWidget widget={w} />
+        </WidgetFrame>
+      ))}
+    </DashboardSourcesProvider>,
+    {
+      // The app theme: its outlined card has no shadow of its own.
+      theme: true,
+      routes: [{ path: "/" }, { path: "/reports/data-quality", element: <div>quality report</div> }],
+    },
+  );
+}
+
+/** The material symbol named `icon`. */
+function symbol(icon: string): HTMLElement {
+  const found = Array.from(document.querySelectorAll<HTMLElement>(".material-symbols-outlined")).find(
+    (el) => el.textContent === icon,
+  );
+  if (!found) throw new Error(`no ${icon} symbol`);
+  return found;
+}
+
+const follows = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
 beforeEach(() => {
   echart.options = [];
   mockApi.reset();
@@ -130,26 +163,68 @@ describe("overview presets", () => {
     expect(mockApi.callsOf("get", "/reports/my-workspace")).toHaveLength(0);
   });
 
-  it("draws a compact tile inside a frame in customize mode, keeping the window caption", async () => {
-    const widget = kpi({ metric: "total_cards" });
-    renderWithProviders(
-      <DashboardSourcesProvider widgets={[widget]}>
-        <WidgetFrame widget={widget} editing>
-          <KpiWidget widget={widget} />
-        </WidgetFrame>
-      </DashboardSourcesProvider>,
-    );
+  it("in customize mode is the live tile plus the handle before its icon and the buttons in the trend's place", async () => {
+    const onConfigure = vi.fn();
+    const onRemove = vi.fn();
+    const { user } = renderFramed([kpi({ metric: "total_cards" })], true, { onConfigure, onRemove });
     const value = await screen.findByText("120");
-    expect(value).toHaveClass("MuiTypography-h5");
-    expect(value.closest("[data-compact]")).not.toBeNull();
+    // The live tile: full-size number, live padding, window caption.
+    expect(value).toHaveClass("MuiTypography-h4");
+    expect(document.querySelector("[data-compact]")).toBeNull();
+    expect(value.closest(".MuiCardContent-root")).toHaveStyle({ padding: "16px" });
     expect(screen.getByText(tc("dashboard.trend.vsDays", { count: 14 }))).toBeInTheDocument();
+    // One card, one title: the frame adds neither.
+    expect(document.querySelectorAll(".MuiCard-root")).toHaveLength(1);
+    expect(screen.getAllByText(tc("dashboard.totalCards"))).toHaveLength(1);
+    // [handle][icon][label …][actions], all in the tile's top row; the trend
+    // chip gives its place to the buttons so a narrow tile keeps its label.
+    const handle = screen.getByTestId("widget-drag-handle");
+    const icon = symbol("inventory_2");
+    const label = screen.getByText(tc("dashboard.totalCards"));
+    expect(screen.queryByText("+5.0%")).toBeNull();
+    const configure = screen.getByRole("button", { name: tc("dashboard.widgets.configure") });
+    const remove = screen.getByRole("button", { name: tc("dashboard.widgets.remove") });
+    expect(value.closest(".MuiCard-root")).toContainElement(handle);
+    expect(follows(handle, icon)).toBe(true);
+    expect(follows(icon, label)).toBe(true);
+    expect(follows(label, configure)).toBe(true);
+    expect(follows(configure, remove)).toBe(true);
+    expect(handle.parentElement).toBe(icon.parentElement);
+    expect(label).toHaveClass("MuiTypography-noWrap");
+    // The whole icon + label group drags.
+    expect(handle.parentElement).toHaveClass(DRAG_HANDLE_CLASS);
+    expect(screen.getByTestId("kpi-actions")).toContainElement(configure);
+    // A faint shadow around the tile, drawn by the frame's box the tile fills
+    // (one drawn on the card would be clipped by the body's overflow).
+    const frame = value.closest<HTMLElement>("[data-widget-id]")!;
+    expect(getComputedStyle(frame).boxShadow.replace(/\s/g, "")).toBe(CARD_SHADOW.soft.replace(/\s/g, ""));
+    expect(getComputedStyle(value.closest(".MuiCard-root")!).boxShadow).toBe("");
+    await user.click(configure);
+    await user.click(remove);
+    expect(onConfigure).toHaveBeenCalledTimes(1);
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
-  it("draws the full-size tile outside customize mode", async () => {
-    renderKpis([kpi({ metric: "total_cards" })]);
+  it("puts the buttons at the end of a tile with no trend", async () => {
+    mockApi.on("get", "/reports/dashboard", { ...DASHBOARD, trends: undefined });
+    renderFramed([kpi({ metric: "total_cards" })], true, { onRemove: () => {} });
+    expect(await screen.findByText("120")).toBeInTheDocument();
+    const label = screen.getByText(tc("dashboard.totalCards"));
+    const remove = screen.getByRole("button", { name: tc("dashboard.widgets.remove") });
+    expect(follows(label, remove)).toBe(true);
+    expect(screen.queryByRole("button", { name: tc("dashboard.widgets.configure") })).toBeNull();
+  });
+
+  it("draws the same tile with no controls and no shadow outside customize mode", async () => {
+    renderFramed([kpi({ metric: "total_cards" })], false, { onConfigure: () => {}, onRemove: () => {} });
     const value = await screen.findByText("120");
     expect(value).toHaveClass("MuiTypography-h4");
-    expect(value.closest("[data-compact]")).toBeNull();
+    expect(value.closest(".MuiCardContent-root")).toHaveStyle({ padding: "16px" });
+    expect(screen.queryByTestId("widget-drag-handle")).toBeNull();
+    expect(screen.queryByTestId("kpi-actions")).toBeNull();
+    expect(document.querySelector(`.${DRAG_HANDLE_CLASS}`)).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(getComputedStyle(value.closest(".MuiCard-root")!).boxShadow).toBe("");
   });
 
   it("colours a rise in broken cards as bad", async () => {
@@ -196,6 +271,19 @@ describe("workspace presets", () => {
     expect(mockApi.callsOf("get", "/reports/my-workspace")).toHaveLength(1);
     expect(mockApi.callsOf("get", "/reports/dashboard")).toHaveLength(0);
   });
+
+  it("are dashboard KPI tiles, with the customize controls in their own top row", async () => {
+    renderFramed([kpi({ metric: "stakeholder_cards" })], true, { onRemove: () => {} });
+    const value = await screen.findByText("9");
+    expect(value).toHaveClass("MuiTypography-h4");
+    const card = value.closest(".MuiCard-root")!;
+    expect(card).not.toBeNull();
+    expect(card).toContainElement(screen.getByText(tc("dashboard.workspace.metric.stakeholderCards")));
+    expect(card).toContainElement(screen.getByTestId("widget-drag-handle"));
+    expect(card).toContainElement(screen.getByRole("button", { name: tc("dashboard.widgets.remove") }));
+    expect(follows(screen.getByTestId("widget-drag-handle"), symbol("groups"))).toBe(true);
+    expect(screen.queryByTestId("kpi-subtitle")).toBeNull();
+  });
 });
 
 describe("admin presets", () => {
@@ -215,6 +303,20 @@ describe("admin presets", () => {
     expect(mockApi.callsOf("get", "/reports/data-quality")).toHaveLength(0);
   });
 
+  it("are dashboard KPI tiles, the subtitle a caption under the number", async () => {
+    renderFramed([kpi({ metric: "active_users" })], true, { onRemove: () => {} });
+    const value = await screen.findByText("3 / 10");
+    expect(value).toHaveClass("MuiTypography-h4");
+    const subtitle = screen.getByTestId("kpi-subtitle");
+    expect(subtitle).toHaveTextContent(tc("dashboard.admin.metric.activeUsersSubtitle"));
+    expect(subtitle).toHaveClass("MuiTypography-caption");
+    expect(follows(value, subtitle)).toBe(true);
+    const card = value.closest(".MuiCard-root")!;
+    expect(card).toContainElement(subtitle);
+    expect(card).toContainElement(screen.getByTestId("widget-drag-handle"));
+    expect(follows(screen.getByTestId("widget-drag-handle"), symbol("trending_up"))).toBe(true);
+  });
+
   it("drops a subtitle with nothing to say", async () => {
     mockApi.on("get", "/reports/admin-dashboard", {
       ...ADMIN,
@@ -224,6 +326,7 @@ describe("admin presets", () => {
     expect(await screen.findByText("5")).toBeInTheDocument();
     expect(screen.queryByText(tc("dashboard.admin.metric.unassignedTodos", { count: 0 }))).toBeNull();
     expect(screen.queryByText(tc("dashboard.admin.metric.brokenApprovals", { count: 0 }))).toBeNull();
+    expect(screen.queryByTestId("kpi-subtitle")).toBeNull();
   });
 
   it("opens the quality report from the overall quality tile", async () => {
@@ -232,6 +335,25 @@ describe("admin presets", () => {
     await user.click(value);
     expect(await screen.findByText("quality report")).toBeInTheDocument();
     expect(mockApi.callsOf("get", "/reports/admin-dashboard")).toHaveLength(0);
+  });
+
+  it("shows the quality tile's link hint as its subtitle, and points at the tile", async () => {
+    renderKpis([kpi({ metric: "overall_quality" })]);
+    const value = await screen.findByText("81%");
+    expect(screen.getByTestId("kpi-subtitle")).toHaveTextContent(tc("dashboard.admin.metric.overallQualityLink"));
+    expect(value.closest(".MuiCard-root")).toHaveStyle({ cursor: "pointer" });
+  });
+
+  it("does not open the quality report while arranging: a drag released on it or a button click would", async () => {
+    const onConfigure = vi.fn();
+    const { user } = renderFramed([kpi({ metric: "overall_quality" })], true, { onConfigure });
+    const value = await screen.findByText("81%");
+    await user.click(value);
+    await user.click(screen.getByTestId("widget-drag-handle"));
+    await user.click(screen.getByRole("button", { name: tc("dashboard.widgets.configure") }));
+    expect(onConfigure).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("quality report")).toBeNull();
+    expect(value.closest(".MuiCard-root")).not.toHaveStyle({ cursor: "pointer" });
   });
 });
 

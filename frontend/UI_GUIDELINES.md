@@ -158,7 +158,7 @@ Default page header is `<Typography variant="h5">`. Use `variant="h6"` for in-ca
 | --- | --- |
 | KPI / metric tile | `<MetricCard/>` (already a styled `Paper variant="outlined"`) |
 | Generic surface | `<Card>` (configured to default to `variant="outlined"`) |
-| Drag-and-drop card | `<Paper elevation={1}>` with hover elevation |
+| Drag-and-drop card | `<Paper elevation={1}>` with hover elevation. An **outlined** `<Card>` that becomes movable in an arrange mode (the homepage dashboards' customize mode) keeps its border and takes the `CARD_SHADOW` tokens instead: `soft` at rest (it can be picked up), `lifted` while dragged (it is in hand) |
 
 Do **not** mix `<Paper elevation={…}>` and `<Card>` in the same surface family — pick one.
 

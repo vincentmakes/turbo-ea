@@ -34,10 +34,12 @@ export type WidgetFamily = "kpi" | "chart" | "overview" | "workspace" | "admin";
  * How the frame dresses the widget:
  * - `titled`: a card with the title row (charts, Browse by type);
  * - `card`: a card without a title row — the widget prints its own heading;
- * - `none`: no card — the widget brings its own surface (KPI tiles, the
- *   workspace and admin sections).
+ * - `self`: the widget draws its own surface (a KPI tile, a workspace or
+ *   admin section) and, in customize mode, places the frame's drag handle and
+ *   buttons in its own top row (`useWidgetControls`) — the frame adds no card
+ *   and no header in either mode.
  */
-export type WidgetChrome = "titled" | "card" | "none";
+export type WidgetChrome = "titled" | "card" | "self";
 
 export interface WidgetDefaultLayout {
   w: number;
@@ -85,7 +87,7 @@ function section(
     permission: family === "admin" ? ADMIN : undefined,
     sources,
     single: true,
-    chrome: "none",
+    chrome: "self",
   };
 }
 
@@ -100,7 +102,7 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
     sources: [],
     single: false,
     configurable: "kpi",
-    chrome: "none",
+    chrome: "self",
   },
   chart: {
     type: "chart",
