@@ -43,6 +43,7 @@ import { queryErrorMessage } from "../queryProblems";
 import {
   PART_TO_WHOLE,
   chartPath,
+  isPercentMeasure,
   normalizeChartResult,
   readChartConfig,
   type ChartConfig,
@@ -72,6 +73,32 @@ function useResolverDeps(cardLabels?: Record<string, string>): ResolverDeps {
     () => ({ types, t, locale: i18n.language, typeLabel, inlineLabel, categorical: theme.categorical, cardLabels }),
     [types, t, i18n.language, typeLabel, inlineLabel, theme.categorical, cardLabels],
   );
+}
+
+const percentFormatter = (v: number) => `${defaultValueFormatter(v)}%`;
+
+/**
+ * What a gauge reads against: a rate on 0–100 in `%`, or a count / sum
+ * against its target ("of N"), with its bands and reading direction. Empty
+ * for every other kind.
+ */
+function useGaugeContext(config: ChartConfig) {
+  const { t } = useTranslation("common");
+  const { types } = useMetamodel();
+  return useMemo(() => {
+    if (config.chart !== "gauge") return {};
+    const percent = isPercentMeasure(config, types);
+    return {
+      unit: percent ? "%" : undefined,
+      thresholds: config.thresholds,
+      goodDirection: config.goodDirection,
+      targetLabel:
+        !percent && config.max !== undefined
+          ? t("dashboard.config.ofTarget", { target: defaultValueFormatter(config.max) })
+          : undefined,
+      valueFormatter: percent ? percentFormatter : undefined,
+    };
+  }, [config, types, t]);
 }
 
 /** Loading, error and empty states around the chart, and the caption under it. */
@@ -174,6 +201,7 @@ function QueryChart({ widget, config }: ChartProps) {
 
   const metric = query.metric ?? "count";
   const drillable = config.drill && !["gauge", "heatmap"].includes(config.chart);
+  const gauge = useGaugeContext(config);
 
   const option = useMemo(
     () =>
@@ -187,10 +215,11 @@ function QueryChart({ widget, config }: ChartProps) {
         isRtl: theme.isRtl,
         max: config.max,
         seriesName: metric === "count" ? t("labels.cards") : t(`dashboard.query.metric.${metric}`),
-        valueFormatter: metric === "share" ? (v) => `${defaultValueFormatter(v)}%` : undefined,
+        valueFormatter: metric === "share" ? percentFormatter : undefined,
         cursor: drillable ? "pointer" : "default",
+        ...gauge,
       }),
-    [config.chart, config.max, rows, dim, dim2, isSankey, theme, metric, t, drillable],
+    [config.chart, config.max, rows, dim, dim2, isSankey, theme, metric, t, drillable, gauge],
   );
 
   const handleClick = useCallback(
@@ -260,6 +289,7 @@ function SourceChart({
   const series = config.series ?? "";
   const { data, loading, error } = useDashboardSource(source);
   const deps = useResolverDeps();
+  const gauge = useGaugeContext(config);
   const resolver = useMemo(
     () => sourceSeriesResolver(source, series, { ...deps, regulationLabel }),
     [source, series, deps, regulationLabel],
@@ -285,8 +315,9 @@ function SourceChart({
         isRtl: theme.isRtl,
         max: config.max,
         seriesName: t(seriesLabelKey(source, series)),
+        ...gauge,
       }),
-    [config.chart, config.max, rows, resolver, theme, t, source, series],
+    [config.chart, config.max, rows, resolver, theme, t, source, series, gauge],
   );
 
   return (

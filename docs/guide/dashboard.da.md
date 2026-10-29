@@ -86,7 +86,7 @@ Brugere, hvis rolle giver `admin.dashboards` (**Administrer dashboards på start
 Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle dashboard. I tilpasningstilstand:
 
 - **Flyt** en widget ved at trække i dens håndtag; gitteret er 12 kolonner bredt, og de andre widgets giver plads.
-- **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet. Widgetten ved siden af giver plads: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv.
+- **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet, med mus eller berøring (på en telefon eller tablet holdt lodret er layoutet skrivebeskyttet). Widgetten ved siden af giver plads: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv.
 - **Fjern** en widget med dens lukkeknap.
 - **Konfigurer** et KPI-felt, et diagram eller aktivitetsfeedet med tandhjulsknappen.
 
@@ -146,7 +146,7 @@ Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI i
 | **Stablet søjle** | To dimensioner som stablede søjler med en signaturforklaring — korttype efter livscyklusfase, evneniveau efter godkendelsesstatus |
 | **Linje** | En tendens over tid, f.eks. kort oprettet pr. måned |
 | **Cirkel** / **Donut** | Andele af en helhed |
-| **Måler** | Én værdi i forhold til et maksimum (ingen gruppering) |
+| **Måler** | En rate i forhold til et mål: en andel (de godkendte applikationer), den gennemsnitlige datakvalitet, et procentfelt eller en compliance-score på en skala fra 0–100, eller et antal eller en sum i forhold til et **Mål**. To tærskler (**Advarsel over**, **God over**) deler skalaen i røde, ravgule og grønne bånd, omvendt når en stigning er dårlig; to færdige målere, **Datakvalitet** og **Godkendte applikationer**, findes i kataloget |
 | **Heatmap** | To dimensioner på én gang — for eksempel livscyklusfase mod godkendelsesstatus |
 | **Treemap** | Andele, når der er mange grupper |
 | **Sankey** | Strømmen af en relationstype mellem de kort, den forbinder, med en dimension efter eget valg i hver ende |

@@ -19,6 +19,7 @@ Invariants (``.claude/rules/dashboards.md``):
 
 from __future__ import annotations
 
+import math
 import re
 import secrets
 import uuid
@@ -153,10 +154,35 @@ def _source_problem(config: Mapping[str, Any], shape: str) -> str | None:
     return None
 
 
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def _max_problem(config: Mapping[str, Any]) -> str | None:
     limit = config.get("max")
-    if limit is not None and (isinstance(limit, bool) or not isinstance(limit, (int, float))):
+    if limit is not None and not _is_number(limit):
         return "invalid_max"
+    return None
+
+
+def _gauge_problem(config: Mapping[str, Any]) -> str | None:
+    """A gauge's bands: ``thresholds`` is ``[warn, good]`` — two finite numbers,
+    ascending, within the scale (``max``, else 100) — and ``good_direction``
+    says which way is good (the KPI vocabulary). Both optional; other chart
+    kinds carry neither."""
+    if config.get("good_direction", "up") not in GOOD_DIRECTIONS:
+        return "invalid_good_direction"
+    bands = config.get("thresholds")
+    if bands is None:
+        return None
+    scale = config.get("max") if _is_number(config.get("max")) else 100
+    if (
+        not isinstance(bands, (list, tuple))
+        or len(bands) != 2
+        or not all(_is_number(b) for b in bands)
+        or not 0 <= bands[0] < bands[1] <= scale
+    ):
+        return "invalid_thresholds"
     return None
 
 
@@ -171,7 +197,7 @@ def _chart_problem(config: Mapping[str, Any]) -> str | None:
         if chart in TWO_DIMENSION_CHARTS:
             return "source_chart_kind"
         problem = _source_problem(config, "single" if chart == "gauge" else "keyed")
-        return problem or _max_problem(config)
+        return problem or _max_problem(config) or _gauge_problem(config)
     problem = _query_config_problem(config.get("query"))
     if problem:
         return problem
@@ -187,7 +213,7 @@ def _chart_problem(config: Mapping[str, Any]) -> str | None:
         return "stacked_column_needs_two_dimensions"
     if "drill" in config and not isinstance(config["drill"], bool):
         return "invalid_drill"
-    return _max_problem(config)
+    return _max_problem(config) or _gauge_problem(config)
 
 
 def _kpi_problem(config: Mapping[str, Any]) -> str | None:

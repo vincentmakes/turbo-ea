@@ -117,6 +117,26 @@ describe("DashboardGrid", () => {
     expect(screen.getAllByTestId("widget-drag-handle")).toHaveLength(2);
   });
 
+  it("styles the handles for touch while customising only", () => {
+    // The grid's own emotion class carries the handle rules: find them in the injected CSS.
+    const rulesOf = (el: Element) => {
+      const css = Array.from(document.head.querySelectorAll("style"))
+        .map((s) => s.textContent ?? "")
+        .join("\n");
+      const classes = Array.from(el.classList).filter((c) => c.startsWith("css-"));
+      return classes.flatMap((c) => css.split("}").filter((rule) => rule.includes(`.${c} .react-grid-item`) || rule.includes(`.${c} .dashboard-widget-drag-handle`)));
+    };
+    const { container, unmount } = renderGrid({ editing: true });
+    const grid = container.querySelector(".dashboard-grid")!;
+    const rules = rulesOf(grid);
+    expect(rules.some((r) => r.includes(".react-resizable-handle{") && r.includes("touch-action:none"))).toBe(true);
+    expect(rules.some((r) => r.includes(".dashboard-widget-drag-handle") && r.includes("touch-action:none"))).toBe(true);
+    expect(rules.some((r) => r.includes("react-resizable-handle-se") && r.includes("width:28px"))).toBe(true);
+    unmount();
+    const locked = renderGrid({ editing: false }).container.querySelector(".dashboard-grid")!;
+    expect(rulesOf(locked)).toEqual([]);
+  });
+
   it("offers configure only on configurable widgets and reports configure / remove", async () => {
     const { user, onConfigure, onRemove } = renderGrid({ editing: true });
     const chartItem = within(screen.getByTestId("grid-item-chart-a"));

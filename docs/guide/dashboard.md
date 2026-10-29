@@ -86,7 +86,7 @@ Users whose role grants `admin.dashboards` (**Manage homepage dashboards** — t
 Click **Customize** next to the dashboard tabs to edit the current dashboard. In customize mode:
 
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
-- **Resize** a widget from its right edge, its bottom edge or the corner. The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
+- **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
 - **Remove** a widget with its close button.
 - **Configure** a KPI tile, a chart or the activity feed with its gear button.
 
@@ -146,7 +146,7 @@ Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed
 | **Stacked column** | Two dimensions as stacked bars with a legend — card type by lifecycle phase, capability level by approval status |
 | **Line** | A trend over time, such as cards created per month |
 | **Pie** / **Donut** | Shares of a whole |
-| **Gauge** | One value against a maximum (no grouping) |
+| **Gauge** | A rate against a target: a share (the approved Applications), the average data quality, a percentage field or a compliance score on a 0–100 dial, or a count or sum against a **Target**. Two thresholds (**Warn above**, **Good above**) split the dial into red, amber and green bands, reversed when a rise is bad; two ready-made gauges, **Data quality** and **Approved applications**, sit in the catalogue |
 | **Heatmap** | Two dimensions at once — for example lifecycle phase against approval status |
 | **Treemap** | Shares when there are many groups |
 | **Sankey** | The flow of a relation type between the cards it connects, with a dimension of your choice at each end |

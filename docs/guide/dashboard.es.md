@@ -86,7 +86,7 @@ Los usuarios cuyo rol concede `admin.dashboards` (**Gestionar los paneles de la 
 Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar el panel actual. En el modo de personalización:
 
 - **Mueva** un widget arrastrándolo por su asa; la cuadrícula tiene 12 columnas de ancho y los demás widgets le hacen sitio.
-- **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina. El widget contiguo le hace sitio: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas.
+- **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina, con el ratón o con el tacto (en un móvil o una tableta en vertical el diseño es de solo lectura). El widget contiguo le hace sitio: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas.
 - **Elimine** un widget con su botón de cierre.
 - **Configure** una tarjeta KPI, un gráfico o el feed de actividad con su botón de engranaje.
 
@@ -146,7 +146,7 @@ Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o 
 | **Columnas apiladas** | Dos dimensiones como barras apiladas con leyenda: tipo de ficha por fase del ciclo de vida, nivel de capacidad por estado de aprobación |
 | **Líneas** | Una tendencia en el tiempo, como las fichas creadas por mes |
 | **Circular** / **Anillo** | Partes de un todo |
-| **Indicador** | Un valor frente a un máximo (sin agrupar) |
+| **Indicador** | Una tasa frente a un objetivo: una proporción (las aplicaciones aprobadas), la calidad media de los datos, un campo de porcentaje o una puntuación de cumplimiento en una esfera de 0–100, o un recuento o una suma frente a un **Objetivo**. Dos umbrales (**Advertencia por encima de**, **Bueno por encima de**) dividen la esfera en franjas roja, ámbar y verde, invertidas cuando un aumento es malo; dos indicadores predefinidos, **Calidad de los datos** y **Aplicaciones aprobadas**, figuran en el catálogo |
 | **Mapa de calor** | Dos dimensiones a la vez; por ejemplo, la fase del ciclo de vida frente al estado de aprobación |
 | **Treemap** | Partes cuando hay muchos grupos |
 | **Sankey** | El flujo de un tipo de relación entre las fichas que conecta, con una dimensión a su elección en cada extremo |

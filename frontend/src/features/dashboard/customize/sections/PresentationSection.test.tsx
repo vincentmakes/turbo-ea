@@ -16,6 +16,8 @@ const base: ConfigDraft = {
   drill: true,
   max: "",
   goodDirection: "up",
+  thresholdWarn: "",
+  thresholdGood: "",
   format: "number",
   maxRows: "12",
   activityFilter: "all",
@@ -30,11 +32,13 @@ function Harness({
   onDraft,
   kind,
   secondary,
+  percent,
 }: {
   initial: ConfigDraft;
   onDraft: (d: ConfigDraft) => void;
   kind: "kpi" | "chart";
   secondary: boolean;
+  percent?: boolean;
 }) {
   const [draft, setDraft] = useState(initial);
   useEffect(() => onDraft(draft), [draft, onDraft]);
@@ -47,13 +51,16 @@ function Harness({
       kind={kind}
       chartKinds={kinds}
       secondaryAvailable={secondary}
+      percent={percent}
     />
   );
 }
 
-function renderSection(kind: "kpi" | "chart", { initial = base, secondary = true } = {}) {
+function renderSection(kind: "kpi" | "chart", { initial = base, secondary = true, percent = false } = {}) {
   const onDraft = vi.fn();
-  const result = renderWithProviders(<Harness initial={initial} onDraft={onDraft} kind={kind} secondary={secondary} />);
+  const result = renderWithProviders(
+    <Harness initial={initial} onDraft={onDraft} kind={kind} secondary={secondary} percent={percent} />,
+  );
   return { ...result, last: () => onDraft.mock.calls.at(-1)![0] as ConfigDraft };
 }
 
@@ -90,8 +97,40 @@ describe("PresentationSection — chart", () => {
     ]);
     await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.chart.gauge") }));
     await waitFor(() => expect(last().chart).toBe("gauge"));
-    expect(screen.getByLabelText(tc("dashboard.config.gaugeMax"))).toBeInTheDocument();
+    expect(screen.getByLabelText(new RegExp(`^${tc("dashboard.config.target")}`))).toBeRequired();
+    expect(screen.queryByLabelText(tc("dashboard.config.limit"))).toBeNull();
     expect(screen.queryByLabelText(tc("dashboard.config.drill"))).toBeNull();
+  });
+
+  it("shows the band inputs and the reading direction for a gauge only", () => {
+    renderSection("chart");
+    expect(screen.queryByTestId("config-gauge")).toBeNull();
+    expect(screen.queryByLabelText(tc("dashboard.config.thresholdWarn"))).toBeNull();
+    expect(screen.queryByLabelText(tc("dashboard.config.thresholdGood"))).toBeNull();
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.kpi.goodDirection")}`) })).toBeNull();
+  });
+
+  it("edits a gauge's target, bands and direction, relabelling the upper edge when a rise is bad", async () => {
+    const { user, last } = renderSection("chart", { initial: { ...base, chart: "gauge" } });
+    expect(screen.getByText(tc("dashboard.config.thresholds"))).toBeInTheDocument();
+    await user.type(screen.getByLabelText(new RegExp(`^${tc("dashboard.config.target")}`)), "120");
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdWarn")), "60");
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdGood")), "100");
+    await waitFor(() => expect(last()).toMatchObject({ max: "120", thresholdWarn: "60", thresholdGood: "100" }));
+    // A target gauge has no default bands to hint at.
+    expect(screen.getByLabelText(tc("dashboard.config.thresholdWarn"))).toHaveAttribute("placeholder", "");
+    await user.click(combo(tc("dashboard.kpi.goodDirection")));
+    await user.click(within(await screen.findByRole("listbox")).getByRole("option", { name: tc("dashboard.kpi.goodDirection.down") }));
+    await waitFor(() => expect(last().goodDirection).toBe("down"));
+    expect(screen.getByLabelText(tc("dashboard.config.thresholdBad"))).toHaveValue(100);
+    expect(screen.queryByLabelText(tc("dashboard.config.thresholdGood"))).toBeNull();
+  });
+
+  it("hides the target of a rate and hints at its default bands", () => {
+    renderSection("chart", { initial: { ...base, chart: "gauge" }, percent: true });
+    expect(screen.queryByLabelText(new RegExp(`^${tc("dashboard.config.target")}`))).toBeNull();
+    expect(screen.getByLabelText(tc("dashboard.config.thresholdWarn"))).toHaveAttribute("placeholder", "50");
+    expect(screen.getByLabelText(tc("dashboard.config.thresholdGood"))).toHaveAttribute("placeholder", "80");
   });
 
   it("shows the limit and the drill switch for a bar chart", async () => {

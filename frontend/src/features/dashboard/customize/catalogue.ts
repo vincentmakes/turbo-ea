@@ -147,8 +147,8 @@ function organizationApplicationRelation(relationTypes: RelationType[]): Relatio
 }
 
 /**
- * Five charts that answer common EA questions, each offered only when the
- * metamodel has what it needs (and, for the cost treemap, the viewer may read
+ * Five charts and two gauges that answer common EA questions, each offered
+ * only when the metamodel has what it needs (and, for the cost treemap, the viewer may read
  * costs). Every one names itself by a `title_key`, so it is titled in the
  * reader's language and `isAlreadyAdded` recognises it like the Overview
  * presets. Keys only — never an id (`widget_config_problem`).
@@ -217,6 +217,29 @@ export function presetsFor(
         chart: "sankey",
         max: 20,
         title_key: "dashboard.preset.organizationToApplication",
+      },
+    });
+  }
+  // Rates read against bands: red below 50 %, amber to 80 %, green above.
+  if (visibleTypes.length > 0) {
+    out.push({
+      id: "data_quality_gauge",
+      config: {
+        query: { metric: "avg", metric_field: "@data_quality" },
+        chart: "gauge",
+        thresholds: [50, 80],
+        title_key: "dashboard.preset.dataQualityGauge",
+      },
+    });
+  }
+  if (application) {
+    out.push({
+      id: "approved_applications_gauge",
+      config: {
+        query: { card_type: APPLICATION, metric: "share", approval_status: "APPROVED" },
+        chart: "gauge",
+        thresholds: [50, 80],
+        title_key: "dashboard.preset.approvedApplicationsGauge",
       },
     });
   }

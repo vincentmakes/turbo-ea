@@ -8,12 +8,14 @@
  * `sourceSeries.ts`) — never both.
  */
 import type {
+  CardType,
   DashboardChartKind,
   DashboardKpiHistory,
   DashboardQuery,
   DashboardQueryResult,
   DashboardQueryRow,
 } from "@/types";
+import { findField } from "../charts/dimensions";
 import { isCardKeyed, withQuery } from "../dashboardQuery";
 import { isSourceSeries, type ModuleSourceName } from "./sourceSeries";
 
@@ -49,6 +51,40 @@ export interface ChartConfig {
   series?: string;
   /** Set on a chart that draws a module's shared report. */
   source?: ModuleSourceName;
+  /** A gauge's band edges `[warn, good]` (two ascending numbers). */
+  thresholds?: [number, number];
+  /** A gauge's reading direction: whether a rise is good. */
+  goodDirection?: "up" | "down";
+}
+
+/** `[warn, good]` when the value is two finite, ascending numbers. */
+export function readThresholds(value: unknown): [number, number] | undefined {
+  if (!Array.isArray(value) || value.length !== 2) return undefined;
+  const [warn, good] = value;
+  if (typeof warn !== "number" || typeof good !== "number") return undefined;
+  if (!Number.isFinite(warn) || !Number.isFinite(good) || !(warn < good)) return undefined;
+  return [warn, good];
+}
+
+/** The module series that is a rate on a 0–100 scale (the mean regulation score). */
+export const PERCENT_SERIES: ReadonlySet<string> = new Set(["score_avg"]);
+
+/**
+ * Whether a chart measures a rate on a fixed 0–100 scale — a share, the
+ * average data quality, the average of a percentage field, or a module score
+ * — so a gauge of it reads in `%` against 0–100 rather than against a target.
+ */
+export function isPercentMeasure(
+  config: Pick<ChartConfig, "query" | "source" | "series">,
+  types: CardType[],
+): boolean {
+  if (config.source) return PERCENT_SERIES.has(config.series ?? "");
+  const q = config.query;
+  if (q.metric === "share") return true;
+  if (q.metric !== "avg" || !q.metric_field) return false;
+  if (q.metric_field === "@data_quality") return true;
+  if (q.metric_field.startsWith("@")) return false;
+  return findField(types, q.card_type, q.metric_field)?.type === "percentage";
 }
 
 export function readChartConfig(config: Record<string, unknown> | undefined): ChartConfig {
@@ -67,6 +103,8 @@ export function readChartConfig(config: Record<string, unknown> | undefined): Ch
     max,
     series,
     source,
+    thresholds: readThresholds(c.thresholds),
+    goodDirection: c.good_direction === "down" ? "down" : c.good_direction === "up" ? "up" : undefined,
   };
 }
 

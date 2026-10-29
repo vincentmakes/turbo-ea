@@ -16,6 +16,8 @@ const base: ConfigDraft = {
   drill: false,
   max: "",
   goodDirection: "up",
+  thresholdWarn: "",
+  thresholdGood: "",
   format: "number",
   maxRows: "12",
   activityFilter: "all",
@@ -33,17 +35,47 @@ const w = (type: "kpi" | "chart", config: Record<string, unknown>): DashboardWid
   layout: { x: 0, y: 0, w: 4, h: 4 },
 });
 
-function Harness({ widget, onDraft }: { widget: DashboardWidget; onDraft: (d: ConfigDraft) => void }) {
-  const [draft, setDraft] = useState(base);
+function Harness({
+  widget,
+  onDraft,
+  initial = base,
+}: {
+  widget: DashboardWidget;
+  onDraft: (d: ConfigDraft) => void;
+  initial?: ConfigDraft;
+}) {
+  const [draft, setDraft] = useState(initial);
   useEffect(() => onDraft(draft), [draft, onDraft]);
   return <SourceForm widget={widget} draft={draft} set={(key, value) => setDraft((d) => ({ ...d, [key]: value }))} />;
 }
 
-function renderForm(widget: DashboardWidget) {
+function renderForm(widget: DashboardWidget, initial: ConfigDraft = base) {
   const onDraft = vi.fn();
-  const result = renderWithProviders(<Harness widget={widget} onDraft={onDraft} />);
+  const result = renderWithProviders(<Harness widget={widget} onDraft={onDraft} initial={initial} />);
   return { ...result, last: () => onDraft.mock.calls.at(-1)![0] as ConfigDraft };
 }
+
+describe("SourceForm — gauge", () => {
+  it("puts a module score on the fixed scale: bands, no target", async () => {
+    const { user, last } = renderForm(w("chart", { source: "compliance_overview", series: "score_avg", chart: "gauge" }), {
+      ...base,
+      chart: "gauge",
+    });
+    expect(screen.queryByLabelText(tc("dashboard.config.target"))).toBeNull();
+    expect(screen.queryByLabelText(tc("dashboard.config.limit"))).toBeNull();
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdWarn")), "60");
+    await waitFor(() => expect(last().thresholdWarn).toBe("60"));
+  });
+
+  it("reads a module count against a target", async () => {
+    const { user, last } = renderForm(w("chart", { source: "risks_metrics", series: "open", chart: "gauge" }), {
+      ...base,
+      chart: "gauge",
+    });
+    await user.type(screen.getByLabelText(new RegExp(`^${tc("dashboard.config.target")}`)), "25");
+    await waitFor(() => expect(last().max).toBe("25"));
+  });
+});
 
 describe("SourceForm", () => {
   it("names the series and offers the chart kinds that fit it", async () => {

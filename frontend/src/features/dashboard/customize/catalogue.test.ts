@@ -234,14 +234,36 @@ describe("presetsFor — metamodel-aware charts", () => {
   const preset = (id: string, types = TYPES, rels = RELS, perms: Record<string, boolean> = COSTS) =>
     presetsFor(types, rels, perms).find((p) => p.id === id)?.config;
 
-  it("offers all five on a landscape that has their pieces, in order", () => {
+  it("offers all seven on a landscape that has their pieces, in order", () => {
     expect(ids(presetsFor(TYPES, RELS, COSTS))).toEqual([
       "cost_per_application",
       "applications_per_organization",
       "end_of_life_calendar",
       "stale_by_type",
       "organization_to_application",
+      "data_quality_gauge",
+      "approved_applications_gauge",
     ]);
+  });
+
+  it("offers two banded gauges: the average data quality, and the share of approved Applications", () => {
+    expect(preset("data_quality_gauge")).toEqual({
+      query: { metric: "avg", metric_field: "@data_quality" },
+      chart: "gauge",
+      thresholds: [50, 80],
+      title_key: "dashboard.preset.dataQualityGauge",
+    });
+    expect(preset("approved_applications_gauge")).toEqual({
+      query: { card_type: "Application", metric: "share", approval_status: "APPROVED" },
+      chart: "gauge",
+      thresholds: [50, 80],
+      title_key: "dashboard.preset.approvedApplicationsGauge",
+    });
+    // The data-quality gauge needs any type; the approval gauge the Application type.
+    expect(preset("data_quality_gauge", [BUSINESS_CAPABILITY_TYPE], [])).toBeDefined();
+    expect(preset("approved_applications_gauge", [BUSINESS_CAPABILITY_TYPE], [])).toBeUndefined();
+    expect(preset("approved_applications_gauge", [{ ...APPLICATION_TYPE, is_hidden: true }], [])).toBeUndefined();
+    expect(preset("data_quality_gauge", [{ ...APPLICATION_TYPE, is_hidden: true }], [])).toBeUndefined();
   });
 
   it("sums the Application type's first cost field per card on a treemap", () => {
@@ -341,12 +363,14 @@ describe("presetsFor — metamodel-aware charts", () => {
     const meta = { types: TYPES, relationTypes: RELS };
     const all = catalogueFor(COSTS, undefined, meta).map((e) => e.id);
     const at = all.indexOf("chart:lifecycle");
-    expect(all.slice(at + 1, at + 6)).toEqual([
+    expect(all.slice(at + 1, at + 8)).toEqual([
       "chart:cost_per_application",
       "chart:applications_per_organization",
       "chart:end_of_life_calendar",
       "chart:stale_by_type",
       "chart:organization_to_application",
+      "chart:data_quality_gauge",
+      "chart:approved_applications_gauge",
     ]);
     const entry = catalogueFor(COSTS, undefined, meta).find((e) => e.id === "chart:cost_per_application")!;
     expect(entry).toMatchObject({ type: "chart", family: "chart", single: true, needsConfig: false });

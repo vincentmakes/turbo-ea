@@ -163,6 +163,66 @@ describe("ChartWidget", () => {
     await screen.findByTestId("echart");
     expect(series().data[0].value).toBe(37);
     expect(series().max).toBe(100);
+    // A count reads against its target, with no bands unless given.
+    expect(series().detail.formatter(37)).toBe(`{value|37}\n{target|${tc("dashboard.config.ofTarget", { target: "100" })}}`);
+    expect(echart.last!.option.series).toHaveLength(1);
+  });
+
+  it("puts a share on a 0–100 gauge in %, banded by its thresholds and direction", async () => {
+    const query = { card_type: "Application", metric: "share", flags: "without_stakeholders" };
+    mockApi.on("get", "/dashboards/query?card_type=Application&flags=without_stakeholders&metric=share", {
+      dimension: null,
+      dimension_2: null,
+      rows: [],
+      total: 35,
+    });
+    renderChart(chart({ query, chart: "gauge", max: 400, thresholds: [20, 40], good_direction: "down" }));
+    await screen.findByTestId("echart");
+    expect(series().max).toBe(100);
+    expect(series().detail.formatter(35)).toBe("{value|35%}");
+    expect(series().progress.itemStyle.color).toBe(STATUS_COLORS.warning);
+    expect(echart.last!.option.series[1].axisLine.lineStyle.color).toEqual([
+      [0.2, STATUS_COLORS.success],
+      [0.4, STATUS_COLORS.warning],
+      [1, STATUS_COLORS.error],
+    ]);
+  });
+
+  it("reads the average data quality and a percentage field in %, with the default bands", async () => {
+    mockApi.on("get", "/dashboards/query?metric=avg&metric_field=%40data_quality", {
+      dimension: null,
+      dimension_2: null,
+      rows: [],
+      total: 64.5,
+    });
+    const { unmount } = renderChart(chart({ query: { metric: "avg", metric_field: "@data_quality" }, chart: "gauge" }));
+    await screen.findByTestId("echart");
+    expect(series().detail.formatter(64.5)).toBe("{value|64.5%}");
+    expect(echart.last!.option.series[1].axisLine.lineStyle.color.map((b: [number, string]) => b[0])).toEqual([0.5, 0.8, 1]);
+    unmount();
+    mockApi.on("get", "/dashboards/query?card_type=Application&metric=avg&metric_field=coverage", {
+      dimension: null,
+      dimension_2: null,
+      rows: [],
+      total: 90,
+    });
+    renderChart(chart({ query: { card_type: "Application", metric: "avg", metric_field: "coverage" }, chart: "gauge" }));
+    await screen.findByTestId("echart");
+    expect(series().detail.formatter(90)).toBe("{value|90%}");
+    expect(series().progress.itemStyle.color).toBe(STATUS_COLORS.success);
+  });
+
+  it("keeps a share's % on other chart kinds, and no gauge settings", async () => {
+    const query = { group_by: "type", metric: "share", approval_status: "APPROVED" };
+    mockApi.on("get", "/dashboards/query?approval_status=APPROVED&group_by=type&metric=share", {
+      dimension: "type",
+      dimension_2: null,
+      rows: [{ key: "Application", value: 40 }],
+      total: 40,
+    });
+    renderChart(chart({ query, chart: "bar", thresholds: [1, 2] }));
+    await screen.findByTestId("echart");
+    expect(echart.last!.option.tooltip.valueFormatter(40)).toBe("40%");
   });
 
   it("names both heatmap axes", async () => {
@@ -438,6 +498,9 @@ describe("ChartWidget — relation-aware and module charts", () => {
     await screen.findByTestId("echart");
     expect(series().data[0].value).toBe(80);
     expect(series().max).toBe(100);
+    // A score is a rate: in %, on the default bands, no "of N".
+    expect(series().detail.formatter(80)).toBe("{value|80%}");
+    expect(series().progress.itemStyle.color).toBe(STATUS_COLORS.success);
     unmount();
     renderChart(chart({ source: "compliance_overview", series: "scores", chart: "column" }));
     await screen.findByTestId("echart");

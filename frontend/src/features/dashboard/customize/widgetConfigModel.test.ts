@@ -15,7 +15,10 @@ import {
 } from "@/test/fixtures/metamodel";
 import {
   draftQuery,
+  gaugeIsPercent,
+  gaugeMeasureOptions,
   queryProblem,
+  thresholdsOf,
   flagOptions,
   hasFilters,
   measureOptions,
@@ -58,6 +61,8 @@ const draft = (patch: Partial<ConfigDraft> = {}): ConfigDraft => ({
   drill: true,
   max: "",
   goodDirection: "up",
+  thresholdWarn: "",
+  thresholdGood: "",
   format: "number",
   maxRows: "12",
   activityFilter: "all",
@@ -306,7 +311,7 @@ describe("draftProblem", () => {
   it("accepts a valid chart and a valid KPI", () => {
     expect(draftProblem("chart", draft())).toBeNull();
     expect(draftProblem("kpi", draft({ query: {} }))).toBeNull();
-    expect(draftProblem("chart", draft({ chart: "gauge", query: {} }))).toBeNull();
+    expect(draftProblem("chart", draft({ chart: "gauge", query: {}, max: "100" }))).toBeNull();
   });
 
   it("limits the title for every kind", () => {
@@ -439,6 +444,142 @@ describe("widgetFromDraft", () => {
 
 const ctx = { types: CARD_TYPES, relationTypes: RELATION_TYPES };
 
+describe("gauge", () => {
+  const gauge = (patch: Partial<ConfigDraft> = {}) => draft({ chart: "gauge", query: {}, ...patch });
+  const share = { card_type: "Application", metric: "share" as const, approval_status: "APPROVED" };
+  const coverage = { card_type: "Application", metric: "avg" as const, metric_field: "coverage" };
+
+  it("offers rates for an average and totals for a sum", () => {
+    expect(gaugeMeasureOptions(APPLICATION_TYPE, true, "avg")).toEqual(["coverage", "@data_quality"]);
+    expect(gaugeMeasureOptions(undefined, true, "avg")).toEqual(["@data_quality"]);
+    expect(gaugeMeasureOptions(APPLICATION_TYPE, true, "sum", RELATION_TYPES)).toEqual([
+      "costTotalAnnual",
+      "vendorScore",
+      "@relations:relAppToITC",
+      "@relations:relAppToBC",
+      "@relations:relAppToApp__out",
+      "@relations:relAppToApp__in",
+    ]);
+    expect(gaugeMeasureOptions(APPLICATION_TYPE, false, "sum")).toEqual(["vendorScore"]);
+  });
+
+  it("tells a rate on 0–100 from a count or sum against a target", () => {
+    expect(gaugeIsPercent("chart", gauge({ query: share }), ctx)).toBe(true);
+    expect(gaugeIsPercent("chart", gauge({ query: { metric: "avg", metric_field: "@data_quality" } }))).toBe(true);
+    expect(gaugeIsPercent("chart", gauge({ query: coverage }), ctx)).toBe(true);
+    // A percentage field is recognised only with the metamodel at hand.
+    expect(gaugeIsPercent("chart", gauge({ query: coverage }))).toBe(false);
+    expect(gaugeIsPercent("chart", gauge({ query: { card_type: "Application", metric: "sum", metric_field: "vendorScore" } }), ctx)).toBe(false);
+    expect(gaugeIsPercent("chart", gauge(), ctx)).toBe(false);
+    const score = widget("chart", { source: "compliance_overview", series: "score_avg", chart: "gauge" });
+    const open = widget("chart", { source: "risks_metrics", series: "open", chart: "gauge" });
+    expect(gaugeIsPercent("source", gauge(), ctx, score)).toBe(true);
+    expect(gaugeIsPercent("source", gauge(), ctx, open)).toBe(false);
+    expect(gaugeIsPercent("source", gauge(), ctx)).toBe(false);
+  });
+
+  it("requires a positive Target for a count or sum, and none for a rate", () => {
+    expect(draftProblem("chart", gauge(), ctx)).toBe("targetRequired");
+    expect(draftProblem("chart", gauge({ max: "  " }), ctx)).toBe("targetRequired");
+    expect(draftProblem("chart", gauge({ max: "0" }), ctx)).toBe("maxPositive");
+    expect(draftProblem("chart", gauge({ max: "120" }), ctx)).toBeNull();
+    expect(draftProblem("chart", gauge({ query: share }), ctx)).toBeNull();
+    expect(draftProblem("chart", gauge({ query: coverage, max: "0" }), ctx)).toBeNull();
+  });
+
+  it("wants both band edges, ascending, within the scale", () => {
+    const rate = (warn: string, good: string) =>
+      draftProblem("chart", gauge({ query: share, thresholdWarn: warn, thresholdGood: good }), ctx);
+    expect(rate("", "")).toBeNull();
+    expect(rate("50", "80")).toBeNull();
+    expect(rate("0", "100")).toBeNull();
+    expect(rate("50", "")).toBe("invalidThresholds");
+    expect(rate(" ", "80")).toBe("invalidThresholds");
+    expect(rate("80", "50")).toBe("invalidThresholds");
+    expect(rate("50", "50")).toBe("invalidThresholds");
+    expect(rate("-1", "50")).toBe("invalidThresholds");
+    expect(rate("50", "101")).toBe("invalidThresholds");
+    expect(rate("abc", "80")).toBe("invalidThresholds");
+    // A target gauge's scale is its target.
+    const target = (good: string) =>
+      draftProblem("chart", gauge({ max: "200", thresholdWarn: "100", thresholdGood: good }), ctx);
+    expect(target("200")).toBeNull();
+    expect(target("201")).toBe("invalidThresholds");
+    // A score gauge is a rate.
+    const score = widget("chart", { source: "compliance_overview", series: "score_avg", chart: "gauge" });
+    expect(draftProblem("source", gauge({ thresholdWarn: "60", thresholdGood: "90" }), ctx, score)).toBeNull();
+    expect(draftProblem("source", gauge({ thresholdWarn: "60", thresholdGood: "190" }), ctx, score)).toBe(
+      "invalidThresholds",
+    );
+  });
+
+  it("reads the band edges as typed", () => {
+    expect(thresholdsOf(gauge())).toBeNull();
+    expect(thresholdsOf(gauge({ thresholdWarn: " 40 ", thresholdGood: "70" }))).toEqual([40, 70]);
+    expect(thresholdsOf(gauge({ thresholdWarn: "40" }))).toBe("invalid");
+    expect(thresholdsOf(gauge({ thresholdGood: "40" }))).toBe("invalid");
+    expect(thresholdsOf(gauge({ thresholdWarn: "x", thresholdGood: "40" }))).toBe("invalid");
+  });
+
+  it("loads the bands and direction of a stored gauge", () => {
+    const d = draftFromWidget(widget("chart", { query: {}, chart: "gauge", thresholds: [30, 60], good_direction: "down" }));
+    expect(d).toMatchObject({ thresholdWarn: "30", thresholdGood: "60", goodDirection: "down" });
+    expect(draftFromWidget(widget("chart", { query: {}, chart: "gauge" }))).toMatchObject({
+      thresholdWarn: "",
+      thresholdGood: "",
+    });
+  });
+
+  it("saves a rate's bands and direction without a target", () => {
+    const out = widgetFromDraft(
+      widget("chart", { query: {}, chart: "bar" }),
+      "chart",
+      gauge({ query: share, max: "500", thresholdWarn: "40", thresholdGood: "70", goodDirection: "down" }),
+      ctx,
+    );
+    expect(out.config).toEqual({
+      query: share,
+      chart: "gauge",
+      drill: true,
+      thresholds: [40, 70],
+      good_direction: "down",
+    });
+  });
+
+  it("saves a target gauge's target, and no bands when none are set", () => {
+    const out = widgetFromDraft(widget("chart", { query: {}, chart: "gauge" }), "chart", gauge({ max: "120" }), ctx);
+    expect(out.config).toEqual({ query: {}, chart: "gauge", drill: true, max: 120, good_direction: "up" });
+  });
+
+  it("drops a gauge's bands from any other chart", () => {
+    const stored = widget("chart", { query: {}, chart: "gauge", thresholds: [1, 2], good_direction: "down" });
+    const out = widgetFromDraft(stored, "chart", draft({ thresholdWarn: "1", thresholdGood: "2" }), ctx);
+    expect(out.config).not.toHaveProperty("thresholds");
+    expect(out.config).not.toHaveProperty("good_direction");
+  });
+
+  it("saves a module gauge's bands, dropping the target of a score, and none on a module chart", () => {
+    const score = widget("chart", { source: "compliance_overview", series: "score_avg", chart: "gauge", max: 10 });
+    expect(
+      widgetFromDraft(score, "source", gauge({ max: "10", thresholdWarn: "60", thresholdGood: "90" }), ctx).config,
+    ).toEqual({ source: "compliance_overview", series: "score_avg", chart: "gauge", thresholds: [60, 90], good_direction: "up" });
+    const open = widget("chart", { source: "risks_metrics", series: "open", chart: "gauge" });
+    expect(widgetFromDraft(open, "source", gauge({ max: "25" }), ctx).config).toEqual({
+      source: "risks_metrics",
+      series: "open",
+      chart: "gauge",
+      max: 25,
+      good_direction: "up",
+    });
+    const donut = widget("chart", { source: "risks_metrics", series: "by_level", chart: "gauge", thresholds: [1, 2], good_direction: "up" });
+    expect(widgetFromDraft(donut, "source", draft({ chart: "donut" }), ctx).config).toEqual({
+      source: "risks_metrics",
+      series: "by_level",
+      chart: "donut",
+    });
+  });
+});
+
 describe("module widgets", () => {
   it("open the source form", () => {
     expect(configKind(widget("kpi", { source: "risks_metrics", series: "open" }))).toBe("source");
@@ -465,7 +606,8 @@ describe("module widgets", () => {
     expect(draftProblem("source", draft({ chart: "gauge" }), ctx, chart)).toBe("seriesShapeMismatch");
     const single = widget("chart", { source: "risks_metrics", series: "open", chart: "gauge" });
     expect(draftProblem("source", draft({ chart: "bar" }), ctx, single)).toBe("seriesShapeMismatch");
-    expect(draftProblem("source", draft({ chart: "gauge" }), ctx, single)).toBeNull();
+    expect(draftProblem("source", draft({ chart: "gauge" }), ctx, single)).toBe("targetRequired");
+    expect(draftProblem("source", draft({ chart: "gauge", max: "10" }), ctx, single)).toBeNull();
     expect(draftProblem("source", draft({ chart: "donut", max: "0" }), ctx, chart)).toBe("maxPositive");
     const kpi = widget("kpi", { source: "risks_metrics", series: "open" });
     expect(draftProblem("source", draft({ chart: "bar" }), ctx, kpi)).toBeNull();

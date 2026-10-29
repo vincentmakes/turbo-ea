@@ -211,17 +211,56 @@ describe("WidgetConfigDialog — chart", () => {
     expect(kinds).not.toContain(tc("dashboard.query.chart.sankey"));
   });
 
-  it("draws a gauge without grouping and with an optional maximum", async () => {
+  it("draws a count gauge without grouping, against a required target", async () => {
     const { user, onSave } = renderDialog(NEW_CHART);
     await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.gauge"));
     expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.dimension")}`) })).toBeNull();
-    const max = screen.getByLabelText(tc("dashboard.config.gaugeMax"));
+    expect(problem()).toBe(tc("dashboard.config.problem.targetRequired"));
+    const max = screen.getByLabelText(new RegExp(`^${tc("dashboard.config.target")}`));
     await user.type(max, "0");
     expect(problem()).toBe(tc("dashboard.config.problem.maxPositive"));
     await user.clear(max);
     await user.type(max, "250");
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdWarn")), "300");
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdGood")), "400");
+    expect(problem()).toBe(tc("dashboard.config.problem.invalidThresholds"));
+    await user.clear(screen.getByLabelText(tc("dashboard.config.thresholdWarn")));
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdWarn")), "100");
+    await user.clear(screen.getByLabelText(tc("dashboard.config.thresholdGood")));
+    await user.type(screen.getByLabelText(tc("dashboard.config.thresholdGood")), "200");
     await user.click(saveButton());
-    expect(onSave.mock.calls[0][0].config).toEqual({ query: {}, chart: "gauge", drill: true, max: 250 });
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: {},
+      chart: "gauge",
+      drill: true,
+      max: 250,
+      thresholds: [100, 200],
+      good_direction: "up",
+    });
+  });
+
+  it("measures a rate on a gauge on the fixed scale, averaging only rates", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.gauge"));
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.avg"));
+    const fields = await options(user, tc("dashboard.config.metricField"));
+    expect(fields).toEqual([
+      tc("dashboard.config.group.fields"),
+      "Test Coverage",
+      tc("dashboard.config.group.computed"),
+      tc("dashboard.query.measure.data_quality"),
+    ]);
+    await choose(user, tc("dashboard.config.metricField"), "Test Coverage");
+    expect(screen.queryByLabelText(new RegExp(`^${tc("dashboard.config.target")}`))).toBeNull();
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { card_type: "Application", metric: "avg", metric_field: "coverage" },
+      chart: "gauge",
+      drill: true,
+      good_direction: "up",
+    });
   });
 
   it("turns click-through off", async () => {

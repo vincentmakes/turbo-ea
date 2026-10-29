@@ -86,7 +86,7 @@ Benutzer, deren Rolle `admin.dashboards` (**Dashboards der Startseite verwalten*
 Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard zu bearbeiten. Im Anpassungsmodus:
 
 - **Verschieben** Sie ein Widget, indem Sie es am Griff ziehen; das Raster ist 12 Spalten breit, und die anderen Widgets machen Platz.
-- **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke. Das benachbarte Widget macht Platz: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben.
+- **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke, per Maus oder Touch (auf einem hochkant gehaltenen Smartphone oder Tablet ist das Layout schreibgeschützt). Das benachbarte Widget macht Platz: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben.
 - **Entfernen** Sie ein Widget mit seiner Schließen-Schaltfläche.
 - **Konfigurieren** Sie eine KPI-Kachel, ein Diagramm oder den Aktivitäts-Feed mit der Zahnrad-Schaltfläche.
 
@@ -146,7 +146,7 @@ Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm ode
 | **Gestapelte Säulen** | Zwei Dimensionen als gestapelte Balken mit Legende — Kartentyp nach Lebenszyklusphase, Fähigkeitsebene nach Genehmigungsstatus |
 | **Linie** | Einen Verlauf über die Zeit, etwa pro Monat erstellte Karten |
 | **Kreis** / **Ring** | Anteile an einem Ganzen |
-| **Tachometer** | Einen Wert gegenüber einem Maximum (ohne Gruppierung) |
+| **Tachometer** | Eine Rate gegenüber einem Ziel: ein Anteil (die genehmigten Anwendungen), die durchschnittliche Datenqualität, ein Prozentfeld oder ein Compliance-Wert auf einer Skala von 0–100, oder eine Anzahl bzw. Summe gegenüber einem **Ziel**. Zwei Schwellenwerte (**Warnung ab**, **Gut ab**) teilen die Skala in rote, gelbe und grüne Bereiche, umgekehrt, wenn ein Anstieg schlecht ist; zwei vorgefertigte Tachometer, **Datenqualität** und **Genehmigte Anwendungen**, stehen im Katalog bereit |
 | **Heatmap** | Zwei Dimensionen gleichzeitig — zum Beispiel Lebenszyklusphase gegen Genehmigungsstatus |
 | **Treemap** | Anteile bei vielen Gruppen |
 | **Sankey** | Den Fluss eines Beziehungstyps zwischen den verbundenen Karten, mit einer Dimension Ihrer Wahl an jedem Ende |

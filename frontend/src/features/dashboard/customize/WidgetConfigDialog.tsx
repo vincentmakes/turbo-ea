@@ -47,6 +47,8 @@ import {
   draftProblem,
   draftQuery,
   flagOptions,
+  gaugeIsPercent,
+  gaugeMeasureOptions,
   keepsFlag,
   measureOptions,
   readableRelationTypes,
@@ -113,7 +115,10 @@ function ConfigForm({
   const isGauge = isChart && draft.chart === "gauge";
   const selectedType = cardTypes.find((ct) => ct.key === query.card_type);
   const dimensions = chartDimensionOptions(dimensionOptions(selectedType, relations), draft.chart);
-  const measures = measureOptions(selectedType, canViewCosts, relations);
+  // A gauge measures a rate or a total against a target, never any average.
+  const measures = isGauge
+    ? gaugeMeasureOptions(selectedType, canViewCosts, query.metric, relations)
+    : measureOptions(selectedType, canViewCosts, relations);
   const flagsOffered = flagOptions(selectedType);
   const presenceOptions = isSankey ? [] : relationPresenceOptions(selectedType, relations);
   const sankeyRt = isSankey ? relations.find((rt) => rt.key === query.relation_type) : undefined;
@@ -153,7 +158,7 @@ function ConfigForm({
       return changed ? { ...d, query: q, flags, relationPresence } : d;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run on the inputs the option lists derive from
-  }, [query.card_type, query.relation_type, draft.chart, canViewCosts, relations, types]);
+  }, [query.card_type, query.relation_type, query.metric, draft.chart, canViewCosts, relations, types]);
 
   const setQuery = (patch: Partial<DashboardQuery>) => setDraft((d) => ({ ...d, query: { ...d.query, ...patch } }));
   const set = <K extends keyof ConfigDraft>(key: K, value: ConfigDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
@@ -161,9 +166,10 @@ function ConfigForm({
 
   const problem = draftProblem(kind, draft, { types, relationTypes: relations }, widget);
   const preview = useMemo(
-    () => (problem ? null : widgetFromDraft(widget, kind, draft)),
-    [problem, widget, kind, draft],
+    () => (problem ? null : widgetFromDraft(widget, kind, draft, { types })),
+    [problem, widget, kind, draft, types],
   );
+  const percent = isGauge && gaugeIsPercent(kind, draft, { types });
 
   const showQuery = kind === "kpi" || isChart;
   const showPreview = showQuery || kind === "source";
@@ -195,6 +201,7 @@ function ConfigForm({
                 kind="chart"
                 chartKinds={chartKinds}
                 secondaryAvailable={false}
+                percent={percent}
               />
             )}
 
@@ -288,7 +295,7 @@ function ConfigForm({
         <Button
           variant="contained"
           disabled={!!problem}
-          onClick={() => onSave(widgetFromDraft(widget, kind, draft))}
+          onClick={() => onSave(widgetFromDraft(widget, kind, draft, { types }))}
         >
           {mode === "create" ? t("actions.add") : t("actions.apply")}
         </Button>

@@ -86,7 +86,7 @@ Gli utenti il cui ruolo concede `admin.dashboards` (**Gestisci le dashboard dell
 Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare la dashboard corrente. In modalità di personalizzazione:
 
 - **Sposta** un widget trascinandolo per la sua maniglia; la griglia è larga 12 colonne e gli altri widget gli fanno spazio.
-- **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo. Il widget accanto gli fa spazio: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole.
+- **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo, con il mouse o con il tocco (su uno smartphone o un tablet tenuto in verticale il layout è di sola lettura). Il widget accanto gli fa spazio: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole.
 - **Rimuovi** un widget con il suo pulsante di chiusura.
 - **Configura** un tile KPI, un grafico o il feed delle attività con il suo pulsante a forma di ingranaggio.
 
@@ -146,7 +146,7 @@ Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o u
 | **Colonne impilate** | Due dimensioni come barre impilate con legenda — tipo di card per fase del ciclo di vita, livello di capacità per stato di approvazione |
 | **Linee** | Una tendenza nel tempo, come le card create al mese |
 | **Torta** / **Ciambella** | Quote di un tutto |
-| **Indicatore** | Un valore rispetto a un massimo (senza raggruppamento) |
+| **Indicatore** | Un tasso rispetto a un obiettivo: una quota (le applicazioni approvate), la qualità media dei dati, un campo percentuale o un punteggio di conformità su un quadrante 0–100, oppure un conteggio o una somma rispetto a un **Obiettivo**. Due soglie (**Avviso sopra**, **Buono sopra**) dividono il quadrante in fasce rossa, ambra e verde, invertite quando un aumento è negativo; due indicatori pronti all'uso, **Qualità dei dati** e **Applicazioni approvate**, sono nel catalogo |
 | **Mappa di calore** | Due dimensioni insieme — per esempio fase del ciclo di vita contro stato di approvazione |
 | **Treemap** | Quote quando i gruppi sono molti |
 | **Sankey** | Il flusso di un tipo di relazione tra le card che collega, con una dimensione a scelta a ciascuna estremità |

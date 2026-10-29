@@ -38,6 +38,8 @@ export const BACKEND_PROBLEMS: Record<string, string> = {
   invalid_sparkline: "invalidSparkline",
   invalid_secondary: "invalidSecondary",
   source_chart_kind: "sourceChartKind",
+  invalid_thresholds: "invalidThresholds",
+  invalid_good_direction: "invalidGoodDirection",
 };
 
 // Longest first, so a code that contains another is matched whole.

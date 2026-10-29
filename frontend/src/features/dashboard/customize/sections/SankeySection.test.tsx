@@ -20,6 +20,8 @@ const base: ConfigDraft = {
   drill: true,
   max: "",
   goodDirection: "up",
+  thresholdWarn: "",
+  thresholdGood: "",
   format: "number",
   maxRows: "12",
   activityFilter: "all",

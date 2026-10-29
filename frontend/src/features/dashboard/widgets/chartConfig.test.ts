@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { CHART_KINDS, chartPath, chartTop, normalizeChartResult, readChartConfig, usesCardKeys } from "./chartConfig";
+import type { CardType } from "@/types";
+import {
+  CHART_KINDS,
+  chartPath,
+  chartTop,
+  isPercentMeasure,
+  normalizeChartResult,
+  readChartConfig,
+  readThresholds,
+  usesCardKeys,
+} from "./chartConfig";
 
 describe("readChartConfig", () => {
   it("reads a stored config", () => {
@@ -17,6 +27,64 @@ describe("readChartConfig", () => {
       max: undefined,
       series: undefined,
     });
+  });
+});
+
+describe("gauge bands", () => {
+  it("reads thresholds and the good direction of a stored gauge", () => {
+    const cfg = readChartConfig({ chart: "gauge", query: {}, thresholds: [40, 70], good_direction: "down" });
+    expect(cfg.thresholds).toEqual([40, 70]);
+    expect(cfg.goodDirection).toBe("down");
+    expect(readChartConfig({ good_direction: "up" }).goodDirection).toBe("up");
+    expect(readChartConfig({ good_direction: "sideways" }).goodDirection).toBeUndefined();
+    expect(readChartConfig({}).thresholds).toBeUndefined();
+  });
+
+  it("accepts only two finite ascending numbers", () => {
+    expect(readThresholds([0, 100])).toEqual([0, 100]);
+    expect(readThresholds([50, 50])).toBeUndefined();
+    expect(readThresholds([80, 50])).toBeUndefined();
+    expect(readThresholds([50])).toBeUndefined();
+    expect(readThresholds([10, 20, 30])).toBeUndefined();
+    expect(readThresholds(["10", 20])).toBeUndefined();
+    expect(readThresholds([10, "20"])).toBeUndefined();
+    expect(readThresholds([10, Number.POSITIVE_INFINITY])).toBeUndefined();
+    expect(readThresholds("10,20")).toBeUndefined();
+  });
+});
+
+describe("isPercentMeasure", () => {
+  const types = [
+    {
+      key: "Application",
+      fields_schema: [
+        {
+          section: "s",
+          fields: [
+            { key: "coverage", type: "percentage" },
+            { key: "users", type: "number" },
+          ],
+        },
+      ],
+    },
+  ] as unknown as CardType[];
+  const q = (query: Record<string, unknown>) => ({ query });
+
+  it("is a share, the average data quality, the average of a percentage field, or a module score", () => {
+    expect(isPercentMeasure(q({ metric: "share", approval_status: "APPROVED" }), types)).toBe(true);
+    expect(isPercentMeasure(q({ metric: "avg", metric_field: "@data_quality" }), types)).toBe(true);
+    expect(isPercentMeasure(q({ card_type: "Application", metric: "avg", metric_field: "coverage" }), types)).toBe(true);
+    expect(isPercentMeasure({ query: {}, source: "compliance_overview", series: "score_avg" }, types)).toBe(true);
+  });
+
+  it("is not a count, a sum, an average of another field or another module series", () => {
+    expect(isPercentMeasure(q({}), types)).toBe(false);
+    expect(isPercentMeasure(q({ metric: "sum", metric_field: "coverage", card_type: "Application" }), types)).toBe(false);
+    expect(isPercentMeasure(q({ metric: "avg", metric_field: "users", card_type: "Application" }), types)).toBe(false);
+    expect(isPercentMeasure(q({ metric: "avg", metric_field: "@age_days" }), types)).toBe(false);
+    expect(isPercentMeasure(q({ metric: "avg" }), types)).toBe(false);
+    expect(isPercentMeasure({ query: {}, source: "risks_metrics", series: "open" }, types)).toBe(false);
+    expect(isPercentMeasure({ query: {}, source: "risks_metrics" }, types)).toBe(false);
   });
 });
 

@@ -24,7 +24,13 @@ import {
   toQueryString,
 } from "../dashboardQuery";
 import { kpiPreset } from "../widgets/kpiPresets";
-import { CHART_KINDS, TWO_DIMENSION_KINDS, readChartConfig } from "../widgets/chartConfig";
+import {
+  CHART_KINDS,
+  PERCENT_SERIES,
+  TWO_DIMENSION_KINDS,
+  isPercentMeasure,
+  readChartConfig,
+} from "../widgets/chartConfig";
 import { isModuleSource, seriesShape } from "../widgets/sourceSeries";
 
 /** Which form a widget's configure button opens, or null for none. */
@@ -267,6 +273,26 @@ export function measureOptions(
   return out;
 }
 
+/**
+ * What a gauge can measure — a rate or a total against a target: an average
+ * only of a rate (a percentage field, the data quality), a sum of anything
+ * else numeric. A count or a share takes no field.
+ */
+export function gaugeMeasureOptions(
+  type: CardType | undefined,
+  canViewCosts: boolean,
+  metric: string | null | undefined,
+  relationTypes: RelationType[] = [],
+): string[] {
+  const numeric = numericFields(type, canViewCosts);
+  if (metric === "avg") {
+    return [...numeric.filter((f) => f.type === "percentage").map((f) => f.key), DATA_QUALITY_MEASURE];
+  }
+  const out = numeric.filter((f) => f.type !== "percentage").map((f) => f.key);
+  for (const side of sideKeysFor(type, relationTypes)) out.push(`${RELATIONS_MEASURE}${side}`);
+  return out;
+}
+
 /** Whether an EOL flag can mean something for a card type (EOL data exists only on the EOL types). */
 function eolApplies(flag: string, type: CardType | undefined): boolean {
   return !EOL_FLAGS.has(flag) || !type || isEolType(type.key);
@@ -330,6 +356,10 @@ export interface ConfigDraft {
   /** Text of the numeric `max` input ("" = none). */
   max: string;
   goodDirection: "up" | "down";
+  /** Text of a gauge's lower band edge ("" = none). */
+  thresholdWarn: string;
+  /** Text of a gauge's upper band edge ("" = none). */
+  thresholdGood: string;
   format: "number" | "percent";
   /** Text of the activity row count input. */
   maxRows: string;
@@ -382,6 +412,8 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
     drill: chart.drill,
     max: chart.max !== undefined ? String(chart.max) : "",
     goodDirection: config.good_direction === "down" ? "down" : "up",
+    thresholdWarn: chart.thresholds ? String(chart.thresholds[0]) : "",
+    thresholdGood: chart.thresholds ? String(chart.thresholds[1]) : "",
     format: config.format === "percent" ? "percent" : "number",
     maxRows: typeof config.max_rows === "number" ? String(config.max_rows) : "12",
     activityFilter: filter,
@@ -585,6 +617,51 @@ function positiveMax(max: string): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
+/**
+ * Whether a gauge draft measures a rate on the fixed 0–100 scale (no target):
+ * a share, the average data quality or of a percentage field, or a module
+ * score. A percentage field is recognised only with the metamodel at hand.
+ */
+export function gaugeIsPercent(
+  kind: ConfigKind,
+  draft: ConfigDraft,
+  ctx?: Pick<ProblemContext, "types">,
+  widget?: Pick<DashboardWidget, "type" | "config">,
+): boolean {
+  if (kind === "source") return PERCENT_SERIES.has(String(widget?.config?.series ?? ""));
+  return isPercentMeasure({ query: cleanQuery(draftQuery(draft), "chart", "gauge") }, ctx?.types ?? []);
+}
+
+/** A gauge's band edges as typed: both empty, or two ascending numbers within the scale. */
+export function thresholdsOf(draft: ConfigDraft): [number, number] | null | "invalid" {
+  const warn = draft.thresholdWarn.trim();
+  const good = draft.thresholdGood.trim();
+  if (warn === "" && good === "") return null;
+  if (warn === "" || good === "") return "invalid";
+  const pair: [number, number] = [Number(warn), Number(good)];
+  return pair.every(Number.isFinite) ? pair : "invalid";
+}
+
+/**
+ * A gauge's own rules: a count or sum reads against a Target, which must be
+ * set and positive; the bands, when set, are two ascending numbers within
+ * the scale (0–100 for a rate, else the target) — the backend's
+ * `invalid_thresholds`.
+ */
+function gaugeProblem(draft: ConfigDraft, percent: boolean): string | null {
+  if (!percent) {
+    if (draft.max.trim() === "") return "targetRequired";
+    if (!positiveMax(draft.max)) return "maxPositive";
+  }
+  const bands = thresholdsOf(draft);
+  if (bands === null) return null;
+  const scale = percent ? 100 : Number(draft.max);
+  if (bands === "invalid" || !(bands[0] >= 0 && bands[0] < bands[1] && bands[1] <= scale)) {
+    return "invalidThresholds";
+  }
+  return null;
+}
+
 /** The i18n key (under `dashboard.config.problem.`) of the first rule a draft breaks, or null. */
 export function draftProblem(
   kind: ConfigKind,
@@ -603,6 +680,7 @@ export function draftProblem(
     if (widget?.type === "chart") {
       if (TWO_DIMENSION_KINDS.includes(draft.chart) || draft.chart === "sankey") return "sourceChartKind";
       if (!sourceChartKinds(series).includes(draft.chart)) return "seriesShapeMismatch";
+      if (draft.chart === "gauge") return gaugeProblem(draft, gaugeIsPercent(kind, draft, ctx, widget));
     }
     return positiveMax(draft.max) ? null : "maxPositive";
   }
@@ -626,13 +704,34 @@ export function draftProblem(
         if (q.group_by_2 === q.group_by) return "sameDimension";
       }
     }
+    if (draft.chart === "gauge") return gaugeProblem(draft, gaugeIsPercent(kind, draft, ctx));
     if (!positiveMax(draft.max)) return "maxPositive";
   }
   return null;
 }
 
-/** The widget a valid draft saves. */
-export function widgetFromDraft(widget: DashboardWidget, kind: ConfigKind, draft: ConfigDraft): DashboardWidget {
+/**
+ * A gauge's scale and bands on a saved config: a target (`max`) only on a
+ * count or sum, the thresholds when set, the reading direction. Nothing of
+ * the kind on any other chart.
+ */
+function applyGauge(config: Record<string, unknown>, draft: ConfigDraft, percent: boolean): void {
+  delete config.thresholds;
+  delete config.good_direction;
+  if (draft.chart !== "gauge") return;
+  if (percent) delete config.max;
+  const bands = thresholdsOf(draft);
+  if (Array.isArray(bands)) config.thresholds = bands;
+  config.good_direction = draft.goodDirection;
+}
+
+/** The widget a valid draft saves (`ctx` tells a percentage field's gauge from a target gauge). */
+export function widgetFromDraft(
+  widget: DashboardWidget,
+  kind: ConfigKind,
+  draft: ConfigDraft,
+  ctx?: Pick<ProblemContext, "types">,
+): DashboardWidget {
   const title = draft.title.trim() || null;
   const base = widget.config ?? {};
   let config: Record<string, unknown>;
@@ -649,6 +748,7 @@ export function widgetFromDraft(widget: DashboardWidget, kind: ConfigKind, draft
         config.chart = draft.chart;
         if (draft.max.trim() !== "") config.max = Number(draft.max);
         else delete config.max;
+        applyGauge(config, draft, gaugeIsPercent(kind, draft, ctx, widget));
       }
       break;
     case "kpi": {
@@ -667,6 +767,7 @@ export function widgetFromDraft(widget: DashboardWidget, kind: ConfigKind, draft
       const query = cleanQuery(draftQuery(draft), "chart", draft.chart);
       config = { query, chart: draft.chart, drill: draft.drill };
       if (draft.max.trim() !== "") config.max = Number(draft.max);
+      applyGauge(config, draft, gaugeIsPercent(kind, draft, ctx));
       // A built-in chart names itself by an i18n key; keep it only while the
       // chart still shows what that name says.
       const original = readChartConfig(base);

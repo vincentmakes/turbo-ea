@@ -17,6 +17,7 @@ import type {
   DashboardKeyRow,
   DashboardQueryRow,
 } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { EChartsChrome } from "./echartsTheme";
 
 /** Key of the row that folds every category past `max`. */
@@ -53,8 +54,17 @@ export interface BuildContext {
   theme: EChartsChrome;
   isRtl: boolean;
   valueFormatter?: (value: number) => string;
-  /** Gauge maximum. */
+  /** Gauge maximum — the target of a count or sum; ignored on a `%` gauge. */
   max?: number;
+  /** The measure's unit: `%` puts a gauge on a fixed 0–100 scale. */
+  unit?: string;
+  /** A gauge's band edges `[warn, good]`, ascending within the scale;
+   *  default 50 / 80 on a `%` gauge, none on a target gauge. */
+  thresholds?: readonly [number, number];
+  /** Whether a rise is good (`up`, the default) or bad (`down`). */
+  goodDirection?: "up" | "down";
+  /** A target gauge's "of N" line under the value. */
+  targetLabel?: string;
   /** Series name shown in tooltips. */
   seriesName?: string;
   /** Mark cursor — "pointer" when a click drills somewhere. */
@@ -232,21 +242,46 @@ function axisLabel(ctx: BuildContext, extra: Record<string, unknown> = {}): Reco
   return { color: ctx.theme.textSecondary, fontSize: 12, ...extra };
 }
 
+/**
+ * A cartesian grid that contains its axis labels, with the wider side inset
+ * on the trailing edge (right, or left in RTL), where the last category's
+ * label reaches past its column.
+ */
+function grid(ctx: BuildContext, top: number, bottom: number): Record<string, unknown> {
+  return { left: ctx.isRtl ? 16 : 8, right: ctx.isRtl ? 8 : 16, top, bottom, containLabel: true };
+}
+
 function splitLine(ctx: BuildContext): Record<string, unknown> {
   return { show: true, lineStyle: { color: ctx.theme.divider, type: "dashed" } };
 }
 
+/**
+ * Average glyph width of a 12 px label — the estimate insets are sized from
+ * (ECharts measures the real text only when it draws it).
+ */
+export const LABEL_CHAR_WIDTH = 6.6;
+
+/** Widest a legend entry's name is drawn before it is ellipsised. */
+export const LEGEND_LABEL_WIDTH = 120;
+
+/**
+ * A legend in a fixed band at the bottom: one row that pages (arrows) when
+ * the entries do not fit, each name capped at `LEGEND_LABEL_WIDTH` so a page
+ * always shows whole entries, the full name on hover.
+ */
 function legend(ctx: BuildContext, names: string[]): Record<string, unknown> {
   return {
     type: "scroll",
+    orient: "horizontal",
     bottom: 0,
     left: ctx.isRtl ? "right" : "left",
     align: ctx.isRtl ? "right" : "left",
     icon: "roundRect",
     itemWidth: 10,
     itemHeight: 10,
-    textStyle: { color: ctx.theme.textPrimary, fontSize: 12 },
+    textStyle: { color: ctx.theme.textPrimary, fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "truncate" },
     pageTextStyle: { color: ctx.theme.textSecondary },
+    tooltip: { show: true },
     data: names,
   };
 }
@@ -271,7 +306,7 @@ function buildBar(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOpti
   const radius = ctx.isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0];
   return {
     ...base(ctx),
-    grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+    grid: grid(ctx, 8, 8),
     tooltip: tooltip(ctx, { trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: ctx.theme.hover } } }),
     xAxis: {
       type: "value",
@@ -312,7 +347,7 @@ function buildColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
   const data = keyRows(rows);
   return {
     ...base(ctx),
-    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    grid: grid(ctx, 16, 8),
     tooltip: tooltip(ctx, { trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: ctx.theme.hover } } }),
     xAxis: {
       type: "category",
@@ -352,7 +387,7 @@ function buildLine(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOpt
   const color = seriesColor(ctx);
   return {
     ...base(ctx),
-    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    grid: grid(ctx, 16, 8),
     tooltip: tooltip(ctx, { trigger: "axis", axisPointer: { type: "line", lineStyle: { color: ctx.theme.divider } } }),
     xAxis: {
       type: "category",
@@ -361,7 +396,7 @@ function buildLine(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOpt
       data: data.map((r) => ctx.labels(r.key)),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: ctx.theme.divider } },
-      axisLabel: axisLabel(ctx, { hideOverlap: true }),
+      axisLabel: axisLabel(ctx, { hideOverlap: true, width: 96, overflow: "truncate" }),
     },
     yAxis: {
       type: "value",
@@ -434,47 +469,117 @@ export function niceMax(value: number): number {
   return 10 * exp;
 }
 
-/** A single number against a range — the progress arc, no needle. */
+/** The bands a `%` gauge gets when none are set. */
+export const DEFAULT_GAUGE_THRESHOLDS: readonly [number, number] = [50, 80];
+
+/** A gauge's scale: 0–100 for a `%` measure, else the target, else a nice ceiling. */
+export function gaugeScale(value: number, ctx: Pick<BuildContext, "max" | "unit">): number {
+  if (ctx.unit === "%") return 100;
+  return ctx.max !== undefined && ctx.max > 0 ? ctx.max : niceMax(value);
+}
+
+/**
+ * The bands of a gauge, low to high, as `[upper edge, colour]` — error /
+ * warning / success, reversed when a rise is bad — or null when it has none
+ * (a target gauge without thresholds, or thresholds that are not two
+ * ascending numbers within the scale). Pure.
+ */
+export function gaugeBands(
+  scale: number,
+  ctx: Pick<BuildContext, "unit" | "thresholds" | "goodDirection">,
+): [number, string][] | null {
+  const t = ctx.thresholds ?? (ctx.unit === "%" ? DEFAULT_GAUGE_THRESHOLDS : undefined);
+  if (!t || t.length !== 2) return null;
+  const [warn, good] = t;
+  if (!Number.isFinite(warn) || !Number.isFinite(good) || !(warn >= 0 && warn < good && good <= scale)) return null;
+  const colours =
+    ctx.goodDirection === "down"
+      ? [STATUS_COLORS.success, STATUS_COLORS.warning, STATUS_COLORS.error]
+      : [STATUS_COLORS.error, STATUS_COLORS.warning, STATUS_COLORS.success];
+  return [
+    [warn, colours[0]],
+    [good, colours[1]],
+    [scale, colours[2]],
+  ];
+}
+
+/** The colour of the band a value falls in (a value on an edge belongs to the band above it). */
+export function bandColor(value: number, bands: [number, string][]): string {
+  for (const [edge, colour] of bands.slice(0, -1)) if (value < edge) return colour;
+  return bands[bands.length - 1][1];
+}
+
+/**
+ * A single number against a range — the progress arc, no needle. A rate (a
+ * `%` measure) or a gauge given thresholds reads against three bands, drawn
+ * as a thin outer ring in the status colours (status colours are reserved
+ * for state, which is what a band is); the arc takes the colour of the band
+ * the value is in, and the value keeps the primary text colour so it reads. A target gauge says "of N" under its value.
+ */
 function buildGauge(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOption {
   const first = keyRows(rows)[0];
   const value = first ? first.value : 0;
-  const max = ctx.max !== undefined && ctx.max > 0 ? ctx.max : niceMax(value);
-  const color = seriesColor(ctx);
-  const valueOf = fmt(ctx);
+  const max = gaugeScale(value, ctx);
+  const bands = gaugeBands(max, ctx);
+  const color = bands ? bandColor(value, bands) : seriesColor(ctx);
+  const valueOf =
+    ctx.valueFormatter ?? ((v: number) => `${defaultValueFormatter(v)}${ctx.unit ?? ""}`);
+  const target = ctx.unit === undefined ? ctx.targetLabel : undefined;
+  // Fill from the reading side: left → right, or right → left in RTL.
+  const arc = {
+    min: 0,
+    max,
+    startAngle: ctx.isRtl ? -20 : 200,
+    endAngle: ctx.isRtl ? 200 : -20,
+    clockwise: !ctx.isRtl,
+    center: ["50%", "60%"],
+    pointer: { show: false },
+    anchor: { show: false },
+    axisTick: { show: false },
+    splitLine: { show: false },
+    axisLabel: { show: false },
+    title: { show: false },
+  };
+  const series: Record<string, unknown>[] = [
+    {
+      type: "gauge",
+      name: ctx.seriesName,
+      ...arc,
+      // Inside the band ring when there is one.
+      radius: bands ? "82%" : "90%",
+      progress: { show: true, width: 12, roundCap: true, itemStyle: { color } },
+      axisLine: { roundCap: true, lineStyle: { width: 12, color: [[1, ctx.theme.divider]] } },
+      detail: {
+        valueAnimation: true,
+        offsetCenter: [0, "0%"],
+        // The arc and the ring carry the band colour; the value stays in the
+        // primary text colour, since amber on white does not read at 28 px.
+        color: ctx.theme.textPrimary,
+        formatter: (v: number) => (target ? `{value|${valueOf(v)}}\n{target|${target}}` : `{value|${valueOf(v)}}`),
+        rich: {
+          value: { fontSize: 28, fontWeight: 700, color: ctx.theme.textPrimary, lineHeight: 34 },
+          target: { fontSize: 12, color: ctx.theme.textSecondary, lineHeight: 16 },
+        },
+      },
+      data: [{ value, key: first?.key ?? "" }],
+    },
+  ];
+  if (bands) {
+    series.push({
+      type: "gauge",
+      ...arc,
+      radius: "90%",
+      silent: true,
+      progress: { show: false },
+      axisLine: { lineStyle: { width: 4, color: bands.map(([edge, c]) => [edge / max, c]) } },
+      detail: { show: false },
+      data: [],
+    });
+  }
   return {
     ...base(ctx),
-    tooltip: tooltip(ctx, { trigger: "item" }),
-    series: [
-      {
-        type: "gauge",
-        name: ctx.seriesName,
-        min: 0,
-        max,
-        // Fill from the reading side: left → right, or right → left in RTL.
-        startAngle: ctx.isRtl ? -20 : 200,
-        endAngle: ctx.isRtl ? 200 : -20,
-        clockwise: !ctx.isRtl,
-        radius: "90%",
-        center: ["50%", "60%"],
-        progress: { show: true, width: 12, roundCap: true, itemStyle: { color } },
-        axisLine: { roundCap: true, lineStyle: { width: 12, color: [[1, ctx.theme.divider]] } },
-        pointer: { show: false },
-        anchor: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-        axisLabel: { show: false },
-        title: { show: false },
-        detail: {
-          valueAnimation: true,
-          offsetCenter: [0, "0%"],
-          fontSize: 28,
-          fontWeight: 700,
-          color: ctx.theme.textPrimary,
-          formatter: (v: number) => valueOf(v),
-        },
-        data: [{ value, key: first?.key ?? "" }],
-      },
-    ],
+    tooltip: tooltip(ctx, { trigger: "item", valueFormatter: (v: unknown) => valueOf(Number(v)) }),
+    series,
   };
 }
 
@@ -491,7 +596,7 @@ function buildHeatmap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
   const labelY = ctx.labels2 ?? ctx.labels;
   return {
     ...base(ctx),
-    grid: { left: 8, right: 16, top: 8, bottom: 48, containLabel: true },
+    grid: grid(ctx, 8, 48),
     tooltip: tooltip(ctx, {
       trigger: "item",
       formatter: (p: { value?: [number, number, number] }) => {
@@ -573,6 +678,23 @@ function buildTreemap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
   };
 }
 
+/** Bounds of a sankey's right inset, in px. */
+export const SANKEY_INSET_MIN = 24;
+export const SANKEY_INSET_MAX = 180;
+/** Room between a target node and its label (ECharts' 5 px) plus a margin. */
+const SANKEY_LABEL_GAP = 10;
+
+/**
+ * The right inset a sankey keeps for its target labels, which ECharts draws
+ * to the right of the last column: the longest name at the 12 px estimate
+ * plus the label gap, between `SANKEY_INSET_MIN` and `SANKEY_INSET_MAX`. A
+ * name longer than the cap is ellipsised to `inset - 10` px. Pure.
+ */
+export function sankeyInset(targetLabels: string[]): number {
+  const chars = targetLabels.reduce((m, l) => Math.max(m, l.length), 0);
+  return Math.min(Math.max(chars * LABEL_CHAR_WIDTH + 12, SANKEY_INSET_MIN), SANKEY_INSET_MAX);
+}
+
 /** Flows from source categories to target categories. */
 function buildSankey(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOption {
   const flows = rows.filter(isFlowRow).filter((f) => f.value > 0);
@@ -585,15 +707,25 @@ function buildSankey(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
   const label = new Map<string, string>();
   const labelTarget = ctx.labels2 ?? ctx.labels;
   const colorTarget = ctx.colors2 ?? ctx.colors;
+  for (const k of targetKeys) label.set(`t:${k}`, labelTarget(k));
+  // Target labels sit right of the last column: keep room for them, and
+  // ellipsise a name longer than that room rather than clip it.
+  const inset = sankeyInset(targetKeys.map((k) => label.get(`t:${k}`) ?? ""));
+  const targetLabel = { width: inset - SANKEY_LABEL_GAP, overflow: "truncate" };
   const nodes = [
     ...sourceKeys.map((k, i) => {
       label.set(`s:${k}`, ctx.labels(k));
       return { name: `s:${k}`, key: k, side: "source", itemStyle: { color: ctx.colors(k, i) } };
     }),
     ...targetKeys.map((k, i) => {
-      label.set(`t:${k}`, labelTarget(k));
       const index = ctx.colors2 ? i : sourceKeys.length + i;
-      return { name: `t:${k}`, key: k, side: "target", itemStyle: { color: colorTarget(k, index) } };
+      return {
+        name: `t:${k}`,
+        key: k,
+        side: "target",
+        itemStyle: { color: colorTarget(k, index) },
+        label: targetLabel,
+      };
     }),
   ];
   const arrow = ctx.isRtl ? "←" : "→";
@@ -614,7 +746,7 @@ function buildSankey(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
         type: "sankey",
         name: ctx.seriesName,
         left: 8,
-        right: 8,
+        right: inset,
         top: 8,
         bottom: 8,
         nodeWidth: 12,
@@ -667,7 +799,7 @@ function buildStackedColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChar
   }));
   return {
     ...base(ctx),
-    grid: { left: 8, right: 16, top: 16, bottom: 40, containLabel: true },
+    grid: grid(ctx, 16, 40),
     tooltip: tooltip(ctx, { trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: ctx.theme.hover } } }),
     legend: legend(ctx, series.map((s) => s.name)),
     xAxis: {

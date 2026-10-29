@@ -1,17 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { CHART_CATEGORICAL, CHART_SEQUENTIAL } from "@/theme/tokens";
+import { CHART_CATEGORICAL, CHART_SEQUENTIAL, STATUS_COLORS } from "@/theme/tokens";
 import type { DashboardChartKind, DashboardQueryRow } from "@/types";
 import {
+  DEFAULT_GAUGE_THRESHOLDS,
+  LEGEND_LABEL_WIDTH,
   OTHER_KEY,
+  SANKEY_INSET_MAX,
+  SANKEY_INSET_MIN,
+  bandColor,
   buildOption,
   buildSparkline,
   defaultValueFormatter,
   foldGrid,
   foldModeOf,
   foldRows,
+  gaugeBands,
+  gaugeScale,
   hasDrawableRows,
   niceMax,
   orderRows,
+  sankeyInset,
   type BuildContext,
 } from "./buildOption";
 import { buildEChartsChrome } from "./echartsTheme";
@@ -128,6 +136,17 @@ describe("column (vertical)", () => {
     expect(o.xAxis.inverse).toBe(true);
     expect(o.yAxis.position).toBe("right");
   });
+
+  it("keeps the wider side inset on the trailing edge, mirrored in RTL", () => {
+    for (const kind of ["bar", "column", "line", "heatmap", "stacked_column"] as const) {
+      expect(opt(kind).grid).toMatchObject({ left: 8, right: 16, containLabel: true });
+      expect(opt(kind, ROWS, { isRtl: true }).grid).toMatchObject({ left: 16, right: 8, containLabel: true });
+    }
+    expect(opt("bar").grid).toMatchObject({ top: 8, bottom: 8 });
+    expect(opt("column").grid).toMatchObject({ top: 16, bottom: 8 });
+    expect(opt("heatmap").grid).toMatchObject({ top: 8, bottom: 48 });
+    expect(opt("stacked_column").grid).toMatchObject({ top: 16, bottom: 40 });
+  });
 });
 
 describe("line", () => {
@@ -156,6 +175,10 @@ describe("line", () => {
     expect(o.xAxis.inverse).toBe(true);
     expect(o.yAxis.position).toBe("right");
   });
+
+  it("ellipsises long category names under the axis", () => {
+    expect(opt("line").xAxis.axisLabel).toMatchObject({ hideOverlap: true, width: 96, overflow: "truncate" });
+  });
 });
 
 describe("pie and donut", () => {
@@ -182,6 +205,16 @@ describe("pie and donut", () => {
     expect(s.padAngle).toBe(0);
   });
 
+  it("pages a long legend in a bottom band, each name capped and whole on hover", () => {
+    const l = opt("pie").legend;
+    expect(l.type).toBe("scroll");
+    expect(l.orient).toBe("horizontal");
+    expect(l.bottom).toBe(0);
+    expect(l.textStyle).toEqual({ color: "#111111", fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "truncate" });
+    expect(LEGEND_LABEL_WIDTH).toBe(120);
+    expect(l.tooltip).toEqual({ show: true });
+  });
+
   it("aligns the legend right in RTL", () => {
     const o = opt("pie", ROWS, { isRtl: true });
     expect(o.legend.left).toBe("right");
@@ -191,16 +224,21 @@ describe("pie and donut", () => {
 
 describe("gauge", () => {
   it("shows the first value against the given max, without a needle", () => {
-    const s = opt("gauge", [{ key: "total", value: 42 }], { max: 50 }).series[0];
+    const o = opt("gauge", [{ key: "total", value: 42 }], { max: 50 });
+    const s = o.series[0];
+    expect(o.series).toHaveLength(1);
     expect(s.type).toBe("gauge");
     expect(s.max).toBe(50);
+    expect(s.radius).toBe("90%");
     expect(s.data).toEqual([{ value: 42, key: "total" }]);
     expect(s.pointer.show).toBe(false);
     expect(s.progress.show).toBe(true);
     expect(s.clockwise).toBe(true);
     expect(s.startAngle).toBe(200);
-    expect(s.detail.formatter(42)).toBe("42");
+    expect(s.detail.formatter(42)).toBe("{value|42}");
     expect(s.progress.itemStyle.color).toBe(CHART_CATEGORICAL.light[0]);
+    expect(s.detail.rich.value.color).toBe("#111111");
+    expect(s.axisLine.lineStyle.color).toEqual([[1, "#dddddd"]]);
   });
 
   it("rounds the max up to a nice number when none is set, and fills right-to-left in RTL", () => {
@@ -209,6 +247,97 @@ describe("gauge", () => {
     expect(s.clockwise).toBe(false);
     expect(s.startAngle).toBe(-20);
     expect(opt("gauge", []).series[0].data[0].value).toBe(0);
+  });
+
+  it("puts a % measure on a fixed 0–100 scale with the default bands, the value in its band's colour", () => {
+    const o = opt("gauge", [{ key: "total", value: 73 }], { unit: "%", max: 500 });
+    const [value, ring] = o.series;
+    expect(value.max).toBe(100);
+    expect(ring.max).toBe(100);
+    expect(ring.silent).toBe(true);
+    expect(ring.radius).toBe("90%");
+    expect(value.radius).toBe("82%");
+    expect(ring.axisLine.lineStyle).toEqual({
+      width: 4,
+      color: [
+        [0.5, STATUS_COLORS.error],
+        [0.8, STATUS_COLORS.warning],
+        [1, STATUS_COLORS.success],
+      ],
+    });
+    expect(value.progress.itemStyle.color).toBe(STATUS_COLORS.warning);
+    expect(value.detail.color).toBe("#111111");
+    expect(value.detail.rich.value.color).toBe("#111111");
+    expect(value.detail.formatter(73)).toBe("{value|73%}");
+    expect(o.tooltip.valueFormatter(73)).toBe("73%");
+  });
+
+  it("reverses the bands when a rise is bad", () => {
+    const o = opt("gauge", [{ key: "total", value: 90 }], { unit: "%", thresholds: [20, 40], goodDirection: "down" });
+    expect(o.series[1].axisLine.lineStyle.color).toEqual([
+      [0.2, STATUS_COLORS.success],
+      [0.4, STATUS_COLORS.warning],
+      [1, STATUS_COLORS.error],
+    ]);
+    expect(o.series[0].progress.itemStyle.color).toBe(STATUS_COLORS.error);
+  });
+
+  it("bands a target gauge only when given thresholds, and says what the target is", () => {
+    const plain = opt("gauge", [{ key: "total", value: 30 }], { max: 120, targetLabel: "of 120" });
+    expect(plain.series).toHaveLength(1);
+    expect(plain.series[0].detail.formatter(30)).toBe("{value|30}\n{target|of 120}");
+    expect(plain.series[0].detail.rich.target).toEqual({ fontSize: 12, color: "#555555", lineHeight: 16 });
+    const banded = opt("gauge", [{ key: "total", value: 100 }], { max: 120, thresholds: [60, 100] });
+    expect(banded.series[1].axisLine.lineStyle.color).toEqual([
+      [0.5, STATUS_COLORS.error],
+      [100 / 120, STATUS_COLORS.warning],
+      [1, STATUS_COLORS.success],
+    ]);
+    // On the good edge: the band above.
+    expect(banded.series[0].progress.itemStyle.color).toBe(STATUS_COLORS.success);
+  });
+
+  it("never says 'of N' on a % gauge, and lets a formatter carry the unit", () => {
+    const s = opt("gauge", [{ key: "total", value: 50 }], {
+      unit: "%",
+      targetLabel: "of 100",
+      valueFormatter: (v) => `${v} pct`,
+    }).series[0];
+    expect(s.detail.formatter(50)).toBe("{value|50 pct}");
+    expect(s.progress.itemStyle.color).toBe(STATUS_COLORS.warning);
+  });
+
+  it("scales: 100 for %, else the target, else a nice ceiling", () => {
+    expect(gaugeScale(420, { unit: "%", max: 10 })).toBe(100);
+    expect(gaugeScale(42, { max: 60 })).toBe(60);
+    expect(gaugeScale(42, { max: 0 })).toBe(50);
+    expect(gaugeScale(42, {})).toBe(50);
+  });
+
+  it("ignores thresholds that are not two ascending numbers within the scale", () => {
+    expect(DEFAULT_GAUGE_THRESHOLDS).toEqual([50, 80]);
+    expect(gaugeBands(100, {})).toBeNull();
+    expect(gaugeBands(100, { unit: "%" })).toHaveLength(3);
+    expect(gaugeBands(100, { thresholds: [80, 50] })).toBeNull();
+    expect(gaugeBands(100, { thresholds: [50, 50] })).toBeNull();
+    expect(gaugeBands(100, { thresholds: [-1, 50] })).toBeNull();
+    expect(gaugeBands(100, { thresholds: [50, 101] })).toBeNull();
+    expect(gaugeBands(100, { thresholds: [Number.NaN, 50] })).toBeNull();
+    expect(gaugeBands(100, { thresholds: [0, 100] })).toEqual([
+      [0, STATUS_COLORS.error],
+      [100, STATUS_COLORS.warning],
+      [100, STATUS_COLORS.success],
+    ]);
+    expect(gaugeBands(100, { thresholds: [10] as unknown as [number, number] })).toBeNull();
+  });
+
+  it("picks the band a value is in, an edge belonging to the band above", () => {
+    const bands = gaugeBands(100, { thresholds: [50, 80] })!;
+    expect(bandColor(49.9, bands)).toBe(STATUS_COLORS.error);
+    expect(bandColor(50, bands)).toBe(STATUS_COLORS.warning);
+    expect(bandColor(79, bands)).toBe(STATUS_COLORS.warning);
+    expect(bandColor(80, bands)).toBe(STATUS_COLORS.success);
+    expect(bandColor(150, bands)).toBe(STATUS_COLORS.success);
   });
 });
 
@@ -314,6 +443,32 @@ describe("sankey", () => {
     ]);
     expect(s.label.formatter({ name: "t:A" })).toBe("T:A");
     expect(s.label.formatter({ name: "s:A" })).toBe("L:A");
+  });
+
+  it("keeps room right of the last column for the longest target name, ellipsising past it", () => {
+    const o = opt("sankey", FLOWS, { labels2: (k) => (k === "B" ? "x".repeat(20) : "y") });
+    const s = o.series[0];
+    const inset = 20 * 6.6 + 12;
+    expect(s.right).toBeCloseTo(inset);
+    expect(s.left).toBe(8);
+    const targets = s.data.filter((n: any) => n.side === "target");
+    expect(targets.map((n: any) => n.label)).toEqual([
+      { width: inset - 10, overflow: "truncate" },
+      { width: inset - 10, overflow: "truncate" },
+    ]);
+    expect(s.data.find((n: any) => n.side === "source").label).toBeUndefined();
+  });
+
+  it("sizes the inset from the label length, within its bounds", () => {
+    expect(sankeyInset([])).toBe(SANKEY_INSET_MIN);
+    expect(sankeyInset(["a"])).toBe(SANKEY_INSET_MIN);
+    expect(sankeyInset(["ab"])).toBeCloseTo(2 * 6.6 + 12);
+    expect(sankeyInset(["abc", "abcdefghij"])).toBeCloseTo(10 * 6.6 + 12);
+    expect(sankeyInset(["x".repeat(26)])).toBe(SANKEY_INSET_MAX);
+    expect(sankeyInset(["x".repeat(25)])).toBeCloseTo(25 * 6.6 + 12);
+    expect(sankeyInset(["x".repeat(24)])).toBeCloseTo(24 * 6.6 + 12);
+    expect(SANKEY_INSET_MIN).toBe(24);
+    expect(SANKEY_INSET_MAX).toBe(180);
   });
 
   it("points the tooltip arrow the reading way in RTL", () => {

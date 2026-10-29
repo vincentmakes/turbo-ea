@@ -273,6 +273,73 @@ class TestWidgetConfig:
             ("chart", {"query": QUERY, "chart": "bar", "drill": "yes"}, "invalid_drill"),
             ("chart", {"query": QUERY, "chart": "bar", "max": "10"}, "invalid_max"),
             ("chart", {"query": QUERY, "chart": "bar", "max": True}, "invalid_max"),
+            # Gauge bands: [warn, good], ascending, within the scale (max, else 100).
+            ("chart", {"query": QUERY, "chart": "gauge", "thresholds": [50, 80]}, None),
+            ("chart", {"query": QUERY, "chart": "gauge", "thresholds": [0, 100]}, None),
+            ("chart", {"query": QUERY, "chart": "gauge", "max": 40, "thresholds": [10, 30]}, None),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": [80, 50]},
+                "invalid_thresholds",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": [50, 50]},
+                "invalid_thresholds",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": [50, 101]},
+                "invalid_thresholds",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "max": 40, "thresholds": [10, 41]},
+                "invalid_thresholds",
+            ),
+            ("chart", {"query": QUERY, "chart": "gauge", "thresholds": [50]}, "invalid_thresholds"),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": ["50", 80]},
+                "invalid_thresholds",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": [True, 80]},
+                "invalid_thresholds",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "thresholds": [-1, 80]},
+                "invalid_thresholds",
+            ),
+            ("chart", {"query": QUERY, "chart": "gauge", "good_direction": "down"}, None),
+            (
+                "chart",
+                {"query": QUERY, "chart": "gauge", "good_direction": "sideways"},
+                "invalid_good_direction",
+            ),
+            ("chart", {"query": QUERY, "chart": "bar", "max": float("inf")}, "invalid_max"),
+            (
+                "chart",
+                {
+                    "source": "compliance_overview",
+                    "series": "score_avg",
+                    "chart": "gauge",
+                    "thresholds": [60, 90],
+                },
+                None,
+            ),
+            (
+                "chart",
+                {
+                    "source": "compliance_overview",
+                    "series": "score_avg",
+                    "chart": "gauge",
+                    "thresholds": [90, 60],
+                },
+                "invalid_thresholds",
+            ),
             ("recent_activity", {}, None),
             ("recent_activity", {"max_rows": 50}, None),
             ("recent_activity", {"max_rows": 0}, "invalid_max_rows"),

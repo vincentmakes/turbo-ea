@@ -86,7 +86,7 @@ Les utilisateurs dont le rôle accorde `admin.dashboards` (**Gérer les tableaux
 Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour modifier le tableau de bord actuel. En mode de personnalisation :
 
 - **Déplacez** un widget en le faisant glisser par sa poignée ; la grille compte 12 colonnes de large et les autres widgets lui laissent la place.
-- **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin. Le widget voisin lui laisse la place : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes.
+- **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin, à la souris ou au toucher (sur un téléphone ou une tablette tenus à la verticale, la disposition est en lecture seule). Le widget voisin lui laisse la place : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes.
 - **Retirez** un widget avec son bouton de fermeture.
 - **Configurez** une tuile KPI, un graphique ou le fil d’activité avec son bouton en forme d’engrenage.
 
@@ -146,7 +146,7 @@ Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un
 | **Colonnes empilées** | Deux dimensions en barres empilées avec une légende — type de fiche par phase du cycle de vie, niveau de capacité par statut d’approbation |
 | **Courbe** | Une tendance dans le temps, comme les fiches créées par mois |
 | **Secteurs** / **Anneau** | Les parts d’un tout |
-| **Jauge** | Une valeur par rapport à un maximum (sans regroupement) |
+| **Jauge** | Un taux par rapport à une cible : une part (les applications approuvées), la qualité moyenne des données, un champ en pourcentage ou un score de conformité sur un cadran de 0 à 100, ou un nombre ou une somme par rapport à une **Cible**. Deux seuils (**Avertissement au-dessus de**, **Bon au-dessus de**) répartissent le cadran en zones rouge, orange et verte, inversées lorsqu’une hausse est mauvaise ; deux jauges prêtes à l’emploi, **Qualité des données** et **Applications approuvées**, figurent dans le catalogue |
 | **Carte de chaleur** | Deux dimensions à la fois — par exemple la phase du cycle de vie en fonction du statut d’approbation |
 | **Treemap** | Les parts lorsqu’il y a de nombreux groupes |
 | **Sankey** | Le flux d’un type de relation entre les fiches qu’il relie, avec une dimension de votre choix à chaque extrémité |

@@ -86,7 +86,7 @@ Os utilizadores cujo papel concede `admin.dashboards` (**Gerir os painéis da p�
 Clique em **Personalizar**, junto às abas dos painéis, para editar o painel atual. No modo de personalização:
 
 - **Mova** um widget arrastando-o pela sua pega; a grelha tem 12 colunas de largura e os outros widgets abrem espaço.
-- **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto. O widget ao lado abre espaço: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias.
+- **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto, com o rato ou por toque (num telemóvel ou tablet na vertical, o layout é só de leitura). O widget ao lado abre espaço: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias.
 - **Remova** um widget com o seu botão de fechar.
 - **Configure** um bloco de KPI, um gráfico ou o feed de atividade com o seu botão de engrenagem.
 
@@ -146,7 +146,7 @@ Além de um status de aprovação e de uma fase do ciclo de vida, um gráfico ou
 | **Colunas empilhadas** | Duas dimensões como barras empilhadas com legenda — tipo de card por fase do ciclo de vida, nível de capacidade por status de aprovação |
 | **Linhas** | Uma tendência ao longo do tempo, como os cards criados por mês |
 | **Pizza** / **Rosca** | Partes de um todo |
-| **Indicador** | Um valor face a um máximo (sem agrupamento) |
+| **Indicador** | Uma taxa face a uma meta: uma proporção (as aplicações aprovadas), a qualidade média dos dados, um campo de percentagem ou uma pontuação de conformidade num mostrador de 0–100, ou uma contagem ou soma face a uma **Meta**. Dois limiares (**Aviso acima de**, **Bom acima de**) dividem o mostrador em faixas vermelha, âmbar e verde, invertidas quando um aumento é mau; dois indicadores prontos a usar, **Qualidade dos dados** e **Aplicações aprovadas**, estão no catálogo |
 | **Mapa de calor** | Duas dimensões em simultâneo — por exemplo, a fase do ciclo de vida face ao status de aprovação |
 | **Treemap** | Partes quando há muitos grupos |
 | **Sankey** | O fluxo de um tipo de relação entre os cards que liga, com uma dimensão à sua escolha em cada extremidade |

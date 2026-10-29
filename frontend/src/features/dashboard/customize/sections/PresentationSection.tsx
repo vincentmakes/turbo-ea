@@ -1,8 +1,9 @@
 /**
  * How the widget is drawn. A chart: its kind, how many categories it shows
- * (a gauge's maximum; for card-keyed groupings also how many cards the server
- * keeps before folding the rest into "Other") and whether a click opens the
- * matching cards. A KPI: whether a rise is good, how the number reads, a
+ * (for card-keyed groupings also how many cards the server keeps before
+ * folding the rest into "Other") and whether a click opens the matching
+ * cards. A gauge instead reads against a scale — fixed 0–100 for a rate, or
+ * the Target of a count or sum — with optional bands (`GaugeFields`). A KPI: whether a rise is good, how the number reads, a
  * 30-day sparkline and a secondary figure measured against the unfiltered
  * count.
  */
@@ -12,6 +13,8 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { DEFAULT_GAUGE_THRESHOLDS } from "../../charts/buildOption";
 import type { DashboardChartKind } from "@/types";
 import type { KpiSecondaryChoice } from "../widgetConfigModel";
 import SelectField from "./SelectField";
@@ -22,9 +25,73 @@ interface Props extends DraftProps {
   chartKinds: DashboardChartKind[];
   /** Whether the KPI's query can carry a secondary figure (a narrowed count). */
   secondaryAvailable: boolean;
+  /** Whether a gauge measures a rate on the fixed 0–100 scale (no target). */
+  percent?: boolean;
 }
 
-export default function PresentationSection({ draft, set, kind, chartKinds, secondaryAvailable }: Props) {
+/**
+ * A gauge's scale and bands: the Target of a count or sum (required; a rate
+ * has the fixed 0–100 scale and no field), the two band edges and whether a
+ * rise is good. The upper edge says what lies above it — good when a rise is
+ * good, bad when it is not.
+ */
+export function GaugeFields({ draft, set, percent }: Pick<DraftProps, "draft" | "set"> & { percent: boolean }) {
+  const { t } = useTranslation("common");
+  const [warnDefault, goodDefault] = percent ? DEFAULT_GAUGE_THRESHOLDS.map(String) : ["", ""];
+  return (
+    <Stack spacing={2} data-testid="config-gauge">
+      {!percent && (
+        <TextField
+          size="small"
+          type="number"
+          fullWidth
+          required
+          label={t("dashboard.config.target")}
+          value={draft.max}
+          onChange={(e) => set("max", e.target.value)}
+          slotProps={{ htmlInput: { min: 1, "data-testid": "config-max" } }}
+        />
+      )}
+      <Typography variant="caption" color="text.secondary">
+        {t("dashboard.config.thresholds")}
+      </Typography>
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+        <TextField
+          size="small"
+          type="number"
+          label={t("dashboard.config.thresholdWarn")}
+          value={draft.thresholdWarn}
+          placeholder={warnDefault}
+          onChange={(e) => set("thresholdWarn", e.target.value)}
+          slotProps={{ htmlInput: { min: 0, "data-testid": "config-threshold-warn" } }}
+        />
+        <TextField
+          size="small"
+          type="number"
+          label={
+            draft.goodDirection === "down" ? t("dashboard.config.thresholdBad") : t("dashboard.config.thresholdGood")
+          }
+          value={draft.thresholdGood}
+          placeholder={goodDefault}
+          onChange={(e) => set("thresholdGood", e.target.value)}
+          slotProps={{ htmlInput: { min: 0, "data-testid": "config-threshold-good" } }}
+        />
+      </Box>
+      <SelectField
+        label={t("dashboard.kpi.goodDirection")}
+        value={draft.goodDirection}
+        onChange={(v) => set("goodDirection", v === "down" ? "down" : "up")}
+        options={[
+          { value: "up", label: t("dashboard.kpi.goodDirection.up") },
+          { value: "down", label: t("dashboard.kpi.goodDirection.down") },
+        ]}
+        testId="config-good-direction"
+      />
+    </Stack>
+  );
+}
+
+export default function PresentationSection({ draft, set, kind, chartKinds, secondaryAvailable, percent = false }: Props) {
   const { t } = useTranslation("common");
 
   if (kind === "kpi") {
@@ -83,15 +150,19 @@ export default function PresentationSection({ draft, set, kind, chartKinds, seco
         options={chartKinds.map((k) => ({ value: k, label: t(`dashboard.query.chart.${k}`) }))}
         testId="config-chart-kind"
       />
-      <TextField
-        size="small"
-        type="number"
-        fullWidth
-        label={isGauge ? t("dashboard.config.gaugeMax") : t("dashboard.config.limit")}
-        value={draft.max}
-        onChange={(e) => set("max", e.target.value)}
-        slotProps={{ htmlInput: { min: 1, "data-testid": "config-max" } }}
-      />
+      {isGauge ? (
+        <GaugeFields draft={draft} set={set} percent={percent} />
+      ) : (
+        <TextField
+          size="small"
+          type="number"
+          fullWidth
+          label={t("dashboard.config.limit")}
+          value={draft.max}
+          onChange={(e) => set("max", e.target.value)}
+          slotProps={{ htmlInput: { min: 1, "data-testid": "config-max" } }}
+        />
+      )}
       {!isGauge && draft.chart !== "heatmap" && (
         <FormControlLabel
           control={<Switch checked={draft.drill} onChange={(e) => set("drill", e.target.checked)} />}

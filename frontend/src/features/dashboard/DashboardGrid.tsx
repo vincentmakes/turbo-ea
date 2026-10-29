@@ -13,6 +13,9 @@
  * hole when a widget shrinks. Heights stay the library's: rows below move
  * down and compact back up on their own.
  *
+ * While arranging, the resize and drag handles are sized and styled for
+ * touch as well as a mouse (`handleStyles`).
+ *
  * Layout changes go to the parent's local state only — the page saves.
  */
 import { useCallback, useMemo, useRef } from "react";
@@ -26,6 +29,7 @@ import {
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import Box from "@mui/material/Box";
+import { useTheme } from "@mui/material/styles";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import type { DashboardWidget } from "@/types";
 import {
@@ -43,6 +47,7 @@ import {
   type GridItem,
 } from "./layoutUtils";
 import { configKind } from "./customize/widgetConfigModel";
+import { handleStyles } from "./gridHandles";
 import { WIDGET_REGISTRY, isKnownWidgetType } from "./widgets/registry";
 import WidgetFrame, { DRAG_HANDLE_CLASS } from "./widgets/WidgetFrame";
 
@@ -66,6 +71,7 @@ interface Props {
 
 export default function DashboardGrid({ widgets, editing, onLayoutChange, onConfigure, onRemove }: Props) {
   const isRtl = useIsRtl();
+  const theme = useTheme();
   const { width, containerRef, mounted } = useContainerWidth();
   const breakpoint = getBreakpointFromWidth(BREAKPOINTS, width);
 
@@ -78,6 +84,7 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
   const layouts = useMemo(() => ({ lg: layout, md: layout }), [layout]);
 
   const canArrange = editing && FULL_WIDTH.has(breakpoint);
+  const handleSx = useMemo(() => handleStyles(theme, canArrange), [theme, canArrange]);
 
   // The layout as it was when a resize started, and the library's own result
   // for that resize once a neighbour was adjusted: the library reports the
@@ -130,7 +137,7 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
   );
 
   return (
-    <Box ref={containerRef} className="dashboard-grid" dir="ltr">
+    <Box ref={containerRef} className="dashboard-grid" dir="ltr" sx={handleSx}>
       {mounted && (
         <Responsive
           width={width}
