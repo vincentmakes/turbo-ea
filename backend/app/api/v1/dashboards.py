@@ -42,7 +42,7 @@ from app.services.permission_service import PermissionService, effective_role_ke
 
 router = APIRouter(prefix="/dashboards", tags=["dashboards"])
 
-MANAGE = "admin.dashboards"
+MANAGE_PERMISSION = "admin.dashboards"
 READ_DATA = "reports.ea_dashboard"
 # Columns a PATCH may not clear: an explicit ``null`` for one is ignored.
 _NOT_NULLABLE = frozenset({"name", "is_hidden", "sort_order", "allowed_roles", "widgets"})
@@ -143,7 +143,7 @@ async def list_dashboards(
     user: User = Depends(get_current_user),
 ):
     """The dashboards the caller sees as homepage tabs, in tab order."""
-    can_manage = await PermissionService.check_permission(db, user, MANAGE)
+    can_manage = await PermissionService.check_permission(db, user, MANAGE_PERMISSION)
     role_key = effective_role_key(user)
     role = await PermissionService.load_role(db, role_key)
     wildcard = bool(((role or {}).get("permissions") or {}).get("*"))
@@ -208,7 +208,7 @@ async def create_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, MANAGE)
+    await PermissionService.require_permission(db, user, MANAGE_PERMISSION)
     roles = await _checked_roles(db, body.allowed_roles)
     existing = set((await db.execute(select(Dashboard.key))).scalars().all())
     dashboard = Dashboard(
@@ -249,7 +249,7 @@ async def update_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, MANAGE)
+    await PermissionService.require_permission(db, user, MANAGE_PERMISSION)
     dashboard = await _load(db, dashboard_id)
     updates = {
         k: v
@@ -284,7 +284,7 @@ async def delete_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, MANAGE)
+    await PermissionService.require_permission(db, user, MANAGE_PERMISSION)
     dashboard = await _load(db, dashboard_id)
     if dashboard.built_in:
         # A built-in dashboard is hidden, never deleted: Reset needs its row.
@@ -301,7 +301,7 @@ async def duplicate_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, MANAGE)
+    await PermissionService.require_permission(db, user, MANAGE_PERMISSION)
     source = await _load(db, dashboard_id)
     name = svc.copy_name(source.name, body.name if body else None)
     existing = set((await db.execute(select(Dashboard.key))).scalars().all())
@@ -337,7 +337,7 @@ async def reset_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, MANAGE)
+    await PermissionService.require_permission(db, user, MANAGE_PERMISSION)
     dashboard = await _load(db, dashboard_id)
     widgets = default_widgets(dashboard.key) if dashboard.built_in else None
     if widgets is None:

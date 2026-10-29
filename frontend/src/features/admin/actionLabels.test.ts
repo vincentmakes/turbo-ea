@@ -29,19 +29,28 @@ const ACTION_RE = /^(auth|admin|access)\.[a-z0-9_.]+$/;
 const LITERAL_RE = /(["'])((?:auth|admin|access)\.[a-z0-9_.]+)\1/g;
 /** A line that names an action: a keyword argument / parameter, or a constant. */
 const ACTION_LINE_RE = /\baction\s*[=:]|^_?[A-Z][A-Z0-9_]*\s*=\s*["']/;
+/** A constant holding a permission key (`MANAGE_PERMISSION = "admin.dashboards"`) is not an action. */
+const PERMISSION_CONSTANT_RE = /^_?[A-Z][A-Z0-9_]*PERMISSION\s*=/;
 
 /**
  * Actions built at run time (an f-string a scan cannot read), with the source
  * file and the template that builds them — the template is asserted present so
  * this list cannot outlive the code.
  */
-const DYNAMIC_ACTIONS: { file: string; template: string; actions: string[] }[] = [
+const DYNAMIC_ACTIONS: { file: string; template: string; helper: string; actions: string[] }[] = [
   {
     file: "stakeholder_roles.py",
     template: 'action=f"admin.stakeholder_role.{action}"',
+    helper: "_audit_srd",
     actions: ["created", "updated", "deleted", "archived", "restored"].map(
       (s) => `admin.stakeholder_role.${s}`,
     ),
+  },
+  {
+    file: "dashboards.py",
+    template: 'action=f"admin.dashboard.{action}"',
+    helper: "_audit",
+    actions: ["created", "updated", "deleted", "duplicated", "reset"].map((s) => `admin.dashboard.${s}`),
   },
 ];
 
@@ -58,7 +67,7 @@ function backendActions(): string[] {
   for (const file of sourceFiles()) {
     const text = fs.readFileSync(path.join(API_DIR, file), "utf-8");
     for (const line of text.split("\n")) {
-      if (!ACTION_LINE_RE.test(line.trim())) continue;
+      if (!ACTION_LINE_RE.test(line.trim()) || PERMISSION_CONSTANT_RE.test(line.trim())) continue;
       for (const match of line.matchAll(LITERAL_RE)) {
         if (ACTION_RE.test(match[2])) found.add(match[2]);
       }
@@ -95,7 +104,7 @@ describeSourceScan("administrative action labels", () => {
       expect(text, dyn.file).toContain(dyn.template);
       for (const action of dyn.actions) {
         const verb = action.split(".").pop() as string;
-        expect(text, action).toMatch(new RegExp(`_audit_srd\\(\\s*db,\\s*user,\\s*"${verb}"`));
+        expect(text, action).toMatch(new RegExp(`${dyn.helper}\\(\\s*db,\\s*user,\\s*"${verb}"`));
       }
     }
   });
