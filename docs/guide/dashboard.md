@@ -102,11 +102,15 @@ A widget keeps its own permission wherever it is placed: an Admin widget added t
 
 A KPI tile shows either one of the built-in metrics (total cards, data quality, open todos, and so on) or a figure you define:
 
-- **Card type** (optional): Count only cards of one type, optionally narrowed to a subtype, an approval status or a lifecycle phase.
-- **Metric**: **Count** of cards, or the **Sum** or **Average** of a number, cost or percentage field of that type.
+- **Card type** (optional): Count only cards of one type, optionally narrowed to a subtype, an approval status, a lifecycle phase or the [filters](#filters) below.
+- **Metric**: **Count** of cards, the **Sum** or **Average** of a number, cost or percentage field of that type or of a [measure](#measures), or a **Share** — the narrowed count as a percentage of the same cards without the filters (for example the share of Applications that are approved).
 - **A rise is**: **Good** or **Bad** — sets whether an upward trend is shown in green or in red.
+- **Sparkline**: draws the tile's last 30 daily values under the number.
+- **Secondary figure**: for a narrowed count, shows **of N** (the unfiltered count) or the **share of total** next to the number.
 
-A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs.
+A new KPI tile records its first value the moment the dashboard is saved, so its trend starts the next day. A sum or average of a cost field is shown only to users who may see costs, counts only the cards live in the current fiscal year (the rule the Cost report uses) and names that year under the value.
+
+Tiles fed by a module report (open risks, overdue risks, compliance score, initiatives at risk, processes without a diagram) are listed in the catalogue when the module is enabled and you hold its permission; they show no trend, because the module reports keep no history.
 
 ### Configuring a chart
 
@@ -121,20 +125,35 @@ A chart groups cards by one **dimension** and measures each group with a **metri
 | **Data quality** | Data-quality bucket (0–25 %, 25–50 %, …) |
 | **Month created** | Month the card was created |
 | **A field** | Any single-select or yes/no field of the chosen card type |
+| **Related card** | The card at the other end of a relation type — Applications per Organization, IT Components per Provider, cost per Business Capability. A card linked to several related cards counts under each; cards with none fall under *None*; the twenty largest groups are kept and the rest folded into *Other* |
+| **EOL coverage** | Whether an Application or IT Component has an endoflife.date link, a manual end-of-life date, or neither |
+| **Stakeholders** | Whether the card has at least one stakeholder |
+| **Month of a lifecycle date** | The month a lifecycle date (plan, phase-in, active, phase-out, end of life) falls in, over 18 months: six back and eleven ahead — an end-of-life calendar, or go-lives per month |
 
-The metric is **Number of cards**, or the **Sum** or **Average** of a number, cost or percentage field. Only the card types you can read are offered, and cost fields only to users who may see costs.
+#### Measures
+
+The metric is **Number of cards**, the **Sum** or **Average** of a number, cost or percentage field, or of one of these measures: **relations of a type** on each card (how many IT Components an Application uses), its **data quality** score, or its **age in days**. **Share** shows the narrowed count as a percentage of the unfiltered one, per group. Only the card types you can read are offered, and cost fields only to users who may see costs; a cost counts only the cards live in the current fiscal year, and the chart names that year.
+
+#### Filters
+
+Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed to cards that are **orphaned** (no relation at all), **stale** (not updated for 90 days), **with** or **without stakeholders**, with a **linked**, **manual** or **missing** end-of-life, or that **have** or **lack** a relation of a given type — the same definitions the Inventory filters and the Data Quality report use.
 
 | Chart | Best for |
 |-------|----------|
 | **Bar** / **Column** | Comparing groups, horizontally or vertically |
+| **Stacked column** | Two dimensions as stacked bars with a legend — card type by lifecycle phase, capability level by approval status |
 | **Line** | A trend over time, such as cards created per month |
 | **Pie** / **Donut** | Shares of a whole |
 | **Gauge** | One value against a maximum (no grouping) |
 | **Heatmap** | Two dimensions at once — for example lifecycle phase against approval status |
 | **Treemap** | Shares when there are many groups |
-| **Sankey** | The flow of a relation type between the cards it connects |
+| **Sankey** | The flow of a relation type between the cards it connects, with a dimension of your choice at each end |
 
-Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, line, pie, donut and treemap charts). A preview in the dialog shows the chart as it will appear.
+A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest flows kept and the rest folded into *Other*. Clicking a card node opens the card.
+
+Charts can also draw a module report: risks by level or status, compliance scores by regulation, PPM schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
+
+Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, stacked column, line, pie, donut and treemap charts, and the card nodes of a sankey). A preview in the dialog shows the chart as it will appear.
 
 ### Managing dashboards
 

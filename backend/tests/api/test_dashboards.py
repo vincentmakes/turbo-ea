@@ -16,6 +16,7 @@ from sqlalchemy import select
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_access_token
 from app.models.audit_log import AuditLogEntry
+from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.dashboard import Dashboard, DashboardKpiSnapshot
 from app.services.dashboard_defaults import DEFAULT_DASHBOARDS
@@ -25,6 +26,8 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -283,11 +286,13 @@ class TestUpdate:
 
     async def test_a_no_op_patch_writes_no_audit_row(self, client, db, env):
         overview = await _by_key(db, "overview")
+        seeded = dict(overview.translations or {})
+        assert seeded  # the built-in names ship translated
         r = await client.patch(
             f"{BASE}/{overview.id}", json={"name": "Overview"}, headers=auth_headers(env["admin"])
         )
         assert r.status_code == 200
-        assert r.json()["translations"] == {}  # seeded empty; unchanged name keeps them
+        assert r.json()["translations"] == seeded  # an unchanged name keeps them
         assert await _audit(db, "admin.dashboard.updated") == []
 
     async def test_member_403_unknown_404_bad_role_400(self, client, db, env):
@@ -430,6 +435,13 @@ class TestQuery:
             ({"card_type": "Application", "group_by": "field:nope"}, "unknown_field"),
             ({"relation_type": "nope"}, "unknown_relation_type"),
             ({"metric": "sum"}, "metric_field_required"),
+            ({"flags": "bogus"}, "unknown_flag"),
+            ({"flags": "eol_linked,eol_missing"}, "flags_conflict"),
+            ({"metric": "share"}, "share_needs_filter"),
+            ({"group_by": "card"}, "card_dimension_needs_relation"),
+            ({"group_by": "related:appToSecret"}, "related_needs_card_type"),
+            ({"card_type": "Application", "group_by": "related:nope"}, "unknown_relation_type"),
+            ({"group_by": "phase_month:someday"}, "unknown_phase"),
         ],
     )
     async def test_rejected_queries_are_400(self, client, env, params, detail):
@@ -450,10 +462,111 @@ class TestQuery:
         r = await client.get(f"{BASE}/query", params=params, headers=auth_headers(env["member"]))
         assert r.status_code == 200
         assert r.json()["total"] == 15
+        # A cost names the fiscal year it counts in (January start by default).
+        assert r.json()["fiscal_year"] == TODAY.year
+        assert r.json()["fiscal_year_start"] == 1
         users = {"card_type": "Application", "metric": "avg", "metric_field": "users"}
         r = await client.get(f"{BASE}/query", params=users, headers=auth_headers(env["viewer"]))
         assert r.status_code == 200
         assert r.json()["total"] == 2
+        assert "fiscal_year" not in r.json()
+
+    async def test_cost_kpis_name_the_fiscal_year_too(self, client, env):
+        params = {"card_type": "Application", "metric": "sum", "metric_field": "cost"}
+        for path in ("kpi", "kpi-history"):
+            r = await client.get(
+                f"{BASE}/{path}", params=params, headers=auth_headers(env["viewer"])
+            )
+            assert r.status_code == 403
+            r = await client.get(
+                f"{BASE}/{path}", params=params, headers=auth_headers(env["member"])
+            )
+            assert r.status_code == 200
+            assert r.json()["fiscal_year"] == TODAY.year
+            assert r.json()["fiscal_year_start"] == 1
+        r = await client.get(f"{BASE}/kpi-history", headers=auth_headers(env["viewer"]))
+        assert "fiscal_year" not in r.json()
+
+    @pytest.mark.parametrize(("top", "status"), [(0, 422), (201, 422), (1, 200), (200, 200)])
+    async def test_top_bounds(self, client, env, top, status):
+        r = await client.get(
+            f"{BASE}/query",
+            params={"group_by": "type", "top": top},
+            headers=auth_headers(env["viewer"]),
+        )
+        assert r.status_code == status
+
+    async def test_flags_are_bounded_and_canonical(self, client, env):
+        r = await client.get(
+            f"{BASE}/query", params={"flags": "x" * 301}, headers=auth_headers(env["viewer"])
+        )
+        assert r.status_code == 422
+        r = await client.get(
+            f"{BASE}/query",
+            params={"flags": " orphaned , without_stakeholders,orphaned", "group_by": "type"},
+            headers=auth_headers(env["viewer"]),
+        )
+        assert r.status_code == 200
+        assert r.json()["total"] == 3
+
+
+async def _link_a1_to_secret(db) -> Card:
+    await create_relation_type(
+        db,
+        key="appToSecret",
+        label="keeps",
+        source_type_key="Application",
+        target_type_key="Secret",
+    )
+    a1 = (await db.execute(select(Card).where(Card.name == "A1"))).scalar_one()
+    s1 = (await db.execute(select(Card).where(Card.name == "S1"))).scalar_one()
+    await create_relation(db, type_key="appToSecret", source_id=a1.id, target_id=s1.id)
+    return s1
+
+
+class TestRelatedCardsAndTheReadScope:
+    async def test_an_unrestricted_reader_gets_the_related_card_named(self, client, db, env):
+        s1 = await _link_a1_to_secret(db)
+        r = await client.get(
+            f"{BASE}/query",
+            params={"card_type": "Application", "group_by": "related:appToSecret"},
+            headers=auth_headers(env["viewer"]),
+        )
+        assert r.status_code == 200
+        assert r.json() == {
+            "dimension": "related:appToSecret",
+            "dimension_2": None,
+            "rows": [{"key": str(s1.id), "value": 1}, {"key": "none", "value": 1}],
+            "total": 2,
+            "labels": {str(s1.id): "S1"},
+        }
+
+    async def test_a_restricted_reader_never_sees_the_hidden_card(self, client, db, env):
+        s1 = await _link_a1_to_secret(db)
+        await _deny_secret_to(db, "viewer")
+        headers = auth_headers(env["viewer"])
+        queries = [
+            {"card_type": "Application", "group_by": "related:appToSecret"},
+            {"card_type": "Application", "group_by": "type", "flags": "related:appToSecret"},
+            {"relation_type": "appToSecret", "group_by": "card", "group_by_2": "card"},
+            {
+                "card_type": "Application",
+                "metric": "sum",
+                "metric_field": "@relations:appToSecret",
+            },
+        ]
+        for params in queries:
+            r = await client.get(f"{BASE}/query", params=params, headers=headers)
+            assert r.status_code == 200, params
+            assert str(s1.id) not in r.text, params
+            assert "S1" not in r.text, params
+        r = await client.get(f"{BASE}/query", params=queries[0], headers=headers)
+        assert r.json()["rows"] == [{"key": "none", "value": 2}]
+        assert r.json()["labels"] == {}
+        r = await client.get(f"{BASE}/query", params=queries[1], headers=headers)
+        assert r.json()["total"] == 0
+        r = await client.get(f"{BASE}/query", params=queries[3], headers=headers)
+        assert r.json()["total"] == 0
 
 
 class TestKpi:
@@ -486,6 +599,22 @@ class TestKpi:
         await _deny_secret_to(db, "viewer")
         r = await client.get(f"{BASE}/kpi", headers=auth_headers(env["viewer"]))
         assert r.json() == {"value": 2, "trend": None}
+
+    async def test_a_narrowed_count_returns_its_base(self, client, db, env):
+        params = {"card_type": "Application", "approval_status": "APPROVED"}
+        r = await client.get(f"{BASE}/kpi", params=params, headers=auth_headers(env["viewer"]))
+        assert r.status_code == 200
+        assert r.json()["value"] == 0
+        assert r.json()["base"] == 2
+        await _deny_secret_to(db, "viewer")
+        r = await client.get(
+            f"{BASE}/kpi", params={"flags": "orphaned"}, headers=auth_headers(env["viewer"])
+        )
+        assert r.json() == {"value": 2, "trend": None, "base": 2}
+        r = await client.get(
+            f"{BASE}/kpi", params={"card_type": "Application"}, headers=auth_headers(env["viewer"])
+        )
+        assert "base" not in r.json()
 
     async def test_history(self, client, db, env):
         for days_ago, value in ((10, 1), (2, 2)):

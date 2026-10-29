@@ -102,11 +102,15 @@ Un widget conserve sa propre permission où qu’il soit placé : un widget d’
 
 Une tuile KPI affiche soit l’une des mesures intégrées (total des fiches, qualité des données, tâches ouvertes, etc.), soit un chiffre que vous définissez :
 
-- **Type de fiche** (facultatif) : ne compter que les fiches d’un type, éventuellement restreint à un sous-type, un statut d’approbation ou une phase du cycle de vie.
-- **Mesure** : **Nombre** de fiches, ou **Somme** ou **Moyenne** d’un champ numérique, de coût ou de pourcentage de ce type.
+- **Type de fiche** (facultatif) : ne compter que les fiches d’un type, éventuellement restreint à un sous-type, un statut d’approbation, une phase du cycle de vie ou les [filtres](#filters) ci-dessous.
+- **Mesure** : **Nombre** de fiches, **Somme** ou **Moyenne** d’un champ numérique, de coût ou de pourcentage de ce type ou d’un [indicateur](#measures), ou une **Part** — le nombre restreint en pourcentage des mêmes fiches sans les filtres (par exemple la part des applications approuvées).
 - **Une hausse est** : **Positive** ou **Négative** — détermine si une tendance à la hausse s’affiche en vert ou en rouge.
+- **Courbe de tendance** : trace les 30 dernières valeurs quotidiennes de la tuile sous le chiffre.
+- **Chiffre secondaire** : pour un nombre restreint, affiche **sur N** (le nombre non filtré) ou la **part du total** à côté du chiffre.
 
-Une nouvelle tuile KPI enregistre sa première valeur dès que le tableau de bord est enregistré ; sa tendance démarre donc le lendemain. Une somme ou une moyenne d’un champ de coût n’est affichée qu’aux utilisateurs autorisés à voir les coûts.
+Une nouvelle tuile KPI enregistre sa première valeur dès que le tableau de bord est enregistré ; sa tendance démarre donc le lendemain. Une somme ou une moyenne d’un champ de coût n’est affichée qu’aux utilisateurs autorisés à voir les coûts, ne compte que les fiches actives pendant l’exercice fiscal en cours (la règle du rapport de coûts) et nomme cet exercice sous la valeur.
+
+Les tuiles alimentées par un rapport de module (risques ouverts, risques en retard, score de conformité, initiatives à risque, processus sans diagramme) figurent au catalogue lorsque le module est activé et que vous en détenez la permission ; elles n’affichent pas de tendance, car les rapports de module ne conservent aucun historique.
 
 ### Configurer un graphique
 
@@ -121,20 +125,35 @@ Un graphique regroupe les fiches selon une **dimension** et mesure chaque groupe
 | **Qualité des données** | Tranche de qualité des données (0–25 %, 25–50 %, …) |
 | **Mois de création** | Mois de création de la fiche |
 | **Un champ** | Tout champ à choix unique ou oui/non du type de fiche choisi |
+| **Fiche liée** | La fiche à l’autre extrémité d’un type de relation — applications par organisation, composants IT par fournisseur, coût par capacité métier. Une fiche liée à plusieurs fiches est comptée sous chacune ; les fiches sans lien tombent sous *Aucune* ; les vingt plus grands groupes sont conservés et le reste est regroupé sous *Autres* |
+| **Couverture EOL** | Si une application ou un composant IT a un lien endoflife.date, une date de fin de vie manuelle, ou aucun des deux |
+| **Parties prenantes** | Si la fiche a au moins une partie prenante |
+| **Mois d’une date de cycle de vie** | Le mois dans lequel tombe une date du cycle de vie (planification, mise en service, actif, retrait progressif, fin de vie), sur 18 mois : six en arrière et onze en avant — un calendrier de fin de vie, ou les mises en production par mois |
 
-La mesure est le **Nombre de fiches**, ou la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts.
+#### Indicateurs
+
+La mesure est le **Nombre de fiches**, la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage, ou de l’un de ces indicateurs : les **relations d’un type** sur chaque fiche (combien de composants IT une application utilise), son score de **qualité des données**, ou son **ancienneté en jours**. **Part** affiche, pour chaque groupe, le nombre restreint en pourcentage du nombre non filtré. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts ; un coût ne compte que les fiches actives pendant l’exercice fiscal en cours, et le graphique nomme cet exercice.
+
+#### Filtres
+
+Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un KPI peut être restreint aux fiches **orphelines** (aucune relation), **obsolètes** (non mises à jour depuis 90 jours), **avec** ou **sans parties prenantes**, avec une fin de vie **liée**, **manuelle** ou **manquante**, ou qui **ont** ou **n’ont pas** une relation d’un type donné — avec les mêmes définitions que les filtres de l’Inventaire et le rapport de qualité des données.
 
 | Graphique | Idéal pour |
 |-----------|------------|
 | **Barres** / **Colonnes** | Comparer des groupes, horizontalement ou verticalement |
+| **Colonnes empilées** | Deux dimensions en barres empilées avec une légende — type de fiche par phase du cycle de vie, niveau de capacité par statut d’approbation |
 | **Courbe** | Une tendance dans le temps, comme les fiches créées par mois |
 | **Secteurs** / **Anneau** | Les parts d’un tout |
 | **Jauge** | Une valeur par rapport à un maximum (sans regroupement) |
 | **Carte de chaleur** | Deux dimensions à la fois — par exemple la phase du cycle de vie en fonction du statut d’approbation |
 | **Treemap** | Les parts lorsqu’il y a de nombreux groupes |
-| **Sankey** | Le flux d’un type de relation entre les fiches qu’il relie |
+| **Sankey** | Le flux d’un type de relation entre les fiches qu’il relie, avec une dimension de votre choix à chaque extrémité |
 
-Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, courbe, secteurs, anneau et treemap). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
+Un diagramme de Sankey prend un type de relation et regroupe **chaque extrémité** séparément : par type de fiche, sous-type, statut d’approbation, phase du cycle de vie, qualité des données, un champ du type de cette extrémité, ou les **fiches elles-mêmes** — Organisation → Application montre quelles organisations utilisent quelles applications, les vingt plus grands flux étant conservés et le reste regroupé sous *Autres*. Cliquer sur un nœud de fiche ouvre la fiche.
+
+Les graphiques peuvent aussi représenter un rapport de module : risques par niveau ou statut, scores de conformité par réglementation, état du calendrier PPM et maturité BPM figurent au catalogue lorsque le module est activé et que vous en détenez la permission. Les tags ne peuvent pas encore servir de dimension ni de filtre.
+
+Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, colonnes empilées, courbe, secteurs, anneau et treemap, ainsi que les nœuds de fiche d’un diagramme de Sankey). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
 
 ### Gérer les tableaux de bord
 

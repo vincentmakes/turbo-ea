@@ -107,8 +107,44 @@ class TestWidgetConfig:
         [
             ("kpi", {"metric": "total_cards"}, None),
             ("kpi", {"query": {}, "good_direction": "down", "format": "percent"}, None),
-            ("kpi", {}, "kpi_needs_metric_or_query"),
-            ("kpi", {"metric": "total_cards", "query": {}}, "kpi_needs_metric_or_query"),
+            ("kpi", {}, "kpi_needs_metric_query_or_source"),
+            ("kpi", {"metric": "total_cards", "query": {}}, "kpi_needs_metric_query_or_source"),
+            (
+                "kpi",
+                {"query": {}, "source": "risks_metrics", "series": "open"},
+                "kpi_needs_metric_query_or_source",
+            ),
+            (
+                "kpi",
+                {"metric": "total_cards", "source": "risks_metrics", "series": "open"},
+                "kpi_needs_metric_query_or_source",
+            ),
+            ("kpi", {"source": "risks_metrics", "series": "open"}, None),
+            ("kpi", {"source": "bpm_dashboard", "series": "without_diagram"}, None),
+            (
+                "kpi",
+                {"source": "compliance_overview", "series": "score_avg", "format": "percent"},
+                None,
+            ),
+            ("kpi", {"source": "nope", "series": "open"}, "unknown_source"),
+            ("kpi", {"source": ["risks_metrics"], "series": "open"}, "unknown_source"),
+            ("kpi", {"source": "risks_metrics"}, "unknown_series"),
+            ("kpi", {"source": "risks_metrics", "series": "at_risk"}, "unknown_series"),
+            ("kpi", {"source": "risks_metrics", "series": "by_level"}, "series_shape_mismatch"),
+            (
+                "kpi",
+                {"source": "risks_metrics", "series": "open", "format": "money"},
+                "invalid_format",
+            ),
+            ("kpi", {"query": {}, "sparkline": True, "secondary": "share_of_total"}, None),
+            ("kpi", {"query": {}, "sparkline": False, "secondary": "base_count"}, None),
+            ("kpi", {"query": {}, "sparkline": "yes"}, "invalid_sparkline"),
+            ("kpi", {"query": {}, "sparkline": 1}, "invalid_sparkline"),
+            ("kpi", {"query": {}, "secondary": "ratio"}, "invalid_secondary"),
+            ("kpi", {"query": {}, "secondary": None}, "invalid_secondary"),
+            ("kpi", {"query": {"flags": "bogus"}}, "unknown_flag"),
+            ("kpi", {"query": {"metric": "share"}}, "share_needs_filter"),
+            ("kpi", {"query": {"metric": "share", "flags": "stale"}}, None),
             ("kpi", {"metric": "nope"}, "unknown_kpi_metric"),
             ("kpi", {"query": "x"}, "query_required"),
             ("kpi", {"query": {"bogus": 1}}, "invalid_query"),
@@ -117,7 +153,93 @@ class TestWidgetConfig:
             ("kpi", {"query": {}, "format": "money"}, "invalid_format"),
             ("chart", {"query": QUERY, "chart": "bar", "drill": True, "max": 10}, None),
             ("chart", {"query": QUERY, "chart": "radar"}, "unknown_chart"),
-            ("chart", {"chart": "bar"}, "query_required"),
+            ("chart", {"chart": "bar"}, "chart_needs_query_or_source"),
+            ("chart", {"query": None, "chart": "bar"}, "query_required"),
+            (
+                "chart",
+                {"query": QUERY, "source": "risks_metrics", "series": "by_level", "chart": "bar"},
+                "chart_needs_query_or_source",
+            ),
+            ("chart", {"source": "risks_metrics", "series": "by_level", "chart": "donut"}, None),
+            (
+                "chart",
+                {"source": "ppm_dashboard", "series": "health_cost", "chart": "pie", "max": 5},
+                None,
+            ),
+            (
+                "chart",
+                {"source": "compliance_overview", "series": "score_avg", "chart": "gauge"},
+                None,
+            ),
+            (
+                "chart",
+                {"source": "compliance_overview", "series": "scores", "chart": "gauge"},
+                "series_shape_mismatch",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "open", "chart": "bar"},
+                "series_shape_mismatch",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_level", "chart": "radar"},
+                "unknown_chart",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_level", "chart": "heatmap"},
+                "source_chart_kind",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_level", "chart": "sankey"},
+                "source_chart_kind",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_level", "chart": "stacked_column"},
+                "source_chart_kind",
+            ),
+            ("chart", {"source": "nope", "series": "by_level", "chart": "bar"}, "unknown_source"),
+            (
+                "chart",
+                {"source": "bpm_dashboard", "series": "by_level", "chart": "bar"},
+                "unknown_series",
+            ),
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_level", "chart": "bar", "max": "5"},
+                "invalid_max",
+            ),
+            (
+                "chart",
+                {"query": QUERY, "chart": "stacked_column"},
+                "stacked_column_needs_two_dimensions",
+            ),
+            (
+                "chart",
+                {
+                    "query": {"card_type": "Application", "group_by_2": "type"},
+                    "chart": "stacked_column",
+                },
+                "group_by_2_requires_group_by",
+            ),
+            (
+                "chart",
+                {"query": {**QUERY, "group_by_2": "lifecycle_phase"}, "chart": "stacked_column"},
+                None,
+            ),
+            (
+                "chart",
+                {"query": {"relation_type": "r"}, "chart": "stacked_column"},
+                "sankey_needs_relation_type",
+            ),
+            (
+                "chart",
+                {"query": {"relation_type": "r", "group_by": "card"}, "chart": "sankey"},
+                None,
+            ),
             ("chart", {"query": QUERY, "chart": "sankey"}, "sankey_needs_relation_type"),
             (
                 "chart",
@@ -164,6 +286,23 @@ class TestWidgetConfig:
     def test_duplicate_widget_id(self):
         assert duplicate_widget_id(["a", "b", "a", "b"]) == "a"
         assert duplicate_widget_id(["a", "b"]) is None
+
+    def test_normalize_widget_canonicalises_flags(self):
+        raw = {
+            "id": "w",
+            "type": "kpi",
+            "config": {
+                "query": {"card_type": "A", "flags": " stale, orphaned,stale,", "metric": "count"},
+                "sparkline": True,
+            },
+            "layout": {"x": 0, "y": 0, "w": 3, "h": 2},
+        }
+        assert normalize_widget(raw)["config"] == {
+            "query": {"card_type": "A", "flags": "orphaned,stale", "metric": "count"},
+            "sparkline": True,
+        }
+        raw["config"]["query"]["flags"] = " , "
+        assert normalize_widget(raw)["config"]["query"] == {"card_type": "A", "metric": "count"}
 
     def test_normalize_widget(self):
         raw = {

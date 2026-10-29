@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartPath, normalizeChartResult, readChartConfig } from "./chartConfig";
+import { CHART_KINDS, chartPath, chartTop, normalizeChartResult, readChartConfig, usesCardKeys } from "./chartConfig";
 
 describe("readChartConfig", () => {
   it("reads a stored config", () => {
@@ -32,6 +32,50 @@ describe("chartPath", () => {
   });
 });
 
+describe("module sources", () => {
+  it("reads a known source series and never fetches the query endpoint for it", () => {
+    const cfg = readChartConfig({ source: "risks_metrics", series: "by_level", chart: "donut" });
+    expect(cfg.source).toBe("risks_metrics");
+    expect(cfg.series).toBe("by_level");
+    expect(chartPath(cfg)).toBeNull();
+  });
+
+  it("ignores an unknown source or a series the source does not have", () => {
+    expect(readChartConfig({ source: "nope", series: "by_level" }).source).toBeUndefined();
+    expect(readChartConfig({ source: "risks_metrics", series: "scores" }).source).toBeUndefined();
+    expect(readChartConfig({ source: "risks_metrics" }).source).toBeUndefined();
+  });
+
+  it("knows stacked columns", () => {
+    expect(CHART_KINDS).toContain("stacked_column");
+    expect(readChartConfig({ chart: "stacked_column" }).chart).toBe("stacked_column");
+  });
+});
+
+describe("top", () => {
+  const base = { chart: "bar" as const, drill: false };
+
+  it("is appended only for a card-keyed grouping, never stored in the query", () => {
+    const related = { ...base, query: { card_type: "Application", group_by: "related:relAppToITC" } };
+    expect(usesCardKeys(related)).toBe(true);
+    expect(chartPath(related)).toBe("/dashboards/query?card_type=Application&group_by=related%3ArelAppToITC&top=20");
+    expect(related.query).not.toHaveProperty("top");
+    const sankey = { ...base, chart: "sankey" as const, query: { relation_type: "r", group_by_2: "card" } };
+    expect(chartPath(sankey)).toBe("/dashboards/query?group_by_2=card&relation_type=r&top=20");
+    const plain = { ...base, query: { group_by: "type" } };
+    expect(usesCardKeys(plain)).toBe(false);
+    expect(chartPath(plain)).toBe("/dashboards/query?group_by=type");
+  });
+
+  it("follows the widget's maximum, within 1–200", () => {
+    expect(chartTop({ ...base, query: {}, max: 8 })).toBe(8);
+    expect(chartTop({ ...base, query: {} })).toBe(20);
+    expect(chartTop({ ...base, query: {}, max: 900 })).toBe(200);
+    expect(chartTop({ ...base, query: {}, max: 0.2 })).toBe(1);
+    expect(chartPath({ ...base, query: { card_type: "A", group_by: "related:r" }, max: 5 })).toContain("&top=5");
+  });
+});
+
 describe("normalizeChartResult", () => {
   const cfg = readChartConfig({ query: { group_by: "type", group_by_2: "subtype" } });
 
@@ -41,9 +85,36 @@ describe("normalizeChartResult", () => {
       dimension2: "subtype",
       rows: [{ key: "a", value: 1 }],
       total: 1,
+      labels: {},
+      fiscalYear: null,
+      fiscalYearStart: null,
     });
-    expect(normalizeChartResult({}, cfg)).toEqual({ dimension: "type", dimension2: "subtype", rows: [], total: 0 });
-    expect(normalizeChartResult({}, readChartConfig({}))).toEqual({ dimension: null, dimension2: null, rows: [], total: 0 });
+    const empty = { rows: [], total: 0, labels: {}, fiscalYear: null, fiscalYearStart: null };
+    expect(normalizeChartResult({}, cfg)).toEqual({ dimension: "type", dimension2: "subtype", ...empty });
+    expect(normalizeChartResult({}, readChartConfig({}))).toEqual({ dimension: null, dimension2: null, ...empty });
+  });
+
+  it("keeps the card labels and the fiscal year of the answer", () => {
+    const out = normalizeChartResult(
+      {
+        dimension: "related:relAppToITC",
+        dimension_2: null,
+        rows: [{ key: "c1", value: 2 }],
+        total: 2,
+        labels: { c1: "Postgres" },
+        fiscal_year: 2026,
+        fiscal_year_start: 10,
+      },
+      cfg,
+    );
+    expect(out?.labels).toEqual({ c1: "Postgres" });
+    expect(out?.fiscalYear).toBe(2026);
+    expect(out?.fiscalYearStart).toBe(10);
+    expect(normalizeChartResult({ labels: "x", fiscal_year: "2026" }, cfg)).toMatchObject({
+      labels: {},
+      fiscalYear: null,
+      fiscalYearStart: null,
+    });
   });
 
   it("turns KPI history points into dated rows", () => {
@@ -56,6 +127,9 @@ describe("normalizeChartResult", () => {
         { key: "2026-10-02", value: 4 },
       ],
       total: 4,
+      labels: {},
+      fiscalYear: null,
+      fiscalYearStart: null,
     });
     expect(normalizeChartResult([{ date: "2026-10-01", value: 2 }], line)?.rows).toHaveLength(1);
     expect(normalizeChartResult({}, line)?.total).toBe(0);

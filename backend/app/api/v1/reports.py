@@ -34,6 +34,7 @@ from app.services.card_flags import (
     has_eol_link,
     has_manual_eol,
     orphaned_condition,
+    stakeholder_condition,
     stale_condition,
     stale_cutoff,
 )
@@ -376,14 +377,13 @@ async def admin_dashboard_summary(
     ).scalar() or 0
 
     # Cards lacking *any* stakeholder assignment.
-    has_stakeholder_sq = select(Stakeholder.card_id).distinct()
     cards_without_stakeholders = (
         await db.execute(
             select(func.count(Card.id)).where(
                 Card.status == "ACTIVE",
                 Card.type.not_in(hidden_types_sq),
                 *readable,
-                Card.id.not_in(has_stakeholder_sq),
+                stakeholder_condition(False),
             )
         )
     ).scalar() or 0

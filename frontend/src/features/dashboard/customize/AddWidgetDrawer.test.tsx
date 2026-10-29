@@ -70,3 +70,32 @@ describe("AddWidgetDrawer", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+describe("AddWidgetDrawer — module tiles", () => {
+  it("offers a module's tiles only while the module is on, greyed once added", async () => {
+    const tile: DashboardWidget = {
+      id: "r",
+      type: "kpi",
+      title: null,
+      config: { source: "risks_metrics", series: "open" },
+      layout: { x: 0, y: 8, w: 3, h: 2 },
+    };
+    const { unmount } = renderDrawer();
+    expect(screen.queryByTestId("catalogue-kpi:risks_metrics:open")).toBeNull();
+    unmount();
+    renderWithProviders(
+      <AddWidgetDrawer
+        open
+        widgets={[tile]}
+        modules={{ bpm: false, ppm: false, grc: true }}
+        onClose={() => {}}
+        onPick={() => {}}
+      />,
+      { user: adminUser() },
+    );
+    expect(entry("kpi:risks_metrics:open")).toHaveAttribute("aria-disabled", "true");
+    expect(entry("chart:risks_metrics:by_level")).not.toHaveAttribute("aria-disabled");
+    expect(entry("chart:risks_metrics:by_level")).toHaveTextContent(tc("dashboard.source.chart.risksByLevel"));
+    expect(screen.queryByTestId("catalogue-chart:bpm_dashboard:by_maturity")).toBeNull();
+  });
+});

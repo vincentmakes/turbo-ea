@@ -6,6 +6,12 @@
  * no colour of their own takes the fixed-order categorical hues by the
  * value's position in its definition (an option's or subtype's index), so a
  * value keeps its colour however the counts move.
+ *
+ * A field or subtype is looked up in ONE card type: the one passed as
+ * `cardType` (each side of a sankey passes its own end of the relation), else
+ * the query's `card_type`. Only a query with neither searches every type —
+ * two types may define the same field key with different options, and a
+ * sankey side must never borrow the other side's.
  */
 import type { TFunction } from "i18next";
 import {
@@ -14,8 +20,9 @@ import {
   DATA_QUALITY_COLORS,
   STATUS_COLORS,
 } from "@/theme/tokens";
-import type { CardType, DashboardQuery, FieldDef, FieldOption, SubtypeDef } from "@/types";
-import { fieldOfDimension } from "../dashboardQuery";
+import { EOL_COVERAGE_COLORS, EOL_COVERAGE_LABEL_KEYS } from "@/lib/eol";
+import type { CardType, DashboardQuery, FieldDef, FieldOption, RelationType, SubtypeDef } from "@/types";
+import { fieldOfDimension, isCardKeyed, phaseOfDimension } from "../dashboardQuery";
 import { OTHER_KEY } from "./buildOption";
 
 export const LIFECYCLE_COLORS: Record<string, string> = {
@@ -52,6 +59,16 @@ export interface ResolverDeps {
   /** Field, option and subtype labels (`useFieldLabel` and its aliases). */
   inlineLabel: (entity: FieldDef | FieldOption | SubtypeDef) => string;
   categorical: readonly string[];
+  /** Card names of a card-keyed dimension's keys (the response's `labels`). */
+  cardLabels?: Record<string, string>;
+}
+
+/** The card types at the two ends of a relation type (a sankey's sides). */
+export function sideTypes(rt: Pick<RelationType, "source_type_key" | "target_type_key"> | null | undefined): {
+  source: string | null;
+  target: string | null;
+} {
+  return { source: rt?.source_type_key ?? null, target: rt?.target_type_key ?? null };
 }
 
 function slot(categorical: readonly string[], index: number): string {
@@ -60,7 +77,7 @@ function slot(categorical: readonly string[], index: number): string {
   return index >= 0 && index < categorical.length ? categorical[index] : STATUS_COLORS.neutral;
 }
 
-function findField(types: CardType[], cardType: string | null | undefined, fieldKey: string): FieldDef | null {
+export function findField(types: CardType[], cardType: string | null | undefined, fieldKey: string): FieldDef | null {
   const pool = cardType ? types.filter((t) => t.key === cardType) : types;
   for (const type of pool) {
     for (const section of type.fields_schema ?? []) {
@@ -103,16 +120,63 @@ export function dimensionResolver(
   dimension: string | null | undefined,
   query: DashboardQuery | null | undefined,
   deps: ResolverDeps,
+  cardType?: string | null,
 ): DimensionResolver {
   const { types, t, locale, typeLabel, inlineLabel, categorical } = deps;
   const notSet = t("labels.notSet");
+  // The one type fields and subtypes are looked up in (null = every type).
+  const scope = cardType ?? query?.card_type ?? null;
   const wrap = (r: DimensionResolver): DimensionResolver => ({
     colorByCategory: r.colorByCategory,
     label: (key) => (key === OTHER_KEY ? t("dashboard.query.other") : r.label(key)),
     color: (key, index) => (key === OTHER_KEY ? STATUS_COLORS.neutral : r.color(key, index)),
   });
 
+  if (isCardKeyed(dimension)) {
+    const names = deps.cardLabels ?? {};
+    // A sankey side on `card` paints its nodes in that side's type colour; a
+    // related-card grouping has no colour of its own (one series, one hue).
+    const sideColor = dimension === "card" ? types.find((ct) => ct.key === scope)?.color : undefined;
+    return wrap({
+      colorByCategory: dimension === "card",
+      label: (key) => (NONE_KEYS.has(key) ? t("dashboard.query.noRelated") : (names[key] ?? key)),
+      color: (key, index) => {
+        if (NONE_KEYS.has(key)) return STATUS_COLORS.neutral;
+        return sideColor ?? slot(categorical, dimension === "card" ? index : 0);
+      },
+    });
+  }
+  const phase = phaseOfDimension(dimension);
+  if (phase) {
+    return wrap({
+      colorByCategory: false,
+      label: (key) => monthLabel(key, locale),
+      color: () => LIFECYCLE_COLORS[phase] ?? slot(categorical, 0),
+    });
+  }
+
   switch (dimension) {
+    case "eol_coverage":
+      return wrap({
+        colorByCategory: true,
+        label: (key) => {
+          const labelKey = EOL_COVERAGE_LABEL_KEYS[key as keyof typeof EOL_COVERAGE_LABEL_KEYS];
+          return labelKey ? t(`reports:${labelKey}`) : key;
+        },
+        color: (key) => EOL_COVERAGE_COLORS[key as keyof typeof EOL_COVERAGE_COLORS] ?? STATUS_COLORS.neutral,
+      });
+    case "stakeholders":
+      return wrap({
+        colorByCategory: true,
+        label: (key) =>
+          key === "true"
+            ? t("dashboard.query.stakeholders.with")
+            : key === "false"
+              ? t("dashboard.query.stakeholders.without")
+              : notSet,
+        color: (key) =>
+          key === "true" ? STATUS_COLORS.success : key === "false" ? STATUS_COLORS.warning : STATUS_COLORS.neutral,
+      });
     case "type":
       return wrap({
         colorByCategory: true,
@@ -130,12 +194,12 @@ export function dimensionResolver(
         colorByCategory: false,
         label: (key) => {
           if (NONE_KEYS.has(key)) return notSet;
-          const st = findSubtype(types, query?.card_type, key);
+          const st = findSubtype(types, scope, key);
           return st ? inlineLabel(st.subtype) : key;
         },
         color: (key) => {
           if (NONE_KEYS.has(key)) return STATUS_COLORS.neutral;
-          const st = findSubtype(types, query?.card_type, key);
+          const st = findSubtype(types, scope, key);
           return st ? slot(categorical, st.index) : STATUS_COLORS.neutral;
         },
       });
@@ -172,7 +236,7 @@ export function dimensionResolver(
       });
     default: {
       const fieldKey = fieldOfDimension(dimension);
-      const field = fieldKey ? findField(types, query?.card_type, fieldKey) : null;
+      const field = fieldKey ? findField(types, scope, fieldKey) : null;
       if (field && field.type === "boolean") {
         return wrap({
           colorByCategory: true,

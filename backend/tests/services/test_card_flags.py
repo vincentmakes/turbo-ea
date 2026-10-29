@@ -293,3 +293,78 @@ async def test_a_jsonb_member_is_present_only_when_it_holds_text(db):
     # An absent member answers FALSE, not SQL NULL: a NULL here would vanish
     # under NOT and turn "nothing recorded" filters into "nothing found".
     assert tuple(row) == (True, False, False, False)
+
+
+# ---------------------------------------------------------------------------
+# ``card=``: the same definitions over an alias (a dashboard sankey's two ends)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def flag_cards(db):
+    from app.models.stakeholder import Stakeholder
+    from tests.conftest import (
+        create_card,
+        create_card_type,
+        create_relation,
+        create_relation_type,
+        create_user,
+    )
+
+    await create_card_type(db, key="Application", label="Application")
+    owned = await create_card(db, card_type="Application", name="Owned")
+    twice = await create_card(db, card_type="Application", name="Twice")
+    await create_card(db, card_type="Application", name="Lonely")
+    old = await create_card(db, card_type="Application", name="Old")
+    old.updated_at = datetime.now(timezone.utc) - timedelta(days=STALE_AFTER_DAYS + 5)
+    user = await create_user(db)
+    db.add(Stakeholder(card_id=owned.id, user_id=user.id, role="responsible"))
+    db.add(Stakeholder(card_id=twice.id, user_id=user.id, role="responsible"))
+    db.add(Stakeholder(card_id=twice.id, user_id=user.id, role="observer"))
+    await create_relation_type(
+        db, key="dep", label="d", source_type_key="Application", target_type_key="Application"
+    )
+    await create_relation(db, type_key="dep", source_id=owned.id, target_id=old.id)
+    await db.flush()
+
+
+async def _names(db, condition, card):
+    from sqlalchemy import select
+
+    return set((await db.execute(select(card.name).where(condition))).scalars().all())
+
+
+async def test_stakeholder_condition_matches_the_admin_tiles_old_predicate(db, flag_cards):
+    from sqlalchemy import select
+
+    from app.models.card import Card
+    from app.models.stakeholder import Stakeholder
+    from app.services.card_flags import stakeholder_condition
+
+    # The predicate ``GET /reports/admin-dashboard`` inlined before 2.181.0.
+    old = Card.id.not_in(select(Stakeholder.card_id).distinct())
+    assert await _names(db, stakeholder_condition(False), Card) == await _names(db, old, Card)
+    assert await _names(db, stakeholder_condition(False), Card) == {"Lonely", "Old"}
+    assert await _names(db, stakeholder_condition(True), Card) == {"Owned", "Twice"}
+
+
+async def test_every_flag_reads_the_same_over_an_alias(db, flag_cards):
+    from sqlalchemy.orm import aliased
+
+    from app.models.card import Card
+    from app.services.card_flags import (
+        orphaned_condition,
+        stakeholder_condition,
+        stale_condition,
+    )
+
+    alias = aliased(Card)
+    pairs = [
+        (orphaned_condition(), orphaned_condition(card=alias), {"Twice", "Lonely"}),
+        (stale_condition(), stale_condition(card=alias), {"Old"}),
+        (stakeholder_condition(True), stakeholder_condition(True, card=alias), {"Owned", "Twice"}),
+        (stakeholder_condition(False), stakeholder_condition(False, card=alias), {"Lonely", "Old"}),
+    ]
+    for default, aliased_condition, expected in pairs:
+        assert await _names(db, default, Card) == expected
+        assert await _names(db, aliased_condition, alias) == expected

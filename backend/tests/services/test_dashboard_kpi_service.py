@@ -97,6 +97,9 @@ class TestPureHelpers:
         assert as_metric_number(4.0, "count") == 4
         assert isinstance(as_metric_number(4.0, "count"), int)
         assert as_metric_number(4.5, "avg") == 4.5
+        # A share is a percentage: its stored float comes back as is.
+        assert as_metric_number(33.33, "share") == 33.33
+        assert isinstance(as_metric_number(50.0, "share"), float)
 
     def test_clamp_days(self):
         assert clamp_days(0) == 1
@@ -183,6 +186,98 @@ class TestKpiWithTrend:
         await _seed(db)
         resolved = await resolve_query(db, Q())
         assert await kpi_with_trend(db, resolved, RESTRICTED) == {"value": 2, "trend": None}
+
+
+COST_FIELDS = [{"section": "S", "fields": [{"key": "cost", "type": "cost"}]}]
+
+
+async def _seed_costs(db):
+    await create_card_type(db, key="Application", label="Application", fields_schema=COST_FIELDS)
+    await create_card(db, card_type="Application", name="Now", attributes={"cost": 100})
+    later = (TODAY + timedelta(days=400)).isoformat()
+    await create_card(
+        db,
+        card_type="Application",
+        name="Later",
+        attributes={"cost": 900},
+        lifecycle={"active": later},
+    )
+
+
+class TestBaseAndFiscalYear:
+    async def _approved(self, db):
+        await _seed(db)
+        card = await create_card(db, card_type="Application", name="OK", approval_status="APPROVED")
+        await db.flush()
+        return card
+
+    async def test_a_narrowed_count_carries_its_base(self, db):
+        await self._approved(db)
+        resolved = await resolve_query(db, Q(card_type="Application", approval_status="APPROVED"))
+        result = await kpi_with_trend(db, resolved, CardReadScope.everything())
+        assert result["value"] == 1
+        assert result["base"] == 3
+        flagged = await resolve_query(db, Q(card_type="Application", flags="orphaned"))
+        assert (await kpi_with_trend(db, flagged, CardReadScope.everything()))["base"] == 3
+        phase = await resolve_query(db, Q(lifecycle_phase="none"))
+        assert (await kpi_with_trend(db, phase, CardReadScope.everything()))["base"] == 4
+
+    async def test_a_restricted_reader_gets_their_own_base(self, db):
+        await self._approved(db)
+        resolved = await resolve_query(db, Q(approval_status="DRAFT"))
+        assert await kpi_with_trend(db, resolved, RESTRICTED) == {
+            "value": 2,
+            "trend": None,
+            "base": 3,
+        }
+
+    async def test_no_base_unless_a_narrowed_count(self, db):
+        await self._approved(db)
+        plain = await resolve_query(db, Q(card_type="Application"))
+        assert "base" not in await kpi_with_trend(db, plain, CardReadScope.everything())
+        share = await resolve_query(
+            db, Q(card_type="Application", metric="share", approval_status="APPROVED")
+        )
+        result = await kpi_with_trend(db, share, CardReadScope.everything())
+        assert result["value"] == 33.33
+        assert "base" not in result
+
+    async def test_a_cost_kpi_names_its_fiscal_year_and_skips_other_years(self, db):
+        await _seed_costs(db)
+        resolved = await resolve_query(
+            db, Q(card_type="Application", metric="sum", metric_field="cost")
+        )
+        result = await kpi_with_trend(db, resolved, CardReadScope.everything())
+        assert result["value"] == 100
+        assert result["fiscal_year"] == TODAY.year
+        assert result["fiscal_year_start"] == 1
+        restricted = await kpi_with_trend(db, resolved, RESTRICTED)
+        assert restricted == {
+            "value": 100,
+            "trend": None,
+            "fiscal_year": TODAY.year,
+            "fiscal_year_start": 1,
+        }
+        count = await resolve_query(db, Q(card_type="Application"))
+        assert "fiscal_year" not in await kpi_with_trend(db, count, CardReadScope.everything())
+
+    async def test_the_capture_applies_the_same_rule(self, db):
+        await _seed_costs(db)
+        query = Q(card_type="Application", metric="sum", metric_field="cost")
+        assert await capture_for_queries(db, [query]) == {
+            "card_type=Application&metric=sum&metric_field=cost": 100.0
+        }
+
+    async def test_a_share_snapshot_stays_a_float(self, db):
+        await self._approved(db)
+        query = Q(metric="share", approval_status="APPROVED")
+        assert await capture_for_queries(db, [query]) == {
+            "approval_status=APPROVED&metric=share": 25.0
+        }
+        resolved = await resolve_query(db, query)
+        points = await kpi_history(db, resolved, CardReadScope.everything())
+        assert points == [{"date": TODAY.isoformat(), "value": 25.0}]
+        assert isinstance(points[0]["value"], float)
 
 
 class TestHistory:

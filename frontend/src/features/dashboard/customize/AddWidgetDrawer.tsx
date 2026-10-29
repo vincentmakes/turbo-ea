@@ -19,19 +19,22 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import type { DashboardWidget } from "@/types";
+import { NO_MODULES, type DashboardModules } from "../widgets/widgetMeta";
 import { FAMILY_ORDER, catalogueFor, isAlreadyAdded, type CatalogueEntry } from "./catalogue";
 
 interface Props {
   open: boolean;
   widgets: DashboardWidget[];
+  /** Which optional modules are on — a module's tiles are offered only then. */
+  modules?: DashboardModules;
   onClose: () => void;
   onPick: (entry: CatalogueEntry) => void;
 }
 
-export default function AddWidgetDrawer({ open, widgets, onClose, onPick }: Props) {
+export default function AddWidgetDrawer({ open, widgets, modules = NO_MODULES, onClose, onPick }: Props) {
   const { t } = useTranslation("common");
   const user = useOptionalAuthUser();
-  const entries = useMemo(() => catalogueFor(user?.permissions), [user?.permissions]);
+  const entries = useMemo(() => catalogueFor(user?.permissions, modules), [user?.permissions, modules]);
   const families = FAMILY_ORDER.map((family) => ({
     family,
     entries: entries.filter((e) => e.family === family),

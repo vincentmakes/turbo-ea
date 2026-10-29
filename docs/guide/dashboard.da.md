@@ -102,11 +102,15 @@ En widget beholder sin egen tilladelse, uanset hvor den placeres: En admin-widge
 
 Et KPI-felt viser enten en af de indbyggede målinger (kort i alt, datakvalitet, åbne opgaver osv.) eller et tal, du selv definerer:
 
-- **Korttype** (valgfri): Tæl kun kort af én type, eventuelt indsnævret til en undertype, en godkendelsesstatus eller en livscyklusfase.
-- **Måling**: **Antal** kort eller **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt for den type.
+- **Korttype** (valgfri): Tæl kun kort af én type, eventuelt indsnævret til en undertype, en godkendelsesstatus, en livscyklusfase eller [filtrene](#filters) nedenfor.
+- **Måling**: **Antal** kort, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt for den type eller af et [mål](#measures), eller en **Andel** — det indsnævrede antal som procent af de samme kort uden filtrene (for eksempel andelen af godkendte applikationer).
 - **En stigning er**: **God** eller **Dårlig** — bestemmer, om en stigende tendens vises i grønt eller rødt.
+- **Sparkline**: tegner feltets seneste 30 daglige værdier under tallet.
+- **Sekundært tal**: for et indsnævret antal vises **af N** (det ufiltrerede antal) eller **andelen af det samlede** ved siden af tallet.
 
-Et nyt KPI-felt registrerer sin første værdi i det øjeblik, dashboardet gemmes, så dets tendens starter den følgende dag. En sum eller et gennemsnit af et omkostningsfelt vises kun for brugere, der må se omkostninger.
+Et nyt KPI-felt registrerer sin første værdi i det øjeblik, dashboardet gemmes, så dets tendens starter den følgende dag. En sum eller et gennemsnit af et omkostningsfelt vises kun for brugere, der må se omkostninger, tæller kun de kort, der er aktive i det nuværende regnskabsår (reglen i omkostningsrapporten), og nævner det år under værdien.
+
+Felter, der får data fra en modulrapport (åbne risici, forfaldne risici, compliancescore, initiativer i fare, processer uden diagram), står i kataloget, når modulet er aktiveret, og du har dets tilladelse; de viser ingen tendens, fordi modulrapporterne ikke gemmer nogen historik.
 
 ### Konfiguration af et diagram
 
@@ -121,20 +125,35 @@ Et diagram grupperer kort efter én **dimension** og måler hver gruppe med en *
 | **Datakvalitet** | Datakvalitetsinterval (0–25 %, 25–50 %, …) |
 | **Oprettelsesmåned** | Måneden, hvor kortet blev oprettet |
 | **Et felt** | Ethvert enkeltvalgs- eller ja/nej-felt for den valgte korttype |
+| **Relateret kort** | Kortet i den anden ende af en relationstype — applikationer pr. organisation, IT-komponenter pr. leverandør, omkostninger pr. forretningsevne. Et kort, der er knyttet til flere relaterede kort, tælles under hvert af dem; kort uden nogen falder under *Ingen*; de tyve største grupper beholdes, og resten samles under *Andre* |
+| **EOL-dækning** | Om en applikation eller IT-komponent har et link til endoflife.date, en manuel end-of-life-dato eller ingen af delene |
+| **Interessenter** | Om kortet har mindst én interessent |
+| **Måned for en livscyklusdato** | Den måned, en livscyklusdato (plan, indfasning, aktiv, udfasning, end of life) falder i, over 18 måneder: seks tilbage og elleve frem — en end-of-life-kalender eller go-lives pr. måned |
 
-Målingen er **Antal kort** eller **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt. Der tilbydes kun de korttyper, du kan læse, og omkostningsfelter kun til brugere, der må se omkostninger.
+#### Mål
+
+Målingen er **Antal kort**, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt eller af et af disse mål: **relationer af en type** på hvert kort (hvor mange IT-komponenter en applikation bruger), dets **datakvalitets**score eller dets **alder i dage**. **Andel** viser det indsnævrede antal som procent af det ufiltrerede pr. gruppe. Kun de korttyper, du kan læse, tilbydes, og omkostningsfelter kun til brugere, der må se omkostninger; en omkostning tæller kun de kort, der er aktive i det nuværende regnskabsår, og diagrammet nævner det år.
+
+#### Filtre
+
+Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI indsnævres til kort, der er **forladte** (ingen relation overhovedet), **forældede** (ikke opdateret i 90 dage), **med** eller **uden interessenter**, med et **knyttet**, **manuelt** eller **manglende** end-of-life, eller som **har** eller **mangler** en relation af en given type — med de samme definitioner som Inventar-filtrene og datakvalitetsrapporten bruger.
 
 | Diagram | Bedst til |
 |---------|-----------|
 | **Vandret søjle** / **Søjle** | Sammenligning af grupper, vandret eller lodret |
+| **Stablet søjle** | To dimensioner som stablede søjler med en signaturforklaring — korttype efter livscyklusfase, evneniveau efter godkendelsesstatus |
 | **Linje** | En tendens over tid, f.eks. kort oprettet pr. måned |
 | **Cirkel** / **Donut** | Andele af en helhed |
 | **Måler** | Én værdi i forhold til et maksimum (ingen gruppering) |
 | **Heatmap** | To dimensioner på én gang — for eksempel livscyklusfase mod godkendelsesstatus |
 | **Treemap** | Andele, når der er mange grupper |
-| **Sankey** | Strømmen af en relationstype mellem de kort, den forbinder |
+| **Sankey** | Strømmen af en relationstype mellem de kort, den forbinder, med en dimension efter eget valg i hver ende |
 
-Slå klik-igennem til, så læsere kan åbne [Inventar](inventory.md) eller rapporten bag en søjle eller et udsnit (søjle-, linje-, cirkel-, donut- og treemap-diagrammer). En forhåndsvisning i dialogen viser diagrammet, som det vil se ud.
+Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største strømme beholdes, og resten samles under *Andre*. Et klik på en kortknude åbner kortet.
+
+Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PPM og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
+
+Slå klik-igennem til, så læsere kan åbne [Inventar](inventory.md) eller rapporten bag en søjle eller et udsnit (søjle-, stablede søjle-, linje-, cirkel-, donut- og treemap-diagrammer samt kortknuderne i et Sankey-diagram). En forhåndsvisning i dialogen viser diagrammet, som det vil se ud.
 
 ### Administration af dashboards
 

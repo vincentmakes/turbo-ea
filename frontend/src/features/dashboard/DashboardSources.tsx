@@ -3,7 +3,9 @@
  * dashboard mount, not once per widget. The provider looks at the widgets it
  * is given, works out which sources they read, and runs one `useApiQuery`
  * per source (path `null` when no widget needs it, so a dashboard without
- * admin widgets never calls the admin endpoint).
+ * admin widgets never calls the admin endpoint). A module's report (risks,
+ * compliance, PPM, BPM) is fetched only when a visible widget reads it AND
+ * its module is on (`modules`, from `useDashboardModules`).
  *
  * A widget rendered outside a provider (the configuration preview) fetches
  * its source itself, through the same hook.
@@ -18,7 +20,13 @@ import type { IdleUserRow } from "./admin/IdleUsersSection";
 import type { PipelineRow } from "./admin/ApprovalPipelineSection";
 import type { OverdueTodoRow } from "./admin/UnassignedTodosSection";
 import { SOURCE_PATHS, type SourceName } from "./widgets/kpiPresets";
-import { neededSources } from "./widgets/widgetMeta";
+import type {
+  BpmDashboardPayload,
+  ComplianceOverviewPayload,
+  PpmDashboardPayload,
+  RiskMetricsPayload,
+} from "./widgets/sourceSeries";
+import { NO_MODULES, neededSources, type DashboardModules } from "./widgets/widgetMeta";
 
 export interface MyWorkspaceCounters {
   favorite_count: number;
@@ -62,6 +70,10 @@ export interface SourcePayloads {
   my_workspace: MyWorkspaceCounters;
   admin_dashboard: AdminDashboardPayload;
   data_quality: DataQualitySummary;
+  risks_metrics: RiskMetricsPayload;
+  compliance_overview: ComplianceOverviewPayload;
+  ppm_dashboard: PpmDashboardPayload;
+  bpm_dashboard: BpmDashboardPayload;
 }
 
 export interface SourceState<T> {
@@ -80,19 +92,26 @@ function pick<T>(r: { data: T | undefined; loading: boolean; error: Error | null
 
 export function DashboardSourcesProvider({
   widgets,
+  modules = NO_MODULES,
   children,
 }: {
   widgets: DashboardWidget[];
+  /** Which optional modules are on; their sources are never fetched otherwise. */
+  modules?: DashboardModules;
   children: ReactNode;
 }) {
   const user = useOptionalAuthUser();
-  const needed = neededSources(widgets, user?.permissions);
+  const needed = neededSources(widgets, user?.permissions, modules);
   const path = (name: SourceName) => (needed.has(name) ? SOURCE_PATHS[name] : null);
 
   const dashboard = useApiQuery<DashboardData>(path("reports.dashboard"));
   const workspace = useApiQuery<MyWorkspaceCounters>(path("my_workspace"));
   const admin = useApiQuery<AdminDashboardPayload>(path("admin_dashboard"));
   const quality = useApiQuery<DataQualitySummary>(path("data_quality"));
+  const risks = useApiQuery<RiskMetricsPayload>(path("risks_metrics"));
+  const compliance = useApiQuery<ComplianceOverviewPayload>(path("compliance_overview"));
+  const ppm = useApiQuery<PpmDashboardPayload>(path("ppm_dashboard"));
+  const bpm = useApiQuery<BpmDashboardPayload>(path("bpm_dashboard"));
 
   const value = useMemo<SourcesValue>(
     () => ({
@@ -100,6 +119,10 @@ export function DashboardSourcesProvider({
       my_workspace: pick(workspace),
       admin_dashboard: pick(admin),
       data_quality: pick(quality),
+      risks_metrics: pick(risks),
+      compliance_overview: pick(compliance),
+      ppm_dashboard: pick(ppm),
+      bpm_dashboard: pick(bpm),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the hook results are fresh objects every render; their fields are the identity
     [
@@ -107,6 +130,10 @@ export function DashboardSourcesProvider({
       workspace.data, workspace.loading, workspace.error,
       admin.data, admin.loading, admin.error,
       quality.data, quality.loading, quality.error,
+      risks.data, risks.loading, risks.error,
+      compliance.data, compliance.loading, compliance.error,
+      ppm.data, ppm.loading, ppm.error,
+      bpm.data, bpm.loading, bpm.error,
     ],
   );
 

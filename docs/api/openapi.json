@@ -25973,7 +25973,7 @@
     },
     "/api/v1/dashboards/kpi": {
       "get": {
-        "description": "One KPI value and, for an unrestricted reader, its trend.",
+        "description": "One KPI value and, for an unrestricted reader, its trend; ``base`` for\na narrowed count, the fiscal year for a cost.",
         "operationId": "dashboard_kpi_api_v1_dashboards_kpi_get",
         "parameters": [
           {
@@ -26122,6 +26122,23 @@
               ],
               "title": "Relation Type"
             }
+          },
+          {
+            "in": "query",
+            "name": "flags",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flags"
+            }
           }
         ],
         "responses": {
@@ -26152,7 +26169,7 @@
     },
     "/api/v1/dashboards/kpi-history": {
       "get": {
-        "description": "A KPI's daily snapshots (empty for a restricted reader).",
+        "description": "A KPI's daily snapshots (empty for a restricted reader), and the fiscal\nyear for a cost.",
         "operationId": "dashboard_kpi_history_api_v1_dashboards_kpi_history_get",
         "parameters": [
           {
@@ -26313,6 +26330,23 @@
               ],
               "title": "Relation Type"
             }
+          },
+          {
+            "in": "query",
+            "name": "flags",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flags"
+            }
           }
         ],
         "responses": {
@@ -26343,9 +26377,21 @@
     },
     "/api/v1/dashboards/query": {
       "get": {
-        "description": "Rows for a chart widget: ``{dimension, dimension_2, rows, total}``.",
+        "description": "Rows for a chart widget: ``{dimension, dimension_2, rows, total}``, plus\n``labels`` (card id \u2192 name) for a card-keyed dimension \u2014 whose ``top``\nlargest keys are kept and the rest folded into ``__other__`` \u2014 and\n``fiscal_year`` / ``fiscal_year_start`` for a cost.",
         "operationId": "dashboard_query_api_v1_dashboards_query_get",
         "parameters": [
+          {
+            "in": "query",
+            "name": "top",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Top",
+              "type": "integer"
+            }
+          },
           {
             "in": "query",
             "name": "card_type",
@@ -26491,6 +26537,23 @@
                 }
               ],
               "title": "Relation Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "flags",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Flags"
             }
           }
         ],

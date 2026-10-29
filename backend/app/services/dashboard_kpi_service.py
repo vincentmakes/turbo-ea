@@ -36,9 +36,12 @@ from app.services.dashboard_query import (
     DashboardQuery,
     DashboardQueryError,
     ResolvedQuery,
+    base_query,
+    is_narrowed,
     metric_key,
     resolve_query,
     run_query,
+    with_query,
 )
 from app.services.kpi_snapshot_service import trend_for
 
@@ -135,7 +138,8 @@ def pick_comparison(
 
 def as_metric_number(value: float, metric: str) -> float | int:
     """A stored (float) snapshot back in its metric's type: a count is whole,
-    so ``trend_for`` keeps its delta an ``int`` like the built-in KPIs."""
+    so ``trend_for`` keeps its delta an ``int`` like the built-in KPIs; a sum,
+    an average and a share (a percentage) stay floats."""
     return int(round(value)) if metric == "count" else value
 
 
@@ -146,11 +150,25 @@ async def kpi_with_trend(
     *,
     preferred_days: int = COMPARISON_DAYS,
 ) -> dict[str, Any]:
-    """``{"value", "trend"}`` — ``trend`` is ``None`` for a restricted reader."""
+    """``{"value", "trend"}`` — ``trend`` is ``None`` for a restricted reader.
+
+    A narrowed count (an approval status, a lifecycle phase or flags) also
+    carries ``base``: the same count without those filters, through the same
+    read scope, so the tile can read "of 120" or "35 %" with no second request.
+    A cost adds ``fiscal_year`` / ``fiscal_year_start`` (the year it counts in).
+    """
     today = _today()
-    value = (await run_query(db, resolved, read_scope, today=today))["total"]
+    result = await run_query(db, resolved, read_scope, today=today)
+    value = result["total"]
+    extra: dict[str, Any] = {
+        k: result[k] for k in ("fiscal_year", "fiscal_year_start") if k in result
+    }
+    query = resolved.query
+    if query.metric == "count" and is_narrowed(query):
+        base = with_query(resolved, base_query(query))
+        extra["base"] = (await run_query(db, base, read_scope, today=today))["total"]
     if not read_scope.is_unrestricted(mode="module"):
-        return {"value": value, "trend": None}
+        return {"value": value, "trend": None, **extra}
     key = metric_key(resolved.query)
     earliest = today - timedelta(days=MAX_LOOKBACK_DAYS)
     rows = (
@@ -165,7 +183,7 @@ async def kpi_with_trend(
     picked = pick_comparison([(d, v) for d, v in rows], today, preferred_days)
     previous = as_metric_number(picked[1], resolved.query.metric) if picked else None
     trend = trend_for(value, previous, picked[0] if picked else None, preferred_days)
-    return {"value": value, "trend": trend}
+    return {"value": value, "trend": trend, **extra}
 
 
 def clamp_days(days: int) -> int:

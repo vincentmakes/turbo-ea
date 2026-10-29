@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import type { DashboardWidget } from "@/types";
 import { KPI_PRESET_KEYS } from "../widgets/kpiPresets";
 import { WIDGET_TYPE_KEYS } from "../widgets/widgetMeta";
-import { CATALOGUE, CHART_PRESETS, FAMILY_ORDER, catalogueFor, isAlreadyAdded } from "./catalogue";
+import i18n from "@/i18n";
+import {
+  CATALOGUE,
+  CHART_PRESETS,
+  FAMILY_ORDER,
+  SOURCE_CHART_PRESETS,
+  SOURCE_KPI_PRESETS,
+  catalogueFor,
+  isAlreadyAdded,
+} from "./catalogue";
 
 const entry = (id: string) => CATALOGUE.find((e) => e.id === id)!;
 const w = (type: DashboardWidget["type"], config: Record<string, unknown> = {}) => ({ type, config });
@@ -14,7 +23,13 @@ describe("CATALOGUE", () => {
     for (const type of WIDGET_TYPE_KEYS) expect(ids).toContain(type);
     for (const metric of KPI_PRESET_KEYS) expect(ids).toContain(`kpi:${metric}`);
     for (const preset of CHART_PRESETS) expect(ids).toContain(`chart:${preset.id}`);
-    expect(ids).toHaveLength(WIDGET_TYPE_KEYS.length + KPI_PRESET_KEYS.length + CHART_PRESETS.length);
+    expect(ids).toHaveLength(
+      WIDGET_TYPE_KEYS.length +
+        KPI_PRESET_KEYS.length +
+        CHART_PRESETS.length +
+        SOURCE_KPI_PRESETS.length +
+        SOURCE_CHART_PRESETS.length,
+    );
   });
 
   it("groups into the five families", () => {
@@ -47,6 +62,44 @@ describe("CATALOGUE", () => {
   });
 });
 
+describe("module tiles", () => {
+  it("are the five KPIs and five charts, single, with translated names", () => {
+    const tiles = CATALOGUE.filter((e) => typeof e.config.source === "string");
+    expect(tiles.map((e) => e.id)).toEqual([
+      "kpi:risks_metrics:open",
+      "kpi:risks_metrics:overdue",
+      "kpi:compliance_overview:score_avg",
+      "kpi:ppm_dashboard:at_risk",
+      "kpi:bpm_dashboard:without_diagram",
+      "chart:risks_metrics:by_level",
+      "chart:risks_metrics:by_status",
+      "chart:compliance_overview:scores",
+      "chart:ppm_dashboard:health_schedule",
+      "chart:bpm_dashboard:by_maturity",
+    ]);
+    for (const tile of tiles) {
+      expect(tile.single).toBe(true);
+      expect(tile.needsConfig).toBe(false);
+      expect(i18n.exists(`common:${tile.labelKey}`), tile.labelKey).toBe(true);
+    }
+  });
+
+  it("store no title key on a KPI and one under dashboard.source on a chart", () => {
+    expect(entry("kpi:compliance_overview:score_avg").config).toEqual({
+      source: "compliance_overview",
+      series: "score_avg",
+      format: "percent",
+    });
+    expect(entry("chart:risks_metrics:by_level").config).toEqual({
+      source: "risks_metrics",
+      series: "by_level",
+      chart: "donut",
+      title_key: "dashboard.source.chart.risksByLevel",
+    });
+    expect(entry("chart:bpm_dashboard:by_maturity").config.chart).toBe("column");
+  });
+});
+
 describe("isAlreadyAdded", () => {
   it("never greys a multi-instance entry", () => {
     expect(isAlreadyAdded(entry("kpi"), [w("kpi", { query: {} })])).toBe(false);
@@ -66,6 +119,18 @@ describe("isAlreadyAdded", () => {
     expect(isAlreadyAdded(entry("chart:lifecycle"), [w("chart", { title_key: "dashboard.cardsByType" })])).toBe(false);
   });
 
+  it("matches a module tile by source and series", () => {
+    const open = entry("kpi:risks_metrics:open");
+    expect(isAlreadyAdded(open, [w("kpi", { source: "risks_metrics", series: "open" })])).toBe(true);
+    expect(isAlreadyAdded(open, [w("kpi", { source: "risks_metrics", series: "overdue" })])).toBe(false);
+    expect(isAlreadyAdded(open, [w("kpi", { source: "ppm_dashboard", series: "open" })])).toBe(false);
+    expect(isAlreadyAdded(open, [w("chart", { source: "risks_metrics", series: "open" })])).toBe(false);
+    const byLevel = entry("chart:risks_metrics:by_level");
+    // Retitled or redrawn, it is still the same tile.
+    expect(isAlreadyAdded(byLevel, [w("chart", { source: "risks_metrics", series: "by_level", chart: "bar" })])).toBe(true);
+    expect(isAlreadyAdded(byLevel, [w("chart", { title_key: "dashboard.source.chart.risksByLevel" })])).toBe(false);
+  });
+
   it("matches any other single widget by type", () => {
     expect(isAlreadyAdded(entry("recent_activity"), [w("recent_activity")])).toBe(true);
     expect(isAlreadyAdded(entry("recent_activity"), [w("browse_by_type")])).toBe(false);
@@ -76,8 +141,46 @@ describe("isAlreadyAdded", () => {
 describe("catalogueFor", () => {
   const ids = (perms: Record<string, boolean>) => catalogueFor(perms).map((e) => e.id);
 
-  it("offers everything to the wildcard", () => {
-    expect(ids({ "*": true })).toHaveLength(CATALOGUE.length);
+  const ALL = { bpm: true, ppm: true, grc: true };
+
+  it("offers everything to the wildcard with every module on", () => {
+    expect(catalogueFor({ "*": true }, ALL)).toHaveLength(CATALOGUE.length);
+  });
+
+  it("offers a module's tiles only while the module is on", () => {
+    const none = ids({ "*": true });
+    expect(none.filter((id) => id.split(":").length === 3)).toEqual([]);
+    const grc = catalogueFor({ "*": true }, { bpm: false, ppm: false, grc: true }).map((e) => e.id);
+    expect(grc).toEqual(
+      expect.arrayContaining([
+        "kpi:risks_metrics:open",
+        "kpi:risks_metrics:overdue",
+        "kpi:compliance_overview:score_avg",
+        "chart:risks_metrics:by_level",
+        "chart:risks_metrics:by_status",
+        "chart:compliance_overview:scores",
+      ]),
+    );
+    expect(grc).not.toContain("kpi:ppm_dashboard:at_risk");
+    expect(grc).not.toContain("chart:bpm_dashboard:by_maturity");
+  });
+
+  it("offers a module's tiles only with the permission its report needs", () => {
+    const risksOnly = catalogueFor({ "risks.view": true }, ALL).map((e) => e.id);
+    expect(risksOnly).toEqual(
+      expect.arrayContaining(["kpi:risks_metrics:open", "kpi:risks_metrics:overdue", "chart:risks_metrics:by_level"]),
+    );
+    expect(risksOnly).not.toContain("kpi:compliance_overview:score_avg");
+    expect(risksOnly).not.toContain("kpi:ppm_dashboard:at_risk");
+    expect(catalogueFor({ "ppm.view": true }, ALL).map((e) => e.id)).toEqual(
+      expect.arrayContaining(["kpi:ppm_dashboard:at_risk", "chart:ppm_dashboard:health_schedule"]),
+    );
+    expect(catalogueFor({ "reports.bpm_dashboard": true }, ALL).map((e) => e.id)).toEqual(
+      expect.arrayContaining(["kpi:bpm_dashboard:without_diagram", "chart:bpm_dashboard:by_maturity"]),
+    );
+    expect(catalogueFor({ "compliance.view": true }, ALL).map((e) => e.id)).toEqual(
+      expect.arrayContaining(["kpi:compliance_overview:score_avg", "chart:compliance_overview:scores"]),
+    );
   });
 
   it("offers only the workspace family without permissions", () => {

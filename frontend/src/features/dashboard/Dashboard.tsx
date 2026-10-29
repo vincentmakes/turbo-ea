@@ -37,6 +37,7 @@ import DashboardsMenu, { type DashboardsChange } from "./customize/DashboardsMen
 import WidgetConfigDialog from "./customize/WidgetConfigDialog";
 import { canManageDashboards, dashboardLabel } from "./customize/dashboardUtils";
 import { newWidgetId, newWidgetLayout } from "./layoutUtils";
+import { useDashboardModules } from "./useDashboardModules";
 import { visibleWidgets } from "./widgets/widgetMeta";
 
 interface PinTabLabelProps {
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const permissions = user?.permissions;
   const isManager = canManageDashboards(permissions);
+  const modules = useDashboardModules();
 
   const { data, loading, error, refetch } = useApiQuery<DashboardModel[]>("/dashboards");
   // A just-saved dashboard, shown until the refetch lands so the grid never
@@ -123,8 +125,8 @@ export default function Dashboard() {
 
   const tabs = useMemo(
     () =>
-      dashboards.filter((d) => isManager || visibleWidgets(d.widgets ?? [], permissions).length > 0),
-    [dashboards, isManager, permissions],
+      dashboards.filter((d) => isManager || visibleWidgets(d.widgets ?? [], permissions, modules).length > 0),
+    [dashboards, isManager, permissions, modules],
   );
   const tabKeys = useMemo(() => tabs.map((d) => d.key), [tabs]);
 
@@ -207,7 +209,7 @@ export default function Dashboard() {
     () => (editing && draft ? draft : (active?.widgets ?? [])),
     [editing, draft, active],
   );
-  const shown = useMemo(() => visibleWidgets(widgets, permissions), [widgets, permissions]);
+  const shown = useMemo(() => visibleWidgets(widgets, permissions, modules), [widgets, permissions, modules]);
   const dirty = editing && !!active && JSON.stringify(draft) !== JSON.stringify(active.widgets ?? []);
 
   // Widgets the viewer cannot see stay in the draft untouched; only the
@@ -364,7 +366,7 @@ export default function Dashboard() {
       )}
 
       {active && shown.length > 0 && (
-        <DashboardSourcesProvider key={active.id} widgets={shown}>
+        <DashboardSourcesProvider key={active.id} widgets={shown} modules={modules}>
           <DashboardGrid
             widgets={shown}
             editing={editing}
@@ -379,6 +381,7 @@ export default function Dashboard() {
         <AddWidgetDrawer
           open={drawerOpen}
           widgets={draft ?? []}
+          modules={modules}
           onClose={() => setDrawerOpen(false)}
           onPick={handlePick}
         />

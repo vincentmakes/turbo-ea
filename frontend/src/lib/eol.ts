@@ -10,7 +10,7 @@
  * agree on which types can carry EOL data and what each status looks like.
  */
 
-import { STATUS_COLORS } from "@/theme";
+import { EOL_COVERAGE_COLORS, STATUS_COLORS } from "@/theme";
 
 /**
  * The card types that can carry End-of-Life information. EOL is not a
@@ -51,4 +51,22 @@ export const EOL_STATUS_LABEL_KEYS: Record<string, string> = {
   supported: "eol.statusSupported",
   unknown: "eol.statusUnknown",
   missing: "eol.statusMissing",
+};
+
+/**
+ * Where a card's End-of-Life data comes from — the EOL coverage buckets of
+ * the data-quality report and the dashboards' `eol_coverage` dimension
+ * (`card_flags.EOL_BUCKETS` on the backend): linked to endoflife.date, a date
+ * entered by hand, or nothing recorded.
+ */
+export const EOL_COVERAGE_BUCKETS = ["linked", "manual", "missing"] as const;
+export type EolCoverageBucket = (typeof EOL_COVERAGE_BUCKETS)[number];
+
+export { EOL_COVERAGE_COLORS };
+
+/** i18n keys for each coverage bucket, in the `reports` namespace. */
+export const EOL_COVERAGE_LABEL_KEYS: Record<EolCoverageBucket, string> = {
+  linked: "dataQuality.eolLinked",
+  manual: "dataQuality.eolManual",
+  missing: "dataQuality.eolMissing",
 };

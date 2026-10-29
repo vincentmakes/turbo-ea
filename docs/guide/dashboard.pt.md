@@ -102,11 +102,15 @@ Um widget mantém a sua própria permissão onde quer que seja colocado: um widg
 
 Um bloco de KPI mostra uma das métricas integradas (total de cards, qualidade dos dados, tarefas abertas, etc.) ou um valor que você define:
 
-- **Tipo de card** (opcional): contar apenas os cards de um tipo, opcionalmente restringidos a um subtipo, um status de aprovação ou uma fase do ciclo de vida.
-- **Medida**: **Número** de cards, ou **Soma** ou **Média** de um campo numérico, de custo ou de percentagem desse tipo.
+- **Tipo de card** (opcional): contar apenas os cards de um tipo, opcionalmente restringidos a um subtipo, um status de aprovação, uma fase do ciclo de vida ou os [filtros](#filters) abaixo.
+- **Medida**: **Número** de cards, **Soma** ou **Média** de um campo numérico, de custo ou de percentagem desse tipo ou de um [indicador](#measures), ou uma **Quota** — a contagem restringida como percentagem dos mesmos cards sem os filtros (por exemplo, a quota de aplicações aprovadas).
 - **Um aumento é**: **Bom** ou **Mau** — define se uma tendência ascendente é mostrada a verde ou a vermelho.
+- **Minigráfico**: desenha sob o número os últimos 30 valores diários do bloco.
+- **Valor secundário**: para uma contagem restringida, mostra **de N** (a contagem sem filtros) ou a **quota do total** junto ao número.
 
-Um novo bloco de KPI regista o seu primeiro valor no momento em que o painel é salvo, pelo que a sua tendência começa no dia seguinte. Uma soma ou média de um campo de custo só é mostrada aos utilizadores que podem ver os custos.
+Um novo bloco de KPI regista o seu primeiro valor no momento em que o painel é salvo, pelo que a sua tendência começa no dia seguinte. Uma soma ou média de um campo de custo só é mostrada aos utilizadores que podem ver os custos, conta apenas os cards ativos no ano fiscal em curso (a regra usada pelo relatório de custos) e indica esse ano sob o valor.
+
+Os blocos alimentados por um relatório de módulo (riscos em aberto, riscos em atraso, pontuação de conformidade, iniciativas em risco, processos sem diagrama) constam do catálogo quando o módulo está ativado e tem a respetiva permissão; não mostram tendência, porque os relatórios de módulo não guardam histórico.
 
 ### Configurar um gráfico
 
@@ -121,20 +125,35 @@ Um gráfico agrupa os cards por uma **dimensão** e mede cada grupo com uma **me
 | **Qualidade dos dados** | Faixa de qualidade de dados (0–25 %, 25–50 %, …) |
 | **Mês de criação** | Mês em que o card foi criado |
 | **Um campo** | Qualquer campo de seleção única ou de sim/não do tipo de card escolhido |
+| **Card relacionado** | O card na outra extremidade de um tipo de relação — aplicações por organização, componentes de TI por fornecedor, custo por capacidade de negócio. Um card ligado a vários cards relacionados conta em cada um; os cards sem ligação ficam em *Nenhum*; os vinte maiores grupos são mantidos e o resto é agrupado em *Outros* |
+| **Cobertura de EOL** | Se uma aplicação ou um componente de TI tem uma ligação a endoflife.date, uma data de fim de vida manual, ou nenhuma das duas |
+| **Partes interessadas** | Se o card tem pelo menos uma parte interessada |
+| **Mês de uma data do ciclo de vida** | O mês em que cai uma data do ciclo de vida (planeamento, introdução, ativo, descontinuação, fim de vida), ao longo de 18 meses: seis para trás e onze para a frente — um calendário de fim de vida, ou entradas em produção por mês |
 
-A medida é o **Número de cards**, ou a **Soma** ou a **Média** de um campo numérico, de custo ou de percentagem. Só são oferecidos os tipos de card que pode ler, e os campos de custo apenas aos utilizadores que podem ver os custos.
+#### Indicadores
+
+A medida é o **Número de cards**, a **Soma** ou a **Média** de um campo numérico, de custo ou de percentagem, ou de um destes indicadores: as **relações de um tipo** em cada card (quantos componentes de TI uma aplicação utiliza), a sua pontuação de **qualidade dos dados** ou a sua **antiguidade em dias**. **Quota** mostra, por grupo, a contagem restringida como percentagem da contagem sem filtros. Só são oferecidos os tipos de card que pode ler, e os campos de custo apenas aos utilizadores que podem ver os custos; um custo conta apenas os cards ativos no ano fiscal em curso, e o gráfico indica esse ano.
+
+#### Filtros
+
+Além de um status de aprovação e de uma fase do ciclo de vida, um gráfico ou KPI pode ser restringido aos cards **órfãos** (sem qualquer relação), **desatualizados** (sem atualização há 90 dias), **com** ou **sem partes interessadas**, com um fim de vida **associado**, **manual** ou **em falta**, ou que **têm** ou **não têm** uma relação de um determinado tipo — com as mesmas definições que os filtros do Inventário e o relatório de qualidade dos dados utilizam.
 
 | Gráfico | Ideal para |
 |---------|------------|
 | **Barras** / **Colunas** | Comparar grupos, na horizontal ou na vertical |
+| **Colunas empilhadas** | Duas dimensões como barras empilhadas com legenda — tipo de card por fase do ciclo de vida, nível de capacidade por status de aprovação |
 | **Linhas** | Uma tendência ao longo do tempo, como os cards criados por mês |
 | **Pizza** / **Rosca** | Partes de um todo |
 | **Indicador** | Um valor face a um máximo (sem agrupamento) |
 | **Mapa de calor** | Duas dimensões em simultâneo — por exemplo, a fase do ciclo de vida face ao status de aprovação |
 | **Treemap** | Partes quando há muitos grupos |
-| **Sankey** | O fluxo de um tipo de relação entre os cards que liga |
+| **Sankey** | O fluxo de um tipo de relação entre os cards que liga, com uma dimensão à sua escolha em cada extremidade |
 
-Ative o clique para permitir que os leitores abram o [Inventário](inventory.md) ou o relatório por trás de uma barra ou fatia (gráficos de barras, colunas, linhas, pizza, rosca e treemap). Uma pré-visualização na caixa de diálogo mostra o gráfico tal como vai aparecer.
+Um diagrama Sankey recebe um tipo de relação e agrupa **cada extremidade** separadamente: por tipo de card, subtipo, status de aprovação, fase do ciclo de vida, qualidade dos dados, um campo do tipo dessa extremidade ou os **próprios cards** — Organização → Aplicação mostra que organizações usam que aplicações, mantendo os vinte maiores fluxos e agrupando o resto em *Outros*. Clicar num nó de card abre o card.
+
+Os gráficos também podem representar um relatório de módulo: riscos por nível ou estado, pontuações de conformidade por regulamento, estado do calendário do PPM e maturidade do BPM constam do catálogo quando o módulo está ativado e tem a respetiva permissão. As etiquetas ainda não podem ser usadas como dimensão ou filtro.
+
+Ative o clique para permitir que os leitores abram o [Inventário](inventory.md) ou o relatório por trás de uma barra ou fatia (gráficos de barras, colunas, colunas empilhadas, linhas, pizza, rosca e treemap, e os nós de card de um Sankey). Uma pré-visualização na caixa de diálogo mostra o gráfico tal como vai aparecer.
 
 ### Gerir painéis
 

@@ -1,16 +1,28 @@
 import { describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
-import { APPLICATION_TYPE, BUSINESS_CAPABILITY_TYPE, CARD_TYPES, CRITICALITY_OPTIONS } from "@/test/fixtures/metamodel";
+import {
+  APPLICATION_TYPE,
+  BUSINESS_CAPABILITY_TYPE,
+  CARD_TYPES,
+  CRITICALITY_OPTIONS,
+  IT_COMPONENT_TYPE,
+  REL_APP_TO_ITC,
+  makeCardType,
+  makeField,
+  makeOption,
+  makeSection,
+} from "@/test/fixtures/metamodel";
 import {
   APPROVAL_STATUS_COLORS,
   BOOLEAN_COLORS,
   CHART_CATEGORICAL,
   DATA_QUALITY_COLORS,
+  EOL_COVERAGE_COLORS,
   STATUS_COLORS,
 } from "@/theme/tokens";
 import { OTHER_KEY } from "./buildOption";
-import { dimensionResolver, type ResolverDeps } from "./dimensions";
+import { LIFECYCLE_COLORS, dimensionResolver, sideTypes, type ResolverDeps } from "./dimensions";
 
 const deps: ResolverDeps = {
   types: CARD_TYPES,
@@ -131,5 +143,108 @@ describe("dimensionResolver", () => {
       expect(r.label(OTHER_KEY)).toBe(tc("dashboard.query.other"));
       expect(r.color(OTHER_KEY, 0)).toBe(STATUS_COLORS.neutral);
     }
+  });
+});
+
+describe("dimensionResolver — per side and new dimensions", () => {
+  // Two types define the same field key with different options: a sankey's
+  // target side must never read the source side's.
+  const SOURCE = makeCardType({
+    key: "Src",
+    color: "#111111",
+    fields_schema: [
+      makeSection({
+        fields: [
+          makeField({
+            key: "status",
+            type: "single_select",
+            options: [makeOption({ key: "a", label: "Source A", color: "#aaaaaa" })],
+          }),
+        ],
+      }),
+    ],
+  });
+  const TARGET = makeCardType({
+    key: "Tgt",
+    color: "#222222",
+    fields_schema: [
+      makeSection({
+        fields: [
+          makeField({
+            key: "status",
+            type: "single_select",
+            options: [makeOption({ key: "b", label: "Other" }), makeOption({ key: "a", label: "Target A" })],
+          }),
+        ],
+      }),
+    ],
+  });
+  const sideDeps: ResolverDeps = { ...deps, types: [SOURCE, TARGET] };
+
+  it("looks a field up in the side's own type", () => {
+    const source = dimensionResolver("field:status", {}, sideDeps, "Src");
+    const target = dimensionResolver("field:status", {}, sideDeps, "Tgt");
+    expect(source.label("a")).toBe("Source A");
+    expect(target.label("a")).toBe("Target A");
+    expect(source.color("a", 0)).toBe("#aaaaaa");
+    // The target's option has no colour: its slot by option order.
+    expect(target.color("a", 0)).toBe(CHART_CATEGORICAL.light[1]);
+    // The explicit side wins over the query's card type.
+    expect(dimensionResolver("field:status", { card_type: "Src" }, sideDeps, "Tgt").label("a")).toBe("Target A");
+  });
+
+  it("names card-keyed rows from the response's labels, coloured by the side's type", () => {
+    const withLabels: ResolverDeps = { ...deps, cardLabels: { c1: "Postgres", c2: "Oracle" } };
+    const cards = dimensionResolver("card", { relation_type: REL_APP_TO_ITC.key }, withLabels, "ITComponent");
+    expect(cards.colorByCategory).toBe(true);
+    expect(cards.label("c1")).toBe("Postgres");
+    expect(cards.color("c2", 4)).toBe(IT_COMPONENT_TYPE.color);
+    expect(cards.label("unlisted")).toBe("unlisted");
+    expect(cards.label(OTHER_KEY)).toBe(tc("dashboard.query.other"));
+    const related = dimensionResolver("related:relAppToITC", { card_type: "Application" }, withLabels);
+    expect(related.colorByCategory).toBe(false);
+    expect(related.label("c2")).toBe("Oracle");
+    expect(related.label("none")).toBe(tc("dashboard.query.noRelated"));
+    expect(related.color("none", 0)).toBe(STATUS_COLORS.neutral);
+    expect(related.color("c1", 3)).toBe(CHART_CATEGORICAL.light[0]);
+  });
+
+  it("labels EOL coverage from the data-quality report's words, in the coverage colours", () => {
+    const r = dimensionResolver("eol_coverage", { card_type: "Application" }, deps);
+    expect(r.label("linked")).toBe(i18n.t("reports:dataQuality.eolLinked"));
+    expect(r.label("manual")).toBe(i18n.t("reports:dataQuality.eolManual"));
+    expect(r.label("missing")).toBe(i18n.t("reports:dataQuality.eolMissing"));
+    expect(r.color("linked", 0)).toBe(EOL_COVERAGE_COLORS.linked);
+    expect(r.color("missing", 0)).toBe(EOL_COVERAGE_COLORS.missing);
+    expect(r.label("odd")).toBe("odd");
+    expect(r.color("odd", 0)).toBe(STATUS_COLORS.neutral);
+  });
+
+  it("answers with / without stakeholders", () => {
+    const r = dimensionResolver("stakeholders", {}, deps);
+    expect(r.label("true")).toBe(tc("dashboard.query.stakeholders.with"));
+    expect(r.label("false")).toBe(tc("dashboard.query.stakeholders.without"));
+    expect(r.label("x")).toBe(tc("labels.notSet"));
+    expect(r.color("true", 0)).toBe(STATUS_COLORS.success);
+    expect(r.color("false", 0)).toBe(STATUS_COLORS.warning);
+    expect(r.color("x", 0)).toBe(STATUS_COLORS.neutral);
+  });
+
+  it("names lifecycle months in the locale, in the phase's colour", () => {
+    const r = dimensionResolver("phase_month:endOfLife", {}, deps);
+    expect(r.colorByCategory).toBe(false);
+    expect(r.label("2026-11")).toBe("Nov 2026");
+    expect(r.color("2026-11", 3)).toBe(LIFECYCLE_COLORS.endOfLife);
+    expect(dimensionResolver("phase_month:odd", {}, deps).color("2026-11", 0)).toBe(CHART_CATEGORICAL.light[0]);
+  });
+
+  it("gives a relation type's two ends", () => {
+    expect(sideTypes(REL_APP_TO_ITC)).toEqual({ source: "Application", target: "ITComponent" });
+    expect(sideTypes(null)).toEqual({ source: null, target: null });
+  });
+
+  it("keeps the search over every type when no type is known", () => {
+    expect(dimensionResolver("field:businessCriticality", {}, deps).label("missionCritical")).toBe("Mission Critical");
+    expect(APPLICATION_TYPE.key).toBe("Application");
   });
 });

@@ -8,6 +8,9 @@ import type { DashboardWidget } from "@/types";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
+vi.mock("@/hooks/useComplianceRegulations", () =>
+  import("@/test/hooks").then((m) => m.useComplianceRegulationsModule()),
+);
 
 const echart = vi.hoisted(() => ({ last: null as null | { option: any; onClick?: (p: unknown) => void; ariaLabel?: string } }));
 vi.mock("../charts/EChart", () => ({
@@ -18,13 +21,13 @@ vi.mock("../charts/EChart", () => ({
 }));
 
 import { mockApi } from "@/test/apiMock";
-import { APPLICATION_TYPE, CARD_TYPES } from "@/test/fixtures/metamodel";
+import { APPLICATION_TYPE, CARD_TYPES, IT_COMPONENT_TYPE, RELATION_TYPES } from "@/test/fixtures/metamodel";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { renderWithProviders } from "@/test/render";
-import { APPROVAL_STATUS_COLORS, CHART_CATEGORICAL, STATUS_COLORS } from "@/theme/tokens";
+import { APPROVAL_STATUS_COLORS, CHART_CATEGORICAL, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import ChartWidget from "./ChartWidget";
 
-const tc = (k: string) => i18n.t(`common:${k}`) as string;
+const tc = (k: string, o?: Record<string, unknown>) => i18n.t(`common:${k}`, o) as string;
 
 function chart(config: Record<string, unknown>, title: string | null = null): DashboardWidget {
   return { id: "c1", type: "chart", title, config, layout: { x: 0, y: 0, w: 6, h: 5 } };
@@ -36,6 +39,7 @@ function renderChart(widget: DashboardWidget) {
       { path: "/" },
       { path: "/inventory", element: <div>inventory page</div> },
       { path: "/reports/lifecycle", element: <div>lifecycle report</div> },
+      { path: "/cards/:id", element: <div>card page</div> },
     ],
   });
 }
@@ -224,5 +228,188 @@ describe("ChartWidget", () => {
     await screen.findByTestId("echart");
     expect(echart.last!.option.xAxis.inverse).toBe(true);
     expect(echart.last!.option.yAxis.position).toBe("right");
+  });
+});
+
+describe("ChartWidget — relation-aware and module charts", () => {
+  beforeEach(() => withMetamodel(CARD_TYPES, RELATION_TYPES));
+
+  it("asks the server to fold a card-keyed grouping and names its cards from the answer", async () => {
+    mockApi.on("get", "/dashboards/query?card_type=Application&group_by=related%3ArelAppToITC&top=20", {
+      dimension: "related:relAppToITC",
+      dimension_2: null,
+      rows: [
+        { key: "c1", value: 3 },
+        { key: "none", value: 1 },
+        { key: "__other__", value: 5 },
+        { key: "c2", value: 4 },
+      ],
+      total: 13,
+      labels: { c1: "Postgres", c2: "Kafka" },
+    });
+    renderChart(
+      chart({ query: { card_type: "Application", group_by: "related:relAppToITC" }, chart: "bar", drill: true }),
+    );
+    await screen.findByTestId("echart");
+    expect(echart.last!.option.yAxis.data).toEqual([
+      "Kafka",
+      "Postgres",
+      tc("dashboard.query.other"),
+      tc("dashboard.query.noRelated"),
+    ]);
+    click({ key: "none" });
+    expect(screen.queryByText("card page")).toBeNull();
+    click({ key: "c2" });
+    expect(await screen.findByText("card page")).toBeInTheDocument();
+  });
+
+  it("names each sankey side through its own type and drills a card node into the card", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=field%3AbusinessCriticality&group_by_2=card&relation_type=relAppToITC&top=20", {
+      dimension: "field:businessCriticality",
+      dimension_2: "card",
+      rows: [{ source: "missionCritical", target: "itc-1", value: 2 }],
+      total: 2,
+      labels: { "itc-1": "Postgres" },
+    });
+    renderChart(
+      chart({
+        query: { relation_type: "relAppToITC", group_by: "field:businessCriticality", group_by_2: "card" },
+        chart: "sankey",
+        drill: true,
+      }),
+    );
+    await screen.findByTestId("echart");
+    const s = series();
+    expect(s.label.formatter({ name: "s:missionCritical" })).toBe("Mission Critical");
+    expect(s.label.formatter({ name: "t:itc-1" })).toBe("Postgres");
+    // A card node takes its side's type colour.
+    expect(s.data[1].itemStyle.color).toBe(IT_COMPONENT_TYPE.color);
+    expect(s.cursor).toBe("pointer");
+    // A flow joins two cards: no single destination.
+    click({ source: "s:missionCritical", target: "t:itc-1" });
+    click({ key: "itc-1" });
+    expect(screen.queryByText("card page")).toBeNull();
+    click({ key: "itc-1", side: "target" });
+    expect(await screen.findByText("card page")).toBeInTheDocument();
+  });
+
+  it("drills a sankey source node into the inventory of its own type", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=field%3AbusinessCriticality&relation_type=relAppToITC", {
+      dimension: "field:businessCriticality",
+      dimension_2: "type",
+      rows: [{ source: "missionCritical", target: "ITComponent", value: 2 }],
+      total: 2,
+    });
+    renderChart(
+      chart({ query: { relation_type: "relAppToITC", group_by: "field:businessCriticality" }, chart: "sankey", drill: true }),
+    );
+    await screen.findByTestId("echart");
+    click({ key: "missionCritical", side: "source" });
+    expect(await screen.findByText("inventory page")).toBeInTheDocument();
+  });
+
+  it("stacks columns by the second grouping and drills a segment by its column", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=type&group_by_2=lifecycle_phase", {
+      dimension: "type",
+      dimension_2: "lifecycle_phase",
+      rows: [
+        { x: "Application", y: "active", value: 3 },
+        { x: "Application", y: "phaseOut", value: 1 },
+        { x: "ITComponent", y: "active", value: 2 },
+      ],
+      total: 6,
+    });
+    renderChart(chart({ query: { group_by: "type", group_by_2: "lifecycle_phase" }, chart: "stacked_column", drill: true }));
+    await screen.findByTestId("echart");
+    const o = echart.last!.option;
+    expect(o.xAxis.data).toEqual(["Application", "IT Component"]);
+    expect(o.series.map((x: any) => x.name)).toEqual([tc("lifecycle.active"), tc("lifecycle.phaseOut")]);
+    expect(o.series[0].itemStyle.color).toBe(STATUS_COLORS.success);
+    expect(o.legend.data).toHaveLength(2);
+    click({ key: "ITComponent", key2: "active" });
+    expect(await screen.findByText("inventory page")).toBeInTheDocument();
+  });
+
+  it("names the fiscal year a cost sum counts", async () => {
+    mockApi.on("get", "/dashboards/query?card_type=Application&group_by=subtype&metric=sum&metric_field=costTotalAnnual", {
+      dimension: "subtype",
+      dimension_2: null,
+      rows: [{ key: "microservice", value: 10 }],
+      total: 10,
+      fiscal_year: 2026,
+      fiscal_year_start: 1,
+    });
+    renderChart(
+      chart({
+        query: { card_type: "Application", group_by: "subtype", metric: "sum", metric_field: "costTotalAnnual" },
+        chart: "column",
+        drill: false,
+      }),
+    );
+    expect(await screen.findByTestId("chart-caption")).toHaveTextContent(
+      tc("dashboard.config.fiscalYear", { year: tc("fiscalYear.single", { year: 2026 }) }),
+    );
+  });
+
+  it("shows no caption without a fiscal year", async () => {
+    mockApi.on("get", "/dashboards/query?group_by=type", {
+      dimension: "type",
+      dimension_2: null,
+      rows: [{ key: "Application", value: 1 }],
+      total: 1,
+    });
+    renderChart(chart({ query: { group_by: "type" }, chart: "bar", drill: false }));
+    await screen.findByTestId("echart");
+    expect(screen.queryByTestId("chart-caption")).toBeNull();
+  });
+
+  it("says what the server refused", async () => {
+    mockApi.fail("get", "/dashboards/query?flags=x&group_by=type", 400, "unknown_flag");
+    renderChart(chart({ query: { group_by: "type", flags: "x" }, chart: "bar", drill: false }));
+    expect(await screen.findByText(tc("dashboard.config.problem.unknownFlag"))).toBeInTheDocument();
+  });
+
+  it("draws a module series from the shared report, in the module's colours", async () => {
+    mockApi.on("get", "/risks/metrics", {
+      total: 7,
+      by_status: {},
+      by_level: { critical: 1, low: 6 },
+      by_category: {},
+      overdue: 0,
+    });
+    renderChart(
+      chart({ source: "risks_metrics", series: "by_level", chart: "donut", title_key: "dashboard.source.chart.risksByLevel" }),
+    );
+    expect(await screen.findByTestId("echart")).toHaveAttribute("aria-label", tc("dashboard.source.chart.risksByLevel"));
+    const data = series().data;
+    expect(data.map((d: any) => d.name)).toEqual([i18n.t("grc:risks.level.critical"), i18n.t("grc:risks.level.low")]);
+    expect(data.map((d: any) => d.itemStyle.color)).toEqual([SEVERITY_COLORS.critical, SEVERITY_COLORS.low]);
+    expect(series().name).toBe(tc("dashboard.source.series.risks_metrics.by_level"));
+    expect(mockApi.calls.filter((c) => c.path.startsWith("/dashboards/"))).toHaveLength(0);
+    // A module chart does not drill.
+    expect(series().cursor).toBe("default");
+  });
+
+  it("draws a single module number on a gauge, and names regulations", async () => {
+    mockApi.on("get", "/compliance/overview", { compliance_scores: { gdpr: 90, custom_reg: 70 } });
+    hookState.complianceRegulations = [
+      { key: "custom_reg", label: "Our policy", is_enabled: true } as never,
+    ];
+    const { unmount } = renderChart(
+      chart({ source: "compliance_overview", series: "score_avg", chart: "gauge", max: 100 }),
+    );
+    await screen.findByTestId("echart");
+    expect(series().data[0].value).toBe(80);
+    expect(series().max).toBe(100);
+    unmount();
+    renderChart(chart({ source: "compliance_overview", series: "scores", chart: "column" }));
+    await screen.findByTestId("echart");
+    expect(echart.last!.option.xAxis.data).toEqual([i18n.t("admin:compliance_regulation_gdpr"), "Our policy"]);
+  });
+
+  it("says when a module report has nothing to draw", async () => {
+    mockApi.on("get", "/reports/ppm/dashboard", { total_initiatives: 0, by_status: {} });
+    renderChart(chart({ source: "ppm_dashboard", series: "by_status", chart: "pie" }));
+    expect(await screen.findByText(tc("emptyStates.noData"))).toBeInTheDocument();
   });
 });

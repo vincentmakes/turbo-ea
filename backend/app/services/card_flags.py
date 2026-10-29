@@ -1,4 +1,5 @@
-"""Cross-cutting card health flags: "orphaned" and "stale".
+"""Cross-cutting card health flags: "orphaned", "stale", stakeholder coverage
+and EOL coverage.
 
 Both started life inline in the data-quality dashboard. They are now also
 inventory filters, and the Data Quality report deep-links a KPI tile straight
@@ -20,6 +21,7 @@ from sqlalchemy import and_, or_, select
 
 from app.models.card import Card
 from app.models.relation import Relation
+from app.models.stakeholder import Stakeholder
 from app.services.recurrence import add_months
 
 #: A card nobody has touched in this many days reads as stale.
@@ -42,9 +44,10 @@ def stale_cutoff() -> datetime:
     return datetime.now(timezone.utc) - timedelta(days=STALE_AFTER_DAYS)
 
 
-def stale_condition():
-    """SQLAlchemy condition selecting stale cards."""
-    return Card.updated_at < stale_cutoff()
+def stale_condition(card=Card):
+    """SQLAlchemy condition selecting stale cards. ``card`` is ``Card`` or an
+    alias of it (a dashboard sankey filters both of its ends)."""
+    return card.updated_at < stale_cutoff()
 
 
 def staleness_cutoff(value, unit, *, now: datetime | None = None) -> datetime | None:
@@ -107,13 +110,23 @@ def not_updated_condition(filters: dict | None):
     return Card.updated_at < cutoff
 
 
-def orphaned_condition():
+def orphaned_condition(card=Card):
     """SQLAlchemy condition selecting cards with no relation in either
     direction. Not "no outgoing relation" — an Application nothing points at
     but which points at a capability is connected, and reporting it as
-    orphaned would send people looking for a problem that isn't there."""
+    orphaned would send people looking for a problem that isn't there.
+    ``card`` is ``Card`` or an alias of it."""
     connected = select(Relation.source_id).union(select(Relation.target_id))
-    return Card.id.not_in(connected)
+    return card.id.not_in(connected)
+
+
+def stakeholder_condition(has: bool, card=Card):
+    """SQLAlchemy condition selecting cards with (``has=True``) or without any
+    stakeholder assignment — the Admin dashboard's "cards without
+    stakeholders" tile and the homepage widgets' stakeholder filter and
+    dimension. ``card`` is ``Card`` or an alias of it."""
+    assigned = select(Stakeholder.card_id).distinct()
+    return card.id.in_(assigned) if has else card.id.not_in(assigned)
 
 
 #: The card types that can carry End-of-Life information. Mirrors the
@@ -186,7 +199,7 @@ def _jsonb_absent(col):
 EOL_BUCKETS = ("linked", "manual", "missing")
 
 
-def eol_bucket_condition(bucket: str):
+def eol_bucket_condition(bucket: str, card=Card):
     """SQLAlchemy condition selecting one EOL coverage bucket.
 
     Mirrors :func:`has_eol_link` / :func:`has_manual_eol` /
@@ -199,13 +212,15 @@ def eol_bucket_condition(bucket: str):
     string ``"false"``. Both keys are only ever written as strings by our own
     code (the card's EOL section and ``POST /eol/mass-link``), so modelling it
     would be dead complexity.
+
+    ``card`` is ``Card`` or an alias of it (a dashboard sankey's two ends).
     """
     if bucket not in EOL_BUCKETS:
         raise ValueError(f"Unknown EOL bucket: {bucket}")
 
-    product = Card.attributes[EOL_PRODUCT_KEY]
-    cycle = Card.attributes[EOL_CYCLE_KEY]
-    end_of_life = Card.lifecycle["endOfLife"]
+    product = card.attributes[EOL_PRODUCT_KEY]
+    cycle = card.attributes[EOL_CYCLE_KEY]
+    end_of_life = card.lifecycle["endOfLife"]
 
     linked = and_(_jsonb_present(product), _jsonb_present(cycle))
     # Half a link resolves to nothing upstream, so it is not a link at all.
@@ -218,4 +233,4 @@ def eol_bucket_condition(bucket: str):
     else:
         rule = and_(not_linked, _jsonb_absent(end_of_life))
 
-    return and_(Card.type.in_(EOL_TYPES), rule)
+    return and_(card.type.in_(EOL_TYPES), rule)

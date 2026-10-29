@@ -42,7 +42,7 @@ import {
 } from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
-import { STATUS_COLORS } from "@/theme";
+import { EOL_COVERAGE_COLORS } from "@/theme";
 
 interface TypeStat {
   type: string;
@@ -142,11 +142,7 @@ type DQScope =
  * recorded at all — so borrowing red/amber would read as risk where none has
  * been established.
  */
-const EOL_SOURCE_COLORS = {
-  linked: "#1976d2",
-  manual: "#3949ab",
-  missing: STATUS_COLORS.neutral,
-};
+const EOL_SOURCE_COLORS = EOL_COVERAGE_COLORS;
 
 const QUALITY_COLORS = Object.fromEntries(
   DATA_QUALITY_BANDS.map((b) => [b.key, b.color]),

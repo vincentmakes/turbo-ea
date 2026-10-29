@@ -20,7 +20,7 @@ The homepage `/` is a set of admin-editable **dashboards** (table `dashboards`, 
 
 ### 1. Widget types are one frozen set, in two places
 
-`WIDGET_TYPES` in `backend/app/services/dashboard_defaults.py` is the closed set the API accepts; `WIDGET_META` in `frontend/src/features/dashboard/widgets/widgetMeta.ts` (re-exported by `widgets/registry.ts`) mirrors it, with the component, family, permission and sources of each type. **A new widget type is a change to both files in the same PR**, plus its component in `registry.ts`'s `componentFor` and an English label. The source scan in `widgets/registry.test.ts` ("knows exactly the widget types the backend accepts, both ways") reads `dashboard_defaults.py` as text and fails a type that exists on one side only. Keep the same discipline for `KPI_PRESETS` (mirrored by `widgets/kpiPresets.ts`) and `CHART_KINDS` (the chart builders in `charts/buildOption.ts`), which the scan does not pin.
+`WIDGET_TYPES` in `backend/app/services/dashboard_defaults.py` is the closed set the API accepts — and so are `CHART_KINDS` and `SOURCE_SERIES` (the module report series a `source` widget may draw: `risks_metrics`, `compliance_overview`, `ppm_dashboard`, `bpm_dashboard`), mirrored by `widgets/sourceSeries.ts` and pinned by the same source scan; `WIDGET_META` in `frontend/src/features/dashboard/widgets/widgetMeta.ts` (re-exported by `widgets/registry.ts`) mirrors it, with the component, family, permission and sources of each type. **A new widget type is a change to both files in the same PR**, plus its component in `registry.ts`'s `componentFor` and an English label. The source scan in `widgets/registry.test.ts` ("knows exactly the widget types the backend accepts, both ways") reads `dashboard_defaults.py` as text and fails a type that exists on one side only. Keep the same discipline for `KPI_PRESETS` (mirrored by `widgets/kpiPresets.ts`) and `CHART_KINDS` (the chart builders in `charts/buildOption.ts`), which the scan does not pin.
 
 Why: a type the backend accepts but the frontend does not know renders as "Unknown widget" for everyone; a type the frontend offers but the backend refuses makes **Save** fail with 422.
 
@@ -28,13 +28,15 @@ Why: a type the backend accepts but the frontend does not know renders as "Unkno
 
 A widget config names the landscape only by **keys** — card-type keys, field keys, status and phase values, relation-type keys. `dashboard_service.widget_config_problem` rejects any UUID anywhere in a config with 422 `config_holds_an_id` (`contains_uuid` walks keys and values).
 
+A **response** may carry card ids: the `related:<rt>` dimension and a sankey end grouped by `card` return card ids as row keys with a `labels` map, every one of them resolved through the caller's `CardReadScope` (a hidden related card leaves the card under `none` and out of `labels`), and folded server-side to `top` keys. The rule is about what is *stored*.
+
 Why: an id would leak a card to a dashboard reader who may not read it (the `CardReadScope` rule: a card the caller may not read does not exist for them), and it would not survive a workspace transfer to another instance, where every id is different. Keys are the same everywhere. Do not add a "pin this card" widget that stores an id; resolve such a thing at read time through the caller's scope instead.
 
 ### 3. Trends are landscape-wide and shown to unrestricted readers only
 
 KPI snapshots (`dashboard_kpi_snapshots`, and the presets' `kpi_snapshots`) are computed through an unrestricted read scope, daily at 02:00 UTC (`main.py`), once at startup when the table is empty, and on every save of a dashboard that carries a KPI query (`capture_for_queries` — a new tile gets its baseline at once). `kpi_with_trend` and `kpi_history` return a trend / points only when the caller's `CardReadScope` is unrestricted. A restricted reader gets their own scoped value and **no** trend: their count compared with the whole landscape's would be a "trend" made of the cards they cannot see. The caption reads the real `comparison_days` — never hard-code 30.
 
-The data endpoints (`/dashboards/query`, `/kpi`, `/kpi-history`) require `reports.ea_dashboard`, apply `CardReadScope` to every row, and a sum or average of a **cost** field additionally requires `costs.view`.
+The data endpoints (`/dashboards/query`, `/kpi`, `/kpi-history`) require `reports.ea_dashboard`, apply `CardReadScope` to every row, and a sum or average of a **cost** field additionally requires `costs.view` and counts only the cards `is_live_in_fiscal_year` keeps (the Cost report's one definition), naming the year in `fiscal_year` / `fiscal_year_start`. Flags (`orphaned`, `stale`, `with_/without_stakeholders`, `eol_*`, `related:/unrelated:<rt>`) are the `card_flags.py` conditions, never re-derived, and every one is SQL so a flagged count keeps the `GROUP BY` fast path. A module `source` widget reads an existing report endpoint under that report's own permission and module flag; `/compliance/overview` is not read-scoped (it counts findings) — pre-existing, noted here, not widened.
 
 ### 4. `/` stays ungated; a tab is gated by its widgets
 
@@ -51,6 +53,7 @@ Seeding (`seed_dashboards`) is **insert-only** and keyed by `key`: an admin's la
 - **Widget ids are stable identities.** The audit diff (`widget_items`) reports added / removed by widget id; a moved or resized widget is the same widget. Duplicate assigns new widget ids (`copied_widget_id`); keep ids unique per dashboard (`duplicate_widget_id`).
 - **One fetch per source per dashboard.** Widgets read the shared report payloads through `useDashboardSource(name)` (`DashboardSources.tsx`); never a bare `api.get` in a widget's `useEffect`.
 - **Colours come from `theme/tokens.ts`** (`CHART_CATEGORICAL`, status colours for status dimensions) through `useEChartsTheme`; ECharts does not inherit `dir`, so RTL is handled in `echartsTheme.ts`, and react-grid-layout has no RTL prop, so the grid mirrors item `x` itself (the `useIsRtl` rule).
+- **`flags` is canonical on both sides** (split, trim, dedupe, sort, join) — a `field_validator` on `DashboardQuery` and `normalizeFlags` in `dashboardQuery.ts` — or two widgets with the same filters would store two snapshot keys. `top` is a query parameter of `/query` only, never a query field, so it never enters a key.
 - **`metricKey` must stay byte-identical on both sides** (`metricKey` in `dashboardQuery.ts` ↔ `dashboard_query.metric_key`): it is the key a KPI snapshot is stored and looked up by.
 
 ## Guard tests

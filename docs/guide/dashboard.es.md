@@ -102,11 +102,15 @@ Un widget conserva su propio permiso dondequiera que se coloque: un widget de Ad
 
 Una tarjeta KPI muestra una de las métricas integradas (total de fichas, calidad de los datos, tareas abiertas, etc.) o una cifra que usted define:
 
-- **Tipo de ficha** (opcional): contar solo las fichas de un tipo, acotadas opcionalmente a un subtipo, un estado de aprobación o una fase del ciclo de vida.
-- **Medida**: **Número** de fichas, o **Suma** o **Media** de un campo numérico, de coste o de porcentaje de ese tipo.
+- **Tipo de ficha** (opcional): contar solo las fichas de un tipo, acotadas opcionalmente a un subtipo, un estado de aprobación, una fase del ciclo de vida o los [filtros](#filters) que se describen más abajo.
+- **Medida**: **Número** de fichas, **Suma** o **Media** de un campo numérico, de coste o de porcentaje de ese tipo o de un [indicador](#measures), o un **Porcentaje** — el recuento acotado como porcentaje de las mismas fichas sin los filtros (por ejemplo, el porcentaje de aplicaciones aprobadas).
 - **Un aumento es**: **Bueno** o **Malo**: determina si una tendencia al alza se muestra en verde o en rojo.
+- **Minigráfico**: dibuja bajo la cifra los últimos 30 valores diarios de la tarjeta.
+- **Cifra secundaria**: para un recuento acotado, muestra **de N** (el recuento sin filtrar) o el **porcentaje del total** junto a la cifra.
 
-Una nueva tarjeta KPI registra su primer valor en cuanto se guarda el panel, por lo que su tendencia empieza al día siguiente. Una suma o media de un campo de coste solo se muestra a los usuarios que pueden ver los costes.
+Una nueva tarjeta KPI registra su primer valor en cuanto se guarda el panel, por lo que su tendencia empieza al día siguiente. Una suma o media de un campo de coste solo se muestra a los usuarios que pueden ver los costes, cuenta únicamente las fichas activas en el ejercicio fiscal en curso (la regla que usa el informe de costes) e indica ese ejercicio bajo el valor.
+
+Las tarjetas alimentadas por un informe de módulo (riesgos abiertos, riesgos vencidos, puntuación de cumplimiento, iniciativas en riesgo, procesos sin diagrama) aparecen en el catálogo cuando el módulo está activado y usted tiene su permiso; no muestran tendencia, porque los informes de módulo no conservan historial.
 
 ### Configurar un gráfico
 
@@ -121,20 +125,35 @@ Un gráfico agrupa las fichas por una **dimensión** y mide cada grupo con una *
 | **Calidad de los datos** | Tramo de calidad de datos (0–25 %, 25–50 %, …) |
 | **Mes de creación** | Mes en que se creó la ficha |
 | **Un campo** | Cualquier campo de selección única o de sí/no del tipo de ficha elegido |
+| **Ficha relacionada** | La ficha del otro extremo de un tipo de relación: aplicaciones por organización, componentes de TI por proveedor, coste por capacidad de negocio. Una ficha vinculada a varias fichas relacionadas cuenta en cada una; las fichas sin ninguna quedan en *Ninguna*; se conservan los veinte grupos más grandes y el resto se agrupa en *Otros* |
+| **Cobertura de EOL** | Si una aplicación o un componente de TI tiene un vínculo con endoflife.date, una fecha de fin de vida manual, o ninguno de los dos |
+| **Partes interesadas** | Si la ficha tiene al menos una parte interesada |
+| **Mes de una fecha del ciclo de vida** | El mes en que cae una fecha del ciclo de vida (planificación, puesta en marcha, activo, retirada progresiva, fin de vida), a lo largo de 18 meses: seis hacia atrás y once hacia delante: un calendario de fin de vida, o las puestas en producción por mes |
 
-La medida es el **Número de fichas**, o la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje. Solo se ofrecen los tipos de ficha que puede leer, y los campos de coste solo a los usuarios que pueden ver los costes.
+#### Indicadores
+
+La medida es el **Número de fichas**, la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje, o de uno de estos indicadores: las **relaciones de un tipo** de cada ficha (cuántos componentes de TI utiliza una aplicación), su puntuación de **calidad de los datos** o su **antigüedad en días**. **Porcentaje** muestra, por grupo, el recuento acotado como porcentaje del recuento sin filtrar. Solo se ofrecen los tipos de ficha que usted puede leer, y los campos de coste únicamente a los usuarios que pueden ver los costes; un coste cuenta solo las fichas activas en el ejercicio fiscal en curso, y el gráfico indica ese ejercicio.
+
+#### Filtros
+
+Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o KPI puede acotarse a las fichas **huérfanas** (sin ninguna relación), **obsoletas** (sin actualizar desde hace 90 días), **con** o **sin partes interesadas**, con un fin de vida **vinculado**, **manual** o **ausente**, o que **tienen** o **no tienen** una relación de un tipo dado, con las mismas definiciones que usan los filtros del Inventario y el informe de calidad de los datos.
 
 | Gráfico | Ideal para |
 |---------|------------|
 | **Barras** / **Columnas** | Comparar grupos, en horizontal o en vertical |
+| **Columnas apiladas** | Dos dimensiones como barras apiladas con leyenda: tipo de ficha por fase del ciclo de vida, nivel de capacidad por estado de aprobación |
 | **Líneas** | Una tendencia en el tiempo, como las fichas creadas por mes |
 | **Circular** / **Anillo** | Partes de un todo |
 | **Indicador** | Un valor frente a un máximo (sin agrupar) |
 | **Mapa de calor** | Dos dimensiones a la vez; por ejemplo, la fase del ciclo de vida frente al estado de aprobación |
 | **Treemap** | Partes cuando hay muchos grupos |
-| **Sankey** | El flujo de un tipo de relación entre las fichas que conecta |
+| **Sankey** | El flujo de un tipo de relación entre las fichas que conecta, con una dimensión a su elección en cada extremo |
 
-Active el clic para que los lectores puedan abrir el [Inventario](inventory.md) o el informe que hay detrás de una barra o un sector (gráficos de barras, columnas, líneas, circulares, anillo y treemap). Una vista previa en el cuadro de diálogo muestra el gráfico tal como aparecerá.
+Un diagrama de Sankey toma un tipo de relación y agrupa **cada extremo** por separado: por tipo de ficha, subtipo, estado de aprobación, fase del ciclo de vida, calidad de los datos, un campo del tipo de ese extremo o las **propias fichas**: Organización → Aplicación muestra qué organizaciones usan qué aplicaciones, conservando los veinte flujos más grandes y agrupando el resto en *Otros*. Al hacer clic en un nodo de ficha se abre la ficha.
+
+Los gráficos también pueden representar un informe de módulo: riesgos por nivel o estado, puntuaciones de cumplimiento por normativa, estado del calendario de PPM y madurez de BPM figuran en el catálogo cuando el módulo está activado y usted tiene su permiso. Las etiquetas aún no pueden usarse como dimensión ni como filtro.
+
+Active el clic para que los lectores puedan abrir el [Inventario](inventory.md) o el informe que hay detrás de una barra o un sector (gráficos de barras, columnas, columnas apiladas, líneas, circulares, anillo y treemap, y los nodos de ficha de un diagrama de Sankey). Una vista previa en el cuadro de diálogo muestra el gráfico tal como aparecerá.
 
 ### Gestionar paneles
 

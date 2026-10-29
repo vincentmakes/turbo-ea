@@ -34,6 +34,7 @@ from app.services.dashboard_query import (
     DashboardQuery,
     DashboardQueryError,
     ResolvedQuery,
+    fiscal_year_keys,
     resolve_query,
     run_query,
 )
@@ -57,6 +58,7 @@ def _query_params(
     lifecycle_phase: str | None = Query(None, max_length=20),
     subtype: str | None = Query(None, max_length=100),
     relation_type: str | None = Query(None, max_length=200),
+    flags: str | None = Query(None, max_length=300),
 ) -> DashboardQuery:
     return DashboardQuery(
         card_type=card_type,
@@ -68,6 +70,7 @@ def _query_params(
         lifecycle_phase=lifecycle_phase,
         subtype=subtype,
         relation_type=relation_type,
+        flags=flags,
     )
 
 
@@ -156,12 +159,16 @@ async def list_dashboards(
 @router.get("/query")
 async def dashboard_query(
     query: DashboardQuery = Depends(_query_params),
+    top: int = Query(20, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Rows for a chart widget: ``{dimension, dimension_2, rows, total}``."""
+    """Rows for a chart widget: ``{dimension, dimension_2, rows, total}``, plus
+    ``labels`` (card id → name) for a card-keyed dimension — whose ``top``
+    largest keys are kept and the rest folded into ``__other__`` — and
+    ``fiscal_year`` / ``fiscal_year_start`` for a cost."""
     resolved, read_scope = await _prepare(db, user, query)
-    return await run_query(db, resolved, read_scope)
+    return await run_query(db, resolved, read_scope, top=top)
 
 
 @router.get("/kpi")
@@ -170,7 +177,8 @@ async def dashboard_kpi(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """One KPI value and, for an unrestricted reader, its trend."""
+    """One KPI value and, for an unrestricted reader, its trend; ``base`` for
+    a narrowed count, the fiscal year for a cost."""
     resolved, read_scope = await _prepare(db, user, query)
     return await kpis.kpi_with_trend(db, resolved, read_scope)
 
@@ -182,9 +190,11 @@ async def dashboard_kpi_history(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """A KPI's daily snapshots (empty for a restricted reader)."""
+    """A KPI's daily snapshots (empty for a restricted reader), and the fiscal
+    year for a cost."""
     resolved, read_scope = await _prepare(db, user, query)
-    return {"points": await kpis.kpi_history(db, resolved, read_scope, days=days)}
+    points = await kpis.kpi_history(db, resolved, read_scope, days=days)
+    return {"points": points, **await fiscal_year_keys(db, resolved)}
 
 
 # ── Writes ───────────────────────────────────────────────────────────────

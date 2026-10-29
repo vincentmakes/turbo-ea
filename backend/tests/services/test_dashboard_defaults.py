@@ -8,9 +8,13 @@ from sqlalchemy import select
 from app.models.dashboard import Dashboard
 from app.schemas.dashboard import DashboardWidgetIn
 from app.services.dashboard_defaults import (
+    CHART_KINDS,
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
     KPI_PRESETS,
+    SERIES_SHAPES,
+    SOURCE_SERIES,
+    TWO_DIMENSION_CHARTS,
     WIDGET_TYPES,
     default_widgets,
 )
@@ -28,6 +32,57 @@ def test_the_widget_vocabulary():
     assert len(WIDGET_TYPES) == 19
     assert {"kpi", "chart", "recent_activity", "stakeholder_directory"} <= WIDGET_TYPES
     assert len(KPI_PRESETS) == 13
+
+
+def test_the_chart_kinds():
+    assert CHART_KINDS == {
+        "bar",
+        "column",
+        "stacked_column",
+        "line",
+        "pie",
+        "donut",
+        "gauge",
+        "heatmap",
+        "treemap",
+        "sankey",
+    }
+    assert TWO_DIMENSION_CHARTS == {"heatmap", "sankey", "stacked_column"}
+    assert TWO_DIMENSION_CHARTS <= CHART_KINDS
+
+
+def test_the_source_series_the_frontend_mirrors():
+    assert dict(SOURCE_SERIES) == {
+        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status", "by_category"),
+        "compliance_overview": ("score_avg", "scores"),
+        "ppm_dashboard": (
+            "total",
+            "at_risk",
+            "by_status",
+            "by_subtype",
+            "health_schedule",
+            "health_cost",
+            "health_scope",
+        ),
+        "bpm_dashboard": (
+            "total",
+            "without_diagram",
+            "by_maturity",
+            "by_process_type",
+            "by_automation",
+            "by_risk",
+        ),
+    }
+    with pytest.raises(TypeError):
+        SOURCE_SERIES["x"] = ()  # type: ignore[index]
+
+
+def test_every_series_has_a_shape():
+    named = {series for all_series in SOURCE_SERIES.values() for series in all_series}
+    assert set(SERIES_SHAPES) == named
+    singles = {k for k, shape in SERIES_SHAPES.items() if shape == "single"}
+    assert singles == {"total", "open", "overdue", "score_avg", "at_risk", "without_diagram"}
+    assert set(SERIES_SHAPES.values()) == {"single", "keyed"}
 
 
 def test_every_built_in_dashboard_has_a_name():

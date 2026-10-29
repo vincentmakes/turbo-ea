@@ -6,6 +6,9 @@ import type { DashboardWidget, User } from "@/types";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
+vi.mock("@/hooks/useBpmEnabled", () => import("@/test/hooks").then((m) => m.useBpmEnabledModule()));
+vi.mock("@/hooks/usePpmEnabled", () => import("@/test/hooks").then((m) => m.usePpmEnabledModule()));
+vi.mock("@/hooks/useGrcEnabled", () => import("@/test/hooks").then((m) => m.useGrcEnabledModule()));
 vi.mock("../charts/EChart", () => ({
   default: (props: { ariaLabel?: string }) => <div data-testid="echart" aria-label={props.ariaLabel} />,
 }));
@@ -16,7 +19,7 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { adminUser, renderWithProviders, userWith } from "@/test/render";
 import WidgetConfigDialog from "./WidgetConfigDialog";
 
-const tc = (k: string) => i18n.t(`common:${k}`) as string;
+const tc = (k: string, o?: Record<string, unknown>) => i18n.t(`common:${k}`, o) as string;
 
 function widget(type: DashboardWidget["type"], config: Record<string, unknown>, title: string | null = null): DashboardWidget {
   return { id: "w-new", type, title, config, layout: { x: 0, y: 4, w: 6, h: 5 } };
@@ -54,6 +57,19 @@ async function options(user: ReturnType<typeof renderDialog>["user"], label: str
 }
 
 const problem = () => screen.queryByTestId("config-problem")?.textContent ?? null;
+
+async function openFilters(user: ReturnType<typeof renderDialog>["user"]) {
+  await user.click(screen.getByRole("button", { name: new RegExp(`^${tc("dashboard.config.filters")}`) }));
+}
+
+const MEASURES_APP = [
+  "Number of relations (uses IT Component)",
+  "Number of relations (supports Business Capability)",
+  "Number of relations (sends data to Application)",
+  "Number of relations (receives data from Application)",
+  tc("dashboard.query.measure.data_quality"),
+  tc("dashboard.query.measure.age_days"),
+];
 
 beforeEach(() => {
   mockApi.reset();
@@ -147,6 +163,7 @@ describe("WidgetConfigDialog — chart", () => {
       "Total Annual Cost",
       "Test Coverage",
       "Vendor Score",
+      ...MEASURES_APP,
     ]);
     await choose(user, tc("dashboard.config.metricField"), "Total Annual Cost");
     expect(problem()).toBeNull();
@@ -163,7 +180,11 @@ describe("WidgetConfigDialog — chart", () => {
     const { user } = renderDialog(NEW_CHART, { user: userWith("reports.ea_dashboard", "admin.dashboards") });
     await choose(user, tc("dashboard.config.cardType"), "Application");
     await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.avg"));
-    expect(await options(user, tc("dashboard.config.metricField"))).toEqual(["Test Coverage", "Vendor Score"]);
+    expect(await options(user, tc("dashboard.config.metricField"))).toEqual([
+      "Test Coverage",
+      "Vendor Score",
+      ...MEASURES_APP,
+    ]);
   });
 
   it("builds a sankey from a relation type alone", async () => {
@@ -180,7 +201,7 @@ describe("WidgetConfigDialog — chart", () => {
     withMetamodel(CARD_TYPES, []);
     const { user } = renderDialog(NEW_CHART);
     const kinds = await options(user, tc("dashboard.config.chartKind"));
-    expect(kinds).toHaveLength(8);
+    expect(kinds).toHaveLength(9);
     expect(kinds).not.toContain(tc("dashboard.query.chart.sankey"));
   });
 
@@ -206,6 +227,7 @@ describe("WidgetConfigDialog — chart", () => {
 
   it("filters by approval status and lifecycle phase", async () => {
     const { user, onSave } = renderDialog(NEW_CHART);
+    await openFilters(user);
     await choose(user, tc("dashboard.config.approvalFilter"), tc("status.approved"));
     await choose(user, tc("dashboard.config.lifecycleFilter"), tc("lifecycle.active"));
     await user.click(saveButton());
@@ -238,7 +260,122 @@ describe("WidgetConfigDialog — chart", () => {
   });
 });
 
+describe("WidgetConfigDialog — new metrics", () => {
+  it("groups each sankey side by its own end's fields and saves both sides", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.sankey"));
+    await choose(user, tc("dashboard.config.relationType"), "Application → uses → IT Component");
+    const source = tc("dashboard.config.sourceDimension", { type: "Application" }).replace(/[()]/g, "\\$&");
+    const target = tc("dashboard.config.targetDimension", { type: "IT Component" }).replace(/[()]/g, "\\$&");
+    expect(await options(user, source)).toContain("Business Criticality");
+    expect(await options(user, target)).not.toContain("Business Criticality");
+    await choose(user, source, "Business Criticality");
+    await choose(user, target, tc("dashboard.query.dimension.card"));
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { relation_type: "relAppToITC", group_by: "field:businessCriticality", group_by_2: "card" },
+      chart: "sankey",
+      drill: true,
+    });
+  });
+
+  it("stacks columns by a second grouping", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.stacked_column"));
+    expect(problem()).toBe(tc("dashboard.config.problem.stackedColumnNeedsTwoDimensions"));
+    await choose(user, tc("dashboard.config.secondDimension"), tc("dashboard.query.dimension.lifecycle_phase"));
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { group_by: "type", group_by_2: "lifecycle_phase" },
+      chart: "stacked_column",
+      drill: true,
+    });
+  });
+
+  it("saves flag chips and a relation-presence filter as canonical flags", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.cardType"), "IT Component");
+    await openFilters(user);
+    await user.click(combo(tc("dashboard.config.flags")));
+    const listbox = await screen.findByRole("listbox");
+    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.stale") }));
+    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.orphaned") }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    await choose(user, tc("dashboard.config.relationPresence"), "is provided by Provider");
+    await user.click(screen.getByRole("button", { name: tc("dashboard.config.lacks") }));
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.query).toEqual({
+      card_type: "ITComponent",
+      group_by: "type",
+      flags: "orphaned,stale,unrelated:relProviderToITC",
+    });
+  });
+
+  it("forgets a relation filter the new card type does not have", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.cardType"), "IT Component");
+    await openFilters(user);
+    await choose(user, tc("dashboard.config.relationPresence"), "is provided by Provider");
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config.query).toEqual({ card_type: "Application", group_by: "type" });
+  });
+
+  it("opens the filters of a widget that already filters", () => {
+    renderDialog(widget("chart", { query: { group_by: "type", flags: "stale" }, chart: "bar", drill: true }), { mode: "edit" });
+    expect(screen.getByRole("button", { name: new RegExp(`^${tc("dashboard.config.filters")}`) })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: tc("dashboard.query.flag.stale") })).toBeInTheDocument();
+  });
+
+  it("configures a module chart through the source form", async () => {
+    mockApi.on("get", "/risks/metrics", { total: 3, by_status: {}, by_level: { high: 3 }, by_category: {}, overdue: 0 });
+    const tile = widget("chart", {
+      source: "risks_metrics",
+      series: "by_level",
+      chart: "donut",
+      title_key: "dashboard.source.chart.risksByLevel",
+    });
+    const { user, onSave } = renderDialog(tile, { mode: "edit" });
+    expect(screen.queryByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.cardType")}`) })).toBeNull();
+    expect(screen.getByTestId("config-source-series")).toBeInTheDocument();
+    expect(await within(screen.getByTestId("config-preview")).findByTestId("echart")).toBeInTheDocument();
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.bar"));
+    await user.click(saveButton("edit"));
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      source: "risks_metrics",
+      series: "by_level",
+      chart: "bar",
+      title_key: "dashboard.source.chart.risksByLevel",
+    });
+  });
+});
+
 describe("WidgetConfigDialog — KPI", () => {
+  it("adds a sparkline and a secondary figure to a narrowed count", async () => {
+    mockApi.on("get", /^\/dashboards\/kpi/, { value: 4, trend: null, base: 10 });
+    const kpi = widget("kpi", { query: {}, good_direction: "up", format: "number" });
+    const { user, onSave } = renderDialog(kpi);
+    expect(combo(tc("dashboard.config.secondary"))).toHaveAttribute("aria-disabled", "true");
+    await openFilters(user);
+    await choose(user, tc("dashboard.config.approvalFilter"), tc("status.approved"));
+    await choose(user, tc("dashboard.config.secondary"), tc("dashboard.config.secondaryBase"));
+    await user.click(screen.getByLabelText(tc("dashboard.config.sparkline")));
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { approval_status: "APPROVED" },
+      good_direction: "up",
+      format: "number",
+      sparkline: true,
+      secondary: "base_count",
+    });
+  });
+
   it("configures a query KPI's direction and format", async () => {
     mockApi.on("get", /^\/dashboards\/kpi/, { value: 12, trend: null });
     const kpi = widget("kpi", { query: {}, good_direction: "up", format: "number" });

@@ -35,6 +35,9 @@ from app.services.dashboard_defaults import (
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
     KPI_PRESETS,
+    SERIES_SHAPES,
+    SOURCE_SERIES,
+    TWO_DIMENSION_CHARTS,
     WIDGET_TYPES,
     default_widgets,
 )
@@ -51,6 +54,9 @@ _UUID_RE = re.compile(
 )
 GOOD_DIRECTIONS = ("up", "down")
 KPI_FORMATS = ("number", "percent")
+# What a query KPI shows under its value: its share of the unnarrowed count,
+# or that count itself ("of 120") — both read ``base`` from ``/dashboards/kpi``.
+KPI_SECONDARY = ("share_of_total", "base_count")
 
 
 class DashboardError(Exception):
@@ -132,37 +138,77 @@ def _query_config_problem(raw: Any) -> str | None:
     return query_problem(query)
 
 
-def _chart_problem(config: Mapping[str, Any]) -> str | None:
-    problem = _query_config_problem(config.get("query"))
-    if problem:
-        return problem
-    chart = config.get("chart")
-    if chart not in CHART_KINDS:
-        return "unknown_chart"
-    query = config["query"]
-    if (chart == "sankey") != bool(query.get("relation_type")):
-        return "sankey_needs_relation_type"
-    if chart == "heatmap" and not (query.get("group_by") and query.get("group_by_2")):
-        return "heatmap_needs_two_dimensions"
-    if "drill" in config and not isinstance(config["drill"], bool):
-        return "invalid_drill"
+def _source_problem(config: Mapping[str, Any], shape: str) -> str | None:
+    """A ``source`` + ``series`` pair must name a series of that source of the
+    ``shape`` the widget draws (``single`` for a KPI or a gauge)."""
+    series = SOURCE_SERIES.get(config["source"]) if isinstance(config["source"], str) else None
+    if series is None:
+        return "unknown_source"
+    if config.get("series") not in series:
+        return "unknown_series"
+    if SERIES_SHAPES[config["series"]] != shape:
+        return "series_shape_mismatch"
+    return None
+
+
+def _max_problem(config: Mapping[str, Any]) -> str | None:
     limit = config.get("max")
     if limit is not None and (isinstance(limit, bool) or not isinstance(limit, (int, float))):
         return "invalid_max"
     return None
 
 
-def _kpi_problem(config: Mapping[str, Any]) -> str | None:
-    has_metric, has_query = "metric" in config, "query" in config
-    if has_metric == has_query:
-        return "kpi_needs_metric_or_query"
-    if has_metric:
-        return None if config["metric"] in KPI_PRESETS else "unknown_kpi_metric"
-    problem = _query_config_problem(config["query"])
+def _chart_problem(config: Mapping[str, Any]) -> str | None:
+    """A chart draws a ``query`` or a module ``source`` series — exactly one."""
+    if ("query" in config) == ("source" in config):
+        return "chart_needs_query_or_source"
+    chart = config.get("chart")
+    if "source" in config:
+        if chart not in CHART_KINDS:
+            return "unknown_chart"
+        if chart in TWO_DIMENSION_CHARTS:
+            return "source_chart_kind"
+        problem = _source_problem(config, "single" if chart == "gauge" else "keyed")
+        return problem or _max_problem(config)
+    problem = _query_config_problem(config.get("query"))
     if problem:
         return problem
-    if config.get("good_direction", "up") not in GOOD_DIRECTIONS:
-        return "invalid_good_direction"
+    if chart not in CHART_KINDS:
+        return "unknown_chart"
+    query = config["query"]
+    if (chart == "sankey") != bool(query.get("relation_type")):
+        return "sankey_needs_relation_type"
+    two_dimensions = bool(query.get("group_by") and query.get("group_by_2"))
+    if chart == "heatmap" and not two_dimensions:
+        return "heatmap_needs_two_dimensions"
+    if chart == "stacked_column" and not two_dimensions:
+        return "stacked_column_needs_two_dimensions"
+    if "drill" in config and not isinstance(config["drill"], bool):
+        return "invalid_drill"
+    return _max_problem(config)
+
+
+def _kpi_problem(config: Mapping[str, Any]) -> str | None:
+    """A KPI shows a preset ``metric``, a ``query`` or a module ``source``
+    series — exactly one of the three."""
+    if sum(key in config for key in ("metric", "query", "source")) != 1:
+        return "kpi_needs_metric_query_or_source"
+    if "metric" in config:
+        return None if config["metric"] in KPI_PRESETS else "unknown_kpi_metric"
+    if "source" in config:
+        problem = _source_problem(config, "single")
+    else:
+        problem = _query_config_problem(config["query"])
+        if problem:
+            return problem
+        if config.get("good_direction", "up") not in GOOD_DIRECTIONS:
+            return "invalid_good_direction"
+        if not isinstance(config.get("sparkline", False), bool):
+            return "invalid_sparkline"
+        if "secondary" in config and config["secondary"] not in KPI_SECONDARY:
+            return "invalid_secondary"
+    if problem:
+        return problem
     if config.get("format", "number") not in KPI_FORMATS:
         return "invalid_format"
     return None

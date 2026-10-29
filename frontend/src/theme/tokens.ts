@@ -110,6 +110,16 @@ export const HEALTH_COLORS = {
   bad: STATUS_COLORS.error,
 } as const;
 
+// ── EOL coverage (where a card's End-of-Life data comes from) ────────────
+// Deliberately not the EOL *status* palette: these say whether anything is
+// recorded at all, not how urgent an end of life is, so they avoid red/amber.
+
+export const EOL_COVERAGE_COLORS = {
+  linked: "#1976d2",
+  manual: "#3949ab",
+  missing: STATUS_COLORS.neutral,
+} as const;
+
 export const RAG_COLORS = {
   red: "#d32f2f",
   amber: "#f57c00",

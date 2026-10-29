@@ -5,8 +5,10 @@
  * widget both read it.
  */
 import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
+import { MODULE_SOURCE_PATHS, type ModuleSourceName } from "./sourceSeries";
 
-export type SourceName = "reports.dashboard" | "my_workspace" | "admin_dashboard" | "data_quality";
+/** A shared payload: the homepage's own reports, or a module's (`sourceSeries.ts`). */
+export type SourceName = "reports.dashboard" | "my_workspace" | "admin_dashboard" | "data_quality" | ModuleSourceName;
 
 export type KpiFamily = "overview" | "workspace" | "admin";
 
@@ -67,6 +69,7 @@ export const SOURCE_PATHS: Record<SourceName, string> = {
   my_workspace: "/reports/my-workspace",
   admin_dashboard: "/reports/admin-dashboard",
   data_quality: "/reports/data-quality",
+  ...MODULE_SOURCE_PATHS,
 };
 
 export const SOURCE_NAMES = Object.keys(SOURCE_PATHS) as SourceName[];
@@ -83,4 +86,19 @@ export function qualityColor(pct: number): string {
   if (pct >= 75) return DASHBOARD_KPI_COLORS.qualityGood;
   if (pct >= 50) return DASHBOARD_KPI_COLORS.qualityFair;
   return DASHBOARD_KPI_COLORS.qualityPoor;
+}
+
+export type KpiSecondary = "share_of_total" | "base_count";
+
+/** The secondary figure of a narrowed count: "12 % of 340" or "of 340". */
+export function secondaryCaption(
+  secondary: KpiSecondary | undefined,
+  value: number | undefined,
+  base: number | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string | null {
+  if (!secondary || typeof base !== "number" || !Number.isFinite(base)) return null;
+  if (secondary === "base_count") return t("dashboard.kpi.ofBase", { base });
+  const pct = base > 0 && typeof value === "number" ? Math.round((value / base) * 100) : 0;
+  return t("dashboard.kpi.shareOfBase", { pct, base });
 }

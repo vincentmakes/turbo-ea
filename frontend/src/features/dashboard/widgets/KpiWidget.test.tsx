@@ -5,13 +5,22 @@ import type { DashboardData, DashboardWidget } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
+const echart = vi.hoisted(() => ({ options: [] as any[] }));
+vi.mock("../charts/EChart", () => ({
+  default: (props: { option: any }) => {
+    echart.options.push(props.option);
+    return <div data-testid="echart" />;
+  },
+}));
+
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
 import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 import { DashboardSourcesProvider } from "../DashboardSources";
 import KpiWidget from "./KpiWidget";
 import WidgetFrame from "./WidgetFrame";
-import { formatKpiValue, qualityColor } from "./kpiPresets";
+import { formatKpiValue, qualityColor, secondaryCaption } from "./kpiPresets";
 
 const tc = (k: string, o?: Record<string, unknown>) => i18n.t(`common:${k}`, o) as string;
 
@@ -75,9 +84,9 @@ const ADMIN = {
   oldest_overdue_todos: [],
 };
 
-function renderKpis(widgets: DashboardWidget[], route = "/") {
+function renderKpis(widgets: DashboardWidget[], route = "/", modules = { bpm: true, ppm: true, grc: true }) {
   return renderWithProviders(
-    <DashboardSourcesProvider widgets={widgets}>
+    <DashboardSourcesProvider widgets={widgets} modules={modules}>
       {widgets.map((w) => (
         <KpiWidget key={w.id} widget={w} />
       ))}
@@ -90,6 +99,7 @@ function renderKpis(widgets: DashboardWidget[], route = "/") {
 }
 
 beforeEach(() => {
+  echart.options = [];
   mockApi.reset();
   mockApi.on("get", "/reports/dashboard", DASHBOARD);
   mockApi.on("get", "/reports/my-workspace", WORKSPACE);
@@ -254,6 +264,129 @@ describe("query KPI", () => {
   it("asks to be configured without a metric or query", () => {
     renderKpis([kpi({})]);
     expect(screen.getByText(tc("dashboard.widgets.notConfigured"))).toBeInTheDocument();
+  });
+});
+
+describe("query KPI — sparkline, secondary figure, fiscal year", () => {
+  const Q = "card_type=Application&flags=orphaned";
+
+  it("never asks for the history without the sparkline", async () => {
+    mockApi.on("get", `/dashboards/kpi?${Q}`, { value: 12, trend: null });
+    renderKpis([kpi({ query: { card_type: "Application", flags: "orphaned" } })]);
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    expect(mockApi.calls.filter((c) => c.path.startsWith("/dashboards/kpi-history"))).toHaveLength(0);
+    expect(screen.queryByTestId("kpi-sparkline")).toBeNull();
+  });
+
+  it("draws 30 days of history under the number once there are two points", async () => {
+    mockApi.on("get", `/dashboards/kpi?${Q}`, { value: 12, trend: null });
+    mockApi.on("get", `/dashboards/kpi-history?${Q}&days=30`, {
+      points: [
+        { date: "2026-10-01", value: 9 },
+        { date: "2026-10-02", value: 12 },
+      ],
+    });
+    renderKpis([kpi({ query: { card_type: "Application", flags: "orphaned" }, sparkline: true })]);
+    expect(await screen.findByTestId("kpi-sparkline")).toBeInTheDocument();
+    expect(mockApi.callsOf("get", `/dashboards/kpi-history?${Q}&days=30`)).toHaveLength(1);
+    const option = echart.options.at(-1);
+    expect(option.series[0].data).toEqual([9, 12]);
+    expect(option.xAxis.show).toBe(false);
+  });
+
+  it("hides the sparkline with fewer than two points", async () => {
+    mockApi.on("get", `/dashboards/kpi?${Q}`, { value: 12, trend: null });
+    mockApi.on("get", `/dashboards/kpi-history?${Q}&days=30`, { points: [{ date: "2026-10-02", value: 12 }] });
+    renderKpis([kpi({ query: { card_type: "Application", flags: "orphaned" }, sparkline: true })]);
+    expect(await screen.findByText("12")).toBeInTheDocument();
+    await waitFor(() => expect(mockApi.callsOf("get", `/dashboards/kpi-history?${Q}&days=30`)).toHaveLength(1));
+    expect(screen.queryByTestId("kpi-sparkline")).toBeNull();
+    expect(screen.queryByTestId("echart")).toBeNull();
+  });
+
+  it("shows the share of the unfiltered count, or the count itself", async () => {
+    mockApi.on("get", `/dashboards/kpi?${Q}`, { value: 41, trend: null, base: 340 });
+    const { unmount } = renderKpis([
+      kpi({ query: { card_type: "Application", flags: "orphaned" }, secondary: "share_of_total" }),
+    ]);
+    expect(await screen.findByText(tc("dashboard.kpi.shareOfBase", { pct: 12, base: 340 }))).toBeInTheDocument();
+    unmount();
+    renderKpis([kpi({ query: { card_type: "Application", flags: "orphaned" }, secondary: "base_count" })]);
+    expect(await screen.findByText(tc("dashboard.kpi.ofBase", { base: 340 }))).toBeInTheDocument();
+  });
+
+  it("shows no secondary figure without a base", async () => {
+    mockApi.on("get", `/dashboards/kpi?${Q}`, { value: 41, trend: null });
+    renderKpis([kpi({ query: { card_type: "Application", flags: "orphaned" }, secondary: "share_of_total" })]);
+    expect(await screen.findByText("41")).toBeInTheDocument();
+    expect(screen.queryByTestId("kpi-caption")).toBeNull();
+  });
+
+  it("names the fiscal year a cost is counted for", async () => {
+    mockApi.on("get", "/dashboards/kpi?card_type=Application&metric=sum&metric_field=costTotalAnnual", {
+      value: 1000,
+      trend: null,
+      fiscal_year: 2026,
+      fiscal_year_start: 10,
+    });
+    renderKpis([kpi({ query: { card_type: "Application", metric: "sum", metric_field: "costTotalAnnual" } })]);
+    expect(
+      await screen.findByText(tc("dashboard.config.fiscalYear", { year: tc("fiscalYear.span", { from: 2025, to: 2026 }) })),
+    ).toBeInTheDocument();
+  });
+
+  it("reads a share as a percentage", async () => {
+    mockApi.on("get", "/dashboards/kpi?approval_status=APPROVED&metric=share", { value: 37.5, trend: null });
+    renderKpis([kpi({ query: { metric: "share", approval_status: "APPROVED" }, format: "number" })]);
+    expect(await screen.findByText("37.5%")).toBeInTheDocument();
+  });
+
+  it("says what the server refused", async () => {
+    mockApi.fail("get", "/dashboards/kpi?flags=bogus", 400, "unknown_flag");
+    renderKpis([kpi({ query: { flags: "bogus" } })]);
+    expect(await screen.findByText(tc("dashboard.config.problem.unknownFlag"))).toBeInTheDocument();
+  });
+
+  it("secondaryCaption", () => {
+    const t = (k: string, o?: Record<string, unknown>) => `${k}:${JSON.stringify(o)}`;
+    expect(secondaryCaption(undefined, 1, 2, t)).toBeNull();
+    expect(secondaryCaption("base_count", 1, undefined, t)).toBeNull();
+    expect(secondaryCaption("share_of_total", 1, 0, t)).toBe('dashboard.kpi.shareOfBase:{"pct":0,"base":0}');
+    expect(secondaryCaption("share_of_total", 1, 3, t)).toBe('dashboard.kpi.shareOfBase:{"pct":33,"base":3}');
+  });
+});
+
+describe("module KPI", () => {
+  it("reads its number off the shared report, with no trend", async () => {
+    mockApi.on("get", "/risks/metrics", {
+      total: 10,
+      by_status: { closed: 2, accepted: 1 },
+      by_level: {},
+      by_category: {},
+      overdue: 4,
+    });
+    renderKpis([
+      kpi({ source: "risks_metrics", series: "open" }, null, "a"),
+      kpi({ source: "risks_metrics", series: "overdue" }, null, "b"),
+    ]);
+    expect(await screen.findByText("7")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText(tc("dashboard.source.series.risks_metrics.open"))).toBeInTheDocument();
+    expect(mockApi.callsOf("get", "/risks/metrics")).toHaveLength(1);
+    expect(screen.queryByText(/vs last/)).toBeNull();
+    expect(mockApi.calls.filter((c) => c.path.startsWith("/dashboards/"))).toHaveLength(0);
+  });
+
+  it("formats a compliance score as a percentage", async () => {
+    mockApi.on("get", "/compliance/overview", { compliance_scores: { gdpr: 80, nis2: 65 } });
+    renderKpis([kpi({ source: "compliance_overview", series: "score_avg", format: "percent" })]);
+    expect(await screen.findByText("72.5%")).toBeInTheDocument();
+  });
+
+  it("reports a failed report", async () => {
+    mockApi.fail("get", "/reports/bpm/dashboard", 500);
+    renderKpis([kpi({ source: "bpm_dashboard", series: "without_diagram" })]);
+    expect(await screen.findByText("—")).toBeInTheDocument();
   });
 });
 

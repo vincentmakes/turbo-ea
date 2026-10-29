@@ -102,11 +102,15 @@ Ein Widget behält seine eigene Berechtigung, wo immer es platziert wird: Ein zu
 
 Eine KPI-Kachel zeigt entweder eine der integrierten Kennzahlen (Karten gesamt, Datenqualität, offene Aufgaben usw.) oder eine von Ihnen definierte Zahl:
 
-- **Kartentyp** (optional): Nur Karten eines Typs zählen, optional eingeschränkt auf einen Untertyp, einen Genehmigungsstatus oder eine Lebenszyklusphase.
-- **Messgröße**: **Anzahl** der Karten oder **Summe** bzw. **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds dieses Typs.
+- **Kartentyp** (optional): Nur Karten eines Typs zählen, optional eingeschränkt auf einen Untertyp, einen Genehmigungsstatus, eine Lebenszyklusphase oder die [Filter](#filters) weiter unten.
+- **Messgröße**: **Anzahl** der Karten, **Summe** bzw. **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds dieses Typs oder einer [Kennzahl](#measures) oder ein **Anteil** — die eingegrenzte Anzahl als Prozentsatz derselben Karten ohne die Filter (zum Beispiel der Anteil genehmigter Anwendungen).
 - **Ein Anstieg ist**: **Gut** oder **Schlecht** — legt fest, ob ein Aufwärtstrend grün oder rot dargestellt wird.
+- **Sparkline**: zeichnet die letzten 30 Tageswerte der Kachel unter die Zahl.
+- **Zweite Kennzahl**: zeigt bei einer eingegrenzten Anzahl **von N** (die ungefilterte Anzahl) oder den **Anteil am Gesamten** neben der Zahl.
 
-Eine neue KPI-Kachel erfasst ihren ersten Wert, sobald das Dashboard gespeichert wird; ihr Trend beginnt daher am nächsten Tag. Eine Summe oder ein Durchschnitt eines Kostenfelds wird nur Benutzern angezeigt, die Kosten sehen dürfen.
+Eine neue KPI-Kachel erfasst ihren ersten Wert, sobald das Dashboard gespeichert wird; ihr Trend beginnt daher am nächsten Tag. Eine Summe oder ein Durchschnitt eines Kostenfelds wird nur Benutzern angezeigt, die Kosten sehen dürfen, zählt nur die Karten, die im aktuellen Geschäftsjahr live sind (die Regel des Kostenberichts), und nennt dieses Jahr unter dem Wert.
+
+Kacheln, die aus einem Modulbericht gespeist werden (offene Risiken, überfällige Risiken, Compliance-Score, gefährdete Initiativen, Prozesse ohne Diagramm), erscheinen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen; sie zeigen keinen Trend, weil die Modulberichte keinen Verlauf speichern.
 
 ### Ein Diagramm konfigurieren
 
@@ -121,20 +125,35 @@ Ein Diagramm gruppiert Karten nach einer **Dimension** und misst jede Gruppe mit
 | **Datenqualität** | Datenqualitätsstufe (0–25 %, 25–50 %, …) |
 | **Erstellungsmonat** | Monat, in dem die Karte erstellt wurde |
 | **Ein Feld** | Jedes Einfachauswahl- oder Ja/Nein-Feld des gewählten Kartentyps |
+| **Verknüpfte Karte** | Die Karte am anderen Ende eines Beziehungstyps — Anwendungen pro Organisation, IT-Komponenten pro Anbieter, Kosten pro Geschäftsfähigkeit. Eine Karte, die mit mehreren verknüpften Karten verbunden ist, zählt unter jeder; Karten ohne Verknüpfung fallen unter *Keine*; die zwanzig größten Gruppen bleiben erhalten, der Rest wird unter *Sonstige* zusammengefasst |
+| **EOL-Abdeckung** | Ob eine Anwendung oder IT-Komponente eine endoflife.date-Verknüpfung, ein manuelles Lebensende-Datum oder keines von beidem hat |
+| **Stakeholder** | Ob die Karte mindestens einen Stakeholder hat |
+| **Monat eines Lebenszyklusdatums** | Der Monat, in den ein Lebenszyklusdatum (Planung, Einführung, Aktiv, Auslauf, Lebensende) fällt, über 18 Monate: sechs zurück und elf voraus — ein Lebensende-Kalender oder Inbetriebnahmen pro Monat |
 
-Die Messgröße ist **Anzahl der Karten** oder die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen.
+#### Kennzahlen
+
+Die Messgröße ist **Anzahl der Karten**, die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds oder einer dieser Kennzahlen: die **Beziehungen eines Typs** an jeder Karte (wie viele IT-Komponenten eine Anwendung nutzt), ihr **Datenqualitäts**-Score oder ihr **Alter in Tagen**. **Anteil** zeigt je Gruppe die eingegrenzte Anzahl als Prozentsatz der ungefilterten. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen; Kosten zählen nur die Karten, die im aktuellen Geschäftsjahr live sind, und das Diagramm nennt dieses Jahr.
+
+#### Filter
+
+Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm oder KPI auf Karten eingegrenzt werden, die **verwaist** sind (überhaupt keine Beziehung), **veraltet** (seit 90 Tagen nicht aktualisiert), **mit** oder **ohne Stakeholder**, mit **verknüpftem**, **manuellem** oder **fehlendem** Lebensende oder die eine Beziehung eines bestimmten Typs **haben** oder **nicht haben** — mit denselben Definitionen wie die Filter des Inventars und der Datenqualitätsbericht.
 
 | Diagramm | Am besten für |
 |----------|---------------|
 | **Balken** / **Säulen** | Gruppen vergleichen, horizontal oder vertikal |
+| **Gestapelte Säulen** | Zwei Dimensionen als gestapelte Balken mit Legende — Kartentyp nach Lebenszyklusphase, Fähigkeitsebene nach Genehmigungsstatus |
 | **Linie** | Einen Verlauf über die Zeit, etwa pro Monat erstellte Karten |
 | **Kreis** / **Ring** | Anteile an einem Ganzen |
 | **Tachometer** | Einen Wert gegenüber einem Maximum (ohne Gruppierung) |
 | **Heatmap** | Zwei Dimensionen gleichzeitig — zum Beispiel Lebenszyklusphase gegen Genehmigungsstatus |
 | **Treemap** | Anteile bei vielen Gruppen |
-| **Sankey** | Den Fluss eines Beziehungstyps zwischen den verbundenen Karten |
+| **Sankey** | Den Fluss eines Beziehungstyps zwischen den verbundenen Karten, mit einer Dimension Ihrer Wahl an jedem Ende |
 
-Aktivieren Sie den Klick-Durchgriff, damit Leser das [Inventar](inventory.md) oder den Bericht hinter einem Balken oder Segment öffnen können (Balken-, Säulen-, Linien-, Kreis-, Ring- und Treemap-Diagramme). Eine Vorschau im Dialog zeigt das Diagramm so, wie es erscheinen wird.
+Ein Sankey nimmt einen Beziehungstyp und gruppiert **jedes Ende** für sich: nach Kartentyp, Untertyp, Genehmigungsstatus, Lebenszyklusphase, Datenqualität, einem Feld des Typs dieses Endes oder den **Karten selbst** — Organisation → Anwendung zeigt, welche Organisationen welche Anwendungen nutzen, wobei die zwanzig größten Flüsse erhalten bleiben und der Rest unter *Sonstige* zusammengefasst wird. Ein Klick auf einen Kartenknoten öffnet die Karte.
+
+Diagramme können auch einen Modulbericht darstellen: Risiken nach Stufe oder Status, Compliance-Scores nach Regulierung, Terminplan-Status im PPM und BPM-Reifegrad stehen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen. Tags können noch nicht als Dimension oder Filter verwendet werden.
+
+Aktivieren Sie den Klick-Durchgriff, damit Leser das [Inventar](inventory.md) oder den Bericht hinter einem Balken oder Segment öffnen können (Balken-, Säulen-, gestapelte Säulen-, Linien-, Kreis-, Ring- und Treemap-Diagramme sowie die Kartenknoten eines Sankey). Eine Vorschau im Dialog zeigt das Diagramm so, wie es erscheinen wird.
 
 ### Dashboards verwalten
 

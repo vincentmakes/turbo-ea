@@ -96,6 +96,81 @@ describe("DashboardSourcesProvider", () => {
   });
 });
 
+describe("module sources", () => {
+  const ALL = { bpm: true, ppm: true, grc: true };
+  const MODULE_PATHS = ["/risks/metrics", "/compliance/overview", "/reports/ppm/dashboard", "/reports/bpm/dashboard"];
+
+  function ModuleProbe() {
+    const risks = useDashboardSource("risks_metrics");
+    const ppm = useDashboardSource("ppm_dashboard");
+    return <div data-testid="module-probe">{JSON.stringify({ risks: risks.data ?? null, ppm: ppm.data ?? null })}</div>;
+  }
+  const moduleProbe = () => JSON.parse(screen.getByTestId("module-probe").textContent ?? "{}");
+
+  beforeEach(() => {
+    mockApi.on("get", "/risks/metrics", { total: 4 });
+    mockApi.on("get", "/compliance/overview", { compliance_scores: {} });
+    mockApi.on("get", "/reports/ppm/dashboard", { total_initiatives: 2 });
+    mockApi.on("get", "/reports/bpm/dashboard", { total_processes: 1 });
+  });
+
+  it("fetches a module's report once when a visible widget reads it and the module is on", async () => {
+    renderWithProviders(
+      <DashboardSourcesProvider
+        widgets={[
+          w("kpi", { source: "risks_metrics", series: "open" }),
+          w("chart", { source: "risks_metrics", series: "by_level", chart: "donut" }),
+          w("kpi", { source: "ppm_dashboard", series: "at_risk" }),
+        ]}
+        modules={ALL}
+      >
+        <ModuleProbe />
+      </DashboardSourcesProvider>,
+    );
+    await waitFor(() => expect(moduleProbe()).toEqual({ risks: { total: 4 }, ppm: { total_initiatives: 2 } }));
+    expect(mockApi.callsOf("get", "/risks/metrics")).toHaveLength(1);
+    expect(mockApi.callsOf("get", "/reports/ppm/dashboard")).toHaveLength(1);
+    expect(mockApi.callsOf("get", "/compliance/overview")).toHaveLength(0);
+    expect(mockApi.callsOf("get", "/reports/bpm/dashboard")).toHaveLength(0);
+  });
+
+  it("never fetches a module's report while the module is off — the default", async () => {
+    const widgets = [
+      w("kpi", { source: "risks_metrics", series: "open" }),
+      w("kpi", { source: "ppm_dashboard", series: "at_risk" }),
+      w("my_created"),
+    ];
+    const { unmount } = renderWithProviders(
+      <DashboardSourcesProvider widgets={widgets}>
+        <Probe />
+      </DashboardSourcesProvider>,
+    );
+    await waitFor(() => expect(probe().workspace).toEqual({ favorite_count: 2 }));
+    unmount();
+    renderWithProviders(
+      <DashboardSourcesProvider widgets={widgets} modules={{ bpm: true, ppm: false, grc: false }}>
+        <Probe />
+      </DashboardSourcesProvider>,
+    );
+    await waitFor(() => expect(probe().workspace).toEqual({ favorite_count: 2 }));
+    for (const p of MODULE_PATHS) expect(mockApi.callsOf("get", p), p).toHaveLength(0);
+  });
+
+  it("never fetches a module's report the viewer may not read", async () => {
+    renderWithProviders(
+      <DashboardSourcesProvider
+        widgets={[w("kpi", { source: "risks_metrics", series: "open" }), w("my_created")]}
+        modules={ALL}
+      >
+        <Probe />
+      </DashboardSourcesProvider>,
+      { user: userWith() },
+    );
+    await waitFor(() => expect(probe().workspace).toEqual({ favorite_count: 2 }));
+    expect(mockApi.callsOf("get", "/risks/metrics")).toHaveLength(0);
+  });
+});
+
 describe("useDashboardSource outside a provider", () => {
   it("fetches the source itself", async () => {
     function Lone() {

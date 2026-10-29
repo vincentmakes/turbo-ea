@@ -8,30 +8,55 @@ them (only ACTIVE cards, no hidden type, the read scope, each dimension).
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.models.stakeholder import Stakeholder
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
+    OTHER_KEY,
     DashboardQuery,
     DashboardQueryError,
+    RelationSide,
+    ResolvedQuery,
+    age_days,
     aggregate,
+    base_query,
+    canonical_flags,
     data_quality_bucket,
     dimension_domain,
     dimension_key,
+    eol_coverage_key,
     find_field,
+    flags_problem,
+    fold_flows,
+    fold_keyed,
+    fold_rows,
+    is_card_keyed,
     is_dimension,
+    is_narrowed,
     last_months,
     lifecycle_key,
+    measure_value,
     metric_key,
     month_key,
     numeric_value,
     order_keys,
+    percent,
+    phase_month_key,
+    phase_months,
     query_problem,
+    relation_specs,
     resolve_query,
+    resolve_side,
     result_shape,
+    row_keys,
     run_query,
+    share_rows,
+    split_side,
     tidy_number,
     value_key,
 )
@@ -40,6 +65,7 @@ from tests.conftest import (
     create_card_type,
     create_relation,
     create_relation_type,
+    create_user,
 )
 
 Q = DashboardQuery
@@ -75,6 +101,112 @@ class TestMetricKey:
     def test_a_space_is_encoded_as_plus(self):
         assert metric_key(Q(approval_status="A B")) == "approval_status=A+B"
 
+    def test_flags_the_frontend_mirrors(self):
+        # Sorted, comma-joined, then URL-encoded like every other value.
+        query = Q(card_type="Application", flags="stale,orphaned")
+        assert metric_key(query) == "card_type=Application&flags=orphaned%2Cstale"
+
+    def test_relation_dimensions_flags_and_measures(self):
+        query = Q(
+            card_type="Application",
+            group_by="related:relAppToITC",
+            flags="related:relAppToITC__out,eol_missing",
+        )
+        assert metric_key(query) == (
+            "card_type=Application&flags=eol_missing%2Crelated%3ArelAppToITC__out"
+            "&group_by=related%3ArelAppToITC"
+        )
+        query = Q(card_type="Application", metric="sum", metric_field="@relations:relAppToITC")
+        assert metric_key(query) == (
+            "card_type=Application&metric=sum&metric_field=%40relations%3ArelAppToITC"
+        )
+
+    def test_a_share_keeps_its_metric(self):
+        query = Q(card_type="Application", metric="share", approval_status="APPROVED")
+        assert metric_key(query) == "approval_status=APPROVED&card_type=Application&metric=share"
+
+    def test_a_stored_widget_without_new_fields_keeps_its_key(self):
+        stored = {"card_type": "Application", "group_by": "approval_status", "metric": "count"}
+        assert metric_key(Q.model_validate(stored)) == (
+            "card_type=Application&group_by=approval_status"
+        )
+
+
+class TestFlags:
+    def test_canonical_flags(self):
+        assert canonical_flags(" stale ,orphaned,,stale") == "orphaned,stale"
+        assert canonical_flags("b,a,c") == "a,b,c"
+        assert canonical_flags(" , ") is None
+        assert canonical_flags("") is None
+        assert canonical_flags(None) is None
+
+    def test_the_query_canonicalises_on_validation(self):
+        assert Q(flags="stale, orphaned").flags == "orphaned,stale"
+        assert Q(flags=",").flags is None
+        assert Q.model_validate({"flags": "eol_missing,eol_missing"}).flags == "eol_missing"
+        assert Q(flags="x" * 300).flags == "x" * 300
+        with pytest.raises(ValidationError):
+            Q(flags="x" * 301)
+
+    @pytest.mark.parametrize(
+        ("flags", "problem"),
+        [
+            (None, None),
+            ("orphaned,stale,with_stakeholders,eol_manual", None),
+            ("without_stakeholders,eol_linked", None),
+            ("eol_missing", None),
+            ("bogus", "unknown_flag"),
+            ("stale,bogus", "unknown_flag"),
+            ("related:", "unknown_flag"),
+            ("unrelated:", "unknown_flag"),
+            ("Stale", "unknown_flag"),
+            ("with_stakeholders,without_stakeholders", "flags_conflict"),
+            ("eol_linked,eol_missing", "flags_conflict"),
+            ("eol_linked,eol_manual", "flags_conflict"),
+            ("eol_manual,eol_missing", "flags_conflict"),
+            ("related:r,unrelated:r", "flags_conflict"),
+            ("related:r__in,unrelated:r__out", None),
+            ("related:r,unrelated:s", None),
+            ("related:r,related:s", None),
+        ],
+    )
+    def test_flags_problem(self, flags, problem):
+        assert flags_problem(canonical_flags(flags)) == problem
+
+    def test_relation_specs(self):
+        query = Q(
+            card_type="A",
+            group_by="related:r",
+            group_by_2="related:s__in",
+            metric="sum",
+            metric_field="@relations:t",
+            flags="unrelated:u,related:v,stale",
+        )
+        # The flags are canonical (sorted) by then: related:v before unrelated:u.
+        assert relation_specs(query) == ["r", "s__in", "t", "v", "u"]
+        assert relation_specs(Q(card_type="A", group_by="type")) == []
+
+    def test_narrowing_and_the_base_query(self):
+        assert not is_narrowed(Q(card_type="A", group_by="type"))
+        assert is_narrowed(Q(approval_status="APPROVED"))
+        assert is_narrowed(Q(lifecycle_phase="active"))
+        assert is_narrowed(Q(flags="stale"))
+        query = Q(
+            card_type="A",
+            group_by="type",
+            metric="share",
+            approval_status="APPROVED",
+            lifecycle_phase="active",
+            flags="stale",
+            subtype="saas",
+        )
+        assert base_query(query).model_dump(exclude_none=True) == {
+            "card_type": "A",
+            "group_by": "type",
+            "metric": "count",
+            "subtype": "saas",
+        }
+
 
 # ── query_problem ────────────────────────────────────────────────────────
 
@@ -90,6 +222,23 @@ class TestQueryProblem:
         assert is_dimension("field:x")
         assert not is_dimension("field:")
         assert not is_dimension("name")
+        assert is_dimension("eol_coverage")
+        assert is_dimension("stakeholders")
+        assert is_dimension("card")
+        assert is_dimension("related:r")
+        assert is_dimension("related:r__in")
+        assert not is_dimension("related:")
+        for phase in ("plan", "phaseIn", "active", "phaseOut", "endOfLife"):
+            assert is_dimension(f"phase_month:{phase}")
+        assert not is_dimension("phase_month:none")
+        assert not is_dimension("phase_month:")
+
+    def test_is_card_keyed(self):
+        assert is_card_keyed("card")
+        assert is_card_keyed("related:r")
+        assert not is_card_keyed("related:")
+        assert not is_card_keyed("type")
+        assert not is_card_keyed(None)
 
     @pytest.mark.parametrize(
         ("query", "code"),
@@ -108,6 +257,30 @@ class TestQueryProblem:
             (Q(group_by="type", group_by_2="field:x"), "card_type_required"),
             (Q(metric="avg", metric_field="cost"), "card_type_required"),
             (Q(subtype="saas"), "card_type_required"),
+            (Q(group_by="phase_month:retired"), "unknown_phase"),
+            (Q(group_by="type", group_by_2="phase_month:"), "unknown_phase"),
+            (Q(group_by="related:"), "unknown_dimension"),
+            (Q(group_by="card"), "card_dimension_needs_relation"),
+            (Q(group_by="type", group_by_2="card"), "card_dimension_needs_relation"),
+            (Q(group_by="card", group_by_2="subtype"), "card_dimension_needs_relation"),
+            (Q(group_by="related:r"), "related_needs_card_type"),
+            (Q(flags="related:r"), "related_needs_card_type"),
+            (Q(flags="unrelated:r__in"), "related_needs_card_type"),
+            (Q(metric="sum", metric_field="@relations:r"), "related_needs_card_type"),
+            (Q(relation_type="r", group_by="related:x"), "relation_type_conflict"),
+            (Q(relation_type="r", flags="related:x"), "relation_type_conflict"),
+            (Q(relation_type="r", metric="share", flags="stale"), "relation_type_conflict"),
+            (Q(metric="share"), "share_needs_filter"),
+            (Q(card_type="A", metric="share", group_by="type"), "share_needs_filter"),
+            (Q(card_type="A", metric="share", metric_field="c", flags="x"), "metric_field_unused"),
+            (Q(metric="count", metric_field="@data_quality"), "metric_field_unused"),
+            (Q(metric="sum", metric_field="@bogus"), "unknown_field"),
+            (Q(metric="sum", metric_field="@relations:"), "unknown_field"),
+            (Q(metric="avg", metric_field="@"), "unknown_field"),
+            (Q(flags="bogus"), "unknown_flag"),
+            (Q(flags="eol_linked,eol_missing"), "flags_conflict"),
+            (Q(card_type="A", flags="related:r,unrelated:r"), "flags_conflict"),
+            (Q(metric="share", flags="bogus"), "unknown_flag"),
             (
                 Q(
                     card_type="A" * 100,
@@ -131,6 +304,30 @@ class TestQueryProblem:
     def test_a_sankey_takes_side_dimensions_without_a_card_type(self):
         assert query_problem(Q(relation_type="r", group_by="subtype")) is None
         assert query_problem(Q(relation_type="r", group_by_2="field:x")) is None
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            Q(relation_type="r", group_by="card", group_by_2="card"),
+            Q(relation_type="r", group_by="card", flags="stale,with_stakeholders"),
+            Q(relation_type="r", group_by="eol_coverage", group_by_2="phase_month:active"),
+            Q(group_by="eol_coverage"),
+            Q(group_by="stakeholders", group_by_2="type"),
+            Q(group_by="phase_month:endOfLife"),
+            Q(card_type="A", group_by="related:r"),
+            Q(card_type="A", group_by="related:r__out", group_by_2="related:s"),
+            Q(card_type="A", flags="related:r__in,unrelated:r__out"),
+            Q(card_type="A", metric="sum", metric_field="@relations:r"),
+            Q(metric="avg", metric_field="@data_quality"),
+            Q(metric="sum", metric_field="@age_days", group_by="type"),
+            Q(metric="share", approval_status="APPROVED"),
+            Q(metric="share", lifecycle_phase="active", group_by="type"),
+            Q(metric="share", flags="orphaned"),
+            Q(flags="orphaned,stale,without_stakeholders,eol_missing"),
+        ],
+    )
+    def test_the_new_shapes_are_fine(self, query):
+        assert query_problem(query) is None
 
 
 # ── the arithmetic ───────────────────────────────────────────────────────
@@ -316,6 +513,277 @@ class TestResultShape:
         both = Q(group_by="type", group_by_2="approval_status")
         assert result_shape(ResolvedQuery(query=both)) == "grid"
         assert result_shape(ResolvedQuery(query=Q(), relation=object())) == "flow"  # type: ignore[arg-type]
+
+
+class TestNewPureHelpers:
+    def test_phase_months_is_six_back_and_eleven_ahead(self):
+        assert phase_months(date(2026, 10, 29)) == [
+            "2026-04",
+            "2026-05",
+            "2026-06",
+            "2026-07",
+            "2026-08",
+            "2026-09",
+            "2026-10",
+            "2026-11",
+            "2026-12",
+            "2027-01",
+            "2027-02",
+            "2027-03",
+            "2027-04",
+            "2027-05",
+            "2027-06",
+            "2027-07",
+            "2027-08",
+            "2027-09",
+        ]
+
+    def test_phase_months_crosses_years_both_ways(self):
+        months = phase_months(date(2026, 1, 1))
+        assert len(months) == 18
+        assert months[0] == "2025-07"
+        assert months[6] == "2026-01"
+        assert months[-1] == "2026-12"
+        assert phase_months(date(2026, 12, 31))[-1] == "2027-11"
+
+    def test_phase_month_key(self):
+        window = phase_months(date(2026, 10, 29))
+        assert phase_month_key({"active": "2026-11-03"}, "active", window) == "2026-11"
+        assert phase_month_key({"active": "2026-04-01T08:00:00"}, "active", window) == "2026-04"
+        assert phase_month_key({"active": "2026-03-31"}, "active", window) is None
+        assert phase_month_key({"active": "2027-10-01"}, "active", window) is None
+        assert phase_month_key({"active": "2027-09-30"}, "active", window) == "2027-09"
+        assert phase_month_key({"plan": "2026-11-03"}, "active", window) is None
+        assert phase_month_key({"active": "soon"}, "active", window) is None
+        assert phase_month_key(None, "active", window) is None
+        assert phase_month_key(["2026-11-03"], "active", window) is None
+
+    def test_eol_coverage_key(self):
+        link = {"eol_product": "nginx", "eol_cycle": "1.25"}
+        assert eol_coverage_key(["Application", link, {}]) == "linked"
+        assert eol_coverage_key(["ITComponent", link, {"endOfLife": "2027-01-01"}]) == "linked"
+        assert (
+            eol_coverage_key(["ITComponent", {"eol_product": "x"}, {"endOfLife": "2027-01-01"}])
+            == "manual"
+        )
+        assert eol_coverage_key(["ITComponent", {}, {}]) == "missing"
+        assert eol_coverage_key(["ITComponent", None, None]) == "missing"
+        assert eol_coverage_key(["ITComponent", ["x"], ["y"]]) == "missing"
+        assert eol_coverage_key(["Organization", link, {}]) is None
+        assert eol_coverage_key(None) is None
+        assert eol_coverage_key(["ITComponent", {}]) is None
+
+    def test_age_days(self):
+        today = date(2026, 10, 29)
+        assert age_days(datetime(2026, 10, 1, 23, 30, tzinfo=timezone.utc), today) == 28
+        assert age_days(datetime(2026, 10, 29, 0, 0, tzinfo=timezone.utc), today) == 0
+        # Read in UTC: 01:00 on the 2nd at +02:00 is 23:00 on the 1st in UTC.
+        plus_two = timezone(timedelta(hours=2))
+        assert age_days(datetime(2026, 10, 2, 1, 0, tzinfo=plus_two), today) == 28
+        assert age_days(datetime(2026, 10, 2, 1, 0), today) == 27
+        assert age_days(None, today) is None
+        assert age_days("2026-10-01", today) is None
+
+    def test_measure_value(self):
+        today = date(2026, 10, 29)
+        created = datetime(2026, 10, 19, tzinfo=timezone.utc)
+        assert measure_value("@age_days", created, today) == 10
+        assert measure_value("@data_quality", 55.5, today) == 55.5
+        assert measure_value("cost", "12", today) == "12"
+        assert measure_value(None, 3, today) is None
+
+    def test_new_dimension_keys(self):
+        window = phase_months(date(2026, 10, 29))
+        assert dimension_key("eol_coverage", ["ITComponent", {}, {}], [], window) == "missing"
+        assert dimension_key("eol_coverage", ["Organization", {}, {}], [], window) is None
+        assert dimension_key("stakeholders", True, []) == "true"
+        assert dimension_key("stakeholders", False, []) == "false"
+        assert dimension_key("card", "abc", []) == "abc"
+        assert dimension_key("related:r", None, []) == "none"
+        lifecycle = {"phaseOut": "2027-02-14"}
+        assert dimension_key("phase_month:phaseOut", lifecycle, [], window) == "2027-02"
+        assert dimension_key("phase_month:phaseOut", lifecycle, []) is None
+
+    def test_new_dimension_domains(self):
+        window = ["2026-10", "2026-11"]
+        assert dimension_domain("eol_coverage", None, []) == ["linked", "manual", "missing"]
+        assert dimension_domain("stakeholders", None, []) == ["true", "false"]
+        assert dimension_domain("phase_month:active", None, [], window) == window
+        assert dimension_domain("related:r", None, [], window) == []
+        assert dimension_domain("card", None, [], window) == []
+
+    def test_percent(self):
+        assert percent(1, 3) == 33.33
+        assert percent(2, 2) == 100
+        assert isinstance(percent(2, 2), int)
+        assert percent(0, 5) == 0
+        assert percent(3, 0) == 0
+        assert percent(1, 8) == 12.5
+
+    def test_share_rows_keyed(self):
+        full = [{"key": "a", "value": 1}, {"key": "c", "value": 2}]
+        base = [{"key": "a", "value": 4}, {"key": "b", "value": 0}, {"key": "c", "value": 3}]
+        rows, total = share_rows(full, base, 3, 7)
+        assert rows == [
+            {"key": "a", "value": 25},
+            {"key": "b", "value": 0},
+            {"key": "c", "value": 66.67},
+        ]
+        assert total == 42.86
+        assert share_rows([], [], 0, 0) == ([], 0)
+
+    def test_share_rows_grid_matches_both_axes(self):
+        full = [{"x": "a", "y": "p", "value": 1}]
+        base = [{"x": "a", "y": "p", "value": 2}, {"x": "a", "y": "q", "value": 2}]
+        rows, total = share_rows(full, base, 1, 4)
+        assert rows == [{"x": "a", "y": "p", "value": 50}, {"x": "a", "y": "q", "value": 0}]
+        assert total == 25
+
+    def test_fold_keyed(self):
+        rows = [
+            {"key": "a", "value": 5},
+            {"key": "none", "value": 4},
+            {"key": "c", "value": 3},
+            {"key": "b", "value": 3},
+            {"key": "d", "value": 1.5},
+        ]
+        # Ties go to the smaller key; ``none`` is never folded nor counted.
+        assert fold_keyed(rows, 2) == [
+            {"key": "a", "value": 5},
+            {"key": "none", "value": 4},
+            {"key": "b", "value": 3},
+            {"key": OTHER_KEY, "value": 4.5},
+        ]
+        assert fold_keyed(rows, 2, merge=False) == [
+            {"key": "a", "value": 5},
+            {"key": "none", "value": 4},
+            {"key": "b", "value": 3},
+        ]
+        assert fold_keyed(rows, 4) == rows
+        assert fold_keyed(rows, 3)[-1] == {"key": OTHER_KEY, "value": 1.5}
+        assert fold_keyed([], 1) == []
+
+    def test_fold_flows(self):
+        rows = [
+            {"source": "s1", "target": "t1", "value": 3},
+            {"source": "s2", "target": "t1", "value": 2},
+            {"source": "s3", "target": "t2", "value": 2},
+            {"source": "s2", "target": "t2", "value": 1},
+        ]
+        # Sources: s1 = 3, s2 = 3, s3 = 2 → keep s1 (tie by key); targets t1.
+        # Re-sorted like ``aggregate``: largest first, then by source, target.
+        assert fold_flows(rows, 1) == [
+            {"source": OTHER_KEY, "target": OTHER_KEY, "value": 3},
+            {"source": "s1", "target": "t1", "value": 3},
+            {"source": OTHER_KEY, "target": "t1", "value": 2},
+        ]
+        # Only the source side is card-keyed: targets stay as they are.
+        assert fold_flows(rows, 2, sides=["source"]) == [
+            {"source": "s1", "target": "t1", "value": 3},
+            {"source": OTHER_KEY, "target": "t2", "value": 2},
+            {"source": "s2", "target": "t1", "value": 2},
+            {"source": "s2", "target": "t2", "value": 1},
+        ]
+        assert fold_flows(rows, 2, sides=["target"]) == rows
+        assert fold_flows(rows, 3, sides=[]) == rows
+
+    def test_fold_rows_only_folds_card_keyed_results(self):
+        keyed = [{"key": "a", "value": 2}, {"key": "b", "value": 1}]
+        related = ResolvedQuery(query=Q(card_type="A", group_by="related:r"))
+        assert fold_rows(keyed, related, 1) == [
+            {"key": "a", "value": 2},
+            {"key": OTHER_KEY, "value": 1},
+        ]
+        averaged = ResolvedQuery(
+            query=Q(card_type="A", group_by="related:r", metric="avg", metric_field="x")
+        )
+        assert fold_rows(keyed, averaged, 1) == [{"key": "a", "value": 2}]
+        summed = ResolvedQuery(
+            query=Q(card_type="A", group_by="related:r", metric="sum", metric_field="x")
+        )
+        assert fold_rows(keyed, summed, 1)[-1] == {"key": OTHER_KEY, "value": 1}
+        by_type = ResolvedQuery(query=Q(group_by="type"))
+        assert fold_rows(keyed, by_type, 1) == keyed
+        flows = [
+            {"source": "a", "target": "x", "value": 2},
+            {"source": "b", "target": "y", "value": 1},
+        ]
+        rel = object()
+        cards = ResolvedQuery(query=Q(group_by="card"), relation=rel)  # type: ignore[arg-type]
+        assert fold_rows(flows, cards, 1) == [
+            {"source": "a", "target": "x", "value": 2},
+            {"source": OTHER_KEY, "target": "y", "value": 1},
+        ]
+        targets = ResolvedQuery(query=Q(group_by_2="card"), relation=rel)  # type: ignore[arg-type]
+        assert fold_rows(flows, targets, 1)[-1] == {
+            "source": "b",
+            "target": OTHER_KEY,
+            "value": 1,
+        }
+        types = ResolvedQuery(query=Q(), relation=rel)  # type: ignore[arg-type]
+        assert fold_rows(flows, types, 1) == flows
+
+    def test_row_keys(self):
+        rows = [{"key": "a", "value": 1}, {"source": "b", "target": "c", "value": 1}]
+        assert row_keys(rows) == {"a", "b", "c"}
+        assert row_keys([{"x": 1, "y": "d", "value": 2}]) == {"1", "d"}
+
+    def test_split_side(self):
+        assert split_side("rel__out") == ("rel", "out")
+        assert split_side("rel__in") == ("rel", "in")
+        assert split_side("rel") == ("rel", None)
+        assert split_side("rel__up") == ("rel__up", None)
+        assert split_side("__out") == ("__out", None)
+        assert split_side("a__b__in") == ("a__b", "in")
+
+
+def _rt(source, target, hidden=False):
+    return SimpleNamespace(source_type_key=source, target_type_key=target, is_hidden=hidden)
+
+
+class TestResolveSide:
+    RTS = {
+        "appToIt": _rt("Application", "ITComponent"),
+        "dependsOn": _rt("Application", "Application"),
+        "hidden": _rt("Application", "ITComponent", hidden=True),
+        "odd__out": _rt("Application", "ITComponent"),
+    }
+
+    def _side(self, spec, card_type="Application", code="unknown_dimension"):
+        return resolve_side(spec, card_type, self.RTS, bad_suffix=code)
+
+    def test_a_cross_type_relation_by_its_bare_key(self):
+        assert self._side("appToIt") == RelationSide("appToIt", True)
+        assert self._side("appToIt", "ITComponent") == RelationSide("appToIt", False)
+        # A key that merely looks suffixed is still a bare key.
+        assert self._side("odd__out") == RelationSide("odd__out", True)
+
+    def test_a_self_referencing_relation_by_side(self):
+        assert self._side("dependsOn__out") == RelationSide("dependsOn", True)
+        assert self._side("dependsOn__in") == RelationSide("dependsOn", False)
+
+    @pytest.mark.parametrize(
+        ("spec", "card_type", "code"),
+        [
+            ("dependsOn", "Application", "relation_side_required"),
+            ("appToIt__out", "Application", "unknown_dimension"),
+            ("appToIt__in", "ITComponent", "unknown_dimension"),
+            ("nope", "Application", "unknown_relation_type"),
+            ("hidden", "Application", "unknown_relation_type"),
+            ("appToIt", "Organization", "unknown_relation_type"),
+            ("dependsOn__out", "ITComponent", "unknown_relation_type"),
+        ],
+    )
+    def test_refusals(self, spec, card_type, code):
+        with pytest.raises(DashboardQueryError) as exc:
+            self._side(spec, card_type)
+        assert exc.value.code == code
+
+    def test_the_context_names_its_own_suffix_code(self):
+        for code in ("unknown_flag", "unknown_field"):
+            with pytest.raises(DashboardQueryError) as exc:
+                self._side("appToIt__out", code=code)
+            assert exc.value.code == code
 
 
 # ── against the database ─────────────────────────────────────────────────
@@ -510,6 +978,399 @@ class TestRunQuery:
         assert (await _run(db, scope, relation_type="appToIt"))["total"] == 0
 
 
+RESTRICTED_NO_IT = CardReadScope(
+    role_key="r",
+    wildcard=False,
+    base_view=True,
+    denied_types=frozenset({"ITComponent"}),
+    allowed_types=frozenset(),
+    stakeholder_card_ids=frozenset(),
+)
+
+
+async def _add_it2(db, landscape):
+    """A second IT component that only A1 uses: A1 now has two related cards."""
+    it2 = await create_card(db, card_type="ITComponent", name="IT2")
+    await create_relation(db, type_key="appToIt", source_id=landscape["a1"].id, target_id=it2.id)
+    return it2
+
+
+def _flow_set(rows):
+    return {(r["source"], r["target"], r["value"]) for r in rows}
+
+
+class TestRelatedCards:
+    async def test_rows_labels_and_an_unduplicated_total(self, db, landscape):
+        it1, it2 = landscape["it"], await _add_it2(db, landscape)
+        result = await _run(db, card_type="Application", group_by="related:appToIt")
+        assert result == {
+            "dimension": "related:appToIt",
+            "dimension_2": None,
+            "rows": [
+                {"key": str(it1.id), "value": 2},
+                {"key": str(it2.id), "value": 1},
+                {"key": "none", "value": 1},
+            ],
+            # A1 sits under both IT components but is one card.
+            "total": 3,
+            "labels": {str(it1.id): "IT1", str(it2.id): "IT2"},
+        }
+
+    async def test_a_sum_counts_each_card_once_in_the_total(self, db, landscape):
+        it1, it2 = landscape["it"], await _add_it2(db, landscape)
+        result = await _run(
+            db,
+            card_type="Application",
+            group_by="related:appToIt",
+            metric="sum",
+            metric_field="cost",
+        )
+        assert result["rows"] == [
+            {"key": str(it1.id), "value": 150},
+            {"key": str(it2.id), "value": 100},
+            {"key": "none", "value": 0},
+        ]
+        assert result["total"] == 150
+
+    async def test_the_target_end_reads_its_sources(self, db, landscape):
+        await _add_it2(db, landscape)
+        a1, a2 = landscape["a1"], landscape["a2"]
+        result = await _run(db, card_type="ITComponent", group_by="related:appToIt")
+        assert result["rows"] == [{"key": str(a1.id), "value": 2}, {"key": str(a2.id), "value": 1}]
+        assert result["total"] == 2
+        assert result["labels"] == {str(a1.id): "A1", str(a2.id): "A2"}
+
+    async def test_an_unreadable_related_card_leaves_the_card_in_none(self, db, landscape):
+        it2 = await _add_it2(db, landscape)
+        result = await _run(
+            db, RESTRICTED_NO_IT, card_type="Application", group_by="related:appToIt"
+        )
+        assert result["rows"] == [{"key": "none", "value": 3}]
+        assert result["total"] == 3
+        assert result["labels"] == {}
+        text = repr(result)
+        for hidden in (landscape["it"], it2):
+            assert str(hidden.id) not in text
+            assert hidden.name not in text
+
+    async def test_an_archived_related_card_does_not_count(self, db, landscape):
+        it2 = await _add_it2(db, landscape)
+        it2.status = "ARCHIVED"
+        await db.flush()
+        result = await _run(db, card_type="Application", group_by="related:appToIt")
+        assert result["rows"] == [
+            {"key": str(landscape["it"].id), "value": 2},
+            {"key": "none", "value": 1},
+        ]
+        assert result["labels"] == {str(landscape["it"].id): "IT1"}
+
+    async def test_top_folds_the_smaller_cards(self, db, landscape):
+        it1 = landscape["it"]
+        await _add_it2(db, landscape)
+        resolved = await resolve_query(db, Q(card_type="Application", group_by="related:appToIt"))
+        result = await run_query(db, resolved, CardReadScope.everything(), top=1)
+        assert result["rows"] == [
+            {"key": str(it1.id), "value": 2},
+            {"key": "none", "value": 1},
+            {"key": OTHER_KEY, "value": 1},
+        ]
+        assert result["labels"] == {str(it1.id): "IT1"}
+        assert result["total"] == 3
+
+    async def test_a_heatmap_with_a_related_axis_is_labelled(self, db, landscape):
+        it1 = landscape["it"]
+        result = await _run(
+            db, card_type="Application", group_by="approval_status", group_by_2="related:appToIt"
+        )
+        assert result["rows"] == [
+            {"x": "APPROVED", "y": str(it1.id), "value": 1},
+            {"x": "BROKEN", "y": "none", "value": 1},
+            {"x": "DRAFT", "y": str(it1.id), "value": 1},
+        ]
+        assert result["labels"] == {str(it1.id): "IT1"}
+
+    async def test_a_plain_dimension_has_no_labels(self, db, landscape):
+        assert "labels" not in await _run(db, group_by="type")
+        assert "labels" not in await _run(db, relation_type="appToIt")
+
+
+class TestSankeyCards:
+    async def test_card_on_both_ends(self, db, landscape):
+        a1, a2, it1 = landscape["a1"], landscape["a2"], landscape["it"]
+        it2 = await _add_it2(db, landscape)
+        result = await _run(db, relation_type="appToIt", group_by="card", group_by_2="card")
+        assert result["dimension"] == "card"
+        assert result["dimension_2"] == "card"
+        assert _flow_set(result["rows"]) == {
+            (str(a1.id), str(it1.id), 1),
+            (str(a1.id), str(it2.id), 1),
+            (str(a2.id), str(it1.id), 1),
+        }
+        assert result["total"] == 3
+        assert result["labels"] == {
+            str(a1.id): "A1",
+            str(a2.id): "A2",
+            str(it1.id): "IT1",
+            str(it2.id): "IT2",
+        }
+
+    async def test_top_folds_each_card_end(self, db, landscape):
+        a1, it1 = landscape["a1"], landscape["it"]
+        await _add_it2(db, landscape)
+        resolved = await resolve_query(
+            db, Q(relation_type="appToIt", group_by="card", group_by_2="card")
+        )
+        result = await run_query(db, resolved, CardReadScope.everything(), top=1)
+        assert _flow_set(result["rows"]) == {
+            (str(a1.id), str(it1.id), 1),
+            (str(a1.id), OTHER_KEY, 1),
+            (OTHER_KEY, str(it1.id), 1),
+        }
+        assert result["labels"] == {str(a1.id): "A1", str(it1.id): "IT1"}
+        assert result["total"] == 3
+
+    async def test_a_type_end_is_never_folded_nor_labelled(self, db, landscape):
+        a1, a2 = landscape["a1"], landscape["a2"]
+        await _add_it2(db, landscape)
+        resolved = await resolve_query(db, Q(relation_type="appToIt", group_by="card"))
+        result = await run_query(db, resolved, CardReadScope.everything(), top=1)
+        assert result["rows"] == [
+            {"source": str(a1.id), "target": "ITComponent", "value": 2},
+            {"source": OTHER_KEY, "target": "ITComponent", "value": 1},
+        ]
+        assert result["labels"] == {str(a1.id): "A1"}
+        unfolded = await run_query(db, resolved, CardReadScope.everything())
+        assert unfolded["labels"] == {str(a1.id): "A1", str(a2.id): "A2"}
+
+    async def test_a_restricted_reader_sees_no_pair_with_a_hidden_end(self, db, landscape):
+        result = await _run(
+            db, RESTRICTED_NO_IT, relation_type="appToIt", group_by="card", group_by_2="card"
+        )
+        assert result["rows"] == []
+        assert result["labels"] == {}
+
+    async def test_flags_hold_for_both_ends(self, db, landscape):
+        # IT1 has no stakeholder, so no pair survives "with stakeholders".
+        assert (await _run(db, relation_type="appToIt", flags="without_stakeholders"))["total"] == 2
+        assert (await _run(db, relation_type="appToIt", flags="with_stakeholders"))["total"] == 0
+
+
+class TestMeasures:
+    async def test_relations_counts_the_cards_side(self, db, landscape):
+        await _add_it2(db, landscape)
+        result = await _run(
+            db,
+            card_type="Application",
+            metric="sum",
+            metric_field="@relations:appToIt",
+            group_by="field:criticality",
+        )
+        assert result["rows"] == [{"key": "low", "value": 0}, {"key": "high", "value": 3}]
+        assert result["total"] == 3
+        avg = await _run(
+            db, card_type="Application", metric="avg", metric_field="@relations:appToIt"
+        )
+        assert avg["total"] == 1
+        target = await _run(
+            db, card_type="ITComponent", metric="sum", metric_field="@relations:appToIt"
+        )
+        assert target["total"] == 3
+
+    async def test_relations_skip_an_unreadable_other_end(self, db, landscape):
+        result = await _run(
+            db,
+            RESTRICTED_NO_IT,
+            card_type="Application",
+            metric="sum",
+            metric_field="@relations:appToIt",
+        )
+        assert result["total"] == 0
+
+    async def test_relations_on_a_self_referencing_type(self, db, landscape):
+        await create_relation_type(
+            db,
+            key="dependsOn",
+            label="depends on",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
+        a1, a2 = landscape["a1"], landscape["a2"]
+        await create_relation(db, type_key="dependsOn", source_id=a1.id, target_id=a2.id)
+        out = await _run(
+            db,
+            card_type="Application",
+            metric="sum",
+            metric_field="@relations:dependsOn__out",
+            group_by="approval_status",
+        )
+        assert out["rows"] == [
+            {"key": "APPROVED", "value": 1},
+            {"key": "BROKEN", "value": 0},
+            {"key": "DRAFT", "value": 0},
+        ]
+        inbound = await _run(
+            db,
+            card_type="Application",
+            metric="sum",
+            metric_field="@relations:dependsOn__in",
+            group_by="approval_status",
+        )
+        assert inbound["rows"][0] == {"key": "DRAFT", "value": 1}
+        related = await _run(db, card_type="Application", group_by="related:dependsOn__in")
+        assert related["rows"] == [{"key": "none", "value": 2}, {"key": str(a1.id), "value": 1}]
+        assert related["labels"] == {str(a1.id): "A1"}
+
+    async def test_data_quality(self, db, landscape):
+        avg = await _run(db, card_type="Application", metric="avg", metric_field="@data_quality")
+        assert avg["total"] == 40
+        everywhere = await _run(db, metric="avg", metric_field="@data_quality")
+        assert everywhere["total"] == 45
+        total = await _run(db, metric="sum", metric_field="@data_quality", group_by="type")
+        assert total["rows"] == [
+            {"key": "Application", "value": 120},
+            {"key": "ITComponent", "value": 60},
+        ]
+
+    async def test_age_days(self, db, landscape):
+        now = datetime.now(timezone.utc)
+        for name, days in (("a1", 10), ("a2", 20), ("it", 33)):
+            landscape[name].created_at = now - timedelta(days=days)
+        await db.flush()
+        result = await _run(
+            db,
+            metric="avg",
+            metric_field="@age_days",
+            group_by="type",
+            approval_status="DRAFT",
+        )
+        assert result["rows"] == [
+            {"key": "ITComponent", "value": 33},
+            {"key": "Application", "value": 20},
+        ]
+        assert result["total"] == 26.5
+
+
+class TestFlagsAndShares:
+    async def test_relation_flags(self, db, landscape):
+        assert (await _run(db, card_type="Application", flags="related:appToIt"))["total"] == 2
+        assert (await _run(db, card_type="Application", flags="unrelated:appToIt"))["total"] == 1
+        assert (await _run(db, card_type="ITComponent", flags="related:appToIt"))["total"] == 1
+        hidden = await _run(db, RESTRICTED_NO_IT, card_type="Application", flags="related:appToIt")
+        assert hidden["total"] == 0
+
+    async def test_health_flags(self, db, landscape):
+        landscape["a2"].updated_at = datetime.now(timezone.utc) - timedelta(days=200)
+        await db.flush()
+        assert (await _run(db, flags="stale"))["total"] == 1
+        assert (await _run(db, flags="orphaned", group_by="type"))["rows"] == [
+            {"key": "Application", "value": 1}
+        ]
+        assert (await _run(db, flags="without_stakeholders"))["total"] == 4
+
+    async def test_a_keyed_share(self, db, landscape):
+        result = await _run(
+            db,
+            card_type="Application",
+            metric="share",
+            approval_status="APPROVED",
+            group_by="field:criticality",
+        )
+        assert result == {
+            "dimension": "field:criticality",
+            "dimension_2": None,
+            "rows": [{"key": "low", "value": 0}, {"key": "high", "value": 50}],
+            "total": 33.33,
+        }
+
+    async def test_a_share_by_type_and_a_single_share(self, db, landscape):
+        result = await _run(db, metric="share", approval_status="DRAFT", group_by="type")
+        assert result["rows"] == [
+            {"key": "Application", "value": 33.33},
+            {"key": "ITComponent", "value": 100},
+        ]
+        assert result["total"] == 50
+        flagged = await _run(db, card_type="Application", metric="share", flags="related:appToIt")
+        assert flagged["rows"] == []
+        assert flagged["total"] == 66.67
+        phase = await _run(db, card_type="Application", metric="share", lifecycle_phase="active")
+        assert phase["total"] == 33.33
+
+
+class TestPhaseMonths:
+    async def test_the_active_month_in_an_eighteen_month_window(self, db, landscape):
+        today = datetime.now(timezone.utc).date()
+        result = await _run(db, group_by="phase_month:active")
+        assert [r["key"] for r in result["rows"]] == phase_months(today)
+        active = date.fromisoformat(landscape["a1"].lifecycle["active"])
+        expected = f"{active.year:04d}-{active.month:02d}"
+        assert [r for r in result["rows"] if r["value"]] == [{"key": expected, "value": 1}]
+        assert result["total"] == 1
+
+
+class TestCostsCountInTheFiscalYear:
+    async def _future_and_retired(self, db):
+        today = datetime.now(timezone.utc).date()
+        await create_card(
+            db,
+            card_type="Application",
+            name="Next year",
+            attributes={"criticality": "high", "cost": 1000},
+            lifecycle={"active": (today + timedelta(days=400)).isoformat()},
+        )
+        await create_card(
+            db,
+            card_type="Application",
+            name="Retired",
+            attributes={"criticality": "low", "cost": 7},
+            lifecycle={"endOfLife": (today - timedelta(days=800)).isoformat()},
+        )
+
+    async def test_a_card_outside_the_fiscal_year_does_not_count(self, db, landscape):
+        await self._future_and_retired(db)
+        result = await _run(
+            db,
+            card_type="Application",
+            metric="sum",
+            metric_field="cost",
+            group_by="field:criticality",
+        )
+        # A1 (active last month) and A2 (no lifecycle at all) count; the card
+        # going live next year and the one retired two years ago do not.
+        assert result["rows"] == [{"key": "low", "value": 0}, {"key": "high", "value": 150}]
+        assert result["total"] == 150
+        assert result["fiscal_year"] == datetime.now(timezone.utc).date().year
+        assert result["fiscal_year_start"] == 1
+
+    async def test_the_rule_is_for_costs_only(self, db, landscape):
+        await self._future_and_retired(db)
+        count = await _run(db, card_type="Application")
+        assert count["total"] == 5
+        assert "fiscal_year" not in count
+        users = await _run(db, card_type="Application", metric="sum", metric_field="users")
+        assert "fiscal_year" not in users
+        assert "fiscal_year_start" not in users
+
+    async def test_the_fiscal_year_start_setting_names_the_year(self, db, landscape):
+        from app.models.app_settings import AppSettings
+        from app.services.fiscal_year import fiscal_year_for
+
+        row = await db.get(AppSettings, "default")
+        if row is None:
+            db.add(AppSettings(id="default", general_settings={"fiscalYearStart": 7}))
+        else:
+            row.general_settings = {**(row.general_settings or {}), "fiscalYearStart": 7}
+        await db.flush()
+        today = date(2026, 10, 29)
+        resolved = await resolve_query(
+            db, Q(card_type="Application", metric="avg", metric_field="cost")
+        )
+        result = await run_query(db, resolved, CardReadScope.everything(), today=today)
+        assert fiscal_year_for(today, 7) == 2027
+        assert result["fiscal_year"] == 2027
+        assert result["fiscal_year_start"] == 7
+        assert result["total"] == 75
+
+
 class TestResolve:
     @pytest.mark.parametrize(
         ("kwargs", "code"),
@@ -530,9 +1391,39 @@ class TestResolve:
             ({"relation_type": "nope"}, "unknown_relation_type"),
             ({"relation_type": "appToIt", "group_by_2": "field:criticality"}, "unknown_field"),
             ({"group_by": "bogus"}, "unknown_dimension"),
+            ({"card_type": "Application", "group_by": "related:nope"}, "unknown_relation_type"),
+            (
+                {"card_type": "Application", "group_by": "related:appToIt__out"},
+                "unknown_dimension",
+            ),
+            ({"card_type": "Application", "flags": "related:appToIt__in"}, "unknown_flag"),
+            (
+                {
+                    "card_type": "Application",
+                    "metric": "sum",
+                    "metric_field": "@relations:appToIt__out",
+                },
+                "unknown_field",
+            ),
+            ({"card_type": "Ghost", "group_by": "related:appToIt"}, "unknown_card_type"),
+            (
+                {"card_type": "Application", "flags": "unrelated:selfRel"},
+                "relation_side_required",
+            ),
+            (
+                {"card_type": "ITComponent", "flags": "related:selfRel__out"},
+                "unknown_relation_type",
+            ),
         ],
     )
     async def test_unknown_metamodel_keys(self, db, landscape, kwargs, code):
+        await create_relation_type(
+            db,
+            key="selfRel",
+            label="self",
+            source_type_key="Application",
+            target_type_key="Application",
+        )
         with pytest.raises(DashboardQueryError) as exc:
             await resolve_query(db, Q(**kwargs))
         assert exc.value.code == code
@@ -547,6 +1438,23 @@ class TestResolve:
         )
         assert users.metric_is_cost is False
 
+    async def test_relation_sides_and_measures_resolve(self, db, landscape):
+        resolved = await resolve_query(
+            db,
+            Q(
+                card_type="ITComponent",
+                group_by="related:appToIt",
+                metric="avg",
+                metric_field="@relations:appToIt",
+                flags="related:appToIt",
+            ),
+        )
+        assert resolved.sides == {"appToIt": RelationSide("appToIt", False)}
+        assert resolved.metric_is_cost is False
+        plain = await resolve_query(db, Q(metric="avg", metric_field="@data_quality"))
+        assert plain.sides == {}
+        assert plain.metric_is_cost is False
+
     async def test_a_hidden_relation_type_is_unknown(self, db, landscape):
         await create_relation_type(
             db,
@@ -558,6 +1466,9 @@ class TestResolve:
         )
         with pytest.raises(DashboardQueryError) as exc:
             await resolve_query(db, Q(relation_type="hiddenRel"))
+        assert exc.value.code == "unknown_relation_type"
+        with pytest.raises(DashboardQueryError) as exc:
+            await resolve_query(db, Q(card_type="Application", flags="related:hiddenRel"))
         assert exc.value.code == "unknown_relation_type"
 
 
@@ -647,6 +1558,25 @@ PARITY_QUERIES = [
     {"group_by": "data_quality_bucket", "group_by_2": "created_month"},
     {"card_type": "Application", "group_by": "field:criticality", "group_by_2": "field:internal"},
     {"card_type": "Application", "group_by": "created_month", "group_by_2": "subtype"},
+    {"group_by": "eol_coverage"},
+    {"group_by": "stakeholders"},
+    {"group_by": "type", "group_by_2": "stakeholders"},
+    {"card_type": "Application", "group_by": "eol_coverage", "group_by_2": "stakeholders"},
+    {"group_by": "stakeholders", "group_by_2": "eol_coverage", "approval_status": "APPROVED"},
+    {"group_by": "type", "flags": "orphaned"},
+    {"group_by": "type", "flags": "stale"},
+    {"group_by": "type", "flags": "with_stakeholders"},
+    {"group_by": "type", "flags": "without_stakeholders"},
+    {"flags": "eol_linked"},
+    {"flags": "eol_manual"},
+    {"group_by": "approval_status", "flags": "eol_missing"},
+    {"group_by": "eol_coverage", "flags": "without_stakeholders,orphaned"},
+    {"card_type": "Application", "flags": "related:appToData", "group_by": "approval_status"},
+    {"card_type": "Application", "flags": "unrelated:appToData", "group_by": "eol_coverage"},
+    {"card_type": "Application", "flags": "related:dependsOn__out"},
+    {"card_type": "Application", "flags": "related:dependsOn__in,stale"},
+    {"card_type": "Application", "flags": "unrelated:dependsOn__in,with_stakeholders"},
+    {"card_type": "DataObject", "flags": "related:appToData", "group_by": "stakeholders"},
 ]
 
 
@@ -678,6 +1608,7 @@ async def parity_landscape(db):
         ("DataObject", "x", "APPROVED", 60, {}, now - timedelta(days=330)),
         ("Ghost", None, "DRAFT", 10, {}, now),
     ]
+    cards = []
     for type_key, subtype, approval, dq, attrs, created in specs:
         card = await create_card(
             db,
@@ -689,6 +1620,39 @@ async def parity_landscape(db):
             attributes=attrs,
         )
         card.created_at = created
+        cards.append(card)
+    apps, data, ghost = cards[:7], cards[7:9], cards[9]
+    # EOL coverage: a link, half a link with a manual date, an empty half link.
+    apps[0].attributes = {**apps[0].attributes, "eol_product": "python", "eol_cycle": "3.12"}
+    apps[1].attributes = {**apps[1].attributes, "eol_product": "python"}
+    apps[1].lifecycle = {"endOfLife": "2027-01-01"}
+    apps[2].attributes = {**apps[2].attributes, "eol_product": "", "eol_cycle": "1"}
+    # Stale: last touched long ago (set on the row; the flush keeps it).
+    apps[4].updated_at = now - timedelta(days=200)
+    # Stakeholders: two roles on one card count once.
+    user = await create_user(db)
+    db.add(Stakeholder(card_id=apps[0].id, user_id=user.id, role="responsible"))
+    db.add(Stakeholder(card_id=apps[0].id, user_id=user.id, role="observer"))
+    db.add(Stakeholder(card_id=data[0].id, user_id=user.id, role="responsible"))
+    # Relations: apps[2] only reaches a hidden-type card, which does not count.
+    await create_relation_type(
+        db,
+        key="appToData",
+        label="reads",
+        source_type_key="Application",
+        target_type_key="DataObject",
+    )
+    await create_relation_type(
+        db,
+        key="dependsOn",
+        label="depends on",
+        source_type_key="Application",
+        target_type_key="Application",
+    )
+    await create_relation(db, type_key="appToData", source_id=apps[0].id, target_id=data[0].id)
+    await create_relation(db, type_key="appToData", source_id=apps[1].id, target_id=data[1].id)
+    await create_relation(db, type_key="appToData", source_id=apps[2].id, target_id=ghost.id)
+    await create_relation(db, type_key="dependsOn", source_id=apps[3].id, target_id=apps[4].id)
     await create_card(db, card_type="Application", name="Gone", status="ARCHIVED")
     await db.flush()
     # The ORM row must not hold a stale created_at for the Python path.
@@ -721,6 +1685,45 @@ class TestSqlFastPathParity:
         fast = await run_query(db, resolved, scope)
         assert fast == await run_query(db, resolved, scope, force_python=True)
         assert fast["rows"] == [{"key": "Application", "value": 7}]
+        # A related card the reader cannot see is no relation for them.
+        related = await resolve_query(db, Q(card_type="Application", flags="related:appToData"))
+        fast = await run_query(db, related, scope)
+        assert fast == await run_query(db, related, scope, force_python=True)
+        assert fast["total"] == 0
+
+    async def test_exact_flag_and_coverage_answers(self, db, parity_landscape):
+        everything = CardReadScope.everything()
+
+        async def result(**kwargs):
+            return await run_query(db, await resolve_query(db, Q(**kwargs)), everything)
+
+        assert (await result(group_by="eol_coverage"))["rows"] == [
+            {"key": "linked", "value": 1},
+            {"key": "manual", "value": 1},
+            {"key": "missing", "value": 5},
+        ]
+        assert (await result(group_by="stakeholders"))["rows"] == [
+            {"key": "true", "value": 2},
+            {"key": "false", "value": 7},
+        ]
+        totals = {
+            "orphaned": 2,
+            "stale": 1,
+            "with_stakeholders": 2,
+            "without_stakeholders": 7,
+            "eol_linked": 1,
+            "eol_manual": 1,
+            "eol_missing": 5,
+        }
+        for flag, total in totals.items():
+            assert (await result(flags=flag))["total"] == total, flag
+        assert (await result(card_type="Application", flags="related:appToData"))["total"] == 2
+        assert (await result(card_type="Application", flags="unrelated:appToData"))["total"] == 5
+        assert (await result(card_type="DataObject", flags="related:appToData"))["total"] == 2
+        out = await result(card_type="Application", flags="related:dependsOn__out")
+        assert out["total"] == 1
+        stale_target = await result(card_type="Application", flags="related:dependsOn__in,stale")
+        assert stale_target["total"] == 1
 
     async def test_a_few_exact_fast_path_answers(self, db, parity_landscape):
         everything = CardReadScope.everything()
@@ -748,6 +1751,33 @@ class TestSqlFastPathParity:
         ]
         months = await rows(group_by="created_month")
         assert sum(r["value"] for r in months) == 7  # the 400- and 500-day-old cards drop out
+
+    async def test_a_flagged_count_still_groups_in_sql(self, db, parity_landscape):
+        from sqlalchemy import event as sa_event
+
+        statements: list[str] = []
+        bind = db.sync_session.get_bind()
+
+        def _record(conn, cursor, statement, parameters, context, executemany):
+            if "FROM cards" in statement:
+                statements.append(statement)
+
+        flagged = await resolve_query(
+            db,
+            Q(
+                card_type="Application",
+                group_by="eol_coverage",
+                group_by_2="stakeholders",
+                flags="stale,with_stakeholders,unrelated:appToData,eol_missing,orphaned",
+            ),
+        )
+        sa_event.listen(bind, "before_cursor_execute", _record)
+        try:
+            await run_query(db, flagged, CardReadScope.everything())
+        finally:
+            sa_event.remove(bind, "before_cursor_execute", _record)
+        (grouped,) = statements
+        assert "GROUP BY" in grouped and "count(cards.id)" in grouped
 
     async def test_the_fast_path_groups_in_sql(self, db, parity_landscape):
         from sqlalchemy import event as sa_event

@@ -7,6 +7,9 @@ import type { Dashboard as DashboardModel, DashboardWidget, User } from "@/types
 /* eslint-disable @typescript-eslint/no-explicit-any -- stubs capture their props as plain data */
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useBpmEnabled", () => import("@/test/hooks").then((m) => m.useBpmEnabledModule()));
+vi.mock("@/hooks/usePpmEnabled", () => import("@/test/hooks").then((m) => m.usePpmEnabledModule()));
+vi.mock("@/hooks/useGrcEnabled", () => import("@/test/hooks").then((m) => m.useGrcEnabledModule()));
 
 const grid = vi.hoisted(() => ({ props: null as any }));
 vi.mock("./DashboardGrid", () => ({
@@ -42,6 +45,7 @@ vi.mock("./customize/WidgetConfigDialog", () => ({
 }));
 
 import { mockApi } from "@/test/apiMock";
+import { hookState } from "@/test/hooks";
 import { makeUser, renderWithProviders } from "@/test/render";
 import Dashboard from "./Dashboard";
 
@@ -111,6 +115,7 @@ const location = () => screen.getByTestId("location").textContent;
 
 beforeEach(() => {
   mockApi.reset();
+  hookState.reset();
   grid.props = null;
   menu.props = null;
 });
@@ -212,6 +217,28 @@ describe("Dashboard tabs", () => {
     mockApi.fail("get", "/dashboards", 500);
     renderWithProviders(<Dashboard />, { user: member({}) });
     expect(await screen.findByText(tc("dashboard.loadFailed"))).toBeInTheDocument();
+  });
+});
+
+describe("module widgets", () => {
+  const RISKS = dash("risks", [
+    w("open-risks", "kpi", { source: "risks_metrics", series: "open" }),
+    w("bpm-maturity", "chart", { source: "bpm_dashboard", series: "by_maturity", chart: "column" }, 6),
+  ]);
+  const viewer = () => member({ "risks.view": true, "reports.bpm_dashboard": true });
+
+  it("shows a module's widgets only while its module is on", async () => {
+    hookState.bpm = { bpmEnabled: false, bpmLoaded: true };
+    renderDashboard(viewer(), { dashboards: [RISKS] });
+    expect(await screen.findByText("widget:open-risks")).toBeInTheDocument();
+    expect(screen.queryByText("widget:bpm-maturity")).toBeNull();
+  });
+
+  it("treats a module flag that has not loaded yet as off, so nothing flashes", async () => {
+    hookState.grc = { grcEnabled: true, grcLoaded: false };
+    hookState.bpm = { bpmEnabled: true, bpmLoaded: false };
+    renderDashboard(viewer(), { dashboards: [RISKS, WORKSPACE] });
+    await waitFor(() => expect(tabNames()).toEqual(["Workspace"]));
   });
 });
 

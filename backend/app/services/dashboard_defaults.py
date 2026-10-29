@@ -19,6 +19,8 @@ overwritten on upgrade.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
+from types import MappingProxyType
 from typing import Any
 
 GRID_COLUMNS = 12
@@ -68,7 +70,75 @@ KPI_PRESETS: frozenset[str] = frozenset(
 )
 
 CHART_KINDS: frozenset[str] = frozenset(
-    {"bar", "column", "line", "pie", "donut", "gauge", "heatmap", "treemap", "sankey"}
+    {
+        "bar",
+        "column",
+        "stacked_column",
+        "line",
+        "pie",
+        "donut",
+        "gauge",
+        "heatmap",
+        "treemap",
+        "sankey",
+    }
+)
+
+# Chart kinds a module ``source`` series cannot feed: each needs two
+# dimensions (or a relation type), and a series is one list of keys.
+TWO_DIMENSION_CHARTS: frozenset[str] = frozenset({"heatmap", "sankey", "stacked_column"})
+
+# A ``kpi`` or ``chart`` widget may draw a series of a module report the
+# frontend already fetches (``source`` + ``series``) instead of a ``query``.
+# Mirrored by ``frontend/src/features/dashboard/widgets/sourceSeries.ts`` and
+# pinned to it by a source scan, like ``WIDGET_TYPES``.
+SOURCE_SERIES: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status", "by_category"),
+        "compliance_overview": ("score_avg", "scores"),
+        "ppm_dashboard": (
+            "total",
+            "at_risk",
+            "by_status",
+            "by_subtype",
+            "health_schedule",
+            "health_cost",
+            "health_scope",
+        ),
+        "bpm_dashboard": (
+            "total",
+            "without_diagram",
+            "by_maturity",
+            "by_process_type",
+            "by_automation",
+            "by_risk",
+        ),
+    }
+)
+
+# A series is one number (``single`` — a KPI or a gauge) or a list of
+# ``{key, value}`` (``keyed`` — any other one-dimension chart).
+SERIES_SHAPES: Mapping[str, str] = MappingProxyType(
+    {
+        "total": "single",
+        "open": "single",
+        "overdue": "single",
+        "score_avg": "single",
+        "at_risk": "single",
+        "without_diagram": "single",
+        "by_level": "keyed",
+        "by_status": "keyed",
+        "by_category": "keyed",
+        "scores": "keyed",
+        "by_subtype": "keyed",
+        "health_schedule": "keyed",
+        "health_cost": "keyed",
+        "health_scope": "keyed",
+        "by_maturity": "keyed",
+        "by_process_type": "keyed",
+        "by_automation": "keyed",
+        "by_risk": "keyed",
+    }
 )
 
 

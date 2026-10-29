@@ -13,6 +13,20 @@ import type { TFunction } from "i18next";
 import { hasPermission } from "@/components/RequirePermission";
 import type { DashboardQuery, DashboardWidget, WidgetType } from "@/types";
 import { kpiPreset, type SourceName } from "./kpiPresets";
+import {
+  SOURCE_MODULES,
+  SOURCE_PERMISSIONS,
+  isModuleSource,
+  seriesLabelKey,
+  type ModuleKey,
+  type ModuleSourceName,
+} from "./sourceSeries";
+
+/** Which optional modules are on. A flag not loaded yet counts as off, so a
+ *  module widget never flashes in and out. */
+export type DashboardModules = Record<ModuleKey, boolean>;
+
+export const NO_MODULES: DashboardModules = { bpm: false, ppm: false, grc: false };
 
 export type WidgetFamily = "kpi" | "chart" | "overview" | "workspace" | "admin";
 
@@ -160,9 +174,25 @@ export function isKnownWidgetType(type: string): type is WidgetType {
   return Object.prototype.hasOwnProperty.call(WIDGET_META, type);
 }
 
+/** The module source a KPI or chart reads (`config.source`), or null. */
+export function widgetSource(widget: Pick<DashboardWidget, "type" | "config">): ModuleSourceName | null {
+  if (widget.type !== "kpi" && widget.type !== "chart") return null;
+  const source = widget.config?.source;
+  return isModuleSource(source) ? source : null;
+}
+
+/** The optional module a widget belongs to, or undefined for the core ones. */
+export function widgetModule(widget: Pick<DashboardWidget, "type" | "config">): ModuleKey | undefined {
+  const source = widgetSource(widget);
+  return source ? SOURCE_MODULES[source] : undefined;
+}
+
 /** The permission a widget needs, or undefined when everyone may see it. */
 export function widgetPermission(widget: Pick<DashboardWidget, "type" | "config">): string | undefined {
   if (!isKnownWidgetType(widget.type)) return undefined;
+  // A module widget needs what its source's endpoint enforces.
+  const source = widgetSource(widget);
+  if (source) return SOURCE_PERMISSIONS[source];
   if (widget.type === "kpi") {
     const preset = kpiPreset(widget.config?.metric);
     // A preset names its own source's permission; a query KPI reads the
@@ -175,20 +205,26 @@ export function widgetPermission(widget: Pick<DashboardWidget, "type" | "config"
 /** The shared payloads a widget reads. */
 export function widgetSources(widget: Pick<DashboardWidget, "type" | "config">): SourceName[] {
   if (!isKnownWidgetType(widget.type)) return [];
+  const source = widgetSource(widget);
+  if (source) return [source];
   if (widget.type === "kpi") return kpiPreset(widget.config?.metric)?.sources ?? [];
   return WIDGET_META[widget.type].sources;
 }
 
 /**
- * The widgets the viewer may see: a known type whose permission they hold.
- * A widget they lack is not rendered at all and its slot compacts away.
+ * The widgets the viewer may see: a known type whose permission they hold
+ * and, for a module widget, whose module is on. A widget they lack is not
+ * rendered at all and its slot compacts away.
  */
 export function visibleWidgets<W extends Pick<DashboardWidget, "type" | "config">>(
   widgets: W[],
   permissions: Record<string, boolean> | undefined,
+  modules: DashboardModules = NO_MODULES,
 ): W[] {
   return widgets.filter((w) => {
     if (!isKnownWidgetType(w.type)) return false;
+    const mod = widgetModule(w);
+    if (mod && !modules[mod]) return false;
     const perm = widgetPermission(w);
     return perm === undefined || hasPermission(permissions, perm);
   });
@@ -198,9 +234,10 @@ export function visibleWidgets<W extends Pick<DashboardWidget, "type" | "config"
 export function neededSources(
   widgets: Pick<DashboardWidget, "type" | "config">[],
   permissions: Record<string, boolean> | undefined,
+  modules: DashboardModules = NO_MODULES,
 ): Set<SourceName> {
   const needed = new Set<SourceName>();
-  for (const w of visibleWidgets(widgets, permissions)) {
+  for (const w of visibleWidgets(widgets, permissions, modules)) {
     for (const s of widgetSources(w)) needed.add(s);
   }
   return needed;
@@ -234,11 +271,17 @@ export function widgetTitle(widget: Pick<DashboardWidget, "type" | "title" | "co
     const preset = kpiPreset(widget.config?.metric);
     if (preset) return t(preset.labelKey);
   }
-  if (widget.type === "chart") {
-    // A built-in chart names itself by an i18n key, so it reads in the
-    // viewer's language; only dashboard keys are honoured.
+  if (widget.type === "kpi" || widget.type === "chart") {
+    // A built-in or catalogue widget names itself by an i18n key, so it reads
+    // in the viewer's language; only dashboard keys are honoured.
     const titleKey = widget.config?.title_key;
     if (typeof titleKey === "string" && titleKey.startsWith("dashboard.")) return t(titleKey);
+    const source = widgetSource(widget);
+    if (source && typeof widget.config?.series === "string") {
+      return t(seriesLabelKey(source, widget.config.series));
+    }
+  }
+  if (widget.type === "chart") {
     const key = chartTitleKey(widget.config?.query as DashboardQuery | undefined);
     if (key) return t(key);
   }

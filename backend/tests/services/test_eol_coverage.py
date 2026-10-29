@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.orm import aliased
 
 from app.models.card import Card
 from app.services.card_flags import (
@@ -221,3 +222,45 @@ class TestSqlMatchesPython:
     def test_unknown_bucket_raises(self):
         with pytest.raises(ValueError):
             eol_bucket_condition("bogus")
+
+    @pytest.mark.parametrize("bucket", EOL_BUCKETS)
+    async def test_an_alias_reads_the_same_bucket(self, db, eol_shapes, bucket):
+        """A dashboard sankey filters both of its ends through an alias."""
+        alias = aliased(Card)
+        default = await db.execute(select(Card.name).where(eol_bucket_condition(bucket)))
+        over_alias = await db.execute(
+            select(alias.name).where(eol_bucket_condition(bucket, card=alias))
+        )
+        assert set(over_alias.scalars().all()) == set(default.scalars().all())
+
+
+class TestDashboardEolDimension:
+    """The dashboard groups by EOL coverage in SQL (a ``case`` of the three
+    conditions) on its fast path and in Python (``eol_coverage_key``) on the
+    per-card path — both must put every awkward shape in the same bucket."""
+
+    async def test_sql_case_and_python_key_agree_on_every_shape(self, db, eol_shapes):
+        from app.services.dashboard_query import (
+            _dimension_column,
+            _sql_dimension,
+            dimension_key,
+            eol_coverage_key,
+        )
+
+        rows = (
+            await db.execute(
+                select(
+                    Card.name,
+                    _sql_dimension("eol_coverage", Card),
+                    _dimension_column("eol_coverage", Card),
+                )
+            )
+        ).all()
+        by_name = {c.name: _python_bucket(c) for c in eol_shapes}
+        assert len(rows) == len(EOL_SHAPES) + 1
+        for name, sql_bucket, raw in rows:
+            python_bucket = dimension_key("eol_coverage", raw, [])
+            assert sql_bucket == python_bucket, name
+            assert python_bucket == eol_coverage_key(raw)
+            # The BusinessCapability is in no bucket at all.
+            assert python_bucket == by_name.get(name), name

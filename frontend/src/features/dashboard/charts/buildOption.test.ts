@@ -4,7 +4,11 @@ import type { DashboardChartKind, DashboardQueryRow } from "@/types";
 import {
   OTHER_KEY,
   buildOption,
+  buildSparkline,
   defaultValueFormatter,
+  foldGrid,
+  foldModeOf,
+  foldRows,
   hasDrawableRows,
   niceMax,
   orderRows,
@@ -45,7 +49,7 @@ const opt = (kind: DashboardChartKind, rows: DashboardQueryRow[] = ROWS, c: Part
 
 describe("shared chrome", () => {
   it("is transparent, accessible and themed on every kind", () => {
-    for (const kind of ["bar", "column", "line", "pie", "donut", "gauge", "heatmap", "treemap", "sankey"] as const) {
+    for (const kind of ["bar", "column", "line", "pie", "donut", "gauge", "heatmap", "treemap", "sankey", "stacked_column"] as const) {
       const o = opt(kind);
       expect(o.backgroundColor).toBe("transparent");
       expect(o.aria).toEqual({ enabled: true });
@@ -273,11 +277,186 @@ describe("sankey", () => {
     expect(o.tooltip.formatter({ dataType: "node", name: "s:A", value: 3 })).toBe("L:A: 3");
   });
 
+  it("names and colours each side through its own resolver, and tells the sides apart for a click", () => {
+    const o = opt("sankey", FLOWS, {
+      labels2: (k) => `T:${k}`,
+      colors2: (k, i) => `target-${k}-${i}`,
+    });
+    const s = o.series[0];
+    expect(s.data.map((n: any) => n.itemStyle.color)).toEqual(["#aa0000", "target-B-0", "target-A-1"]);
+    expect(s.data.map((n: any) => [n.key, n.side])).toEqual([
+      ["A", "source"],
+      ["B", "target"],
+      ["A", "target"],
+    ]);
+    expect(s.label.formatter({ name: "t:A" })).toBe("T:A");
+    expect(s.label.formatter({ name: "s:A" })).toBe("L:A");
+  });
+
   it("points the tooltip arrow the reading way in RTL", () => {
     const o = opt("sankey", FLOWS, { isRtl: true });
     expect(o.tooltip.formatter({ dataType: "edge", value: 2, data: { source: "s:A", target: "t:B" } })).toBe(
       "L:A ← L:B: 2",
     );
+  });
+});
+
+describe("stacked columns", () => {
+  const CELLS: DashboardQueryRow[] = [
+    { x: "A", y: "active", value: 2 },
+    { x: "A", y: "plan", value: 1 },
+    { x: "C", y: "active", value: 4 },
+  ];
+  const stacked = (c: Partial<BuildContext> = {}) =>
+    opt("stacked_column", CELLS, { labels2: (k) => `Y:${k}`, colors2: (k) => `c2-${k}`, ...c });
+
+  it("draws one stacked series per second-dimension key over the first dimension's keys, in row order", () => {
+    const o = stacked();
+    expect(o.xAxis.data).toEqual(["L:A", "L:C"]);
+    expect(o.series).toHaveLength(2);
+    expect(o.series.map((x: any) => x.name)).toEqual(["Y:active", "Y:plan"]);
+    expect(o.series.every((x: any) => x.stack === "total" && x.type === "bar")).toBe(true);
+    expect(o.series[0].data.map((d: any) => d.value)).toEqual([2, 4]);
+    // A missing cell is a zero, not a gap.
+    expect(o.series[1].data.map((d: any) => d.value)).toEqual([1, 0]);
+    expect(o.series[0].data[1]).toMatchObject({ key: "C", key2: "active" });
+    expect(o.series.map((x: any) => x.itemStyle.color)).toEqual(["c2-active", "c2-plan"]);
+    // Only the top segment gets the rounded data end.
+    expect(o.series[0].itemStyle.borderRadius).toBe(0);
+    expect(o.series[1].itemStyle.borderRadius).toEqual([4, 4, 0, 0]);
+  });
+
+  it("carries a legend, since colour names the series", () => {
+    const o = stacked();
+    expect(o.legend.data).toEqual(["Y:active", "Y:plan"]);
+    expect(o.tooltip.trigger).toBe("axis");
+  });
+
+  it("mirrors in RTL and falls back to the first resolver", () => {
+    const o = opt("stacked_column", CELLS, { isRtl: true });
+    expect(o.xAxis.inverse).toBe(true);
+    expect(o.yAxis.position).toBe("right");
+    expect(o.series[0].name).toBe("L:active");
+    expect(o.series[0].itemStyle.color).toBe("slot0");
+  });
+});
+
+describe("foldGrid", () => {
+  const GRID = [
+    { x: "a", y: "p", value: 1 },
+    { x: "b", y: "p", value: 5 },
+    { x: "b", y: "q", value: 1 },
+    { x: "c", y: "p", value: 3 },
+    { x: "d", y: "q", value: 2 },
+  ];
+
+  it("folds the x categories past max into Other, per second key, keeping the largest", () => {
+    expect(foldGrid(GRID, 3)).toEqual([
+      { x: "b", y: "p", value: 5 },
+      { x: "b", y: "q", value: 1 },
+      { x: "c", y: "p", value: 3 },
+      { x: OTHER_KEY, y: "p", value: 1 },
+      { x: OTHER_KEY, y: "q", value: 2 },
+    ]);
+  });
+
+  it("leaves a grid within max alone and does not mutate its input", () => {
+    const copy = structuredClone(GRID);
+    expect(foldGrid(GRID, 4)).toBe(GRID);
+    expect(foldGrid(GRID)).toBe(GRID);
+    expect(foldGrid(GRID, 0)).toBe(GRID);
+    foldGrid(GRID, 2);
+    expect(GRID).toEqual(copy);
+  });
+
+  it("keeps the largest columns whole and drops the rest for averages", () => {
+    expect(foldGrid(GRID, 2, "drop")).toEqual([
+      { x: "b", y: "p", value: 5 },
+      { x: "b", y: "q", value: 1 },
+      { x: "c", y: "p", value: 3 },
+    ]);
+  });
+
+  it("names the folded column Other through the labels", () => {
+    const o = opt("stacked_column", foldGrid(GRID, 2), { labels: (k) => (k === OTHER_KEY ? "Other" : k) });
+    expect(o.xAxis.data).toEqual(["b", "Other"]);
+  });
+});
+
+describe("foldRows", () => {
+  it("keeps the order and folds the tail, an already-folded row included", () => {
+    const rows = [
+      { key: "x", value: 1 },
+      { key: OTHER_KEY, value: 4 },
+      { key: "y", value: 9 },
+      { key: "z", value: 2 },
+    ];
+    expect(foldRows(rows, 3)).toEqual([
+      { key: "x", value: 1 },
+      { key: OTHER_KEY, value: 15 },
+    ]);
+    expect(foldRows(rows, 4)).toBe(rows);
+    expect(foldRows(rows)).toBe(rows);
+  });
+
+  it("drops the tail of averages and shares instead of adding them up", () => {
+    const rows = [
+      { key: "x", value: 1 },
+      { key: "y", value: 9 },
+      { key: OTHER_KEY, value: 4 },
+      { key: "z", value: 2 },
+    ];
+    expect(foldRows(rows, 2, "drop")).toEqual([
+      { key: "x", value: 1 },
+      { key: "y", value: 9 },
+    ]);
+    expect(foldModeOf("avg")).toBe("drop");
+    expect(foldModeOf("share")).toBe("drop");
+    expect(foldModeOf("sum")).toBe("sum");
+    expect(foldModeOf(undefined)).toBe("sum");
+  });
+
+  it("never folds the no-related-card row of a related grouping", () => {
+    const rows = [
+      { key: "none", value: 1 },
+      { key: "c1", value: 9 },
+      { key: "c2", value: 5 },
+      { key: "c3", value: 2 },
+    ];
+    expect(orderRows("related:r", rows, 3)).toEqual([
+      { key: "c1", value: 9 },
+      { key: OTHER_KEY, value: 7 },
+      { key: "none", value: 1 },
+    ]);
+    // Other dimensions fold it like any key.
+    expect(orderRows("type", rows, 2).map((r) => r.key)).toEqual(["c1", OTHER_KEY]);
+  });
+});
+
+describe("sparkline", () => {
+  const POINTS = [
+    { date: "2026-10-01", value: 3 },
+    { date: "2026-10-02", value: 5 },
+  ];
+
+  it("is one line with a faint area and nothing else to read", () => {
+    const o = buildSparkline(POINTS, { theme: chrome, isRtl: false }) as any;
+    // A line needs a cartesian grid; its axes exist only to carry it and are hidden.
+    expect(o.xAxis.show).toBe(false);
+    expect(o.yAxis.show).toBe(false);
+    expect(o.legend).toBeUndefined();
+    expect(o.tooltip).toBeUndefined();
+    expect(o.series).toHaveLength(1);
+    expect(o.series[0]).toMatchObject({ type: "line", symbol: "none", data: [3, 5] });
+    expect(o.series[0].lineStyle.color).toBe(CHART_CATEGORICAL.light[0]);
+    expect(o.series[0].areaStyle.opacity).toBeLessThan(0.3);
+    expect(o.xAxis.data).toEqual(["2026-10-01", "2026-10-02"]);
+  });
+
+  it("runs right to left in RTL and takes a series colour", () => {
+    const o = buildSparkline(POINTS, { theme: chrome, isRtl: true, seriesColor: "#123456" }) as any;
+    expect(o.xAxis.inverse).toBe(true);
+    expect(o.series[0].lineStyle.color).toBe("#123456");
   });
 });
 
@@ -303,6 +482,42 @@ describe("hasDrawableRows", () => {
     expect(hasDrawableRows("heatmap", [{ x: "a", y: "b", value: 0 }])).toBe(true);
     expect(hasDrawableRows("sankey", [{ source: "a", target: "b", value: 0 }])).toBe(false);
     expect(hasDrawableRows("sankey", [{ source: "a", target: "b", value: 1 }])).toBe(true);
+    expect(hasDrawableRows("stacked_column", [{ x: "a", y: "b", value: 0 }])).toBe(false);
+    expect(hasDrawableRows("stacked_column", [{ x: "a", y: "b", value: 2 }])).toBe(true);
+    expect(hasDrawableRows("stacked_column", [{ key: "a", value: 2 }])).toBe(false);
+  });
+});
+
+describe("orderRows — new dimensions", () => {
+  it("shows the three EOL buckets and both stakeholder answers in a fixed order, zeros included", () => {
+    expect(orderRows("eol_coverage", [{ key: "missing", value: 4 }]).map((r) => r.key)).toEqual([
+      "linked",
+      "manual",
+      "missing",
+    ]);
+    expect(orderRows("stakeholders", [{ key: "false", value: 4 }])).toEqual([
+      { key: "true", value: 0 },
+      { key: "false", value: 4 },
+    ]);
+  });
+
+  it("runs lifecycle months oldest first", () => {
+    expect(
+      orderRows("phase_month:active", [
+        { key: "2026-12", value: 1 },
+        { key: "2026-01", value: 9 },
+      ]).map((r) => r.key),
+    ).toEqual(["2026-01", "2026-12"]);
+  });
+
+  it("keeps a row the server folded last", () => {
+    expect(
+      orderRows("related:r", [
+        { key: OTHER_KEY, value: 50 },
+        { key: "c1", value: 3 },
+        { key: "c2", value: 7 },
+      ]).map((r) => r.key),
+    ).toEqual(["c2", "c1", OTHER_KEY]);
   });
 });
 

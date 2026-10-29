@@ -19,7 +19,9 @@ import {
   isKnownWidgetType,
   neededSources,
   visibleWidgets,
+  widgetModule,
   widgetPermission,
+  widgetSource,
   widgetSources,
   widgetTitle,
 } from "./registry";
@@ -170,6 +172,42 @@ describe("visibleWidgets", () => {
     expect([...neededSources(all, { "*": true })].sort()).toEqual(["admin_dashboard", "my_workspace", "reports.dashboard"]);
     expect([...neededSources(all, {})]).toEqual(["my_workspace"]);
     expect([...neededSources([], { "*": true })]).toEqual([]);
+  });
+});
+
+describe("module widgets", () => {
+  const ALL = { bpm: true, ppm: true, grc: true };
+  const risks = w("kpi", { source: "risks_metrics", series: "open" });
+  const bpm = w("chart", { source: "bpm_dashboard", series: "by_maturity", chart: "column" });
+
+  it("need their source's permission and read that source", () => {
+    expect(widgetSource(risks)).toBe("risks_metrics");
+    expect(widgetSource(w("kpi", { source: "nope", series: "open" }))).toBeNull();
+    expect(widgetSource(w("my_todos", { source: "risks_metrics" }))).toBeNull();
+    expect(widgetModule(risks)).toBe("grc");
+    expect(widgetModule(bpm)).toBe("bpm");
+    expect(widgetModule(w("kpi", { query: {} }))).toBeUndefined();
+    expect(widgetPermission(risks)).toBe("risks.view");
+    expect(widgetPermission(bpm)).toBe("reports.bpm_dashboard");
+    expect(widgetSources(risks)).toEqual(["risks_metrics"]);
+    expect(widgetSources(bpm)).toEqual(["bpm_dashboard"]);
+  });
+
+  it("show only while their module is on and the viewer holds the permission", () => {
+    expect(visibleWidgets([risks, bpm], { "*": true })).toEqual([]);
+    expect(visibleWidgets([risks, bpm], { "*": true }, { bpm: true, ppm: false, grc: false })).toEqual([bpm]);
+    expect(visibleWidgets([risks, bpm], { "risks.view": true }, ALL)).toEqual([risks]);
+    expect([...neededSources([risks, bpm], { "*": true }, ALL)].sort()).toEqual(["bpm_dashboard", "risks_metrics"]);
+    expect([...neededSources([risks, bpm], { "*": true }, { bpm: false, ppm: true, grc: true })]).toEqual([
+      "risks_metrics",
+    ]);
+  });
+
+  it("name themselves by their title key, else their series", () => {
+    expect(widgetTitle(risks, t)).toBe(t("dashboard.source.series.risks_metrics.open"));
+    expect(widgetTitle({ ...bpm, config: { ...bpm.config, title_key: "dashboard.source.chart.bpmMaturity" } }, t)).toBe(
+      t("dashboard.source.chart.bpmMaturity"),
+    );
   });
 });
 

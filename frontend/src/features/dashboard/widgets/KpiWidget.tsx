@@ -2,11 +2,14 @@
  * A KPI tile. Either a named preset — the homepage's historical tiles, read
  * from the dashboard's shared sources and drawn exactly as before (the
  * Overview tiles with their trend arrow, the My Workspace and Admin tiles as
- * `MetricCard`s) — or a generic query KPI (`config.query`), which reads
+ * `MetricCard`s) — a generic query KPI (`config.query`), which reads
  * `GET /dashboards/kpi` and shows its trend against the oldest snapshot in
- * the comparison window.
+ * the comparison window (plus, when configured, a 30-day sparkline and a
+ * secondary figure from the query's `base`) — or one number of a module's
+ * report (`config.source` + `config.series`), which has no history and so no
+ * trend.
  */
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
@@ -17,12 +20,26 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { fiscalYearLabel } from "@/lib/fiscalYear";
 import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
-import type { DashboardKpi, DashboardQuery, KpiTrend } from "@/types";
+import type { DashboardKpi, DashboardKpiHistory, DashboardQuery, KpiTrend } from "@/types";
 import TrendIndicator from "../TrendIndicator";
+import EChart from "../charts/EChart";
+import { buildSparkline } from "../charts/buildOption";
+import { useEChartsTheme } from "../charts/echartsTheme";
 import { useDashboardSource } from "../DashboardSources";
 import { withQuery } from "../dashboardQuery";
-import { formatKpiValue, kpiPreset, qualityColor, type KpiFormat, type KpiPresetKey } from "./kpiPresets";
+import { queryErrorMessage } from "../queryProblems";
+import {
+  formatKpiValue,
+  kpiPreset,
+  qualityColor,
+  secondaryCaption,
+  type KpiFormat,
+  type KpiPresetKey,
+  type KpiSecondary,
+} from "./kpiPresets";
+import { SOURCE_ICONS, extractSeries, isSourceSeries, type ModuleSourceName } from "./sourceSeries";
 import { widgetTitle, type WidgetProps } from "./widgetMeta";
 import { useWidgetEditing } from "./WidgetFrame";
 
@@ -41,6 +58,12 @@ interface TileProps {
   trend?: TileTrend | null;
   loading?: boolean;
   error?: boolean;
+  /** The error's own message (defaults to the generic one). */
+  errorText?: string;
+  /** Extra lines under the number: the secondary figure, the fiscal year. */
+  captions?: string[];
+  /** A small line under the number. */
+  sparkline?: ReactNode;
 }
 
 /**
@@ -49,7 +72,7 @@ interface TileProps {
  * height, so the tile tightens its padding and number instead of clipping
  * the caption.
  */
-function KpiTile({ icon, iconColor, label, value, trend, loading, error }: TileProps) {
+function KpiTile({ icon, iconColor, label, value, trend, loading, error, errorText, captions, sparkline }: TileProps) {
   const { t } = useTranslation("common");
   const compact = useWidgetEditing();
   return (
@@ -83,9 +106,17 @@ function KpiTile({ icon, iconColor, label, value, trend, loading, error }: TileP
         )}
         {error && (
           <Typography variant="caption" color="error">
-            {t("errors.generic")}
+            {errorText || t("errors.generic")}
           </Typography>
         )}
+        {!error &&
+          !loading &&
+          captions?.map((caption) => (
+            <Typography key={caption} variant="caption" color="text.secondary" sx={{ display: "block" }} data-testid="kpi-caption">
+              {caption}
+            </Typography>
+          ))}
+        {!error && !loading && sparkline}
         {trend && !error && (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: compact ? 0 : 0.5 }}>
             {t("dashboard.trend.vsDays", { count: trend.comparisonDays })}
@@ -250,40 +281,103 @@ function QualityKpi({ label }: { label: string }) {
   );
 }
 
+/** A 30-day line under a query KPI; nothing until there are two points to join. */
+function KpiSparkline({ points }: { points: { date: string; value: number }[] }) {
+  const theme = useEChartsTheme();
+  const option = useMemo(() => buildSparkline(points, { theme, isRtl: theme.isRtl }), [points, theme]);
+  if (points.length < 2) return null;
+  return (
+    <Box sx={{ height: 32, mt: 0.5 }} data-testid="kpi-sparkline">
+      <EChart option={option} />
+    </Box>
+  );
+}
+
 function QueryKpi({
   query,
   label,
   goodDirection,
   format,
   icon,
+  sparkline,
+  secondary,
 }: {
   query: DashboardQuery;
   label: string;
   goodDirection: "up" | "down";
   format: KpiFormat;
   icon: string;
+  sparkline: boolean;
+  secondary?: KpiSecondary;
 }) {
+  const { t } = useTranslation("common");
   const { data, loading, error } = useApiQuery<DashboardKpi>(withQuery("/dashboards/kpi", query));
+  // The history is asked for only when the tile shows it.
+  const history = useApiQuery<DashboardKpiHistory>(
+    sparkline ? withQuery("/dashboards/kpi-history", query, "days=30") : null,
+  );
+  const points = useMemo(() => history.data?.points ?? [], [history.data]);
   const trend = data?.trend;
+  // A share is a percentage whatever the tile was set to show.
+  const shown: KpiFormat = query.metric === "share" ? "percent" : format;
+  const captions = [
+    secondaryCaption(secondary, data?.value, data?.base, t),
+    typeof data?.fiscal_year === "number"
+      ? t("dashboard.config.fiscalYear", { year: fiscalYearLabel(data.fiscal_year, data.fiscal_year_start ?? 1, t) })
+      : null,
+  ].filter((c): c is string => !!c);
   return (
     <KpiTile
       icon={icon}
       iconColor={DASHBOARD_KPI_COLORS.total}
       label={label}
-      value={formatKpiValue(data?.value, format)}
+      value={formatKpiValue(data?.value, shown)}
       loading={loading && !data}
       error={!!error && !data}
+      errorText={error ? queryErrorMessage(error, t) : undefined}
+      captions={captions}
+      sparkline={sparkline && points.length >= 2 ? <KpiSparkline points={points} /> : null}
       trend={
         trend
           ? {
               deltaPct: trend.delta_pct,
               // A point change of a percentage says nothing the % change does not.
-              deltaAbs: format === "percent" ? undefined : trend.delta_abs,
+              deltaAbs: shown === "percent" ? undefined : trend.delta_abs,
               goodDirection,
               comparisonDays: trend.comparison_days,
             }
           : null
       }
+    />
+  );
+}
+
+/** One number of a module's report. No history is kept for it, so no trend. */
+function SourceKpi({
+  source,
+  series,
+  label,
+  format,
+}: {
+  source: ModuleSourceName;
+  series: string;
+  label: string;
+  format: KpiFormat;
+}) {
+  const { t } = useTranslation("common");
+  const { data, loading, error } = useDashboardSource(source);
+  const extracted = extractSeries(source, series, data);
+  const value = extracted?.shape === "single" ? extracted.value : undefined;
+  return (
+    <KpiTile
+      icon={SOURCE_ICONS[source]}
+      iconColor={DASHBOARD_KPI_COLORS.total}
+      label={label}
+      value={formatKpiValue(value, format)}
+      loading={loading && !data}
+      error={!!error && !data}
+      errorText={error ? queryErrorMessage(error, t) : undefined}
+      trend={null}
     />
   );
 }
@@ -302,6 +396,17 @@ export default function KpiWidget({ widget }: WidgetProps) {
     if (metric === "overall_quality") return <QualityKpi label={label} />;
     return <AdminKpi metric={metric as AdminMetric} label={label} />;
   }
+  const format: KpiFormat = config.format === "percent" ? "percent" : "number";
+  if (isSourceSeries(config.source, config.series)) {
+    return (
+      <SourceKpi
+        source={config.source as ModuleSourceName}
+        series={config.series as string}
+        label={label}
+        format={format}
+      />
+    );
+  }
   const query = config.query as DashboardQuery | undefined;
   if (query && typeof query === "object") {
     return (
@@ -309,8 +414,12 @@ export default function KpiWidget({ widget }: WidgetProps) {
         query={query}
         label={label}
         goodDirection={config.good_direction === "down" ? "down" : "up"}
-        format={config.format === "percent" ? "percent" : "number"}
+        format={format}
         icon={typeof config.icon === "string" && config.icon ? config.icon : "monitoring"}
+        sparkline={config.sparkline === true}
+        secondary={
+          config.secondary === "share_of_total" || config.secondary === "base_count" ? config.secondary : undefined
+        }
       />
     );
   }

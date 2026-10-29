@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { drillUrl, fieldOfDimension, metricKey, toQueryString, withQuery } from "./dashboardQuery";
+import {
+  drillUrl,
+  fieldOfDimension,
+  flagList,
+  isCardKeyed,
+  metricKey,
+  normalizeFlags,
+  phaseOfDimension,
+  relationOfDimension,
+  toQueryString,
+  withQuery,
+} from "./dashboardQuery";
 
 describe("toQueryString", () => {
   it("is byte-identical to the backend's metric_key", () => {
@@ -32,6 +43,60 @@ describe("toQueryString", () => {
     expect(toQueryString(null)).toBe("");
     expect(toQueryString(undefined)).toBe("");
     expect(toQueryString({})).toBe("");
+  });
+});
+
+describe("flags", () => {
+  it("are canonical in the query string, pinned byte for byte with the backend", () => {
+    expect(toQueryString({ card_type: "Application", flags: "stale,orphaned" })).toBe(
+      "card_type=Application&flags=orphaned%2Cstale",
+    );
+    expect(metricKey({ flags: " stale ,orphaned,stale", card_type: "Application" })).toBe(
+      "card_type=Application&flags=orphaned%2Cstale",
+    );
+    expect(toQueryString({ card_type: "Application", flags: " , " })).toBe("card_type=Application");
+  });
+
+  it("pins the new query fields byte for byte with the backend's metric_key", () => {
+    expect(
+      metricKey({
+        card_type: "Application",
+        group_by: "related:relAppToITC",
+        flags: "related:relAppToITC__out,eol_missing",
+      }),
+    ).toBe("card_type=Application&flags=eol_missing%2Crelated%3ArelAppToITC__out&group_by=related%3ArelAppToITC");
+    expect(metricKey({ card_type: "Application", metric: "sum", metric_field: "@relations:relAppToITC" })).toBe(
+      "card_type=Application&metric=sum&metric_field=%40relations%3ArelAppToITC",
+    );
+    expect(metricKey({ card_type: "Application", metric: "share", approval_status: "APPROVED" })).toBe(
+      "approval_status=APPROVED&card_type=Application&metric=share",
+    );
+    expect(toQueryString({ flags: null })).toBe("");
+  });
+
+  it("normalise from a list or a string: split, trim, dedupe, sort", () => {
+    expect(normalizeFlags(["stale", " orphaned ", "stale", ""])).toBe("orphaned,stale");
+    expect(normalizeFlags("unrelated:r,related:r,eol_missing")).toBe("eol_missing,related:r,unrelated:r");
+    expect(normalizeFlags(["b,a", "c"])).toBe("a,b,c");
+    expect(normalizeFlags(null)).toBe("");
+    expect(normalizeFlags(undefined)).toBe("");
+    expect(flagList("stale,orphaned")).toEqual(["orphaned", "stale"]);
+    expect(flagList("")).toEqual([]);
+  });
+});
+
+describe("dimension helpers", () => {
+  it("read related, phase-month and card-keyed dimensions", () => {
+    expect(relationOfDimension("related:relAppToApp__in")).toBe("relAppToApp__in");
+    expect(relationOfDimension("related:")).toBeNull();
+    expect(relationOfDimension("type")).toBeNull();
+    expect(phaseOfDimension("phase_month:endOfLife")).toBe("endOfLife");
+    expect(phaseOfDimension("phase_month:")).toBeNull();
+    expect(phaseOfDimension(null)).toBeNull();
+    expect(isCardKeyed("card")).toBe(true);
+    expect(isCardKeyed("related:r")).toBe(true);
+    expect(isCardKeyed("type")).toBe(false);
+    expect(isCardKeyed(undefined)).toBe(false);
   });
 });
 
@@ -79,6 +144,20 @@ describe("drillUrl", () => {
       "/inventory?type=Application&subtype=microservice",
     );
     expect(drillUrl("subtype", "microservice", null)).toBeNull();
+  });
+
+  it("drills a card-keyed mark into that card, never the none or folded rows", () => {
+    expect(drillUrl("card", "c-1", {})).toBe("/cards/c-1");
+    expect(drillUrl("related:relAppToITC", "c-2", { card_type: "Application" })).toBe("/cards/c-2");
+    expect(drillUrl("related:relAppToITC", "none", {})).toBeNull();
+    expect(drillUrl("card", "__other__", {})).toBeNull();
+  });
+
+  it("drills EOL coverage, stakeholders and lifecycle months into their reports", () => {
+    expect(drillUrl("eol_coverage", "missing", { card_type: "Application" })).toBe("/reports/data-quality");
+    expect(drillUrl("stakeholders", "false", { card_type: "Application" })).toBe("/inventory?type=Application");
+    expect(drillUrl("stakeholders", "true", {})).toBe("/inventory");
+    expect(drillUrl("phase_month:endOfLife", "2026-11", {})).toBe("/reports/lifecycle");
   });
 
   it("encodes keys", () => {

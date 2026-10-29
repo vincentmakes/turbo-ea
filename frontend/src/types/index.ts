@@ -846,10 +846,14 @@ export interface Dashboard {
   can_manage: boolean;
 }
 
-export type DashboardMetric = "count" | "sum" | "avg";
+/** `share` = the narrowed count as a percentage of the same query without its
+ *  approval / lifecycle / flag filters (no `metric_field`). */
+export type DashboardMetric = "count" | "sum" | "avg" | "share";
 
 /** `type`, `subtype`, `approval_status`, `lifecycle_phase`,
- *  `data_quality_bucket`, `created_month`, or `field:<key>`. */
+ *  `data_quality_bucket`, `created_month`, `field:<key>`, `eol_coverage`,
+ *  `stakeholders`, `phase_month:<phase>`, `related:<rt>[__out|__in]`, or —
+ *  on a sankey side only — `card`. */
 export type DashboardDimension = string;
 
 export interface DashboardQuery {
@@ -862,6 +866,11 @@ export interface DashboardQuery {
   lifecycle_phase?: string | null;
   subtype?: string | null;
   relation_type?: string | null;
+  /** Comma-separated health / governance flags, canonical (sorted, unique):
+   *  `orphaned`, `stale`, `with_stakeholders`, `without_stakeholders`,
+   *  `eol_linked`, `eol_manual`, `eol_missing`, `related:<rt>`,
+   *  `unrelated:<rt>`. */
+  flags?: string | null;
 }
 
 export type DashboardChartKind =
@@ -873,7 +882,8 @@ export type DashboardChartKind =
   | "gauge"
   | "heatmap"
   | "treemap"
-  | "sankey";
+  | "sankey"
+  | "stacked_column";
 
 export interface DashboardKeyRow {
   key: string;
@@ -899,6 +909,12 @@ export interface DashboardQueryResult {
   dimension_2: DashboardDimension | null;
   rows: DashboardQueryRow[];
   total: number;
+  /** Card names of the keys of a card-keyed dimension (`related:`, a sankey
+   *  side on `card`), resolved through the caller's read scope. */
+  labels?: Record<string, string>;
+  /** Present when the metric sums or averages a cost field. */
+  fiscal_year?: number;
+  fiscal_year_start?: number;
 }
 
 export interface DashboardKpiTrend {
@@ -913,6 +929,10 @@ export interface DashboardKpiTrend {
 export interface DashboardKpi {
   value: number;
   trend: DashboardKpiTrend | null;
+  /** Count of the same query without its narrowing filters (count metric only). */
+  base?: number;
+  fiscal_year?: number;
+  fiscal_year_start?: number;
 }
 
 export interface DashboardKpiHistory {
