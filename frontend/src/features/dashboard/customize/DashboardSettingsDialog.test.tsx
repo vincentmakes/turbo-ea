@@ -156,7 +156,10 @@ describe("DashboardSettingsDialog — edit", () => {
   it("saves every field with one PATCH, never sending a wildcard role", async () => {
     mockApi.on("patch", "/dashboards/id-team", TEAM);
     const { user, onSaved } = renderDialog(TEAM);
-    await waitFor(() => expect(chip("member")).toBeInTheDocument());
+    // Wait for the role's label, not just the chip: before the roles arrive
+    // the chip is the inert fallback, replaced on load — a click that lands
+    // across that replacement removes nothing.
+    await waitFor(() => expect(chip("member")).toHaveTextContent("Member"));
     await user.click(within(chip("member")).getByTestId("CancelIcon"));
     await user.clear(nameInput());
     await user.type(nameInput(), "Team room");

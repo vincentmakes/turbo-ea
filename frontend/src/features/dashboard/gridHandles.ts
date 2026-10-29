@@ -15,11 +15,17 @@
  *   corners;
  * - the library reveals handles only on `:hover`, which a touch screen never
  *   produces, so where there is no hover the handles are always shown; a
- *   mouse user keeps the hover reveal.
+ *   mouse user keeps the hover reveal;
+ * - where a moved or resized widget will land (the library's placeholder, a
+ *   square red block at 20 % opacity by default) is a rounded area with a
+ *   dotted primary border and a faint primary fill; the library's z-index
+ *   and transition stay;
+ * - the widget being dragged lifts higher than its resting customize-mode
+ *   shadow (`WidgetFrame`), the usual cue that it is in hand.
  *
  * Outside customize mode there are no handle rules at all. Pure.
  */
-import type { Theme } from "@mui/material/styles";
+import { alpha, type Theme } from "@mui/material/styles";
 import { DRAG_HANDLE_CLASS } from "./widgets/WidgetFrame";
 
 const HANDLE = "& .react-grid-item > .react-resizable-handle";
@@ -42,38 +48,16 @@ export function handleStyles(theme: Theme, editing: boolean): Record<string, unk
     [`${HANDLE}.react-resizable-handle-s`]: NO_EDGE_MARK,
     [`& .${DRAG_HANDLE_CLASS}`]: { ...TOUCH },
     "@media (hover: none)": { [HANDLE]: { opacity: 1 } },
-  };
-}
-
-/**
- * A dot at every grid crossing, as `sx` for the `.dashboard-grid` container
- * while arranging: the lines a widget snaps to, drawn with one repeating CSS
- * background and no extra elements. Pure.
- *
- * react-grid-layout (container padding `[0, 0]`) places an item at
- * `x × (colWidth + marginX)`, `colWidth = (width − marginX × (cols − 1)) / cols`,
- * so the column pitch is `colWidth + marginX = (width + marginX) / cols` and
- * the row pitch `rowHeight + marginY`. The gutter before column `k` ends
- * where the column starts, at `k × pitch`, so its middle is half a margin
- * earlier. The gradient draws its dot in the middle of its tile, so the tiles
- * are shifted back by half a pitch and half a margin: one dot in the middle
- * of every gutter crossing. The pattern is symmetric, so a right-to-left grid
- * (mirrored items, same pitch) needs nothing. The pitch is usually
- * fractional and kept so: CSS takes fractional pixels, and a rounded pitch
- * would drift a pixel further from the columns at every column.
- */
-export function gridDots(
-  width: number,
-  cols: number,
-  margin: readonly [number, number],
-  rowHeight: number,
-  color: string,
-): Record<string, unknown> {
-  const pitchX = (width + margin[0]) / cols;
-  const pitchY = rowHeight + margin[1];
-  return {
-    backgroundImage: `radial-gradient(circle, ${color} 1px, transparent 1.5px)`,
-    backgroundSize: `${pitchX}px ${pitchY}px`,
-    backgroundPosition: `${-(pitchX + margin[0]) / 2}px ${-(pitchY + margin[1]) / 2}px`,
+    "& .react-grid-item.react-grid-placeholder": {
+      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+      border: `2px dotted ${theme.palette.primary.main}`,
+      borderRadius: theme.shape.borderRadius,
+      opacity: 1,
+      boxSizing: "border-box",
+    },
+    "& .react-grid-item.react-draggable-dragging": {
+      boxShadow: theme.shadows[8],
+      borderRadius: theme.shape.borderRadius,
+    },
   };
 }

@@ -15,12 +15,15 @@
  * keep, so its own `onLayoutChange` at the end reports the fitted layout.
  * Heights stay the library's: rows below move down and compact back up on
  * their own. The grid's width is held still for the length of a resize or a
- * drag (`gestureWidth`).
+ * drag (`gestureWidth`). The widget being resized is drawn at its snapped
+ * size (`snapSizePx`) instead of the library's pointer size, so it grows and
+ * shrinks column by column in step with its neighbour and never overlaps it.
  *
  * While arranging, the library's resize and drag handles respond to touch
  * as well as a mouse, the corner mark follows the theme and the edge marks
- * are hidden (`handleStyles`), dots mark the grid crossings (`gridDots`), and
- * four empty rows sit under the last widget.
+ * are hidden, the landing area is a rounded blue dotted outline and the
+ * dragged widget lifts (`handleStyles`), and four empty rows sit under the
+ * last widget.
  *
  * Layout changes go to the parent's local state only — the page saves.
  */
@@ -35,7 +38,7 @@ import {
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import Box from "@mui/material/Box";
-import { alpha, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import { useIsRtl } from "@/hooks/useIsRtl";
 import type { DashboardWidget } from "@/types";
 import {
@@ -51,11 +54,12 @@ import {
   mirrorLayout,
   reflowLayout,
   rowNeighbour,
+  snapSizePx,
   toGridItem,
   type GridItem,
 } from "./layoutUtils";
 import { configKind } from "./customize/widgetConfigModel";
-import { gridDots, handleStyles } from "./gridHandles";
+import { handleStyles } from "./gridHandles";
 import { WIDGET_REGISTRY, isKnownWidgetType } from "./widgets/registry";
 import WidgetFrame, { DRAG_HANDLE_CLASS } from "./widgets/WidgetFrame";
 
@@ -107,17 +111,43 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
     return { lg: layout, md: layout, sm: narrow(COLS.sm), xs: narrow(COLS.xs) };
   }, [items, layout, isRtl]);
 
+  // The snapped pixel size of the widget being resized, while a resize is
+  // under way. react-grid-layout draws the item at the pointer's size (its
+  // `GridItem` keeps the unsnapped size) while the neighbour, fitted on every
+  // move, snaps to columns, so between two snap points the resized widget
+  // spills over its neighbour. The library writes the pointer size inline,
+  // hence `!important`; its own `.resizing { transition: none }` is replaced
+  // so the card grows in step with the neighbour's 200 ms transition.
+  const [snap, setSnap] = useState<{ width: number; height: number } | null>(null);
+  // The size last set, read by the resize handler so a move inside one cell
+  // sets no state at all and re-renders nothing.
+  const snapRef = useRef<{ width: number; height: number } | null>(null);
+  const setSnapSize = useCallback((size: { width: number; height: number } | null) => {
+    const current = snapRef.current;
+    if (current === size || (current && size && current.width === size.width && current.height === size.height)) {
+      return;
+    }
+    snapRef.current = size;
+    setSnap(size);
+  }, []);
+
   const canArrange = editing && FULL_WIDTH.has(breakpoint);
   const gridSx = useMemo(
     () =>
       canArrange
         ? {
             ...handleStyles(theme, true),
-            ...gridDots(gridWidth, GRID_COLS, MARGIN, ROW_HEIGHT, alpha(theme.palette.text.secondary, 0.35)),
+            ...(snap && {
+              "& .react-grid-item.resizing": {
+                width: `${snap.width}px !important`,
+                height: `${snap.height}px !important`,
+                transition: "width 200ms ease, height 200ms ease",
+              },
+            }),
             paddingBottom: ROOM_BELOW,
           }
         : handleStyles(theme, false),
-    [theme, canArrange, gridWidth],
+    [theme, canArrange, snap],
   );
 
   // The layout as it was when the current resize started: every fit during
@@ -169,6 +199,7 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
     (layout: Layout, oldItem: LayoutItem | null, newItem: LayoutItem | null) => {
       const before = resizeStartRef.current;
       if (!canArrange || !before || !oldItem || !newItem) return;
+      setSnapSize(snapSizePx(newItem, gridWidth, GRID_COLS, MARGIN, ROW_HEIGHT));
       const neighbour = rowNeighbour(before, oldItem as GridItem);
       if (!neighbour) return;
       const after = layout as GridItem[];
@@ -188,13 +219,14 @@ export default function DashboardGrid({ widgets, editing, onLayoutChange, onConf
         if (fitted[i] !== after[i]) after[i] = fitted[i];
       }
     },
-    [canArrange],
+    [canArrange, gridWidth, setSnapSize],
   );
 
   const handleResizeStop = useCallback(() => {
     resizeStartRef.current = null;
+    setSnapSize(null);
     handleGestureStop();
-  }, [handleGestureStop]);
+  }, [handleGestureStop, setSnapSize]);
 
   return (
     <Box ref={containerRef} className="dashboard-grid" dir="ltr" sx={gridSx}>

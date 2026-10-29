@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import i18n from "@/i18n";
 import { renderWithProviders } from "@/test/render";
+import { buildTheme } from "@/theme";
 import type { DashboardWidget, WidgetType } from "@/types";
 import WidgetFrame, { DRAG_HANDLE_CLASS } from "./WidgetFrame";
 
@@ -10,6 +11,13 @@ const tc = (k: string) => i18n.t(`common:${k}`);
 function w(type: WidgetType, title: string | null = null, config: Record<string, unknown> = {}): DashboardWidget {
   return { id: "w1", type, title, config, layout: { x: 0, y: 0, w: 6, h: 5 } };
 }
+
+/** The frame's outer element: the card, or the box around a widget that brings its own surface. */
+function frameOf(container: HTMLElement): HTMLElement {
+  return container.querySelector<HTMLElement>("[data-widget-id]")!;
+}
+
+const RESTING_SHADOW = buildTheme("light").shadows[3];
 
 function Boom(): never {
   throw new Error("kaboom");
@@ -100,5 +108,35 @@ describe("WidgetFrame", () => {
     );
     const body = screen.getByTestId("widget-body");
     expect(body).toHaveStyle({ flex: "1", minHeight: "0", display: "flex", flexDirection: "column" });
+  });
+
+  describe("customize-mode shadow", () => {
+    for (const type of ["chart", "kpi"] as const) {
+      it(`lifts a ${type} frame on a soft shadow, with no outline, while customising`, () => {
+        const { container } = renderWithProviders(
+          <WidgetFrame widget={w(type)} editing>
+            <div />
+          </WidgetFrame>,
+          { theme: true },
+        );
+        const style = getComputedStyle(frameOf(container));
+        expect(RESTING_SHADOW).not.toBe("none");
+        expect(style.boxShadow).toBe(RESTING_SHADOW);
+        expect(style.outlineStyle).toBe("");
+        expect(style.outline).toBe("");
+      });
+
+      it(`draws neither a shadow nor an outline on a ${type} frame outside customize mode`, () => {
+        const { container } = renderWithProviders(
+          <WidgetFrame widget={w(type)} editing={false}>
+            <div />
+          </WidgetFrame>,
+          { theme: true },
+        );
+        const style = getComputedStyle(frameOf(container));
+        expect(style.boxShadow).toBe("");
+        expect(style.outline).toBe("");
+      });
+    }
   });
 });

@@ -12,6 +12,7 @@ import {
   newWidgetId,
   newWidgetLayout,
   reflowLayout,
+  snapSizePx,
   toGridItem,
 } from "./layoutUtils";
 
@@ -381,5 +382,35 @@ describe("reflowLayout", () => {
 
   it("returns an empty layout for no items", () => {
     expect(reflowLayout([], 12, 6)).toEqual([]);
+  });
+});
+
+describe("snapSizePx", () => {
+  it("sizes an item the way react-grid-layout does, gutters included", () => {
+    // 1280 px on 12 columns with 16 px gutters: 92 px columns.
+    expect(snapSizePx({ w: 4, h: 2 }, 1280, 12, [16, 16], 60)).toEqual({ width: 416, height: 136 });
+    expect(snapSizePx({ w: 12, h: 1 }, 1280, 12, [16, 16], 60)).toEqual({ width: 1280, height: 60 });
+  });
+
+  it("adds no gutter to a one-unit item", () => {
+    expect(snapSizePx({ w: 1, h: 1 }, 1280, 12, [16, 16], 60)).toEqual({ width: 92, height: 60 });
+  });
+
+  it("reads the horizontal margin for the width and the vertical one for the height", () => {
+    // colWidth = (1210 - 10 * 11) / 12 = 91.666…; 3 columns = 275 + 20 = 295.
+    expect(snapSizePx({ w: 3, h: 3 }, 1210, 12, [10, 20], 40)).toEqual({ width: 295, height: 160 });
+  });
+
+  it("rounds a fractional column width to whole pixels", () => {
+    // colWidth = (1000 - 16 * 11) / 12 = 68.666…; 2 columns = 137.33… + 16.
+    expect(snapSizePx({ w: 2, h: 1 }, 1000, 12, [16, 16], 60)).toEqual({ width: 153, height: 60 });
+    // 5 columns = 343.33… + 64 = 407.33…, rounded down; 7 = 480.67 + 96, rounded up.
+    expect(snapSizePx({ w: 5, h: 1 }, 1000, 12, [16, 16], 60).width).toBe(407);
+    expect(snapSizePx({ w: 7, h: 1 }, 1000, 12, [16, 16], 60).width).toBe(577);
+  });
+
+  it("follows the column count", () => {
+    // 768 px on 6 columns: (768 - 80) / 6 = 114.666…; 2 columns = 229.33 + 16.
+    expect(snapSizePx({ w: 2, h: 1 }, 768, 6, [16, 16], 60).width).toBe(245);
   });
 });

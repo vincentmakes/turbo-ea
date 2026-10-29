@@ -5,6 +5,11 @@
  * takes the dashboard down. The grid gives the frame a fixed height; the body
  * fills what the header leaves (`flex: 1, minHeight: 0`) so charts size to it
  * and long lists scroll inside it.
+ *
+ * In customize mode every widget carries a soft shadow (`theme.shadows[3]`),
+ * the cue that it can be picked up and moved: on the card, or for a widget
+ * that brings its own surface on the frame around it, which that surface
+ * fills. The widget being dragged lifts higher still (`gridHandles.ts`).
  */
 import { createContext, useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +19,6 @@ import CardContent from "@mui/material/CardContent";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { Theme } from "@mui/material/styles";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { DashboardWidget } from "@/types";
@@ -41,8 +45,6 @@ interface Props {
   onRemove?: () => void;
   children: ReactNode;
 }
-
-const editOutline = (theme: Theme) => `1px dashed ${theme.palette.primary.main}`;
 
 export default function WidgetFrame({ widget, editing, onConfigure, onRemove, children }: Props) {
   const { t } = useTranslation("common");
@@ -123,7 +125,7 @@ export default function WidgetFrame({ widget, editing, onConfigure, onRemove, ch
           display: "flex",
           flexDirection: "column",
           borderRadius: 1,
-          ...(editing && { outline: editOutline, outlineOffset: 2 }),
+          ...(editing && { boxShadow: 3 }),
         }}
       >
         {header}
@@ -139,7 +141,7 @@ export default function WidgetFrame({ widget, editing, onConfigure, onRemove, ch
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        ...(editing && { outline: editOutline, outlineOffset: 2 }),
+        ...(editing && { boxShadow: 3 }),
       }}
     >
       <CardContent

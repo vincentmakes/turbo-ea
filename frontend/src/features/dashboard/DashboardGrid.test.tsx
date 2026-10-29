@@ -6,13 +6,14 @@ import type { DashboardWidget } from "@/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- the grid props are inspected as plain data */
 
-const rgl = vi.hoisted(() => ({ props: null as any, width: 1280 }));
+const rgl = vi.hoisted(() => ({ props: null as any, width: 1280, renders: 0 }));
 vi.mock("react-grid-layout", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-grid-layout")>();
   return {
     ...actual,
     Responsive: (props: { children: ReactNode }) => {
       rgl.props = props;
+      rgl.renders += 1;
       return <div data-testid="rgl">{props.children}</div>;
     },
     useContainerWidth: () => ({ width: rgl.width, containerRef: { current: null }, mounted: true }),
@@ -105,6 +106,7 @@ beforeEach(() => {
   hookState.reset();
   rgl.props = null;
   rgl.width = 1280;
+  rgl.renders = 0;
 });
 
 describe("DashboardGrid", () => {
@@ -404,50 +406,111 @@ describe("DashboardGrid", () => {
     });
   });
 
-  describe("customize-mode background", () => {
-    const DOTS = "background-image:radial-gradient(circle, rgba(0, 0, 0, 0.35) 1px, transparent 1.5px)";
-
-    it("leaves four empty rows under the last widget and dots the grid crossings while customising", () => {
+  describe("customize-mode room below", () => {
+    it("leaves four empty rows under the last widget while customising, and draws no dots", () => {
       const { container } = renderGrid({ editing: true });
       const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
       expect(rules).toContain("padding-bottom:256px");
-      expect(rules).toContain(DOTS);
-      expect(rules).toContain("background-size:108px 76px");
-      expect(rules).toContain("background-position:-62px -46px");
-    });
-
-    it("sizes the dots from the grid's width", () => {
-      rgl.width = 1000;
-      const { container } = renderGrid({ editing: true });
-      expect(ownRules(container.querySelector(".dashboard-grid")!).join("\n")).toContain(
-        `background-size:${1016 / 12}px 76px`,
-      );
-    });
-
-    it("keeps the dots on the held width during a gesture", () => {
-      const { container, rerenderGrid } = renderGrid({ editing: true });
-      resizeStart(START, START[0]);
-      rgl.width = 1265;
-      rerenderGrid();
-      const grid = container.querySelector(".dashboard-grid")!;
-      expect(ownRules(grid).join("\n")).toContain("background-size:108px 76px");
-      resizeStop([...START], START[0], START[0]);
-      expect(ownRules(grid).join("\n")).toContain(`background-size:${1281 / 12}px 76px`);
-    });
-
-    it("has no room below and no dots outside customize mode", () => {
-      const { container } = renderGrid({ editing: false });
-      const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
-      expect(rules).not.toContain("padding-bottom");
       expect(rules).not.toContain("radial-gradient");
+      expect(rules).not.toContain("background-size");
     });
 
-    it("has no room below and no dots on a narrow screen, where nothing can be arranged", () => {
+    it("has no room below outside customize mode", () => {
+      const { container } = renderGrid({ editing: false });
+      expect(ownRules(container.querySelector(".dashboard-grid")!).join("\n")).not.toContain("padding-bottom");
+    });
+
+    it("has no room below on a narrow screen, where nothing can be arranged", () => {
       rgl.width = 700;
       const { container } = renderGrid({ editing: true });
-      const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
-      expect(rules).not.toContain("padding-bottom");
-      expect(rules).not.toContain("radial-gradient");
+      expect(ownRules(container.querySelector(".dashboard-grid")!).join("\n")).not.toContain("padding-bottom");
+    });
+  });
+
+  describe("snapping the resized widget", () => {
+    /** The grid's rules for the item being resized, from its injected emotion CSS. */
+    function resizingRules(el: Element): string[] {
+      const css = Array.from(document.head.querySelectorAll("style"))
+        .map((s) => s.textContent ?? "")
+        .join("\n");
+      const classes = Array.from(el.classList).filter((c) => c.startsWith("css-"));
+      return classes.flatMap((c) =>
+        css.split("}").filter((rule) => rule.trim().startsWith(`.${c} .react-grid-item.resizing{`)),
+      );
+    }
+    const FOUR_BY_TWO = { i: "chart-a", x: 0, y: 0, w: 4, h: 2 };
+
+    it("draws the widget at its snapped size while it is resized, growing with its neighbour", () => {
+      const { container } = renderGrid({ editing: true });
+      const grid = container.querySelector(".dashboard-grid")!;
+      expect(resizingRules(grid)).toEqual([]);
+      resizeStart(START, START[0]);
+      expect(resizingRules(grid)).toEqual([]);
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      const rules = resizingRules(grid);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]).toContain("width:416px!important");
+      expect(rules[0]).toContain("height:136px!important");
+      expect(rules[0]).toContain("transition:width 200ms ease,height 200ms ease");
+    });
+
+    it("measures the snapped size on the width held for the gesture", () => {
+      const { container, rerenderGrid } = renderGrid({ editing: true });
+      resizeStart(START, START[0]);
+      rgl.width = 1000;
+      rerenderGrid();
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      // On the held 1280 px, not the new 1000 px (where it would be 323 px).
+      expect(resizingRules(container.querySelector(".dashboard-grid")!)[0]).toContain("width:416px!important");
+    });
+
+    it("follows the size as the pointer crosses into another cell", () => {
+      const { container } = renderGrid({ editing: true });
+      const grid = container.querySelector(".dashboard-grid")!;
+      resizeStart(START, START[0]);
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      const wider = { ...FOUR_BY_TWO, w: 5, h: 3 };
+      resizeMove([wider, { ...START[1] }], START[0], wider);
+      const rules = resizingRules(grid);
+      expect(rules).toHaveLength(1);
+      expect(rules[0]).toContain("width:524px!important");
+      expect(rules[0]).toContain("height:212px!important");
+    });
+
+    it("lets the library size the widget again once the resize stops", () => {
+      const { container } = renderGrid({ editing: true });
+      const grid = container.querySelector(".dashboard-grid")!;
+      resizeStart(START, START[0]);
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      resizeStop([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      expect(resizingRules(grid)).toEqual([]);
+    });
+
+    it("re-renders nothing for a move that stays inside the same cell", () => {
+      const { container } = renderGrid({ editing: true });
+      const grid = container.querySelector(".dashboard-grid")!;
+      resizeStart(START, START[0]);
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      const renders = rgl.renders;
+      const className = grid.className;
+      resizeMove([{ ...FOUR_BY_TWO }, { ...START[1] }], START[0], { ...FOUR_BY_TWO });
+      expect(rgl.renders).toBe(renders);
+      expect(grid.className).toBe(className);
+      expect(resizingRules(grid)).toHaveLength(1);
+    });
+
+    it("snaps a widget with no row neighbour too", () => {
+      const { container } = renderGrid({ editing: true, widgets: [CHART] });
+      resizeStart([START[0]], START[0]);
+      resizeMove([FOUR_BY_TWO], START[0], FOUR_BY_TWO);
+      expect(resizingRules(container.querySelector(".dashboard-grid")!)[0]).toContain("width:416px!important");
+    });
+
+    it("snaps nothing outside customize mode", () => {
+      const { container } = renderGrid({ editing: false });
+      resizeStart(START, START[0]);
+      resizeMove([FOUR_BY_TWO, { ...START[1] }], START[0], FOUR_BY_TWO);
+      expect(resizingRules(container.querySelector(".dashboard-grid")!)).toEqual([]);
     });
   });
 

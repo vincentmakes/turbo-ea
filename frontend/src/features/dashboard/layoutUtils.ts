@@ -195,3 +195,29 @@ export function fitRowNeighbour(
   };
   return after.map((item) => (item.i === neighbour.i ? fitted : item));
 }
+
+/**
+ * The pixel size react-grid-layout gives an item of `w` × `h` grid units on a
+ * grid `width` px wide (its own `calcGridItemWHPx`, container padding
+ * `[0, 0]`): `colWidth = (width − marginX × (cols − 1)) / cols`, then
+ * `round(colWidth × w + marginX × (w − 1))` and
+ * `round(rowHeight × h + marginY × (h − 1))`.
+ *
+ * The library draws the item being resized at the pointer's unsnapped size
+ * while its neighbour already snaps to columns, so between two snap points
+ * the resized widget spills over the neighbour; the grid pins the resizing
+ * item to this size instead.
+ */
+export function snapSizePx(
+  item: Pick<GridItem, "w" | "h">,
+  width: number,
+  cols: number,
+  margin: readonly [number, number],
+  rowHeight: number,
+): { width: number; height: number } {
+  const colWidth = (width - margin[0] * (cols - 1)) / cols;
+  return {
+    width: Math.round(colWidth * item.w + margin[0] * Math.max(0, item.w - 1)),
+    height: Math.round(rowHeight * item.h + margin[1] * Math.max(0, item.h - 1)),
+  };
+}
