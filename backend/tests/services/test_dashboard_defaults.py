@@ -20,6 +20,7 @@ from app.services.dashboard_defaults import (
 )
 from app.services.dashboard_service import seed_dashboards
 from app.services.seed import DASHBOARD_NAMES
+from tests.conftest import create_role
 
 ALL_WIDGETS = [
     pytest.param(key, w, id=f"{key}:{w['id']}")
@@ -181,12 +182,24 @@ def test_default_widgets_is_a_copy():
 
 
 async def test_seed_inserts_the_three_built_ins_once(db):
+    # The Admin dashboard's Access is seeded from the roles that hold
+    # ``admin.users``: the wildcard admin, a custom role holding it — not a
+    # role without it, nor an archived one.
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    await create_role(db, key="viewer", label="Viewer", permissions={"inventory.view": True})
+    await create_role(db, key="ops", label="Ops", permissions={"admin.users": True})
+    retired = await create_role(
+        db, key="retired", label="Retired", permissions={"admin.users": True}
+    )
+    retired.is_archived = True
+    await db.flush()
+
     assert await seed_dashboards(db) == ["overview", "workspace", "admin"]
     rows = (await db.execute(select(Dashboard).order_by(Dashboard.sort_order))).scalars().all()
     assert [(d.key, d.name, d.built_in, d.is_hidden, d.allowed_roles) for d in rows] == [
         ("overview", "Overview", True, False, []),
         ("workspace", "My Workspace", True, False, []),
-        ("admin", "Admin", True, False, []),
+        ("admin", "Admin", True, False, ["admin", "ops"]),
     ]
     assert rows[0].icon == "dashboard"
     assert rows[0].widgets == DEFAULT_DASHBOARDS["overview"]["widgets"]

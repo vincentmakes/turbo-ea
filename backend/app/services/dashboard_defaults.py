@@ -239,14 +239,22 @@ _ADMIN: list[dict[str, Any]] = [
     _w("stakeholder-directory", "stakeholder_directory", 0, 20, 12, 7),
 ]
 
-# key → the non-name attributes of a built-in dashboard. ``allowed_roles`` is
-# empty on all three: the Overview and Admin tabs are gated by their widgets'
-# own permissions on the frontend (a tab with no visible widget is not shown),
-# which is how today's gating is reproduced without restricting ``/``.
+# key → the non-name attributes of a built-in dashboard. Every widget carries
+# its own permission on the frontend (a tab with no visible widget is not
+# shown), which is how the old Overview / Admin gating is reproduced without
+# restricting ``/``. The Admin dashboard additionally names, in
+# ``access_permission``, the permission its roles are seeded from: Access then
+# *states* who sees it (the roles holding ``admin.users`` — the admin role on a
+# fresh install) instead of reading "everyone" while admins alone see it.
 DEFAULT_DASHBOARDS: dict[str, dict[str, Any]] = {
     "overview": {"icon": "dashboard", "sort_order": 0, "widgets": _OVERVIEW},
     "workspace": {"icon": "person", "sort_order": 1, "widgets": _WORKSPACE},
-    "admin": {"icon": "admin_panel_settings", "sort_order": 2, "widgets": _ADMIN},
+    "admin": {
+        "icon": "admin_panel_settings",
+        "sort_order": 2,
+        "widgets": _ADMIN,
+        "access_permission": "admin.users",
+    },
 }
 
 

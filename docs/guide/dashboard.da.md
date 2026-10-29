@@ -163,7 +163,7 @@ Menuen **⋮** ved siden af fanerne virker på det aktuelle dashboard:
 |----------|--------------|
 | **Nyt dashboard** | Opretter et tomt dashboard, klar til at blive fyldt med widgets |
 | **Duplikér** | Kopierer dashboardet med alle dets widgets — en hurtig start på en variant af et indbygget dashboard |
-| **Indstillinger** | Navn, beskrivelse, ikon og **Adgang**: de roller, der må se dashboardet. Lad adgang være tom for at vise det for alle. Brugere med `admin.dashboards` ser altid alle dashboards |
+| **Indstillinger** | Navn, beskrivelse, ikon og **Adgang**: de roller, der må se dashboardet. Lad adgang være tom for at vise det for alle; det indbyggede Admin-dashboard leveres med adgang sat til de roller, der må administrere brugere (Admin-rollen på en ny installation). Under feltet står de rettigheder, dashboardets widgets har brug for: en rolle uden dem ser intet der, uanset hvad adgang er sat til. Brugere med `admin.dashboards` ser altid alle dashboards |
 | **Skjul** / **Vis** | Fjerner dashboardet fra alle andres faner uden at slette det |
 | **Flyt til venstre** / **Flyt til højre** | Ændrer rækkefølgen af fanerne |
 | **Nulstil til standard** | Kun indbyggede dashboards: gendanner de widgets og det layout, Turbo EA leveres med |

@@ -111,11 +111,13 @@ async def _deny_secret_to(db, role: str) -> None:
 
 
 class TestList:
-    async def test_member_sees_the_three_defaults_trimmed(self, client, env):
+    async def test_member_sees_the_open_defaults_trimmed(self, client, env):
+        # The Admin dashboard is seeded with Access set to the roles holding
+        # ``admin.users``, so a member is not even told it exists.
         r = await client.get(BASE, headers=auth_headers(env["member"]))
         assert r.status_code == 200
         rows = r.json()
-        assert [d["key"] for d in rows] == ["overview", "workspace", "admin"]
+        assert [d["key"] for d in rows] == ["overview", "workspace"]
         overview = rows[0]
         assert overview["name"] == "Overview"
         assert overview["built_in"] is True
@@ -140,9 +142,9 @@ class TestList:
             return [d["key"] for d in r.json()]
 
         viewer = await client.get(BASE, headers=auth_headers(env["viewer"]))
-        assert keys(viewer) == ["overview", "workspace", "admin", "for-viewers"]
+        assert keys(viewer) == ["overview", "workspace", "for-viewers"]
         member = await client.get(BASE, headers=auth_headers(env["member"]))
-        assert keys(member) == ["overview", "workspace", "admin"]
+        assert keys(member) == ["overview", "workspace"]
         # The wildcard admin sees every role's dashboard, and as a manager the
         # hidden one too; so does a non-wildcard manager.
         admin = await client.get(BASE, headers=auth_headers(env["admin"]))
@@ -214,13 +216,15 @@ class TestCreate:
         assert r.status_code == 403
         assert len((await db.execute(select(Dashboard))).scalars().all()) == 3
 
-    @pytest.mark.parametrize(
-        ("roles", "detail"), [(["ghost"], "unknown_role"), (["admin"], "wildcard_role")]
-    )
-    async def test_roles_must_exist_and_not_be_wildcards(self, client, env, roles, detail):
-        r = await _create(client, env["admin"], allowed_roles=roles)
+    async def test_roles_must_exist(self, client, env):
+        r = await _create(client, env["admin"], allowed_roles=["ghost"])
         assert r.status_code == 400
-        assert r.json()["detail"] == detail
+        assert r.json()["detail"] == "unknown_role"
+
+    async def test_a_wildcard_role_is_accepted_and_echoed(self, client, env):
+        r = await _create(client, env["admin"], allowed_roles=["admin", "member"])
+        assert r.status_code == 201
+        assert r.json()["allowed_roles"] == ["admin", "member"]
 
     @pytest.mark.parametrize(
         "widget",

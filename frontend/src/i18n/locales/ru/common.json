@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "Эту панель управления видят все роли.",
   "dashboard.settings.accessHelp": "Оставьте пустым, чтобы показать эту панель управления всем ролям. Роли с полным доступом видят её всегда.",
   "dashboard.settings.alwaysIncluded": "{{label}} (всегда)",
+  "dashboard.settings.widgetPermissions": "Виджеты на этой панели также требуют",
+  "dashboard.settings.widgetPermissionsHint": "Роли без этих прав ничего здесь не увидят, независимо от настройки доступа.",
   "dashboard.settings.archivedRole": "{{label}} (в архиве)",
   "dashboard.settings.saveFailed": "Не удалось сохранить панель управления.",
   "dashboard.config.createTitle": "Добавить виджет",

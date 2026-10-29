@@ -284,6 +284,8 @@
   "dashboard.settings.everyoneHint": "Every role can see this dashboard.",
   "dashboard.settings.accessHelp": "Leave empty to show this dashboard to every role. Roles with full access always see it.",
   "dashboard.settings.alwaysIncluded": "{{label}} (always)",
+  "dashboard.settings.widgetPermissions": "Widgets on this dashboard also need",
+  "dashboard.settings.widgetPermissionsHint": "Roles without them see nothing here, whatever Access says.",
   "dashboard.settings.archivedRole": "{{label}} (archived)",
   "dashboard.settings.saveFailed": "The dashboard could not be saved.",
   "dashboard.config.createTitle": "Add widget",

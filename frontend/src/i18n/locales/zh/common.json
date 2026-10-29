@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "所有角色都可以看到此仪表盘。",
   "dashboard.settings.accessHelp": "留空则向所有角色显示此仪表盘。拥有完全访问权限的角色始终可以看到。",
   "dashboard.settings.alwaysIncluded": "{{label}}（始终）",
+  "dashboard.settings.widgetPermissions": "此仪表板上的小组件还需要",
+  "dashboard.settings.widgetPermissionsHint": "没有这些权限的角色在此看不到任何内容，无论访问权限如何设置。",
   "dashboard.settings.archivedRole": "{{label}}（已归档）",
   "dashboard.settings.saveFailed": "无法保存仪表盘。",
   "dashboard.config.createTitle": "添加小部件",

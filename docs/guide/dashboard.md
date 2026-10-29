@@ -163,7 +163,7 @@ The **⋮** menu next to the tabs acts on the current dashboard:
 |--------|--------------|
 | **New dashboard** | Creates an empty dashboard, ready to fill with widgets |
 | **Duplicate** | Copies the dashboard with all its widgets — a quick start for a variant of a built-in dashboard |
-| **Settings** | Name, description, icon and **Access**: the roles allowed to see the dashboard. Leave Access empty to show it to everyone. Users with `admin.dashboards` always see every dashboard |
+| **Settings** | Name, description, icon and **Access**: the roles allowed to see the dashboard. Leave Access empty to show it to everyone; the built-in Admin dashboard ships with Access set to the roles that may manage users (the admin role on a fresh install). Under the field, the permissions the dashboard's widgets need are listed: a role without them sees nothing there whatever Access says. Users with `admin.dashboards` always see every dashboard |
 | **Hide** / **Show** | Removes the dashboard from everyone else's tabs without deleting it |
 | **Move left** / **Move right** | Changes the order of the tabs |
 | **Reset to default** | Built-in dashboards only: restores the widgets and layout Turbo EA ships with |

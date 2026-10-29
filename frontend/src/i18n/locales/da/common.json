@@ -284,6 +284,8 @@
   "dashboard.settings.everyoneHint": "Alle roller kan se dette dashboard.",
   "dashboard.settings.accessHelp": "Lad feltet være tomt for at vise dette dashboard for alle roller. Roller med fuld adgang kan altid se det.",
   "dashboard.settings.alwaysIncluded": "{{label}} (altid)",
+  "dashboard.settings.widgetPermissions": "Widgets på dette dashboard kræver også",
+  "dashboard.settings.widgetPermissionsHint": "Roller uden dem ser intet her, uanset hvad Adgang er sat til.",
   "dashboard.settings.archivedRole": "{{label}} (arkiveret)",
   "dashboard.settings.saveFailed": "Dashboardet kunne ikke gemmes.",
   "dashboard.config.createTitle": "Tilføj widget",

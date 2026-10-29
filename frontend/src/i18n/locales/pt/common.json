@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "Todas as funções podem ver este painel.",
   "dashboard.settings.accessHelp": "Deixe vazio para mostrar este painel a todas as funções. As funções com acesso total veem-no sempre.",
   "dashboard.settings.alwaysIncluded": "{{label}} (sempre)",
+  "dashboard.settings.widgetPermissions": "Os widgets deste painel também exigem",
+  "dashboard.settings.widgetPermissionsHint": "As funções sem estas permissões não veem nada aqui, independentemente do acesso.",
   "dashboard.settings.archivedRole": "{{label}} (arquivado)",
   "dashboard.settings.saveFailed": "Não foi possível salvar o painel.",
   "dashboard.config.createTitle": "Adicionar widget",

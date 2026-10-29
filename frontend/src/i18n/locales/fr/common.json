@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "Tous les rôles peuvent voir ce tableau de bord.",
   "dashboard.settings.accessHelp": "Laissez vide pour afficher ce tableau de bord à tous les rôles. Les rôles disposant d’un accès complet le voient toujours.",
   "dashboard.settings.alwaysIncluded": "{{label}} (toujours)",
+  "dashboard.settings.widgetPermissions": "Les widgets de ce tableau de bord nécessitent aussi",
+  "dashboard.settings.widgetPermissionsHint": "Les rôles qui ne les ont pas n'y voient rien, quel que soit l'accès défini.",
   "dashboard.settings.archivedRole": "{{label}} (archivé)",
   "dashboard.settings.saveFailed": "Le tableau de bord n’a pas pu être enregistré.",
   "dashboard.config.createTitle": "Ajouter un widget",

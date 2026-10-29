@@ -9,8 +9,10 @@ Invariants (``.claude/rules/dashboards.md``):
 - A widget's config never holds a card, relation or tag id
   (``contains_uuid`` refuses any UUID-shaped string), so the ``widgets``
   column transfers between instances verbatim.
-- ``allowed_roles`` holds role keys that exist and are not wildcard roles —
-  a wildcard role sees every dashboard anyway. An empty list means every role.
+- ``allowed_roles`` holds role keys that exist. An empty list means every
+  role; a wildcard role sees every dashboard whether or not it is listed, and
+  the seeded Admin dashboard lists the roles holding ``admin.users`` so Access
+  reads as it works.
 - The three built-in dashboards are never deleted, only hidden; **Reset to
   default** rewrites their widgets from ``dashboard_defaults``.
 """
@@ -320,6 +322,34 @@ def copy_name(name: str, requested: str | None) -> str:
     return chosen[:200]
 
 
+def roles_holding(
+    permission: str, roles: Iterable[tuple[str, Mapping[str, Any] | None, bool, int]]
+) -> list[str]:
+    """The keys of the roles that hold ``permission`` (or the wildcard), active
+    ones only, in ``(sort_order, key)`` order — what a built-in dashboard's
+    Access is seeded from. ``roles`` are ``(key, permissions, is_archived,
+    sort_order)`` rows."""
+    holders = [
+        (sort_order, key)
+        for key, permissions, archived, sort_order in roles
+        if not archived and ((permissions or {}).get("*") or (permissions or {}).get(permission))
+    ]
+    return [key for _, key in sorted(holders)]
+
+
+async def seeded_access(db: AsyncSession, spec: Mapping[str, Any]) -> list[str]:
+    """A built-in dashboard's initial ``allowed_roles``: every role that could
+    see it through its widgets' permission (``access_permission``), so Access
+    reads as it works — ``[]`` (everyone) for a spec naming none."""
+    permission = spec.get("access_permission")
+    if not permission:
+        return []
+    rows = (
+        await db.execute(select(Role.key, Role.permissions, Role.is_archived, Role.sort_order))
+    ).all()
+    return roles_holding(permission, [tuple(r) for r in rows])
+
+
 async def seed_dashboards(db: AsyncSession) -> list[str]:
     """Insert the built-in dashboards the table lacks. Insert-only — a default
     already there keeps whatever an admin made of it — and keyed on ``key``.
@@ -343,7 +373,7 @@ async def seed_dashboards(db: AsyncSession) -> list[str]:
                 built_in=True,
                 is_hidden=False,
                 sort_order=spec["sort_order"],
-                allowed_roles=[],
+                allowed_roles=await seeded_access(db, spec),
                 widgets=default_widgets(key),
             )
         )
@@ -362,15 +392,14 @@ async def next_sort_order(db: AsyncSession) -> int:
 
 
 def allowed_roles_problem(keys: Sequence[str], roles: Mapping[str, Any]) -> str | None:
-    """``unknown_role`` for a key with no role, ``wildcard_role`` for a role
-    holding ``*`` (it sees every dashboard; listing it would suggest the list
-    could hide one from it). ``roles`` maps key → permissions; an archived
-    role is accepted — it is inert until restored."""
+    """``unknown_role`` for a key with no role. ``roles`` maps key →
+    permissions; an archived role is accepted — it is inert until restored —
+    and so is a wildcard role: it sees every dashboard whatever the list says
+    (``can_see``), and listing it lets Access *state* who sees the dashboard
+    (the seeded Admin dashboard names the admin role)."""
     for key in keys:
         if key not in roles:
             return "unknown_role"
-        if (roles[key] or {}).get("*"):
-            return "wildcard_role"
     return None
 
 

@@ -163,7 +163,7 @@ O menu **⋮** junto às abas atua sobre o painel atual:
 |------|-----------|
 | **Novo painel** | Cria um painel vazio, pronto para ser preenchido com widgets |
 | **Duplicar** | Copia o painel com todos os seus widgets — um bom ponto de partida para uma variante de um painel integrado |
-| **Definições** | Nome, descrição, ícone e **Acesso**: os papéis autorizados a ver o painel. Deixe o acesso vazio para o mostrar a todos. Os utilizadores com `admin.dashboards` veem sempre todos os painéis |
+| **Definições** | Nome, descrição, ícone e **Acesso**: os papéis autorizados a ver o painel. Deixe o acesso vazio para o mostrar a todos; o painel Admin integrado é fornecido com o acesso definido para os papéis que podem gerir utilizadores (o papel Admin numa instalação nova). Por baixo do campo são listadas as permissões de que os widgets do painel precisam: um papel sem elas não vê nada aí, independentemente do acesso. Os utilizadores com `admin.dashboards` veem sempre todos os painéis |
 | **Ocultar** / **Mostrar** | Retira o painel das abas de todos os outros sem o eliminar |
 | **Mover para a esquerda** / **Mover para a direita** | Altera a ordem das abas |
 | **Repor o padrão** | Apenas painéis integrados: restaura os widgets e o esquema com que o Turbo EA é fornecido |

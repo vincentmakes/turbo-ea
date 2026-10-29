@@ -27,6 +27,7 @@ from app.services.dashboard_service import (
     next_sort_order,
     normalize_widget,
     role_labels,
+    roles_holding,
     slugify,
     sort_dashboards,
     widget_config_problem,
@@ -397,17 +398,32 @@ class TestRoles:
         roles = {"viewer": {"inventory.view": True}, "admin": {"*": True}, "old": None}
         assert allowed_roles_problem(["viewer", "old"], roles) is None
         assert allowed_roles_problem(["viewer", "ghost"], roles) == "unknown_role"
-        assert allowed_roles_problem(["admin"], roles) == "wildcard_role"
+        # A wildcard role is accepted: it sees everything anyway, and listing
+        # it is how the Admin dashboard's Access names the admin role.
+        assert allowed_roles_problem(["admin"], roles) is None
+        assert allowed_roles_problem(["admin", "viewer"], roles) is None
         assert dedupe(["b", "a", "b"]) == ["b", "a"]
+
+    def test_roles_holding(self):
+        rows = [
+            ("viewer", {"inventory.view": True}, False, 3),
+            ("admin", {"*": True}, False, 0),
+            ("ops", {"admin.users": True}, False, 2),
+            ("retired", {"admin.users": True}, True, 1),
+            ("legacy", None, False, 4),
+        ]
+        assert roles_holding("admin.users", rows) == ["admin", "ops"]
+        assert roles_holding("inventory.view", rows) == ["admin", "ops", "viewer"] or roles_holding(
+            "inventory.view", rows
+        ) == ["admin", "viewer"]
+        assert roles_holding("nothing", []) == []
 
     async def test_check_and_label(self, db):
         await create_role(db, key="viewer", label="Viewer", permissions={"x": True})
         await create_role(db, key="admin", label="Admin", permissions={"*": True})
         assert await check_allowed_roles(db, ["viewer", "viewer"]) == ["viewer"]
         assert await check_allowed_roles(db, []) == []
-        with pytest.raises(DashboardError) as exc:
-            await check_allowed_roles(db, ["admin"])
-        assert (exc.value.status, exc.value.code) == (400, "wildcard_role")
+        assert await check_allowed_roles(db, ["admin", "viewer"]) == ["admin", "viewer"]
         with pytest.raises(DashboardError) as exc:
             await check_allowed_roles(db, ["ghost"])
         assert exc.value.code == "unknown_role"

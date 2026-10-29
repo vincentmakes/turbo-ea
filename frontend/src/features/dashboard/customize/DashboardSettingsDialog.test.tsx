@@ -106,13 +106,18 @@ describe("DashboardSettingsDialog — create", () => {
     ]);
   });
 
-  it("offers only active roles without full access, and restricts to the ones picked", async () => {
+  it("offers every active role, and restricts to the ones picked", async () => {
     mockApi.on("post", "/dashboards", TEAM);
     const { user } = renderDialog();
     await user.type(nameInput(), "Viewers");
     await user.click(screen.getByLabelText(tc("dashboard.settings.access")));
     const listbox = await screen.findByRole("listbox");
-    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual(["Member", "Viewer"]);
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Admin",
+      "Superuser",
+      "Member",
+      "Viewer",
+    ]);
     await user.click(within(listbox).getByText("Viewer"));
     // Once restricted, the full-access roles show as always included.
     expect(chip("admin")).toHaveTextContent(tc("dashboard.settings.alwaysIncluded", { label: "Admin" }));
@@ -166,13 +171,49 @@ describe("DashboardSettingsDialog — edit", () => {
     ]);
   });
 
-  it("keeps a stored key that no role answers to", async () => {
+  it("shows a listed wildcard role as an ordinary chip, saves it, and names the widgets' permissions", async () => {
+    const admin: Dashboard = {
+      ...TEAM,
+      id: "id-admin",
+      key: "admin",
+      name: "Admin",
+      built_in: true,
+      allowed_roles: ["admin"],
+      widgets: [
+        { id: "a", type: "top_contributors", title: null, config: {}, layout: { x: 0, y: 0, w: 6, h: 6 } },
+        { id: "b", type: "idle_users", title: null, config: {}, layout: { x: 6, y: 0, w: 6, h: 6 } },
+        { id: "c", type: "my_todos", title: null, config: {}, layout: { x: 0, y: 6, w: 6, h: 6 } },
+      ],
+    };
+    mockApi.on("patch", "/dashboards/id-admin", admin);
+    const { user } = renderDialog(admin);
+    await waitFor(() => expect(chip("admin")).toHaveTextContent("Admin"));
+    expect(chip("admin")).not.toHaveClass("Mui-disabled");
+    expect(within(chip("admin")).getByTestId("CancelIcon")).toBeInTheDocument();
+    // The other wildcard role was not picked, so it is the locked one.
+    expect(chip("superuser")).toHaveTextContent(tc("dashboard.settings.alwaysIncluded", { label: "Superuser" }));
+    expect(chip("superuser")).toHaveClass("Mui-disabled");
+    const hint = screen.getByTestId("access-permissions");
+    expect(hint).toHaveTextContent(`${tc("dashboard.settings.widgetPermissions")} admin.users.`);
+    expect(hint.querySelectorAll("code")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: tc("actions.save") }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect((mockApi.callsOf("patch")[0].body as { allowed_roles: string[] }).allowed_roles).toEqual(["admin"]);
+  });
+
+  it("names no permission for a dashboard whose widgets need none", async () => {
+    renderDialog({ ...TEAM, widgets: [{ id: "c", type: "my_todos", title: null, config: {}, layout: { x: 0, y: 0, w: 6, h: 6 } }] });
+    await waitFor(() => expect(chip("member")).toBeInTheDocument());
+    expect(screen.queryByTestId("access-permissions")).not.toBeInTheDocument();
+  });
+
+  it("keeps a stored key that no role answers to, and a stored wildcard role", async () => {
     mockApi.on("patch", "/dashboards/id-team", TEAM);
     const { user } = renderDialog({ ...TEAM, allowed_roles: ["gone", "admin"] });
     await waitFor(() => expect(chip("gone")).toHaveTextContent(tc("dashboard.settings.archivedRole", { label: "gone" })));
     await user.click(screen.getByRole("button", { name: tc("actions.save") }));
     await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
-    expect((mockApi.callsOf("patch")[0].body as { allowed_roles: string[] }).allowed_roles).toEqual(["gone"]);
+    expect((mockApi.callsOf("patch")[0].body as { allowed_roles: string[] }).allowed_roles).toEqual(["gone", "admin"]);
   });
 
   it("cancels without saving", async () => {

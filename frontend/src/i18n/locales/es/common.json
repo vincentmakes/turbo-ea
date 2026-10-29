@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "Todos los roles pueden ver este panel.",
   "dashboard.settings.accessHelp": "Déjelo vacío para mostrar este panel a todos los roles. Los roles con acceso completo siempre lo ven.",
   "dashboard.settings.alwaysIncluded": "{{label}} (siempre)",
+  "dashboard.settings.widgetPermissions": "Los widgets de este panel también requieren",
+  "dashboard.settings.widgetPermissionsHint": "Los roles que no los tengan no verán nada aquí, sea cual sea el acceso.",
   "dashboard.settings.archivedRole": "{{label}} (archivado)",
   "dashboard.settings.saveFailed": "No se pudo guardar el panel.",
   "dashboard.config.createTitle": "Añadir widget",

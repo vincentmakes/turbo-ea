@@ -163,7 +163,7 @@ Il menu **⋮** accanto alle schede agisce sulla dashboard corrente:
 |--------|-------------|
 | **Nuova dashboard** | Crea una dashboard vuota, pronta per essere riempita di widget |
 | **Duplica** | Copia la dashboard con tutti i suoi widget — un buon punto di partenza per una variante di una dashboard integrata |
-| **Impostazioni** | Nome, descrizione, icona e **Accesso**: i ruoli autorizzati a vedere la dashboard. Lascia l'accesso vuoto per mostrarla a tutti. Gli utenti con `admin.dashboards` vedono sempre ogni dashboard |
+| **Impostazioni** | Nome, descrizione, icona e **Accesso**: i ruoli autorizzati a vedere la dashboard. Lascia l'accesso vuoto per mostrarla a tutti; la dashboard Admin integrata viene fornita con l'accesso impostato sui ruoli che possono gestire gli utenti (il ruolo Admin in un'installazione nuova). Sotto il campo sono elencati i permessi di cui hanno bisogno i widget della dashboard: un ruolo che non li ha non vede nulla, qualunque sia l'accesso. Gli utenti con `admin.dashboards` vedono sempre ogni dashboard |
 | **Nascondi** / **Mostra** | Rimuove la dashboard dalle schede di tutti gli altri senza eliminarla |
 | **Sposta a sinistra** / **Sposta a destra** | Cambia l'ordine delle schede |
 | **Ripristina valori predefiniti** | Solo dashboard integrate: ripristina i widget e il layout forniti con Turbo EA |

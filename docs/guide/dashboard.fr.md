@@ -163,7 +163,7 @@ Le menu **⋮** à côté des onglets agit sur le tableau de bord actuel :
 |--------|-----------------|
 | **Nouveau tableau de bord** | Crée un tableau de bord vide, prêt à recevoir des widgets |
 | **Dupliquer** | Copie le tableau de bord avec tous ses widgets — un bon point de départ pour une variante d’un tableau de bord intégré |
-| **Paramètres** | Nom, description, icône et **Accès** : les rôles autorisés à voir le tableau de bord. Laissez l’accès vide pour l’afficher à tout le monde. Les utilisateurs disposant de `admin.dashboards` voient toujours tous les tableaux de bord |
+| **Paramètres** | Nom, description, icône et **Accès** : les rôles autorisés à voir le tableau de bord. Laissez l’accès vide pour l’afficher à tout le monde ; le tableau de bord Admin intégré est livré avec un accès réservé aux rôles autorisés à gérer les utilisateurs (le rôle Admin sur une installation neuve). Sous le champ figurent les permissions dont les widgets du tableau de bord ont besoin : un rôle qui ne les a pas n’y voit rien, quel que soit l’accès. Les utilisateurs disposant de `admin.dashboards` voient toujours tous les tableaux de bord |
 | **Masquer** / **Afficher** | Retire le tableau de bord des onglets de tous les autres sans le supprimer |
 | **Déplacer vers la gauche** / **Déplacer vers la droite** | Modifie l’ordre des onglets |
 | **Réinitialiser par défaut** | Tableaux de bord intégrés uniquement : restaure les widgets et la disposition livrés avec Turbo EA |

@@ -2,10 +2,13 @@
  * Create a dashboard, or edit one's name, description, icon and access.
  *
  * Access is a list of role keys: empty means every role. A role with full
- * access (the wildcard) sees every dashboard anyway, so it is shown as an
- * always-included, disabled chip and never sent (the API refuses it). A role
- * that has since been archived stays in the list as an inert, outlined chip
- * until someone removes it — it grants nothing.
+ * access (the wildcard) sees every dashboard anyway: listed, it is an ordinary
+ * chip (the seeded Admin dashboard names the admin role, so Access states who
+ * sees it); not listed while access is restricted, it shows as a locked
+ * "(always)" chip that is never sent. A role that has since been archived
+ * stays in the list as an inert, outlined chip until someone removes it — it
+ * grants nothing. Under the field, the permissions the dashboard's widgets
+ * need are named: Access alone never widens what a role sees.
  */
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,6 +28,7 @@ import IconPicker from "@/components/IconPicker";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import type { AppRole, Dashboard } from "@/types";
+import { widgetPermission } from "../widgets/widgetMeta";
 import { isWildcardRole } from "./dashboardUtils";
 
 const DEFAULT_ICON = "dashboard";
@@ -45,6 +49,18 @@ interface RoleOption {
   color?: string;
   archived: boolean;
   wildcard: boolean;
+  /** A wildcard role shown because access is restricted, not because it was picked. */
+  locked?: boolean;
+}
+
+/** The permissions the dashboard's widgets need, deduped, in widget order. */
+export function requiredPermissions(dashboard: Pick<Dashboard, "widgets"> | null): string[] {
+  const out: string[] = [];
+  for (const widget of dashboard?.widgets ?? []) {
+    const perm = widgetPermission(widget);
+    if (perm && !out.includes(perm)) out.push(perm);
+  }
+  return out;
 }
 
 export default function DashboardSettingsDialog({ open, dashboard, onClose, onSaved }: Props) {
@@ -90,14 +106,18 @@ function SettingsForm({
     [roles],
   );
   const byKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);
-  const wildcard = options.filter((o) => o.wildcard && !o.archived);
-  const selectable = options.filter((o) => !o.wildcard && !o.archived);
+  const selectable = options.filter((o) => !o.archived);
 
-  const selected: RoleOption[] = roleKeys
-    .filter((key) => !byKey.get(key)?.wildcard)
-    .map((key) => byKey.get(key) ?? { key, label: key, archived: true, wildcard: false });
-  // The wildcard roles head the list once access is restricted at all.
-  const value = selected.length > 0 ? [...wildcard, ...selected] : [];
+  const selected: RoleOption[] = roleKeys.map(
+    (key) => byKey.get(key) ?? { key, label: key, archived: true, wildcard: false },
+  );
+  // A wildcard role that was not picked heads the list once access is
+  // restricted at all: it sees the dashboard whatever the list says.
+  const locked = options
+    .filter((o) => o.wildcard && !o.archived && !roleKeys.includes(o.key))
+    .map((o) => ({ ...o, locked: true }));
+  const value = selected.length > 0 ? [...locked, ...selected] : [];
+  const permissions = requiredPermissions(dashboard);
 
   const trimmed = name.trim();
   const nameError = trimmed === "" ? t("dashboard.settings.nameRequired") : null;
@@ -112,7 +132,7 @@ function SettingsForm({
       name: trimmed,
       description: description.trim() || null,
       icon: icon || null,
-      allowed_roles: selected.map((o) => o.key),
+      allowed_roles: roleKeys,
     };
     try {
       const saved = dashboard
@@ -165,19 +185,18 @@ function SettingsForm({
             disableCloseOnSelect
             isOptionEqualToValue={(a, b) => a.key === b.key}
             getOptionLabel={(o) => o.label}
-            getOptionDisabled={(o) => o.wildcard}
-            onChange={(_, next) => setRoleKeys(next.filter((o) => !o.wildcard).map((o) => o.key))}
+            onChange={(_, next) => setRoleKeys(next.filter((o) => !o.locked).map((o) => o.key))}
             renderTags={(items, getTagProps) =>
               items.map((o, index) => {
                 const { key, ...itemProps } = getTagProps({ index });
-                const inert = o.wildcard;
+                const inert = !!o.locked;
                 return (
                   <Chip
                     key={key}
                     {...itemProps}
                     size="small"
                     label={
-                      o.wildcard
+                      o.locked
                         ? t("dashboard.settings.alwaysIncluded", { label: o.label })
                         : o.archived
                           ? t("dashboard.settings.archivedRole", { label: o.label })
@@ -209,6 +228,19 @@ function SettingsForm({
           {value.length === 0 && (
             <Typography variant="caption" color="text.secondary" data-testid="access-everyone">
               {t("dashboard.settings.everyoneHint")}
+            </Typography>
+          )}
+          {permissions.length > 0 && (
+            <Typography variant="caption" color="text.secondary" data-testid="access-permissions">
+              {t("dashboard.settings.widgetPermissions")}{" "}
+              {permissions.map((perm, i) => (
+                <span key={perm}>
+                  {i > 0 && ", "}
+                  <code>{perm}</code>
+                </span>
+              ))}
+              {". "}
+              {t("dashboard.settings.widgetPermissionsHint")}
             </Typography>
           )}
         </Stack>

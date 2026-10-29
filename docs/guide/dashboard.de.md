@@ -163,7 +163,7 @@ Das Menü **⋮** neben den Tabs wirkt auf das aktuelle Dashboard:
 |--------|-----------------|
 | **Neues Dashboard** | Erstellt ein leeres Dashboard, das Sie mit Widgets füllen können |
 | **Duplizieren** | Kopiert das Dashboard mit allen Widgets — ein schneller Einstieg für eine Variante eines integrierten Dashboards |
-| **Einstellungen** | Name, Beschreibung, Symbol und **Zugriff**: die Rollen, die das Dashboard sehen dürfen. Lassen Sie den Zugriff leer, um es allen anzuzeigen. Benutzer mit `admin.dashboards` sehen immer jedes Dashboard |
+| **Einstellungen** | Name, Beschreibung, Symbol und **Zugriff**: die Rollen, die das Dashboard sehen dürfen. Lassen Sie den Zugriff leer, um es allen anzuzeigen; das integrierte Admin-Dashboard wird mit einem Zugriff ausgeliefert, der auf die Rollen gesetzt ist, die Benutzer verwalten dürfen (bei einer Neuinstallation die Admin-Rolle). Unter dem Feld sind die Berechtigungen aufgeführt, die die Widgets des Dashboards benötigen: Eine Rolle ohne sie sieht dort nichts, unabhängig vom Zugriff. Benutzer mit `admin.dashboards` sehen immer jedes Dashboard |
 | **Ausblenden** / **Einblenden** | Entfernt das Dashboard aus den Tabs aller anderen, ohne es zu löschen |
 | **Nach links verschieben** / **Nach rechts verschieben** | Ändert die Reihenfolge der Tabs |
 | **Auf Standard zurücksetzen** | Nur integrierte Dashboards: stellt die Widgets und das Layout wieder her, die Turbo EA mitliefert |

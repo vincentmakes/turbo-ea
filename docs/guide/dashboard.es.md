@@ -163,7 +163,7 @@ El menú **⋮** junto a las pestañas actúa sobre el panel actual:
 |--------|----------|
 | **Nuevo panel** | Crea un panel vacío, listo para llenar con widgets |
 | **Duplicar** | Copia el panel con todos sus widgets: un buen punto de partida para una variante de un panel integrado |
-| **Ajustes** | Nombre, descripción, icono y **Acceso**: los roles autorizados a ver el panel. Deje el acceso vacío para mostrarlo a todos. Los usuarios con `admin.dashboards` siempre ven todos los paneles |
+| **Ajustes** | Nombre, descripción, icono y **Acceso**: los roles autorizados a ver el panel. Deje el acceso vacío para mostrarlo a todos; el panel Admin integrado se entrega con el acceso limitado a los roles que pueden gestionar usuarios (el rol Admin en una instalación nueva). Bajo el campo se enumeran los permisos que necesitan los widgets del panel: un rol que no los tenga no ve nada allí, sea cual sea el acceso. Los usuarios con `admin.dashboards` siempre ven todos los paneles |
 | **Ocultar** / **Mostrar** | Quita el panel de las pestañas de los demás sin eliminarlo |
 | **Mover a la izquierda** / **Mover a la derecha** | Cambia el orden de las pestañas |
 | **Restablecer valores predeterminados** | Solo paneles integrados: restaura los widgets y el diseño con los que se entrega Turbo EA |

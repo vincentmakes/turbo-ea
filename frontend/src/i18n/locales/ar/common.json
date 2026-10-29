@@ -284,6 +284,8 @@
   "dashboard.settings.everyoneHint": "يمكن لكل دور رؤية لوحة المعلومات هذه.",
   "dashboard.settings.accessHelp": "اتركه فارغًا لعرض لوحة المعلومات هذه لكل الأدوار. الأدوار ذات الوصول الكامل تراها دائمًا.",
   "dashboard.settings.alwaysIncluded": "{{label}} (دائمًا)",
+  "dashboard.settings.widgetPermissions": "تتطلب الأدوات في لوحة المعلومات هذه أيضًا",
+  "dashboard.settings.widgetPermissionsHint": "الأدوار التي لا تملكها لن ترى شيئًا هنا، مهما كان إعداد الوصول.",
   "dashboard.settings.archivedRole": "{{label}} (مؤرشف)",
   "dashboard.settings.saveFailed": "تعذّر حفظ لوحة المعلومات.",
   "dashboard.config.createTitle": "إضافة أداة",

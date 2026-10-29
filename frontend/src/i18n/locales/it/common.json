@@ -479,6 +479,8 @@
   "dashboard.settings.everyoneHint": "Ogni ruolo può vedere questa dashboard.",
   "dashboard.settings.accessHelp": "Lascia vuoto per mostrare questa dashboard a tutti i ruoli. I ruoli con accesso completo la vedono sempre.",
   "dashboard.settings.alwaysIncluded": "{{label}} (sempre)",
+  "dashboard.settings.widgetPermissions": "I widget di questa dashboard richiedono anche",
+  "dashboard.settings.widgetPermissionsHint": "I ruoli che non li hanno non vedono nulla qui, qualunque sia l'accesso.",
   "dashboard.settings.archivedRole": "{{label}} (archiviato)",
   "dashboard.settings.saveFailed": "Impossibile salvare la dashboard.",
   "dashboard.config.createTitle": "Aggiungi widget",
