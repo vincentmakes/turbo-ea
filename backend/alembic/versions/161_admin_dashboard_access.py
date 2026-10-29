@@ -15,8 +15,8 @@ migration (an admin's layout is theirs). Idempotent. When no active role holds
 hide again who sees the dashboard, and the access it states is the access the
 widgets already grant.
 
-Revision ID: 160
-Revises: 159
+Revision ID: 161
+Revises: 160
 Create Date: 2026-10-29
 """
 
@@ -27,8 +27,8 @@ from sqlalchemy.sql import text
 
 from alembic import op
 
-revision: str = "160"
-down_revision: Union[str, None] = "159"
+revision: str = "161"
+down_revision: Union[str, None] = "160"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -45,7 +45,7 @@ def plan_admin_access(
     is ``dashboard_service.roles_holding(ACCESS_PERMISSION, roles)`` written
     inline — a migration imports nothing from ``app``. Pure, so it is
     unit-tested without a database
-    (``tests/services/test_alembic_160_admin_dashboard_access.py``).
+    (``tests/services/test_alembic_161_admin_dashboard_access.py``).
     """
     if current:
         return None

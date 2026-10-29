@@ -382,7 +382,7 @@
   "roles.saveChanges": "Gem ændringer",
   "roles.savedSuccess": "Rolle gemt",
   "roles.createRole": "Opret rolle",
-  "roles.createKeyHelperText": "Unik identifikator (kun små bogstaver og understreger). Kan ikke ændres senere.",
+  "roles.createKeyHelperText": "Unik identifikator (kun små bogstaver og understreger, 3–50 tegn). Kan ikke ændres senere.",
   "roles.creating": "Opretter...",
   "roles.createdSuccess": "Rolle oprettet",
   "roles.archiveRole": "Arkivér rolle",

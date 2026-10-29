@@ -382,7 +382,7 @@
   "roles.saveChanges": "Enregistrer les modifications",
   "roles.savedSuccess": "Rôle enregistré avec succès",
   "roles.createRole": "Créer un rôle",
-  "roles.createKeyHelperText": "Identifiant unique (minuscules, underscores uniquement). Ne peut pas être modifié ultérieurement.",
+  "roles.createKeyHelperText": "Identifiant unique (minuscules, underscores uniquement, 3 à 50 caractères). Ne peut pas être modifié ultérieurement.",
   "roles.creating": "Création…",
   "roles.createdSuccess": "Rôle créé avec succès",
   "roles.archiveRole": "Archiver le rôle",

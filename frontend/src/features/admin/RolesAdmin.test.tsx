@@ -253,6 +253,21 @@ describe("RolesAdmin", () => {
     });
   });
 
+  it("caps the new role key at the 50 characters the API accepts", async () => {
+    const user = userEvent.setup();
+    renderRoles();
+
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /create role/i })).toBeInTheDocument();
+    });
+
+    const keyInput = screen.getByLabelText(/^key/i);
+    expect(keyInput).toHaveAttribute("maxlength", "50");
+    await user.type(keyInput, "a".repeat(51));
+    expect(keyInput).toHaveValue("a".repeat(50));
+  });
+
   it("shows Show archived toggle", async () => {
     renderRoles();
 

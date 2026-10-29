@@ -137,7 +137,8 @@ class User(Base, UUIDMixin, TimestampMixin):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    role: Mapped[str] = mapped_column(String(20), default="member")  # admin/bpm_admin/member/viewer
+    # A roles.key; as wide as that column so any role an admin can create is assignable.
+    role: Mapped[str] = mapped_column(String(50), default="member")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="local")  # local/sso
     sso_subject_id: Mapped[str | None] = mapped_column(String(256), nullable=True, unique=True)

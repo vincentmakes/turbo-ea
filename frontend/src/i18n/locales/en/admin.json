@@ -382,7 +382,7 @@
   "roles.saveChanges": "Save Changes",
   "roles.savedSuccess": "Role saved successfully",
   "roles.createRole": "Create Role",
-  "roles.createKeyHelperText": "Unique identifier (lowercase, underscores only). Cannot be changed later.",
+  "roles.createKeyHelperText": "Unique identifier (lowercase, underscores only, 3–50 characters). Cannot be changed later.",
   "roles.creating": "Creating...",
   "roles.createdSuccess": "Role created successfully",
   "roles.archiveRole": "Archive Role",

@@ -382,7 +382,7 @@
   "roles.saveChanges": "保存更改",
   "roles.savedSuccess": "角色保存成功",
   "roles.createRole": "创建角色",
-  "roles.createKeyHelperText": "唯一标识符（仅限小写字母和下划线）。创建后不可更改。",
+  "roles.createKeyHelperText": "唯一标识符（仅限小写字母和下划线，3–50 个字符）。创建后不可更改。",
   "roles.creating": "正在创建...",
   "roles.createdSuccess": "角色创建成功",
   "roles.archiveRole": "归档角色",

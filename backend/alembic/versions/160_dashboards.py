@@ -11,8 +11,8 @@ Two tables:
   keyed by the KPI's canonical query string, so a KPI an admin adds shows a
   trend like the four built-in ones (which keep ``kpi_snapshots``).
 
-Revision ID: 159
-Revises: 158
+Revision ID: 160
+Revises: 159
 Create Date: 2026-10-28
 """
 
@@ -23,8 +23,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-revision: str = "159"
-down_revision: Union[str, None] = "158"
+revision: str = "160"
+down_revision: Union[str, None] = "159"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

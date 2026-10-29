@@ -17,7 +17,8 @@ class SsoInvitation(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "sso_invitations"
 
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
-    role: Mapped[str] = mapped_column(String(20), default="viewer")  # admin/bpm_admin/member/viewer
+    # A roles.key; as wide as that column so any role an admin can create is assignable.
+    role: Mapped[str] = mapped_column(String(50), default="viewer")
     invited_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

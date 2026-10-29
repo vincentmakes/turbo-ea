@@ -14,7 +14,7 @@ paths:
 
 > Loaded when you touch the dashboard services, `api/v1/dashboards.py`, the `Dashboard` model or schemas, or `frontend/src/features/dashboard/**` (full list in the frontmatter).
 
-The homepage `/` is a set of admin-editable **dashboards** (table `dashboards`, migration `159_dashboards.py`), each a list of widgets on a 12-column react-grid-layout grid; charts are Apache ECharts (`charts/EChart.tsx`, `charts/buildOption.ts`). Three built-ins — `overview`, `workspace`, `admin` — reproduce the former static tabs. Managing them needs `admin.dashboards`; every write records one Security & admin row (`admin.dashboard.created/updated/deleted/duplicated/reset`, items `dashboard_widget.added/removed`). Dashboards travel in a workspace transfer (sheet `Dashboards`); `dashboard_kpi_snapshots` is instance-local and does not.
+The homepage `/` is a set of admin-editable **dashboards** (table `dashboards`, migration `160_dashboards.py`), each a list of widgets on a 12-column react-grid-layout grid; charts are Apache ECharts (`charts/EChart.tsx`, `charts/buildOption.ts`). Three built-ins — `overview`, `workspace`, `admin` — reproduce the former static tabs. Managing them needs `admin.dashboards`; every write records one Security & admin row (`admin.dashboard.created/updated/deleted/duplicated/reset`, items `dashboard_widget.added/removed`). Dashboards travel in a workspace transfer (sheet `Dashboards`); `dashboard_kpi_snapshots` is instance-local and does not.
 
 ## Invariants
 
@@ -46,7 +46,7 @@ Dashboard-level access (`allowed_roles`) is separate: empty = everyone; a wildca
 
 ### 5. Edits to the shipped defaults never reach existing installs
 
-Seeding (`seed_dashboards`) is **insert-only** and keyed by `key`: an admin's layout is never overwritten on upgrade. A change to `DEFAULT_DASHBOARDS` therefore reaches existing installs only through **Reset to default** (`POST /dashboards/{id}/reset`, built-ins only). Do not write a migration that rewrites `dashboards.widgets`. A shipped **default that must reach existing rows** — access, not layout, such as the Admin dashboard's `allowed_roles` (migration `160_admin_dashboard_access.py`) — goes through a guarded data migration that rewrites only rows still carrying the pre-change value (`[]` there), the `072` / `158` pattern; `dashboards.widgets` is still never rewritten by a migration. Built-in dashboard names live in `DASHBOARD_NAMES` in `seed.py` (where `/translate` and `test_i18n_seed.py` look), not in `dashboard_defaults.py`.
+Seeding (`seed_dashboards`) is **insert-only** and keyed by `key`: an admin's layout is never overwritten on upgrade. A change to `DEFAULT_DASHBOARDS` therefore reaches existing installs only through **Reset to default** (`POST /dashboards/{id}/reset`, built-ins only). Do not write a migration that rewrites `dashboards.widgets`. A shipped **default that must reach existing rows** — access, not layout, such as the Admin dashboard's `allowed_roles` (migration `161_admin_dashboard_access.py`) — goes through a guarded data migration that rewrites only rows still carrying the pre-change value (`[]` there), the `072` / `158` pattern; `dashboards.widgets` is still never rewritten by a migration. Built-in dashboard names live in `DASHBOARD_NAMES` in `seed.py` (where `/translate` and `test_i18n_seed.py` look), not in `dashboard_defaults.py`.
 
 ## Traps
 

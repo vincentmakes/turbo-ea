@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The homepage tabs Overview, My Workspace and Admin are now dashboards built from widgets; they look as before until an administrator changes them, and upgrades never overwrite a customized dashboard.
 - The trend caption under the KPI tiles now shows the comparison window actually used, instead of always saying 30 days while the history is shorter.
 
+## [2.180.3] - 2026-10-28
+
+### Fixed
+- Roles with keys longer than 20 characters can now be assigned to users, used in SSO invitations and set as the default sign-up role; saving such a user used to fail with a server error ([#1330](https://github.com/vincentmakes/turbo-ea/issues/1330)).
+
+
 ## [2.180.2] - 2026-10-28
 
 ### Changed

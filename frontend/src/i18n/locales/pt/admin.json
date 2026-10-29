@@ -382,7 +382,7 @@
   "roles.saveChanges": "Salvar alterações",
   "roles.savedSuccess": "Papel salvo com sucesso",
   "roles.createRole": "Criar papel",
-  "roles.createKeyHelperText": "Identificador único (minúsculas, apenas underscores). Não pode ser alterado posteriormente.",
+  "roles.createKeyHelperText": "Identificador único (minúsculas, apenas underscores, 3 a 50 caracteres). Não pode ser alterado posteriormente.",
   "roles.creating": "Criando...",
   "roles.createdSuccess": "Papel criado com sucesso",
   "roles.archiveRole": "Arquivar papel",

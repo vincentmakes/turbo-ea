@@ -382,7 +382,7 @@
   "roles.saveChanges": "Änderungen speichern",
   "roles.savedSuccess": "Rolle erfolgreich gespeichert",
   "roles.createRole": "Rolle erstellen",
-  "roles.createKeyHelperText": "Eindeutiger Bezeichner (Kleinbuchstaben, nur Unterstriche). Kann später nicht geändert werden.",
+  "roles.createKeyHelperText": "Eindeutiger Bezeichner (Kleinbuchstaben, nur Unterstriche, 3–50 Zeichen). Kann später nicht geändert werden.",
   "roles.creating": "Wird erstellt...",
   "roles.createdSuccess": "Rolle erfolgreich erstellt",
   "roles.archiveRole": "Rolle archivieren",
