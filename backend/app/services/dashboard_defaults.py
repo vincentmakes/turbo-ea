@@ -243,4 +243,5 @@ def default_widgets(key: str) -> list[dict[str, Any]] | None:
     spec = DEFAULT_DASHBOARDS.get(key)
     if spec is None:
         return None
-    return copy.deepcopy(spec["widgets"])
+    widgets: list[dict[str, Any]] = copy.deepcopy(spec["widgets"])
+    return widgets

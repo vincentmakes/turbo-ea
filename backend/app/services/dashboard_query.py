@@ -773,14 +773,17 @@ def aggregate(
         flows = sorted(values_2d.items(), key=lambda kv: (-kv[1], kv[0][0] or "", kv[0][1] or ""))
         return [{"source": s, "target": t, "value": v} for (s, t), v in flows], total
     # grid: each axis ordered like a keyed chart over that axis's own totals.
+    # Both dimensions are set on a grid, so a cell's keys are never missing;
+    # a missing one would read as ``NONE_KEY`` rather than break the sort.
+    grid = {(k1 or NONE_KEY, k2 or NONE_KEY): v for (k1, k2), v in values_2d.items()}
     axis_1: dict[str, float | int] = {}
     axis_2: dict[str, float | int] = {}
-    for (k1, k2), v in values_2d.items():
-        axis_1[k1] = axis_1.get(k1, 0) + v  # type: ignore[index]
-        axis_2[k2] = axis_2.get(k2, 0) + v  # type: ignore[index]
+    for (k1, k2), v in grid.items():
+        axis_1[k1] = axis_1.get(k1, 0) + v
+        axis_2[k2] = axis_2.get(k2, 0) + v
     rank_1 = {k: i for i, k in enumerate(order_keys(axis_1, domain_1))}
     rank_2 = {k: i for i, k in enumerate(order_keys(axis_2, domain_2))}
-    cells_sorted = sorted(values_2d.items(), key=lambda kv: (rank_1[kv[0][0]], rank_2[kv[0][1]]))
+    cells_sorted = sorted(grid.items(), key=lambda kv: (rank_1[kv[0][0]], rank_2[kv[0][1]]))
     return [{"x": x, "y": y, "value": v} for (x, y), v in cells_sorted], total
 
 
@@ -851,7 +854,7 @@ def _fold_flows(
     def folded(row: Mapping[str, Any], side: str) -> str:
         if side in kept and row[side] not in kept[side]:
             return OTHER_KEY
-        return row[side]
+        return str(row[side])
 
     merged: dict[tuple[str, str], float | int] = {}
     for r in rows:
@@ -1039,7 +1042,7 @@ def _sql_dimension(dimension: str, card: Any) -> Any:
 def sql_dimension_key(dimension: str, raw: Any, months: Sequence[str]) -> str | None:
     """``dimension_key`` for a value ``_sql_dimension`` already computed."""
     if dimension in ("data_quality_bucket", "stakeholders"):
-        return raw
+        return None if raw is None else str(raw)
     if dimension == "created_month":
         return raw if raw in months else None
     if dimension == "eol_coverage":
@@ -1107,6 +1110,8 @@ async def _sankey_records(
 ) -> Records:
     dim_1, dim_2 = resolved.dimension, resolved.dimension_2
     phase = resolved.query.lifecycle_phase
+    relation = resolved.relation
+    assert relation is not None  # a sankey always resolves its relation type
     src, tgt = aliased(Card), aliased(Card)
     stmt = (
         select(
@@ -1121,7 +1126,7 @@ async def _sankey_records(
         .join(src, Relation.source_id == src.id)
         .join(tgt, Relation.target_id == tgt.id)
         .where(
-            Relation.type == resolved.relation.key,  # type: ignore[union-attr]
+            Relation.type == relation.key,
             *_live(src, resolved, read_scope),
             *_live(tgt, resolved, read_scope),
         )
