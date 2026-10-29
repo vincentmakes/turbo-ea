@@ -86,7 +86,7 @@ Os utilizadores cujo papel concede `admin.dashboards` (**Gerir os painéis da p�
 Clique em **Personalizar**, junto às abas dos painéis, para editar o painel atual. No modo de personalização:
 
 - **Mova** um widget arrastando-o pela sua pega; a grelha tem 12 colunas de largura e os outros widgets abrem espaço.
-- **Redimensione** um widget a partir do seu canto inferior direito.
+- **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto. O widget ao lado abre espaço: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias.
 - **Remova** um widget com o seu botão de fechar.
 - **Configure** um bloco de KPI, um gráfico ou o feed de atividade com o seu botão de engrenagem.
 

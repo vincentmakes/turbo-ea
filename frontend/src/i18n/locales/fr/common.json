@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "Annuler les modifications",
   "dashboard.customize.unsavedChanges": "Modifications non enregistrées",
   "dashboard.customize.saveFailed": "Le tableau de bord n’a pas pu être enregistré.",
-  "dashboard.customize.editingHint": "Faites glisser un widget par sa barre de titre et redimensionnez-le depuis son coin inférieur droit. Les modifications ne sont conservées que si vous enregistrez.",
+  "dashboard.customize.editingHint": "Faites glisser un widget par sa barre de titre et redimensionnez-le depuis son bord droit ou inférieur ; le widget voisin lui laisse la place. Les modifications ne sont conservées que si vous enregistrez.",
   "dashboard.customize.empty": "Ce tableau de bord ne contient pas encore de widgets.",
   "dashboard.customize.emptyHint": "Choisissez Personnaliser, puis Ajouter un widget, pour le remplir.",
   "dashboard.customize.noVisibleWidgets": "Aucun des widgets de ce tableau de bord n’est disponible pour vous.",

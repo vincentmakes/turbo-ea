@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "Descartar cambios",
   "dashboard.customize.unsavedChanges": "Cambios sin guardar",
   "dashboard.customize.saveFailed": "No se pudo guardar el panel.",
-  "dashboard.customize.editingHint": "Arrastre un widget por su barra de título y cambie su tamaño desde la esquina inferior derecha. Los cambios solo se conservan si guarda.",
+  "dashboard.customize.editingHint": "Arrastre un widget por su barra de título y cambie su tamaño desde el borde derecho o inferior; el widget contiguo le hace sitio. Los cambios solo se conservan si guarda.",
   "dashboard.customize.empty": "Este panel aún no tiene widgets.",
   "dashboard.customize.emptyHint": "Elija Personalizar y luego Añadir widget para rellenarlo.",
   "dashboard.customize.noVisibleWidgets": "Ninguno de los widgets de este panel está disponible para usted.",

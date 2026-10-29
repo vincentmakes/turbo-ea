@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.181.0] - 2026-10-28
 
 ### Added
-- **Editable homepage dashboards**: administrators can click **Customize** on the homepage to drag, resize and remove widgets on a 12-column grid, then **Save** or **Discard** the changes. A new permission, **Manage homepage dashboards** (`admin.dashboards`), granted to the Admin role by default, controls who may do this.
+- **Editable homepage dashboards**: administrators can click **Customize** on the homepage to drag, resize and remove widgets on a 12-column grid, then **Save** or **Discard** the changes. A widget resizes from its right or bottom edge, and the widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks. A new permission, **Manage homepage dashboards** (`admin.dashboards`), granted to the Admin role by default, controls who may do this.
 - **Add widget** catalogue, grouped as KPIs, Charts, Overview, My Workspace and Admin: any built-in widget can be placed on any dashboard, and a widget removed by mistake, such as Recent activity, is restored by adding it again.
 - **KPI tiles** of your own: count cards of a type (optionally by subtype, approval status or lifecycle phase), or sum or average a number, cost or percentage field. Each tile keeps a trend arrow, which starts the day after the tile is saved.
 - **Chart widgets** drawn as bar, column, line, pie, donut, gauge, heatmap (two dimensions), treemap or sankey (a relation type), grouping cards by type, subtype, approval status, lifecycle phase, data quality, month created or a single-select or yes/no field. A click on a bar or slice opens the inventory or report behind it.

@@ -86,7 +86,7 @@ Los usuarios cuyo rol concede `admin.dashboards` (**Gestionar los paneles de la 
 Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar el panel actual. En el modo de personalización:
 
 - **Mueva** un widget arrastrándolo por su asa; la cuadrícula tiene 12 columnas de ancho y los demás widgets le hacen sitio.
-- **Cambie el tamaño** de un widget desde su esquina inferior derecha.
+- **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina. El widget contiguo le hace sitio: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas.
 - **Elimine** un widget con su botón de cierre.
 - **Configure** una tarjeta KPI, un gráfico o el feed de actividad con su botón de engranaje.
 

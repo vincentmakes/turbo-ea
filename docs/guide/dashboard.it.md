@@ -86,7 +86,7 @@ Gli utenti il cui ruolo concede `admin.dashboards` (**Gestisci le dashboard dell
 Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare la dashboard corrente. In modalità di personalizzazione:
 
 - **Sposta** un widget trascinandolo per la sua maniglia; la griglia è larga 12 colonne e gli altri widget gli fanno spazio.
-- **Ridimensiona** un widget dall'angolo in basso a destra.
+- **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo. Il widget accanto gli fa spazio: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole.
 - **Rimuovi** un widget con il suo pulsante di chiusura.
 - **Configura** un tile KPI, un grafico o il feed delle attività con il suo pulsante a forma di ingranaggio.
 

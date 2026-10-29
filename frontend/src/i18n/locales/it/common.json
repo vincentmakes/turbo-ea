@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "Annulla modifiche",
   "dashboard.customize.unsavedChanges": "Modifiche non salvate",
   "dashboard.customize.saveFailed": "Impossibile salvare la dashboard.",
-  "dashboard.customize.editingHint": "Trascina un widget dalla barra del titolo e ridimensionalo dall'angolo in basso a destra. Le modifiche vengono mantenute solo se salvi.",
+  "dashboard.customize.editingHint": "Trascina un widget dalla barra del titolo e ridimensionalo dal bordo destro o inferiore; il widget accanto gli fa spazio. Le modifiche vengono mantenute solo se salvi.",
   "dashboard.customize.empty": "Questa dashboard non contiene ancora widget.",
   "dashboard.customize.emptyHint": "Scegli Personalizza, poi Aggiungi widget, per riempirla.",
   "dashboard.customize.noVisibleWidgets": "Nessuno dei widget di questa dashboard è disponibile per te.",

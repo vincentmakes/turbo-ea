@@ -3,9 +3,12 @@ import type { DashboardWidget } from "@/types";
 import {
   FULL_WIDTH,
   GRID_COLS,
+  RESIZE_HANDLES,
   applyGridLayout,
   bottomOf,
+  fitRowNeighbour,
   mirrorLayout,
+  rowNeighbour,
   newWidgetId,
   newWidgetLayout,
   toGridItem,
@@ -171,5 +174,99 @@ describe("grid constants", () => {
   it("stores a 12-column layout shown as-is on the two wide breakpoints", () => {
     expect(GRID_COLS).toBe(12);
     expect([...FULL_WIDTH].sort()).toEqual(["lg", "md"]);
+  });
+});
+
+describe("rowNeighbour", () => {
+  const a = { i: "a", x: 0, y: 0, w: 6, h: 5 };
+
+  it("finds the nearest widget to the right on the same rows", () => {
+    const near = { i: "near", x: 6, y: 0, w: 3, h: 5 };
+    const far = { i: "far", x: 9, y: 0, w: 3, h: 5 };
+    expect(rowNeighbour([far, a, near], a)).toBe(near);
+  });
+
+  it("counts a widget that overlaps the rows only partly", () => {
+    const low = { i: "low", x: 6, y: 4, w: 6, h: 5 };
+    expect(rowNeighbour([a, low], a)).toBe(low);
+  });
+
+  it("ignores widgets below, above or to the left, and the widget itself", () => {
+    const below = { i: "below", x: 0, y: 5, w: 6, h: 5 };
+    const left = { i: "left", x: 6, y: 0, w: 6, h: 5 };
+    const b = { i: "b", x: 6, y: 0, w: 6, h: 5 };
+    expect(rowNeighbour([a, below], a)).toBeUndefined();
+    expect(rowNeighbour([left, b], b)).toBeUndefined();
+    expect(rowNeighbour([a], a)).toBeUndefined();
+  });
+});
+
+describe("fitRowNeighbour", () => {
+  const a = { i: "a", x: 0, y: 0, w: 6, h: 5 };
+  const b = { i: "b", x: 6, y: 0, w: 6, h: 5, minW: 3 };
+  const under = { i: "under", x: 0, y: 5, w: 12, h: 4 };
+  const before = [a, b, under];
+
+  it("narrows the neighbour and keeps it on its row when the widget grows", () => {
+    const grown = { ...a, w: 8 };
+    // The library pushed b under the grown widget and the row below further down.
+    const after = [grown, { ...b, x: 6, y: 5 }, { ...under, y: 10 }];
+    const out = fitRowNeighbour(before, after, a, grown);
+    expect(out).toEqual([grown, { i: "b", x: 8, y: 0, w: 4, h: 5, minW: 3 }, { ...under, y: 10 }]);
+    expect(after[1]).toEqual({ ...b, x: 6, y: 5 });
+  });
+
+  it("leaves the library's result when the neighbour cannot give up the width", () => {
+    const grown = { ...a, w: 10 };
+    const after = [grown, { ...b, y: 5 }, { ...under, y: 10 }];
+    expect(fitRowNeighbour(before, after, a, grown)).toBe(after);
+  });
+
+  it("lets a neighbour without a stored minimum shrink down to one column", () => {
+    const wide = { i: "wide", x: 6, y: 0, w: 6, h: 5 };
+    const grown = { ...a, w: 11 };
+    const out = fitRowNeighbour([a, wide], [grown, { ...wide, y: 5 }], a, grown);
+    expect(out[1]).toEqual({ i: "wide", x: 11, y: 0, w: 1, h: 5 });
+    expect(fitRowNeighbour([a, wide], [{ ...a, w: 12 }, { ...wide, y: 5 }], a, { ...a, w: 12 })).toEqual([
+      { ...a, w: 12 },
+      { ...wide, y: 5 },
+    ]);
+  });
+
+  it("slides the neighbour left and widens it when the widget shrinks", () => {
+    const shrunk = { ...a, w: 4 };
+    const after = [shrunk, b, under];
+    expect(fitRowNeighbour(before, after, a, shrunk)[1]).toEqual({ i: "b", x: 4, y: 0, w: 8, h: 5, minW: 3 });
+  });
+
+  it("adjusts only the nearest of two candidates", () => {
+    const c = { i: "c", x: 9, y: 0, w: 3, h: 5 };
+    const bb = { i: "b", x: 6, y: 0, w: 3, h: 5 };
+    const shrunk = { ...a, w: 5 };
+    const out = fitRowNeighbour([a, bb, c], [shrunk, bb, c], a, shrunk);
+    expect(out).toEqual([shrunk, { i: "b", x: 5, y: 0, w: 4, h: 5 }, c]);
+  });
+
+  it("returns the library's layout as is for a height-only change or with nothing to the right", () => {
+    const taller = { ...a, h: 7 };
+    const afterTaller = [taller, b, { ...under, y: 7 }];
+    expect(fitRowNeighbour(before, afterTaller, a, taller)).toBe(afterTaller);
+    const shrunkB = { ...b, w: 3 };
+    const afterB = [a, shrunkB, under];
+    expect(fitRowNeighbour(before, afterB, b, shrunkB)).toBe(afterB);
+  });
+
+  it("does not mutate its inputs", () => {
+    const grown = { ...a, w: 8 };
+    const after = [grown, { ...b, y: 5 }, { ...under, y: 10 }];
+    const beforeCopy = structuredClone(before);
+    const afterCopy = structuredClone(after);
+    fitRowNeighbour(before, after, a, grown);
+    expect(before).toEqual(beforeCopy);
+    expect(after).toEqual(afterCopy);
+  });
+
+  it("offers the right edge, the bottom edge and the corner as handles", () => {
+    expect(RESIZE_HANDLES).toEqual(["e", "s", "se"]);
   });
 });

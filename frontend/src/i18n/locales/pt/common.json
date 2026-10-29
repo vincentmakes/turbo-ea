@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "Descartar alterações",
   "dashboard.customize.unsavedChanges": "Alterações não salvas",
   "dashboard.customize.saveFailed": "Não foi possível salvar o painel.",
-  "dashboard.customize.editingHint": "Arraste um widget pela barra de título e redimensione-o a partir do canto inferior direito. As alterações só são mantidas se você salvar.",
+  "dashboard.customize.editingHint": "Arraste um widget pela barra de título e redimensione-o a partir do limite direito ou inferior; o widget ao lado abre espaço. As alterações só são mantidas se você salvar.",
   "dashboard.customize.empty": "Este painel ainda não tem widgets.",
   "dashboard.customize.emptyHint": "Escolha Personalizar e depois Adicionar widget para o preencher.",
   "dashboard.customize.noVisibleWidgets": "Nenhum dos widgets deste painel está disponível para si.",

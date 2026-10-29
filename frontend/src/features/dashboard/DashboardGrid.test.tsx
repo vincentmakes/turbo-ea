@@ -60,6 +60,18 @@ function renderGrid(props: Partial<Parameters<typeof DashboardGrid>[0]> = {}) {
 
 const layoutChange = (layout: unknown[]) => act(() => rgl.props.onLayoutChange(layout, { lg: layout }));
 
+const START = [
+  { i: "chart-a", x: 0, y: 0, w: 7, h: 5 },
+  { i: "todos", x: 7, y: 0, w: 5, h: 6, minW: 4 },
+];
+
+/** The library's resize sequence: start, stop with its own result, then the same result echoed. */
+function resize(oldItem: (typeof START)[number], newItem: (typeof START)[number], after: unknown[]) {
+  act(() => rgl.props.onResizeStart(START, oldItem, oldItem, null, new Event("mousedown"), null));
+  act(() => rgl.props.onResizeStop(after, oldItem, newItem, null, new Event("mouseup"), null));
+  layoutChange(after);
+}
+
 beforeEach(() => {
   hookState.reset();
   rgl.props = null;
@@ -93,7 +105,7 @@ describe("DashboardGrid", () => {
   it("locks the grid outside customize mode and shows no widget toolbar", () => {
     renderGrid();
     expect(rgl.props.dragConfig).toEqual({ enabled: false, handle: ".dashboard-widget-drag-handle" });
-    expect(rgl.props.resizeConfig).toEqual({ enabled: false });
+    expect(rgl.props.resizeConfig).toEqual({ enabled: false, handles: ["e", "s", "se"] });
     expect(screen.queryByRole("button", { name: tc("dashboard.widgets.remove") })).not.toBeInTheDocument();
     expect(screen.queryByTestId("widget-drag-handle")).not.toBeInTheDocument();
   });
@@ -101,7 +113,7 @@ describe("DashboardGrid", () => {
   it("enables dragging by the header and resizing in customize mode", () => {
     renderGrid({ editing: true });
     expect(rgl.props.dragConfig).toEqual({ enabled: true, handle: ".dashboard-widget-drag-handle" });
-    expect(rgl.props.resizeConfig).toEqual({ enabled: true });
+    expect(rgl.props.resizeConfig).toEqual({ enabled: true, handles: ["e", "s", "se"] });
     expect(screen.getAllByTestId("widget-drag-handle")).toHaveLength(2);
   });
 
@@ -124,6 +136,62 @@ describe("DashboardGrid", () => {
     ]);
     expect(onLayoutChange).toHaveBeenCalledTimes(1);
     expect(onLayoutChange).toHaveBeenCalledWith([{ ...CHART, layout: { x: 0, y: 6, w: 7, h: 5 } }, TODOS]);
+  });
+
+  describe("resizing", () => {
+    it("narrows the widget beside a widened one and ignores the library's echo", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
+      // The library pushed the todos under the chart.
+      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
+      expect(onLayoutChange).toHaveBeenCalledTimes(1);
+      expect(onLayoutChange).toHaveBeenCalledWith([
+        { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
+        { ...TODOS, layout: { x: 8, y: 0, w: 4, h: 6, minW: 4 } },
+      ]);
+    });
+
+    it("widens the widget beside a narrowed one", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const shrunk = { i: "chart-a", x: 0, y: 0, w: 5, h: 5 };
+      resize(START[0], shrunk, [shrunk, START[1]]);
+      expect(onLayoutChange).toHaveBeenCalledTimes(1);
+      expect(onLayoutChange).toHaveBeenCalledWith([
+        { ...CHART, layout: { x: 0, y: 0, w: 5, h: 5 } },
+        { ...TODOS, layout: { x: 5, y: 0, w: 7, h: 6, minW: 4 } },
+      ]);
+    });
+
+    it("keeps the library's result when the neighbour cannot make room", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const grown = { i: "chart-a", x: 0, y: 0, w: 9, h: 5 };
+      const pushed = { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 };
+      resize(START[0], grown, [grown, pushed]);
+      expect(onLayoutChange).toHaveBeenCalledTimes(1);
+      expect(onLayoutChange).toHaveBeenCalledWith([
+        { ...CHART, layout: { x: 0, y: 0, w: 9, h: 5 } },
+        { ...TODOS, layout: { x: 7, y: 5, w: 5, h: 6, minW: 4 } },
+      ]);
+    });
+
+    it("still writes a later, different change after an adjustment", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
+      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
+      layoutChange([grown, { i: "todos", x: 8, y: 6, w: 4, h: 6, minW: 4 }]);
+      expect(onLayoutChange).toHaveBeenCalledTimes(2);
+      expect(onLayoutChange).toHaveBeenLastCalledWith([
+        { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
+        { ...TODOS, layout: { x: 8, y: 6, w: 4, h: 6, minW: 4 } },
+      ]);
+    });
+
+    it("writes nothing outside customize mode", () => {
+      const { onLayoutChange } = renderGrid({ editing: false });
+      const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
+      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
+      expect(onLayoutChange).not.toHaveBeenCalled();
+    });
   });
 
   it("ignores a layout callback that moves nothing", () => {
@@ -170,6 +238,22 @@ describe("DashboardGrid", () => {
       expect(rgl.props.layouts.lg.map((item: any) => [item.i, item.x])).toEqual([
         ["chart-a", 5],
         ["todos", 0],
+      ]);
+    });
+
+    it("mirrors a resize adjustment back before writing it", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      // Mirrored: the chart sits at x=5 (visual right), the todos at x=0.
+      const start = [
+        { i: "chart-a", x: 5, y: 0, w: 7, h: 5 },
+        { i: "todos", x: 0, y: 0, w: 5, h: 6, minW: 4 },
+      ];
+      const shrunk = { i: "todos", x: 0, y: 0, w: 4, h: 6, minW: 4 };
+      act(() => rgl.props.onResizeStart(start, start[1], start[1], null, new Event("mousedown"), null));
+      act(() => rgl.props.onResizeStop([start[0], shrunk], start[1], shrunk, null, new Event("mouseup"), null));
+      expect(onLayoutChange).toHaveBeenCalledWith([
+        { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
+        { ...TODOS, layout: { x: 8, y: 0, w: 4, h: 6, minW: 4 } },
       ]);
     });
 

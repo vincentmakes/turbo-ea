@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "Änderungen verwerfen",
   "dashboard.customize.unsavedChanges": "Nicht gespeicherte Änderungen",
   "dashboard.customize.saveFailed": "Das Dashboard konnte nicht gespeichert werden.",
-  "dashboard.customize.editingHint": "Ziehen Sie ein Widget an der Titelleiste und ändern Sie die Größe über die untere rechte Ecke. Änderungen bleiben nur erhalten, wenn Sie speichern.",
+  "dashboard.customize.editingHint": "Ziehen Sie ein Widget an der Titelleiste und ändern Sie die Größe über den rechten oder unteren Rand; das benachbarte Widget macht Platz. Änderungen bleiben nur erhalten, wenn Sie speichern.",
   "dashboard.customize.empty": "Dieses Dashboard enthält noch keine Widgets.",
   "dashboard.customize.emptyHint": "Wählen Sie „Anpassen“ und dann „Widget hinzufügen“, um es zu füllen.",
   "dashboard.customize.noVisibleWidgets": "Keines der Widgets dieses Dashboards ist für Sie verfügbar.",

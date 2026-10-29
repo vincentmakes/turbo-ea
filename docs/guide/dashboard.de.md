@@ -86,7 +86,7 @@ Benutzer, deren Rolle `admin.dashboards` (**Dashboards der Startseite verwalten*
 Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard zu bearbeiten. Im Anpassungsmodus:
 
 - **Verschieben** Sie ein Widget, indem Sie es am Griff ziehen; das Raster ist 12 Spalten breit, und die anderen Widgets machen Platz.
-- **Ändern Sie die Größe** eines Widgets an seiner unteren rechten Ecke.
+- **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke. Das benachbarte Widget macht Platz: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben.
 - **Entfernen** Sie ein Widget mit seiner Schließen-Schaltfläche.
 - **Konfigurieren** Sie eine KPI-Kachel, ein Diagramm oder den Aktivitäts-Feed mit der Zahnrad-Schaltfläche.
 

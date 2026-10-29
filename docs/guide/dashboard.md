@@ -86,7 +86,7 @@ Users whose role grants `admin.dashboards` (**Manage homepage dashboards** — t
 Click **Customize** next to the dashboard tabs to edit the current dashboard. In customize mode:
 
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
-- **Resize** a widget from its bottom-right corner.
+- **Resize** a widget from its right edge, its bottom edge or the corner. The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
 - **Remove** a widget with its close button.
 - **Configure** a KPI tile, a chart or the activity feed with its gear button.
 

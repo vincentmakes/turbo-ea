@@ -223,7 +223,7 @@
   "dashboard.customize.discard": "Kassér ændringer",
   "dashboard.customize.unsavedChanges": "Ikke-gemte ændringer",
   "dashboard.customize.saveFailed": "Dashboardet kunne ikke gemmes.",
-  "dashboard.customize.editingHint": "Træk en widget i dens titellinje, og tilpas størrelsen fra det nederste højre hjørne. Ændringer bevares kun, når du gemmer.",
+  "dashboard.customize.editingHint": "Træk en widget i dens titellinje, og tilpas størrelsen fra den højre eller nederste kant; widgetten ved siden af giver plads. Ændringer bevares kun, når du gemmer.",
   "dashboard.customize.empty": "Dette dashboard har endnu ingen widgets.",
   "dashboard.customize.emptyHint": "Vælg Tilpas og derefter Tilføj widget for at fylde det.",
   "dashboard.customize.noVisibleWidgets": "Ingen af dette dashboards widgets er tilgængelige for dig.",

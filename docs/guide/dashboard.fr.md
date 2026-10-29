@@ -86,7 +86,7 @@ Les utilisateurs dont le rôle accorde `admin.dashboards` (**Gérer les tableaux
 Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour modifier le tableau de bord actuel. En mode de personnalisation :
 
 - **Déplacez** un widget en le faisant glisser par sa poignée ; la grille compte 12 colonnes de large et les autres widgets lui laissent la place.
-- **Redimensionnez** un widget depuis son coin inférieur droit.
+- **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin. Le widget voisin lui laisse la place : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes.
 - **Retirez** un widget avec son bouton de fermeture.
 - **Configurez** une tuile KPI, un graphique ou le fil d’activité avec son bouton en forme d’engrenage.
 

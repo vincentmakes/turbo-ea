@@ -223,7 +223,7 @@
   "dashboard.customize.discard": "تجاهل التغييرات",
   "dashboard.customize.unsavedChanges": "تغييرات غير محفوظة",
   "dashboard.customize.saveFailed": "تعذّر حفظ لوحة المعلومات.",
-  "dashboard.customize.editingHint": "اسحب الأداة من شريط عنوانها وغيّر حجمها من الزاوية السفلية اليمنى. لا يتم الاحتفاظ بالتغييرات إلا عند الحفظ.",
+  "dashboard.customize.editingHint": "اسحب الأداة من شريط عنوانها وغيّر حجمها من حافتها اليمنى أو السفلية؛ وتفسح الأداة المجاورة المجال. لا يتم الاحتفاظ بالتغييرات إلا عند الحفظ.",
   "dashboard.customize.empty": "لا تحتوي لوحة المعلومات هذه على أدوات بعد.",
   "dashboard.customize.emptyHint": "اختر «تخصيص» ثم «إضافة أداة» لملئها.",
   "dashboard.customize.noVisibleWidgets": "لا تتوفر لك أي من أدوات لوحة المعلومات هذه.",

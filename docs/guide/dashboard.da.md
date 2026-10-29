@@ -86,7 +86,7 @@ Brugere, hvis rolle giver `admin.dashboards` (**Administrer dashboards på start
 Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle dashboard. I tilpasningstilstand:
 
 - **Flyt** en widget ved at trække i dens håndtag; gitteret er 12 kolonner bredt, og de andre widgets giver plads.
-- **Tilpas størrelsen** på en widget fra dens nederste højre hjørne.
+- **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet. Widgetten ved siden af giver plads: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv.
 - **Fjern** en widget med dens lukkeknap.
 - **Konfigurer** et KPI-felt, et diagram eller aktivitetsfeedet med tandhjulsknappen.
 

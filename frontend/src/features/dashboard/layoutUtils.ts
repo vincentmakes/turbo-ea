@@ -18,6 +18,9 @@ export const MARGIN: readonly [number, number] = [16, 16];
 /** The breakpoints that show the stored 12-column layout as it is. */
 export const FULL_WIDTH: ReadonlySet<string> = new Set(["lg", "md"]);
 
+/** Resize from the right edge, the bottom edge or the corner. */
+export const RESIZE_HANDLES = ["e", "s", "se"] as const;
+
 /** The subset of a react-grid-layout item the dashboard reads and writes. */
 export interface GridItem {
   i: string;
@@ -98,4 +101,58 @@ export function newWidgetId(type: string, widgets: Pick<DashboardWidget, "id">[]
     const id = `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     if (!taken.has(id)) return id;
   }
+}
+
+function overlapsRows(item: GridItem, band: GridItem): boolean {
+  return item.y < band.y + band.h && item.y + item.h > band.y;
+}
+
+/**
+ * The widget immediately to the right of `item` on the same row band in
+ * `layout`, or undefined. Items below, above or to the left are never a row
+ * neighbour: heights are react-grid-layout's own business (it pushes the rows
+ * below down and compacts them back up).
+ */
+export function rowNeighbour(layout: readonly GridItem[], item: GridItem): GridItem | undefined {
+  let nearest: GridItem | undefined;
+  for (const other of layout) {
+    if (other.i === item.i || !overlapsRows(other, item) || other.x < item.x + item.w) continue;
+    if (!nearest || other.x < nearest.x) nearest = other;
+  }
+  return nearest;
+}
+
+/**
+ * Make the row neighbour absorb a width change, so a resize adjusts the
+ * widget beside it instead of pushing it to the next row or leaving a hole.
+ *
+ * `before` is the layout as it was when the resize started, `after` the one
+ * the library produced (the neighbour already pushed down when the widget
+ * grew into it). Growing narrows the neighbour and keeps it on its row, but
+ * only when it can give up the whole change without going under its minimum
+ * width — otherwise the library's result stands and the neighbour wraps
+ * below, which is what lets a chart be dragged to full width. Shrinking slides
+ * the neighbour left and widens it, so the row stays full. A height-only
+ * change, or a widget with nothing to its right, returns `after` as is (same
+ * array, so the caller can tell nothing was adjusted).
+ */
+export function fitRowNeighbour(
+  before: readonly GridItem[],
+  after: readonly GridItem[],
+  oldItem: GridItem,
+  newItem: GridItem,
+): readonly GridItem[] {
+  const delta = newItem.w - oldItem.w;
+  if (delta === 0) return after;
+  const neighbour = rowNeighbour(before, oldItem);
+  if (!neighbour) return after;
+  const minW = neighbour.minW ?? 1;
+  if (delta > 0 && neighbour.w - delta < minW) return after;
+  const fitted: GridItem = {
+    ...neighbour,
+    x: newItem.x + newItem.w,
+    y: neighbour.y,
+    w: neighbour.w - delta,
+  };
+  return after.map((item) => (item.i === neighbour.i ? fitted : item));
 }

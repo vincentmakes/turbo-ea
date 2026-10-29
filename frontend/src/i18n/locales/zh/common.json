@@ -418,7 +418,7 @@
   "dashboard.customize.discard": "放弃更改",
   "dashboard.customize.unsavedChanges": "未保存的更改",
   "dashboard.customize.saveFailed": "无法保存仪表盘。",
-  "dashboard.customize.editingHint": "拖动标题栏可移动小部件，拖动右下角可调整大小。只有保存后更改才会保留。",
+  "dashboard.customize.editingHint": "拖动标题栏可移动小部件，拖动右边缘或下边缘可调整大小，相邻的小部件会让出位置。只有保存后更改才会保留。",
   "dashboard.customize.empty": "此仪表盘还没有小部件。",
   "dashboard.customize.emptyHint": "选择「自定义」，再选择「添加小部件」来填充它。",
   "dashboard.customize.noVisibleWidgets": "此仪表盘中没有您可以使用的小部件。",
