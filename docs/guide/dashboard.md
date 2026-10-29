@@ -86,7 +86,7 @@ Users whose role grants `admin.dashboards` (**Manage homepage dashboards** — t
 Click **Customize** next to the dashboard tabs to edit the current dashboard. The layout is 12 columns wide; on a narrower window the widgets reflow to six columns, and on a phone to one, in the order they are laid out. In customize mode:
 
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
-- **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it makes room: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own.
+- **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it adjusts as you drag: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own. In customize mode dots mark the grid the widgets snap to, and the page keeps four empty rows under the last widget, so the bottom row can be dragged taller; scroll until the handle sits well inside the window first.
 - **Remove** a widget with its close button.
 - **Configure** a KPI tile, a chart or the activity feed with its gear button.
 - **Undo** and **Redo** step through the changes made since Customize was opened, one move, resize, addition, removal or configuration at a time — with the two toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac). **Discard** still drops them all at once.

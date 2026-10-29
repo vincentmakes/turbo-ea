@@ -31,7 +31,7 @@ vi.mock("./widgets/registry", async (importOriginal) => {
 });
 
 import { hookState } from "@/test/hooks";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import DashboardGrid from "./DashboardGrid";
 
 const tc = (k: string) => i18n.t(`common:${k}`) as string;
@@ -54,8 +54,12 @@ const WIDGETS = [CHART, TODOS];
 
 function renderGrid(props: Partial<Parameters<typeof DashboardGrid>[0]> = {}) {
   const handlers = { onLayoutChange: vi.fn(), onConfigure: vi.fn(), onRemove: vi.fn() };
-  const result = renderWithProviders(<DashboardGrid widgets={WIDGETS} editing={false} {...handlers} {...props} />);
-  return { ...result, ...handlers };
+  // A new element each time: React skips re-rendering an element it has already rendered.
+  const ui = () => <DashboardGrid widgets={WIDGETS} editing={false} {...handlers} {...props} />;
+  const result = renderWithProviders(ui());
+  /** Render again with the same props, as a new measured width would. */
+  const rerenderGrid = () => result.rerender(wrapWithProviders(ui()));
+  return { ...result, ...handlers, rerenderGrid };
 }
 
 const layoutChange = (layout: unknown[]) => act(() => rgl.props.onLayoutChange(layout, { lg: layout }));
@@ -65,11 +69,36 @@ const START = [
   { i: "todos", x: 7, y: 0, w: 5, h: 6, minW: 4 },
 ];
 
-/** The library's resize sequence: start, stop with its own result, then the same result echoed. */
-function resize(oldItem: (typeof START)[number], newItem: (typeof START)[number], after: unknown[]) {
-  act(() => rgl.props.onResizeStart(START, oldItem, oldItem, null, new Event("mousedown"), null));
-  act(() => rgl.props.onResizeStop(after, oldItem, newItem, null, new Event("mouseup"), null));
-  layoutChange(after);
+type Item = { i: string; x: number; y: number; w: number; h: number; minW?: number };
+
+const resizeStart = (start: Item[], item: Item) =>
+  act(() => rgl.props.onResizeStart(start, item, item, null, new Event("mousedown"), null));
+/** One pointer move: the library's fresh, not yet compacted array, which it compacts and keeps next. */
+const resizeMove = (moved: Item[], oldItem: Item, newItem: Item) =>
+  act(() => rgl.props.onResize(moved, oldItem, newItem, null, new Event("mousemove"), null));
+const resizeStop = (layout: Item[], oldItem: Item, newItem: Item) =>
+  act(() => rgl.props.onResizeStop(layout, oldItem, newItem, null, new Event("mouseup"), null));
+
+/**
+ * The library's resize sequence for one move: start, the move (which may fit
+ * the neighbour into `moved`), stop, and the library's own `onLayoutChange`
+ * with its compacted result — `moved` itself unless the compaction pushed
+ * something down.
+ */
+function resize(oldItem: Item, newItem: Item, moved: Item[], compacted: (moved: Item[]) => Item[] = (m) => m) {
+  resizeStart(START, oldItem);
+  resizeMove(moved, oldItem, newItem);
+  resizeStop(compacted(moved), oldItem, newItem);
+  layoutChange(compacted(moved));
+}
+
+/** The CSS rules of the grid container's own emotion class (not its nested handle rules). */
+function ownRules(el: Element): string[] {
+  const css = Array.from(document.head.querySelectorAll("style"))
+    .map((s) => s.textContent ?? "")
+    .join("\n");
+  const classes = Array.from(el.classList).filter((c) => c.startsWith("css-"));
+  return classes.flatMap((c) => css.split("}").filter((rule) => rule.trim().startsWith(`.${c}{`)));
 }
 
 beforeEach(() => {
@@ -217,11 +246,22 @@ describe("DashboardGrid", () => {
   });
 
   describe("resizing", () => {
-    it("narrows the widget beside a widened one and ignores the library's echo", () => {
+    const TODOS_AT = (x: number, w: number, y = 0) => ({ i: "todos", x, y, w, h: 6, minW: 4 });
+
+    it("narrows the widget beside a widened one on the move itself, and writes it once", () => {
       const { onLayoutChange } = renderGrid({ editing: true });
       const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
-      // The library pushed the todos under the chart.
-      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
+      const moved = [grown, { ...START[1] }];
+      resizeMove(moved, START[0], grown); // no start yet: nothing to measure from
+      expect(moved[1]).toEqual(START[1]);
+      resizeStart(START, START[0]);
+      resizeMove(moved, START[0], grown);
+      // The library compacts this array next: the neighbour is fitted in it, not pushed below.
+      expect(moved[0]).toBe(grown);
+      expect(moved[1]).toEqual(TODOS_AT(8, 4));
+      resizeStop(moved, START[0], grown);
+      expect(onLayoutChange).not.toHaveBeenCalled();
+      layoutChange(moved);
       expect(onLayoutChange).toHaveBeenCalledTimes(1);
       expect(onLayoutChange).toHaveBeenCalledWith([
         { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
@@ -232,7 +272,9 @@ describe("DashboardGrid", () => {
     it("widens the widget beside a narrowed one", () => {
       const { onLayoutChange } = renderGrid({ editing: true });
       const shrunk = { i: "chart-a", x: 0, y: 0, w: 5, h: 5 };
-      resize(START[0], shrunk, [shrunk, START[1]]);
+      const moved = [shrunk, { ...START[1] }];
+      resize(START[0], shrunk, moved);
+      expect(moved[1]).toEqual(TODOS_AT(5, 7));
       expect(onLayoutChange).toHaveBeenCalledTimes(1);
       expect(onLayoutChange).toHaveBeenCalledWith([
         { ...CHART, layout: { x: 0, y: 0, w: 5, h: 5 } },
@@ -240,11 +282,15 @@ describe("DashboardGrid", () => {
       ]);
     });
 
-    it("keeps the library's result when the neighbour cannot make room", () => {
+    it("leaves a neighbour that cannot give the width up to wrap below", () => {
       const { onLayoutChange } = renderGrid({ editing: true });
       const grown = { i: "chart-a", x: 0, y: 0, w: 9, h: 5 };
-      const pushed = { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 };
-      resize(START[0], grown, [grown, pushed]);
+      const todos = { ...START[1] };
+      const moved = [grown, todos];
+      // The library's compaction pushes the untouched todos under the chart.
+      resize(START[0], grown, moved, (m) => [m[0], { ...m[1], y: 5 }]);
+      expect(moved[1]).toBe(todos);
+      expect(todos).toEqual(START[1]);
       expect(onLayoutChange).toHaveBeenCalledTimes(1);
       expect(onLayoutChange).toHaveBeenCalledWith([
         { ...CHART, layout: { x: 0, y: 0, w: 9, h: 5 } },
@@ -252,23 +298,156 @@ describe("DashboardGrid", () => {
       ]);
     });
 
-    it("still writes a later, different change after an adjustment", () => {
+    it("gives the neighbour its place back when the widget returns to its starting width", () => {
       const { onLayoutChange } = renderGrid({ editing: true });
       const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
-      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
-      layoutChange([grown, { i: "todos", x: 8, y: 6, w: 4, h: 6, minW: 4 }]);
-      expect(onLayoutChange).toHaveBeenCalledTimes(2);
-      expect(onLayoutChange).toHaveBeenLastCalledWith([
-        { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
-        { ...TODOS, layout: { x: 8, y: 6, w: 4, h: 6, minW: 4 } },
-      ]);
+      resizeStart(START, START[0]);
+      const first = [grown, { ...START[1] }];
+      resizeMove(first, START[0], grown);
+      // The next move starts from the library's layout, which holds the fitted neighbour.
+      const fitted = first[1];
+      const back = [{ ...START[0] }, fitted];
+      resizeMove(back, START[0], START[0]);
+      expect(back[1]).toEqual(START[1]);
+      expect(fitted).toEqual(TODOS_AT(8, 4));
+      resizeStop(back, START[0], START[0]);
+      layoutChange(back);
+      expect(onLayoutChange).not.toHaveBeenCalled();
     });
 
-    it("writes nothing outside customize mode", () => {
+    it("pushes the neighbour below at its own width once the widget outgrows what it can give", () => {
+      renderGrid({ editing: true });
+      resizeStart(START, START[0]);
+      const first = [{ ...START[0], w: 8 }, { ...START[1] }];
+      resizeMove(first, START[0], first[0]);
+      const fitted = first[1];
+      const further = [{ ...START[0], w: 9 }, fitted];
+      resizeMove(further, START[0], further[0]);
+      // Back to its starting column and width, still overlapping: the compaction wraps it.
+      expect(further[1]).toEqual(START[1]);
+      expect(fitted).toEqual(TODOS_AT(8, 4));
+    });
+
+    it("keeps a pushed-down neighbour's row when it gives it its width back", () => {
+      renderGrid({ editing: true });
+      resizeStart(START, START[0]);
+      const pushed = TODOS_AT(7, 5, 5);
+      const moved = [{ ...START[0], w: 9 }, pushed];
+      resizeMove(moved, START[0], moved[0]);
+      expect(moved[1]).toBe(pushed);
+    });
+
+    it("touches nothing on a height-only resize", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const taller = { i: "chart-a", x: 0, y: 0, w: 7, h: 7 };
+      const todos = { ...START[1] };
+      const moved = [taller, todos];
+      resize(START[0], taller, moved);
+      expect(moved).toEqual([taller, START[1]]);
+      expect(moved[1]).toBe(todos);
+      expect(onLayoutChange).toHaveBeenCalledWith([{ ...CHART, layout: { x: 0, y: 0, w: 7, h: 7 } }, TODOS]);
+    });
+
+    it("touches nothing outside customize mode", () => {
       const { onLayoutChange } = renderGrid({ editing: false });
       const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
-      resize(START[0], grown, [grown, { i: "todos", x: 7, y: 5, w: 5, h: 6, minW: 4 }]);
+      const todos = { ...START[1] };
+      const moved = [grown, todos];
+      resize(START[0], grown, moved, (m) => [m[0], { ...m[1], y: 5 }]);
+      expect(moved[1]).toBe(todos);
       expect(onLayoutChange).not.toHaveBeenCalled();
+    });
+
+    it("measures the next resize from its own start", () => {
+      const { onLayoutChange } = renderGrid({ editing: true });
+      const grown = { i: "chart-a", x: 0, y: 0, w: 8, h: 5 };
+      resize(START[0], grown, [grown, { ...START[1] }]);
+      // After the stop, a stray move without a new start changes nothing.
+      const stray = [{ ...grown, w: 9 }, TODOS_AT(8, 4)];
+      resizeMove(stray, grown, stray[0]);
+      expect(stray[1]).toEqual(TODOS_AT(8, 4));
+      expect(onLayoutChange).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("width during a gesture", () => {
+    it("holds the grid's width from the start of a resize to its end", () => {
+      const { rerenderGrid } = renderGrid({ editing: true });
+      resizeStart(START, START[0]);
+      rgl.width = 1265; // a scrollbar appeared
+      rerenderGrid();
+      expect(rgl.props.width).toBe(1280);
+      resizeStop([...START], START[0], START[0]);
+      rerenderGrid();
+      expect(rgl.props.width).toBe(1265);
+    });
+
+    it("holds the grid's width from the start of a drag to its end", () => {
+      const { rerenderGrid } = renderGrid({ editing: true });
+      act(() => rgl.props.onDragStart(START, START[0], START[0], null, new Event("mousedown"), null));
+      rgl.width = 1265;
+      rerenderGrid();
+      expect(rgl.props.width).toBe(1280);
+      act(() => rgl.props.onDragStop(START, START[0], START[0], null, new Event("mouseup"), null));
+      rerenderGrid();
+      expect(rgl.props.width).toBe(1265);
+    });
+
+    it("keeps customize mode on while a gesture holds the width", () => {
+      const { rerenderGrid } = renderGrid({ editing: true });
+      act(() => rgl.props.onDragStart(START, START[0], START[0], null, new Event("mousedown"), null));
+      rgl.width = 700;
+      rerenderGrid();
+      expect(rgl.props.dragConfig.enabled).toBe(true);
+      act(() => rgl.props.onDragStop(START, START[0], START[0], null, new Event("mouseup"), null));
+      expect(rgl.props.dragConfig.enabled).toBe(false);
+    });
+  });
+
+  describe("customize-mode background", () => {
+    const DOTS = "background-image:radial-gradient(circle, rgba(0, 0, 0, 0.35) 1px, transparent 1.5px)";
+
+    it("leaves four empty rows under the last widget and dots the grid crossings while customising", () => {
+      const { container } = renderGrid({ editing: true });
+      const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
+      expect(rules).toContain("padding-bottom:256px");
+      expect(rules).toContain(DOTS);
+      expect(rules).toContain("background-size:108px 76px");
+      expect(rules).toContain("background-position:-62px -46px");
+    });
+
+    it("sizes the dots from the grid's width", () => {
+      rgl.width = 1000;
+      const { container } = renderGrid({ editing: true });
+      expect(ownRules(container.querySelector(".dashboard-grid")!).join("\n")).toContain(
+        `background-size:${1016 / 12}px 76px`,
+      );
+    });
+
+    it("keeps the dots on the held width during a gesture", () => {
+      const { container, rerenderGrid } = renderGrid({ editing: true });
+      resizeStart(START, START[0]);
+      rgl.width = 1265;
+      rerenderGrid();
+      const grid = container.querySelector(".dashboard-grid")!;
+      expect(ownRules(grid).join("\n")).toContain("background-size:108px 76px");
+      resizeStop([...START], START[0], START[0]);
+      expect(ownRules(grid).join("\n")).toContain(`background-size:${1281 / 12}px 76px`);
+    });
+
+    it("has no room below and no dots outside customize mode", () => {
+      const { container } = renderGrid({ editing: false });
+      const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
+      expect(rules).not.toContain("padding-bottom");
+      expect(rules).not.toContain("radial-gradient");
+    });
+
+    it("has no room below and no dots on a narrow screen, where nothing can be arranged", () => {
+      rgl.width = 700;
+      const { container } = renderGrid({ editing: true });
+      const rules = ownRules(container.querySelector(".dashboard-grid")!).join("\n");
+      expect(rules).not.toContain("padding-bottom");
+      expect(rules).not.toContain("radial-gradient");
     });
   });
 
@@ -327,8 +506,13 @@ describe("DashboardGrid", () => {
         { i: "todos", x: 0, y: 0, w: 5, h: 6, minW: 4 },
       ];
       const shrunk = { i: "todos", x: 0, y: 0, w: 4, h: 6, minW: 4 };
-      act(() => rgl.props.onResizeStart(start, start[1], start[1], null, new Event("mousedown"), null));
-      act(() => rgl.props.onResizeStop([start[0], shrunk], start[1], shrunk, null, new Event("mouseup"), null));
+      const moved = [{ ...start[0] }, shrunk];
+      resizeStart(start, start[1]);
+      resizeMove(moved, start[1], shrunk);
+      expect(moved[0]).toEqual({ i: "chart-a", x: 4, y: 0, w: 8, h: 5 });
+      resizeStop(moved, start[1], shrunk);
+      layoutChange(moved);
+      expect(onLayoutChange).toHaveBeenCalledTimes(1);
       expect(onLayoutChange).toHaveBeenCalledWith([
         { ...CHART, layout: { x: 0, y: 0, w: 8, h: 5 } },
         { ...TODOS, layout: { x: 8, y: 0, w: 4, h: 6, minW: 4 } },
