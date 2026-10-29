@@ -260,9 +260,12 @@ class TestQueryProblem:
             (Q(group_by="phase_month:retired"), "unknown_phase"),
             (Q(group_by="type", group_by_2="phase_month:"), "unknown_phase"),
             (Q(group_by="related:"), "unknown_dimension"),
-            (Q(group_by="card"), "card_dimension_needs_relation"),
-            (Q(group_by="type", group_by_2="card"), "card_dimension_needs_relation"),
-            (Q(group_by="card", group_by_2="subtype"), "card_dimension_needs_relation"),
+            (Q(group_by="card"), "card_dimension_needs_card_type"),
+            (Q(group_by="card", group_by_2="subtype"), "card_dimension_needs_card_type"),
+            (Q(group_by="card", flags="related:r"), "card_dimension_needs_card_type"),
+            (Q(group_by="type", group_by_2="card"), "card_dimension_not_second"),
+            (Q(card_type="A", group_by="type", group_by_2="card"), "card_dimension_not_second"),
+            (Q(card_type="A", group_by="card", group_by_2="card"), "card_dimension_not_second"),
             (Q(group_by="related:r"), "related_needs_card_type"),
             (Q(flags="related:r"), "related_needs_card_type"),
             (Q(flags="unrelated:r__in"), "related_needs_card_type"),
@@ -310,6 +313,12 @@ class TestQueryProblem:
         [
             Q(relation_type="r", group_by="card", group_by_2="card"),
             Q(relation_type="r", group_by="card", flags="stale,with_stakeholders"),
+            Q(relation_type="r", group_by="type", group_by_2="card"),
+            Q(card_type="A", group_by="card"),
+            Q(card_type="A", group_by="card", metric="sum", metric_field="cost"),
+            Q(card_type="A", group_by="card", metric="sum", metric_field="@relations:r"),
+            Q(card_type="A", group_by="card", metric="avg", metric_field="@data_quality"),
+            Q(card_type="A", group_by="card", group_by_2="lifecycle_phase"),
             Q(relation_type="r", group_by="eol_coverage", group_by_2="phase_month:active"),
             Q(group_by="eol_coverage"),
             Q(group_by="stakeholders", group_by_2="type"),
@@ -704,6 +713,20 @@ class TestNewPureHelpers:
         assert fold_rows(keyed, summed, 1)[-1] == {"key": OTHER_KEY, "value": 1}
         by_type = ResolvedQuery(query=Q(group_by="type"))
         assert fold_rows(keyed, by_type, 1) == keyed
+        # Each card of a type folds like a related card: a count or a sum
+        # merges the rest, an average or a share drops it.
+        each = {"card_type": "A", "group_by": "card"}
+        for metric, extra, merged in (
+            ("count", {}, True),
+            ("sum", {"metric_field": "x"}, True),
+            ("avg", {"metric_field": "x"}, False),
+            ("share", {"flags": "stale"}, False),
+        ):
+            resolved = ResolvedQuery(query=Q(**each, metric=metric, **extra))
+            folded = fold_rows(keyed, resolved, 1)
+            assert folded[0] == {"key": "a", "value": 2}
+            assert (folded[-1] == {"key": OTHER_KEY, "value": 1}) is merged
+            assert len(folded) == (2 if merged else 1)
         flows = [
             {"source": "a", "target": "x", "value": 2},
             {"source": "b", "target": "y", "value": 1},
@@ -1155,6 +1178,149 @@ class TestSankeyCards:
         assert (await _run(db, relation_type="appToIt", flags="with_stakeholders"))["total"] == 0
 
 
+class TestEachCardOfAType:
+    """``group_by="card"`` with a ``card_type`` and no relation: one row per
+    card (cost per application, applications by IT components)."""
+
+    async def _a3(self, db):
+        from app.models.card import Card
+
+        return (await db.execute(select(Card).where(Card.name == "A3"))).scalar_one()
+
+    async def test_one_row_per_readable_card_named_in_labels(self, db, landscape):
+        a1, a2, a3 = landscape["a1"], landscape["a2"], await self._a3(db)
+        resolved = await resolve_query(db, Q(card_type="Application", group_by="card"))
+        assert resolved.dimension == "card"
+        result = await run_query(db, resolved, CardReadScope.everything())
+        # Equal counts order by key; the archived card and the IT component
+        # are not Applications that count.
+        ids = sorted(str(c.id) for c in (a1, a2, a3))
+        assert result == {
+            "dimension": "card",
+            "dimension_2": None,
+            "rows": [{"key": k, "value": 1} for k in ids],
+            "total": 3,
+            "labels": {str(a1.id): "A1", str(a2.id): "A2", str(a3.id): "A3"},
+        }
+        # The same answer whichever path is asked for (it is never SQL-grouped).
+        assert await run_query(db, resolved, CardReadScope.everything(), force_python=True) == (
+            result
+        )
+
+    async def test_relations_per_card(self, db, landscape):
+        a1, a2, a3 = landscape["a1"], landscape["a2"], await self._a3(db)
+        await _add_it2(db, landscape)
+        result = await _run(
+            db,
+            card_type="Application",
+            group_by="card",
+            metric="sum",
+            metric_field="@relations:appToIt",
+        )
+        assert result["rows"] == [
+            {"key": str(a1.id), "value": 2},
+            {"key": str(a2.id), "value": 1},
+            {"key": str(a3.id), "value": 0},
+        ]
+        assert result["total"] == 3
+        assert result["labels"] == {str(a1.id): "A1", str(a2.id): "A2", str(a3.id): "A3"}
+
+    async def test_a_cost_treemap_counts_the_fiscal_year_only(self, db, landscape):
+        a1, a2, a3 = landscape["a1"], landscape["a2"], await self._a3(db)
+        today = datetime.now(timezone.utc).date()
+        await create_card(
+            db,
+            card_type="Application",
+            name="Next year",
+            attributes={"cost": 1000},
+            lifecycle={"active": (today + timedelta(days=400)).isoformat()},
+        )
+        await create_card(
+            db,
+            card_type="Application",
+            name="Retired",
+            attributes={"cost": 7},
+            lifecycle={"endOfLife": (today - timedelta(days=800)).isoformat()},
+        )
+        result = await _run(
+            db, card_type="Application", group_by="card", metric="sum", metric_field="cost"
+        )
+        # A1 (active last month) and A2 (no lifecycle) carry their cost, A3
+        # has none; the card going live next year and the retired one are
+        # not tiles at all, nor named.
+        assert result == {
+            "dimension": "card",
+            "dimension_2": None,
+            "rows": [
+                {"key": str(a1.id), "value": 100},
+                {"key": str(a2.id), "value": 50},
+                {"key": str(a3.id), "value": 0},
+            ],
+            "total": 150,
+            "labels": {str(a1.id): "A1", str(a2.id): "A2", str(a3.id): "A3"},
+            "fiscal_year": today.year,
+            "fiscal_year_start": 1,
+        }
+
+    async def test_top_folds_the_rest_into_other(self, db, landscape):
+        a1 = landscape["a1"]
+        resolved = await resolve_query(
+            db, Q(card_type="Application", group_by="card", metric="sum", metric_field="cost")
+        )
+        result = await run_query(db, resolved, CardReadScope.everything(), top=1)
+        assert result["rows"] == [
+            {"key": str(a1.id), "value": 100},
+            {"key": OTHER_KEY, "value": 50},
+        ]
+        assert result["labels"] == {str(a1.id): "A1"}
+        assert result["total"] == 150
+
+        counted = await resolve_query(db, Q(card_type="Application", group_by="card"))
+        result = await run_query(db, counted, CardReadScope.everything(), top=2)
+        assert [r["value"] for r in result["rows"]] == [1, 1, 1]
+        assert result["rows"][-1]["key"] == OTHER_KEY
+        assert len(result["labels"]) == 2
+        assert set(result["labels"]) == {r["key"] for r in result["rows"][:2]}
+
+    async def test_an_average_drops_the_rest(self, db, landscape):
+        a1 = landscape["a1"]
+        resolved = await resolve_query(
+            db, Q(card_type="Application", group_by="card", metric="avg", metric_field="cost")
+        )
+        result = await run_query(db, resolved, CardReadScope.everything(), top=1)
+        assert result["rows"] == [{"key": str(a1.id), "value": 100}]
+        assert result["labels"] == {str(a1.id): "A1"}
+        assert result["total"] == 75
+
+    async def test_an_unreadable_card_never_appears(self, db, landscape):
+        a1 = landscape["a1"]
+        only_a1 = CardReadScope(
+            role_key="r",
+            wildcard=False,
+            base_view=True,
+            denied_types=frozenset({"Application"}),
+            allowed_types=frozenset(),
+            stakeholder_card_ids=frozenset({a1.id}),
+        )
+        result = await _run(db, only_a1, card_type="Application", group_by="card")
+        assert result["rows"] == [{"key": str(a1.id), "value": 1}]
+        assert result["labels"] == {str(a1.id): "A1"}
+        assert result["total"] == 1
+        result = await _run(db, RESTRICTED_NO_IT, card_type="ITComponent", group_by="card")
+        assert result == {
+            "dimension": "card",
+            "dimension_2": None,
+            "rows": [],
+            "total": 0,
+            "labels": {},
+        }
+
+    async def test_a_hidden_type_is_unknown(self, db, landscape):
+        with pytest.raises(DashboardQueryError) as exc:
+            await resolve_query(db, Q(card_type="Ghost", group_by="card"))
+        assert exc.value.code == "unknown_card_type"
+
+
 class TestMeasures:
     async def test_relations_counts_the_cards_side(self, db, landscape):
         await _add_it2(db, landscape)
@@ -1503,6 +1669,7 @@ class TestFastPathRules:
             ({"group_by": "type", "group_by_2": "lifecycle_phase"}, False),
             ({"lifecycle_phase": "active"}, False),
             ({"card_type": "A", "metric": "sum", "metric_field": "c"}, False),
+            ({"card_type": "A", "group_by": "card"}, False),
         ],
     )
     def test_fast_path_applies(self, kwargs, fast):

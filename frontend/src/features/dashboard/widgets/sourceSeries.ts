@@ -20,10 +20,10 @@ import { OTHER_KEY } from "../charts/buildOption";
 import { findField, type DimensionResolver, type ResolverDeps } from "../charts/dimensions";
 
 export const SOURCE_SERIES = {
-  risks_metrics: ["total", "open", "overdue", "by_level", "by_status", "by_category"],
+  risks_metrics: ["total", "open", "overdue", "by_level", "by_status"],
   compliance_overview: ["score_avg", "scores"],
-  ppm_dashboard: ["total", "at_risk", "by_status", "by_subtype", "health_schedule", "health_cost", "health_scope"],
-  bpm_dashboard: ["total", "without_diagram", "by_maturity", "by_process_type", "by_automation", "by_risk"],
+  ppm_dashboard: ["total", "at_risk", "health_schedule"],
+  bpm_dashboard: ["total", "without_diagram", "by_maturity"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type ModuleSourceName = keyof typeof SOURCE_SERIES;
@@ -100,7 +100,6 @@ export interface RiskMetricsPayload {
   total: number;
   by_status: Counts;
   by_level: Counts;
-  by_category: Counts;
   overdue: number;
   created_this_month?: number;
 }
@@ -119,21 +118,12 @@ export interface HealthCounts {
 
 export interface PpmDashboardPayload {
   total_initiatives: number;
-  by_subtype: Counts;
-  by_status: Counts;
-  total_budget?: number;
-  total_actual?: number;
   health_schedule: HealthCounts;
-  health_cost: HealthCounts;
-  health_scope: HealthCounts;
 }
 
 export interface BpmDashboardPayload {
   total_processes: number;
-  by_process_type: Counts;
   by_maturity: Counts;
-  by_automation: Counts;
-  by_risk: Counts;
   diagram_coverage: { with_diagram: number; total: number; percentage?: number };
 }
 
@@ -156,15 +146,6 @@ export const RISK_STATUS_ORDER = [
   "monitoring",
   "accepted",
   "closed",
-] as const;
-export const RISK_CATEGORY_ORDER = [
-  "security",
-  "compliance",
-  "operational",
-  "technology",
-  "financial",
-  "reputational",
-  "strategic",
 ] as const;
 export const HEALTH_ORDER = ["onTrack", "atRisk", "offTrack", "noReport"] as const;
 
@@ -225,8 +206,6 @@ export function extractSeries(source: string, series: string, payload: unknown):
           return keyed(keyedRows(p.by_level, RISK_LEVEL_ORDER, true));
         case "by_status":
           return keyed(keyedRows(p.by_status, RISK_STATUS_ORDER));
-        case "by_category":
-          return keyed(keyedRows(p.by_category, RISK_CATEGORY_ORDER));
       }
       return null;
     }
@@ -244,14 +223,8 @@ export function extractSeries(source: string, series: string, payload: unknown):
           const h = counts(p.health_schedule);
           return single(num(h.atRisk) + num(h.offTrack));
         }
-        case "by_status":
-          return keyed(keyedRows(p.by_status));
-        case "by_subtype":
-          return keyed(keyedRows(p.by_subtype));
         case "health_schedule":
-        case "health_cost":
-        case "health_scope":
-          return keyed(keyedRows(p[series], HEALTH_ORDER, true));
+          return keyed(keyedRows(p.health_schedule, HEALTH_ORDER, true));
       }
       return null;
     }
@@ -264,10 +237,7 @@ export function extractSeries(source: string, series: string, payload: unknown):
           return single(Math.max(num(cov.total) - num(cov.with_diagram), 0));
         }
         case "by_maturity":
-        case "by_process_type":
-        case "by_automation":
-        case "by_risk":
-          return keyed(keyedRows(p[series]));
+          return keyed(keyedRows(p.by_maturity));
       }
       return null;
     }
@@ -282,11 +252,7 @@ const UNKNOWN_KEYS = new Set(["unknown", "Unknown", "Other", "none", ""]);
 
 /** The card type and field behind a keyed series whose keys are that field's options. */
 const FIELD_SERIES: Partial<Record<string, { type: string; field: string }>> = {
-  "ppm_dashboard:by_status": { type: "Initiative", field: "initiativeStatus" },
   "bpm_dashboard:by_maturity": { type: "BusinessProcess", field: "maturity" },
-  "bpm_dashboard:by_process_type": { type: "BusinessProcess", field: "processType" },
-  "bpm_dashboard:by_automation": { type: "BusinessProcess", field: "automationLevel" },
-  "bpm_dashboard:by_risk": { type: "BusinessProcess", field: "riskLevel" },
 };
 
 export interface SourceResolverDeps extends ResolverDeps {
@@ -300,11 +266,11 @@ function slot(categorical: readonly string[], index: number): string {
 
 /**
  * How a keyed source series names and colours its keys: the module's own
- * vocabulary (risk levels, statuses and categories from the GRC strings, PPM
+ * vocabulary (risk levels and statuses from the GRC strings, PPM schedule
  * health from the PPM strings, regulations through their resolver), and for
- * keys that are a card type's field options (PPM status, BPM maturity,
- * process type, automation, risk) the metamodel's option labels — so a
- * renamed or translated option reads the same here as on the card.
+ * keys that are a card type's field options (BPM maturity) the metamodel's
+ * option labels — so a renamed or translated option reads the same here as
+ * on the card.
  */
 export function sourceSeriesResolver(source: string, series: string, deps: SourceResolverDeps): DimensionResolver {
   const { t, types, inlineLabel, categorical } = deps;
@@ -335,12 +301,6 @@ export function sourceSeriesResolver(source: string, series: string, deps: Sourc
         label: (key) => t(`grc:risks.status.${key}`, { defaultValue: key }),
         color: fromOrder(RISK_STATUS_ORDER),
       });
-    case "risks_metrics:by_category":
-      return wrap({
-        colorByCategory: true,
-        label: (key) => t(`grc:risks.category.${key}`, { defaultValue: key }),
-        color: fromOrder(RISK_CATEGORY_ORDER),
-      });
     case "compliance_overview:scores":
       return wrap({
         colorByCategory: false,
@@ -348,28 +308,11 @@ export function sourceSeriesResolver(source: string, series: string, deps: Sourc
         color: () => slot(categorical, 0),
       });
     case "ppm_dashboard:health_schedule":
-    case "ppm_dashboard:health_cost":
-    case "ppm_dashboard:health_scope":
       return wrap({
         colorByCategory: true,
         label: (key) => t(`ppm:health_${key}`, { defaultValue: key }),
         color: (key) => HEALTH_SERIES_COLORS[key] ?? STATUS_COLORS.neutral,
       });
-    case "ppm_dashboard:by_subtype": {
-      const type = types.find((ct) => ct.key === "Initiative");
-      const subtypes = type?.subtypes ?? [];
-      return wrap({
-        colorByCategory: true,
-        label: (key) => {
-          const st = subtypes.find((s) => s.key === key);
-          return st ? inlineLabel(st) : key;
-        },
-        color: (key, index) => {
-          const i = subtypes.findIndex((s) => s.key === key);
-          return slot(categorical, i >= 0 ? i : index);
-        },
-      });
-    }
   }
   const fieldRef = FIELD_SERIES[id];
   if (fieldRef) {
@@ -382,9 +325,7 @@ export function sourceSeriesResolver(source: string, series: string, deps: Sourc
       },
       color: (key, index) => {
         const i = options.findIndex((o) => o.key === key);
-        if (i >= 0) return options[i].color ?? slot(categorical, i);
-        // A BPM risk level that is not an option still reads on the severity scale.
-        return series === "by_risk" ? severity(key, index) : slot(categorical, index);
+        return i >= 0 ? (options[i].color ?? slot(categorical, i)) : slot(categorical, index);
       },
     });
   }

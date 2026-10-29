@@ -125,18 +125,20 @@ Et diagram grupperer kort efter én **dimension** og måler hver gruppe med en *
 | **Datakvalitet** | Datakvalitetsinterval (0–25 %, 25–50 %, …) |
 | **Oprettelsesmåned** | Måneden, hvor kortet blev oprettet |
 | **Et felt** | Ethvert enkeltvalgs- eller ja/nej-felt for den valgte korttype |
+| **Hvert kort** | Én gruppe pr. kort af den valgte type — et trækort over omkostning pr. applikation, de applikationer med flest IT-komponenter. De største grupper beholdes (diagrammets maksimum, som standard tyve), og resten samles under *Andre*; et klik på et kort åbner det |
 | **Relateret kort** | Kortet i den anden ende af en relationstype — applikationer pr. organisation, IT-komponenter pr. leverandør, omkostninger pr. forretningsevne. Et kort, der er knyttet til flere relaterede kort, tælles under hvert af dem; kort uden nogen falder under *Ingen*; de tyve største grupper beholdes, og resten samles under *Andre* |
 | **EOL-dækning** | Om en applikation eller IT-komponent har et link til endoflife.date, en manuel end-of-life-dato eller ingen af delene |
-| **Interessenter** | Om kortet har mindst én interessent |
-| **Måned for en livscyklusdato** | Den måned, en livscyklusdato (plan, indfasning, aktiv, udfasning, end of life) falder i, over 18 måneder: seks tilbage og elleve frem — en end-of-life-kalender eller go-lives pr. måned |
+| **Go-live-måned** / **Måned for livscyklusafslutning** | Den måned, kortets aktive dato eller slutdato for livscyklus falder i, over 18 måneder: seks tilbage og elleve frem — go-lives pr. måned eller en kalender for livscyklusafslutning |
+
+Dimensionsmenuen er grupperet: **Kort**, **Datoer**, **Felter**, **Relaterede kort** og **Sundhed**.
 
 #### Mål
 
-Målingen er **Antal kort**, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt eller af et af disse mål: **relationer af en type** på hvert kort (hvor mange IT-komponenter en applikation bruger), dets **datakvalitets**score eller dets **alder i dage**. **Andel** viser det indsnævrede antal som procent af det ufiltrerede pr. gruppe. Kun de korttyper, du kan læse, tilbydes, og omkostningsfelter kun til brugere, der må se omkostninger; en omkostning tæller kun de kort, der er aktive i det nuværende regnskabsår, og diagrammet nævner det år.
+Målingen er **Antal kort**, **Sum** eller **Gennemsnit** af et tal-, omkostnings- eller procentfelt eller af et af disse mål: **relationer af en type** på hvert kort (hvor mange IT-komponenter en applikation bruger) eller dets **datakvalitets**score. **Andel** viser det indsnævrede antal som procent af det ufiltrerede pr. gruppe. Kun de korttyper, du kan læse, tilbydes, og omkostningsfelter kun til brugere, der må se omkostninger; en omkostning tæller kun de kort, der er aktive i det nuværende regnskabsår, og diagrammet nævner det år.
 
 #### Filtre
 
-Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI indsnævres til kort, der er **forladte** (ingen relation overhovedet), **forældede** (ikke opdateret i 90 dage), **med** eller **uden interessenter**, med et **knyttet**, **manuelt** eller **manglende** end-of-life, eller som **har** eller **mangler** en relation af en given type — med de samme definitioner som Inventar-filtrene og datakvalitetsrapporten bruger.
+Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI indsnævres til kort, der er **forladte** (ingen relation overhovedet), **forældede** (ikke opdateret i 90 dage), **uden interessenter**, med et **manglende** end-of-life, eller som **har** eller **mangler** en relation af en given type — med de samme definitioner som Inventar-filtrene og datakvalitetsrapporten bruger.
 
 | Diagram | Bedst til |
 |---------|-----------|
@@ -152,6 +154,8 @@ Ud over en godkendelsesstatus og en livscyklusfase kan et diagram eller en KPI i
 Et Sankey-diagram tager en relationstype og grupperer **hver ende** for sig: efter korttype, undertype, godkendelsesstatus, livscyklusfase, datakvalitet, et felt for den ende af typen eller **selve kortene** — Organisation → Applikation viser, hvilke organisationer der bruger hvilke applikationer, hvor de tyve største strømme beholdes, og resten samles under *Andre*. Et klik på en kortknude åbner kortet.
 
 Diagrammer kan også tegne en modulrapport: risici efter niveau eller status, compliancescorer efter regulering, tidsplansstatus i PPM og BPM-modenhed står i kataloget, når modulet er aktiveret, og du har dets tilladelse. Tags kan endnu ikke bruges som dimension eller filter.
+
+Fem færdige diagrammer findes i familien **Diagrammer** i kataloget, hvert tilbudt, når din metamodel har de nødvendige dele: **Omkostning pr. applikation** (et trækort, én flise pr. applikation, dimensioneret efter dens årlige omkostning), **Applikationer pr. organisation**, **Kalender for livscyklusafslutning**, **Forældede kort efter type** og Sankey-diagrammet **Organisation → Applikation**.
 
 Slå klik-igennem til, så læsere kan åbne [Inventar](inventory.md) eller rapporten bag en søjle eller et udsnit (søjle-, stablede søjle-, linje-, cirkel-, donut- og treemap-diagrammer samt kortknuderne i et Sankey-diagram). En forhåndsvisning i dialogen viser diagrammet, som det vil se ud.
 

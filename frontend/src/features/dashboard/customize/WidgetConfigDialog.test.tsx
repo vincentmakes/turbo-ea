@@ -62,14 +62,18 @@ async function openFilters(user: ReturnType<typeof renderDialog>["user"]) {
   await user.click(screen.getByRole("button", { name: new RegExp(`^${tc("dashboard.config.filters")}`) }));
 }
 
+// The measure menu as it reads, headings included (MUI lists a ListSubheader among the options).
 const MEASURES_APP = [
+  tc("dashboard.config.group.computed"),
   "Number of relations (uses IT Component)",
   "Number of relations (supports Business Capability)",
   "Number of relations (sends data to Application)",
   "Number of relations (receives data from Application)",
   tc("dashboard.query.measure.data_quality"),
-  tc("dashboard.query.measure.age_days"),
 ];
+
+/** An option's accessible name starts with its label (a flag adds its description). */
+const startsWith = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 
 beforeEach(() => {
   mockApi.reset();
@@ -160,6 +164,7 @@ describe("WidgetConfigDialog — chart", () => {
     await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.sum"));
     expect(problem()).toBe(tc("dashboard.config.problem.metricFieldRequired"));
     expect(await options(user, tc("dashboard.config.metricField"))).toEqual([
+      tc("dashboard.config.group.fields"),
       "Total Annual Cost",
       "Test Coverage",
       "Vendor Score",
@@ -181,6 +186,7 @@ describe("WidgetConfigDialog — chart", () => {
     await choose(user, tc("dashboard.config.cardType"), "Application");
     await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.avg"));
     expect(await options(user, tc("dashboard.config.metricField"))).toEqual([
+      tc("dashboard.config.group.fields"),
       "Test Coverage",
       "Vendor Score",
       ...MEASURES_APP,
@@ -299,8 +305,8 @@ describe("WidgetConfigDialog — new metrics", () => {
     await openFilters(user);
     await user.click(combo(tc("dashboard.config.flags")));
     const listbox = await screen.findByRole("listbox");
-    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.stale") }));
-    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.orphaned") }));
+    await user.click(within(listbox).getByRole("option", { name: startsWith(tc("dashboard.query.flag.stale")) }));
+    await user.click(within(listbox).getByRole("option", { name: startsWith(tc("dashboard.query.flag.orphaned")) }));
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
     await choose(user, tc("dashboard.config.relationPresence"), "is provided by Provider");
@@ -322,6 +328,41 @@ describe("WidgetConfigDialog — new metrics", () => {
     await choose(user, tc("dashboard.config.cardType"), "Application");
     await user.click(saveButton());
     expect(onSave.mock.calls[0][0].config.query).toEqual({ card_type: "Application", group_by: "type" });
+  });
+
+  it("keeps a retired flag already on the widget when it is saved again", async () => {
+    const stored = widget("chart", { query: { group_by: "type", flags: "stale,with_stakeholders" }, chart: "bar", drill: true });
+    const { user, onSave } = renderDialog(stored, { mode: "edit" });
+    expect(screen.getByRole("button", { name: tc("dashboard.query.flag.with_stakeholders") })).toBeInTheDocument();
+    await user.type(screen.getByLabelText(tc("dashboard.config.title")), "Kept");
+    await user.click(saveButton("edit"));
+    expect(onSave.mock.calls[0][0].config.query).toEqual({ group_by: "type", flags: "stale,with_stakeholders" });
+  });
+
+  it("charts each card of the chosen type, never on a grid", async () => {
+    const { user, onSave } = renderDialog(NEW_CHART);
+    expect(await options(user, tc("dashboard.config.dimension"))).not.toContain(tc("dashboard.query.dimension.card"));
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await choose(user, tc("dashboard.config.dimension"), tc("dashboard.query.dimension.card"));
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.treemap"));
+    await choose(user, tc("dashboard.config.metric"), tc("dashboard.query.metric.sum"));
+    await choose(user, tc("dashboard.config.metricField"), "Total Annual Cost");
+    expect(problem()).toBeNull();
+    await user.click(saveButton());
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
+      chart: "treemap",
+      drill: true,
+    });
+  });
+
+  it("drops each card when the chart becomes a grid", async () => {
+    const { user } = renderDialog(NEW_CHART);
+    await choose(user, tc("dashboard.config.cardType"), "Application");
+    await choose(user, tc("dashboard.config.dimension"), tc("dashboard.query.dimension.card"));
+    await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.stacked_column"));
+    expect(problem()).toBe(tc("dashboard.config.problem.dimensionRequired"));
+    expect(await options(user, tc("dashboard.config.dimension"))).not.toContain(tc("dashboard.query.dimension.card"));
   });
 
   it("opens the filters of a widget that already filters", () => {

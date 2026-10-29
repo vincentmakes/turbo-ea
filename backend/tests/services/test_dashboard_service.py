@@ -164,8 +164,24 @@ class TestWidgetConfig:
             ("chart", {"source": "risks_metrics", "series": "by_level", "chart": "donut"}, None),
             (
                 "chart",
-                {"source": "ppm_dashboard", "series": "health_cost", "chart": "pie", "max": 5},
+                {"source": "ppm_dashboard", "series": "health_schedule", "chart": "pie", "max": 5},
                 None,
+            ),
+            # Series the dialog no longer offers are refused, not silently kept.
+            (
+                "chart",
+                {"source": "risks_metrics", "series": "by_category", "chart": "bar"},
+                "unknown_series",
+            ),
+            (
+                "chart",
+                {"source": "ppm_dashboard", "series": "health_cost", "chart": "pie"},
+                "unknown_series",
+            ),
+            (
+                "chart",
+                {"source": "bpm_dashboard", "series": "by_process_type", "chart": "bar"},
+                "unknown_series",
             ),
             (
                 "chart",

@@ -54,25 +54,10 @@ def test_the_chart_kinds():
 
 def test_the_source_series_the_frontend_mirrors():
     assert dict(SOURCE_SERIES) == {
-        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status", "by_category"),
+        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status"),
         "compliance_overview": ("score_avg", "scores"),
-        "ppm_dashboard": (
-            "total",
-            "at_risk",
-            "by_status",
-            "by_subtype",
-            "health_schedule",
-            "health_cost",
-            "health_scope",
-        ),
-        "bpm_dashboard": (
-            "total",
-            "without_diagram",
-            "by_maturity",
-            "by_process_type",
-            "by_automation",
-            "by_risk",
-        ),
+        "ppm_dashboard": ("total", "at_risk", "health_schedule"),
+        "bpm_dashboard": ("total", "without_diagram", "by_maturity"),
     }
     with pytest.raises(TypeError):
         SOURCE_SERIES["x"] = ()  # type: ignore[index]

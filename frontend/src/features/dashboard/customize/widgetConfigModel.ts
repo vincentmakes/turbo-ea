@@ -44,6 +44,12 @@ export function configKind(widget: Pick<DashboardWidget, "type" | "config">): Co
   }
 }
 
+/**
+ * Every dimension the backend accepts that needs no metamodel key. The dialog
+ * offers fewer (`dimensionOptions`): `stakeholders` and the plan / phase-in /
+ * phase-out months are still accepted, so a widget saved with one keeps
+ * rendering, but they are no longer on the menu.
+ */
 export const STATIC_DIMENSIONS = [
   "type",
   "subtype",
@@ -53,6 +59,32 @@ export const STATIC_DIMENSIONS = [
   "created_month",
 ] as const;
 
+/** One row per card of the chosen card type (and either end of a sankey). */
+export const CARD_DIMENSION = "card";
+
+/** The lifecycle months on offer: when cards go live and when they reach end of life. */
+export const PHASE_MONTH_DIMENSIONS = ["phase_month:active", "phase_month:endOfLife"] as const;
+
+/** How the dimension menu is grouped, in order. */
+export type DimensionGroup = "card" | "dates" | "fields" | "related" | "health";
+export const DIMENSION_GROUPS: DimensionGroup[] = ["card", "dates", "fields", "related", "health"];
+
+/** The menu group a dimension sits in. */
+export function dimensionGroup(dimension: string): DimensionGroup {
+  if (dimension === "created_month" || dimension.startsWith("phase_month:")) return "dates";
+  if (dimension.startsWith("field:")) return "fields";
+  if (dimension.startsWith("related:")) return "related";
+  if (dimension === "eol_coverage") return "health";
+  return "card";
+}
+
+/** How the measure menu is grouped: a field of the type, or a measure computed from the card. */
+export type MeasureGroup = "fields" | "computed";
+
+export function measureGroup(measure: string): MeasureGroup {
+  return measure.startsWith("@") ? "computed" : "fields";
+}
+
 export const APPROVAL_STATUSES = ["DRAFT", "APPROVED", "BROKEN", "REJECTED"] as const;
 export const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 export const ACTIVITY_FILTERS = ["all", "cards", "approvals", "relations", "comments"] as const;
@@ -61,7 +93,11 @@ export const MAX_TITLE_LENGTH = 120;
 /** The longest query string the backend keys a KPI snapshot on (`metric_key`). */
 export const MAX_QUERY_LENGTH = 300;
 
-/** Health and governance flags that need no relation type. */
+/**
+ * Health and governance flags that need no relation type — every one the
+ * backend accepts. The dialog offers `OFFERED_FLAGS`; the others are retired
+ * from the menu but kept on a widget that already has them.
+ */
 export const STATIC_FLAGS = [
   "orphaned",
   "stale",
@@ -71,9 +107,17 @@ export const STATIC_FLAGS = [
   "eol_manual",
   "eol_missing",
 ] as const;
+/** The flags on the menu, each with a one-line description (`dashboard.query.flagHelp.*`). */
+export const OFFERED_FLAGS = ["orphaned", "stale", "without_stakeholders", "eol_missing"] as const;
 const EOL_FLAGS = new Set(["eol_linked", "eol_manual", "eol_missing"]);
+/** A has / lacks a relation flag (`related:<side>` / `unrelated:<side>`). */
+const RELATION_FLAG = /^(related|unrelated):(.+)$/;
 
-/** Measures computed from a card rather than read from one of its fields. */
+/**
+ * Measures computed from a card rather than read from one of its fields.
+ * `@age_days` is still accepted (a stored widget keeps rendering) but no
+ * longer offered.
+ */
 export const DATA_QUALITY_MEASURE = "@data_quality";
 export const AGE_MEASURE = "@age_days";
 export const RELATIONS_MEASURE = "@relations:";
@@ -162,19 +206,36 @@ function sideKeysFor(type: CardType | undefined, relationTypes: RelationType[]):
 
 // ── Options ──────────────────────────────────────────────────────────────
 
-/** The dimensions on offer for a card type (or for every type when none is chosen). */
+/**
+ * The dimensions on offer for a card type (or for every type when none is
+ * chosen), in menu order: the card's own properties (each card once a type is
+ * chosen), the dates, the type's fields, its related cards, its health.
+ */
 export function dimensionOptions(type: CardType | undefined, relationTypes: RelationType[] = []): string[] {
-  const out: string[] = STATIC_DIMENSIONS.filter((d) => {
-    if (d === "subtype") return !!type && (type.subtypes ?? []).length > 0;
-    return true;
-  });
-  // EOL data exists only on the EOL types (`lib/eol.ts`).
-  if (type && isEolType(type.key)) out.push("eol_coverage");
-  out.push("stakeholders");
-  for (const phase of LIFECYCLE_PHASES) out.push(`phase_month:${phase}`);
+  const out: string[] = ["type"];
+  if (type && (type.subtypes ?? []).length > 0) out.push("subtype");
+  if (type) out.push(CARD_DIMENSION);
+  out.push("approval_status", "lifecycle_phase", "data_quality_bucket");
+  out.push("created_month", ...PHASE_MONTH_DIMENSIONS);
   for (const field of dimensionFields(type)) out.push(`field:${field.key}`);
   for (const side of sideKeysFor(type, relationTypes)) out.push(`related:${side}`);
+  // EOL data exists only on the EOL types (`lib/eol.ts`).
+  if (type && isEolType(type.key)) out.push("eol_coverage");
   return out;
+}
+
+/**
+ * The dimensions a chart kind can group by. A heatmap or stacked columns
+ * never takes `card`: the backend does not fold a grid, so one row per card
+ * would be unbounded (and `card` is never a second grouping).
+ */
+export function chartDimensionOptions(dimensions: string[], chart: DashboardChartKind): string[] {
+  return TWO_DIMENSION_KINDS.includes(chart) ? dimensions.filter((d) => d !== CARD_DIMENSION) : dimensions;
+}
+
+/** What the second grouping of a heatmap or stacked columns can be: anything but the first, or `card`. */
+export function secondDimensionOptions(dimensions: string[], first: string | null | undefined): string[] {
+  return dimensions.filter((d) => d !== CARD_DIMENSION && d !== first);
 }
 
 /** What one side of a sankey can group by: that side's type's own fields, and its cards. */
@@ -202,13 +263,29 @@ export function measureOptions(
 ): string[] {
   const out = numericFields(type, canViewCosts).map((f) => f.key);
   for (const side of sideKeysFor(type, relationTypes)) out.push(`${RELATIONS_MEASURE}${side}`);
-  out.push(DATA_QUALITY_MEASURE, AGE_MEASURE);
+  out.push(DATA_QUALITY_MEASURE);
   return out;
+}
+
+/** Whether an EOL flag can mean something for a card type (EOL data exists only on the EOL types). */
+function eolApplies(flag: string, type: CardType | undefined): boolean {
+  return !EOL_FLAGS.has(flag) || !type || isEolType(type.key);
 }
 
 /** The flags on offer for a card type: EOL flags only where EOL data can exist. */
 export function flagOptions(type: CardType | undefined): string[] {
-  return STATIC_FLAGS.filter((f) => !EOL_FLAGS.has(f) || !type || isEolType(type.key));
+  return OFFERED_FLAGS.filter((f) => eolApplies(f, type));
+}
+
+/**
+ * Whether a flag already on a widget survives a change of card type: an
+ * offered flag that applies, a retired one that still does (the backend
+ * still accepts it, so it is never dropped behind the admin's back), and any
+ * relation flag (checked against the type on its own).
+ */
+export function keepsFlag(flag: string, type: CardType | undefined): boolean {
+  if (RELATION_FLAG.test(flag)) return true;
+  return (STATIC_FLAGS as readonly string[]).includes(flag) && eolApplies(flag, type);
 }
 
 /** The relation side keys a "has / lacks a relation" filter can use for a card type. */
@@ -263,8 +340,6 @@ export interface ConfigDraft {
   sparkline: boolean;
   secondary: KpiSecondaryChoice;
 }
-
-const RELATION_FLAG = /^(related|unrelated):(.+)$/;
 
 /** Split a query's flags into the plain list and the first relation-presence flag. */
 export function splitFlags(flags: string | null | undefined): { flags: string[]; relationPresence: RelationPresence } {
@@ -466,7 +541,8 @@ export function queryProblem(q: DashboardQuery): string | null {
     if (q.card_type || q.subtype || metric !== "count" || namesSide) return "relationTypeConflict";
   } else {
     if (q.group_by_2 && !q.group_by) return "dimensionRequired";
-    if (q.group_by === "card" || q.group_by_2 === "card") return "cardDimensionNeedsRelation";
+    if (q.group_by_2 === CARD_DIMENSION) return "cardDimensionNotSecond";
+    if (q.group_by === CARD_DIMENSION && !q.card_type) return "cardDimensionNeedsCardType";
     if (namesSide && !q.card_type) return "relatedNeedsCardType";
     const needsType =
       needsCardType(q.group_by) ||

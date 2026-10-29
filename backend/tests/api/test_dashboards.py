@@ -442,7 +442,11 @@ class TestQuery:
             ({"flags": "bogus"}, "unknown_flag"),
             ({"flags": "eol_linked,eol_missing"}, "flags_conflict"),
             ({"metric": "share"}, "share_needs_filter"),
-            ({"group_by": "card"}, "card_dimension_needs_relation"),
+            ({"group_by": "card"}, "card_dimension_needs_card_type"),
+            (
+                {"card_type": "Application", "group_by": "type", "group_by_2": "card"},
+                "card_dimension_not_second",
+            ),
             ({"group_by": "related:appToSecret"}, "related_needs_card_type"),
             ({"card_type": "Application", "group_by": "related:nope"}, "unknown_relation_type"),
             ({"group_by": "phase_month:someday"}, "unknown_phase"),
@@ -490,6 +494,27 @@ class TestQuery:
             assert r.json()["fiscal_year_start"] == 1
         r = await client.get(f"{BASE}/kpi-history", headers=auth_headers(env["viewer"]))
         assert "fiscal_year" not in r.json()
+
+    async def test_cost_per_card_is_a_treemap_named_by_labels(self, client, env):
+        params = {
+            "card_type": "Application",
+            "group_by": "card",
+            "metric": "sum",
+            "metric_field": "cost",
+            "top": 1,
+        }
+        r = await client.get(f"{BASE}/query", params=params, headers=auth_headers(env["viewer"]))
+        assert r.status_code == 403
+        r = await client.get(f"{BASE}/query", params=params, headers=auth_headers(env["member"]))
+        assert r.status_code == 200
+        body = r.json()
+        assert body["dimension"] == "card"
+        assert [row["value"] for row in body["rows"]] == [10, 5]
+        assert body["rows"][1]["key"] == "__other__"
+        assert list(body["labels"].values()) == ["A1"]
+        assert body["labels"].keys() == {body["rows"][0]["key"]}
+        assert body["total"] == 15
+        assert body["fiscal_year"] == TODAY.year
 
     @pytest.mark.parametrize(("top", "status"), [(0, 422), (201, 422), (1, 200), (200, 200)])
     async def test_top_bounds(self, client, env, top, status):

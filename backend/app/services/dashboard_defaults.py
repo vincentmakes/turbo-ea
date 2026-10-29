@@ -94,25 +94,10 @@ TWO_DIMENSION_CHARTS: frozenset[str] = frozenset({"heatmap", "sankey", "stacked_
 # pinned to it by a source scan, like ``WIDGET_TYPES``.
 SOURCE_SERIES: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
-        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status", "by_category"),
+        "risks_metrics": ("total", "open", "overdue", "by_level", "by_status"),
         "compliance_overview": ("score_avg", "scores"),
-        "ppm_dashboard": (
-            "total",
-            "at_risk",
-            "by_status",
-            "by_subtype",
-            "health_schedule",
-            "health_cost",
-            "health_scope",
-        ),
-        "bpm_dashboard": (
-            "total",
-            "without_diagram",
-            "by_maturity",
-            "by_process_type",
-            "by_automation",
-            "by_risk",
-        ),
+        "ppm_dashboard": ("total", "at_risk", "health_schedule"),
+        "bpm_dashboard": ("total", "without_diagram", "by_maturity"),
     }
 )
 
@@ -128,16 +113,9 @@ SERIES_SHAPES: Mapping[str, str] = MappingProxyType(
         "without_diagram": "single",
         "by_level": "keyed",
         "by_status": "keyed",
-        "by_category": "keyed",
         "scores": "keyed",
-        "by_subtype": "keyed",
         "health_schedule": "keyed",
-        "health_cost": "keyed",
-        "health_scope": "keyed",
         "by_maturity": "keyed",
-        "by_process_type": "keyed",
-        "by_automation": "keyed",
-        "by_risk": "keyed",
     }
 )
 

@@ -209,6 +209,27 @@ describe("dimensionResolver — per side and new dimensions", () => {
     expect(related.color("c1", 3)).toBe(CHART_CATEGORICAL.light[0]);
   });
 
+  it("names each card of an ordinary query from the labels, in the query's card type colour", () => {
+    const withLabels: ResolverDeps = { ...deps, cardLabels: { a1: "CRM", a2: "ERP" } };
+    // No relation side: the query's card type scopes it.
+    const cards = dimensionResolver("card", { card_type: "Application", group_by: "card" }, withLabels);
+    expect(cards.colorByCategory).toBe(true);
+    expect(cards.label("a1")).toBe("CRM");
+    expect(cards.label("a2")).toBe("ERP");
+    expect(cards.label("gone")).toBe("gone");
+    expect(cards.color("a1", 0)).toBe(APPLICATION_TYPE.color);
+    expect(cards.color("a2", 7)).toBe(APPLICATION_TYPE.color);
+    expect(cards.label(OTHER_KEY)).toBe(tc("dashboard.query.other"));
+    expect(cards.color(OTHER_KEY, 1)).toBe(STATUS_COLORS.neutral);
+    expect(cards.color("none", 1)).toBe(STATUS_COLORS.neutral);
+    // A type without a colour of its own (or none at all) paints every card in the first hue.
+    const plain: ResolverDeps = { ...withLabels, types: [makeCardType({ key: "Plain", color: "" })] };
+    expect(dimensionResolver("card", { card_type: "Plain" }, plain).color("a1", 5)).toBe(CHART_CATEGORICAL.light[0]);
+    expect(dimensionResolver("card", {}, withLabels).color("a1", 5)).toBe(CHART_CATEGORICAL.light[0]);
+    // Without labels a card reads as its key.
+    expect(dimensionResolver("card", { card_type: "Application" }, deps).label("a1")).toBe("a1");
+  });
+
   it("labels EOL coverage from the data-quality report's words, in the coverage colours", () => {
     const r = dimensionResolver("eol_coverage", { card_type: "Application" }, deps);
     expect(r.label("linked")).toBe(i18n.t("reports:dataQuality.eolLinked"));

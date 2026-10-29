@@ -28,9 +28,10 @@ rows go through the same ``aggregate`` as weighted records; the parity test
 Beyond plain fields a query can
 
 - group by a **related card** (``related:<relation type>``, ``__out`` / ``__in``
-  on a self-referencing type — the frontend's ``sideKey``), by a sankey end's
-  own **card** (``card``), by **EOL coverage**, by whether a card has
-  **stakeholders**, or by the month a lifecycle phase falls in
+  on a self-referencing type — the frontend's ``sideKey``), by the **card**
+  itself (``card`` — a sankey end, or each card of ``card_type``), by **EOL
+  coverage**, by whether a card has **stakeholders**, or by the month a
+  lifecycle phase falls in
   (``phase_month:<phase>``);
 - measure ``@relations:<rt>``, ``@data_quality`` or ``@age_days`` instead of a
   field;
@@ -99,7 +100,8 @@ STATIC_DIMENSIONS: frozenset[str] = frozenset(
     }
 )
 FIELD_PREFIX = "field:"
-# A sankey end grouped card by card (keys are card ids, named in ``labels``).
+# Card by card (keys are card ids, named in ``labels``): a sankey end, or the
+# cards of ``card_type`` themselves (one row each — cost per application).
 CARD_DIMENSION = "card"
 # ``related:<rt>`` groups a card by the cards it is related to through ``rt``.
 RELATED_PREFIX = "related:"
@@ -310,6 +312,8 @@ def query_problem(query: DashboardQuery) -> str | None:
     relation type's own end, so it takes no ``card_type`` and only counts
     pairs. Anything else naming a relation side (``related:``,
     ``@relations:``, a relation flag) reads it from ``card_type``'s side.
+    Outside a sankey ``card`` is the first dimension only (one row per card
+    of ``card_type``, folded to ``top``), never the second.
     """
     for dimension in (query.group_by, query.group_by_2):
         if dimension is None:
@@ -340,8 +344,10 @@ def query_problem(query: DashboardQuery) -> str | None:
     else:
         if query.group_by_2 is not None and query.group_by is None:
             return "group_by_2_requires_group_by"
-        if CARD_DIMENSION in (query.group_by, query.group_by_2):
-            return "card_dimension_needs_relation"
+        if query.group_by_2 == CARD_DIMENSION:
+            return "card_dimension_not_second"
+        if query.group_by == CARD_DIMENSION and not query.card_type:
+            return "card_dimension_needs_card_type"
         if names_a_side and not query.card_type:
             return "related_needs_card_type"
         needs_type = (
@@ -960,7 +966,8 @@ def _live(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> list
 
 # Dimensions the fast path groups in SQL (``field:<key>`` too); lifecycle
 # needs ``current_lifecycle_phase`` on the dates and stays in Python, like the
-# phase months, and a related card fans one card out into several rows.
+# phase months, a related card fans one card out into several rows, and the
+# card itself (``card``) is one row per card, folded in Python.
 SQL_GROUPABLE: frozenset[str] = frozenset(
     {
         "type",
@@ -1178,7 +1185,8 @@ async def _card_records(
 ) -> Records:
     """One record per card — or per (card, related card) for a ``related:``
     dimension — for what SQL cannot group: the lifecycle phase (computed from
-    the dates), the phase months, related cards, ``@`` measures, and sums /
+    the dates), the phase months, the card itself, related cards, ``@``
+    measures, and sums /
     averages read through ``cost_value``. A cost counts only for the cards
     ``is_live_in_fiscal_year`` keeps in the current fiscal year."""
     q = resolved.query
@@ -1236,7 +1244,7 @@ async def _card_records(
         out.records.append((keys[0], keys[1], metric))
         per_card.setdefault(card_id, (None, None, metric))
         for dimension, raw, name in zip(dims, (raw_1, raw_2), (name_1, name_2)):
-            if related_spec(dimension) is not None and raw is not None:
+            if is_card_keyed(dimension) and raw is not None:
                 out.labels[str(raw)] = name
     if any(related_spec(d) is not None for d in dims):
         out.totals = list(per_card.values())

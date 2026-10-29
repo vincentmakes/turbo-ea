@@ -29,7 +29,10 @@ const base: ConfigDraft = {
   secondary: "",
 };
 
-const FLAGS = ["orphaned", "stale", "with_stakeholders", "without_stakeholders", "eol_linked", "eol_manual", "eol_missing"];
+const FLAGS = ["orphaned", "stale", "without_stakeholders", "eol_missing"];
+
+/** An option's accessible name starts with its label; its description follows. */
+const startsWith = (label: string) => new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
 
 function Harness({
   initial,
@@ -82,11 +85,34 @@ describe("FiltersSection", () => {
     await user.click(screen.getByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.flags")}`) }));
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getAllByRole("option")).toHaveLength(FLAGS.length);
-    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.orphaned") }));
-    await user.click(within(listbox).getByRole("option", { name: tc("dashboard.query.flag.eol_missing") }));
+    await user.click(within(listbox).getByRole("option", { name: startsWith(tc("dashboard.query.flag.orphaned")) }));
+    await user.click(within(listbox).getByRole("option", { name: startsWith(tc("dashboard.query.flag.eol_missing")) }));
     await user.keyboard("{Escape}");
     await waitFor(() => expect(last().flags).toEqual(["orphaned", "eol_missing"]));
     expect(screen.getByRole("button", { name: tc("dashboard.query.flag.orphaned") })).toBeInTheDocument();
+  });
+
+  it("describes each of the four flags in one line under its name", async () => {
+    const { user } = renderSection();
+    await user.click(summary());
+    await user.click(screen.getByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.flags")}`) }));
+    const listbox = await screen.findByRole("listbox");
+    expect(
+      within(listbox)
+        .getAllByRole("option")
+        .map((o) => Array.from(o.querySelectorAll("span, p")).map((el) => el.textContent)),
+    ).toEqual(FLAGS.map((f) => [tc(`dashboard.query.flag.${f}`), tc(`dashboard.query.flagHelp.${f}`)]));
+    expect(tc("dashboard.query.flagHelp.stale")).toBe("Cards nobody has updated in the last 90 days.");
+  });
+
+  it("keeps a retired flag already on the widget listed, without a description", async () => {
+    const { user } = renderSection({ ...base, flags: ["with_stakeholders"] });
+    expect(screen.getByRole("button", { name: tc("dashboard.query.flag.with_stakeholders") })).toBeInTheDocument();
+    await user.click(screen.getByRole("combobox", { name: new RegExp(`^${tc("dashboard.config.flags")}`) }));
+    const option = within(await screen.findByRole("listbox")).getByRole("option", {
+      name: tc("dashboard.query.flag.with_stakeholders"),
+    });
+    expect(option.textContent).toBe(tc("dashboard.query.flag.with_stakeholders"));
   });
 
   it("filters on having or lacking a relation, named from the chosen type's side", async () => {

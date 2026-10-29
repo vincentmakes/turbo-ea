@@ -125,18 +125,20 @@ A chart groups cards by one **dimension** and measures each group with a **metri
 | **Data quality** | Data-quality bucket (0–25 %, 25–50 %, …) |
 | **Month created** | Month the card was created |
 | **A field** | Any single-select or yes/no field of the chosen card type |
+| **Each card** | One group per card of the chosen type — a treemap of cost per application, the applications with the most IT components. The largest groups are kept (the chart's maximum, twenty by default) and the rest folded into *Other*; clicking a card opens it |
 | **Related card** | The card at the other end of a relation type — Applications per Organization, IT Components per Provider, cost per Business Capability. A card linked to several related cards counts under each; cards with none fall under *None*; the twenty largest groups are kept and the rest folded into *Other* |
 | **EOL coverage** | Whether an Application or IT Component has an endoflife.date link, a manual end-of-life date, or neither |
-| **Stakeholders** | Whether the card has at least one stakeholder |
-| **Month of a lifecycle date** | The month a lifecycle date (plan, phase-in, active, phase-out, end of life) falls in, over 18 months: six back and eleven ahead — an end-of-life calendar, or go-lives per month |
+| **Go-live month** / **End-of-life month** | The month the card's active or end-of-life date falls in, over 18 months: six back and eleven ahead — go-lives per month, or an end-of-life calendar |
+
+The dimension menu is grouped: **Card**, **Dates**, **Fields**, **Related cards** and **Health**.
 
 #### Measures
 
-The metric is **Number of cards**, the **Sum** or **Average** of a number, cost or percentage field, or of one of these measures: **relations of a type** on each card (how many IT Components an Application uses), its **data quality** score, or its **age in days**. **Share** shows the narrowed count as a percentage of the unfiltered one, per group. Only the card types you can read are offered, and cost fields only to users who may see costs; a cost counts only the cards live in the current fiscal year, and the chart names that year.
+The metric is **Number of cards**, the **Sum** or **Average** of a number, cost or percentage field, or of one of these measures: **relations of a type** on each card (how many IT Components an Application uses) or its **data quality** score. **Share** shows the narrowed count as a percentage of the unfiltered one, per group. Only the card types you can read are offered, and cost fields only to users who may see costs; a cost counts only the cards live in the current fiscal year, and the chart names that year.
 
 #### Filters
 
-Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed to cards that are **orphaned** (no relation at all), **stale** (not updated for 90 days), **with** or **without stakeholders**, with a **linked**, **manual** or **missing** end-of-life, or that **have** or **lack** a relation of a given type — the same definitions the Inventory filters and the Data Quality report use.
+Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed to cards that are **orphaned** (no relation at all), **stale** (not updated for 90 days), **without stakeholders**, with a **missing** end-of-life, or that **have** or **lack** a relation of a given type — the same definitions the Inventory filters and the Data Quality report use.
 
 | Chart | Best for |
 |-------|----------|
@@ -152,6 +154,8 @@ Besides an approval status and a lifecycle phase, a chart or KPI can be narrowed
 A sankey takes a relation type and groups **each end** on its own: by card type, subtype, approval status, lifecycle phase, data quality, a field of that end's type, or the **cards themselves** — Organization → Application shows which organizations use which applications, with the twenty largest flows kept and the rest folded into *Other*. Clicking a card node opens the card.
 
 Charts can also draw a module report: risks by level or status, compliance scores by regulation, PPM schedule health and BPM maturity are in the catalogue when the module is enabled and you hold its permission. Tags cannot be used as a dimension or filter yet.
+
+Five ready-made charts sit in the **Charts** family of the catalogue, each offered when your metamodel has the pieces it needs: **Cost per application** (a treemap, one tile per Application sized by its annual cost), **Applications per organization**, **End-of-life calendar**, **Stale cards by type** and the **Organization → Application** sankey.
 
 Turn on click-through to let readers open the [Inventory](inventory.md) or report behind a bar or slice (bar, column, stacked column, line, pie, donut and treemap charts, and the card nodes of a sankey). A preview in the dialog shows the chart as it will appear.
 

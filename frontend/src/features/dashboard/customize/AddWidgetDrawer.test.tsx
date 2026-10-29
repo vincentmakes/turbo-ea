@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
 import i18n from "@/i18n";
 import type { DashboardWidget, User } from "@/types";
+
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
+
+import { CARD_TYPES, RELATION_TYPES, makeCardType, makeRelationType } from "@/test/fixtures/metamodel";
+import { hookState, withMetamodel } from "@/test/hooks";
 import { adminUser, renderWithProviders, userWith } from "@/test/render";
 import AddWidgetDrawer from "./AddWidgetDrawer";
 
@@ -23,6 +28,11 @@ function renderDrawer(user: User = adminUser(), widgets = ON_DASHBOARD) {
 }
 
 const entry = (id: string) => screen.getByTestId(`catalogue-${id}`);
+
+beforeEach(() => {
+  hookState.reset();
+  withMetamodel(CARD_TYPES, RELATION_TYPES);
+});
 
 describe("AddWidgetDrawer", () => {
   it("groups the catalogue by family, in order", () => {
@@ -97,5 +107,38 @@ describe("AddWidgetDrawer — module tiles", () => {
     expect(entry("chart:risks_metrics:by_level")).not.toHaveAttribute("aria-disabled");
     expect(entry("chart:risks_metrics:by_level")).toHaveTextContent(tc("dashboard.source.chart.risksByLevel"));
     expect(screen.queryByTestId("catalogue-chart:bpm_dashboard:by_maturity")).toBeNull();
+  });
+});
+
+describe("AddWidgetDrawer — metamodel presets", () => {
+  it("offers the presets the landscape has pieces for, greyed once added", async () => {
+    withMetamodel(
+      [...CARD_TYPES, makeCardType({ key: "Organization" })],
+      [...RELATION_TYPES, makeRelationType({ key: "relOrgToApp", source_type_key: "Organization", target_type_key: "Application" })],
+    );
+    const stale: DashboardWidget = {
+      id: "s",
+      type: "chart",
+      title: null,
+      config: { query: { group_by: "type", flags: "stale" }, chart: "bar", title_key: "dashboard.preset.staleByType" },
+      layout: { x: 0, y: 0, w: 6, h: 5 },
+    };
+    const { user, onPick } = renderDrawer(adminUser(), [stale]);
+    expect(entry("chart:cost_per_application")).toHaveTextContent(tc("dashboard.preset.costPerApplication"));
+    expect(entry("chart:organization_to_application")).toHaveTextContent(tc("dashboard.preset.organizationToApplication"));
+    expect(entry("chart:stale_by_type")).toHaveAttribute("aria-disabled", "true");
+    await user.click(entry("chart:cost_per_application"));
+    expect(onPick.mock.calls[0][0].config).toMatchObject({
+      query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
+      chart: "treemap",
+    });
+  });
+
+  it("leaves out the relation presets without an Organization type, and the cost one without costs.view", () => {
+    renderDrawer(userWith("reports.ea_dashboard", "admin.dashboards"), []);
+    expect(entry("chart:end_of_life_calendar")).toBeInTheDocument();
+    expect(screen.queryByTestId("catalogue-chart:cost_per_application")).toBeNull();
+    expect(screen.queryByTestId("catalogue-chart:applications_per_organization")).toBeNull();
+    expect(screen.queryByTestId("catalogue-chart:organization_to_application")).toBeNull();
   });
 });

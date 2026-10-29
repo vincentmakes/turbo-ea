@@ -125,18 +125,20 @@ Un gráfico agrupa las fichas por una **dimensión** y mide cada grupo con una *
 | **Calidad de los datos** | Tramo de calidad de datos (0–25 %, 25–50 %, …) |
 | **Mes de creación** | Mes en que se creó la ficha |
 | **Un campo** | Cualquier campo de selección única o de sí/no del tipo de ficha elegido |
+| **Cada ficha** | Un grupo por cada ficha del tipo elegido: un treemap del coste por aplicación, las aplicaciones con más componentes de TI. Se conservan los grupos más grandes (el máximo del gráfico, veinte por defecto) y el resto se agrupa en *Otros*; al hacer clic en una ficha, esta se abre |
 | **Ficha relacionada** | La ficha del otro extremo de un tipo de relación: aplicaciones por organización, componentes de TI por proveedor, coste por capacidad de negocio. Una ficha vinculada a varias fichas relacionadas cuenta en cada una; las fichas sin ninguna quedan en *Ninguna*; se conservan los veinte grupos más grandes y el resto se agrupa en *Otros* |
 | **Cobertura de EOL** | Si una aplicación o un componente de TI tiene un vínculo con endoflife.date, una fecha de fin de vida manual, o ninguno de los dos |
-| **Partes interesadas** | Si la ficha tiene al menos una parte interesada |
-| **Mes de una fecha del ciclo de vida** | El mes en que cae una fecha del ciclo de vida (planificación, puesta en marcha, activo, retirada progresiva, fin de vida), a lo largo de 18 meses: seis hacia atrás y once hacia delante: un calendario de fin de vida, o las puestas en producción por mes |
+| **Mes de puesta en producción** / **Mes de fin de vida** | El mes en que cae la fecha de activación o de fin de vida de la ficha, a lo largo de 18 meses: seis hacia atrás y once hacia delante: las puestas en producción por mes, o un calendario de fin de vida |
+
+El menú de dimensiones está agrupado: **Ficha**, **Fechas**, **Campos**, **Fichas relacionadas** y **Estado de salud**.
 
 #### Indicadores
 
-La medida es el **Número de fichas**, la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje, o de uno de estos indicadores: las **relaciones de un tipo** de cada ficha (cuántos componentes de TI utiliza una aplicación), su puntuación de **calidad de los datos** o su **antigüedad en días**. **Porcentaje** muestra, por grupo, el recuento acotado como porcentaje del recuento sin filtrar. Solo se ofrecen los tipos de ficha que usted puede leer, y los campos de coste únicamente a los usuarios que pueden ver los costes; un coste cuenta solo las fichas activas en el ejercicio fiscal en curso, y el gráfico indica ese ejercicio.
+La medida es el **Número de fichas**, la **Suma** o la **Media** de un campo numérico, de coste o de porcentaje, o de uno de estos indicadores: las **relaciones de un tipo** de cada ficha (cuántos componentes de TI utiliza una aplicación) o su puntuación de **calidad de los datos**. **Porcentaje** muestra, por grupo, el recuento acotado como porcentaje del recuento sin filtrar. Solo se ofrecen los tipos de ficha que usted puede leer, y los campos de coste únicamente a los usuarios que pueden ver los costes; un coste cuenta solo las fichas activas en el ejercicio fiscal en curso, y el gráfico indica ese ejercicio.
 
 #### Filtros
 
-Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o KPI puede acotarse a las fichas **huérfanas** (sin ninguna relación), **obsoletas** (sin actualizar desde hace 90 días), **con** o **sin partes interesadas**, con un fin de vida **vinculado**, **manual** o **ausente**, o que **tienen** o **no tienen** una relación de un tipo dado, con las mismas definiciones que usan los filtros del Inventario y el informe de calidad de los datos.
+Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o KPI puede acotarse a las fichas **huérfanas** (sin ninguna relación), **obsoletas** (sin actualizar desde hace 90 días), **sin partes interesadas**, con un fin de vida **ausente**, o que **tienen** o **no tienen** una relación de un tipo dado, con las mismas definiciones que usan los filtros del Inventario y el informe de calidad de los datos.
 
 | Gráfico | Ideal para |
 |---------|------------|
@@ -152,6 +154,8 @@ Además de un estado de aprobación y una fase del ciclo de vida, un gráfico o 
 Un diagrama de Sankey toma un tipo de relación y agrupa **cada extremo** por separado: por tipo de ficha, subtipo, estado de aprobación, fase del ciclo de vida, calidad de los datos, un campo del tipo de ese extremo o las **propias fichas**: Organización → Aplicación muestra qué organizaciones usan qué aplicaciones, conservando los veinte flujos más grandes y agrupando el resto en *Otros*. Al hacer clic en un nodo de ficha se abre la ficha.
 
 Los gráficos también pueden representar un informe de módulo: riesgos por nivel o estado, puntuaciones de cumplimiento por normativa, estado del calendario de PPM y madurez de BPM figuran en el catálogo cuando el módulo está activado y usted tiene su permiso. Las etiquetas aún no pueden usarse como dimensión ni como filtro.
+
+Cinco gráficos predefinidos están en la familia **Gráficos** del catálogo, y cada uno se ofrece cuando su metamodelo tiene las piezas necesarias: **Coste por aplicación** (un treemap, un bloque por aplicación dimensionado según su coste anual), **Aplicaciones por organización**, **Calendario de fin de vida**, **Fichas obsoletas por tipo** y el diagrama de Sankey **Organización → Aplicación**.
 
 Active el clic para que los lectores puedan abrir el [Inventario](inventory.md) o el informe que hay detrás de una barra o un sector (gráficos de barras, columnas, columnas apiladas, líneas, circulares, anillo y treemap, y los nodos de ficha de un diagrama de Sankey). Una vista previa en el cuadro de diálogo muestra el gráfico tal como aparecerá.
 

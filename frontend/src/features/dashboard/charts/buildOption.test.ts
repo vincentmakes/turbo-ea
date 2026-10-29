@@ -254,6 +254,29 @@ describe("treemap", () => {
   });
 });
 
+describe("treemap of cards", () => {
+  it("names each tile through the labels — a card's name, not its id — and drills by its key", () => {
+    const names: Record<string, string> = { id1: "CRM", id2: "ERP" };
+    const o = buildOption(
+      "treemap",
+      [
+        { key: "id1", value: 1200 },
+        { key: "id2", value: 800 },
+        { key: OTHER_KEY, value: 50 },
+      ],
+      ctx({ labels: (k) => (k === OTHER_KEY ? "Other" : (names[k] ?? k)), colors: () => "#123456" }),
+    ) as any;
+    const s = o.series[0];
+    expect(s.data.map((d: any) => [d.key, d.name, d.value])).toEqual([
+      ["id1", "CRM", 1200],
+      ["id2", "ERP", 800],
+      [OTHER_KEY, "Other", 50],
+    ]);
+    expect(s.label.show).toBe(true);
+    expect(s.data.every((d: any) => d.itemStyle.color === "#123456")).toBe(true);
+  });
+});
+
 describe("sankey", () => {
   const FLOWS: DashboardQueryRow[] = [
     { source: "A", target: "B", value: 2 },

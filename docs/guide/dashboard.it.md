@@ -125,18 +125,20 @@ Un grafico raggruppa le card per una **dimensione** e misura ogni gruppo con una
 | **Qualità dei dati** | Fascia di qualità dei dati (0–25 %, 25–50 %, …) |
 | **Mese di creazione** | Mese in cui la card è stata creata |
 | **Un campo** | Qualsiasi campo a selezione singola o sì/no del tipo di card scelto |
+| **Ogni card** | Un gruppo per ogni card del tipo scelto — una treemap del costo per applicazione, le applicazioni con più componenti IT. I gruppi più grandi vengono mantenuti (il massimo del grafico, venti per impostazione predefinita) e il resto è raccolto in *Altro*; un clic su una card la apre |
 | **Card correlata** | La card all'altro capo di un tipo di relazione — applicazioni per organizzazione, componenti IT per fornitore, costo per capacità di business. Una card collegata a più card correlate viene contata sotto ciascuna; le card senza collegamenti finiscono sotto *Nessuna*; i venti gruppi più grandi sono mantenuti e il resto è raggruppato in *Altro* |
 | **Copertura EOL** | Se un'applicazione o un componente IT ha un collegamento a endoflife.date, una data di fine vita manuale o nessuno dei due |
-| **Stakeholder** | Se la card ha almeno uno stakeholder |
-| **Mese di una data del ciclo di vita** | Il mese in cui cade una data del ciclo di vita (pianificazione, introduzione, attivo, dismissione, fine vita), su 18 mesi: sei indietro e undici avanti — un calendario di fine vita, oppure i go-live per mese |
+| **Mese di go-live** / **Mese di fine vita** | Il mese in cui cade la data di attivazione o di fine vita della card, su 18 mesi: sei indietro e undici avanti — i go-live per mese, oppure un calendario di fine vita |
+
+Il menu delle dimensioni è raggruppato: **Scheda**, **Date**, **Campi**, **Schede correlate** e **Salute**.
 
 #### Indicatori
 
-La misura è il **Numero di card**, la **Somma** o la **Media** di un campo numerico, di costo o percentuale, oppure di uno di questi indicatori: le **relazioni di un tipo** su ciascuna card (quanti componenti IT usa un'applicazione), il suo punteggio di **qualità dei dati** o la sua **anzianità in giorni**. **Quota** mostra, per ogni gruppo, il conteggio ristretto come percentuale di quello non filtrato. Sono offerti solo i tipi di card che puoi leggere, e i campi di costo solo agli utenti che possono vedere i costi; un costo conta solo le card attive nell'anno fiscale corrente e il grafico indica quell'anno.
+La misura è il **Numero di card**, la **Somma** o la **Media** di un campo numerico, di costo o percentuale, oppure di uno di questi indicatori: le **relazioni di un tipo** su ciascuna card (quanti componenti IT usa un'applicazione) o il suo punteggio di **qualità dei dati**. **Quota** mostra, per ogni gruppo, il conteggio ristretto come percentuale di quello non filtrato. Sono offerti solo i tipi di card che puoi leggere, e i campi di costo solo agli utenti che possono vedere i costi; un costo conta solo le card attive nell'anno fiscale corrente e il grafico indica quell'anno.
 
 #### Filtri
 
-Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o un KPI può essere ristretto alle card **orfane** (nessuna relazione), **obsolete** (non aggiornate da 90 giorni), **con** o **senza stakeholder**, con una fine vita **collegata**, **manuale** o **mancante**, oppure che **hanno** o **non hanno** una relazione di un dato tipo — con le stesse definizioni usate dai filtri dell'Inventario e dal report sulla qualità dei dati.
+Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o un KPI può essere ristretto alle card **orfane** (nessuna relazione), **obsolete** (non aggiornate da 90 giorni), **senza stakeholder**, con una fine vita **mancante**, oppure che **hanno** o **non hanno** una relazione di un dato tipo — con le stesse definizioni usate dai filtri dell'Inventario e dal report sulla qualità dei dati.
 
 | Grafico | Ideale per |
 |---------|------------|
@@ -152,6 +154,8 @@ Oltre a uno stato di approvazione e a una fase del ciclo di vita, un grafico o u
 Un diagramma Sankey prende un tipo di relazione e raggruppa **ciascuna estremità** separatamente: per tipo di card, sottotipo, stato di approvazione, fase del ciclo di vita, qualità dei dati, un campo del tipo di quell'estremità o le **card stesse** — Organizzazione → Applicazione mostra quali organizzazioni usano quali applicazioni, mantenendo i venti flussi più grandi e raggruppando il resto in *Altro*. Facendo clic su un nodo card si apre la card.
 
 I grafici possono anche rappresentare un report di modulo: rischi per livello o stato, punteggi di conformità per normativa, stato della pianificazione PPM e maturità BPM sono nel catalogo quando il modulo è abilitato e hai il relativo permesso. I tag non possono ancora essere usati come dimensione o filtro.
+
+Cinque grafici pronti all'uso si trovano nella famiglia **Grafici** del catalogo, ciascuno offerto quando il tuo metamodello ha gli elementi necessari: **Costo per applicazione** (una treemap, un riquadro per applicazione dimensionato in base al costo annuo), **Applicazioni per organizzazione**, **Calendario di fine vita**, **Schede obsolete per tipo** e il diagramma Sankey **Organizzazione → Applicazione**.
 
 Attiva il clic per consentire ai lettori di aprire l'[Inventario](inventory.md) o il report dietro una barra o una fetta (grafici a barre, colonne, colonne impilate, linee, torta, ciambella e treemap, e i nodi card di un Sankey). Un'anteprima nella finestra di dialogo mostra il grafico come apparirà.
 

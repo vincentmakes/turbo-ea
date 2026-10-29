@@ -125,18 +125,20 @@ Un graphique regroupe les fiches selon une **dimension** et mesure chaque groupe
 | **Qualité des données** | Tranche de qualité des données (0–25 %, 25–50 %, …) |
 | **Mois de création** | Mois de création de la fiche |
 | **Un champ** | Tout champ à choix unique ou oui/non du type de fiche choisi |
+| **Chaque fiche** | Un groupe par fiche du type choisi — une treemap du coût par application, les applications ayant le plus de composants IT. Les plus grands groupes sont conservés (le maximum du graphique, vingt par défaut) et le reste est regroupé sous *Autres* ; un clic sur une fiche l’ouvre |
 | **Fiche liée** | La fiche à l’autre extrémité d’un type de relation — applications par organisation, composants IT par fournisseur, coût par capacité métier. Une fiche liée à plusieurs fiches est comptée sous chacune ; les fiches sans lien tombent sous *Aucune* ; les vingt plus grands groupes sont conservés et le reste est regroupé sous *Autres* |
 | **Couverture EOL** | Si une application ou un composant IT a un lien endoflife.date, une date de fin de vie manuelle, ou aucun des deux |
-| **Parties prenantes** | Si la fiche a au moins une partie prenante |
-| **Mois d’une date de cycle de vie** | Le mois dans lequel tombe une date du cycle de vie (planification, mise en service, actif, retrait progressif, fin de vie), sur 18 mois : six en arrière et onze en avant — un calendrier de fin de vie, ou les mises en production par mois |
+| **Mois de mise en service** / **Mois de fin de vie** | Le mois dans lequel tombe la date d’activité ou de fin de vie de la fiche, sur 18 mois : six en arrière et onze en avant — les mises en service par mois, ou un calendrier de fin de vie |
+
+Le menu des dimensions est groupé : **Fiche**, **Dates**, **Champs**, **Fiches liées** et **Santé**.
 
 #### Indicateurs
 
-La mesure est le **Nombre de fiches**, la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage, ou de l’un de ces indicateurs : les **relations d’un type** sur chaque fiche (combien de composants IT une application utilise), son score de **qualité des données**, ou son **ancienneté en jours**. **Part** affiche, pour chaque groupe, le nombre restreint en pourcentage du nombre non filtré. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts ; un coût ne compte que les fiches actives pendant l’exercice fiscal en cours, et le graphique nomme cet exercice.
+La mesure est le **Nombre de fiches**, la **Somme** ou la **Moyenne** d’un champ numérique, de coût ou de pourcentage, ou de l’un de ces indicateurs : les **relations d’un type** sur chaque fiche (combien de composants IT une application utilise) ou son score de **qualité des données**. **Part** affiche, pour chaque groupe, le nombre restreint en pourcentage du nombre non filtré. Seuls les types de fiche que vous pouvez lire sont proposés, et les champs de coût uniquement aux utilisateurs autorisés à voir les coûts ; un coût ne compte que les fiches actives pendant l’exercice fiscal en cours, et le graphique nomme cet exercice.
 
 #### Filtres
 
-Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un KPI peut être restreint aux fiches **orphelines** (aucune relation), **obsolètes** (non mises à jour depuis 90 jours), **avec** ou **sans parties prenantes**, avec une fin de vie **liée**, **manuelle** ou **manquante**, ou qui **ont** ou **n’ont pas** une relation d’un type donné — avec les mêmes définitions que les filtres de l’Inventaire et le rapport de qualité des données.
+Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un KPI peut être restreint aux fiches **orphelines** (aucune relation), **obsolètes** (non mises à jour depuis 90 jours), **sans parties prenantes**, avec une fin de vie **manquante**, ou qui **ont** ou **n’ont pas** une relation d’un type donné — avec les mêmes définitions que les filtres de l’Inventaire et le rapport de qualité des données.
 
 | Graphique | Idéal pour |
 |-----------|------------|
@@ -152,6 +154,8 @@ Outre un statut d’approbation et une phase du cycle de vie, un graphique ou un
 Un diagramme de Sankey prend un type de relation et regroupe **chaque extrémité** séparément : par type de fiche, sous-type, statut d’approbation, phase du cycle de vie, qualité des données, un champ du type de cette extrémité, ou les **fiches elles-mêmes** — Organisation → Application montre quelles organisations utilisent quelles applications, les vingt plus grands flux étant conservés et le reste regroupé sous *Autres*. Cliquer sur un nœud de fiche ouvre la fiche.
 
 Les graphiques peuvent aussi représenter un rapport de module : risques par niveau ou statut, scores de conformité par réglementation, état du calendrier PPM et maturité BPM figurent au catalogue lorsque le module est activé et que vous en détenez la permission. Les tags ne peuvent pas encore servir de dimension ni de filtre.
+
+Cinq graphiques prêts à l’emploi figurent dans la famille **Graphiques** du catalogue, chacun proposé lorsque votre métamodèle contient les éléments nécessaires : **Coût par application** (une treemap, une tuile par application dimensionnée selon son coût annuel), **Applications par organisation**, **Calendrier de fin de vie**, **Fiches obsolètes par type** et le diagramme de Sankey **Organisation → Application**.
 
 Activez le clic pour permettre aux lecteurs d’ouvrir l’[Inventaire](inventory.md) ou le rapport derrière une barre ou une portion (graphiques en barres, colonnes, colonnes empilées, courbe, secteurs, anneau et treemap, ainsi que les nœuds de fiche d’un diagramme de Sankey). Un aperçu dans la boîte de dialogue montre le graphique tel qu’il apparaîtra.
 

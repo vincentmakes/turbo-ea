@@ -10,7 +10,13 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { findField } from "../../charts/dimensions";
 import { fieldOfDimension, phaseOfDimension, relationOfDimension } from "../../dashboardQuery";
-import { AGE_MEASURE, DATA_QUALITY_MEASURE, RELATIONS_MEASURE, parseSideKey } from "../widgetConfigModel";
+import { DATA_QUALITY_MEASURE, RELATIONS_MEASURE, parseSideKey } from "../widgetConfigModel";
+
+/** The two lifecycle months on the menu, each with its own name. */
+const PHASE_MONTH_KEYS: Record<string, string> = {
+  active: "dashboard.query.dimension.goLiveMonth",
+  endOfLife: "dashboard.query.dimension.endOfLifeMonth",
+};
 
 export interface ConfigLabels {
   relationSide: (sideKey: string, typeKey: string | null | undefined) => string;
@@ -49,7 +55,7 @@ export function useConfigLabels(): ConfigLabels {
       const side = relationOfDimension(dim);
       if (side) return t("dashboard.query.dimension.related", { relation: relationSide(side, typeKey) });
       const phase = phaseOfDimension(dim);
-      if (phase) return t("dashboard.query.dimension.phase_month", { phase: t(`lifecycle.${phase}`) });
+      if (phase) return PHASE_MONTH_KEYS[phase] ? t(PHASE_MONTH_KEYS[phase]) : t(`lifecycle.${phase}`, { defaultValue: phase });
       return t(`dashboard.query.dimension.${dim}`);
     },
     [types, fieldLabel, relationSide, t],
@@ -58,7 +64,6 @@ export function useConfigLabels(): ConfigLabels {
   const measure = useCallback(
     (m: string, typeKey: string | null | undefined) => {
       if (m === DATA_QUALITY_MEASURE) return t("dashboard.query.measure.data_quality");
-      if (m === AGE_MEASURE) return t("dashboard.query.measure.age_days");
       if (m.startsWith(RELATIONS_MEASURE)) {
         return t("dashboard.query.measure.relations", {
           relation: relationSide(m.slice(RELATIONS_MEASURE.length), typeKey),

@@ -4,6 +4,16 @@ import { KPI_PRESET_KEYS } from "../widgets/kpiPresets";
 import { WIDGET_TYPE_KEYS } from "../widgets/widgetMeta";
 import i18n from "@/i18n";
 import {
+  APPLICATION_TYPE,
+  BUSINESS_CAPABILITY_TYPE,
+  CARD_TYPES,
+  RELATION_TYPES,
+  makeCardType,
+  makeField,
+  makeRelationType,
+  makeSection,
+} from "@/test/fixtures/metamodel";
+import {
   CATALOGUE,
   CHART_PRESETS,
   FAMILY_ORDER,
@@ -11,6 +21,7 @@ import {
   SOURCE_KPI_PRESETS,
   catalogueFor,
   isAlreadyAdded,
+  presetsFor,
 } from "./catalogue";
 
 const entry = (id: string) => CATALOGUE.find((e) => e.id === id)!;
@@ -201,5 +212,156 @@ describe("catalogueFor", () => {
     const admin = ids({ "admin.users": true });
     expect(admin).toEqual(expect.arrayContaining(["idle_users", "kpi:active_users", "kpi:overall_quality"]));
     expect(admin).not.toContain("chart");
+  });
+});
+
+describe("presetsFor — metamodel-aware charts", () => {
+  const ORGANIZATION = makeCardType({ key: "Organization" });
+  const REL_ORG_TO_APP = makeRelationType({
+    key: "relOrgToApp",
+    source_type_key: "Organization",
+    target_type_key: "Application",
+  });
+  const REL_APP_TO_ORG = makeRelationType({
+    key: "relAppToOrg",
+    source_type_key: "Application",
+    target_type_key: "Organization",
+  });
+  const TYPES = [...CARD_TYPES, ORGANIZATION];
+  const RELS = [...RELATION_TYPES, REL_ORG_TO_APP];
+  const COSTS = { "reports.ea_dashboard": true, "costs.view": true };
+  const ids = (presets: { id: string }[]) => presets.map((p) => p.id);
+  const preset = (id: string, types = TYPES, rels = RELS, perms: Record<string, boolean> = COSTS) =>
+    presetsFor(types, rels, perms).find((p) => p.id === id)?.config;
+
+  it("offers all five on a landscape that has their pieces, in order", () => {
+    expect(ids(presetsFor(TYPES, RELS, COSTS))).toEqual([
+      "cost_per_application",
+      "applications_per_organization",
+      "end_of_life_calendar",
+      "stale_by_type",
+      "organization_to_application",
+    ]);
+  });
+
+  it("sums the Application type's first cost field per card on a treemap", () => {
+    expect(preset("cost_per_application")).toEqual({
+      query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
+      chart: "treemap",
+      drill: true,
+      max: 30,
+      title_key: "dashboard.preset.costPerApplication",
+    });
+    // The first cost field in schema order, whatever its key.
+    const twoCosts = makeCardType({
+      key: "Application",
+      fields_schema: [
+        makeSection({ fields: [makeField({ key: "budget", type: "number" })] }),
+        makeSection({ fields: [makeField({ key: "runCost", type: "cost" }), makeField({ key: "capex", type: "cost" })] }),
+      ],
+    });
+    expect((preset("cost_per_application", [twoCosts]) as { query: { metric_field: string } }).query.metric_field).toBe(
+      "runCost",
+    );
+  });
+
+  it("drops the cost treemap without costs.view, a cost field or the Application type", () => {
+    expect(preset("cost_per_application", TYPES, RELS, { "reports.ea_dashboard": true })).toBeUndefined();
+    expect(preset("cost_per_application", TYPES, RELS, { "*": true })).toBeDefined();
+    const noCost = makeCardType({ key: "Application", fields_schema: [makeSection({ fields: [makeField({ key: "x", type: "number" })] })] });
+    expect(preset("cost_per_application", [noCost, ORGANIZATION])).toBeUndefined();
+    expect(preset("cost_per_application", [BUSINESS_CAPABILITY_TYPE, ORGANIZATION])).toBeUndefined();
+    expect(preset("cost_per_application", [{ ...APPLICATION_TYPE, is_hidden: true }, ORGANIZATION])).toBeUndefined();
+  });
+
+  it("groups Applications by the Organization relation, and draws it as a sankey", () => {
+    expect(preset("applications_per_organization")).toEqual({
+      query: { card_type: "Application", group_by: "related:relOrgToApp" },
+      chart: "bar",
+      drill: true,
+      title_key: "dashboard.preset.applicationsPerOrganization",
+    });
+    expect(preset("organization_to_application")).toEqual({
+      query: { relation_type: "relOrgToApp", group_by: "card", group_by_2: "card" },
+      chart: "sankey",
+      max: 20,
+      title_key: "dashboard.preset.organizationToApplication",
+    });
+  });
+
+  it("prefers Organization → Application, falls back to the reverse, and skips a hidden one", () => {
+    const both = [...RELATION_TYPES, REL_APP_TO_ORG, REL_ORG_TO_APP];
+    expect(preset("applications_per_organization", TYPES, both)).toMatchObject({
+      query: { group_by: "related:relOrgToApp" },
+    });
+    const reverse = [...RELATION_TYPES, REL_APP_TO_ORG];
+    expect(preset("applications_per_organization", TYPES, reverse)).toMatchObject({
+      query: { card_type: "Application", group_by: "related:relAppToOrg" },
+    });
+    expect(preset("organization_to_application", TYPES, reverse)).toMatchObject({
+      query: { relation_type: "relAppToOrg" },
+    });
+    const hidden = [...RELATION_TYPES, { ...REL_ORG_TO_APP, is_hidden: true }];
+    expect(preset("applications_per_organization", TYPES, hidden)).toBeUndefined();
+    expect(preset("organization_to_application", TYPES, hidden)).toBeUndefined();
+  });
+
+  it("needs both the Organization type and the relation for the two relation charts", () => {
+    expect(preset("applications_per_organization", CARD_TYPES, RELS)).toBeUndefined();
+    expect(preset("organization_to_application", CARD_TYPES, RELS)).toBeUndefined();
+    expect(preset("applications_per_organization", TYPES, RELATION_TYPES)).toBeUndefined();
+    expect(preset("organization_to_application", TYPES, RELATION_TYPES)).toBeUndefined();
+  });
+
+  it("charts Applications by end-of-life month, and stale cards by type", () => {
+    expect(preset("end_of_life_calendar")).toEqual({
+      query: { card_type: "Application", group_by: "phase_month:endOfLife" },
+      chart: "column",
+      drill: true,
+      title_key: "dashboard.preset.endOfLifeCalendar",
+    });
+    expect(preset("end_of_life_calendar", [BUSINESS_CAPABILITY_TYPE])).toBeUndefined();
+    expect(preset("stale_by_type")).toEqual({
+      query: { group_by: "type", flags: "stale" },
+      chart: "bar",
+      drill: true,
+      title_key: "dashboard.preset.staleByType",
+    });
+    expect(preset("stale_by_type", [BUSINESS_CAPABILITY_TYPE], [])).toBeDefined();
+    expect(presetsFor([], [], COSTS)).toEqual([]);
+  });
+
+  it("names every preset in English", () => {
+    for (const p of presetsFor(TYPES, RELS, COSTS)) {
+      expect(i18n.exists(`common:${p.config.title_key as string}`), String(p.config.title_key)).toBe(true);
+    }
+  });
+
+  it("joins the catalogue after the built-in charts, single, and only for chart readers", () => {
+    const meta = { types: TYPES, relationTypes: RELS };
+    const all = catalogueFor(COSTS, undefined, meta).map((e) => e.id);
+    const at = all.indexOf("chart:lifecycle");
+    expect(all.slice(at + 1, at + 6)).toEqual([
+      "chart:cost_per_application",
+      "chart:applications_per_organization",
+      "chart:end_of_life_calendar",
+      "chart:stale_by_type",
+      "chart:organization_to_application",
+    ]);
+    const entry = catalogueFor(COSTS, undefined, meta).find((e) => e.id === "chart:cost_per_application")!;
+    expect(entry).toMatchObject({ type: "chart", family: "chart", single: true, needsConfig: false });
+    expect(entry.labelKey).toBe("dashboard.preset.costPerApplication");
+    // Without reports.ea_dashboard no chart is offered, preset or not.
+    expect(catalogueFor({ "costs.view": true }, undefined, meta).filter((e) => e.type === "chart")).toEqual([]);
+    // Without a metamodel, nothing extra.
+    expect(catalogueFor(COSTS).map((e) => e.id)).not.toContain("chart:stale_by_type");
+  });
+
+  it("greys a preset already on the dashboard by its title key", () => {
+    const entry = catalogueFor(COSTS, undefined, { types: TYPES, relationTypes: RELS }).find(
+      (e) => e.id === "chart:stale_by_type",
+    )!;
+    expect(isAlreadyAdded(entry, [w("chart", { title_key: "dashboard.preset.staleByType", chart: "column" })])).toBe(true);
+    expect(isAlreadyAdded(entry, [w("chart", { title_key: "dashboard.preset.endOfLifeCalendar" })])).toBe(false);
   });
 });

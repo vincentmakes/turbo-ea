@@ -1,7 +1,8 @@
 /**
  * What a query counts: approval status, lifecycle phase, health and
- * governance flags (orphaned, stale, stakeholders, EOL coverage) as chips,
- * and "has / lacks a relation" to another type. Collapsible, open from the
+ * governance flags (orphaned, stale, without stakeholders, no end-of-life
+ * data) as chips — each option with a one-line description — and "has /
+ * lacks a relation" to another type. Collapsible, open from the
  * start when the widget already filters on something.
  */
 import { useState } from "react";
@@ -12,18 +13,21 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { APPROVAL_STATUSES, LIFECYCLE_PHASES, hasFilters } from "../widgetConfigModel";
+import { APPROVAL_STATUSES, LIFECYCLE_PHASES, OFFERED_FLAGS, hasFilters } from "../widgetConfigModel";
 import SelectField from "./SelectField";
 import type { DraftProps } from "./types";
 import { useConfigLabels } from "./useConfigLabels";
 
 const NONE = "";
+/** The flags that carry a description; a retired flag still on a widget has none. */
+const DESCRIBED_FLAGS: ReadonlySet<string> = new Set(OFFERED_FLAGS);
 
 interface Props extends DraftProps {
   /** Flags on offer for the chosen card type. */
@@ -83,6 +87,18 @@ export default function FiltersSection({ draft, set, setQuery, flagOptions, pres
             onChange={(_, value) => set("flags", value)}
             getOptionLabel={(f) => labels.flag(f, typeKey)}
             disableCloseOnSelect
+            renderOption={(props, f) => {
+              const { key, ...optionProps } = props as typeof props & { key: string };
+              return (
+                <li key={key} {...optionProps}>
+                  <ListItemText
+                    primary={labels.flag(f, typeKey)}
+                    secondary={DESCRIBED_FLAGS.has(f) ? t(`dashboard.query.flagHelp.${f}`) : undefined}
+                    sx={{ my: 0 }}
+                  />
+                </li>
+              );
+            }}
             renderTags={(value, getTagProps) =>
               value.map((f, index) => {
                 const { key, ...tagProps } = getTagProps({ index });

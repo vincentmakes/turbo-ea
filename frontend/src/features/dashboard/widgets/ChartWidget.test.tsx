@@ -263,6 +263,43 @@ describe("ChartWidget — relation-aware and module charts", () => {
     expect(await screen.findByText("card page")).toBeInTheDocument();
   });
 
+  it("tiles cost per application: one named tile per card in the type's colour, drilling into the card", async () => {
+    mockApi.on(
+      "get",
+      "/dashboards/query?card_type=Application&group_by=card&metric=sum&metric_field=costTotalAnnual&top=30",
+      {
+        dimension: "card",
+        dimension_2: null,
+        rows: [
+          { key: "app-1", value: 1200 },
+          { key: "app-2", value: 800 },
+        ],
+        total: 2000,
+        labels: { "app-1": "CRM", "app-2": "ERP" },
+        fiscal_year: 2026,
+        fiscal_year_start: 1,
+      },
+    );
+    renderChart(
+      chart({
+        query: { card_type: "Application", group_by: "card", metric: "sum", metric_field: "costTotalAnnual" },
+        chart: "treemap",
+        drill: true,
+        max: 30,
+      }),
+    );
+    await screen.findByTestId("echart");
+    const s = series();
+    expect(s.data.map((d: { name: string }) => d.name)).toEqual(["CRM", "ERP"]);
+    expect(s.data.map((d: { itemStyle: { color: string } }) => d.itemStyle.color)).toEqual([
+      APPLICATION_TYPE.color,
+      APPLICATION_TYPE.color,
+    ]);
+    expect(screen.getByTestId("chart-caption")).toBeInTheDocument();
+    click({ key: "app-2" });
+    expect(await screen.findByText("card page")).toBeInTheDocument();
+  });
+
   it("names each sankey side through its own type and drills a card node into the card", async () => {
     mockApi.on("get", "/dashboards/query?group_by=field%3AbusinessCriticality&group_by_2=card&relation_type=relAppToITC&top=20", {
       dimension: "field:businessCriticality",
@@ -408,8 +445,8 @@ describe("ChartWidget — relation-aware and module charts", () => {
   });
 
   it("says when a module report has nothing to draw", async () => {
-    mockApi.on("get", "/reports/ppm/dashboard", { total_initiatives: 0, by_status: {} });
-    renderChart(chart({ source: "ppm_dashboard", series: "by_status", chart: "pie" }));
+    mockApi.on("get", "/reports/bpm/dashboard", { total_processes: 0, by_maturity: {} });
+    renderChart(chart({ source: "bpm_dashboard", series: "by_maturity", chart: "pie" }));
     expect(await screen.findByText(tc("emptyStates.noData"))).toBeInTheDocument();
   });
 });

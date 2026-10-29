@@ -11,7 +11,8 @@ import type { TFunction } from "i18next";
 /** Backend code → key under `dashboard.config.problem.`. */
 export const BACKEND_PROBLEMS: Record<string, string> = {
   unknown_dimension: "unknownDimension",
-  card_dimension_needs_relation: "cardDimensionNeedsRelation",
+  card_dimension_needs_card_type: "cardDimensionNeedsCardType",
+  card_dimension_not_second: "cardDimensionNotSecond",
   relation_side_required: "relationSideRequired",
   related_needs_card_type: "relatedNeedsCardType",
   unknown_flag: "unknownFlag",

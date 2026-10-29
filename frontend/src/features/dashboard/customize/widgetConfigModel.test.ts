@@ -39,6 +39,12 @@ import {
   numericFields,
   readableRelationTypes,
   widgetFromDraft,
+  DIMENSION_GROUPS,
+  chartDimensionOptions,
+  dimensionGroup,
+  keepsFlag,
+  measureGroup,
+  secondDimensionOptions,
   type ConfigDraft,
 } from "./widgetConfigModel";
 
@@ -78,33 +84,26 @@ describe("configKind", () => {
 });
 
 describe("metamodel helpers", () => {
-  it("lists the dimensions a type offers", () => {
-    const phases = [
-      "phase_month:plan",
-      "phase_month:phaseIn",
-      "phase_month:active",
-      "phase_month:phaseOut",
-      "phase_month:endOfLife",
-    ];
+  it("lists the dimensions a type offers, in menu order", () => {
     expect(dimensionOptions(undefined)).toEqual([
       "type",
       "approval_status",
       "lifecycle_phase",
       "data_quality_bucket",
       "created_month",
-      "stakeholders",
-      ...phases,
+      "phase_month:active",
+      "phase_month:endOfLife",
     ]);
     expect(dimensionOptions(APPLICATION_TYPE, RELATION_TYPES)).toEqual([
       "type",
       "subtype",
+      "card",
       "approval_status",
       "lifecycle_phase",
       "data_quality_bucket",
       "created_month",
-      "eol_coverage",
-      "stakeholders",
-      ...phases,
+      "phase_month:active",
+      "phase_month:endOfLife",
       "field:businessCriticality",
       "field:isCloud",
       "related:relAppToITC",
@@ -112,7 +111,23 @@ describe("metamodel helpers", () => {
       // A self-referencing relation is offered once per direction.
       "related:relAppToApp__out",
       "related:relAppToApp__in",
+      "eol_coverage",
     ]);
+    expect(dimensionOptions(BUSINESS_CAPABILITY_TYPE)).toEqual([
+      "type",
+      "card",
+      "approval_status",
+      "lifecycle_phase",
+      "data_quality_bucket",
+      "created_month",
+      "phase_month:active",
+      "phase_month:endOfLife",
+    ]);
+    // Retired from the menu, still accepted.
+    for (const retired of ["stakeholders", "phase_month:plan", "phase_month:phaseIn", "phase_month:phaseOut"]) {
+      expect(dimensionOptions(APPLICATION_TYPE, RELATION_TYPES)).not.toContain(retired);
+      expect(queryProblem({ group_by: retired })).toBeNull();
+    }
     // EOL coverage only where EOL data can exist.
     expect(dimensionOptions(BUSINESS_CAPABILITY_TYPE)).not.toContain("eol_coverage");
     expect(dimensionOptions(BUSINESS_CAPABILITY_TYPE, RELATION_TYPES)).toContain("related:relAppToBC");
@@ -520,7 +535,7 @@ describe("option lists", () => {
     expect(sankeySideOptions(undefined, "source", CARD_TYPES)).toEqual([]);
   });
 
-  it("offer numeric fields, relation counts and the computed measures", () => {
+  it("offer numeric fields, relation counts and data quality — not age", () => {
     expect(measureOptions(APPLICATION_TYPE, true, RELATION_TYPES)).toEqual([
       "costTotalAnnual",
       "coverage",
@@ -530,16 +545,63 @@ describe("option lists", () => {
       "@relations:relAppToApp__out",
       "@relations:relAppToApp__in",
       "@data_quality",
-      "@age_days",
     ]);
-    expect(measureOptions(undefined, true, RELATION_TYPES)).toEqual(["@data_quality", "@age_days"]);
-    expect(measureOptions(APPLICATION_TYPE, false)).toEqual(["coverage", "vendorScore", "@data_quality", "@age_days"]);
+    expect(measureOptions(undefined, true, RELATION_TYPES)).toEqual(["@data_quality"]);
+    expect(measureOptions(APPLICATION_TYPE, false)).toEqual(["coverage", "vendorScore", "@data_quality"]);
   });
 
-  it("offer EOL flags only where EOL data can exist", () => {
-    expect(flagOptions(APPLICATION_TYPE)).toContain("eol_missing");
-    expect(flagOptions(undefined)).toContain("eol_missing");
-    expect(flagOptions(BUSINESS_CAPABILITY_TYPE)).toEqual(["orphaned", "stale", "with_stakeholders", "without_stakeholders"]);
+  it("group the measures into fields and computed ones", () => {
+    expect(measureGroup("costTotalAnnual")).toBe("fields");
+    expect(measureGroup("@relations:relAppToITC")).toBe("computed");
+    expect(measureGroup("@data_quality")).toBe("computed");
+  });
+
+  it("group the dimensions into card, dates, fields, related cards and health", () => {
+    expect(DIMENSION_GROUPS).toEqual(["card", "dates", "fields", "related", "health"]);
+    expect(dimensionOptions(APPLICATION_TYPE, RELATION_TYPES).map(dimensionGroup)).toEqual([
+      "card",
+      "card",
+      "card",
+      "card",
+      "card",
+      "card",
+      "dates",
+      "dates",
+      "dates",
+      "fields",
+      "fields",
+      "related",
+      "related",
+      "related",
+      "related",
+      "health",
+    ]);
+  });
+
+  it("offer the four flags, EOL only where EOL data can exist", () => {
+    expect(flagOptions(APPLICATION_TYPE)).toEqual(["orphaned", "stale", "without_stakeholders", "eol_missing"]);
+    expect(flagOptions(undefined)).toEqual(["orphaned", "stale", "without_stakeholders", "eol_missing"]);
+    expect(flagOptions(BUSINESS_CAPABILITY_TYPE)).toEqual(["orphaned", "stale", "without_stakeholders"]);
+  });
+
+  it("keep a retired flag on a widget while the type can carry it", () => {
+    expect(keepsFlag("with_stakeholders", BUSINESS_CAPABILITY_TYPE)).toBe(true);
+    expect(keepsFlag("eol_linked", APPLICATION_TYPE)).toBe(true);
+    expect(keepsFlag("eol_manual", undefined)).toBe(true);
+    expect(keepsFlag("eol_linked", BUSINESS_CAPABILITY_TYPE)).toBe(false);
+    expect(keepsFlag("eol_missing", BUSINESS_CAPABILITY_TYPE)).toBe(false);
+    expect(keepsFlag("unrelated:relAppToITC", BUSINESS_CAPABILITY_TYPE)).toBe(true);
+    expect(keepsFlag("bogus", undefined)).toBe(false);
+  });
+
+  it("keep each card off a grid, and never as the second grouping", () => {
+    const dims = dimensionOptions(APPLICATION_TYPE, RELATION_TYPES);
+    expect(chartDimensionOptions(dims, "bar")).toEqual(dims);
+    expect(chartDimensionOptions(dims, "treemap")).toContain("card");
+    expect(chartDimensionOptions(dims, "heatmap")).toEqual(dims.filter((d) => d !== "card"));
+    expect(chartDimensionOptions(dims, "stacked_column")).not.toContain("card");
+    expect(secondDimensionOptions(dims, "type")).toEqual(dims.filter((d) => d !== "card" && d !== "type"));
+    expect(secondDimensionOptions(dims, null)).not.toContain("card");
   });
 
   it("offer the relations of the chosen type for a presence filter", () => {
@@ -608,10 +670,17 @@ describe("draftProblem — new rules", () => {
     ).toBeNull();
   });
 
-  it("refuses an unknown dimension and cards outside a sankey", () => {
+  it("refuses an unknown dimension, and each card without a card type or as a second grouping", () => {
     expect(draftProblem("chart", draft({ query: { group_by: "bogus" } }))).toBe("unknownDimension");
     expect(draftProblem("chart", draft({ query: { group_by: "phase_month:never" } }))).toBe("unknownPhase");
-    expect(draftProblem("chart", draft({ query: { group_by: "card" } }))).toBe("cardDimensionNeedsRelation");
+    expect(draftProblem("chart", draft({ query: { group_by: "card" } }))).toBe("cardDimensionNeedsCardType");
+    expect(draftProblem("chart", app({ group_by: "card" }))).toBeNull();
+    expect(draftProblem("chart", app({ group_by: "card", metric: "sum", metric_field: "costTotalAnnual" }), ctx)).toBeNull();
+    expect(
+      draftProblem("chart", app({ group_by: "type", group_by_2: "card" }, { chart: "stacked_column" })),
+    ).toBe("cardDimensionNotSecond");
+    // Not second even without a card type: that rule comes first, like the backend's.
+    expect(queryProblem({ group_by: "type", group_by_2: "card" })).toBe("cardDimensionNotSecond");
     expect(draftProblem("chart", draft({ query: { group_by: "phase_month:endOfLife" } }))).toBeNull();
     expect(draftProblem("chart", draft({ query: { group_by: "stakeholders" } }))).toBeNull();
     expect(draftProblem("chart", app({ group_by: "eol_coverage" }))).toBeNull();

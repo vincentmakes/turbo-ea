@@ -1,10 +1,12 @@
 /**
  * What the "Add widget" drawer offers: every widget type, plus the built-in
  * KPI tiles and charts as ready-made entries so one an admin removed can be
- * put back. Pure — the drawer renders it, the tests pin it.
+ * put back, plus the metamodel-aware chart presets (`presetsFor`) resolved
+ * from the landscape's own card and relation types. Pure — the drawer
+ * renders it, the tests pin it.
  */
 import { hasPermission } from "@/components/RequirePermission";
-import type { DashboardWidget, WidgetType } from "@/types";
+import type { CardType, DashboardWidget, RelationType, WidgetType } from "@/types";
 import { KPI_PRESETS, KPI_PRESET_KEYS } from "../widgets/kpiPresets";
 import { seriesLabelKey, type ModuleSourceName } from "../widgets/sourceSeries";
 import {
@@ -33,7 +35,7 @@ export interface CatalogueEntry {
 }
 
 /** The homepage's four historical charts, offered ready-made. */
-export const CHART_PRESETS: { id: string; config: Record<string, unknown> }[] = [
+export const CHART_PRESETS: ChartPreset[] = [
   {
     id: "cards_by_type",
     config: { query: { group_by: "type" }, chart: "bar", drill: true, title_key: "dashboard.cardsByType" },
@@ -104,6 +106,136 @@ export const SOURCE_CHART_PRESETS: {
   { source: "bpm_dashboard", series: "by_maturity", chart: "column", titleKey: "dashboard.source.chart.bpmMaturity" },
 ];
 
+export interface ChartPreset {
+  id: string;
+  config: Record<string, unknown>;
+}
+
+/** The card and relation types the metamodel-aware presets are resolved from. */
+export interface CatalogueMetamodel {
+  types: CardType[];
+  relationTypes: RelationType[];
+}
+
+const NO_METAMODEL: CatalogueMetamodel = { types: [], relationTypes: [] };
+
+const APPLICATION = "Application";
+const ORGANIZATION = "Organization";
+
+/** A type's first field of a field type, in schema order. */
+function firstFieldOfType(type: CardType, fieldType: string): string | null {
+  for (const section of type.fields_schema ?? []) {
+    const field = (section.fields ?? []).find((f) => f.type === fieldType);
+    if (field) return field.key;
+  }
+  return null;
+}
+
+/**
+ * The relation type joining Organizations to Applications: the first one
+ * running Organization → Application, else the first running the other way.
+ * Both are cross-type relations, so the bare key names the Application's side
+ * either way.
+ */
+function organizationApplicationRelation(relationTypes: RelationType[]): RelationType | null {
+  const visible = relationTypes.filter((rt) => !rt.is_hidden);
+  return (
+    visible.find((rt) => rt.source_type_key === ORGANIZATION && rt.target_type_key === APPLICATION) ??
+    visible.find((rt) => rt.source_type_key === APPLICATION && rt.target_type_key === ORGANIZATION) ??
+    null
+  );
+}
+
+/**
+ * Five charts that answer common EA questions, each offered only when the
+ * metamodel has what it needs (and, for the cost treemap, the viewer may read
+ * costs). Every one names itself by a `title_key`, so it is titled in the
+ * reader's language and `isAlreadyAdded` recognises it like the Overview
+ * presets. Keys only — never an id (`widget_config_problem`).
+ */
+export function presetsFor(
+  types: CardType[],
+  relationTypes: RelationType[],
+  permissions: Record<string, boolean> | undefined,
+): ChartPreset[] {
+  const visibleTypes = types.filter((ct) => !ct.is_hidden);
+  const application = visibleTypes.find((ct) => ct.key === APPLICATION);
+  const organization = visibleTypes.find((ct) => ct.key === ORGANIZATION);
+  const orgRelation = application && organization ? organizationApplicationRelation(relationTypes) : null;
+  const costField = application ? firstFieldOfType(application, "cost") : null;
+  const out: ChartPreset[] = [];
+  if (application && costField && hasPermission(permissions, "costs.view")) {
+    out.push({
+      id: "cost_per_application",
+      config: {
+        query: { card_type: APPLICATION, group_by: "card", metric: "sum", metric_field: costField },
+        chart: "treemap",
+        drill: true,
+        max: 30,
+        title_key: "dashboard.preset.costPerApplication",
+      },
+    });
+  }
+  if (orgRelation) {
+    out.push({
+      id: "applications_per_organization",
+      config: {
+        query: { card_type: APPLICATION, group_by: `related:${orgRelation.key}` },
+        chart: "bar",
+        drill: true,
+        title_key: "dashboard.preset.applicationsPerOrganization",
+      },
+    });
+  }
+  if (application) {
+    out.push({
+      id: "end_of_life_calendar",
+      config: {
+        query: { card_type: APPLICATION, group_by: "phase_month:endOfLife" },
+        chart: "column",
+        drill: true,
+        title_key: "dashboard.preset.endOfLifeCalendar",
+      },
+    });
+  }
+  if (visibleTypes.length > 0) {
+    out.push({
+      id: "stale_by_type",
+      config: {
+        query: { group_by: "type", flags: "stale" },
+        chart: "bar",
+        drill: true,
+        title_key: "dashboard.preset.staleByType",
+      },
+    });
+  }
+  if (orgRelation) {
+    out.push({
+      id: "organization_to_application",
+      config: {
+        query: { relation_type: orgRelation.key, group_by: "card", group_by_2: "card" },
+        chart: "sankey",
+        max: 20,
+        title_key: "dashboard.preset.organizationToApplication",
+      },
+    });
+  }
+  return out;
+}
+
+function presetEntry(preset: ChartPreset): CatalogueEntry {
+  return {
+    id: `chart:${preset.id}`,
+    type: "chart",
+    family: "chart",
+    labelKey: preset.config.title_key as string,
+    icon: WIDGET_META.chart.icon,
+    config: preset.config,
+    needsConfig: false,
+    single: true,
+  };
+}
+
 export const FAMILY_ORDER: WidgetFamily[] = ["kpi", "chart", "overview", "workspace", "admin"];
 
 function buildCatalogue(): CatalogueEntry[] {
@@ -152,18 +284,7 @@ function buildCatalogue(): CatalogueEntry[] {
     needsConfig: true,
     single: false,
   });
-  for (const preset of CHART_PRESETS) {
-    entries.push({
-      id: `chart:${preset.id}`,
-      type: "chart",
-      family: "chart",
-      labelKey: preset.config.title_key as string,
-      icon: WIDGET_META.chart.icon,
-      config: preset.config,
-      needsConfig: false,
-      single: true,
-    });
-  }
+  for (const preset of CHART_PRESETS) entries.push(presetEntry(preset));
   for (const preset of SOURCE_CHART_PRESETS) {
     entries.push({
       id: `chart:${preset.source}:${preset.series}`,
@@ -210,12 +331,19 @@ export function isAlreadyAdded(entry: CatalogueEntry, widgets: Pick<DashboardWid
   });
 }
 
-/** The entries the viewer may add: those whose widget they could see. */
+/**
+ * The entries the viewer may add: those whose widget they could see, with the
+ * metamodel-aware presets (`presetsFor`) after the built-in charts.
+ */
 export function catalogueFor(
   permissions: Record<string, boolean> | undefined,
   modules: DashboardModules = NO_MODULES,
+  metamodel: CatalogueMetamodel = NO_METAMODEL,
 ): CatalogueEntry[] {
-  return CATALOGUE.filter((entry) => {
+  const presets = presetsFor(metamodel.types, metamodel.relationTypes, permissions).map(presetEntry);
+  const lastBuiltIn = CATALOGUE.findIndex((e) => e.id === `chart:${CHART_PRESETS[CHART_PRESETS.length - 1].id}`);
+  const all = [...CATALOGUE.slice(0, lastBuiltIn + 1), ...presets, ...CATALOGUE.slice(lastBuiltIn + 1)];
+  return all.filter((entry) => {
     const widget = { type: entry.type, config: entry.config };
     const mod = widgetModule(widget);
     if (mod && !modules[mod]) return false;

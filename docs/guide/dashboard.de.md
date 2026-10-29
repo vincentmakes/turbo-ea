@@ -125,18 +125,20 @@ Ein Diagramm gruppiert Karten nach einer **Dimension** und misst jede Gruppe mit
 | **Datenqualität** | Datenqualitätsstufe (0–25 %, 25–50 %, …) |
 | **Erstellungsmonat** | Monat, in dem die Karte erstellt wurde |
 | **Ein Feld** | Jedes Einfachauswahl- oder Ja/Nein-Feld des gewählten Kartentyps |
+| **Einzelne Karten** | Eine Gruppe pro Karte des gewählten Typs — eine Treemap der Kosten pro Anwendung, die Anwendungen mit den meisten IT-Komponenten. Die größten Gruppen bleiben erhalten (das Maximum des Diagramms, standardmäßig zwanzig), der Rest wird unter *Sonstige* zusammengefasst; ein Klick auf eine Karte öffnet sie |
 | **Verknüpfte Karte** | Die Karte am anderen Ende eines Beziehungstyps — Anwendungen pro Organisation, IT-Komponenten pro Anbieter, Kosten pro Geschäftsfähigkeit. Eine Karte, die mit mehreren verknüpften Karten verbunden ist, zählt unter jeder; Karten ohne Verknüpfung fallen unter *Keine*; die zwanzig größten Gruppen bleiben erhalten, der Rest wird unter *Sonstige* zusammengefasst |
 | **EOL-Abdeckung** | Ob eine Anwendung oder IT-Komponente eine endoflife.date-Verknüpfung, ein manuelles Lebensende-Datum oder keines von beidem hat |
-| **Stakeholder** | Ob die Karte mindestens einen Stakeholder hat |
-| **Monat eines Lebenszyklusdatums** | Der Monat, in den ein Lebenszyklusdatum (Planung, Einführung, Aktiv, Auslauf, Lebensende) fällt, über 18 Monate: sechs zurück und elf voraus — ein Lebensende-Kalender oder Inbetriebnahmen pro Monat |
+| **Go-live-Monat** / **Lebensende-Monat** | Der Monat, in den das Aktiv- bzw. Lebensende-Datum der Karte fällt, über 18 Monate: sechs zurück und elf voraus — Inbetriebnahmen pro Monat oder ein Lebensende-Kalender |
+
+Das Dimensionsmenü ist gruppiert: **Karte**, **Daten**, **Felder**, **Verknüpfte Karten** und **Zustand**.
 
 #### Kennzahlen
 
-Die Messgröße ist **Anzahl der Karten**, die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds oder einer dieser Kennzahlen: die **Beziehungen eines Typs** an jeder Karte (wie viele IT-Komponenten eine Anwendung nutzt), ihr **Datenqualitäts**-Score oder ihr **Alter in Tagen**. **Anteil** zeigt je Gruppe die eingegrenzte Anzahl als Prozentsatz der ungefilterten. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen; Kosten zählen nur die Karten, die im aktuellen Geschäftsjahr live sind, und das Diagramm nennt dieses Jahr.
+Die Messgröße ist **Anzahl der Karten**, die **Summe** bzw. der **Durchschnitt** eines Zahlen-, Kosten- oder Prozentfelds oder einer dieser Kennzahlen: die **Beziehungen eines Typs** an jeder Karte (wie viele IT-Komponenten eine Anwendung nutzt) oder ihr **Datenqualitäts**-Score. **Anteil** zeigt je Gruppe die eingegrenzte Anzahl als Prozentsatz der ungefilterten. Angeboten werden nur Kartentypen, die Sie lesen können, und Kostenfelder nur Benutzern, die Kosten sehen dürfen; Kosten zählen nur die Karten, die im aktuellen Geschäftsjahr live sind, und das Diagramm nennt dieses Jahr.
 
 #### Filter
 
-Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm oder KPI auf Karten eingegrenzt werden, die **verwaist** sind (überhaupt keine Beziehung), **veraltet** (seit 90 Tagen nicht aktualisiert), **mit** oder **ohne Stakeholder**, mit **verknüpftem**, **manuellem** oder **fehlendem** Lebensende oder die eine Beziehung eines bestimmten Typs **haben** oder **nicht haben** — mit denselben Definitionen wie die Filter des Inventars und der Datenqualitätsbericht.
+Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm oder KPI auf Karten eingegrenzt werden, die **verwaist** sind (überhaupt keine Beziehung), **veraltet** (seit 90 Tagen nicht aktualisiert), **ohne Stakeholder**, mit **fehlendem** Lebensende oder die eine Beziehung eines bestimmten Typs **haben** oder **nicht haben** — mit denselben Definitionen wie die Filter des Inventars und der Datenqualitätsbericht.
 
 | Diagramm | Am besten für |
 |----------|---------------|
@@ -152,6 +154,8 @@ Neben einem Genehmigungsstatus und einer Lebenszyklusphase kann ein Diagramm ode
 Ein Sankey nimmt einen Beziehungstyp und gruppiert **jedes Ende** für sich: nach Kartentyp, Untertyp, Genehmigungsstatus, Lebenszyklusphase, Datenqualität, einem Feld des Typs dieses Endes oder den **Karten selbst** — Organisation → Anwendung zeigt, welche Organisationen welche Anwendungen nutzen, wobei die zwanzig größten Flüsse erhalten bleiben und der Rest unter *Sonstige* zusammengefasst wird. Ein Klick auf einen Kartenknoten öffnet die Karte.
 
 Diagramme können auch einen Modulbericht darstellen: Risiken nach Stufe oder Status, Compliance-Scores nach Regulierung, Terminplan-Status im PPM und BPM-Reifegrad stehen im Katalog, wenn das Modul aktiviert ist und Sie dessen Berechtigung besitzen. Tags können noch nicht als Dimension oder Filter verwendet werden.
+
+Fünf vorgefertigte Diagramme stehen in der Familie **Diagramme** des Katalogs, jeweils angeboten, wenn Ihr Metamodell die nötigen Bausteine enthält: **Kosten pro Anwendung** (eine Treemap, eine Kachel pro Anwendung, bemessen an ihren jährlichen Kosten), **Anwendungen pro Organisation**, **Lebensende-Kalender**, **Veraltete Karten nach Typ** und das Sankey **Organisation → Anwendung**.
 
 Aktivieren Sie den Klick-Durchgriff, damit Leser das [Inventar](inventory.md) oder den Bericht hinter einem Balken oder Segment öffnen können (Balken-, Säulen-, gestapelte Säulen-, Linien-, Kreis-, Ring- und Treemap-Diagramme sowie die Kartenknoten eines Sankey). Eine Vorschau im Dialog zeigt das Diagramm so, wie es erscheinen wird.
 

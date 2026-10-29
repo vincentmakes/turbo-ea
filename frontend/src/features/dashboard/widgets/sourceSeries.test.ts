@@ -9,7 +9,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import i18n from "@/i18n";
 import { fieldLabel, typeLabel } from "@/hooks/useResolveLabel";
-import { CARD_TYPES, makeCardType, makeField, makeOption, makeSection, makeSubtype } from "@/test/fixtures/metamodel";
+import { CARD_TYPES, makeCardType, makeField, makeOption, makeSection } from "@/test/fixtures/metamodel";
 import { describeSourceScan, itSourceScan } from "@/test/sourceScan";
 import { CHART_CATEGORICAL, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { OTHER_KEY } from "../charts/buildOption";
@@ -125,7 +125,6 @@ const RISKS = {
   total: 10,
   by_status: { identified: 3, closed: 2, accepted: 1, in_progress: 4 },
   by_level: { high: 4, low: 6 },
-  by_category: { security: 2, strategic: 7, custom: 1 },
   overdue: 2,
   created_this_month: 1,
 };
@@ -133,20 +132,11 @@ const COMPLIANCE = { compliance_scores: { gdpr: 80, nis2: 60 }, compliance_by_st
 const HEALTH = (n: number) => ({ onTrack: n, atRisk: 2, offTrack: 1, noReport: 0 });
 const PPM = {
   total_initiatives: 9,
-  by_subtype: { project: 5, program: 4 },
-  by_status: { active: 6, onHold: 3 },
-  total_budget: 1,
-  total_actual: 1,
   health_schedule: HEALTH(6),
-  health_cost: HEALTH(5),
-  health_scope: HEALTH(4),
 };
 const BPM = {
   total_processes: 12,
-  by_process_type: { core: 8, support: 4 },
   by_maturity: { "3": 5, unknown: 7 },
-  by_automation: { manual: 12 },
-  by_risk: { high: 2, low: 10 },
   diagram_coverage: { with_diagram: 9, total: 12, percentage: 75 },
 };
 
@@ -179,7 +169,6 @@ describe("extractSeries", () => {
       "accepted",
       "closed",
     ]);
-    expect(rows("risks_metrics", "by_category", RISKS).map((r) => r.key)).toEqual(["security", "strategic", "custom"]);
   });
 
   it("reads the compliance score per regulation and their mean", () => {
@@ -194,23 +183,12 @@ describe("extractSeries", () => {
   it("reads every PPM series, at risk = schedule at risk + off track", () => {
     expect(single("ppm_dashboard", "total", PPM)).toBe(9);
     expect(single("ppm_dashboard", "at_risk", PPM)).toBe(3);
-    expect(rows("ppm_dashboard", "by_status", PPM)).toEqual([
-      { key: "active", value: 6 },
-      { key: "onHold", value: 3 },
+    expect(rows("ppm_dashboard", "health_schedule", PPM)).toEqual([
+      { key: "onTrack", value: 6 },
+      { key: "atRisk", value: 2 },
+      { key: "offTrack", value: 1 },
+      { key: "noReport", value: 0 },
     ]);
-    expect(rows("ppm_dashboard", "by_subtype", PPM).map((r) => r.key)).toEqual(["project", "program"]);
-    for (const [series, onTrack] of [
-      ["health_schedule", 6],
-      ["health_cost", 5],
-      ["health_scope", 4],
-    ] as const) {
-      expect(rows("ppm_dashboard", series, PPM)).toEqual([
-        { key: "onTrack", value: onTrack },
-        { key: "atRisk", value: 2 },
-        { key: "offTrack", value: 1 },
-        { key: "noReport", value: 0 },
-      ]);
-    }
   });
 
   it("reads every BPM series, without diagram = processes − with a diagram", () => {
@@ -219,15 +197,6 @@ describe("extractSeries", () => {
     expect(rows("bpm_dashboard", "by_maturity", BPM)).toEqual([
       { key: "unknown", value: 7 },
       { key: "3", value: 5 },
-    ]);
-    expect(rows("bpm_dashboard", "by_process_type", BPM)).toEqual([
-      { key: "core", value: 8 },
-      { key: "support", value: 4 },
-    ]);
-    expect(rows("bpm_dashboard", "by_automation", BPM)).toEqual([{ key: "manual", value: 12 }]);
-    expect(rows("bpm_dashboard", "by_risk", BPM)).toEqual([
-      { key: "low", value: 10 },
-      { key: "high", value: 2 },
     ]);
   });
 
@@ -252,11 +221,25 @@ describe("extractSeries", () => {
     expect(extractSeries("risks_metrics", "open", undefined)).toBeNull();
     expect(extractSeries("risks_metrics", "scores", RISKS)).toBeNull();
     expect(extractSeries("nope", "total", RISKS)).toBeNull();
+    // A series the dashboards no longer offer reads nothing.
+    for (const [source, series] of [
+      ["risks_metrics", "by_category"],
+      ["ppm_dashboard", "by_status"],
+      ["ppm_dashboard", "by_subtype"],
+      ["ppm_dashboard", "health_cost"],
+      ["ppm_dashboard", "health_scope"],
+      ["bpm_dashboard", "by_process_type"],
+      ["bpm_dashboard", "by_automation"],
+      ["bpm_dashboard", "by_risk"],
+    ]) {
+      expect(isSourceSeries(source, series), `${source}.${series}`).toBe(false);
+      expect(extractSeries(source, series, { [series]: { a: 1 } })).toBeNull();
+    }
   });
 
   it("treats a malformed payload as zeros", () => {
     expect(single("risks_metrics", "total", { total: "x" })).toBe(0);
-    expect(rows("ppm_dashboard", "by_status", { by_status: null })).toEqual([]);
+    expect(rows("bpm_dashboard", "by_maturity", { by_maturity: null })).toEqual([]);
     expect(keyedRows({ a: 1, b: 2 }, ["b"])).toEqual([
       { key: "b", value: 2 },
       { key: "a", value: 1 },
@@ -265,34 +248,22 @@ describe("extractSeries", () => {
 });
 
 describe("sourceSeriesResolver", () => {
-  const INITIATIVE = makeCardType({
-    key: "Initiative",
-    subtypes: [makeSubtype({ key: "project", label: "Project" }), makeSubtype({ key: "program", label: "Programme" })],
-    fields_schema: [
-      makeSection({
-        fields: [
-          makeField({
-            key: "initiativeStatus",
-            type: "single_select",
-            options: [makeOption({ key: "active", label: "Active", color: "#00aa00" }), makeOption({ key: "onHold", label: "On hold" })],
-          }),
-        ],
-      }),
-    ],
-  });
   const PROCESS = makeCardType({
     key: "BusinessProcess",
     fields_schema: [
       makeSection({
         fields: [
-          makeField({ key: "maturity", type: "single_select", options: [makeOption({ key: "3", label: "Defined" })] }),
-          makeField({ key: "riskLevel", type: "single_select", options: [makeOption({ key: "low", label: "Low risk" })] }),
+          makeField({
+            key: "maturity",
+            type: "single_select",
+            options: [makeOption({ key: "3", label: "Defined", color: "#00aa00" }), makeOption({ key: "4", label: "Managed" })],
+          }),
         ],
       }),
     ],
   });
   const deps: ResolverDeps = {
-    types: [...CARD_TYPES, INITIATIVE, PROCESS],
+    types: [...CARD_TYPES, PROCESS],
     t: i18n.getFixedT("en", "common"),
     locale: "en",
     typeLabel: (ct) => typeLabel(ct, "en"),
@@ -308,13 +279,11 @@ describe("sourceSeriesResolver", () => {
     expect(r.color("low", 0)).toBe(SEVERITY_COLORS.low);
   });
 
-  it("names risk statuses and categories from the GRC strings, in fixed hues", () => {
+  it("names risk statuses from the GRC strings, in fixed hues", () => {
     const status = sourceSeriesResolver("risks_metrics", "by_status", deps);
     expect(status.label("mitigation_planned")).toBe(i18n.t("grc:risks.status.mitigation_planned"));
     expect(status.color("analysed", 7)).toBe(CHART_CATEGORICAL.light[1]);
     expect(status.label("odd")).toBe("odd");
-    const category = sourceSeriesResolver("risks_metrics", "by_category", deps);
-    expect(category.label("security")).toBe(i18n.t("grc:risks.category.security"));
   });
 
   it("names regulations through the given resolver, else the built-in label", () => {
@@ -327,36 +296,30 @@ describe("sourceSeriesResolver", () => {
   });
 
   it("colours PPM health by status", () => {
-    const r = sourceSeriesResolver("ppm_dashboard", "health_cost", deps);
+    const r = sourceSeriesResolver("ppm_dashboard", "health_schedule", deps);
     expect(r.label("atRisk")).toBe(i18n.t("ppm:health_atRisk"));
     expect(r.color("onTrack", 0)).toBe(STATUS_COLORS.success);
     expect(r.color("offTrack", 0)).toBe(STATUS_COLORS.error);
     expect(r.color("noReport", 0)).toBe(HEALTH_SERIES_COLORS.noReport);
   });
 
-  it("names PPM status and subtype, and BPM keys, from the metamodel", () => {
-    const status = sourceSeriesResolver("ppm_dashboard", "by_status", deps);
-    expect(status.label("active")).toBe("Active");
-    expect(status.color("active", 4)).toBe("#00aa00");
-    expect(status.color("onHold", 4)).toBe(CHART_CATEGORICAL.light[1]);
-    const subtype = sourceSeriesResolver("ppm_dashboard", "by_subtype", deps);
-    expect(subtype.label("program")).toBe("Programme");
-    expect(subtype.label("Other")).toBe(tc("labels.notSet"));
+  it("names BPM maturity from the metamodel, in the option's colour", () => {
     const maturity = sourceSeriesResolver("bpm_dashboard", "by_maturity", deps);
     expect(maturity.label("3")).toBe("Defined");
+    expect(maturity.color("3", 4)).toBe("#00aa00");
+    expect(maturity.color("4", 4)).toBe(CHART_CATEGORICAL.light[1]);
+    // A key that is not an option takes its row's slot.
+    expect(maturity.label("9")).toBe("9");
+    expect(maturity.color("9", 2)).toBe(CHART_CATEGORICAL.light[2]);
     expect(maturity.label("unknown")).toBe(tc("labels.notSet"));
     expect(maturity.color("unknown", 0)).toBe(STATUS_COLORS.neutral);
-    const risk = sourceSeriesResolver("bpm_dashboard", "by_risk", deps);
-    expect(risk.label("low")).toBe("Low risk");
-    // A risk level that is not an option still reads on the severity scale.
-    expect(risk.color("critical", 0)).toBe(SEVERITY_COLORS.critical);
   });
 
   it("names and greys the folded row everywhere", () => {
     for (const [source, series] of [
       ["risks_metrics", "by_level"],
       ["compliance_overview", "scores"],
-      ["bpm_dashboard", "by_automation"],
+      ["bpm_dashboard", "by_maturity"],
       ["risks_metrics", "total"],
     ]) {
       const r = sourceSeriesResolver(source, series, deps);

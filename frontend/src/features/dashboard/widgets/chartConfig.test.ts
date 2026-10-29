@@ -67,6 +67,23 @@ describe("top", () => {
     expect(chartPath(plain)).toBe("/dashboards/query?group_by=type");
   });
 
+  it("is sent for each card of an ordinary query, at the widget's maximum", () => {
+    const cost = {
+      chart: "treemap" as const,
+      drill: true,
+      max: 30,
+      query: { card_type: "Application", group_by: "card", metric: "sum" as const, metric_field: "costTotalAnnual" },
+    };
+    expect(usesCardKeys(cost)).toBe(true);
+    expect(chartPath(cost)).toBe(
+      "/dashboards/query?card_type=Application&group_by=card&metric=sum&metric_field=costTotalAnnual&top=30",
+    );
+    expect(cost.query).not.toHaveProperty("top");
+    expect(chartPath({ ...base, query: { card_type: "Application", group_by: "card" } })).toBe(
+      "/dashboards/query?card_type=Application&group_by=card&top=20",
+    );
+  });
+
   it("follows the widget's maximum, within 1–200", () => {
     expect(chartTop({ ...base, query: {}, max: 8 })).toBe(8);
     expect(chartTop({ ...base, query: {} })).toBe(20);

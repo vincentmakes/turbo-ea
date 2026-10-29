@@ -39,6 +39,7 @@ import {
   ACTIVITY_FILTERS,
   MAX_ACTIVITY_ROWS,
   availableChartKinds,
+  chartDimensionOptions,
   cleanQuery,
   configKind,
   dimensionOptions,
@@ -46,6 +47,7 @@ import {
   draftProblem,
   draftQuery,
   flagOptions,
+  keepsFlag,
   measureOptions,
   readableRelationTypes,
   relationPresenceOptions,
@@ -110,7 +112,7 @@ function ConfigForm({
   const isSankey = isChart && draft.chart === "sankey";
   const isGauge = isChart && draft.chart === "gauge";
   const selectedType = cardTypes.find((ct) => ct.key === query.card_type);
-  const dimensions = dimensionOptions(selectedType, relations);
+  const dimensions = chartDimensionOptions(dimensionOptions(selectedType, relations), draft.chart);
   const measures = measureOptions(selectedType, canViewCosts, relations);
   const flagsOffered = flagOptions(selectedType);
   const presenceOptions = isSankey ? [] : relationPresenceOptions(selectedType, relations);
@@ -137,7 +139,9 @@ function ConfigForm({
       if (q.metric_field && !measures.includes(q.metric_field)) clear("metric_field");
       if (q.subtype && !(selectedType?.subtypes ?? []).some((s) => s.key === q.subtype)) clear("subtype");
       let { flags, relationPresence } = d;
-      const keptFlags = flags.filter((f) => flagsOffered.includes(f) || /^(un)?related:/.test(f));
+      // A flag no longer on the menu but still accepted stays (never dropped
+      // behind the admin's back); one the new type cannot carry goes.
+      const keptFlags = flags.filter((f) => keepsFlag(f, selectedType));
       if (keptFlags.length !== flags.length) {
         flags = keptFlags;
         changed = true;

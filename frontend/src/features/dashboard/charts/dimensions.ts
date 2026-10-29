@@ -134,15 +134,18 @@ export function dimensionResolver(
 
   if (isCardKeyed(dimension)) {
     const names = deps.cardLabels ?? {};
-    // A sankey side on `card` paints its nodes in that side's type colour; a
-    // related-card grouping has no colour of its own (one series, one hue).
-    const sideColor = dimension === "card" ? types.find((ct) => ct.key === scope)?.color : undefined;
+    // Cards of one type (`card` on a sankey side, or on an ordinary query
+    // with its `card_type`) are painted in that type's colour, else the first
+    // hue; a related-card grouping has no colour of its own (one series, one
+    // hue). A card has no colour of its own, and fixed slots by row would run
+    // past the palette on the 20-30 cards a chart shows.
+    const typeColor = dimension === "card" ? types.find((ct) => ct.key === scope)?.color : undefined;
     return wrap({
       colorByCategory: dimension === "card",
       label: (key) => (NONE_KEYS.has(key) ? t("dashboard.query.noRelated") : (names[key] ?? key)),
-      color: (key, index) => {
+      color: (key) => {
         if (NONE_KEYS.has(key)) return STATUS_COLORS.neutral;
-        return sideColor ?? slot(categorical, dimension === "card" ? index : 0);
+        return typeColor || slot(categorical, 0);
       },
     });
   }
