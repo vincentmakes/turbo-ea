@@ -22,8 +22,16 @@ export interface BpmFieldOption {
 }
 
 export interface BpmFieldOptionsResult {
+  /** The field's options, in the metamodel's order. */
+  options: BpmFieldOption[];
   /** Resolve a stored value; an unknown key degrades to the raw key, uncoloured. */
   resolve: (key: string) => BpmFieldOption;
+  /**
+   * A stored value's place in the option order; every key the field does not
+   * define shares the last place (`options.length`), so a stable sort keeps
+   * them in their own order after the known ones.
+   */
+  order: (key: string) => number;
   loading: boolean;
 }
 
@@ -37,14 +45,15 @@ export function bpmFieldOptionsFrom(
   const field = (fieldsSchema ?? [])
     .flatMap((s) => s.fields ?? [])
     .find((f) => f.key === fieldKey);
-  const byKey = new Map<string, BpmFieldOption>(
-    (field?.options ?? []).map((o): [string, BpmFieldOption] => [
-      o.key,
+  const options = (field?.options ?? []).map(
+    (o): BpmFieldOption =>
       o.color ? { key: o.key, label: optLabel(o), color: o.color } : { key: o.key, label: optLabel(o) },
-    ]),
   );
+  const byKey = new Map(options.map((o) => [o.key, o]));
+  const index = new Map(options.map((o, i) => [o.key, i]));
   const resolve = (key: string): BpmFieldOption => byKey.get(key) ?? { key, label: key };
-  return { resolve, loading };
+  const order = (key: string): number => index.get(key) ?? options.length;
+  return { options, resolve, order, loading };
 }
 
 /** The options of the BusinessProcess field `fieldKey`, from the metamodel. */

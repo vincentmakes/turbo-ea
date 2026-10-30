@@ -41,6 +41,15 @@ export interface CumulativeChartOptions {
   formatShort: (v: number) => string;
 }
 
+/**
+ * Widest a legend entry's name is drawn, in px. The legend holds two or three
+ * cumulative series in a report-width chart, so it can afford whole names —
+ * translated ones run long (the Arabic and German series names were cut short)
+ * — where the chrome's default caps them at 120 px. The Data Quality report widens its legend the
+ * same way.
+ */
+export const PPM_LEGEND_LABEL_WIDTH = 260;
+
 /** Dotted budget lines, distinct from the solid actuals: 6 px dash, 4 px gap. */
 export const BUDGET_DASH: [number, number] = [6, 4];
 
@@ -138,7 +147,7 @@ export function buildCumulativeOption(
     legend: legend(
       ctx,
       lines.map((l) => l.name),
-      { selectedMode: false },
+      { selectedMode: false, textStyle: { width: PPM_LEGEND_LABEL_WIDTH } },
     ),
     xAxis: {
       type: "category",

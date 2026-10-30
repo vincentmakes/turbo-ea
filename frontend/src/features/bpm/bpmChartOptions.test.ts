@@ -11,6 +11,8 @@ import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import {
   AUTOMATION_COLOR,
+  BPM_COLUMN_LABEL_LINE_HEIGHT,
+  BPM_COLUMN_LABEL_WIDTH,
   BPM_NEUTRAL_COLOR,
   DIMENSIONS,
   MATURITY_COLORS,
@@ -19,6 +21,7 @@ import {
   maturityColor,
   maturityColumnOption,
   processTypePieOption,
+  wrapColumnLabels,
 } from "./bpmChartOptions";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
@@ -79,6 +82,70 @@ describe("maturityColor", () => {
   });
 });
 
+// Every category keeps its label, wrapped at word boundaries in a narrow card.
+const WRAPPED_LABEL = {
+  color: "#666666",
+  fontSize: 12,
+  interval: 0,
+  hideOverlap: false,
+  overflow: "break",
+  width: 64,
+  lineHeight: 14,
+};
+
+describe("BPM column label constants", () => {
+  it("fits five columns in a 350 px card, a label wrapping on a 14 px line", () => {
+    expect(BPM_COLUMN_LABEL_WIDTH).toBe(64);
+    expect(BPM_COLUMN_LABEL_LINE_HEIGHT).toBe(14);
+  });
+});
+
+describe("wrapColumnLabels", () => {
+  const built = {
+    grid: { top: 16, bottom: 8, left: 8, containLabel: true },
+    xAxis: {
+      type: "category",
+      data: ["A", "B"],
+      axisLabel: { color: "#666666", interval: 3, hideOverlap: true, width: 96, overflow: "truncate" },
+    },
+    yAxis: { type: "value" },
+    series: [{ type: "bar" }],
+  };
+
+  it("shows every label, wrapped at word boundaries within the given width", () => {
+    const option = wrapColumnLabels(built, 50) as any;
+    expect(option.xAxis.axisLabel).toEqual({
+      color: "#666666",
+      interval: 0,
+      hideOverlap: false,
+      overflow: "break",
+      width: 50,
+      lineHeight: 14,
+    });
+  });
+
+  it("raises the grid's bottom inset by one label line and keeps the rest of the grid", () => {
+    const option = wrapColumnLabels(built, 50) as any;
+    expect(option.grid).toEqual({ top: 16, bottom: 22, left: 8, containLabel: true });
+  });
+
+  it("keeps the rest of the option and leaves its input untouched", () => {
+    const option = wrapColumnLabels(built, 50) as any;
+    expect(option.xAxis.type).toBe("category");
+    expect(option.xAxis.data).toEqual(["A", "B"]);
+    expect(option.yAxis).toBe(built.yAxis);
+    expect(option.series).toBe(built.series);
+    expect(built.grid.bottom).toBe(8);
+    expect(built.xAxis.axisLabel).toEqual({
+      color: "#666666",
+      interval: 3,
+      hideOverlap: true,
+      width: 96,
+      overflow: "truncate",
+    });
+  });
+});
+
 describe("processTypePieOption", () => {
   it("draws a clickable pie of resolved labels and colours, keyed by the raw key", () => {
     const option = processTypePieOption(rows, { chrome, isRtl: false, label, color, seriesName: "Processes" }) as any;
@@ -96,6 +163,13 @@ describe("processTypePieOption", () => {
     expect(option.legend.left).toBe("left");
   });
 
+  it("is the dashboard pie as built: no category labels to wrap, the grid untouched", () => {
+    const option = processTypePieOption(rows, { chrome, isRtl: false, label, color, seriesName: "P" });
+    const asBuilt = vi.mocked(buildOption).mock.results[0].value;
+    expect(option).toBe(asBuilt);
+    expect((option as any).xAxis).toBeUndefined();
+  });
+
   it("hands the chrome and the RTL flag through", () => {
     const option = processTypePieOption(rows, { chrome, isRtl: true, label, color, seriesName: "P" }) as any;
     expect(ctxOf().theme).toBe(chrome);
@@ -111,7 +185,6 @@ describe("maturityColumnOption", () => {
     expect(ctxOf().colorByCategory).toBe(true);
     expect(option.xAxis.data).toEqual(["Alpha", "Beta", "Gamma"]);
     expect(option.xAxis.inverse).toBe(false);
-    expect(option.xAxis.axisLabel).toMatchObject({ interval: 0, hideOverlap: true });
     expect(option.yAxis.position).toBe("left");
     const s = option.series[0];
     expect(s.type).toBe("bar");
@@ -120,6 +193,12 @@ describe("maturityColumnOption", () => {
     expect(s.data.map((d: any) => d.key)).toEqual(["a", "b", "c"]);
     expect(s.data.map((d: any) => d.value)).toEqual([3, 5, 1]);
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual(["#aa0000", "#00bb00", "#0000cc"]);
+  });
+
+  it("keeps every level's label, wrapped, with room for a second line", () => {
+    const option = maturityColumnOption(rows, { chrome, isRtl: false, label, color, seriesName: "P" }) as any;
+    expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
+    expect(option.grid).toMatchObject({ top: 16, bottom: 22, containLabel: true });
   });
 
   it("mirrors in RTL", () => {
@@ -144,6 +223,12 @@ describe("automationColumnOption", () => {
     expect(s.cursor).toBe("pointer");
     expect(s.data.map((d: any) => d.key)).toEqual(["a", "b", "c"]);
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual([brand.primary, brand.primary, brand.primary]);
+  });
+
+  it("keeps every level's label, wrapped, with room for a second line", () => {
+    const option = automationColumnOption(rows, { chrome, isRtl: false, label, seriesName: "P" }) as any;
+    expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
+    expect(option.grid).toMatchObject({ top: 16, bottom: 22, containLabel: true });
   });
 
   it("mirrors in RTL", () => {

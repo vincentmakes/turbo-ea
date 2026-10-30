@@ -47,7 +47,8 @@ vi.mock("./useProcessTypeOptions", () => {
   };
 });
 // Maturity and automation level are single_select options too: their columns
-// must be labelled from the metamodel, never with the stored key.
+// must be labelled from the metamodel, never with the stored key, and follow
+// the field's option order (the order the options are listed in here).
 vi.mock("./useBpmFieldOptions", () => {
   const OPTIONS: Record<string, Record<string, { label: string; color?: string }>> = {
     maturity: {
@@ -62,17 +63,22 @@ vi.mock("./useBpmFieldOptions", () => {
     },
   };
   return {
-    useBpmFieldOptions: (field: string) => ({
-      loading: false,
-      resolve: (key: string) => ({ key, ...(OPTIONS[field]?.[key] ?? { label: key }) }),
-    }),
+    useBpmFieldOptions: (field: string) => {
+      const keys = Object.keys(OPTIONS[field] ?? {});
+      return {
+        loading: false,
+        options: keys.map((key) => ({ key, ...OPTIONS[field][key] })),
+        resolve: (key: string) => ({ key, ...(OPTIONS[field]?.[key] ?? { label: key }) }),
+        order: (key: string) => (keys.includes(key) ? keys.indexOf(key) : keys.length),
+      };
+    },
   };
 });
 
 import { api } from "@/api/client";
 import { echartState } from "@/test/echartMock";
 import { hookState } from "@/test/hooks";
-import { MATURITY_COLORS } from "./bpmChartOptions";
+import { BPM_COLUMN_LABEL_WIDTH, MATURITY_COLORS } from "./bpmChartOptions";
 import { STATUS_COLORS, brand } from "@/theme/tokens";
 import BpmDashboard from "./BpmDashboard";
 
@@ -86,8 +92,10 @@ const mockDashboard = {
   total_processes: 42,
   diagram_coverage: { with_diagram: 30, total: 42, percentage: 71 },
   by_process_type: { Core: 20, Support: 15, Management: 7, unknown: 4 },
-  by_maturity: { initial: 5, managed: 12, defined: 15, custom: 2, unknown: 1 },
-  by_automation: { manual: 10, partiallyAutomated: 20, fullyAutomated: 12, unknown: 3 },
+  // Out of option order on purpose: the columns follow the metamodel's order,
+  // keys it does not define last, in data order.
+  by_maturity: { custom: 2, defined: 15, unknown: 1, initial: 5, legacy: 1, managed: 12 },
+  by_automation: { fullyAutomated: 12, unknown: 3, manual: 10, partiallyAutomated: 20 },
   by_risk: { low: 20, medium: 15, high: 5, critical: 2 },
   top_risk_processes: [
     { id: "p1", name: "Order Processing", risk: "critical", maturity: "initial" },
@@ -213,13 +221,60 @@ describe("BpmDashboard", () => {
     await renderDashboard();
 
     const option = echartState.byName(MATURITY).option;
-    expect(option.xAxis.data).toEqual(["Initial", "Managed", "Defined", "custom"]);
-    expect(option.xAxis.axisLabel.interval).toBe(0);
+    expect(option.xAxis.data).toEqual(["Initial", "Managed", "Defined", "custom", "legacy"]);
     expect(option.series[0].type).toBe("bar");
     expect(option.series[0].name).toBe("Processes");
     expect(option.series[0].cursor).toBe("pointer");
-    expect(option.series[0].data.map((d: any) => d.key)).toEqual(["initial", "managed", "defined", "custom"]);
-    expect(option.series[0].data.map((d: any) => d.value)).toEqual([5, 12, 15, 2]);
+    expect(option.series[0].data.map((d: any) => d.key)).toEqual([
+      "initial",
+      "managed",
+      "defined",
+      "custom",
+      "legacy",
+    ]);
+    expect(option.series[0].data.map((d: any) => d.value)).toEqual([5, 12, 15, 2, 1]);
+  });
+
+  it("orders the maturity and automation columns by the field's options, unknown keys last", async () => {
+    await renderDashboard();
+
+    // Data order is custom, defined, initial, legacy, managed; option order is
+    // initial, managed, defined; custom and legacy are not options.
+    expect(series(MATURITY).data.map((d: any) => d.key)).toEqual([
+      "initial",
+      "managed",
+      "defined",
+      "custom",
+      "legacy",
+    ]);
+    expect(echartState.byName(AUTOMATION).option.xAxis.data).toEqual([
+      "Manual",
+      "Partially automated",
+      "Fully automated",
+    ]);
+  });
+
+  it("keeps the process-type pie in data order", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...mockDashboard,
+      by_process_type: { Support: 15, Management: 7, Core: 20 },
+    });
+    await renderDashboard();
+
+    expect(series(PIE).data.map((d: any) => d.key)).toEqual(["Support", "Management", "Core"]);
+  });
+
+  it("keeps every column label, wrapped at word boundaries", async () => {
+    await renderDashboard();
+
+    for (const name of [MATURITY, AUTOMATION]) {
+      expect(echartState.byName(name).option.xAxis.axisLabel).toMatchObject({
+        interval: 0,
+        hideOverlap: false,
+        overflow: "break",
+        width: BPM_COLUMN_LABEL_WIDTH,
+      });
+    }
   });
 
   it("colours each maturity column: option colour, else the CMMI scale, else neutral", async () => {
@@ -229,6 +284,7 @@ describe("BpmDashboard", () => {
       "#123456",
       MATURITY_COLORS.managed,
       MATURITY_COLORS.defined,
+      STATUS_COLORS.neutral,
       STATUS_COLORS.neutral,
     ]);
   });

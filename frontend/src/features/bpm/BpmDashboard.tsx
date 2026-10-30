@@ -40,11 +40,16 @@ import {
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
 
-/** A count map as chart rows, without the "unknown" bucket. */
-function knownRows(counts: Record<string, number>): DashboardKeyRow[] {
-  return Object.entries(counts)
+/**
+ * A count map as chart rows, without the "unknown" bucket. Given the field's
+ * option order, the rows follow it (a key the field does not define comes
+ * last, in data order); without one they keep the data order.
+ */
+function knownRows(counts: Record<string, number>, order?: (key: string) => number): DashboardKeyRow[] {
+  const rows = Object.entries(counts)
     .filter(([key]) => key !== "unknown")
     .map(([key, value]) => ({ key, value }));
+  return order ? rows.sort((a, b) => order(a.key) - order(b.key)) : rows;
 }
 
 /** The stored option key a chart click landed on. */
@@ -65,8 +70,8 @@ function BpmDashboardContent() {
   const navigate = useNavigate();
   const chartTheme = useEChartsTheme();
   const { resolve: resolveProcessType } = useProcessTypeOptions();
-  const { resolve: resolveMaturity } = useBpmFieldOptions("maturity");
-  const { resolve: resolveAutomation } = useBpmFieldOptions("automationLevel");
+  const { resolve: resolveMaturity, order: maturityOrder } = useBpmFieldOptions("maturity");
+  const { resolve: resolveAutomation, order: automationOrder } = useBpmFieldOptions("automationLevel");
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
@@ -90,21 +95,30 @@ function BpmDashboardContent() {
         color: (key) => resolveProcessType(key).color,
         seriesName,
       }),
-      maturity: maturityColumnOption(knownRows(data?.by_maturity ?? {}), {
+      maturity: maturityColumnOption(knownRows(data?.by_maturity ?? {}, maturityOrder), {
         chrome: chartTheme,
         isRtl: chartTheme.isRtl,
         label: (key) => resolveMaturity(key).label,
         color: (key) => maturityColor(key, resolveMaturity(key).color),
         seriesName,
       }),
-      automation: automationColumnOption(knownRows(data?.by_automation ?? {}), {
+      automation: automationColumnOption(knownRows(data?.by_automation ?? {}, automationOrder), {
         chrome: chartTheme,
         isRtl: chartTheme.isRtl,
         label: (key) => resolveAutomation(key).label,
         seriesName,
       }),
     }),
-    [data, chartTheme, resolveProcessType, resolveMaturity, resolveAutomation, seriesName],
+    [
+      data,
+      chartTheme,
+      resolveProcessType,
+      resolveMaturity,
+      maturityOrder,
+      resolveAutomation,
+      automationOrder,
+      seriesName,
+    ],
   );
 
   if (loading) return <LinearProgress />;

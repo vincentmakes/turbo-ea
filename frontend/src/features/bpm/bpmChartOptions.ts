@@ -73,9 +73,48 @@ export function processTypePieOption(rows: DashboardKeyRow[], ctx: BpmColoredCha
   });
 }
 
+/**
+ * Widest a BPM column's category label is drawn, in px. The dashboard's
+ * charts sit in a third of the page (about 350 px wide), so five maturity
+ * columns get some 70 px a band: 64 px keeps a gap between neighbours, and a
+ * longer label ("4 - Measured", "Partially Automated") wraps onto a second
+ * line instead of being truncated or hidden. The builders are pure and never
+ * see the card's pixel width, hence a constant.
+ */
+export const BPM_COLUMN_LABEL_WIDTH = 64;
+
+/** The line height of a wrapped BPM column label, in px. */
+export const BPM_COLUMN_LABEL_LINE_HEIGHT = 14;
+
+/**
+ * A column option whose every category keeps its label: none skipped or
+ * hidden for overlap, each wrapped at word boundaries (`break`, never
+ * `breakAll`, so a word is not split) within `width`, and the grid's bottom
+ * inset raised by one line so a two-line label has room. Pure.
+ */
+export function wrapColumnLabels(option: EChartsCoreOption, width: number): EChartsCoreOption {
+  const xAxis = option.xAxis as Record<string, unknown>;
+  const grid = option.grid as Record<string, unknown>;
+  return {
+    ...option,
+    grid: { ...grid, bottom: Number(grid.bottom) + BPM_COLUMN_LABEL_LINE_HEIGHT },
+    xAxis: {
+      ...xAxis,
+      axisLabel: {
+        ...(xAxis.axisLabel as Record<string, unknown>),
+        interval: 0,
+        hideOverlap: false,
+        overflow: "break",
+        width,
+        lineHeight: BPM_COLUMN_LABEL_LINE_HEIGHT,
+      },
+    },
+  };
+}
+
 /** The maturity columns: one per level, each in its level's colour. */
 export function maturityColumnOption(rows: DashboardKeyRow[], ctx: BpmColoredChartContext): EChartsCoreOption {
-  return buildOption("column", rows, {
+  const option = buildOption("column", rows, {
     theme: ctx.chrome,
     isRtl: ctx.isRtl,
     labels: ctx.label,
@@ -84,11 +123,12 @@ export function maturityColumnOption(rows: DashboardKeyRow[], ctx: BpmColoredCha
     seriesName: ctx.seriesName,
     cursor: "pointer",
   });
+  return wrapColumnLabels(option, BPM_COLUMN_LABEL_WIDTH);
 }
 
 /** The automation-level columns: one series, one hue. */
 export function automationColumnOption(rows: DashboardKeyRow[], ctx: BpmChartContext): EChartsCoreOption {
-  return buildOption("column", rows, {
+  const option = buildOption("column", rows, {
     theme: ctx.chrome,
     isRtl: ctx.isRtl,
     labels: ctx.label,
@@ -98,6 +138,7 @@ export function automationColumnOption(rows: DashboardKeyRow[], ctx: BpmChartCon
     seriesName: ctx.seriesName,
     cursor: "pointer",
   });
+  return wrapColumnLabels(option, BPM_COLUMN_LABEL_WIDTH);
 }
 
 /** One assessment on the trend: its formatted date and its scores in dimension order. */

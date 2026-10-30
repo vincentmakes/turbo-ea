@@ -8,6 +8,7 @@ import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import type { MonthPoint } from "./costChartData";
 import {
   BUDGET_DASH,
+  PPM_LEGEND_LABEL_WIDTH,
   budgetAxisMax,
   budgetLabelPosition,
   buildCumulativeOption,
@@ -174,6 +175,19 @@ describe("buildCumulativeOption — root and chrome", () => {
     expect(legend.selectedMode).toBe(false);
     expect(legend.left).toBe("left");
     expect(build(undefined, undefined, true).legend.left).toBe("right");
+  });
+
+  it("draws whole series names in the legend, widened past the chrome's default", () => {
+    expect(PPM_LEGEND_LABEL_WIDTH).toBe(260);
+    const { legend } = build();
+    expect(legend.textStyle).toEqual({
+      color: "#111111",
+      fontSize: 12,
+      width: 260,
+      overflow: "truncate",
+    });
+    expect(legend.selectedMode).toBe(false);
+    expect(build(undefined, undefined, true).legend.textStyle.width).toBe(260);
   });
 });
 

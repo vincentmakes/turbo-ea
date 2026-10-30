@@ -97,6 +97,35 @@ describe("bpmFieldOptionsFrom", () => {
     expect(bpmFieldOptionsFrom(noFields, "maturity", optLabel, false).resolve("initial").label).toBe("initial");
   });
 
+  it("lists the field's options in the metamodel's order, resolved", () => {
+    const { options } = bpmFieldOptionsFrom(SCHEMA, "maturity", optLabel, false);
+    expect(options).toEqual([
+      { key: "initial", label: "«Initial»", color: "#d32f2f" },
+      { key: "defined", label: "«Defined»" },
+    ]);
+  });
+
+  it("places each option by its metamodel position, every other key after them", () => {
+    const { order } = bpmFieldOptionsFrom(SCHEMA, "maturity", optLabel, false);
+    expect(order("initial")).toBe(0);
+    expect(order("defined")).toBe(1);
+    expect(order("gone")).toBe(2);
+    expect(order("fullyAutomated")).toBe(2);
+  });
+
+  it("sorts rows into option order, unknown keys last in their own order", () => {
+    const { order } = bpmFieldOptionsFrom(SCHEMA, "maturity", optLabel, false);
+    const keys = ["zeta", "defined", "alpha", "initial"];
+    expect([...keys].sort((a, b) => order(a) - order(b))).toEqual(["initial", "defined", "zeta", "alpha"]);
+  });
+
+  it("has no options and one shared place when the field is missing", () => {
+    const { options, order } = bpmFieldOptionsFrom(undefined, "maturity", optLabel, false);
+    expect(options).toEqual([]);
+    expect(order("initial")).toBe(0);
+    expect(order("other")).toBe(0);
+  });
+
   it("passes the loading flag through", () => {
     expect(bpmFieldOptionsFrom(SCHEMA, "maturity", optLabel, true).loading).toBe(true);
     expect(bpmFieldOptionsFrom(SCHEMA, "maturity", optLabel, false).loading).toBe(false);
@@ -108,6 +137,8 @@ describe("useBpmFieldOptions", () => {
     mockType = { key: "BusinessProcess", fields_schema: SCHEMA };
     const { result } = renderHook(() => useBpmFieldOptions("maturity"));
     expect(result.current.resolve("initial")).toEqual({ key: "initial", label: "Initial", color: "#d32f2f" });
+    expect(result.current.options.map((o) => o.key)).toEqual(["initial", "defined"]);
+    expect(result.current.order("defined")).toBe(1);
     expect(result.current.loading).toBe(false);
   });
 
