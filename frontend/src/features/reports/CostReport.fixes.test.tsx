@@ -36,11 +36,7 @@ vi.mock("@/hooks/useThumbnailCapture", () => ({
 }));
 vi.mock("@/features/reports/SaveReportDialog", () => ({ default: () => null }));
 vi.mock("@/components/CardDetailSidePanel", () => ({ default: () => null }));
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Treemap: () => <div data-testid="treemap" />,
-  Tooltip: () => null,
-}));
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
@@ -110,7 +106,7 @@ describe("CostReport restore", () => {
     withMetamodel([APP_WITHOUT_TOTAL, PROJECT_TYPE], []);
     saved.config = { cardTypeKey: "Project", costField: "opex" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await screen.findAllByTestId("echart");
     await waitFor(() =>
       expect(lastPersisted()).toMatchObject({ cardTypeKey: "Project", costField: "opex" }),
     );
@@ -135,7 +131,7 @@ describe("CostReport restore", () => {
     withMetamodel([appTwo], []);
     saved.config = { costField: "runCost" };
     renderCost();
-    await screen.findByTestId("treemap");
+    await screen.findAllByTestId("echart");
     await waitFor(() => expect(lastPersisted()).toMatchObject({ costField: "runCost" }));
     expect(screen.getByRole("combobox", { name: /cost field/i })).toHaveTextContent("Run Cost");
     const fields = treemapCalls().map((p) => p.get("cost_field"));
@@ -146,7 +142,7 @@ describe("CostReport restore", () => {
   it("still picks the type's first cost field when nothing was restored", async () => {
     withMetamodel([APP_WITHOUT_TOTAL, PROJECT_TYPE], []);
     renderCost();
-    await screen.findByTestId("treemap");
+    await screen.findAllByTestId("echart");
     await waitFor(() => expect(lastPersisted()).toMatchObject({ costField: "appCost" }));
     const fields = treemapCalls().map((p) => p.get("cost_field"));
     expect(fields[fields.length - 1]).toBe("appCost");

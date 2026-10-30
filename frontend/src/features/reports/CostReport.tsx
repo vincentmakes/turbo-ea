@@ -18,8 +18,10 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Tooltip from "@mui/material/Tooltip";
-import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
+import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import ReportShell from "./ReportShell";
+import { buildCostTreemapOption } from "./costTreemapOption";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -28,8 +30,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
 import CardScopeFilter from "@/components/CardScopeFilter";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useCurrency, type CurrencyFormatter } from "@/hooks/useCurrency";
-import { useIsRtl } from "@/hooks/useIsRtl";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useAuth } from "@/hooks/useAuth";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -140,53 +141,6 @@ function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Treemap helpers                                                     */
-/* ------------------------------------------------------------------ */
-
-const COLORS = ["#1565c0", "#1976d2", "#1e88e5", "#2196f3", "#42a5f5", "#64b5f6", "#90caf9", "#bbdefb", "#0d47a1", "#1565c0"];
-
-function treemapColor(index: number): string {
-  return COLORS[index % COLORS.length];
-}
-
-const TreemapContent = ({
-  x, y, width, height, name, cost, index, id, costFmt, onCellClick, clickable, isRtl,
-}: {
-  x: number; y: number; width: number; height: number; name: string; cost: number; index: number;
-  id?: string;
-  costFmt: CurrencyFormatter;
-  onCellClick?: (id: string, name: string) => void;
-  clickable?: boolean;
-  isRtl?: boolean;
-}) => {
-  if (width < 4 || height < 4) return null;
-  const showLabel = width > 50 && height > 30;
-  const showCost = width > 70 && height > 45;
-  const handleClick = id && onCellClick ? () => onCellClick(id, name) : undefined;
-  // In RTL, anchor the cell labels at the top-right corner so they read correctly.
-  const labelX = isRtl ? x + width - 6 : x + 6;
-  const textDir = isRtl ? { textAnchor: "end" as const, direction: "rtl" as const } : {};
-  return (
-    <g
-      onClick={handleClick}
-      style={clickable && handleClick ? { cursor: "pointer" } : undefined}
-    >
-      <rect x={x} y={y} width={width} height={height} fill={treemapColor(index)} stroke="#fff" strokeWidth={2} rx={3} />
-      {showLabel && (
-        <text x={labelX} y={y + 16} fontSize={11} fontWeight={600} fill="#fff" style={{ pointerEvents: "none" }} {...textDir}>
-          {name.length > Math.floor(width / 7) ? name.slice(0, Math.floor(width / 7) - 1) + "\u2026" : name}
-        </text>
-      )}
-      {showCost && (
-        <text x={labelX} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)" style={{ pointerEvents: "none" }} {...textDir}>
-          {costFmt.format(cost)}
-        </text>
-      )}
-    </g>
-  );
-};
-
-/* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -199,7 +153,7 @@ export default function CostReport() {
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const { fmt } = useCurrency();
-  const isRtl = useIsRtl();
+  const chartTheme = useEChartsTheme();
   const { user } = useAuth();
   const canViewCostsGlobally = !!(
     user?.permissions?.["*"] || user?.permissions?.["costs.view"]
@@ -564,6 +518,38 @@ export default function CostReport() {
     setDrillStack((s) => [...s, { cardId: id, cardName: name, sources: drillSources }]);
   }, [drillFrame, drillSources]);
 
+  // A tile hands back the datum it was built from; one without a card id
+  // (a row naming no card) is inert.
+  const handleTileClick = useCallback((p: EChartClickParams) => {
+    const d = p.data as { id?: string; name?: string } | undefined;
+    if (d?.id) handleRectClick(d.id, d.name ?? "");
+  }, [handleRectClick]);
+
+  // One treemap per panel: tiles sized by cost, sorted desc so the top driver
+  // leads. Each tooltip reads its share against the panel's own total, so a
+  // multi-source drill (Provider costs next to IT Component costs) compares
+  // every card with its own scale. Memoised: a new option replaces the
+  // chart's whole option and replays its animation, so it is rebuilt only
+  // when the data, the theme or the drill affordance change.
+  const panelCharts = useMemo(() => panelsWithTotals.map((p) => {
+    const data = [...p.items]
+      .sort((a, b) => b.cost - a.cost)
+      .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i }));
+    return {
+      source: p.source,
+      total: p.total,
+      data,
+      option: buildCostTreemapOption(data, {
+        chrome: chartTheme,
+        isRtl: chartTheme.isRtl,
+        format: (v) => fmt.format(v),
+        panelTotal: p.total,
+        percentOfTotal: (pct) => t("cost.percentOfTotalValue", { pct }),
+        clickable: canDrill,
+      }),
+    };
+  }), [panelsWithTotals, chartTheme, fmt, canDrill, t]);
+
   const rootTypeLabel = useMemo(() => {
     const tp = types.find((tp) => tp.key === cardTypeKey);
     return typeLabel(tp) || cardTypeKey;
@@ -592,42 +578,12 @@ export default function CostReport() {
   const topDriver = sortedAllItems.length > 0 ? sortedAllItems[0] : null;
   const avgCost = items.length > 0 ? total / items.length : 0;
 
-  // Build per-panel treemap data (rectangles sized by cost, sorted desc so
-  // the top driver is visually leading).
-  const panelChartData = panelsWithTotals.map((p) => ({
-    source: p.source,
-    total: p.total,
-    data: [...p.items]
-      .sort((a, b) => b.cost - a.cost)
-      .map((d, i) => ({ name: d.name, size: d.cost, cost: d.cost, id: d.id, index: i })),
-  }));
-
   const sort = (k: string) => { setSortD(sortK === k && sortD === "asc" ? "desc" : "asc"); setSortK(k); };
   const sorted = [...items].sort((a, b) => {
     const d = sortD === "asc" ? 1 : -1;
     if (sortK === "cost") return (a.cost - b.cost) * d;
     return a.name.localeCompare(b.name) * d;
   });
-
-  // Tooltip is parameterised by the panel's own total so per-panel %-of-total
-  // is meaningful in multi-source drill (where panels may have different
-  // scales, e.g. Provider costs vs IT Component costs). Recharts clones the
-  // element it receives via ``content``, injecting ``active`` and ``payload``.
-  const Tip = ({ active, payload, panelTotal }: {
-    active?: boolean;
-    payload?: { payload: { name: string; cost: number; size: number } }[];
-    panelTotal: number;
-  }) => {
-    if (!active || !payload?.[0]) return null;
-    const d = payload[0].payload;
-    return (
-      <Paper sx={{ p: 1.5 }} elevation={3}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{d.name}</Typography>
-        <Typography variant="caption" display="block">{fmt.format(d.cost)}</Typography>
-        <Typography variant="caption" color="text.secondary">{panelTotal > 0 ? t("cost.percentOfTotalValue", { pct: ((d.cost / panelTotal) * 100).toFixed(1) }) : ""}</Typography>
-      </Paper>
-    );
-  };
 
   return (
     <ReportShell
@@ -807,13 +763,13 @@ export default function CostReport() {
               gap: 2,
               // Drilled multi-source levels lay out as 2 columns on md+, 1 on
               // narrow viewports. Single-panel always uses 1 column.
-              gridTemplateColumns: panelChartData.length > 1
+              gridTemplateColumns: panelCharts.length > 1
                 ? { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }
                 : "1fr",
             }}
           >
-            {panelChartData.map((panel, idx) => {
-              const panelHeight = panelChartData.length > 1 ? 360 : 450;
+            {panelCharts.map((panel, idx) => {
+              const panelHeight = panelCharts.length > 1 ? 360 : 450;
               const panelTotal = panel.total;
               return (
                 <Paper key={panel.source ? panel.source.label : `root-${idx}`} variant="outlined" sx={{ p: 1 }}>
@@ -842,25 +798,15 @@ export default function CostReport() {
                       <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
                     </Box>
                   ) : (
-                    <ResponsiveContainer width="100%" height={panelHeight}>
-                      <Treemap
-                        data={panel.data}
-                        dataKey="size"
-                        stroke="#fff"
-                        animationDuration={300}
-                        content={
-                          <TreemapContent
-                            x={0} y={0} width={0} height={0} name="" cost={0} index={0}
-                            costFmt={fmt}
-                            onCellClick={handleRectClick}
-                            clickable={canDrill}
-                            isRtl={isRtl}
-                          />
-                        }
-                      >
-                        <RTooltip content={<Tip panelTotal={panelTotal} />} />
-                      </Treemap>
-                    </ResponsiveContainer>
+                    // Drawn at the export's pixel ratio so the PPTX / PNG
+                    // capture of the canvas stays crisp.
+                    <EChart
+                      option={panel.option}
+                      style={{ height: panelHeight }}
+                      devicePixelRatio={EXPORT_DPR}
+                      ariaLabel={panel.source ? panel.source.label : t("cost.title")}
+                      onClick={handleTileClick}
+                    />
                   )}
                 </Paper>
               );
