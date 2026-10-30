@@ -267,7 +267,7 @@ L'esportazione in Excel produce due fogli: la griglia così come appare a scherm
 
 ![Report Qualità dei Dati](../assets/img/it/33_report_qualita_dati.png)
 
-Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui livelli di importanza configurati nella scheda **Qualità dei dati** di ogni tipo di card (ogni campo più i fattori integrati Descrizione, Ciclo di vita, Relazioni obbligatorie e Tag obbligatori):
+Il **Report Qualità dei Dati** è una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui livelli di importanza configurati nella scheda **Qualità dei dati** di ogni tipo di card (ogni campo più i fattori integrati Descrizione, Ciclo di vita, Relazioni obbligatorie, Tag obbligatori e Stakeholder):
 
 - **Punteggio complessivo** — Qualità media dei dati su tutte le card
 - **Per tipo** — Dettaglio che mostra quali tipi di card hanno la migliore/peggiore completezza

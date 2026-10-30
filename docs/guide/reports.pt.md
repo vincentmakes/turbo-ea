@@ -267,7 +267,7 @@ A exportação para Excel produz duas folhas: a grelha tal como aparece no ecrã
 
 ![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)
 
-O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostra quão bem seus dados de arquitetura estão preenchidos. Baseado nos níveis de importância configurados na aba **Qualidade dos dados** de cada tipo de card (cada campo mais os fatores integrados Descrição, Ciclo de vida, Relações obrigatórias e Etiquetas obrigatórias):
+O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostra quão bem seus dados de arquitetura estão preenchidos. Baseado nos níveis de importância configurados na aba **Qualidade dos dados** de cada tipo de card (cada campo mais os fatores integrados Descrição, Ciclo de vida, Relações obrigatórias, Etiquetas obrigatórias e Partes interessadas):
 
 - **Pontuação geral** — Qualidade média dos dados em todos os cards
 - **Por tipo** — Detalhamento mostrando quais tipos de card têm melhor/pior completude

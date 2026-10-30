@@ -61,7 +61,7 @@ Anwendbare Pflicht-Tag-Gruppen fliessen ebenfalls in den Datenqualitäts-Score d
 
 ### Visuelle Hinweise
 
-Pflicht-Gruppen werden mit einem **Pflicht**-Chip in der Admin-Liste und im Abschnitt Tags der Kartendetails gekennzeichnet. Fehlende Pflicht-Tags erscheinen im Freigabe-Status-Banner und im Tooltip des Datenqualitäts-Rings, sodass Benutzer genau wissen, was hinzuzufügen ist.
+Pflicht-Gruppen werden mit einem **Pflicht**-Chip in der Admin-Liste und im Abschnitt Tags der Kartendetails gekennzeichnet. Fehlende Pflicht-Tags erscheinen im Freigabe-Status-Banner und in der Aufschlüsselung des Datenqualitäts-Rings — fahren Sie mit der Maus darüber für die wichtigsten Vorschläge, klicken Sie für die vollständige Liste —, sodass Benutzer genau wissen, was hinzuzufügen ist.
 
 ## Berechtigungen
 

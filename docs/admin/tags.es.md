@@ -61,7 +61,7 @@ Los grupos obligatorios aplicables también alimentan el puntaje de calidad de d
 
 ### Indicadores visuales
 
-Los grupos obligatorios llevan un chip **Obligatorio** tanto en la lista de administración como en la sección Etiquetas del detalle de ficha. Las etiquetas obligatorias faltantes aparecen en el aviso de estado de aprobación y en la información sobre el aro de calidad de datos, para que los usuarios sepan exactamente qué agregar.
+Los grupos obligatorios llevan un chip **Obligatorio** tanto en la lista de administración como en la sección Etiquetas del detalle de ficha. Las etiquetas obligatorias faltantes aparecen en el aviso de estado de aprobación y en el desglose del aro de calidad de datos —pase el cursor por encima para ver las sugerencias principales y haga clic para ver la lista completa—, para que los usuarios sepan exactamente qué agregar.
 
 ## Permisos
 

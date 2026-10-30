@@ -114,6 +114,8 @@ O painel lista os cinco **fatores integrados** — **Descrição**, **Ciclo de v
 
 Uma barra de **composição da pontuação** no topo do painel mostra a parcela de cada fator na pontuação máxima possível, para ver rapidamente quais fatores dominam. No layout do card da aba **Principal**, cada campo — e as seções integradas Descrição, Ciclo de vida e Relações — mostra um pequeno selo com o seu nível atual, para ver a ponderação sem sair dessa aba.
 
+Os usuários veem o resultado fator por fator no próprio card: passar o cursor pelo anel de qualidade dos dados lista os itens que mais aumentariam a pontuação, e um clique abre o detalhamento completo (veja [Detalhe do Card](../guide/card-details.md#cabecalho-do-card)).
+
 Alterar qualquer importância recalcula imediatamente a pontuação de todos os cards existentes desse tipo. Os campos novos são *Normal* por padrão, portanto contam para a pontuação assim que você os adiciona.
 
 #### Subtipos (Sub-modelos)

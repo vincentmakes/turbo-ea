@@ -113,6 +113,8 @@ Der Bereich listet die fünf **integrierten Faktoren** – **Beschreibung**, **L
 
 Ein Balken zur **Wertzusammensetzung** oben im Bereich zeigt den Anteil jedes Faktors am maximal möglichen Wert, sodass Sie auf einen Blick sehen, welche Faktoren dominieren. Im Karten-Layout der Registerkarte **Allgemein** zeigt jedes Feld – sowie die integrierten Abschnitte Beschreibung, Lebenszyklus und Beziehungen – ein kleines Abzeichen mit seiner aktuellen Stufennummer, sodass Sie die Gewichtung sehen, ohne die Registerkarte zu verlassen.
 
+Benutzer sehen das Ergebnis Faktor für Faktor direkt auf der Karte: Fährt man mit der Maus über den Datenqualitätsring, werden die Slots aufgelistet, die den Wert am stärksten erhöhen würden; ein Klick öffnet die vollständige Aufschlüsselung (siehe [Kartendetails](../guide/card-details.md#kartenkopf)).
+
 Das Ändern einer Wichtigkeit bewertet sofort jede vorhandene Karte dieses Typs neu. Neue Felder sind standardmäßig *Normal* und zählen somit zur Bewertung, sobald Sie sie hinzufügen.
 
 #### Subtypen (Unter-Vorlagen)

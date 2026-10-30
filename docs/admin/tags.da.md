@@ -61,7 +61,7 @@ Gældende obligatoriske tag-grupper indgår også i kortets datakvalitetsscore. 
 
 ### Visuelle indikatorer
 
-Obligatoriske grupper er markeret med en **Obligatorisk**-chip i admin-listen og på kortdetalje-Tags-sektionen. Manglende påkrævede tags vises i godkendelsesstatusbanneret og i datakvalitetsringens tooltip, så brugere ved præcis, hvad de skal tilføje.
+Obligatoriske grupper er markeret med en **Obligatorisk**-chip i admin-listen og på kortdetalje-Tags-sektionen. Manglende påkrævede tags vises i godkendelsesstatusbanneret og i opdelingen under datakvalitetsringen — hold musen over ringen for de vigtigste forslag, klik for den fulde liste — så brugere ved præcis, hvad de skal tilføje.
 
 ## Tilladelser
 

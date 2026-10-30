@@ -61,7 +61,7 @@ Les groupes obligatoires applicables alimentent également le score de qualité 
 
 ### Indicateurs visuels
 
-Les groupes obligatoires portent un chip **Obligatoire** dans la liste d'administration et dans la section Tags du détail de la fiche. Les tags obligatoires manquants apparaissent dans la bannière d'état d'approbation et dans l'info-bulle de l'anneau de qualité des données, pour que les utilisateurs sachent exactement quoi ajouter.
+Les groupes obligatoires portent un chip **Obligatoire** dans la liste d'administration et dans la section Tags du détail de la fiche. Les tags obligatoires manquants apparaissent dans la bannière d'état d'approbation et dans le détail de l'anneau de qualité des données — survolez l'anneau pour les principales suggestions, cliquez dessus pour la liste complète —, pour que les utilisateurs sachent exactement quoi ajouter.
 
 ## Permissions
 

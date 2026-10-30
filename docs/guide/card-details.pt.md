@@ -15,7 +15,9 @@ A parte superior do card mostra:
 - **Chip de origem** — Exibido quando o card não foi criado na interface web: **MCP** para um card criado por um assistente de IA pelo [servidor MCP](../admin/mcp.md), **API** para um script ou integração, **Extensão** para uma extensão instalada, **Sistema** para uma tarefa em segundo plano. Passe o mouse sobre ele para ver quem criou o card e quando — a pessoa continua sendo o criador; o chip indica qual canal ela usou. Cards criados na interface web, e cards criados antes de o Turbo EA registrar o canal, não exibem chip.
 - **Badge de status de aprovação** — Rascunho, Aprovado, Quebrado ou Rejeitado
 - **Botão de sugestão IA** — Clique para gerar uma descrição com IA (visível quando a IA está habilitada para este tipo de card e o usuário tem permissão de edição)
-- **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%)
+- **Anel de qualidade dos dados** — Indicador visual da completude das informações (0-100%). Passe o cursor por cima para ver as três coisas que mais aumentariam a pontuação, cada uma com a pontuação que o card atingiria depois de preenchida (por exemplo *Preencher Criticidade de negócio → 62,5%*). Clique nele (ou foque-o e pressione Enter) para ver o detalhamento completo: cada item ainda por preencher, ordenado pelo quanto acrescenta, e uma lista **Já contabilizado** com o que já está preenchido. Enquanto um campo obrigatório estiver vazio, a pontuação permanece em 0%; o detalhamento nomeia esses campos e mostra qual seria a pontuação sem eles.
+
+![Popover com o detalhamento da qualidade dos dados](../assets/img/pt/63_ficha_qualidade_dados_detalhamento.png)
 - **Menu de ações** — Arquivar, excluir e ações de aprovação. Também inclui uma ação de um clique **Observar este cartão** (quando o tipo de card define um papel de Observador), permitindo que qualquer usuário com permissão de leitura siga o card sem precisar abrir a aba Partes interessadas.
 
 ### Logótipo personalizado
@@ -115,6 +117,7 @@ Para tipos de card que suportam hierarquia (ex.: Organização, Capacidade de Ne
 
 - **Pai** — O card pai na hierarquia (clique para navegar)
 - **Filhos** — Lista de cards filhos (clique em qualquer um para navegar)
+- **Abrir em nova aba** — O pai, os filhos e o breadcrumb são links: clique com o botão do meio ou com Ctrl/Cmd (ou clique direito → *Abrir em nova aba*) para abrir esse card em uma nova aba do navegador sem sair deste
 - **Agrupar por subtipo** — Quando um card tem muitos filhos de subtipos diferentes (por exemplo unidades de negócio, regiões e equipas sob uma mesma empresa), estes são agrupados automaticamente em secções recolhíveis por subtipo, cada uma com a sua contagem, com uma secção final **Sem subtipo** para os filhos não classificados. O botão agrupar/lista junto à contagem de **filhos** alterna entre a vista agrupada e a lista simples.
 - **Breadcrumb de hierarquia** — Mostra o caminho completo da raiz até o card atual
 - **Tipo de ligação** — Quando um administrador configurou tipos de ligação para este tipo de card, cada ligação pai-filho pode ser rotulada — por exemplo, uma subsidiária *comercial* e outra de *vendas*. O rótulo pertence ao card filho: o card pai mostra-o ao lado de cada filho, e o card filho ao lado do seu pai. Remover um card ou movê-lo para o nível superior limpa o seu rótulo, e a alteração fica registada na aba **Histórico**.
@@ -123,7 +126,7 @@ Para tipos de card que suportam hierarquia (ex.: Organização, Capacidade de Ne
 
 Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento. Para cada relacionamento:
 
-- **Nome do card relacionado** — Clique para navegar até o card relacionado
+- **Nome do card relacionado** — Clique para navegar até o card relacionado. Clique com o botão do meio ou com Ctrl/Cmd (ou clique direito → *Abrir em nova aba*) para abri-lo em uma nova aba do navegador — o mesmo vale para a lista **+N em subelementos**, para as listas de linhagem e para o hover card de uma parte interessada
 - **Tipo de relacionamento** — A natureza da conexão (ex.: "utiliza", "roda em", "depende de")
 - **Adicionar relacionamento** — Clique em **+** para abrir a caixa desse relacionamento. Ela lista os cartões correspondentes enquanto você digita (as melhores correspondências primeiro, e mais são carregados ao rolar) e oculta os já ligados, com uma legenda indicando quantos são. Clicar num cartão liga-o de imediato e ele aparece como etiqueta no topo — clique no **×** de uma etiqueta para desfazer essa adição. A caixa permanece aberta para adicionar quantos quiser e no telemóvel abre em ecrã inteiro. Os relacionamentos sem secção própria são alcançados pelo botão **Adicionar relacionamento** no fim da secção. Quando o tipo ligado é hierárquico (capacidade de negócio, organização e afins), a caixa mostra-o como uma árvore indentada em vez de uma lista alfabética, para que possa escolher uma subcapacidade pelo seu ramo. A pesquisa mantém visíveis os pais de cada correspondência como contexto, e os cartões que não pode escolher (já ligados, acabados de adicionar ou o próprio cartão) permanecem no lugar a cinzento, para que os níveis à volta continuem a fazer sentido.
 - **Ordenação** — Os cartões relacionados são listados em ordem alfabética por nome

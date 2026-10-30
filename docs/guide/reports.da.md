@@ -267,7 +267,7 @@ Excel-eksport giver to ark: gitteret, som det ser ud på skærmen, og én række
 
 ![Datakvalitetsrapport](../assets/img/da/33_report_data_quality.png)
 
-**Datakvalitetsrapporten** er et **fuldstændigheds-dashboard**, der viser, hvor godt dine arkitekturdata er udfyldt. Baseret på de vigtighedsniveauer, der er konfigureret i fanen **Datakvalitet** for hver korttype (hvert felt plus de indbyggede faktorer Beskrivelse, Livscyklus, obligatoriske relationer og obligatoriske tags):
+**Datakvalitetsrapporten** er et **fuldstændigheds-dashboard**, der viser, hvor godt dine arkitekturdata er udfyldt. Baseret på de vigtighedsniveauer, der er konfigureret i fanen **Datakvalitet** for hver korttype (hvert felt plus de indbyggede faktorer Beskrivelse, Livscyklus, obligatoriske relationer, obligatoriske tags og Interessenter):
 
 - **Samlet score** — Gennemsnitlig datakvalitet på tværs af alle kort
 - **Efter type** — Nedbrydning, der viser hvilke korttyper der har den bedste/dårligste fuldstændighed

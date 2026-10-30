@@ -15,7 +15,9 @@ La parte superior de la ficha muestra:
 - **Insignia de origen** — Se muestra cuando la ficha no se creó en la interfaz web: **MCP** para una ficha creada por un asistente de IA a través del [servidor MCP](../admin/mcp.md), **API** para un script o una integración, **Extensión** para una extensión instalada, **Sistema** para una tarea en segundo plano. Pase el cursor sobre ella para ver quién creó la ficha y cuándo: la persona sigue siendo el creador; la insignia indica qué canal usó. Las fichas creadas en la interfaz web, y las creadas antes de que Turbo EA registrara el canal, no muestran insignia.
 - **Insignia de estado de aprobación** — Borrador, Aprobado, Roto o Rechazado
 - **Botón de sugerencia IA** — Haga clic para generar una descripción con IA (visible cuando la IA está habilitada para este tipo de ficha y el usuario tiene permiso de edición)
-- **Anillo de calidad de datos** — Indicador visual de la completitud de la información (0–100%)
+- **Anillo de calidad de datos** — Indicador visual de la completitud de la información (0–100%). Pase el cursor por encima para ver las tres cosas que más aumentarían la puntuación, cada una con la puntuación que alcanzaría la ficha una vez completada (por ejemplo *Completar Criticidad del negocio → 62,5%*). Haga clic en él (o enfóquelo y pulse Intro) para ver el desglose completo: cada elemento aún por completar, ordenado según lo que aporta, y una lista **Ya contabilizado** con lo que ya está en su sitio. Mientras un campo obligatorio esté vacío, la puntuación se mantiene en 0%; el desglose nombra esos campos y muestra cuál sería la puntuación sin ellos.
+
+![Ventana emergente con el desglose de la calidad de datos](../assets/img/es/63_ficha_calidad_datos_desglose.png)
 - **Menú de acciones** — Archivar, eliminar y acciones de aprobación. También incluye una acción de un clic **Observar esta ficha** (cuando el tipo de ficha define un rol Observador), para que cualquier usuario con permiso de lectura pueda seguir la ficha sin pasar por la pestaña de Partes interesadas.
 
 ### Logotipo personalizado
@@ -118,6 +120,7 @@ Para tipos de ficha que soportan jerarquía (por ejemplo, Organización, Capacid
 
 - **Padre** — La ficha padre en la jerarquía (haga clic para navegar)
 - **Hijos** — Lista de fichas hijas (haga clic en cualquiera para navegar)
+- **Abrir en una pestaña nueva** — El padre, los hijos y la ruta jerárquica son enlaces: haga clic con el botón central o Ctrl/Cmd-clic (o clic derecho → *Abrir en una pestaña nueva*) para abrir esa ficha en una nueva pestaña del navegador sin perder la actual
 - **Agrupar por subtipo** — Cuando una ficha tiene muchos hijos de distintos subtipos (por ejemplo unidades de negocio, regiones y equipos bajo una misma empresa), se agrupan automáticamente en secciones plegables por subtipo, cada una con su recuento, con una sección final **Sin subtipo** para los hijos sin clasificar. El botón agrupar/lista junto al recuento de **hijos** alterna entre la vista agrupada y la lista plana.
 - **Ruta jerárquica** — Muestra la ruta completa desde la raíz hasta la ficha actual
 - **Tipo de vínculo** — Cuando un administrador ha configurado tipos de vínculo para este tipo de ficha, cada vínculo padre-hijo puede etiquetarse — por ejemplo, una filial *comercial* y otra de *ventas*. La etiqueta pertenece a la ficha hija: la ficha padre la muestra junto a cada hija, y la ficha hija junto a su padre. Quitar una ficha o moverla al nivel superior borra su etiqueta, y el cambio queda registrado en la pestaña **Historial**.
@@ -126,7 +129,7 @@ Para tipos de ficha que soportan jerarquía (por ejemplo, Organización, Capacid
 
 Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. Para cada relación:
 
-- **Nombre de la ficha relacionada** — Haga clic para navegar a la ficha relacionada
+- **Nombre de la ficha relacionada** — Haga clic para navegar a la ficha relacionada. Haga clic con el botón central o Ctrl/Cmd-clic (o clic derecho → *Abrir en una pestaña nueva*) para abrirla en una pestaña nueva del navegador — funciona igual en la lista **+N en subelementos**, en las listas de linaje y en la tarjeta emergente de un interesado
 - **Tipo de relación** — La naturaleza de la conexión (por ejemplo, «utiliza», «se ejecuta en», «depende de»)
 - **Agregar relación** — Haga clic en **+** para abrir el diálogo de esa relación. Lista las tarjetas coincidentes mientras escribe (las mejores coincidencias primero, y se cargan más al desplazarse) y oculta las ya vinculadas, con un texto que indica cuántas son. Al hacer clic en una tarjeta se vincula de inmediato y aparece como una etiqueta arriba: haga clic en la **×** de una etiqueta para deshacer esa adición. El diálogo permanece abierto para añadir tantas como quiera, y en el móvil se abre a pantalla completa. Las relaciones sin sección propia se alcanzan desde el botón **Agregar relación** al final de la sección. Cuando el tipo vinculado es jerárquico (capacidad de negocio, organización, etc.), el diálogo lo muestra como un árbol indentado en lugar de una lista alfabética, de modo que puede elegir una subcapacidad por su rama. La búsqueda mantiene visibles los padres de cada coincidencia como contexto, y las tarjetas que no se pueden elegir (ya vinculadas, recién añadidas o la propia tarjeta) permanecen en su sitio en gris para que los niveles a su alrededor sigan leyéndose bien.
 - **Orden** — Las tarjetas relacionadas se listan alfabéticamente por nombre

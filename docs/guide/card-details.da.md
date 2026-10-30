@@ -15,7 +15,9 @@ Toppen af kortet viser:
 - **Oprindelses-chip** — Vises, når kortet ikke er oprettet i webgrænsefladen: **MCP** for et kort, en AI-assistent har oprettet via [MCP-serveren](../admin/mcp.md), **API** for et script eller en integration, **Udvidelse** for en installeret udvidelse, **System** for et baggrundsjob. Hold musen over den for at se, hvem der oprettede kortet og hvornår — personen er stadig skaberen; chippen angiver, hvilken kanal vedkommende brugte. Kort oprettet i webgrænsefladen og kort oprettet, før Turbo EA registrerede kanalen, viser ingen chip.
 - **Godkendelsesstatus-badge** — Draft, Approved, Broken eller Rejected
 - **AI suggest-knap** — Klik for at generere en beskrivelse med AI (synlig når AI er aktiveret for denne korttype, og brugeren har redigeringstilladelse)
-- **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%)
+- **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%). Hold musen over den for at se de tre ting, der ville hæve scoren mest, hver med den score, kortet ville nå, når det er udfyldt (for eksempel *Udfyld Forretningskritikalitet → 62,5%*). Klik på den (eller giv den fokus og tryk Enter) for den fulde opdeling: hvert punkt, der stadig mangler, sorteret efter hvor meget det bidrager med, og en liste **Allerede talt med** over det, der er på plads. Så længe et obligatorisk felt er tomt, forbliver scoren 0%; opdelingen nævner disse felter og viser, hvad scoren ville være uden dem.
+
+![Popover med opdeling af datakvaliteten](../assets/img/da/63_card_data_quality_breakdown.png)
 - **Handlingsmenu** — Arkivér, slet og godkendelseshandlinger. Indeholder også en ét-klik **Observe this card**-skifter (når korttypen definerer en Observer-rolle), så enhver bruger med læseadgang kan følge kortet uden at skulle gå gennem Stakeholders-fanen.
 
 ### Eget logo
@@ -113,6 +115,7 @@ For korttyper der understøtter hierarki (f.eks. Organization, Business Capabili
 
 - **Parent** — Kortets forælder i hierarkiet (klik for at navigere)
 - **Children** — Liste over barnekort (klik på et for at navigere)
+- **Åbn i ny fane** — Forælder, børn og brødkrumme er links: midterklik eller Ctrl/Cmd-klik på et (eller højreklik → *Åbn i ny fane*) for at åbne det kort i en ny browserfane, mens dette forbliver, hvor det er
 - **Gruppér efter undertype** — Når et kort har mange underordnede kort af forskellige undertyper (for eksempel forretningsenheder, regioner og teams under ét selskab), grupperes de automatisk i sammenfoldelige undertypesektioner med et antal, med en afsluttende sektion **Ingen undertype** til uklassificerede kort. Brug gruppér/liste-knappen ved siden af antallet af **underordnede** kort til at skifte mellem grupperet visning og flad liste.
 - **Hierarki-brødkrumme** — Viser den fulde sti fra rod til aktuelt kort
 - **Forbindelsestype** — Når en administrator har konfigureret forbindelsestyper for denne korttype, kan hver forælder-barn-forbindelse få en etiket — for eksempel ét datterselskab, der er *kommercielt*, og et andet, der står for *salg*. Etiketten hører til barnekortet: forælderkortet viser den ud for hvert barn, og barnekortet ud for sin forælder. Fjernes et kort, eller flyttes det til øverste niveau, ryddes etiketten, og ændringen registreres under fanen **Historik**.
@@ -121,7 +124,7 @@ For korttyper der understøtter hierarki (f.eks. Organization, Business Capabili
 
 Viser alle forbindelser til andre kort, grupperet efter relations­type. For hver relation:
 
-- **Relateret kortnavn** — Klik for at navigere til det relaterede kort
+- **Relateret kortnavn** — Klik for at navigere til det relaterede kort. Midterklik eller Ctrl/Cmd-klik (eller højreklik → *Åbn i ny fane*) åbner det i stedet i en ny browserfane — det samme virker i listen **+N i underelementer**, i lineage-listerne og i en interessents hover-kort
 - **Relations­type** — Forbindelsens karakter (f.eks. "uses", "runs on", "depends on")
 - **Tilføj relation** — Klik på **+** for at åbne dialogen for den relation. Den viser matchende kort, mens du skriver (de bedste match først, flere hentes, når du ruller), og skjuler dem, der allerede er tilknyttet, med en billedtekst der viser hvor mange. Et klik på et kort tilknytter det med det samme, og det vises som en chip øverst — klik på chippens **×** for at fortryde den tilføjelse. Dialogen forbliver åben, så du kan tilføje så mange du vil, og på telefon åbner den i fuld skærm. Relationer uden deres eget afsnit nås fra knappen **Tilføj relation** nederst i afsnittet. Når den tilknyttede type er hierarkisk (forretningsevne, organisation og lignende), viser dialogen den som et indrykket træ i stedet for en alfabetisk liste, så du kan vælge en underevne ud fra dens gren. Søgningen bevarer et træfs overordnede kort som kontekst, og kort du ikke kan vælge (allerede tilknyttet, netop tilføjet eller kortet selv) bliver liggende nedtonet, så niveauerne omkring dem stadig kan læses.
 - **Sortering** — Relaterede kort vises alfabetisk efter navn

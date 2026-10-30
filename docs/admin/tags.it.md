@@ -61,7 +61,7 @@ I gruppi obbligatori applicabili alimentano anche il punteggio di qualità dei d
 
 ### Indicatori visivi
 
-I gruppi obbligatori sono contrassegnati da un chip **Obbligatorio** sia nella lista di amministrazione sia nella sezione Tag del dettaglio card. I tag obbligatori mancanti compaiono nel banner dello stato di approvazione e nel tooltip dell'anello di qualità dei dati, così gli utenti sanno esattamente cosa aggiungere.
+I gruppi obbligatori sono contrassegnati da un chip **Obbligatorio** sia nella lista di amministrazione sia nella sezione Tag del dettaglio card. I tag obbligatori mancanti compaiono nel banner dello stato di approvazione e nel dettaglio dell'anello di qualità dei dati — passate il cursore per i suggerimenti principali, cliccate per l'elenco completo —, così gli utenti sanno esattamente cosa aggiungere.
 
 ## Autorizzazioni
 

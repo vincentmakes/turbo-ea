@@ -114,6 +114,8 @@ Il pannello elenca i cinque **fattori integrati** — **Descrizione**, **Ciclo d
 
 Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card della scheda **Generale**, ogni campo — e le sezioni integrate Descrizione, Ciclo di vita e Relazioni — mostra un piccolo badge con il livello attuale, per vedere la ponderazione senza lasciare quella scheda.
 
+Gli utenti vedono il risultato fattore per fattore sulla card stessa: passando il cursore sull'anello della qualità dei dati compaiono gli elementi che aumenterebbero di più il punteggio, e un clic apre il dettaglio completo (vedere [Dettaglio card](../guide/card-details.md#intestazione-della-card)).
+
 La modifica di qualsiasi importanza ricalcola immediatamente il punteggio di ogni card esistente di quel tipo. I nuovi campi sono *Normale* per impostazione predefinita e quindi contano per il punteggio non appena li aggiungi.
 
 #### Sottotipi (Sotto-modelli)

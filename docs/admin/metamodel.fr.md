@@ -114,6 +114,8 @@ Le panneau liste les cinq **facteurs intégrés** – **Description**, **Cycle d
 
 Une barre de **composition du score** en haut du panneau montre la part de chaque facteur dans le score maximal possible, pour voir d'un coup d'œil quels facteurs dominent. Dans la mise en page de la fiche de l'onglet **Principal**, chaque champ – ainsi que les sections intégrées Description, Cycle de vie et Relations – affiche un petit badge avec son niveau actuel, pour voir la pondération sans quitter cet onglet.
 
+Les utilisateurs voient le résultat facteur par facteur sur la fiche elle-même : le survol de l'anneau de qualité des données liste les éléments qui augmenteraient le plus le score, et un clic ouvre le détail complet (voir [Détail d'une fiche](../guide/card-details.md#en-tete-de-la-fiche)).
+
 Modifier une importance recalcule immédiatement le score de chaque fiche existante de ce type. Les nouveaux champs sont *Normale* par défaut et comptent donc dans le score dès que vous les ajoutez.
 
 #### Sous-types (Sous-modèles)

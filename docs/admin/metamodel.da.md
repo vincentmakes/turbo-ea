@@ -113,6 +113,8 @@ Panelet viser de fem **indbyggede faktorer** – **Beskrivelse**, **Livscyklus**
 
 En **scorens sammensætning**-bjælke øverst i panelet viser hver faktors andel af den maksimalt mulige score, så du med et blik kan se, hvilke faktorer der dominerer. I kortlayoutet på fanen **Generelt** viser hvert felt – og de indbyggede sektioner Beskrivelse, Livscyklus og Relationer – et lille mærke med sit aktuelle niveaunummer, så du kan se vægtningen uden at forlade fanen.
 
+Brugerne ser resultatet faktor for faktor på selve kortet: når man holder musen over datakvalitetsringen, vises de punkter, der ville hæve scoren mest, og et klik åbner den fulde opdeling (se [Kortdetaljer](../guide/card-details.md#kortets-sidehoved)).
+
 Ændring af en vigtighed genberegner straks scoren for alle eksisterende kort af den type. Nye felter er som standard *Normal* og tæller derfor med i scoren, så snart du tilføjer dem.
 
 #### Undertyper (sub-skabeloner)

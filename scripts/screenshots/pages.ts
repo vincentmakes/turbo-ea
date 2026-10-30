@@ -1993,6 +1993,13 @@ export const DOC_PAGES: PageDef[] = [
     ],
     filenames: {
       en: "63_card_data_quality_breakdown",
+      de: "63_karte_datenqualitaet_aufschluesselung",
+      fr: "63_fiche_qualite_donnees_detail",
+      es: "63_ficha_calidad_datos_desglose",
+      it: "63_scheda_qualita_dati_dettaglio",
+      pt: "63_ficha_qualidade_dados_detalhamento",
+      zh: "63_card_data_quality_breakdown",
+      ru: "63_kartochka_kachestvo_dannyh_detalizatsiya",
     },
   },
   {

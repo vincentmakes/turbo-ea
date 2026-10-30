@@ -15,7 +15,9 @@ La parte superiore della card mostra:
 - **Chip di origine** — Mostrato quando la card non è stata creata nell'interfaccia web: **MCP** per una card creata da un assistente IA tramite il [server MCP](../admin/mcp.md), **API** per uno script o un'integrazione, **Estensione** per un'estensione installata, **Sistema** per un job in background. Passateci sopra il mouse per vedere chi ha creato la card e quando: la persona resta il creatore; il chip indica quale canale ha usato. Le card create nell'interfaccia web, e quelle create prima che Turbo EA registrasse il canale, non mostrano alcun chip.
 - **Badge dello stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Pulsante suggerimento AI** — Cliccate per generare una descrizione con AI (visibile quando l'AI è abilitata per questo tipo di card e l'utente ha il permesso di modifica)
-- **Anello della qualità dei dati** — Indicatore visivo della completezza delle informazioni (0-100%)
+- **Anello della qualità dei dati** — Indicatore visivo della completezza delle informazioni (0-100%). Passate il cursore sopra per vedere le tre cose che aumenterebbero di più il punteggio, ciascuna con il punteggio che la card raggiungerebbe una volta compilata (ad esempio *Compila Criticità aziendale → 62,5%*). Cliccate (oppure date il focus e premete Invio) per il dettaglio completo: ogni elemento ancora da compilare, ordinato per quanto contribuisce, e un elenco **Già conteggiato** di ciò che è già presente. Finché un campo obbligatorio è vuoto, il punteggio resta a 0%; il dettaglio indica quei campi e mostra quale sarebbe il punteggio senza di essi.
+
+![Finestra con il dettaglio della qualità dei dati](../assets/img/it/63_scheda_qualita_dati_dettaglio.png)
 - **Menu azioni** — Archiviazione, eliminazione e azioni di approvazione. Include anche un'azione con un clic **Osserva questa scheda** (quando il tipo di scheda definisce un ruolo Osservatore) che consente a qualsiasi utente con permessi di lettura di seguire la scheda senza passare dalla scheda Stakeholder.
 
 ### Logo personalizzato
@@ -116,6 +118,7 @@ Per i tipi di card che supportano la gerarchia (es. Organization, Business Capab
 
 - **Genitore** — Il genitore della card nella gerarchia (cliccate per navigare)
 - **Figli** — Elenco delle card figlie (cliccate su qualsiasi per navigare)
+- **Apri in una nuova scheda** — Genitore, figli e breadcrumb sono link: cliccate con il tasto centrale oppure con Ctrl/Cmd (o clic destro → *Apri in una nuova scheda*) per aprire quella card in una nuova scheda del browser lasciando questa dov'è
 - **Raggruppa per sottotipo** — Quando una card ha molti figli di sottotipi diversi (ad esempio business unit, regioni e team sotto un'unica società), vengono raggruppati automaticamente in sezioni comprimibili per sottotipo, ciascuna con il proprio conteggio, con una sezione finale **Nessun sottotipo** per i figli non classificati. Il pulsante raggruppa/elenco accanto al conteggio dei **figli** passa dalla vista raggruppata all'elenco semplice.
 - **Breadcrumb gerarchico** — Mostra il percorso completo dalla radice alla card corrente
 - **Tipo di collegamento** — Quando un amministratore ha configurato i tipi di collegamento per questo tipo di card, ogni collegamento padre-figlio può essere etichettato — ad esempio una controllata *commerciale* e un'altra di *vendita*. L'etichetta appartiene alla card figlia: la card padre la mostra accanto a ogni figlia, e la card figlia accanto al proprio padre. Rimuovere una card o spostarla al livello superiore ne cancella l'etichetta, e la modifica viene registrata nella scheda **Cronologia**.
@@ -124,7 +127,7 @@ Per i tipi di card che supportano la gerarchia (es. Organization, Business Capab
 
 Mostra tutte le connessioni con altre card, raggruppate per tipo di relazione. Per ogni relazione:
 
-- **Nome della card correlata** — Cliccate per navigare alla card correlata
+- **Nome della card correlata** — Cliccate per navigare alla card correlata. Cliccate con il tasto centrale o con Ctrl/Cmd (o clic destro → *Apri in una nuova scheda*) per aprirla invece in una nuova scheda del browser — lo stesso vale per l'elenco **+N nei sottoelementi**, per gli elenchi di Lineage e per la hover card di uno stakeholder
 - **Tipo di relazione** — La natura della connessione (es. "utilizza", "funziona su", "dipende da")
 - **Aggiungi relazione** — Cliccate su **+** per aprire la finestra di quella relazione. Elenca le carte corrispondenti mentre digitate (le corrispondenze migliori per prime, altre si caricano scorrendo) e nasconde quelle già collegate, con una didascalia che ne indica il numero. Cliccando una carta la collegate subito e compare come chip in alto: cliccate la **×** di un chip per annullare quell'aggiunta. La finestra resta aperta per aggiungerne quante volete e su smartphone si apre a schermo intero. Le relazioni senza una sezione propria si raggiungono dal pulsante **Aggiungi relazione** in fondo alla sezione. Quando il tipo collegato è gerarchico (capacità di business, organizzazione e simili), la finestra lo mostra come un albero indentato anziché come elenco alfabetico, così potete scegliere una sotto-capacità dal suo ramo. La ricerca mantiene visibili i genitori di ogni corrispondenza come contesto e le carte non selezionabili (già collegate, appena aggiunte o la carta stessa) restano al loro posto in grigio, così i livelli intorno restano leggibili.
 - **Ordinamento** — Le carte collegate sono elencate in ordine alfabetico per nome

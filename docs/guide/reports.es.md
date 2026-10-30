@@ -267,7 +267,7 @@ La exportación a Excel genera dos hojas: la cuadrícula tal como aparece en pan
 
 ![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)
 
-El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qué tan bien están completados los datos de su arquitectura. Basado en los niveles de importancia configurados en la pestaña **Calidad de datos** de cada tipo de tarjeta (cada campo más los factores integrados Descripción, Ciclo de vida, Relaciones obligatorias y Etiquetas obligatorias):
+El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qué tan bien están completados los datos de su arquitectura. Basado en los niveles de importancia configurados en la pestaña **Calidad de datos** de cada tipo de tarjeta (cada campo más los factores integrados Descripción, Ciclo de vida, Relaciones obligatorias, Etiquetas obligatorias e Interesados):
 
 - **Puntuación general** — Calidad de datos promedio en todas las fichas
 - **Por tipo** — Desglose que muestra qué tipos de fichas tienen la mejor/peor completitud

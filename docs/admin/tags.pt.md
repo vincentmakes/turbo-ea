@@ -61,7 +61,7 @@ Grupos obrigatórios aplicáveis também alimentam o score de qualidade dos dado
 
 ### Indicadores visuais
 
-Grupos obrigatórios exibem um chip **Obrigatório** tanto na lista de administração quanto na seção Tags do detalhe do card. Tags obrigatórias faltantes aparecem no aviso de status de aprovação e na dica do anel de qualidade de dados, para que os usuários saibam exatamente o que adicionar.
+Grupos obrigatórios exibem um chip **Obrigatório** tanto na lista de administração quanto na seção Tags do detalhe do card. Tags obrigatórias faltantes aparecem no aviso de status de aprovação e no detalhamento do anel de qualidade de dados — passe o cursor para ver as principais sugestões e clique para ver a lista completa —, para que os usuários saibam exatamente o que adicionar.
 
 ## Permissões
 
