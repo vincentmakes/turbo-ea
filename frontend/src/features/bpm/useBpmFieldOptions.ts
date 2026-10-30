@@ -42,7 +42,9 @@ export function bpmFieldOptionsFrom(
   optLabel: (o: FieldOption) => string,
   loading: boolean,
 ): BpmFieldOptionsResult {
+  // Stryker disable next-line ArrayDeclaration: a filler section has no `fields`, so it flattens to the same empty list
   const field = (fieldsSchema ?? [])
+    // Stryker disable next-line ArrayDeclaration: a filler field has no `key`, so it matches nothing, as the empty list does
     .flatMap((s) => s.fields ?? [])
     .find((f) => f.key === fieldKey);
   const options = (field?.options ?? []).map(

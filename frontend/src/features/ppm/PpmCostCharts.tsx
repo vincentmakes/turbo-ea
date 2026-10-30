@@ -345,6 +345,7 @@ function CumulativeChart(props: {
 
   // The chart container is the image, named by the heading above it.
   return (
+    // Stryker disable next-line ObjectLiteral: a responsive height; jsdom evaluates no media query, so no test can read it
     <Box sx={{ height: CHART_HEIGHT_SX }}>
       <EChart option={option} labelledBy={labelledBy} />
     </Box>

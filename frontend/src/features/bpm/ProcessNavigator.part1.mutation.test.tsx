@@ -70,6 +70,8 @@ const PROCESS_TYPES = processTypeOptionsFrom(
 const CORE_RGB = "rgb(25, 118, 210)"; // #1976d2
 const GREY_RGB = "rgb(189, 189, 189)"; // #bdbdbd — "not set"
 const DEFINED_RGB = "rgb(251, 192, 45)"; // #fbc02d — maturity "defined"
+const ACCENT_RGB = "rgb(123, 31, 162)"; // BPM_FLOW_ACCENT_COLOR #7b1fa2 — the "Auto" chip
+const AUTOMATED_TINT = "rgba(126, 87, 194, 0.04)"; // alpha(BPM_AUTOMATED_STEP_TINT, 0.04)
 
 type Item = Record<string, unknown>;
 
@@ -560,6 +562,12 @@ describe("container cards", () => {
     await screen.findByText("Kid Three");
     const steps = within(containerHeader("Steps Parent"));
     expect(steps.getByText("5")).toBeInTheDocument();
+    // The count is written small and bold in the header's readable text colour
+    // (white on the grey "not set" card), not left to the icon's default.
+    const count = getComputedStyle(steps.getByText("5"));
+    expect(count.color).toBe("rgb(255, 255, 255)");
+    expect(count.fontSize).toBe("0.6rem");
+    expect(count.fontWeight).toBe("600");
     await user.hover(steps.getByText("schema"));
     expect(await screen.findByRole("tooltip", {}, { timeout: 3000 })).toHaveTextContent("5 BPMN elements");
   });
@@ -880,6 +888,22 @@ describe("drawer overview", () => {
     );
   });
 
+  it("lays each sub-process row out as a clickable flex row, name bold and counts small", async () => {
+    const { d } = await open("Order to Cash");
+    const row = d.getByText("Quote").parentElement as HTMLElement;
+    const rowStyle = getComputedStyle(row);
+    expect(rowStyle.display).toBe("flex");
+    expect(rowStyle.alignItems).toBe("center");
+    expect(rowStyle.cursor).toBe("pointer");
+    const name = getComputedStyle(d.getByText("Quote"));
+    expect(name.fontWeight).toBe("600");
+    expect(name.fontSize).toBe("0.85rem");
+    const chip = d.getByText("+1").closest(".MuiChip-root") as HTMLElement;
+    expect(getComputedStyle(chip).fontSize).toBe("0.6rem");
+    expect(getComputedStyle(chip).height).toBe("18px");
+    expect(getComputedStyle(d.getByText("1 app")).opacity).toBe("0.85");
+  });
+
   it("shows the subtype as a chip beside the attribute chips", async () => {
     const { d } = await open("Order to Cash");
     expect(d.getByText("Type: Core")).toBeInTheDocument();
@@ -1013,6 +1037,21 @@ describe("drawer steps", () => {
     expect(d.getByText("Auto")).toBeInTheDocument();
     expect(d.queryByText("Sales")).toBeNull();
     expect(d.getAllByText("arrow_downward")).toHaveLength(2);
+  });
+
+  it("tints an automated step and marks it with a small white-on-accent chip", async () => {
+    const { d } = await openSteps();
+    await d.findByText("Receive Order");
+    // name → title row → content column → the step card
+    const card = (name: string) =>
+      getComputedStyle(d.getByText(name).parentElement!.parentElement!.parentElement as HTMLElement);
+    expect(card("Receive Order").backgroundColor).toBe(AUTOMATED_TINT);
+    expect(card("Check Stock").backgroundColor).toBe("rgb(255, 255, 255)"); // background.paper
+    const chip = getComputedStyle(d.getByText("Auto").closest(".MuiChip-root") as HTMLElement);
+    expect(chip.backgroundColor).toBe(ACCENT_RGB);
+    expect(chip.color).toBe("rgb(255, 255, 255)");
+    expect(chip.fontSize).toBe("0.55rem");
+    expect(chip.height).toBe("16px");
   });
 
   it("names the linked process, and adds no chip a step does not link", async () => {

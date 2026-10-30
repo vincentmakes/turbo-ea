@@ -39,6 +39,18 @@ afterEach(() => {
 });
 
 describe("BpmnTemplateChooser", () => {
+  it("paints the chosen template's icon in the primary colour and the others muted", async () => {
+    const { user } = renderChooser();
+    await screen.findByText("Order to Cash");
+    const icon = (name: string) => getComputedStyle(screen.getByText(name));
+    // Nothing chosen yet: every icon is secondary text.
+    expect(icon("shopping_cart").color).toBe("rgba(0, 0, 0, 0.6)");
+    expect(icon("note_add").color).toBe("rgba(0, 0, 0, 0.6)");
+    await user.click(screen.getByText("Order to Cash"));
+    expect(icon("shopping_cart").color).toBe("rgb(25, 118, 210)"); // primary.main
+    expect(icon("note_add").color).toBe("rgba(0, 0, 0, 0.6)"); // text.secondary
+  });
+
   it("fetches nothing while closed", () => {
     renderChooser(false);
     expect(mockApi.callsOf("get")).toEqual([]);

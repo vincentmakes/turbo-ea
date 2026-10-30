@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
@@ -225,6 +225,31 @@ describe("ProcessAssessmentPanel", () => {
     expect(edge("Compliance")).toBe(rgb(BPM_ASSESSMENT_COLORS.compliance));
     expect(edge("Automation")).toBe(rgb(BPM_ASSESSMENT_COLORS.automation));
     expect(edge("Overall")).toBe(rgb(BPM_ASSESSMENT_COLORS.overall_score));
+    // Each dimension is explained under its title, with the guide's own copy.
+    const en = i18n.getFixedT("en", "bpm");
+    for (const dim of ["Efficiency", "Effectiveness", "Compliance", "Automation", "Overall"]) {
+      const desc = en(`assessment.help${dim}Desc`);
+      expect(desc).not.toMatch(/^assessment\./);
+      expect(guide.getByText(desc)).toBeInTheDocument();
+    }
+  });
+
+  it("renames the legend and series when the interface language changes while mounted", async () => {
+    renderPanel();
+    await screen.findByRole("img", { name: TREND });
+    expect(echartState.byName(TREND).option.legend.data).toEqual(ENGLISH_NAMES);
+    try {
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      const de = i18n.getFixedT("de", "bpm");
+      const names = DIMENSIONS.map((d) => de(d.labelKey));
+      const option = echartState.byName(de("assessment.title")).option;
+      expect(option.legend.data).toEqual(names);
+      expect(option.series.map((s: any) => s.name)).toEqual(names);
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("shows empty state when no assessments", async () => {

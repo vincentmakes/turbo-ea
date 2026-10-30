@@ -123,6 +123,7 @@ export function wrapAtSpace(label: string): string {
   const middle = (text.length - 1) / 2;
   // -1 is farther from the middle than any index, so the first space replaces it.
   let at = -1;
+  // Stryker disable next-line EqualityOperator: `text[text.length]` is undefined, never a space, so `<=` changes nothing
   for (let i = 0; i < text.length; i++) {
     if (text[i] === " " && Math.abs(i - middle) < Math.abs(at - middle)) at = i;
   }

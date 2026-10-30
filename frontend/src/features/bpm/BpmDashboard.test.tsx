@@ -557,6 +557,8 @@ describe("BpmDashboard", () => {
       expect(screen.getByText("Order Processing")).toBeInTheDocument();
     });
 
+    const row = screen.getByText("Order Processing").closest("tr") as HTMLElement;
+    expect(getComputedStyle(row).cursor).toBe("pointer");
     await userEvent.click(screen.getByText("Order Processing"));
     expect(screen.getByTestId("card-side-panel")).toHaveAttribute("data-card-id", "p1");
   });

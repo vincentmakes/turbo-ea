@@ -103,18 +103,26 @@ describe("MATURITY_COLORS", () => {
 });
 
 describe("scaleColor", () => {
-  const color = scaleColor({ low: "#00aa00", high: "#aa0000" });
+  // Built inside each test: a describe body runs while the file is collected,
+  // outside any test, so a resolver made there is invisible to the mutation run.
+  const scale = () => scaleColor({ low: "#00aa00", high: "#aa0000" });
+
+  it("returns a resolver", () => {
+    expect(typeof scale()).toBe("function");
+  });
 
   it("prefers the metamodel option's colour over the scale", () => {
-    expect(color("low", "#123456")).toBe("#123456");
+    expect(scale()("low", "#123456")).toBe("#123456");
   });
 
   it("falls back to the scale when the option has no colour", () => {
+    const color = scale();
     expect(color("low")).toBe("#00aa00");
     expect(color("high", "")).toBe("#aa0000");
   });
 
   it("falls back to neutral for a key neither knows", () => {
+    const color = scale();
     expect(color("custom")).toBe(BPM_NEUTRAL_COLOR);
     expect(color("custom", "")).toBe(STATUS_COLORS.neutral);
   });

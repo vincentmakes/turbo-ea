@@ -614,6 +614,9 @@ describe("ProcessFlowTab drafts", () => {
     const pending = screen.getByText("Revision 5").closest(".MuiPaper-root") as HTMLElement;
     expect(within(pending).getByText(/Submitted by Dev User/)).toBeInTheDocument();
     expect(within(pending).getByText(/Created by —/)).toBeInTheDocument();
+    // A pending draft waits in the warning colour; a working draft is plain secondary text.
+    expect(getComputedStyle(within(pending).getByText("hourglass_top")).color).toBe("rgb(237, 108, 2)");
+    expect(getComputedStyle(within(withdrawn).getByText("edit_note")).color).toBe("rgba(0, 0, 0, 0.6)");
   });
 
   it("opens a draft in the BPMN editor", async () => {
@@ -768,6 +771,10 @@ describe("ProcessFlowTab archived versions", () => {
     expect(within(entry).getByText("Originally approved by — on —")).toBeInTheDocument();
     expect(within(entry).getByText("Withdrawn by — on —")).toBeInTheDocument();
     expect(within(entry).getByText("Reason: Wrong owner recorded")).toBeInTheDocument();
+    // A withdrawn revision's icon is red; a plainly archived one's is disabled text.
+    expect(getComputedStyle(within(entry).getByText("unpublished")).color).toBe("rgb(244, 67, 54)");
+    const archived = screen.getByText("Revision 2").closest(".MuiPaper-root") as HTMLElement;
+    expect(getComputedStyle(within(archived).getByText("inventory_2")).color).toBe("rgba(0, 0, 0, 0.38)");
 
     await user.click(screen.getByText("Revision 1"));
     const dialog = within(await screen.findByRole("dialog"));

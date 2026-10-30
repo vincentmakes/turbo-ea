@@ -231,8 +231,21 @@ describe("colours", () => {
       ({ key: key ?? "", label: "x", color: `#type-${key}` }) as ProcessTypeOption,
   );
 
-  it("pins the fixed overlays' option keys and colours", () => {
-    expect(ATTR_COLORS).toEqual({
+  // The maps are built while the module loads, and the copy imported at the
+  // top of this file was loaded outside any test: a fresh load inside the
+  // test is what lets the mutation run attribute them to these assertions.
+  async function freshState() {
+    vi.resetModules();
+    try {
+      return await import("./processNavigatorState");
+    } finally {
+      vi.resetModules();
+    }
+  }
+
+  it("pins the fixed overlays' option keys and colours", async () => {
+    const fresh = await freshState();
+    expect(fresh.ATTR_COLORS).toEqual({
       maturity: {
         initial: { label: "1-Initial", color: SEVERITY_COLORS.critical },
         managed: { label: "2-Managed", color: SEVERITY_COLORS.high },
@@ -252,7 +265,37 @@ describe("colours", () => {
         critical: { label: "Critical", color: SEVERITY_COLORS.critical },
       },
     });
-    expect(UNSET_COLOR).toBe(BPM_UNSET_COLOR);
+    expect(fresh.UNSET_COLOR).toBe(BPM_UNSET_COLOR);
+    expect(ATTR_COLORS).toEqual(fresh.ATTR_COLORS);
+    expect(UNSET_COLOR).toBe(fresh.UNSET_COLOR);
+  });
+
+  it("reads each overlay's labels and colours in order, through a fresh load", async () => {
+    const fresh = await freshState();
+    const legend = (overlay: string) =>
+      Object.values(fresh.ATTR_COLORS[overlay]).map((o) => [o.label, o.color]);
+    expect(legend("maturity")).toEqual([
+      ["1-Initial", SEVERITY_COLORS.critical],
+      ["2-Managed", SEVERITY_COLORS.high],
+      ["3-Defined", SEVERITY_COLORS.medium],
+      ["4-Measured", SEVERITY_COLORS.low],
+      ["5-Optimized", RAG_COLORS.green],
+    ]);
+    expect(legend("automationLevel")).toEqual([
+      ["Manual", SEVERITY_COLORS.critical],
+      ["Partial", SEVERITY_COLORS.high],
+      ["Fully Auto", RAG_COLORS.green],
+    ]);
+    expect(legend("riskLevel")).toEqual([
+      ["Low", SEVERITY_COLORS.low],
+      ["Medium", SEVERITY_COLORS.medium],
+      ["High", SEVERITY_COLORS.high],
+      ["Critical", SEVERITY_COLORS.critical],
+    ]);
+    expect(fresh.getCardColor({ attributes: { riskLevel: "high" } }, "riskLevel", resolve)).toBe(
+      SEVERITY_COLORS.high,
+    );
+    expect(fresh.getCardColor({}, "riskLevel", resolve)).toBe(BPM_UNSET_COLOR);
   });
 
   it("colours a card by its overlay value", () => {

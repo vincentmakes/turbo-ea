@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 
@@ -198,6 +198,11 @@ describe("PortalProcessNavigator", () => {
     } as unknown as PublicPortal);
     expect(await header()).toHaveStyle({ backgroundColor: BPM_CALLED_PROCESS_COLOR });
     expect(BPM_CALLED_PROCESS_COLOR).toBe("#028f00");
+    cleanup();
+
+    // No type info at all (an older portal payload): the same fallback, no crash.
+    renderPortal({ ...PORTAL, type_info: undefined } as unknown as PublicPortal);
+    expect(await header()).toHaveStyle({ backgroundColor: BPM_CALLED_PROCESS_COLOR });
   });
 
   it("shows the description from the map rather than fetching the card", async () => {

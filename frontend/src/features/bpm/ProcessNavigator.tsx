@@ -293,6 +293,7 @@ function HouseCard({
                 zIndex: 2,
                 position: "relative",
                 bgcolor: textWash(color, 0.25),
+                // Stryker disable next-line ObjectLiteral: hover styling; jsdom computes no :hover
                 "&:hover": { opacity: 1, bgcolor: textWash(color, 0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
@@ -496,6 +497,7 @@ function HouseCard({
                 zIndex: 2,
                 position: "relative",
                 bgcolor: textWash(color, 0.25),
+                // Stryker disable next-line ObjectLiteral: hover styling; jsdom computes no :hover
                 "&:hover": { opacity: 1, bgcolor: textWash(color, 0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
@@ -555,6 +557,7 @@ function HouseCard({
                   borderRadius: 1,
                   p: 0.25,
                   cursor: hasDiagram ? "pointer" : "default",
+                  // Stryker disable next-line ConditionalExpression,LogicalOperator,ObjectLiteral: hover styling; jsdom computes no :hover
                   ...(hasDiagram && { "&:hover": { bgcolor: textWash(color, 0.2), opacity: 1 } }),
                 }}
               >
@@ -591,6 +594,7 @@ function HouseCard({
                   color: readableTextColor(color),
                   opacity: 0.7,
                   flexShrink: 0,
+                  // Stryker disable next-line ObjectLiteral: hover styling; jsdom computes no :hover
                   "&:hover": { opacity: 1, bgcolor: textWash(color, 0.2) },
                 }}
               >
@@ -850,6 +854,7 @@ function DrawerOverview({
                     bgcolor: bg,
                     color: readableTextColor(bg),
                     cursor: "pointer",
+                    // Stryker disable next-line ObjectLiteral: hover styling; jsdom computes no :hover
                     "&:hover": { boxShadow: 2 },
                   }}
                 >
@@ -864,6 +869,7 @@ function DrawerOverview({
                         height: 18,
                         fontSize: "0.6rem",
                         bgcolor: textWash(bg, 0.25),
+                        // Stryker disable next-line StringLiteral: `inherit` is the cascade's own value; a jsdom computed style cannot tell it from the default
                         color: "inherit",
                       }}
                     />
@@ -1632,6 +1638,7 @@ function ProcessDrawer({
               <IconButton
                 onClick={() => onNavigate(node.id)}
                 size="small"
+                // Stryker disable next-line ObjectLiteral,StringLiteral: `inherit` is the cascade's own value; a jsdom computed style cannot tell it from the default
                 sx={{ color: "inherit" }}
                 aria-label={t("navigator.openCard")}
               >
@@ -1639,7 +1646,12 @@ function ProcessDrawer({
               </IconButton>
             </Tooltip>
           )}
-          <IconButton onClick={onClose} size="small" sx={{ color: "inherit" }}>
+          <IconButton
+            onClick={onClose}
+            size="small"
+            // Stryker disable next-line ObjectLiteral,StringLiteral: `inherit` is the cascade's own value; a jsdom computed style cannot tell it from the default
+            sx={{ color: "inherit" }}
+          >
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
         </Box>
