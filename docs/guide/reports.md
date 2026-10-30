@@ -267,7 +267,7 @@ Excel export produces two sheets: the grid as it appears on screen, and one row 
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)
 
-The **Data Quality Report** is a **completeness dashboard** that shows how well your architecture data is filled in. Based on the importance weights configured in each card type's **Data quality** tab (each field plus the built-in Description, Lifecycle, mandatory Relations and mandatory Tags factors):
+The **Data Quality Report** is a **completeness dashboard** that shows how well your architecture data is filled in. Based on the importance weights configured in each card type's **Data quality** tab (each field plus the built-in Description, Lifecycle, mandatory Relations, mandatory Tags and Stakeholders factors):
 
 - **Overall score** — Average data quality across all cards
 - **By type** — Breakdown showing which card types have the best/worst completeness

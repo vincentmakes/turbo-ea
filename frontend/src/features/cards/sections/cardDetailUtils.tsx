@@ -27,7 +27,6 @@ import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
-import { bandColor } from "@/lib/dataQualityBands";
 import { booleanOption, facetOptions } from "@/lib/fieldFacets";
 import { orderByOptions } from "@/lib/optionOrder";
 
@@ -238,55 +237,9 @@ export function getUrlErrorMsg(t: (key: string) => string): string {
 }
 
 // ── Data Quality Pill ───────────────────────────────────────────
-export function DataQualityPill({ value }: { value: number }) {
-  const { t } = useTranslation(["cards", "common"]);
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const color = bandColor(v);
-  return (
-    <Tooltip title={t("utils.dataQuality", { value: v })}>
-      <Box
-        sx={{
-          position: "relative",
-          height: 24,
-          minWidth: 52,
-          borderRadius: "12px",
-          border: `1px solid ${color}`,
-          overflow: "hidden",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          bgcolor: "transparent",
-          px: 1,
-          boxSizing: "border-box",
-        }}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: `${v}%`,
-            bgcolor: color,
-            opacity: 0.18,
-          }}
-        />
-        <Typography
-          variant="caption"
-          fontWeight={700}
-          sx={{
-            position: "relative",
-            color,
-            lineHeight: 1,
-            fontSize: "0.7rem",
-          }}
-        >
-          {v}%
-        </Typography>
-      </Box>
-    </Tooltip>
-  );
-}
+// Lives in its own file since it explains its score (#1334); re-exported so
+// every existing import site keeps working.
+export { DataQualityPill } from "./DataQualityPill";
 
 // ── Card ID Pill (human-readable reference, #811) ────────────────
 /** Read-only, copy-to-clipboard pill. Colored in the card type's light tint —

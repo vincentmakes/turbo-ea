@@ -212,7 +212,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
                 order: { xs: 1, sm: 0 },
               }}
             >
-              <DataQualityPill value={card.data_quality} />
+              <DataQualityPill value={card.data_quality} cardId={card.id} cardType={card.type} />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />
             </Box>

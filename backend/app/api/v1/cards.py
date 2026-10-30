@@ -60,6 +60,8 @@ from app.schemas.card import (
     CardRestoreResponse,
     CardTypeCount,
     CardUpdate,
+    DataQualityBreakdown,
+    DataQualityFactor,
     DescendantRelationRow,
     DescendantRelationsResponse,
     DescendantRelationSummaryEntry,
@@ -114,7 +116,12 @@ from app.services.card_write_service import (
     emit_hierarchy_cascade_events,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
-from app.services.data_quality import calc_data_quality
+from app.services.data_quality import (
+    calc_data_quality,
+    load_scoring_context,
+    load_scoring_facts,
+    score_breakdown,
+)
 from app.services.event_bus import event_bus
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
@@ -1219,6 +1226,52 @@ async def get_hierarchy(
         "level": depth + 1,
         "parent_label": card.parent_label,
     }
+
+
+@router.get("/{card_id}/data-quality", response_model=DataQualityBreakdown)
+async def get_data_quality_breakdown(
+    card_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """What the card's data-quality score is made of, and what would raise it (#1334).
+
+    Computed by the scorer that writes ``cards.data_quality``, so the two never
+    disagree. Gated like the card's other sub-reads: a card the caller may not
+    read is 404. The payload names no other card — relation factors carry
+    metamodel keys only, as the approval gate's 400 does.
+    """
+    await _require_card_read(db, user, card_id)
+    card = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+    ctx = await load_scoring_context(db, card.type)
+    if ctx is None:
+        raise HTTPException(404, "Card type not found")
+    facts = await load_scoring_facts(db, ctx, [card.id])
+    breakdown = score_breakdown(card, ctx, facts[card.id])
+    return DataQualityBreakdown(
+        score=breakdown.score,
+        ungated_score=breakdown.ungated_score,
+        total_weight=breakdown.total_weight,
+        filled_weight=breakdown.filled_weight,
+        blocked_by_required=breakdown.blocked_by_required,
+        factors=[
+            DataQualityFactor(
+                kind=f.kind,
+                key=f.key,
+                weight=f.weight,
+                filled=f.filled,
+                score_if_filled=None if f.filled else breakdown.score_if_filled(f),
+                section=f.section,
+                side=f.side,
+                other_type_key=f.other_type_key,
+                label=f.label,
+                name=f.name,
+            )
+            for f in breakdown.factors
+        ],
+    )
 
 
 @router.get("/{card_id}/relation-summary", response_model=CardRelationSummaryResponse)

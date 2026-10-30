@@ -44,9 +44,9 @@ from app.services.card_completeness import (
     NO_LINKS,
     LinkFacts,
     MandatoryConfig,
-    evaluate,
     load_link_facts,
     load_mandatory_config,
+    mandatory_items,
     optional_relation_sides,
 )
 from app.services.derived_writes import derived_maintenance
@@ -171,10 +171,59 @@ async def load_scoring_facts(
     }
 
 
-def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
-    """A card's data-quality score (0-100) from weighted completeness.
+@dataclass(slots=True)
+class Factor:
+    """One slot of a card's score: what it is, what it weighs, whether it counts.
+
+    ``kind`` is ``field``, ``description``, ``lifecycle``, ``relation``,
+    ``tag_group`` or ``stakeholders``. ``key`` is the field key, the relation
+    type key, the tag group id, or the bucket name for the three single slots.
+    The rest is kind-specific and metamodel-only — never another card's id or
+    name: ``section`` (field), ``side`` / ``other_type_key`` / ``label``
+    (relation), ``name`` (tag group).
+    """
+
+    kind: str
+    key: str
+    weight: float
+    filled: bool
+    section: str | None = None
+    side: str | None = None
+    other_type_key: str | None = None
+    label: str | None = None
+    name: str | None = None
+
+
+@dataclass(slots=True)
+class ScoreBreakdown:
+    """Why a card scores what it scores (#1334).
+
+    ``score`` is exactly what :func:`score_card` returns. ``ungated_score`` is
+    the weighted ratio before the mandatory-field gate; the two differ only
+    while ``blocked_by_required`` (the empty required field keys) is non-empty.
+    """
+
+    score: float
+    ungated_score: float
+    total_weight: float
+    filled_weight: float
+    blocked_by_required: list[str]
+    factors: list[Factor]
+
+    def score_if_filled(self, factor: Factor) -> float:
+        """The ungated score the card would reach with ``factor`` filled too."""
+        if not self.total_weight:
+            return 0.0
+        return round((self.filled_weight + factor.weight) / self.total_weight * 100, 1)
+
+
+def score_breakdown(card: Card, ctx: ScoringContext, facts: CardFacts) -> ScoreBreakdown:
+    """A card's data-quality score with every factor that went into it.
 
     Pure: everything it reads about the database is in ``ctx`` and ``facts``.
+    It is the scorer itself — :func:`score_card` returns its ``score`` — so the
+    breakdown a user reads and the score stored on the card cannot disagree.
+    It runs on the bulk rescore path: no lookups, no labels, plain dataclasses.
     """
     schema, subtypes, dq_cfg = ctx.fields_schema, ctx.subtypes, ctx.dq_cfg
 
@@ -189,12 +238,15 @@ def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
     total_weight = 0.0
     filled_weight = 0.0
     attrs = card.attributes or {}
+    factors: list[Factor] = []
 
     # Mandatory-field gate: while any visible required field is empty, the
     # score is pinned to 0 — the regular weighted calculation only applies once
     # every mandatory field is filled. Boolean fields are exempt (Not set is
     # one of a boolean's three states, #1266) and so are readonly (calculated) fields, whose value
-    # the user cannot enter by hand.
+    # the user cannot enter by hand. The ratio is still worked out below, so the
+    # breakdown can say what the score would be once the gate lifts.
+    blocked: list[str] = []
     for section in schema:
         for field in section.get("fields", []):
             if (
@@ -206,7 +258,7 @@ def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
                 continue
             val = attrs.get(field["key"])
             if val is None or val == "" or val == []:
-                return 0.0
+                blocked.append(field["key"])
 
     for section in schema:
         for field in section.get("fields", []):
@@ -222,39 +274,63 @@ def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
             # was a self-contradiction. `False` stays excluded by the identity
             # check (a boolean set to false is "not filled" for scoring); `0`
             # stays filled.
-            if val is not None and val != "" and val != [] and val is not False:
+            filled = val is not None and val != "" and val != [] and val is not False
+            if filled:
                 filled_weight += weight
+            factors.append(
+                Factor("field", field["key"], weight, filled, section=section.get("section"))
+            )
 
     # Description bucket (admin-tunable; default weight 1, 0 = exclude)
     desc_w = _bucket_weight(dq_cfg, "description")
     if desc_w > 0:
         total_weight += desc_w
-        if card.description and card.description.strip():
+        filled = bool(card.description and card.description.strip())
+        if filled:
             filled_weight += desc_w
+        factors.append(Factor("description", "description", desc_w, filled))
 
     # Lifecycle bucket (at least one date set)
     lc_w = _bucket_weight(dq_cfg, "lifecycle")
     if lc_w > 0:
         total_weight += lc_w
         lc = card.lifecycle or {}
-        if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
+        filled = any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife"))
+        if filled:
             filled_weight += lc_w
+        factors.append(Factor("lifecycle", "lifecycle", lc_w, filled))
 
     # Mandatory relation sides and mandatory tag groups: each applicable item
     # contributes its bucket weight to total, and to filled only when satisfied.
+    # (Summed as count × weight, as before, so the float is unchanged.)
     rel_w = _bucket_weight(dq_cfg, "relations")
     tag_w = _bucket_weight(dq_cfg, "tags")
     # (`mandatory` is loaded exactly when one of the two weights is on.)
     if ctx.mandatory is not None:
-        state = evaluate(
+        sides, groups = mandatory_items(
             ctx.mandatory, facts.links, optional_relation_sides(subtypes, card.subtype)
         )
         if rel_w > 0:
-            total_weight += state["relations_applicable"] * rel_w
-            filled_weight += (state["relations_applicable"] - len(state["relations"])) * rel_w
+            total_weight += len(sides) * rel_w
+            filled_weight += sum(1 for _, held in sides if held) * rel_w
+            factors.extend(
+                Factor(
+                    "relation",
+                    s.key,
+                    rel_w,
+                    held,
+                    side=s.side,
+                    other_type_key=s.other_type_key,
+                    label=s.label,
+                )
+                for s, held in sides
+            )
         if tag_w > 0:
-            total_weight += state["tag_groups_applicable"] * tag_w
-            filled_weight += (state["tag_groups_applicable"] - len(state["tag_groups"])) * tag_w
+            total_weight += len(groups) * tag_w
+            filled_weight += sum(1 for _, held in groups if held) * tag_w
+            factors.extend(
+                Factor("tag_group", str(tg.id), tag_w, held, name=tg.name) for tg, held in groups
+            )
 
     # Stakeholders bucket: ONE yes/no slot, exactly like description and
     # lifecycle — is anybody assigned to this card, in a role that counts?
@@ -282,10 +358,27 @@ def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
         total_weight += stake_w
         if facts.holds_counting_stakeholder:
             filled_weight += stake_w
+        factors.append(
+            Factor("stakeholders", "stakeholders", stake_w, facts.holds_counting_stakeholder)
+        )
 
-    if total_weight == 0:
-        return 0.0
-    return round((filled_weight / total_weight) * 100, 1)
+    ungated = round((filled_weight / total_weight) * 100, 1) if total_weight else 0.0
+    return ScoreBreakdown(
+        score=0.0 if blocked else ungated,
+        ungated_score=ungated,
+        total_weight=total_weight,
+        filled_weight=filled_weight,
+        blocked_by_required=blocked,
+        factors=factors,
+    )
+
+
+def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
+    """A card's data-quality score (0-100) from weighted completeness.
+
+    Pure: everything it reads about the database is in ``ctx`` and ``facts``.
+    """
+    return score_breakdown(card, ctx, facts).score
 
 
 async def calc_data_quality(db: AsyncSession, card: Card) -> float:

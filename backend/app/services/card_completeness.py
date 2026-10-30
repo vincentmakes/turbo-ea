@@ -221,6 +221,27 @@ async def load_link_facts(
     }
 
 
+def mandatory_items(
+    config: MandatoryConfig,
+    facts: LinkFacts,
+    optional_sides: frozenset[str] = frozenset(),
+) -> tuple[list[tuple[MandatorySide, bool]], list[tuple[MandatoryTagGroup, bool]]]:
+    """Every applicable mandatory item for one card, each with whether it is held.
+
+    The per-item form of :func:`evaluate` (which is built on it): a side the
+    card's subtype exempts is left out, every other side and every mandatory
+    tag group is listed once, satisfied or not. The data-quality breakdown
+    (#1334) reads this to list what is still missing *and* what already counts.
+    """
+    sides = [
+        (s, (s.key, s.side) in facts.sides)
+        for s in config.sides
+        if s.side_key not in optional_sides
+    ]
+    groups = [(tg, tg.id in facts.tag_groups) for tg in config.tag_groups]
+    return sides, groups
+
+
 def evaluate(
     config: MandatoryConfig,
     facts: LinkFacts,
@@ -241,31 +262,21 @@ def evaluate(
     nor counted as applicable, exactly as a subtype's ``hidden_fields`` drop
     out of the field score.
     """
-    missing_relations: list[dict] = []
-    relations_applicable = 0
-    for s in config.sides:
-        if s.side_key in optional_sides:
-            continue
-        relations_applicable += 1
-        if (s.key, s.side) not in facts.sides:
-            missing_relations.append(
-                {
-                    "key": s.key,
-                    "label": s.label,
-                    "side": s.side,
-                    "other_type_key": s.other_type_key,
-                }
-            )
-    missing_tag_groups = [
-        {"id": str(tg.id), "name": tg.name}
-        for tg in config.tag_groups
-        if tg.id not in facts.tag_groups
-    ]
+    sides, groups = mandatory_items(config, facts, optional_sides)
     return {
-        "relations": missing_relations,
-        "tag_groups": missing_tag_groups,
-        "relations_applicable": relations_applicable,
-        "tag_groups_applicable": len(config.tag_groups),
+        "relations": [
+            {
+                "key": s.key,
+                "label": s.label,
+                "side": s.side,
+                "other_type_key": s.other_type_key,
+            }
+            for s, held in sides
+            if not held
+        ],
+        "tag_groups": [{"id": str(tg.id), "name": tg.name} for tg, held in groups if not held],
+        "relations_applicable": len(sides),
+        "tag_groups_applicable": len(groups),
     }
 
 

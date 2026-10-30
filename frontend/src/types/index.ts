@@ -620,6 +620,37 @@ export interface DescendantRelationsResponse {
   via_total: number;
 }
 
+/** One slot of a card's data-quality score (`GET /cards/{id}/data-quality`, #1334). */
+export interface DataQualityFactor {
+  kind: "field" | "description" | "lifecycle" | "relation" | "tag_group" | "stakeholders";
+  /** Field key, relation type key, tag group id, or the bucket name. */
+  key: string;
+  weight: number;
+  filled: boolean;
+  /** The score the card would reach with this slot filled too; null once it counts. */
+  score_if_filled: number | null;
+  /** Field: the section it sits in. */
+  section?: string | null;
+  /** Relation: which end this card is on, and the other end's card type. */
+  side?: "source" | "target" | null;
+  other_type_key?: string | null;
+  label?: string | null;
+  /** Tag group: its name. */
+  name?: string | null;
+}
+
+/** Why a card scores what it scores, factor by factor (#1334). */
+export interface DataQualityBreakdown {
+  score: number;
+  /** The weighted ratio before empty required fields pin the score at 0. */
+  ungated_score: number;
+  total_weight: number;
+  filled_weight: number;
+  /** Keys of the empty required fields holding the score at 0. */
+  blocked_by_required: string[];
+  factors: DataQualityFactor[];
+}
+
 export interface Comment {
   id: string;
   card_id: string;

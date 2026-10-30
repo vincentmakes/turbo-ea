@@ -719,7 +719,7 @@ export default function CardDetail() {
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <DataQualityPill value={card.data_quality} />
+          <DataQualityPill value={card.data_quality} cardId={card.id} cardType={card.type} />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
             status={card.approval_status}

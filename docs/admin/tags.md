@@ -61,7 +61,7 @@ Applicable mandatory tag groups also feed into the card's data-quality score. Ea
 
 ### Visual indicators
 
-Mandatory groups are marked with a **Mandatory** chip in the admin list and on the card detail Tags section. Missing required tags show up in the approval-status banner and in the data-quality ring tooltip so users know exactly what to add.
+Mandatory groups are marked with a **Mandatory** chip in the admin list and on the card detail Tags section. Missing required tags show up in the approval-status banner and in the data-quality ring's breakdown — hover the ring for the top suggestions, click it for the full list — so users know exactly what to add.
 
 ## Permissions
 

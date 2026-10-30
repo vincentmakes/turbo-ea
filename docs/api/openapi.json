@@ -4946,6 +4946,158 @@
         "title": "DashboardWidgetIn",
         "type": "object"
       },
+      "DataQualityBreakdown": {
+        "description": "Why a card scores what it scores, factor by factor (#1334).",
+        "properties": {
+          "blocked_by_required": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocked By Required",
+            "type": "array"
+          },
+          "factors": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityFactor"
+            },
+            "title": "Factors",
+            "type": "array"
+          },
+          "filled_weight": {
+            "title": "Filled Weight",
+            "type": "number"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "total_weight": {
+            "title": "Total Weight",
+            "type": "number"
+          },
+          "ungated_score": {
+            "title": "Ungated Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "ungated_score",
+          "total_weight",
+          "filled_weight",
+          "blocked_by_required",
+          "factors"
+        ],
+        "title": "DataQualityBreakdown",
+        "type": "object"
+      },
+      "DataQualityFactor": {
+        "description": "One slot of a card's data-quality score (#1334).\n\nMetamodel only: a relation factor names its relation type and the other\nend's card *type*, never another card.",
+        "properties": {
+          "filled": {
+            "title": "Filled",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "field",
+              "description",
+              "lifecycle",
+              "relation",
+              "tag_group",
+              "stakeholders"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "other_type_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Type Key"
+          },
+          "score_if_filled": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score If Filled"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "enum": [
+                  "source",
+                  "target"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "key",
+          "weight",
+          "filled"
+        ],
+        "title": "DataQualityFactor",
+        "type": "object"
+      },
       "DateFormatPayload": {
         "properties": {
           "date_format": {
@@ -24165,6 +24317,50 @@
         "summary": "List Card Compliance Findings",
         "tags": [
           "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/cards/{card_id}/data-quality": {
+      "get": {
+        "description": "What the card's data-quality score is made of, and what would raise it (#1334).\n\nComputed by the scorer that writes ``cards.data_quality``, so the two never\ndisagree. Gated like the card's other sub-reads: a card the caller may not\nread is 404. The payload names no other card \u2014 relation factors carry\nmetamodel keys only, as the approval gate's 400 does.",
+        "operationId": "get_data_quality_breakdown_api_v1_cards__card_id__data_quality_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQualityBreakdown"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Data Quality Breakdown",
+        "tags": [
+          "cards"
         ]
       }
     },

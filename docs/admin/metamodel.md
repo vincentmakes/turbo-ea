@@ -115,6 +115,8 @@ The panel lists the five **built-in factors** — **Description**, **Lifecycle**
 
 A **score composition** bar at the top of the tab shows each factor's share of the maximum possible score, so you can see at a glance which factors dominate. In the **Main** tab's card layout, each field — and the built-in Description, Lifecycle and Relations sections — shows a small badge with its current tier number, so you can see the weighting without leaving that tab.
 
+Users see the result factor by factor on the card itself: hovering the data quality ring lists the slots that would raise the score most, and clicking it opens the full breakdown (see [Card Details](../guide/card-details.md#card-header)).
+
 Changing any importance immediately re-scores every existing card of that type. New fields default to *Normal*, so they count toward the score as soon as you add them.
 
 #### Subtypes (Sub-Templates)

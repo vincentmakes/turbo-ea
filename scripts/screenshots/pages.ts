@@ -1980,6 +1980,21 @@ export const DOC_PAGES: PageDef[] = [
   // ── TurboLens: Dashboard ────────────────────────────────────────────────
   // /turbolens honours ?tab=, so no locale-dependent click is needed. The
   // overview KPIs are computed from card data — no AI run required.
+  // The data quality breakdown popover (#1334): a click on the header's
+  // score pill, found by its test id so no label text is needed.
+  {
+    id: "63_card_data_quality_breakdown",
+    route: "/cards/{{cardId:sampleApp}}",
+    waitFor: "[data-testid='data-quality-pill']",
+    actions: [
+      { type: "wait", ms: 600 },
+      { type: "click", selector: "[data-testid='data-quality-pill']" },
+      { type: "wait", ms: 900 },
+    ],
+    filenames: {
+      en: "63_card_data_quality_breakdown",
+    },
+  },
   {
     id: "75_turbolens_dashboard",
     route: "/turbolens?tab=dashboard",
