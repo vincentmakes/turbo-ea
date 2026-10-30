@@ -116,12 +116,7 @@ from app.services.card_write_service import (
     emit_hierarchy_cascade_events,
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
-from app.services.data_quality import (
-    calc_data_quality,
-    load_scoring_context,
-    load_scoring_facts,
-    score_breakdown,
-)
+from app.services.data_quality import calc_data_quality, calc_data_quality_breakdown
 from app.services.event_bus import event_bus
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
@@ -1245,11 +1240,9 @@ async def get_data_quality_breakdown(
     card = (await db.execute(select(Card).where(Card.id == card_id))).scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
-    ctx = await load_scoring_context(db, card.type)
-    if ctx is None:
+    breakdown = await calc_data_quality_breakdown(db, card)
+    if breakdown is None:
         raise HTTPException(404, "Card type not found")
-    facts = await load_scoring_facts(db, ctx, [card.id])
-    breakdown = score_breakdown(card, ctx, facts[card.id])
     return DataQualityBreakdown(
         score=breakdown.score,
         ungated_score=breakdown.ungated_score,

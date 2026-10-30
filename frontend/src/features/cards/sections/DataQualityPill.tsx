@@ -41,11 +41,27 @@ import type { DataQualityBreakdown, DataQualityFactor, FieldDef } from "@/types"
 /** Unmet slots the tooltip names before "+N more". */
 const TOOLTIP_TOP = 3;
 
-/** Unmet slots, the biggest gain first; ties keep the server's order. */
-function rankUnmet(factors: DataQualityFactor[]): DataQualityFactor[] {
+/** A field whose emptiness pins the score at 0: it unlocks every other gain. */
+function unlocksScore(f: DataQualityFactor, blocked: string[]): boolean {
+  return f.kind === "field" && blocked.includes(f.key);
+}
+
+/** Unmet slots: the required fields holding the score at 0 first (nothing
+ * else moves it until they are filled), then the biggest gain; ties keep the
+ * server's order. */
+function rankUnmet(factors: DataQualityFactor[], blocked: string[]): DataQualityFactor[] {
+  const unlocks = (f: DataQualityFactor) => (unlocksScore(f, blocked) ? 1 : 0);
   return factors
     .filter((f) => !f.filled)
-    .sort((a, b) => (b.score_if_filled ?? 0) - (a.score_if_filled ?? 0));
+    .sort(
+      (a, b) => unlocks(b) - unlocks(a) || (b.score_if_filled ?? 0) - (a.score_if_filled ?? 0),
+    );
+}
+
+/** A relation type mandatory on both ends of a self-referencing type is two
+ * slots with one key, told apart by `side`. */
+function factorKey(f: DataQualityFactor): string {
+  return `${f.kind}:${f.key}:${f.side ?? ""}`;
 }
 
 /** How each factor reads: the action that fills it, and its name once it counts. */
@@ -148,9 +164,16 @@ export function DataQualityPill({
   const [showCounted, setShowCounted] = useState(false);
   const text = useFactorText(cardType);
 
-  const unmet = useMemo(() => (data ? rankUnmet(data.factors) : []), [data]);
+  const blocked = useMemo(() => data?.blocked_by_required ?? [], [data]);
+  const unmet = useMemo(() => (data ? rankUnmet(data.factors, blocked) : []), [data, blocked]);
   const met = useMemo(() => (data ? data.factors.filter((f) => f.filled) : []), [data]);
-  const blocked = data?.blocked_by_required ?? [];
+  // What filling the slot does to the score. A gating field shows no figure:
+  // its own `score_if_filled` is unreachable while another required field is
+  // still empty, and the alert already says what the score would be.
+  const gain = (f: DataQualityFactor) =>
+    unlocksScore(f, blocked)
+      ? t("dataQuality.required")
+      : t("dataQuality.raiseTo", { pct: f.score_if_filled });
 
   const headline = t("utils.dataQuality", { value: v });
   const tooltip =
@@ -165,8 +188,8 @@ export function DataQualityPill({
           </Typography>
         )}
         {unmet.slice(0, TOOLTIP_TOP).map((f) => (
-          <Typography key={`${f.kind}:${f.key}`} variant="caption" component="div">
-            {`${text.action(f)} ${t("dataQuality.raiseTo", { pct: f.score_if_filled })}`}
+          <Typography key={factorKey(f)} variant="caption" component="div">
+            {`${text.action(f)} ${gain(f)}`}
           </Typography>
         ))}
         {unmet.length > TOOLTIP_TOP && (
@@ -284,7 +307,7 @@ export function DataQualityPill({
                       {unmet.map((f) => (
                         <Box
                           component="li"
-                          key={`${f.kind}:${f.key}`}
+                          key={factorKey(f)}
                           sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.25 }}
                         >
                           <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
@@ -293,7 +316,7 @@ export function DataQualityPill({
                           <Chip
                             size="small"
                             variant="outlined"
-                            label={t("dataQuality.raiseTo", { pct: f.score_if_filled })}
+                            label={gain(f)}
                             sx={{ height: 20, fontSize: "0.7rem", flexShrink: 0 }}
                           />
                         </Box>
@@ -323,7 +346,7 @@ export function DataQualityPill({
                         {met.map((f) => (
                           <Box
                             component="li"
-                            key={`${f.kind}:${f.key}`}
+                            key={factorKey(f)}
                             sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.25 }}
                           >
                             <Box component="span" sx={{ color: "success.main", display: "inline-flex" }}>

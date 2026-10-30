@@ -381,13 +381,25 @@ def score_card(card: Card, ctx: ScoringContext, facts: CardFacts) -> float:
     return score_breakdown(card, ctx, facts).score
 
 
-async def calc_data_quality(db: AsyncSession, card: Card) -> float:
-    """Calculate a card's data-quality score (0-100) from weighted completeness."""
+async def calc_data_quality_breakdown(db: AsyncSession, card: Card) -> ScoreBreakdown | None:
+    """One card's score with every factor behind it; None when its type is gone.
+
+    The single way to score one card from the database: the stored score
+    (:func:`calc_data_quality`) and the breakdown a user reads
+    (``GET /cards/{id}/data-quality``) both come through here, so a change to
+    how the facts are loaded cannot make the two disagree.
+    """
     ctx = await load_scoring_context(db, card.type)
     if ctx is None:
-        return 0.0
+        return None
     facts = await load_scoring_facts(db, ctx, [card.id])
-    return score_card(card, ctx, facts[card.id])
+    return score_breakdown(card, ctx, facts[card.id])
+
+
+async def calc_data_quality(db: AsyncSession, card: Card) -> float:
+    """Calculate a card's data-quality score (0-100) from weighted completeness."""
+    breakdown = await calc_data_quality_breakdown(db, card)
+    return breakdown.score if breakdown else 0.0
 
 
 async def rescore_cards(

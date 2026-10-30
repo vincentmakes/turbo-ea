@@ -738,12 +738,14 @@ icon and name together — that is the drift this exists to end.
 
 ❌ Don't
 - Don't put a hover underline on a flex wrapper that also holds an icon or a chip.
-- Don't nest a link inside a link: an `<a>` may not hold another `<a>`. Where a chip sits
-  inside a row link (the sub-items drawer's `via` chips), the chip prevents the row's
-  default and opens its own card itself.
+- Don't nest a link inside a link, or a button inside one: an `<a>` may not hold another
+  `<a>`, and a chip inside a row link is a second control a keyboard user cannot tell from
+  the row. Where a row also opens other cards (the sub-items drawer's `via` chips), the name
+  is one link and each chip is its own link beside it (`Chip component={RouterLink}`), on a
+  plain `ListItem` rather than a whole-row button.
 - Don't swap it for a whole-row `ListItemButton` to "fix" the underline: the background wash
-  is for rows that are entirely the control (search results, the sub-items drawer), not for
-  a row that also carries an unlink button and a link-type chip.
+  is for rows that are entirely the control (search results), not for a row that also
+  carries an unlink button, a link-type chip or links of its own.
 
 ---
 

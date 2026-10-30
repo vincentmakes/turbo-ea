@@ -197,18 +197,61 @@ describe("DataQualityPill", () => {
       score: 0,
       ungated_score: 33.3,
       blocked_by_required: ["code", "cost"],
+      // `code` weighs less than the optional lifecycle slot: by gain alone it
+      // would sink below the slots that cannot move the score yet.
+      factors: [...BREAKDOWN.factors, factor("field", "code", false, 45.8, { section: "Details" })],
     });
     renderPill(0);
     const tip = await hoverPill();
     await waitFor(() =>
       expect(tip).toHaveTextContent("Held at 0% until the required fields are filled"),
     );
+    // The gating fields lead, marked as required rather than with a figure
+    // that filling them alone cannot reach.
+    expect(tip).toHaveTextContent(
+      "Fill Annual Cost → requiredFill Business Code → requiredSet lifecycle dates → 50%+3 more",
+    );
     await userEvent.unhover(screen.getByText("0%"));
     await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const alert = await screen.findByRole("alert");
+    const dialog = await screen.findByRole("dialog");
+    const alert = within(dialog).getByRole("alert");
     expect(alert).toHaveTextContent(
       "The score stays at 0% until these required fields are filled: Business Code, Annual Cost Without them it would be 33.3%.",
     );
+    const rows = within(dialog)
+      .getAllByRole("listitem")
+      .map((li) => li.textContent);
+    expect(rows.slice(0, 3)).toEqual([
+      "Fill Annual Cost→ required",
+      "Fill Business Code→ required",
+      "Set lifecycle dates→ 50%",
+    ]);
+  });
+
+  it("tells a self-referencing relation's two mandatory ends apart", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(api.get).mockResolvedValue({
+      ...BREAKDOWN,
+      factors: [
+        factor("relation", "relOrgToApp", false, 50, {
+          side: "source",
+          other_type_key: "Application",
+          label: "owns",
+        }),
+        factor("relation", "relOrgToApp", false, 50, {
+          side: "target",
+          other_type_key: "Organization",
+          label: "is owned by",
+        }),
+      ],
+    });
+    renderPill();
+    await userEvent.click(screen.getByTestId("data-quality-pill"));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Add relation: owns Application");
+    expect(within(dialog).getByText("Add relation: is owned by Organization")).toBeInTheDocument();
+    expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    consoleError.mockRestore();
   });
 
   it("never shows a field's key when the metamodel does not know the field", async () => {

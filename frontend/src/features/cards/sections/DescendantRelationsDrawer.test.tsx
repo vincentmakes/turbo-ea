@@ -263,7 +263,7 @@ describe("DescendantRelationsDrawer", () => {
     // Row text starts with the card name, then icon ligatures and chips, so
     // assert on the prefix rather than trying to tokenise the whole row.
     const rowTexts = Array.from(
-      document.body.querySelectorAll(".MuiListItemButton-root"),
+      document.body.querySelectorAll("li.MuiListItem-root"),
     ).map((el) => el.textContent ?? "");
     expect(rowTexts).toHaveLength(3);
     expect(rowTexts[0].startsWith("Zeta")).toBe(true);
@@ -314,31 +314,30 @@ describe("DescendantRelationsDrawer", () => {
       expect(screen.getByTestId("location")).toHaveTextContent("/cards/root-1");
     });
 
-    it("opens a via chip's own card, not the row's", async () => {
+    it("makes each via chip its own link, beside the row's — never inside it", async () => {
       vi.mocked(api.get).mockResolvedValue(payload);
       const onClose = vi.fn();
       renderDrawer(true, true, onClose);
-      await screen.findByText("Direct Debit");
+      const chip = (await screen.findByText("Direct Debit")).closest("a");
+      expect(chip).toHaveAttribute("href", "/cards/s2");
+      // No link nests in another: the chip's anchor has no anchor above it.
+      expect(chip?.parentElement?.closest("a")).toBeNull();
+      expect(screen.getByText("Billing Engine").closest("a")?.querySelector("a")).toBeNull();
+
       await userEvent.click(screen.getByText("Direct Debit"));
       expect(onClose).toHaveBeenCalledTimes(1);
-      expect(navigate).toHaveBeenCalledWith("/cards/s2");
-      // The row's link underneath did not fire.
-      expect(screen.getByTestId("location")).toHaveTextContent("/cards/root-1");
+      expect(navigate).not.toHaveBeenCalled();
+      expect(screen.getByTestId("location")).toHaveTextContent("/cards/s2");
     });
 
-    it("opens a via chip in a new tab on a modified or middle click", async () => {
+    it("leaves the drawer open when a via chip is Cmd-clicked — the card opens in a new tab", async () => {
       vi.mocked(api.get).mockResolvedValue(payload);
-      const open = vi.spyOn(window, "open").mockImplementation(() => null);
       const onClose = vi.fn();
       renderDrawer(true, true, onClose);
       const chip = await screen.findByText("Direct Debit");
+      document.addEventListener("click", stopBrowserNavigation);
       fireEvent.click(chip, { metaKey: true });
-      fireEvent(chip, new MouseEvent("auxclick", { bubbles: true, button: 1 }));
-      // A right-button auxclick is the context menu's, not ours.
-      fireEvent(chip, new MouseEvent("auxclick", { bubbles: true, button: 2 }));
-      expect(open).toHaveBeenCalledTimes(2);
-      expect(open).toHaveBeenCalledWith("/cards/s2", "_blank", "noopener");
-      expect(navigate).not.toHaveBeenCalled();
+      document.removeEventListener("click", stopBrowserNavigation);
       expect(onClose).not.toHaveBeenCalled();
       expect(screen.getByTestId("location")).toHaveTextContent("/cards/root-1");
     });
