@@ -250,7 +250,7 @@ export const CARD_TYPE_COLORS = {
   Organization: "#2889ff",
   BusinessCapability: "#003399",
   BusinessContext: "#fe6690",
-  BusinessProcess: "#e65100",
+  BusinessProcess: "#028f00",
   Application: "#0f7eb5",
   Interface: "#02afa4",
   DataObject: "#774fcc",
@@ -436,9 +436,10 @@ export const BPMN_ELEMENT_COLORS = {
 /** A Process Navigator card with no value for the chosen colour overlay, or a value no option knows. */
 export const BPM_UNSET_COLOR = "#bdbdbd";
 
-/** The BusinessProcess type colour as seeded (`seed.py`): the called-process badge, its link dot
- *  and the navigator header fallback, which also render where no metamodel is loaded (portals). */
-export const BPM_CALLED_PROCESS_COLOR = "#028f00";
+/** The BusinessProcess type colour as seeded (`seed.py`, pinned by `tokens.test.ts`): the
+ *  called-process badge, its link dot and the navigator header fallback, which also render
+ *  where no metamodel is loaded (portals). */
+export const BPM_CALLED_PROCESS_COLOR = CARD_TYPE_COLORS.BusinessProcess;
 
 /** Fill the read-only BPMN viewer paints behind an automated task — green 50. */
 export const BPM_HIGHLIGHT_FILL = "#e8f5e9";

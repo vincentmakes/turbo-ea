@@ -90,6 +90,51 @@ export function axisLabel(ctx: ChartChromeContext, extra: Record<string, unknown
   return { color: ctx.theme.textSecondary, fontSize: 12, ...extra };
 }
 
+/** The line height of a category label wrapped onto two lines, in px. */
+export const WRAPPED_LABEL_LINE_HEIGHT = 14;
+
+/**
+ * A category label on at most two lines, broken at the space closest to the
+ * middle ("2 - Managed" → "2 -\nManaged"); on a tie, the earlier space. A label
+ * with no space is returned as it is. Surrounding spaces are trimmed.
+ *
+ * Wrapping is done here rather than by ECharts' `overflow: "break"`: zrender
+ * treats a non-Latin letter as a break opportunity, so it split Arabic words
+ * mid-letter. A break only ever lands on a space here, in any script. Pure.
+ */
+export function wrapAtSpace(label: string): string {
+  const text = label.trim();
+  // The index of the middle character: a space there leaves the two lines
+  // equally long.
+  const middle = (text.length - 1) / 2;
+  // -1 is farther from the middle than any index, so the first space replaces it.
+  let at = -1;
+  // Stryker disable next-line EqualityOperator: `text[text.length]` is undefined, never a space, so `<=` changes nothing
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === " " && Math.abs(i - middle) < Math.abs(at - middle)) at = i;
+  }
+  if (at === -1) return text;
+  return `${text.slice(0, at).trimEnd()}\n${text.slice(at + 1).trimStart()}`;
+}
+
+/**
+ * A category axis label that keeps every category: none skipped or hidden
+ * for overlap, each on at most two lines broken at a space (`wrapAtSpace`),
+ * every line cut to `width` px with an ellipsis (`truncate` applies per line,
+ * so a word is never split). For a category axis whose labels are words, on
+ * a chart too narrow to show them on one line.
+ */
+export function wrappedAxisLabel(ctx: ChartChromeContext, width: number): Record<string, unknown> {
+  return axisLabel(ctx, {
+    interval: 0,
+    hideOverlap: false,
+    overflow: "truncate",
+    width,
+    lineHeight: WRAPPED_LABEL_LINE_HEIGHT,
+    formatter: (label: string) => wrapAtSpace(label),
+  });
+}
+
 /**
  * A cartesian grid that contains its axis labels, with the wider side inset
  * on the trailing edge (right, or left in RTL), where the last category's

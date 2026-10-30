@@ -97,69 +97,16 @@ export function processTypePieOption(rows: DashboardKeyRow[], ctx: BpmColoredCha
  * Widest a BPM column's category label is drawn, in px. The dashboard's
  * charts sit in a third of the page (about 350 px wide), so five maturity
  * columns get some 70 px a band: 64 px keeps a gap between neighbours. A
- * longer label ("4 - Measured", "Partially Automated") goes onto two lines
- * (`wrapAtSpace`); a single word wider than the band is cut with an ellipsis.
- * The builders are pure and never see the card's pixel width, hence a
- * constant.
+ * longer label ("4 - Measured", "Partially Automated") goes onto two lines,
+ * a single word wider than the band is cut with an ellipsis (the column
+ * builder's `wrapLabelsAt`). The builders are pure and never see the card's
+ * pixel width, hence a constant.
  */
 export const BPM_COLUMN_LABEL_WIDTH = 64;
 
-/** The line height of a wrapped BPM column label, in px. */
-export const BPM_COLUMN_LABEL_LINE_HEIGHT = 14;
-
-/**
- * A category label on at most two lines, broken at the space closest to the
- * middle ("2 - Managed" → "2 -\nManaged"); on a tie, the earlier space. A label
- * with no space is returned as it is. Surrounding spaces are trimmed.
- *
- * Wrapping is done here rather than by ECharts' `overflow: "break"`: zrender
- * treats a non-Latin letter as a break opportunity, so it split Arabic words
- * mid-letter. A break only ever lands on a space here, in any script. Pure.
- */
-export function wrapAtSpace(label: string): string {
-  const text = label.trim();
-  // The index of the middle character: a space there leaves the two lines
-  // equally long.
-  const middle = (text.length - 1) / 2;
-  // -1 is farther from the middle than any index, so the first space replaces it.
-  let at = -1;
-  // Stryker disable next-line EqualityOperator: `text[text.length]` is undefined, never a space, so `<=` changes nothing
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === " " && Math.abs(i - middle) < Math.abs(at - middle)) at = i;
-  }
-  if (at === -1) return text;
-  return `${text.slice(0, at).trimEnd()}\n${text.slice(at + 1).trimStart()}`;
-}
-
-/**
- * A column option whose every category keeps its label: none skipped or
- * hidden for overlap, each on at most two lines broken at a space
- * (`wrapAtSpace`), every line cut to `width` with an ellipsis (`truncate`
- * applies per line, so a word is never split). The grid is untouched: its
- * `containLabel` already measures the two-line labels. Pure.
- */
-export function wrapColumnLabels(option: EChartsCoreOption, width: number): EChartsCoreOption {
-  const xAxis = option.xAxis as Record<string, unknown>;
-  return {
-    ...option,
-    xAxis: {
-      ...xAxis,
-      axisLabel: {
-        ...(xAxis.axisLabel as Record<string, unknown>),
-        interval: 0,
-        hideOverlap: false,
-        overflow: "truncate",
-        width,
-        lineHeight: BPM_COLUMN_LABEL_LINE_HEIGHT,
-        formatter: (v: string) => wrapAtSpace(v),
-      },
-    },
-  };
-}
-
 /** The maturity columns: one per level, each in its level's colour. */
 export function maturityColumnOption(rows: DashboardKeyRow[], ctx: BpmColoredChartContext): EChartsCoreOption {
-  const option = buildOption("column", rows, {
+  return buildOption("column", rows, {
     theme: ctx.chrome,
     isRtl: ctx.isRtl,
     labels: ctx.label,
@@ -167,13 +114,13 @@ export function maturityColumnOption(rows: DashboardKeyRow[], ctx: BpmColoredCha
     colorByCategory: true,
     seriesName: ctx.seriesName,
     cursor: "pointer",
+    wrapLabelsAt: BPM_COLUMN_LABEL_WIDTH,
   });
-  return wrapColumnLabels(option, BPM_COLUMN_LABEL_WIDTH);
 }
 
 /** The automation-level columns: one series, one hue. */
 export function automationColumnOption(rows: DashboardKeyRow[], ctx: BpmChartContext): EChartsCoreOption {
-  const option = buildOption("column", rows, {
+  return buildOption("column", rows, {
     theme: ctx.chrome,
     isRtl: ctx.isRtl,
     labels: ctx.label,
@@ -181,8 +128,8 @@ export function automationColumnOption(rows: DashboardKeyRow[], ctx: BpmChartCon
     seriesColor: AUTOMATION_COLOR,
     seriesName: ctx.seriesName,
     cursor: "pointer",
+    wrapLabelsAt: BPM_COLUMN_LABEL_WIDTH,
   });
-  return wrapColumnLabels(option, BPM_COLUMN_LABEL_WIDTH);
 }
 
 /** One assessment on the trend: its formatted date and its scores in dimension order. */

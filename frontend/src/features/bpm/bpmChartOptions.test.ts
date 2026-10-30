@@ -11,7 +11,6 @@ import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { BPM_ASSESSMENT_COLORS, RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import {
   AUTOMATION_COLOR,
-  BPM_COLUMN_LABEL_LINE_HEIGHT,
   BPM_COLUMN_LABEL_WIDTH,
   BPM_NEUTRAL_COLOR,
   DIMENSIONS,
@@ -24,8 +23,6 @@ import {
   processTypePieOption,
   riskColor,
   scaleColor,
-  wrapAtSpace,
-  wrapColumnLabels,
 } from "./bpmChartOptions";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
@@ -164,100 +161,9 @@ const WRAPPED_LABEL = {
   formatter: expect.any(Function),
 };
 
-describe("BPM column label constants", () => {
-  it("fits five columns in a 350 px card, a label wrapping on a 14 px line", () => {
+describe("BPM_COLUMN_LABEL_WIDTH", () => {
+  it("fits five columns in a 350 px card", () => {
     expect(BPM_COLUMN_LABEL_WIDTH).toBe(64);
-    expect(BPM_COLUMN_LABEL_LINE_HEIGHT).toBe(14);
-  });
-});
-
-describe("wrapAtSpace", () => {
-  it("breaks a two-word label at its space", () => {
-    expect(wrapAtSpace("Partially Automated")).toBe("Partially\nAutomated");
-  });
-
-  it("breaks at the space closest to the middle, never after the level number", () => {
-    expect(wrapAtSpace("2 - Managed")).toBe("2 -\nManaged");
-    expect(wrapAtSpace("4 - Measured")).toBe("4 -\nMeasured");
-  });
-
-  it("breaks an Arabic label only at a space, never inside a word", () => {
-    expect(wrapAtSpace("4 - مُقاس")).toBe("4 -\nمُقاس");
-    expect(wrapAtSpace("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
-  });
-
-  it("leaves a single word whole, on one line", () => {
-    expect(wrapAtSpace("Manual")).toBe("Manual");
-    expect(wrapAtSpace("مُحسَّن")).toBe("مُحسَّن");
-    expect(wrapAtSpace("")).toBe("");
-  });
-
-  it("makes exactly two lines of three words, split nearest the middle", () => {
-    expect(wrapAtSpace("aaa b c")).toBe("aaa\nb c");
-    expect(wrapAtSpace("a b ccc")).toBe("a b\nccc");
-    // Both spaces are as far from the middle: the earlier one wins.
-    expect(wrapAtSpace("a b c")).toBe("a\nb c");
-  });
-
-  it("trims spaces around the label and around the break", () => {
-    expect(wrapAtSpace("  Manual  ")).toBe("Manual");
-    expect(wrapAtSpace(" Partially Automated ")).toBe("Partially\nAutomated");
-    expect(wrapAtSpace("a  bb")).toBe("a\nbb");
-    expect(wrapAtSpace("aa  b")).toBe("aa\nb");
-  });
-});
-
-describe("wrapColumnLabels", () => {
-  const built = {
-    grid: { top: 16, bottom: 8, left: 8, containLabel: true },
-    xAxis: {
-      type: "category",
-      data: ["A", "B"],
-      axisLabel: { color: "#666666", interval: 3, hideOverlap: true, width: 96, overflow: "break" },
-    },
-    yAxis: { type: "value" },
-    series: [{ type: "bar" }],
-  };
-
-  it("shows every label, each line truncated within the given width", () => {
-    const option = wrapColumnLabels(built, 50) as any;
-    expect(option.xAxis.axisLabel).toEqual({
-      color: "#666666",
-      interval: 0,
-      hideOverlap: false,
-      overflow: "truncate",
-      width: 50,
-      lineHeight: 14,
-      formatter: expect.any(Function),
-    });
-  });
-
-  it("wraps each label at a space through its formatter", () => {
-    const { formatter } = (wrapColumnLabels(built, 50) as any).xAxis.axisLabel;
-    expect(formatter("2 - Managed")).toBe("2 -\nManaged");
-    expect(formatter("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
-    expect(formatter("Manual")).toBe("Manual");
-  });
-
-  it("leaves the grid as built: its containLabel already measures two-line labels", () => {
-    const option = wrapColumnLabels(built, 50) as any;
-    expect(option.grid).toBe(built.grid);
-    expect(option.grid).toEqual({ top: 16, bottom: 8, left: 8, containLabel: true });
-  });
-
-  it("keeps the rest of the option and leaves its input untouched", () => {
-    const option = wrapColumnLabels(built, 50) as any;
-    expect(option.xAxis.type).toBe("category");
-    expect(option.xAxis.data).toEqual(["A", "B"]);
-    expect(option.yAxis).toBe(built.yAxis);
-    expect(option.series).toBe(built.series);
-    expect(built.xAxis.axisLabel).toEqual({
-      color: "#666666",
-      interval: 3,
-      hideOverlap: true,
-      width: 96,
-      overflow: "break",
-    });
   });
 });
 
@@ -310,11 +216,12 @@ describe("maturityColumnOption", () => {
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual(["#aa0000", "#00bb00", "#0000cc"]);
   });
 
-  it("keeps every level's label, wrapped at a space, the grid as built", () => {
+  it("asks the builder to wrap every level's label within the BPM band, and returns its option as built", () => {
     const option = maturityColumnOption(rows, { chrome, isRtl: false, label, color, seriesName: "P" }) as any;
+    expect(ctxOf().wrapLabelsAt).toBe(BPM_COLUMN_LABEL_WIDTH);
+    expect(option).toBe(vi.mocked(buildOption).mock.results[0].value);
     expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
     expect(option.xAxis.axisLabel.formatter("4 - Measured")).toBe("4 -\nMeasured");
-    expect(option.grid).toBe(vi.mocked(buildOption).mock.results[0].value.grid);
     expect(option.grid).toMatchObject({ top: 16, bottom: 8, containLabel: true });
   });
 
@@ -343,11 +250,12 @@ describe("automationColumnOption", () => {
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual([brand.primary, brand.primary, brand.primary]);
   });
 
-  it("keeps every level's label, wrapped at a space, the grid as built", () => {
+  it("asks the builder to wrap every level's label within the BPM band, and returns its option as built", () => {
     const option = automationColumnOption(rows, { chrome, isRtl: false, label, seriesName: "P" }) as any;
+    expect(ctxOf().wrapLabelsAt).toBe(BPM_COLUMN_LABEL_WIDTH);
+    expect(option).toBe(vi.mocked(buildOption).mock.results[0].value);
     expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
     expect(option.xAxis.axisLabel.formatter("Partially Automated")).toBe("Partially\nAutomated");
-    expect(option.grid).toBe(vi.mocked(buildOption).mock.results[0].value.grid);
     expect(option.grid).toMatchObject({ top: 16, bottom: 8, containLabel: true });
   });
 

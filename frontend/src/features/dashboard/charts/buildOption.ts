@@ -35,6 +35,7 @@ import {
   VALUE_LABEL_FONT_SIZE,
   valueLabel,
   valueLabelInset,
+  wrappedAxisLabel,
   type ChartChromeContext,
 } from "@/components/charts/chrome";
 import { STATUS_COLORS } from "@/theme/tokens";
@@ -98,6 +99,13 @@ export interface BuildContext extends ChartChromeContext {
   targetLabel?: string;
   /** Series name shown in tooltips. */
   seriesName?: string;
+  /**
+   * Column chart: keep every category label, wrapped at a space onto at most
+   * two lines, each line truncated to this width in px (`wrappedAxisLabel`).
+   * By default a column label stays on one line, truncated at 96 px, and
+   * labels that would overlap are thinned.
+   */
+  wrapLabelsAt?: number;
   /** Print each mark's figure — bars, columns, stacked segments, treemap
    *  tiles and heatmap cells (`VALUE_LABEL_KINDS`); ignored elsewhere. */
   showValues?: boolean;
@@ -313,7 +321,9 @@ function buildColumn(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreO
       data: data.map((r) => ctx.labels(r.key)),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: ctx.theme.divider } },
-      axisLabel: axisLabel(ctx, { interval: 0, hideOverlap: true, width: 96, overflow: "truncate" }),
+      axisLabel: ctx.wrapLabelsAt
+        ? wrappedAxisLabel(ctx, ctx.wrapLabelsAt)
+        : axisLabel(ctx, { interval: 0, hideOverlap: true, width: 96, overflow: "truncate" }),
     },
     yAxis: {
       type: "value",

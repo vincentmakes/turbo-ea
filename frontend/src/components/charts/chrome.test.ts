@@ -21,6 +21,9 @@ import {
   VALUE_LABEL_FONT_SIZE,
   valueLabel,
   valueLabelInset,
+  WRAPPED_LABEL_LINE_HEIGHT,
+  wrapAtSpace,
+  wrappedAxisLabel,
   type ChartChromeContext,
 } from "./chrome";
 import { buildEChartsChrome } from "./echartsTheme";
@@ -267,5 +270,64 @@ describe("escapeHtml", () => {
   it("is the shared leaf, re-exported for tooltip formatters", () => {
     expect(escapeHtml).toBe(escapeHtmlLeaf);
     expect(escapeHtml("<b>&</b>")).toBe("&lt;b&gt;&amp;&lt;/b&gt;");
+  });
+});
+
+describe("wrapAtSpace", () => {
+  it("breaks a two-word label at its space", () => {
+    expect(wrapAtSpace("Partially Automated")).toBe("Partially\nAutomated");
+  });
+
+  it("breaks at the space closest to the middle, never after the level number", () => {
+    expect(wrapAtSpace("2 - Managed")).toBe("2 -\nManaged");
+    expect(wrapAtSpace("4 - Measured")).toBe("4 -\nMeasured");
+  });
+
+  it("breaks an Arabic label only at a space, never inside a word", () => {
+    expect(wrapAtSpace("4 - مُقاس")).toBe("4 -\nمُقاس");
+    expect(wrapAtSpace("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
+  });
+
+  it("leaves a single word whole, on one line", () => {
+    expect(wrapAtSpace("Manual")).toBe("Manual");
+    expect(wrapAtSpace("مُحسَّن")).toBe("مُحسَّن");
+    expect(wrapAtSpace("")).toBe("");
+  });
+
+  it("makes exactly two lines of three words, split nearest the middle", () => {
+    expect(wrapAtSpace("aaa b c")).toBe("aaa\nb c");
+    expect(wrapAtSpace("a b ccc")).toBe("a b\nccc");
+    // Both spaces are as far from the middle: the earlier one wins.
+    expect(wrapAtSpace("a b c")).toBe("a\nb c");
+  });
+
+  it("trims spaces around the label and around the break", () => {
+    expect(wrapAtSpace("  Manual  ")).toBe("Manual");
+    expect(wrapAtSpace(" Partially Automated ")).toBe("Partially\nAutomated");
+    expect(wrapAtSpace("a  bb")).toBe("a\nbb");
+    expect(wrapAtSpace("aa  b")).toBe("aa\nb");
+  });
+});
+
+describe("wrappedAxisLabel", () => {
+  it("shows every label on two 14 px lines, each truncated within the given width", () => {
+    expect(WRAPPED_LABEL_LINE_HEIGHT).toBe(14);
+    expect(wrappedAxisLabel(ctx(), 50)).toEqual({
+      color: theme.textSecondary,
+      fontSize: 12,
+      interval: 0,
+      hideOverlap: false,
+      overflow: "truncate",
+      width: 50,
+      lineHeight: 14,
+      formatter: expect.any(Function),
+    });
+  });
+
+  it("wraps each label at a space through its formatter", () => {
+    const { formatter } = wrappedAxisLabel(ctx(), 50) as any;
+    expect(formatter("2 - Managed")).toBe("2 -\nManaged");
+    expect(formatter("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
+    expect(formatter("Manual")).toBe("Manual");
   });
 });

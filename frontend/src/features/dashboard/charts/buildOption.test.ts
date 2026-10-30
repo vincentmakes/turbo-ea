@@ -944,3 +944,37 @@ describe("helpers", () => {
     expect(chrome.categorical).toBe(CHART_CATEGORICAL.light);
   });
 });
+
+describe("column labels", () => {
+  it("keeps one line per label by default, truncated at 96 px and thinned where they overlap", () => {
+    expect(opt("column").xAxis.axisLabel).toEqual({
+      color: chrome.textSecondary,
+      fontSize: 12,
+      interval: 0,
+      hideOverlap: true,
+      width: 96,
+      overflow: "truncate",
+    });
+  });
+
+  it("wraps every label at a space within `wrapLabelsAt`, none thinned, the grid as before", () => {
+    const o = opt("column", ROWS, { wrapLabelsAt: 64 });
+    expect(o.xAxis.axisLabel).toEqual({
+      color: chrome.textSecondary,
+      fontSize: 12,
+      interval: 0,
+      hideOverlap: false,
+      overflow: "truncate",
+      width: 64,
+      lineHeight: 14,
+      formatter: expect.any(Function),
+    });
+    expect(o.xAxis.axisLabel.formatter("Partially Automated")).toBe("Partially\nAutomated");
+    expect(o.grid).toEqual(opt("column").grid);
+  });
+
+  it("wraps column labels only: the other category axes keep their own label rules", () => {
+    expect(opt("bar", ROWS, { wrapLabelsAt: 64 }).yAxis.axisLabel).not.toHaveProperty("formatter");
+    expect(opt("line", ROWS, { wrapLabelsAt: 64 }).xAxis.axisLabel).not.toHaveProperty("formatter");
+  });
+});

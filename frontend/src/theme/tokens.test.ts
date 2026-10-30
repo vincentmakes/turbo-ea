@@ -3,7 +3,10 @@
  * module: the tokens are built while the file loads, and the copy every other
  * test imports was loaded outside any test.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { describeSourceScan } from "@/test/sourceScan";
 
 async function freshTokens() {
   vi.resetModules();
@@ -181,6 +184,7 @@ describe("BPM tokens", () => {
     });
     expect(t.BPM_UNSET_COLOR).toBe("#bdbdbd");
     expect(t.BPM_CALLED_PROCESS_COLOR).toBe("#028f00");
+    expect(t.BPM_CALLED_PROCESS_COLOR).toBe(t.CARD_TYPE_COLORS.BusinessProcess);
     expect(t.BPM_HIGHLIGHT_FILL).toBe("#e8f5e9");
     expect(t.BPM_FLOW_ACCENT_COLOR).toBe("#7b1fa2");
     expect(t.BPM_AUTOMATED_STEP_TINT).toBe("#7e57c2");
@@ -230,5 +234,33 @@ describe("BPM tokens", () => {
     expect(t.BPM_MESSAGE_FLOW_COLOR).toBe(t.BPMN_ELEMENT_COLORS.messaging);
     expect(t.BPMN_DARK_THEME["--bio-surface"]).toBe(t.surface.dark.paper);
     expect(t.BPMN_DARK_THEME["--bio-surface-overlay"]).toBe(t.surface.dark.paper);
+  });
+});
+
+// The static card-type fallbacks stand in for the seeded types wherever the
+// metamodel is not loaded, so each must be the colour `seed.py` gives that
+// type. `BusinessProcess` drifted to an older palette's orange (#e65100) for
+// months before anyone compared the two.
+describeSourceScan("card-type fallbacks match the seeded card types", () => {
+  const SEED_FILE = path.resolve(__dirname, "../../../backend/app/services/seed.py");
+
+  /** `{ TypeKey: "#rrggbb" }` for every seeded card type, read off `seed.py` as text. */
+  function seededTypeColors(): Record<string, string> {
+    const text = fs.readFileSync(SEED_FILE, "utf-8");
+    const colors: Record<string, string> = {};
+    // A card type entry opens with its key and names its colour a few lines on.
+    const entry = /"key": "([A-Z]\w+)",\n(?:[^\n]*\n){0,6}?\s*"color": "(#[0-9a-fA-F]{6})"/g;
+    for (const m of text.matchAll(entry)) colors[m[1]] = m[2].toLowerCase();
+    return colors;
+  }
+
+  it("gives every seeded card type the colour the seed gives it", async () => {
+    const t = await freshTokens();
+    const seeded = seededTypeColors();
+    const compared = Object.keys(t.CARD_TYPE_COLORS).filter((key) => key in seeded);
+    expect(compared.length).toBeGreaterThanOrEqual(13);
+    for (const key of compared) {
+      expect({ [key]: t.CARD_TYPE_COLORS[key as keyof typeof t.CARD_TYPE_COLORS] }).toEqual({ [key]: seeded[key] });
+    }
   });
 });
