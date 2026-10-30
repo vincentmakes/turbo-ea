@@ -103,6 +103,8 @@ Le score de **qualité des données** d'une fiche mesure de manière pondérée 
 
 **Les champs obligatoires priment sur le score.** Tant qu'un champ obligatoire d'une fiche reste vide, son score reste à **0** quelles que soient les pondérations — le calcul pondéré ne s'applique qu'une fois tous les champs obligatoires remplis (les champs booléens et en lecture seule sont exemptés ; voir le réglage **Obligatoire** ci-dessus).
 
+Un champ est considéré comme renseigné dès qu'il contient une valeur. Pour un champ Oui / Non, **Oui** comme **Non** comptent — seul **Aucun** est vide — et un champ numérique compte lorsqu'il contient 0.
+
 L'importance de chaque facteur se règle avec un simple curseur à quatre niveaux, qui affiche aussi le nombre sous-jacent :
 
 - **Ignorer (0)** – entièrement exclu du score.

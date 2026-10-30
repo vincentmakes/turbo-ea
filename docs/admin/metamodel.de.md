@@ -102,6 +102,8 @@ Der **Datenqualitätswert** einer Karte ist ein gewichtetes Maß für ihre Volls
 
 **Pflichtfelder haben Vorrang vor der Bewertung.** Solange ein Pflichtfeld einer Karte leer ist, bleibt ihr Wert unabhängig von den Gewichtungen bei **0** — die gewichtete Berechnung greift erst, wenn alle Pflichtfelder ausgefüllt sind (boolesche und schreibgeschützte Felder sind ausgenommen; siehe die Einstellung **Pflichtfeld** oben).
 
+Ein Feld gilt als ausgefüllt, sobald es einen Wert enthält. Bei einem Ja/Nein-Feld zählen sowohl **Ja** als auch **Nein** – nur **Keine** gilt als leer –, und ein Zahlenfeld zählt, wenn es 0 enthält.
+
 Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier Stufen festgelegt, der auch die zugrunde liegende Zahl anzeigt:
 
 - **Ignorieren (0)** – vollständig aus dem Wert ausgeschlossen.

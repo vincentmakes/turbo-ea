@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A card's data quality score now says what to fill: hovering it lists the three things that would raise it most and how many points each would add; clicking it opens the full breakdown, with what already counts and, while empty required fields hold the score at 0%, which fields those are and what the score would be without them; each item links to the section where it is filled.
 - Gamified data quality, an option administrators can turn on in Settings → General: saving a change that raises a card's data quality makes its score fill up like a health bar with a flying +X%, a slim score bar follows you down the card page, and reaching the green band or 100% earns a short burst of confetti. Off by default; users with reduced motion turned on see the change without animation.
 
+### Fixed
+- A yes/no field set to **No** now counts as filled for the data quality score, like any other maintained value; it used to score as empty, so the breakdown promised a gain that choosing No never delivered. Scores are recomputed when the server starts.
+
 ### Changed
 - Related cards on a card's page are real links: middle-click, Ctrl/Cmd-click or right-click → *Open in new tab* on a relation, a hierarchy parent, child or breadcrumb, a Lineage predecessor or successor, a row of the **+N in sub-items** list, a stakeholder's hover card or a BPM step's linked process now opens it in a new browser tab, while a plain click still opens it in place.
 

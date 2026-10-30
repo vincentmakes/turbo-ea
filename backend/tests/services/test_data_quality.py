@@ -1050,24 +1050,42 @@ class TestScoreBreakdown:
         ]
         assert slot.filled is False
 
-    async def test_a_field_counts_on_zero_but_not_on_false_blank_or_cleared(self):
+    async def test_a_field_counts_on_zero_yes_and_no_but_not_on_blank_or_cleared(self):
+        """An explicit No is a maintained yes/no field (three states since #1266): it
+        counts, like 0; only None, "" and [] are empty."""
         from app.services.data_quality import CardFacts, score_breakdown
 
-        keys = ("zero", "no", "blank", "cleared", "missing")
-        schema = [{"section": "S", "fields": [{"key": k, "type": "text"} for k in keys]}]
+        keys = ("zero", "no", "yes", "blank", "cleared", "missing")
+        schema = [
+            {
+                "section": "S",
+                "fields": [
+                    {"key": k, "type": "boolean" if k in ("no", "yes") else "text"} for k in keys
+                ],
+            }
+        ]
         ctx, _ = _ctx(fields_schema=schema, mandatory=None, counting_role_keys=())
         card = self._card(
-            subtype=None, attributes={"zero": 0, "no": False, "blank": "", "cleared": []}
+            subtype=None,
+            attributes={"zero": 0, "no": False, "yes": True, "blank": "", "cleared": []},
         )
         bd = score_breakdown(card, ctx, CardFacts())
         assert {f.key: f.filled for f in bd.factors} == {
             "zero": True,
-            "no": False,
+            "no": True,
+            "yes": True,
             "blank": False,
             "cleared": False,
             "missing": False,
         }
-        assert (bd.total_weight, bd.filled_weight, bd.score) == (5.0, 1.0, 20.0)
+        assert (bd.total_weight, bd.filled_weight, bd.score) == (6.0, 3.0, 50.0)
+        # Setting the No delivers exactly the gain the breakdown promised for it.
+        before = score_breakdown(
+            self._card(subtype=None, attributes={"zero": 0, "yes": True}), ctx, CardFacts()
+        )
+        (slot,) = [f for f in before.factors if f.key == "no"]
+        assert slot.filled is False
+        assert before.score + before.gain(slot) == bd.score
 
     async def test_each_mandatory_tag_group_is_its_own_slot(self):
         import uuid as _uuid

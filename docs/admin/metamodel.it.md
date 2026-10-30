@@ -103,6 +103,8 @@ Il punteggio di **qualità dei dati** di una card misura in modo ponderato quant
 
 **I campi obbligatori prevalgono sul punteggio.** Finché un campo obbligatorio di una card resta vuoto, il suo punteggio rimane a **0** indipendentemente dai pesi — il calcolo ponderato si applica solo quando tutti i campi obbligatori sono compilati (i campi booleani e in sola lettura sono esenti; vedi l'impostazione **Obbligatorio** sopra).
 
+Un campo conta come compilato non appena contiene un valore. Per un campo Sì / No contano sia **Sì** sia **No** — solo **Nessuno** è vuoto — e un campo numerico conta quando contiene 0.
+
 L'importanza di ciascun fattore si imposta con un semplice cursore a quattro livelli, che mostra anche il numero sottostante:
 
 - **Ignora (0)** — escluso completamente dal punteggio.

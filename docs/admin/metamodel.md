@@ -104,6 +104,8 @@ A card's **data quality** score is a weighted measure of how complete it is. Eve
 
 **Mandatory fields override the score.** While any required field on a card is still empty, its score is pinned to **0** regardless of the weights — the weighted calculation only applies once every required field is filled (boolean and read-only fields are exempt; see the **Required** setting above).
 
+A field counts as filled as soon as it holds a value. For a yes/no field both **Yes** and **No** count — only **None** is empty — and a number field counts when it holds 0.
+
 Each factor has an importance set with a simple slider across four tiers, which also shows the underlying number:
 
 - **Ignore (0)** — excluded from the score entirely.

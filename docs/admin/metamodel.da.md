@@ -102,6 +102,8 @@ Et korts **datakvalitetsscore** er et vægtet mål for, hvor komplet det er. Hve
 
 **Påkrævede felter tilsidesætter scoren.** Så længe et påkrævet felt på et kort er tomt, forbliver dets score på **0** uanset vægtene — den vægtede beregning gælder først, når alle påkrævede felter er udfyldt (boolske og skrivebeskyttede felter er undtaget; se indstillingen **Påkrævet** ovenfor).
 
+Et felt tæller som udfyldt, så snart det har en værdi. For et Ja/Nej-felt tæller både **Ja** og **Nej** — kun **Ingen** er tomt — og et talfelt tæller, når det indeholder 0.
+
 Hver faktors vigtighed angives med en enkel skyder over fire niveauer, der også viser det underliggende tal:
 
 - **Ignorér (0)** – udelukket helt fra scoren.

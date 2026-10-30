@@ -103,6 +103,8 @@ La puntuación de **calidad de datos** de una tarjeta mide de forma ponderada cu
 
 **Los campos obligatorios prevalecen sobre la puntuación.** Mientras algún campo obligatorio de una tarjeta siga vacío, su puntuación permanece en **0** independientemente de los pesos: el cálculo ponderado solo se aplica una vez completados todos los campos obligatorios (los campos booleanos y de solo lectura están exentos; consulta el ajuste **Requerido** más arriba).
 
+Un campo cuenta como completado en cuanto contiene un valor. En un campo Sí / No cuentan tanto **Sí** como **No** — solo **Ninguno** está vacío — y un campo numérico cuenta cuando contiene 0.
+
 La importancia de cada factor se establece con un control deslizante simple de cuatro niveles, que también muestra el número subyacente:
 
 - **Ignorar (0)**: excluido por completo de la puntuación.

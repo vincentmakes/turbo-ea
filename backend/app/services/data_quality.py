@@ -277,10 +277,12 @@ def score_breakdown(card: Card, ctx: ScoringContext, facts: CardFacts) -> ScoreB
             val = attrs.get(field["key"])
             # `[]` is an emptied multiple_select — the mandatory gate above and
             # `_is_empty_attr` both read it as empty, so scoring it as filled
-            # was a self-contradiction. `False` stays excluded by the identity
-            # check (a boolean set to false is "not filled" for scoring); `0`
-            # stays filled.
-            filled = val is not None and val != "" and val != [] and val is not False
+            # was a self-contradiction. A boolean has three states since #1266
+            # (None / Yes / No): an explicit **No** is a maintained value and
+            # counts, exactly like `0`; only None, "" and [] are empty — the
+            # same rule as `isEmptyAttrValue` on the client, so the breakdown
+            # never promises a gain that setting the field cannot deliver.
+            filled = val is not None and val != "" and val != []
             if filled:
                 filled_weight += weight
             factors.append(
