@@ -190,11 +190,12 @@ class TestDataQualityCalculation:
         assert resp.status_code == 201
         assert resp.json()["data_quality"] == 100.0
 
-    async def test_false_value_counts_as_unfilled(self, client, db, biz_env):
-        """Boolean False should not count as filled.
+    async def test_false_value_counts_as_filled(self, client, db, biz_env):
+        """An explicit No on a yes/no field is a maintained value and counts.
 
-        On a boolean field, where False is a legal value: a cost or number
-        field refuses a bool outright (``test_cost_values.py``).
+        A boolean has three states since #1266 (None / Yes / No); only None is
+        empty. On a boolean field, where False is a legal value: a cost or
+        number field refuses a bool outright (``test_cost_values.py``).
         """
         admin = biz_env["admin"]
         await create_card_type(
@@ -220,7 +221,16 @@ class TestDataQualityCalculation:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 201
-        assert resp.json()["data_quality"] == 0.0
+        # isCritical(1) + description(1) + lifecycle(1): the No fills its slot.
+        assert resp.json()["data_quality"] == 33.3
+
+        unset = await client.post(
+            "/api/v1/cards",
+            json={"type": "Flagged", "name": "Unset Flag", "attributes": {}},
+            headers=auth_headers(admin),
+        )
+        assert unset.status_code == 201
+        assert unset.json()["data_quality"] == 0.0
 
     async def test_empty_string_counts_as_unfilled(self, client, db, biz_env):
         """Empty string should not count as filled."""
