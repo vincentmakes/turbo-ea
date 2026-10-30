@@ -39,8 +39,8 @@ echarts.use([
   TooltipComponent,
   LegendComponent,
   VisualMapComponent,
-  // Not drawn by any chart yet: the PPM cost charts' dotted budget reference
-  // lines become a `markLine` when they move to ECharts (PR 2). Keep it.
+  // Draws the PPM cost charts' dotted budget reference lines (a `markLine` on
+  // the first line series, `features/ppm/cumulativeChartOption.ts`).
   MarkLineComponent,
   AriaComponent,
   CanvasRenderer,

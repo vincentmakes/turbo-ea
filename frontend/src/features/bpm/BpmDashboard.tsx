@@ -32,8 +32,6 @@ import type { BpmDashboardData, DashboardKeyRow } from "@/types";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import { useBpmFieldOptions } from "./useBpmFieldOptions";
 import {
-  BPM_NEUTRAL_COLOR,
-  MATURITY_COLORS,
   automationColumnOption,
   maturityColor,
   maturityColumnOption,
@@ -255,9 +253,12 @@ function BpmDashboardContent() {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={p.maturity}
+                        label={resolveMaturity(p.maturity).label}
                         size="small"
-                        sx={{ bgcolor: MATURITY_COLORS[p.maturity] || BPM_NEUTRAL_COLOR, color: "#fff" }}
+                        sx={{
+                          bgcolor: maturityColor(p.maturity, resolveMaturity(p.maturity).color),
+                          color: "#fff",
+                        }}
                       />
                     </TableCell>
                   </TableRow>

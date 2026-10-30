@@ -254,7 +254,7 @@ describe("buildCostTreemapOption", () => {
 });
 
 describe("tileLabelTier", () => {
-  it("keeps the old Recharts thresholds: a name above 50 × 30 px, a cost above 70 × 45 px", () => {
+  it("keeps the treemap's long-standing thresholds: a name above 50 × 30 px, a cost above 70 × 45 px", () => {
     expect(TILE_NAME_MIN).toEqual({ width: 50, height: 30 });
     expect(TILE_VALUE_MIN).toEqual({ width: 70, height: 45 });
   });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 
@@ -319,11 +319,23 @@ describe("BpmDashboard", () => {
     });
   });
 
-  it("colours a risk row's maturity chip from the CMMI scale, neutral when unknown", async () => {
+  it("labels a risk row's maturity chip with the resolved option label, not the raw key", async () => {
+    await renderDashboard();
+
+    const chips = within(screen.getByRole("table"))
+      .getAllByText(/./, { selector: ".MuiChip-label" })
+      .map((el) => el.textContent);
+    expect(chips).toEqual(["critical", "Initial", "high", "Managed", "high", "gone"]);
+    expect(screen.queryByText("initial")).not.toBeInTheDocument();
+    expect(screen.queryByText("managed")).not.toBeInTheDocument();
+  });
+
+  it("colours a risk row's maturity chip like its chart column: option colour, else the CMMI scale, else neutral", async () => {
     await renderDashboard();
 
     const chip = (label: string) => screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
-    expect(chip("initial")).toHaveStyle({ backgroundColor: MATURITY_COLORS.initial });
+    expect(chip("Initial")).toHaveStyle({ backgroundColor: "#123456" });
+    expect(chip("Managed")).toHaveStyle({ backgroundColor: MATURITY_COLORS.managed });
     expect(chip("gone")).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral });
   });
 

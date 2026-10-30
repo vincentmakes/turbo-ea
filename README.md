@@ -556,7 +556,7 @@ npm run build         # TypeScript check + production build
 ```
 ┌───────────────────────────────────────────────────────────┐
 │  Browser                                                  │
-│  React 19 + MUI 6 + React Router 8 + Recharts + AG Grid   │
+│  React 19 + MUI 6 + React Router 8 + ECharts + AG Grid    │
 │  Vite dev server (port 5173) / Nginx in production        │
 └──────────────────────────┬────────────────────────────────┘
                            │  /api/* (proxy)

@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.183.0] - 2026-10-30
+
+### Changed
+- The BPM dashboard's process-type, maturity and automation charts, the process assessment trend and the PPM cumulative cost charts are drawn with the same ECharts engine as the dashboards and reports; Recharts is no longer used by the application (the extension SDK keeps `loadRecharts` until UI SDK 2.0).
+
+### Fixed
+- BPM maturity and automation charts showed raw option keys (`fullyAutomated`, `defined`, …) instead of the translated option labels and dropped every other axis label; the maturity chip in the top-risk table showed the raw key too.
+- The PPM cost charts lost their value-axis labels and clipped the budget-line labels in right-to-left locales.
+
 ## [2.182.0] - 2026-10-30
 
 ### Added

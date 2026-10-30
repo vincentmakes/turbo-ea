@@ -14,8 +14,8 @@
  *
  * Kept only because UI extensions reach it on
  * `window.TurboEA.sdk.useChartTheme` (UI SDK 1.9, paired with the equally
- * deprecated `sdk.loadRecharts()`) and the PPM cost charts still use it until
- * they move to ECharts; no other core chart does.
+ * deprecated `sdk.loadRecharts()`) until UI SDK 2.0; no core chart uses it
+ * any more.
  */
 
 import { useTheme } from "@mui/material/styles";

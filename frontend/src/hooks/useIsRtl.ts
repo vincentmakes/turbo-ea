@@ -6,7 +6,7 @@ import { isRtlLocale } from "@/i18n";
  *
  * The global RTL plumbing (MUI theme direction, emotion cache swap, document
  * `dir`) is wired in `App.tsx`. This hook exposes the same signal to individual
- * components — notably third-party widgets (AG Grid, Recharts) that need their
+ * components — notably third-party widgets (AG Grid, ECharts) that need their
  * own direction flag because they don't inherit `dir` from the DOM/theme.
  */
 export function useIsRtl(): boolean {

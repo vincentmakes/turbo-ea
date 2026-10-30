@@ -21,8 +21,9 @@
  * tall narrow one. ECharts has no per-line "fit or vanish", but it lays every
  * tile out before it formats the tile's label, so the label formatter asks
  * the page for the tile's rectangle (`tileRect`, read from the live chart)
- * and prints nothing, the name alone, or the name and the cost by the old
- * Recharts width and height thresholds (`tileLabelTier`).
+ * and prints nothing, the name alone, or the name and the cost by fixed
+ * width and height thresholds (`tileLabelTier`), the ones the treemap has
+ * always used.
  */
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
@@ -69,14 +70,14 @@ export interface CostTreemapOptions {
 }
 
 /**
- * A tile prints its name only when wider and taller than this (px) — the old
- * Recharts thresholds.
+ * A tile prints its name only when wider and taller than this (px) — the
+ * thresholds the treemap has always used.
  */
 export const TILE_NAME_MIN = { width: 50, height: 30 } as const;
 
 /**
  * A tile prints its cost under the name only when wider and taller than this
- * (px) — the old Recharts thresholds.
+ * (px) — the thresholds the treemap has always used.
  */
 export const TILE_VALUE_MIN = { width: 70, height: 45 } as const;
 

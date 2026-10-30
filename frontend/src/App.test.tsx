@@ -45,7 +45,7 @@ vi.mock("@/components/ModuleGate", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-// Stub the two lazy pages these tests reach, so AG Grid / Recharts stay out of
+// Stub the two lazy pages these tests reach, so AG Grid / ECharts stay out of
 // the suite.
 vi.mock("@/features/dashboard/Dashboard", () => ({
   default: () => <div>dashboard page</div>,
