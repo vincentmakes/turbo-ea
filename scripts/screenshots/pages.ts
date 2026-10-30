@@ -2292,6 +2292,33 @@ export const DOC_PAGES: PageDef[] = [
       ru: "95_admin_nastroyki_moduli",
     },
   },
+  // The Gamified data quality toggle (#1334 follow-up), centred like the
+  // modules shot; the capture run turns the setting on first so the chip reads On.
+  {
+    id: "95c_admin_settings_gamification",
+    route: "/admin/settings",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 800 },
+      {
+        type: "scroll",
+        target: i18nLabels("admin:settings.gamification.title")
+          .map((l) => `h6:has-text("${hasTextArg(l)}")`)
+          .join(", "),
+      },
+      { type: "wait", ms: 400 },
+    ],
+    filenames: {
+      en: "95c_admin_settings_gamification",
+      de: "95c_admin_einstellungen_gamification",
+      fr: "95c_admin_parametres_gamification",
+      es: "95c_admin_config_gamificacion",
+      it: "95c_admin_impostazioni_gamification",
+      pt: "95c_admin_config_gamificacao",
+      zh: "95c_admin_settings_gamification",
+      ru: "95c_admin_nastroyki_gamifikatsiya",
+    },
+  },
   {
     id: "95a_admin_settings_email",
     route: "/admin/settings",

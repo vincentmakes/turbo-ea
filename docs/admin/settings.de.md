@@ -4,7 +4,7 @@ Die **Einstellungen**-Seite unter **Admin → Einstellungen** (`/admin/settings`
 
 | Reiter | URL | Was er steuert | Vollständige Anleitung |
 |--------|-----|----------------|------------------------|
-| **Allgemein** | `/admin/settings?tab=general` | Erscheinungsbild (Logo, Favicon, Währung, Datumsformat, aktivierte Sprachen, Geschäftsjahr), E-Mail-Versand, **Modul-Schalter** (BPM, PPM, GRC, TurboLens, Sponsor button) | Diese Seite |
+| **Allgemein** | `/admin/settings?tab=general` | Erscheinungsbild (Logo, Favicon, Währung, Datumsformat, aktivierte Sprachen, Geschäftsjahr), E-Mail-Versand, **Modul-Schalter** (BPM, PPM, GRC, TurboLens, Sponsor button, Gamifizierte Datenqualität) | Diese Seite |
 | **Authentifizierung** | `/admin/settings?tab=authentication` | SSO-Provider, Registrierung, Passwortrichtlinie | [Authentifizierung & SSO](sso.md) |
 | **KI** | `/admin/settings?tab=ai` | LLM-Provider, Modell, Websuch-Backend, Pro-Kartentyp-KI-Suggestionsschalter | [KI-Funktionen](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massen-Verknüpfung von Produkten zu endoflife.date-Einträgen | [End-of-Life (EOL)](eol.md) |
@@ -213,6 +213,22 @@ Wie die Release-Prüfung dient dies **nur der Information** — es wird nichts h
 Blenden Sie die **Sponsor**-Schaltfläche im Benutzermenü (Avatar) ein oder aus. Wenn sie ausgeblendet ist, sehen Benutzer die Sponsor-Schaltfläche nicht mehr in ihrem Profilmenü. Die Sponsor-Schaltfläche — und der Dialog, der erklärt, wie man Turbo EA unterstützt — bleibt in diesem Einstellungsbereich immer verfügbar, sodass Administratoren sie auch dann erreichen, wenn sie im Menü ausgeblendet ist.
 
 Wenn Ihr Unternehmen Turbo EA sponsert und sein Logo auf turbo-ea.org präsentieren möchte, wenden Sie sich an [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Gamifizierte Datenqualität
+
+![Schalter für gamifizierte Datenqualität](../assets/img/de/95c_admin_einstellungen_gamification.png)
+
+Aktivieren Sie diese Option, um jedes Speichern zu feiern, das die Datenqualität einer Karte verbessert. Sie ist standardmäßig **aus** und gilt für alle Benutzer; es gibt keine Einstellung pro Benutzer.
+
+Solange sie aktiv ist, löst das Speichern einer Änderung, die den Wert einer Karte erhöht, eine kurze Belohnung auf der Kartenseite und im Karten-Vorschaubereich aus:
+
+- der **Datenqualitätsring** poppt auf, seine Füllung wächst wie eine Lebensleiste auf den neuen Wert, und die Zahl zählt hoch;
+- ein grünes **+X%** (die durch das Speichern hinzugewonnenen Punkte) steigt darüber auf und blendet aus;
+- auf der Kartenseite bleibt, sobald Sie am Kartenkopf vorbeigescrollt haben, eine schmale **Wertungsleiste** mit Namen und Wert der Karte unter der oberen Leiste angeheftet und spielt dieselbe Animation ab, wenn Sie weiter unten auf der Seite speichern.
+
+Zwei Momente zählen als **Meilensteine** und lösen einen kurzen Konfettiregen mit einer Beschriftung aus: das Erreichen des grünen Bereichs (**80%** und mehr, *Geschafft!*) und das Erreichen von **100%** (*Perfekte Punktzahl!*). Ein Speichern, das den Wert senkt, wird nie animiert; die Zahl wird einfach aktualisiert.
+
+Benutzer, die in ihrem Betriebssystem **reduzierte Bewegung** aktiviert haben, sehen keine Bewegung: Der Wert wird sofort aktualisiert, und zwei Sekunden lang erscheint eine statische **+X%**-Angabe. Screenreader kündigen den Zuwachs einmal an (zum Beispiel *+6,7% Datenqualität*).
 
 ## TurboLens-Einstellungen
 

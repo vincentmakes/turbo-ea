@@ -4,7 +4,7 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 
 | Aba | URL | O que controla | Guia completo |
 |-----|-----|----------------|---------------|
-| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button) | Esta página |
+| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualidade dos dados gamificada) | Esta página |
 | **Autenticação** | `/admin/settings?tab=authentication` | Provedores SSO, registro, política de senha | [Autenticação e SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Provedor LLM, modelo, backend de busca web, alternâncias de sugestão IA por tipo de card | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculação em massa de produtos a entradas de endoflife.date | [Fim de vida (EOL)](eol.md) |
@@ -213,6 +213,22 @@ Tal como a verificação de versões, isto é **apenas informativo** — nada é
 Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando está oculto, os utilizadores deixam de ver o botão Apoiar no seu menu de perfil. O botão Apoiar — e a caixa de diálogo que explica como apoiar o Turbo EA — permanece sempre disponível neste painel de definições, pelo que os administradores ainda conseguem aceder-lhe mesmo quando está oculto no menu.
 
 Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado em turbo-ea.org, contacte [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Qualidade dos dados gamificada
+
+![Botão da qualidade dos dados gamificada](../assets/img/pt/95c_admin_config_gamificacao.png)
+
+Ative esta opção para celebrar cada gravação que melhora a qualidade dos dados de uma ficha. Está **desativada** por predefinição e aplica-se a todos; não existe uma definição por utilizador.
+
+Enquanto estiver ativa, gravar uma alteração que aumenta a pontuação de uma ficha reproduz uma breve recompensa na página da ficha e no painel de pré-visualização da ficha:
+
+- o **anel de qualidade dos dados** cresce, o seu preenchimento aumenta até à nova pontuação como uma barra de vida, e o número vai subindo;
+- um **+X%** verde (os pontos que a gravação acrescentou) sobe e desvanece-se acima dele;
+- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha, e reproduz a mesma animação quando grava mais abaixo na página.
+
+Dois momentos contam como **marcos** e recebem uma breve chuva de confete com uma legenda: atingir a faixa verde (**80%** ou mais, *Completo!*) e atingir **100%** (*Pontuação perfeita!*). Uma gravação que baixa a pontuação nunca é animada; o número é simplesmente atualizado.
+
+Os utilizadores que ativaram a **redução de movimento** no sistema operativo não veem qualquer movimento: a pontuação é atualizada de imediato e surge uma etiqueta **+X%** estática durante dois segundos. Os leitores de ecrã anunciam o ganho uma só vez (por exemplo, *+6,7% de qualidade dos dados*).
 
 ## Configurações do TurboLens
 

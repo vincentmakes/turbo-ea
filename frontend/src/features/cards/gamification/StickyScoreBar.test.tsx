@@ -48,7 +48,8 @@ describe("StickyScoreBar", () => {
     });
     expect(screen.getByTestId("score-gain-float")).toHaveTextContent(/^\+6\.7%$/);
     expect(screen.getByTestId("score-gain-float")).not.toHaveStyle({ bottom: "100%" });
-    expect(screen.getByRole("status")).toHaveTextContent(/^\+6\.7% data quality$/);
+    // The pill announces gains; the bar never does, or a reader would hear it twice.
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("counts the figure up to a higher score", async () => {

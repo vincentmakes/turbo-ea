@@ -49,6 +49,7 @@ import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolv
 import { bandColor } from "@/lib/dataQualityBands";
 import { jumpTargetFor, type DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import { ScoreBar } from "@/features/cards/gamification/ScoreBar";
+import { GainLiveRegion } from "@/features/cards/gamification/GainLiveRegion";
 import { ScoreGainBurst } from "@/features/cards/gamification/ScoreGainBurst";
 import {
   GHOST_HOLD_MS,
@@ -364,6 +365,7 @@ export function DataQualityPill({
             />
           )}
           {playing && <ScoreGainBurst key={playing.nonce} gain={playing} />}
+          <GainLiveRegion gain={playing} />
         </Box>
       ) : (
         pill

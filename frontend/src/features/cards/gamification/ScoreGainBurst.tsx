@@ -1,8 +1,9 @@
 /**
  * What a gain looks like for a moment: a "+X%" that rises and fades over its
  * anchor, and — for a milestone only — 14 confetti particles and a caption.
- * The gain is also announced once to assistive tech (`aria-live="polite"`), so
- * nothing here has to be seen to be understood.
+ * The gain is announced to assistive tech by the pill's persistent
+ * `GainLiveRegion`, not here: a status element that mounts with its text is
+ * often not read at all.
  *
  * With reduced motion it is a static success chip "+X%" (and the caption, for
  * a milestone) for two seconds: no movement, no particles.
@@ -24,19 +25,6 @@ import {
 } from "./scoreGain";
 import { useDqMotionStyles } from "./useDqMotionStyles";
 import { useReducedMotion } from "./useReducedMotion";
-
-/** Read by screen readers, invisible on screen. */
-const visuallyHidden = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-  m: "-1px",
-  p: 0,
-} as const;
 
 export function ScoreGainBurst({
   gain,
@@ -69,9 +57,6 @@ export function ScoreGainBurst({
       : gain.milestone === "complete"
         ? t("dataQuality.milestoneComplete")
         : null;
-  const announcement = [t("dataQuality.gainAnnouncement", { pct: gain.delta }), caption]
-    .filter(Boolean)
-    .join(" ");
 
   return (
     <Box
@@ -90,9 +75,6 @@ export function ScoreGainBurst({
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     >
-      <Box component="span" role="status" aria-live="polite" sx={visuallyHidden}>
-        {announcement}
-      </Box>
       {reduced ? (
         <Box
           aria-hidden

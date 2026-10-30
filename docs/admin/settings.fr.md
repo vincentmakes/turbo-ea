@@ -4,7 +4,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 
 | Onglet | URL | Ce qu'il contrôle | Guide complet |
 |--------|-----|-------------------|---------------|
-| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button) | Cette page |
+| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualité des données gamifiée) | Cette page |
 | **Authentification** | `/admin/settings?tab=authentication` | Fournisseurs SSO, inscription, politique de mot de passe | [Authentification & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |
@@ -213,6 +213,22 @@ Comme la vérification des versions, ceci relève **uniquement de l'information*
 Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lorsqu'il est masqué, les utilisateurs ne voient plus le bouton Soutenir dans leur menu de profil. Le bouton Soutenir — et la boîte de dialogue expliquant comment soutenir Turbo EA — reste toujours disponible depuis ce panneau de paramètres, de sorte que les administrateurs peuvent toujours y accéder même lorsqu'il est masqué du menu.
 
 Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, contactez-nous à [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Qualité des données gamifiée
+
+![Activation de la qualité des données gamifiée](../assets/img/fr/95c_admin_parametres_gamification.png)
+
+Activez cette option pour célébrer chaque enregistrement qui améliore la qualité des données d'une fiche. Elle est **désactivée** par défaut et s'applique à tout le monde ; il n'existe pas de réglage par utilisateur.
+
+Lorsqu'elle est active, l'enregistrement d'une modification qui augmente le score d'une fiche déclenche une courte récompense sur la page de la fiche et dans le panneau d'aperçu de la fiche :
+
+- l'**anneau de qualité des données** pulse, son remplissage grandit jusqu'au nouveau score comme une barre de vie, et le chiffre s'incrémente ;
+- un **+X%** vert (les points ajoutés par l'enregistrement) s'élève et s'estompe au-dessus ;
+- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche, et joue la même animation lorsque vous enregistrez plus bas dans la page.
+
+Deux moments comptent comme des **paliers** et déclenchent une courte pluie de confettis accompagnée d'une légende : l'entrée dans la zone verte (**80%** et plus, *Terminé !*) et l'atteinte de **100%** (*Score parfait !*). Un enregistrement qui fait baisser le score n'est jamais animé ; le nombre est simplement mis à jour.
+
+Les utilisateurs qui ont activé la **réduction des animations** dans leur système d'exploitation ne voient aucun mouvement : le score est mis à jour immédiatement et une étiquette **+X%** statique s'affiche pendant deux secondes. Les lecteurs d'écran annoncent le gain une seule fois (par exemple *+6,7% de qualité des données*).
 
 ## Paramètres TurboLens
 

@@ -31,7 +31,7 @@ describe("burstLifetime", () => {
 });
 
 describe("ScoreGainBurst", () => {
-  it("floats the gain and announces it once, politely", () => {
+  it("floats the gain, and leaves the announcing to the pill's live region", () => {
     render(<ScoreGainBurst gain={GAIN} />);
     const float = screen.getByTestId("score-gain-float");
     expect(float).toHaveTextContent(/^\+6\.7%$/);
@@ -39,10 +39,7 @@ describe("ScoreGainBurst", () => {
     expect(float).toHaveAttribute("aria-hidden", "true");
     expect(float).toHaveStyle({ color: "rgb(76, 175, 80)", bottom: "100%" });
 
-    const status = screen.getByRole("status");
-    expect(status).toHaveAttribute("aria-live", "polite");
-    expect(status).toHaveTextContent(/^\+6\.7% data quality$/);
-    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     expect(screen.queryAllByTestId("score-gain-confetti")).toHaveLength(0);
     expect(screen.queryByTestId("score-gain-caption")).not.toBeInTheDocument();
@@ -68,16 +65,12 @@ describe("ScoreGainBurst", () => {
     const caption = screen.getByTestId("score-gain-caption");
     expect(caption).toHaveTextContent(/^Perfect score!$/);
     expect(caption).toHaveClass("dq-caption");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      /^\+6\.7% data quality Perfect score!$/,
-    );
   });
 
   it("captions entering the green band as complete", () => {
     render(<ScoreGainBurst gain={COMPLETE} />);
     expect(screen.getByTestId("score-gain-caption")).toHaveTextContent(/^Complete!$/);
     expect(screen.getAllByTestId("score-gain-confetti")).toHaveLength(14);
-    expect(screen.getByRole("status")).toHaveTextContent(/^\+15% data quality Complete!$/);
   });
 
   it("removes itself once the float has finished", () => {
@@ -116,9 +109,6 @@ describe("ScoreGainBurst", () => {
       expect(screen.getByText("Perfect score!")).toBeInTheDocument();
       expect(screen.queryByTestId("score-gain-float")).not.toBeInTheDocument();
       expect(screen.queryAllByTestId("score-gain-confetti")).toHaveLength(0);
-      expect(screen.getByRole("status")).toHaveTextContent(
-        /^\+6\.7% data quality Perfect score!$/,
-      );
 
       act(() => vi.advanceTimersByTime(1999));
       expect(screen.getByTestId("score-gain-chip")).toBeInTheDocument();

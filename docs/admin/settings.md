@@ -216,6 +216,8 @@ If your company sponsors Turbo EA and would like its logo featured on turbo-ea.o
 
 ## Gamified data quality
 
+![Gamified data quality toggle](../assets/img/en/95c_admin_settings_gamification.png)
+
 Turn this on to celebrate every save that raises a card's data quality. It is **off** by default and applies to everyone; there is no per-user setting.
 
 While it is on, saving a change that raises a card's score plays a short reward on the card page and in the card preview panel:

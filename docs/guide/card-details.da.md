@@ -18,6 +18,8 @@ Toppen af kortet viser:
 - **Datakvalitets­ring** — Visuel indikator for informationsfuldstændighed (0–100%). Hold musen over den for at se de tre ting, der ville hæve scoren mest, hver med hvor mange point den ville tilføje (for eksempel *Udfyld Forretningskritikalitet +12,5%*). Klik på den (eller giv den fokus og tryk Enter) for den fulde opdeling: hvert punkt, der stadig mangler, sorteret efter hvor meget det bidrager med, og en liste **Allerede talt med** over det, der er på plads. Hvert punkt, der stadig mangler, er et link: Et klik åbner det afsnit, hvor det udfyldes (eller fanen **Stakeholders**), og ruller derhen. Så længe et obligatorisk felt er tomt, forbliver scoren 0%; opdelingen nævner disse felter og viser, hvad scoren ville være uden dem.
 
 ![Popover med opdeling af datakvaliteten](../assets/img/da/63_card_data_quality_breakdown.png)
+
+Når en administrator slår [Gamificeret datakvalitet](../admin/settings.md#gamificeret-datakvalitet) til, fejres hver gemning, der hæver scoren: ringen fyldes op til den nye score med et flyvende **+X%**, og når du er scrollet forbi overskriften, holder en slank scorebjælke hæftet under den øverste bjælke scoren i syne og afspiller den samme animation. At nå det grønne bånd (80%) og at nå 100% er milepæle med et kort konfettiregn. En lavere score animeres aldrig, og med reduceret bevægelse slået til i dit operativsystem ser du i stedet et statisk **+X%**.
 - **Handlingsmenu** — Arkivér, slet og godkendelseshandlinger. Indeholder også en ét-klik **Observe this card**-skifter (når korttypen definerer en Observer-rolle), så enhver bruger med læseadgang kan følge kortet uden at skulle gå gennem Stakeholders-fanen.
 
 ### Eget logo

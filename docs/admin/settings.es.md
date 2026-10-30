@@ -4,7 +4,7 @@ La página de **Configuración** en **Administrador → Configuración** (`/admi
 
 | Pestaña | URL | Qué controla | Guía completa |
 |---------|-----|--------------|---------------|
-| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), envío de correo, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button) | Esta página |
+| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), envío de correo, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Calidad de datos gamificada) | Esta página |
 | **Autenticación** | `/admin/settings?tab=authentication` | Proveedores SSO, registro, política de contraseñas | [Autenticación y SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Proveedor LLM, modelo, backend de búsqueda web, interruptores de sugerencia IA por tipo de tarjeta | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculación masiva de productos a entradas de endoflife.date | [Fin de vida (EOL)](eol.md) |
@@ -213,6 +213,22 @@ Igual que la comprobación de versiones, esto es **solo informativo**: no se des
 Muestra u oculta el botón **Patrocinar** en el menú de usuario (avatar). Cuando está oculto, los usuarios ya no ven el botón Patrocinar en su menú de perfil. El botón Patrocinar — y el cuadro de diálogo que explica cómo apoyar Turbo EA — siempre permanece disponible desde este panel de configuración, por lo que los administradores aún pueden acceder a él incluso cuando está oculto en el menú.
 
 Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, escribe a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Calidad de datos gamificada
+
+![Interruptor de calidad de datos gamificada](../assets/img/es/95c_admin_config_gamificacion.png)
+
+Actívela para celebrar cada guardado que mejore la calidad de datos de una ficha. Está **desactivada** de forma predeterminada y se aplica a todos; no existe un ajuste por usuario.
+
+Mientras está activa, guardar un cambio que aumenta la puntuación de una ficha reproduce una breve recompensa en la página de la ficha y en el panel de vista previa de la ficha:
+
+- el **anillo de calidad de datos** se agranda, su relleno crece hasta la nueva puntuación como una barra de vida, y la cifra va contando hacia arriba;
+- un **+X%** verde (los puntos que ha añadido el guardado) sube y se desvanece sobre él;
+- en la página de la ficha, una vez que se desplaza más allá de la cabecera de la ficha, una fina **barra de puntuación** permanece anclada bajo la barra superior con el nombre y la puntuación de la ficha, y reproduce la misma animación cuando guarda más abajo en la página.
+
+Dos momentos cuentan como **hitos** y reciben una breve lluvia de confeti con un rótulo: alcanzar la franja verde (**80%** o más, *¡Completo!*) y alcanzar el **100%** (*¡Puntuación perfecta!*). Un guardado que baja la puntuación nunca se anima; el número simplemente se actualiza.
+
+Los usuarios que han activado la **reducción de movimiento** en su sistema operativo no ven ningún movimiento: la puntuación se actualiza al instante y aparece una etiqueta **+X%** estática durante dos segundos. Los lectores de pantalla anuncian la mejora una sola vez (por ejemplo, *+6,7% de calidad de datos*).
 
 ## Configuración de TurboLens
 

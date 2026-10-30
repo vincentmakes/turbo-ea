@@ -4,7 +4,7 @@ La pagina **Impostazioni** sotto **Admin → Impostazioni** (`/admin/settings`) 
 
 | Scheda | URL | Cosa controlla | Guida completa |
 |--------|-----|----------------|----------------|
-| **Generale** | `/admin/settings?tab=general` | Aspetto (logo, favicon, valuta, formato data, lingue abilitate, anno fiscale), invio email, **interruttori dei moduli** (BPM, PPM, GRC, TurboLens, Sponsor button) | Questa pagina |
+| **Generale** | `/admin/settings?tab=general` | Aspetto (logo, favicon, valuta, formato data, lingue abilitate, anno fiscale), invio email, **interruttori dei moduli** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualità dei dati gamificata) | Questa pagina |
 | **Autenticazione** | `/admin/settings?tab=authentication` | Provider SSO, registrazione, politica delle password | [Autenticazione & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Provider LLM, modello, backend di ricerca web, interruttori di suggerimento IA per tipo di card | [Funzionalità IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Collegamento in massa dei prodotti a voci di endoflife.date | [Fine vita (EOL)](eol.md) |
@@ -213,6 +213,22 @@ Come il controllo delle versioni, questo è **solo informativo**: non viene scar
 Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è nascosto, gli utenti non vedono più il pulsante Sostieni nel loro menu del profilo. Il pulsante Sostieni — e la finestra che spiega come sostenere Turbo EA — rimane sempre disponibile da questo pannello delle impostazioni, così gli amministratori possono comunque raggiungerlo anche quando è nascosto dal menu.
 
 Se la tua azienda sostiene Turbo EA e desidera che il suo logo venga mostrato su turbo-ea.org, scrivi a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Qualità dei dati gamificata
+
+![Interruttore della qualità dei dati gamificata](../assets/img/it/95c_admin_impostazioni_gamification.png)
+
+Attivatela per celebrare ogni salvataggio che migliora la qualità dei dati di una scheda. È **disattivata** per impostazione predefinita e vale per tutti; non esiste un'impostazione per singolo utente.
+
+Quando è attiva, il salvataggio di una modifica che aumenta il punteggio di una scheda riproduce una breve ricompensa nella pagina della scheda e nel pannello di anteprima della scheda:
+
+- l'**anello della qualità dei dati** si ingrandisce, il suo riempimento cresce fino al nuovo punteggio come una barra della salute, e il numero conta in crescendo;
+- un **+X%** verde (i punti aggiunti dal salvataggio) sale e svanisce sopra l'anello;
+- nella pagina della scheda, una volta scorsa l'intestazione della scheda, una sottile **barra del punteggio** resta fissata sotto la barra superiore con il nome e il punteggio della scheda, e riproduce la stessa animazione quando salvate più in basso nella pagina.
+
+Due momenti contano come **traguardi** e ricevono una breve pioggia di coriandoli con una didascalia: il raggiungimento della fascia verde (**80%** e oltre, *Completo!*) e il raggiungimento del **100%** (*Punteggio perfetto!*). Un salvataggio che abbassa il punteggio non viene mai animato; il numero viene semplicemente aggiornato.
+
+Gli utenti che hanno attivato la **riduzione del movimento** nel sistema operativo non vedono alcun movimento: il punteggio si aggiorna subito e per due secondi compare un'etichetta **+X%** statica. Gli screen reader annunciano il miglioramento una sola volta (ad esempio *+6,7% di qualità dei dati*).
 
 ## Impostazioni TurboLens
 

@@ -75,6 +75,25 @@ export function bandChanged(prev: number, next: number): boolean {
   return bandOf(prev) !== bandOf(next);
 }
 
+/** How long after the burst the live region keeps its text before clearing. */
+export const ANNOUNCEMENT_LINGER_MS = 500;
+
+/** What assistive tech hears for a gain: the figure, then the milestone caption. */
+export function gainAnnouncement(
+  gain: ScoreGain,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  const caption =
+    gain.milestone === "perfect"
+      ? t("dataQuality.milestonePerfect")
+      : gain.milestone === "complete"
+        ? t("dataQuality.milestoneComplete")
+        : null;
+  return [t("dataQuality.gainAnnouncement", { pct: gain.delta }), caption]
+    .filter(Boolean)
+    .join(" ");
+}
+
 /** How long a gain's burst stays mounted: its longest piece, or the static chip. */
 export function burstLifetime(gain: ScoreGain, reduced: boolean): number {
   if (reduced) return STATIC_CHIP_MS;
