@@ -144,12 +144,16 @@ export function valueLabel(
  * the entries do not fit, each name capped at `LEGEND_LABEL_WIDTH` so a page
  * always shows whole entries, the full name on hover. `extra` merges last —
  * a report whose legend is a key, not a filter, passes `{ selectedMode: false }`.
+ * Its `textStyle` merges over the default one rather than replacing it, so a
+ * chart with few, long names can widen `width` and keep the colour, the size
+ * and the truncation.
  */
 export function legend(
   ctx: ChartChromeContext,
   names: string[],
   extra: Record<string, unknown> = {},
 ): Record<string, unknown> {
+  const { textStyle, ...rest } = extra;
   return {
     type: "scroll",
     orient: "horizontal",
@@ -159,11 +163,17 @@ export function legend(
     icon: "roundRect",
     itemWidth: 10,
     itemHeight: 10,
-    textStyle: { color: ctx.theme.textPrimary, fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "truncate" },
     pageTextStyle: { color: ctx.theme.textSecondary },
     tooltip: { show: true },
     data: names,
-    ...extra,
+    ...rest,
+    textStyle: {
+      color: ctx.theme.textPrimary,
+      fontSize: 12,
+      width: LEGEND_LABEL_WIDTH,
+      overflow: "truncate",
+      ...(textStyle as Record<string, unknown> | undefined),
+    },
   };
 }
 

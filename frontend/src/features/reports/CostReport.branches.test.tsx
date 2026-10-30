@@ -76,6 +76,7 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
+import { installResizeObserver } from "@/test/dom";
 import { echartState, type CapturedEChart } from "@/test/echartMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { userWith } from "@/test/render";
@@ -414,6 +415,28 @@ describe("CostReport cost sources and drill-down", () => {
     expect(drilled).toHaveLength(2);
     const panels = empty.closest(".MuiPaper-root") as HTMLElement;
     expect(within(panels).getByText("Contract · Contract Value")).toBeInTheDocument();
+  });
+
+  it("measures every drilled panel, an empty one included, each on its own", async () => {
+    const ro = installResizeObserver();
+    try {
+      saved.config = { costSources: ["ITComponent:licenseCost", "Contract:contractValue"] };
+      renderCost();
+      await clickTile("ERP");
+      const empty = await screen.findByText("No cost data found.");
+      await findTile("Database");
+      const itcBox = screen.getByRole("img", { name: "IT Component · License Cost" }).parentElement!;
+      // The empty panel's box wraps its message instead of a chart.
+      const contractBox = empty.parentElement!.parentElement!;
+      expect(ro.observed).toEqual(expect.arrayContaining([itcBox, contractBox]));
+      // A resize of the other panel leaves this one unmeasured.
+      act(() => ro.resize({ width: 30, height: 360 }, contractBox));
+      expect(tilesOf(echartState.byName("IT Component · License Cost")).some((d) => "label" in d)).toBe(false);
+      act(() => ro.resize({ width: 30, height: 360 }, itcBox));
+      expect(tile("OS").label).toEqual({ show: false });
+    } finally {
+      ro();
+    }
   });
 
   it("restores a saved multi-level drill, migrating legacy frames and dropping broken ones", async () => {

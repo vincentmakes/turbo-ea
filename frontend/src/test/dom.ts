@@ -21,18 +21,57 @@ function defineGlobal(name: string, value: unknown): Restore {
   };
 }
 
-/** A `ResizeObserver` that never fires; `observe` calls are recorded. */
-export function installResizeObserver(): Restore & { observed: Element[] } {
+export interface ResizeObserverControl {
+  /** Every element any observer was asked to watch, in order. */
+  observed: Element[];
+  /** Elements whose observer has since been disconnected. */
+  disconnected: Element[];
+  /**
+   * Deliver a resize to every connected observer watching `target` (every
+   * watched element when omitted), with a `contentRect` of the given size —
+   * what a browser does after layout. Wrap it in `act()` when it updates state.
+   */
+  resize(size: { width: number; height: number }, target?: Element): void;
+}
+
+/**
+ * A `ResizeObserver` that fires only when the test says so (`resize`);
+ * `observe` and `disconnect` calls are recorded.
+ */
+export function installResizeObserver(): Restore & ResizeObserverControl {
   const observed: Element[] = [];
+  const disconnected: Element[] = [];
+  const live = new Set<FakeResizeObserver>();
   class FakeResizeObserver {
+    readonly targets: Element[] = [];
+    constructor(readonly cb: ResizeObserverCallback) {
+      live.add(this);
+    }
     observe(el: Element) {
       observed.push(el);
+      this.targets.push(el);
     }
-    unobserve() {}
-    disconnect() {}
+    unobserve(el: Element) {
+      const at = this.targets.indexOf(el);
+      if (at >= 0) this.targets.splice(at, 1);
+    }
+    disconnect() {
+      disconnected.push(...this.targets);
+      this.targets.length = 0;
+      live.delete(this);
+    }
   }
+  const resize: ResizeObserverControl["resize"] = ({ width, height }, target) => {
+    for (const observer of [...live]) {
+      const hit = observer.targets.filter((el) => target === undefined || el === target);
+      if (hit.length === 0) continue;
+      const contentRect = { x: 0, y: 0, top: 0, left: 0, width, height, right: width, bottom: height };
+      const entries = hit.map((el) => ({ target: el, contentRect }) as unknown as ResizeObserverEntry);
+      observer.cb(entries, observer as unknown as ResizeObserver);
+    }
+  };
   const restore = defineGlobal("ResizeObserver", FakeResizeObserver);
-  return Object.assign(restore, { observed });
+  return Object.assign(restore, { observed, disconnected, resize });
 }
 
 /** An `IntersectionObserver` that reports every target as visible on `observe`. */

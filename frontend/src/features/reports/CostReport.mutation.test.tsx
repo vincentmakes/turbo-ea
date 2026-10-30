@@ -10,7 +10,7 @@
  * tests read the treemap option the page built (tiles, colours, labels,
  * cursor, tooltip, height) and deliver a tile click the way ECharts would.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
@@ -66,6 +66,7 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
+import { installResizeObserver } from "@/test/dom";
 import { echartState, type CapturedEChart } from "@/test/echartMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeUser, renderWithProviders, userWith } from "@/test/render";
@@ -767,6 +768,15 @@ describe("CostReport treemap cells", () => {
     expect(series.label.rich.value).toEqual({ color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 16 });
   });
 
+  it("gives no tile a label of its own while the panel is unmeasured", async () => {
+    // jsdom has no ResizeObserver, so the panel never learns its width and
+    // every tile keeps the series label (name and cost, truncated by ECharts).
+    expect(typeof ResizeObserver).toBe("undefined");
+    renderCost();
+    await findTile("Big");
+    expect(tilesOf(rootChart()).filter((d) => "label" in d)).toEqual([]);
+  });
+
   it("places the label and the cost in the tile's top-left corner", async () => {
     renderCost();
     await findTile("Big");
@@ -1385,6 +1395,85 @@ describe("CostReport toolbar", () => {
     await findChart();
     expect(screen.getByRole("combobox", { name: /cost source/i })).toBeInTheDocument();
     expect(await optionsOf(/card type/i)).toEqual(["Application", "IT Component", "Contract"]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Tile labels by panel size                                           */
+/* ------------------------------------------------------------------ */
+
+describe("CostReport tile labels by panel size", () => {
+  let ro: ReturnType<typeof installResizeObserver>;
+  beforeEach(() => {
+    ro = installResizeObserver();
+  });
+  afterEach(() => ro());
+
+  /** The element a panel measures: the box around its chart. */
+  const chartBox = (name: string) => screen.getByRole("img", { name }).parentElement!;
+  /** Each tile's own label, or "series" when it keeps the series label. */
+  const labelsOf = (chart: CapturedEChart) =>
+    tilesOf(chart).map((d) => [d.name, "label" in d ? d.label : "series"]);
+
+  it("prints a name and cost, a name alone, or nothing, by each tile's share of the panel's area", async () => {
+    // 1180 × 450 = 531 000 px², shared out of 1 007 000: ≈ 527 300, 3 164
+    // and 527 px² — a full label, a name, and no label.
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [
+        { id: "big", name: "Big", cost: 1_000_000 },
+        { id: "mid", name: "Mid", cost: 6_000 },
+        { id: "tiny", name: "Tiny", cost: 1_000 },
+      ],
+      total: 1_007_000,
+    });
+    renderCost();
+    await findTile("Big");
+    const box = chartBox("Cost Analysis");
+    expect(ro.observed).toContain(box);
+    expect(labelsOf(rootChart())).toEqual([
+      ["Big", "series"],
+      ["Mid", "series"],
+      ["Tiny", "series"],
+    ]);
+
+    act(() => ro.resize({ width: 1180, height: 600 }, box));
+    expect(labelsOf(rootChart())).toEqual([
+      ["Big", "series"],
+      ["Mid", { formatter: "{b}" }],
+      ["Tiny", { show: false }],
+    ]);
+    // The series label still prints the cost on the tiles that keep it.
+    expect(seriesOf(rootChart()).label.formatter(tile("Big"))).toBe("Big\n{value|$1000000}");
+
+    // A resize that moves no tile across a threshold keeps the option, so
+    // the chart does not replay its animation on every pixel of a drag.
+    const option = rootChart().option;
+    act(() => ro.resize({ width: 1190, height: 600 }, box));
+    expect(rootChart().option).toBe(option);
+
+    // Twice as wide, the middle tile has room for its cost too.
+    act(() => ro.resize({ width: 2360, height: 600 }, box));
+    expect(labelsOf(rootChart())).toEqual([
+      ["Big", "series"],
+      ["Mid", "series"],
+      ["Tiny", { show: false }],
+    ]);
+  });
+
+  it("sizes a side-by-side panel by its shorter height", async () => {
+    // Database 40 and OS 10 of 50. 30 px wide: OS gets 0.2 × 30 × 360 =
+    // 2 160 px², just short of a name — at the single panel's 450 it would
+    // be 2 700 and print one.
+    saved.config = { costSources: [ITC, "Contract:contractValue"], drillStack: [] };
+    renderCost();
+    await clickTile("ERP");
+    await findTile("Database");
+    const name = "IT Component · License Cost";
+    act(() => ro.resize({ width: 30, height: 999 }, chartBox(name)));
+    expect(labelsOf(echartState.byName(name))).toEqual([
+      ["Database", "series"],
+      ["OS", { show: false }],
+    ]);
   });
 });
 

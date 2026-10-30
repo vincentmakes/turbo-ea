@@ -182,6 +182,21 @@ describe("legend", () => {
     expect(l.selectedMode).toBe(false);
     expect(l.bottom).toBe(8);
     expect(l.data).toEqual(["A"]);
+    // An extra without a textStyle keeps the default one whole.
+    expect(l.textStyle).toEqual({ color: "#111111", fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "truncate" });
+  });
+
+  it("merges extra's textStyle over the default one instead of replacing it", () => {
+    const l = legend(ctx(), ["A"], { selectedMode: false, textStyle: { width: 260 } }) as any;
+    expect(l.textStyle).toEqual({ color: "#111111", fontSize: 12, width: 260, overflow: "truncate" });
+    expect(l.selectedMode).toBe(false);
+    expect(l.type).toBe("scroll");
+    expect(l.data).toEqual(["A"]);
+  });
+
+  it("lets extra's textStyle override any default key, keeping the others", () => {
+    const l = legend(ctx(), [], { textStyle: { color: "#ff0000", overflow: "break" } }) as any;
+    expect(l.textStyle).toEqual({ color: "#ff0000", fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "break" });
   });
 });
 

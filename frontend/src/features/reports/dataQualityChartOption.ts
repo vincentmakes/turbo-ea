@@ -55,6 +55,13 @@ export interface StackedBarTooltipParam {
   color: string;
 }
 
+/**
+ * Widest a legend entry's name is drawn, in px. The report's legends hold two
+ * to four entries, so they can afford whole names ("Linked to endoflife.date",
+ * "Date entered by hand") where the chrome's default caps them at 120 px.
+ */
+export const DATA_QUALITY_LEGEND_LABEL_WIDTH = 260;
+
 /** The chart's height: `perRow` px a bar, never less than `min`. */
 export function stackedBarHeight(rowCount: number, min: number, perRow: number): number {
   return Math.max(min, rowCount * perRow);
@@ -103,10 +110,12 @@ export function buildStackedBarOption(
         stackedBarTooltipHtml(params, o.totalLabel),
     }),
     // A key, not a filter: hiding a segment would leave the bars' totals lying.
+    // Its few entries are wide enough for a whole name such as "Linked to
+    // endoflife.date", which the chrome's default 120 px cap cut short.
     legend: legend(
       ctx,
       series.map((s) => s.name),
-      { selectedMode: false },
+      { selectedMode: false, textStyle: { width: DATA_QUALITY_LEGEND_LABEL_WIDTH } },
     ),
     xAxis: {
       type: "value",

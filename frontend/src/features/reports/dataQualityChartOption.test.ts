@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { BAR_MAX_THICKNESS, GRID_TRAILING_INSET } from "@/components/charts/chrome";
 import {
+  DATA_QUALITY_LEGEND_LABEL_WIDTH,
   buildStackedBarOption,
   stackedBarHeight,
   stackedBarTooltipHtml,
@@ -177,6 +178,13 @@ describe("buildStackedBarOption", () => {
     expect(legend.data).toEqual(["Complete", "Partial", "Minimal"]);
     expect(legend.selectedMode).toBe(false);
     expect(legend.bottom).toBe(0);
+  });
+
+  it("draws legend names up to 260 px wide, keeping the chrome's colour, size and truncation", () => {
+    expect(DATA_QUALITY_LEGEND_LABEL_WIDTH).toBe(260);
+    const legend = build().legend;
+    expect(legend.textStyle).toEqual({ color: "#111111", fontSize: 12, width: 260, overflow: "truncate" });
+    expect(legend.selectedMode).toBe(false);
   });
 
   it("uses an axis tooltip with a shadow pointer in the hover colour", () => {

@@ -19,9 +19,9 @@ import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Tooltip from "@mui/material/Tooltip";
 import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
-import { useEChartsTheme } from "@/components/charts/echartsTheme";
+import { useEChartsTheme, type EChartsThemeValue } from "@/components/charts/echartsTheme";
 import ReportShell from "./ReportShell";
-import { buildCostTreemapOption } from "./costTreemapOption";
+import { buildCostTreemapOption, tileLabelTiers, type CostTreemapItem } from "./costTreemapOption";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -37,6 +37,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
+import { useElementSize } from "@/hooks/useElementSize";
 import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { CardType, FieldDef, RelationType } from "@/types";
@@ -138,6 +139,112 @@ function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
   const out: FieldDef[] = [];
   for (const s of schema) for (const f of s.fields) if (f.type === "cost") out.push(f);
   return out;
+}
+
+/* ------------------------------------------------------------------ */
+/*  One treemap panel                                                  */
+/* ------------------------------------------------------------------ */
+
+interface CostTreemapPanelProps {
+  /** The aggregate source this panel breaks down; absent for the root panel. */
+  source?: SourceRef;
+  /** The panel's own total, each tile's share is read against. */
+  total: number;
+  /** The panel's cards that cost anything, largest first. */
+  data: CostTreemapItem[];
+  /** The chart's height in px. */
+  panelHeight: number;
+  /** Whether the root panel says a click drills. */
+  showDrillHint: boolean;
+  /** Whether a tile click drills — the pointer cursor. */
+  clickable: boolean;
+  /** The chart chrome, with the reading direction. */
+  chrome: EChartsThemeValue;
+  fmt: { format: (v: number) => string };
+  onTileClick: (p: EChartClickParams) => void;
+}
+
+/**
+ * One panel of the report: its header (or the drill hint), then the treemap
+ * or the empty state. It measures its own width, because the chart's pixel
+ * area decides which tiles are big enough to print a name, or a name and a
+ * cost (`tileLabelTier`).
+ */
+function CostTreemapPanel({
+  source,
+  total,
+  data,
+  panelHeight,
+  showDrillHint,
+  clickable,
+  chrome,
+  fmt,
+  onTileClick,
+}: CostTreemapPanelProps) {
+  const { t } = useTranslation(["reports", "common"]);
+  // Measured on a wrapper that is always rendered, so the observer is
+  // attached whether the panel starts empty or not.
+  const [chartBoxRef, chartBox] = useElementSize<HTMLDivElement>();
+  const areaPx = chartBox ? chartBox.width * panelHeight : undefined;
+  // The size reaches the option only through the tiles' label tiers.
+  const tierKey = tileLabelTiers(data, areaPx)?.join() ?? "";
+
+  // Memoised: a new option replaces the chart's whole option and replays its
+  // animation, so it is rebuilt only when the data, the theme, the drill
+  // affordance or a tile's label tier change — not on every pixel of a
+  // resize, which ECharts handles by itself.
+  const option = useMemo(
+    () =>
+      buildCostTreemapOption(data, {
+        chrome,
+        isRtl: chrome.isRtl,
+        format: (v) => fmt.format(v),
+        panelTotal: total,
+        percentOfTotal: (pct) => t("cost.percentOfTotalValue", { pct }),
+        clickable,
+        areaPx,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `areaPx` is read through `tierKey`: the same tiers build the same option
+    [data, chrome, fmt, total, t, clickable, tierKey],
+  );
+
+  return (
+    <Paper variant="outlined" sx={{ p: 1 }}>
+      {source ? (
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", px: 1, pb: 0.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            {source.label}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {fmt.format(total)}
+          </Typography>
+        </Box>
+      ) : (
+        showDrillHint && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 1, pt: 0.5 }}>
+            {t("cost.drillDown.hint")}
+          </Typography>
+        )
+      )}
+      <Box ref={chartBoxRef}>
+        {data.length === 0 ? (
+          <Box sx={{ py: 6, textAlign: "center" }}>
+            <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
+          </Box>
+        ) : (
+          // Drawn at the export's pixel ratio so the PPTX / PNG capture of
+          // the canvas stays crisp.
+          <EChart
+            option={option}
+            style={{ height: panelHeight }}
+            devicePixelRatio={EXPORT_DPR}
+            ariaLabel={source ? source.label : t("cost.title")}
+            onClick={onTileClick}
+          />
+        )}
+      </Box>
+    </Paper>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -526,11 +633,9 @@ export default function CostReport() {
   }, [handleRectClick]);
 
   // One treemap per panel: tiles sized by cost, sorted desc so the top driver
-  // leads. Each tooltip reads its share against the panel's own total, so a
+  // leads. Each panel reads its tiles' shares against its own total, so a
   // multi-source drill (Provider costs next to IT Component costs) compares
-  // every card with its own scale. Memoised: a new option replaces the
-  // chart's whole option and replays its animation, so it is rebuilt only
-  // when the data, the theme or the drill affordance change.
+  // every card with its own scale. `CostTreemapPanel` builds the option.
   const panelCharts = useMemo(() => panelsWithTotals.map((p) => {
     // A card that costs nothing has no tile, so a panel of them is empty,
     // not a blank chart.
@@ -538,20 +643,8 @@ export default function CostReport() {
       .filter((d) => d.cost > 0)
       .sort((a, b) => b.cost - a.cost)
       .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i }));
-    return {
-      source: p.source,
-      total: p.total,
-      data,
-      option: buildCostTreemapOption(data, {
-        chrome: chartTheme,
-        isRtl: chartTheme.isRtl,
-        format: (v) => fmt.format(v),
-        panelTotal: p.total,
-        percentOfTotal: (pct) => t("cost.percentOfTotalValue", { pct }),
-        clickable: canDrill,
-      }),
-    };
-  }), [panelsWithTotals, chartTheme, fmt, canDrill, t]);
+    return { source: p.source, total: p.total, data };
+  }), [panelsWithTotals]);
 
   const rootTypeLabel = useMemo(() => {
     const tp = types.find((tp) => tp.key === cardTypeKey);
@@ -771,49 +864,20 @@ export default function CostReport() {
                 : "1fr",
             }}
           >
-            {panelCharts.map((panel, idx) => {
-              const panelHeight = panelCharts.length > 1 ? 360 : 450;
-              const panelTotal = panel.total;
-              return (
-                <Paper key={panel.source ? panel.source.label : `root-${idx}`} variant="outlined" sx={{ p: 1 }}>
-                  {panel.source ? (
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", px: 1, pb: 0.5 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {panel.source.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {fmt.format(panelTotal)}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    canDrill && drillStack.length === 0 && (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ display: "block", px: 1, pt: 0.5 }}
-                      >
-                        {t("cost.drillDown.hint")}
-                      </Typography>
-                    )
-                  )}
-                  {panel.data.length === 0 ? (
-                    <Box sx={{ py: 6, textAlign: "center" }}>
-                      <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
-                    </Box>
-                  ) : (
-                    // Drawn at the export's pixel ratio so the PPTX / PNG
-                    // capture of the canvas stays crisp.
-                    <EChart
-                      option={panel.option}
-                      style={{ height: panelHeight }}
-                      devicePixelRatio={EXPORT_DPR}
-                      ariaLabel={panel.source ? panel.source.label : t("cost.title")}
-                      onClick={handleTileClick}
-                    />
-                  )}
-                </Paper>
-              );
-            })}
+            {panelCharts.map((panel, idx) => (
+              <CostTreemapPanel
+                key={panel.source ? panel.source.label : `root-${idx}`}
+                source={panel.source}
+                total={panel.total}
+                data={panel.data}
+                panelHeight={panelCharts.length > 1 ? 360 : 450}
+                showDrillHint={canDrill && drillStack.length === 0}
+                clickable={canDrill}
+                chrome={chartTheme}
+                fmt={fmt}
+                onTileClick={handleTileClick}
+              />
+            ))}
           </Box>
         )
       ) : (

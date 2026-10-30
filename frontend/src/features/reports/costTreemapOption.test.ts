@@ -2,8 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
 import {
+  TREEMAP_NAME_MIN_AREA,
+  TREEMAP_VALUE_MIN_AREA,
   buildCostTreemapOption,
   costTooltipHtml,
+  tileLabelTier,
+  tileLabelTiers,
   treemapColor,
   type CostTreemapItem,
   type CostTreemapOptions,
@@ -245,5 +249,145 @@ describe("buildCostTreemapOption", () => {
 
   it("draws an empty panel as a treemap with no tiles", () => {
     expect(seriesOf(build([])).data).toEqual([]);
+  });
+});
+
+describe("tileLabelTier", () => {
+  it("keeps the old Recharts rules as areas: a name from ≈ 55 × 40, a cost from ≈ 80 × 50", () => {
+    expect(TREEMAP_NAME_MIN_AREA).toBe(2200);
+    expect(TREEMAP_VALUE_MIN_AREA).toBe(4000);
+  });
+
+  it("prints nothing below the name threshold", () => {
+    expect(tileLabelTier(0)).toBe("none");
+    expect(tileLabelTier(528)).toBe("none");
+    expect(tileLabelTier(2199.99)).toBe("none");
+  });
+
+  it("prints the name alone from the name threshold up to just below the cost threshold", () => {
+    expect(tileLabelTier(2200)).toBe("name");
+    expect(tileLabelTier(3165)).toBe("name");
+    expect(tileLabelTier(3999.99)).toBe("name");
+  });
+
+  it("prints the name and the cost from the cost threshold up", () => {
+    expect(tileLabelTier(4000)).toBe("full");
+    expect(tileLabelTier(527_000)).toBe("full");
+  });
+});
+
+describe("tileLabelTiers", () => {
+  const items: CostTreemapItem[] = [
+    { id: "a", name: "A", cost: 900, index: 0 },
+    { id: "z", name: "Zero", cost: 0, index: 1 },
+    { id: "b", name: "B", cost: 60, index: 2 },
+    { id: "n", name: "Negative", cost: -500, index: 3 },
+    { id: "c", name: "C", cost: 40, index: 4 },
+  ];
+
+  it("tiers the drawn tiles by their share of the drawn total, in order", () => {
+    // 900 / 60 / 40 of 1000 on 50 000 px²: 45 000, 3 000 and 2 000.
+    expect(tileLabelTiers(items, 50_000)).toEqual(["full", "name", "none"]);
+  });
+
+  it("is undefined while the chart is unmeasured", () => {
+    expect(tileLabelTiers(items, undefined)).toBeUndefined();
+    expect(tileLabelTiers(items, 0)).toBeUndefined();
+    expect(tileLabelTiers(items, -1)).toBeUndefined();
+    expect(tileLabelTiers(items, Number.NaN)).toBeUndefined();
+  });
+
+  it("gives every tile its full label on an unbounded area", () => {
+    expect(tileLabelTiers(items, Number.POSITIVE_INFINITY)).toEqual(["full", "full", "full"]);
+  });
+
+  it("has no tiers for a panel with no tiles", () => {
+    expect(tileLabelTiers([], 50_000)).toEqual([]);
+  });
+});
+
+describe("buildCostTreemapOption tile labels", () => {
+  // Shares of 1000: 900 / 60 / 40 → 45 000, 3 000 and 2 000 px² of 50 000.
+  const MIXED: CostTreemapItem[] = [
+    { id: "big", name: "Big", cost: 900, index: 0 },
+    { id: "mid", name: "Mid", cost: 60, index: 1 },
+    { id: "tiny", name: "Tiny", cost: 40, index: 2 },
+  ];
+  const labelsOf = (option: any) =>
+    seriesOf(option).data.map((d: any) => ("label" in d ? d.label : "series"));
+
+  it("gives each tile the label its share of the chart's area affords", () => {
+    expect(labelsOf(build(MIXED, { areaPx: 50_000 }))).toEqual([
+      "series",
+      { formatter: "{b}" },
+      { show: false },
+    ]);
+  });
+
+  it("names a mid-sized tile through a string formatter that replaces the name-and-cost one", () => {
+    const series = seriesOf(build(MIXED, { areaPx: 50_000 }));
+    // The series label still prints both lines for the tiles that keep it.
+    expect(series.label.formatter({ name: "Big", value: 900 })).toBe("Big\n{value|$900}");
+    expect(series.data[1]).toEqual({
+      name: "Mid",
+      value: 60,
+      id: "mid",
+      index: 1,
+      itemStyle: { color: COST_TREEMAP_COLORS[1] },
+      label: { formatter: "{b}" },
+    });
+  });
+
+  it("sizes the tiers by the chart's area: a larger chart labels more tiles in full", () => {
+    // 200 000 px²: 180 000, 12 000 and 8 000 — all full.
+    expect(labelsOf(build(MIXED, { areaPx: 200_000 }))).toEqual(["series", "series", "series"]);
+    // 5 000 px²: 4 500, 300 and 200.
+    expect(labelsOf(build(MIXED, { areaPx: 5_000 }))).toEqual(["series", { show: false }, { show: false }]);
+    // 4 000 px²: 3 600 — the largest tile keeps only its name.
+    expect(labelsOf(build(MIXED, { areaPx: 4_000 }))).toEqual([
+      { formatter: "{b}" },
+      { show: false },
+      { show: false },
+    ]);
+  });
+
+  it("reads each tile's share against the drawn tiles' total, ignoring the dropped ones", () => {
+    const withDropped: CostTreemapItem[] = [
+      ...MIXED,
+      { id: "zero", name: "Zero", cost: 0, index: 3 },
+      // Counted, it would halve the total and lift the tiny tile to a name.
+      { id: "neg", name: "Negative", cost: -500, index: 4 },
+    ];
+    expect(labelsOf(build(withDropped, { areaPx: 50_000 }))).toEqual([
+      "series",
+      { formatter: "{b}" },
+      { show: false },
+    ]);
+  });
+
+  it("is not thrown by the panel total it was handed: the share is of the tiles drawn", () => {
+    expect(labelsOf(build(MIXED, { areaPx: 50_000, panelTotal: 1_000_000 }))).toEqual([
+      "series",
+      { formatter: "{b}" },
+      { show: false },
+    ]);
+  });
+
+  it("leaves every tile on the series label until the chart has been measured", () => {
+    for (const areaPx of [undefined, 0, -50_000, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const data = seriesOf(build(MIXED, { areaPx })).data;
+      expect(data.map((d: any) => Object.keys(d)), String(areaPx)).toEqual([
+        ["name", "value", "id", "index", "itemStyle"],
+        ["name", "value", "id", "index", "itemStyle"],
+        ["name", "value", "id", "index", "itemStyle"],
+      ]);
+    }
+  });
+
+  it("labels a lone tile in full: it fills the chart", () => {
+    expect(labelsOf(build([{ id: "a", name: "A", cost: 1, index: 0 }], { areaPx: 4_000 }))).toEqual(["series"]);
+    expect(labelsOf(build([{ id: "a", name: "A", cost: 1, index: 0 }], { areaPx: 3_999 }))).toEqual([
+      { formatter: "{b}" },
+    ]);
   });
 });
