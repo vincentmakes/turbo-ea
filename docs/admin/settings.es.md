@@ -224,7 +224,7 @@ Mientras está activa, guardar un cambio que aumenta la puntuación de una ficha
 
 - un **+X%** verde brillante (los puntos que ha añadido el guardado) sale de la sección que ha guardado —su cabecera, donde está el botón Guardar— y vuela en arco hasta el **anillo de calidad de datos**;
 - en el **impacto**, el anillo destella, un halo y un resplandor del color de la puntuación se extienden desde él, un brillo lo barre, se agranda, su relleno crece hasta la nueva puntuación como una barra de vida, y la cifra va contando hacia arriba;
-- en la página de la ficha, una vez que se desplaza más allá de la cabecera de la ficha, una fina **barra de puntuación** permanece anclada bajo la barra superior con el nombre y la puntuación de la ficha; mientras se muestra, la mejora vuela hacia ella en su lugar. Haga clic en la puntuación de la barra para abrir el mismo desglose de calidad de datos que el anillo, y use su botón de **chincheta** para mantener la barra en pantalla incluso con la cabecera a la vista; la chincheta se recuerda en su navegador.
+- en la página de la ficha, una vez que se desplaza más allá de la cabecera de la ficha, una fina **barra de puntuación** permanece anclada bajo la barra superior con el nombre y la puntuación de la ficha; mientras se muestra, la mejora vuela hacia ella en su lugar. Su botón **Subir puntuación** abre el mismo desglose de calidad de datos que el anillo.
 
 Un guardado hecho desde la cabecera (el nombre o el subtipo) o desde la sección End of Life no tiene ninguna sección de la que partir, así que el **+X%** simplemente sube sobre el anillo.
 

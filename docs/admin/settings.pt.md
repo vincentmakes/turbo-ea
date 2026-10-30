@@ -224,7 +224,7 @@ Enquanto estiver ativa, gravar uma alteração que aumenta a pontuação de uma 
 
 - um **+X%** verde luminoso (os pontos que a gravação acrescentou) sai da secção gravada — o seu cabeçalho, onde está o botão Guardar — e voa em arco até ao **anel de qualidade dos dados**;
 - no **impacto**, o anel pisca, um halo e um brilho da cor da pontuação espalham-se a partir dele, um reflexo percorre-o, ele cresce, o seu preenchimento aumenta até à nova pontuação como uma barra de vida, e o número vai subindo;
-- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha; enquanto estiver visível, o ganho voa para ela. Clique na pontuação da barra para abrir o mesmo detalhe da qualidade dos dados do anel e use o seu botão de **fixar** para manter a barra no ecrã mesmo com o cabeçalho à vista — a fixação fica guardada no seu navegador.
+- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha; enquanto estiver visível, o ganho voa para ela. O seu botão **Aumentar pontuação** abre o mesmo detalhe da qualidade dos dados do anel.
 
 Uma gravação feita a partir do cabeçalho (o nome ou o subtipo) ou da secção End of Life não tem nenhuma secção de onde partir, pelo que o **+X%** simplesmente sobe acima do anel.
 

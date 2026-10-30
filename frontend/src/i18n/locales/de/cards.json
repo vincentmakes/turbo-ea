@@ -104,6 +104,8 @@
   "dataQuality.milestoneComplete": "Geschafft!",
   "dataQuality.milestonePerfect": "Perfekte Punktzahl!",
   "dataQuality.stickyBarLabel": "Datenqualität",
+  "dataQuality.raiseScore": "Score erhöhen",
+  "dataQuality.closePanel": "Schließen",
   "utils.unknownOption": "Unbekannter Optionsschlüssel: {{key}}",
   "utils.urlError": "Muss http://, https:// oder mailto: verwenden",
   "utils.costRestricted": "Eingeschränkt — Sie sind nicht berechtigt, Kosten dieser Karte einzusehen",

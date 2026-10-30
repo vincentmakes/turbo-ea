@@ -104,6 +104,8 @@
   "dataQuality.milestoneComplete": "Terminé !",
   "dataQuality.milestonePerfect": "Score parfait !",
   "dataQuality.stickyBarLabel": "Qualité des données",
+  "dataQuality.raiseScore": "Améliorer le score",
+  "dataQuality.closePanel": "Fermer",
   "utils.unknownOption": "Clé d’option inconnue : {{key}}",
   "utils.urlError": "Doit utiliser le schéma http://, https:// ou mailto:",
   "utils.costRestricted": "Restreint — vous n'avez pas l'autorisation de voir les coûts de cette fiche",
