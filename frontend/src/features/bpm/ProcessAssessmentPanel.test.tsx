@@ -7,19 +7,20 @@ import userEvent from "@testing-library/user-event";
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
-vi.mock("recharts", () => ({
-  LineChart: ({ children }: any) => <div data-testid="line-chart">{children}</div>,
-  Line: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Legend: () => null,
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-}));
+// jsdom has no canvas: the trend chart is the shared EChart double, and a
+// test reads the option the panel built.
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 
 import { api } from "@/api/client";
+import { echartState } from "@/test/echartMock";
+import { hookState } from "@/test/hooks";
+import { DIMENSIONS } from "./bpmChartOptions";
 import ProcessAssessmentPanel from "./ProcessAssessmentPanel";
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
+
+const TREND = "Process Assessments";
 
 const mockAssessments = [
   {
@@ -52,6 +53,8 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  echartState.reset();
+  hookState.isRtl = false;
   vi.mocked(api.get).mockResolvedValue(mockAssessments);
 });
 
@@ -102,9 +105,8 @@ describe("ProcessAssessmentPanel", () => {
 
   it("renders trend chart when multiple assessments", async () => {
     renderPanel();
-    await waitFor(() => {
-      expect(screen.getByTestId("line-chart")).toBeInTheDocument();
-    });
+    const chart = await screen.findByRole("img", { name: TREND });
+    expect(getComputedStyle(chart.parentElement!).height).toBe("260px");
   });
 
   it("does not render chart with single assessment", async () => {
@@ -113,7 +115,54 @@ describe("ProcessAssessmentPanel", () => {
     await waitFor(() => {
       expect(screen.getByText("15 Jun 2025")).toBeInTheDocument();
     });
-    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: TREND })).not.toBeInTheDocument();
+    expect(echartState.props).toHaveLength(0);
+  });
+
+  it("plots the five dimensions oldest assessment first, in their colours", async () => {
+    renderPanel();
+    await screen.findByRole("img", { name: TREND });
+
+    const option = echartState.byName(TREND).option;
+    expect(option.xAxis.data).toEqual(["01 May 2025", "15 Jun 2025"]);
+    expect(option.series.map((s: any) => s.name)).toEqual(DIMENSIONS.map((d) => d.label));
+    expect(option.series.map((s: any) => s.name)).toEqual([
+      "Overall",
+      "Efficiency",
+      "Effectiveness",
+      "Compliance",
+      "Automation",
+    ]);
+    expect(option.series.map((s: any) => s.lineStyle.color)).toEqual(DIMENSIONS.map((d) => d.color));
+    expect(option.series.map((s: any) => s.data)).toEqual([
+      [3, 4],
+      [2, 3],
+      [3, 4],
+      [4, 5],
+      [1, 2],
+    ]);
+    expect(option.series.every((s: any) => s.type === "line")).toBe(true);
+  });
+
+  it("scales the trend 1 to 5 with a key-only legend", async () => {
+    renderPanel();
+    await screen.findByRole("img", { name: TREND });
+
+    const option = echartState.byName(TREND).option;
+    expect(option.yAxis).toMatchObject({ type: "value", min: 1, max: 5, interval: 1, position: "left" });
+    expect(option.legend.selectedMode).toBe(false);
+    expect(option.legend.data).toEqual(DIMENSIONS.map((d) => d.label));
+    expect(option.xAxis.inverse).toBe(false);
+  });
+
+  it("mirrors the trend in a right-to-left language", async () => {
+    hookState.isRtl = true;
+    renderPanel();
+    await screen.findByRole("img", { name: TREND });
+
+    const option = echartState.byName(TREND).option;
+    expect(option.xAxis.inverse).toBe(true);
+    expect(option.yAxis.position).toBe("right");
   });
 
   it("shows empty state when no assessments", async () => {

@@ -3,7 +3,7 @@
  * Tab 0: Process Navigator (Process House)
  * Tab 1: Dashboard KPIs, charts, and quick links to processes.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -21,32 +21,38 @@ import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { usePageSection } from "@/hooks/usePageTitle";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
+import EChart, { type EChartClickParams } from "@/components/charts/EChart";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { api } from "@/api/client";
-import {
-  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
-import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
-import { useIsRtl } from "@/hooks/useIsRtl";
-import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
-import type { BpmDashboardData } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
+import type { BpmDashboardData, DashboardKeyRow } from "@/types";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
+import { useBpmFieldOptions } from "./useBpmFieldOptions";
+import {
+  BPM_NEUTRAL_COLOR,
+  MATURITY_COLORS,
+  automationColumnOption,
+  maturityColor,
+  maturityColumnOption,
+  processTypePieOption,
+} from "./bpmChartOptions";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
 
-// Maturity is a 5-step CMMI scale; reuses severity hues to convey progression
-// from worst (red) to best (deep green).
-const MATURITY_COLORS: Record<string, string> = {
-  initial: SEVERITY_COLORS.critical,
-  managed: SEVERITY_COLORS.high,
-  defined: SEVERITY_COLORS.medium,
-  measured: SEVERITY_COLORS.low,
-  optimized: "#2e7d32",
-};
+/** A count map as chart rows, without the "unknown" bucket. */
+function knownRows(counts: Record<string, number>): DashboardKeyRow[] {
+  return Object.entries(counts)
+    .filter(([key]) => key !== "unknown")
+    .map(([key, value]) => ({ key, value }));
+}
+
+/** The stored option key a chart click landed on. */
+function clickedKey(p: EChartClickParams): string | undefined {
+  return (p.data as { key?: string } | undefined)?.key;
+}
 
 const RISK_COLORS: Record<string, string> = {
   low: STATUS_COLORS.success,
@@ -59,10 +65,10 @@ const RISK_COLORS: Record<string, string> = {
 function BpmDashboardContent() {
   const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isRtl = useIsRtl();
-  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary);
+  const chartTheme = useEChartsTheme();
   const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const { resolve: resolveMaturity } = useBpmFieldOptions("maturity");
+  const { resolve: resolveAutomation } = useBpmFieldOptions("automationLevel");
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
@@ -74,18 +80,42 @@ function BpmDashboardContent() {
       .finally(() => setLoading(false));
   }, []);
 
+  const seriesName = t("dashboard.processes");
+  // Built before the loading / failure returns (hooks run every render);
+  // empty until the dashboard arrives.
+  const charts = useMemo(
+    () => ({
+      processType: processTypePieOption(knownRows(data?.by_process_type ?? {}), {
+        chrome: chartTheme,
+        isRtl: chartTheme.isRtl,
+        label: (key) => resolveProcessType(key).label,
+        color: (key) => resolveProcessType(key).color,
+        seriesName,
+      }),
+      maturity: maturityColumnOption(knownRows(data?.by_maturity ?? {}), {
+        chrome: chartTheme,
+        isRtl: chartTheme.isRtl,
+        label: (key) => resolveMaturity(key).label,
+        color: (key) => maturityColor(key, resolveMaturity(key).color),
+        seriesName,
+      }),
+      automation: automationColumnOption(knownRows(data?.by_automation ?? {}), {
+        chrome: chartTheme,
+        isRtl: chartTheme.isRtl,
+        label: (key) => resolveAutomation(key).label,
+        seriesName,
+      }),
+    }),
+    [data, chartTheme, resolveProcessType, resolveMaturity, resolveAutomation, seriesName],
+  );
+
   if (loading) return <LinearProgress />;
   if (!data) return <Typography>{t("dashboard.loadFailed")}</Typography>;
 
-  const typeData = Object.entries(data.by_process_type)
-    .filter(([k]) => k !== "unknown")
-    .map(([k, v]) => ({ key: k, name: resolveProcessType(k).label, value: v }));
-  const maturityData = Object.entries(data.by_maturity)
-    .filter(([k]) => k !== "unknown")
-    .map(([k, v]) => ({ name: k, value: v }));
-  const automationData = Object.entries(data.by_automation)
-    .filter(([k]) => k !== "unknown")
-    .map(([name, value]) => ({ name, value }));
+  const drillDown = (attr: string) => (p: EChartClickParams) => {
+    const key = clickedKey(p);
+    if (key) navigate(`/inventory?type=BusinessProcess&attr_${attr}=${encodeURIComponent(key)}`);
+  };
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -150,30 +180,13 @@ function BpmDashboardContent() {
           <Card>
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>{t("dashboard.byProcessType")}</Typography>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={typeData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label
-                    style={{ cursor: "pointer" }}
-                    onClick={(_data, idx) => {
-                      const key = typeData[idx]?.key;
-                      if (key) navigate(`/inventory?type=BusinessProcess&attr_processType=${encodeURIComponent(key)}`);
-                    }}
-                  >
-                    {typeData.map((entry, i) => (
-                      <Cell key={i} fill={resolveProcessType(entry.key).color} />
-                    ))}
-                  </Pie>
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
-                  <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 220 }}>
+                <EChart
+                  option={charts.processType}
+                  ariaLabel={t("dashboard.byProcessType")}
+                  onClick={drillDown("processType")}
+                />
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -183,27 +196,13 @@ function BpmDashboardContent() {
           <Card>
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>{t("dashboard.maturityDistribution")}</Typography>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={maturityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
-                  <YAxis orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
-                  <Bar
-                    dataKey="value"
-                    name={t("dashboard.processes")}
-                    style={{ cursor: "pointer" }}
-                    onClick={(_data, idx) => {
-                      const name = maturityData[idx]?.name;
-                      if (name) navigate(`/inventory?type=BusinessProcess&attr_maturity=${encodeURIComponent(name)}`);
-                    }}
-                  >
-                    {maturityData.map((entry, i) => (
-                      <Cell key={i} fill={MATURITY_COLORS[entry.name] || "#9e9e9e"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 220 }}>
+                <EChart
+                  option={charts.maturity}
+                  ariaLabel={t("dashboard.maturityDistribution")}
+                  onClick={drillDown("maturity")}
+                />
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -213,24 +212,13 @@ function BpmDashboardContent() {
           <Card>
             <CardContent>
               <Typography variant="subtitle2" gutterBottom>{t("dashboard.automationLevel")}</Typography>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={automationData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis dataKey="name" reversed={isRtl} tick={{ fill: theme.palette.text.secondary }} />
-                  <YAxis orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary }} />
-                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary, ...rtlTooltipStyle(isRtl) }} />
-                  <Bar
-                    dataKey="value"
-                    name={t("dashboard.processes")}
-                    fill="#1976d2"
-                    style={{ cursor: "pointer" }}
-                    onClick={(_data, idx) => {
-                      const name = automationData[idx]?.name;
-                      if (name) navigate(`/inventory?type=BusinessProcess&attr_automationLevel=${encodeURIComponent(name)}`);
-                    }}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 220 }}>
+                <EChart
+                  option={charts.automation}
+                  ariaLabel={t("dashboard.automationLevel")}
+                  onClick={drillDown("automationLevel")}
+                />
+              </Box>
             </CardContent>
           </Card>
         </Grid>
@@ -269,7 +257,7 @@ function BpmDashboardContent() {
                       <Chip
                         label={p.maturity}
                         size="small"
-                        sx={{ bgcolor: MATURITY_COLORS[p.maturity] || "#9e9e9e", color: "#fff" }}
+                        sx={{ bgcolor: MATURITY_COLORS[p.maturity] || BPM_NEUTRAL_COLOR, color: "#fff" }}
                       />
                     </TableCell>
                   </TableRow>

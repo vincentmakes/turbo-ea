@@ -1,24 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
 
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
-vi.mock("recharts", () => ({
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Pie: ({ data }: any) => <div data-testid="pie">{data?.map((d: any) => d.name).join(",")}</div>,
-  Cell: () => null,
-  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  Bar: () => null,
-  XAxis: () => null,
-  YAxis: () => null,
-  CartesianGrid: () => null,
-  Tooltip: () => null,
-  Legend: () => null,
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-}));
+/**
+ * jsdom has no canvas: the three charts are the shared EChart double, so a
+ * test reads the option the dashboard built and delivers a click the way
+ * ECharts would, with the clicked datum (which carries the raw option key).
+ */
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 vi.mock("./ProcessNavigator", () => ({
   default: () => <div data-testid="process-navigator">ProcessNavigator</div>,
 }));
@@ -37,43 +31,96 @@ vi.mock("./useProcessTypeOptions", () => {
     Support: "Support",
     Management: "Strategic",
   };
+  const COLORS: Record<string, string> = {
+    Core: "#00aa55",
+    Support: "#0055aa",
+    Management: "#aa0055",
+  };
   return {
     useProcessTypeOptions: () => ({
       options: [],
       byKey: new Map(),
       defaultKey: "core",
       loading: false,
-      resolve: (key: string) => ({ key, label: LABELS[key] ?? key, color: "#00aa55" }),
+      resolve: (key: string) => ({ key, label: LABELS[key] ?? key, color: COLORS[key] ?? "#999999" }),
+    }),
+  };
+});
+// Maturity and automation level are single_select options too: their columns
+// must be labelled from the metamodel, never with the stored key.
+vi.mock("./useBpmFieldOptions", () => {
+  const OPTIONS: Record<string, Record<string, { label: string; color?: string }>> = {
+    maturity: {
+      initial: { label: "Initial", color: "#123456" },
+      managed: { label: "Managed" },
+      defined: { label: "Defined" },
+    },
+    automationLevel: {
+      manual: { label: "Manual", color: "#d32f2f" },
+      partiallyAutomated: { label: "Partially automated" },
+      fullyAutomated: { label: "Fully automated", color: "#4caf50" },
+    },
+  };
+  return {
+    useBpmFieldOptions: (field: string) => ({
+      loading: false,
+      resolve: (key: string) => ({ key, ...(OPTIONS[field]?.[key] ?? { label: key }) }),
     }),
   };
 });
 
 import { api } from "@/api/client";
+import { echartState } from "@/test/echartMock";
+import { hookState } from "@/test/hooks";
+import { MATURITY_COLORS } from "./bpmChartOptions";
+import { STATUS_COLORS, brand } from "@/theme/tokens";
 import BpmDashboard from "./BpmDashboard";
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
+
+const PIE = "By Process Type";
+const MATURITY = "Maturity Distribution";
+const AUTOMATION = "Automation Level";
 
 const mockDashboard = {
   total_processes: 42,
   diagram_coverage: { with_diagram: 30, total: 42, percentage: 71 },
-  by_process_type: { Core: 20, Support: 15, Management: 7 },
-  by_maturity: { initial: 5, managed: 12, defined: 15, measured: 8, optimized: 2 },
-  by_automation: { none: 10, partial: 20, full: 12 },
+  by_process_type: { Core: 20, Support: 15, Management: 7, unknown: 4 },
+  by_maturity: { initial: 5, managed: 12, defined: 15, custom: 2, unknown: 1 },
+  by_automation: { manual: 10, partiallyAutomated: 20, fullyAutomated: 12, unknown: 3 },
   by_risk: { low: 20, medium: 15, high: 5, critical: 2 },
   top_risk_processes: [
     { id: "p1", name: "Order Processing", risk: "critical", maturity: "initial" },
     { id: "p2", name: "Invoice Handling", risk: "high", maturity: "managed" },
+    { id: "p3", name: "Expense Claims", risk: "high", maturity: "gone" },
   ],
 };
+
+function Location() {
+  const loc = useLocation();
+  return <div data-testid="location">{loc.pathname + loc.search}</div>;
+}
 
 function renderPage(route = "/bpm") {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <BpmDashboard />
+      <Location />
     </MemoryRouter>,
   );
 }
 
+async function renderDashboard() {
+  renderPage("/bpm?tab=dashboard");
+  await screen.findByText("Total Processes");
+}
+
+const series = (name: string) => echartState.byName(name).option.series[0];
+
 beforeEach(() => {
   vi.clearAllMocks();
+  echartState.reset();
+  hookState.isRtl = false;
   vi.mocked(api.get).mockResolvedValue(mockDashboard);
 });
 
@@ -102,6 +149,7 @@ describe("BpmDashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Total Processes")).toBeInTheDocument();
     });
+    expect(api.get).toHaveBeenCalledWith("/reports/bpm/dashboard");
   });
 
   it("displays KPI cards on Dashboard tab", async () => {
@@ -126,25 +174,138 @@ describe("BpmDashboard", () => {
     });
   });
 
-  it("renders chart sections", async () => {
-    renderPage();
-    await userEvent.click(screen.getByText("Dashboard"));
+  it("renders chart sections, each chart named by its heading", async () => {
+    await renderDashboard();
 
-    await waitFor(() => {
-      expect(screen.getByText("By Process Type")).toBeInTheDocument();
-      expect(screen.getByText("Maturity Distribution")).toBeInTheDocument();
-      expect(screen.getByText("Automation Level")).toBeInTheDocument();
-    });
+    expect(screen.getByText(PIE)).toBeInTheDocument();
+    expect(screen.getByText(MATURITY)).toBeInTheDocument();
+    expect(screen.getByText(AUTOMATION)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: PIE })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: MATURITY })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: AUTOMATION })).toBeInTheDocument();
+    expect(echartState.props).toHaveLength(3);
+  });
+
+  it("draws each chart in a 220 px box", async () => {
+    await renderDashboard();
+    for (const name of [PIE, MATURITY, AUTOMATION]) {
+      const box = screen.getByRole("img", { name }).parentElement!;
+      expect(getComputedStyle(box).height).toBe("220px");
+    }
   });
 
   it("labels the process-type pie with resolved metamodel labels, not raw keys (issue #857)", async () => {
-    renderPage();
-    await userEvent.click(screen.getByText("Dashboard"));
+    await renderDashboard();
 
-    await waitFor(() => {
-      // "Management" resolves to the customized label "Strategic".
-      expect(screen.getByTestId("pie")).toHaveTextContent("Core,Support,Strategic");
-    });
+    const pie = series(PIE);
+    expect(pie.type).toBe("pie");
+    // "Management" resolves to the customized label "Strategic"; "unknown" is dropped.
+    expect(pie.data.map((d: any) => d.name)).toEqual(["Core", "Support", "Strategic"]);
+    expect(pie.data.map((d: any) => d.key)).toEqual(["Core", "Support", "Management"]);
+    expect(pie.data.map((d: any) => d.value)).toEqual([20, 15, 7]);
+    expect(pie.data.map((d: any) => d.itemStyle.color)).toEqual(["#00aa55", "#0055aa", "#aa0055"]);
+    expect(pie.cursor).toBe("pointer");
+    expect(pie.name).toBe("Processes");
+    expect(echartState.byName(PIE).option.legend.data).toEqual(["Core", "Support", "Strategic"]);
+  });
+
+  it("labels the maturity columns with the resolved option labels, not raw keys", async () => {
+    await renderDashboard();
+
+    const option = echartState.byName(MATURITY).option;
+    expect(option.xAxis.data).toEqual(["Initial", "Managed", "Defined", "custom"]);
+    expect(option.xAxis.axisLabel.interval).toBe(0);
+    expect(option.series[0].type).toBe("bar");
+    expect(option.series[0].name).toBe("Processes");
+    expect(option.series[0].cursor).toBe("pointer");
+    expect(option.series[0].data.map((d: any) => d.key)).toEqual(["initial", "managed", "defined", "custom"]);
+    expect(option.series[0].data.map((d: any) => d.value)).toEqual([5, 12, 15, 2]);
+  });
+
+  it("colours each maturity column: option colour, else the CMMI scale, else neutral", async () => {
+    await renderDashboard();
+
+    expect(series(MATURITY).data.map((d: any) => d.itemStyle.color)).toEqual([
+      "#123456",
+      MATURITY_COLORS.managed,
+      MATURITY_COLORS.defined,
+      STATUS_COLORS.neutral,
+    ]);
+  });
+
+  it("labels the automation columns with the resolved option labels, in one colour", async () => {
+    await renderDashboard();
+
+    const option = echartState.byName(AUTOMATION).option;
+    expect(option.xAxis.data).toEqual(["Manual", "Partially automated", "Fully automated"]);
+    expect(option.series[0].name).toBe("Processes");
+    expect(option.series[0].cursor).toBe("pointer");
+    expect(option.series[0].data.map((d: any) => d.key)).toEqual([
+      "manual",
+      "partiallyAutomated",
+      "fullyAutomated",
+    ]);
+    expect(option.series[0].data.map((d: any) => d.itemStyle.color)).toEqual([
+      brand.primary,
+      brand.primary,
+      brand.primary,
+    ]);
+  });
+
+  it("mirrors the charts in a right-to-left language", async () => {
+    hookState.isRtl = true;
+    await renderDashboard();
+
+    expect(echartState.byName(MATURITY).option.xAxis.inverse).toBe(true);
+    expect(echartState.byName(MATURITY).option.yAxis.position).toBe("right");
+    expect(echartState.byName(AUTOMATION).option.xAxis.inverse).toBe(true);
+    expect(echartState.byName(AUTOMATION).option.yAxis.position).toBe("right");
+    expect(echartState.byName(PIE).option.legend.left).toBe("right");
+  });
+
+  it("drills a process-type slice down to the inventory, by raw key", async () => {
+    await renderDashboard();
+
+    act(() => echartState.click(PIE, { name: "Strategic", data: { key: "Management" } }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/inventory?type=BusinessProcess&attr_processType=Management",
+    );
+  });
+
+  it("drills a maturity column down to the inventory, by raw key", async () => {
+    await renderDashboard();
+
+    act(() => echartState.click(MATURITY, { name: "Defined", data: { key: "defined" } }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/inventory?type=BusinessProcess&attr_maturity=defined",
+    );
+  });
+
+  it("drills an automation column down to the inventory, by raw key", async () => {
+    await renderDashboard();
+
+    act(() => echartState.click(AUTOMATION, { name: "Fully automated", data: { key: "fullyAutomated" } }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/inventory?type=BusinessProcess&attr_automationLevel=fullyAutomated",
+    );
+  });
+
+  it("encodes the drilled key into the inventory URL", async () => {
+    await renderDashboard();
+
+    act(() => echartState.click(PIE, { data: { key: "R&D ops" } }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/inventory?type=BusinessProcess&attr_processType=R%26D%20ops",
+    );
+  });
+
+  it("ignores a click that names no datum key", async () => {
+    await renderDashboard();
+
+    act(() => echartState.click(PIE, { name: "Strategic" }));
+    act(() => echartState.click(MATURITY, { name: "Defined", data: {} }));
+    act(() => echartState.click(AUTOMATION, { name: "Manual", data: { key: "" } }));
+    expect(screen.getByTestId("location")).toHaveTextContent("/bpm?tab=dashboard");
   });
 
   it("shows top risk processes table", async () => {
@@ -156,6 +317,14 @@ describe("BpmDashboard", () => {
       expect(screen.getByText("Order Processing")).toBeInTheDocument();
       expect(screen.getByText("Invoice Handling")).toBeInTheDocument();
     });
+  });
+
+  it("colours a risk row's maturity chip from the CMMI scale, neutral when unknown", async () => {
+    await renderDashboard();
+
+    const chip = (label: string) => screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
+    expect(chip("initial")).toHaveStyle({ backgroundColor: MATURITY_COLORS.initial });
+    expect(chip("gone")).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral });
   });
 
   it("has All Processes button", async () => {
@@ -182,6 +351,7 @@ describe("BpmDashboard", () => {
     await userEvent.click(screen.getByText("Dashboard"));
 
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(echartState.props).toHaveLength(0);
 
     resolve!(mockDashboard);
     await waitFor(() => {
@@ -191,6 +361,7 @@ describe("BpmDashboard", () => {
 
   it("shows error state when API fails", async () => {
     vi.mocked(api.get).mockRejectedValue(new Error("fail"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     renderPage();
     await userEvent.click(screen.getByText("Dashboard"));
@@ -198,6 +369,7 @@ describe("BpmDashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Failed to load BPM dashboard.")).toBeInTheDocument();
     });
+    expect(echartState.props).toHaveLength(0);
   });
 
   it("opens side panel when clicking a risk process row", async () => {

@@ -2,7 +2,7 @@
  * ProcessAssessmentPanel — Assessment form + history chart.
  * Embedded as a tab in CardDetail for BusinessProcess type.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import Box from "@mui/material/Box";
@@ -27,36 +27,22 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Drawer from "@mui/material/Drawer";
 import Divider from "@mui/material/Divider";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { todayIsoDate } from "@/lib/dates";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useIsRtl } from "@/hooks/useIsRtl";
-import { makeRtlAxisTick, rtlLegendItemStyle, rtlTooltipStyle } from "@/lib/rechartsRtl";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip,
-  Legend, ResponsiveContainer,
-} from "recharts";
+import EChart from "@/components/charts/EChart";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import type { ProcessAssessment } from "@/types";
+import { DIMENSIONS, assessmentTrendOption } from "./bpmChartOptions";
 
 interface Props {
   processId: string;
 }
 
-const DIMENSIONS = [
-  { key: "overall_score", label: "Overall", color: "#1976d2" },
-  { key: "efficiency", label: "Efficiency", color: "#4caf50" },
-  { key: "effectiveness", label: "Effectiveness", color: "#ff9800" },
-  { key: "compliance", label: "Compliance", color: "#9c27b0" },
-  { key: "automation", label: "Automation", color: "#00bcd4" },
-];
-
 export default function ProcessAssessmentPanel({ processId }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
-  const theme = useTheme();
-  const isRtl = useIsRtl();
-  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary, 11);
+  const chartTheme = useEChartsTheme();
   const { formatDate } = useDateFormat();
   const [assessments, setAssessments] = useState<ProcessAssessment[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -98,15 +84,19 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
     load();
   };
 
-  // Chart data (oldest first)
-  const chartData = [...assessments].reverse().map((a) => ({
-    date: formatDate(a.assessment_date),
-    Overall: a.overall_score,
-    Efficiency: a.efficiency,
-    Effectiveness: a.effectiveness,
-    Compliance: a.compliance,
-    Automation: a.automation,
-  }));
+  // Chart data (oldest first), scores in dimension order
+  const chartData = useMemo(
+    () =>
+      [...assessments].reverse().map((a) => ({
+        date: formatDate(a.assessment_date),
+        scores: DIMENSIONS.map((d) => a[d.key]),
+      })),
+    [assessments, formatDate],
+  );
+  const trendOption = useMemo(
+    () => assessmentTrendOption(chartData, DIMENSIONS, { chrome: chartTheme, isRtl: chartTheme.isRtl }),
+    [chartData, chartTheme],
+  );
 
   return (
     <Box>
@@ -141,51 +131,8 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
 
       {/* Trend Chart */}
       {chartData.length > 1 && (
-        <Box sx={{ mb: 3 }}>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-              <XAxis
-                dataKey="date"
-                reversed={isRtl}
-                tick={{ fill: theme.palette.text.secondary, fontSize: 11 }}
-                tickMargin={8}
-                minTickGap={16}
-              />
-              <YAxis
-                domain={[1, 5]}
-                ticks={[1, 2, 3, 4, 5]}
-                orientation={isRtl ? "right" : "left"}
-                tick={isRtl ? rtlAxisTick : { fill: theme.palette.text.secondary, fontSize: 11 }}
-                width={28}
-              />
-              <RTooltip
-                contentStyle={{
-                  backgroundColor: theme.palette.background.paper,
-                  borderColor: theme.palette.divider,
-                  color: theme.palette.text.primary,
-                  fontSize: 12,
-                  ...rtlTooltipStyle(isRtl),
-                }}
-              />
-              <Legend
-                wrapperStyle={{ fontSize: 12, direction: isRtl ? "rtl" : "ltr" }}
-                formatter={(value: string) => (
-                  <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>
-                )}
-              />
-              {DIMENSIONS.map((d) => (
-                <Line
-                  key={d.key}
-                  type="monotone"
-                  dataKey={d.label}
-                  stroke={d.color}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+        <Box sx={{ height: 260, mb: 3 }}>
+          <EChart option={trendOption} ariaLabel={t("assessment.title")} />
         </Box>
       )}
 
@@ -249,10 +196,10 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
           {DIMENSIONS.map((d) => (
             <Box key={d.key} sx={{ mt: 2 }}>
               <Typography variant="body2" gutterBottom>
-                {d.label}: {(form as any)[d.key]}
+                {d.label}: {form[d.key]}
               </Typography>
               <Slider
-                value={(form as any)[d.key]}
+                value={form[d.key]}
                 onChange={(_, v) => setForm({ ...form, [d.key]: v as number })}
                 min={1}
                 max={5}
