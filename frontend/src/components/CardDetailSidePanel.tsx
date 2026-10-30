@@ -21,6 +21,8 @@ import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
+import { useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import type {
@@ -83,6 +85,10 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
     nonce: number;
   } | null>(null);
   const jumpNonce = useRef(0);
+  // Gamified data quality: the panel's header is already sticky, so the pill
+  // plays the gain and no separate score bar is needed.
+  const gamification = useGamificationEnabled();
+  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification);
 
   const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
@@ -228,6 +234,8 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
                 onJump={(target) =>
                   setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current })
                 }
+                animate={gamification}
+                gain={scoreGain}
               />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />

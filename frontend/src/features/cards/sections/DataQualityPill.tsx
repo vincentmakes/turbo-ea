@@ -24,6 +24,11 @@
  *
  * When `value` changes (a save rescored the card) the fetched breakdown is
  * dropped, so the next hover fetches the fresh one.
+ *
+ * With `animate` (gamified data quality, an admin toggle) the fill is the
+ * shared `ScoreBar` and the figure counts up; a `gain` pops the pill, pulses a
+ * ring in the new band colour when the score changed band, and plays a
+ * `ScoreGainBurst` over it. Without `animate` the pill is exactly the plain one.
  */
 import { useMemo, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -43,6 +48,16 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { bandColor } from "@/lib/dataQualityBands";
 import { jumpTargetFor, type DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
+import { ScoreBar } from "@/features/cards/gamification/ScoreBar";
+import { ScoreGainBurst } from "@/features/cards/gamification/ScoreGainBurst";
+import {
+  GHOST_HOLD_MS,
+  bandChanged,
+  type ScoreGain,
+} from "@/features/cards/gamification/scoreGain";
+import { useAnimatedNumber } from "@/features/cards/gamification/useAnimatedNumber";
+import { useDqMotionStyles } from "@/features/cards/gamification/useDqMotionStyles";
+import { useReducedMotion } from "@/features/cards/gamification/useReducedMotion";
 import type { DataQualityBreakdown, DataQualityFactor, FieldDef } from "@/types";
 
 /** Unmet slots the tooltip names before "+N more". */
@@ -145,6 +160,8 @@ export function DataQualityPill({
   cardId,
   cardType,
   onJump,
+  animate = false,
+  gain: scoreGain = null,
 }: {
   value: number;
   /** Turns on the breakdown tooltip and popover. */
@@ -153,11 +170,19 @@ export function DataQualityPill({
   cardType?: string;
   /** Makes each unmet slot in the popover a link to where it is filled. */
   onJump?: (target: DataQualityJumpTarget) => void;
+  /** Gamified data quality: animate the fill and the figure. */
+  animate?: boolean;
+  /** The save's gain to play (`useScoreGain`); only read with `animate`. */
+  gain?: ScoreGain | null;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const v = Math.max(0, Math.min(100, Math.round(value)));
   const color = bandColor(v);
   const explains = !!cardId;
+  const reduced = useReducedMotion();
+  useDqMotionStyles(animate);
+  const shown = Math.round(useAnimatedNumber(v, animate && !reduced, GHOST_HOLD_MS));
+  const playing = animate ? scoreGain : null;
 
   // Fetch on first interest; forget it when the score moves (adjusting state
   // during render, so the stale breakdown never paints).
@@ -243,28 +268,39 @@ export function DataQualityPill({
       }
     : {};
 
-  return (
-    <>
-      {/* The tooltip stands down while the popover says the same, in full. */}
-      <Tooltip title={anchor ? "" : tooltip}>
-        <Box
-          {...interactive}
-          sx={{
-            position: "relative",
-            height: 24,
-            minWidth: 52,
-            borderRadius: "12px",
-            border: `1px solid ${color}`,
-            overflow: "hidden",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "transparent",
-            px: 1,
-            boxSizing: "border-box",
-            ...(explains && { cursor: "pointer" }),
-          }}
-        >
+  // The tooltip stands down while the popover says the same, in full.
+  const pill = (
+    <Tooltip title={anchor ? "" : tooltip}>
+      <Box
+        {...interactive}
+        sx={{
+          position: "relative",
+          height: 24,
+          minWidth: 52,
+          borderRadius: "12px",
+          border: `1px solid ${color}`,
+          overflow: "hidden",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "transparent",
+          px: 1,
+          boxSizing: "border-box",
+          ...(explains && { cursor: "pointer" }),
+        }}
+      >
+        {animate ? (
+          <ScoreBar
+            value={v}
+            color={color}
+            animate
+            ghostFrom={playing?.from ?? null}
+            height="100%"
+            radius={0}
+            track={false}
+            sx={{ position: "absolute", inset: 0, opacity: 0.18 }}
+          />
+        ) : (
           <Box
             sx={{
               position: "absolute",
@@ -276,20 +312,62 @@ export function DataQualityPill({
               opacity: 0.18,
             }}
           />
-          <Typography
-            variant="caption"
-            fontWeight={700}
-            sx={{
-              position: "relative",
-              color,
-              lineHeight: 1,
-              fontSize: "0.7rem",
-            }}
-          >
-            {v}%
-          </Typography>
+        )}
+        <Typography
+          variant="caption"
+          fontWeight={700}
+          sx={{
+            position: "relative",
+            color,
+            lineHeight: 1,
+            fontSize: "0.7rem",
+          }}
+        >
+          {animate ? shown : v}%
+        </Typography>
+      </Box>
+    </Tooltip>
+  );
+
+  return (
+    <>
+      {animate ? (
+        <Box
+          component="span"
+          data-testid="data-quality-pill-motion"
+          // Alternating the two class names restarts the pop on every gain.
+          className={
+            playing && !reduced
+              ? playing.nonce % 2 === 1
+                ? "dq-pop dq-pop-alt"
+                : "dq-pop"
+              : undefined
+          }
+          sx={{ position: "relative", display: "inline-flex" }}
+        >
+          {pill}
+          {playing && !reduced && bandChanged(playing.from, playing.to) && (
+            <Box
+              key={`glow-${playing.nonce}`}
+              component="span"
+              aria-hidden
+              data-testid="data-quality-glow"
+              className="dq-glow"
+              sx={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: "12px",
+                border: `2px solid ${bandColor(playing.to)}`,
+                pointerEvents: "none",
+                opacity: 0,
+              }}
+            />
+          )}
+          {playing && <ScoreGainBurst key={playing.nonce} gain={playing} />}
         </Box>
-      </Tooltip>
+      ) : (
+        pill
+      )}
       {explains && (
         <Popover
           open={!!anchor}

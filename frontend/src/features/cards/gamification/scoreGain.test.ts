@@ -1,0 +1,180 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { STATUS_COLORS, brand } from "@/theme/tokens";
+import {
+  CONFETTI_COLORS,
+  CONFETTI_COUNT,
+  CONFETTI_MS,
+  DQ_MOTION_CSS,
+  DQ_MOTION_STYLE_ID,
+  EASE_DECELERATE,
+  EASE_OVERSHOOT,
+  FILL_MS,
+  FLOAT_MS,
+  GHOST_HOLD_MS,
+  POP_MS,
+  STATIC_CHIP_MS,
+  bandChanged,
+  confettiParticle,
+  injectDqMotionStyles,
+  milestoneFor,
+  scoreDelta,
+} from "./scoreGain";
+
+describe("scoreDelta", () => {
+  it("is the rise, to one decimal", () => {
+    expect(scoreDelta(93.3, 100)).toBe(6.7);
+    expect(scoreDelta(10, 35)).toBe(25);
+    expect(scoreDelta(33.33, 40)).toBe(6.7);
+  });
+
+  it("is null for no change, a drop, or a rise too small to show", () => {
+    expect(scoreDelta(50, 50)).toBeNull();
+    expect(scoreDelta(60, 40)).toBeNull();
+    expect(scoreDelta(50, 50.04)).toBeNull();
+  });
+
+  it("keeps a rise that rounds up to a tenth", () => {
+    expect(scoreDelta(50, 50.06)).toBe(0.1);
+  });
+});
+
+describe("milestoneFor", () => {
+  it("is 'perfect' on reaching 100, whatever band it came from", () => {
+    expect(milestoneFor(93.3, 100)).toBe("perfect");
+    expect(milestoneFor(20, 100)).toBe("perfect");
+    expect(milestoneFor(99.9, 100)).toBe("perfect");
+  });
+
+  it("is 'complete' on first entering the green band", () => {
+    expect(milestoneFor(79.9, 80)).toBe("complete");
+    expect(milestoneFor(30, 90)).toBe("complete");
+  });
+
+  it("is null for a rise inside a band, or one that stays below green", () => {
+    expect(milestoneFor(80, 95)).toBeNull();
+    expect(milestoneFor(30, 79)).toBeNull();
+    expect(milestoneFor(100, 100)).toBeNull();
+  });
+});
+
+describe("bandChanged", () => {
+  it("is true across a band boundary and false inside one", () => {
+    expect(bandChanged(39, 40)).toBe(true);
+    expect(bandChanged(79, 80)).toBe(true);
+    expect(bandChanged(40, 79)).toBe(false);
+    expect(bandChanged(80, 100)).toBe(false);
+  });
+});
+
+describe("motion constants", () => {
+  it("match the motion guidelines", () => {
+    expect(FILL_MS).toBe(500);
+    expect(GHOST_HOLD_MS).toBe(400);
+    expect(POP_MS).toBe(300);
+    expect(FLOAT_MS).toBe(900);
+    expect(CONFETTI_MS).toBe(1200);
+    expect(STATIC_CHIP_MS).toBe(2000);
+    expect(EASE_DECELERATE).toBe("cubic-bezier(0, 0, 0, 1)");
+    expect(EASE_OVERSHOOT).toBe("cubic-bezier(0.34, 1.56, 0.64, 1)");
+    expect(CONFETTI_COUNT).toBe(14);
+    expect(CONFETTI_COLORS).toEqual([
+      STATUS_COLORS.success,
+      STATUS_COLORS.info,
+      STATUS_COLORS.warning,
+      brand.primary,
+    ]);
+  });
+});
+
+describe("confettiParticle", () => {
+  it("spreads the particles evenly round the circle, 28 to 56 px out", () => {
+    expect(confettiParticle(0)).toEqual({
+      dx: 28,
+      dy: 0,
+      rotate: 180,
+      color: STATUS_COLORS.success,
+    });
+    // Half way round the circle.
+    const half = confettiParticle(7);
+    expect(half.dx).toBe(-Math.round(28 + 4 * 2));
+    expect(half.dy).toBe(0);
+    expect(half.rotate).toBe(-(180 + 7 * 20));
+    expect(half.color).toBe(brand.primary);
+
+    const distances = Array.from({ length: CONFETTI_COUNT }, (_, i) => {
+      const p = confettiParticle(i);
+      return Math.hypot(p.dx, p.dy);
+    });
+    expect(Math.min(...distances)).toBeGreaterThanOrEqual(27.5);
+    expect(Math.max(...distances)).toBeLessThanOrEqual(56.5);
+    expect(Math.round(Math.max(...distances))).toBe(56);
+  });
+
+  it("cycles the four colours", () => {
+    expect(confettiParticle(1).color).toBe(STATUS_COLORS.info);
+    expect(confettiParticle(3).color).toBe(brand.primary);
+    expect(confettiParticle(4).color).toBe(STATUS_COLORS.success);
+  });
+});
+
+describe("DQ_MOTION_CSS", () => {
+  it("only defines the motion when the reader has not asked for less", () => {
+    const open = DQ_MOTION_CSS.indexOf("@media (prefers-reduced-motion: no-preference) {");
+    const reduce = DQ_MOTION_CSS.indexOf("@media (prefers-reduced-motion: reduce) {");
+    expect(open).toBeGreaterThan(-1);
+    expect(reduce).toBeGreaterThan(open);
+    for (const name of ["dq-float-up", "dq-pop", "dq-pop-alt", "dq-glow", "dq-confetti"]) {
+      const at = DQ_MOTION_CSS.indexOf(`@keyframes ${name} `);
+      expect(at).toBeGreaterThan(open);
+      expect(at).toBeLessThan(reduce);
+    }
+  });
+
+  it("plays each class with its duration and easing, on transform and opacity only", () => {
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-float { animation: dq-float-up 900ms cubic-bezier(0, 0, 0, 1) forwards }",
+    );
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-caption { animation: dq-float-up 1200ms cubic-bezier(0, 0, 0, 1) forwards }",
+    );
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-pop { animation: dq-pop 300ms cubic-bezier(0.34, 1.56, 0.64, 1) }",
+    );
+    expect(DQ_MOTION_CSS).toContain(".dq-pop.dq-pop-alt { animation-name: dq-pop-alt }");
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-glow { animation: dq-glow 500ms cubic-bezier(0, 0, 0, 1) forwards }",
+    );
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-confetti { animation: dq-confetti 1200ms cubic-bezier(0, 0, 0, 1) forwards }",
+    );
+    expect(DQ_MOTION_CSS).toContain(
+      "to { transform: translateY(-24px); opacity: 0 }",
+    );
+    expect(DQ_MOTION_CSS).toContain("50% { transform: scale(1.08) }");
+    expect(DQ_MOTION_CSS).toContain(
+      "to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0 }",
+    );
+    // Nothing animates layout or paint-only properties.
+    expect(DQ_MOTION_CSS).not.toMatch(/box-shadow|width|height|top|left/);
+  });
+
+  it("switches every class off under reduced motion", () => {
+    expect(DQ_MOTION_CSS).toContain(
+      ".dq-float, .dq-caption, .dq-pop, .dq-glow, .dq-confetti, .dq-fill { animation: none !important; transition: none !important }",
+    );
+  });
+});
+
+describe("injectDqMotionStyles", () => {
+  afterEach(() => {
+    document.getElementById(DQ_MOTION_STYLE_ID)?.remove();
+  });
+
+  it("adds the stylesheet to the head once", () => {
+    injectDqMotionStyles();
+    injectDqMotionStyles();
+    const styles = document.head.querySelectorAll(`style#${DQ_MOTION_STYLE_ID}`);
+    expect(styles).toHaveLength(1);
+    expect(styles[0].textContent).toBe(DQ_MOTION_CSS);
+  });
+});

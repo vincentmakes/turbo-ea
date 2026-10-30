@@ -37,6 +37,10 @@ import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill } from "@/features/cards/sections";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
+import { StickyScoreBar } from "@/features/cards/gamification/StickyScoreBar";
+import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
+import { useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -171,6 +175,13 @@ export default function CardDetail() {
     missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
     missing_tag_groups: { id: string; name: string }[];
   } | null>(null);
+
+  // Gamified data quality (admin toggle): the gain each save plays, and the
+  // sticky score bar shown while the header row is scrolled away.
+  const gamification = useGamificationEnabled();
+  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification);
+  const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
+  const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
 
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
@@ -495,7 +506,10 @@ export default function CardDetail() {
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* ── Header ── */}
-      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 3 }}>
+      <Box
+        ref={setHeaderEl}
+        sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 3 }}
+      >
         <IconButton onClick={() => navigate(-1)} sx={{ mr: { xs: -0.5, sm: 0 } }}>
           <MaterialSymbol icon="arrow_back" size={24} />
         </IconButton>
@@ -735,6 +749,8 @@ export default function CardDetail() {
             onJump={(target) =>
               setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current })
             }
+            animate={gamification}
+            gain={scoreGain}
           />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
@@ -1021,6 +1037,14 @@ export default function CardDetail() {
           </>
         }
       />
+      {gamification && (
+        <StickyScoreBar
+          open={headerOffscreen}
+          name={card.name}
+          value={card.data_quality}
+          gain={scoreGain}
+        />
+      )}
       <Fade in={showScrollTop}>
         <Fab
           size="small"

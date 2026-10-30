@@ -519,3 +519,83 @@ describe("DataQualityPill", () => {
     });
   });
 });
+
+describe("DataQualityPill — gamified (animate)", () => {
+  const gain = (from: number, to: number, nonce = 1) => ({
+    from,
+    to,
+    delta: Math.round((to - from) * 10) / 10,
+    milestone: null,
+    nonce,
+  });
+
+  it("without animate stays the plain pill and ignores a gain", () => {
+    render(<DataQualityPill value={44.2} gain={gain(37.5, 44.2)} />);
+    expect(screen.getByText("44%")).toBeInTheDocument();
+    expect(screen.queryByTestId("score-bar")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("data-quality-pill-motion")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+  });
+
+  it("with animate draws the fill as the shared ScoreBar, tinted like the plain fill", () => {
+    render(<DataQualityPill value={62.4} animate />);
+    expect(screen.getByText("62%")).toBeInTheDocument();
+    const bar = screen.getByTestId("score-bar");
+    expect(bar).toHaveStyle({ position: "absolute", opacity: "0.18" });
+    expect(screen.getByTestId("score-bar-fill")).toHaveStyle({
+      transform: "scaleX(0.62)",
+      backgroundColor: "rgb(255, 152, 0)",
+    });
+    expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
+    expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+  });
+
+  it("on a gain pops, plays the burst, and counts the figure up", async () => {
+    const { rerender } = render(<DataQualityPill value={41.5} animate gain={null} />);
+    rerender(<DataQualityPill value={48.2} animate gain={gain(41.5, 48.2, 1)} />);
+
+    const root = screen.getByTestId("data-quality-pill-motion");
+    expect(root).toHaveClass("dq-pop");
+    expect(root).toHaveClass("dq-pop-alt");
+    expect(screen.getByTestId("score-gain-float")).toHaveTextContent(/^\+6\.7%$/);
+    expect(screen.getByRole("status")).toHaveTextContent(/^\+6\.7% data quality$/);
+    expect(screen.getByTestId("score-bar-ghost")).toHaveStyle({ transform: "scaleX(0.48)" });
+    // Same band: no glow.
+    expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+    // The figure starts from the old score and counts up.
+    expect(screen.getByText("42%")).toBeInTheDocument();
+    expect(await screen.findByText("48%", {}, { timeout: 2000 })).toBeInTheDocument();
+  });
+
+  it("alternates the pop class so the next gain replays it", () => {
+    const { rerender } = render(<DataQualityPill value={40} animate gain={null} />);
+    rerender(<DataQualityPill value={50} animate gain={gain(40, 50, 2)} />);
+    const root = screen.getByTestId("data-quality-pill-motion");
+    expect(root).toHaveClass("dq-pop");
+    expect(root).not.toHaveClass("dq-pop-alt");
+  });
+
+  it("pulses a ring in the new band's colour when the score changes band", () => {
+    const { rerender } = render(<DataQualityPill value={75} animate gain={null} />);
+    rerender(<DataQualityPill value={85} animate gain={gain(75, 85)} />);
+    const glow = screen.getByTestId("data-quality-glow");
+    expect(glow).toHaveClass("dq-glow");
+    expect(glow).toHaveStyle({ borderColor: "rgb(76, 175, 80)", borderWidth: "2px" });
+  });
+
+  it("plays nothing for a drop", () => {
+    const { rerender } = render(<DataQualityPill value={85} animate gain={null} />);
+    rerender(<DataQualityPill value={60} animate gain={null} />);
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
+    expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+  });
+
+  it("keeps the breakdown popover working with animate on", async () => {
+    render(<DataQualityPill value={37.5} cardId="c1" cardType="Application" animate />);
+    await userEvent.click(screen.getByTestId("data-quality-pill"));
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Set lifecycle dates")).toBeInTheDocument();
+  });
+});

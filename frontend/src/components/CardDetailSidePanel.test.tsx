@@ -23,12 +23,42 @@ vi.mock("@/hooks/useAiStatus", () => ({
 // The real content drags in the whole card-detail graph; this suite is about
 // the drawer around it.
 vi.mock("@/features/cards/CardDetailContent", () => ({
-  default: ({ card }: { card: { name: string } }) => (
-    <div data-testid="card-content">{card.name}</div>
+  default: ({
+    card,
+    onCardUpdate,
+  }: {
+    card: { name: string; data_quality: number };
+    onCardUpdate: (c: unknown) => void;
+  }) => (
+    <div data-testid="card-content">
+      {card.name}
+      <button type="button" onClick={() => onCardUpdate({ ...card, data_quality: 60 })}>
+        Save
+      </button>
+    </div>
   ),
 }));
 vi.mock("@/features/cards/sections", () => ({
-  DataQualityPill: () => null,
+  DataQualityPill: ({
+    value,
+    animate,
+    gain,
+  }: {
+    value: number;
+    animate?: boolean;
+    gain?: { delta: number } | null;
+  }) => (
+    <span
+      data-testid="dq-pill"
+      data-value={value}
+      data-animate={String(!!animate)}
+      data-gain={gain ? String(gain.delta) : ""}
+    />
+  ),
+}));
+const gamification = vi.hoisted(() => ({ enabled: false }));
+vi.mock("@/hooks/useGamificationEnabled", () => ({
+  useGamificationEnabled: () => gamification.enabled,
 }));
 
 import { api } from "@/api/client";
@@ -47,6 +77,7 @@ const CARD = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  gamification.enabled = false;
   document.body.style.overflow = "";
   vi.mocked(api.get).mockImplementation((path: string) =>
     path.endsWith("/my-permissions")
@@ -157,5 +188,30 @@ describe("CardDetailSidePanel — nonModal", () => {
     mount({ nonModal: true, open: false });
     expect(api.get).not.toHaveBeenCalled();
     expect(screen.queryByTestId("card-content")).toBeNull();
+  });
+});
+
+describe("CardDetailSidePanel — gamified data quality", () => {
+  it("hands the pill the save's gain when the toggle is on", async () => {
+    gamification.enabled = true;
+    mount();
+    await screen.findByTestId("card-content");
+    const pill = screen.getByTestId("dq-pill");
+    expect(pill).toHaveAttribute("data-animate", "true");
+    expect(pill).toHaveAttribute("data-gain", "");
+
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByTestId("dq-pill")).toHaveAttribute("data-value", "60");
+    expect(screen.getByTestId("dq-pill")).toHaveAttribute("data-gain", "10");
+  });
+
+  it("animates nothing when the toggle is off", async () => {
+    mount();
+    await screen.findByTestId("card-content");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    const pill = screen.getByTestId("dq-pill");
+    expect(pill).toHaveAttribute("data-value", "60");
+    expect(pill).toHaveAttribute("data-animate", "false");
+    expect(pill).toHaveAttribute("data-gain", "");
   });
 });

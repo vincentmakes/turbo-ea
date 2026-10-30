@@ -18,6 +18,9 @@ The top of the card shows:
 - **Data quality ring** — Visual indicator of information completeness (0–100%). Hover it to see the three things that would raise the score most, each with how many points it would add (for example *Fill Business Criticality +12.5%*). Click it (or focus it and press Enter) for the full breakdown: every slot still to fill, sorted by how much it adds, and an **Already counted** list of what is in place. Each item still to fill is a link: clicking it opens the section where it is filled (or the **Stakeholders** tab) and scrolls to it. While a required field is empty the score stays at 0%; the breakdown names those fields and shows what the score would be without them.
 
 ![Data quality breakdown popover](../assets/img/en/63_card_data_quality_breakdown.png)
+
+When an administrator turns on [Gamified data quality](../admin/settings.md#gamified-data-quality), every save that raises the score is celebrated: the ring fills up to the new score with a flying **+X%**, and once you scroll past the header a slim score bar pinned under the top bar keeps the score in view and plays the same animation. Reaching the green band (80%) and reaching 100% are milestones with a short burst of confetti. A lower score is never animated, and with reduced motion turned on in your operating system you see a static **+X%** instead.
+
 - **Actions menu** — Archive, delete, and approval actions. Also includes a one-click **Observe this card** toggle (when the card type defines an Observer role) so any user with view access can follow the card without going through the Stakeholders tab.
 
 ### Custom Logo

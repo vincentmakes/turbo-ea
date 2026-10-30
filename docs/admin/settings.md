@@ -4,7 +4,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 
 | Tab | URL | What it controls | Full guide |
 |-----|-----|------------------|------------|
-| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button) | This page |
+| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button, Gamified data quality) | This page |
 | **Authentication** | `/admin/settings?tab=authentication` | SSO providers, registration, password policy | [Authentication & SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |
@@ -213,6 +213,20 @@ Like the release check, this is **notification-only** — nothing is downloaded 
 Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, users no longer see the Sponsor button in their profile menu. The Sponsor button — and the dialog explaining how to support Turbo EA — always remains available from this settings panel, so administrators can still reach it even when it is hidden from the menu.
 
 If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, reach out at [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
+
+## Gamified data quality
+
+Turn this on to celebrate every save that raises a card's data quality. It is **off** by default and applies to everyone; there is no per-user setting.
+
+While it is on, saving a change that raises a card's score plays a short reward on the card page and in the card preview panel:
+
+- the **data quality ring** pops, its fill grows into the new score like a health bar, and the figure counts up;
+- a green **+X%** (the points the save added) rises and fades above it;
+- on the card page, once you scroll past the card header, a slim **score bar** stays pinned under the top bar with the card's name and score, and plays the same animation when you save further down the page.
+
+Two moments count as **milestones** and get a short burst of confetti with a caption: reaching the green band (**80%** and above, *Complete!*) and reaching **100%** (*Perfect score!*). A save that lowers the score never animates; the number simply updates.
+
+Users who have turned on **reduced motion** in their operating system see no movement: the score updates at once and a static **+X%** label appears for two seconds. Screen readers announce the gain once (for example *+6.7% data quality*).
 
 ## TurboLens settings
 

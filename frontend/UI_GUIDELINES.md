@@ -747,6 +747,46 @@ icon and name together — that is the drift this exists to end.
   is for rows that are entirely the control (search results), not for a row that also
   carries an unlink button, a link-type chip or links of its own.
 
+### 3.16 Motion
+
+Motion is feedback, never decoration, and nothing may depend on it to be understood. The
+reference implementation is gamified data quality (`features/cards/gamification/`), which
+an administrator turns on in Settings → General → Modules.
+
+- **Durations** (Material 3 range): 100–200 ms for state changes (a pop is 300 ms with its
+  overshoot), **500 ms** for fills (`FILL_MS`), and at most **1.2 s** for a celebration
+  (`CONFETTI_MS`). The constants live in `gamification/scoreGain.ts`; reuse them.
+- **Easing tokens**: `EASE_DECELERATE` (`cubic-bezier(0, 0, 0, 1)`) for fills and anything
+  that arrives; `EASE_OVERSHOOT` (`cubic-bezier(0.34, 1.56, 0.64, 1)`) for a pop only —
+  never on a bar or a number, which must land exactly on the value.
+- **Animate `transform` and `opacity` only.** A bar grows with `transform: scaleX(...)` from
+  its start edge, a ring pulses with `scale` + `opacity`; never `width`, `height`, `top`,
+  `left` or `box-shadow`, which relayout or repaint every frame.
+- **Keyframes are a CSS string injected once** into a `<style>` element (`DQ_MOTION_CSS` /
+  `injectDqMotionStyles`, the pattern of `TIMELINE_PULSE_KEYFRAMES`), and run through class
+  names (`dq-pop`, `dq-float`, …). To replay a CSS animation without remounting, alternate
+  two identical keyframes (`dq-pop` / `dq-pop-alt`).
+- **Every animation respects `prefers-reduced-motion`**: the keyframes and the classes that
+  play them sit inside `@media (prefers-reduced-motion: no-preference)`, a
+  `@media (prefers-reduced-motion: reduce)` block switches them off, and components read
+  `useReducedMotion()` to render the static fallback (instant values, a static chip, no
+  particles).
+- **Announce, don't only show**: a change that animates is also told once through an
+  `aria-live="polite"` region.
+
+✅ Do
+- Animate gains only. A drop, a reset or a failed save updates the value without movement.
+- Keep celebrations rare and earned (milestones), behind the admin toggle, and remove their
+  DOM when they finish (`setTimeout` cleared on unmount).
+- Share the moving part between the places that show the same value (`ScoreBar` in the pill
+  and the sticky bar), so they always move the same way.
+
+❌ Don't
+- Don't add a motion library; CSS keyframes and transitions cover it.
+- Don't hardcode colours in keyframes or particles — take them from `@/theme/tokens`
+  (`STATUS_COLORS`, `brand`) or the band colour (`bandColor`).
+- Don't loop an animation or start one the user did not cause.
+
 ---
 
 ## 8. Related Files
