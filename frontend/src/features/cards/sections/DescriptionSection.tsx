@@ -24,7 +24,7 @@ import {
 import Chip from "@mui/material/Chip";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
+import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -144,7 +144,7 @@ function DescriptionSection({
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+      sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

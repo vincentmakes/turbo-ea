@@ -22,7 +22,7 @@ import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
-  SECTION_SCROLL_MARGIN_TOP,
+  SECTION_SCROLL_MARGIN,
   relationGroupAnchor,
   sectionAnchor,
 } from "@/features/cards/dataQualityJump";
@@ -471,7 +471,7 @@ function RelationGroup({
         borderRadius: 1,
         overflow: "hidden",
         mb: 1.5,
-        scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px`,
+        scrollMarginTop: SECTION_SCROLL_MARGIN,
       }}
     >
       {/* Group header */}
@@ -911,7 +911,7 @@ function RelationsSection({
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+      sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
+import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
@@ -98,7 +98,7 @@ export default function TagsSection({
       id={sectionAnchor("tags")}
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
-      sx={{ mb: 2, scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+      sx={{ mb: 2, scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { DataQualityFactor } from "@/types";
 import {
+  SECTION_SCROLL_MARGIN,
   SECTION_SCROLL_MARGIN_TOP,
+  SECTION_SCROLL_MARGIN_VAR,
   customSectionAnchor,
   jumpTargetFor,
   relationGroupAnchor,
@@ -47,8 +49,10 @@ describe("anchor builders", () => {
     expect(relationGroupAnchor("relAppToITC", "target")).toBe("card-relation-relAppToITC-target");
   });
 
-  it("keeps the app bar clearance", () => {
+  it("keeps the app bar clearance, which a page can widen through one CSS variable", () => {
     expect(SECTION_SCROLL_MARGIN_TOP).toBe(72);
+    expect(SECTION_SCROLL_MARGIN_VAR).toBe("--card-section-scroll-margin");
+    expect(SECTION_SCROLL_MARGIN).toBe("var(--card-section-scroll-margin, 72px)");
   });
 });
 

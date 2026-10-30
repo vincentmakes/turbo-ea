@@ -45,6 +45,10 @@ import {
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
 import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
 import { useStickyScorePin } from "@/lib/stickyScorePin";
+import {
+  SECTION_SCROLL_MARGIN_TOP,
+  SECTION_SCROLL_MARGIN_VAR,
+} from "@/features/cards/dataQualityJump";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -523,7 +527,18 @@ export default function CardDetail() {
     setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current });
 
   return (
-    <Box sx={{ maxWidth: 960, mx: "auto" }}>
+    <Box
+      data-testid="card-detail-page"
+      sx={{
+        maxWidth: 960,
+        mx: "auto",
+        // With the sticky score bar in play, a jumped-to section needs room
+        // under it as well as under the app bar.
+        ...(gamification && {
+          [SECTION_SCROLL_MARGIN_VAR]: `${SECTION_SCROLL_MARGIN_TOP + STICKY_SCORE_BAR_HEIGHT}px`,
+        }),
+      }}
+    >
       {/* A pinned score bar is fixed over the top of the page: keep the header
           clear of it. */}
       {gamification && pinned && (

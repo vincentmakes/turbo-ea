@@ -16,7 +16,7 @@ import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePha
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
+import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
 import type { Card } from "@/types";
 
 const PHASE_PALETTE: Record<string, string> = {
@@ -109,7 +109,7 @@ function LifecycleSection({
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+      sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

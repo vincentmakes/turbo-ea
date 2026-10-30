@@ -26,6 +26,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
+  SECTION_SCROLL_MARGIN,
   SECTION_SCROLL_MARGIN_TOP,
   customSectionAnchor,
 } from "@/features/cards/dataQualityJump";
@@ -416,7 +417,7 @@ function AttributeSection({
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+      sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

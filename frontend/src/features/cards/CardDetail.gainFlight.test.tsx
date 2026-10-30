@@ -189,6 +189,17 @@ function renderPage() {
   );
 }
 
+/** The CSS rules (from emotion's style tags) that apply to `el`'s own classes. */
+function rulesFor(el: HTMLElement): string {
+  const classes = [...el.classList];
+  return [...document.querySelectorAll("style")]
+    .map((s) => s.textContent ?? "")
+    .join("\n")
+    .split("}")
+    .filter((rule) => classes.some((c) => rule.includes(`.${c}{`) || rule.includes(`.${c} `)))
+    .join("}");
+}
+
 describe("CardDetail — the gain's flight", () => {
   it("flies a section's gain to the pill and passes the impact to the pill and the bar", async () => {
     renderPage();
@@ -225,6 +236,10 @@ describe("CardDetail — the gain's flight", () => {
     expect(screen.getByTestId("sticky-figure")).toHaveAttribute("data-open", "true");
     expect(screen.getByTestId("sticky-score-spacer")).toHaveStyle({ height: "44px" });
     expect(screen.getByTestId("sticky-score-spacer")).toHaveAttribute("aria-hidden", "true");
+    // A jumped-to section clears the app bar (72) and the bar (44).
+    expect(rulesFor(screen.getByTestId("card-detail-page"))).toContain(
+      "--card-section-scroll-margin:116px",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save tags" }));
     expect(screen.getByTestId("flight")).toHaveAttribute("data-target", "sticky-figure");
   });
@@ -267,5 +282,9 @@ describe("CardDetail — the gain's flight", () => {
     await screen.findByTestId("pill");
     expect(screen.queryByTestId("sticky-score-spacer")).not.toBeInTheDocument();
     expect(screen.queryByTestId("sticky-figure")).not.toBeInTheDocument();
+    // And the sections keep the plain app-bar clearance.
+    expect(rulesFor(screen.getByTestId("card-detail-page"))).not.toContain(
+      "--card-section-scroll-margin",
+    );
   });
 });

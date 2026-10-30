@@ -11,6 +11,18 @@ import type { DataQualityFactor } from "@/types";
 /** Clearance above a scrolled-to section, so the app bar does not cover it. */
 export const SECTION_SCROLL_MARGIN_TOP = 72;
 
+/**
+ * The CSS custom property a page may set on its root to widen that clearance:
+ * the card page sets it while TurboRPG mode is on, because the sticky score
+ * bar sits under the app bar and a section scrolled flush under the bar would
+ * be covered. Every section's `scroll-margin-top` reads it, falling back to
+ * `SECTION_SCROLL_MARGIN_TOP`.
+ */
+export const SECTION_SCROLL_MARGIN_VAR = "--card-section-scroll-margin";
+
+/** The `scroll-margin-top` value every jump target carries. */
+export const SECTION_SCROLL_MARGIN = `var(${SECTION_SCROLL_MARGIN_VAR}, ${SECTION_SCROLL_MARGIN_TOP}px)`;
+
 /** A tab with nothing to scroll to, or a Card-tab anchor. For a relation
  * group `anchor` is the group and `sectionAnchor` the Relations section, which
  * is expanded and is the fallback when the group is not rendered; otherwise
