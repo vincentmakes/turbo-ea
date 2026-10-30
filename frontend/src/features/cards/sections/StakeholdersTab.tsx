@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -18,6 +18,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
+import { focusFirstControl, useEditRequest, type EditRequest } from "@/hooks/useEditRequest";
 import { api } from "@/api/client";
 import type { Card, StakeholderRef, StakeholderRoleDef, User } from "@/types";
 
@@ -33,10 +34,13 @@ function StakeholdersTab({
   card,
   onRefresh,
   canManageStakeholders = true,
+  addOn,
 }: {
   card: Card;
   onRefresh: () => void;
   canManageStakeholders?: boolean;
+  /** A data-quality jump: open the add form (for a user who may manage). */
+  addOn?: EditRequest;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const rl = useResolveLabel();
@@ -49,6 +53,20 @@ function StakeholdersTab({
   const [addRole, setAddRole] = useState<StakeholderRoleDef | null>(null);
   const [addUser, setAddUser] = useState<UserOption | null>(null);
   const [userQuery, setUserQuery] = useState("");
+
+  // A data-quality jump opens the add form and focuses its role picker, which
+  // also scrolls the form (rendered below every role's list) into view.
+  const addCardRef = useRef<HTMLDivElement>(null);
+  const [focusAdd, setFocusAdd] = useState(false);
+  useEditRequest(addOn, canManageStakeholders, () => {
+    setAddOpen(true);
+    setFocusAdd(true);
+  });
+  useEffect(() => {
+    if (!focusAdd) return;
+    focusFirstControl(addCardRef.current);
+    setFocusAdd(false);
+  }, [focusAdd]);
 
   // Inline invite-new-user form (revealed when the user picks the "Invite ..." row).
   // ``inviteMode`` is the visibility flag; ``inviteEmail`` is the field value
@@ -263,7 +281,11 @@ function StakeholdersTab({
       ))}
       {/* Add stakeholder inline */}
       {addOpen && (
-        <MuiCard sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}>
+        <MuiCard
+          ref={addCardRef}
+          data-testid="stakeholder-add-form"
+          sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}
+        >
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
               {t("stakeholders.add")}

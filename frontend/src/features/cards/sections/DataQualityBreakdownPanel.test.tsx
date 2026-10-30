@@ -131,6 +131,7 @@ describe("DataQualityBreakdownPanel", () => {
       tab: "card",
       anchor: "card-section-custom-details",
       sectionAnchor: "card-section-custom-details",
+      fieldKey: "cost",
     });
     expect(onClose).not.toHaveBeenCalled();
     expect(within(panel).getByRole("button", { name: "Set lifecycle dates" })).toBeInTheDocument();

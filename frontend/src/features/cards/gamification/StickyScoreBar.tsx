@@ -15,18 +15,21 @@
  * taken back (`null`) as it starts sliding out: measured mid-slide it sits
  * above the viewport, and an orb aimed there flies off the top of the page.
  *
- * With `onOpenBreakdown` a **Raise score** button after the figure asks the
- * page to open the data-quality breakdown — the same panel a click on the
- * header's pill opens — and `breakdownOpen` says whether it is open. The
- * figure itself stays a plain box: it is the orb's landing target, not a
- * control. While the breakdown is docked beside the page the page passes its
- * width as `rightInset`, so the bar ends where the panel starts.
+ * With `onOpenBreakdown` the figure itself is the button: a small outlined
+ * chip holding the score and a trailing chevron (`93% ›`), whose tooltip says
+ * **Raise score**. A click asks the page to open the data-quality breakdown —
+ * the same panel a click on the header's pill opens — and `breakdownOpen` says
+ * whether it is open. Without it the figure is a plain box. Either way the
+ * figure is the orb's landing target. While the breakdown is docked beside the
+ * page the page passes its width as `rightInset`, so the bar ends where the
+ * panel starts.
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import ButtonBase from "@mui/material/ButtonBase";
 import Slide from "@mui/material/Slide";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { bandColor } from "@/lib/dataQualityBands";
@@ -61,9 +64,9 @@ export function StickyScoreBar({
   impactNonce?: number | null;
   /** Receives the figure's box, the orb's landing target while the bar is open. */
   onFigureRef?: (el: HTMLElement | null) => void;
-  /** Adds the **Raise score** button that opens the data-quality breakdown. */
+  /** Makes the figure the button that opens the data-quality breakdown. */
   onOpenBreakdown?: () => void;
-  /** Whether the breakdown is open (the button's `aria-expanded`). */
+  /** Whether the breakdown is open (the figure button's `aria-expanded`). */
   breakdownOpen?: boolean;
   /** Pixels kept free on the right: the docked breakdown panel's width. */
   rightInset?: number;
@@ -193,7 +196,7 @@ function StickyScoreBarContent({
             sx={{
               position: "absolute",
               inset: 0,
-              borderRadius: "4px",
+              borderRadius: "inherit",
               bgcolor: "common.white",
               opacity: 0,
               pointerEvents: "none",
@@ -207,7 +210,7 @@ function StickyScoreBarContent({
             sx={{
               position: "absolute",
               inset: 0,
-              borderRadius: "4px",
+              borderRadius: "inherit",
               border: `2px solid ${bandColor(gain.to)}`,
               opacity: 0,
               pointerEvents: "none",
@@ -221,7 +224,7 @@ function StickyScoreBarContent({
             sx={{
               position: "absolute",
               inset: 0,
-              borderRadius: "4px",
+              borderRadius: "inherit",
               // Static shadow; only the opacity animates.
               boxShadow: `0 0 18px 2px ${bandColor(gain.to)}`,
               opacity: 0,
@@ -266,27 +269,45 @@ function StickyScoreBarContent({
       radius={5}
       sx={{ flex: 1, minWidth: 48 }}
     />
-    <Box
-      ref={onFigureRef}
-      data-testid="sticky-score-figure"
-      className={landed ? "dq-impact" : undefined}
-      sx={{ position: "relative", display: "inline-flex", flexShrink: 0, borderRadius: "4px" }}
-    >
-      {figureContent}
-    </Box>
-    {onOpenBreakdown && (
-      <Button
-        size="small"
-        variant="outlined"
-        data-testid="sticky-score-raise"
-        startIcon={<MaterialSymbol icon="trending_up" size={16} />}
-        aria-haspopup="dialog"
-        aria-expanded={breakdownOpen}
-        onClick={() => onOpenBreakdown()}
-        sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+    {onOpenBreakdown ? (
+      <Tooltip title={t("dataQuality.raiseScore")}>
+        <ButtonBase
+          ref={onFigureRef}
+          data-testid="sticky-score-figure"
+          className={landed ? "dq-impact" : undefined}
+          aria-label={t("dataQuality.ariaLabel", { value: v })}
+          aria-haspopup="dialog"
+          aria-expanded={breakdownOpen}
+          onClick={() => onOpenBreakdown()}
+          sx={{
+            position: "relative",
+            display: "inline-flex",
+            alignItems: "center",
+            flexShrink: 0,
+            gap: 0.25,
+            px: 1,
+            py: 0.25,
+            border: "1px solid",
+            borderColor: "divider",
+            borderRadius: "999px",
+            color: "text.secondary",
+            "&:hover": { bgcolor: "action.hover" },
+            "&.Mui-focusVisible": { outline: "2px solid", outlineColor: "primary.main" },
+          }}
+        >
+          {figureContent}
+          <MaterialSymbol icon="chevron_right" size={16} />
+        </ButtonBase>
+      </Tooltip>
+    ) : (
+      <Box
+        ref={onFigureRef}
+        data-testid="sticky-score-figure"
+        className={landed ? "dq-impact" : undefined}
+        sx={{ position: "relative", display: "inline-flex", flexShrink: 0, borderRadius: "4px" }}
       >
-        {t("dataQuality.raiseScore")}
-      </Button>
+        {figureContent}
+      </Box>
     )}
   </Box>
   );

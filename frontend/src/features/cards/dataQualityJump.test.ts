@@ -57,11 +57,12 @@ describe("anchor builders", () => {
 });
 
 describe("jumpTargetFor", () => {
-  it("sends a field to its attribute section", () => {
+  it("sends a field to its attribute section, naming the field to focus", () => {
     expect(jumpTargetFor(factor({ kind: "field", key: "cost", section: "Cost Data" }))).toEqual({
       tab: "card",
       anchor: "card-section-custom-cost-data",
       sectionAnchor: "card-section-custom-cost-data",
+      fieldKey: "cost",
     });
   });
 
@@ -70,18 +71,22 @@ describe("jumpTargetFor", () => {
       tab: "card",
       anchor: "card-section-custom-",
       sectionAnchor: "card-section-custom-",
+      fieldKey: "k",
     });
   });
 
-  it("sends a __description field to the Description section", () => {
-    expect(jumpTargetFor(factor({ kind: "field", section: "__description" }))).toEqual({
+  it("sends a __description field to the Description section, naming the field", () => {
+    expect(
+      jumpTargetFor(factor({ kind: "field", key: "businessCriticality", section: "__description" })),
+    ).toEqual({
       tab: "card",
       anchor: "card-section-description",
       sectionAnchor: "card-section-description",
+      fieldKey: "businessCriticality",
     });
   });
 
-  it("sends description, lifecycle and tag groups to their sections", () => {
+  it("sends description, lifecycle and tag groups to their sections, a tag group by id", () => {
     expect(jumpTargetFor(factor({ kind: "description", key: "description" }))).toEqual({
       tab: "card",
       anchor: "card-section-description",
@@ -96,24 +101,28 @@ describe("jumpTargetFor", () => {
       tab: "card",
       anchor: "card-section-tags",
       sectionAnchor: "card-section-tags",
+      tagGroupId: "g1",
     });
   });
 
-  it("sends a relation to its group, falling back to the Relations section", () => {
+  it("sends a relation to its group, falling back to the Relations section, with its type and side", () => {
     expect(jumpTargetFor(factor({ kind: "relation", key: "relX", side: "target" }))).toEqual({
       tab: "card",
       anchor: "card-relation-relX-target",
       sectionAnchor: "card-section-relations",
+      relation: { type: "relX", side: "target" },
     });
     expect(jumpTargetFor(factor({ kind: "relation", key: "relX", side: "source" }))).toEqual({
       tab: "card",
       anchor: "card-relation-relX-source",
       sectionAnchor: "card-section-relations",
+      relation: { type: "relX", side: "source" },
     });
     expect(jumpTargetFor(factor({ kind: "relation", key: "relX", side: null }))).toEqual({
       tab: "card",
       anchor: "card-relation-relX-source",
       sectionAnchor: "card-section-relations",
+      relation: { type: "relX", side: "source" },
     });
   });
 

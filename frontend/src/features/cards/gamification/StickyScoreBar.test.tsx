@@ -263,7 +263,7 @@ describe("StickyScoreBar", () => {
       expect(float).toHaveStyle({ color: "rgb(244, 67, 54)" });
     });
   });
-  describe("the Raise score button", () => {
+  describe("the figure as the breakdown button", () => {
     function renderBar(breakdownOpen = false, onFigureRef = vi.fn()) {
       const onOpenBreakdown = vi.fn();
       const view = render(
@@ -281,44 +281,56 @@ describe("StickyScoreBar", () => {
         onOpenBreakdown,
         onFigureRef,
         view,
-        raise: screen.getByTestId("sticky-score-raise"),
         figure: screen.getByTestId("sticky-score-figure"),
       };
     }
 
-    it("is not there without onOpenBreakdown, and nothing on the bar is a control", () => {
+    it("is a plain box without onOpenBreakdown: no chevron, and nothing on the bar is a control", () => {
       render(<StickyScoreBar open name="X" value={75} gain={null} />);
-      expect(screen.queryByTestId("sticky-score-raise")).not.toBeInTheDocument();
+      const figure = screen.getByTestId("sticky-score-figure");
+      expect(figure.tagName).toBe("DIV");
+      expect(figure).toHaveTextContent(/^75%$/);
+      expect(screen.queryByText("chevron_right")).not.toBeInTheDocument();
+      expect(figure).not.toHaveAttribute("aria-haspopup");
       expect(screen.queryAllByRole("button")).toHaveLength(0);
-      expect(screen.getByTestId("sticky-score-figure").tagName).toBe("DIV");
+      expect(screen.queryByTestId("sticky-score-raise")).not.toBeInTheDocument();
     });
 
-    it("is a small outlined button after the figure, which stays the plain flight target", async () => {
-      const { raise, figure, onFigureRef } = renderBar();
-      expect(raise.tagName).toBe("BUTTON");
-      expect(raise).toHaveAttribute("type", "button");
-      expect(raise).toHaveClass("MuiButton-outlined", "MuiButton-sizeSmall");
-      expect(raise).toHaveTextContent(/^trending_upRaise score$/);
-      expect(within(raise).getByText("trending_up")).toHaveClass("material-symbols-outlined");
-      expect(raise).toHaveAttribute("aria-haspopup", "dialog");
-      expect(raise).toHaveAttribute("aria-expanded", "false");
-      // The figure is no control: a plain box holding the score.
-      expect(figure.tagName).toBe("DIV");
-      expect(figure).not.toHaveAttribute("aria-haspopup");
-      expect(figure).not.toHaveAttribute("role");
-      expect(figure).toContainElement(screen.getByTestId("sticky-score-value"));
-      expect(figure.compareDocumentPosition(raise) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(screen.getAllByRole("button")).toEqual([raise]);
+    it("is the one button on the bar: an outlined chip with the score and a trailing chevron", async () => {
+      const { figure, onFigureRef } = renderBar();
+      expect(figure.tagName).toBe("BUTTON");
+      expect(figure).toHaveAttribute("type", "button");
+      expect(figure).toHaveClass("MuiButtonBase-root");
+      expect(figure).toHaveTextContent(/^75%chevron_right$/);
+      const chevron = within(figure).getByText("chevron_right");
+      expect(chevron).toHaveClass("material-symbols-outlined");
+      expect(
+        screen.getByTestId("sticky-score-value").compareDocumentPosition(chevron) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(figure).toHaveAttribute("aria-label", "75% data quality — show what raises it");
+      expect(figure).toHaveAttribute("aria-haspopup", "dialog");
+      expect(figure).toHaveAttribute("aria-expanded", "false");
+      expect(figure).toHaveStyle({ borderRadius: "999px", borderStyle: "solid", borderWidth: "1px" });
+      expect(screen.getAllByRole("button")).toEqual([figure]);
+      expect(screen.queryByTestId("sticky-score-raise")).not.toBeInTheDocument();
+      expect(screen.queryByText("Raise score")).not.toBeInTheDocument();
+      // Still the orb's landing target.
       await waitFor(() => expect(onFigureRef).toHaveBeenLastCalledWith(figure));
     });
 
+    it("says Raise score in its tooltip", async () => {
+      const { figure } = renderBar();
+      await userEvent.hover(figure);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(/^Raise score$/);
+    });
+
     it("asks the page to open the breakdown, and fetches and shows nothing itself", async () => {
-      const { raise, onOpenBreakdown } = renderBar();
-      await userEvent.click(raise);
+      const { figure, onOpenBreakdown } = renderBar();
+      await userEvent.click(figure);
       expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
       expect(onOpenBreakdown).toHaveBeenCalledWith();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-      expect(screen.queryByRole("presentation")).not.toBeInTheDocument();
       expect(api.get).not.toHaveBeenCalled();
     });
 
@@ -326,15 +338,15 @@ describe("StickyScoreBar", () => {
       ["Enter", "{Enter}"],
       ["Space", " "],
     ])("opens the breakdown from the keyboard with %s", async (_name, key) => {
-      const { raise, onOpenBreakdown } = renderBar();
-      act(() => raise.focus());
+      const { figure, onOpenBreakdown } = renderBar();
+      act(() => figure.focus());
       await userEvent.keyboard(key);
       expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
     });
 
     it("says whether the breakdown is open", () => {
       const { view, onOpenBreakdown } = renderBar();
-      expect(screen.getByTestId("sticky-score-raise")).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByTestId("sticky-score-figure")).toHaveAttribute("aria-expanded", "false");
       view.rerender(
         <StickyScoreBar
           open
@@ -345,7 +357,31 @@ describe("StickyScoreBar", () => {
           breakdownOpen
         />,
       );
-      expect(screen.getByTestId("sticky-score-raise")).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByTestId("sticky-score-figure")).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("keeps the impact overlays inside the button, which takes the chip's rounding", () => {
+      const onOpenBreakdown = vi.fn();
+      const { rerender } = render(
+        <StickyScoreBar open name="X" value={68.3} gain={null} onOpenBreakdown={onOpenBreakdown} />,
+      );
+      rerender(
+        <StickyScoreBar
+          open
+          name="X"
+          value={75}
+          gain={FLYING}
+          impactNonce={FLYING.nonce}
+          onOpenBreakdown={onOpenBreakdown}
+        />,
+      );
+      const figure = screen.getByTestId("sticky-score-figure");
+      expect(figure.tagName).toBe("BUTTON");
+      expect(figure).toHaveClass("dq-impact");
+      expect(figure).toContainElement(screen.getByTestId("sticky-score-flash"));
+      expect(figure).toContainElement(screen.getByTestId("sticky-score-halo"));
+      expect(figure).toContainElement(screen.getByTestId("sticky-score-impact-glow"));
+      expect(screen.getByTestId("sticky-score-halo")).toHaveStyle({ borderRadius: "inherit" });
     });
 
     it("offers no pin", () => {

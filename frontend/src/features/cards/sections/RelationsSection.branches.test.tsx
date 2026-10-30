@@ -618,3 +618,109 @@ describe("RelationsSection — data-quality jump anchors", () => {
     await waitFor(() => expect(summary().getAttribute("aria-expanded")).toBe("true"));
   });
 });
+
+describe("RelationsSection — a jump opens the Add dialog", () => {
+  const ORG_TO_ORG = makeRelationType({
+    key: "orgToOrg",
+    label: "has site",
+    reverse_label: "is site of",
+    source_type_key: "Organization",
+    target_type_key: "Organization",
+    cardinality: "n:m",
+    ...SIDES,
+  } as Partial<RelationType> & { key: string });
+
+  const request = (type: string, side: "source" | "target", nonce = 1) => ({
+    anchor: "card-section-relations",
+    nonce,
+    relation: { type, side },
+  });
+
+  function section(
+    props: Partial<{
+      editOn: ReturnType<typeof request>;
+      expandOn: number;
+      canManageRelations: boolean;
+      cardTypeKey: string;
+      fsId: string;
+    }> = {},
+  ) {
+    return wrapWithProviders(
+      <RelationsSection
+        fsId={props.fsId ?? FS}
+        cardTypeKey={props.cardTypeKey ?? "Application"}
+        initialExpanded={false}
+        canManageRelations={props.canManageRelations}
+        expandOn={props.expandOn}
+        editOn={props.editOn}
+      />,
+      { route: `/cards/${FS}` },
+    );
+  }
+
+  it("opens the add dialog for the slot's type and side on a jump", async () => {
+    withMetamodel([APP, ORG, ITF], [APP_TO_ORG, APP_TO_ITF]);
+    render(section({ editOn: request("appToItf", "source") }));
+    const dialog = await screen.findByTestId("add-dialog");
+    expect(dialog).toHaveAttribute("data-rt", "appToItf");
+    expect(dialog).toHaveAttribute("data-source", "true");
+  });
+
+  it("picks the side the slot names on a self-referencing type", async () => {
+    withMetamodel([ORG], [ORG_TO_ORG]);
+    routeRelations([], "hq");
+    render(
+      section({ cardTypeKey: "Organization", fsId: "hq", editOn: request("orgToOrg", "target") }),
+    );
+    const dialog = await screen.findByTestId("add-dialog");
+    expect(dialog).toHaveAttribute("data-rt", "orgToOrg");
+    expect(dialog).toHaveAttribute("data-source", "false");
+  });
+
+  it("waits for the relation list before opening it", async () => {
+    let answer: (rows: Relation[]) => void = () => {};
+    mockApi.on("get", `/relations?card_id=${FS}`, () => new Promise<Relation[]>((r) => (answer = r)));
+    const { container } = render(section({ editOn: request("appToOrg", "source") }));
+    await waitFor(() => expect(mockApi.callsOf("get", `/relations?card_id=${FS}`)).toHaveLength(1));
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+    await act(async () => answer([]));
+    expect(await screen.findByTestId("add-dialog")).toHaveAttribute("data-rt", "appToOrg");
+    expect(container.querySelector(".MuiAccordion-root")).not.toBeNull();
+  });
+
+  it("waits for the relation types before opening it", async () => {
+    withMetamodel([APP, ORG], []);
+    const { rerender } = render(section({ editOn: request("appToOrg", "source") }));
+    expect(await screen.findByText(/^No relations yet/)).toBeInTheDocument();
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+    withMetamodel([APP, ORG], [APP_TO_ORG]);
+    rerender(section({ editOn: request("appToOrg", "source") }));
+    expect(await screen.findByTestId("add-dialog")).toHaveAttribute("data-rt", "appToOrg");
+  });
+
+  it("expands only when the side is not applicable", async () => {
+    const { container } = render(
+      section({ expandOn: 1, editOn: request("appToOrg", "target") }),
+    );
+    const summary = () => container.querySelector(".MuiAccordionSummary-root")!;
+    await waitFor(() => expect(summary().getAttribute("aria-expanded")).toBe("true"));
+    expect(await screen.findByText("is used by")).toBeInTheDocument();
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not open it without the right to manage relations", async () => {
+    render(section({ canManageRelations: false, editOn: request("appToOrg", "source") }));
+    expect(await screen.findByText("is used by")).toBeInTheDocument();
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+  });
+
+  it("acts once per jump: closing the dialog does not reopen it", async () => {
+    const jump = request("appToOrg", "source");
+    const { rerender } = render(section({ editOn: jump }));
+    const close = await screen.findByText("add-close-none");
+    act(() => close.click());
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+    rerender(section({ editOn: jump }));
+    expect(screen.queryByTestId("add-dialog")).not.toBeInTheDocument();
+  });
+});

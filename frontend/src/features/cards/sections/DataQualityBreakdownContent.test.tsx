@@ -416,6 +416,7 @@ describe("DataQualityBreakdownContent", () => {
         tab: "card",
         anchor: "card-section-custom-details",
         sectionAnchor: "card-section-custom-details",
+        fieldKey: "cost",
       });
       await userEvent.click(
         within(host).getByRole("button", { name: "Add relation: is owned by Organization" }),
@@ -424,6 +425,7 @@ describe("DataQualityBreakdownContent", () => {
         tab: "card",
         anchor: "card-relation-relOrgToApp-target",
         sectionAnchor: "card-section-relations",
+        relation: { type: "relOrgToApp", side: "target" },
       });
     });
   });

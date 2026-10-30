@@ -25,10 +25,12 @@ import Tooltip from "@mui/material/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { focusFieldControl, useEditRequest } from "@/hooks/useEditRequest";
 import {
   SECTION_SCROLL_MARGIN,
   SECTION_SCROLL_MARGIN_TOP,
   customSectionAnchor,
+  type SectionEditRequest,
 } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef, SectionDef } from "@/types";
@@ -53,6 +55,7 @@ function AttributeSection({
   canViewCosts = true,
   onDirtyChange,
   expandOn,
+  editOn,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -66,6 +69,8 @@ function AttributeSection({
   onDirtyChange?: (dirty: boolean) => void;
   /** A new value expands the section (a data-quality jump). */
   expandOn?: number;
+  /** A data-quality jump: open in edit mode, focused on its field. */
+  editOn?: SectionEditRequest;
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const { fmt, symbol } = useCurrency();
@@ -254,6 +259,21 @@ function AttributeSection({
     expandOn,
   );
 
+  // A data-quality jump opens the section in edit mode, with every field shown
+  // (a badge filter could hide the one asked for), then focuses that field's
+  // first control once the edit view has rendered.
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  useEditRequest(editOn, canEdit, (request) => {
+    setBadgeFilter(null);
+    setEditing(true);
+    setFocusKey(request.fieldKey ?? null);
+  });
+  useLayoutEffect(() => {
+    if (!editing || focusKey === null) return;
+    focusFieldControl(rootRef.current, focusKey);
+    setFocusKey(null);
+  }, [editing, focusKey]);
+
   // Read-only field grid
   const renderReadGrid = (fields: FieldDef[]) => (
     <Box sx={{ display: "grid", gridTemplateColumns: "1fr", rowGap: 1, columnGap: 2, "@container (min-width: 480px)": { gridTemplateColumns: "180px 1fr", alignItems: "center" } }}>
@@ -310,16 +330,17 @@ function AttributeSection({
             ) : null}
           </Box>
         ) : isVendorField(field) ? (
-          <VendorField
-            key={field.key}
-            value={(attrs[field.key] as string) ?? ""}
-            onChange={(v) => setAttr(field.key, v)}
-            cardTypeKey={card.type}
-            fsId={card.id}
-            onRelationChange={onRelationChange}
-          />
+          <Box key={field.key} data-field-key={field.key}>
+            <VendorField
+              value={(attrs[field.key] as string) ?? ""}
+              onChange={(v) => setAttr(field.key, v)}
+              cardTypeKey={card.type}
+              fsId={card.id}
+              onRelationChange={onRelationChange}
+            />
+          </Box>
         ) : (
-          <Box key={field.key} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+          <Box key={field.key} data-field-key={field.key} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
             {field.badge ? (
               <Box>
                 <Chip size="small" color="primary" variant="outlined" label={rl(field.badge, field.badgeTranslations)} sx={{ height: 18, fontSize: "0.6rem" }} />

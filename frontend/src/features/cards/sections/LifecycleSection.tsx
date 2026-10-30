@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -16,7 +16,12 @@ import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePha
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
+import { focusFirstControl, useEditRequest } from "@/hooks/useEditRequest";
+import {
+  SECTION_SCROLL_MARGIN,
+  sectionAnchor,
+  type SectionEditRequest,
+} from "@/features/cards/dataQualityJump";
 import type { Card } from "@/types";
 
 const PHASE_PALETTE: Record<string, string> = {
@@ -44,6 +49,7 @@ function LifecycleSection({
   onDirtyChange,
   phaseAnnotation,
   expandOn,
+  editOn,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -59,6 +65,8 @@ function LifecycleSection({
   phaseAnnotation?: (phase: string) => PhaseAnnotation | null | undefined;
   /** A new value expands the section (a data-quality jump). */
   expandOn?: number;
+  /** A data-quality jump: open in edit mode, on the first undated phase. */
+  editOn?: SectionEditRequest;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
@@ -69,6 +77,21 @@ function LifecycleSection({
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
   );
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // A data-quality jump opens the edit row, then focuses the first phase still
+  // without a date once that row has rendered.
+  const [focusPending, setFocusPending] = useState(false);
+  useEditRequest(editOn, canEdit, () => {
+    setEditing(true);
+    setFocusPending(true);
+  });
+  useLayoutEffect(() => {
+    if (!editing || !focusPending) return;
+    const phase = PHASES.find((p) => !lifecycle[p]);
+    if (phase) focusFirstControl(rootRef.current?.querySelector(`[data-phase="${phase}"]`));
+    setFocusPending(false);
+  }, [editing, focusPending, lifecycle]);
 
   // Re-sync the draft from the card prop only while NOT editing, so saving
   // another section (which replaces the whole card object in the parent) can't
@@ -105,6 +128,7 @@ function LifecycleSection({
 
   return (
     <Accordion
+      ref={rootRef}
       id={sectionAnchor("lifecycle")}
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
@@ -314,7 +338,7 @@ function LifecycleSection({
                 const annotation = phaseAnnotation?.(phase);
                 const warning = orderWarning(phase);
                 return (
-                  <Box key={phase} sx={{ maxWidth: 170 }}>
+                  <Box key={phase} data-phase={phase} sx={{ maxWidth: 170 }}>
                     <DateField
                       label={phaseLabels[phase]}
                       size="small"

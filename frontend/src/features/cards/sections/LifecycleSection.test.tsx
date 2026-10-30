@@ -79,3 +79,57 @@ describe("LifecycleSection — data-quality jump", () => {
     expect(summary.getAttribute("aria-expanded")).toBe("true");
   });
 });
+
+describe("LifecycleSection — a jump opens it in edit mode", () => {
+  const request = (nonce = 1) => ({ anchor: "card-section-lifecycle", nonce });
+  const save = () => screen.queryByRole("button", { name: i18n.t("common:actions.save") });
+
+  it("enters edit mode on a jump, focused on the first phase without a date", () => {
+    const { container, rerender } = render(
+      <LifecycleSection card={cardWith({ plan: "2024-01-01" })} onSave={async () => {}} />,
+    );
+    expect(save()).not.toBeInTheDocument();
+    rerender(
+      <LifecycleSection
+        card={cardWith({ plan: "2024-01-01" })}
+        onSave={async () => {}}
+        editOn={request()}
+      />,
+    );
+    expect(save()).toBeInTheDocument();
+    const phaseIn = container.querySelector('[data-phase="phaseIn"] input');
+    expect(phaseIn).not.toBeNull();
+    expect(document.activeElement).toBe(phaseIn);
+  });
+
+  it("focuses nothing when every phase has a date", () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    const full = {
+      plan: "2020-01-01",
+      phaseIn: "2021-01-01",
+      active: "2022-01-01",
+      phaseOut: "2030-01-01",
+      endOfLife: "2031-01-01",
+    };
+    render(<LifecycleSection card={cardWith(full)} onSave={async () => {}} editOn={request()} />);
+    expect(save()).toBeInTheDocument();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("stays read-only on a jump without edit rights", () => {
+    render(
+      <LifecycleSection card={cardWith({})} onSave={async () => {}} canEdit={false} editOn={request()} />,
+    );
+    expect(save()).not.toBeInTheDocument();
+  });
+
+  it("acts once per jump: after Cancel the same jump does not reopen it", () => {
+    const jump = request();
+    const { rerender } = render(
+      <LifecycleSection card={cardWith({})} onSave={async () => {}} editOn={jump} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("common:actions.cancel") }));
+    rerender(<LifecycleSection card={cardWith({})} onSave={async () => {}} editOn={jump} />);
+    expect(save()).not.toBeInTheDocument();
+  });
+});

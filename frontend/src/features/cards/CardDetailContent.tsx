@@ -54,7 +54,9 @@ import {
   sectionAnchor,
   tabAnchor,
   type DataQualityJumpTarget,
+  type SectionEditRequest,
 } from "@/features/cards/dataQualityJump";
+import type { EditRequest } from "@/hooks/useEditRequest";
 import {
   allFieldsHidden,
   buildSectionOrder,
@@ -105,7 +107,9 @@ interface Props {
   /** Notified when any editable section has unsaved changes (for a leave guard) */
   onDirtyChange?: (dirty: boolean) => void;
   /** Jump to where a data-quality gap is filled: each new `nonce` opens the
-   *  target's tab and, on the Card tab, expands and scrolls to its section. */
+   *  target's tab and, on the Card tab, expands and scrolls to its section
+   *  and asks it to open for editing (the Stakeholders tab: its add form) —
+   *  which a section does only for a user who may edit it. */
   focusTarget?: { target: DataQualityJumpTarget; nonce: number } | null;
   /** Where a save that rescored the card came from: the section's (or the
    *  Stakeholders tab's) DOM id, reported just before `onCardUpdate`, in the
@@ -229,17 +233,32 @@ export default function CardDetailContent({
 
   // A data-quality jump: open the tab, expand the section, then scroll to the
   // anchor once the tab has mounted (falling back to the section when the
-  // anchor — a relation group still loading — is not there yet).
+  // anchor — a relation group still loading — is not there yet). The same
+  // jump asks the section to open for editing (`editOn`), or the Stakeholders
+  // tab to open its add form (`addRequest`): one object per jump, which the
+  // receiver acts on once (`useEditRequest`).
   const [expandRequest, setExpandRequest] = useState<{ anchor: string; nonce: number } | null>(
     null,
   );
+  const [editRequest, setEditRequest] = useState<SectionEditRequest | null>(null);
+  const [addRequest, setAddRequest] = useState<EditRequest | null>(null);
   const focusNonce = focusTarget?.nonce;
   useEffect(() => {
     if (!focusTarget) return;
     const { target, nonce } = focusTarget;
     setRequestedTab(target.tab);
-    if (target.tab !== "card") return;
+    if (target.tab !== "card") {
+      setAddRequest({ nonce });
+      return;
+    }
     setExpandRequest({ anchor: target.sectionAnchor, nonce });
+    setEditRequest({
+      anchor: target.sectionAnchor,
+      nonce,
+      fieldKey: target.fieldKey,
+      tagGroupId: target.tagGroupId,
+      relation: target.relation,
+    });
     const timer = setTimeout(() => {
       const el =
         document.getElementById(target.anchor) ?? document.getElementById(target.sectionAnchor);
@@ -251,6 +270,8 @@ export default function CardDetailContent({
   }, [focusNonce]);
   const expandOn = (anchor: string) =>
     expandRequest?.anchor === anchor ? expandRequest.nonce : undefined;
+  const editOn = (anchor: string) =>
+    editRequest?.anchor === anchor ? editRequest : undefined;
 
   const typeConfig = getType(card.type);
   const fieldLabel = useFieldLabel();
@@ -429,6 +450,7 @@ export default function CardDetailContent({
             onDirtyChange={dirtyCb("description")}
             calculatedFieldKeys={calcFieldKeys}
             expandOn={expandOn(sectionAnchor("description"))}
+            editOn={editOn(sectionAnchor("description"))}
           />
         </ErrorBoundary>
       );
@@ -456,6 +478,7 @@ export default function CardDetailContent({
             initialExpanded={exp}
             onDirtyChange={dirtyCb("lifecycle")}
             expandOn={expandOn(sectionAnchor("lifecycle"))}
+            editOn={editOn(sectionAnchor("lifecycle"))}
           />
         </ErrorBoundary>
       );
@@ -492,6 +515,7 @@ export default function CardDetailContent({
             canEdit={perms.can_edit}
             initialExpanded={exp}
             expandOn={expandOn(sectionAnchor("tags"))}
+            editOn={editOn(sectionAnchor("tags"))}
           />
         </ErrorBoundary>
       );
@@ -508,6 +532,7 @@ export default function CardDetailContent({
             initialExpanded={exp}
             onCardUpdate={refreshFrom(sectionAnchor("relations"))}
             expandOn={expandOn(sectionAnchor("relations"))}
+            editOn={editOn(sectionAnchor("relations"))}
           />
         </ErrorBoundary>
       );
@@ -532,6 +557,7 @@ export default function CardDetailContent({
             canViewCosts={perms.can_view_costs}
             onDirtyChange={dirtyCb(key)}
             expandOn={expandOn(customSectionAnchor(section.section))}
+            editOn={editOn(customSectionAnchor(section.section))}
           />
         </ErrorBoundary>
       );
@@ -738,6 +764,7 @@ export default function CardDetailContent({
                 card={card}
                 onRefresh={refreshFrom(tabAnchor("stakeholders"))}
                 canManageStakeholders={perms.can_manage_stakeholders}
+                addOn={addRequest ?? undefined}
               />
             </CardContent>
           </MuiCard>

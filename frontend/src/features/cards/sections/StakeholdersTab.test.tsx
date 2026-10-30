@@ -270,3 +270,40 @@ describe("StakeholdersTab", () => {
     expect(screen.queryByTestId("stakeholder-role-color-observer")).toBeNull();
   });
 });
+
+describe("StakeholdersTab — a data-quality jump", () => {
+  it("opens the add form on addOn, with the role picker focused", async () => {
+    const { rerender } = render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    await screen.findByTestId("stakeholder-role-color-responsible");
+    expect(screen.queryByTestId("stakeholder-add-form")).not.toBeInTheDocument();
+
+    rerender(<StakeholdersTab card={card} onRefresh={() => {}} addOn={{ nonce: 1 }} />);
+    const form = screen.getByTestId("stakeholder-add-form");
+    expect(form).toContainElement(screen.getByLabelText(/^role$/i));
+    expect(document.activeElement).toBe(screen.getByLabelText(/^role$/i));
+  });
+
+  it("ignores addOn without manage rights", async () => {
+    render(
+      <StakeholdersTab
+        card={card}
+        onRefresh={() => {}}
+        canManageStakeholders={false}
+        addOn={{ nonce: 1 }}
+      />,
+    );
+    await screen.findByTestId("stakeholder-role-color-responsible");
+    expect(screen.queryByTestId("stakeholder-add-form")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^role$/i)).not.toBeInTheDocument();
+  });
+
+  it("does not reopen the form for the same jump when the tab remounts", async () => {
+    const jump = { nonce: 2 };
+    const first = render(<StakeholdersTab card={card} onRefresh={() => {}} addOn={jump} />);
+    expect(screen.getByTestId("stakeholder-add-form")).toBeInTheDocument();
+    first.unmount();
+    render(<StakeholdersTab card={card} onRefresh={() => {}} addOn={jump} />);
+    await screen.findByTestId("stakeholder-role-color-responsible");
+    expect(screen.queryByTestId("stakeholder-add-form")).not.toBeInTheDocument();
+  });
+});

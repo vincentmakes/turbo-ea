@@ -21,10 +21,12 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { useEditRequest } from "@/hooks/useEditRequest";
 import {
   SECTION_SCROLL_MARGIN,
   relationGroupAnchor,
   sectionAnchor,
+  type SectionEditRequest,
 } from "@/features/cards/dataQualityJump";
 import {
   useResolveLabel,
@@ -647,6 +649,7 @@ function RelationsSection({
   initialExpanded = false,
   onCardUpdate,
   expandOn,
+  editOn,
 }: {
   fsId: string;
   cardTypeKey: string;
@@ -663,6 +666,8 @@ function RelationsSection({
   onCardUpdate?: () => void;
   /** A new value expands the section (a data-quality jump). */
   expandOn?: number;
+  /** A data-quality jump: open the Add dialog for its relation type and side. */
+  editOn?: SectionEditRequest;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const typeLabel = useTypeLabel();
@@ -895,6 +900,16 @@ function RelationsSection({
     setAddMenuAnchor(null);
     setAddOpen(true);
   };
+
+  // A data-quality jump opens the Add dialog its group's `+` opens, once the
+  // relations and the relation types are in. A side this card does not have
+  // (the metamodel changed since the score) leaves the jump an expand only.
+  useEditRequest(editOn, canManageRelations && loaded && sides.length > 0, ({ relation }) => {
+    const side = sides.find(
+      ({ rt, isSource }) => rt.key === relation?.type && isSource === (relation.side === "source"),
+    );
+    if (side) openAddDialog(side);
+  });
 
   const handleAddClosed = (addedCount: number) => {
     setAddOpen(false);

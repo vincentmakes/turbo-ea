@@ -3,7 +3,7 @@
  * names its section mounts a `GainFlight` aimed at the pill — or at the sticky
  * bar's figure while the bar is open (the header has scrolled away) — and the
  * impact it reports reaches both. It also shows the full data-quality
- * breakdown (#1334) once the pill or the bar's Raise score asks for it —
+ * breakdown (#1334) once the pill or the bar's score asks for it —
  * docked beside the page on a wide window, in a drawer below `md`, for
  * everyone, remembered per browser until closed. The content, the pill, the
  * bar, the breakdown host and the flight are stubs that expose what the page
@@ -330,7 +330,7 @@ describe("CardDetail — the data-quality breakdown", () => {
     expect(screen.getByTestId("breakdown")).toHaveAttribute("data-value", "60");
   });
 
-  it("opens from the sticky bar's Raise score too", async () => {
+  it("opens from the sticky bar's score too", async () => {
     gamification.offscreen = true;
     renderPage();
     await screen.findByTestId("pill");

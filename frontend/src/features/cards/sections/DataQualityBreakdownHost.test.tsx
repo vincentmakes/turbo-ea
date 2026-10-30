@@ -152,6 +152,7 @@ describe("DataQualityBreakdownHost", () => {
         tab: "card",
         anchor: "card-section-custom-details",
         sectionAnchor: "card-section-custom-details",
+        fieldKey: "cost",
       });
       expect(order).toEqual(["close", "jump"]);
     });

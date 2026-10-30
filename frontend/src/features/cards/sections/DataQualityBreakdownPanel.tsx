@@ -1,7 +1,7 @@
 /**
  * The data-quality breakdown (#1334) docked as a narrow panel on the right of
  * a card page. A click on the score (the header's ring, the sticky bar's
- * **Raise score**) opens it, and it stays open while the reader fills what it
+ * figure) opens it, and it stays open while the reader fills what it
  * lists — through jumps, saves and the next card — until **Close**. Available
  * to everyone (the breakdown is not a TurboRPG feature) on windows of at least
  * `md` width; narrower, `DataQualityBreakdownHost` shows the same content in a
@@ -9,7 +9,8 @@
  *
  * A thin host over `DataQualityBreakdownContent`. It fetches the breakdown as
  * soon as it mounts and again whenever a save rescores the card (`value`
- * moves). A jump hands the target to the page and leaves the panel open.
+ * moves). A jump hands the target to the page and leaves the panel open; the
+ * page then opens the slot's section in edit mode (`useEditRequest`).
  * Non-modal: it takes no focus and Esc does not close it.
  *
  * Fixed under the 64 px app bar at `DATA_QUALITY_PANEL_Z_INDEX` 1095 — above

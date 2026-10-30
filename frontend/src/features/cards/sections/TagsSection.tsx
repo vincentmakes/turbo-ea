@@ -16,7 +16,12 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
-import { SECTION_SCROLL_MARGIN, sectionAnchor } from "@/features/cards/dataQualityJump";
+import { useEditRequest } from "@/hooks/useEditRequest";
+import {
+  SECTION_SCROLL_MARGIN,
+  sectionAnchor,
+  type SectionEditRequest,
+} from "@/features/cards/dataQualityJump";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
@@ -28,6 +33,8 @@ interface Props {
   initialExpanded?: boolean;
   /** A new value expands the section (a data-quality jump). */
   expandOn?: number;
+  /** A data-quality jump: open the tag editor once the tag groups are in. */
+  editOn?: SectionEditRequest;
 }
 
 export default function TagsSection({
@@ -36,6 +43,7 @@ export default function TagsSection({
   canEdit = true,
   initialExpanded = true,
   expandOn,
+  editOn,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
@@ -72,6 +80,12 @@ export default function TagsSection({
     setDraftIds(card.tags.map((tag) => tag.id));
     setEditOpen(true);
   };
+
+  // A data-quality jump opens the same editor as the edit button, once there
+  // is one: the groups load after mount. The picker lists every group; it is
+  // not narrowed to the one the jump came from.
+  const canOpenEditor = canEdit && applicableGroups.length > 0;
+  useEditRequest(editOn, canOpenEditor, openEdit);
 
   const save = async () => {
     setSaving(true);
@@ -177,7 +191,7 @@ export default function TagsSection({
               </>
             )}
           </Box>
-          {canEdit && applicableGroups.length > 0 && (
+          {canOpenEditor && (
             <IconButton
               size="small"
               aria-label={t("tags.edit")}

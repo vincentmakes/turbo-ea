@@ -7,6 +7,11 @@ vi.mock("@/api/client", () => ({
   ApiError: class extends Error {},
 }));
 
+// The vendor picker searches cards; a plain input stands in for it.
+vi.mock("@/components/VendorField", () => ({
+  default: ({ value }: { value: string }) => <input aria-label="Vendor" defaultValue={value} />,
+}));
+
 vi.mock("@/hooks/useCurrency", () => ({
   useCurrency: () => ({ fmt: (n: number) => String(n), fmtShort: (n: number) => String(n), symbol: "$" }),
 }));
@@ -277,5 +282,108 @@ describe("AttributeSection — data-quality jump", () => {
       />,
     );
     expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+describe("AttributeSection — a jump opens it in edit mode", () => {
+  const request = (fieldKey?: string, nonce = 1) => ({
+    anchor: "card-section-custom-digital",
+    nonce,
+    fieldKey,
+  });
+  const fieldInput = (container: HTMLElement, key: string) =>
+    container.querySelector(`[data-field-key="${key}"] input`) as HTMLInputElement;
+
+  it("enters edit mode on a jump and focuses the field, after resetting the badge filter", () => {
+    const { container, rerender } = render(
+      <AttributeSection section={section} card={card} onSave={async () => {}} />,
+    );
+    // The filter hides Alpha, the field the jump is about.
+    fireEvent.click(screen.getByRole("button", { name: "Quick" }));
+    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    rerender(
+      <AttributeSection section={section} card={card} onSave={async () => {}} editOn={request("a")} />,
+    );
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    const input = fieldInput(container, "a");
+    expect(input).toHaveValue("x");
+    expect(document.activeElement).toBe(input);
+    // Every edited field carries its wrapper.
+    expect(
+      Array.from(container.querySelectorAll("[data-field-key]")).map((el) =>
+        el.getAttribute("data-field-key"),
+      ),
+    ).toEqual(["a", "b", "c"]);
+  });
+
+  it("focuses the field the jump names, not the first one", () => {
+    const { container } = render(
+      <AttributeSection section={section} card={card} onSave={async () => {}} editOn={request("c")} />,
+    );
+    expect(document.activeElement).toBe(fieldInput(container, "c"));
+  });
+
+  it("enters edit mode without moving focus when the jump names no field", () => {
+    (document.activeElement as HTMLElement | null)?.blur();
+    render(
+      <AttributeSection section={section} card={card} onSave={async () => {}} editOn={request()} />,
+    );
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("stays read-only on a jump without edit rights", () => {
+    const { container } = render(
+      <AttributeSection
+        section={section}
+        card={card}
+        onSave={async () => {}}
+        canEdit={false}
+        editOn={request("a")}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-field-key]")).toBeNull();
+  });
+
+  it("acts once per jump: after Cancel the same jump does not reopen it, a new one does", () => {
+    const first = request("a", 1);
+    const { container, rerender } = render(
+      <AttributeSection section={section} card={card} onSave={async () => {}} editOn={first} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    rerender(<AttributeSection section={section} card={card} onSave={async () => {}} editOn={first} />);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    rerender(
+      <AttributeSection section={section} card={card} onSave={async () => {}} editOn={request("b", 2)} />,
+    );
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(fieldInput(container, "b"));
+  });
+
+  it("wraps the vendor picker too, so a vendor slot focuses it", () => {
+    const vendorSection: SectionDef & { columns?: 1 | 2 } = {
+      section: "Digital",
+      columns: 1,
+      fields: [
+        { key: "a", label: "Alpha", type: "text" },
+        { key: "vendor", label: "Vendor", type: "text" },
+      ],
+    };
+    render(
+      <AttributeSection
+        section={vendorSection}
+        card={card}
+        onSave={async () => {}}
+        editOn={request("vendor")}
+      />,
+    );
+    expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Vendor" }));
   });
 });

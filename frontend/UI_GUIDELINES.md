@@ -752,10 +752,21 @@ icon and name together — that is the drift this exists to end.
 Motion is feedback, never decoration, and nothing may depend on it to be understood. The
 reference implementation is TurboRPG mode, gamified data quality
 (`features/cards/gamification/`), which an administrator turns on in Settings → General →
-Modules. The data quality ring (`DataQualityPill`) and the sticky score bar's **Raise score**
-button open one breakdown; the docked side panel and its small-screen drawer
+Modules. The data quality ring (`DataQualityPill`) and the sticky score bar's figure — a
+small outlined chip-button with a trailing chevron, tooltip **Raise score** — open one
+breakdown; the docked side panel and its small-screen drawer
 (`DataQualityBreakdownHost`) both show the one `DataQualityBreakdownContent` over
 `useDataQualityBreakdown`; never fork a second copy.
+
+A breakdown row jumps to where its slot is filled and asks that section to **open for
+editing** (`CardDetailContent`'s `editOn(anchor)`, the Stakeholders tab's `addOn`): one
+request object per jump, carrying its nonce and what to edit (`fieldKey`, `tagGroupId`,
+`relation`). A section acts on it through `useEditRequest(request, canAct, act)`
+(`hooks/useEditRequest.ts`): once per request, never again after a remount (a Card-tab
+section remounts when the user returns to the tab), and **deferred until `canAct`** — the
+user's edit rights plus whatever loads after mount (the tag groups, the relation list and
+types). A field is focused through its edit wrapper's `data-field-key`
+(`focusFieldControl`). No request, or no edit rights, leaves the jump an expand-and-scroll.
 
 - **Durations** (Material 3 range): 100–200 ms for state changes (a pop is 300 ms with its
   overshoot, the impact flash 180 ms), **500 ms** for fills (`FILL_MS`), **650 ms** for a
