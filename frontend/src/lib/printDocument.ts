@@ -22,17 +22,10 @@
  */
 import i18n from "@/i18n";
 import type { SoAWSignatory } from "@/types";
+import { escapeHtml } from "./escapeHtml";
 import { sanitizeRichHtml } from "./richHtml";
 
-/** Escape a string for safe interpolation into HTML. */
-export function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+export { escapeHtml };
 
 /** True when the HTML has no visible text (empty, whitespace or empty tags). */
 export function htmlIsEmpty(html: string | null | undefined): boolean {

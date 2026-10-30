@@ -115,8 +115,8 @@
     gap: 8px !important;
   }
 
-  /* Make Recharts charts more compact */
-  .report-chart-area .recharts-responsive-container {
+  /* Make ECharts charts more compact */
+  .report-chart-area .echart-container {
     max-height: 350px !important;
   }
 
@@ -127,7 +127,7 @@
 
   /* Prevent page breaks inside individual visual blocks */
   .report-chart-area .MuiPaper-root,
-  .report-chart-area .recharts-wrapper,
+  .report-chart-area .echart-container,
   .report-chart-area > .MuiBox-root > .MuiBox-root {
     break-inside: avoid;
   }

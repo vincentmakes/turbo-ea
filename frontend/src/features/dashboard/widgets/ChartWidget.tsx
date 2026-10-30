@@ -24,7 +24,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFieldLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { DashboardCellRow, DashboardKeyRow, DashboardQuery, DashboardQueryRow } from "@/types";
-import EChart, { type EChartClickParams } from "../charts/EChart";
+import EChart, { type EChartClickParams } from "@/components/charts/EChart";
 import {
   buildOption,
   defaultValueFormatter,
@@ -36,7 +36,7 @@ import {
   OTHER_KEY,
 } from "../charts/buildOption";
 import { dimensionResolver, sideTypes, type ResolverDeps } from "../charts/dimensions";
-import { useEChartsTheme } from "../charts/echartsTheme";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { useDashboardSource } from "../DashboardSources";
 import { drillUrl } from "../dashboardQuery";
 import { queryErrorMessage } from "../queryProblems";

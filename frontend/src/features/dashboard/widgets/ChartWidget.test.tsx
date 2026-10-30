@@ -13,7 +13,7 @@ vi.mock("@/hooks/useComplianceRegulations", () =>
 );
 
 const echart = vi.hoisted(() => ({ last: null as null | { option: any; onClick?: (p: unknown) => void; ariaLabel?: string } }));
-vi.mock("../charts/EChart", () => ({
+vi.mock("@/components/charts/EChart", () => ({
   default: (props: { option: any; onClick?: (p: unknown) => void; ariaLabel?: string }) => {
     echart.last = props;
     return <div data-testid="echart" aria-label={props.ariaLabel} />;

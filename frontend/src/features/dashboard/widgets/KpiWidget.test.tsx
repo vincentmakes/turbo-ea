@@ -7,7 +7,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
 const echart = vi.hoisted(() => ({ options: [] as any[] }));
-vi.mock("../charts/EChart", () => ({
+vi.mock("@/components/charts/EChart", () => ({
   default: (props: { option: any }) => {
     echart.options.push(props.option);
     return <div data-testid="echart" />;

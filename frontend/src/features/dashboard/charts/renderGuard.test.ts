@@ -31,7 +31,7 @@ import { SVGRenderer } from "echarts/renderers";
 import type { DashboardChartKind, DashboardQueryRow } from "@/types";
 import { CHART_KINDS, VALUE_LABEL_KINDS } from "../widgets/chartConfig";
 import { buildOption, type BuildContext } from "./buildOption";
-import { buildEChartsChrome } from "./echartsTheme";
+import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 
 echarts.use([
   BarChart,

@@ -1,8 +1,9 @@
 /**
- * A minimal React wrapper over `echarts/core`: registers only the charts and
- * components the dashboard uses (so the bundle tree-shakes), initialises on
- * mount, replaces the option on change, follows its container's size and
- * disposes on unmount.
+ * The app-wide React wrapper over `echarts/core` — dashboard widgets, reports
+ * and extension charts all draw through it. It registers only the charts and
+ * components the app uses (so the bundle tree-shakes), initialises on mount,
+ * replaces the option on change, follows its container's size (and the switch
+ * to and from print layout) and disposes on unmount.
  */
 import { useEffect, useRef, type CSSProperties } from "react";
 import * as echarts from "echarts/core";
@@ -20,6 +21,7 @@ import {
   AriaComponent,
   GridComponent,
   LegendComponent,
+  MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
@@ -37,9 +39,20 @@ echarts.use([
   TooltipComponent,
   LegendComponent,
   VisualMapComponent,
+  MarkLineComponent,
   AriaComponent,
   CanvasRenderer,
 ]);
+
+/**
+ * The canvas backing-store scale an exported report chart is drawn at, so the
+ * PNG export's `pixelRatio: 2` capture (html-to-image) stays crisp on a
+ * 1x screen.
+ */
+export const EXPORT_DPR = 2;
+
+/** The class on every chart container — the hook `print.css` sizes charts by. */
+export const ECHART_CLASS = "echart-container";
 
 /** The subset of an ECharts mouse event a click handler needs. */
 export interface EChartClickParams {
@@ -57,19 +70,30 @@ interface Props {
   onClick?: (params: EChartClickParams) => void;
   style?: CSSProperties;
   ariaLabel?: string;
+  /** Id of the element that names the chart (its visible title). */
+  labelledBy?: string;
+  /** Canvas backing-store scale; the device's own when omitted. Read once, at init. */
+  devicePixelRatio?: number;
 }
 
-export default function EChart({ option, onClick, style, ariaLabel }: Props) {
+export default function EChart({ option, onClick, style, ariaLabel, labelledBy, devicePixelRatio }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ECharts | null>(null);
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
+  const dprRef = useRef(devicePixelRatio);
+  const ariaLabelRef = useRef(ariaLabel);
+  ariaLabelRef.current = ariaLabel;
 
   // Init / dispose with the container.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const chart = echarts.init(el, null, { renderer: "canvas" });
+    const dpr = dprRef.current;
+    const chart = echarts.init(el, null, {
+      renderer: "canvas",
+      ...(dpr !== undefined && { devicePixelRatio: dpr }),
+    });
     chartRef.current = chart;
     const handleClick = (params: unknown) => clickRef.current?.(params as EChartClickParams);
     chart.on("click", handleClick);
@@ -79,8 +103,15 @@ export default function EChart({ option, onClick, style, ariaLabel }: Props) {
       observer = new ResizeObserver(() => chart.resize());
       observer.observe(el);
     }
+    // Entering or leaving print layout changes the page width without
+    // necessarily firing the observer before the browser paginates.
+    const media = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+    const print = typeof media?.addEventListener === "function" ? media : null;
+    const onPrintChange = () => chart.resize();
+    print?.addEventListener("change", onPrintChange);
     return () => {
       observer?.disconnect();
+      print?.removeEventListener("change", onPrintChange);
       chart.off("click", handleClick);
       chart.dispose();
       chartRef.current = null;
@@ -88,16 +119,22 @@ export default function EChart({ option, onClick, style, ariaLabel }: Props) {
   }, []);
 
   // A new option replaces the old one whole: a category that disappeared
-  // must not linger from a merge.
+  // must not linger from a merge. ECharts' aria component then rewrites the
+  // container's `aria-label` with its generated description; the caller's
+  // name is put back (React re-sets it only when the prop itself changes).
   useEffect(() => {
     chartRef.current?.setOption(option, { notMerge: true });
+    const label = ariaLabelRef.current;
+    if (label !== undefined) containerRef.current?.setAttribute("aria-label", label);
   }, [option]);
 
   return (
     <div
       ref={containerRef}
       role="img"
+      className={ECHART_CLASS}
       aria-label={ariaLabel}
+      aria-labelledby={labelledBy}
       style={{ width: "100%", height: "100%", minHeight: 0, ...style }}
     />
   );

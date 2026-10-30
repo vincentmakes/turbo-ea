@@ -26,7 +26,7 @@ import {
   valueLabelInset,
   type BuildContext,
 } from "./buildOption";
-import { buildEChartsChrome } from "./echartsTheme";
+import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
 

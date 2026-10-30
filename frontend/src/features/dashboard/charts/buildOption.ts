@@ -18,8 +18,41 @@ import type {
   DashboardKeyRow,
   DashboardQueryRow,
 } from "@/types";
+import {
+  axisLabel,
+  BAR_MAX_THICKNESS,
+  base,
+  COLUMN_MAX_WIDTH,
+  defaultValueFormatter,
+  fmt,
+  grid,
+  LABEL_CHAR_WIDTH,
+  legend,
+  niceMax,
+  splitLine,
+  tooltip,
+  treemapLabel,
+  VALUE_LABEL_FONT_SIZE,
+  valueLabel,
+  valueLabelInset,
+  type ChartChromeContext,
+} from "@/components/charts/chrome";
 import { STATUS_COLORS } from "@/theme/tokens";
-import type { EChartsChrome } from "./echartsTheme";
+
+// The shared chrome this module's callers (and tests) have always imported
+// from here; its home is `@/components/charts/chrome`.
+export {
+  BAR_MAX_THICKNESS,
+  COLUMN_MAX_WIDTH,
+  defaultValueFormatter,
+  GRID_TRAILING_INSET,
+  LABEL_CHAR_WIDTH,
+  LEGEND_LABEL_WIDTH,
+  niceMax,
+  VALUE_LABEL_DISTANCE,
+  VALUE_LABEL_FONT_SIZE,
+  valueLabelInset,
+} from "@/components/charts/chrome";
 
 /** Key of the row that folds every category past `max`. */
 export const OTHER_KEY = "__other__";
@@ -31,7 +64,7 @@ export const APPROVAL_ORDER = ["DRAFT", "APPROVED", "BROKEN", "REJECTED"] as con
 export const EOL_COVERAGE_ORDER = ["linked", "manual", "missing"] as const;
 export const STAKEHOLDER_ORDER = ["true", "false"] as const;
 
-export interface BuildContext {
+export interface BuildContext extends ChartChromeContext {
   /** Label of a row key (the x / category dimension). */
   labels: (key: string) => string;
   /** Label of a second-dimension key — a heatmap row, a stacked column's
@@ -52,9 +85,6 @@ export interface BuildContext {
   /** The one hue of a single-series line, gauge or uncoloured bar chart;
    *  defaults to the first categorical slot. */
   seriesColor?: string;
-  theme: EChartsChrome;
-  isRtl: boolean;
-  valueFormatter?: (value: number) => string;
   /** Gauge maximum — the target of a count or sum; ignored on a `%` gauge. */
   max?: number;
   /** The measure's unit: `%` puts a gauge on a fixed 0–100 scale. */
@@ -68,16 +98,9 @@ export interface BuildContext {
   targetLabel?: string;
   /** Series name shown in tooltips. */
   seriesName?: string;
-  /** Mark cursor — "pointer" when a click drills somewhere. */
-  cursor?: "pointer" | "default";
   /** Print each mark's figure — bars, columns, stacked segments, treemap
    *  tiles and heatmap cells (`VALUE_LABEL_KINDS`); ignored elsewhere. */
   showValues?: boolean;
-}
-
-export function defaultValueFormatter(value: number): string {
-  if (!Number.isFinite(value)) return "0";
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 const isKeyRow = (r: DashboardQueryRow): r is DashboardKeyRow => "key" in r;
@@ -215,128 +238,7 @@ export function foldGrid(cells: DashboardCellRow[], max?: number, fold: FoldMode
   return out;
 }
 
-// ── Shared chrome ────────────────────────────────────────────────────────
-
-function fmt(ctx: BuildContext): (value: number) => string {
-  return ctx.valueFormatter ?? defaultValueFormatter;
-}
-
-function base(ctx: BuildContext): Record<string, unknown> {
-  return {
-    backgroundColor: "transparent",
-    aria: { enabled: true },
-    animationDuration: 300,
-    textStyle: { fontFamily: ctx.theme.fontFamily, color: ctx.theme.textSecondary },
-  };
-}
-
-function tooltip(ctx: BuildContext, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    confine: true,
-    backgroundColor: ctx.theme.tooltipBackground,
-    borderColor: ctx.theme.divider,
-    textStyle: { color: ctx.theme.textPrimary, fontFamily: ctx.theme.fontFamily },
-    extraCssText: ctx.isRtl ? "direction: rtl; text-align: right;" : "",
-    valueFormatter: (v: unknown) => fmt(ctx)(Number(v)),
-    ...extra,
-  };
-}
-
-function axisLabel(ctx: BuildContext, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  return { color: ctx.theme.textSecondary, fontSize: 12, ...extra };
-}
-
-/**
- * A cartesian grid that contains its axis labels, with the wider side inset
- * on the trailing edge (right, or left in RTL), where the last category's
- * label reaches past its column.
- */
-function grid(ctx: BuildContext, top: number, bottom: number): Record<string, unknown> {
-  return {
-    left: ctx.isRtl ? GRID_TRAILING_INSET : 8,
-    right: ctx.isRtl ? 8 : GRID_TRAILING_INSET,
-    top,
-    bottom,
-    containLabel: true,
-  };
-}
-
-function splitLine(ctx: BuildContext): Record<string, unknown> {
-  return { show: true, lineStyle: { color: ctx.theme.divider, type: "dashed" } };
-}
-
-/**
- * Widest a column (`buildColumn`, `buildStackedColumn`) and thickest a bar
- * (`buildBar`) is drawn. A cap at all because one column across a wide
- * widget reads as a block, not a mark; this high because four columns on a
- * six-column widget looked like sticks under the old 32 px. Dense charts are
- * bounded by `barCategoryGap` long before either cap.
- */
-export const COLUMN_MAX_WIDTH = 72;
-export const BAR_MAX_THICKNESS = 40;
-
-/**
- * Average glyph width of a 12 px label — the estimate insets are sized from
- * (ECharts measures the real text only when it draws it).
- */
-export const LABEL_CHAR_WIDTH = 6.6;
-
-/** Widest a legend entry's name is drawn before it is ellipsised. */
-export const LEGEND_LABEL_WIDTH = 120;
-
-/** Font size of a value printed on a mark (`showValues`). */
-export const VALUE_LABEL_FONT_SIZE = 11;
-/** ECharts' gap between a bar's end and an outside label, in px. */
-const VALUE_LABEL_DISTANCE = 5;
-/** The trailing inset a cartesian grid keeps when nothing is printed past a bar. */
-const GRID_TRAILING_INSET = 16;
-
-/**
- * The trailing inset a horizontal bar chart keeps when it prints its values:
- * the widest bar can end at the grid's edge, and its figure is drawn past
- * it, so the inset holds the longest formatted value at the 11 px estimate
- * plus the label's gap — never less than the plain grid's inset. Pure.
- */
-export function valueLabelInset(values: number[], format: (value: number) => string): number {
-  const chars = values.reduce((m, v) => Math.max(m, format(v).length), 0);
-  const width = (chars * LABEL_CHAR_WIDTH * VALUE_LABEL_FONT_SIZE) / 12;
-  return Math.max(GRID_TRAILING_INSET, Math.ceil(width + VALUE_LABEL_DISTANCE + 4));
-}
-
-/** A value label on a bar or column, read through the widget's formatter. */
-function valueLabel(ctx: BuildContext, position: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
-  const valueOf = fmt(ctx);
-  return {
-    show: true,
-    position,
-    color: ctx.theme.textSecondary,
-    fontSize: VALUE_LABEL_FONT_SIZE,
-    formatter: (p: { value?: unknown }) => valueOf(Number(p.value ?? 0)),
-    ...extra,
-  };
-}
-
-/**
- * A legend in a fixed band at the bottom: one row that pages (arrows) when
- * the entries do not fit, each name capped at `LEGEND_LABEL_WIDTH` so a page
- * always shows whole entries, the full name on hover.
- */
-function legend(ctx: BuildContext, names: string[]): Record<string, unknown> {
-  return {
-    type: "scroll",
-    orient: "horizontal",
-    bottom: 0,
-    left: ctx.isRtl ? "right" : "left",
-    align: ctx.isRtl ? "right" : "left",
-    icon: "roundRect",
-    itemWidth: 10,
-    itemHeight: 10,
-    textStyle: { color: ctx.theme.textPrimary, fontSize: 12, width: LEGEND_LABEL_WIDTH, overflow: "truncate" },
-    pageTextStyle: { color: ctx.theme.textSecondary },
-    tooltip: { show: true },
-    data: names,
-  };
-}
+// ── Private helpers ──────────────────────────────────────────────────────
 
 function seriesColor(ctx: BuildContext): string {
   return ctx.seriesColor ?? ctx.theme.categorical[0];
@@ -514,16 +416,6 @@ function buildPie(rows: DashboardQueryRow[], ctx: BuildContext, donut: boolean):
       },
     ],
   };
-}
-
-/** A smallest-nice ceiling for a gauge without an explicit max. */
-export function niceMax(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 1;
-  const exp = Math.pow(10, Math.floor(Math.log10(value)));
-  for (const step of [1, 2, 2.5, 5, 10]) {
-    if (step * exp >= value) return step * exp;
-  }
-  return 10 * exp;
 }
 
 /** The bands a `%` gauge gets when none are set. */
@@ -715,21 +607,6 @@ function buildHeatmap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
   };
 }
 
-/**
- * A treemap tile's label: its name, and with `showValues` its figure on a
- * second, smaller line in the same surface colour.
- */
-function treemapLabel(ctx: BuildContext): Record<string, unknown> {
-  const label: Record<string, unknown> = { show: true, color: ctx.theme.surface, fontSize: 12, overflow: "truncate" };
-  if (!ctx.showValues) return label;
-  const valueOf = fmt(ctx);
-  return {
-    ...label,
-    formatter: (p: { name?: string; value?: unknown }) => `${p.name ?? ""}\n{value|${valueOf(Number(p.value ?? 0))}}`,
-    rich: { value: { color: ctx.theme.surface, fontSize: VALUE_LABEL_FONT_SIZE, lineHeight: 16 } },
-  };
-}
-
 /** Part-to-whole as nested rectangles; tiles are labelled, so no legend. */
 function buildTreemap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCoreOption {
   const data = keyRows(rows).filter((r) => r.value > 0);
@@ -749,7 +626,7 @@ function buildTreemap(rows: DashboardQueryRow[], ctx: BuildContext): EChartsCore
         left: 0,
         cursor: ctx.cursor ?? "default",
         itemStyle: { borderColor: ctx.theme.surface, borderWidth: 2, gapWidth: 2, borderRadius: 4 },
-        label: treemapLabel(ctx),
+        label: treemapLabel(ctx, { showValues: ctx.showValues }),
         data: data.map((r, i) => ({
           value: r.value,
           key: r.key,

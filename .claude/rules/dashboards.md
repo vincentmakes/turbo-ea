@@ -14,7 +14,7 @@ paths:
 
 > Loaded when you touch the dashboard services, `api/v1/dashboards.py`, the `Dashboard` model or schemas, or `frontend/src/features/dashboard/**` (full list in the frontmatter).
 
-The homepage `/` is a set of admin-editable **dashboards** (table `dashboards`, migration `160_dashboards.py`), each a list of widgets on a 12-column react-grid-layout grid; charts are Apache ECharts (`charts/EChart.tsx`, `charts/buildOption.ts`). Three built-ins — `overview`, `workspace`, `admin` — reproduce the former static tabs. Managing them needs `admin.dashboards`; every write records one Security & admin row (`admin.dashboard.created/updated/deleted/duplicated/reset`, items `dashboard_widget.added/removed`). Dashboards travel in a workspace transfer (sheet `Dashboards`); `dashboard_kpi_snapshots` is instance-local and does not.
+The homepage `/` is a set of admin-editable **dashboards** (table `dashboards`, migration `160_dashboards.py`), each a list of widgets on a 12-column react-grid-layout grid; charts are Apache ECharts (`frontend/src/components/charts/EChart.tsx`, the app-wide wrapper, with the shared chrome in `components/charts/chrome.ts`; the widget builders are `charts/buildOption.ts`). Three built-ins — `overview`, `workspace`, `admin` — reproduce the former static tabs. Managing them needs `admin.dashboards`; every write records one Security & admin row (`admin.dashboard.created/updated/deleted/duplicated/reset`, items `dashboard_widget.added/removed`). Dashboards travel in a workspace transfer (sheet `Dashboards`); `dashboard_kpi_snapshots` is instance-local and does not.
 
 ## Invariants
 
@@ -52,7 +52,7 @@ Seeding (`seed_dashboards`) is **insert-only** and keyed by `key`: an admin's la
 
 - **Widget ids are stable identities.** The audit diff (`widget_items`) reports added / removed by widget id; a moved or resized widget is the same widget. Duplicate assigns new widget ids (`copied_widget_id`); keep ids unique per dashboard (`duplicate_widget_id`).
 - **One fetch per source per dashboard.** Widgets read the shared report payloads through `useDashboardSource(name)` (`DashboardSources.tsx`); never a bare `api.get` in a widget's `useEffect`.
-- **Colours come from `theme/tokens.ts`** (`CHART_CATEGORICAL`, status colours for status dimensions) through `useEChartsTheme`; ECharts does not inherit `dir`, so RTL is handled in `echartsTheme.ts`, and react-grid-layout has no RTL prop, so the grid mirrors item `x` itself (the `useIsRtl` rule).
+- **Colours come from `theme/tokens.ts`** (`CHART_CATEGORICAL`, status colours for status dimensions) through `useEChartsTheme`; ECharts does not inherit `dir`, so RTL is handled in `components/charts/echartsTheme.ts` and `chrome.ts`, and react-grid-layout has no RTL prop, so the grid mirrors item `x` itself (the `useIsRtl` rule).
 - **`flags` is canonical on both sides** (split, trim, dedupe, sort, join) — a `field_validator` on `DashboardQuery` and `normalizeFlags` in `dashboardQuery.ts` — or two widgets with the same filters would store two snapshot keys. `top` is a query parameter of `/query` only, never a query field, so it never enters a key.
 - **`metricKey` must stay byte-identical on both sides** (`metricKey` in `dashboardQuery.ts` ↔ `dashboard_query.metric_key`): it is the key a KPI snapshot is stored and looked up by.
 

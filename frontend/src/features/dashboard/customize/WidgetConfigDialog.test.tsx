@@ -9,7 +9,7 @@ vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlM
 vi.mock("@/hooks/useBpmEnabled", () => import("@/test/hooks").then((m) => m.useBpmEnabledModule()));
 vi.mock("@/hooks/usePpmEnabled", () => import("@/test/hooks").then((m) => m.usePpmEnabledModule()));
 vi.mock("@/hooks/useGrcEnabled", () => import("@/test/hooks").then((m) => m.useGrcEnabledModule()));
-vi.mock("../charts/EChart", () => ({
+vi.mock("@/components/charts/EChart", () => ({
   default: (props: { ariaLabel?: string }) => <div data-testid="echart" aria-label={props.ariaLabel} />,
 }));
 

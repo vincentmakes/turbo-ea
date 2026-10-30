@@ -1,8 +1,11 @@
 /**
- * Theme-aware ECharts chrome for the dashboard widgets — the ECharts twin of
- * `useChartTheme` (Recharts). Text, axis, grid and tooltip colours come from
- * the MUI theme so dark mode is a selected palette, not a flip; categorical
- * and sequential hues come from `theme/tokens.ts`.
+ * The app's chart chrome palette: every ECharts chart — dashboard widgets,
+ * reports and extension charts — takes its text, axis, grid and tooltip
+ * colours from here. They come from the MUI theme, so dark mode is a selected
+ * palette, not a flip; categorical and sequential hues come from
+ * `theme/tokens.ts`. ECharts does not inherit the document `dir`, so the live
+ * RTL flag travels with the palette (`useEChartsTheme`). The option-level
+ * chrome built from it (fonts, grid, axes, tooltip, legend) is `chrome.ts`.
  */
 import { useMemo } from "react";
 import { useTheme } from "@mui/material/styles";
