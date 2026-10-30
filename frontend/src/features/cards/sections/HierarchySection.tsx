@@ -35,6 +35,7 @@ import { useOptionLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useResolv
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { api } from "@/api/client";
+import { sectionAnchor } from "@/features/cards/dataQualityJump";
 import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from "@/types";
 import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
@@ -436,7 +437,12 @@ function HierarchySection({
   );
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
+    <Accordion
+      id={sectionAnchor("hierarchy")}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      disableGutters
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} />

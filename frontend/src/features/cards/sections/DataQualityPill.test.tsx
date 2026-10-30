@@ -5,7 +5,7 @@
  */
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
@@ -25,6 +25,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 import { api } from "@/api/client";
 import type { CardType, DataQualityBreakdown, DataQualityFactor, RelationType } from "@/types";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
+import type { ScoreGain } from "@/features/cards/gamification/scoreGain";
 import { DataQualityPill } from "./DataQualityPill";
 
 const TYPES = [
@@ -521,12 +522,20 @@ describe("DataQualityPill", () => {
 });
 
 describe("DataQualityPill — gamified (animate)", () => {
-  const gain = (from: number, to: number, nonce = 1) => ({
+  const ANCHOR = "card-section-description";
+  const gain = (
+    from: number,
+    to: number,
+    nonce = 1,
+    originAnchor: string | null = null,
+  ): ScoreGain => ({
     from,
     to,
     delta: Math.round((to - from) * 10) / 10,
     milestone: null,
     nonce,
+    direction: to < from ? "loss" : "gain",
+    originAnchor,
   });
 
   it("without animate stays the plain pill and ignores a gain", () => {
@@ -590,6 +599,148 @@ describe("DataQualityPill — gamified (animate)", () => {
     expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
     expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
     expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+  });
+
+  it("hands its animated root to the page as the orb's landing target", () => {
+    const onRootRef = vi.fn();
+    render(<DataQualityPill value={50} animate onRootRef={onRootRef} />);
+    expect(onRootRef).toHaveBeenCalledWith(screen.getByTestId("data-quality-pill-motion"));
+  });
+
+  describe("a gain flying in from the saved section", () => {
+    it("previews the new level but holds the fill, count, pop and burst until impact", async () => {
+      const { rerender } = render(<DataQualityPill value={41.5} animate gain={null} />);
+      rerender(
+        <DataQualityPill value={48.2} animate gain={gain(41.5, 48.2, 1, ANCHOR)} impactNonce={null} />,
+      );
+      expect(screen.getByTestId("score-bar-ghost")).toHaveStyle({ transform: "scaleX(0.48)" });
+      const fill = screen.getByTestId("score-bar-fill");
+      await new Promise((r) => setTimeout(r, 80));
+      expect(getComputedStyle(fill).transform).toBe("scaleX(0.415)");
+      expect(screen.getByText("42%")).toBeInTheDocument();
+      const root = screen.getByTestId("data-quality-pill-motion");
+      expect(root).not.toHaveClass("dq-pop");
+      expect(root).not.toHaveClass("dq-impact");
+      expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-flash")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-halo")).not.toBeInTheDocument();
+      // The announcement does not wait for the orb.
+      expect(screen.getByRole("status")).toHaveTextContent(/^\+6\.7% data quality$/);
+    });
+
+    it("waits for its own impact, not an earlier one", () => {
+      const { rerender } = render(<DataQualityPill value={41.5} animate gain={null} />);
+      rerender(
+        <DataQualityPill value={48.2} animate gain={gain(41.5, 48.2, 5, ANCHOR)} impactNonce={4} />,
+      );
+      expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
+      expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+    });
+
+    it("on impact pops, flashes, haloes, glows, shines, bursts and counts up", async () => {
+      const g = gain(75, 85, 3, ANCHOR);
+      const { rerender } = render(<DataQualityPill value={75} animate gain={null} />);
+      rerender(<DataQualityPill value={85} animate gain={g} impactNonce={null} />);
+      rerender(<DataQualityPill value={85} animate gain={g} impactNonce={3} />);
+
+      const root = screen.getByTestId("data-quality-pill-motion");
+      expect(root).toHaveClass("dq-pop");
+      expect(root).toHaveClass("dq-pop-alt");
+      expect(root).toHaveClass("dq-impact");
+      const flash = screen.getByTestId("data-quality-flash");
+      expect(flash).toHaveClass("dq-flash");
+      expect(flash).toHaveStyle({ position: "absolute", opacity: "0", backgroundColor: "rgb(255, 255, 255)" });
+      const halo = screen.getByTestId("data-quality-halo");
+      expect(halo).toHaveClass("dq-halo");
+      expect(halo).toHaveStyle({ borderColor: "rgb(76, 175, 80)", borderWidth: "2px", opacity: "0" });
+      const glow = screen.getByTestId("data-quality-impact-glow");
+      expect(glow).toHaveClass("dq-impact-glow");
+      expect(getComputedStyle(glow).boxShadow).toMatch(
+        /^0 0 18px 2px (#4caf50|rgb\(76, 175, 80\))$/,
+      );
+      expect(screen.getByTestId("data-quality-shine")).toHaveClass("dq-shine");
+      // The halo replaces the band-change ring on an impact.
+      expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+      expect(screen.getByTestId("score-gain-float")).toHaveTextContent(/^\+10%$/);
+
+      const fill = screen.getByTestId("score-bar-fill");
+      expect(fill).toHaveStyle({ transition: "transform 500ms cubic-bezier(0, 0, 0, 1) 0ms" });
+      await waitFor(() => expect(fill).toHaveStyle({ transform: "scaleX(0.85)" }));
+      expect(await screen.findByText("85%", {}, { timeout: 2000 })).toBeInTheDocument();
+    });
+
+    it("plays at once, statically, under reduced motion", () => {
+      const original = window.matchMedia;
+      onTestFinished(() => {
+        window.matchMedia = original;
+      });
+      window.matchMedia = vi.fn().mockImplementation((q: string) => ({
+        matches: q.includes("prefers-reduced-motion"),
+        media: q,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      const { rerender } = render(<DataQualityPill value={41.5} animate gain={null} />);
+      rerender(
+        <DataQualityPill value={48.2} animate gain={gain(41.5, 48.2, 1, ANCHOR)} impactNonce={null} />,
+      );
+      expect(screen.getByText("48%")).toBeInTheDocument();
+      expect(screen.getByTestId("score-gain-chip")).toHaveTextContent(/^\+6\.7%$/);
+      expect(screen.queryByTestId("data-quality-flash")).not.toBeInTheDocument();
+      expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
+    });
+  });
+
+  describe("a loss", () => {
+    it("drains in red and counts down at once, dims the figure, and never pops or flashes", async () => {
+      const { rerender } = render(<DataQualityPill value={48.2} animate gain={null} />);
+      rerender(
+        <DataQualityPill value={41.5} animate gain={gain(48.2, 41.5, 2, ANCHOR)} impactNonce={null} />,
+      );
+      expect(screen.getByTestId("score-bar-ghost")).toHaveStyle({
+        backgroundColor: "rgb(244, 67, 54)",
+      });
+      const figure = screen.getByTestId("data-quality-figure");
+      expect(figure).toHaveClass("dq-dim");
+      expect(figure).toHaveTextContent(/^48%$/);
+      const root = screen.getByTestId("data-quality-pill-motion");
+      expect(root).not.toHaveClass("dq-pop");
+      expect(root).not.toHaveClass("dq-impact");
+      // The orb carries the "−6.7%" off to the section: nothing floats here.
+      expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-flash")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-halo")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/^\u22126\.7% data quality$/);
+
+      await waitFor(() =>
+        expect(screen.getByTestId("score-bar-fill")).toHaveStyle({ transform: "scaleX(0.42)" }),
+      );
+      expect(await screen.findByText("42%", {}, { timeout: 2000 })).toBeInTheDocument();
+    });
+
+    it("an impact for a loss changes nothing", () => {
+      const g = gain(85, 75, 2, ANCHOR);
+      const { rerender } = render(<DataQualityPill value={85} animate gain={null} />);
+      rerender(<DataQualityPill value={75} animate gain={g} impactNonce={2} />);
+      expect(screen.getByTestId("data-quality-pill-motion")).not.toHaveClass("dq-pop");
+      expect(screen.queryByTestId("data-quality-flash")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("data-quality-glow")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+    });
+
+    it("floats a red minus over the pill when it has no section to fly to", () => {
+      const { rerender } = render(<DataQualityPill value={48.2} animate gain={null} />);
+      rerender(<DataQualityPill value={41.5} animate gain={gain(48.2, 41.5, 2)} />);
+      const float = screen.getByTestId("score-gain-float");
+      expect(float).toHaveTextContent(/^\u22126\.7%$/);
+      expect(float).toHaveStyle({ color: "rgb(244, 67, 54)" });
+      expect(screen.queryAllByTestId("score-gain-confetti")).toHaveLength(0);
+    });
   });
 
   it("keeps the breakdown popover working with animate on", async () => {

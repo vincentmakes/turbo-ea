@@ -754,14 +754,29 @@ reference implementation is gamified data quality (`features/cards/gamification/
 an administrator turns on in Settings → General → Modules.
 
 - **Durations** (Material 3 range): 100–200 ms for state changes (a pop is 300 ms with its
-  overshoot), **500 ms** for fills (`FILL_MS`), and at most **1.2 s** for a celebration
-  (`CONFETTI_MS`). The constants live in `gamification/scoreGain.ts`; reuse them.
+  overshoot, the impact flash 180 ms), **500 ms** for fills (`FILL_MS`), **650 ms** for a
+  flight (`FLIGHT_MS`), and at most **1.2 s** for a celebration (`CONFETTI_MS`). The
+  constants live in `gamification/scoreGain.ts`; reuse them.
 - **Easing tokens**: `EASE_DECELERATE` (`cubic-bezier(0, 0, 0, 1)`) for fills and anything
   that arrives; `EASE_OVERSHOOT` (`cubic-bezier(0.34, 1.56, 0.64, 1)`) for a pop only —
   never on a bar or a number, which must land exactly on the value.
 - **Animate `transform` and `opacity` only.** A bar grows with `transform: scaleX(...)` from
   its start edge, a ring pulses with `scale` + `opacity`; never `width`, `height`, `top`,
   `left` or `box-shadow`, which relayout or repaint every frame.
+- **Glow rule**: a glow is a **static** `box-shadow` on its own element whose `opacity` is
+  what animates (`dq-impact-glow`) — the shadow is painted once and the fade stays on the
+  compositor. Never animate the shadow itself.
+- **Flights** (something travelling from where the user acted to where the value lives, as
+  `GainFlight` carries a gain from the saved section to the score): portal a
+  `position: fixed`, `pointer-events: none` element into `document.body`, measure both ends
+  once on mount with `getBoundingClientRect()`, and move it with the **Web Animations API**
+  (`el.animate(keyframes, { duration, easing, fill: "forwards" })`) along a quadratic arc
+  sampled into keyframes (`flightKeyframes`), `transform` + `opacity` only. Keep the duration
+  **fixed** (`FLIGHT_MS`) — the arc and the distance scale, the timing does not — and let the
+  landing (`onfinish`) be the moment the destination reacts, so the effect reads as cause
+  and impact. Guard for a missing `Element.prototype.animate` with a timer of the same
+  length, and skip the flight (react at once) when either end is missing or motion is
+  reduced. Trailing copies run the same keyframes with a delay and `fill: "both"`.
 - **Keyframes are a CSS string injected once** into a `<style>` element (`DQ_MOTION_CSS` /
   `injectDqMotionStyles`, the pattern of `TIMELINE_PULSE_KEYFRAMES`), and run through class
   names (`dq-pop`, `dq-float`, …). To replay a CSS animation without remounting, alternate
@@ -775,7 +790,10 @@ an administrator turns on in Settings → General → Modules.
   `aria-live="polite"` region.
 
 ✅ Do
-- Animate gains only. A drop, a reset or a failed save updates the value without movement.
+- Celebrate gains only. A loss caused by the user's own edit may be shown as its toned-down
+  mirror (points leaving: a drain, a count-down, a brief dim, an error-coloured "−X%"),
+  never with a flash, a pop, particles or a caption; a reset or a failed save updates the
+  value without movement.
 - Keep celebrations rare and earned (milestones), behind the admin toggle, and remove their
   DOM when they finish (`setTimeout` cleared on unmount).
 - Share the moving part between the places that show the same value (`ScoreBar` in the pill

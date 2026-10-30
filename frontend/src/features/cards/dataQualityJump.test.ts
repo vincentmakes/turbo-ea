@@ -6,6 +6,7 @@ import {
   jumpTargetFor,
   relationGroupAnchor,
   sectionAnchor,
+  tabAnchor,
 } from "./dataQualityJump";
 
 function factor(over: Partial<DataQualityFactor>): DataQualityFactor {
@@ -26,6 +27,11 @@ describe("anchor builders", () => {
     expect(sectionAnchor("lifecycle")).toBe("card-section-lifecycle");
     expect(sectionAnchor("tags")).toBe("card-section-tags");
     expect(sectionAnchor("relations")).toBe("card-section-relations");
+    expect(sectionAnchor("hierarchy")).toBe("card-section-hierarchy");
+  });
+
+  it("names a card tab's panel", () => {
+    expect(tabAnchor("stakeholders")).toBe("card-tab-stakeholders");
   });
 
   it("slugs a custom section name", () => {

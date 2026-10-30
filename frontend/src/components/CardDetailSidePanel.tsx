@@ -21,7 +21,8 @@ import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
-import { useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import { GainFlight } from "@/features/cards/gamification/GainFlight";
+import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
@@ -86,9 +87,13 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
   } | null>(null);
   const jumpNonce = useRef(0);
   // Gamified data quality: the panel's header is already sticky, so the pill
-  // plays the gain and no separate score bar is needed.
+  // plays the gain (the orb flies to it from the saved section) and no
+  // separate score bar is needed.
   const gamification = useGamificationEnabled();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification);
+  const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
+  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
+  const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
+  const [impactNonce, setImpactNonce] = useState<number | null>(null);
 
   const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
@@ -236,6 +241,8 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
                 }
                 animate={gamification}
                 gain={scoreGain}
+                impactNonce={impactNonce}
+                onRootRef={setPillEl}
               />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />
@@ -276,6 +283,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
             card={card}
             perms={perms}
             onCardUpdate={setCard}
+            onSaveOrigin={reportSaveOrigin}
             showBpmTabs={false}
             focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
             onAiSuggest={
@@ -302,6 +310,14 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
           />
         )}
       </Box>
+      {gamification && scoreGain?.originAnchor && (
+        <GainFlight
+          key={scoreGain.nonce}
+          gain={scoreGain}
+          targetEl={pillEl}
+          onImpact={setImpactNonce}
+        />
+      )}
     </>
   );
 

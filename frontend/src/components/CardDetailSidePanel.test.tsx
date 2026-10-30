@@ -26,16 +26,49 @@ vi.mock("@/features/cards/CardDetailContent", () => ({
   default: ({
     card,
     onCardUpdate,
+    onSaveOrigin,
   }: {
     card: { name: string; data_quality: number };
     onCardUpdate: (c: unknown) => void;
+    onSaveOrigin?: (anchor: string) => void;
   }) => (
     <div data-testid="card-content">
       {card.name}
       <button type="button" onClick={() => onCardUpdate({ ...card, data_quality: 60 })}>
         Save
       </button>
+      <button
+        type="button"
+        onClick={() => {
+          onSaveOrigin?.("card-section-lifecycle");
+          onCardUpdate({ ...card, data_quality: 40 });
+        }}
+      >
+        Clear lifecycle
+      </button>
     </div>
+  ),
+}));
+vi.mock("@/features/cards/gamification/GainFlight", () => ({
+  GainFlight: ({
+    gain,
+    targetEl,
+    onImpact,
+  }: {
+    gain: { nonce: number; delta: number; originAnchor: string | null };
+    targetEl: HTMLElement | null;
+    onImpact: (nonce: number) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="flight"
+      data-origin={gain.originAnchor ?? ""}
+      data-delta={String(gain.delta)}
+      data-target={targetEl?.getAttribute("data-testid") ?? "none"}
+      onClick={() => onImpact(gain.nonce)}
+    >
+      Land
+    </button>
   ),
 }));
 vi.mock("@/features/cards/sections", () => ({
@@ -43,12 +76,18 @@ vi.mock("@/features/cards/sections", () => ({
     value,
     animate,
     gain,
+    impactNonce,
+    onRootRef,
   }: {
     value: number;
     animate?: boolean;
     gain?: { delta: number } | null;
+    impactNonce?: number | null;
+    onRootRef?: (el: HTMLElement | null) => void;
   }) => (
     <span
+      ref={onRootRef}
+      data-impact={String(impactNonce)}
       data-testid="dq-pill"
       data-value={value}
       data-animate={String(!!animate)}
@@ -205,6 +244,31 @@ describe("CardDetailSidePanel — gamified data quality", () => {
     expect(screen.getByTestId("dq-pill")).toHaveAttribute("data-gain", "10");
   });
 
+  it("flies a section's change off the pill and hands the pill the impact", async () => {
+    gamification.enabled = true;
+    mount();
+    await screen.findByTestId("card-content");
+    expect(screen.queryByTestId("flight")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear lifecycle" }));
+    const flight = screen.getByTestId("flight");
+    expect(flight).toHaveAttribute("data-origin", "card-section-lifecycle");
+    expect(flight).toHaveAttribute("data-delta", "-10");
+    expect(flight).toHaveAttribute("data-target", "dq-pill");
+    expect(screen.getByTestId("dq-pill")).toHaveAttribute("data-impact", "null");
+
+    await userEvent.click(flight);
+    expect(screen.getByTestId("dq-pill")).toHaveAttribute("data-impact", "1");
+  });
+
+  it("flies nothing for a save that names no section", async () => {
+    gamification.enabled = true;
+    mount();
+    await screen.findByTestId("card-content");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.queryByTestId("flight")).not.toBeInTheDocument();
+  });
+
   it("animates nothing when the toggle is off", async () => {
     mount();
     await screen.findByTestId("card-content");
@@ -213,5 +277,7 @@ describe("CardDetailSidePanel — gamified data quality", () => {
     expect(pill).toHaveAttribute("data-value", "60");
     expect(pill).toHaveAttribute("data-animate", "false");
     expect(pill).toHaveAttribute("data-gain", "");
+    await userEvent.click(screen.getByRole("button", { name: "Clear lifecycle" }));
+    expect(screen.queryByTestId("flight")).not.toBeInTheDocument();
   });
 });

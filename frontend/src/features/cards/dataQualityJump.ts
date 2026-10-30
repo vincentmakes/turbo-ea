@@ -19,10 +19,15 @@ export type DataQualityJumpTarget =
   | { tab: "stakeholders" }
   | { tab: "card"; anchor: string; sectionAnchor: string };
 
-export type BuiltInSectionKey = "description" | "lifecycle" | "tags" | "relations";
+export type BuiltInSectionKey = "description" | "lifecycle" | "tags" | "relations" | "hierarchy";
 
 export function sectionAnchor(key: BuiltInSectionKey): string {
   return `card-section-${key}`;
+}
+
+/** A card tab's panel id: where a save made in that tab (Stakeholders) came from. */
+export function tabAnchor(key: "stakeholders"): string {
+  return `card-tab-${key}`;
 }
 
 /** An attribute section's id: its name, with every run of characters outside

@@ -37,9 +37,10 @@ import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill } from "@/features/cards/sections";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
+import { GainFlight } from "@/features/cards/gamification/GainFlight";
 import { StickyScoreBar } from "@/features/cards/gamification/StickyScoreBar";
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
-import { useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -176,12 +177,18 @@ export default function CardDetail() {
     missing_tag_groups: { id: string; name: string }[];
   } | null>(null);
 
-  // Gamified data quality (admin toggle): the gain each save plays, and the
-  // sticky score bar shown while the header row is scrolled away.
+  // Gamified data quality (admin toggle): the gain (or loss) each save plays,
+  // flying between the section it came from and the score, and the sticky
+  // score bar shown while the header row is scrolled away.
   const gamification = useGamificationEnabled();
-  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification);
+  const [saveOrigin, reportSaveOrigin] = useSaveOrigin();
+  const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
   const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
   const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
+  // Where the orb lands: the pill, or the sticky bar's figure while it is open.
+  const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
+  const [stickyFigureEl, setStickyFigureEl] = useState<HTMLElement | null>(null);
+  const [impactNonce, setImpactNonce] = useState<number | null>(null);
 
   const [showScrollTop, setShowScrollTop] = useState(false);
   useEffect(() => {
@@ -751,6 +758,8 @@ export default function CardDetail() {
             }
             animate={gamification}
             gain={scoreGain}
+            impactNonce={impactNonce}
+            onRootRef={setPillEl}
           />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
@@ -923,6 +932,7 @@ export default function CardDetail() {
         card={card}
         perms={perms}
         onCardUpdate={setCard}
+        onSaveOrigin={reportSaveOrigin}
         onDirtyChange={setSectionsDirty}
         focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
         initialTab={initialTab}
@@ -1043,6 +1053,16 @@ export default function CardDetail() {
           name={card.name}
           value={card.data_quality}
           gain={scoreGain}
+          impactNonce={impactNonce}
+          onFigureRef={setStickyFigureEl}
+        />
+      )}
+      {gamification && scoreGain?.originAnchor && (
+        <GainFlight
+          key={scoreGain.nonce}
+          gain={scoreGain}
+          targetEl={headerOffscreen ? stickyFigureEl : pillEl}
+          onImpact={setImpactNonce}
         />
       )}
       <Fade in={showScrollTop}>

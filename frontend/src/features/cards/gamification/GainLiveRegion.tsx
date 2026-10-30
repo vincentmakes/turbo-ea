@@ -1,5 +1,5 @@
 /**
- * The one place a gain is announced to assistive tech.
+ * The one place a gain — or a loss — is announced to assistive tech.
  *
  * A live region only announces changes to content it already had: a `status`
  * element that mounts together with its text is often read as nothing at all.

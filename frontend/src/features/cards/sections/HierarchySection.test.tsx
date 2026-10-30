@@ -124,6 +124,14 @@ async function pick(user: ReturnType<typeof userEvent.setup>, button: HTMLElemen
   await user.click(await screen.findByRole("option", { name: option }));
 }
 
+describe("HierarchySection anchor", () => {
+  it("carries the id a save's flying gain leaves from", async () => {
+    const { container } = render(<HierarchySection card={CARD} onUpdate={vi.fn()} />);
+    expect(await screen.findByText("Commercial")).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveAttribute("id", "card-section-hierarchy");
+  });
+});
+
 describe("HierarchySection link labels", () => {
   it("shows this card's own label on the parent line", async () => {
     renderSection();

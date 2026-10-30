@@ -31,10 +31,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-type Props = { target: number; enabled: boolean; delay?: number };
+type Props = { target: number; enabled: boolean; delay?: number; down?: boolean };
 
 function setup(initial: Props) {
-  return renderHook((p: Props) => useAnimatedNumber(p.target, p.enabled, p.delay), {
+  return renderHook((p: Props) => useAnimatedNumber(p.target, p.enabled, p.delay, p.down), {
     initialProps: initial,
   });
 }
@@ -87,6 +87,34 @@ describe("useAnimatedNumber", () => {
     const { result, rerender } = setup({ target: 80, enabled: true });
     rerender({ target: 50, enabled: true });
     expect(result.current).toBe(50);
+    expect(frames.size).toBe(0);
+  });
+
+  it("counts a drop down over 500 ms when asked to", () => {
+    const { result, rerender } = setup({ target: 100, enabled: true, down: true });
+    rerender({ target: 0, enabled: true, down: true });
+    expect(result.current).toBe(100);
+    expect(frames.size).toBe(1);
+    tick(1000);
+    expect(result.current).toBe(100);
+    tick(1250);
+    expect(result.current).toBe(12.5);
+    tick(1500);
+    expect(result.current).toBe(0);
+    expect(frames.size).toBe(0);
+  });
+
+  it("requests no frame for an unchanged target, even when counting down", () => {
+    const { result, rerender } = setup({ target: 70, enabled: true, down: true });
+    rerender({ target: 70, enabled: true, down: false });
+    expect(result.current).toBe(70);
+    expect(frames.size).toBe(0);
+  });
+
+  it("still shows a drop at once while disabled, even when asked to count down", () => {
+    const { result, rerender } = setup({ target: 80, enabled: false, down: true });
+    rerender({ target: 30, enabled: false, down: true });
+    expect(result.current).toBe(30);
     expect(frames.size).toBe(0);
   });
 

@@ -10,17 +10,23 @@ export function easeOutCubic(p: number): number {
  * The number to show while `target` rises: a `requestAnimationFrame` tween from
  * the value on screen to `target` over `FILL_MS`, starting after `delayMs`.
  *
- * Only a rise counts up; a drop (and anything while `enabled` is false) shows
- * the new value at once. A new target mid-tween starts from wherever the count
- * had got to. The pending frame is cancelled on unmount.
+ * A rise counts up. A drop counts down only with `countDown` (points flying
+ * off the bar); otherwise it, and anything while `enabled` is false, shows the
+ * new value at once. A new target mid-tween starts from wherever the count had
+ * got to. The pending frame is cancelled on unmount.
  */
-export function useAnimatedNumber(target: number, enabled: boolean, delayMs = 0): number {
+export function useAnimatedNumber(
+  target: number,
+  enabled: boolean,
+  delayMs = 0,
+  countDown = false,
+): number {
   const [display, setDisplay] = useState(target);
   const shown = useRef(target);
 
   useEffect(() => {
     const from = shown.current;
-    if (!enabled || target <= from) {
+    if (!enabled || target === from || (target < from && !countDown)) {
       shown.current = target;
       setDisplay(target);
       return;
@@ -37,7 +43,7 @@ export function useAnimatedNumber(target: number, enabled: boolean, delayMs = 0)
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [target, enabled, delayMs]);
+  }, [target, enabled, delayMs, countDown]);
 
   return enabled ? display : target;
 }

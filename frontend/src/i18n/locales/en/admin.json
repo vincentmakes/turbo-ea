@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Gamified data quality",
   "settings.gamification.enabled": "On",
   "settings.gamification.disabled": "Off",
-  "settings.gamification.description": "Celebrate every save that raises a card's data quality: the score fills like a health bar with a flying +X%, and a slim score bar follows the reader down the page. Milestones (reaching the green band, reaching 100%) get a short burst of confetti. Users with reduced motion enabled in their operating system see the change without animation.",
+  "settings.gamification.description": "Celebrate every save that raises a card's data quality: a glowing +X% flies from the section you saved to the score, which flashes and fills like a health bar, and a slim score bar follows the reader down the page. Milestones (reaching the green band, reaching 100%) get a short burst of confetti. Clearing data makes the points fly off the bar back to the section. Users with reduced motion enabled in their operating system see the change without animation.",
   "settings.gamification.on": "Saves that raise a card's data quality are celebrated",
   "settings.gamification.off": "Data quality changes are shown without animation",
   "settings.gamification.enabledSuccess": "Gamified data quality enabled",

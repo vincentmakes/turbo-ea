@@ -1,12 +1,14 @@
 /**
- * What a gain looks like for a moment: a "+X%" that rises and fades over its
- * anchor, and — for a milestone only — 14 confetti particles and a caption.
+ * What a change looks like for a moment: a "+X%" that rises and fades over its
+ * anchor, and — for a milestone only — 14 confetti particles and a caption. A
+ * loss is the same float as "−X%" in the error colour, and never celebrates.
  * The gain is announced to assistive tech by the pill's persistent
  * `GainLiveRegion`, not here: a status element that mounts with its text is
  * often not read at all.
  *
- * With reduced motion it is a static success chip "+X%" (and the caption, for
- * a milestone) for two seconds: no movement, no particles.
+ * With reduced motion it is a static chip — success "+X%" (and the caption,
+ * for a milestone), or error "−X%" for a loss — for two seconds: no movement,
+ * no particles.
  *
  * Render it inside a positioned box, keyed by the gain's `nonce`; it covers
  * that box without taking pointer events and unmounts itself when done.
@@ -20,6 +22,7 @@ import { STATUS_COLORS } from "@/theme/tokens";
 import {
   CONFETTI_COUNT,
   burstLifetime,
+  changeLabel,
   confettiParticle,
   type ScoreGain,
 } from "./scoreGain";
@@ -50,11 +53,13 @@ export function ScoreGainBurst({
 
   if (done) return null;
 
-  const label = `+${gain.delta}%`;
+  const loss = gain.direction === "loss";
+  const label = changeLabel(gain);
+  const milestone = loss ? null : gain.milestone;
   const caption =
-    gain.milestone === "perfect"
+    milestone === "perfect"
       ? t("dataQuality.milestonePerfect")
-      : gain.milestone === "complete"
+      : milestone === "complete"
         ? t("dataQuality.milestoneComplete")
         : null;
 
@@ -89,7 +94,12 @@ export function ScoreGainBurst({
             whiteSpace: "nowrap",
           }}
         >
-          <Chip data-testid="score-gain-chip" size="small" color="success" label={label} />
+          <Chip
+            data-testid="score-gain-chip"
+            size="small"
+            color={loss ? "error" : "success"}
+            label={label}
+          />
           {caption && (
             <Box component="span" sx={{ fontSize: "0.75rem", fontWeight: 700, color: "success.main" }}>
               {caption}
@@ -108,7 +118,7 @@ export function ScoreGainBurst({
               ...(placement === "above" && { bottom: "100%" }),
               fontSize: "0.8rem",
               fontWeight: 800,
-              color: STATUS_COLORS.success,
+              color: loss ? STATUS_COLORS.error : STATUS_COLORS.success,
               whiteSpace: "nowrap",
               opacity: 0,
             }}
@@ -135,7 +145,7 @@ export function ScoreGainBurst({
               {caption}
             </Box>
           )}
-          {gain.milestone &&
+          {milestone &&
             Array.from({ length: CONFETTI_COUNT }, (_, i) => {
               const p = confettiParticle(i);
               return (

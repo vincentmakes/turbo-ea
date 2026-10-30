@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import MuiCard from "@mui/material/Card";
@@ -52,6 +52,7 @@ import SoAWTab from "@/features/cards/sections/SoAWTab";
 import {
   customSectionAnchor,
   sectionAnchor,
+  tabAnchor,
   type DataQualityJumpTarget,
 } from "@/features/cards/dataQualityJump";
 import {
@@ -106,6 +107,11 @@ interface Props {
   /** Jump to where a data-quality gap is filled: each new `nonce` opens the
    *  target's tab and, on the Card tab, expands and scrolls to its section. */
   focusTarget?: { target: DataQualityJumpTarget; nonce: number } | null;
+  /** Where a save that rescored the card came from: the section's (or the
+   *  Stakeholders tab's) DOM id, reported just before `onCardUpdate`, in the
+   *  same tick, so gamified data quality can fly the gain from there. The End
+   *  of Life section reports nothing. */
+  onSaveOrigin?: (anchor: string) => void;
 }
 
 /** Long enough for the Card tab to mount and the section to start expanding. */
@@ -126,6 +132,7 @@ export default function CardDetailContent({
   aiBusy = false,
   onDirtyChange,
   focusTarget,
+  onSaveOrigin,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -313,13 +320,59 @@ export default function CardDetailContent({
     successors: !!typeConfig?.has_successors,
   });
 
-  const handleUpdate = useCallback(
-    async (updates: Record<string, unknown>) => {
+  // Saves name the section they came from (`onSaveOrigin`) right before the
+  // card update, so both land in one render. Read through a ref so the per-
+  // section callbacks below keep a stable identity.
+  const onSaveOriginRef = useRef(onSaveOrigin);
+  useEffect(() => {
+    onSaveOriginRef.current = onSaveOrigin;
+  }, [onSaveOrigin]);
+  const patchCard = useCallback(
+    async (updates: Record<string, unknown>, anchor: string | null) => {
       const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+      if (anchor) onSaveOriginRef.current?.(anchor);
       onCardUpdate(updated);
     },
     [card.id, onCardUpdate],
   );
+  const refreshCard = useCallback(
+    async (anchor: string) => {
+      const updated = await api.get<Card>(`/cards/${card.id}`);
+      onSaveOriginRef.current?.(anchor);
+      onCardUpdate(updated);
+    },
+    [card.id, onCardUpdate],
+  );
+  // The End of Life section: no origin, the gain plays at the pill.
+  const handleUpdate = useCallback(
+    (updates: Record<string, unknown>) => patchCard(updates, null),
+    [patchCard],
+  );
+  // One stable callback per section and kind, rebuilt only with the card.
+  const { saveFrom, refreshFrom } = useMemo(() => {
+    const saves = new Map<string, (updates: Record<string, unknown>) => Promise<void>>();
+    const refreshes = new Map<string, () => Promise<void>>();
+    return {
+      /** A section's save: PATCH the card, then report `anchor` and update. */
+      saveFrom: (anchor: string) => {
+        let cb = saves.get(anchor);
+        if (!cb) {
+          cb = (updates: Record<string, unknown>) => patchCard(updates, anchor);
+          saves.set(anchor, cb);
+        }
+        return cb;
+      },
+      /** A section that saved on its own: refetch the card, report `anchor`. */
+      refreshFrom: (anchor: string) => {
+        let cb = refreshes.get(anchor);
+        if (!cb) {
+          cb = () => refreshCard(anchor);
+          refreshes.set(anchor, cb);
+        }
+        return cb;
+      },
+    };
+  }, [patchCard, refreshCard]);
 
   // Track which sections have unsaved edits so the page can warn on navigation
   // (#843). Each editable section reports its dirty state under a stable key;
@@ -364,7 +417,7 @@ export default function CardDetailContent({
         <ErrorBoundary key={key} label="Description" inline>
           <DescriptionSection
             card={card}
-            onSave={handleUpdate}
+            onSave={saveFrom(sectionAnchor("description"))}
             canEdit={perms.can_edit}
             initialExpanded={exp}
             extraFields={
@@ -398,7 +451,7 @@ export default function CardDetailContent({
         <ErrorBoundary key={key} label="Lifecycle" inline>
           <LifecycleSection
             card={card}
-            onSave={handleUpdate}
+            onSave={saveFrom(sectionAnchor("lifecycle"))}
             canEdit={perms.can_edit}
             initialExpanded={exp}
             onDirtyChange={dirtyCb("lifecycle")}
@@ -412,9 +465,7 @@ export default function CardDetailContent({
         <ErrorBoundary key={key} label="Hierarchy" inline>
           <HierarchySection
             card={card}
-            onUpdate={() =>
-              api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
-            }
+            onUpdate={refreshFrom(sectionAnchor("hierarchy"))}
             canEdit={perms.can_edit}
             initialExpanded={exp}
           />
@@ -437,7 +488,7 @@ export default function CardDetailContent({
         <ErrorBoundary key={key} label="Tags" inline>
           <TagsSection
             card={card}
-            onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
+            onUpdate={refreshFrom(sectionAnchor("tags"))}
             canEdit={perms.can_edit}
             initialExpanded={exp}
             expandOn={expandOn(sectionAnchor("tags"))}
@@ -455,7 +506,7 @@ export default function CardDetailContent({
             refreshKey={relRefresh}
             canManageRelations={perms.can_manage_relations}
             initialExpanded={exp}
-            onCardUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
+            onCardUpdate={refreshFrom(sectionAnchor("relations"))}
             expandOn={expandOn(sectionAnchor("relations"))}
           />
         </ErrorBoundary>
@@ -472,7 +523,7 @@ export default function CardDetailContent({
           <AttributeSection
             section={section}
             card={card}
-            onSave={handleUpdate}
+            onSave={saveFrom(customSectionAnchor(section.section))}
             onRelationChange={() => setRelRefresh((n) => n + 1)}
             canEdit={perms.can_edit}
             calculatedFieldKeys={calcFieldKeys}
@@ -681,13 +732,11 @@ export default function CardDetailContent({
       )}
       {tab === "stakeholders" && (
         <ErrorBoundary label="Stakeholders">
-          <MuiCard>
+          <MuiCard id={tabAnchor("stakeholders")}>
             <CardContent>
               <StakeholdersTab
                 card={card}
-                onRefresh={() =>
-                  api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
-                }
+                onRefresh={refreshFrom(tabAnchor("stakeholders"))}
                 canManageStakeholders={perms.can_manage_stakeholders}
               />
             </CardContent>

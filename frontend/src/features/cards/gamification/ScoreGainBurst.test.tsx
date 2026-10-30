@@ -7,9 +7,34 @@ vi.mock("./useReducedMotion", () => ({ useReducedMotion: () => motion.reduced })
 import { ScoreGainBurst } from "./ScoreGainBurst";
 import { DQ_MOTION_STYLE_ID, burstLifetime, type ScoreGain } from "./scoreGain";
 
-const GAIN: ScoreGain = { from: 60, to: 66.7, delta: 6.7, milestone: null, nonce: 1 };
-const PERFECT: ScoreGain = { from: 93.3, to: 100, delta: 6.7, milestone: "perfect", nonce: 2 };
-const COMPLETE: ScoreGain = { from: 70, to: 85, delta: 15, milestone: "complete", nonce: 3 };
+const base = { direction: "gain", originAnchor: null } as const;
+const GAIN: ScoreGain = { from: 60, to: 66.7, delta: 6.7, milestone: null, nonce: 1, ...base };
+const PERFECT: ScoreGain = {
+  from: 93.3,
+  to: 100,
+  delta: 6.7,
+  milestone: "perfect",
+  nonce: 2,
+  ...base,
+};
+const COMPLETE: ScoreGain = {
+  from: 70,
+  to: 85,
+  delta: 15,
+  milestone: "complete",
+  nonce: 3,
+  ...base,
+};
+// A loss never carries a milestone; this one does, to prove it is ignored.
+const LOSS: ScoreGain = {
+  from: 100,
+  to: 93.3,
+  delta: -6.7,
+  milestone: "perfect",
+  nonce: 4,
+  direction: "loss",
+  originAnchor: null,
+};
 
 beforeEach(() => {
   motion.reduced = false;
@@ -27,6 +52,8 @@ describe("burstLifetime", () => {
     expect(burstLifetime(PERFECT, false)).toBe(1200);
     expect(burstLifetime(GAIN, true)).toBe(2000);
     expect(burstLifetime(PERFECT, true)).toBe(2000);
+    expect(burstLifetime(LOSS, false)).toBe(900);
+    expect(burstLifetime(LOSS, true)).toBe(2000);
   });
 });
 
@@ -73,6 +100,18 @@ describe("ScoreGainBurst", () => {
     expect(screen.getAllByTestId("score-gain-confetti")).toHaveLength(14);
   });
 
+  it("floats a loss as a minus in the error colour, with no confetti or caption", () => {
+    render(<ScoreGainBurst gain={LOSS} />);
+    const float = screen.getByTestId("score-gain-float");
+    expect(float).toHaveTextContent(/^\u22126\.7%$/);
+    expect(float).toHaveClass("dq-float");
+    expect(float).toHaveStyle({ color: "rgb(244, 67, 54)" });
+    expect(screen.queryAllByTestId("score-gain-confetti")).toHaveLength(0);
+    expect(screen.queryByTestId("score-gain-caption")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(900));
+    expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+  });
+
   it("removes itself once the float has finished", () => {
     render(<ScoreGainBurst gain={GAIN} />);
     act(() => vi.advanceTimersByTime(899));
@@ -113,6 +152,16 @@ describe("ScoreGainBurst", () => {
       act(() => vi.advanceTimersByTime(1999));
       expect(screen.getByTestId("score-gain-chip")).toBeInTheDocument();
       act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+    });
+
+    it("shows a static error chip for a loss, with no caption", () => {
+      render(<ScoreGainBurst gain={LOSS} />);
+      const chip = screen.getByTestId("score-gain-chip");
+      expect(chip).toHaveTextContent(/^\u22126\.7%$/);
+      expect(chip).toHaveClass("MuiChip-colorError");
+      expect(screen.queryByText("Perfect score!")).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(2000));
       expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
     });
 
