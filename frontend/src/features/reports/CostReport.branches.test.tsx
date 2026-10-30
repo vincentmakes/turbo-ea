@@ -88,6 +88,7 @@ import {
   makeSection,
 } from "@/test/fixtures/metamodel";
 import CostReport from "./CostReport";
+import { COST_TREEMAP_COLORS } from "@/theme/tokens";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- an option tree is plain JSON a test digs into */
 
@@ -273,7 +274,7 @@ describe("CostReport treemap", () => {
     // Largest first, each tile sized by its cost and filled by its position.
     expect(tiles.map((d) => d.name)).toEqual(["ERP", "CRM", "HR", "CRM Web Portal"]);
     expect(tiles.map((d) => d.value)).toEqual([500, 100, 80, 20]);
-    expect(tiles.map((d) => d.itemStyle.color)).toEqual(["#1565c0", "#1976d2", "#1e88e5", "#2196f3"]);
+    expect(tiles.map((d) => d.itemStyle.color)).toEqual(COST_TREEMAP_COLORS.slice(0, 4));
     // ERP's tile is labelled with its name and, below it, its cost.
     expect(rootChart().option.series[0].label.formatter(tiles[0])).toBe("ERP\n{value|$500}");
 

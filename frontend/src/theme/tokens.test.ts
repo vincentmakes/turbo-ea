@@ -93,6 +93,24 @@ describe("dashboard chart tokens", () => {
     for (const c of [...t.CHART_CATEGORICAL.light, ...t.CHART_CATEGORICAL.dark]) expect(status.has(c)).toBe(false);
   });
 
+  it("keep the Cost report's ten-blue treemap ramp and the white label on its tiles", async () => {
+    const t = await freshTokens();
+    expect(t.COST_TREEMAP_COLORS).toEqual([
+      "#1565c0",
+      "#1976d2",
+      "#1e88e5",
+      "#2196f3",
+      "#42a5f5",
+      "#64b5f6",
+      "#90caf9",
+      "#bbdefb",
+      "#0d47a1",
+      "#1565c0",
+    ]);
+    expect(t.CHART_LABEL_ON_DARK).toBe("#ffffff");
+    expect(t.CHART_LABEL_ON_DARK_MUTED).toBe("rgba(255,255,255,0.8)");
+  });
+
   it("name every homepage KPI accent as a hex colour", async () => {
     const t = await freshTokens();
     for (const [key, value] of Object.entries(t.DASHBOARD_KPI_COLORS)) {

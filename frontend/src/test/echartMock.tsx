@@ -16,12 +16,15 @@
  * act(() => echartState.click("Cost by type", { name: "Application", data: { key: "Application" } }));
  * ```
  *
- * Each mounted chart claims a stable slot once (the order it first rendered
- * in) and rewrites it with its latest props on every render, so a page with
- * several charts can tell them apart and a re-render is seen. Slots of an
- * unmounted chart stay until `reset()`; lookups prefer the newest match.
+ * Each mounted chart claims a stable slot once (the order it first committed
+ * in) and rewrites it with its latest props on every commit, so a page with
+ * several charts can tell them apart and a re-render is seen. The writes run
+ * in a layout effect, never during render, so a render React throws away
+ * records nothing; layout effects run synchronously inside RTL's `render`, so
+ * `byName` right after it finds the chart. Slots of an unmounted chart stay
+ * until `reset()`; lookups prefer the newest match.
  */
-import { useState, type CSSProperties } from "react";
+import { useLayoutEffect, useRef, type CSSProperties } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- an option tree is plain JSON a test digs into */
 
@@ -79,13 +82,20 @@ export const echartState = {
 
 // eslint-disable-next-line react-refresh/only-export-components -- a test double, never hot-reloaded
 function MockEChart(props: CapturedEChart) {
-  const [index] = useState(() => echartState.props.length);
-  echartState.props[index] = props;
+  const ref = useRef<HTMLDivElement | null>(null);
+  // The slot is claimed on the first commit, not at render: siblings that
+  // render in one pass would otherwise all read the same length.
+  const index = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (index.current === null) index.current = echartState.props.length;
+    echartState.props[index.current] = props;
+    ref.current?.setAttribute("data-echart", String(index.current));
+  });
   return (
     <div
+      ref={ref}
       role="img"
       data-testid="echart"
-      data-echart={index}
       aria-label={props.ariaLabel}
       aria-labelledby={props.labelledBy}
       className="echart-container"

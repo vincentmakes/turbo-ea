@@ -44,8 +44,8 @@ afterEach(() => restoreRo());
 describe("EChart", () => {
   it("initialises a canvas chart on its container and sets the option whole", () => {
     const option = { series: [] };
-    render(<EChart option={option} ariaLabel="Cards by Type" />);
-    const el = screen.getByRole("img", { name: "Cards by Type" });
+    render(<EChart option={option} />);
+    const el = screen.getByRole("img");
     expect(core.init).toHaveBeenCalledWith(el, null, { renderer: "canvas" });
     expect(chart.setOption).toHaveBeenCalledWith(option, { notMerge: true });
     expect(restoreRo.observed).toContain(el);
@@ -88,7 +88,17 @@ describe("EChart", () => {
 });
 
 describe("EChart props", () => {
+  const originalDpr = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+  function stubDeviceDpr(value: number | undefined) {
+    Object.defineProperty(window, "devicePixelRatio", { value, configurable: true, writable: true });
+  }
+  afterEach(() => {
+    if (originalDpr) Object.defineProperty(window, "devicePixelRatio", originalDpr);
+    else delete (window as { devicePixelRatio?: number }).devicePixelRatio;
+  });
+
   it("passes a backing-store scale to init only when one is given", () => {
+    stubDeviceDpr(1);
     const { unmount } = render(<EChart option={{}} ariaLabel="plain" />);
     expect(core.init.mock.calls[0][2]).toEqual({ renderer: "canvas" });
     expect(core.init.mock.calls[0][2]).not.toHaveProperty("devicePixelRatio");
@@ -98,7 +108,24 @@ describe("EChart props", () => {
     expect(core.init).toHaveBeenLastCalledWith(el, null, { renderer: "canvas", devicePixelRatio: 2 });
   });
 
+  it.each([
+    ["a 1x screen", 1, 2],
+    ["a 3x screen", 3, 3],
+    ["a screen that reports no ratio", undefined, 2],
+  ])("treats the given scale as a floor on %s", (_why, device, expected) => {
+    stubDeviceDpr(device);
+    render(<EChart option={{}} devicePixelRatio={2} />);
+    expect(core.init.mock.calls[0][2]).toEqual({ renderer: "canvas", devicePixelRatio: expected });
+  });
+
+  it("raises a sub-1 floor to 1 on a screen that reports no ratio", () => {
+    stubDeviceDpr(undefined);
+    render(<EChart option={{}} devicePixelRatio={0.5} />);
+    expect(core.init.mock.calls[0][2]).toEqual({ renderer: "canvas", devicePixelRatio: 1 });
+  });
+
   it("keeps the scale it was initialised with", () => {
+    stubDeviceDpr(1);
     const { rerender } = render(<EChart option={{}} devicePixelRatio={2} />);
     rerender(<EChart option={{}} devicePixelRatio={3} />);
     expect(core.init).toHaveBeenCalledTimes(1);
@@ -117,30 +144,43 @@ describe("EChart props", () => {
     expect(el.hasAttribute("aria-label")).toBe(false);
   });
 
-  it("puts its aria-label back after ECharts' aria component rewrites it", () => {
-    chart.setOption.mockImplementation(() => {
-      document.querySelector(`.${ECHART_CLASS}`)?.setAttribute("aria-label", "clobbered");
-    });
+  it("hands its name to ECharts' aria component as the description, on every option", () => {
     const { rerender } = render(<EChart option={{ a: 1 }} ariaLabel="Cards by Type" />);
-    const el = screen.getByRole("img");
+    // The first paint is named by the attribute itself.
+    expect(screen.getByRole("img", { name: "Cards by Type" })).toBeInTheDocument();
     expect(chart.setOption).toHaveBeenCalledTimes(1);
-    expect(el.getAttribute("aria-label")).toBe("Cards by Type");
+    expect(chart.setOption).toHaveBeenLastCalledWith(
+      { a: 1, aria: { enabled: true, label: { description: "Cards by Type" } } },
+      { notMerge: true },
+    );
     rerender(<EChart option={{ a: 2 }} ariaLabel="Cards by Type" />);
     expect(chart.setOption).toHaveBeenCalledTimes(2);
-    expect(el.getAttribute("aria-label")).toBe("Cards by Type");
-    // A renamed chart is put back to its new name, not the one it mounted with.
-    rerender(<EChart option={{ a: 3 }} ariaLabel="Cards by Status" />);
-    expect(el.getAttribute("aria-label")).toBe("Cards by Status");
-    chart.setOption.mockReset();
+    expect(chart.setOption.mock.calls[1][0].aria.label.description).toBe("Cards by Type");
+    // A renamed chart describes itself by its new name, even with the same option.
+    const same = { a: 2 };
+    rerender(<EChart option={same} ariaLabel="Cards by Status" />);
+    expect(chart.setOption.mock.calls[2][0].aria.label.description).toBe("Cards by Status");
+    expect(screen.getByRole("img", { name: "Cards by Status" })).toBeInTheDocument();
+    rerender(<EChart option={same} ariaLabel="Cards by Status" />);
+    expect(chart.setOption).toHaveBeenCalledTimes(3);
   });
 
-  it("leaves the generated description alone when it has no name of its own", () => {
-    chart.setOption.mockImplementation(() => {
-      document.querySelector(`.${ECHART_CLASS}`)?.setAttribute("aria-label", "generated");
-    });
-    render(<EChart option={{}} />);
-    expect(screen.getByRole("img").getAttribute("aria-label")).toBe("generated");
-    chart.setOption.mockReset();
+  it("keeps the option's own aria keys when it adds the description", () => {
+    const option = { a: 1, aria: { enabled: false, decal: { show: true } } };
+    render(<EChart option={option} ariaLabel="Cost" />);
+    expect(chart.setOption).toHaveBeenCalledWith(
+      { a: 1, aria: { enabled: true, decal: { show: true }, label: { description: "Cost" } } },
+      { notMerge: true },
+    );
+    // The caller's option is not mutated.
+    expect(option.aria).toEqual({ enabled: false, decal: { show: true } });
+  });
+
+  it("passes the option through untouched when it has no name of its own", () => {
+    const option = { a: 1, aria: { enabled: true } };
+    render(<EChart option={option} labelledBy="nowhere" />);
+    expect(chart.setOption.mock.calls[0][0]).toBe(option);
+    expect(screen.getByRole("img").hasAttribute("aria-label")).toBe(false);
   });
 
   it("carries the container class print.css sizes charts by", () => {

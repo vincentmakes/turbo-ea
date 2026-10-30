@@ -532,7 +532,10 @@ export default function CostReport() {
   // chart's whole option and replays its animation, so it is rebuilt only
   // when the data, the theme or the drill affordance change.
   const panelCharts = useMemo(() => panelsWithTotals.map((p) => {
-    const data = [...p.items]
+    // A card that costs nothing has no tile, so a panel of them is empty,
+    // not a blank chart.
+    const data = p.items
+      .filter((d) => d.cost > 0)
       .sort((a, b) => b.cost - a.cost)
       .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i }));
     return {

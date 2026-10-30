@@ -3,13 +3,17 @@
  * hands in each panel's cards (already sorted by cost, largest first) and the
  * chart chrome, and gets back the option `EChart` draws.
  *
- * One tile per card, sized by its cost and filled from a fixed run of blues by
- * its position, so the largest card always leads in the darkest blue. Each
- * tile carries the card's `id` and `name`, which is what a click hands back to
- * the page (drill into the card, or open its side panel). The tooltip names
- * the card, its cost and — when the panel totals anything — its share of the
- * panel's own total, so a drilled level with one panel per source reads each
- * share against its own scale.
+ * One tile per card that costs anything, sized by its cost and filled from a
+ * fixed run of blues by its position, so the largest card always leads in the
+ * darkest blue. A card costing nothing (or less) has no tile: ECharts'
+ * squarify layout cannot place an area of zero or below, and a negative one
+ * corrupts its siblings' tiles. Each tile carries the card's `id` and `name`,
+ * which is what a click hands back to the page (drill into the card, or open
+ * its side panel). The tooltip names the card, its cost and — when the panel
+ * totals anything — its share of the panel's own total, so a drilled level
+ * with one panel per source reads each share against its own scale. The
+ * fills and label colours are tokens (`COST_TREEMAP_COLORS`,
+ * `CHART_LABEL_ON_DARK*` in `@/theme/tokens`).
  */
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
@@ -20,20 +24,7 @@ import {
   treemapLabel,
   type ChartChromeContext,
 } from "@/components/charts/chrome";
-
-/** The tile fills, by position: index 0 is the most expensive card. */
-export const COST_TREEMAP_COLORS: readonly string[] = [
-  "#1565c0",
-  "#1976d2",
-  "#1e88e5",
-  "#2196f3",
-  "#42a5f5",
-  "#64b5f6",
-  "#90caf9",
-  "#bbdefb",
-  "#0d47a1",
-  "#1565c0",
-];
+import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
 
 /** A tile's fill, cycling the palette by position. */
 export function treemapColor(index: number): string {
@@ -90,7 +81,7 @@ export function costTooltipHtml(
 export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapOptions): EChartsCoreOption {
   // The tile labels print their cost through the chrome's value formatter.
   const ctx: ChartChromeContext = { theme: o.chrome, isRtl: o.isRtl, valueFormatter: o.format };
-  const data: CostTreemapDatum[] = items.map((d) => ({
+  const data: CostTreemapDatum[] = items.filter((d) => d.cost > 0).map((d) => ({
     name: d.name,
     value: d.cost,
     id: d.id,
@@ -122,15 +113,16 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
         visibleMin: 4,
         // One cursor for the whole series: every tile drills, or none does.
         cursor: o.clickable ? "pointer" : "default",
-        itemStyle: { borderColor: "#fff", borderWidth: 2, gapWidth: 2, borderRadius: 3 },
+        // The gaps between tiles are the paper the chart sits on.
+        itemStyle: { borderColor: ctx.theme.surface, borderWidth: 2, gapWidth: 2, borderRadius: 3 },
         label: {
           ...treemapLabel(ctx, {
             showValues: true,
-            color: "#fff",
+            color: CHART_LABEL_ON_DARK,
             fontSize: 11,
             fontWeight: 600,
             valueFontSize: 10,
-            valueColor: "rgba(255,255,255,0.8)",
+            valueColor: CHART_LABEL_ON_DARK_MUTED,
           }),
           // Anchored at the tile's leading top corner — the right one in RTL.
           position: o.isRtl ? "insideTopRight" : "insideTopLeft",

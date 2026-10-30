@@ -48,6 +48,7 @@ import {
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
 import { EOL_COVERAGE_COLORS } from "@/theme";
+import { EOL_COVERAGE_BUCKETS, type EolCoverageBucket } from "@/lib/eol";
 
 interface TypeStat {
   type: string;
@@ -104,13 +105,9 @@ interface DQCardsResponse {
   items: DQCard[];
 }
 
-/** The three segments of the EOL coverage chart, by where the data came from. */
-type EolBucket = "linked" | "manual" | "missing";
-
-const EOL_BUCKETS: readonly string[] = ["linked", "manual", "missing"];
-
-function isEolBucket(value: unknown): value is EolBucket {
-  return typeof value === "string" && EOL_BUCKETS.includes(value);
+/** A clicked datum's segment, when it names one of the EOL coverage chart's three buckets. */
+function isEolBucket(value: unknown): value is EolCoverageBucket {
+  return typeof value === "string" && (EOL_COVERAGE_BUCKETS as readonly string[]).includes(value);
 }
 
 /** What a clicked segment carries: its card type and which segment it is. */
@@ -128,7 +125,7 @@ type DQScope =
   | { kind: "band"; typeKey: string; band: DataQualityBand }
   | { kind: "type"; typeKey: string }
   | { kind: "flag"; flag: "orphaned" | "stale" }
-  | { kind: "eol"; typeKey: string; bucket: EolBucket };
+  | { kind: "eol"; typeKey: string; bucket: EolCoverageBucket };
 
 // Derived from the shared band definitions rather than restated, so the
 // report's segments cannot drift from the inventory's chips of the same name.
@@ -243,7 +240,7 @@ export default function DataQualityReport() {
     if (typeKey) setScope({ kind: "band", typeKey, band });
   }, []);
 
-  const openEol = useCallback((typeKey: string | undefined, bucket: EolBucket) => {
+  const openEol = useCallback((typeKey: string | undefined, bucket: EolCoverageBucket) => {
     if (typeKey) setScope({ kind: "eol", typeKey, bucket });
   }, []);
 
@@ -351,7 +348,7 @@ export default function DataQualityReport() {
   const orphanedPct = data.total_items > 0 ? ((data.orphaned / data.total_items) * 100).toFixed(0) : "0";
   const stalePct = data.total_items > 0 ? ((data.stale / data.total_items) * 100).toFixed(0) : "0";
 
-  const EOL_BUCKET_LABEL: Record<EolBucket, string> = {
+  const EOL_BUCKET_LABEL: Record<EolCoverageBucket, string> = {
     linked: eolLinkedLabel,
     manual: eolManualLabel,
     missing: eolMissingLabel,
@@ -484,14 +481,13 @@ export default function DataQualityReport() {
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               {t("dataQuality.completenessByType")}
             </Typography>
-            <Box sx={{ height: stackedBarHeight(completenessRows.length, 250, 50) }}>
-              <EChart
-                option={chartOptions.completeness}
-                devicePixelRatio={EXPORT_DPR}
-                ariaLabel={t("dataQuality.completenessByType")}
-                onClick={handleCompletenessClick}
-              />
-            </Box>
+            <EChart
+              option={chartOptions.completeness}
+              style={{ height: stackedBarHeight(completenessRows.length, 250, 50) }}
+              devicePixelRatio={EXPORT_DPR}
+              ariaLabel={t("dataQuality.completenessByType")}
+              onClick={handleCompletenessClick}
+            />
           </Paper>
 
           {/* Per-type data quality bars */}
@@ -564,14 +560,13 @@ export default function DataQualityReport() {
               </Typography>
               {/* Each segment opens the panel on the cards behind it, the
                   same way a completeness segment does. */}
-              <Box sx={{ height: stackedBarHeight(eolRows.length, 160, 70) }}>
-                <EChart
-                  option={chartOptions.eol}
-                  devicePixelRatio={EXPORT_DPR}
-                  ariaLabel={t("dataQuality.eolCoverage")}
-                  onClick={handleEolClick}
-                />
-              </Box>
+              <EChart
+                option={chartOptions.eol}
+                style={{ height: stackedBarHeight(eolRows.length, 160, 70) }}
+                devicePixelRatio={EXPORT_DPR}
+                ariaLabel={t("dataQuality.eolCoverage")}
+                onClick={handleEolClick}
+              />
             </Paper>
           )}
         </Box>

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import { render, screen } from "@testing-library/react";
 
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
@@ -41,6 +42,36 @@ describe("echartMock", () => {
     expect(echartState.props).toHaveLength(2);
     expect(echartState.byName("First").option).toEqual({ n: 3 });
     expect(screen.getAllByTestId("echart").map((e) => e.getAttribute("data-echart"))).toEqual(["0", "1"]);
+  });
+
+  it("records a chart on commit, never while it renders", () => {
+    const seen: number[] = [];
+    function Probe() {
+      // Renders after the chart in the same pass.
+      seen.push(echartState.props.length);
+      return null;
+    }
+    render(
+      <>
+        <EChart option={{ n: 1 }} ariaLabel="Committed" />
+        <Probe />
+      </>,
+    );
+    expect(seen).toEqual([0]);
+    // Found right after render(): layout effects run inside it.
+    expect(echartState.byName("Committed").option).toEqual({ n: 1 });
+  });
+
+  it("claims one slot per chart under StrictMode's double render and effects", () => {
+    render(
+      <StrictMode>
+        <EChart option={{ n: 1 }} ariaLabel="Strict" />
+        <EChart option={{ n: 2 }} ariaLabel="Strict too" />
+      </StrictMode>,
+    );
+    expect(echartState.props).toHaveLength(2);
+    expect(screen.getAllByTestId("echart").map((e) => e.getAttribute("data-echart"))).toEqual(["0", "1"]);
+    expect(echartState.byName("Strict too").option).toEqual({ n: 2 });
   });
 
   it("finds a chart by the title its labelledBy points at", () => {

@@ -80,7 +80,9 @@ import {
   makeSection,
 } from "@/test/fixtures/metamodel";
 import CostReport from "./CostReport";
-import { COST_TREEMAP_COLORS } from "./costTreemapOption";
+import { createTheme } from "@mui/material/styles";
+import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
+import { costTooltipHtml } from "./costTreemapOption";
 
 /* ------------------------------------------------------------------ */
 /*  Fixtures                                                            */
@@ -761,8 +763,8 @@ describe("CostReport treemap cells", () => {
     // Each tile reads its name, then its cost on a second, smaller line.
     expect(series.label.formatter(tile("C71"))).toBe("C71\n{value|$300}");
     expect(series.label.formatter(tile("ABCDEFGHIJ"))).toBe("ABCDEFGHIJ\n{value|$200}");
-    expect(series.label).toMatchObject({ color: "#fff", fontSize: 11, fontWeight: 600 });
-    expect(series.label.rich.value).toEqual({ color: "rgba(255,255,255,0.8)", fontSize: 10, lineHeight: 16 });
+    expect(series.label).toMatchObject({ color: CHART_LABEL_ON_DARK, fontSize: 11, fontWeight: 600 });
+    expect(series.label.rich.value).toEqual({ color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 16 });
   });
 
   it("places the label and the cost in the tile's top-left corner", async () => {
@@ -784,11 +786,16 @@ describe("CostReport treemap cells", () => {
     expect(label.align).toBe("right");
   });
 
-  it("separates the tiles with a white, rounded border and nothing else to click", async () => {
+  it("separates the tiles with a paper-coloured, rounded border and nothing else to click", async () => {
     renderCost();
     await findTile("Big");
     const series = seriesOf(rootChart());
-    expect(series.itemStyle).toEqual({ borderColor: "#fff", borderWidth: 2, gapWidth: 2, borderRadius: 3 });
+    expect(series.itemStyle).toEqual({
+      borderColor: createTheme().palette.background.paper,
+      borderWidth: 2,
+      gapWidth: 2,
+      borderRadius: 3,
+    });
     expect(series).toMatchObject({ type: "treemap", roam: false, nodeClick: false, breadcrumb: { show: false } });
     expect(rootChart().option.animationDuration).toBe(300);
   });
@@ -797,11 +804,11 @@ describe("CostReport treemap cells", () => {
     renderCost();
     await findTile("Big");
     const fill = (name: string) => tile(name).itemStyle.color;
-    expect(fill("Big")).toBe("#1565c0");
-    expect(fill("W4")).toBe("#1976d2");
-    expect(fill("ABCDEFGHIJ")).toBe("#1565c0");
+    expect(fill("Big")).toBe(COST_TREEMAP_COLORS[0]);
+    expect(fill("W4")).toBe(COST_TREEMAP_COLORS[1]);
+    expect(fill("ABCDEFGHIJ")).toBe(COST_TREEMAP_COLORS[9]);
     // The eleventh tile wraps back to the first blue.
-    expect(fill("C45")).toBe("#1565c0");
+    expect(fill("C45")).toBe(COST_TREEMAP_COLORS[0]);
     expect(tilesOf(rootChart()).map((d) => d.itemStyle.color)).toEqual(
       SIZED.map((_, i) => COST_TREEMAP_COLORS[i % 10]),
     );
@@ -823,11 +830,28 @@ describe("CostReport treemap tooltip", () => {
     expect(rootChart().option.tooltip.formatter(undefined)).toBe("");
   });
 
-  it("leaves the share out when the panel totals nothing", async () => {
+  it("draws no tile for a card that costs nothing, but prices one if ECharts hands it over", async () => {
+    mockApi.on("get", "/reports/cost-treemap*", {
+      items: [{ id: "z", name: "Zero", cost: 0 }, { id: "r", name: "Real", cost: 10 }],
+      total: 10,
+    });
+    renderCost();
+    await findChart();
+    // ECharts cannot lay out a zero area, so the tile is left out of the option.
+    expect(tilesOf(rootChart()).map((d: { name: string }) => d.name)).toEqual(["Real"]);
+    // The tooltip still reads a zero-cost datum, and leaves the share out when
+    // the panel totals nothing.
+    const html = '<div style="font-weight:700">Zero</div><div style="font-size:12px">$0</div>';
+    expect(
+      costTooltipHtml({ name: "Zero", cost: 0 }, { format: (v) => `$${v}`, panelTotal: 0, percentOfTotal: () => "x" }),
+    ).toBe(html);
+  });
+
+  it("shows the empty state, not a blank chart, when every card costs nothing", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: [{ id: "z", name: "Zero", cost: 0 }], total: 0 });
     renderCost();
-    await findTile("Zero");
-    expect(tipOf("Zero")).toBe('<div style="font-weight:700">Zero</div><div style="font-size:12px">$0</div>');
+    expect(await screen.findByText("No cost data found.")).toBeInTheDocument();
+    expect(mountedCharts()).toEqual([]);
   });
 
   it("reads each drilled panel's share against that panel's own total", async () => {
@@ -1380,8 +1404,7 @@ describe("CostReport summary and panels", () => {
   it("gives a top driver that costs nothing a zero share", async () => {
     mockApi.on("get", "/reports/cost-treemap*", { items: [{ id: "z", name: "Zero", cost: 0 }], total: 0 });
     renderCost();
-    await findChart();
-    expect(screen.getByText("$0 (0%)")).toBeInTheDocument();
+    expect(await screen.findByText("$0 (0%)")).toBeInTheDocument();
   });
 
   it("offers no drill hint over an empty report", async () => {

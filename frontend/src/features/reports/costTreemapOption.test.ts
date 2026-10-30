@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
+import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
 import {
-  COST_TREEMAP_COLORS,
   buildCostTreemapOption,
   costTooltipHtml,
   treemapColor,
@@ -42,25 +42,15 @@ const build = (items: CostTreemapItem[] = ITEMS, over: Partial<CostTreemapOption
 const seriesOf = (option: any) => option.series[0];
 
 describe("treemapColor", () => {
-  it("runs through ten blues, darkest first, and wraps by position", () => {
-    expect(COST_TREEMAP_COLORS).toEqual([
-      "#1565c0",
-      "#1976d2",
-      "#1e88e5",
-      "#2196f3",
-      "#42a5f5",
-      "#64b5f6",
-      "#90caf9",
-      "#bbdefb",
-      "#0d47a1",
-      "#1565c0",
-    ]);
-    expect(treemapColor(0)).toBe("#1565c0");
-    expect(treemapColor(1)).toBe("#1976d2");
-    expect(treemapColor(8)).toBe("#0d47a1");
-    expect(treemapColor(10)).toBe("#1565c0");
-    expect(treemapColor(11)).toBe("#1976d2");
-    expect(treemapColor(19)).toBe("#1565c0");
+  it("runs through the ten-blue token ramp, darkest first, and wraps by position", () => {
+    expect(COST_TREEMAP_COLORS).toHaveLength(10);
+    COST_TREEMAP_COLORS.forEach((c, i) => expect(treemapColor(i)).toBe(c));
+    expect(treemapColor(0)).toBe(COST_TREEMAP_COLORS[0]);
+    expect(treemapColor(8)).toBe(COST_TREEMAP_COLORS[8]);
+    expect(treemapColor(10)).toBe(COST_TREEMAP_COLORS[0]);
+    expect(treemapColor(11)).toBe(COST_TREEMAP_COLORS[1]);
+    expect(treemapColor(19)).toBe(COST_TREEMAP_COLORS[9]);
+    expect(treemapColor(20)).toBe(COST_TREEMAP_COLORS[0]);
   });
 });
 
@@ -77,6 +67,14 @@ describe("costTooltipHtml", () => {
     const percentOfTotal = vi.fn((pct: string) => `share ${pct}`);
     costTooltipHtml({ name: "A", cost: 1 }, opts({ panelTotal: 8, percentOfTotal }));
     expect(percentOfTotal).toHaveBeenCalledWith("12.5");
+  });
+
+  it("prices a zero-cost datum, should ECharts ever hand one over", () => {
+    expect(costTooltipHtml({ name: "Zero", cost: 0 }, opts())).toBe(
+      '<div style="font-weight:700">Zero</div>' +
+        '<div style="font-size:12px">$0</div>' +
+        '<div style="font-size:12px;opacity:.7">0.0% of total</div>',
+    );
   });
 
   it("leaves the share out when the panel totals nothing", () => {
@@ -113,17 +111,17 @@ describe("buildCostTreemapOption", () => {
   it("draws one tile per card, in the order given, coloured by position and carrying its id", () => {
     const series = seriesOf(build());
     expect(series.data).toEqual([
-      { name: "ERP", value: 500, id: "erp", index: 0, itemStyle: { color: "#1565c0" } },
-      { name: "CRM", value: 100, id: "crm", index: 1, itemStyle: { color: "#1976d2" } },
-      { name: "Unlinked", value: 100, id: undefined, index: 2, itemStyle: { color: "#1e88e5" } },
+      { name: "ERP", value: 500, id: "erp", index: 0, itemStyle: { color: COST_TREEMAP_COLORS[0] } },
+      { name: "CRM", value: 100, id: "crm", index: 1, itemStyle: { color: COST_TREEMAP_COLORS[1] } },
+      { name: "Unlinked", value: 100, id: undefined, index: 2, itemStyle: { color: COST_TREEMAP_COLORS[2] } },
     ]);
   });
 
   it("colours a tile by its index, not its place in the list", () => {
     const series = seriesOf(build([{ id: "x", name: "X", cost: 1, index: 10 }]));
-    expect(series.data[0].itemStyle.color).toBe("#1565c0");
+    expect(series.data[0].itemStyle.color).toBe(COST_TREEMAP_COLORS[0]);
     expect(seriesOf(build([{ id: "x", name: "X", cost: 1, index: 8 }])).data[0].itemStyle.color).toBe(
-      "#0d47a1",
+      COST_TREEMAP_COLORS[8],
     );
   });
 
@@ -143,13 +141,27 @@ describe("buildCostTreemapOption", () => {
     });
   });
 
-  it("separates tiles with a white, rounded 2 px border", () => {
+  it("separates tiles with a rounded 2 px border in the paper colour", () => {
     expect(seriesOf(build()).itemStyle).toEqual({
-      borderColor: "#fff",
+      borderColor: chrome.surface,
       borderWidth: 2,
       gapWidth: 2,
       borderRadius: 3,
     });
+  });
+
+  it("takes the tile gaps from the paper in dark mode too, not a fixed white", () => {
+    const dark = buildEChartsChrome({
+      mode: "dark",
+      text: { primary: "#eeeeee", secondary: "#aaaaaa" },
+      divider: "#333333",
+      background: { paper: "#1e1e1e" },
+      action: { hover: "#2a2a2a" },
+    });
+    expect(dark.surface).toBe("#1e1e1e");
+    expect(seriesOf(build(ITEMS, { chrome: dark })).itemStyle.borderColor).toBe("#1e1e1e");
+    // The tile labels stay white on the blue fills in either mode.
+    expect(seriesOf(build(ITEMS, { chrome: dark })).label.color).toBe(CHART_LABEL_ON_DARK);
   });
 
   it("shows the pointer only when a click drills somewhere", () => {
@@ -161,7 +173,7 @@ describe("buildCostTreemapOption", () => {
     const label = seriesOf(build()).label;
     expect(label).toMatchObject({
       show: true,
-      color: "#fff",
+      color: CHART_LABEL_ON_DARK,
       fontSize: 11,
       fontWeight: 600,
       // ECharts truncates a name that does not fit its tile.
@@ -170,7 +182,7 @@ describe("buildCostTreemapOption", () => {
       align: "left",
       padding: [6, 6],
     });
-    expect(label.rich.value).toEqual({ color: "rgba(255,255,255,0.8)", fontSize: 10, lineHeight: 16 });
+    expect(label.rich.value).toEqual({ color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 16 });
   });
 
   it("prints the tile's cost through the report's currency formatter", () => {
@@ -209,6 +221,26 @@ describe("buildCostTreemapOption", () => {
     const tooltip = build().tooltip;
     expect(tooltip.formatter({})).toBe("");
     expect(tooltip.formatter(undefined)).toBe("");
+  });
+
+  it("drops cards that cost nothing or less, keeping the rest in order", () => {
+    const series = seriesOf(
+      build([
+        { id: "a", name: "A", cost: 300, index: 0 },
+        { id: "z", name: "Zero", cost: 0, index: 1 },
+        { id: "b", name: "B", cost: 0.5, index: 2 },
+        { id: "n", name: "Negative", cost: -40, index: 3 },
+        { id: "c", name: "C", cost: 10, index: 4 },
+      ]),
+    );
+    expect(series.data.map((d: any) => [d.name, d.value, d.index])).toEqual([
+      ["A", 300, 0],
+      ["B", 0.5, 2],
+      ["C", 10, 4],
+    ]);
+    // A kept tile keeps the colour of its rank, not of its place after the drop.
+    expect(series.data[1].itemStyle.color).toBe(COST_TREEMAP_COLORS[2]);
+    expect(seriesOf(build([{ id: "z", name: "Zero", cost: 0, index: 0 }])).data).toEqual([]);
   });
 
   it("draws an empty panel as a treemap with no tiles", () => {

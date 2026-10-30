@@ -6,6 +6,7 @@ import { createRef } from "react";
 import DataQualityReport from "./DataQualityReport";
 import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { EOL_COVERAGE_COLORS } from "@/theme";
+import { EOL_COVERAGE_BUCKETS } from "@/lib/eol";
 import { setViewportWidth } from "@/test/matchMedia";
 
 // ---------------------------------------------------------------------------
@@ -332,12 +333,27 @@ describe("DataQualityReport drill-down", () => {
     });
   });
 
+  it.each(EOL_COVERAGE_BUCKETS.map((bucket) => [bucket]))(
+    "opens the %s EOL segment on the cards behind it",
+    async (bucket) => {
+      renderReport();
+      await chartsReady();
+
+      clickSegment(EOL, "Application", bucket);
+
+      await waitFor(() =>
+        expect(panelFetchPath()).toBe(`/reports/data-quality/cards?type=Application&scope=eol_${bucket}`),
+      );
+    },
+  );
+
   it.each([
     ["no datum", COMPLETENESS, {}],
     ["no type", COMPLETENESS, { data: { segment: "partial" } }],
     ["an unknown band", COMPLETENESS, { data: { type: "Application", segment: "missing" } }],
     ["no EOL type", EOL, { data: { segment: "missing" } }],
     ["a band on the EOL chart", EOL, { data: { type: "Application", segment: "partial" } }],
+    ["a non-string EOL segment", EOL, { data: { type: "Application", segment: 1 } }],
   ])("opens nothing for a click with %s", async (_why, chart, params) => {
     renderReport();
     await chartsReady();
@@ -415,8 +431,16 @@ describe("DataQualityReport charts", () => {
     renderReport();
     await chartsReady();
 
-    expect(screen.getByRole("img", { name: COMPLETENESS }).parentElement).toHaveStyle({ height: "250px" });
-    expect(screen.getByRole("img", { name: EOL }).parentElement).toHaveStyle({ height: "160px" });
+    // The height is on the chart itself, so print.css's cap on the chart
+    // container shrinks the whole block, not just the canvas inside a box.
+    expect(echartState.byName(COMPLETENESS).style?.height).toBe(250);
+    expect(echartState.byName(EOL).style?.height).toBe(160);
+    expect(screen.getByRole("img", { name: COMPLETENESS })).toHaveStyle({ height: "250px" });
+    expect(screen.getByRole("img", { name: EOL })).toHaveStyle({ height: "160px" });
+    // No sized wrapper is left around either chart.
+    for (const name of [COMPLETENESS, EOL]) {
+      expect(screen.getByRole("img", { name }).parentElement?.style.height).toBe("");
+    }
   });
 
   it("grows each chart by a fixed height per row", async () => {
@@ -432,8 +456,8 @@ describe("DataQualityReport charts", () => {
     await chartsReady();
 
     // 6 rows x 50 px, and 3 rows x 70 px.
-    expect(screen.getByRole("img", { name: COMPLETENESS }).parentElement).toHaveStyle({ height: "300px" });
-    expect(screen.getByRole("img", { name: EOL }).parentElement).toHaveStyle({ height: "210px" });
+    expect(echartState.byName(COMPLETENESS).style?.height).toBe(300);
+    expect(echartState.byName(EOL).style?.height).toBe(210);
     // A type the metamodel does not know is labelled by its key.
     expect(echartState.byName(COMPLETENESS).option.yAxis.data).toEqual(types);
   });

@@ -39,15 +39,17 @@ echarts.use([
   TooltipComponent,
   LegendComponent,
   VisualMapComponent,
+  // Not drawn by any chart yet: the PPM cost charts' dotted budget reference
+  // lines become a `markLine` when they move to ECharts (PR 2). Keep it.
   MarkLineComponent,
   AriaComponent,
   CanvasRenderer,
 ]);
 
 /**
- * The canvas backing-store scale an exported report chart is drawn at, so the
- * PNG export's `pixelRatio: 2` capture (html-to-image) stays crisp on a
- * 1x screen.
+ * The minimum canvas backing-store scale an exported report chart is drawn
+ * at, so the PNG export's `pixelRatio: 2` capture (html-to-image) stays crisp
+ * on a 1x screen. A denser screen keeps its own, higher scale.
  */
 export const EXPORT_DPR = 2;
 
@@ -72,7 +74,10 @@ interface Props {
   ariaLabel?: string;
   /** Id of the element that names the chart (its visible title). */
   labelledBy?: string;
-  /** Canvas backing-store scale; the device's own when omitted. Read once, at init. */
+  /**
+   * The minimum canvas backing-store scale; the device's own when higher (and
+   * when omitted). Read once, at init.
+   */
   devicePixelRatio?: number;
 }
 
@@ -82,17 +87,16 @@ export default function EChart({ option, onClick, style, ariaLabel, labelledBy, 
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
   const dprRef = useRef(devicePixelRatio);
-  const ariaLabelRef = useRef(ariaLabel);
-  ariaLabelRef.current = ariaLabel;
 
   // Init / dispose with the container.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // A floor, not a pin: a 3x screen keeps drawing at 3x.
     const dpr = dprRef.current;
     const chart = echarts.init(el, null, {
       renderer: "canvas",
-      ...(dpr !== undefined && { devicePixelRatio: dpr }),
+      ...(dpr !== undefined && { devicePixelRatio: Math.max(dpr, window.devicePixelRatio || 1) }),
     });
     chartRef.current = chart;
     const handleClick = (params: unknown) => clickRef.current?.(params as EChartClickParams);
@@ -119,14 +123,24 @@ export default function EChart({ option, onClick, style, ariaLabel, labelledBy, 
   }, []);
 
   // A new option replaces the old one whole: a category that disappeared
-  // must not linger from a merge. ECharts' aria component then rewrites the
-  // container's `aria-label` with its generated description; the caller's
-  // name is put back (React re-sets it only when the prop itself changes).
+  // must not linger from a merge. ECharts' aria component writes the
+  // container's `aria-label`; a chart with a name of its own hands that name
+  // to the component as its description, so the generated summary never
+  // replaces it. Without one, the option goes through untouched.
   useEffect(() => {
-    chartRef.current?.setOption(option, { notMerge: true });
-    const label = ariaLabelRef.current;
-    if (label !== undefined) containerRef.current?.setAttribute("aria-label", label);
-  }, [option]);
+    const named =
+      ariaLabel === undefined
+        ? option
+        : {
+            ...option,
+            aria: {
+              ...(option.aria as Record<string, unknown> | undefined),
+              enabled: true,
+              label: { description: ariaLabel },
+            },
+          };
+    chartRef.current?.setOption(named, { notMerge: true });
+  }, [option, ariaLabel]);
 
   return (
     <div
