@@ -182,6 +182,48 @@ describe("DataQualityPill", () => {
     expect(vi.mocked(api.get).mock.calls[0][0]).toBe(URL);
   });
 
+  it("opens on Space as well, without scrolling the page", async () => {
+    renderPill();
+    const pill = screen.getByTestId("data-quality-pill");
+    act(() => pill.focus());
+    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+    act(() => {
+      pill.dispatchEvent(space);
+    });
+    expect(space.defaultPrevented).toBe(true);
+    expect(await screen.findByText("To raise the score")).toBeInTheDocument();
+    // Any other key leaves it closed.
+    const { unmount } = renderPill();
+    const other = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
+    act(() => {
+      screen.getAllByTestId("data-quality-pill")[1].dispatchEvent(other);
+    });
+    expect(other.defaultPrevented).toBe(false);
+    unmount();
+  });
+
+  it("names a counted tag group by nothing rather than by its id when it has no name", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...BREAKDOWN,
+      score: 100,
+      factors: [
+        factor("tag_group", "g-1", true, null, { name: "Criticality" }),
+        factor("tag_group", "g-77", true, null, { name: null }),
+      ],
+    });
+    renderPill(100);
+    await userEvent.click(screen.getByTestId("data-quality-pill"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: /Already counted \(2\)/ }),
+    );
+    const names = within(dialog)
+      .getAllByRole("listitem")
+      .map((li) => li.querySelector("p")?.textContent);
+    expect(names).toEqual(["Criticality", ""]);
+    expect(dialog).not.toHaveTextContent("g-77");
+  });
+
   it("tells assistive tech about the popover", async () => {
     renderPill();
     const pill = screen.getByTestId("data-quality-pill");

@@ -999,6 +999,16 @@ class TestScoreBreakdown:
         empty = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, [], [])
         assert empty.score_if_filled(Factor("field", "a", 1.0, False)) == 0.0
 
+    async def test_nothing_to_score_is_an_empty_breakdown(self):
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        ctx, _ = _ctx(mandatory=None, counting_role_keys=())
+        bd = score_breakdown(self._card(subtype=None, attributes={}), ctx, CardFacts())
+        assert bd.factors == []
+        assert (bd.total_weight, bd.filled_weight) == (0.0, 0.0)
+        assert (bd.ungated_score, bd.score) == (0.0, 0.0)
+        assert bd.blocked_by_required == []
+
     @pytest.mark.parametrize("phase", ["plan", "phaseIn", "active", "phaseOut", "endOfLife"])
     async def test_any_one_lifecycle_phase_fills_the_slot(self, phase):
         from app.services.data_quality import CardFacts, score_breakdown
