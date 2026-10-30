@@ -24,7 +24,7 @@ export interface YearMonth {
 }
 
 export interface MonthPoint extends YearMonth {
-  /** Stable `YYYY-MM` key, used as the Recharts dataKey for the X axis. */
+  /** Stable `YYYY-MM` key, the x-axis key. */
   key: string;
   capex: number | null;
   opex: number | null;

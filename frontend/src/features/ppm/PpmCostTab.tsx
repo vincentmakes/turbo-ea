@@ -56,7 +56,7 @@ import {
 import type { PpmCostLine, PpmBudgetLine, PpmRollupOut } from "@/types";
 
 // Lazy: PpmProjectDetail imports every tab eagerly, so a static import would
-// pull Recharts into the PPM route chunk even for visitors who never open
+// pull ECharts into the PPM route chunk even for visitors who never open
 // this tab.
 const PpmCostCharts = lazy(() => import("./PpmCostCharts"));
 

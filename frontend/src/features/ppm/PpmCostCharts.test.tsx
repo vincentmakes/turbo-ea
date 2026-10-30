@@ -1,13 +1,15 @@
 /**
  * PpmCostCharts — the three cumulative-spend charts on the Budget & Costs tab.
  *
- * Recharts is stubbed: the maths lives in `costChartData.ts` (its own test),
- * so every assertion here is about what this component hands each chart — the
- * series, the lines, the dotted budget references — and about the fiscal-year
- * picker and the collapse toggle that choose which data that is.
+ * ECharts is stubbed (`@/test/echartMock`): the maths lives in
+ * `costChartData.ts` and the option shape in `cumulativeChartOption.ts` (each
+ * its own test), so every assertion here is about what this component hands
+ * each chart — the months, the lines, the dotted budget references, the
+ * currency formatters — and about the fiscal-year picker and the collapse
+ * toggle that choose which data that is.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
 
@@ -15,38 +17,11 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCurrencyModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-  LineChart: ({ data, children }: any) => (
-    <div data-testid="line-chart" data-points={JSON.stringify(data)}>
-      {children}
-    </div>
-  ),
-  Line: ({ dataKey, name }: any) => (
-    <span data-testid="line" data-key={dataKey}>
-      {name}
-    </span>
-  ),
-  ReferenceLine: ({ y, label }: any) => (
-    <span data-testid="ref" data-y={y}>
-      {label?.value}
-    </span>
-  ),
-  XAxis: () => null,
-  YAxis: ({ tickFormatter }: any) => <span data-testid="y-tick">{tickFormatter(2500)}</span>,
-  CartesianGrid: () => null,
-  Tooltip: ({ formatter }: any) => (
-    <span data-testid="tooltip">
-      {[formatter(1234), formatter("n/a"), formatter(undefined)].join("|")}
-    </span>
-  ),
-  Legend: ({ formatter }: any) => <span data-testid="legend">{formatter("Legend entry")}</span>,
-}));
-/* eslint-enable @typescript-eslint/no-explicit-any */
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
+import { echartState } from "@/test/echartMock";
 import { invalidateFiscalYearStart, resetFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import PpmCostCharts from "./PpmCostCharts";
 
@@ -94,22 +69,31 @@ const BUDGETS: PpmBudgetLine[] = [
   budget({ id: "b3", fiscal_year: 2021, category: "capex", amount: 300 }),
 ];
 
-type Point = { key: string; label: string; capex: number | null; opex: number | null; total: number | null };
+/** One month as a chart draws it: its axis label and each plotted line's value. */
+type Point = { label: string; capex?: number | null; opex?: number | null; total?: number | null };
 
 const last = <T,>(xs: T[]): T => xs[xs.length - 1];
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- the option is plain JSON a test digs into */
 /** The chart region named by its heading. */
 const chart = (name: string) => screen.getByRole("img", { name });
-const pointsOf = (name: string): Point[] =>
-  JSON.parse(within(chart(name)).getByTestId("line-chart").getAttribute("data-points") ?? "[]");
-const linesOf = (name: string) =>
-  within(chart(name))
-    .getAllByTestId("line")
-    .map((l) => [l.getAttribute("data-key"), l.textContent]);
+/** The option the chart named by its heading was last drawn with. */
+const optionOf = (name: string): any => {
+  chart(name);
+  return echartState.byName(name).option;
+};
+const pointsOf = (name: string): Point[] => {
+  const option = optionOf(name);
+  return option.xAxis.data.map((label: string, i: number) =>
+    Object.fromEntries([["label", label], ...option.series.map((s: any) => [s.id, s.data[i]])]),
+  );
+};
+const linesOf = (name: string) => optionOf(name).series.map((s: any) => [s.id, s.name]);
 const refsOf = (name: string) =>
-  within(chart(name))
-    .queryAllByTestId("ref")
-    .map((r) => [r.textContent, Number(r.getAttribute("data-y"))]);
+  optionOf(name).series[0].markLine.data.map((r: any) => [r.name, r.yAxis]);
+const labelPositionsOf = (name: string) =>
+  optionOf(name).series[0].markLine.data.map((r: any) => r.label.position);
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function renderCharts(costLines = COSTS, budgetLines = BUDGETS) {
   const user = userEvent.setup();
@@ -126,6 +110,7 @@ async function pickYear(user: ReturnType<typeof userEvent.setup>, label: string 
 beforeEach(() => {
   mockApi.reset();
   hookState.reset();
+  echartState.reset();
   localStorage.clear();
   resetFiscalYearStart();
   mockApi.on("get", "/settings/fiscal-year-start", { month: 1 });
@@ -167,11 +152,11 @@ describe("PpmCostCharts — fiscal-year charts", () => {
 
     const pts = pointsOf("Cumulative spend by category");
     expect(pts).toHaveLength(12);
-    expect(pts[0]).toMatchObject({ key: "2020-01", label: "Jan", capex: 0, opex: 0, total: 0 });
-    expect(pts[1]).toMatchObject({ key: "2020-02", capex: 100, opex: 0, total: 100 });
-    expect(pts[4]).toMatchObject({ key: "2020-05", capex: 160, opex: 40, total: 200 });
+    expect(pts[0]).toEqual({ label: "Jan", capex: 0, opex: 0 });
+    expect(pts[1]).toEqual({ label: "Feb", capex: 100, opex: 0 });
+    expect(pts[4]).toEqual({ label: "May", capex: 160, opex: 40 });
     // A finished year draws in full and stays flat to December.
-    expect(pts[11]).toMatchObject({ key: "2020-12", capex: 160, opex: 40, total: 200 });
+    expect(pts[11]).toEqual({ label: "Dec", capex: 160, opex: 40 });
 
     expect(linesOf("Cumulative spend by category")).toEqual([
       ["capex", "Cumulative CapEx"],
@@ -189,7 +174,8 @@ describe("PpmCostCharts — fiscal-year charts", () => {
 
     expect(linesOf("Cumulative total spend")).toEqual([["total", "Cumulative spend"]]);
     expect(refsOf("Cumulative total spend")).toEqual([["Total budget", 700]]);
-    expect(last(pointsOf("Cumulative total spend"))).toMatchObject({ total: 200 });
+    expect(pointsOf("Cumulative total spend")[1]).toEqual({ label: "Feb", total: 100 });
+    expect(last(pointsOf("Cumulative total spend"))).toEqual({ label: "Dec", total: 200 });
   });
 
   it("omits a budget reference line for a category with no budget that year", async () => {
@@ -210,7 +196,8 @@ describe("PpmCostCharts — fiscal-year charts", () => {
 
     const pts = pointsOf("Cumulative spend by category");
     expect(pts.map((p) => p.label)).toEqual(["Nov '19", "Dec '19", "Jan '20", "Feb '20"]);
-    expect(last(pts)).toMatchObject({ capex: 10, opex: 5, total: 15 });
+    expect(last(pts)).toEqual({ label: "Feb '20", capex: 10, opex: 5 });
+    expect(last(pointsOf("Cumulative total spend"))).toEqual({ label: "Feb '20", total: 15 });
     // No budget at all ⇒ no reference lines anywhere.
     expect(refsOf("Cumulative spend by category")).toEqual([]);
     expect(refsOf("Cumulative total spend")).toEqual([]);
@@ -234,7 +221,8 @@ describe("PpmCostCharts — fiscal-year charts", () => {
 
     renderCharts();
     expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent("FY 2020");
-    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2020-01");
+    // FY 2020's own spend, not the current year's (which has none).
+    expect(pointsOf("Cumulative spend by category")[1]).toEqual({ label: "Feb", capex: 100, opex: 0 });
   });
 
   it("stores the current year as the 'current' sentinel, not a number", async () => {
@@ -251,7 +239,11 @@ describe("PpmCostCharts — fiscal-year charts", () => {
     renderCharts();
     const currentYear = new Date().getFullYear();
     expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent(`FY ${currentYear}`);
-    expect(pointsOf("Cumulative spend by category")[0].key).toBe(`${currentYear}-01`);
+    const pts = pointsOf("Cumulative spend by category");
+    expect(pts[0].label).toBe("Jan");
+    // The current year draws up to this month and leaves the rest as gaps.
+    expect(pts.filter((p) => p.capex !== null)).toHaveLength(new Date().getMonth() + 1);
+    expect(pts.every((p) => p.capex === null || p.capex === 0)).toBe(true);
   });
 
   it("names a fiscal year by its span when the year does not start in January", async () => {
@@ -261,8 +253,11 @@ describe("PpmCostCharts — fiscal-year charts", () => {
     // A FY2020 budget line and April-start costs in 2020 (FY2020 / FY2021).
     expect(await screen.findByRole("option", { name: "FY 2019–2020" })).toBeInTheDocument();
     await user.click(screen.getByRole("option", { name: "FY 2019–2020" }));
-    // An April start opens FY2020 in April 2019.
-    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2019-04");
+    // An April start opens FY2020 in April 2019 — February 2020 is its 11th month.
+    const pts = pointsOf("Cumulative spend by category");
+    expect(pts[0]).toEqual({ label: "Apr '19", capex: 0, opex: 0 });
+    expect(pts[10]).toEqual({ label: "Feb '20", capex: 100, opex: 0 });
+    expect(last(pts)).toEqual({ label: "Mar '20", capex: 100, opex: 0 });
   });
 });
 
@@ -270,21 +265,40 @@ describe("PpmCostCharts — project chart and chrome", () => {
   it("draws chart 3 over the whole dated range against the all-years budget", () => {
     renderCharts();
     const pts = pointsOf("Project to date");
-    expect(pts.map((p) => p.key)).toEqual(["2020-02", "2020-03", "2020-04", "2020-05"]);
-    expect(last(pts)).toMatchObject({ capex: 160, opex: 40 });
+    expect(pts.map((p) => p.label)).toEqual(["Feb", "Mar", "Apr", "May"]);
+    expect(last(pts)).toEqual({ label: "May", capex: 160, opex: 40 });
     expect(refsOf("Project to date")).toEqual([
       ["CapEx budget", 800],
       ["OpEx budget", 200],
     ]);
   });
 
+  it("stretches the value axis to a budget above the spend", () => {
+    renderCharts();
+    // CapEx budget 800 against at most 160 spent.
+    expect(optionOf("Project to date").yAxis.max({ max: 200 })).toBe(800);
+  });
+
   it("formats axis ticks, tooltips and legend entries through the currency helpers", () => {
     renderCharts();
-    const proj = chart("Project to date");
-    expect(within(proj).getByTestId("y-tick")).toHaveTextContent("$2500");
-    // Exact text: an undefined value renders as nothing at all.
-    expect(within(proj).getByTestId("tooltip").textContent).toBe("$1234|n/a|");
-    expect(within(proj).getByTestId("legend")).toHaveTextContent("Legend entry");
+    const option = optionOf("Project to date");
+    expect(option.yAxis.axisLabel.formatter(2500)).toBe("$2500");
+    // An undefined value renders as nothing at all.
+    expect(option.tooltip.valueFormatter(1234)).toBe("$1234");
+    expect(option.tooltip.valueFormatter("n/a")).toBe("n/a");
+    expect(option.tooltip.valueFormatter(undefined)).toBe("");
+    expect(option.legend.data).toEqual(["Cumulative CapEx", "Cumulative OpEx"]);
+    expect(option.legend.selectedMode).toBe(false);
+  });
+
+  it("draws left to right, labelling each budget line at its end", () => {
+    renderCharts();
+    const option = optionOf("Project to date");
+    expect(option.animation).toBe(false);
+    expect(option.xAxis.inverse).toBe(false);
+    expect(option.yAxis.position).toBe("left");
+    // Both budgets (800, 200) are above the spend (160): labels drop below the line.
+    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndBottom"]);
   });
 
   it("counts undated cost lines that the charts cannot place", () => {
@@ -324,11 +338,17 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 
-  it("still renders every chart right-to-left", () => {
+  it("mirrors every chart right-to-left", () => {
     hookState.isRtl = true;
     renderCharts();
-    expect(screen.getAllByTestId("line-chart")).toHaveLength(3);
-    expect(within(chart("Project to date")).getByTestId("legend")).toHaveTextContent("Legend entry");
+    expect(screen.getAllByTestId("echart")).toHaveLength(3);
+    const option = optionOf("Project to date");
+    expect(option.xAxis.inverse).toBe(true);
+    expect(option.yAxis.position).toBe("right");
+    expect(option.legend.left).toBe("right");
+    expect(option.legend.data).toEqual(["Cumulative CapEx", "Cumulative OpEx"]);
+    // A mark line runs along the inverted axis, so its end is already the left.
+    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndBottom"]);
   });
 });
 
@@ -349,7 +369,10 @@ describe("PpmCostCharts — which fiscal year is current", () => {
     renderCharts();
     // April 2026 opens FY2027 (named after the year it ends in).
     expect(screen.getByRole("combobox", { name: "Fiscal Year" })).toHaveTextContent("FY 2026–2027");
-    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2026-04");
+    const pts = pointsOf("Cumulative spend by category");
+    expect(pts[0]).toEqual({ label: "Apr '26", capex: 0, opex: 0 });
+    // Only April is reached; the rest of the year is a gap.
+    expect(pts[1]).toEqual({ label: "May '26", capex: null, opex: null });
   });
 
   it("re-derives the current fiscal year once the configured start arrives", async () => {
@@ -360,7 +383,7 @@ describe("PpmCostCharts — which fiscal year is current", () => {
     const combo = screen.getByRole("combobox", { name: "Fiscal Year" });
     expect(combo).toHaveTextContent("FY 2026");
     await waitFor(() => expect(combo).toHaveTextContent("FY 2026–2027"));
-    expect(pointsOf("Cumulative spend by category")[0].key).toBe("2026-04");
+    expect(pointsOf("Cumulative spend by category")[0]).toEqual({ label: "Apr '26", capex: 0, opex: 0 });
   });
 });
 
@@ -401,8 +424,7 @@ describe("PpmCostCharts — the year picker", () => {
         budgetLines={[budget({ id: "nb", fiscal_year: 2018, category: "opex", amount: 70 })]}
       />,
     );
-    expect(pointsOf("Project to date").map((p) => p.key)).toEqual(["2018-06"]);
-    expect(last(pointsOf("Project to date"))).toMatchObject({ capex: 10, opex: 0 });
+    expect(pointsOf("Project to date")).toEqual([{ label: "Jun", capex: 10, opex: 0 }]);
     expect(refsOf("Project to date")).toEqual([["OpEx budget", 70]]);
     expect(screen.getByText("2 undated cost items are not shown on the charts")).toBeInTheDocument();
 
@@ -418,7 +440,7 @@ describe("PpmCostCharts — empty charts", () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ fiscalYear: "all", expanded: true }));
     renderCharts([], [budget({ id: "b1", fiscal_year: 2020, amount: 100 })]);
     expect(screen.getAllByText("No cost data to chart yet")).toHaveLength(3);
-    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("echart")).not.toBeInTheDocument();
   });
 
   it("shows the empty label for a fiscal year that has not started yet", async () => {
@@ -427,6 +449,6 @@ describe("PpmCostCharts — empty charts", () => {
     await pickYear(user, `FY ${future}`);
     // Twelve months, none of them reached: nothing to draw in charts 1 and 2.
     expect(screen.getAllByText("No cost data to chart yet")).toHaveLength(3);
-    expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("echart")).not.toBeInTheDocument();
   });
 });

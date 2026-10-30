@@ -21,29 +21,12 @@ import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ReferenceLine,
-  ResponsiveContainer,
-} from "recharts";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import EChart from "@/components/charts/EChart";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useChartTheme } from "@/hooks/useChartTheme";
-import { useIsRtl } from "@/hooks/useIsRtl";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
-import {
-  makeRtlAxisTick,
-  rtlLegendItemStyle,
-  rtlTooltipStyle,
-  mirrorChartMargin,
-} from "@/lib/rechartsRtl";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
 import {
   availableFiscalYears,
@@ -62,6 +45,11 @@ import {
   saveCostChartPrefs,
   resolveFiscalYear,
 } from "./costChartPrefs";
+import {
+  buildCumulativeOption,
+  type BudgetReference,
+  type CumulativeLine,
+} from "./cumulativeChartOption";
 
 interface Props {
   costLines: PpmCostLine[];
@@ -71,15 +59,11 @@ interface Props {
 const CHART_HEIGHT = 260;
 /** Three stacked charts at 260px is most of a phone screen; shrink on xs. */
 const CHART_HEIGHT_SX = { xs: 200, sm: CHART_HEIGHT };
-/** Dotted budget reference lines, distinct from the solid actuals. */
-const BUDGET_DASH = "6 4";
 
 export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   const { t, i18n } = useTranslation("ppm");
   const theme = useTheme();
   const { fmt, fmtShort } = useCurrency();
-  const chart = useChartTheme();
-  const isRtl = useIsRtl();
   const { month: fyStart } = useFiscalYearStart();
   const headingId = useId();
 
@@ -217,7 +201,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
                   ? [{ value: fyBudget.opex, name: t("opexBudgetLine"), color: opexColor }]
                   : []),
               ]}
-              {...{ theme: chart, isRtl, fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+              {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
             />
           </Box>
 
@@ -235,7 +219,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
                   ? [{ value: fyBudget.total, name: t("totalBudgetLine"), color: capexColor }]
                   : []
               }
-              {...{ theme: chart, isRtl, fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+              {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
             />
           </Box>
         </Box>
@@ -260,7 +244,7 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
                 ? [{ value: projectBudget.opex, name: t("opexBudgetLine"), color: opexColor }]
                 : []),
             ]}
-            {...{ theme: chart, isRtl, fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
+            {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
           />
         </Box>
 
@@ -276,32 +260,18 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
 
 /* ── Shared chart body ───────────────────────────────────────────────── */
 
-interface LineSpec {
-  key: "capex" | "opex" | "total";
-  name: string;
-  color: string;
-}
-
-interface RefSpec {
-  value: number;
-  name: string;
-  color: string;
-}
-
 function CumulativeChart(props: {
   data: MonthPoint[];
-  lines: LineSpec[];
-  references: RefSpec[];
+  lines: CumulativeLine[];
+  references: BudgetReference[];
   labelledBy: string;
-  theme: ReturnType<typeof useChartTheme>;
-  isRtl: boolean;
   fmt: { format: (v: number) => string };
   fmtShort: (v: number) => string;
   locale: string;
   emptyLabel: string;
 }) {
-  const { data, lines, references, labelledBy, theme, isRtl, fmt, fmtShort, locale, emptyLabel } =
-    props;
+  const { data, lines, references, labelledBy, fmt, fmtShort, locale, emptyLabel } = props;
+  const theme = useEChartsTheme();
 
   // Append the year whenever the range crosses a calendar boundary, so
   // "Jan" is never ambiguous on a multi-year axis.
@@ -315,13 +285,20 @@ function CumulativeChart(props: {
     };
   }, [locale, multiYear]);
 
-  const chartData = useMemo(
-    () => data.map((p) => ({ ...p, label: labelFor(p) })),
-    [data, labelFor],
-  );
+  const labels = useMemo(() => data.map(labelFor), [data, labelFor]);
 
-  const hasAnyPoint = data.some((p) => p.total !== null);
-  if (chartData.length === 0 || !hasAnyPoint) {
+  const option = useMemo(() => {
+    const { isRtl, ...chrome } = theme;
+    return buildCumulativeOption(data, labels, lines, references, {
+      chrome,
+      isRtl,
+      format: (v) => fmt.format(v),
+      formatShort: fmtShort,
+    });
+  }, [data, labels, lines, references, theme, fmt, fmtShort]);
+
+  // No month at all, or none reached yet: nothing to draw.
+  if (!data.some((p) => p.total !== null)) {
     return (
       <Box
         display="flex"
@@ -341,84 +318,10 @@ function CumulativeChart(props: {
     );
   }
 
-  const rtlTick = makeRtlAxisTick(theme.axisTick.fill, theme.axisTick.fontSize);
-
+  // The chart container is the image, named by the heading above it.
   return (
-    <Box
-      sx={{ height: CHART_HEIGHT_SX }}
-      aria-labelledby={labelledBy}
-      role="img"
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={mirrorChartMargin({ top: 8, right: 16, bottom: 0, left: 8 }, isRtl)}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke={theme.gridStroke} />
-          <XAxis
-            dataKey="label"
-            tick={theme.axisTick}
-            tickLine={false}
-            reversed={isRtl}
-            interval="preserveStartEnd"
-            minTickGap={12}
-          />
-          <YAxis
-            tick={isRtl ? rtlTick : theme.axisTick}
-            tickLine={false}
-            // Measured from the rendered ticks (Recharts 3.7): a fixed width
-            // clipped long labels ("CHF12000k" before fmtShort learned "M",
-            // and still a four-digit "CHF9999k" just under a million).
-            width="auto"
-            orientation={isRtl ? "right" : "left"}
-            tickFormatter={(v: number) => fmtShort(v)}
-          />
-          <Tooltip
-            {...theme.tooltipProps}
-            contentStyle={{ ...theme.tooltipProps.contentStyle, ...rtlTooltipStyle(isRtl) }}
-            formatter={(value: number | string | undefined) =>
-              typeof value === "number" ? fmt.format(value) : (value ?? "")
-            }
-          />
-          <Legend
-            formatter={(value: string) => (
-              <span style={rtlLegendItemStyle(isRtl, theme.axisTick.fill)}>{value}</span>
-            )}
-          />
-          {references.map((r) => (
-            <ReferenceLine
-              key={`${r.name}-${r.value}`}
-              y={r.value}
-              stroke={r.color}
-              strokeDasharray={BUDGET_DASH}
-              strokeOpacity={0.8}
-              ifOverflow="extendDomain"
-              // Budget lines get no legend entry, so label them in place —
-              // otherwise a dotted line is unidentifiable.
-              label={{
-                value: r.name,
-                position: isRtl ? "insideTopLeft" : "insideTopRight",
-                fill: r.color,
-                fontSize: 11,
-              }}
-            />
-          ))}
-          {lines.map((l) => (
-            <Line
-              key={l.key}
-              type="monotone"
-              dataKey={l.key}
-              name={l.name}
-              stroke={l.color}
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4 }}
-              connectNulls={false}
-              isAnimationActive={false}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+    <Box sx={{ height: CHART_HEIGHT_SX }}>
+      <EChart option={option} labelledBy={labelledBy} />
     </Box>
   );
 }
