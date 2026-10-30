@@ -189,7 +189,14 @@ export function DataQualityPill({
         )}
         {unmet.slice(0, TOOLTIP_TOP).map((f) => (
           <Typography key={factorKey(f)} variant="caption" component="div">
-            {`${text.action(f)} ${gain(f)}`}
+            {text.action(f)}{" "}
+            {/* The gain reads as the good news it is: green, like the chip below. */}
+            <Box
+              component="span"
+              sx={{ fontWeight: 700, ...(!unlocksScore(f, blocked) && { color: "success.light" }) }}
+            >
+              {gain(f)}
+            </Box>
           </Typography>
         ))}
         {unmet.length > TOOLTIP_TOP && (
@@ -316,6 +323,8 @@ export function DataQualityPill({
                           <Chip
                             size="small"
                             variant="outlined"
+                            // Green for a gain; a gating field stays neutral.
+                            color={unlocksScore(f, blocked) ? "default" : "success"}
                             label={gain(f)}
                             sx={{ height: 20, fontSize: "0.7rem", flexShrink: 0 }}
                           />

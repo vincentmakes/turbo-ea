@@ -173,6 +173,8 @@ describe("DataQualityPill", () => {
     renderPill();
     const tip = await hoverPill();
     await waitFor(() => expect(tip).toHaveTextContent("Tag with +5%"));
+    // Each gain is its own span, so it can be coloured apart from the action text.
+    expect(within(tip).getByText("+25%").tagName).toBe("SPAN");
     expect(tip).toHaveTextContent(
       "38% data qualityFill Annual Cost +25%Set lifecycle dates +12.5%Tag with +5%",
     );
@@ -349,6 +351,13 @@ describe("DataQualityPill", () => {
       "Fill Business Code→ required",
       "Set lifecycle dates+12.5%",
     ]);
+    // A gain is green; a gating field's "required" chip is not.
+    expect(within(dialog).getAllByText("+12.5%")[0].closest(".MuiChip-root")).toHaveClass(
+      "MuiChip-colorSuccess",
+    );
+    const required = within(dialog).getAllByText("→ required")[0].closest(".MuiChip-root");
+    expect(required).not.toHaveClass("MuiChip-colorSuccess");
+    expect(required).toHaveClass("MuiChip-colorDefault");
   });
 
   it("tells a self-referencing relation's two mandatory ends apart", async () => {
