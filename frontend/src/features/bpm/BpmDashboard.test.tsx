@@ -88,7 +88,8 @@ vi.mock("./useBpmFieldOptions", () => {
 import { api } from "@/api/client";
 import { echartState } from "@/test/echartMock";
 import { hookState } from "@/test/hooks";
-import { BPM_COLUMN_LABEL_WIDTH, MATURITY_COLORS } from "./bpmChartOptions";
+import { BPM_COLUMN_LABEL_WIDTH, MATURITY_COLORS, RISK_COLORS } from "./bpmChartOptions";
+import { ATTR_COLORS } from "./processNavigatorState";
 import { SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import BpmDashboard from "./BpmDashboard";
 
@@ -447,6 +448,31 @@ describe("BpmDashboard", () => {
     expect(dark).not.toBe(light);
     expect(chip("Initial")).toHaveStyle({ color: dark });
     expect(chip("gone")).toHaveStyle({ color: light });
+  });
+
+  it("fills a risk chip whose option defines no colour from the severity scale", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...mockDashboard,
+      top_risk_processes: [
+        { id: "p7", name: "Low One", risk: "low", maturity: "initial" },
+        { id: "p8", name: "Medium One", risk: "medium", maturity: "initial" },
+      ],
+    });
+    await renderDashboard();
+
+    const chip = (label: string) => screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
+    expect(chip("low")).toHaveStyle({ backgroundColor: SEVERITY_COLORS.low });
+    expect(chip("medium")).toHaveStyle({ backgroundColor: SEVERITY_COLORS.medium });
+  });
+
+  it("colours risk levels exactly as the Process Navigator's risk overlay does", () => {
+    const navigator = Object.fromEntries(
+      Object.entries(ATTR_COLORS.riskLevel).map(([level, { color }]) => [level, color]),
+    );
+    expect(RISK_COLORS).toEqual(navigator);
+    // A "high" risk is the severity scale's orange, not the error red.
+    expect(RISK_COLORS.high).toBe(SEVERITY_COLORS.high);
+    expect(RISK_COLORS.high).not.toBe(STATUS_COLORS.error);
   });
 
   it("fills a risk chip whose level the scale does not know with the neutral grey", async () => {

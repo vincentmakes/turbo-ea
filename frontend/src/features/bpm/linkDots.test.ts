@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 
+import { BPM_CALLED_PROCESS_COLOR, BPM_LINK_DOT_OUTLINE, CARD_TYPE_COLORS } from "@/theme/tokens";
 import { LINK_KIND_ORDER, CALLED_PROCESS_COLOR } from "./calledProcess";
 import {
   LINK_DOTS_OVERLAY_TYPE,
@@ -18,6 +19,16 @@ describe("LINK_TYPE_COLORS", () => {
   it("covers every kind, and the process colour is the shared constant", () => {
     for (const kind of LINK_KIND_ORDER) expect(LINK_TYPE_COLORS[kind]).toMatch(/^#[0-9a-f]{6}$/i);
     expect(LINK_TYPE_COLORS.process).toBe(CALLED_PROCESS_COLOR);
+  });
+
+  it("falls back to the seeded card-type colours", () => {
+    expect(LINK_TYPE_COLORS).toEqual({
+      process: BPM_CALLED_PROCESS_COLOR,
+      application: CARD_TYPE_COLORS.Application,
+      data_object: CARD_TYPE_COLORS.DataObject,
+      it_component: CARD_TYPE_COLORS.ITComponent,
+      organization: CARD_TYPE_COLORS.Organization,
+    });
   });
 });
 
@@ -51,8 +62,8 @@ describe("linkDotsHtml", () => {
   it("draws one dot per kind, coloured, with the name as hover text", () => {
     const html = linkDotsHtml(
       [
-        { kind: "process", color: "#028f00", title: "Credit Check" },
-        { kind: "application", color: "#0f7eb5", title: "SAP" },
+        { kind: "process", color: BPM_CALLED_PROCESS_COLOR, title: "Credit Check" },
+        { kind: "application", color: CARD_TYPE_COLORS.Application, title: "SAP" },
       ],
       120,
     )!;
@@ -61,7 +72,9 @@ describe("linkDotsHtml", () => {
     expect(html).toContain("justify-content:center");
     expect(html.match(/turboea-link-dot /g)).toHaveLength(2);
     expect(html).toContain("turboea-link-dot-process");
-    expect(html).toContain("background:#028f00");
+    expect(html).toContain(`background:${BPM_CALLED_PROCESS_COLOR}`);
+    // Every dot carries the outline that keeps a pale type colour visible.
+    expect(html.split(`border:1px solid ${BPM_LINK_DOT_OUTLINE}`)).toHaveLength(3);
     expect(html).toContain('title="Credit Check"');
     expect(html).toContain('title="SAP"');
     // Names are hover text only — never rendered as visible content.

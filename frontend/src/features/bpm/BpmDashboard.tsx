@@ -28,7 +28,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import EChart, { type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { api } from "@/api/client";
-import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { BpmDashboardData, DashboardKeyRow } from "@/types";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import { useBpmFieldOptions } from "./useBpmFieldOptions";
@@ -37,6 +37,7 @@ import {
   maturityColor,
   maturityColumnOption,
   processTypePieOption,
+  RISK_COLORS,
 } from "./bpmChartOptions";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
@@ -57,14 +58,6 @@ function knownRows(counts: Record<string, number>, order?: (key: string) => numb
 function clickedKey(p: EChartClickParams): string | undefined {
   return (p.data as { key?: string } | undefined)?.key;
 }
-
-const RISK_COLORS: Record<string, string> = {
-  low: STATUS_COLORS.success,
-  medium: STATUS_COLORS.warning,
-  high: STATUS_COLORS.error,
-  // The Process Navigator's risk overlay colours critical the same way.
-  critical: SEVERITY_COLORS.critical,
-};
 
 /**
  * A risk chip's fill: the `riskLevel` option's metamodel colour when it

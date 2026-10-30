@@ -1111,6 +1111,17 @@ describe("ProcessNavigator container", () => {
     expect(getComputedStyle(header).backgroundColor).toBe("rgb(18, 52, 86)");
   });
 
+  it("writes the drawer header in white on the type colour, and in black on a pale one", async () => {
+    withMetamodel([bpType(DEFAULT_OPTIONS, { icon: "factory", color: "#123456" }), APP_TYPE]);
+    const { user, unmount } = await renderLoaded();
+    expect(getComputedStyle(await drawerHeader(user)).color).toBe("rgb(255, 255, 255)");
+    unmount();
+
+    withMetamodel([bpType(DEFAULT_OPTIONS, { icon: "factory", color: "#fff9c4" }), APP_TYPE]);
+    const pale = await renderLoaded();
+    expect(getComputedStyle(await drawerHeader(pale.user)).color).toBe("rgb(0, 0, 0)");
+  });
+
   it("falls back to the seeded icon and colour without a BusinessProcess type", async () => {
     withMetamodel([APP_TYPE]);
     const { user } = await renderLoaded();

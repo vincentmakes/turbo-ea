@@ -89,6 +89,8 @@ import ProcessFlowTab from "./ProcessFlowTab";
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
+import { alpha } from "@mui/material/styles";
+import { BPM_PRINT_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1182,6 +1184,25 @@ describe("ProcessFlowTab printing", () => {
     expect(printWindow.print).toHaveBeenCalled();
     listeners["turbo-close-btn:click"]();
     expect(printWindow.close).toHaveBeenCalled();
+  });
+
+  it("inks the print page from the design tokens — it is a bare window outside the theme", async () => {
+    const { user } = await renderPublished();
+    await user.click(screen.getByRole("button", { name: /Print \/ PDF/ }));
+    await waitFor(() => expect(printWindow.document.close).toHaveBeenCalled());
+    const ok = STATUS_COLORS.success;
+    expect(written).toContain(`border-bottom: 2px solid ${ok};`);
+    expect(written).toContain(`.header h1 { font-size: 18px; color: ${BPM_PRINT_COLORS.text}; }`);
+    expect(written).toContain(`background: ${alpha(ok, 0.1)}; border: 1px solid ${ok};`);
+    expect(written).toContain(`fill: ${ok};`);
+    expect(written).toContain(`.watermark span { color: ${ok};`);
+    expect(written).toContain(`border-top: 1px solid ${BPM_PRINT_COLORS.rule};`);
+    expect(written).toContain(`color: ${BPM_PRINT_COLORS.muted}; }`);
+    expect(written).toContain(`background:${BPM_PRINT_COLORS.panel};border-bottom:1px solid ${BPM_PRINT_COLORS.rule}`);
+    expect(written).toContain(`background:${brand.primary};color:${BPM_PRINT_COLORS.paper};border:none`);
+    expect(written).toContain(
+      `background:${BPM_PRINT_COLORS.paper};color:${BPM_PRINT_COLORS.text};border:1px solid ${BPM_PRINT_COLORS.control};`,
+    );
   });
 
   it("escapes the process name and the approver it writes into the print page", async () => {

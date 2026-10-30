@@ -11,6 +11,7 @@
  * integration contract.
  */
 import { DEFAULT_COLUMNS, isColumnCount, type ColumnCount } from "@/components/cardColumns";
+import { BPM_UNSET_COLOR, RAG_COLORS, SEVERITY_COLORS } from "@/theme/tokens";
 import type { NavigatorCapabilities } from "./ProcessNavigatorContext";
 import type { ProcessTypeOption } from "./useProcessTypeOptions";
 
@@ -79,27 +80,27 @@ export type ViewMode = "house" | "matrix" | "dependencies";
  */
 export const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
   maturity: {
-    initial: { label: "1-Initial", color: "#d32f2f" },
-    managed: { label: "2-Managed", color: "#f57c00" },
-    defined: { label: "3-Defined", color: "#fbc02d" },
-    measured: { label: "4-Measured", color: "#66bb6a" },
-    optimized: { label: "5-Optimized", color: "#2e7d32" },
+    initial: { label: "1-Initial", color: SEVERITY_COLORS.critical },
+    managed: { label: "2-Managed", color: SEVERITY_COLORS.high },
+    defined: { label: "3-Defined", color: SEVERITY_COLORS.medium },
+    measured: { label: "4-Measured", color: SEVERITY_COLORS.low },
+    optimized: { label: "5-Optimized", color: RAG_COLORS.green },
   },
   automationLevel: {
-    manual: { label: "Manual", color: "#d32f2f" },
-    partiallyAutomated: { label: "Partial", color: "#f57c00" },
-    fullyAutomated: { label: "Fully Auto", color: "#2e7d32" },
+    manual: { label: "Manual", color: SEVERITY_COLORS.critical },
+    partiallyAutomated: { label: "Partial", color: SEVERITY_COLORS.high },
+    fullyAutomated: { label: "Fully Auto", color: RAG_COLORS.green },
   },
   riskLevel: {
-    low: { label: "Low", color: "#66bb6a" },
-    medium: { label: "Medium", color: "#fbc02d" },
-    high: { label: "High", color: "#f57c00" },
-    critical: { label: "Critical", color: "#d32f2f" },
+    low: { label: "Low", color: SEVERITY_COLORS.low },
+    medium: { label: "Medium", color: SEVERITY_COLORS.medium },
+    high: { label: "High", color: SEVERITY_COLORS.high },
+    critical: { label: "Critical", color: SEVERITY_COLORS.critical },
   },
 };
 
 /** The colour of a card with no value for the overlay, or one no option knows. */
-export const UNSET_COLOR = "#bdbdbd";
+export const UNSET_COLOR = BPM_UNSET_COLOR;
 
 /** A card's colour under the chosen overlay. */
 export function getCardColor(

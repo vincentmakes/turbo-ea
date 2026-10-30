@@ -11,6 +11,7 @@ import {
   isArtefactType,
 } from "./elementTypes";
 import en from "@/i18n/locales/en/bpm.json";
+import { BPMN_ELEMENT_COLORS } from "@/theme/tokens";
 
 // Mirrors EXTRACTABLE_TYPES in backend/app/services/bpmn_parser.py — every
 // string the parser can emit must have an icon and an English label.
@@ -82,5 +83,41 @@ describe("element type vocabulary", () => {
     expect([...ARTEFACT_TYPES].sort()).toEqual(["dataObjectReference", "dataStoreReference"]);
     expect(isArtefactType("dataObjectReference")).toBe(true);
     expect(isArtefactType("task")).toBe(false);
+  });
+});
+
+describe("element type colours", () => {
+  it("colour each element family from BPMN_ELEMENT_COLORS", () => {
+    const family: Record<string, keyof typeof BPMN_ELEMENT_COLORS> = {
+      task: "task",
+      userTask: "task",
+      serviceTask: "service",
+      scriptTask: "script",
+      businessRuleTask: "rule",
+      sendTask: "messaging",
+      receiveTask: "messaging",
+      manualTask: "manual",
+      callActivity: "subprocess",
+      subProcess: "subprocess",
+      transaction: "subprocess",
+      adHocSubProcess: "subprocess",
+      exclusiveGateway: "gateway",
+      parallelGateway: "gateway",
+      inclusiveGateway: "gateway",
+      eventBasedGateway: "gateway",
+      complexGateway: "gateway",
+      startEvent: "start",
+      endEvent: "end",
+      intermediateThrowEvent: "gateway",
+      intermediateCatchEvent: "gateway",
+      boundaryEvent: "rule",
+      dataObjectReference: "data",
+      dataStoreReference: "data",
+    };
+    expect(Object.keys(family).sort()).toEqual(Object.keys(ELEMENT_TYPE_ICONS).sort());
+    for (const [type, key] of Object.entries(family)) {
+      expect(elementTypeInfo(type).color, type).toBe(BPMN_ELEMENT_COLORS[key]);
+    }
+    expect(UNKNOWN_ELEMENT_TYPE.color).toBe(BPMN_ELEMENT_COLORS.unknown);
   });
 });

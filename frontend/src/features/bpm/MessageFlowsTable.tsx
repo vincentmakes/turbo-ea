@@ -19,10 +19,12 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker from "@/components/CardPicker";
 import { api } from "@/api/client";
 import { useApiQuery } from "@/hooks/useApiQuery";
+import { BPM_MESSAGE_FLOW_COLOR } from "@/theme/tokens";
 import type { ProcessMessageFlow } from "@/types";
 
 interface Props {
@@ -34,6 +36,7 @@ interface Props {
 
 export default function MessageFlowsTable({ processId, canEdit, onNotify }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const [refetchKey, setRefetchKey] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const { data: flows } = useApiQuery<ProcessMessageFlow[]>(
@@ -81,14 +84,14 @@ export default function MessageFlowsTable({ processId, canEdit, onNotify }: Prop
                 <TableCell>{idx + 1}</TableCell>
                 <TableCell>
                   <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="mail" size={14} color="#0097a7" />
+                    <MaterialSymbol icon="mail" size={14} color={BPM_MESSAGE_FLOW_COLOR} />
                     {flow.name || <Typography component="span" variant="body2" color="text.secondary">{t("viewer.unnamed")}</Typography>}
                   </Box>
                 </TableCell>
                 <TableCell>{flow.source_name || flow.source_ref}</TableCell>
                 <TableCell>
                   <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-                    <MaterialSymbol icon="arrow_forward" size={14} color="#999" />
+                    <MaterialSymbol icon="arrow_forward" size={14} color={theme.palette.text.disabled} />
                     {flow.target_name || flow.target_ref}
                   </Box>
                 </TableCell>
@@ -119,7 +122,7 @@ export default function MessageFlowsTable({ processId, canEdit, onNotify }: Prop
                       onClick={() => setEditingId(flow.id)}
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, cursor: "pointer", color: "text.secondary" }}
                     >
-                      <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+                      <MaterialSymbol icon="add_link" size={14} color={theme.palette.action.disabled} />
                       <Typography variant="caption">{t("flowTab.linkCardType", { type: "Interface" })}</Typography>
                     </Box>
                   ) : (

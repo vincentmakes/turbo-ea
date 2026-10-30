@@ -18,6 +18,7 @@ import ElementTypeChip from "./ElementTypeChip";
 import Popover from "@mui/material/Popover";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { BPM_HIGHLIGHT_FILL } from "@/theme/tokens";
 import { CALLED_PROCESS_COLOR, calledProcessPath } from "./calledProcess";
 import type { LinkKind } from "./calledProcess";
 import {
@@ -142,7 +143,7 @@ export default function BpmnViewer({
               const gfx = elementRegistry.getGraphics(el.bpmn_element_id);
               if (gfx) {
                 const rect = gfx.querySelector(".djs-visual rect, .djs-visual polygon");
-                if (rect) rect.style.fill = "#e8f5e9";
+                if (rect) rect.style.fill = BPM_HIGHLIGHT_FILL;
               }
             }
 

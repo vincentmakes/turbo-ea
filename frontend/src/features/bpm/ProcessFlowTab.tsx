@@ -40,6 +40,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Collapse from "@mui/material/Collapse";
 import Snackbar from "@mui/material/Snackbar";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OriginChip from "@/components/OriginChip";
 import CardPicker from "@/components/CardPicker";
@@ -58,7 +59,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { escapeHtml } from "@/lib/printDocument";
 // Aliased: this file already has a local STATUS_COLORS holding MUI palette
 // names, which is a different thing from the design tokens' hex values.
-import { STATUS_COLORS as SEMANTIC_COLORS } from "@/theme";
+import { BPM_PRINT_COLORS, STATUS_COLORS as SEMANTIC_COLORS, brand } from "@/theme";
 import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
@@ -80,6 +81,7 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" |
 
 export default function ProcessFlowTab({ processId, processName, initialSubTab }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const { formatDate, formatDateTime } = useDateFormat();
   const navigate = useNavigate();
   const { getType } = useMetamodel();
@@ -479,6 +481,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    // The print page is a bare window outside the MUI theme, so its inks are
+    // the design tokens themselves rather than palette values.
+    const printSuccess = SEMANTIC_COLORS.success;
     const doc = printWindow.document;
     doc.open();
     doc.write(`<!DOCTYPE html>
@@ -489,25 +494,25 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     @page { size: landscape; margin: 15mm; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid #4caf50; margin-bottom: 16px; }
-    .header h1 { font-size: 18px; color: #333; }
-    .watermark { display: inline-flex; align-items: center; gap: 6px; background: rgba(76,175,80,0.1); border: 1px solid #4caf50; border-radius: 4px; padding: 4px 12px; }
-    .watermark svg { width: 16px; height: 16px; fill: #4caf50; }
-    .watermark span { color: #4caf50; font-weight: 600; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid ${printSuccess}; margin-bottom: 16px; }
+    .header h1 { font-size: 18px; color: ${BPM_PRINT_COLORS.text}; }
+    .watermark { display: inline-flex; align-items: center; gap: 6px; background: ${alpha(printSuccess, 0.1)}; border: 1px solid ${printSuccess}; border-radius: 4px; padding: 4px 12px; }
+    .watermark svg { width: 16px; height: 16px; fill: ${printSuccess}; }
+    .watermark span { color: ${printSuccess}; font-weight: 600; font-size: 12px; }
     .diagram { width: 100%; text-align: center; }
     .diagram svg { max-width: 100%; height: auto; }
-    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 11px; color: #888; }
+    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid ${BPM_PRINT_COLORS.rule}; display: flex; justify-content: space-between; font-size: 11px; color: ${BPM_PRINT_COLORS.muted}; }
     @media print {
       .no-print { display: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="no-print" style="padding:12px;text-align:center;background:#f5f5f5;border-bottom:1px solid #ddd">
-    <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1976d2;color:#fff;border:none;border-radius:4px">
+  <div class="no-print" style="padding:12px;text-align:center;background:${BPM_PRINT_COLORS.panel};border-bottom:1px solid ${BPM_PRINT_COLORS.rule}">
+    <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${brand.primary};color:${BPM_PRINT_COLORS.paper};border:none;border-radius:4px">
       ${t("flowTab.printSaveAsPdf")}
     </button>
-    <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;margin-left:8px">
+    <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${BPM_PRINT_COLORS.paper};color:${BPM_PRINT_COLORS.text};border:1px solid ${BPM_PRINT_COLORS.control};border-radius:4px;margin-left:8px">
       ${t("common:actions.close")}
     </button>
   </div>
@@ -610,7 +615,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         ) : (
           <>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+              <MaterialSymbol icon="add_link" size={14} color={theme.palette.action.disabled} />
               <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: typeName })}</Typography>
             </Box>
             {foreignRef && (
@@ -679,7 +684,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           ))
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+            <MaterialSymbol icon="add_link" size={14} color={theme.palette.action.disabled} />
             <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: orgTypeName })}</Typography>
           </Box>
         )}
@@ -728,7 +733,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           <Chip label={currentTCode} size="small" variant="outlined" />
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <MaterialSymbol icon="edit" size={14} color="#bbb" />
+            <MaterialSymbol icon="edit" size={14} color={theme.palette.action.disabled} />
             <Typography variant="caption" color="text.disabled">{t("common:actions.add")}</Typography>
           </Box>
         )}
@@ -784,7 +789,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   <Tooltip title={t("flowTab.organizationTooltip")}>
                     <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
                       {t("flowTab.organization")}
-                      <MaterialSymbol icon="info" size={14} color="#999" />
+                      <MaterialSymbol icon="info" size={14} color={theme.palette.text.disabled} />
                     </Box>
                   </Tooltip>
                 </TableCell>
@@ -795,7 +800,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   <Tooltip title={t("flowTab.businessProcessTooltip")}>
                     <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
                       {t("flowTab.businessProcess")}
-                      <MaterialSymbol icon="info" size={14} color="#999" />
+                      <MaterialSymbol icon="info" size={14} color={theme.palette.text.disabled} />
                     </Box>
                   </Tooltip>
                 </TableCell>
@@ -862,7 +867,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       const hasDrafts = drafts.length > 0;
       return (
         <Box sx={{ textAlign: "center", py: 4 }}>
-          <MaterialSymbol icon="route" size={48} color="#666" />
+          <MaterialSymbol icon="route" size={48} color={theme.palette.text.secondary} />
           <Typography variant="h6" gutterBottom>
             {t("flowTab.noPublishedYet")}
           </Typography>
@@ -1049,7 +1054,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <MaterialSymbol
                       icon={d.status === "pending" ? "hourglass_top" : "edit_note"}
                       size={24}
-                      color={d.status === "pending" ? "#ed6c02" : "#666"}
+                      color={d.status === "pending" ? theme.palette.warning.main : theme.palette.text.secondary}
                     />
                   </ListItemIcon>
                   <ListItemText
@@ -1095,7 +1100,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   <MaterialSymbol
                     icon={expandedDraft === d.id ? "expand_less" : "expand_more"}
                     size={20}
-                    color="#999"
+                    color={theme.palette.text.disabled}
                   />
                 </ListItemButton>
 
@@ -1258,7 +1263,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <MaterialSymbol
                   icon={a.status === "withdrawn" ? "unpublished" : "inventory_2"}
                   size={24}
-                  color={a.status === "withdrawn" ? SEMANTIC_COLORS.error : "#999"}
+                  color={a.status === "withdrawn" ? SEMANTIC_COLORS.error : theme.palette.text.disabled}
                 />
               </ListItemIcon>
               <ListItemText

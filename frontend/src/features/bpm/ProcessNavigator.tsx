@@ -16,6 +16,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
+import { alpha, useTheme, type Theme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import ElementTypeChip from "./ElementTypeChip";
@@ -91,6 +92,13 @@ import type {
 import type { ProcessElement, ProcessFlowVersion } from "@/types";
 import { readableTextColor } from "@/lib/color";
 import {
+  BPM_AUTOMATED_STEP_TINT,
+  BPM_CALLED_PROCESS_COLOR,
+  BPM_EOL_WARNING_COLOR,
+  BPM_FLOW_ACCENT_COLOR,
+  CARD_TYPE_COLORS,
+} from "@/theme/tokens";
+import {
   ATTR_COLORS,
   DEFAULT_LEVEL,
   UNSET_COLOR,
@@ -127,6 +135,9 @@ const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
 /* ================================================================== */
 /*  Constants                                                          */
 /* ================================================================== */
+
+/** A translucent white wash over a card-coloured header — an `sx` value, so it follows the theme. */
+const whiteAlpha = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
 
 const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] = [
   { key: "processType", labelKey: "navigator.overlayType", icon: "category" },
@@ -255,7 +266,7 @@ function HouseCard({
             py: 0.75,
             minHeight: 38,
             bgcolor: color,
-            color: "#fff",
+            color: readableTextColor(color),
             display: "flex",
             alignItems: "center",
             gap: 0.5,
@@ -277,8 +288,8 @@ function HouseCard({
                 borderRadius: 0.5,
                 zIndex: 2,
                 position: "relative",
-                bgcolor: "rgba(255,255,255,0.25)",
-                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
+                bgcolor: whiteAlpha(0.25),
+                "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
@@ -369,7 +380,7 @@ function HouseCard({
                   "&:hover": { bgcolor: "action.hover" },
                 }}
               >
-                <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
+                <MaterialSymbol icon="schema" size={14} color={BPM_FLOW_ACCENT_COLOR} />
               </Box>
             </Tooltip>
           )}
@@ -388,7 +399,7 @@ function HouseCard({
                   fontSize: "0.65rem",
                   fontWeight: 700,
                   bgcolor: color,
-                  color: "#fff",
+                  color: readableTextColor(color),
                   cursor: "pointer",
                   flexShrink: 0,
                   "&:hover": { opacity: 0.85 },
@@ -449,7 +460,7 @@ function HouseCard({
           px: 1.5,
           py: 0.75,
           bgcolor: color,
-          color: "#fff",
+          color: readableTextColor(color),
           display: "flex",
           flexDirection: "column",
           gap: 0.5,
@@ -480,8 +491,8 @@ function HouseCard({
                 borderRadius: 0.5,
                 zIndex: 2,
                 position: "relative",
-                bgcolor: "rgba(255,255,255,0.25)",
-                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
+                bgcolor: whiteAlpha(0.25),
+                "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
@@ -540,12 +551,12 @@ function HouseCard({
                   borderRadius: 1,
                   p: 0.25,
                   cursor: hasDiagram ? "pointer" : "default",
-                  ...(hasDiagram && { "&:hover": { bgcolor: "rgba(255,255,255,0.2)", opacity: 1 } }),
+                  ...(hasDiagram && { "&:hover": { bgcolor: whiteAlpha(0.2), opacity: 1 } }),
                 }}
               >
                 <MaterialSymbol icon="schema" size={16} />
                 {hasElements && (
-                  <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
+                  <Typography variant="caption" sx={{ fontSize: "0.6rem", color: readableTextColor(color), fontWeight: 600, lineHeight: 1 }}>
                     {node.element_count}
                   </Typography>
                 )}
@@ -560,8 +571,8 @@ function HouseCard({
                 height: 20,
                 fontSize: "0.65rem",
                 fontWeight: 600,
-                bgcolor: "rgba(255,255,255,0.25)",
-                color: "#fff",
+                bgcolor: whiteAlpha(0.25),
+                color: readableTextColor(color),
                 flexShrink: 0,
               }}
             />
@@ -573,10 +584,10 @@ function HouseCard({
                 onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
                 sx={{
                   p: 0.25,
-                  color: "#fff",
+                  color: readableTextColor(color),
                   opacity: 0.7,
                   flexShrink: 0,
-                  "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+                  "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.2) },
                 }}
               >
                 <MaterialSymbol icon="zoom_in" size={18} />
@@ -588,7 +599,7 @@ function HouseCard({
       <Box
         {...nestedGridProps(nestedColumns(columns, depth + 1), {
           gap: 0.75,
-          sx: { p: 0.75, bgcolor: "rgba(0,0,0,0.02)" },
+          sx: { p: 0.75, bgcolor: "action.hover" },
         })}
       >
         {node.children.map((ch) => (
@@ -829,7 +840,7 @@ function DrawerOverview({
                   py: 0.75,
                   borderRadius: 1,
                   bgcolor: getCardColor(ch, overlay, resolveProcessType),
-                  color: "#fff",
+                  color: readableTextColor(getCardColor(ch, overlay, resolveProcessType)),
                   cursor: "pointer",
                   "&:hover": { boxShadow: 2 },
                 }}
@@ -844,8 +855,8 @@ function DrawerOverview({
                     sx={{
                       height: 18,
                       fontSize: "0.6rem",
-                      bgcolor: "rgba(255,255,255,0.25)",
-                      color: "#fff",
+                      bgcolor: whiteAlpha(0.25),
+                      color: "inherit",
                     }}
                   />
                 )}
@@ -895,6 +906,7 @@ function DrawerSteps({
   processId: string;
   onNavigate: (id: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const source = useNavigatorSource();
   const caps = useNavigatorCapabilities();
@@ -932,7 +944,7 @@ function DrawerSteps({
   if (elements.length === 0)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="checklist" size={40} color="#ccc" />
+        <MaterialSymbol icon="checklist" size={40} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noElements")}
         </Typography>
@@ -967,7 +979,7 @@ function DrawerSteps({
                       borderRadius: 1.5,
                       border: 1,
                       borderColor: "divider",
-                      bgcolor: el.is_automated ? "rgba(126,87,194,0.04)" : "background.paper",
+                      bgcolor: el.is_automated ? alpha(BPM_AUTOMATED_STEP_TINT, 0.04) : "background.paper",
                       "&:hover": { bgcolor: "action.hover" },
                     }}
                   >
@@ -979,13 +991,13 @@ function DrawerSteps({
                           height: 28,
                           borderRadius: "50%",
                           bgcolor: typeInfo.color,
-                          color: "#fff",
+                          color: readableTextColor(typeInfo.color),
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                         }}
                       >
-                        <MaterialSymbol icon={typeInfo.icon} size={16} color="#fff" />
+                        <MaterialSymbol icon={typeInfo.icon} size={16} color="inherit" />
                       </Box>
                     </Box>
 
@@ -999,7 +1011,7 @@ function DrawerSteps({
                           <Chip
                             size="small"
                             label={t("navigator.auto")}
-                            sx={{ height: 16, fontSize: "0.55rem", bgcolor: "#7b1fa2", color: "#fff" }}
+                            sx={{ height: 16, fontSize: "0.55rem", bgcolor: BPM_FLOW_ACCENT_COLOR, color: "common.white" }}
                           />
                         )}
                       </Box>
@@ -1123,7 +1135,7 @@ function DrawerSteps({
                   {/* Connector arrow between steps */}
                   {!isLast && (
                     <Box sx={{ display: "flex", justifyContent: "center", py: 0.25 }}>
-                      <MaterialSymbol icon="arrow_downward" size={16} color="#ccc" />
+                      <MaterialSymbol icon="arrow_downward" size={16} color={theme.palette.action.disabled} />
                     </Box>
                   )}
                 </Box>
@@ -1147,6 +1159,7 @@ function DrawerFlow({
   processId: string;
   onNavigate: (path: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const source = useNavigatorSource();
   const caps = useNavigatorCapabilities();
@@ -1204,7 +1217,7 @@ function DrawerFlow({
   if (!hasPublished && !hasDrafts)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="schema" size={40} color="#ccc" />
+        <MaterialSymbol icon="schema" size={40} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noProcessFlow")}
         </Typography>
@@ -1224,7 +1237,7 @@ function DrawerFlow({
   if (!hasPublished && hasDrafts)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="edit_note" size={40} color="#ed6c02" />
+        <MaterialSymbol icon="edit_note" size={40} color={theme.palette.warning.main} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noPublishedDraftAvailable")}
         </Typography>
@@ -1242,7 +1255,7 @@ function DrawerFlow({
   if (hasPublished && !svgThumbnail)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="schema" size={40} color="#7b1fa2" />
+        <MaterialSymbol icon="schema" size={40} color={BPM_FLOW_ACCENT_COLOR} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.publishedFlowAvailable")}
         </Typography>
@@ -1305,6 +1318,7 @@ function FlowPreviewDialog({
   onClose: () => void;
   onNavigate: (path: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const source = useNavigatorSource();
   const caps = useNavigatorCapabilities();
@@ -1370,7 +1384,7 @@ function FlowPreviewDialog({
           <Alert severity="error" sx={{ m: 2 }}>{wordFailure(error, t)}</Alert>
         ) : !bpmnXml ? (
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", py: 6 }}>
-            <MaterialSymbol icon="schema" size={48} color="#ccc" />
+            <MaterialSymbol icon="schema" size={48} color={theme.palette.action.disabled} />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {t("navigator.noProcessFlow")}
             </Typography>
@@ -1420,6 +1434,7 @@ function DrawerApps({
   node: ProcNode;
   onNavigate: (id: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const subtypeLabel = useCardSubtypeLabel();
   const apps = useMemo(
@@ -1430,7 +1445,7 @@ function DrawerApps({
   if (apps.length === 0)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="apps" size={40} color="#ccc" />
+        <MaterialSymbol icon="apps" size={40} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noAppsLinked")}
         </Typography>
@@ -1456,7 +1471,7 @@ function DrawerApps({
             "&:hover": { bgcolor: "action.hover" },
           }}
         >
-          <MaterialSymbol icon="apps" size={18} color="#0f7eb5" />
+          <MaterialSymbol icon="apps" size={18} color={CARD_TYPE_COLORS.Application} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" sx={{ fontWeight: 500, fontSize: "0.85rem" }}>
               {app.name}
@@ -1470,7 +1485,7 @@ function DrawerApps({
           {app.lifecycle?.endOfLife && (
             <Tooltip title={t("navigator.endOfLife")}>
               <Box>
-                <MaterialSymbol icon="warning" size={16} color="#e65100" />
+                <MaterialSymbol icon="warning" size={16} color={BPM_EOL_WARNING_COLOR} />
               </Box>
             </Tooltip>
           )}
@@ -1491,6 +1506,7 @@ function DrawerData({
   node: ProcNode;
   onNavigate: (id: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const dataObjs = useMemo(
     () => Array.from(node.deepDataObjects.values()).sort((a, b) => a.name.localeCompare(b.name)),
@@ -1500,7 +1516,7 @@ function DrawerData({
   if (dataObjs.length === 0)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="database" size={40} color="#ccc" />
+        <MaterialSymbol icon="database" size={40} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("navigator.noDataObjectsLinked")}
         </Typography>
@@ -1526,7 +1542,7 @@ function DrawerData({
             "&:hover": { bgcolor: "action.hover" },
           }}
         >
-          <MaterialSymbol icon="database" size={18} color="#774fcc" />
+          <MaterialSymbol icon="database" size={18} color={CARD_TYPE_COLORS.DataObject} />
           <Typography variant="body2" sx={{ fontWeight: 500, fontSize: "0.85rem" }}>
             {d.name}
           </Typography>
@@ -1581,7 +1597,7 @@ function ProcessDrawer({
           pt: 2,
           pb: 1,
           bgcolor: typeColor,
-          color: "#fff",
+          color: readableTextColor(typeColor),
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -1590,14 +1606,14 @@ function ProcessDrawer({
               width: 36,
               height: 36,
               borderRadius: 1.5,
-              bgcolor: "rgba(255,255,255,0.2)",
+              bgcolor: whiteAlpha(0.2),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
             }}
           >
-            <MaterialSymbol icon={typeIcon} size={22} color="#fff" />
+            <MaterialSymbol icon={typeIcon} size={22} color="inherit" />
           </Box>
           <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, fontSize: "1.1rem" }} noWrap>
             {node.name}
@@ -1607,14 +1623,14 @@ function ProcessDrawer({
               <IconButton
                 onClick={() => onNavigate(node.id)}
                 size="small"
-                sx={{ color: "#fff" }}
+                sx={{ color: "inherit" }}
                 aria-label={t("navigator.openCard")}
               >
                 <MaterialSymbol icon="open_in_new" size={20} />
               </IconButton>
             </Tooltip>
           )}
-          <IconButton onClick={onClose} size="small" sx={{ color: "#fff" }}>
+          <IconButton onClick={onClose} size="small" sx={{ color: "inherit" }}>
             <MaterialSymbol icon="close" size={20} />
           </IconButton>
         </Box>
@@ -1692,6 +1708,7 @@ function MatrixView({
 }: {
   onNavigate: (id: string) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<{
     rows: { id: string; name: string }[];
@@ -1717,7 +1734,7 @@ function MatrixView({
   if (!data || !data.rows.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="table_chart" size={48} color="#ccc" />
+        <MaterialSymbol icon="table_chart" size={48} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("reports.noDataLinkApplications")}
         </Typography>
@@ -1791,6 +1808,7 @@ function MatrixView({
 /* ================================================================== */
 
 function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<{
     nodes: { id: string; name: string }[];
@@ -1815,7 +1833,7 @@ function DependenciesView({ onNavigate }: { onNavigate: (id: string) => void }) 
   if (!data || !data.nodes.length)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="hub" size={48} color="#ccc" />
+        <MaterialSymbol icon="hub" size={48} color={theme.palette.action.disabled} />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
           {t("reports.noDependencies")}
         </Typography>
@@ -1880,6 +1898,7 @@ function LevelIndicator({
   displayLevel: number;
   onChange: (level: number) => void;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const marks = [];
   for (let i = 1; i <= maxLevel; i++) {
@@ -1899,7 +1918,7 @@ function LevelIndicator({
         maxWidth: 260,
       }}
     >
-      <MaterialSymbol icon="layers" size={18} color="#666" />
+      <MaterialSymbol icon="layers" size={18} color={theme.palette.text.secondary} />
       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
         {t("navigator.depth")}
       </Typography>
@@ -1976,6 +1995,7 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
  * one implementation. See `ProcessNavigatorContext.tsx`.
  */
 export function ProcessNavigatorBody() {
+  const theme = useTheme();
   const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -2307,7 +2327,7 @@ export function ProcessNavigatorBody() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <MaterialSymbol icon="search" size={18} color="#999" />
+                  <MaterialSymbol icon="search" size={18} color={theme.palette.text.disabled} />
                 </InputAdornment>
               ),
               endAdornment: search ? (
@@ -2373,7 +2393,7 @@ export function ProcessNavigatorBody() {
                     startAdornment: (
                       <>
                         <InputAdornment position="start">
-                          <MaterialSymbol icon="corporate_fare" size={16} color="#999" />
+                          <MaterialSymbol icon="corporate_fare" size={16} color={theme.palette.text.disabled} />
                         </InputAdornment>
                         {params.InputProps.startAdornment}
                       </>
@@ -2447,7 +2467,7 @@ export function ProcessNavigatorBody() {
             <Alert severity="error">{wordFailure(loadError, t)}</Alert>
           ) : displayTree.length === 0 ? (
             <Box sx={{ py: 8, textAlign: "center" }}>
-              <MaterialSymbol icon="account_tree" size={56} color="#ccc" />
+              <MaterialSymbol icon="account_tree" size={56} color={theme.palette.action.disabled} />
               <Typography color="text.secondary" sx={{ mt: 1, fontSize: "1.05rem" }}>
                 {t("navigator.noProcessesFound")}
               </Typography>
@@ -2718,7 +2738,7 @@ export default function ProcessNavigator() {
   const meta = useMemo<NavigatorMeta>(
     () => ({
       typeIcon: bpType?.icon ?? "route",
-      typeColor: bpType?.color ?? "#028f00",
+      typeColor: bpType?.color ?? BPM_CALLED_PROCESS_COLOR,
       subtypes: bpType?.subtypes ?? [],
       processTypes,
     }),

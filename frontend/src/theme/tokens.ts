@@ -375,6 +375,100 @@ export const BPM_ASSESSMENT_COLORS = {
   automation: "#00bcd4",
 } as const;
 
+// ── BPM ─────────────────────────────────────────────────────────────────
+// The BPM screens' own hues, kept at the values they have always rendered.
+// Where a hue is an existing token's exact value AND means the same thing, the
+// token is referenced rather than repeated.
+
+/** BPMN element-type icon colours, keyed by element family (resolved per
+ *  element type in `features/bpm/elementTypes.ts`). */
+export const BPMN_ELEMENT_COLORS = {
+  task: brand.primary, // task, user task — #1976d2
+  service: "#7b1fa2", // service task — purple 700
+  script: "#00695c", // script task — teal 800
+  rule: CARD_TYPE_COLORS.BusinessProcess, // business-rule task, boundary event — #e65100
+  messaging: "#0097a7", // send / receive task — cyan 700
+  manual: "#795548", // manual task — brown 500
+  subprocess: "#512da8", // call activity, sub-process, transaction, ad-hoc — deep purple 700
+  gateway: SEVERITY_COLORS.high, // every gateway, intermediate events — #f57c00
+  start: RAG_COLORS.green, // start event — #2e7d32
+  end: "#c62828", // end event — red 800
+  data: CARD_TYPE_COLORS.DataObject, // data object / data store references — #774fcc
+  unknown: "#999999", // an element type the app does not know yet
+} as const;
+
+/** A Process Navigator card with no value for the chosen colour overlay, or a value no option knows. */
+export const BPM_UNSET_COLOR = "#bdbdbd";
+
+/** The BusinessProcess type colour as seeded (`seed.py`): the called-process badge, its link dot
+ *  and the navigator header fallback, which also render where no metamodel is loaded (portals). */
+export const BPM_CALLED_PROCESS_COLOR = "#028f00";
+
+/** Fill the read-only BPMN viewer paints behind an automated task — green 50. */
+export const BPM_HIGHLIGHT_FILL = "#e8f5e9";
+
+/** Message-flow rows (Process Flow → Message flows) share the messaging elements' hue. */
+export const BPM_MESSAGE_FLOW_COLOR = BPMN_ELEMENT_COLORS.messaging;
+
+/** Process-flow accent — the diagram icon on a navigator card and its "published flow" state, and
+ *  the "Auto" chip on an automated step. Purple 700, the service-task hue, but a different meaning. */
+export const BPM_FLOW_ACCENT_COLOR = "#7b1fa2";
+
+/** Hue of the faint wash behind an automated step in the navigator's step list (drawn at 4 %
+ *  alpha) — deep purple 400. */
+export const BPM_AUTOMATED_STEP_TINT = "#7e57c2";
+
+/** End-of-life warning icon on an application in the navigator drawer — orange 900. */
+export const BPM_EOL_WARNING_COLOR = "#e65100";
+
+/** Outline of a link dot on the BPMN canvas, so a pale card-type colour still reads on white. */
+export const BPM_LINK_DOT_OUTLINE = "rgba(0,0,0,0.25)";
+
+/** Process-type option colours as seeded (`seed.py` `PROCESS_TYPE_OPTIONS`): the fallback while
+ *  the metamodel loads. They mirror the seed, not the tokens that happen to share a value. */
+export const BPM_PROCESS_TYPE_COLORS = {
+  core: brand.primary, // #1976d2
+  support: "#607d8b", // blue grey 500
+  management: "#9c27b0", // purple 500
+} as const;
+
+/** Inks of the process-flow print page — a bare browser window outside the MUI theme. */
+export const BPM_PRINT_COLORS = {
+  text: "#333333",
+  muted: "#888888",
+  rule: "#dddddd",
+  panel: "#f5f5f5",
+  control: "#cccccc", // border of the secondary (Close) button
+  paper: "#ffffff",
+} as const;
+
+/** Dark-mode values for the `--bio-*` variables of `@bpmn-io/properties-panel`, whose stylesheet
+ *  ships light values only (applied in `features/bpm/bpmnStyles.ts`). The danger / warning /
+ *  focus variables are left alone: they are contrast colours that read on either surface. */
+export const BPMN_DARK_THEME = {
+  "--bio-surface": surface.dark.paper, // #1e1e1e
+  "--bio-surface-overlay": surface.dark.paper, // #1e1e1e
+  "--bio-surface-subtle": "#232323",
+  "--bio-surface-medium": "#2a2a2a",
+  "--bio-surface-strong": "#333333",
+  "--bio-surface-inverted": "#e0e0e0",
+  "--bio-text": "hsl(0, 0%, 92%)",
+  "--bio-text-subtle": "hsl(0, 0%, 72%)",
+  "--bio-text-subtlest": "hsl(0, 0%, 58%)",
+  "--bio-text-on-inverted": "hsl(0, 0%, 12%)",
+  "--bio-border": "hsl(0, 0%, 32%)",
+  "--bio-border-subtle": "hsl(0, 0%, 26%)",
+  "--bio-border-disabled": "hsl(0, 0%, 22%)",
+  "--bio-border-input": "hsl(0, 0%, 38%)",
+  "--bio-primary-surface": "hsl(205, 60%, 18%)",
+  "--bio-primary-surface-strong": "hsl(205, 60%, 26%)",
+  "--bio-danger-surface": "hsl(360, 50%, 22%)",
+  "--bio-danger-surface-subtle": "hsl(360, 40%, 16%)",
+  "--bio-warning-surface": "hsl(38, 50%, 18%)",
+  "--bio-shadow": "hsla(0, 0%, 0%, 60%)",
+  "--bio-shadow-subtle": "hsla(0, 0%, 0%, 35%)",
+} as const;
+
 // ── Non-color tokens ────────────────────────────────────────────────────
 
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */

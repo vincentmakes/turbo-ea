@@ -9,6 +9,7 @@
 import { useMemo } from "react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useOptionLabel } from "@/hooks/useResolveLabel";
+import { BPM_PROCESS_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { FieldOption, SectionDef } from "@/types";
 
 export interface ProcessTypeOption {
@@ -18,14 +19,14 @@ export interface ProcessTypeOption {
 }
 
 /** Grey for stored values whose option no longer exists in the metamodel. */
-export const PROCESS_TYPE_NEUTRAL_COLOR = "#9e9e9e";
+export const PROCESS_TYPE_NEUTRAL_COLOR = STATUS_COLORS.neutral;
 
 // Mirrors seed.py PROCESS_TYPE_OPTIONS. Used only while the metamodel is
 // still loading, or if the processType field was removed from the type.
 const FALLBACK_OPTIONS: ProcessTypeOption[] = [
-  { key: "core", label: "Core", color: "#1976d2" },
-  { key: "support", label: "Support", color: "#607d8b" },
-  { key: "management", label: "Management", color: "#9c27b0" },
+  { key: "core", label: "Core", color: BPM_PROCESS_TYPE_COLORS.core },
+  { key: "support", label: "Support", color: BPM_PROCESS_TYPE_COLORS.support },
+  { key: "management", label: "Management", color: BPM_PROCESS_TYPE_COLORS.management },
 ];
 
 export interface ProcessTypeOptionsResult {

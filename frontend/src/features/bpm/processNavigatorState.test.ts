@@ -5,6 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 
+import { BPM_UNSET_COLOR, RAG_COLORS, SEVERITY_COLORS } from "@/theme/tokens";
 import type { ProcessTypeOption } from "./useProcessTypeOptions";
 import {
   ATTR_COLORS,
@@ -233,33 +234,33 @@ describe("colours", () => {
   it("pins the fixed overlays' option keys and colours", () => {
     expect(ATTR_COLORS).toEqual({
       maturity: {
-        initial: { label: "1-Initial", color: "#d32f2f" },
-        managed: { label: "2-Managed", color: "#f57c00" },
-        defined: { label: "3-Defined", color: "#fbc02d" },
-        measured: { label: "4-Measured", color: "#66bb6a" },
-        optimized: { label: "5-Optimized", color: "#2e7d32" },
+        initial: { label: "1-Initial", color: SEVERITY_COLORS.critical },
+        managed: { label: "2-Managed", color: SEVERITY_COLORS.high },
+        defined: { label: "3-Defined", color: SEVERITY_COLORS.medium },
+        measured: { label: "4-Measured", color: SEVERITY_COLORS.low },
+        optimized: { label: "5-Optimized", color: RAG_COLORS.green },
       },
       automationLevel: {
-        manual: { label: "Manual", color: "#d32f2f" },
-        partiallyAutomated: { label: "Partial", color: "#f57c00" },
-        fullyAutomated: { label: "Fully Auto", color: "#2e7d32" },
+        manual: { label: "Manual", color: SEVERITY_COLORS.critical },
+        partiallyAutomated: { label: "Partial", color: SEVERITY_COLORS.high },
+        fullyAutomated: { label: "Fully Auto", color: RAG_COLORS.green },
       },
       riskLevel: {
-        low: { label: "Low", color: "#66bb6a" },
-        medium: { label: "Medium", color: "#fbc02d" },
-        high: { label: "High", color: "#f57c00" },
-        critical: { label: "Critical", color: "#d32f2f" },
+        low: { label: "Low", color: SEVERITY_COLORS.low },
+        medium: { label: "Medium", color: SEVERITY_COLORS.medium },
+        high: { label: "High", color: SEVERITY_COLORS.high },
+        critical: { label: "Critical", color: SEVERITY_COLORS.critical },
       },
     });
-    expect(UNSET_COLOR).toBe("#bdbdbd");
+    expect(UNSET_COLOR).toBe(BPM_UNSET_COLOR);
   });
 
   it("colours a card by its overlay value", () => {
     expect(getCardColor({ attributes: { maturity: "defined" } }, "maturity", resolve)).toBe(
-      "#fbc02d",
+      SEVERITY_COLORS.medium,
     );
     expect(getCardColor({ attributes: { riskLevel: "critical" } }, "riskLevel", resolve)).toBe(
-      "#d32f2f",
+      SEVERITY_COLORS.critical,
     );
     expect(resolve).not.toHaveBeenCalled();
   });
@@ -272,21 +273,21 @@ describe("colours", () => {
   });
 
   it("greys out a card with no value or an unknown one", () => {
-    expect(getCardColor({}, "maturity", resolve)).toBe("#bdbdbd");
-    expect(getCardColor({ attributes: { maturity: "" } }, "maturity", resolve)).toBe("#bdbdbd");
-    expect(getCardColor({ attributes: { maturity: "wild" } }, "maturity", resolve)).toBe("#bdbdbd");
-    expect(getCardColor({ attributes: {} }, "processType", resolve)).toBe("#bdbdbd");
+    expect(getCardColor({}, "maturity", resolve)).toBe(BPM_UNSET_COLOR);
+    expect(getCardColor({ attributes: { maturity: "" } }, "maturity", resolve)).toBe(BPM_UNSET_COLOR);
+    expect(getCardColor({ attributes: { maturity: "wild" } }, "maturity", resolve)).toBe(BPM_UNSET_COLOR);
+    expect(getCardColor({ attributes: {} }, "processType", resolve)).toBe(BPM_UNSET_COLOR);
     // An overlay typed into the URL by hand is not one of the four.
-    expect(getCardColor({ attributes: { bogus: "x" } }, "bogus" as never, resolve)).toBe("#bdbdbd");
+    expect(getCardColor({ attributes: { bogus: "x" } }, "bogus" as never, resolve)).toBe(BPM_UNSET_COLOR);
   });
 
   it("builds the legend from the process types or the fixed colours", () => {
     const types = [{ key: "core", label: "Core", color: "#111", extra: 1 }];
     expect(legendItems("processType", types)).toEqual([{ label: "Core", color: "#111" }]);
     expect(legendItems("automationLevel", types)).toEqual([
-      { label: "Manual", color: "#d32f2f" },
-      { label: "Partial", color: "#f57c00" },
-      { label: "Fully Auto", color: "#2e7d32" },
+      { label: "Manual", color: SEVERITY_COLORS.critical },
+      { label: "Partial", color: SEVERITY_COLORS.high },
+      { label: "Fully Auto", color: RAG_COLORS.green },
     ]);
     expect(legendItems("nope" as never, types)).toEqual([]);
   });

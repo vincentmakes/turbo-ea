@@ -26,6 +26,16 @@ export const MATURITY_COLORS: Record<string, string> = {
   optimized: RAG_COLORS.green,
 };
 
+// Process risk on the 4-step severity scale — the same hues the Process
+// Navigator's risk overlay uses, so the dashboard and the navigator agree. The
+// fallback when the metamodel's riskLevel option carries no colour of its own.
+export const RISK_COLORS: Record<string, string> = {
+  low: SEVERITY_COLORS.low,
+  medium: SEVERITY_COLORS.medium,
+  high: SEVERITY_COLORS.high,
+  critical: SEVERITY_COLORS.critical,
+};
+
 /** The colour of a value with none of its own. */
 export const BPM_NEUTRAL_COLOR = STATUS_COLORS.neutral;
 

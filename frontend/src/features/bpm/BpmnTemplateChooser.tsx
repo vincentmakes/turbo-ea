@@ -15,6 +15,7 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { BpmnTemplate } from "@/types";
@@ -37,6 +38,7 @@ const TEMPLATE_ICONS: Record<string, string> = {
 
 export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const [templates, setTemplates] = useState<BpmnTemplate[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -91,7 +93,7 @@ export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) 
                     <MaterialSymbol
                       icon={TEMPLATE_ICONS[t.key] || "description"}
                       size={40}
-                      color={selected === t.key ? "#1976d2" : "#666"}
+                      color={selected === t.key ? theme.palette.primary.main : theme.palette.text.secondary}
                     />
                     <Typography variant="subtitle2" sx={{ mt: 1 }}>
                       {t.name}

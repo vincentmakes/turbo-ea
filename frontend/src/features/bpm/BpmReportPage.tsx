@@ -25,6 +25,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ElementTypeChip from "./ElementTypeChip";
 import { api } from "@/api/client";
@@ -199,6 +200,7 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
 
 function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [orgFilter, setOrgFilter] = useState<string[]>([]);
@@ -318,7 +320,7 @@ function ProcessOrgMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={18} color="#999" />
+                    <MaterialSymbol icon="search" size={18} color={theme.palette.text.disabled} />
                   </InputAdornment>
                 ),
               },

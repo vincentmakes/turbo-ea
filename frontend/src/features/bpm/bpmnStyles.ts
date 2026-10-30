@@ -14,6 +14,8 @@
  * pins below cover them too — no per-package rule is needed.
  */
 
+import { BPMN_DARK_THEME, brand } from "@/theme/tokens";
+
 // Matches bpmn-js's own `--palette-entry-color` (hsl(225, 10%, 15%)) so the
 // context-pad icons line up with the left palette. The boxes/panels behind
 // these glyphs are always white, so a dark glyph is correct in either theme.
@@ -37,31 +39,10 @@ export const bpmnCanvasSx = {
  * sanctioned way to re-theme it (the file header says as much: "allow
  * overrides with an alternative theme"). Only the tokens that read wrong on
  * a dark page are overridden; the danger/warning/focus tokens are contrast
- * colours that work on either surface.
+ * colours that work on either surface. The values are the `BPMN_DARK_THEME`
+ * design tokens.
  */
-export const PROPERTIES_PANEL_DARK_TOKENS = {
-  "--bio-surface": "#1e1e1e",
-  "--bio-surface-overlay": "#1e1e1e",
-  "--bio-surface-subtle": "#232323",
-  "--bio-surface-medium": "#2a2a2a",
-  "--bio-surface-strong": "#333333",
-  "--bio-surface-inverted": "#e0e0e0",
-  "--bio-text": "hsl(0, 0%, 92%)",
-  "--bio-text-subtle": "hsl(0, 0%, 72%)",
-  "--bio-text-subtlest": "hsl(0, 0%, 58%)",
-  "--bio-text-on-inverted": "hsl(0, 0%, 12%)",
-  "--bio-border": "hsl(0, 0%, 32%)",
-  "--bio-border-subtle": "hsl(0, 0%, 26%)",
-  "--bio-border-disabled": "hsl(0, 0%, 22%)",
-  "--bio-border-input": "hsl(0, 0%, 38%)",
-  "--bio-primary-surface": "hsl(205, 60%, 18%)",
-  "--bio-primary-surface-strong": "hsl(205, 60%, 26%)",
-  "--bio-danger-surface": "hsl(360, 50%, 22%)",
-  "--bio-danger-surface-subtle": "hsl(360, 40%, 16%)",
-  "--bio-warning-surface": "hsl(38, 50%, 18%)",
-  "--bio-shadow": "hsla(0, 0%, 0%, 60%)",
-  "--bio-shadow-subtle": "hsla(0, 0%, 0%, 35%)",
-} as const;
+export const PROPERTIES_PANEL_DARK_TOKENS = BPMN_DARK_THEME;
 
 /**
  * The "Linked cards" rows (`CalledProcessEntry.ts`, `CardLinkEntry.ts`) are
@@ -109,8 +90,8 @@ const CALLED_PROCESS_ENTRY_SX = {
     "&:hover": { background: "var(--bio-surface-subtle)" },
   },
   "& .turboea-called-process-choose": {
-    borderColor: "var(--bio-primary, #1976d2)",
-    color: "var(--bio-primary, #1976d2)",
+    borderColor: `var(--bio-primary, ${brand.primary})`,
+    color: `var(--bio-primary, ${brand.primary})`,
   },
 } as const;
 

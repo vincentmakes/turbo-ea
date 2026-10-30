@@ -8,6 +8,7 @@
  * each dot as its hover text. Pure: no bpmn-js import (the library is loaded
  * lazily by both hosts), which is also what keeps it unit-testable.
  */
+import { BPM_LINK_DOT_OUTLINE, CARD_TYPE_COLORS } from "@/theme/tokens";
 import { CALLED_PROCESS_COLOR, LINK_KIND_ORDER } from "./calledProcess";
 import type { LinkKind } from "./calledProcess";
 
@@ -23,10 +24,10 @@ export const LINK_DOTS_OVERLAY_TYPE = "turboea-link-dots";
  */
 export const LINK_TYPE_COLORS: Record<LinkKind, string> = {
   process: CALLED_PROCESS_COLOR,
-  application: "#0f7eb5",
-  data_object: "#774fcc",
-  it_component: "#d29270",
-  organization: "#2889ff",
+  application: CARD_TYPE_COLORS.Application,
+  data_object: CARD_TYPE_COLORS.DataObject,
+  it_component: CARD_TYPE_COLORS.ITComponent,
+  organization: CARD_TYPE_COLORS.Organization,
 };
 
 /**
@@ -81,7 +82,7 @@ export function linkDotsHtml(dots: LinkDot[], width: number): string | null {
       (d) =>
         `<span class="turboea-link-dot turboea-link-dot-${d.kind}" title="${escapeHtml(d.title)}" ` +
         `style="display:inline-block;width:${DOT_PX}px;height:${DOT_PX}px;border-radius:50%;` +
-        `background:${d.color};border:1px solid rgba(0,0,0,.25);box-sizing:border-box"></span>`,
+        `background:${d.color};border:1px solid ${BPM_LINK_DOT_OUTLINE};box-sizing:border-box"></span>`,
     )
     .join("");
   return (

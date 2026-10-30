@@ -9,39 +9,41 @@
  * type the backend starts producing is added in exactly one place.
  */
 
+import { BPMN_ELEMENT_COLORS } from "@/theme/tokens";
+
 export interface ElementTypeInfo {
   icon: string;
   color: string;
 }
 
 export const ELEMENT_TYPE_ICONS: Record<string, ElementTypeInfo> = {
-  task: { icon: "check_box", color: "#1976d2" },
-  userTask: { icon: "person", color: "#1976d2" },
-  serviceTask: { icon: "settings", color: "#7b1fa2" },
-  scriptTask: { icon: "code", color: "#00695c" },
-  businessRuleTask: { icon: "rule", color: "#e65100" },
-  sendTask: { icon: "send", color: "#0097a7" },
-  receiveTask: { icon: "call_received", color: "#0097a7" },
-  manualTask: { icon: "back_hand", color: "#795548" },
-  callActivity: { icon: "call_split", color: "#512da8" },
-  subProcess: { icon: "account_tree", color: "#512da8" },
-  transaction: { icon: "receipt_long", color: "#512da8" },
-  adHocSubProcess: { icon: "shuffle", color: "#512da8" },
-  exclusiveGateway: { icon: "call_split", color: "#f57c00" },
-  parallelGateway: { icon: "add", color: "#f57c00" },
-  inclusiveGateway: { icon: "radio_button_checked", color: "#f57c00" },
-  eventBasedGateway: { icon: "bolt", color: "#f57c00" },
-  complexGateway: { icon: "asterisk", color: "#f57c00" },
-  startEvent: { icon: "play_circle", color: "#2e7d32" },
-  endEvent: { icon: "stop_circle", color: "#c62828" },
-  intermediateThrowEvent: { icon: "send", color: "#f57c00" },
-  intermediateCatchEvent: { icon: "call_received", color: "#f57c00" },
-  boundaryEvent: { icon: "adjust", color: "#e65100" },
-  dataObjectReference: { icon: "description", color: "#774fcc" },
-  dataStoreReference: { icon: "database", color: "#774fcc" },
+  task: { icon: "check_box", color: BPMN_ELEMENT_COLORS.task },
+  userTask: { icon: "person", color: BPMN_ELEMENT_COLORS.task },
+  serviceTask: { icon: "settings", color: BPMN_ELEMENT_COLORS.service },
+  scriptTask: { icon: "code", color: BPMN_ELEMENT_COLORS.script },
+  businessRuleTask: { icon: "rule", color: BPMN_ELEMENT_COLORS.rule },
+  sendTask: { icon: "send", color: BPMN_ELEMENT_COLORS.messaging },
+  receiveTask: { icon: "call_received", color: BPMN_ELEMENT_COLORS.messaging },
+  manualTask: { icon: "back_hand", color: BPMN_ELEMENT_COLORS.manual },
+  callActivity: { icon: "call_split", color: BPMN_ELEMENT_COLORS.subprocess },
+  subProcess: { icon: "account_tree", color: BPMN_ELEMENT_COLORS.subprocess },
+  transaction: { icon: "receipt_long", color: BPMN_ELEMENT_COLORS.subprocess },
+  adHocSubProcess: { icon: "shuffle", color: BPMN_ELEMENT_COLORS.subprocess },
+  exclusiveGateway: { icon: "call_split", color: BPMN_ELEMENT_COLORS.gateway },
+  parallelGateway: { icon: "add", color: BPMN_ELEMENT_COLORS.gateway },
+  inclusiveGateway: { icon: "radio_button_checked", color: BPMN_ELEMENT_COLORS.gateway },
+  eventBasedGateway: { icon: "bolt", color: BPMN_ELEMENT_COLORS.gateway },
+  complexGateway: { icon: "asterisk", color: BPMN_ELEMENT_COLORS.gateway },
+  startEvent: { icon: "play_circle", color: BPMN_ELEMENT_COLORS.start },
+  endEvent: { icon: "stop_circle", color: BPMN_ELEMENT_COLORS.end },
+  intermediateThrowEvent: { icon: "send", color: BPMN_ELEMENT_COLORS.gateway },
+  intermediateCatchEvent: { icon: "call_received", color: BPMN_ELEMENT_COLORS.gateway },
+  boundaryEvent: { icon: "adjust", color: BPMN_ELEMENT_COLORS.rule },
+  dataObjectReference: { icon: "description", color: BPMN_ELEMENT_COLORS.data },
+  dataStoreReference: { icon: "database", color: BPMN_ELEMENT_COLORS.data },
 };
 
-export const UNKNOWN_ELEMENT_TYPE: ElementTypeInfo = { icon: "radio_button_unchecked", color: "#999" };
+export const UNKNOWN_ELEMENT_TYPE: ElementTypeInfo = { icon: "radio_button_unchecked", color: BPMN_ELEMENT_COLORS.unknown };
 
 /** The glyph bpmn-js draws inside an event for each definition sub-type. */
 export const EVENT_DEFINITION_ICONS: Record<string, string> = {

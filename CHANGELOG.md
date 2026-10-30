@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Dates formatted by the workspace date format used the browser's language for the month name, so an Arabic (or German, …) interface showed English months and right-to-left pages read them in the wrong order; the month now follows the interface language.
 - The PPM cumulative cost charts labelled only every other month in right-to-left locales; every month is labelled.
 - The BPM dashboard's risk and maturity chips always used white text, unreadable on the yellow "Defined" maturity; the text colour now follows the chip's fill.
+- The BPM dashboard coloured a "high" process risk red while the Process Navigator coloured it orange; both now use the same severity scale.
 
 ## [2.182.0] - 2026-10-30
 
