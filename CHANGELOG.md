@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.182.0] - 2026-10-30
+
+### Added
+- UI SDK 1.32: `loadECharts` resolves the ECharts wrapper, the theme-aware chart chrome and the option helpers core's dashboards and reports draw with; `loadRecharts` and `useChartTheme` are deprecated and will be removed at UI SDK 2.0.
+
+### Changed
+- The Cost report treemap and the Data Quality report's completeness and end-of-life coverage charts are drawn with the same ECharts engine as the homepage dashboards: one look in light and dark mode, mirrored correctly in right-to-left locales, and crisp in PowerPoint exports.
+
 ## [2.181.0] - 2026-10-28
 
 ### Added

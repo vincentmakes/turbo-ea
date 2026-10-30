@@ -31,10 +31,11 @@
  * currency formatting), `MetricCard` (KPI tile), `ReportLegend`,
  * `UserMultiSelect` (shared multi-user picker over GET /users), and
  * `loadRecharts` — an async loader returning the recharts module from core's
- * code-split chunk, so extensions never bundle a charting library. Since SDK
- * 1.9 `useChartTheme` returns the theme-aware Recharts chrome (grid stroke,
- * axis ticks, tooltip styling) core reports use, so extension charts match
- * core's look without hand-rolling it. Since SDK 1.11 `useThumbnailCapture`
+ * code-split chunk, so extensions never bundle a charting library (deprecated
+ * since 1.32, removed at 2.0 — use `loadECharts`). Since SDK 1.9
+ * `useChartTheme` returns the theme-aware Recharts chrome (grid stroke, axis
+ * ticks, tooltip styling) core reports used (deprecated since 1.32, removed
+ * at 2.0 — use `loadECharts`). Since SDK 1.11 `useThumbnailCapture`
  * captures a chart container as the PNG preview shown on saved-report cards
  * (html-to-image loads lazily on first capture). Since SDK 1.14
  * `CardScopeDialog` is the shared hierarchy-aware multi-select card picker
@@ -67,6 +68,12 @@
  * selects ONE card is built on — browse on open, rank as you type, page in
  * more as the list scrolls — so an extension dialog that links one card
  * behaves exactly like core's instead of hand-rolling an Autocomplete.
+ * Since SDK 1.32 `loadECharts` resolves the charting stack core draws every
+ * chart with (dashboards and reports) — the `EChart` wrapper with its
+ * `EXPORT_DPR` / `ECHART_CLASS` constants, `useEChartsTheme` /
+ * `buildEChartsChrome` (the MUI-derived chrome) and the pure `chrome` option
+ * helpers — from core's code-split chunk, so an extension chart matches
+ * core's in light, dark and right-to-left and never bundles a chart library.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -150,7 +157,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.31";
+export const UI_SDK_VERSION = "1.32";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1024,7 +1031,8 @@ export function initExtensionHost(): void {
       // legend, the shared multi-user picker, and a lazy Recharts loader so
       // extension charts reuse core's code-split chunk instead of bundling
       // their own copy (a static import here would drag Recharts into the
-      // eager main bundle — same caveat as ReportShell above).
+      // eager main bundle — same caveat as ReportShell above). `loadRecharts`
+      // is deprecated since 1.32 and removed at 2.0 — use `loadECharts`.
       useCurrency,
       MetricCard,
       ReportLegend,
@@ -1044,9 +1052,9 @@ export function initExtensionHost(): void {
       getPhaseLabels,
       buildGanttArrowPath,
       loadRecharts: () => import("recharts"),
-      // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip), the same
-      // conventions core reports use, so extension charts cannot drift from
-      // core's look in either light or dark mode.
+      // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip). Deprecated
+      // since 1.32 and removed at 2.0 — use `loadECharts` (`useEChartsTheme`
+      // + `chrome`), which is what core's own charts are drawn with now.
       useChartTheme,
       useThumbnailCapture,
       // SDK 1.14 — the shared card scope picker. An extension report that
@@ -1145,7 +1153,7 @@ export function initExtensionHost(): void {
       // `loadDependencyView` resolves the house dependency notation (the
       // Layered Dependency View) plus its layout engine from core's own
       // code-split chunk (React Flow + dagre ride along) — the same
-      // reuse-over-rebuild posture as `loadRecharts`/`loadAgGrid`, and the
+      // reuse-over-rebuild posture as `loadECharts`/`loadAgGrid`, and the
       // §3.10 rule applies: never substitute another graph library. The
       // layout module is handed back as a namespace so its node/edge
       // builders and helpers stay available without re-listing them here.
@@ -1182,7 +1190,7 @@ export function initExtensionHost(): void {
       // what is on screen" (rows and displayed columns read off the grid
       // API), the two readers are the leaf `lib/spreadsheet.ts` lifted out
       // of the card importer, and `xlsx` is the vendored library itself (the
-      // `loadRecharts` posture for a bare heavy dependency) so a caller can
+      // lazy-loader posture for a bare heavy dependency) so a caller can
       // append its own machine-readable sheet to the workbook core built.
       // An extension must never bundle a spreadsheet library of its own.
       loadSpreadsheet: () =>
@@ -1196,6 +1204,24 @@ export function initExtensionHost(): void {
           buildCurrentViewWorkbook: exp.buildCurrentViewWorkbook,
           parseWorkbook: sheet.parseWorkbook,
           readWorkbookSheets: sheet.readWorkbookSheets,
+        })),
+      // SDK 1.32 — the charting stack core draws every chart with (dashboards
+      // and reports): the ECharts wrapper, the MUI-derived chrome and the pure
+      // option helpers, resolved from the code-split chunk core already ships,
+      // so an extension never bundles a chart library. `loadRecharts` (1.8) and
+      // `useChartTheme` (1.9) are deprecated and go at UI SDK 2.0.
+      loadECharts: () =>
+        Promise.all([
+          import("@/components/charts/EChart"),
+          import("@/components/charts/echartsTheme"),
+          import("@/components/charts/chrome"),
+        ]).then(([chart, theme, chrome]) => ({
+          EChart: chart.default,
+          EXPORT_DPR: chart.EXPORT_DPR,
+          ECHART_CLASS: chart.ECHART_CLASS,
+          useEChartsTheme: theme.useEChartsTheme,
+          buildEChartsChrome: theme.buildEChartsChrome,
+          chrome,
         })),
     },
     register: registerExtension,
