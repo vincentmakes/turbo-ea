@@ -9,7 +9,7 @@ import { act, render, screen } from "@testing-library/react";
 const motion = vi.hoisted(() => ({ reduced: false }));
 vi.mock("./useReducedMotion", () => ({ useReducedMotion: () => motion.reduced }));
 
-import { FLIGHT_TRAIL, GAIN_FLIGHT_Z_INDEX, GainFlight } from "./GainFlight";
+import { FLIGHT_TRAIL, GAIN_FLIGHT_Z_INDEX, GainFlight, TARGET_WAIT_MS } from "./GainFlight";
 import type { ScoreGain } from "./scoreGain";
 
 const ANCHOR = "card-section-custom-application-information";
@@ -279,11 +279,35 @@ describe("GainFlight — no flight", () => {
     expect(screen.queryByTestId("gain-flight-orb")).not.toBeInTheDocument();
   });
 
-  it("does the same without a target", () => {
+  it("waits 500 ms for a target that is not there yet, then gives up the same way", () => {
+    vi.useFakeTimers();
     const onImpact = vi.fn();
     render(<GainFlight gain={GAIN} targetEl={null} onImpact={onImpact} />);
+    expect(TARGET_WAIT_MS).toBe(500);
+    act(() => vi.advanceTimersByTime(499));
+    expect(onImpact).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("gain-flight-orb")).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1));
+    expect(onImpact).toHaveBeenCalledTimes(1);
     expect(onImpact).toHaveBeenCalledWith(7);
     expect(screen.queryByTestId("gain-flight-orb")).not.toBeInTheDocument();
+    expect(animations).toHaveLength(0);
+  });
+
+  it("flies to a target that arrives during the wait — the sticky bar once it has slid in", () => {
+    vi.useFakeTimers();
+    const onImpact = vi.fn();
+    const { rerender } = render(<GainFlight gain={GAIN} targetEl={null} onImpact={onImpact} />);
+    act(() => vi.advanceTimersByTime(300));
+    rerender(<GainFlight gain={GAIN} targetEl={target} onImpact={onImpact} />);
+    expect(screen.getByTestId("gain-flight-orb")).toBeInTheDocument();
+    const main = animations.find((a) => a.el === screen.getByTestId("gain-flight-orb"))!;
+    expect(at(main.keyframes[main.keyframes.length - 1])).toEqual([930, 92]);
+    // The wait was called off: its timer never fires an early impact.
+    act(() => vi.advanceTimersByTime(1000));
+    expect(onImpact).not.toHaveBeenCalled();
+    act(() => main.onfinish!());
+    expect(onImpact).toHaveBeenCalledWith(7);
   });
 
   it("does the same under reduced motion", () => {

@@ -10,7 +10,12 @@
  * figure (`onFigureRef`) is where a gain's orb lands, so a gain with an origin
  * waits for `impactNonce`, then flashes, haloes, glows and shines. A loss
  * drains the bar, counts down and dims the figure, as on the pill.
+ *
+ * The figure is handed over only once the bar has finished sliding in, and
+ * taken back (`null`) as it starts sliding out: measured mid-slide it sits
+ * above the viewport, and an orb aimed there flies off the top of the page.
  */
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Slide from "@mui/material/Slide";
@@ -61,8 +66,28 @@ export function StickyScoreBar({
   );
   const showBurst = !!gain && (loss ? reduced || !gain.originAnchor : !waiting);
 
+  // The figure's box, handed over once the Slide has entered and withdrawn as
+  // it starts to leave or when the bar unmounts. Under reduced motion the orb
+  // never flies, so the figure is handed over as soon as it exists.
+  const [figure, setFigure] = useState<HTMLElement | null>(null);
+  const [entered, setEntered] = useState(false);
+  const ready = entered || reduced;
+  useEffect(() => {
+    if (!onFigureRef) return;
+    onFigureRef(ready ? figure : null);
+    return () => onFigureRef(null);
+  }, [figure, onFigureRef, ready]);
+
   return (
-    <Slide direction="down" in={open} mountOnEnter unmountOnExit appear={!reduced}>
+    <Slide
+      direction="down"
+      in={open}
+      mountOnEnter
+      unmountOnExit
+      appear={!reduced}
+      onEntered={() => setEntered(true)}
+      onExit={() => setEntered(false)}
+    >
       <Box
         data-testid="sticky-score-bar"
         role="region"
@@ -110,7 +135,7 @@ export function StickyScoreBar({
             sx={{ flex: 1, minWidth: 48 }}
           />
           <Box
-            ref={onFigureRef}
+            ref={setFigure}
             data-testid="sticky-score-figure"
             className={landed ? "dq-impact" : undefined}
             sx={{ position: "relative", display: "inline-flex", flexShrink: 0, borderRadius: "4px" }}

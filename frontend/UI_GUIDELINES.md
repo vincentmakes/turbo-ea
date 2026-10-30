@@ -776,7 +776,11 @@ an administrator turns on in Settings → General → Modules.
   landing (`onfinish`) be the moment the destination reacts, so the effect reads as cause
   and impact. Guard for a missing `Element.prototype.animate` with a timer of the same
   length, and skip the flight (react at once) when either end is missing or motion is
-  reduced. Trailing copies run the same keyframes with a delay and `fill: "both"`.
+  reduced. A destination that is itself in transition must not be measured mid-way: a
+  `Slide`-in bar hands its box over from `onEntered` and takes it back on `onExit`
+  (`StickyScoreBar`'s `onFigureRef`), and the flight waits a short, fixed `TARGET_WAIT_MS`
+  for a box that is not there yet before it gives up. Trailing copies run the same
+  keyframes with a delay and `fill: "both"`.
 - **Keyframes are a CSS string injected once** into a `<style>` element (`DQ_MOTION_CSS` /
   `injectDqMotionStyles`, the pattern of `TIMELINE_PULSE_KEYFRAMES`), and run through class
   names (`dq-pop`, `dq-float`, …). To replay a CSS animation without remounting, alternate

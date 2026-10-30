@@ -17,7 +17,9 @@
  * The gain's orb landing is the **impact**: `onImpact(nonce)` fires, and the
  * pill and the sticky bar start their fill, count-up, flash and burst. A loss
  * calls it on arrival at the section too, though nothing waits for it. No
- * origin element, no target, or reduced motion: `onImpact` at once and no orb.
+ * origin element or reduced motion: `onImpact` at once and no orb. No target
+ * yet — the sticky bar is still sliding in, so it has not handed over its
+ * figure — waits up to `TARGET_WAIT_MS` for one, then gives up the same way.
  * Without `Element.prototype.animate` (jsdom) a `FLIGHT_MS` timer stands in.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -38,6 +40,9 @@ import { useReducedMotion } from "./useReducedMotion";
 
 /** Above the sticky score bar (1090) and the app bar (1100). */
 export const GAIN_FLIGHT_Z_INDEX = 1200;
+/** How long a flight waits for a target that is not there yet (the sticky bar
+ * slides in over 225 ms) before it gives up and reports the impact at once. */
+export const TARGET_WAIT_MS = 500;
 /** The gain's comet tail, drawn behind the orb: each copy's opacity and lag. */
 export const FLIGHT_TRAIL = [
   { opacity: 0.55, delay: 60 },
@@ -71,19 +76,30 @@ export function GainFlight({
   const loss = gain.direction === "loss";
 
   // Measure once, before the first paint. Keyed by the nonce, so a new change
-  // is a new mount.
+  // is a new mount. A missing target is waited for (the sticky bar hands its
+  // figure over only once it has slid in); a missing origin is not.
+  const measuredRef = useRef(false);
   useLayoutEffect(() => {
+    if (measuredRef.current) return;
     const origin = gain.originAnchor ? document.getElementById(gain.originAnchor) : null;
-    if (!origin || !targetEl || reduced) {
+    const giveUp = () => {
+      measuredRef.current = true;
       onImpactRef.current(gain.nonce);
       setDone(true);
+    };
+    if (!origin || reduced) {
+      giveUp();
       return;
     }
+    if (!targetEl) {
+      const id = setTimeout(giveUp, TARGET_WAIT_MS);
+      return () => clearTimeout(id);
+    }
+    measuredRef.current = true;
     const section = originPoint(origin.getBoundingClientRect());
     const bar = centrePoint(targetEl.getBoundingClientRect());
     setPath(loss ? { from: bar, to: section } : { from: section, to: bar });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [gain.originAnchor, gain.nonce, loss, reduced, targetEl]);
 
   useLayoutEffect(() => {
     const orb = orbRef.current;

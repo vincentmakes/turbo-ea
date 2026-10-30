@@ -117,13 +117,27 @@ describe("StickyScoreBar", () => {
     expect(chip).toHaveClass("MuiChip-colorError");
   });
 
-  it("hands its figure to the page as the orb's landing target", () => {
+  it("hands its figure to the page only once it has slid in, and takes it back as it leaves", async () => {
+    const onFigureRef = vi.fn();
+    const { rerender } = render(
+      <StickyScoreBar open name="X" value={75} gain={null} onFigureRef={onFigureRef} />,
+    );
+    const figure = screen.getByTestId("sticky-score-figure");
+    expect(figure).toContainElement(screen.getByTestId("sticky-score-value"));
+    // Mid-slide the figure sits above the viewport: nothing to aim at yet.
+    expect(onFigureRef).toHaveBeenCalledWith(null);
+    expect(onFigureRef).not.toHaveBeenCalledWith(figure);
+    // The Slide's 225 ms enter is over.
+    await waitFor(() => expect(onFigureRef).toHaveBeenLastCalledWith(figure));
+    rerender(<StickyScoreBar open={false} name="X" value={75} gain={null} onFigureRef={onFigureRef} />);
+    expect(onFigureRef).toHaveBeenLastCalledWith(null);
+  });
+
+  it("hands its figure over at once under reduced motion, where nothing slides", () => {
+    motion.reduced = true;
     const onFigureRef = vi.fn();
     render(<StickyScoreBar open name="X" value={75} gain={null} onFigureRef={onFigureRef} />);
-    expect(onFigureRef).toHaveBeenCalledWith(screen.getByTestId("sticky-score-figure"));
-    expect(screen.getByTestId("sticky-score-figure")).toContainElement(
-      screen.getByTestId("sticky-score-value"),
-    );
+    expect(onFigureRef).toHaveBeenLastCalledWith(screen.getByTestId("sticky-score-figure"));
   });
 
   describe("a gain flying in from the saved section", () => {
