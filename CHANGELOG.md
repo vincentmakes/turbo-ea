@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The BPM dashboard's process-type, maturity and automation charts, the process assessment trend and the PPM cumulative cost charts are drawn with the same ECharts engine as the dashboards and reports; Recharts is no longer used by the application (the extension SDK keeps `loadRecharts` until UI SDK 2.0).
 
 ### Fixed
-- BPM maturity and automation charts showed raw option keys (`fullyAutomated`, `defined`, …) instead of the translated option labels and dropped every other axis label; the maturity chip in the top-risk table showed the raw key too.
+- BPM maturity and automation charts showed raw option keys (`fullyAutomated`, `defined`, …) instead of the translated option labels and dropped every other axis label; the maturity and risk chips in the top-risk table showed raw keys too.
 - The PPM cost charts lost their value-axis labels and clipped the budget-line labels in right-to-left locales.
 - Dates formatted by the workspace date format used the browser's language for the month name, so an Arabic (or German, …) interface showed English months and right-to-left pages read them in the wrong order; the month now follows the interface language.
 - The PPM cumulative cost charts labelled only every other month in right-to-left locales; every month is labelled.

@@ -66,9 +66,13 @@ const RISK_COLORS: Record<string, string> = {
   critical: SEVERITY_COLORS.critical,
 };
 
-/** A risk chip's fill; a level the scale does not know is neutral, never missing. */
-function riskColor(risk: string): string {
-  return RISK_COLORS[risk] ?? STATUS_COLORS.neutral;
+/**
+ * A risk chip's fill: the `riskLevel` option's metamodel colour when it
+ * defines one, else the risk scale; a level neither knows is neutral, never
+ * missing.
+ */
+function riskColor(risk: string, optionColor?: string): string {
+  return optionColor || RISK_COLORS[risk] || STATUS_COLORS.neutral;
 }
 
 /* ── Dashboard content (tab 1) ── */
@@ -87,6 +91,7 @@ function BpmDashboardContent() {
   }, [processTypes]);
   const { resolve: resolveMaturity, order: maturityOrder } = useBpmFieldOptions("maturity");
   const { resolve: resolveAutomation, order: automationOrder } = useBpmFieldOptions("automationLevel");
+  const { resolve: resolveRisk } = useBpmFieldOptions("riskLevel");
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
@@ -276,11 +281,13 @@ function BpmDashboardContent() {
                     <TableCell>{p.name}</TableCell>
                     <TableCell>
                       <Chip
-                        label={p.risk}
+                        label={resolveRisk(p.risk).label}
                         size="small"
                         sx={{
-                          bgcolor: riskColor(p.risk),
-                          color: theme.palette.getContrastText(riskColor(p.risk)),
+                          bgcolor: riskColor(p.risk, resolveRisk(p.risk).color),
+                          color: theme.palette.getContrastText(
+                            riskColor(p.risk, resolveRisk(p.risk).color),
+                          ),
                         }}
                       />
                     </TableCell>

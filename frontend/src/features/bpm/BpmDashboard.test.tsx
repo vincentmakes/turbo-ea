@@ -66,6 +66,11 @@ vi.mock("./useBpmFieldOptions", () => {
       partiallyAutomated: { label: "Partially automated" },
       fullyAutomated: { label: "Fully automated", color: "#4caf50" },
     },
+    // Critical defines no colour (the risk scale fills it); High defines one.
+    riskLevel: {
+      critical: { label: "Critical" },
+      high: { label: "High", color: "#654321" },
+    },
   };
   return {
     useBpmFieldOptions: (field: string) => {
@@ -389,9 +394,29 @@ describe("BpmDashboard", () => {
     const chips = within(screen.getByRole("table"))
       .getAllByText(/./, { selector: ".MuiChip-label" })
       .map((el) => el.textContent);
-    expect(chips).toEqual(["critical", "Initial", "high", "Managed", "high", "gone"]);
+    expect(chips).toEqual(["Critical", "Initial", "High", "Managed", "High", "gone"]);
     expect(screen.queryByText("initial")).not.toBeInTheDocument();
     expect(screen.queryByText("managed")).not.toBeInTheDocument();
+  });
+
+  it("labels a risk row's risk chip with the resolved riskLevel option label, not the raw key", async () => {
+    await renderDashboard();
+
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Critical")).toBeInTheDocument();
+    expect(table.getAllByText("High")).toHaveLength(2);
+    expect(screen.queryByText("critical")).not.toBeInTheDocument();
+    expect(screen.queryByText("high")).not.toBeInTheDocument();
+  });
+
+  it("colours a risk chip with its riskLevel option's colour when the option defines one", async () => {
+    await renderDashboard();
+
+    for (const el of screen.getAllByText("High")) {
+      const chip = el.closest(".MuiChip-root") as HTMLElement;
+      expect(chip).toHaveStyle({ backgroundColor: "#654321" });
+      expect(chip).toHaveStyle({ color: createTheme().palette.getContrastText("#654321") });
+    }
   });
 
   it("colours a risk row's maturity chip like its chart column: option colour, else the CMMI scale, else neutral", async () => {
@@ -406,7 +431,7 @@ describe("BpmDashboard", () => {
   it("colours a critical risk chip with the severity scale's critical, as the Process Navigator does", async () => {
     await renderDashboard();
 
-    const chip = screen.getByText("critical").closest(".MuiChip-root") as HTMLElement;
+    const chip = screen.getByText("Critical").closest(".MuiChip-root") as HTMLElement;
     expect(chip).toHaveStyle({ backgroundColor: SEVERITY_COLORS.critical });
     expect(chip).toHaveStyle({ color: createTheme().palette.getContrastText(SEVERITY_COLORS.critical) });
   });
