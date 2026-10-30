@@ -465,7 +465,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "09_reports_menu",
     route: "/reports/portfolio",
-    waitFor: ".recharts-responsive-container, .MuiPaper-root",
+    waitFor: ".echart-container, .MuiPaper-root",
     actions: [
       { type: "wait", ms: 600 },
       // Click the Reports dropdown button in the nav bar to show the menu
@@ -780,7 +780,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "19_user_menu",
     route: "/",
-    waitFor: ".recharts-responsive-container",
+    waitFor: ".echart-container",
     actions: [
       { type: "wait", ms: 400 },
       // Click the user avatar / profile button in the top-right
@@ -1119,7 +1119,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "33_report_data_quality",
     route: "/reports/data-quality",
-    waitFor: ".MuiPaper-root, .recharts-responsive-container",
+    waitFor: ".MuiPaper-root, .echart-container",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "33_report_data_quality",
@@ -1137,7 +1137,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "34_report_cost",
     route: "/reports/cost",
-    waitFor: ".recharts-responsive-container, [class*='Cost']",
+    waitFor: ".echart-container, [class*='Cost']",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
       en: "34_report_cost",
@@ -2062,7 +2062,7 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "81_notification_preferences",
     route: "/",
-    waitFor: ".recharts-responsive-container, .MuiPaper-root",
+    waitFor: ".echart-container, .MuiPaper-root",
     actions: [
       { type: "wait", ms: 600 },
       {
@@ -2577,7 +2577,7 @@ export const MARKETING_PAGES: PageDef[] = [
   {
     id: "dashboard",
     route: "/",
-    waitFor: ".recharts-responsive-container",
+    waitFor: ".echart-container",
     actions: [{ type: "wait", ms: 800 }],
     viewport: { width: 1200, height: 700 },
     filenames: { en: "dashboard" },
@@ -2692,7 +2692,7 @@ export const MARKETING_PAGES: PageDef[] = [
   {
     id: "portfolio-report",
     route: "/reports/portfolio",
-    waitFor: ".recharts-responsive-container",
+    waitFor: ".echart-container",
     actions: [{ type: "wait", ms: 800 }],
     viewport: { width: 800, height: 500 },
     filenames: { en: "portfolio-report" },
@@ -2708,7 +2708,7 @@ export const MARKETING_PAGES: PageDef[] = [
   {
     id: "lifecycle-roadmap",
     route: "/reports/lifecycle",
-    waitFor: ".recharts-responsive-container, [class*='Lifecycle']",
+    waitFor: ".echart-container, [class*='Lifecycle']",
     actions: [{ type: "wait", ms: 800 }],
     viewport: { width: 800, height: 500 },
     filenames: { en: "lifecycle-roadmap" },
@@ -2724,7 +2724,7 @@ export const MARKETING_PAGES: PageDef[] = [
   {
     id: "cost-treemap",
     route: "/reports/cost",
-    waitFor: ".recharts-responsive-container, [class*='Cost']",
+    waitFor: ".echart-container, [class*='Cost']",
     actions: [{ type: "wait", ms: 800 }],
     viewport: { width: 800, height: 500 },
     filenames: { en: "cost-treemap" },
@@ -2740,7 +2740,7 @@ export const MARKETING_PAGES: PageDef[] = [
   {
     id: "data-quality",
     route: "/reports/data-quality",
-    waitFor: ".MuiPaper-root, .recharts-responsive-container",
+    waitFor: ".MuiPaper-root, .echart-container",
     actions: [{ type: "wait", ms: 800 }],
     viewport: { width: 800, height: 500 },
     filenames: { en: "data-quality" },
