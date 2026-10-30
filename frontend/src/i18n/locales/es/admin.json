@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Calidad de datos gamificada",
   "settings.gamification.enabled": "Activado",
   "settings.gamification.disabled": "Desactivado",
-  "settings.gamification.description": "Celebre cada guardado que mejore la calidad de datos de una ficha: la puntuación se llena como una barra de vida con un +X% volador, y una fina barra de puntuación acompaña al lector a lo largo de la página. Los hitos (alcanzar la franja verde, alcanzar el 100%) reciben una breve lluvia de confeti. Los usuarios que tengan activada la reducción de movimiento en su sistema operativo ven el cambio sin animación.",
+  "settings.gamification.description": "Celebre cada guardado que mejore la calidad de datos de una ficha: un +X% brillante vuela desde la sección guardada hasta la puntuación, que destella y se llena como una barra de vida, y una fina barra de puntuación acompaña al lector a lo largo de la página. Los hitos (alcanzar la franja verde, alcanzar el 100%) reciben una breve lluvia de confeti. Al borrar datos, los puntos salen volando de la barra de vuelta a la sección. Los usuarios que tengan activada la reducción de movimiento en su sistema operativo ven el cambio sin animación.",
   "settings.gamification.on": "Se celebran los guardados que mejoran la calidad de datos de una ficha",
   "settings.gamification.off": "Los cambios en la calidad de datos se muestran sin animación",
   "settings.gamification.enabledSuccess": "Calidad de datos gamificada activada",

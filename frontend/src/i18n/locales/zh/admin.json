@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "游戏化数据质量",
   "settings.gamification.enabled": "开启",
   "settings.gamification.disabled": "关闭",
-  "settings.gamification.description": "庆祝每一次提升卡片数据质量的保存：分数像生命值条一样逐渐填满，并飘起一个 +X%，一条纤细的分数条会随读者在页面中向下滚动。里程碑（进入绿色区间、达到 100%）会播放短暂的彩纸效果。在操作系统中启用了「减少动态效果」的用户将看到没有动画的变化。",
+  "settings.gamification.description": "庆祝每一次提升卡片数据质量的保存：一个发光的 +X% 从刚保存的区块飞向分数，分数闪光并像生命值条一样逐渐填满，一条纤细的分数条会随读者在页面中向下滚动。里程碑（进入绿色区间、达到 100%）会播放短暂的彩纸效果。清除数据时，分数会从条上飞回该区块。在操作系统中启用了「减少动态效果」的用户将看到没有动画的变化。",
   "settings.gamification.on": "提升卡片数据质量的保存会得到庆祝",
   "settings.gamification.off": "数据质量的变化将不带动画显示",
   "settings.gamification.enabledSuccess": "已启用游戏化数据质量",

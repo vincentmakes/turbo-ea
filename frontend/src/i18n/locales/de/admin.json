@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Gamifizierte Datenqualität",
   "settings.gamification.enabled": "Ein",
   "settings.gamification.disabled": "Aus",
-  "settings.gamification.description": "Feiern Sie jedes Speichern, das die Datenqualität einer Karte verbessert: Der Wert füllt sich wie eine Lebensleiste, ein +X% fliegt auf, und eine schmale Wertungsleiste begleitet die Leserin oder den Leser beim Scrollen. Meilensteine (Erreichen des grünen Bereichs, Erreichen von 100%) werden mit einem kurzen Konfettiregen gefeiert. Benutzer, die in ihrem Betriebssystem reduzierte Bewegung aktiviert haben, sehen die Änderung ohne Animation.",
+  "settings.gamification.description": "Feiern Sie jedes Speichern, das die Datenqualität einer Karte verbessert: Ein leuchtendes +X% fliegt vom gespeicherten Abschnitt zum Wert, der aufblitzt und sich wie eine Lebensleiste füllt, und eine schmale Wertungsleiste begleitet die Leserin oder den Leser beim Scrollen. Meilensteine (Erreichen des grünen Bereichs, Erreichen von 100%) werden mit einem kurzen Konfettiregen gefeiert. Beim Löschen von Daten fliegen die Punkte von der Leiste zurück zum Abschnitt. Benutzer, die in ihrem Betriebssystem reduzierte Bewegung aktiviert haben, sehen die Änderung ohne Animation.",
   "settings.gamification.on": "Speichervorgänge, die die Datenqualität einer Karte verbessern, werden gefeiert",
   "settings.gamification.off": "Änderungen der Datenqualität werden ohne Animation angezeigt",
   "settings.gamification.enabledSuccess": "Gamifizierte Datenqualität aktiviert",

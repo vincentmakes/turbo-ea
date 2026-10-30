@@ -120,6 +120,7 @@
   "dataQuality.requiredRelation": "Обязательная связь",
   "dataQuality.stakeholders": "Назначено заинтересованное лицо",
   "dataQuality.gainAnnouncement": "+{{pct}}% к качеству данных",
+  "dataQuality.lossAnnouncement": "−{{pct}}% к качеству данных",
   "dataQuality.milestoneComplete": "Готово!",
   "dataQuality.milestonePerfect": "Идеальный результат!",
   "dataQuality.stickyBarLabel": "Качество данных",

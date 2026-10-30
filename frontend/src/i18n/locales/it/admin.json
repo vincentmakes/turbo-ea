@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Qualità dei dati gamificata",
   "settings.gamification.enabled": "Attivo",
   "settings.gamification.disabled": "Disattivo",
-  "settings.gamification.description": "Celebrate ogni salvataggio che migliora la qualità dei dati di una scheda: il punteggio si riempie come una barra della salute con un +X% che vola via, e una sottile barra del punteggio accompagna il lettore lungo la pagina. I traguardi (raggiungere la fascia verde, raggiungere il 100%) ricevono una breve pioggia di coriandoli. Gli utenti che hanno attivato la riduzione del movimento nel sistema operativo vedono la modifica senza animazione.",
+  "settings.gamification.description": "Celebrate ogni salvataggio che migliora la qualità dei dati di una scheda: un +X% luminoso vola dalla sezione salvata fino al punteggio, che lampeggia e si riempie come una barra della salute, e una sottile barra del punteggio accompagna il lettore lungo la pagina. I traguardi (raggiungere la fascia verde, raggiungere il 100%) ricevono una breve pioggia di coriandoli. Cancellando dei dati, i punti volano via dalla barra e tornano alla sezione. Gli utenti che hanno attivato la riduzione del movimento nel sistema operativo vedono la modifica senza animazione.",
   "settings.gamification.on": "I salvataggi che migliorano la qualità dei dati di una scheda vengono celebrati",
   "settings.gamification.off": "Le variazioni della qualità dei dati vengono mostrate senza animazione",
   "settings.gamification.enabledSuccess": "Qualità dei dati gamificata attivata",

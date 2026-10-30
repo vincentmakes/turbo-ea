@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Qualité des données gamifiée",
   "settings.gamification.enabled": "Activé",
   "settings.gamification.disabled": "Désactivé",
-  "settings.gamification.description": "Célébrez chaque enregistrement qui améliore la qualité des données d'une fiche : le score se remplit comme une barre de vie avec un +X% qui s'envole, et une fine barre de score suit le lecteur le long de la page. Les paliers (atteindre la zone verte, atteindre 100%) déclenchent une courte pluie de confettis. Les utilisateurs ayant activé la réduction des animations dans leur système d'exploitation voient le changement sans animation.",
+  "settings.gamification.description": "Célébrez chaque enregistrement qui améliore la qualité des données d'une fiche : un +X% lumineux s'envole de la section enregistrée jusqu'au score, qui s'illumine et se remplit comme une barre de vie, et une fine barre de score suit le lecteur le long de la page. Les paliers (atteindre la zone verte, atteindre 100%) déclenchent une courte pluie de confettis. Lorsque des données sont effacées, les points quittent la barre et retournent vers la section. Les utilisateurs ayant activé la réduction des animations dans leur système d'exploitation voient le changement sans animation.",
   "settings.gamification.on": "Les enregistrements qui améliorent la qualité des données d'une fiche sont célébrés",
   "settings.gamification.off": "Les changements de qualité des données s'affichent sans animation",
   "settings.gamification.enabledSuccess": "Qualité des données gamifiée activée",

@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Gamificeret datakvalitet",
   "settings.gamification.enabled": "Til",
   "settings.gamification.disabled": "Fra",
-  "settings.gamification.description": "Fejr hver gemning, der forbedrer et korts datakvalitet: scoren fyldes op som en livsbjælke med et flyvende +X%, og en slank scorebjælke følger læseren ned ad siden. Milepæle (når det grønne bånd, når 100%) får et kort konfettiregn. Brugere, der har slået reduceret bevægelse til i deres operativsystem, ser ændringen uden animation.",
+  "settings.gamification.description": "Fejr hver gemning, der forbedrer et korts datakvalitet: et glødende +X% flyver fra den gemte sektion til scoren, som blinker og fyldes op som en livsbjælke, og en slank scorebjælke følger læseren ned ad siden. Milepæle (når det grønne bånd, når 100%) får et kort konfettiregn. Når data ryddes, flyver pointene fra bjælken tilbage til sektionen. Brugere, der har slået reduceret bevægelse til i deres operativsystem, ser ændringen uden animation.",
   "settings.gamification.on": "Gemninger, der forbedrer et korts datakvalitet, fejres",
   "settings.gamification.off": "Ændringer i datakvaliteten vises uden animation",
   "settings.gamification.enabledSuccess": "Gamificeret datakvalitet aktiveret",

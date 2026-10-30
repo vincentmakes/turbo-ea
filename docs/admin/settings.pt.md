@@ -220,15 +220,19 @@ Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado
 
 Ative esta opção para celebrar cada gravação que melhora a qualidade dos dados de uma ficha. Está **desativada** por predefinição e aplica-se a todos; não existe uma definição por utilizador.
 
-Enquanto estiver ativa, gravar uma alteração que aumenta a pontuação de uma ficha reproduz uma breve recompensa na página da ficha e no painel de pré-visualização da ficha:
+Enquanto estiver ativa, gravar uma alteração que aumenta a pontuação de uma ficha reproduz uma breve recompensa na página da ficha e no painel de pré-visualização da ficha, como ao ganhar vida num jogo:
 
-- o **anel de qualidade dos dados** cresce, o seu preenchimento aumenta até à nova pontuação como uma barra de vida, e o número vai subindo;
-- um **+X%** verde (os pontos que a gravação acrescentou) sobe e desvanece-se acima dele;
-- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha, e reproduz a mesma animação quando grava mais abaixo na página.
+- um **+X%** verde luminoso (os pontos que a gravação acrescentou) sai da secção gravada — o seu cabeçalho, onde está o botão Guardar — e voa em arco até ao **anel de qualidade dos dados**;
+- no **impacto**, o anel pisca, um halo e um brilho da cor da pontuação espalham-se a partir dele, um reflexo percorre-o, ele cresce, o seu preenchimento aumenta até à nova pontuação como uma barra de vida, e o número vai subindo;
+- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha; enquanto estiver visível, o ganho voa para ela.
 
-Dois momentos contam como **marcos** e recebem uma breve chuva de confete com uma legenda: atingir a faixa verde (**80%** ou mais, *Completo!*) e atingir **100%** (*Pontuação perfeita!*). Uma gravação que baixa a pontuação nunca é animada; o número é simplesmente atualizado.
+Uma gravação feita a partir do cabeçalho (o nome ou o subtipo) ou da secção End of Life não tem nenhuma secção de onde partir, pelo que o **+X%** simplesmente sobe acima do anel.
 
-Os utilizadores que ativaram a **redução de movimento** no sistema operativo não veem qualquer movimento: a pontuação é atualizada de imediato e surge uma etiqueta **+X%** estática durante dois segundos. Os leitores de ecrã anunciam o ganho uma só vez (por exemplo, *+6,7% de qualidade dos dados*).
+Dois momentos contam como **marcos** e recebem uma breve chuva de confete com uma legenda: atingir a faixa verde (**80%** ou mais, *Completo!*) e atingir **100%** (*Pontuação perfeita!*).
+
+Uma gravação que **limpa ou remove dados** e baixa a pontuação reproduz o inverso atenuado, para que se leia como pontos que saem e não como uma penalização: um **−X%** vermelho sai do anel de volta para a secção, a barra esvazia-se — a largura perdida fica a vermelho por instantes — e o número conta em sentido inverso e esbate-se brevemente. Não há clarão, halo nem confete.
+
+Os utilizadores que ativaram a **redução de movimento** no sistema operativo não veem qualquer movimento: nada voa, a pontuação é atualizada de imediato e surge uma etiqueta **+X%** (ou **−X%** vermelho) estática durante dois segundos. Os leitores de ecrã anunciam cada alteração uma só vez (por exemplo, *+6,7% de qualidade dos dados* ou *−6,7% de qualidade dos dados*).
 
 ## Configurações do TurboLens
 

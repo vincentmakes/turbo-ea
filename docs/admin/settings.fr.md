@@ -220,15 +220,19 @@ Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en ava
 
 Activez cette option pour célébrer chaque enregistrement qui améliore la qualité des données d'une fiche. Elle est **désactivée** par défaut et s'applique à tout le monde ; il n'existe pas de réglage par utilisateur.
 
-Lorsqu'elle est active, l'enregistrement d'une modification qui augmente le score d'une fiche déclenche une courte récompense sur la page de la fiche et dans le panneau d'aperçu de la fiche :
+Lorsqu'elle est active, l'enregistrement d'une modification qui augmente le score d'une fiche déclenche une courte récompense sur la page de la fiche et dans le panneau d'aperçu de la fiche, comme lorsqu'on gagne de la vie dans un jeu :
 
-- l'**anneau de qualité des données** pulse, son remplissage grandit jusqu'au nouveau score comme une barre de vie, et le chiffre s'incrémente ;
-- un **+X%** vert (les points ajoutés par l'enregistrement) s'élève et s'estompe au-dessus ;
-- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche, et joue la même animation lorsque vous enregistrez plus bas dans la page.
+- un **+X%** vert lumineux (les points ajoutés par l'enregistrement) quitte la section enregistrée – plus précisément son en-tête, où se trouve le bouton Enregistrer – et file en arc de cercle vers l'**anneau de qualité des données** ;
+- à l'**impact**, l'anneau s'illumine, un halo et une lueur de la couleur du score s'en diffusent, un reflet le balaie, il pulse, son remplissage grandit jusqu'au nouveau score comme une barre de vie, et le chiffre s'incrémente ;
+- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche ; tant qu'elle est affichée, le gain s'envole vers elle à la place.
 
-Deux moments comptent comme des **paliers** et déclenchent une courte pluie de confettis accompagnée d'une légende : l'entrée dans la zone verte (**80%** et plus, *Terminé !*) et l'atteinte de **100%** (*Score parfait !*). Un enregistrement qui fait baisser le score n'est jamais animé ; le nombre est simplement mis à jour.
+Un enregistrement effectué depuis l'en-tête (le nom ou le sous-type) ou depuis la section End of Life n'a pas de section d'où partir : le **+X%** s'élève alors simplement au-dessus de l'anneau.
 
-Les utilisateurs qui ont activé la **réduction des animations** dans leur système d'exploitation ne voient aucun mouvement : le score est mis à jour immédiatement et une étiquette **+X%** statique s'affiche pendant deux secondes. Les lecteurs d'écran annoncent le gain une seule fois (par exemple *+6,7% de qualité des données*).
+Deux moments comptent comme des **paliers** et déclenchent une courte pluie de confettis accompagnée d'une légende : l'entrée dans la zone verte (**80%** et plus, *Terminé !*) et l'atteinte de **100%** (*Score parfait !*).
+
+Un enregistrement qui **efface ou supprime des données** et fait baisser le score joue l'inverse atténué, de sorte que l'on y voit des points qui partent plutôt qu'une pénalité : un **−X%** rouge quitte l'anneau et retourne vers la section, la barre se vide – la largeur perdue reste affichée en rouge un court instant – et le chiffre décompte et s'estompe brièvement. Il n'y a ni éclat, ni halo, ni confettis.
+
+Les utilisateurs qui ont activé la **réduction des animations** dans leur système d'exploitation ne voient aucun mouvement : rien ne s'envole, le score est mis à jour immédiatement et une étiquette **+X%** (ou **−X%** rouge) statique s'affiche pendant deux secondes. Les lecteurs d'écran annoncent chaque changement une seule fois (par exemple *+6,7% de qualité des données* ou *−6,7% de qualité des données*).
 
 ## Paramètres TurboLens
 

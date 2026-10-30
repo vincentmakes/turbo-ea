@@ -140,6 +140,7 @@
   "dataQuality.requiredRelation": "علاقة إلزامية",
   "dataQuality.stakeholders": "صاحب مصلحة معيّن",
   "dataQuality.gainAnnouncement": "+{{pct}}% جودة البيانات",
+  "dataQuality.lossAnnouncement": "−{{pct}}% جودة البيانات",
   "dataQuality.milestoneComplete": "اكتمل!",
   "dataQuality.milestonePerfect": "درجة كاملة!",
   "dataQuality.stickyBarLabel": "جودة البيانات",

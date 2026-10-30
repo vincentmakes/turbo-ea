@@ -220,15 +220,19 @@ Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på tur
 
 Slå dette til for at fejre hver gemning, der forbedrer et korts datakvalitet. Det er **slået fra** som standard og gælder for alle; der er ingen indstilling pr. bruger.
 
-Mens det er slået til, afspiller gemning af en ændring, der hæver et korts score, en kort belønning på kortsiden og i kortets eksempelpanel:
+Mens det er slået til, afspiller gemning af en ændring, der hæver et korts score, en kort belønning på kortsiden og i kortets eksempelpanel, som når man får liv i et spil:
 
-- **datakvalitetsringen** popper, dens fyld vokser til den nye score som en livsbjælke, og tallet tæller op;
-- et grønt **+X%** (de point, som gemningen tilførte) stiger op og toner ud over den;
-- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift, og den afspiller den samme animation, når du gemmer længere nede på siden.
+- et glødende grønt **+X%** (de point, som gemningen tilførte) forlader den gemte sektion – dens overskrift, hvor knappen Gem sidder – og flyver i en bue til **datakvalitetsringen**;
+- ved **nedslaget** blinker ringen, en glorie og et skær i scorens farve breder sig fra den, et glimt fejer hen over den, den popper, dens fyld vokser til den nye score som en livsbjælke, og tallet tæller op;
+- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift; så længe den vises, flyver gevinsten i stedet hen til den.
 
-To øjeblikke tæller som **milepæle** og får et kort konfettiregn med en billedtekst: at nå det grønne bånd (**80%** og derover, *Færdig!*) og at nå **100%** (*Perfekt score!*). En gemning, der sænker scoren, animeres aldrig; tallet opdateres blot.
+En gemning fra overskriften (navnet eller undertypen) eller fra sektionen End of Life har ingen sektion at flyve fra, så **+X%** stiger blot op over ringen.
 
-Brugere, der har slået **reduceret bevægelse** til i deres operativsystem, ser ingen bevægelse: scoren opdateres med det samme, og en statisk **+X%**-etiket vises i to sekunder. Skærmlæsere annoncerer fremgangen én gang (for eksempel *+6,7% datakvalitet*).
+To øjeblikke tæller som **milepæle** og får et kort konfettiregn med en billedtekst: at nå det grønne bånd (**80%** og derover, *Færdig!*) og at nå **100%** (*Perfekt score!*).
+
+En gemning, der **rydder eller fjerner data** og sænker scoren, afspiller den dæmpede omvendte version, så den opleves som point, der forlader scoren, og ikke som en straf: et rødt **−X%** flyver fra ringen tilbage til sektionen, bjælken tømmes – den tabte bredde vises kortvarigt i rødt – og tallet tæller ned og dæmpes et øjeblik. Der er intet blink, ingen glorie og intet konfettiregn.
+
+Brugere, der har slået **reduceret bevægelse** til i deres operativsystem, ser ingen bevægelse: intet flyver, scoren opdateres med det samme, og en statisk **+X%**-etiket (eller rød **−X%**) vises i to sekunder. Skærmlæsere annoncerer hver ændring én gang (for eksempel *+6,7% datakvalitet* eller *−6,7% datakvalitet*).
 
 ## TurboLens-indstillinger
 

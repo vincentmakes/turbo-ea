@@ -100,6 +100,7 @@
   "dataQuality.requiredRelation": "Une relation obligatoire",
   "dataQuality.stakeholders": "Une partie prenante affectée",
   "dataQuality.gainAnnouncement": "+{{pct}}% de qualité des données",
+  "dataQuality.lossAnnouncement": "−{{pct}}% de qualité des données",
   "dataQuality.milestoneComplete": "Terminé !",
   "dataQuality.milestonePerfect": "Score parfait !",
   "dataQuality.stickyBarLabel": "Qualité des données",

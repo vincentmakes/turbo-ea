@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "Qualidade dos dados gamificada",
   "settings.gamification.enabled": "Ativado",
   "settings.gamification.disabled": "Desativado",
-  "settings.gamification.description": "Celebre cada gravação que melhora a qualidade dos dados de uma ficha: a pontuação enche como uma barra de vida com um +X% voador, e uma barra de pontuação discreta acompanha o leitor ao longo da página. Os marcos (atingir a faixa verde, atingir 100%) recebem uma breve chuva de confete. Os utilizadores com a redução de movimento ativada no sistema operativo veem a alteração sem animação.",
+  "settings.gamification.description": "Celebre cada gravação que melhora a qualidade dos dados de uma ficha: um +X% luminoso voa da secção gravada até à pontuação, que pisca e enche como uma barra de vida, e uma barra de pontuação discreta acompanha o leitor ao longo da página. Os marcos (atingir a faixa verde, atingir 100%) recebem uma breve chuva de confete. Ao limpar dados, os pontos saem da barra e voltam para a secção. Os utilizadores com a redução de movimento ativada no sistema operativo veem a alteração sem animação.",
   "settings.gamification.on": "As gravações que melhoram a qualidade dos dados de uma ficha são celebradas",
   "settings.gamification.off": "As alterações da qualidade dos dados são mostradas sem animação",
   "settings.gamification.enabledSuccess": "Qualidade dos dados gamificada ativada",
