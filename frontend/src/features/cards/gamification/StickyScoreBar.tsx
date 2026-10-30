@@ -50,21 +50,6 @@ export function StickyScoreBar({
 }) {
   const { t } = useTranslation("cards");
   const reduced = useReducedMotion();
-  const v = Math.max(0, Math.min(100, Math.round(value)));
-  const color = bandColor(v);
-  const loss = gain?.direction === "loss";
-  const flying = !!gain && !loss && !!gain.originAnchor && !reduced;
-  const landed = flying && impactNonce === gain.nonce;
-  const waiting = flying && !landed;
-  const shown = Math.round(
-    useAnimatedNumber(
-      waiting ? Math.max(0, Math.min(100, Math.round(gain.from))) : v,
-      !reduced,
-      flying || loss ? 0 : GHOST_HOLD_MS,
-      loss,
-    ),
-  );
-  const showBurst = !!gain && (loss ? reduced || !gain.originAnchor : !waiting);
 
   // The figure's box, handed over once the Slide has entered and withdrawn as
   // it starts to leave or when the bar unmounts. Under reduced motion the orb
@@ -105,103 +90,153 @@ export function StickyScoreBar({
           py: 0.75,
         }}
       >
-        <Box
-          sx={{
-            maxWidth: 960,
-            mx: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-          }}
-        >
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            noWrap
-            sx={{ minWidth: 0, flex: "0 1 auto", maxWidth: "40%" }}
-          >
-            {name}
-          </Typography>
-          <ScoreBar
-            value={v}
-            color={color}
-            animate
-            ghostFrom={gain?.from ?? null}
-            ghostColor={loss ? STATUS_COLORS.error : undefined}
-            fillOn={flying ? landed : undefined}
-            shineKey={landed ? gain.nonce : null}
-            height={10}
-            radius={5}
-            sx={{ flex: 1, minWidth: 48 }}
-          />
-          <Box
-            ref={setFigure}
-            data-testid="sticky-score-figure"
-            className={landed ? "dq-impact" : undefined}
-            sx={{ position: "relative", display: "inline-flex", flexShrink: 0, borderRadius: "4px" }}
-          >
-            <Typography
-              key={loss && !reduced ? `dim-${gain.nonce}` : "figure"}
-              variant="caption"
-              fontWeight={700}
-              data-testid="sticky-score-value"
-              className={loss && !reduced ? "dq-dim" : undefined}
-              sx={{ color, minWidth: 36, textAlign: "right" }}
-            >
-              {shown}%
-            </Typography>
-            {landed && (
-              <>
-                <Box
-                  key={`flash-${gain.nonce}`}
-                  aria-hidden
-                  data-testid="sticky-score-flash"
-                  className="dq-flash"
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "4px",
-                    bgcolor: "common.white",
-                    opacity: 0,
-                    pointerEvents: "none",
-                  }}
-                />
-                <Box
-                  key={`halo-${gain.nonce}`}
-                  aria-hidden
-                  data-testid="sticky-score-halo"
-                  className="dq-halo"
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "4px",
-                    border: `2px solid ${bandColor(gain.to)}`,
-                    opacity: 0,
-                    pointerEvents: "none",
-                  }}
-                />
-                <Box
-                  key={`impact-glow-${gain.nonce}`}
-                  aria-hidden
-                  data-testid="sticky-score-impact-glow"
-                  className="dq-impact-glow"
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "4px",
-                    // Static shadow; only the opacity animates.
-                    boxShadow: `0 0 18px 2px ${bandColor(gain.to)}`,
-                    opacity: 0,
-                    pointerEvents: "none",
-                  }}
-                />
-              </>
-            )}
-            {showBurst && <ScoreGainBurst key={gain.nonce} gain={gain} placement="inline" />}
-          </Box>
-        </Box>
+        <StickyScoreBarContent
+          name={name}
+          value={value}
+          gain={gain}
+          impactNonce={impactNonce}
+          onFigureRef={setFigure}
+        />
       </Box>
     </Slide>
+  );
+}
+
+/**
+ * What the bar shows. Mounted and unmounted with the Slide's child, so its
+ * first render knows which change was already on the page: a gain that played
+ * before the bar opened (the reader scrolled up, then down again) is **not**
+ * replayed — the bar shows the score it led to and nothing bursts.
+ */
+function StickyScoreBarContent({
+  name,
+  value,
+  gain: latest,
+  impactNonce,
+  onFigureRef,
+}: {
+  name: string;
+  value: number;
+  gain: ScoreGain | null;
+  impactNonce: number | null;
+  onFigureRef: (el: HTMLElement | null) => void;
+}) {
+  const reduced = useReducedMotion();
+  // The change already on the page when the bar opened: never ours to play.
+  const [staleNonce] = useState(() => latest?.nonce ?? null);
+  const gain = latest && latest.nonce !== staleNonce ? latest : null;
+  const v = Math.max(0, Math.min(100, Math.round(value)));
+  const color = bandColor(v);
+  const loss = gain?.direction === "loss";
+  const flying = !!gain && !loss && !!gain.originAnchor && !reduced;
+  const landed = flying && impactNonce === gain.nonce;
+  const waiting = flying && !landed;
+  const shown = Math.round(
+    useAnimatedNumber(
+      waiting ? Math.max(0, Math.min(100, Math.round(gain.from))) : v,
+      !reduced,
+      flying || loss ? 0 : GHOST_HOLD_MS,
+      loss,
+    ),
+  );
+  const showBurst = !!gain && (loss ? reduced || !gain.originAnchor : !waiting);
+
+  return (
+  <Box
+    sx={{
+      maxWidth: 960,
+      mx: "auto",
+      display: "flex",
+      alignItems: "center",
+      gap: 1.5,
+    }}
+  >
+    <Typography
+      variant="body2"
+      fontWeight={600}
+      noWrap
+      sx={{ minWidth: 0, flex: "0 1 auto", maxWidth: "40%" }}
+    >
+      {name}
+    </Typography>
+    <ScoreBar
+      value={v}
+      color={color}
+      animate
+      ghostFrom={gain?.from ?? null}
+      ghostColor={loss ? STATUS_COLORS.error : undefined}
+      fillOn={flying ? landed : undefined}
+      shineKey={landed ? gain.nonce : null}
+      height={10}
+      radius={5}
+      sx={{ flex: 1, minWidth: 48 }}
+    />
+    <Box
+      ref={onFigureRef}
+      data-testid="sticky-score-figure"
+      className={landed ? "dq-impact" : undefined}
+      sx={{ position: "relative", display: "inline-flex", flexShrink: 0, borderRadius: "4px" }}
+    >
+      <Typography
+        key={loss && !reduced ? `dim-${gain.nonce}` : "figure"}
+        variant="caption"
+        fontWeight={700}
+        data-testid="sticky-score-value"
+        className={loss && !reduced ? "dq-dim" : undefined}
+        sx={{ color, minWidth: 36, textAlign: "right" }}
+      >
+        {shown}%
+      </Typography>
+      {landed && (
+        <>
+          <Box
+            key={`flash-${gain.nonce}`}
+            aria-hidden
+            data-testid="sticky-score-flash"
+            className="dq-flash"
+            sx={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "4px",
+              bgcolor: "common.white",
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+          <Box
+            key={`halo-${gain.nonce}`}
+            aria-hidden
+            data-testid="sticky-score-halo"
+            className="dq-halo"
+            sx={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "4px",
+              border: `2px solid ${bandColor(gain.to)}`,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+          <Box
+            key={`impact-glow-${gain.nonce}`}
+            aria-hidden
+            data-testid="sticky-score-impact-glow"
+            className="dq-impact-glow"
+            sx={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "4px",
+              // Static shadow; only the opacity animates.
+              boxShadow: `0 0 18px 2px ${bandColor(gain.to)}`,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
+      {showBurst && <ScoreGainBurst key={gain.nonce} gain={gain} placement="inline" />}
+    </Box>
+  </Box>
   );
 }
 

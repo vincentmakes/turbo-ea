@@ -16,6 +16,14 @@ const GAIN: ScoreGain = {
   direction: "gain",
   originAnchor: null,
 };
+const PERFECT: ScoreGain = {
+  ...GAIN,
+  from: 93.3,
+  to: 100,
+  milestone: "perfect",
+  nonce: 9,
+  originAnchor: "card-section-description",
+};
 const ANCHOR = "card-section-description";
 const FLYING: ScoreGain = { ...GAIN, originAnchor: ANCHOR, nonce: 3 };
 const LOSS: ScoreGain = {
@@ -60,7 +68,8 @@ describe("StickyScoreBar", () => {
   });
 
   it("plays a gain like the pill: ghost, fill and the floating figure", () => {
-    render(<StickyScoreBar open name="SAP S/4HANA" value={75} gain={GAIN} />);
+    const { rerender } = render(<StickyScoreBar open name="SAP S/4HANA" value={68.3} gain={null} />);
+    rerender(<StickyScoreBar open name="SAP S/4HANA" value={75} gain={GAIN} />);
     expect(screen.getByTestId("score-bar-ghost")).toHaveStyle({ transform: "scaleX(0.75)" });
     expect(screen.getByTestId("score-bar-fill")).toHaveStyle({
       transition: "transform 500ms cubic-bezier(0, 0, 0, 1) 400ms",
@@ -69,6 +78,25 @@ describe("StickyScoreBar", () => {
     expect(screen.getByTestId("score-gain-float")).not.toHaveStyle({ bottom: "100%" });
     // The pill announces gains; the bar never does, or a reader would hear it twice.
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("does not replay a gain that was already on the page when it opened", () => {
+    // The reader saved (the pill played the gain), scrolled up, then down again.
+    const { rerender } = render(
+      <StickyScoreBar open={false} name="X" value={100} gain={PERFECT} impactNonce={9} />,
+    );
+    rerender(<StickyScoreBar open name="X" value={100} gain={PERFECT} impactNonce={9} />);
+    expect(screen.getByTestId("sticky-score-value")).toHaveTextContent(/^100%$/);
+    expect(screen.queryByTestId("score-gain-burst")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("score-gain-confetti")).toHaveLength(0);
+    expect(screen.queryByTestId("score-bar-ghost")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sticky-score-flash")).not.toBeInTheDocument();
+    expect(screen.getByTestId("sticky-score-figure")).not.toHaveClass("dq-impact");
+    // A later gain, arriving while the bar is open, still plays.
+    rerender(
+      <StickyScoreBar open name="X" value={100} gain={{ ...GAIN, nonce: 10 }} impactNonce={9} />,
+    );
+    expect(screen.getByTestId("score-gain-float")).toHaveTextContent(/^\+6\.7%$/);
   });
 
   it("counts the figure up to a higher score", async () => {
