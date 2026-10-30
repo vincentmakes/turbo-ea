@@ -52,7 +52,8 @@ function renderSection(initial: ConfigDraft = base) {
   return { ...result, onDraft, last: () => onDraft.mock.calls.at(-1)![0] as ConfigDraft };
 }
 
-const combo = (label: string) => screen.getByRole("combobox", { name: new RegExp(`^${label.replace(/[()]/g, "\\$&")}`) });
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const combo = (label: string) => screen.getByRole("combobox", { name: new RegExp(`^${escapeRegExp(label)}`) });
 
 async function options(user: ReturnType<typeof renderSection>["user"], label: string): Promise<string[]> {
   await user.click(combo(label));

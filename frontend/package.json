@@ -112,6 +112,6 @@
       "@babel/core": "~8.0.0"
     },
     "image-size": "$image-size",
-    "qs": ">=6.15.4"
+    "qs": ">=6.16.2"
   }
 }

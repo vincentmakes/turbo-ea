@@ -36,7 +36,8 @@ function renderDialog(w: DashboardWidget, { mode = "create", user = adminUser() 
   return { ...result, onSave, onClose };
 }
 
-const combo = (label: string) => screen.getByRole("combobox", { name: new RegExp(`^${label}`) });
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const combo = (label: string) => screen.getByRole("combobox", { name: new RegExp(`^${escapeRegExp(label)}`) });
 const saveButton = (mode: "create" | "edit" = "create") =>
   screen.getByRole("button", { name: mode === "create" ? tc("actions.add") : tc("actions.apply") });
 
@@ -310,8 +311,8 @@ describe("WidgetConfigDialog — new metrics", () => {
     const { user, onSave } = renderDialog(NEW_CHART);
     await choose(user, tc("dashboard.config.chartKind"), tc("dashboard.query.chart.sankey"));
     await choose(user, tc("dashboard.config.relationType"), "Application → uses → IT Component");
-    const source = tc("dashboard.config.sourceDimension", { type: "Application" }).replace(/[()]/g, "\\$&");
-    const target = tc("dashboard.config.targetDimension", { type: "IT Component" }).replace(/[()]/g, "\\$&");
+    const source = tc("dashboard.config.sourceDimension", { type: "Application" });
+    const target = tc("dashboard.config.targetDimension", { type: "IT Component" });
     expect(await options(user, source)).toContain("Business Criticality");
     expect(await options(user, target)).not.toContain("Business Criticality");
     await choose(user, source, "Business Criticality");
