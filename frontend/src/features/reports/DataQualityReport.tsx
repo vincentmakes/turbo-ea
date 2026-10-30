@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -14,7 +14,6 @@ import TableRow from "@mui/material/TableRow";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
@@ -24,10 +23,15 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import { useIsRtl } from "@/hooks/useIsRtl";
-import { makeRtlAxisTick, rtlLegendItemStyle, mirrorChartMargin } from "@/lib/rechartsRtl";
+import EChart, { EXPORT_DPR } from "@/components/charts/EChart";
+import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportCardListPanel, { type ReportCardListItem } from "./ReportCardListPanel";
+import {
+  buildStackedBarOption,
+  stackedBarHeight,
+  type StackedBarRow,
+} from "./dataQualityChartOption";
 import {
   buildInventoryEolUrl,
   buildInventoryFlagUrl,
@@ -38,6 +42,7 @@ import {
   bandColor,
   bandOf,
   DATA_QUALITY_BANDS,
+  isDataQualityBand,
   type DataQualityBand,
 } from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
@@ -99,28 +104,20 @@ interface DQCardsResponse {
   items: DQCard[];
 }
 
-/**
- * Both charts on this report are clickable, and clicking an SVG node focuses
- * it: Chrome then paints its focus ring, which lands around the whole plot
- * area on one chart and around a single bar group on the other — a stray box
- * that reads as a line drawn across the bar, and that nothing dismisses.
- *
- * Recharts gives these nodes no `tabindex`, so nothing inside the SVG is
- * reachable by keyboard and the ring only ever comes from a mouse click —
- * suppressing it costs no affordance. It has to be plain `:focus` rather
- * than `:focus:not(:focus-visible)`: Chrome reports these SVG nodes as
- * matching `:focus-visible` even when focus came from a click, so the
- * narrower selector never fires.
- */
-const CHART_PAPER_SX = {
-  p: 2,
-  "& .recharts-wrapper svg:focus, & .recharts-wrapper svg :focus": {
-    outline: "none",
-  },
-} as const;
-
 /** The three segments of the EOL coverage chart, by where the data came from. */
 type EolBucket = "linked" | "manual" | "missing";
+
+const EOL_BUCKETS: readonly string[] = ["linked", "manual", "missing"];
+
+function isEolBucket(value: unknown): value is EolBucket {
+  return typeof value === "string" && EOL_BUCKETS.includes(value);
+}
+
+/** What a clicked segment carries: its card type and which segment it is. */
+interface SegmentDatum {
+  type?: string;
+  segment?: string;
+}
 
 /**
  * The slice of the dashboard the side panel is showing. `band` is one segment
@@ -183,14 +180,12 @@ function dataQualityLabelKey(v: number): string {
 export default function DataQualityReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
-  const isRtl = useIsRtl();
+  const chartTheme = useEChartsTheme();
   // The category axis reserves a fixed pixel gutter, so on a phone it has to
   // shrink or the bars get squeezed into whatever is left over.
   const isNarrow = useMediaQuery(theme.breakpoints.down("sm"));
   const axisWidth = isNarrow ? 96 : 150;
   const tickFontSize = isNarrow ? 11 : 12;
-  const axisTick = { fontSize: tickFontSize, fill: theme.palette.text.secondary };
-  const rtlAxisTick = makeRtlAxisTick(theme.palette.text.secondary, tickFontSize);
   const { formatDate } = useDateFormat();
   const { types } = useMetamodel();
   const typeLabel = useTypeLabel();
@@ -229,7 +224,7 @@ export default function DataQualityReport() {
   const handleReset = useCallback(() => {
     saved.resetAll();
     setView("chart");
-  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [saved]);
 
   useEffect(() => {
     api.get<DQData>("/reports/data-quality").then(setData);
@@ -242,8 +237,8 @@ export default function DataQualityReport() {
     setSidePanelCardId(id);
   }, []);
 
-  /** Guarded because Recharts' click payload is only as reliable as the datum
-   * it was built from — a click that cannot name its type opens nothing. */
+  /** Guarded because a click is only as reliable as the datum it lands on —
+   * a click that cannot name its type opens nothing. */
   const openBand = useCallback((typeKey: string | undefined, band: DataQualityBand) => {
     if (typeKey) setScope({ kind: "band", typeKey, band });
   }, []);
@@ -252,6 +247,103 @@ export default function DataQualityReport() {
     if (typeKey) setScope({ kind: "eol", typeKey, bucket });
   }, []);
 
+  const labelForType = useCallback(
+    (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key,
+    [types, typeLabel],
+  );
+
+  // Both charts are the same stacked-bar shape, so they read as one report.
+  const completeLabel = t("dataQuality.complete");
+  const partialLabel = t("dataQuality.partial");
+  const minimalLabel = t("dataQuality.minimal");
+  const eolLinkedLabel = t("dataQuality.eolLinked");
+  const eolManualLabel = t("dataQuality.eolManual");
+  const eolMissingLabel = t("dataQuality.eolMissing");
+
+  const completenessRows: StackedBarRow[] = useMemo(
+    () =>
+      (data?.by_type ?? []).map((bt) => ({
+        key: bt.type,
+        label: labelForType(bt.type),
+        values: [bt.complete, bt.partial, bt.minimal],
+      })),
+    [data, labelForType],
+  );
+
+  // EOL coverage: the backend already counts per type, so this only resolves
+  // the labels.
+  const eolRows: StackedBarRow[] = useMemo(
+    () =>
+      (data?.eol_coverage ?? []).map((row) => ({
+        key: row.type,
+        label: labelForType(row.type),
+        values: [row.linked, row.manual, row.missing],
+      })),
+    [data, labelForType],
+  );
+
+  const chartOptions = useMemo(() => {
+    const opts = {
+      chrome: chartTheme,
+      isRtl: chartTheme.isRtl,
+      axisWidth,
+      tickFontSize,
+      totalLabel: (count: number) => t("dataQuality.totalItemsLabel", { count }),
+    };
+    return {
+      completeness: buildStackedBarOption(
+        completenessRows,
+        [
+          { key: "complete", name: completeLabel, color: QUALITY_COLORS.complete },
+          { key: "partial", name: partialLabel, color: QUALITY_COLORS.partial },
+          { key: "minimal", name: minimalLabel, color: QUALITY_COLORS.minimal },
+        ],
+        opts,
+      ),
+      eol: buildStackedBarOption(
+        eolRows,
+        [
+          { key: "linked", name: eolLinkedLabel, color: EOL_SOURCE_COLORS.linked },
+          { key: "manual", name: eolManualLabel, color: EOL_SOURCE_COLORS.manual },
+          { key: "missing", name: eolMissingLabel, color: EOL_SOURCE_COLORS.missing },
+        ],
+        opts,
+      ),
+    };
+  }, [
+    chartTheme,
+    axisWidth,
+    tickFontSize,
+    t,
+    completenessRows,
+    eolRows,
+    completeLabel,
+    partialLabel,
+    minimalLabel,
+    eolLinkedLabel,
+    eolManualLabel,
+    eolMissingLabel,
+  ]);
+
+  // Each datum names its card type and segment (`buildStackedBarOption`), and
+  // the segment is checked against its chart's own vocabulary before it opens
+  // anything.
+  const handleCompletenessClick = useCallback(
+    (p: { data?: unknown }) => {
+      const d = p.data as SegmentDatum | undefined;
+      if (d && isDataQualityBand(d.segment)) openBand(d.type, d.segment);
+    },
+    [openBand],
+  );
+
+  const handleEolClick = useCallback(
+    (p: { data?: unknown }) => {
+      const d = p.data as SegmentDatum | undefined;
+      if (d && isEolBucket(d.segment)) openEol(d.type, d.segment);
+    },
+    [openEol],
+  );
+
   if (data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -259,41 +351,11 @@ export default function DataQualityReport() {
   const orphanedPct = data.total_items > 0 ? ((data.orphaned / data.total_items) * 100).toFixed(0) : "0";
   const stalePct = data.total_items > 0 ? ((data.stale / data.total_items) * 100).toFixed(0) : "0";
 
-  // Chart data for stacked bar
-  const completeLabel = t("dataQuality.complete");
-  const partialLabel = t("dataQuality.partial");
-  const minimalLabel = t("dataQuality.minimal");
-  const chartData = data.by_type.map((bt) => ({
-    name: (() => { const tp = types.find((tp) => tp.key === bt.type); return typeLabel(tp) || bt.type; })(),
-    type: bt.type,
-    [completeLabel]: bt.complete,
-    [partialLabel]: bt.partial,
-    [minimalLabel]: bt.minimal,
-    avg: bt.avg_data_quality,
-    total: bt.total,
-  }));
-
-  // EOL coverage chart. Same shape as the stacked bar above, so the two read
-  // as one report; the backend already counts per type, so this only resolves
-  // the labels.
-  const eolLinkedLabel = t("dataQuality.eolLinked");
-  const eolManualLabel = t("dataQuality.eolManual");
-  const eolMissingLabel = t("dataQuality.eolMissing");
   const EOL_BUCKET_LABEL: Record<EolBucket, string> = {
     linked: eolLinkedLabel,
     manual: eolManualLabel,
     missing: eolMissingLabel,
   };
-  const eolChartData = (data.eol_coverage ?? []).map((row) => ({
-    name: (() => { const tp = types.find((tp) => tp.key === row.type); return typeLabel(tp) || row.type; })(),
-    type: row.type,
-    [eolLinkedLabel]: row.linked,
-    [eolManualLabel]: row.manual,
-    [eolMissingLabel]: row.missing,
-    total: row.total,
-  }));
-
-  const labelForType = (key: string) => typeLabel(types.find((tp) => tp.key === key)) || key;
 
   // ---- Side panel ----------------------------------------------------
   const panelTitle = (() => {
@@ -350,23 +412,6 @@ export default function DataQualityReport() {
   if (data.orphaned > 5) alerts.push({ severity: "warning", msg: t("dataQuality.orphanedAlert", { count: data.orphaned }) });
   if (data.stale > 5) alerts.push({ severity: "warning", msg: t("dataQuality.staleAlert", { count: data.stale }) });
   if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: t("dataQuality.overallAlert", { pct: data.overall_data_quality }) });
-
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
-    if (!active || !payload) return null;
-    const total = payload.reduce((s, p) => s + p.value, 0);
-    return (
-      <Paper sx={{ p: 1.5 }} elevation={3}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{label}</Typography>
-        <Typography variant="caption" display="block" color="text.secondary">{t("dataQuality.totalItemsLabel", { count: total })}</Typography>
-        {payload.map((p) => (
-          <Box key={p.name} sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: p.color }} />
-            <Typography variant="caption">{p.name}: {p.value} ({total > 0 ? ((p.value / total) * 100).toFixed(0) : 0}%)</Typography>
-          </Box>
-        ))}
-      </Paper>
-    );
-  };
 
   return (
     <ReportShell
@@ -435,48 +480,18 @@ export default function DataQualityReport() {
       {view === "chart" ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           {/* Stacked bar chart by type */}
-          <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
+          <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               {t("dataQuality.completenessByType")}
             </Typography>
-            <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 50)}>
-              {/* No margin on the label side: Recharts draws the category axis
-                  in its own `width` band *after* the margin, so a margin there
-                  is dead space added on top of the axis gutter. */}
-              <BarChart data={chartData} layout="vertical" margin={mirrorChartMargin({ left: 0, right: 16, top: 5, bottom: 5 }, isRtl)}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                <XAxis type="number" reversed={isRtl} tick={axisTick} />
-                <YAxis type="category" dataKey="name" width={axisWidth} orientation={isRtl ? "right" : "left"} tick={isRtl ? rtlAxisTick : axisTick} />
-                <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
-                <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
-                {/* Recharts hands the clicked datum to the Bar's onClick, so
-                    each segment resolves its own type key; the band comes from
-                    which Bar was clicked. */}
-                <Bar
-                  dataKey={completeLabel}
-                  stackId="a"
-                  fill={QUALITY_COLORS.complete}
-                  radius={[0, 0, 0, 0]}
-                  cursor="pointer"
-                  onClick={(entry: { type?: string }) => openBand(entry?.type, "complete")}
-                />
-                <Bar
-                  dataKey={partialLabel}
-                  stackId="a"
-                  fill={QUALITY_COLORS.partial}
-                  cursor="pointer"
-                  onClick={(entry: { type?: string }) => openBand(entry?.type, "partial")}
-                />
-                <Bar
-                  dataKey={minimalLabel}
-                  stackId="a"
-                  fill={QUALITY_COLORS.minimal}
-                  radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
-                  cursor="pointer"
-                  onClick={(entry: { type?: string }) => openBand(entry?.type, "minimal")}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <Box sx={{ height: stackedBarHeight(completenessRows.length, 250, 50) }}>
+              <EChart
+                option={chartOptions.completeness}
+                devicePixelRatio={EXPORT_DPR}
+                ariaLabel={t("dataQuality.completenessByType")}
+                onClick={handleCompletenessClick}
+              />
+            </Box>
           </Paper>
 
           {/* Per-type data quality bars */}
@@ -539,57 +554,24 @@ export default function DataQualityReport() {
               vendor link keeps itself current while a hand-entered date is
               only as good as its last review, and rendered only when the
               landscape actually holds such cards. */}
-          {eolChartData.length > 0 && (
-            <Paper variant="outlined" sx={CHART_PAPER_SX} data-export-row>
+          {eolRows.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 2 }} data-export-row>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                 {t("dataQuality.eolCoverage")}
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
                 {t("dataQuality.eolCoverageHint")}
               </Typography>
-              <ResponsiveContainer width="100%" height={Math.max(160, eolChartData.length * 70)}>
-                <BarChart
-                  data={eolChartData}
-                  layout="vertical"
-                  margin={mirrorChartMargin({ left: 0, right: 16, top: 5, bottom: 5 }, isRtl)}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
-                  <XAxis type="number" reversed={isRtl} tick={axisTick} />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={axisWidth}
-                    orientation={isRtl ? "right" : "left"}
-                    tick={isRtl ? rtlAxisTick : axisTick}
-                  />
-                  <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
-                  <Legend formatter={(value: string) => <span style={rtlLegendItemStyle(isRtl, theme.palette.text.primary)}>{value}</span>} />
-                  {/* Each segment opens the panel on the cards behind it, the
-                      same way a completeness segment does. */}
-                  <Bar
-                    dataKey={eolLinkedLabel}
-                    stackId="eol"
-                    fill={EOL_SOURCE_COLORS.linked}
-                    cursor="pointer"
-                    onClick={(entry: { type?: string }) => openEol(entry?.type, "linked")}
-                  />
-                  <Bar
-                    dataKey={eolManualLabel}
-                    stackId="eol"
-                    fill={EOL_SOURCE_COLORS.manual}
-                    cursor="pointer"
-                    onClick={(entry: { type?: string }) => openEol(entry?.type, "manual")}
-                  />
-                  <Bar
-                    dataKey={eolMissingLabel}
-                    stackId="eol"
-                    fill={EOL_SOURCE_COLORS.missing}
-                    radius={isRtl ? [4, 0, 0, 4] : [0, 4, 4, 0]}
-                    cursor="pointer"
-                    onClick={(entry: { type?: string }) => openEol(entry?.type, "missing")}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {/* Each segment opens the panel on the cards behind it, the
+                  same way a completeness segment does. */}
+              <Box sx={{ height: stackedBarHeight(eolRows.length, 160, 70) }}>
+                <EChart
+                  option={chartOptions.eol}
+                  devicePixelRatio={EXPORT_DPR}
+                  ariaLabel={t("dataQuality.eolCoverage")}
+                  onClick={handleEolClick}
+                />
+              </Box>
             </Paper>
           )}
         </Box>

@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
 import DataQualityReport from "./DataQualityReport";
+import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
+import { EOL_COVERAGE_COLORS } from "@/theme";
+import { setViewportWidth } from "@/test/matchMedia";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -25,71 +28,26 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
 }));
 
 /**
- * Recharts renders nothing measurable in jsdom (ResponsiveContainer has zero
- * width), so the stacked bar is stubbed down to the one thing under test: each
- * <Bar> gets a button per datum that fires its onClick with that datum, which
- * is exactly the contract the real component relies on.
+ * jsdom has no canvas, so both charts are the shared EChart double: a test
+ * reads the option the page built and delivers a click the way ECharts would,
+ * with the clicked datum — which carries its card type and segment key.
  */
-/**
- * The report renders more than one BarChart (completeness by type, then EOL
- * coverage at the foot), and BOTH are now clickable. Each `Bar` therefore has
- * to fire with its OWN chart's datum: a module-level `chartData` shared by
- * every chart would hand the EOL bars the completeness chart's rows, and the
- * `seg-*` testids would collide wherever a card type appears in both charts.
- * A context carries each chart's data down to its own bars, and the testid is
- * namespaced by the chart's index.
- */
-let charts: Record<string, unknown>[][] = [];
-let nextChartIndex = 0;
-vi.mock("recharts", async () => {
-  /* eslint-disable @typescript-eslint/no-explicit-any */
-  const { createContext, useContext, useState } =
-    await vi.importActual<typeof import("react")>("react");
-  const ChartCtx = createContext<{ data: Record<string, unknown>[]; index: number }>({
-    data: [],
-    index: 0,
-  });
-  return {
-    ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-    BarChart: ({ data, children }: any) => {
-      // Claimed once per mounted chart, not per render: opening the panel
-      // re-renders the report, and an index derived from `charts.length`
-      // would renumber every chart on each pass and invalidate the testids.
-      const [index] = useState(() => nextChartIndex++);
-      charts[index] = data ?? [];
-      return (
-        <ChartCtx.Provider value={{ data: data ?? [], index }}>
-          <div data-testid={`bar-chart-${index}`}>{children}</div>
-        </ChartCtx.Provider>
-      );
-    },
-    Bar: ({ dataKey, onClick }: any) => {
-      const { data, index } = useContext(ChartCtx);
-      return (
-        <>
-          {data.map((entry: any, i: number) => (
-            <button
-              key={i}
-              data-testid={`seg-${index}-${dataKey}-${entry.type}`}
-              onClick={() => onClick?.(entry, i)}
-            />
-          ))}
-        </>
-      );
-    },
-    XAxis: () => null,
-    YAxis: () => null,
-    CartesianGrid: () => null,
-    Tooltip: () => null,
-    Legend: () => null,
-  };
-  /* eslint-enable @typescript-eslint/no-explicit-any */
-});
+vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
+vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { echartState } from "@/test/echartMock";
+import { hookState } from "@/test/hooks";
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
+
+const COMPLETENESS = "Completeness by Type";
+const EOL = "End-of-life coverage";
+
+const QUALITY_COLORS = Object.fromEntries(DATA_QUALITY_BANDS.map((b) => [b.key, b.color]));
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -137,8 +95,8 @@ const MOCK_CARDS = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  charts = [];
-  nextChartIndex = 0;
+  echartState.reset();
+  hookState.isRtl = false;
 
   vi.mocked(api.get).mockImplementation((path: string) => {
     if (path.startsWith("/reports/data-quality/cards")) return Promise.resolve(MOCK_CARDS);
@@ -153,7 +111,6 @@ beforeEach(() => {
     getType: (key: string) => MOCK_TYPES.find((t) => t.key === key),
     getRelationsForType: () => [],
     invalidateCache: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
   vi.mocked(useSavedReport).mockReturnValue({
@@ -167,16 +124,16 @@ beforeEach(() => {
     persistConfig: vi.fn(),
     resetAll: vi.fn(),
     reportType: "data-quality",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 
   vi.mocked(useThumbnailCapture).mockReturnValue({
     chartRef: createRef(),
     thumbnail: undefined,
     captureAndSave: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 });
+
+afterEach(() => setViewportWidth(1280));
 
 function renderReport() {
   return render(
@@ -184,6 +141,16 @@ function renderReport() {
       <DataQualityReport />
     </MemoryRouter>,
   );
+}
+
+/** Deliver a click on one segment of a chart, as ECharts would. */
+function clickSegment(chart: string, type: string | undefined, segment: string) {
+  act(() => echartState.click(chart, { data: { type, segment } }));
+}
+
+/** Both charts have rendered once the report data has landed. */
+async function chartsReady() {
+  await screen.findByRole("img", { name: EOL });
 }
 
 /** The path the panel fetched, or undefined if it never fetched. */
@@ -204,15 +171,15 @@ function panelFetchPath(match?: string): string | undefined {
 describe("DataQualityReport drill-down", () => {
   it("does not fetch panel cards until something is clicked", async () => {
     renderReport();
-    await screen.findByTestId("bar-chart-0");
+    await chartsReady();
     expect(panelFetchPath()).toBeUndefined();
   });
 
   it("opens the cards behind a clicked bar segment, scoped to type AND band", async () => {
-    const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-0-Partial-Application"));
+    clickSegment(COMPLETENESS, "Application", "partial");
 
     await waitFor(() => {
       expect(panelFetchPath()).toBe("/reports/data-quality/cards?type=Application&band=partial");
@@ -221,10 +188,10 @@ describe("DataQualityReport drill-down", () => {
   });
 
   it("maps each segment to its own band", async () => {
-    const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-0-Minimal-Application"));
+    clickSegment(COMPLETENESS, "Application", "minimal");
 
     await waitFor(() => {
       expect(panelFetchPath()).toContain("band=minimal");
@@ -232,10 +199,10 @@ describe("DataQualityReport drill-down", () => {
   });
 
   it("links a band panel into the inventory, grouped and focused on that band", async () => {
-    const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-0-Complete-Application"));
+    clickSegment(COMPLETENESS, "Application", "complete");
 
     const link = await screen.findByRole("link");
     expect(link).toHaveAttribute(
@@ -247,8 +214,9 @@ describe("DataQualityReport drill-down", () => {
   it("hands a clicked card off to the single-card side panel", async () => {
     const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-0-Partial-Application"));
+    clickSegment(COMPLETENESS, "Application", "partial");
     await user.click(await screen.findByText("Legacy CRM"));
 
     expect(await screen.findByTestId("card-side-panel")).toHaveTextContent("c1");
@@ -274,29 +242,30 @@ describe("DataQualityReport drill-down", () => {
     renderReport();
 
     expect(await screen.findByText("End-of-life coverage")).toBeInTheDocument();
-    // The segment labels live in the Recharts legend, which the double
-    // renders as null — assert on the data the chart was handed instead.
-    const eolChart = charts[charts.length - 1];
-    expect(eolChart).toEqual([
-      expect.objectContaining({
-        type: "Application",
-        "Linked to endoflife.date": 3,
-        "Date entered by hand": 1,
-        "Not recorded": 6,
-      }),
+    const option = echartState.byName(EOL).option;
+    expect(option.yAxis.data).toEqual(["Application"]);
+    expect(option.legend.data).toEqual(["Linked to endoflife.date", "Date entered by hand", "Not recorded"]);
+    expect(option.series.map((x: any) => x.itemStyle.color)).toEqual([
+      EOL_COVERAGE_COLORS.linked,
+      EOL_COVERAGE_COLORS.manual,
+      EOL_COVERAGE_COLORS.missing,
+    ]);
+    expect(option.series.map((x: any) => x.data[0])).toEqual([
+      { value: 3, type: "Application", segment: "linked" },
+      { value: 1, type: "Application", segment: "manual" },
+      { value: 6, type: "Application", segment: "missing" },
     ]);
   });
 
   it.each([
-    ["Linked to endoflife.date", "eol_linked"],
-    ["Date entered by hand", "eol_manual"],
-    ["Not recorded", "eol_missing"],
-  ])("opens the cards behind the %s segment", async (label, scope) => {
-    const user = userEvent.setup();
+    ["linked", "eol_linked"],
+    ["manual", "eol_manual"],
+    ["missing", "eol_missing"],
+  ])("opens the cards behind the %s segment", async (segment, scope) => {
     renderReport();
+    await chartsReady();
 
-    // Chart 1 is the EOL coverage chart; chart 0 is completeness by type.
-    await user.click(await screen.findByTestId(`seg-1-${label}-Application`));
+    clickSegment(EOL, "Application", segment);
 
     await waitFor(() => {
       expect(panelFetchPath()).toBe(
@@ -306,10 +275,10 @@ describe("DataQualityReport drill-down", () => {
   });
 
   it("titles the EOL panel with the segment's own label", async () => {
-    const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-1-Not recorded-Application"));
+    clickSegment(EOL, "Application", "missing");
 
     // Header and legend read from the same label map, so the panel can never
     // name a segment differently from the bar it was opened from.
@@ -317,10 +286,10 @@ describe("DataQualityReport drill-down", () => {
   });
 
   it("continues into the inventory from Not recorded, and only from there", async () => {
-    const user = userEvent.setup();
     renderReport();
+    await chartsReady();
 
-    await user.click(await screen.findByTestId("seg-1-Not recorded-Application"));
+    clickSegment(EOL, "Application", "missing");
     // The inventory's (empty) End of life pill lists exactly this set.
     expect(await screen.findByRole("link")).toHaveAttribute(
       "href",
@@ -329,7 +298,7 @@ describe("DataQualityReport drill-down", () => {
 
     // The inventory filters by STATUS, not by where the data came from, so
     // the other two buckets have no landing that lists the same cards.
-    await user.click(screen.getByTestId("seg-1-Linked to endoflife.date-Application"));
+    clickSegment(EOL, "Application", "linked");
     await waitFor(() =>
       expect(panelFetchPath("eol_linked")).toBe(
         "/reports/data-quality/cards?type=Application&scope=eol_linked",
@@ -361,5 +330,138 @@ describe("DataQualityReport drill-down", () => {
     await waitFor(() => {
       expect(panelFetchPath()).toBe("/reports/data-quality/cards?type=Application");
     });
+  });
+
+  it.each([
+    ["no datum", COMPLETENESS, {}],
+    ["no type", COMPLETENESS, { data: { segment: "partial" } }],
+    ["an unknown band", COMPLETENESS, { data: { type: "Application", segment: "missing" } }],
+    ["no EOL type", EOL, { data: { segment: "missing" } }],
+    ["a band on the EOL chart", EOL, { data: { type: "Application", segment: "partial" } }],
+  ])("opens nothing for a click with %s", async (_why, chart, params) => {
+    renderReport();
+    await chartsReady();
+
+    act(() => echartState.click(chart, params));
+
+    expect(panelFetchPath()).toBeUndefined();
+    expect(screen.queryByText("Legacy CRM")).not.toBeInTheDocument();
+  });
+});
+
+describe("DataQualityReport charts", () => {
+  it("stacks the three bands in order, in the band colours, rounding only the last", async () => {
+    renderReport();
+    await chartsReady();
+
+    const option = echartState.byName(COMPLETENESS).option;
+    expect(option.legend.data).toEqual(["Complete", "Partial", "Minimal"]);
+    expect(option.legend.selectedMode).toBe(false);
+    expect(option.series.map((x: any) => x.itemStyle.color)).toEqual([
+      QUALITY_COLORS.complete,
+      QUALITY_COLORS.partial,
+      QUALITY_COLORS.minimal,
+    ]);
+    expect(option.series.map((x: any) => x.itemStyle.borderRadius)).toEqual([0, 0, [0, 4, 4, 0]]);
+    expect(option.series[1].data[0]).toEqual({ value: 3, type: "Application", segment: "partial" });
+    expect(option.yAxis.position).toBe("left");
+  });
+
+  it("mirrors the bars in RTL", async () => {
+    hookState.isRtl = true;
+    renderReport();
+    await chartsReady();
+
+    for (const name of [COMPLETENESS, EOL]) {
+      const option = echartState.byName(name).option;
+      expect(option.series.map((x: any) => x.itemStyle.borderRadius)).toEqual([0, 0, [4, 0, 0, 4]]);
+      expect(option.yAxis.position).toBe("right");
+      expect(option.xAxis.inverse).toBe(true);
+    }
+  });
+
+  it("draws both charts at the export pixel ratio", async () => {
+    renderReport();
+    await chartsReady();
+
+    expect(echartState.byName(COMPLETENESS).devicePixelRatio).toBe(2);
+    expect(echartState.byName(EOL).devicePixelRatio).toBe(2);
+  });
+
+  it("gives the type labels a 150px gutter on a wide screen", async () => {
+    renderReport();
+    await chartsReady();
+
+    const axis = echartState.byName(COMPLETENESS).option.yAxis.axisLabel;
+    expect(axis.width).toBe(150);
+    expect(axis.fontSize).toBe(12);
+    expect(echartState.byName(EOL).option.yAxis.axisLabel.width).toBe(150);
+  });
+
+  it("narrows the label gutter and the ticks on a phone", async () => {
+    setViewportWidth(500);
+    renderReport();
+    await chartsReady();
+
+    for (const name of [COMPLETENESS, EOL]) {
+      const option = echartState.byName(name).option;
+      expect(option.yAxis.axisLabel.width).toBe(96);
+      expect(option.yAxis.axisLabel.fontSize).toBe(11);
+      expect(option.xAxis.axisLabel.fontSize).toBe(11);
+    }
+  });
+
+  it("sizes each chart to its minimum height for a few rows", async () => {
+    renderReport();
+    await chartsReady();
+
+    expect(screen.getByRole("img", { name: COMPLETENESS }).parentElement).toHaveStyle({ height: "250px" });
+    expect(screen.getByRole("img", { name: EOL }).parentElement).toHaveStyle({ height: "160px" });
+  });
+
+  it("grows each chart by a fixed height per row", async () => {
+    const types = ["A", "B", "C", "D", "E", "F"];
+    vi.mocked(api.get).mockImplementation(() =>
+      Promise.resolve({
+        ...MOCK_DQ,
+        by_type: types.map((type) => ({ ...MOCK_DQ.by_type[0], type })),
+        eol_coverage: types.slice(0, 3).map((type) => ({ ...MOCK_DQ.eol_coverage[0], type })),
+      }),
+    );
+    renderReport();
+    await chartsReady();
+
+    // 6 rows x 50 px, and 3 rows x 70 px.
+    expect(screen.getByRole("img", { name: COMPLETENESS }).parentElement).toHaveStyle({ height: "300px" });
+    expect(screen.getByRole("img", { name: EOL }).parentElement).toHaveStyle({ height: "210px" });
+    // A type the metamodel does not know is labelled by its key.
+    expect(echartState.byName(COMPLETENESS).option.yAxis.data).toEqual(types);
+  });
+
+  it("formats the tooltip with the type, its pluralised total and each band's share", async () => {
+    renderReport();
+    await chartsReady();
+
+    const formatter = echartState.byName(COMPLETENESS).option.tooltip.formatter;
+    const html = formatter([
+      { name: "A<B", seriesName: "Complete", value: 3, marker: "<i></i>", color: "" },
+      { name: "A<B", seriesName: "Partial", value: 1, marker: "<i></i>", color: "" },
+    ]);
+    expect(html).toContain('<div style="font-weight:700">A&lt;B</div>');
+    expect(html).toContain('<div style="opacity:.7">4 total items</div>');
+    expect(html).toContain("<div><i></i> Complete: 3 (75%)</div>");
+    expect(html).toContain("<div><i></i> Partial: 1 (25%)</div>");
+    expect(formatter({ name: "X", seriesName: "Minimal", value: 1, marker: "", color: "" })).toContain(
+      '<div style="opacity:.7">1 total item</div>',
+    );
+  });
+
+  it("leaves the EOL chart out when no card can have an end of life", async () => {
+    vi.mocked(api.get).mockImplementation(() => Promise.resolve({ ...MOCK_DQ, eol_coverage: [] }));
+    renderReport();
+
+    await screen.findByRole("img", { name: COMPLETENESS });
+    expect(screen.queryByText("End-of-life coverage")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("echart")).toHaveLength(1);
   });
 });
