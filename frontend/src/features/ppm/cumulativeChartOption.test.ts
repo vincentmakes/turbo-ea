@@ -107,8 +107,13 @@ describe("budgetAxisMax", () => {
     expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 160 }])).toBeUndefined();
   });
 
-  it("is the highest budget when it is above the data", () => {
-    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 161 }])).toBe(161);
+  it("is the highest budget rounded up to a nice figure when it is above the data", () => {
+    // 161 would put the line on the grid's top border: the axis runs on to 200.
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 161 }])).toBe(200);
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 800 }])).toBe(1000);
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 240 }])).toBe(250);
+    // A budget already round stays the top.
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 200 }])).toBe(200);
   });
 
   it("takes the highest budget, in whatever order the lines come", () => {
@@ -236,6 +241,13 @@ describe("buildCumulativeOption — axes", () => {
   it("stretches the value axis to a budget above the data", () => {
     const { yAxis } = build([CAPEX, OPEX], [CAPEX_BUDGET]);
     expect(yAxis.max).toBe(500);
+  });
+
+  it("rounds the stretched axis up past a budget that is not a nice figure", () => {
+    const option: any = build([CAPEX], [{ ...CAPEX_BUDGET, value: 420 }]);
+    expect(option.yAxis.max).toBe(500);
+    // 420 is under nine tenths of the 500 top: its label fits above the line.
+    expect(option.series[0].markLine.data[0].label.position).toBe("insideEndTop");
   });
 
   it("leaves the value axis its own ceiling when no budget is above the data", () => {

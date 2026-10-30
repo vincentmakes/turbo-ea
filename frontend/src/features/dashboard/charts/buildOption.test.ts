@@ -257,6 +257,18 @@ describe("bar (horizontal)", () => {
     expect(d.series[0].data[1].itemStyle.color).toBe(CHART_CATEGORICAL.light[0]);
   });
 
+  it("needs no colour resolver for a one-hue chart, and falls back to the series hue without one", () => {
+    const noColors = { ...ctx({ colorByCategory: false, seriesColor: "#123456" }), colors: undefined };
+    const column = buildOption("column", ROWS, noColors) as any;
+    expect(column.series[0].data.map((d: any) => d.itemStyle.color)).toEqual(["#123456", "#123456", "#123456"]);
+    // A kind that colours every slice takes the series hue too, never undefined.
+    const pie = buildOption("pie", ROWS, noColors) as any;
+    expect(pie.series[0].data.map((d: any) => d.itemStyle.color)).toEqual(["#123456", "#123456"]);
+    const plain = { ...ctx(), colors: undefined };
+    const firstHue = buildOption("pie", ROWS, plain) as any;
+    expect(firstHue.series[0].data[0].itemStyle.color).toBe(CHART_CATEGORICAL.light[0]);
+  });
+
   it("uses the pointer cursor and series name it is given", () => {
     const s = opt("bar", ROWS, { cursor: "pointer", seriesName: "Cards" }).series[0];
     expect(s.cursor).toBe("pointer");

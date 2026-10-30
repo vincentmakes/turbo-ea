@@ -276,8 +276,9 @@ describe("PpmCostCharts — project chart and chrome", () => {
 
   it("stretches the value axis to a budget above the spend", () => {
     renderCharts();
-    // CapEx budget 800 against at most 160 spent.
-    expect(optionOf("Project to date").yAxis.max).toBe(800);
+    // CapEx budget 800 against at most 160 spent: the axis runs on to the
+    // next nice figure, so the budget line sits inside the plot.
+    expect(optionOf("Project to date").yAxis.max).toBe(1000);
   });
 
   it("formats axis ticks, tooltips and legend entries through the currency helpers", () => {
@@ -298,10 +299,10 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.animation).toBe(false);
     expect(option.xAxis.inverse).toBe(false);
     expect(option.yAxis.position).toBe("left");
-    // The axis runs to the CapEx budget (800): its label drops below the line,
-    // at the top edge; the OpEx budget (200) is far below it, so its label
-    // sits above — though both are above the spend (160).
-    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
+    // The axis runs past the CapEx budget (800) to 1000, so even that line's
+    // label has room above it, as has the OpEx budget's (200) — though both
+    // are above the spend (160).
+    expect(labelPositionsOf("Project to date")).toEqual(["insideEndTop", "insideEndTop"]);
   });
 
   it("keeps every chart's option when the tab re-renders with the same data", async () => {
@@ -375,6 +376,32 @@ describe("PpmCostCharts — project chart and chrome", () => {
     }
   });
 
+  it("names the months in the Gregorian calendar, whatever the locale's default calendar", async () => {
+    const { user } = renderCharts();
+    await pickYear(user, "FY 2020");
+    try {
+      // Saudi Arabic: Gregorian month names ("يناير"), never Hijri ones,
+      // and no bidi marks around them.
+      await act(() => i18n.changeLanguage("ar-SA"));
+      const ar = i18n.getFixedT("ar-SA", "ppm");
+      const arLabels = pointsOf(ar("cumulativeByCategory")).map((p) => p.label);
+      expect(arLabels.slice(0, 5)).toEqual(["يناير", "فبراير", "مارس", "أبريل", "مايو"]);
+      expect(last(arLabels)).toBe("ديسمبر");
+      expect(arLabels.join("")).not.toMatch(/[\u200e\u200f]/);
+
+      // Persian defaults to its solar calendar ("دی" for January): pinned to
+      // Gregorian, January is "ژانویه".
+      await act(() => i18n.changeLanguage("fa"));
+      const faLabels = pointsOf("Cumulative spend by category").map((p) => p.label);
+      expect(faLabels[0]).toBe("ژانویه");
+      expect(faLabels).not.toContain("دی");
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
+    // Back in English, the labels are English again.
+    expect(pointsOf("Cumulative spend by category")[0].label).toBe("Jan");
+  });
+
   it("counts undated cost lines that the charts cannot place", () => {
     renderCharts();
     expect(screen.getByText("1 undated cost item is not shown on the charts")).toBeInTheDocument();
@@ -414,7 +441,9 @@ describe("PpmCostCharts — project chart and chrome", () => {
 
   it("mirrors every chart right-to-left", () => {
     hookState.isRtl = true;
-    renderCharts();
+    // A CapEx budget of 1000 over all years: a round top, so its label drops
+    // below the line while the OpEx one (200) stays above.
+    renderCharts(COSTS, [...BUDGETS, budget({ id: "b5", fiscal_year: 2022, category: "capex", amount: 200 })]);
     expect(screen.getAllByTestId("echart")).toHaveLength(3);
     const option = optionOf("Project to date");
     expect(option.xAxis.inverse).toBe(true);
@@ -422,6 +451,7 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.legend.left).toBe("right");
     expect(option.legend.data).toEqual(["Cumulative CapEx", "Cumulative OpEx"]);
     // A mark line runs along the inverted axis, so its end is already the left.
+    expect(option.yAxis.max).toBe(1000);
     expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
   });
 });

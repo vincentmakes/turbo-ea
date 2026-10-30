@@ -51,10 +51,20 @@ export const DIMENSIONS = [
   { key: "automation", labelKey: "assessment.automation", color: BPM_ASSESSMENT_COLORS.automation },
 ] as const;
 
-/** A maturity column's colour: the metamodel option's, else the CMMI scale's, else neutral. */
-export function maturityColor(key: string, optionColor?: string): string {
-  return optionColor || MATURITY_COLORS[key] || BPM_NEUTRAL_COLOR;
+/**
+ * The colour of a value on a fixed scale: the metamodel option's own colour
+ * when it defines one, else the scale's, else neutral — a value neither knows
+ * is grey, never missing.
+ */
+export function scaleColor(scale: Record<string, string>): (key: string, optionColor?: string) => string {
+  return (key, optionColor) => optionColor || scale[key] || BPM_NEUTRAL_COLOR;
 }
+
+/** A maturity level's colour: the metamodel option's, else the CMMI scale's, else neutral. */
+export const maturityColor = scaleColor(MATURITY_COLORS);
+
+/** A risk level's colour: the metamodel option's, else the risk scale's, else neutral. */
+export const riskColor = scaleColor(RISK_COLORS);
 
 /** What every dashboard chart option reads. */
 export interface BpmChartContext {
@@ -166,7 +176,6 @@ export function automationColumnOption(rows: DashboardKeyRow[], ctx: BpmChartCon
     theme: ctx.chrome,
     isRtl: ctx.isRtl,
     labels: ctx.label,
-    colors: () => AUTOMATION_COLOR,
     colorByCategory: false,
     seriesColor: AUTOMATION_COLOR,
     seriesName: ctx.seriesName,

@@ -25,6 +25,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import EChart from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { useCurrency } from "@/hooks/useCurrency";
+import { shortMonth } from "@/hooks/useDateFormat";
 import { useFiscalYearStart } from "@/hooks/useFiscalYearStart";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { PpmCostLine, PpmBudgetLine } from "@/types";
@@ -297,14 +298,17 @@ function CumulativeChart(props: {
   // Append the year whenever the range crosses a calendar boundary, so
   // "Jan" is never ambiguous on a multi-year axis.
   const multiYear = useMemo(() => new Set(data.map((d) => d.year)).size > 1, [data]);
-  const labelFor = useMemo(() => {
-    const monthFmt = new Intl.DateTimeFormat(locale, { month: "short" });
-    return (p: MonthPoint) => {
+  // `shortMonth` pins the Gregorian calendar (the months are Gregorian ones:
+  // `ar-SA` would otherwise name Hijri months), strips the bidi marks and
+  // survives a bad locale tag — the same month names as every formatted date.
+  const labelFor = useMemo(
+    () => (p: MonthPoint) => {
       // Day 1 at noon: safe from any timezone rolling the date backwards.
-      const label = monthFmt.format(new Date(p.year, p.month - 1, 1, 12));
+      const label = shortMonth(new Date(p.year, p.month - 1, 1, 12), locale);
       return multiYear ? `${label} '${String(p.year).slice(-2)}` : label;
-    };
-  }, [locale, multiYear]);
+    },
+    [locale, multiYear],
+  );
 
   const labels = useMemo(() => data.map(labelFor), [data, labelFor]);
 

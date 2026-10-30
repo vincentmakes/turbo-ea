@@ -108,20 +108,28 @@ export async function useMetamodelModule() {
 
 export async function useDateFormatModule() {
   const actual = await vi.importActual<typeof import("@/hooks/useDateFormat")>("@/hooks/useDateFormat");
+  const { default: i18n } = await import("@/i18n");
+  type DateFormatKey = import("@/hooks/useDateFormat").DateFormatKey;
+  // Like the real hook, the month names follow the interface language: the
+  // locale is read when the hook is called, so a test that switches language
+  // and re-renders sees the new names.
   return {
     ...actual,
     invalidateDateFormat: vi.fn(),
     getCachedDateFormat: () => hookState.dateFormat,
-    useDateFormat: () => ({
-      dateFormat: hookState.dateFormat,
-      loading: false,
-      formatDate: (d: Date | string | number | null | undefined) =>
-        actual.formatDateWith(hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey, d),
-      formatDateTime: (d: Date | string | number | null | undefined) =>
-        actual.formatDateTimeWith(hookState.dateFormat as import("@/hooks/useDateFormat").DateFormatKey, d),
-      invalidate: vi.fn(),
-      example: "",
-    }),
+    useDateFormat: () => {
+      const locale = i18n.language;
+      const fmt = hookState.dateFormat as DateFormatKey;
+      return {
+        dateFormat: hookState.dateFormat,
+        loading: false,
+        formatDate: (d: Date | string | number | null | undefined) => actual.formatDateWith(fmt, d, locale),
+        formatDateTime: (d: Date | string | number | null | undefined) =>
+          actual.formatDateTimeWith(fmt, d, locale),
+        invalidate: vi.fn(),
+        example: "",
+      };
+    },
   };
 }
 

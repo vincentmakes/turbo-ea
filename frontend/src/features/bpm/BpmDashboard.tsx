@@ -28,7 +28,6 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import EChart, { type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { api } from "@/api/client";
-import { STATUS_COLORS } from "@/theme/tokens";
 import type { BpmDashboardData, DashboardKeyRow } from "@/types";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import { useBpmFieldOptions } from "./useBpmFieldOptions";
@@ -37,7 +36,7 @@ import {
   maturityColor,
   maturityColumnOption,
   processTypePieOption,
-  RISK_COLORS,
+  riskColor,
 } from "./bpmChartOptions";
 import ProcessNavigator from "./ProcessNavigator";
 import BpmReportsContent from "./BpmReportPage";
@@ -59,29 +58,16 @@ function clickedKey(p: EChartClickParams): string | undefined {
   return (p.data as { key?: string } | undefined)?.key;
 }
 
-/**
- * A risk chip's fill: the `riskLevel` option's metamodel colour when it
- * defines one, else the risk scale; a level neither knows is neutral, never
- * missing.
- */
-function riskColor(risk: string, optionColor?: string): string {
-  return optionColor || RISK_COLORS[risk] || STATUS_COLORS.neutral;
-}
-
 /* ── Dashboard content (tab 1) ── */
 function BpmDashboardContent() {
   const { t } = useTranslation(["bpm", "common"]);
   const theme = useTheme();
   const navigate = useNavigate();
   const chartTheme = useEChartsTheme();
-  const { resolve: resolveProcessType, byKey: processTypes } = useProcessTypeOptions();
-  // The pie's slices in the metamodel's option order (hidden options keep
-  // their place), a type the field does not define last — the same rule as
-  // the columns' `useBpmFieldOptions(...).order`.
-  const processTypeOrder = useMemo(() => {
-    const index = new Map([...processTypes.keys()].map((key, i) => [key, i]));
-    return (key: string) => index.get(key) ?? index.size;
-  }, [processTypes]);
+  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  // Every chart follows its field's option order (hidden options keep their
+  // place), a key the field does not define last, in data order.
+  const { order: processTypeOrder } = useBpmFieldOptions("processType");
   const { resolve: resolveMaturity, order: maturityOrder } = useBpmFieldOptions("maturity");
   const { resolve: resolveAutomation, order: automationOrder } = useBpmFieldOptions("automationLevel");
   const { resolve: resolveRisk } = useBpmFieldOptions("riskLevel");
@@ -264,42 +250,38 @@ function BpmDashboardContent() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.top_risk_processes.map((p) => (
-                  <TableRow
-                    key={p.id}
-                    hover
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => setSidePanelCardId(p.id)}
-                  >
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={resolveRisk(p.risk).label}
-                        size="small"
-                        sx={{
-                          bgcolor: riskColor(p.risk, resolveRisk(p.risk).color),
-                          color: theme.palette.getContrastText(
-                            riskColor(p.risk, resolveRisk(p.risk).color),
-                          ),
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={resolveMaturity(p.maturity).label}
-                        size="small"
-                        sx={{
-                          bgcolor: maturityColor(p.maturity, resolveMaturity(p.maturity).color),
+                {data.top_risk_processes.map((p) => {
+                  const risk = resolveRisk(p.risk);
+                  const riskBg = riskColor(p.risk, risk.color);
+                  const maturity = resolveMaturity(p.maturity);
+                  const maturityBg = maturityColor(p.maturity, maturity.color);
+                  return (
+                    <TableRow
+                      key={p.id}
+                      hover
+                      sx={{ cursor: "pointer" }}
+                      onClick={() => setSidePanelCardId(p.id)}
+                    >
+                      <TableCell>{p.name}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={risk.label}
+                          size="small"
+                          sx={{ bgcolor: riskBg, color: theme.palette.getContrastText(riskBg) }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={maturity.label}
+                          size="small"
                           // A light fill (a yellow option, the neutral grey)
                           // takes dark text; white on it was unreadable.
-                          color: theme.palette.getContrastText(
-                            maturityColor(p.maturity, resolveMaturity(p.maturity).color),
-                          ),
-                        }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          sx={{ bgcolor: maturityBg, color: theme.palette.getContrastText(maturityBg) }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

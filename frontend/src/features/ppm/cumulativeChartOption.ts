@@ -12,6 +12,7 @@ import {
   base,
   grid,
   legend,
+  niceMax,
   splitLine,
   tooltip,
   type ChartChromeContext,
@@ -79,9 +80,13 @@ export function dataMax(points: MonthPoint[], lines: CumulativeLine[]): number {
 
 /**
  * The y axis's ceiling when a budget sits above every plotted value: the
- * highest budget. ECharts scales the axis to the series data only, so a budget
- * line above it would be drawn off the chart. Undefined otherwise — the axis
- * keeps its own nice max, which is already above every budget.
+ * highest budget rounded up to a nice figure (`niceMax`: 1 / 2 / 2.5 / 5 ×
+ * 10ⁿ). ECharts scales the axis to the series data only, so a budget line
+ * above it would be drawn off the chart; rounding up gives the axis a round
+ * top tick and keeps the line inside the plot rather than on the grid's top
+ * border (a budget already round, like 500, stays the top). Undefined
+ * otherwise — the axis keeps its own nice max, which is already above every
+ * budget.
  */
 export function budgetAxisMax(
   points: MonthPoint[],
@@ -90,7 +95,7 @@ export function budgetAxisMax(
 ): number | undefined {
   // No budget line: `Math.max()` is -Infinity, never above the data.
   const budgetMax = Math.max(...references.map((r) => r.value));
-  return budgetMax > dataMax(points, lines) ? budgetMax : undefined;
+  return budgetMax > dataMax(points, lines) ? niceMax(budgetMax) : undefined;
 }
 
 /** How close to the axis top a budget line's label drops below it: within a tenth of the axis. */
@@ -101,8 +106,8 @@ export const BUDGET_LABEL_TOP_BAND = 0.9;
  * inverted x axis already puts that on the left in RTL (a horizontal mark
  * line runs from the axis's first category to its last), so the label mirrors
  * with no help. Above the line, or below it when the line is within a label's
- * height of the axis top (`axisTop`: the highest budget, or the top of the
- * data when every budget is within it), where a label above would be clipped.
+ * height of the axis top (`axisTop`: `budgetAxisMax` when a budget is above
+ * the data, else the top of the data), where a label above would be clipped.
  */
 export function budgetLabelPosition(value: number, axisTop: number): "insideEndTop" | "insideEndBottom" {
   return value >= axisTop * BUDGET_LABEL_TOP_BAND ? "insideEndBottom" : "insideEndTop";
@@ -117,8 +122,8 @@ export function buildCumulativeOption(
 ): EChartsCoreOption {
   const ctx: ChartChromeContext = { theme: o.chrome, isRtl: o.isRtl };
   const max = budgetAxisMax(points, lines, references);
-  // The axis's top edge: the highest budget when it is above the data, else
-  // the data's own top (the axis rounds it up, never down).
+  // The axis's top edge: the highest budget rounded up when it is above the
+  // data, else the data's own top (the axis rounds it up, never down).
   const axisTop = max ?? dataMax(points, lines);
 
   const markLine = {

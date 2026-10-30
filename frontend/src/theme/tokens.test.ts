@@ -195,6 +195,18 @@ describe("BPM tokens", () => {
       panel: "#f5f5f5",
       control: "#cccccc",
       paper: "#ffffff",
+      // The document print's own inks, as `DOCUMENT_PRINT_CSS` always drew them.
+      heading: "#1a1a2e",
+      ink: "#222222",
+      subheading: "#444444",
+      inkSecondary: "#666666",
+      ruleLight: "#e0e0e0",
+      panelLight: "#fafafa",
+      success: "#2e7d32",
+      successLight: "#66bb6a",
+      successPale: "#f1f8e9",
+      successTint: "#e8f5e9",
+      warning: "#ed6c02",
     });
     expect(t.BPMN_DARK_THEME["--bio-surface"]).toBe("#1e1e1e");
     expect(t.BPMN_DARK_THEME["--bio-surface-strong"]).toBe("#333333");

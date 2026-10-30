@@ -142,7 +142,20 @@ export const PRINT_COLORS = {
   rule: "#dddddd",
   panel: "#f5f5f5",
   control: "#cccccc", // border of the secondary (Close) button, table rules
-  paper: "#ffffff",
+  paper: "#ffffff", // also the text on a filled (fully-signed) badge
+  // The document print (`DOCUMENT_PRINT_CSS`): headings, body ink, the
+  // signature block's rule, cards and badges.
+  heading: "#1a1a2e", // h1 title
+  ink: "#222222", // body text
+  subheading: "#444444", // h3
+  inkSecondary: "#666666", // a signature's detail line
+  ruleLight: "#e0e0e0", // the rule above the signatures
+  panelLight: "#fafafa", // a pending signature card
+  success: "#2e7d32", // signed: badge text, fully-signed fill, approved status
+  successLight: "#66bb6a", // an approved signature card's border
+  successPale: "#f1f8e9", // an approved signature card's fill
+  successTint: "#e8f5e9", // the "signed" badge's fill
+  warning: "#ed6c02", // a pending signature's status
 } as const;
 
 // ── Notification-type accents (NotificationBell) ─────────────────────────

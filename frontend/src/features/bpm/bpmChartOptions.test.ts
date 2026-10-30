@@ -16,11 +16,14 @@ import {
   BPM_NEUTRAL_COLOR,
   DIMENSIONS,
   MATURITY_COLORS,
+  RISK_COLORS,
   assessmentTrendOption,
   automationColumnOption,
   maturityColor,
   maturityColumnOption,
   processTypePieOption,
+  riskColor,
+  scaleColor,
   wrapAtSpace,
   wrapColumnLabels,
 } from "./bpmChartOptions";
@@ -96,6 +99,32 @@ describe("MATURITY_COLORS", () => {
   it("keeps the neutral grey and the brand blue as the other two hues", () => {
     expect(BPM_NEUTRAL_COLOR).toBe(STATUS_COLORS.neutral);
     expect(AUTOMATION_COLOR).toBe(brand.primary);
+  });
+});
+
+describe("scaleColor", () => {
+  const color = scaleColor({ low: "#00aa00", high: "#aa0000" });
+
+  it("prefers the metamodel option's colour over the scale", () => {
+    expect(color("low", "#123456")).toBe("#123456");
+  });
+
+  it("falls back to the scale when the option has no colour", () => {
+    expect(color("low")).toBe("#00aa00");
+    expect(color("high", "")).toBe("#aa0000");
+  });
+
+  it("falls back to neutral for a key neither knows", () => {
+    expect(color("custom")).toBe(BPM_NEUTRAL_COLOR);
+    expect(color("custom", "")).toBe(STATUS_COLORS.neutral);
+  });
+});
+
+describe("riskColor", () => {
+  it("reads the risk scale behind the option's colour", () => {
+    expect(riskColor("critical", "#654321")).toBe("#654321");
+    expect(riskColor("critical")).toBe(RISK_COLORS.critical);
+    expect(riskColor("custom")).toBe(STATUS_COLORS.neutral);
   });
 });
 
@@ -296,7 +325,8 @@ describe("automationColumnOption", () => {
     const ctx = ctxOf();
     expect(ctx.colorByCategory).toBe(false);
     expect(ctx.seriesColor).toBe(brand.primary);
-    expect(ctx.colors("anything", 0)).toBe(brand.primary);
+    // One hue: no per-category resolver for nothing to read.
+    expect(ctx).not.toHaveProperty("colors");
     expect(option.xAxis.data).toEqual(["Alpha", "Beta", "Gamma"]);
     const s = option.series[0];
     expect(s.name).toBe("Processes");

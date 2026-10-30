@@ -21,7 +21,7 @@
  * containing `<` renders literally instead of being stripped.
  */
 import i18n from "@/i18n";
-import { PRINT_COLORS } from "@/theme/tokens";
+import { PRINT_COLORS, brand } from "@/theme/tokens";
 import type { SoAWSignatory } from "@/types";
 import { escapeHtml } from "./escapeHtml";
 import { sanitizeRichHtml } from "./richHtml";
@@ -37,35 +37,35 @@ export function htmlIsEmpty(html: string | null | undefined): boolean {
 
 export const DOCUMENT_PRINT_CSS = `
   @page { size: A4 portrait; margin: 18mm; }
-  body.doc-print { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #222; line-height: 1.6; font-size: 11pt; }
-  .doc-print h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
+  body.doc-print { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: ${PRINT_COLORS.ink}; line-height: 1.6; font-size: 11pt; }
+  .doc-print h1 { font-size: 22pt; color: ${PRINT_COLORS.heading}; border-bottom: 2px solid ${brand.primary}; padding-bottom: 8px; }
   .doc-print h2 { font-size: 16pt; color: ${PRINT_COLORS.text}; margin-top: 28px; }
-  .doc-print h3 { font-size: 13pt; color: #444; margin-top: 20px; }
+  .doc-print h3 { font-size: 13pt; color: ${PRINT_COLORS.subheading}; margin-top: 20px; }
   .doc-print table { width: 100%; border-collapse: collapse; margin: 12px 0; }
   .doc-print th, .doc-print td { border: 1px solid ${PRINT_COLORS.control}; padding: 6px 10px; text-align: left; font-size: 10pt; vertical-align: top; }
   .doc-print th { background: ${PRINT_COLORS.panel}; font-weight: 600; }
   .doc-print .meta-label { font-weight: 600; width: 140px; }
   .doc-print .pre { white-space: pre-wrap; }
-  .doc-signatures { margin-top: 36px; border-top: 2px solid #e0e0e0; padding-top: 16px; }
+  .doc-signatures { margin-top: 36px; border-top: 2px solid ${PRINT_COLORS.ruleLight}; padding-top: 16px; }
   .doc-signatures h2 { display: flex; align-items: center; gap: 8px; }
   .doc-signatures .sig-badge { display: inline-block; font-size: 9pt; padding: 2px 10px; border-radius: 3px; font-weight: 600; }
-  .doc-signatures .sig-badge.signed { background: #e8f5e9; color: #2e7d32; }
-  .doc-signatures .sig-badge.fully-signed { background: #2e7d32; color: #fff; }
+  .doc-signatures .sig-badge.signed { background: ${PRINT_COLORS.successTint}; color: ${PRINT_COLORS.success}; }
+  .doc-signatures .sig-badge.fully-signed { background: ${PRINT_COLORS.success}; color: ${PRINT_COLORS.paper}; }
   .doc-signatures .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .doc-signatures .sig-card { padding: 12px; border: 1px solid ${PRINT_COLORS.control}; border-radius: 4px; }
-  .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9; }
-  .doc-signatures .sig-card.pending { border-color: ${PRINT_COLORS.control}; background: #fafafa; }
+  .doc-signatures .sig-card.approved { border-color: ${PRINT_COLORS.successLight}; background: ${PRINT_COLORS.successPale}; }
+  .doc-signatures .sig-card.pending { border-color: ${PRINT_COLORS.control}; background: ${PRINT_COLORS.panelLight}; }
   .doc-signatures .sig-card .sig-status { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 700; font-size: 10pt; }
-  .doc-signatures .sig-card .sig-status.approved { color: #2e7d32; }
-  .doc-signatures .sig-card .sig-status.pending { color: #ed6c02; }
+  .doc-signatures .sig-card .sig-status.approved { color: ${PRINT_COLORS.success}; }
+  .doc-signatures .sig-card .sig-status.pending { color: ${PRINT_COLORS.warning}; }
   .doc-signatures .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
-  .doc-signatures .sig-card .sig-detail { font-size: 9pt; color: #666; }
+  .doc-signatures .sig-card .sig-detail { font-size: 9pt; color: ${PRINT_COLORS.inkSecondary}; }
   .doc-print-footer { display: none; }
   @media print {
     body.doc-print { margin: 20px; }
     .no-print { display: none !important; }
     .doc-signatures .sig-grid { grid-template-columns: 1fr 1fr; }
-    .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .doc-signatures .sig-card.approved { border-color: ${PRINT_COLORS.successLight}; background: ${PRINT_COLORS.successPale} !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .doc-signatures .sig-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .doc-print-footer { display: block; position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: ${PRINT_COLORS.muted}; border-top: 1px solid ${PRINT_COLORS.control}; padding-top: 4px; }
   }

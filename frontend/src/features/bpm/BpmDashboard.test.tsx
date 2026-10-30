@@ -38,13 +38,9 @@ vi.mock("./useProcessTypeOptions", () => {
     Management: "#aa0055",
   };
   return {
-    // The metamodel lists Management first: the pie follows this order, not
-    // the dashboard's (and not the alphabet).
     useProcessTypeOptions: () => ({
       options: [],
-      byKey: new Map(
-        ["Management", "Core", "Support"].map((key) => [key, { key, label: LABELS[key], color: COLORS[key] }]),
-      ),
+      byKey: new Map(),
       defaultKey: "core",
       loading: false,
       resolve: (key: string) => ({ key, label: LABELS[key] ?? key, color: COLORS[key] ?? "#999999" }),
@@ -56,6 +52,10 @@ vi.mock("./useProcessTypeOptions", () => {
 // the field's option order (the order the options are listed in here).
 vi.mock("./useBpmFieldOptions", () => {
   const OPTIONS: Record<string, Record<string, { label: string; color?: string }>> = {
+    // The metamodel lists Management first: the pie follows this order, not
+    // the dashboard's (and not the alphabet). Labels and colours come from
+    // `useProcessTypeOptions`; only the order is read from here.
+    processType: { Management: { label: "Strategic" }, Core: { label: "Core" }, Support: { label: "Support" } },
     maturity: {
       initial: { label: "Initial", color: "#123456" },
       managed: { label: "Managed" },

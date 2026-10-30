@@ -64,7 +64,7 @@ function _fetchOnce(): Promise<DateFormatKey> {
  * `lib/datePlaceholder.ts`, since the caller lays out the parts itself. An
  * unusable locale tag falls back to English rather than throwing on render.
  */
-function shortMonth(d: Date, locale: string | undefined): string {
+export function shortMonth(d: Date, locale: string | undefined): string {
   let formatter: Intl.DateTimeFormat;
   try {
     formatter = new Intl.DateTimeFormat(locale, { month: "short", calendar: "gregory" });

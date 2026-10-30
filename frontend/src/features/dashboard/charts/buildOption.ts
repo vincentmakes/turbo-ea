@@ -240,7 +240,7 @@ export function foldGrid(cells: DashboardCellRow[], max?: number, fold: FoldMode
 
 // ── Private helpers ──────────────────────────────────────────────────────
 
-function seriesColor(ctx: BuildContext): string {
+function seriesColor(ctx: Pick<BuildContext, "theme" | "seriesColor">): string {
   return ctx.seriesColor ?? ctx.theme.categorical[0];
 }
 
@@ -823,12 +823,21 @@ export function buildSparkline(
   };
 }
 
+/**
+ * What `buildOption` takes: a `BuildContext` whose `colors` may be left out by
+ * a chart with no category colours (one hue, `colorByCategory: false`), so a
+ * caller never has to pass a resolver nothing reads.
+ */
+export type BuildOptionContext = Omit<BuildContext, "colors"> & Partial<Pick<BuildContext, "colors">>;
+
 /** The ECharts option for one chart kind. Pure. */
 export function buildOption(
   kind: DashboardChartKind,
   rows: DashboardQueryRow[],
-  ctx: BuildContext,
+  options: BuildOptionContext,
 ): EChartsCoreOption {
+  // Without category colours every mark that asks for one takes the series colour.
+  const ctx: BuildContext = { ...options, colors: options.colors ?? (() => seriesColor(options)) };
   switch (kind) {
     case "bar":
       return buildBar(rows, ctx);
