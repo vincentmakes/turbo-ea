@@ -998,6 +998,23 @@ class TestScoreBreakdown:
 
         empty = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, [], [])
         assert empty.score_if_filled(Factor("field", "a", 1.0, False)) == 0.0
+        assert empty.gain(Factor("field", "a", 1.0, False)) == 0.0
+
+    async def test_gain_is_the_slot_weight_over_the_total(self):
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        ctx, _ = _breakdown_ctx()
+        bd = score_breakdown(self._card(), ctx, CardFacts())
+        by_key = {f.key: f for f in bd.factors}
+        # Of 13: b weighs 2, relB 2, stakeholders 3, a 1 — rounded to one decimal.
+        assert bd.gain(by_key["b"]) == 15.4
+        assert bd.gain(by_key["relB"]) == 15.4
+        assert bd.gain(by_key["stakeholders"]) == 23.1
+        assert bd.gain(by_key["a"]) == 7.7
+        # Gain and target agree: filling b alone lands on ungated + gain (to rounding).
+        assert (
+            abs(bd.score_if_filled(by_key["b"]) - (bd.ungated_score + bd.gain(by_key["b"]))) < 0.11
+        )
 
     async def test_nothing_to_score_is_an_empty_breakdown(self):
         from app.services.data_quality import CardFacts, score_breakdown

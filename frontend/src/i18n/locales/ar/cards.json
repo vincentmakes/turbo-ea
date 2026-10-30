@@ -118,7 +118,7 @@
   "dataQuality.addRequiredRelation": "أضف علاقة إلزامية",
   "dataQuality.addTag": "ضع وسم {{group}}",
   "dataQuality.assignStakeholder": "عيّن صاحب مصلحة",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ إلزامي",
   "dataQuality.more_zero": "+{{count}} أخرى · انقر للتفاصيل",
   "dataQuality.more_one": "+{{count}} أخرى · انقر للتفاصيل",

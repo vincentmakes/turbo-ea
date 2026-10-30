@@ -216,6 +216,12 @@ class ScoreBreakdown:
             return 0.0
         return round((self.filled_weight + factor.weight) / self.total_weight * 100, 1)
 
+    def gain(self, factor: Factor) -> float:
+        """How many points filling ``factor`` adds to the (ungated) score."""
+        if not self.total_weight:
+            return 0.0
+        return round(factor.weight / self.total_weight * 100, 1)
+
 
 def score_breakdown(card: Card, ctx: ScoringContext, facts: CardFacts) -> ScoreBreakdown:
     """A card's data-quality score with every factor that went into it.

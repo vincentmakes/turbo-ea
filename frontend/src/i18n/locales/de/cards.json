@@ -82,7 +82,7 @@
   "dataQuality.addRequiredRelation": "Eine Pflichtbeziehung hinzufügen",
   "dataQuality.addTag": "Mit {{group}} taggen",
   "dataQuality.assignStakeholder": "Einen Stakeholder zuweisen",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ Pflicht",
   "dataQuality.more_one": "+{{count}} weitere · für Details klicken",
   "dataQuality.more_other": "+{{count}} weitere · für Details klicken",

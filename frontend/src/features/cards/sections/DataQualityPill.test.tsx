@@ -54,14 +54,18 @@ const RELATION_TYPES = [
   },
 ] as unknown as RelationType[];
 
+/** The fixture card sits at 37.5%, so a slot's target score is that plus its gain. */
+const BASE_SCORE = 37.5;
+
 function factor(
   kind: DataQualityFactor["kind"],
   key: string,
   filled: boolean,
-  score_if_filled: number | null,
+  gain: number | null,
   extra: Partial<DataQualityFactor> = {},
 ): DataQualityFactor {
-  return { kind, key, weight: 1, filled, score_if_filled, ...extra };
+  const score_if_filled = gain === null ? null : Math.round((BASE_SCORE + gain) * 10) / 10;
+  return { kind, key, weight: 1, filled, gain, score_if_filled, ...extra };
 }
 
 /** Five unmet slots (one clear winner, then ties in server order), two met. */
@@ -73,16 +77,16 @@ const BREAKDOWN: DataQualityBreakdown = {
   blocked_by_required: [],
   factors: [
     factor("field", "team", true, null, { section: "Details" }),
-    factor("field", "cost", false, 62.5, { section: "Details", weight: 2 }),
+    factor("field", "cost", false, 25, { section: "Details", weight: 2 }),
     factor("description", "description", true, null),
-    factor("lifecycle", "lifecycle", false, 50),
-    factor("relation", "relOrgToApp", false, 50, {
+    factor("lifecycle", "lifecycle", false, 12.5),
+    factor("relation", "relOrgToApp", false, 12.5, {
       side: "target",
       other_type_key: "Organization",
       label: "is owned by",
     }),
-    factor("tag_group", "g-1", false, 50, { name: "Criticality" }),
-    factor("stakeholders", "stakeholders", false, 50),
+    factor("tag_group", "g-1", false, 12.5, { name: "Criticality" }),
+    factor("stakeholders", "stakeholders", false, 12.5),
   ],
 };
 
@@ -127,10 +131,10 @@ describe("DataQualityPill", () => {
     const lines = Array.from(tip.querySelectorAll(".MuiTypography-root")).map((el) => el.textContent);
     expect(lines).toEqual([
       "38% data quality",
-      "Fill Annual Cost → 62.5%",
-      "Set lifecycle dates → 50%",
+      "Fill Annual Cost +25%",
+      "Set lifecycle dates +12.5%",
       // A target-side relation reads with its reverse verb.
-      "Add relation: is owned by Organization → 50%",
+      "Add relation: is owned by Organization +12.5%",
       "+2 more · click for details",
     ]);
     // Already-counted slots are not suggestions.
@@ -152,7 +156,7 @@ describe("DataQualityPill", () => {
     });
     renderPill();
     const tip = await hoverPill();
-    await waitFor(() => expect(tip).toHaveTextContent("Set lifecycle dates → 50%"));
+    await waitFor(() => expect(tip).toHaveTextContent("Set lifecycle dates +12.5%"));
     expect(tip).not.toHaveTextContent("more");
   });
 
@@ -161,16 +165,16 @@ describe("DataQualityPill", () => {
       ...BREAKDOWN,
       // Served smallest gain first, and one tag group without a name.
       factors: [
-        factor("tag_group", "g-9", false, 30, { name: null }),
-        factor("lifecycle", "lifecycle", false, 50),
-        factor("field", "cost", false, 62.5, { section: "Details", weight: 2 }),
+        factor("tag_group", "g-9", false, 5, { name: null }),
+        factor("lifecycle", "lifecycle", false, 12.5),
+        factor("field", "cost", false, 25, { section: "Details", weight: 2 }),
       ],
     });
     renderPill();
     const tip = await hoverPill();
-    await waitFor(() => expect(tip).toHaveTextContent("Tag with → 30%"));
+    await waitFor(() => expect(tip).toHaveTextContent("Tag with +5%"));
     expect(tip).toHaveTextContent(
-      "38% data qualityFill Annual Cost → 62.5%Set lifecycle dates → 50%Tag with → 30%",
+      "38% data qualityFill Annual Cost +25%Set lifecycle dates +12.5%Tag with +5%",
     );
     expect(tip).not.toHaveTextContent("more");
   });
@@ -284,11 +288,11 @@ describe("DataQualityPill", () => {
       .getAllByRole("listitem")
       .map((li) => li.textContent);
     expect(rows).toEqual([
-      "Fill Annual Cost→ 62.5%",
-      "Set lifecycle dates→ 50%",
-      "Add relation: is owned by Organization→ 50%",
-      "Tag with Criticality→ 50%",
-      "Assign a stakeholder→ 50%",
+      "Fill Annual Cost+25%",
+      "Set lifecycle dates+12.5%",
+      "Add relation: is owned by Organization+12.5%",
+      "Tag with Criticality+12.5%",
+      "Assign a stakeholder+12.5%",
     ]);
     // Counted slots sit behind a toggle, by name.
     expect(within(dialog).queryByText("Team")).not.toBeInTheDocument();
@@ -318,7 +322,7 @@ describe("DataQualityPill", () => {
       blocked_by_required: ["code", "cost"],
       // `code` weighs less than the optional lifecycle slot: by gain alone it
       // would sink below the slots that cannot move the score yet.
-      factors: [...BREAKDOWN.factors, factor("field", "code", false, 45.8, { section: "Details" })],
+      factors: [...BREAKDOWN.factors, factor("field", "code", false, 8.3, { section: "Details" })],
     });
     renderPill(0);
     const tip = await hoverPill();
@@ -328,7 +332,7 @@ describe("DataQualityPill", () => {
     // The gating fields lead, marked as required rather than with a figure
     // that filling them alone cannot reach.
     expect(tip).toHaveTextContent(
-      "Fill Annual Cost → requiredFill Business Code → requiredSet lifecycle dates → 50%+3 more",
+      "Fill Annual Cost → requiredFill Business Code → requiredSet lifecycle dates +12.5%+3 more",
     );
     await userEvent.unhover(screen.getByText("0%"));
     await userEvent.click(screen.getByTestId("data-quality-pill"));
@@ -343,7 +347,7 @@ describe("DataQualityPill", () => {
     expect(rows.slice(0, 3)).toEqual([
       "Fill Annual Cost→ required",
       "Fill Business Code→ required",
-      "Set lifecycle dates→ 50%",
+      "Set lifecycle dates+12.5%",
     ]);
   });
 
@@ -352,12 +356,12 @@ describe("DataQualityPill", () => {
     vi.mocked(api.get).mockResolvedValue({
       ...BREAKDOWN,
       factors: [
-        factor("relation", "relOrgToApp", false, 50, {
+        factor("relation", "relOrgToApp", false, 12.5, {
           side: "source",
           other_type_key: "Application",
           label: "owns",
         }),
-        factor("relation", "relOrgToApp", false, 50, {
+        factor("relation", "relOrgToApp", false, 12.5, {
           side: "target",
           other_type_key: "Organization",
           label: "is owned by",
@@ -376,7 +380,7 @@ describe("DataQualityPill", () => {
   it("never shows a field's key when the metamodel does not know the field", async () => {
     vi.mocked(api.get).mockResolvedValue({
       ...BREAKDOWN,
-      factors: [factor("field", "ghostField", false, 80), factor("relation", "ghostRel", false, 70)],
+      factors: [factor("field", "ghostField", false, 42.5), factor("relation", "ghostRel", false, 32.5)],
       blocked_by_required: ["ghostField"],
     });
     renderPill();

@@ -123,8 +123,16 @@ async def test_lists_every_slot_and_what_filling_it_would_reach(client, env):
         ("tag_group", str(env["group"].id)): 50.0,
         ("stakeholders", "stakeholders"): 50.0,
     }
+    # What each unmet slot adds: its weight over the total of 8.
+    assert {k: f["gain"] for k, f in rows.items() if not f["filled"]} == {
+        ("field", "cost"): 25.0,
+        ("lifecycle", "lifecycle"): 12.5,
+        ("tag_group", str(env["group"].id)): 12.5,
+        ("stakeholders", "stakeholders"): 12.5,
+    }
     # A slot that already counts has nothing to gain.
     assert rows[("field", "team")]["score_if_filled"] is None
+    assert rows[("field", "team")]["gain"] is None
     assert rows[("field", "team")]["section"] == "Details"
     rel = rows[("relation", "relAppToOrg")]
     assert rel["filled"] is True

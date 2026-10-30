@@ -82,7 +82,7 @@
   "dataQuality.addRequiredRelation": "Add a required relation",
   "dataQuality.addTag": "Tag with {{group}}",
   "dataQuality.assignStakeholder": "Assign a stakeholder",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ required",
   "dataQuality.more_one": "+{{count}} more · click for details",
   "dataQuality.more_other": "+{{count}} more · click for details",

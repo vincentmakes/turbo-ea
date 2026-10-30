@@ -82,7 +82,7 @@
   "dataQuality.addRequiredRelation": "添加必填关系",
   "dataQuality.addTag": "使用{{group}}添加标签",
   "dataQuality.assignStakeholder": "指派一位利益相关者",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ 必填",
   "dataQuality.more_one": "另有 {{count}} 项 · 点击查看详情",
   "dataQuality.more_other": "另有 {{count}} 项 · 点击查看详情",

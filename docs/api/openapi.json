@@ -4998,6 +4998,17 @@
             "title": "Filled",
             "type": "boolean"
           },
+          "gain": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gain"
+          },
           "key": {
             "title": "Key",
             "type": "string"

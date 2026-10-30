@@ -298,6 +298,8 @@ class DataQualityFactor(BaseModel):
     filled: bool
     # The score the card would reach with this slot filled too (unmet only).
     score_if_filled: float | None = None
+    # How many points filling this slot adds to the score (unmet only).
+    gain: float | None = None
     section: str | None = None
     side: Literal["source", "target"] | None = None
     other_type_key: str | None = None

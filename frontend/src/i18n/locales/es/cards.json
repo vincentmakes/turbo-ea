@@ -82,7 +82,7 @@
   "dataQuality.addRequiredRelation": "Añadir una relación obligatoria",
   "dataQuality.addTag": "Etiquetar con {{group}}",
   "dataQuality.assignStakeholder": "Asignar un interesado",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ obligatorio",
   "dataQuality.more_one": "+{{count}} más · haga clic para ver los detalles",
   "dataQuality.more_other": "+{{count}} más · haga clic para ver los detalles",

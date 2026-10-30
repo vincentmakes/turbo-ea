@@ -629,6 +629,8 @@ export interface DataQualityFactor {
   filled: boolean;
   /** The score the card would reach with this slot filled too; null once it counts. */
   score_if_filled: number | null;
+  /** How many points filling this slot adds to the score; null once it counts. */
+  gain: number | null;
   /** Field: the section it sits in. */
   section?: string | null;
   /** Relation: which end this card is on, and the other end's card type. */

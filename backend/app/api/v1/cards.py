@@ -1256,6 +1256,7 @@ async def get_data_quality_breakdown(
                 weight=f.weight,
                 filled=f.filled,
                 score_if_filled=None if f.filled else breakdown.score_if_filled(f),
+                gain=None if f.filled else breakdown.gain(f),
                 section=f.section,
                 side=f.side,
                 other_type_key=f.other_type_key,

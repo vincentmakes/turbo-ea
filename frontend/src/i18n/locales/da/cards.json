@@ -82,7 +82,7 @@
   "dataQuality.addRequiredRelation": "Tilføj en obligatorisk relation",
   "dataQuality.addTag": "Tag med {{group}}",
   "dataQuality.assignStakeholder": "Tildel en interessent",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ obligatorisk",
   "dataQuality.more_one": "+{{count}} mere · klik for detaljer",
   "dataQuality.more_other": "+{{count}} mere · klik for detaljer",

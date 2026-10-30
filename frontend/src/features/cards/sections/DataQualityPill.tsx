@@ -54,7 +54,7 @@ function rankUnmet(factors: DataQualityFactor[], blocked: string[]): DataQuality
   return factors
     .filter((f) => !f.filled)
     .sort(
-      (a, b) => unlocks(b) - unlocks(a) || (b.score_if_filled ?? 0) - (a.score_if_filled ?? 0),
+      (a, b) => unlocks(b) - unlocks(a) || (b.gain ?? 0) - (a.gain ?? 0),
     );
 }
 
@@ -167,13 +167,13 @@ export function DataQualityPill({
   const blocked = useMemo(() => data?.blocked_by_required ?? [], [data]);
   const unmet = useMemo(() => (data ? rankUnmet(data.factors, blocked) : []), [data, blocked]);
   const met = useMemo(() => (data ? data.factors.filter((f) => f.filled) : []), [data]);
-  // What filling the slot does to the score. A gating field shows no figure:
-  // its own `score_if_filled` is unreachable while another required field is
-  // still empty, and the alert already says what the score would be.
+  // What filling the slot adds to the score. A gating field shows no figure:
+  // nothing moves the score while another required field is still empty, and
+  // the alert already says what the score would be.
   const gain = (f: DataQualityFactor) =>
     unlocksScore(f, blocked)
       ? t("dataQuality.required")
-      : t("dataQuality.raiseTo", { pct: f.score_if_filled });
+      : t("dataQuality.raiseTo", { pct: f.gain });
 
   const headline = t("utils.dataQuality", { value: v });
   const tooltip =

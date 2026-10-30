@@ -100,7 +100,7 @@
   "dataQuality.addRequiredRelation": "Добавить обязательную связь",
   "dataQuality.addTag": "Добавить тег из группы «{{group}}»",
   "dataQuality.assignStakeholder": "Назначить заинтересованное лицо",
-  "dataQuality.raiseTo": "→ {{pct}}%",
+  "dataQuality.raiseTo": "+{{pct}}%",
   "dataQuality.required": "→ обязательно",
   "dataQuality.more_one": "ещё +{{count}} · нажмите для подробностей",
   "dataQuality.more_few": "ещё +{{count}} · нажмите для подробностей",
