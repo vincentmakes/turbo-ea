@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 
 const motion = vi.hoisted(() => ({ reduced: false }));
 vi.mock("./useReducedMotion", () => ({ useReducedMotion: () => motion.reduced }));
@@ -46,14 +46,31 @@ describe("ScoreBar", () => {
     });
   });
 
-  it("on a gain shows the ghost at the new score and fills into it after the hold", () => {
+  it("on a gain shows the ghost at the new score and fills into it after the hold", async () => {
     render(<ScoreBar value={80} color={GREEN} animate ghostFrom={60} />);
     const ghost = screen.getByTestId("score-bar-ghost");
     expect(ghost).toHaveStyle({ transform: "scaleX(0.8)", opacity: "0.35" });
-    expect(screen.getByTestId("score-bar-fill")).toHaveStyle({
-      transform: "scaleX(0.8)",
+    // The old score is painted first, with the transition already in place …
+    const fill = screen.getByTestId("score-bar-fill");
+    expect(fill).toHaveStyle({
+      transform: "scaleX(0.6)",
       transition: "transform 500ms cubic-bezier(0, 0, 0, 1) 400ms",
     });
+    // … and two frames later the fill is sent to the new score.
+    await waitFor(() => expect(fill).toHaveStyle({ transform: "scaleX(0.8)" }));
+    expect(fill).toHaveStyle({ transition: "transform 500ms cubic-bezier(0, 0, 0, 1) 400ms" });
+  });
+
+  it("re-arms for a second gain, from the score the first one reached", async () => {
+    const { rerender } = render(<ScoreBar value={80} color={GREEN} animate ghostFrom={60} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("score-bar-fill")).toHaveStyle({ transform: "scaleX(0.8)" }),
+    );
+    rerender(<ScoreBar value={90} color={GREEN} animate ghostFrom={80} />);
+    expect(screen.getByTestId("score-bar-fill")).toHaveStyle({ transform: "scaleX(0.8)" });
+    await waitFor(() =>
+      expect(screen.getByTestId("score-bar-fill")).toHaveStyle({ transform: "scaleX(0.9)" }),
+    );
   });
 
   it("does not animate a drop, an unchanged score, or a bar told not to animate", () => {

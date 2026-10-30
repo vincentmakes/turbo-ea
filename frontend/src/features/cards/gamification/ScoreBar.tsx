@@ -13,7 +13,16 @@
  *
  * Anything else — no gain, a drop, `animate` off, reduced motion — sets the
  * fill without a transition, and no ghost is drawn.
+ *
+ * The fill is **armed one paint late**: on the render that brings the gain it
+ * stays at the old score, and only after two animation frames does it get the
+ * new score with its transition. A save re-renders the whole card page, and a
+ * transition that starts in the same style commit as that heavy render is
+ * clocked from the commit, not from the first painted frame — it came out late
+ * and compressed into a jump in the browser. Painting the old score first
+ * gives the hold and the fill their full durations.
  */
+import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { EASE_DECELERATE, FILL_MS, GHOST_HOLD_MS } from "./scoreGain";
@@ -50,6 +59,24 @@ export function ScoreBar({
   const reduced = useReducedMotion();
   const v = clamp(value);
   const playing = animate && !reduced && ghostFrom !== null && ghostFrom < v;
+  // The gain the fill has been armed for (its `ghostFrom`), or null while the
+  // old score is still being painted.
+  const [armedFor, setArmedFor] = useState<number | null>(null);
+  useEffect(() => {
+    if (!playing) {
+      setArmedFor(null);
+      return;
+    }
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setArmedFor(ghostFrom));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [playing, ghostFrom, v]);
+  const fillScale = playing && armedFor !== ghostFrom ? clamp(ghostFrom as number) : v;
   const layer = {
     position: "absolute",
     top: 0,
@@ -86,7 +113,7 @@ export function ScoreBar({
         className="dq-fill"
         sx={{
           ...layer,
-          transform: `scaleX(${v / 100})`,
+          transform: `scaleX(${fillScale / 100})`,
           transition: playing
             ? `transform ${FILL_MS}ms ${EASE_DECELERATE} ${GHOST_HOLD_MS}ms`
             : "none",
