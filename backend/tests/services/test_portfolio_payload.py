@@ -321,7 +321,9 @@ async def test_relations_are_listed_on_the_side_each_card_sits(db, env):
         "org_ids": [],
         "tag_ids": [],
     }
-    assert [i["name"] for i in payload["items"]] == ["ERP", "CRM", "Lone"]
+    # Membership, not order: the items query has no ORDER BY, so the heap order a
+    # sequential scan returns depends on what ran before in the same worker.
+    assert sorted(i["name"] for i in payload["items"]) == ["CRM", "ERP", "Lone"]
 
 
 async def test_related_capabilities_carry_their_ancestors(db, env):
@@ -425,7 +427,9 @@ async def test_a_reports_only_role_reads_everything_in_module_mode(db, env):
     """No ``inventory.view`` and no View cells: module mode is the whole
     landscape, where inventory mode would be nothing."""
     payload = await _payload(db, env["reports_only"], env["app_type"])
-    assert [i["name"] for i in payload["items"]] == ["ERP", "CRM", "Lone"]
+    # Membership, not order: the items query has no ORDER BY, so the heap order a
+    # sequential scan returns depends on what ran before in the same worker.
+    assert sorted(i["name"] for i in payload["items"]) == ["CRM", "ERP", "Lone"]
     assert {rt["key"] for rt in payload["relation_types"]} == {
         "relAppToBC",
         "relInitToApp",
