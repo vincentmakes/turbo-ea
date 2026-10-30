@@ -57,3 +57,25 @@ describe("LifecycleSection — phase order warning", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ lifecycle: outOfOrder }));
   });
 });
+
+describe("LifecycleSection — data-quality jump", () => {
+  it("carries its jump anchor and opens on a jump request", () => {
+    const { container, rerender } = render(
+      <LifecycleSection card={cardWith({})} onSave={async () => {}} initialExpanded={false} />,
+    );
+    const root = container.querySelector(".MuiAccordion-root")!;
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(root.id).toBe("card-section-lifecycle");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+
+    rerender(
+      <LifecycleSection
+        card={cardWith({})}
+        onSave={async () => {}}
+        initialExpanded={false}
+        expandOn={1}
+      />,
+    );
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+});

@@ -101,3 +101,20 @@ describe("DescriptionSection — links in the description", () => {
     expect(screen.getByText(/Runbook:/)).toHaveTextContent("Runbook: https://wiki.example.com/erp.");
   });
 });
+
+describe("DescriptionSection — data-quality jump", () => {
+  it("carries its jump anchor and opens on a jump request", () => {
+    const { container, rerender } = render(
+      <DescriptionSection card={card} onSave={async () => {}} initialExpanded={false} />,
+    );
+    const root = container.querySelector(".MuiAccordion-root")!;
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(root.id).toBe("card-section-description");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+
+    rerender(
+      <DescriptionSection card={card} onSave={async () => {}} initialExpanded={false} expandOn={1} />,
+    );
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+});

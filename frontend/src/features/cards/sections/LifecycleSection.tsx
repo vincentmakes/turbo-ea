@@ -16,6 +16,7 @@ import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePha
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
 import type { Card } from "@/types";
 
 const PHASE_PALETTE: Record<string, string> = {
@@ -42,6 +43,7 @@ function LifecycleSection({
   initialExpanded = true,
   onDirtyChange,
   phaseAnnotation,
+  expandOn,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -55,12 +57,14 @@ function LifecycleSection({
    * the component renders what it is given and knows nothing about why.
    */
   phaseAnnotation?: (phase: string) => PhaseAnnotation | null | undefined;
+  /** A new value expands the section (a data-quality jump). */
+  expandOn?: number;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
   const { formatDate } = useDateFormat();
   const phaseLabels = getPhaseLabels(t);
-  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
@@ -100,7 +104,13 @@ function LifecycleSection({
   };
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
+    <Accordion
+      id={sectionAnchor("lifecycle")}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      disableGutters
+      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} />

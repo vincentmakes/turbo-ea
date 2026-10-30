@@ -24,6 +24,7 @@ import {
 import Chip from "@mui/material/Chip";
 import { useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -39,6 +40,7 @@ function DescriptionSection({
   aiBusy = false,
   onDirtyChange,
   calculatedFieldKeys = [],
+  expandOn,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
@@ -56,10 +58,12 @@ function DescriptionSection({
    * editor path for a card's attributes and must not diverge from the first.
    */
   calculatedFieldKeys?: string[];
+  /** A new value expands the section (a data-quality jump). */
+  expandOn?: number;
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const fieldLabel = useFieldLabel();
-  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [editing, setEditing] = useState(false);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
@@ -135,7 +139,13 @@ function DescriptionSection({
   };
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} disableGutters>
+    <Accordion
+      id={sectionAnchor("description")}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      disableGutters
+      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} />

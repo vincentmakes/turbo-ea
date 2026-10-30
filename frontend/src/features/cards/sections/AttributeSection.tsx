@@ -25,16 +25,20 @@ import Tooltip from "@mui/material/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import {
+  SECTION_SCROLL_MARGIN_TOP,
+  customSectionAnchor,
+} from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef, SectionDef } from "@/types";
 
 // ── Section: Type-specific attributes ───────────────────────────
 const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
 
-// The app's fixed AppBar is 64px tall; the section root carries this as
-// scroll-margin-top so a post-save scrollIntoView({block:"start"}) lands the
-// header just below the bar instead of under it.
-const SCROLL_MARGIN_TOP = 72;
+// The app's fixed AppBar is 64px tall; the section root carries
+// SECTION_SCROLL_MARGIN_TOP as scroll-margin-top so a post-save
+// scrollIntoView({block:"start"}) lands the header just below the bar instead
+// of under it.
 
 function AttributeSection({
   section,
@@ -47,6 +51,7 @@ function AttributeSection({
   hiddenFieldKeys,
   canViewCosts = true,
   onDirtyChange,
+  expandOn,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -58,6 +63,8 @@ function AttributeSection({
   hiddenFieldKeys?: Set<string>;
   canViewCosts?: boolean;
   onDirtyChange?: (dirty: boolean) => void;
+  /** A new value expands the section (a data-quality jump). */
+  expandOn?: number;
 }) {
   const { t } = useTranslation(["cards", "common", "validation"]);
   const { fmt, symbol } = useCurrency();
@@ -175,7 +182,7 @@ function AttributeSection({
         const { top } = el.getBoundingClientRect();
         // Only when the header is NOT already visibly positioned: above the
         // fixed app bar line (its scroll-margin offset) or below the viewport.
-        if (top < SCROLL_MARGIN_TOP || top > window.innerHeight) {
+        if (top < SECTION_SCROLL_MARGIN_TOP || top > window.innerHeight) {
           el.scrollIntoView({ block: "start", behavior: "auto" });
         }
       }
@@ -243,6 +250,7 @@ function AttributeSection({
 
   const [expanded, setExpanded] = useSyncedExpanded(
     initialExpanded ?? section.defaultExpanded !== false,
+    expandOn,
   );
 
   // Read-only field grid
@@ -404,10 +412,11 @@ function AttributeSection({
   return (
     <Accordion
       ref={rootRef}
+      id={customSectionAnchor(section.section)}
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
-      sx={{ scrollMarginTop: `${SCROLL_MARGIN_TOP}px` }}
+      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

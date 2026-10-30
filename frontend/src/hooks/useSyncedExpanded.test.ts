@@ -43,3 +43,46 @@ describe("useSyncedExpanded", () => {
     expect(result.current[0]).toBe(true);
   });
 });
+
+describe("useSyncedExpanded expandOn", () => {
+  it("re-expands on each new request, even after the user collapsed it", () => {
+    const { result, rerender } = renderHook(
+      ({ expandOn }: { expandOn?: number }) => useSyncedExpanded(false, expandOn),
+      { initialProps: { expandOn: undefined as number | undefined } },
+    );
+    expect(result.current[0]).toBe(false);
+
+    rerender({ expandOn: 1 });
+    expect(result.current[0]).toBe(true);
+
+    act(() => result.current[1](false));
+    expect(result.current[0]).toBe(false);
+
+    rerender({ expandOn: 2 });
+    expect(result.current[0]).toBe(true);
+  });
+
+  it("opens a section that mounts with a pending request", () => {
+    const { result } = renderHook(() => useSyncedExpanded(false, 7));
+    expect(result.current[0]).toBe(true);
+  });
+
+  it("does nothing while no request is made", () => {
+    const { result, rerender } = renderHook(
+      ({ expandOn }: { expandOn?: number }) => useSyncedExpanded(false, expandOn),
+      { initialProps: { expandOn: undefined as number | undefined } },
+    );
+    rerender({ expandOn: undefined });
+    expect(result.current[0]).toBe(false);
+  });
+
+  it("keeps a manual collapse while the same request stands", () => {
+    const { result, rerender } = renderHook(
+      ({ expandOn }: { expandOn?: number }) => useSyncedExpanded(false, expandOn),
+      { initialProps: { expandOn: 3 as number | undefined } },
+    );
+    act(() => result.current[1](false));
+    rerender({ expandOn: 3 });
+    expect(result.current[0]).toBe(false);
+  });
+});

@@ -56,4 +56,16 @@ describe("TagsSection expansion", () => {
       expect(summary().getAttribute("aria-expanded")).toBe("false"),
     );
   });
+
+  it("carries its jump anchor and opens on a jump request", async () => {
+    const { container, rerender } = render(
+      <TagsSection card={card} onUpdate={() => {}} initialExpanded={false} />,
+    );
+    await waitFor(() => expect(summary()).toBeTruthy());
+    expect(container.querySelector(".MuiAccordion-root")!.id).toBe("card-section-tags");
+    expect(summary().getAttribute("aria-expanded")).toBe("false");
+
+    rerender(<TagsSection card={card} onUpdate={() => {}} initialExpanded={false} expandOn={1} />);
+    await waitFor(() => expect(summary().getAttribute("aria-expanded")).toBe("true"));
+  });
 });

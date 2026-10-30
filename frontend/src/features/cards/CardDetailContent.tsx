@@ -50,6 +50,11 @@ import {
 } from "@/lib/extensionHost";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import {
+  customSectionAnchor,
+  sectionAnchor,
+  type DataQualityJumpTarget,
+} from "@/features/cards/dataQualityJump";
+import {
   allFieldsHidden,
   buildSectionOrder,
   calculatedFieldKeys,
@@ -98,7 +103,13 @@ interface Props {
   aiBusy?: boolean;
   /** Notified when any editable section has unsaved changes (for a leave guard) */
   onDirtyChange?: (dirty: boolean) => void;
+  /** Jump to where a data-quality gap is filled: each new `nonce` opens the
+   *  target's tab and, on the Card tab, expands and scrolls to its section. */
+  focusTarget?: { target: DataQualityJumpTarget; nonce: number } | null;
 }
+
+/** Long enough for the Card tab to mount and the section to start expanding. */
+const FOCUS_SCROLL_DELAY_MS = 250;
 
 export default function CardDetailContent({
   card,
@@ -114,6 +125,7 @@ export default function CardDetailContent({
   onAiSuggest,
   aiBusy = false,
   onDirtyChange,
+  focusTarget,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -207,6 +219,31 @@ export default function CardDetailContent({
   useEffect(() => {
     setRequestedTab(initialTab);
   }, [card.id, initialTab]);
+
+  // A data-quality jump: open the tab, expand the section, then scroll to the
+  // anchor once the tab has mounted (falling back to the section when the
+  // anchor — a relation group still loading — is not there yet).
+  const [expandRequest, setExpandRequest] = useState<{ anchor: string; nonce: number } | null>(
+    null,
+  );
+  const focusNonce = focusTarget?.nonce;
+  useEffect(() => {
+    if (!focusTarget) return;
+    const { target, nonce } = focusTarget;
+    setRequestedTab(target.tab);
+    if (target.tab !== "card") return;
+    setExpandRequest({ anchor: target.sectionAnchor, nonce });
+    const timer = setTimeout(() => {
+      const el =
+        document.getElementById(target.anchor) ?? document.getElementById(target.sectionAnchor);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, FOCUS_SCROLL_DELAY_MS);
+    return () => clearTimeout(timer);
+    // Only a new jump (a new nonce) acts; the target object may be re-created.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce]);
+  const expandOn = (anchor: string) =>
+    expandRequest?.anchor === anchor ? expandRequest.nonce : undefined;
 
   const typeConfig = getType(card.type);
   const fieldLabel = useFieldLabel();
@@ -338,6 +375,7 @@ export default function CardDetailContent({
             aiBusy={aiBusy}
             onDirtyChange={dirtyCb("description")}
             calculatedFieldKeys={calcFieldKeys}
+            expandOn={expandOn(sectionAnchor("description"))}
           />
         </ErrorBoundary>
       );
@@ -364,6 +402,7 @@ export default function CardDetailContent({
             canEdit={perms.can_edit}
             initialExpanded={exp}
             onDirtyChange={dirtyCb("lifecycle")}
+            expandOn={expandOn(sectionAnchor("lifecycle"))}
           />
         </ErrorBoundary>
       );
@@ -401,6 +440,7 @@ export default function CardDetailContent({
             onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
             canEdit={perms.can_edit}
             initialExpanded={exp}
+            expandOn={expandOn(sectionAnchor("tags"))}
           />
         </ErrorBoundary>
       );
@@ -416,6 +456,7 @@ export default function CardDetailContent({
             canManageRelations={perms.can_manage_relations}
             initialExpanded={exp}
             onCardUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
+            expandOn={expandOn(sectionAnchor("relations"))}
           />
         </ErrorBoundary>
       );
@@ -439,6 +480,7 @@ export default function CardDetailContent({
             hiddenFieldKeys={hiddenFieldKeys}
             canViewCosts={perms.can_view_costs}
             onDirtyChange={dirtyCb(key)}
+            expandOn={expandOn(customSectionAnchor(section.section))}
           />
         </ErrorBoundary>
       );

@@ -1,4 +1,4 @@
-import { useState, useEffect, type KeyboardEvent } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -22,6 +22,7 @@ import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { api } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
+import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import type {
   Card,
   CardEffectivePermissions,
@@ -74,6 +75,14 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
   const [error, setError] = useState("");
   const [perms, setPerms] =
     useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
+  // A data-quality jump from the pill (#1334), tied to the card it was asked
+  // on so it never replays on the next card this view shows.
+  const [focusTarget, setFocusTarget] = useState<{
+    cardId: string;
+    target: DataQualityJumpTarget;
+    nonce: number;
+  } | null>(null);
+  const jumpNonce = useRef(0);
 
   const { aiStatus } = useAiStatus();
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
@@ -212,7 +221,14 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
                 order: { xs: 1, sm: 0 },
               }}
             >
-              <DataQualityPill value={card.data_quality} cardId={card.id} cardType={card.type} />
+              <DataQualityPill
+                value={card.data_quality}
+                cardId={card.id}
+                cardType={card.type}
+                onJump={(target) =>
+                  setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current })
+                }
+              />
               <LifecycleBadge lifecycle={card.lifecycle} />
               <ApprovalStatusBadge status={card.approval_status} />
             </Box>
@@ -253,6 +269,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose, nonModal = 
             perms={perms}
             onCardUpdate={setCard}
             showBpmTabs={false}
+            focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
             onAiSuggest={
               aiEnabled && perms.can_edit && !isArchived && !aiResponse
                 ? handleAiSuggest

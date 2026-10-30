@@ -255,3 +255,27 @@ describe("AttributeSection — calculated fields in edit mode", () => {
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
   });
 });
+
+describe("AttributeSection — data-quality jump", () => {
+  it("carries its slugged jump anchor and opens on a jump request", () => {
+    const named = { ...section, section: "Digital Strategy" };
+    const { container, rerender } = render(
+      <AttributeSection section={named} card={card} onSave={async () => {}} initialExpanded={false} />,
+    );
+    const root = container.querySelector(".MuiAccordion-root")!;
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(root.id).toBe("card-section-custom-digital-strategy");
+    expect(summary.getAttribute("aria-expanded")).toBe("false");
+
+    rerender(
+      <AttributeSection
+        section={named}
+        card={card}
+        onSave={async () => {}}
+        initialExpanded={false}
+        expandOn={1}
+      />,
+    );
+    expect(summary.getAttribute("aria-expanded")).toBe("true");
+  });
+});

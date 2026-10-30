@@ -22,6 +22,11 @@ import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
 import {
+  SECTION_SCROLL_MARGIN_TOP,
+  relationGroupAnchor,
+  sectionAnchor,
+} from "@/features/cards/dataQualityJump";
+import {
   useResolveLabel,
   useTypeLabel,
   useRelationLabel,
@@ -459,12 +464,14 @@ function RelationGroup({
 
   return (
     <Box
+      id={relationGroupAnchor(rt.key, isSource ? "source" : "target")}
       sx={{
         border: "1px solid",
         borderColor: "divider",
         borderRadius: 1,
         overflow: "hidden",
         mb: 1.5,
+        scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px`,
       }}
     >
       {/* Group header */}
@@ -639,6 +646,7 @@ function RelationsSection({
   canManageRelations = true,
   initialExpanded = false,
   onCardUpdate,
+  expandOn,
 }: {
   fsId: string;
   cardTypeKey: string;
@@ -653,6 +661,8 @@ function RelationsSection({
    *  so adding or removing one moves the score in the header pill — which the
    *  section's own relation reload cannot refresh. */
   onCardUpdate?: () => void;
+  /** A new value expands the section (a data-quality jump). */
+  expandOn?: number;
 }) {
   const { t, i18n } = useTranslation(["cards", "common"]);
   const typeLabel = useTypeLabel();
@@ -731,7 +741,7 @@ function RelationsSection({
   // opens), and `useSyncedExpanded` re-syncs when `initialExpanded` changes —
   // the metamodel's section_config arrives asynchronously, so a config that
   // lands after mount still opens the section.
-  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [rollup, setRollup] = useState<Record<string, number>>({});
   const isHierarchical = getType(cardTypeKey)?.has_hierarchy ?? false;
 
@@ -897,9 +907,11 @@ function RelationsSection({
 
   return (
     <Accordion
+      id={sectionAnchor("relations")}
       expanded={expanded}
       onChange={(_, v) => setExpanded(v)}
       disableGutters
+      sx={{ scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
     >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>

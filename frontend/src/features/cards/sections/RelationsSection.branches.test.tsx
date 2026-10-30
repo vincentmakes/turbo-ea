@@ -9,7 +9,7 @@
  * `AddRelationsDialog` and `DescendantRelationsDrawer` are stubbed to the props
  * the section passes them; each has its own tests.
  */
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -53,7 +53,7 @@ import {
   makeRelationType,
   makeSubtype,
 } from "@/test/fixtures/metamodel";
-import { renderWithProviders } from "@/test/render";
+import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import type { Relation, RelationType } from "@/types";
 import RelationsSection from "./RelationsSection";
 
@@ -577,5 +577,44 @@ describe("RelationsSection — self-referencing type sides", () => {
     expect(await screen.findByText("Branch Office")).toBeInTheDocument();
     expect(screen.getByText("is site of")).toBeInTheDocument();
     expect(screen.queryByText("has site")).not.toBeInTheDocument();
+  });
+});
+
+describe("RelationsSection — data-quality jump anchors", () => {
+  const ORG_TO_APP = makeRelationType({
+    key: "orgToApp",
+    label: "runs",
+    reverse_label: "is run by",
+    source_type_key: "Organization",
+    target_type_key: "Application",
+    cardinality: "n:m",
+    ...SIDES,
+  } as Partial<RelationType> & { key: string });
+
+  it("carries the section id and one id per group, by type and side", async () => {
+    withMetamodel([APP, ORG], [APP_TO_ORG, ORG_TO_APP]);
+    const { container } = renderSection();
+    await waitFor(() =>
+      expect(container.querySelector("#card-relation-orgToApp-target")).not.toBeNull(),
+    );
+    const root = container.querySelector(".MuiAccordion-root")!;
+    expect(root.id).toBe("card-section-relations");
+    expect(container.querySelector("#card-relation-appToOrg-source")).not.toBeNull();
+    expect(container.querySelector("#card-relation-orgToApp-target")).not.toBeNull();
+    expect(container.querySelector("#card-relation-appToOrg-target")).toBeNull();
+    expect(container.querySelector("#card-relation-orgToApp-source")).toBeNull();
+  });
+
+  it("opens the collapsed section on a jump request", async () => {
+    const section = (expandOn?: number) =>
+      wrapWithProviders(
+        <RelationsSection fsId={FS} cardTypeKey="Application" initialExpanded={false} expandOn={expandOn} />,
+        { route: `/cards/${FS}` },
+      );
+    const { container, rerender } = render(section());
+    const summary = () => container.querySelector(".MuiAccordionSummary-root")!;
+    await waitFor(() => expect(summary().getAttribute("aria-expanded")).toBe("false"));
+    rerender(section(1));
+    await waitFor(() => expect(summary().getAttribute("aria-expanded")).toBe("true"));
   });
 });

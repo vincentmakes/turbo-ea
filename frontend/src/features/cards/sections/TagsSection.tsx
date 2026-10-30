@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useSyncedExpanded } from "@/hooks/useSyncedExpanded";
+import { SECTION_SCROLL_MARGIN_TOP, sectionAnchor } from "@/features/cards/dataQualityJump";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
 import { readableTextColor } from "@/lib/color";
@@ -25,6 +26,8 @@ interface Props {
   onUpdate: () => void;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  /** A new value expands the section (a data-quality jump). */
+  expandOn?: number;
 }
 
 export default function TagsSection({
@@ -32,9 +35,10 @@ export default function TagsSection({
   onUpdate,
   canEdit = true,
   initialExpanded = true,
+  expandOn,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
-  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded);
+  const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [editOpen, setEditOpen] = useState(false);
   const [draftIds, setDraftIds] = useState<string[]>([]);
@@ -90,7 +94,12 @@ export default function TagsSection({
   };
 
   return (
-    <Accordion expanded={expanded} onChange={(_, v) => setExpanded(v)} sx={{ mb: 2 }}>
+    <Accordion
+      id={sectionAnchor("tags")}
+      expanded={expanded}
+      onChange={(_, v) => setExpanded(v)}
+      sx={{ mb: 2, scrollMarginTop: `${SECTION_SCROLL_MARGIN_TOP}px` }}
+    >
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <Typography variant="subtitle1" fontWeight={600}>

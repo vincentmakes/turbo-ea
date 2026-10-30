@@ -12,13 +12,24 @@ import { useEffect, useState } from "react";
  * Keeping the accordion controlled and re-syncing when (and only when) the
  * incoming value actually changes honours a config that lands after first
  * paint, while still leaving a manual toggle by the user in place afterwards.
+ *
+ * `expandOn` is a request to open the section from outside (the data-quality
+ * popover jumping to where a gap is filled): each new defined value expands
+ * it, even after the user collapsed it; `undefined` asks for nothing.
  */
-export function useSyncedExpanded(initial: boolean): [boolean, (v: boolean) => void] {
+export function useSyncedExpanded(
+  initial: boolean,
+  expandOn?: number,
+): [boolean, (v: boolean) => void] {
   const [expanded, setExpanded] = useState(initial);
 
   useEffect(() => {
     setExpanded(initial);
   }, [initial]);
+
+  useEffect(() => {
+    if (expandOn !== undefined) setExpanded(true);
+  }, [expandOn]);
 
   return [expanded, setExpanded];
 }

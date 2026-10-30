@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.184.0] - 2026-10-30
 
 ### Added
-- A card's data quality score now says what to fill: hovering it lists the three things that would raise it most and how many points each would add; clicking it opens the full breakdown, with what already counts and, while empty required fields hold the score at 0%, which fields those are and what the score would be without them.
+- A card's data quality score now says what to fill: hovering it lists the three things that would raise it most and how many points each would add; clicking it opens the full breakdown, with what already counts and, while empty required fields hold the score at 0%, which fields those are and what the score would be without them; each item links to the section where it is filled.
 
 ### Changed
 - Related cards on a card's page are real links: middle-click, Ctrl/Cmd-click or right-click → *Open in new tab* on a relation, a hierarchy parent, child or breadcrumb, a Lineage predecessor or successor, a row of the **+N in sub-items** list, a stakeholder's hover card or a BPM step's linked process now opens it in a new browser tab, while a plain click still opens it in place.

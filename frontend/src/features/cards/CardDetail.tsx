@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { KeyboardEvent } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
@@ -36,6 +36,7 @@ import { useAiStatus, aiSuggestEnabledFor } from "@/hooks/useAiStatus";
 import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill } from "@/features/cards/sections";
+import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -88,6 +89,14 @@ export default function CardDetail() {
   const [error, setError] = useState("");
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  // A data-quality jump from the pill (#1334), tied to the card it was asked
+  // on so it never replays on the next card this view shows.
+  const [focusTarget, setFocusTarget] = useState<{
+    cardId: string;
+    target: DataQualityJumpTarget;
+    nonce: number;
+  } | null>(null);
+  const jumpNonce = useRef(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
@@ -719,7 +728,14 @@ export default function CardDetail() {
         </Box>
         {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <DataQualityPill value={card.data_quality} cardId={card.id} cardType={card.type} />
+          <DataQualityPill
+            value={card.data_quality}
+            cardId={card.id}
+            cardType={card.type}
+            onJump={(target) =>
+              setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current })
+            }
+          />
           <LifecycleBadge lifecycle={card.lifecycle} />
           <ApprovalStatusBadge
             status={card.approval_status}
@@ -892,6 +908,7 @@ export default function CardDetail() {
         perms={perms}
         onCardUpdate={setCard}
         onDirtyChange={setSectionsDirty}
+        focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
         initialTab={initialTab}
         initialSubTab={initialSubTab}
         autoFieldKeys={ppmAutoFieldKeys}

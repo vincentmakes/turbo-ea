@@ -24,6 +24,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 
 import { api } from "@/api/client";
 import type { CardType, DataQualityBreakdown, DataQualityFactor, RelationType } from "@/types";
+import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import { DataQualityPill } from "./DataQualityPill";
 
 const TYPES = [
@@ -92,7 +93,14 @@ const BREAKDOWN: DataQualityBreakdown = {
 
 const URL = "/cards/c1/data-quality";
 
-function renderPill(value = 37.5, props: { cardId?: string; cardType?: string } = { cardId: "c1", cardType: "Application" }) {
+function renderPill(
+  value = 37.5,
+  props: {
+    cardId?: string;
+    cardType?: string;
+    onJump?: (target: DataQualityJumpTarget) => void;
+  } = { cardId: "c1", cardType: "Application" },
+) {
   return render(<DataQualityPill value={value} {...props} />);
 }
 
@@ -431,5 +439,83 @@ describe("DataQualityPill", () => {
     renderPill();
     await userEvent.click(screen.getByTestId("data-quality-pill"));
     expect(await screen.findByText("The breakdown could not be loaded.")).toBeInTheDocument();
+  });
+
+  describe("jumping to where a slot is filled", () => {
+    async function openWithJump() {
+      const onJump = vi.fn();
+      renderPill(37.5, { cardId: "c1", cardType: "Application", onJump });
+      await userEvent.click(screen.getByTestId("data-quality-pill"));
+      const dialog = await screen.findByRole("dialog");
+      await within(dialog).findByText("To raise the score");
+      return { onJump, dialog };
+    }
+
+    it("sends the lifecycle row to the Lifecycle section and closes the popover", async () => {
+      const { onJump, dialog } = await openWithJump();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Set lifecycle dates" }));
+      expect(onJump).toHaveBeenCalledTimes(1);
+      expect(onJump).toHaveBeenCalledWith({
+        tab: "card",
+        anchor: "card-section-lifecycle",
+        sectionAnchor: "card-section-lifecycle",
+      });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(screen.getByTestId("data-quality-pill")).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("sends the stakeholder row to the Stakeholders tab", async () => {
+      const { onJump, dialog } = await openWithJump();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Assign a stakeholder" }));
+      expect(onJump).toHaveBeenCalledWith({ tab: "stakeholders" });
+    });
+
+    it("sends a field to its section and a relation to its group", async () => {
+      const { onJump, dialog } = await openWithJump();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Fill Annual Cost" }));
+      expect(onJump).toHaveBeenLastCalledWith({
+        tab: "card",
+        anchor: "card-section-custom-details",
+        sectionAnchor: "card-section-custom-details",
+      });
+      await userEvent.click(screen.getByTestId("data-quality-pill"));
+      const again = await screen.findByRole("dialog");
+      await userEvent.click(
+        within(again).getByRole("button", { name: "Add relation: is owned by Organization" }),
+      );
+      expect(onJump).toHaveBeenLastCalledWith({
+        tab: "card",
+        anchor: "card-relation-relOrgToApp-target",
+        sectionAnchor: "card-section-relations",
+      });
+    });
+
+    it("renders each unmet row as a left-aligned link", async () => {
+      const { dialog } = await openWithJump();
+      const link = within(dialog).getByRole("button", { name: "Set lifecycle dates" });
+      expect(link.tagName).toBe("BUTTON");
+      expect(link).toHaveClass("MuiLink-underlineHover");
+      expect(link).toHaveStyle({ textAlign: "left" });
+      // Every unmet row is a link; the counted toggle is the only other button.
+      expect(within(dialog).getAllByRole("button")).toHaveLength(6);
+    });
+
+    it("keeps the tooltip's rows as text", async () => {
+      renderPill(37.5, { cardId: "c1", cardType: "Application", onJump: vi.fn() });
+      const tooltip = await hoverPill();
+      await within(tooltip).findByText(/Set lifecycle dates/);
+      expect(within(tooltip).queryByRole("button")).not.toBeInTheDocument();
+    });
+
+    it("without onJump the rows are plain text", async () => {
+      renderPill();
+      await userEvent.click(screen.getByTestId("data-quality-pill"));
+      const dialog = await screen.findByRole("dialog");
+      await within(dialog).findByText("Set lifecycle dates");
+      expect(
+        within(dialog).queryByRole("button", { name: "Set lifecycle dates" }),
+      ).not.toBeInTheDocument();
+      expect(within(dialog).getAllByRole("button")).toHaveLength(1);
+    });
   });
 });

@@ -17,6 +17,11 @@
  * recomputed here: the client's own banner (`missingRequiredFields`) also
  * exempts calculated and auto fields, which the backend gate does not.
  *
+ * With `onJump`, each unmet slot in the popover is a link to where it is
+ * filled (`jumpTargetFor`): a click closes the popover and hands the target to
+ * the page, which opens the tab and scrolls to the section. The tooltip's rows
+ * stay text — a tooltip is not interactive.
+ *
  * When `value` changes (a save rescored the card) the fetched breakdown is
  * dropped, so the next hover fetches the fresh one.
  */
@@ -28,6 +33,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
+import Link from "@mui/material/Link";
 import Popover from "@mui/material/Popover";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -36,6 +42,7 @@ import { useApiQuery } from "@/hooks/useApiQuery";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useFieldLabel, useRelationLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { bandColor } from "@/lib/dataQualityBands";
+import { jumpTargetFor, type DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import type { DataQualityBreakdown, DataQualityFactor, FieldDef } from "@/types";
 
 /** Unmet slots the tooltip names before "+N more". */
@@ -137,12 +144,15 @@ export function DataQualityPill({
   value,
   cardId,
   cardType,
+  onJump,
 }: {
   value: number;
   /** Turns on the breakdown tooltip and popover. */
   cardId?: string;
   /** The card's type key, to name its fields. */
   cardType?: string;
+  /** Makes each unmet slot in the popover a link to where it is filled. */
+  onJump?: (target: DataQualityJumpTarget) => void;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const v = Math.max(0, Math.min(100, Math.round(value)));
@@ -317,9 +327,24 @@ export function DataQualityPill({
                           key={factorKey(f)}
                           sx={{ display: "flex", alignItems: "center", gap: 1, py: 0.25 }}
                         >
-                          <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
-                            {text.action(f)}
-                          </Typography>
+                          {onJump ? (
+                            <Link
+                              component="button"
+                              variant="body2"
+                              underline="hover"
+                              onClick={() => {
+                                setAnchor(null);
+                                onJump(jumpTargetFor(f));
+                              }}
+                              sx={{ flex: 1, minWidth: 0, textAlign: "left" }}
+                            >
+                              {text.action(f)}
+                            </Link>
+                          ) : (
+                            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+                              {text.action(f)}
+                            </Typography>
+                          )}
                           <Chip
                             size="small"
                             variant="outlined"
