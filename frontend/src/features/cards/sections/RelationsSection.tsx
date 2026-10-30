@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
+
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -200,7 +200,6 @@ function RelationGroup({
   const relLabel = useRelationLabel();
   const subtypeLabel = useSubtypeLabel();
   const { getType } = useMetamodel();
-  const navigate = useNavigate();
   const [attrsAnchor, setAttrsAnchor] = useState<HTMLElement | null>(null);
   const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
   const [rollupOpen, setRollupOpen] = useState(false);
@@ -364,7 +363,7 @@ function RelationGroup({
       >
         <ClickableCardName
           name={other?.name || t("relations.unknown")}
-          onClick={() => other && navigate(`/cards/${other.id}`)}
+          to={other ? `/cards/${other.id}` : undefined}
           dotColor={oType?.color}
         />
         {alsoVerbs && (

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -41,7 +40,6 @@ function SuccessorsSection({
   initialExpanded?: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const navigate = useNavigate();
   const { getType, relationTypes } = useMetamodel();
   const resolveTypeLabel = useTypeLabel();
   const typeConfig = getType(card.type);
@@ -266,7 +264,7 @@ function SuccessorsSection({
                     >
                       <ClickableCardName
                         name={rel.target?.name || rel.target_id}
-                        onClick={() => navigate(`/cards/${rel.target_id}`)}
+                        to={`/cards/${rel.target_id}`}
                         icon={typeConfig.icon || "category"}
                         iconColor={typeConfig.color}
                       />
@@ -337,7 +335,7 @@ function SuccessorsSection({
                     >
                       <ClickableCardName
                         name={rel.source?.name || rel.source_id}
-                        onClick={() => navigate(`/cards/${rel.source_id}`)}
+                        to={`/cards/${rel.source_id}`}
                         icon={typeConfig.icon || "category"}
                         iconColor={typeConfig.color}
                       />

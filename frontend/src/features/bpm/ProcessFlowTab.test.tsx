@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
 
@@ -159,10 +159,17 @@ const mockArchived = [
   },
 ];
 
+/** Where the router is, so a link click can be asserted on (the Calls chip). */
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="location">{loc.pathname + loc.search}</div>;
+}
+
 function renderTab(props = {}) {
   return render(
     <MemoryRouter>
       <ProcessFlowTab processId="proc-1" processName="Order Process" {...props} />
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -557,8 +564,14 @@ describe("ProcessFlowTab", () => {
       mockWith([callActivity]);
       renderTab();
       await waitFor(() => expect(screen.getByText("Credit Check")).toBeInTheDocument());
+      expect(screen.getByText("Credit Check").closest("a")).toHaveAttribute(
+        "href",
+        `/cards/${CALLEE}?tab=1`,
+      );
       await userEvent.click(screen.getByText("Credit Check"));
-      expect(mockNavigate).toHaveBeenCalledWith(`/cards/${CALLEE}?tab=1`);
+      expect(screen.getByTestId("location")).toHaveTextContent(`/cards/${CALLEE}?tab=1`);
+      // The cell behind the chip did not open its picker.
+      expect(screen.queryByRole("combobox")).toBeNull();
     });
 
     it("removing the chip clears the link", async () => {
@@ -567,7 +580,9 @@ describe("ProcessFlowTab", () => {
       renderTab();
       await waitFor(() => expect(screen.getByText("Credit Check")).toBeInTheDocument());
       const chip = screen.getByText("Credit Check").closest(".MuiChip-root")!;
-      await userEvent.click(chip.querySelector(".MuiChip-deleteIcon") as Element);
+      // The delete icon sits inside the chip's link: removing must not also
+      // follow it, so the click's default is prevented (dispatch returns false).
+      expect(fireEvent.click(chip.querySelector(".MuiChip-deleteIcon") as Element)).toBe(false);
       await waitFor(() => {
         expect(api.put).toHaveBeenCalledWith("/bpm/processes/proc-1/elements/el4", {
           business_process_id: "",

@@ -325,6 +325,12 @@ describe("SuccessorsSection", () => {
     }
     const routes = [{ path: "/cards/here" }, { path: "/cards/:id", element: <CardPage /> }];
     const first = renderWithProviders(<SuccessorsSection card={CARD} />, { route: "/cards/here", routes });
+    // Both lists are real links (#1335): middle-click opens a new tab.
+    expect((await screen.findByText("ERP Legacy")).closest("a")).toHaveAttribute(
+      "href",
+      `/cards/${CARD_IDS.erpArchived}`,
+    );
+    expect(screen.getByText("CRM Cloud").closest("a")).toHaveAttribute("href", `/cards/${CARD_IDS.crm}`);
     await first.user.click(await screen.findByText("ERP Legacy"));
     expect(await screen.findByText(`Card page ${CARD_IDS.erpArchived}`)).toBeInTheDocument();
     first.unmount();

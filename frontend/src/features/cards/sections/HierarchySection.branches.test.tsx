@@ -155,6 +155,13 @@ describe("HierarchySection — rendering", () => {
     const { user } = renderSection();
     await screen.findByText("Holding");
 
+    // Each is a real link (#1335), so middle-click opens a new tab.
+    expect(screen.getByText("Holding").closest("a")).toHaveAttribute("href", "/cards/root");
+    expect(screen.getAllByText("Company A")[1].closest("a")).toHaveAttribute("href", "/cards/a");
+    expect(screen.getByText("Company B1").closest("a")).toHaveAttribute("href", "/cards/b1");
+    // The card's own breadcrumb chip is where you already are: not a link.
+    expect(screen.getAllByText("Company B")[0].closest("a")).toBeNull();
+
     await user.click(screen.getByText("Holding"));
     expect(location()).toBe("/cards/root");
     // The parent chip is the second "Company A".

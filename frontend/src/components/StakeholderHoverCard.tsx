@@ -1,12 +1,13 @@
 import { useCallback, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link as RouterLink } from "react-router";
 import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Popover from "@mui/material/Popover";
 import Typography from "@mui/material/Typography";
 import { api, ApiError } from "@/api/client";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { isModifiedClick } from "@/lib/modifiedClick";
 import type { Card as CardType, TranslationMap } from "@/types";
 
 interface RoleDescriptor {
@@ -70,7 +71,6 @@ export default function StakeholderHoverCard({
   children,
 }: Props) {
   const { t } = useTranslation("common");
-  const navigate = useNavigate();
   const rl = useResolveLabel();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [data, setData] = useState<StakeholderResponse | null>(null);
@@ -191,16 +191,21 @@ export default function StakeholderHoverCard({
                   {visible.map((card) => (
                     <Box
                       key={`${role.key}-${card.id}`}
+                      component={RouterLink}
+                      to={`/cards/${card.id}`}
                       sx={{
+                        display: "block",
                         py: 0.25,
                         px: 0.75,
                         cursor: "pointer",
                         borderRadius: 0.5,
+                        color: "inherit",
+                        textDecoration: "none",
                         "&:hover": { bgcolor: "action.hover" },
                       }}
-                      onClick={() => {
-                        setAnchor(null);
-                        navigate(`/cards/${card.id}`);
+                      onClick={(e: React.MouseEvent) => {
+                        // A background-tab open leaves the hover card up.
+                        if (!isModifiedClick(e)) setAnchor(null);
                       }}
                     >
                       <Typography variant="body2" sx={{ fontSize: "0.78rem" }} noWrap>

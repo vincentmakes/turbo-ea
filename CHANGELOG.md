@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.184.0] - 2026-10-30
+
+### Changed
+- Related cards on a card's page are real links: middle-click, Ctrl/Cmd-click or right-click → *Open in new tab* on a relation, a hierarchy parent, child or breadcrumb, a Lineage predecessor or successor, a row of the **+N in sub-items** list, a stakeholder's hover card or a BPM step's linked process now opens it in a new browser tab, while a plain click still opens it in place.
+
 ## [2.183.0] - 2026-10-30
 
 ### Changed

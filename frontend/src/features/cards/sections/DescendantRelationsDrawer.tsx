@@ -11,9 +11,14 @@
  * belong to the descendant that owns them, so `relations` stays the single
  * source of truth for every edge; you unlink from the child, never from here.
  * The `via` chips name that owning descendant and navigate to it.
+ *
+ * Each row is a real link to its card, so middle-click and Ctrl/Cmd-click
+ * open it in a new tab. The `via` chips sit inside that link and an `<a>`
+ * may not hold another `<a>`, so a chip is a button that does a link's job
+ * itself: a plain click navigates, a modified or middle click opens a tab.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link as RouterLink, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -32,6 +37,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASE_COLORS, getCurrentPhase } from "@/components/LifecycleBadge";
 import { api } from "@/api/client";
 import { isHexColor, readableTypeColor } from "@/lib/color";
+import { isModifiedClick } from "@/lib/modifiedClick";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel, useRelationLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { SubtypeBucket, useCollapsedBuckets } from "./SubtypeBucket";
@@ -112,6 +118,14 @@ export default function DescendantRelationsDrawer({
     navigate(`/cards/${id}`);
   };
 
+  /** A `via` chip's click: never the row's link underneath it. */
+  const openVia = (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isModifiedClick(e)) window.open(`/cards/${id}`, "_blank", "noopener");
+    else goTo(id);
+  };
+
   // Two-level grouping: subtype (outer, collapsible) → lifecycle phase (inner,
   // label only). Both levels exist to STRIP CHIPS off the rows — a header
   // saying "Business Application · 8" replaces eight identical chips, so a
@@ -148,7 +162,11 @@ export default function DescendantRelationsDrawer({
     return (
     <ListItemButton
       key={row.id}
-      onClick={() => goTo(row.id)}
+      component={RouterLink}
+      to={`/cards/${row.id}`}
+      onClick={(e: React.MouseEvent) => {
+        if (!isModifiedClick(e)) onClose();
+      }}
       sx={{ alignItems: "flex-start", py: 1 }}
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -223,9 +241,9 @@ export default function DescendantRelationsDrawer({
                   size="small"
                   label={v.name}
                   variant="outlined"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goTo(v.id);
+                  onClick={(e) => openVia(e, v.id)}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) openVia(e, v.id);
                   }}
                   sx={{
                     height: 18,

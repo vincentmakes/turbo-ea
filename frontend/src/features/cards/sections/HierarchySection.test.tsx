@@ -17,7 +17,12 @@
  *  - **An unconfigured type renders nothing**, so every install that has not
  *    opted in sees the section exactly as it was before the feature existed.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
+
+/** Related cards render as router links, so the section mounts in a router. */
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: MemoryRouter });
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +39,11 @@ vi.mock("@/api/client", () => ({
   ApiError: class extends Error {},
 }));
 
-vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
+// Partial mock: related cards render as router links, so `Link` must stay real.
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return { ...actual, useNavigate: () => vi.fn() };
+});
 
 /** Mutable so a test can run the type with no configured vocabulary. */
 const mm = vi.hoisted(() => ({

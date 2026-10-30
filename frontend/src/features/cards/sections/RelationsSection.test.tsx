@@ -12,7 +12,12 @@
  * for one pair render next to each other, and a card reached through more than
  * one of them says so on every one of its rows.
  */
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
+
+/** Related cards render as router links, so the section mounts in a router. */
+const render = (ui: ReactElement) => rtlRender(ui, { wrapper: MemoryRouter });
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -90,7 +95,11 @@ vi.mock("@/hooks/useMetamodel", () => ({
   }),
 }));
 
-vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
+// Partial mock: related cards render as router links, so `Link` must stay real.
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual("react-router");
+  return { ...actual, useNavigate: () => vi.fn() };
+});
 
 beforeEach(() => {
   mm.relationTypes = [appToOrg];

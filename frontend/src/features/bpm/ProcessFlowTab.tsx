@@ -8,7 +8,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { Link as RouterLink, useNavigate } from "react-router";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -599,17 +599,22 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             color={field === "application" ? "primary" : field === "data_object" ? "secondary" : field === "business_process" ? "success" : "default"}
             variant={isProcessLink ? "outlined" : "filled"}
             icon={isProcessLink ? <MaterialSymbol icon="route" size={14} /> : undefined}
-            // The Calls chip drills down into the callee's flow; the cell
-            // behind it still opens the picker.
-            onClick={
-              isProcessLink && currentId
-                ? (ev) => {
-                    ev.stopPropagation();
-                    navigate(calledProcessPath(currentId));
-                  }
-                : undefined
-            }
-            onDelete={() => onUpdate(elementId, { [`${field}_id`]: "" })}
+            // The Calls chip is a link into the callee's flow (middle-click
+            // opens it in a new tab); the cell behind it still opens the picker.
+            {...(isProcessLink && currentId
+              ? {
+                  component: RouterLink,
+                  to: calledProcessPath(currentId),
+                  clickable: true,
+                  onClick: (ev: React.MouseEvent) => ev.stopPropagation(),
+                }
+              : {})}
+            onDelete={(ev: React.SyntheticEvent) => {
+              // On a link chip the delete icon sits inside the <a>: keep the
+              // browser from following it.
+              ev.preventDefault();
+              onUpdate(elementId, { [`${field}_id`]: "" });
+            }}
             sx={{ maxWidth: 160 }}
           />
         ) : (

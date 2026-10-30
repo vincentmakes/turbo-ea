@@ -721,17 +721,26 @@ A card name that opens the card — card detail's Hierarchy children, Relations 
 Lineage lists — renders through **`ClickableCardName`** (`components/ClickableCardName.tsx`).
 It draws the type icon (or a type-colour dot) as a **sibling** of the name and puts the
 hover underline on the name span alone, so the icon and the gap are never underlined. The
-whole row stays the click target, and navigation is the caller's `onClick`, so the
-component is a MUI-only leaf with no router dependency. Each of the three sections used
+whole row stays the click target. Pass **`to`** (`/cards/<id>`) and the row is a real router
+link — an `<a href>` — so middle-click, Ctrl/Cmd-click and the browser's "Open in new tab"
+work, while a plain left click still navigates in-app; `onClick` is then only a side effect
+(close a drawer) and is skipped on modified clicks (`isModifiedClick`, `lib/modifiedClick.ts`).
+Without `to`, `onClick` is the whole action. Each of the three sections used
 to carry its own wrapper `Box` with `"&:hover": { textDecoration: "underline" }` holding
 icon and name together — that is the drift this exists to end.
 
 ✅ Do
 - Reach for `ClickableCardName` for any new list row whose name opens a card; pass `icon`
   + `iconColor` for a typed row, `dotColor` where the row is a relation.
+- Open a card through a link (`to`, or `Chip component={RouterLink} to=… clickable`), never
+  through `onClick={() => navigate(…)}` alone: a `div` with a click handler cannot be
+  middle-clicked or opened in a new tab (#1335). A link's side effect skips modified clicks.
 
 ❌ Don't
 - Don't put a hover underline on a flex wrapper that also holds an icon or a chip.
+- Don't nest a link inside a link: an `<a>` may not hold another `<a>`. Where a chip sits
+  inside a row link (the sub-items drawer's `via` chips), the chip prevents the row's
+  default and opens its own card itself.
 - Don't swap it for a whole-row `ListItemButton` to "fix" the underline: the background wash
   is for rows that are entirely the control (search results, the sub-items drawer), not for
   a row that also carries an unlink button and a link-type chip.

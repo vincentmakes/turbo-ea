@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 
 vi.mock("@/api/client", async () => {
   const actual = await vi.importActual<typeof import("@/api/client")>(
@@ -36,14 +36,38 @@ const PORTFOLIO = {
   },
 };
 
+function LocationProbe() {
+  return <div data-testid="location">{useLocation().pathname}</div>;
+}
+
 function renderHover(userId = "u-alice") {
   return render(
     <MemoryRouter>
       <StakeholderHoverCard userId={userId} userName="Alice">
         <span>Alice trigger</span>
       </StakeholderHoverCard>
+      <LocationProbe />
     </MemoryRouter>,
   );
+}
+
+/**
+ * jsdom cannot follow a real link: a click the app leaves to the browser
+ * (Ctrl / Cmd / Shift) would log "Not implemented: navigation". Stop the
+ * default on `document`, after React's root listener has seen the click.
+ */
+function stopBrowserNavigation(e: Event) {
+  e.preventDefault();
+}
+
+async function openHover() {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+  await user.hover(screen.getByText("Alice trigger"));
+  await act(async () => {
+    vi.advanceTimersByTime(500);
+  });
+  await screen.findByText("NexaCore ERP");
+  return user;
 }
 
 beforeEach(() => {
@@ -77,6 +101,31 @@ describe("StakeholderHoverCard", () => {
     expect(screen.getByText("Logistics Hub")).toBeInTheDocument();
     // Hover-card header shows the user's name.
     expect(screen.getAllByText("Alice").length).toBeGreaterThan(0);
+  });
+
+  it("lists each card as a link that closes the hover card on a plain click (#1335)", async () => {
+    vi.mocked(api.get).mockResolvedValue(PORTFOLIO);
+    renderHover();
+    const user = await openHover();
+
+    expect(screen.getByText("NexaCore ERP").closest("a")).toHaveAttribute("href", "/cards/card-1");
+    expect(screen.getByText("Logistics Hub").closest("a")).toHaveAttribute("href", "/cards/card-2");
+
+    await user.click(screen.getByText("NexaCore ERP"));
+    expect(screen.getByTestId("location")).toHaveTextContent("/cards/card-1");
+    await waitFor(() => expect(screen.queryByText("Logistics Hub")).not.toBeInTheDocument());
+  });
+
+  it("keeps the hover card up on a Ctrl-click, which opens a new tab", async () => {
+    vi.mocked(api.get).mockResolvedValue(PORTFOLIO);
+    renderHover();
+    await openHover();
+
+    document.addEventListener("click", stopBrowserNavigation);
+    fireEvent.click(screen.getByText("NexaCore ERP"), { ctrlKey: true });
+    document.removeEventListener("click", stopBrowserNavigation);
+    expect(screen.getByTestId("location").textContent).toBe("/");
+    expect(screen.getByText("Logistics Hub")).toBeInTheDocument();
   });
 
   it("only fetches once per user id even on repeated hovers", async () => {

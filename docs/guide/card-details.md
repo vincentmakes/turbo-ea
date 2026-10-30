@@ -115,6 +115,7 @@ For card types that support hierarchy (e.g., Organization, Business Capability, 
 
 - **Parent** — The card's parent in the hierarchy (click to navigate)
 - **Children** — List of child cards (click any to navigate)
+- **Open in new tab** — The parent, children and breadcrumb are links: middle-click or Ctrl/Cmd-click one (or right-click → *Open in new tab*) to open that card in a new browser tab while this one stays put
 - **Group by subtype** — When a card has many children of different subtypes (for example business units, regions and teams under one company), they are automatically grouped into collapsible subtype sections, each with a count, with a trailing **No subtype** section for unclassified children. Use the group/list toggle next to the **Children** count to switch between the grouped and flat views.
 - **Hierarchy breadcrumb** — Shows the full path from root to current card
 - **Link type** — When an administrator has configured link types for this card type, each parent-child link can be labelled — for example one subsidiary that is *commercial* and another that is *sales*. The label sits on the child, so the parent's card shows a label beside every child and the child's card shows its own beside its parent. Removing or moving a card to the top level clears its label, and the change is recorded on the **History** tab.
@@ -123,7 +124,7 @@ For card types that support hierarchy (e.g., Organization, Business Capability, 
 
 Shows all connections to other cards, grouped by relation type. For each relation:
 
-- **Related card name** — Click to navigate to the related card
+- **Related card name** — Click to navigate to the related card. Middle-click or Ctrl/Cmd-click it (or right-click → *Open in new tab*) to open it in a new browser tab instead — the same works in the **+N in sub-items** list, the Lineage lists and a stakeholder's hover card
 - **Relation type** — The nature of the connection (e.g., "uses", "runs on", "depends on")
 - **Add relation** — Click **+** to open the add dialog for that relation. It lists matching cards as you type (best matches first, more load as you scroll) and hides the ones already linked, with a caption showing how many. Clicking a card links it straight away and it appears as a chip at the top — click a chip's **×** to undo that one. The dialog stays open so you can add as many as you like, and on a phone it opens full-screen. Relations that have no section of their own are reached from the **Add Relation** button at the bottom of the section. When the linked type is hierarchical — Business Capability, Organization and the like — the dialog shows it as an indented tree instead of an alphabetical list, so you can pick a sub-capability by its branch. Searching keeps a match's parents visible for context, and cards you can't pick (already linked, just added, or this card itself) stay in place greyed out so the levels around them still read correctly.
 - **Ordering** — Related cards are listed alphabetically by name

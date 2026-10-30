@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -236,10 +236,17 @@ function deferred<T = unknown>() {
   return { promise, resolve, reject };
 }
 
+/** Where the router is, so a link click can be asserted on (the Calls chip). */
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="location">{loc.pathname + loc.search}</div>;
+}
+
 function ui(props: Record<string, unknown> = {}) {
   return (
     <MemoryRouter>
       <ProcessFlowTab processId="proc-1" processName="Order Process" {...props} />
+      <LocationProbe />
     </MemoryRouter>
   );
 }
@@ -916,8 +923,11 @@ describe("ProcessFlowTab published view", () => {
 
   it("drills into a linked process from its chip without opening the picker", async () => {
     const { user } = await renderPublished();
-    await user.click(within(cellOf(rowOf("Run Credit Check"), "Business Process")).getByText("Credit Check"));
-    expect(mockNavigate).toHaveBeenCalledWith("/cards/bp-7?tab=1");
+    const chip = within(cellOf(rowOf("Run Credit Check"), "Business Process")).getByText("Credit Check");
+    // A real link (#1335), so middle-click opens the callee in a new tab.
+    expect(chip.closest("a")).toHaveAttribute("href", "/cards/bp-7?tab=1");
+    await user.click(chip);
+    expect(screen.getByTestId("location")).toHaveTextContent("/cards/bp-7?tab=1");
     expect(screen.queryByPlaceholderText("Search Business Process...")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
   });

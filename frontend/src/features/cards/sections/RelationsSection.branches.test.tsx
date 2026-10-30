@@ -191,7 +191,9 @@ describe("RelationsSection — rows", () => {
     const onCardUpdate = vi.fn();
     const { user } = renderSection({ onCardUpdate });
 
-    await user.click(await screen.findByText("Legal"));
+    // A real link (#1335): middle-click / Ctrl-click open the card in a new tab.
+    expect((await screen.findByText("Legal")).closest("a")).toHaveAttribute("href", "/cards/t-2");
+    await user.click(screen.getByText("Legal"));
     expect(screen.getByTestId("location")).toHaveTextContent("/cards/t-2");
 
     const financeRow = screen.getByText("Finance").closest("li") as HTMLElement;
@@ -273,6 +275,8 @@ describe("RelationsSection — rows", () => {
     routeRelations([{ ...rel("1", "x"), target: undefined } as unknown as Relation]);
     renderSection();
     expect(await screen.findByText("Unknown")).toBeInTheDocument();
+    // Nothing to open, so no link to follow.
+    expect(screen.getByText("Unknown").closest("a")).toBeNull();
   });
 
   it("collapses and re-expands the section", async () => {
