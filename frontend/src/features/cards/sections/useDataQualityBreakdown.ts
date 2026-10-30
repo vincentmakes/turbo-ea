@@ -2,7 +2,7 @@
  * A card's data-quality breakdown (#1334), fetched on first interest.
  *
  * `active` is whether someone is looking right now (the pill is hovered or
- * focused, a breakdown popover is open). Nothing is fetched until it first
+ * focused, the breakdown panel is open). Nothing is fetched until it first
  * turns true; from then on the breakdown is kept for the score it was fetched
  * at, so looking again costs nothing. When `value` moves (a save rescored the
  * card) the breakdown is dropped at once — the stale one never paints — and

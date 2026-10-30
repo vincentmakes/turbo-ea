@@ -1,7 +1,7 @@
 /**
  * Where on the card page a data-quality gap is filled (#1334).
  *
- * The data-quality popover lists every unmet slot; each row jumps to the
+ * The data-quality breakdown lists every unmet slot; each row jumps to the
  * section that fills it. The sections carry these ids on their accordion
  * roots, and `CardDetailContent` opens the tab, expands the section and
  * scrolls the anchor into view.

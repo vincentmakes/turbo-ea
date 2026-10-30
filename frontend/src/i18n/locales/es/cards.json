@@ -104,8 +104,6 @@
   "dataQuality.milestoneComplete": "¡Completo!",
   "dataQuality.milestonePerfect": "¡Puntuación perfecta!",
   "dataQuality.stickyBarLabel": "Calidad de datos",
-  "dataQuality.pinBar": "Mantener visible la barra de puntuación",
-  "dataQuality.unpinBar": "Desanclar la barra de puntuación",
   "utils.unknownOption": "Clave de opción desconocida: {{key}}",
   "utils.urlError": "Debe usar el esquema http://, https:// o mailto:",
   "utils.costRestricted": "Restringido — no tiene permiso para ver los costos de esta tarjeta",

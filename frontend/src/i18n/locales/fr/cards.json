@@ -104,8 +104,6 @@
   "dataQuality.milestoneComplete": "Terminé !",
   "dataQuality.milestonePerfect": "Score parfait !",
   "dataQuality.stickyBarLabel": "Qualité des données",
-  "dataQuality.pinBar": "Garder la barre de score visible",
-  "dataQuality.unpinBar": "Désépingler la barre de score",
   "utils.unknownOption": "Clé d’option inconnue : {{key}}",
   "utils.urlError": "Doit utiliser le schéma http://, https:// ou mailto:",
   "utils.costRestricted": "Restreint — vous n'avez pas l'autorisation de voir les coûts de cette fiche",

@@ -104,8 +104,6 @@
   "dataQuality.milestoneComplete": "完成！",
   "dataQuality.milestonePerfect": "满分！",
   "dataQuality.stickyBarLabel": "数据质量",
-  "dataQuality.pinBar": "保持分数条可见",
-  "dataQuality.unpinBar": "取消固定分数条",
   "utils.unknownOption": "未知选项键：{{key}}",
   "utils.urlError": "必须使用 http://、https:// 或 mailto: 协议",
   "utils.costRestricted": "受限 — 您无权查看此卡片的成本",

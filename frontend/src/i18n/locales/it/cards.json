@@ -104,8 +104,6 @@
   "dataQuality.milestoneComplete": "Completo!",
   "dataQuality.milestonePerfect": "Punteggio perfetto!",
   "dataQuality.stickyBarLabel": "Qualità dei dati",
-  "dataQuality.pinBar": "Mantieni visibile la barra del punteggio",
-  "dataQuality.unpinBar": "Sblocca la barra del punteggio",
   "utils.unknownOption": "Chiave opzione sconosciuta: {{key}}",
   "utils.urlError": "È necessario utilizzare lo schema http://, https:// o mailto:",
   "utils.costRestricted": "Limitato — non hai i permessi per visualizzare i costi di questa scheda",

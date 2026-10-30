@@ -1,7 +1,9 @@
 /**
  * The data-quality pill explains its score (#1334): the tooltip names the
- * three unmet slots that would raise it most, a click opens every slot, and a
- * card held at 0% by empty required fields says which ones.
+ * three unmet slots that would raise it most (and, on a card held at 0% by
+ * empty required fields, says so), and a click asks the page to open the full
+ * breakdown. The breakdown itself is `DataQualityBreakdownContent`, tested on
+ * its own.
  */
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -24,7 +26,6 @@ vi.mock("@/hooks/useMetamodel", () => ({
 
 import { api } from "@/api/client";
 import type { CardType, DataQualityBreakdown, DataQualityFactor, RelationType } from "@/types";
-import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import type { ScoreGain } from "@/features/cards/gamification/scoreGain";
 import { DataQualityPill } from "./DataQualityPill";
 
@@ -99,7 +100,8 @@ function renderPill(
   props: {
     cardId?: string;
     cardType?: string;
-    onJump?: (target: DataQualityJumpTarget) => void;
+    onOpenBreakdown?: () => void;
+    breakdownOpen?: boolean;
   } = { cardId: "c1", cardType: "Application" },
 ) {
   return render(<DataQualityPill value={value} {...props} />);
@@ -191,141 +193,13 @@ describe("DataQualityPill", () => {
   });
 
   it("fetches on keyboard focus too", async () => {
-    renderPill();
+    renderPill(37.5, { cardId: "c1", cardType: "Application", onOpenBreakdown: vi.fn() });
     act(() => screen.getByTestId("data-quality-pill").focus());
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.get).mock.calls[0][0]).toBe(URL);
   });
 
-  it("opens on Space as well, without scrolling the page", async () => {
-    renderPill();
-    const pill = screen.getByTestId("data-quality-pill");
-    act(() => pill.focus());
-    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
-    act(() => {
-      pill.dispatchEvent(space);
-    });
-    expect(space.defaultPrevented).toBe(true);
-    expect(await screen.findByText("To raise the score")).toBeInTheDocument();
-    // Any other key leaves it closed.
-    const { unmount } = renderPill();
-    const other = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
-    act(() => {
-      screen.getAllByTestId("data-quality-pill")[1].dispatchEvent(other);
-    });
-    expect(other.defaultPrevented).toBe(false);
-    unmount();
-  });
-
-  it("names a counted tag group by nothing rather than by its id when it has no name", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      ...BREAKDOWN,
-      score: 100,
-      factors: [
-        factor("tag_group", "g-1", true, null, { name: "Criticality" }),
-        factor("tag_group", "g-77", true, null, { name: null }),
-      ],
-    });
-    renderPill(100);
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(
-      await within(dialog).findByRole("button", { name: /Already counted \(2\)/ }),
-    );
-    const names = within(dialog)
-      .getAllByRole("listitem")
-      .map((li) => li.querySelector("p")?.textContent);
-    expect(names).toEqual(["Criticality", ""]);
-    expect(dialog).not.toHaveTextContent("g-77");
-  });
-
-  it("tells assistive tech about the popover", async () => {
-    renderPill();
-    const pill = screen.getByTestId("data-quality-pill");
-    expect(pill).toHaveAttribute("aria-haspopup", "dialog");
-    expect(pill).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(pill);
-    await screen.findByRole("dialog");
-    expect(pill).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("names every kind of counted slot, and a field the metamodel forgot", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      ...BREAKDOWN,
-      score: 100,
-      factors: [
-        factor("field", "team", true, null, { section: "Details" }),
-        factor("field", "ghost", true, null),
-        factor("description", "description", true, null),
-        factor("lifecycle", "lifecycle", true, null),
-        factor("relation", "relOrgToApp", true, null, {
-          side: "source",
-          other_type_key: "Application",
-          label: "owns",
-        }),
-        factor("relation", "ghostRel", true, null, { side: "source" }),
-        factor("tag_group", "g-1", true, null, { name: "Criticality" }),
-        factor("stakeholders", "stakeholders", true, null),
-      ],
-    });
-    renderPill(100);
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    await userEvent.click(
-      await within(dialog).findByRole("button", { name: /Already counted \(8\)/ }),
-    );
-    const names = within(dialog)
-      .getAllByRole("listitem")
-      .map((li) => li.querySelector("p")?.textContent);
-    expect(names).toEqual([
-      "Team",
-      "A field",
-      "Description",
-      "Lifecycle dates",
-      "owns Application",
-      "A required relation",
-      "Criticality",
-      "A stakeholder assigned",
-    ]);
-    expect(dialog).not.toHaveTextContent("ghost");
-  });
-
-  it("on click lists every unmet slot by gain, then the slots that already count", async () => {
-    renderPill();
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    await within(dialog).findByText("To raise the score");
-    const rows = within(dialog)
-      .getAllByRole("listitem")
-      .map((li) => li.textContent);
-    expect(rows).toEqual([
-      "Fill Annual Cost+25%",
-      "Set lifecycle dates+12.5%",
-      "Add relation: is owned by Organization+12.5%",
-      "Tag with Criticality+12.5%",
-      "Assign a stakeholder+12.5%",
-    ]);
-    // Counted slots sit behind a toggle, by name.
-    expect(within(dialog).queryByText("Team")).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: /Already counted \(2\)/ }));
-    expect(within(dialog).getByText("Team")).toBeInTheDocument();
-    expect(within(dialog).getByText("Description")).toBeInTheDocument();
-    // No warning on an ungated card.
-    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("opens from the keyboard too", async () => {
-    renderPill();
-    const pill = screen.getByTestId("data-quality-pill");
-    expect(pill).toHaveAttribute("role", "button");
-    expect(pill).toHaveAttribute("aria-label", "38% data quality — show what raises it");
-    act(() => pill.focus());
-    fireEvent.keyDown(pill, { key: "Enter" });
-    expect(await screen.findByText("To raise the score")).toBeInTheDocument();
-    expect(api.get).toHaveBeenCalledTimes(1);
-  });
-
-  it("names the required fields that hold the score at 0, and what it would be without them", async () => {
+  it("names the required fields that hold the score at 0 first, marked as required", async () => {
     vi.mocked(api.get).mockResolvedValue({
       ...BREAKDOWN,
       score: 0,
@@ -345,80 +219,114 @@ describe("DataQualityPill", () => {
     expect(tip).toHaveTextContent(
       "Fill Annual Cost → requiredFill Business Code → requiredSet lifecycle dates +12.5%+3 more",
     );
-    await userEvent.unhover(screen.getByText("0%"));
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    const alert = within(dialog).getByRole("alert");
-    expect(alert).toHaveTextContent(
-      "The score stays at 0% until these required fields are filled: Business Code, Annual Cost Without them it would be 33.3%.",
-    );
-    const rows = within(dialog)
-      .getAllByRole("listitem")
-      .map((li) => li.textContent);
-    expect(rows.slice(0, 3)).toEqual([
-      "Fill Annual Cost→ required",
-      "Fill Business Code→ required",
-      "Set lifecycle dates+12.5%",
-    ]);
-    // A gain is green; a gating field's "required" chip is not.
-    expect(within(dialog).getAllByText("+12.5%")[0].closest(".MuiChip-root")).toHaveClass(
-      "MuiChip-colorSuccess",
-    );
-    const required = within(dialog).getAllByText("→ required")[0].closest(".MuiChip-root");
-    expect(required).not.toHaveClass("MuiChip-colorSuccess");
-    expect(required).toHaveClass("MuiChip-colorDefault");
+    // A real gain is green; a gating field's mark is not.
+    expect(within(tip).getByText("+12.5%")).toHaveStyle({ color: "rgb(76, 175, 80)" });
+    expect(within(tip).getAllByText("→ required")[0]).not.toHaveStyle({ color: "rgb(76, 175, 80)" });
   });
 
-  it("tells a self-referencing relation's two mandatory ends apart", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(api.get).mockResolvedValue({
-      ...BREAKDOWN,
-      factors: [
-        factor("relation", "relOrgToApp", false, 12.5, {
-          side: "source",
-          other_type_key: "Application",
-          label: "owns",
-        }),
-        factor("relation", "relOrgToApp", false, 12.5, {
-          side: "target",
-          other_type_key: "Organization",
-          label: "is owned by",
-        }),
-      ],
-    });
+  it("shows only the headline when the breakdown fails to load", async () => {
+    vi.mocked(api.get).mockRejectedValue(new Error("boom"));
     renderPill();
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    await within(dialog).findByText("Add relation: owns Application");
-    expect(within(dialog).getByText("Add relation: is owned by Organization")).toBeInTheDocument();
-    expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/same key/);
-    consoleError.mockRestore();
+    const tip = await hoverPill();
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    expect(tip).toHaveTextContent(/^38% data quality$/);
   });
 
-  it("never shows a field's key when the metamodel does not know the field", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      ...BREAKDOWN,
-      factors: [factor("field", "ghostField", false, 42.5), factor("relation", "ghostRel", false, 32.5)],
-      blocked_by_required: ["ghostField"],
+  describe("opening the full breakdown", () => {
+    function renderOpening(breakdownOpen = false) {
+      const onOpenBreakdown = vi.fn();
+      const view = renderPill(37.5, {
+        cardId: "c1",
+        cardType: "Application",
+        onOpenBreakdown,
+        breakdownOpen,
+      });
+      return { onOpenBreakdown, view, pill: screen.getByTestId("data-quality-pill") };
+    }
+
+    it("is a button that says what it opens", () => {
+      const { pill } = renderOpening();
+      expect(pill).toHaveAttribute("role", "button");
+      expect(pill).toHaveAttribute("tabindex", "0");
+      expect(pill).toHaveAttribute("aria-label", "38% data quality — show what raises it");
+      expect(pill).toHaveAttribute("aria-haspopup", "dialog");
+      expect(pill).toHaveAttribute("aria-expanded", "false");
+      expect(pill).toHaveStyle({ cursor: "pointer" });
     });
-    renderPill();
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    await within(dialog).findByText("Fill a field");
-    expect(within(dialog).getByText("Add a required relation")).toBeInTheDocument();
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("filled: A field");
-    expect(dialog).not.toHaveTextContent("ghost");
+
+    it("asks the page to open it on click, and renders nothing of its own", async () => {
+      const { pill, onOpenBreakdown } = renderOpening();
+      await userEvent.click(pill);
+      expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
+      expect(onOpenBreakdown).toHaveBeenCalledWith();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByText("To raise the score")).not.toBeInTheDocument();
+    });
+
+    it("opens it with Enter", () => {
+      const { pill, onOpenBreakdown } = renderOpening();
+      act(() => pill.focus());
+      fireEvent.keyDown(pill, { key: "Enter" });
+      expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
+    });
+
+    it("opens it with Space as well, without scrolling the page", () => {
+      const { pill, onOpenBreakdown } = renderOpening();
+      act(() => pill.focus());
+      const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+      act(() => {
+        pill.dispatchEvent(space);
+      });
+      expect(space.defaultPrevented).toBe(true);
+      expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
+      // Any other key does nothing.
+      const other = new KeyboardEvent("keydown", { key: "a", bubbles: true, cancelable: true });
+      act(() => {
+        pill.dispatchEvent(other);
+      });
+      expect(other.defaultPrevented).toBe(false);
+      expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
+    });
+
+    it("says whether it is open", () => {
+      const { pill, view, onOpenBreakdown } = renderOpening();
+      expect(pill).toHaveAttribute("aria-expanded", "false");
+      view.rerender(
+        <DataQualityPill
+          value={37.5}
+          cardId="c1"
+          cardType="Application"
+          onOpenBreakdown={onOpenBreakdown}
+          breakdownOpen
+        />,
+      );
+      expect(screen.getByTestId("data-quality-pill")).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("stands its tooltip down while the breakdown is open", async () => {
+      renderOpening(true);
+      await userEvent.hover(screen.getByText("38%"));
+      await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    });
   });
 
-  it("says so when every slot already counts", async () => {
-    vi.mocked(api.get).mockResolvedValue({
-      ...BREAKDOWN,
-      score: 100,
-      factors: BREAKDOWN.factors.filter((f) => f.filled),
+  describe("without onOpenBreakdown (the card preview)", () => {
+    it("still explains itself on hover, but is no button and a click does nothing", async () => {
+      renderPill();
+      const pill = screen.getByTestId("data-quality-pill");
+      expect(pill).not.toHaveAttribute("role");
+      expect(pill).not.toHaveAttribute("tabindex");
+      expect(pill).not.toHaveAttribute("aria-haspopup");
+      expect(pill).not.toHaveAttribute("aria-expanded");
+      expect(pill).not.toHaveStyle({ cursor: "pointer" });
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      const tip = await hoverPill();
+      await waitFor(() => expect(tip).toHaveTextContent("Fill Annual Cost +25%"));
+      fireEvent.click(pill);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByText("To raise the score")).not.toBeInTheDocument();
     });
-    renderPill(100);
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    expect(await screen.findByText("Every slot counts — nothing left to fill.")).toBeInTheDocument();
   });
 
   it("refetches on the next hover once the score has moved", async () => {
@@ -435,89 +343,11 @@ describe("DataQualityPill", () => {
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
   });
 
-  it("reports a breakdown that fails to load", async () => {
-    vi.mocked(api.get).mockRejectedValue(new Error("boom"));
-    renderPill();
-    await userEvent.click(screen.getByTestId("data-quality-pill"));
-    expect(await screen.findByText("The breakdown could not be loaded.")).toBeInTheDocument();
-  });
-
-  describe("jumping to where a slot is filled", () => {
-    async function openWithJump() {
-      const onJump = vi.fn();
-      renderPill(37.5, { cardId: "c1", cardType: "Application", onJump });
-      await userEvent.click(screen.getByTestId("data-quality-pill"));
-      const dialog = await screen.findByRole("dialog");
-      await within(dialog).findByText("To raise the score");
-      return { onJump, dialog };
-    }
-
-    it("sends the lifecycle row to the Lifecycle section and closes the popover", async () => {
-      const { onJump, dialog } = await openWithJump();
-      await userEvent.click(within(dialog).getByRole("button", { name: "Set lifecycle dates" }));
-      expect(onJump).toHaveBeenCalledTimes(1);
-      expect(onJump).toHaveBeenCalledWith({
-        tab: "card",
-        anchor: "card-section-lifecycle",
-        sectionAnchor: "card-section-lifecycle",
-      });
-      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-      expect(screen.getByTestId("data-quality-pill")).toHaveAttribute("aria-expanded", "false");
-    });
-
-    it("sends the stakeholder row to the Stakeholders tab", async () => {
-      const { onJump, dialog } = await openWithJump();
-      await userEvent.click(within(dialog).getByRole("button", { name: "Assign a stakeholder" }));
-      expect(onJump).toHaveBeenCalledWith({ tab: "stakeholders" });
-    });
-
-    it("sends a field to its section and a relation to its group", async () => {
-      const { onJump, dialog } = await openWithJump();
-      await userEvent.click(within(dialog).getByRole("button", { name: "Fill Annual Cost" }));
-      expect(onJump).toHaveBeenLastCalledWith({
-        tab: "card",
-        anchor: "card-section-custom-details",
-        sectionAnchor: "card-section-custom-details",
-      });
-      await userEvent.click(screen.getByTestId("data-quality-pill"));
-      const again = await screen.findByRole("dialog");
-      await userEvent.click(
-        within(again).getByRole("button", { name: "Add relation: is owned by Organization" }),
-      );
-      expect(onJump).toHaveBeenLastCalledWith({
-        tab: "card",
-        anchor: "card-relation-relOrgToApp-target",
-        sectionAnchor: "card-section-relations",
-      });
-    });
-
-    it("renders each unmet row as a left-aligned link", async () => {
-      const { dialog } = await openWithJump();
-      const link = within(dialog).getByRole("button", { name: "Set lifecycle dates" });
-      expect(link.tagName).toBe("BUTTON");
-      expect(link).toHaveClass("MuiLink-underlineHover");
-      expect(link).toHaveStyle({ textAlign: "left" });
-      // Every unmet row is a link; the counted toggle is the only other button.
-      expect(within(dialog).getAllByRole("button")).toHaveLength(6);
-    });
-
-    it("keeps the tooltip's rows as text", async () => {
-      renderPill(37.5, { cardId: "c1", cardType: "Application", onJump: vi.fn() });
-      const tooltip = await hoverPill();
-      await within(tooltip).findByText(/Set lifecycle dates/);
-      expect(within(tooltip).queryByRole("button")).not.toBeInTheDocument();
-    });
-
-    it("without onJump the rows are plain text", async () => {
-      renderPill();
-      await userEvent.click(screen.getByTestId("data-quality-pill"));
-      const dialog = await screen.findByRole("dialog");
-      await within(dialog).findByText("Set lifecycle dates");
-      expect(
-        within(dialog).queryByRole("button", { name: "Set lifecycle dates" }),
-      ).not.toBeInTheDocument();
-      expect(within(dialog).getAllByRole("button")).toHaveLength(1);
-    });
+  it("keeps the tooltip's rows as text", async () => {
+    renderPill(37.5, { cardId: "c1", cardType: "Application", onOpenBreakdown: vi.fn() });
+    const tooltip = await hoverPill();
+    await within(tooltip).findByText(/Set lifecycle dates/);
+    expect(within(tooltip).queryByRole("button")).not.toBeInTheDocument();
   });
 });
 
@@ -743,10 +573,18 @@ describe("DataQualityPill — gamified (animate)", () => {
     });
   });
 
-  it("keeps the breakdown popover working with animate on", async () => {
-    render(<DataQualityPill value={37.5} cardId="c1" cardType="Application" animate />);
+  it("still opens the breakdown with animate on", async () => {
+    const onOpenBreakdown = vi.fn();
+    render(
+      <DataQualityPill
+        value={37.5}
+        cardId="c1"
+        cardType="Application"
+        onOpenBreakdown={onOpenBreakdown}
+        animate
+      />,
+    );
     await userEvent.click(screen.getByTestId("data-quality-pill"));
-    const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("Set lifecycle dates")).toBeInTheDocument();
+    expect(onOpenBreakdown).toHaveBeenCalledTimes(1);
   });
 });

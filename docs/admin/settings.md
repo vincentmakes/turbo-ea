@@ -224,7 +224,7 @@ While it is on, saving a change that raises a card's score plays a short reward 
 
 - a glowing green **+X%** (the points the save added) leaves the section you saved — its header, where the Save button is — and flies in an arc to the **data quality ring**;
 - on **impact** the ring flashes, a halo and a glow in the score's colour spread from it, a shine sweeps across it, it pops, its fill grows into the new score like a health bar, and the figure counts up;
-- on the card page, once you scroll past the card header, a slim **score bar** stays pinned under the top bar with the card's name and score; while it is showing, the gain flies to it instead. Click the bar's score to open the same data quality breakdown as the ring, and use its **pin** button to keep the bar on screen even with the header in view — the pin is remembered in your browser.
+- on the card page, once you scroll past the card header, a slim **score bar** stays pinned under the top bar with the card's name and score; while it is showing, the gain flies to it instead. Its **Raise score** button opens the same data quality breakdown as the ring.
 
 A save made from the header (the name or the subtype) or from the End of Life section has no section to fly from, so the **+X%** simply rises above the ring.
 

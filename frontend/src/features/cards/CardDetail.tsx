@@ -44,7 +44,9 @@ import {
 } from "@/features/cards/gamification/StickyScoreBar";
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
 import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
-import { useStickyScorePin } from "@/lib/stickyScorePin";
+import { DataQualityBreakdownHost } from "@/features/cards/sections/DataQualityBreakdownHost";
+import { DATA_QUALITY_PANEL_WIDTH } from "@/features/cards/sections/DataQualityBreakdownPanel";
+import { useDataQualityPanelOpen } from "@/lib/dataQualityPanel";
 import {
   SECTION_SCROLL_MARGIN_TOP,
   SECTION_SCROLL_MARGIN_VAR,
@@ -193,9 +195,17 @@ export default function CardDetail() {
   const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
   const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
   const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
-  // A pinned bar stays open with the header in view too.
-  const [pinned] = useStickyScorePin();
-  const barOpen = headerOffscreen || pinned;
+  const barOpen = headerOffscreen;
+  // The full data-quality breakdown (everyone, not only TurboRPG): a click on
+  // the score opens it and it stays open, remembered per browser, until the
+  // reader closes it. Docked beside the page from `md` up, a drawer below.
+  // Read synchronously, so a remembered panel never flashes up as a drawer
+  // on a wide window's first render.
+  const [breakdownOpen, setBreakdownOpen] = useDataQualityPanelOpen();
+  const panelFits = useMediaQuery(theme.breakpoints.up("md"), { noSsr: true });
+  const panelDocked = breakdownOpen && panelFits;
+  const openBreakdown = () => setBreakdownOpen(true);
+  const closeBreakdown = () => setBreakdownOpen(false);
   // Where the orb lands: the pill, or the sticky bar's figure while it is open.
   const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
   const [stickyFigureEl, setStickyFigureEl] = useState<HTMLElement | null>(null);
@@ -522,592 +532,610 @@ export default function CardDetail() {
       : null;
 
   // Opens the tab and scrolls to where a data-quality slot is filled; shared by
-  // the pill's and the sticky bar's breakdown popovers.
+  // the breakdown panel and drawer.
   const jumpTo = (target: DataQualityJumpTarget) =>
     setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current });
 
   return (
+    // The frame keeps the docked breakdown panel's width free, so the page
+    // column centres in what is left.
     <Box
-      data-testid="card-detail-page"
-      sx={{
-        maxWidth: 960,
-        mx: "auto",
-        // With the sticky score bar in play, a jumped-to section needs room
-        // under it as well as under the app bar.
-        ...(gamification && {
-          [SECTION_SCROLL_MARGIN_VAR]: `${SECTION_SCROLL_MARGIN_TOP + STICKY_SCORE_BAR_HEIGHT}px`,
-        }),
-      }}
+      data-testid="card-detail-page-frame"
+      sx={{ pr: panelDocked ? `${DATA_QUALITY_PANEL_WIDTH}px` : 0 }}
     >
-      {/* A pinned score bar is fixed over the top of the page: keep the header
-          clear of it. */}
-      {gamification && pinned && (
-        <Box aria-hidden data-testid="sticky-score-spacer" sx={{ height: STICKY_SCORE_BAR_HEIGHT }} />
-      )}
-      {/* ── Header ── */}
       <Box
-        ref={setHeaderEl}
-        sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 3 }}
+        data-testid="card-detail-page"
+        sx={{
+          maxWidth: 960,
+          mx: "auto",
+          // With the sticky score bar in play, a jumped-to section needs room
+          // under it as well as under the app bar.
+          ...(gamification && {
+            [SECTION_SCROLL_MARGIN_VAR]: `${SECTION_SCROLL_MARGIN_TOP + STICKY_SCORE_BAR_HEIGHT}px`,
+          }),
+        }}
       >
-        <IconButton onClick={() => navigate(-1)} sx={{ mr: { xs: -0.5, sm: 0 } }}>
-          <MaterialSymbol icon="arrow_back" size={24} />
-        </IconButton>
-        {typeConfig && (
-          <Tooltip title={canEditLogo ? t("cards:logo.edit") : ""}>
-            <Box
-              onClick={canEditLogo ? (e) => setLogoMenuAnchor(e.currentTarget) : undefined}
-              sx={{
-                position: "relative",
-                cursor: canEditLogo ? "pointer" : "default",
-                // The affordance is the hover, so the tile stays quiet until
-                // the pointer is on it.
-                "&:hover .card-logo-edit": { opacity: canEditLogo ? 1 : 0 },
-              }}
-            >
-              <CardLogoAvatar
-                cardId={card.id}
-                logoUpdatedAt={card.logo_updated_at}
-                typeIcon={typeConfig.icon}
-                typeColor={typeConfig.color}
-                size={isMobile ? 32 : 40}
-              />
-              {canEditLogo && (
-                <Box
-                  className="card-logo-edit"
-                  sx={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: 2,
-                    bgcolor: "rgba(0,0,0,0.45)",
-                    color: "#fff",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: 0,
-                    transition: "opacity 120ms",
-                  }}
-                >
-                  <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color="#fff" />
-                </Box>
-              )}
-            </Box>
-          </Tooltip>
-        )}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {editingName ? (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
-                <TextField
-                  autoFocus
-                  fullWidth
-                  size="small"
-                  label={t("common:labels.name")}
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onKeyDown={titleKeyDown}
-                  disabled={nameSaving}
-                  error={!!nameError}
-                  helperText={nameError ?? undefined}
-                  InputProps={{
-                    sx: {
-                      fontSize: isMobile ? "1.25rem" : "1.5rem",
-                      fontWeight: 700,
-                    },
-                  }}
+        {/* ── Header ── */}
+        <Box
+          ref={setHeaderEl}
+          sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 3 }}
+        >
+          <IconButton onClick={() => navigate(-1)} sx={{ mr: { xs: -0.5, sm: 0 } }}>
+            <MaterialSymbol icon="arrow_back" size={24} />
+          </IconButton>
+          {typeConfig && (
+            <Tooltip title={canEditLogo ? t("cards:logo.edit") : ""}>
+              <Box
+                onClick={canEditLogo ? (e) => setLogoMenuAnchor(e.currentTarget) : undefined}
+                sx={{
+                  position: "relative",
+                  cursor: canEditLogo ? "pointer" : "default",
+                  // The affordance is the hover, so the tile stays quiet until
+                  // the pointer is on it.
+                  "&:hover .card-logo-edit": { opacity: canEditLogo ? 1 : 0 },
+                }}
+              >
+                <CardLogoAvatar
+                  cardId={card.id}
+                  logoUpdatedAt={card.logo_updated_at}
+                  typeIcon={typeConfig.icon}
+                  typeColor={typeConfig.color}
+                  size={isMobile ? 32 : 40}
                 />
-                <IconButton
-                  size="small"
-                  onClick={saveName}
-                  disabled={nameSaving}
-                  aria-label={t("common:actions.save")}
-                >
-                  <MaterialSymbol icon="check" size={20} />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={cancelEditName}
-                  disabled={nameSaving}
-                  aria-label={t("common:actions.cancel")}
-                >
-                  <MaterialSymbol icon="close" size={20} />
-                </IconButton>
-              </Box>
-              <TextField
-                fullWidth
-                size="small"
-                label={t("common:labels.alias")}
-                placeholder={t("cards:detail.aliasPlaceholder")}
-                value={aliasDraft}
-                onChange={(e) => setAliasDraft(e.target.value)}
-                onKeyDown={titleKeyDown}
-                disabled={nameSaving}
-                // The buttons above act on both fields, so the alias row keeps
-                // their width free rather than growing under them.
-                sx={{ pr: { sm: 9 } }}
-              />
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                "&:hover .edit-name-btn": { opacity: 1 },
-              }}
-            >
-              <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
-                {card.name}
-              </Typography>
-              {perms.can_edit && !isArchived && (
-                <Tooltip title={t("common:actions.edit")}>
-                  <IconButton
-                    size="small"
-                    className="edit-name-btn"
-                    onClick={beginEditName}
-                    aria-label={t("common:actions.edit")}
+                {canEditLogo && (
+                  <Box
+                    className="card-logo-edit"
                     sx={{
-                      opacity: { xs: 1, sm: 0 },
-                      transition: "opacity 0.15s",
-                      flexShrink: 0,
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: 2,
+                      bgcolor: "rgba(0,0,0,0.45)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: 0,
+                      transition: "opacity 120ms",
                     }}
                   >
-                    <MaterialSymbol icon="edit" size={16} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-          )}
-          {/* The card's other name, under the one it is filed under. Rendered
-              only when set, so a card without an alias looks exactly as it
-              always did (#1108). */}
-          {!editingName && card.alias && (
-            <Tooltip title={t("common:labels.alias")}>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                noWrap
-                data-testid="card-alias"
-              >
-                {card.alias}
-              </Typography>
+                    <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color="#fff" />
+                  </Box>
+                )}
+              </Box>
             </Tooltip>
           )}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
-            <Typography
-              variant="body2"
-              sx={{ color: typeConfig?.color || "text.secondary" }}
-            >
-              {typeLabel(typeConfig) || card.type}
-            </Typography>
-            {(hasSubtypes || subtypeLabel) && (
-              <>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {editingName ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+                  <TextField
+                    autoFocus
+                    fullWidth
+                    size="small"
+                    label={t("common:labels.name")}
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={titleKeyDown}
+                    disabled={nameSaving}
+                    error={!!nameError}
+                    helperText={nameError ?? undefined}
+                    InputProps={{
+                      sx: {
+                        fontSize: isMobile ? "1.25rem" : "1.5rem",
+                        fontWeight: 700,
+                      },
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={saveName}
+                    disabled={nameSaving}
+                    aria-label={t("common:actions.save")}
+                  >
+                    <MaterialSymbol icon="check" size={20} />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    onClick={cancelEditName}
+                    disabled={nameSaving}
+                    aria-label={t("common:actions.cancel")}
+                  >
+                    <MaterialSymbol icon="close" size={20} />
+                  </IconButton>
+                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t("common:labels.alias")}
+                  placeholder={t("cards:detail.aliasPlaceholder")}
+                  value={aliasDraft}
+                  onChange={(e) => setAliasDraft(e.target.value)}
+                  onKeyDown={titleKeyDown}
+                  disabled={nameSaving}
+                  // The buttons above act on both fields, so the alias row keeps
+                  // their width free rather than growing under them.
+                  sx={{ pr: { sm: 9 } }}
+                />
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  "&:hover .edit-name-btn": { opacity: 1 },
+                }}
+              >
+                <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
+                  {card.name}
+                </Typography>
+                {perms.can_edit && !isArchived && (
+                  <Tooltip title={t("common:actions.edit")}>
+                    <IconButton
+                      size="small"
+                      className="edit-name-btn"
+                      onClick={beginEditName}
+                      aria-label={t("common:actions.edit")}
+                      sx={{
+                        opacity: { xs: 1, sm: 0 },
+                        transition: "opacity 0.15s",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <MaterialSymbol icon="edit" size={16} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
+            )}
+            {/* The card's other name, under the one it is filed under. Rendered
+                only when set, so a card without an alias looks exactly as it
+                always did (#1108). */}
+            {!editingName && card.alias && (
+              <Tooltip title={t("common:labels.alias")}>
                 <Typography
                   variant="body2"
-                  aria-hidden
-                  sx={{ color: typeConfig?.color || "text.secondary", opacity: 0.7 }}
+                  color="text.secondary"
+                  noWrap
+                  data-testid="card-alias"
                 >
-                  ·
+                  {card.alias}
                 </Typography>
-                {canEditSubtype ? (
-                  <>
-                    <Tooltip title={t("cards:subtype.editTooltip")}>
-                      <Box
-                        component="button"
-                        type="button"
-                        onClick={(e) => setSubtypeAnchor(e.currentTarget as HTMLElement)}
-                        disabled={subtypeSaving}
-                        sx={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 0.25,
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          p: 0,
-                          font: "inherit",
-                          color: typeConfig?.color || "text.secondary",
-                          "&:hover": { opacity: 0.8 },
-                        }}
-                      >
-                        <Typography variant="body2" component="span" color="inherit">
-                          {subtypeLabel || t("cards:subtype.empty")}
-                        </Typography>
-                        <MaterialSymbol icon="arrow_drop_down" size={16} />
-                      </Box>
-                    </Tooltip>
-                    <Menu
-                      anchorEl={subtypeAnchor}
-                      open={Boolean(subtypeAnchor)}
-                      onClose={() => setSubtypeAnchor(null)}
-                    >
-                      <MenuItem
-                        selected={!card.subtype}
-                        onClick={() => saveSubtype(null)}
-                      >
-                        <em>{t("common:labels.none")}</em>
-                      </MenuItem>
-                      {(typeConfig?.subtypes ?? []).map((st) => (
-                        <MenuItem
-                          key={st.key}
-                          selected={card.subtype === st.key}
-                          onClick={() => saveSubtype(st.key)}
+              </Tooltip>
+            )}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: typeConfig?.color || "text.secondary" }}
+              >
+                {typeLabel(typeConfig) || card.type}
+              </Typography>
+              {(hasSubtypes || subtypeLabel) && (
+                <>
+                  <Typography
+                    variant="body2"
+                    aria-hidden
+                    sx={{ color: typeConfig?.color || "text.secondary", opacity: 0.7 }}
+                  >
+                    ·
+                  </Typography>
+                  {canEditSubtype ? (
+                    <>
+                      <Tooltip title={t("cards:subtype.editTooltip")}>
+                        <Box
+                          component="button"
+                          type="button"
+                          onClick={(e) => setSubtypeAnchor(e.currentTarget as HTMLElement)}
+                          disabled={subtypeSaving}
+                          sx={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 0.25,
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            p: 0,
+                            font: "inherit",
+                            color: typeConfig?.color || "text.secondary",
+                            "&:hover": { opacity: 0.8 },
+                          }}
                         >
-                          {stLabel(st)}
+                          <Typography variant="body2" component="span" color="inherit">
+                            {subtypeLabel || t("cards:subtype.empty")}
+                          </Typography>
+                          <MaterialSymbol icon="arrow_drop_down" size={16} />
+                        </Box>
+                      </Tooltip>
+                      <Menu
+                        anchorEl={subtypeAnchor}
+                        open={Boolean(subtypeAnchor)}
+                        onClose={() => setSubtypeAnchor(null)}
+                      >
+                        <MenuItem
+                          selected={!card.subtype}
+                          onClick={() => saveSubtype(null)}
+                        >
+                          <em>{t("common:labels.none")}</em>
                         </MenuItem>
-                      ))}
-                    </Menu>
-                  </>
-                ) : (
-                  subtypeLabel && (
-                    <Typography
-                      variant="body2"
-                      sx={{ color: typeConfig?.color || "text.secondary" }}
-                    >
-                      {subtypeLabel}
-                    </Typography>
-                  )
-                )}
-              </>
-            )}
-            {card.reference && (
-              <CardIdPill reference={card.reference} typeColor={typeConfig?.color} />
-            )}
-            <OriginChip
-              origin={card.created_via}
-              name={card.created_by_name}
-              at={card.created_at}
-            />
+                        {(typeConfig?.subtypes ?? []).map((st) => (
+                          <MenuItem
+                            key={st.key}
+                            selected={card.subtype === st.key}
+                            onClick={() => saveSubtype(st.key)}
+                          >
+                            {stLabel(st)}
+                          </MenuItem>
+                        ))}
+                      </Menu>
+                    </>
+                  ) : (
+                    subtypeLabel && (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: typeConfig?.color || "text.secondary" }}
+                      >
+                        {subtypeLabel}
+                      </Typography>
+                    )
+                  )}
+                </>
+              )}
+              {card.reference && (
+                <CardIdPill reference={card.reference} typeColor={typeConfig?.color} />
+              )}
+              <OriginChip
+                origin={card.created_via}
+                name={card.created_by_name}
+                at={card.created_at}
+              />
+            </Box>
           </Box>
-        </Box>
-        {/* Badges + overflow menu — wrap to second row on mobile */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <DataQualityPill
-            value={card.data_quality}
-            cardId={card.id}
-            cardType={card.type}
-            onJump={jumpTo}
-            animate={gamification}
-            gain={scoreGain}
-            impactNonce={impactNonce}
-            onRootRef={setPillEl}
-          />
-          <LifecycleBadge lifecycle={card.lifecycle} />
-          <ApprovalStatusBadge
-            status={card.approval_status}
-            canChange={perms.can_approval_status}
-            onAction={handleApprovalAction}
-          />
-          <Tooltip title={t("detail.actions.moreActions")}>
-            <IconButton
-              size="small"
-              onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
-              aria-label={t("detail.actions.moreActions")}
+          {/* Badges + overflow menu — wrap to second row on mobile */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+            <DataQualityPill
+              value={card.data_quality}
+              cardId={card.id}
+              cardType={card.type}
+              onOpenBreakdown={openBreakdown}
+              breakdownOpen={breakdownOpen}
+              animate={gamification}
+              gain={scoreGain}
+              impactNonce={impactNonce}
+              onRootRef={setPillEl}
+            />
+            <LifecycleBadge lifecycle={card.lifecycle} />
+            <ApprovalStatusBadge
+              status={card.approval_status}
+              canChange={perms.can_approval_status}
+              onAction={handleApprovalAction}
+            />
+            <Tooltip title={t("detail.actions.moreActions")}>
+              <IconButton
+                size="small"
+                onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
+                aria-label={t("detail.actions.moreActions")}
+              >
+                <MaterialSymbol icon="more_vert" size={20} />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={actionsMenuAnchor}
+              open={!!actionsMenuAnchor}
+              onClose={() => setActionsMenuAnchor(null)}
             >
-              <MaterialSymbol icon="more_vert" size={20} />
-            </IconButton>
-          </Tooltip>
-          <Menu
-            anchorEl={actionsMenuAnchor}
-            open={!!actionsMenuAnchor}
-            onClose={() => setActionsMenuAnchor(null)}
-          >
-            <MenuItem
-              onClick={() => {
-                setActionsMenuAnchor(null);
-                window.open(`/cards/${card.id}`, "_blank", "noopener,noreferrer");
-              }}
-            >
-              <ListItemIcon>
-                <MaterialSymbol icon="open_in_new" size={20} />
-              </ListItemIcon>
-              <ListItemText>{t("common:actions.openInNewTab")}</ListItemText>
-            </MenuItem>
-            <MenuItem
-              onClick={async () => {
-                setActionsMenuAnchor(null);
-                const url = `${window.location.origin}/cards/${card.id}`;
-                try {
-                  await navigator.clipboard.writeText(url);
-                  setSnack(t("common:actions.linkCopied"));
-                } catch {
-                  // Clipboard API unavailable (older browsers, insecure
-                  // contexts) — fall back to a manual-copy prompt.
-                  window.prompt(t("common:actions.copyManually"), url);
-                }
-              }}
-            >
-              <ListItemIcon>
-                <MaterialSymbol icon="link" size={20} />
-              </ListItemIcon>
-              <ListItemText>{t("common:actions.copyLink")}</ListItemText>
-            </MenuItem>
-            <Divider />
-            <MenuItem
-              onClick={() => {
-                setActionsMenuAnchor(null);
-                toggleFavorite();
-              }}
-              disabled={favoriteSaving}
-            >
-              <ListItemIcon>
-                <MaterialSymbol
-                  icon="cards_star"
-                  size={20}
-                  color={isFavorite ? "#f5a623" : "#ccc"}
-                />
-              </ListItemIcon>
-              <ListItemText>
-                {isFavorite
-                  ? t("cards:actions.removeFromFavorites")
-                  : t("cards:actions.addToFavorites")}
-              </ListItemText>
-            </MenuItem>
-            {(observerRoleAvailable || isObserver) && (
               <MenuItem
                 onClick={() => {
                   setActionsMenuAnchor(null);
-                  toggleObserve();
+                  window.open(`/cards/${card.id}`, "_blank", "noopener,noreferrer");
                 }}
-                disabled={observeSaving}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon="open_in_new" size={20} />
+                </ListItemIcon>
+                <ListItemText>{t("common:actions.openInNewTab")}</ListItemText>
+              </MenuItem>
+              <MenuItem
+                onClick={async () => {
+                  setActionsMenuAnchor(null);
+                  const url = `${window.location.origin}/cards/${card.id}`;
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    setSnack(t("common:actions.linkCopied"));
+                  } catch {
+                    // Clipboard API unavailable (older browsers, insecure
+                    // contexts) — fall back to a manual-copy prompt.
+                    window.prompt(t("common:actions.copyManually"), url);
+                  }
+                }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon="link" size={20} />
+                </ListItemIcon>
+                <ListItemText>{t("common:actions.copyLink")}</ListItemText>
+              </MenuItem>
+              <Divider />
+              <MenuItem
+                onClick={() => {
+                  setActionsMenuAnchor(null);
+                  toggleFavorite();
+                }}
+                disabled={favoriteSaving}
               >
                 <ListItemIcon>
                   <MaterialSymbol
-                    icon={isObserver ? "visibility" : "visibility_off"}
+                    icon="cards_star"
                     size={20}
-                    color={isObserver ? "#1976d2" : "#ccc"}
+                    color={isFavorite ? "#f5a623" : "#ccc"}
                   />
                 </ListItemIcon>
                 <ListItemText>
-                  {isObserver
-                    ? t("cards:actions.stopObserving")
-                    : t("cards:actions.observe")}
+                  {isFavorite
+                    ? t("cards:actions.removeFromFavorites")
+                    : t("cards:actions.addToFavorites")}
                 </ListItemText>
               </MenuItem>
-            )}
-            {!isArchived && perms.can_archive && (
-              <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
-                <ListItemIcon>
-                  <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
-                </ListItemIcon>
-                <ListItemText>{t("common:actions.archive")}</ListItemText>
-              </MenuItem>
-            )}
-            {!isArchived && perms.can_delete && (
-              <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
-                <ListItemIcon>
-                  <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
-                </ListItemIcon>
-                <ListItemText>{t("common:actions.delete")}</ListItemText>
-              </MenuItem>
-            )}
-          </Menu>
+              {(observerRoleAvailable || isObserver) && (
+                <MenuItem
+                  onClick={() => {
+                    setActionsMenuAnchor(null);
+                    toggleObserve();
+                  }}
+                  disabled={observeSaving}
+                >
+                  <ListItemIcon>
+                    <MaterialSymbol
+                      icon={isObserver ? "visibility" : "visibility_off"}
+                      size={20}
+                      color={isObserver ? "#1976d2" : "#ccc"}
+                    />
+                  </ListItemIcon>
+                  <ListItemText>
+                    {isObserver
+                      ? t("cards:actions.stopObserving")
+                      : t("cards:actions.observe")}
+                  </ListItemText>
+                </MenuItem>
+              )}
+              {!isArchived && perms.can_archive && (
+                <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
+                  <ListItemIcon>
+                    <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
+                  </ListItemIcon>
+                  <ListItemText>{t("common:actions.archive")}</ListItemText>
+                </MenuItem>
+              )}
+              {!isArchived && perms.can_delete && (
+                <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
+                  <ListItemIcon>
+                    <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
+                  </ListItemIcon>
+                  <ListItemText>{t("common:actions.delete")}</ListItemText>
+                </MenuItem>
+              )}
+            </Menu>
+          </Box>
         </Box>
-      </Box>
 
-      {/* ── Archive dialog (with children + related strategies) ── */}
-      <ArchiveDeleteDialog
-        open={archiveDialogOpen}
-        mode="archive"
-        scope="single"
-        cardId={card.id}
-        cardName={card.name}
-        onClose={() => setArchiveDialogOpen(false)}
-        onConfirmed={handleArchiveConfirmed}
-      />
-
-      {/* ── Delete dialog (with children + related strategies) ── */}
-      <ArchiveDeleteDialog
-        open={deleteDialogOpen}
-        mode="delete"
-        scope="single"
-        cardId={card.id}
-        cardName={card.name}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirmed={handleDeleteConfirmed}
-      />
-
-      {/* ── Restore dialog with cascade-restore checkboxes ── */}
-      <RestoreDialog
-        open={restoreDialogOpen}
-        cardId={card.id}
-        cardName={card.name}
-        onClose={() => setRestoreDialogOpen(false)}
-        onConfirmed={handleRestoreConfirmed}
-      />
-
-      {/* ── Custom logo: hidden file picker, menu and brand-icon dialog ── */}
-      <CardLogoMenu
-        cardId={card.id}
-        hasLogo={!!card.logo_updated_at}
-        anchorEl={logoMenuAnchor}
-        onClose={() => setLogoMenuAnchor(null)}
-        onChanged={(_id, logoUpdatedAt) => {
-          setLogoError("");
-          setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev));
-        }}
-        onNotify={setSnack}
-        onError={setLogoError}
-      />
-
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={3000}
-        onClose={() => setSnack("")}
-        message={snack}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
-      />
-
-      <CardDetailContent
-        key={card.id}
-        card={card}
-        perms={perms}
-        onCardUpdate={setCard}
-        onSaveOrigin={reportSaveOrigin}
-        onDirtyChange={setSectionsDirty}
-        focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
-        initialTab={initialTab}
-        initialSubTab={initialSubTab}
-        autoFieldKeys={ppmAutoFieldKeys}
-        onAiSuggest={
-          aiEnabled && perms.can_edit && !isArchived && !aiResponse
-            ? handleAiSuggest
-            : undefined
-        }
-        aiBusy={aiLoading}
-        beforeTabs={
-          <>
-            {/* Archived banner */}
-            {isArchived && (
-              <Alert
-                severity="warning"
-                sx={{ mb: 2 }}
-                action={
-                  <Box sx={{ display: "flex", gap: 1 }}>
-                    {perms.can_archive && (
-                      <Button size="small" color="inherit" onClick={() => setRestoreDialogOpen(true)} startIcon={<MaterialSymbol icon="restore" size={18} />}>
-                        {t("common:actions.restore")}
-                      </Button>
-                    )}
-                    {perms.can_delete && (
-                      <Button size="small" color="error" onClick={() => setDeleteDialogOpen(true)} startIcon={<MaterialSymbol icon="delete_forever" size={18} />}>
-                        {t("common:actions.delete")}
-                      </Button>
-                    )}
-                  </Box>
-                }
-              >
-                {t("detail.archivedBanner")}
-                {daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
-                {archiveRetentionDays === 0 && ` ${t("detail.archivedIndefinite")}`}
-              </Alert>
-            )}
-
-            {/* Subtype save failed */}
-            {subtypeError && (
-              // Stryker disable next-line ObjectLiteral: spacing is presentation
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSubtypeError("")}>
-                {subtypeError}
-              </Alert>
-            )}
-
-            {/* Logo upload / icon / removal failed */}
-            {logoError && (
-              // Stryker disable next-line ObjectLiteral: spacing is presentation
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLogoError("")}>
-                {logoError}
-              </Alert>
-            )}
-
-            {/* Approval transition failed for any other reason */}
-            {approvalError && (
-              // Stryker disable next-line ObjectLiteral: spacing is presentation
-              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setApprovalError("")}>
-                {approvalError}
-              </Alert>
-            )}
-
-            {/* Approval blocked: missing mandatory items */}
-            {approvalBlock && (approvalBlock.missing_relations.length > 0 || approvalBlock.missing_tag_groups.length > 0) && (
-              <Alert
-                severity="warning"
-                sx={{ mb: 2 }}
-                onClose={() => setApprovalBlock(null)}
-              >
-                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
-                  {t("approval.blockedTitle")}
-                </Typography>
-                <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                  {approvalBlock.missing_relations.map((r) => (
-                    <li key={`rel-${r.key}-${r.side}`}>
-                      {t("approval.missingRelation", {
-                        // The backend's verb is the untranslated label; the
-                        // metamodel's type says it in the user's language.
-                        label:
-                          relLabel(
-                            relationTypes.find((rt) => rt.key === r.key),
-                            r.side === "target",
-                          ) || r.label,
-                        otherType: typeLabel(getType(r.other_type_key)) || r.other_type_key,
-                      })}
-                    </li>
-                  ))}
-                  {approvalBlock.missing_tag_groups.map((g) => (
-                    <li key={`tag-${g.id}`}>
-                      {t("approval.missingTagGroup", { name: g.name })}
-                    </li>
-                  ))}
-                </Box>
-              </Alert>
-            )}
-
-            {/* AI Suggestion Panel */}
-            {(aiLoading || aiError || aiResponse) && (
-              <AiSuggestPanel
-                response={aiResponse}
-                loading={aiLoading}
-                error={aiError}
-                onApply={handleAiApply}
-                onDismiss={() => {
-                  setAiResponse(null);
-                  setAiError("");
-                }}
-                fieldsSchema={typeConfig?.fields_schema}
-              />
-            )}
-          </>
-        }
-      />
-      {gamification && (
-        <StickyScoreBar
-          open={barOpen}
-          name={card.name}
-          value={card.data_quality}
-          gain={scoreGain}
-          impactNonce={impactNonce}
-          onFigureRef={setStickyFigureEl}
+        {/* ── Archive dialog (with children + related strategies) ── */}
+        <ArchiveDeleteDialog
+          open={archiveDialogOpen}
+          mode="archive"
+          scope="single"
           cardId={card.id}
-          cardType={card.type}
-          onJump={jumpTo}
+          cardName={card.name}
+          onClose={() => setArchiveDialogOpen(false)}
+          onConfirmed={handleArchiveConfirmed}
         />
-      )}
-      {gamification && scoreGain?.originAnchor && (
-        <GainFlight
-          key={scoreGain.nonce}
-          gain={scoreGain}
-          targetEl={barOpen ? stickyFigureEl : pillEl}
-          onImpact={setImpactNonce}
+
+        {/* ── Delete dialog (with children + related strategies) ── */}
+        <ArchiveDeleteDialog
+          open={deleteDialogOpen}
+          mode="delete"
+          scope="single"
+          cardId={card.id}
+          cardName={card.name}
+          onClose={() => setDeleteDialogOpen(false)}
+          onConfirmed={handleDeleteConfirmed}
         />
-      )}
-      <Fade in={showScrollTop}>
-        <Fab
-          size="small"
-          aria-label={t("detail.backToTop")}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          sx={{ position: "fixed", bottom: 24, right: 24, zIndex: 200 }}
-        >
-          <MaterialSymbol icon="arrow_upward" size={20} />
-        </Fab>
-      </Fade>
+
+        {/* ── Restore dialog with cascade-restore checkboxes ── */}
+        <RestoreDialog
+          open={restoreDialogOpen}
+          cardId={card.id}
+          cardName={card.name}
+          onClose={() => setRestoreDialogOpen(false)}
+          onConfirmed={handleRestoreConfirmed}
+        />
+
+        {/* ── Custom logo: hidden file picker, menu and brand-icon dialog ── */}
+        <CardLogoMenu
+          cardId={card.id}
+          hasLogo={!!card.logo_updated_at}
+          anchorEl={logoMenuAnchor}
+          onClose={() => setLogoMenuAnchor(null)}
+          onChanged={(_id, logoUpdatedAt) => {
+            setLogoError("");
+            setCard((prev) => (prev ? { ...prev, logo_updated_at: logoUpdatedAt } : prev));
+          }}
+          onNotify={setSnack}
+          onError={setLogoError}
+        />
+
+        <Snackbar
+          open={!!snack}
+          autoHideDuration={3000}
+          onClose={() => setSnack("")}
+          message={snack}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        />
+
+        <CardDetailContent
+          key={card.id}
+          card={card}
+          perms={perms}
+          onCardUpdate={setCard}
+          onSaveOrigin={reportSaveOrigin}
+          onDirtyChange={setSectionsDirty}
+          focusTarget={focusTarget?.cardId === card.id ? focusTarget : null}
+          initialTab={initialTab}
+          initialSubTab={initialSubTab}
+          autoFieldKeys={ppmAutoFieldKeys}
+          onAiSuggest={
+            aiEnabled && perms.can_edit && !isArchived && !aiResponse
+              ? handleAiSuggest
+              : undefined
+          }
+          aiBusy={aiLoading}
+          beforeTabs={
+            <>
+              {/* Archived banner */}
+              {isArchived && (
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2 }}
+                  action={
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      {perms.can_archive && (
+                        <Button size="small" color="inherit" onClick={() => setRestoreDialogOpen(true)} startIcon={<MaterialSymbol icon="restore" size={18} />}>
+                          {t("common:actions.restore")}
+                        </Button>
+                      )}
+                      {perms.can_delete && (
+                        <Button size="small" color="error" onClick={() => setDeleteDialogOpen(true)} startIcon={<MaterialSymbol icon="delete_forever" size={18} />}>
+                          {t("common:actions.delete")}
+                        </Button>
+                      )}
+                    </Box>
+                  }
+                >
+                  {t("detail.archivedBanner")}
+                  {daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
+                  {archiveRetentionDays === 0 && ` ${t("detail.archivedIndefinite")}`}
+                </Alert>
+              )}
+
+              {/* Subtype save failed */}
+              {subtypeError && (
+                // Stryker disable next-line ObjectLiteral: spacing is presentation
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSubtypeError("")}>
+                  {subtypeError}
+                </Alert>
+              )}
+
+              {/* Logo upload / icon / removal failed */}
+              {logoError && (
+                // Stryker disable next-line ObjectLiteral: spacing is presentation
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLogoError("")}>
+                  {logoError}
+                </Alert>
+              )}
+
+              {/* Approval transition failed for any other reason */}
+              {approvalError && (
+                // Stryker disable next-line ObjectLiteral: spacing is presentation
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setApprovalError("")}>
+                  {approvalError}
+                </Alert>
+              )}
+
+              {/* Approval blocked: missing mandatory items */}
+              {approvalBlock && (approvalBlock.missing_relations.length > 0 || approvalBlock.missing_tag_groups.length > 0) && (
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2 }}
+                  onClose={() => setApprovalBlock(null)}
+                >
+                  <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                    {t("approval.blockedTitle")}
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {approvalBlock.missing_relations.map((r) => (
+                      <li key={`rel-${r.key}-${r.side}`}>
+                        {t("approval.missingRelation", {
+                          // The backend's verb is the untranslated label; the
+                          // metamodel's type says it in the user's language.
+                          label:
+                            relLabel(
+                              relationTypes.find((rt) => rt.key === r.key),
+                              r.side === "target",
+                            ) || r.label,
+                          otherType: typeLabel(getType(r.other_type_key)) || r.other_type_key,
+                        })}
+                      </li>
+                    ))}
+                    {approvalBlock.missing_tag_groups.map((g) => (
+                      <li key={`tag-${g.id}`}>
+                        {t("approval.missingTagGroup", { name: g.name })}
+                      </li>
+                    ))}
+                  </Box>
+                </Alert>
+              )}
+
+              {/* AI Suggestion Panel */}
+              {(aiLoading || aiError || aiResponse) && (
+                <AiSuggestPanel
+                  response={aiResponse}
+                  loading={aiLoading}
+                  error={aiError}
+                  onApply={handleAiApply}
+                  onDismiss={() => {
+                    setAiResponse(null);
+                    setAiError("");
+                  }}
+                  fieldsSchema={typeConfig?.fields_schema}
+                />
+              )}
+            </>
+          }
+        />
+        {gamification && (
+          <StickyScoreBar
+            open={barOpen}
+            rightInset={panelDocked ? DATA_QUALITY_PANEL_WIDTH : 0}
+            name={card.name}
+            value={card.data_quality}
+            gain={scoreGain}
+            impactNonce={impactNonce}
+            onFigureRef={setStickyFigureEl}
+            onOpenBreakdown={openBreakdown}
+            breakdownOpen={breakdownOpen}
+          />
+        )}
+        {breakdownOpen && (
+          <DataQualityBreakdownHost
+            cardId={card.id}
+            cardType={card.type}
+            value={card.data_quality}
+            onJump={jumpTo}
+            onClose={closeBreakdown}
+            docked={panelFits}
+          />
+        )}
+        {gamification && scoreGain?.originAnchor && (
+          <GainFlight
+            key={scoreGain.nonce}
+            gain={scoreGain}
+            targetEl={barOpen ? stickyFigureEl : pillEl}
+            onImpact={setImpactNonce}
+          />
+        )}
+        <Fade in={showScrollTop}>
+          <Fab
+            size="small"
+            aria-label={t("detail.backToTop")}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            sx={{
+              position: "fixed",
+              bottom: 24,
+              right: 24 + (panelDocked ? DATA_QUALITY_PANEL_WIDTH : 0),
+              zIndex: 200,
+            }}
+          >
+            <MaterialSymbol icon="arrow_upward" size={20} />
+          </Fab>
+        </Fade>
+      </Box>
     </Box>
   );
 }

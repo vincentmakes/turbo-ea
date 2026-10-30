@@ -1,7 +1,7 @@
 /**
  * How the data-quality breakdown's factors are ordered and read (#1334).
- * Shared by the pill's tooltip and the breakdown popover, which both the pill
- * and the sticky score bar open.
+ * Shared by the pill's tooltip and `DataQualityBreakdownContent`, the full
+ * breakdown the pill and the sticky score bar open.
  */
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -100,7 +100,7 @@ export function useFactorText(cardType: string | undefined) {
     };
     // What filling the slot adds to the score. A gating field shows no figure:
     // nothing moves the score while another required field is still empty, and
-    // the popover's alert already says what the score would be.
+    // the breakdown's alert already says what the score would be.
     const gain = (f: DataQualityFactor, blocked: string[]) =>
       unlocksScore(f, blocked) ? t("dataQuality.required") : t("dataQuality.raiseTo", { pct: f.gain });
     return { action, noun, requiredField, gain };

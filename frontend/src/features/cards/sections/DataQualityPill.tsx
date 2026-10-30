@@ -2,19 +2,19 @@
  * The data-quality pill on a card's header, and what it says about itself (#1334).
  *
  * Without `cardId` it is the plain pill: the score and a "{{value}}% data
- * quality" tooltip. With `cardId` it also explains the score: on first hover,
- * focus or click it fetches `GET /cards/{id}/data-quality` — the breakdown the
- * backend scorer computes, so it can never disagree with the stored score —
- * and then
+ * quality" tooltip. With `cardId` the **tooltip** also explains the score: on
+ * first hover or focus it fetches `GET /cards/{id}/data-quality` — the
+ * breakdown the backend scorer computes, so it can never disagree with the
+ * stored score — and lists the three unmet slots that would raise the score
+ * most, each with the score the card would reach. Its rows are text: a
+ * tooltip is not interactive.
  *
- * - the **tooltip** lists the three unmet slots that would raise the score
- *   most, each with the score the card would reach;
- * - a **click** (or Enter / Space) opens `DataQualityBreakdownPopover` — the
- *   same popover the sticky score bar opens — with every unmet slot, the slots
- *   that already count, and which required fields hold the score at 0.
- *
- * With `onJump`, each unmet slot in the popover is a link to where it is
- * filled; the tooltip's rows stay text — a tooltip is not interactive.
+ * With `onOpenBreakdown` the pill is also a button: a click (or Enter /
+ * Space) asks the page to open the full breakdown beside it
+ * (`DataQualityBreakdownHost`), and `breakdownOpen` says whether it is open.
+ * While it is, the tooltip stands down — the breakdown says the same, in full.
+ * Without `onOpenBreakdown` (the card preview's side panel) a click does
+ * nothing.
  *
  * When `value` changes (a save rescored the card) the fetched breakdown is
  * dropped, so the next hover fetches the fresh one (`useDataQualityBreakdown`).
@@ -33,14 +33,13 @@
  * origin to fly to — floats a "−X%" over the pill; it never pops, flashes or
  * celebrates.
  */
-import { useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { bandColor } from "@/lib/dataQualityBands";
 import { STATUS_COLORS } from "@/theme/tokens";
-import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import { ImpactShine, ScoreBar } from "@/features/cards/gamification/ScoreBar";
 import { GainLiveRegion } from "@/features/cards/gamification/GainLiveRegion";
 import { ScoreGainBurst } from "@/features/cards/gamification/ScoreGainBurst";
@@ -52,7 +51,6 @@ import {
 import { useAnimatedNumber } from "@/features/cards/gamification/useAnimatedNumber";
 import { useDqMotionStyles } from "@/features/cards/gamification/useDqMotionStyles";
 import { useReducedMotion } from "@/features/cards/gamification/useReducedMotion";
-import { DataQualityBreakdownPopover } from "./DataQualityBreakdownPopover";
 import { factorKey, unlocksScore, useFactorText } from "./dataQualityFactors";
 import { useDataQualityBreakdown } from "./useDataQualityBreakdown";
 
@@ -63,19 +61,22 @@ export function DataQualityPill({
   value,
   cardId,
   cardType,
-  onJump,
+  onOpenBreakdown,
+  breakdownOpen = false,
   animate = false,
   gain: scoreGain = null,
   impactNonce = null,
   onRootRef,
 }: {
   value: number;
-  /** Turns on the breakdown tooltip and popover. */
+  /** Turns on the breakdown tooltip. */
   cardId?: string;
   /** The card's type key, to name its fields. */
   cardType?: string;
-  /** Makes each unmet slot in the popover a link to where it is filled. */
-  onJump?: (target: DataQualityJumpTarget) => void;
+  /** Makes the pill a button that opens the full breakdown. */
+  onOpenBreakdown?: () => void;
+  /** Whether the full breakdown is open (`aria-expanded`). */
+  breakdownOpen?: boolean;
   /** Gamified data quality: animate the fill and the figure. */
   animate?: boolean;
   /** The save's gain to play (`useScoreGain`); only read with `animate`. */
@@ -89,6 +90,7 @@ export function DataQualityPill({
   const v = Math.max(0, Math.min(100, Math.round(value)));
   const color = bandColor(v);
   const explains = !!cardId;
+  const open = explains ? onOpenBreakdown : undefined;
   const reduced = useReducedMotion();
   useDqMotionStyles(animate);
   const playing = animate ? scoreGain : null;
@@ -109,12 +111,10 @@ export function DataQualityPill({
   const celebrating = playing && !loss && !waiting && !reduced ? playing : null;
   const showBurst = !!playing && (loss ? reduced || !playing.originAnchor : !waiting);
 
-  // Fetch on first interest: hovered, focused, or the popover open.
+  // Fetch on first interest: hovered or focused.
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const breakdown = useDataQualityBreakdown(cardId, hovered || focused || !!anchor, value);
-  const { data, blocked, unmet } = breakdown;
+  const { data, blocked, unmet } = useDataQualityBreakdown(cardId, hovered || focused, value);
   const text = useFactorText(cardType);
 
   const headline = t("utils.dataQuality", { value: v });
@@ -151,34 +151,38 @@ export function DataQualityPill({
       headline
     );
 
-  const open = (el: HTMLElement) => setAnchor(el);
-  const interactive = explains
+  const hover = explains
+    ? {
+        "data-testid": "data-quality-pill",
+        onMouseEnter: () => setHovered(true),
+        onMouseLeave: () => setHovered(false),
+      }
+    : {};
+  const button = open
     ? {
         role: "button",
         tabIndex: 0,
         "aria-label": t("dataQuality.ariaLabel", { value: v }),
         "aria-haspopup": "dialog" as const,
-        "aria-expanded": !!anchor,
-        "data-testid": "data-quality-pill",
-        onMouseEnter: () => setHovered(true),
-        onMouseLeave: () => setHovered(false),
+        "aria-expanded": breakdownOpen,
         onFocus: () => setFocused(true),
         onBlur: () => setFocused(false),
-        onClick: (e: MouseEvent<HTMLElement>) => open(e.currentTarget),
+        onClick: () => open(),
         onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            open(e.currentTarget);
+            open();
           }
         },
       }
     : {};
 
-  // The tooltip stands down while the popover says the same, in full.
+  // The tooltip stands down while the open breakdown says the same, in full.
   const pill = (
-    <Tooltip title={anchor ? "" : tooltip}>
+    <Tooltip title={breakdownOpen ? "" : tooltip}>
       <Box
-        {...interactive}
+        {...hover}
+        {...button}
         sx={{
           position: "relative",
           height: 24,
@@ -192,7 +196,7 @@ export function DataQualityPill({
           bgcolor: "transparent",
           px: 1,
           boxSizing: "border-box",
-          ...(explains && { cursor: "pointer" }),
+          ...(open && { cursor: "pointer" }),
         }}
       >
         {animate ? (
@@ -337,16 +341,6 @@ export function DataQualityPill({
         </Box>
       ) : (
         pill
-      )}
-      {explains && (
-        <DataQualityBreakdownPopover
-          anchorEl={anchor}
-          onClose={() => setAnchor(null)}
-          value={v}
-          cardType={cardType}
-          breakdown={breakdown}
-          onJump={onJump}
-        />
       )}
     </>
   );

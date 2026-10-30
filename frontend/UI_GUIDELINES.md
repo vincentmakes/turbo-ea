@@ -752,8 +752,10 @@ icon and name together — that is the drift this exists to end.
 Motion is feedback, never decoration, and nothing may depend on it to be understood. The
 reference implementation is TurboRPG mode, gamified data quality
 (`features/cards/gamification/`), which an administrator turns on in Settings → General →
-Modules. The pill and the sticky score bar open one shared breakdown popover
-(`DataQualityBreakdownPopover` over `useDataQualityBreakdown`); never fork a second copy.
+Modules. The data quality ring (`DataQualityPill`) and the sticky score bar's **Raise score**
+button open one breakdown; the docked side panel and its small-screen drawer
+(`DataQualityBreakdownHost`) both show the one `DataQualityBreakdownContent` over
+`useDataQualityBreakdown`; never fork a second copy.
 
 - **Durations** (Material 3 range): 100–200 ms for state changes (a pop is 300 ms with its
   overshoot, the impact flash 180 ms), **500 ms** for fills (`FILL_MS`), **650 ms** for a
