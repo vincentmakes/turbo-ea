@@ -156,6 +156,83 @@ describe("DataQualityPill", () => {
     expect(tip).not.toHaveTextContent("more");
   });
 
+  it("names exactly three unmet slots in gain order, with no 'more' line", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...BREAKDOWN,
+      // Served smallest gain first, and one tag group without a name.
+      factors: [
+        factor("tag_group", "g-9", false, 30, { name: null }),
+        factor("lifecycle", "lifecycle", false, 50),
+        factor("field", "cost", false, 62.5, { section: "Details", weight: 2 }),
+      ],
+    });
+    renderPill();
+    const tip = await hoverPill();
+    await waitFor(() => expect(tip).toHaveTextContent("Tag with → 30%"));
+    expect(tip).toHaveTextContent(
+      "38% data qualityFill Annual Cost → 62.5%Set lifecycle dates → 50%Tag with → 30%",
+    );
+    expect(tip).not.toHaveTextContent("more");
+  });
+
+  it("fetches on keyboard focus too", async () => {
+    renderPill();
+    act(() => screen.getByTestId("data-quality-pill").focus());
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.get).mock.calls[0][0]).toBe(URL);
+  });
+
+  it("tells assistive tech about the popover", async () => {
+    renderPill();
+    const pill = screen.getByTestId("data-quality-pill");
+    expect(pill).toHaveAttribute("aria-haspopup", "dialog");
+    expect(pill).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(pill);
+    await screen.findByRole("dialog");
+    expect(pill).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("names every kind of counted slot, and a field the metamodel forgot", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...BREAKDOWN,
+      score: 100,
+      factors: [
+        factor("field", "team", true, null, { section: "Details" }),
+        factor("field", "ghost", true, null),
+        factor("description", "description", true, null),
+        factor("lifecycle", "lifecycle", true, null),
+        factor("relation", "relOrgToApp", true, null, {
+          side: "source",
+          other_type_key: "Application",
+          label: "owns",
+        }),
+        factor("relation", "ghostRel", true, null, { side: "source" }),
+        factor("tag_group", "g-1", true, null, { name: "Criticality" }),
+        factor("stakeholders", "stakeholders", true, null),
+      ],
+    });
+    renderPill(100);
+    await userEvent.click(screen.getByTestId("data-quality-pill"));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(
+      await within(dialog).findByRole("button", { name: /Already counted \(8\)/ }),
+    );
+    const names = within(dialog)
+      .getAllByRole("listitem")
+      .map((li) => li.querySelector("p")?.textContent);
+    expect(names).toEqual([
+      "Team",
+      "A field",
+      "Description",
+      "Lifecycle dates",
+      "owns Application",
+      "A required relation",
+      "Criticality",
+      "A stakeholder assigned",
+    ]);
+    expect(dialog).not.toHaveTextContent("ghost");
+  });
+
   it("on click lists every unmet slot by gain, then the slots that already count", async () => {
     renderPill();
     await userEvent.click(screen.getByTestId("data-quality-pill"));

@@ -47,6 +47,15 @@ async def test_untuned_matches_legacy_behavior(db):
     assert await calc_data_quality(db, card) == 50.0
 
 
+async def test_a_card_whose_type_is_gone_scores_zero_and_has_no_breakdown(db):
+    """No CardType row behind the card: nothing to score, and nothing to explain."""
+    from app.services.data_quality import calc_data_quality_breakdown
+
+    card = await create_card(db, card_type="GhostType", attributes={"a": "x"})
+    assert await calc_data_quality_breakdown(db, card) is None
+    assert await calc_data_quality(db, card) == 0.0
+
+
 async def test_field_set_to_ignore_is_excluded(db):
     """Weight 0 ('Ignore') drops the field from both numerator and denominator."""
     schema = [
@@ -989,6 +998,74 @@ class TestScoreBreakdown:
 
         empty = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, [], [])
         assert empty.score_if_filled(Factor("field", "a", 1.0, False)) == 0.0
+
+    @pytest.mark.parametrize("phase", ["plan", "phaseIn", "active", "phaseOut", "endOfLife"])
+    async def test_any_one_lifecycle_phase_fills_the_slot(self, phase):
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        ctx, _ = _breakdown_ctx()
+        card = self._card(lifecycle={phase: "2025-01-01"})
+        (slot,) = [
+            f for f in score_breakdown(card, ctx, CardFacts()).factors if f.kind == "lifecycle"
+        ]
+        assert slot.filled is True
+
+    @pytest.mark.parametrize(
+        "lifecycle", [None, {}, {"foo": "2025-01-01"}, {"active": ""}, {"active": None}]
+    )
+    async def test_no_dated_phase_leaves_the_lifecycle_slot_empty(self, lifecycle):
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        ctx, _ = _breakdown_ctx()
+        card = self._card(lifecycle=lifecycle)
+        (slot,) = [
+            f for f in score_breakdown(card, ctx, CardFacts()).factors if f.kind == "lifecycle"
+        ]
+        assert slot.filled is False
+
+    async def test_a_field_counts_on_zero_but_not_on_false_blank_or_cleared(self):
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        keys = ("zero", "no", "blank", "cleared", "missing")
+        schema = [{"section": "S", "fields": [{"key": k, "type": "text"} for k in keys]}]
+        ctx, _ = _ctx(fields_schema=schema, mandatory=None, counting_role_keys=())
+        card = self._card(
+            subtype=None, attributes={"zero": 0, "no": False, "blank": "", "cleared": []}
+        )
+        bd = score_breakdown(card, ctx, CardFacts())
+        assert {f.key: f.filled for f in bd.factors} == {
+            "zero": True,
+            "no": False,
+            "blank": False,
+            "cleared": False,
+            "missing": False,
+        }
+        assert (bd.total_weight, bd.filled_weight, bd.score) == (5.0, 1.0, 20.0)
+
+    async def test_each_mandatory_tag_group_is_its_own_slot(self):
+        import uuid as _uuid
+
+        from app.services.card_completeness import LinkFacts, MandatoryConfig, MandatoryTagGroup
+        from app.services.data_quality import CardFacts, score_breakdown
+
+        g1, g2 = _uuid.uuid4(), _uuid.uuid4()
+        ctx, _ = _ctx(
+            mandatory=MandatoryConfig(
+                sides=(),
+                tag_groups=(MandatoryTagGroup(g1, "Criticality"), MandatoryTagGroup(g2, "Hosting")),
+            ),
+            counting_role_keys=(),
+            dq_cfg={"description": 0, "lifecycle": 0, "relations": 0, "tags": 4, "stakeholders": 0},
+        )
+        facts = CardFacts(links=LinkFacts(tag_groups=frozenset({g2})))
+        bd = score_breakdown(self._card(subtype=None), ctx, facts)
+        assert [(f.key, f.name, f.weight, f.filled) for f in bd.factors] == [
+            (str(g1), "Criticality", 4.0, False),
+            (str(g2), "Hosting", 4.0, True),
+        ]
+        # Two groups × the bucket weight in the denominator, the held one in the numerator.
+        assert (bd.total_weight, bd.filled_weight, bd.score) == (8.0, 4.0, 50.0)
+        assert bd.score_if_filled(bd.factors[0]) == 100.0
 
     async def test_matches_score_card_on_every_existing_fixture(self):
         from app.models.card import Card
