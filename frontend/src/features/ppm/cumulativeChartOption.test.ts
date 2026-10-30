@@ -196,7 +196,7 @@ describe("buildCumulativeOption — root and chrome", () => {
 });
 
 describe("buildCumulativeOption — axes", () => {
-  it("draws the months edge to edge, every label it can fit, first and last always", () => {
+  it("draws the months edge to edge, offering every month and hiding only true overlaps", () => {
     const { xAxis } = build();
     expect(xAxis).toMatchObject({
       type: "category",
@@ -209,10 +209,13 @@ describe("buildCumulativeOption — axes", () => {
     expect(xAxis.axisLabel).toMatchObject({
       color: "#666666",
       fontSize: 12,
+      interval: 0,
       hideOverlap: true,
-      showMinLabel: true,
-      showMaxLabel: true,
     });
+    // ECharts' "auto" interval thinned wide (Arabic) month labels to every
+    // other month; the min/max overrides only mattered under that thinning.
+    expect(xAxis.axisLabel).not.toHaveProperty("showMinLabel");
+    expect(xAxis.axisLabel).not.toHaveProperty("showMaxLabel");
   });
 
   it("runs the months right to left in RTL, with the value axis on the right", () => {

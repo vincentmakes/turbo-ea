@@ -191,6 +191,24 @@ describe("ProcessAssessmentPanel", () => {
     expect(option.yAxis.position).toBe("right");
   });
 
+  it("dates the trend and the table in the interface language", async () => {
+    // Before the fix the month came from the browser locale, so an Arabic
+    // interface read "15 Jun 2025" — reordered to "Jun 2025 15" right-to-left.
+    await i18n.changeLanguage("ar");
+    try {
+      const ar = i18n.getFixedT("ar", "bpm");
+      renderPanel();
+      await screen.findByRole("img", { name: ar("assessment.title") });
+
+      const option = echartState.byName(ar("assessment.title")).option;
+      expect(option.xAxis.data).toEqual(["01 مايو 2025", "15 يونيو 2025"]);
+      expect(screen.getByText("15 يونيو 2025")).toBeInTheDocument();
+      expect(screen.getByText("01 مايو 2025")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
   it("edges each dimension in the guide with its trend colour", async () => {
     renderPanel();
     await userEvent.click(screen.getByRole("button", { name: "Assessment guide" }));

@@ -368,7 +368,7 @@ export const DASHBOARD_KPI_COLORS = {
 /** The BPM process-assessment trend: one categorical hue per scored
  *  dimension, keyed by the assessment field it plots — not a status scale. */
 export const BPM_ASSESSMENT_COLORS = {
-  overall_score: "#1976d2",
+  overall_score: brand.primary,
   efficiency: "#4caf50",
   effectiveness: "#ff9800",
   compliance: "#9c27b0",

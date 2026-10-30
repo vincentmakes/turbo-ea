@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 /* ── mocks ─────────────────────────────────────────────────────── */
 
@@ -83,7 +84,7 @@ import { api } from "@/api/client";
 import { echartState } from "@/test/echartMock";
 import { hookState } from "@/test/hooks";
 import { BPM_COLUMN_LABEL_WIDTH, MATURITY_COLORS } from "./bpmChartOptions";
-import { STATUS_COLORS, brand } from "@/theme/tokens";
+import { SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import BpmDashboard from "./BpmDashboard";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
@@ -400,6 +401,56 @@ describe("BpmDashboard", () => {
     expect(chip("Initial")).toHaveStyle({ backgroundColor: "#123456" });
     expect(chip("Managed")).toHaveStyle({ backgroundColor: MATURITY_COLORS.managed });
     expect(chip("gone")).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral });
+  });
+
+  it("colours a critical risk chip with the severity scale's critical, as the Process Navigator does", async () => {
+    await renderDashboard();
+
+    const chip = screen.getByText("critical").closest(".MuiChip-root") as HTMLElement;
+    expect(chip).toHaveStyle({ backgroundColor: SEVERITY_COLORS.critical });
+    expect(chip).toHaveStyle({ color: createTheme().palette.getContrastText(SEVERITY_COLORS.critical) });
+  });
+
+  it("writes each chip's text in the colour that contrasts with its fill", async () => {
+    await renderDashboard();
+
+    const palette = createTheme().palette;
+    const chip = (label: string) => screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
+    // A dark fill takes light text, a light one dark text — not white on both.
+    const dark = palette.getContrastText("#123456");
+    const light = palette.getContrastText(STATUS_COLORS.neutral);
+    expect(dark).not.toBe(light);
+    expect(chip("Initial")).toHaveStyle({ color: dark });
+    expect(chip("gone")).toHaveStyle({ color: light });
+  });
+
+  it("fills a risk chip whose level the scale does not know with the neutral grey", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      ...mockDashboard,
+      top_risk_processes: [{ id: "p9", name: "Odd One", risk: "extreme", maturity: "initial" }],
+    });
+    await renderDashboard();
+
+    const chip = screen.getByText("extreme").closest(".MuiChip-root") as HTMLElement;
+    expect(chip).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral });
+    expect(chip).toHaveStyle({ color: createTheme().palette.getContrastText(STATUS_COLORS.neutral) });
+  });
+
+  it("colours the header icon with the theme's primary colour", () => {
+    const { unmount } = renderPage();
+    expect(screen.getByText("route")).toHaveStyle({ color: createTheme().palette.primary.main });
+    unmount();
+
+    // Follows the theme rather than a fixed hex.
+    const teal = createTheme({ palette: { primary: { main: "#00897b" } } });
+    render(
+      <ThemeProvider theme={teal}>
+        <MemoryRouter initialEntries={["/bpm"]}>
+          <BpmDashboard />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+    expect(screen.getByText("route")).toHaveStyle({ color: teal.palette.primary.main });
   });
 
   it("has All Processes button", async () => {

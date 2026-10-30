@@ -21,13 +21,14 @@ import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { usePageSection } from "@/hooks/usePageTitle";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import EChart, { type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
 import { api } from "@/api/client";
-import { STATUS_COLORS } from "@/theme/tokens";
+import { SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { BpmDashboardData, DashboardKeyRow } from "@/types";
 import { useProcessTypeOptions } from "./useProcessTypeOptions";
 import { useBpmFieldOptions } from "./useBpmFieldOptions";
@@ -61,12 +62,19 @@ const RISK_COLORS: Record<string, string> = {
   low: STATUS_COLORS.success,
   medium: STATUS_COLORS.warning,
   high: STATUS_COLORS.error,
-  critical: "#b71c1c",
+  // The Process Navigator's risk overlay colours critical the same way.
+  critical: SEVERITY_COLORS.critical,
 };
+
+/** A risk chip's fill; a level the scale does not know is neutral, never missing. */
+function riskColor(risk: string): string {
+  return RISK_COLORS[risk] ?? STATUS_COLORS.neutral;
+}
 
 /* ── Dashboard content (tab 1) ── */
 function BpmDashboardContent() {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const navigate = useNavigate();
   const chartTheme = useEChartsTheme();
   const { resolve: resolveProcessType, byKey: processTypes } = useProcessTypeOptions();
@@ -270,7 +278,10 @@ function BpmDashboardContent() {
                       <Chip
                         label={p.risk}
                         size="small"
-                        sx={{ bgcolor: RISK_COLORS[p.risk], color: "#fff" }}
+                        sx={{
+                          bgcolor: riskColor(p.risk),
+                          color: theme.palette.getContrastText(riskColor(p.risk)),
+                        }}
                       />
                     </TableCell>
                     <TableCell>
@@ -279,7 +290,11 @@ function BpmDashboardContent() {
                         size="small"
                         sx={{
                           bgcolor: maturityColor(p.maturity, resolveMaturity(p.maturity).color),
-                          color: "#fff",
+                          // A light fill (a yellow option, the neutral grey)
+                          // takes dark text; white on it was unreadable.
+                          color: theme.palette.getContrastText(
+                            maturityColor(p.maturity, resolveMaturity(p.maturity).color),
+                          ),
                         }}
                       />
                     </TableCell>
@@ -306,6 +321,7 @@ const BPM_TAB_LABEL_KEYS = ["tabs.processNavigator", "tabs.dashboard", "tabs.rep
 
 export default function BpmDashboard() {
   const { t } = useTranslation(["bpm", "common"]);
+  const theme = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get(BPM_TAB_PARAM);
   const tabIndex = tabParam === "dashboard" ? 1 : tabParam === "reports" ? 2 : 0;
@@ -328,7 +344,7 @@ export default function BpmDashboard() {
       {/* Header + tabs */}
       <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 2, md: 2.5 }, borderBottom: 1, borderColor: "divider" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-          <MaterialSymbol icon="route" size={28} color="#1976d2" />
+          <MaterialSymbol icon="route" size={28} color={theme.palette.primary.main} />
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {t("page.title")}
           </Typography>

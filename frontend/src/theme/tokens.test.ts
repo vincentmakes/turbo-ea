@@ -68,6 +68,11 @@ describe("colour tokens", () => {
     expect(new Set(hues).size).toBe(hues.length);
   });
 
+  it("draw the overall assessment score in the brand blue", async () => {
+    const t = await freshTokens();
+    expect(t.BPM_ASSESSMENT_COLORS.overall_score).toBe(t.brand.primary);
+  });
+
   it("name the four EA layers", async () => {
     const t = await freshTokens();
     expect(Object.keys(t.LAYER_COLORS)).toEqual([

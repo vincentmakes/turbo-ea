@@ -161,7 +161,11 @@ export function buildCumulativeOption(
       data: labels,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: o.chrome.divider } },
-      axisLabel: axisLabel(ctx, { hideOverlap: true, showMinLabel: true, showMaxLabel: true }),
+      // `interval: 0` offers every month and `hideOverlap` drops only labels
+      // that really collide. Left at "auto", ECharts thins the axis from the
+      // widest label × 1.3, and Arabic month words are wide enough that it
+      // labelled every other month in RTL.
+      axisLabel: axisLabel(ctx, { interval: 0, hideOverlap: true }),
     },
     yAxis: {
       type: "value",
