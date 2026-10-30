@@ -124,6 +124,8 @@
   "dataQuality.milestoneComplete": "Готово!",
   "dataQuality.milestonePerfect": "Идеальный результат!",
   "dataQuality.stickyBarLabel": "Качество данных",
+  "dataQuality.pinBar": "Держать полосу оценки на виду",
+  "dataQuality.unpinBar": "Открепить полосу оценки",
   "utils.unknownOption": "Неизвестный ключ опции: {{key}}",
   "utils.urlError": "Необходимо использовать схему http://, https:// или mailto:",
   "utils.costRestricted": "Ограничено — у вас нет прав на просмотр расходов этой карточки",

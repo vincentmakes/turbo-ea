@@ -4,7 +4,7 @@ Siden **Indstillinger** under **Admin → Indstillinger** (`/admin/settings`) er
 
 | Faneblad | URL | Hvad det styrer | Fuld vejledning |
 |-----|-----|------------------|------------|
-| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), e-mail-afsendelse, **modulkontakter** (BPM, PPM, GRC, TurboLens, Sponsor button, Gamificeret datakvalitet) | Denne side |
+| **Generelt** | `/admin/settings?tab=general` | Udseende (logo, favicon, valuta, datoformat, aktiverede sprog, regnskabsår), e-mail-afsendelse, **modulkontakter** (BPM, PPM, GRC, TurboLens, Sponsor button, TurboRPG-tilstand) | Denne side |
 | **Autentificering** | `/admin/settings?tab=authentication` | SSO-udbydere, registrering, adgangskodepolitik | [Autentificering og SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM-udbyder, model, websøgningsbackend, AI-forslagskontakter pr. korttype | [AI-funktioner](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Massetilknytning af produkter til endoflife.date-poster | [End-of-Life (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Vis eller skjul **Støt**-knappen i brugermenuen (avatar). Når den er skjult, s
 
 Hvis din virksomhed sponsorerer Turbo EA og gerne vil have sit logo vist på turbo-ea.org, så kontakt [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Gamificeret datakvalitet
+## TurboRPG (gamificeret datakvalitet)
 
-![Kontakt til gamificeret datakvalitet](../assets/img/da/95c_admin_settings_gamification.png)
+![Kontakt til TurboRPG-tilstand](../assets/img/da/95c_admin_settings_gamification.png)
 
-Slå dette til for at fejre hver gemning, der forbedrer et korts datakvalitet. Det er **slået fra** som standard og gælder for alle; der er ingen indstilling pr. bruger.
+**TurboRPG-tilstand** gør datakvalitet til et spil. Slå dette til for at fejre hver gemning, der forbedrer et korts datakvalitet. Det er **slået fra** som standard og gælder for alle; der er ingen indstilling pr. bruger.
 
 Mens det er slået til, afspiller gemning af en ændring, der hæver et korts score, en kort belønning på kortsiden og i kortets eksempelpanel, som når man får liv i et spil:
 
 - et glødende grønt **+X%** (de point, som gemningen tilførte) forlader den gemte sektion – dens overskrift, hvor knappen Gem sidder – og flyver i en bue til **datakvalitetsringen**;
 - ved **nedslaget** blinker ringen, en glorie og et skær i scorens farve breder sig fra den, et glimt fejer hen over den, den popper, dens fyld vokser til den nye score som en livsbjælke, og tallet tæller op;
-- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift; så længe den vises, flyver gevinsten i stedet hen til den.
+- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift; så længe den vises, flyver gevinsten i stedet hen til den. Klik på barens score for at åbne den samme opdeling af datakvaliteten som ved ringen, og brug dens **nåle**-knap til at holde bjælken på skærmen, selv når overskriften er i syne – nålen huskes i din browser.
 
 En gemning fra overskriften (navnet eller undertypen) eller fra sektionen End of Life har ingen sektion at flyve fra, så **+X%** stiger blot op over ringen.
 

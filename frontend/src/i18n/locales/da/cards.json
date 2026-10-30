@@ -104,6 +104,8 @@
   "dataQuality.milestoneComplete": "Færdig!",
   "dataQuality.milestonePerfect": "Perfekt score!",
   "dataQuality.stickyBarLabel": "Datakvalitet",
+  "dataQuality.pinBar": "Hold scorebjælken synlig",
+  "dataQuality.unpinBar": "Frigør scorebjælken",
   "utils.unknownOption": "Ukendt valgnøgle: {{key}}",
   "utils.urlError": "Skal bruge http://, https:// eller mailto:-skema",
   "utils.costRestricted": "Begrænset — du har ikke tilladelse til at se omkostninger på dette kort",

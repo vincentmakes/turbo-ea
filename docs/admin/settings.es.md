@@ -4,7 +4,7 @@ La página de **Configuración** en **Administrador → Configuración** (`/admi
 
 | Pestaña | URL | Qué controla | Guía completa |
 |---------|-----|--------------|---------------|
-| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), envío de correo, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Calidad de datos gamificada) | Esta página |
+| **General** | `/admin/settings?tab=general` | Apariencia (logo, favicon, moneda, formato de fecha, idiomas habilitados, año fiscal), envío de correo, **interruptores de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Modo TurboRPG) | Esta página |
 | **Autenticación** | `/admin/settings?tab=authentication` | Proveedores SSO, registro, política de contraseñas | [Autenticación y SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Proveedor LLM, modelo, backend de búsqueda web, interruptores de sugerencia IA por tipo de tarjeta | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculación masiva de productos a entradas de endoflife.date | [Fin de vida (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Muestra u oculta el botón **Patrocinar** en el menú de usuario (avatar). Cuand
 
 Si tu empresa patrocina Turbo EA y desea que su logotipo aparezca en turbo-ea.org, escribe a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Calidad de datos gamificada
+## TurboRPG (calidad de datos gamificada)
 
-![Interruptor de calidad de datos gamificada](../assets/img/es/95c_admin_config_gamificacion.png)
+![Interruptor del modo TurboRPG](../assets/img/es/95c_admin_config_gamificacion.png)
 
-Actívela para celebrar cada guardado que mejore la calidad de datos de una ficha. Está **desactivada** de forma predeterminada y se aplica a todos; no existe un ajuste por usuario.
+El **modo TurboRPG** convierte la calidad de datos en un juego. Actívela para celebrar cada guardado que mejore la calidad de datos de una ficha. Está **desactivada** de forma predeterminada y se aplica a todos; no existe un ajuste por usuario.
 
 Mientras está activa, guardar un cambio que aumenta la puntuación de una ficha reproduce una breve recompensa en la página de la ficha y en el panel de vista previa de la ficha, como al ganar vida en un videojuego:
 
 - un **+X%** verde brillante (los puntos que ha añadido el guardado) sale de la sección que ha guardado —su cabecera, donde está el botón Guardar— y vuela en arco hasta el **anillo de calidad de datos**;
 - en el **impacto**, el anillo destella, un halo y un resplandor del color de la puntuación se extienden desde él, un brillo lo barre, se agranda, su relleno crece hasta la nueva puntuación como una barra de vida, y la cifra va contando hacia arriba;
-- en la página de la ficha, una vez que se desplaza más allá de la cabecera de la ficha, una fina **barra de puntuación** permanece anclada bajo la barra superior con el nombre y la puntuación de la ficha; mientras se muestra, la mejora vuela hacia ella en su lugar.
+- en la página de la ficha, una vez que se desplaza más allá de la cabecera de la ficha, una fina **barra de puntuación** permanece anclada bajo la barra superior con el nombre y la puntuación de la ficha; mientras se muestra, la mejora vuela hacia ella en su lugar. Haga clic en la puntuación de la barra para abrir el mismo desglose de calidad de datos que el anillo, y use su botón de **chincheta** para mantener la barra en pantalla incluso con la cabecera a la vista; la chincheta se recuerda en su navegador.
 
 Un guardado hecho desde la cabecera (el nombre o el subtipo) o desde la sección End of Life no tiene ninguna sección de la que partir, así que el **+X%** simplemente sube sobre el anillo.
 

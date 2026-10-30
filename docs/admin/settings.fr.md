@@ -4,7 +4,7 @@ La page **Paramètres** sous **Admin → Paramètres** (`/admin/settings`) est l
 
 | Onglet | URL | Ce qu'il contrôle | Guide complet |
 |--------|-----|-------------------|---------------|
-| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualité des données gamifiée) | Cette page |
+| **Général** | `/admin/settings?tab=general` | Apparence (logo, favicon, devise, format de date, langues activées, année fiscale), envoi d'e-mails, **bascules de modules** (BPM, PPM, GRC, TurboLens, Sponsor button, Mode TurboRPG) | Cette page |
 | **Authentification** | `/admin/settings?tab=authentication` | Fournisseurs SSO, inscription, politique de mot de passe | [Authentification & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Fournisseur LLM, modèle, backend de recherche web, bascules de suggestion IA par type de fiche | [Capacités IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Liaison en masse des produits aux entrées endoflife.date | [Fin de vie (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Affichez ou masquez le bouton **Soutenir** dans le menu utilisateur (avatar). Lo
 
 Si votre entreprise sponsorise Turbo EA et souhaite que son logo soit mis en avant sur turbo-ea.org, contactez-nous à [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Qualité des données gamifiée
+## TurboRPG (qualité des données gamifiée)
 
-![Activation de la qualité des données gamifiée](../assets/img/fr/95c_admin_parametres_gamification.png)
+![Activation du mode TurboRPG](../assets/img/fr/95c_admin_parametres_gamification.png)
 
-Activez cette option pour célébrer chaque enregistrement qui améliore la qualité des données d'une fiche. Elle est **désactivée** par défaut et s'applique à tout le monde ; il n'existe pas de réglage par utilisateur.
+Le **mode TurboRPG** transforme la qualité des données en jeu. Activez cette option pour célébrer chaque enregistrement qui améliore la qualité des données d'une fiche. Elle est **désactivée** par défaut et s'applique à tout le monde ; il n'existe pas de réglage par utilisateur.
 
 Lorsqu'elle est active, l'enregistrement d'une modification qui augmente le score d'une fiche déclenche une courte récompense sur la page de la fiche et dans le panneau d'aperçu de la fiche, comme lorsqu'on gagne de la vie dans un jeu :
 
 - un **+X%** vert lumineux (les points ajoutés par l'enregistrement) quitte la section enregistrée – plus précisément son en-tête, où se trouve le bouton Enregistrer – et file en arc de cercle vers l'**anneau de qualité des données** ;
 - à l'**impact**, l'anneau s'illumine, un halo et une lueur de la couleur du score s'en diffusent, un reflet le balaie, il pulse, son remplissage grandit jusqu'au nouveau score comme une barre de vie, et le chiffre s'incrémente ;
-- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche ; tant qu'elle est affichée, le gain s'envole vers elle à la place.
+- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche ; tant qu'elle est affichée, le gain s'envole vers elle à la place. Cliquez sur le score de la barre pour ouvrir le même détail de la qualité des données que l'anneau, et utilisez son bouton **épingle** pour garder la barre à l'écran même lorsque l'en-tête est visible – l'épinglage est mémorisé dans votre navigateur.
 
 Un enregistrement effectué depuis l'en-tête (le nom ou le sous-type) ou depuis la section End of Life n'a pas de section d'où partir : le **+X%** s'élève alors simplement au-dessus de l'anneau.
 

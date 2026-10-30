@@ -586,7 +586,7 @@ describe("SettingsAdmin — module toggles", () => {
     mockApi.on("patch", "/settings/gamification-enabled", {});
     const card = section("TurboRPG mode");
     expect(card.getByText(t("settings.gamification.disabled"))).toBeInTheDocument();
-    expect(card.getByText(/^TurboRPG — gamified data quality: celebrate every save/)).toBe(
+    expect(card.getByText(/^Saves that raise a card.s data quality are celebrated: a glowing \+X% flies/)).toBe(
       card.getByText(t("settings.gamification.description")),
     );
     const toggle = card.getByRole("checkbox", { name: t("settings.gamification.off") });

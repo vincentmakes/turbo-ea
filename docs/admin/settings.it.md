@@ -4,7 +4,7 @@ La pagina **Impostazioni** sotto **Admin → Impostazioni** (`/admin/settings`) 
 
 | Scheda | URL | Cosa controlla | Guida completa |
 |--------|-----|----------------|----------------|
-| **Generale** | `/admin/settings?tab=general` | Aspetto (logo, favicon, valuta, formato data, lingue abilitate, anno fiscale), invio email, **interruttori dei moduli** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualità dei dati gamificata) | Questa pagina |
+| **Generale** | `/admin/settings?tab=general` | Aspetto (logo, favicon, valuta, formato data, lingue abilitate, anno fiscale), invio email, **interruttori dei moduli** (BPM, PPM, GRC, TurboLens, Sponsor button, Modalità TurboRPG) | Questa pagina |
 | **Autenticazione** | `/admin/settings?tab=authentication` | Provider SSO, registrazione, politica delle password | [Autenticazione & SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Provider LLM, modello, backend di ricerca web, interruttori di suggerimento IA per tipo di card | [Funzionalità IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Collegamento in massa dei prodotti a voci di endoflife.date | [Fine vita (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Mostra o nascondi il pulsante **Sostieni** nel menu utente (avatar). Quando è n
 
 Se la tua azienda sostiene Turbo EA e desidera che il suo logo venga mostrato su turbo-ea.org, scrivi a [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Qualità dei dati gamificata
+## TurboRPG (qualità dei dati gamificata)
 
-![Interruttore della qualità dei dati gamificata](../assets/img/it/95c_admin_impostazioni_gamification.png)
+![Interruttore della modalità TurboRPG](../assets/img/it/95c_admin_impostazioni_gamification.png)
 
-Attivatela per celebrare ogni salvataggio che migliora la qualità dei dati di una scheda. È **disattivata** per impostazione predefinita e vale per tutti; non esiste un'impostazione per singolo utente.
+La **modalità TurboRPG** trasforma la qualità dei dati in un gioco. Attivatela per celebrare ogni salvataggio che migliora la qualità dei dati di una scheda. È **disattivata** per impostazione predefinita e vale per tutti; non esiste un'impostazione per singolo utente.
 
 Quando è attiva, il salvataggio di una modifica che aumenta il punteggio di una scheda riproduce una breve ricompensa nella pagina della scheda e nel pannello di anteprima della scheda, come quando si guadagna salute in un gioco:
 
 - un **+X%** verde luminoso (i punti aggiunti dal salvataggio) lascia la sezione salvata — la sua intestazione, dove si trova il pulsante Salva — e vola ad arco fino all'**anello della qualità dei dati**;
 - all'**impatto** l'anello lampeggia, un alone e un bagliore del colore del punteggio si diffondono da esso, un riflesso lo attraversa, si ingrandisce, il suo riempimento cresce fino al nuovo punteggio come una barra della salute, e il numero conta in crescendo;
-- nella pagina della scheda, una volta scorsa l'intestazione della scheda, una sottile **barra del punteggio** resta fissata sotto la barra superiore con il nome e il punteggio della scheda; finché è visibile, il guadagno vola verso di essa.
+- nella pagina della scheda, una volta scorsa l'intestazione della scheda, una sottile **barra del punteggio** resta fissata sotto la barra superiore con il nome e il punteggio della scheda; finché è visibile, il guadagno vola verso di essa. Fate clic sul punteggio della barra per aprire lo stesso dettaglio della qualità dei dati dell'anello, e usate il suo pulsante **puntina** per mantenere la barra sullo schermo anche con l'intestazione in vista — la puntina viene ricordata nel browser.
 
 Un salvataggio fatto dall'intestazione (il nome o il sottotipo) o dalla sezione End of Life non ha alcuna sezione da cui partire, quindi il **+X%** si limita a salire sopra l'anello.
 

@@ -4,7 +4,7 @@ A página de **Configurações** em **Admin → Configurações** (`/admin/setti
 
 | Aba | URL | O que controla | Guia completo |
 |-----|-----|----------------|---------------|
-| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Qualidade dos dados gamificada) | Esta página |
+| **Geral** | `/admin/settings?tab=general` | Aparência (logo, favicon, moeda, formato de data, idiomas habilitados, ano fiscal), envio de e-mail, **alternâncias de módulos** (BPM, PPM, GRC, TurboLens, Sponsor button, Modo TurboRPG) | Esta página |
 | **Autenticação** | `/admin/settings?tab=authentication` | Provedores SSO, registro, política de senha | [Autenticação e SSO](sso.md) |
 | **IA** | `/admin/settings?tab=ai` | Provedor LLM, modelo, backend de busca web, alternâncias de sugestão IA por tipo de card | [Capacidades de IA](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Vinculação em massa de produtos a entradas de endoflife.date | [Fim de vida (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Mostre ou oculte o botão **Apoiar** no menu de utilizador (avatar). Quando est�
 
 Se a sua empresa apoia o Turbo EA e gostaria que o seu logótipo fosse divulgado em turbo-ea.org, contacte [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Qualidade dos dados gamificada
+## TurboRPG (qualidade dos dados gamificada)
 
-![Botão da qualidade dos dados gamificada](../assets/img/pt/95c_admin_config_gamificacao.png)
+![Botão do modo TurboRPG](../assets/img/pt/95c_admin_config_gamificacao.png)
 
-Ative esta opção para celebrar cada gravação que melhora a qualidade dos dados de uma ficha. Está **desativada** por predefinição e aplica-se a todos; não existe uma definição por utilizador.
+O **modo TurboRPG** transforma a qualidade dos dados num jogo. Ative esta opção para celebrar cada gravação que melhora a qualidade dos dados de uma ficha. Está **desativada** por predefinição e aplica-se a todos; não existe uma definição por utilizador.
 
 Enquanto estiver ativa, gravar uma alteração que aumenta a pontuação de uma ficha reproduz uma breve recompensa na página da ficha e no painel de pré-visualização da ficha, como ao ganhar vida num jogo:
 
 - um **+X%** verde luminoso (os pontos que a gravação acrescentou) sai da secção gravada — o seu cabeçalho, onde está o botão Guardar — e voa em arco até ao **anel de qualidade dos dados**;
 - no **impacto**, o anel pisca, um halo e um brilho da cor da pontuação espalham-se a partir dele, um reflexo percorre-o, ele cresce, o seu preenchimento aumenta até à nova pontuação como uma barra de vida, e o número vai subindo;
-- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha; enquanto estiver visível, o ganho voa para ela.
+- na página da ficha, assim que se desloca para além do cabeçalho da ficha, uma fina **barra de pontuação** fica fixada sob a barra superior com o nome e a pontuação da ficha; enquanto estiver visível, o ganho voa para ela. Clique na pontuação da barra para abrir o mesmo detalhe da qualidade dos dados do anel e use o seu botão de **fixar** para manter a barra no ecrã mesmo com o cabeçalho à vista — a fixação fica guardada no seu navegador.
 
 Uma gravação feita a partir do cabeçalho (o nome ou o subtipo) ou da secção End of Life não tem nenhuma secção de onde partir, pelo que o **+X%** simplesmente sobe acima do anel.
 

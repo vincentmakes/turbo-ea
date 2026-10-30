@@ -1946,7 +1946,7 @@
   "settings.gamification.title": "TurboRPG mode",
   "settings.gamification.enabled": "On",
   "settings.gamification.disabled": "Off",
-  "settings.gamification.description": "TurboRPG — gamified data quality: celebrate every save that raises a card's data quality. A glowing +X% flies from the section you saved to the score, which flashes and fills like a health bar, and a slim score bar follows the reader down the page; clicking its score opens the breakdown, and a pin keeps it in view. Milestones (reaching the green band, reaching 100%) get a short burst of confetti. Clearing data makes the points fly off the bar back to the section. Users with reduced motion enabled in their operating system see the change without animation.",
+  "settings.gamification.description": "Saves that raise a card's data quality are celebrated: a glowing +X% flies from the saved field to the score, which fills like a health bar, and a slim score bar follows you down the page with the breakdown one click away. Milestones earn confetti, clearing data flies the points back off, and reduced-motion users see no animation.",
   "settings.gamification.on": "Saves that raise a card's data quality are celebrated",
   "settings.gamification.off": "Data quality changes are shown without animation",
   "settings.gamification.enabledSuccess": "TurboRPG mode enabled",
