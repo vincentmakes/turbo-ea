@@ -581,31 +581,33 @@ describe("SettingsAdmin — module toggles", () => {
     expect(h.invalidateSponsorButtonEnabled).toHaveBeenCalledWith(false);
   });
 
-  it("turns gamified data quality on and broadcasts the flag", async () => {
+  it("turns TurboRPG mode (gamified data quality) on and broadcasts the flag", async () => {
     const { user } = await renderGeneral();
     mockApi.on("patch", "/settings/gamification-enabled", {});
-    const card = section(t("settings.gamification.title"));
+    const card = section("TurboRPG mode");
     expect(card.getByText(t("settings.gamification.disabled"))).toBeInTheDocument();
-    expect(card.getByText(t("settings.gamification.description"))).toBeInTheDocument();
+    expect(card.getByText(/^TurboRPG — gamified data quality: celebrate every save/)).toBe(
+      card.getByText(t("settings.gamification.description")),
+    );
     const toggle = card.getByRole("checkbox", { name: t("settings.gamification.off") });
     expect(toggle).not.toBeChecked();
 
     await user.click(toggle);
 
-    await screen.findByText(t("settings.gamification.enabledSuccess"));
+    await screen.findByText("TurboRPG mode enabled");
     expect(mockApi.callsOf("patch", "/settings/gamification-enabled")[0].body).toEqual({ enabled: true });
     expect(h.invalidateGamificationEnabled).toHaveBeenCalledWith(true);
     expect(card.getByText(t("settings.gamification.enabled"))).toBeInTheDocument();
     expect(card.getByRole("checkbox", { name: t("settings.gamification.on") })).toBeChecked();
   });
 
-  it("turns gamified data quality off when the bootstrap says it is on", async () => {
+  it("turns TurboRPG mode off when the bootstrap says it is on", async () => {
     scriptLoad({ bootstrap: { gamification_enabled: true } });
     const { user } = await renderGeneral();
     mockApi.on("patch", "/settings/gamification-enabled", {});
     const card = section(t("settings.gamification.title"));
     await user.click(card.getByRole("checkbox", { name: t("settings.gamification.on") }));
-    await screen.findByText(t("settings.gamification.disabledSuccess"));
+    await screen.findByText("TurboRPG mode disabled");
     expect(mockApi.callsOf("patch", "/settings/gamification-enabled")[0].body).toEqual({ enabled: false });
     expect(h.invalidateGamificationEnabled).toHaveBeenCalledWith(false);
     expect(card.getByText(t("settings.gamification.disabled"))).toBeInTheDocument();

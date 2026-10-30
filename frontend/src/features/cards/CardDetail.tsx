@@ -38,9 +38,13 @@ import { api, ApiError } from "@/api/client";
 import { CardIdPill, DataQualityPill } from "@/features/cards/sections";
 import type { DataQualityJumpTarget } from "@/features/cards/dataQualityJump";
 import { GainFlight } from "@/features/cards/gamification/GainFlight";
-import { StickyScoreBar } from "@/features/cards/gamification/StickyScoreBar";
+import {
+  STICKY_SCORE_BAR_HEIGHT,
+  StickyScoreBar,
+} from "@/features/cards/gamification/StickyScoreBar";
 import { useHeaderOffscreen } from "@/features/cards/gamification/useHeaderOffscreen";
 import { useSaveOrigin, useScoreGain } from "@/features/cards/gamification/useScoreGain";
+import { useStickyScorePin } from "@/lib/stickyScorePin";
 import { useGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import OriginChip from "@/components/OriginChip";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -185,6 +189,9 @@ export default function CardDetail() {
   const scoreGain = useScoreGain(card?.id, card?.data_quality, gamification, saveOrigin);
   const [headerEl, setHeaderEl] = useState<HTMLElement | null>(null);
   const headerOffscreen = useHeaderOffscreen(gamification ? headerEl : null);
+  // A pinned bar stays open with the header in view too.
+  const [pinned] = useStickyScorePin();
+  const barOpen = headerOffscreen || pinned;
   // Where the orb lands: the pill, or the sticky bar's figure while it is open.
   const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
   const [stickyFigureEl, setStickyFigureEl] = useState<HTMLElement | null>(null);
@@ -510,8 +517,18 @@ export default function CardDetail() {
         )
       : null;
 
+  // Opens the tab and scrolls to where a data-quality slot is filled; shared by
+  // the pill's and the sticky bar's breakdown popovers.
+  const jumpTo = (target: DataQualityJumpTarget) =>
+    setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current });
+
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
+      {/* A pinned score bar is fixed over the top of the page: keep the header
+          clear of it. */}
+      {gamification && pinned && (
+        <Box aria-hidden data-testid="sticky-score-spacer" sx={{ height: STICKY_SCORE_BAR_HEIGHT }} />
+      )}
       {/* ── Header ── */}
       <Box
         ref={setHeaderEl}
@@ -753,9 +770,7 @@ export default function CardDetail() {
             value={card.data_quality}
             cardId={card.id}
             cardType={card.type}
-            onJump={(target) =>
-              setFocusTarget({ cardId: card.id, target, nonce: ++jumpNonce.current })
-            }
+            onJump={jumpTo}
             animate={gamification}
             gain={scoreGain}
             impactNonce={impactNonce}
@@ -1049,19 +1064,22 @@ export default function CardDetail() {
       />
       {gamification && (
         <StickyScoreBar
-          open={headerOffscreen}
+          open={barOpen}
           name={card.name}
           value={card.data_quality}
           gain={scoreGain}
           impactNonce={impactNonce}
           onFigureRef={setStickyFigureEl}
+          cardId={card.id}
+          cardType={card.type}
+          onJump={jumpTo}
         />
       )}
       {gamification && scoreGain?.originAnchor && (
         <GainFlight
           key={scoreGain.nonce}
           gain={scoreGain}
-          targetEl={headerOffscreen ? stickyFigureEl : pillEl}
+          targetEl={barOpen ? stickyFigureEl : pillEl}
           onImpact={setImpactNonce}
         />
       )}

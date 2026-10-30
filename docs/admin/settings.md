@@ -4,7 +4,7 @@ The **Settings** page at **Admin → Settings** (`/admin/settings`) is the centr
 
 | Tab | URL | What it controls | Full guide |
 |-----|-----|------------------|------------|
-| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button, Gamified data quality) | This page |
+| **General** | `/admin/settings?tab=general` | Appearance (logo, favicon, currency, date format, enabled languages, fiscal year), email delivery, **module toggles** (BPM, PPM, GRC, TurboLens, Sponsor button, TurboRPG mode) | This page |
 | **Authentication** | `/admin/settings?tab=authentication` | SSO providers, registration, password policy | [Authentication & SSO](sso.md) |
 | **AI** | `/admin/settings?tab=ai` | LLM provider, model, web search backend, per-card-type AI suggestion toggles | [AI Capabilities](ai.md) |
 | **EOL** | `/admin/settings?tab=eol` | Mass-linking products to endoflife.date entries | [End-of-Life (EOL)](eol.md) |
@@ -214,17 +214,17 @@ Show or hide the **Sponsor** button in the user (avatar) menu. When hidden, user
 
 If your company sponsors Turbo EA and would like its logo featured on turbo-ea.org, reach out at [sponsorship@turbo-ea.org](mailto:sponsorship@turbo-ea.org).
 
-## Gamified data quality
+## TurboRPG (gamified data quality)
 
-![Gamified data quality toggle](../assets/img/en/95c_admin_settings_gamification.png)
+![TurboRPG mode toggle](../assets/img/en/95c_admin_settings_gamification.png)
 
-Turn this on to celebrate every save that raises a card's data quality. It is **off** by default and applies to everyone; there is no per-user setting.
+**TurboRPG mode** turns data quality into a game. Turn it on to celebrate every save that raises a card's data quality. It is **off** by default and applies to everyone; there is no per-user setting.
 
 While it is on, saving a change that raises a card's score plays a short reward on the card page and in the card preview panel, like gaining health in a game:
 
 - a glowing green **+X%** (the points the save added) leaves the section you saved — its header, where the Save button is — and flies in an arc to the **data quality ring**;
 - on **impact** the ring flashes, a halo and a glow in the score's colour spread from it, a shine sweeps across it, it pops, its fill grows into the new score like a health bar, and the figure counts up;
-- on the card page, once you scroll past the card header, a slim **score bar** stays pinned under the top bar with the card's name and score; while it is showing, the gain flies to it instead.
+- on the card page, once you scroll past the card header, a slim **score bar** stays pinned under the top bar with the card's name and score; while it is showing, the gain flies to it instead. Click the bar's score to open the same data quality breakdown as the ring, and use its **pin** button to keep the bar on screen even with the header in view — the pin is remembered in your browser.
 
 A save made from the header (the name or the subtype) or from the End of Life section has no section to fly from, so the **+X%** simply rises above the ring.
 

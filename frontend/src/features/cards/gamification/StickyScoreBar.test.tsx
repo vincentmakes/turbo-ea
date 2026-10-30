@@ -1,11 +1,57 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 const motion = vi.hoisted(() => ({ reduced: false }));
 vi.mock("./useReducedMotion", () => ({ useReducedMotion: () => motion.reduced }));
 
-import { StickyScoreBar, STICKY_SCORE_BAR_Z_INDEX } from "./StickyScoreBar";
+vi.mock("@/api/client", () => ({
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  ApiError: class extends Error {},
+  isAbortError: () => false,
+}));
+
+vi.mock("@/hooks/useMetamodel", () => ({
+  useMetamodel: () => ({
+    types: TYPES,
+    relationTypes: [],
+    loading: false,
+    getType: (key: string) => TYPES.find((t) => t.key === key),
+  }),
+}));
+
+import { api } from "@/api/client";
+import { STICKY_SCORE_PIN_KEY } from "@/lib/stickyScorePin";
+import type { CardType, DataQualityBreakdown } from "@/types";
+import {
+  StickyScoreBar,
+  STICKY_SCORE_BAR_HEIGHT,
+  STICKY_SCORE_BAR_Z_INDEX,
+} from "./StickyScoreBar";
 import { DQ_MOTION_STYLE_ID, type ScoreGain } from "./scoreGain";
+
+const TYPES = [
+  {
+    key: "Application",
+    label: "Application",
+    fields_schema: [
+      { section: "Details", fields: [{ key: "cost", label: "Annual Cost", type: "cost" }] },
+    ],
+  },
+] as unknown as CardType[];
+
+const BREAKDOWN: DataQualityBreakdown = {
+  score: 75,
+  ungated_score: 75,
+  total_weight: 4,
+  filled_weight: 3,
+  blocked_by_required: [],
+  factors: [
+    { kind: "description", key: "description", weight: 1, filled: true, gain: null, score_if_filled: null },
+    { kind: "lifecycle", key: "lifecycle", weight: 1, filled: false, gain: 12.5, score_if_filled: 87.5 },
+    { kind: "field", key: "cost", weight: 1, filled: false, gain: 25, score_if_filled: 100, section: "Details" },
+  ],
+};
 
 const GAIN: ScoreGain = {
   from: 68.3,
@@ -38,6 +84,9 @@ const LOSS: ScoreGain = {
 
 beforeEach(() => {
   motion.reduced = false;
+  window.localStorage.clear();
+  vi.mocked(api.get).mockReset();
+  vi.mocked(api.get).mockResolvedValue(BREAKDOWN);
 });
 
 afterEach(() => {
@@ -55,7 +104,10 @@ describe("StickyScoreBar", () => {
     const bar = screen.getByRole("region", { name: "Data quality" });
     expect(bar).toHaveAttribute("data-testid", "sticky-score-bar");
     expect(STICKY_SCORE_BAR_Z_INDEX).toBe(1090);
+    expect(STICKY_SCORE_BAR_HEIGHT).toBe(44);
     expect(bar).toHaveStyle({ position: "fixed", top: "64px", left: "0px", right: "0px", zIndex: "1090" });
+    // A fixed height, border included: what the page reserves for a pinned bar.
+    expect(bar).toHaveStyle({ height: "44px", boxSizing: "border-box" });
     expect(screen.getByText("SAP S/4HANA")).toHaveClass("MuiTypography-noWrap");
     expect(screen.getByTestId("sticky-score-value")).toHaveTextContent(/^75%$/);
     expect(screen.getByTestId("sticky-score-value")).toHaveStyle({ color: "rgb(255, 152, 0)" });
@@ -240,6 +292,127 @@ describe("StickyScoreBar", () => {
       const float = screen.getByTestId("score-gain-float");
       expect(float).toHaveTextContent(/^\u22126\.7%$/);
       expect(float).toHaveStyle({ color: "rgb(244, 67, 54)" });
+    });
+  });
+  describe("the breakdown button", () => {
+    function renderBar(onJump = vi.fn(), onFigureRef = vi.fn()) {
+      render(
+        <StickyScoreBar
+          open
+          name="X"
+          value={74.6}
+          gain={null}
+          cardId="c1"
+          cardType="Application"
+          onJump={onJump}
+          onFigureRef={onFigureRef}
+        />,
+      );
+      return { onJump, onFigureRef, figure: screen.getByTestId("sticky-score-figure") };
+    }
+
+    it("without a card id the figure is not a button", () => {
+      render(<StickyScoreBar open name="X" value={75} gain={null} />);
+      const figure = screen.getByTestId("sticky-score-figure");
+      expect(figure.tagName).toBe("DIV");
+      expect(figure).not.toHaveAttribute("aria-haspopup");
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+    });
+
+    it("makes the figure a button that announces its popover, and keeps it the flight target", async () => {
+      const { figure, onFigureRef } = renderBar();
+      expect(figure.tagName).toBe("BUTTON");
+      expect(figure).toHaveAttribute("type", "button");
+      expect(figure).toHaveAttribute("aria-haspopup", "dialog");
+      expect(figure).toHaveAttribute("aria-expanded", "false");
+      expect(figure).toHaveAccessibleName("75% data quality — show what raises it");
+      expect(figure).toContainElement(screen.getByTestId("sticky-score-value"));
+      await waitFor(() => expect(onFigureRef).toHaveBeenLastCalledWith(figure));
+      // Nothing is fetched until the popover opens.
+      expect(api.get).not.toHaveBeenCalled();
+    });
+
+    it("opens the breakdown on click, with the fetched rows, under the figure's right edge", async () => {
+      const { figure } = renderBar();
+      figure.getBoundingClientRect = () =>
+        ({ left: 200, width: 100, top: 100, height: 20, right: 300, bottom: 120 }) as DOMRect;
+      await userEvent.click(figure);
+      const dialog = await screen.findByRole("dialog", { name: "75% data quality" });
+      await within(dialog).findByText("To raise the score");
+      expect(
+        within(dialog)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent),
+      ).toEqual(["Fill Annual Cost+25%", "Set lifecycle dates+12.5%"]);
+      expect(api.get).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(api.get).mock.calls[0][0]).toBe("/cards/c1/data-quality");
+      expect(figure).toHaveAttribute("aria-expanded", "true");
+      expect(document.querySelector(".MuiPopover-paper")).toHaveStyle({ left: "300px" });
+    });
+
+    it.each([
+      ["Enter", "{Enter}"],
+      ["Space", " "],
+    ])("opens the breakdown from the keyboard with %s", async (_name, key) => {
+      const { figure } = renderBar();
+      act(() => figure.focus());
+      await userEvent.keyboard(key);
+      const dialog = await screen.findByRole("dialog");
+      expect(await within(dialog).findByText("Set lifecycle dates")).toBeInTheDocument();
+      expect(figure).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("closes and hands the target to the page when a row is followed", async () => {
+      const { figure, onJump } = renderBar();
+      await userEvent.click(figure);
+      const dialog = await screen.findByRole("dialog");
+      await userEvent.click(await within(dialog).findByRole("button", { name: "Fill Annual Cost" }));
+      expect(onJump).toHaveBeenCalledTimes(1);
+      expect(onJump).toHaveBeenCalledWith({
+        tab: "card",
+        anchor: "card-section-custom-details",
+        sectionAnchor: "card-section-custom-details",
+      });
+      await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      expect(figure).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+
+  describe("the pin", () => {
+    it("toggles, says so, and remembers it in the browser", async () => {
+      render(<StickyScoreBar open name="X" value={75} gain={null} />);
+      const pin = screen.getByRole("button", { name: "Keep the score bar visible" });
+      expect(pin).toHaveAttribute("data-testid", "sticky-score-pin");
+      expect(pin).toHaveAttribute("aria-pressed", "false");
+      expect(pin).toHaveTextContent(/^keep$/);
+      expect(pin).not.toHaveClass("MuiIconButton-colorPrimary");
+
+      await userEvent.click(pin);
+      expect(pin).toHaveAttribute("aria-pressed", "true");
+      expect(pin).toHaveTextContent(/^keep_off$/);
+      expect(pin).toHaveClass("MuiIconButton-colorPrimary");
+      expect(window.localStorage.getItem(STICKY_SCORE_PIN_KEY)).toBe("true");
+
+      await userEvent.click(pin);
+      expect(pin).toHaveAttribute("aria-pressed", "false");
+      expect(window.localStorage.getItem(STICKY_SCORE_PIN_KEY)).toBeNull();
+    });
+
+    it("offers to pin, or to unpin once pinned", async () => {
+      render(<StickyScoreBar open name="X" value={75} gain={null} />);
+      const pin = screen.getByTestId("sticky-score-pin");
+      await userEvent.hover(pin);
+      expect(await screen.findByRole("tooltip")).toHaveTextContent(/^Keep the score bar visible$/);
+      await userEvent.click(pin);
+      await waitFor(() =>
+        expect(screen.getByRole("tooltip")).toHaveTextContent(/^Unpin the score bar$/),
+      );
+    });
+
+    it("starts pressed when the browser remembers a pin", () => {
+      window.localStorage.setItem(STICKY_SCORE_PIN_KEY, "true");
+      render(<StickyScoreBar open name="X" value={75} gain={null} />);
+      expect(screen.getByTestId("sticky-score-pin")).toHaveAttribute("aria-pressed", "true");
     });
   });
 });
