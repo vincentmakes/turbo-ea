@@ -224,7 +224,7 @@ Mens det er slået til, afspiller gemning af en ændring, der hæver et korts sc
 
 - et glødende grønt **+X%** (de point, som gemningen tilførte) forlader den gemte sektion – dens overskrift, hvor knappen Gem sidder – og flyver i en bue til **datakvalitetsringen**;
 - ved **nedslaget** blinker ringen, en glorie og et skær i scorens farve breder sig fra den, et glimt fejer hen over den, den popper, dens fyld vokser til den nye score som en livsbjælke, og tallet tæller op;
-- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift; så længe den vises, flyver gevinsten i stedet hen til den. Dens knap **Hæv scoren** åbner den samme opdeling af datakvaliteten som ved ringen.
+- på kortsiden bliver en slank **scorebjælke** med kortets navn og score hæftet under den øverste bjælke, når du er scrollet forbi kortets overskrift; så længe den vises, flyver gevinsten i stedet hen til den. Klik på barens score – chippen med pilen – for at åbne den samme opdeling af datakvaliteten som ved ringen.
 
 En gemning fra overskriften (navnet eller undertypen) eller fra sektionen End of Life har ingen sektion at flyve fra, så **+X%** stiger blot op over ringen.
 

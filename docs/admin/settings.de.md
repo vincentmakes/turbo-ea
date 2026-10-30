@@ -224,7 +224,7 @@ Solange sie aktiv ist, löst das Speichern einer Änderung, die den Wert einer K
 
 - ein leuchtendes grünes **+X%** (die durch das Speichern hinzugewonnenen Punkte) verlässt den gespeicherten Abschnitt – genauer dessen Kopfzeile, in der die Schaltfläche „Speichern“ liegt – und fliegt in einem Bogen zum **Datenqualitätsring**;
 - beim **Aufprall** blitzt der Ring auf, ein Halo und ein Leuchten in der Farbe des Werts breiten sich von ihm aus, ein Glanz streicht darüber, er poppt auf, seine Füllung wächst wie eine Lebensleiste auf den neuen Wert, und die Zahl zählt hoch;
-- auf der Kartenseite bleibt, sobald Sie am Kartenkopf vorbeigescrollt haben, eine schmale **Wertungsleiste** mit Namen und Wert der Karte unter der oberen Leiste angeheftet; solange sie sichtbar ist, fliegt der Zuwachs stattdessen zu ihr. Die Schaltfläche **Score erhöhen** der Leiste öffnet dieselbe Aufschlüsselung der Datenqualität wie der Ring.
+- auf der Kartenseite bleibt, sobald Sie am Kartenkopf vorbeigescrollt haben, eine schmale **Wertungsleiste** mit Namen und Wert der Karte unter der oberen Leiste angeheftet; solange sie sichtbar ist, fliegt der Zuwachs stattdessen zu ihr. Klicken Sie auf den Wert der Leiste – den Chip mit dem Pfeil –, um dieselbe Aufschlüsselung der Datenqualität wie beim Ring zu öffnen.
 
 Ein Speichern über den Kartenkopf (Name oder Untertyp) oder über den Abschnitt „End of Life“ hat keinen Abschnitt, von dem aus geflogen werden könnte; das **+X%** steigt dann einfach über dem Ring auf.
 

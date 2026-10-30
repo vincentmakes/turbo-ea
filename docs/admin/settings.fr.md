@@ -224,7 +224,7 @@ Lorsqu'elle est active, l'enregistrement d'une modification qui augmente le scor
 
 - un **+X%** vert lumineux (les points ajoutés par l'enregistrement) quitte la section enregistrée – plus précisément son en-tête, où se trouve le bouton Enregistrer – et file en arc de cercle vers l'**anneau de qualité des données** ;
 - à l'**impact**, l'anneau s'illumine, un halo et une lueur de la couleur du score s'en diffusent, un reflet le balaie, il pulse, son remplissage grandit jusqu'au nouveau score comme une barre de vie, et le chiffre s'incrémente ;
-- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche ; tant qu'elle est affichée, le gain s'envole vers elle à la place. Son bouton **Améliorer le score** ouvre le même détail de la qualité des données que l'anneau.
+- sur la page de la fiche, dès que vous dépassez l'en-tête de la fiche, une fine **barre de score** reste épinglée sous la barre supérieure avec le nom et le score de la fiche ; tant qu'elle est affichée, le gain s'envole vers elle à la place. Cliquez sur le score de la barre — la pastille avec le chevron — pour ouvrir le même détail de la qualité des données que celui de l'anneau.
 
 Un enregistrement effectué depuis l'en-tête (le nom ou le sous-type) ou depuis la section End of Life n'a pas de section d'où partir : le **+X%** s'élève alors simplement au-dessus de l'anneau.
 

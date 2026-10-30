@@ -224,7 +224,7 @@ Quando è attiva, il salvataggio di una modifica che aumenta il punteggio di una
 
 - un **+X%** verde luminoso (i punti aggiunti dal salvataggio) lascia la sezione salvata — la sua intestazione, dove si trova il pulsante Salva — e vola ad arco fino all'**anello della qualità dei dati**;
 - all'**impatto** l'anello lampeggia, un alone e un bagliore del colore del punteggio si diffondono da esso, un riflesso lo attraversa, si ingrandisce, il suo riempimento cresce fino al nuovo punteggio come una barra della salute, e il numero conta in crescendo;
-- nella pagina della scheda, una volta scorsa l'intestazione della scheda, una sottile **barra del punteggio** resta fissata sotto la barra superiore con il nome e il punteggio della scheda; finché è visibile, il guadagno vola verso di essa. Il suo pulsante **Aumenta il punteggio** apre lo stesso dettaglio della qualità dei dati dell'anello.
+- nella pagina della scheda, una volta scorsa l'intestazione della scheda, una sottile **barra del punteggio** resta fissata sotto la barra superiore con il nome e il punteggio della scheda; finché è visibile, il guadagno vola verso di essa. Fate clic sul punteggio della barra — il chip con il chevron — per aprire lo stesso dettaglio della qualità dei dati dell'anello.
 
 Un salvataggio fatto dall'intestazione (il nome o il sottotipo) o dalla sezione End of Life non ha alcuna sezione da cui partire, quindi il **+X%** si limita a salire sopra l'anello.
 
