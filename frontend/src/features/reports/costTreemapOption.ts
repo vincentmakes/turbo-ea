@@ -17,10 +17,12 @@
  *
  * A tile prints only what fits it. ECharts truncates each label line to the
  * tile's width and drops the ellipsis once fewer than two characters fit, so
- * left to itself a small tile reads "$42" for a $42,000 card. ECharts has no
- * per-line "fit or vanish", but a tile's area is its share of the chart's, so
- * once the page knows the chart's pixel area (`areaPx`) each datum gets a
- * label tier of its own: nothing, the name alone, or the name and the cost.
+ * left to itself a small tile reads "$42" for a $42,000 card, or "$95,…" in a
+ * tall narrow one. ECharts has no per-line "fit or vanish", but it lays every
+ * tile out before it formats the tile's label, so the label formatter asks
+ * the page for the tile's rectangle (`tileRect`, read from the live chart)
+ * and prints nothing, the name alone, or the name and the cost by the old
+ * Recharts width and height thresholds (`tileLabelTier`).
  */
 import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
@@ -59,48 +61,97 @@ export interface CostTreemapOptions {
   /** Whether a click drills somewhere — the pointer cursor over the tiles. */
   clickable: boolean;
   /**
-   * The chart's drawable area in px² (width × height), which sizes each
-   * tile's label tier; undefined until the panel has been measured, and then
-   * every tile gets the series label.
+   * The rectangle ECharts laid the tile with `dataIndex` out in, read while
+   * it renders the tile's label; undefined (or undefined for that index)
+   * while the chart cannot say, and then the tile prints its name and cost.
    */
-  areaPx?: number;
+  tileRect?: (dataIndex: number) => { width: number; height: number } | undefined;
 }
 
 /**
- * Smallest tile area (px²) that prints the card's name: about 55 × 40, the
- * Recharts treemap's old "wider than 50 px and taller than 30 px" rule with
- * room for squarify's tiles not being square.
+ * A tile prints its name only when wider and taller than this (px) — the old
+ * Recharts thresholds.
  */
-export const TREEMAP_NAME_MIN_AREA = 2200;
+export const TILE_NAME_MIN = { width: 50, height: 30 } as const;
 
 /**
- * Smallest tile area (px²) that prints the cost under the name: about 80 × 50,
- * the old "wider than 70 px and taller than 45 px" rule with the same slack.
+ * A tile prints its cost under the name only when wider and taller than this
+ * (px) — the old Recharts thresholds.
  */
-export const TREEMAP_VALUE_MIN_AREA = 4000;
+export const TILE_VALUE_MIN = { width: 70, height: 45 } as const;
 
 /** What a tile prints: nothing, its name, or its name and cost. */
 export type TileLabelTier = "none" | "name" | "full";
 
-/** What a tile of `tileArea` px² prints: nothing, its name, or its name and cost. */
-export function tileLabelTier(tileArea: number): TileLabelTier {
-  if (tileArea < TREEMAP_NAME_MIN_AREA) return "none";
-  if (tileArea < TREEMAP_VALUE_MIN_AREA) return "name";
-  return "full";
+/** What a tile of `width` × `height` px prints: nothing, its name, or its name and cost. */
+export function tileLabelTier(width: number, height: number): TileLabelTier {
+  if (width > TILE_VALUE_MIN.width && height > TILE_VALUE_MIN.height) return "full";
+  if (width > TILE_NAME_MIN.width && height > TILE_NAME_MIN.height) return "name";
+  return "none";
+}
+
+/** The label params ECharts hands a treemap label formatter — the part it reads. */
+export interface TileLabelParams {
+  dataIndex?: number;
+  name?: string;
+  value?: unknown;
 }
 
 /**
- * Each drawn tile's label tier, in tile order, on a chart of `areaPx` px²:
- * the tiles share the area by cost, so a tile's area is its share of the
- * drawn tiles' total. `undefined` while the chart is unmeasured (or 0);
- * NaN reads as unmeasured too, and Infinity gives every tile its full label.
+ * The series label formatter: each tile's text by the rectangle ECharts laid
+ * it out in. A tile whose rectangle is unknown prints its name and cost.
  */
-export function tileLabelTiers(items: CostTreemapItem[], areaPx: number | undefined): TileLabelTier[] | undefined {
-  const area = areaPx ?? 0;
-  if (!(area > 0)) return undefined;
-  const drawn = items.filter((d) => d.cost > 0);
-  const total = drawn.reduce((sum, d) => sum + d.cost, 0);
-  return drawn.map((d) => tileLabelTier((d.cost / total) * area));
+export function tileLabelFormatter(
+  o: Pick<CostTreemapOptions, "format" | "tileRect">,
+): (p: TileLabelParams) => string {
+  return (p) => {
+    const r = o.tileRect?.(p.dataIndex ?? -1);
+    const tier = r ? tileLabelTier(r.width, r.height) : "full";
+    if (tier === "none") return "";
+    const name = p.name ?? "";
+    return tier === "name" ? name : `${name}\n{value|${o.format(Number(p.value ?? 0))}}`;
+  };
+}
+
+/**
+ * The slice of ECharts' model a treemap tile's rectangle is read through.
+ * It is internal: `getModel` is private in ECharts' public typings and the
+ * series data behind it (with `getItemLayout`) is not exported from them, so
+ * the access is typed this narrowly rather than as `any`.
+ */
+interface TreemapLayoutModel {
+  getModel(): {
+    getSeriesByIndex(i: number):
+      | { getData(): { getItemLayout(i: number): { width?: unknown; height?: unknown } | null | undefined } }
+      | null
+      | undefined;
+  } | null;
+}
+
+/**
+ * The rectangle a live treemap chart laid the tile with `dataIndex` out in —
+ * what a label formatter running inside its render reads (`tileRect`). Every
+ * step is guarded: no chart yet, a disposed one, or ECharts' internals no
+ * longer answering give undefined, and the tile prints its name and cost.
+ * `costTreemapOption.render.test.ts` pins that it answers on the installed
+ * ECharts.
+ */
+export function chartTileRect(
+  chart: object | null | undefined,
+  dataIndex: number,
+): { width: number; height: number } | undefined {
+  try {
+    const l = (chart as TreemapLayoutModel | null | undefined)
+      ?.getModel()
+      ?.getSeriesByIndex(0)
+      ?.getData()
+      .getItemLayout(dataIndex);
+    return l && typeof l.width === "number" && typeof l.height === "number"
+      ? { width: l.width, height: l.height }
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** A tile's datum as the option carries it — and as a click hands it back. */
@@ -110,17 +161,6 @@ export interface CostTreemapDatum {
   id?: string;
   index: number;
   itemStyle: { color: string };
-  /** A tile too small for the series label: no label, or the name alone. */
-  label?: { show: false } | { formatter: string };
-}
-
-/** The per-datum label of a tile in `tier`; the series label serves a full one. */
-function tileLabel(tier: TileLabelTier): CostTreemapDatum["label"] {
-  if (tier === "none") return { show: false };
-  // A data item's label merges over the series label, so this string
-  // formatter replaces the name-and-cost one for this tile alone.
-  if (tier === "name") return { formatter: "{b}" };
-  return undefined;
 }
 
 /** The hover tooltip of one tile: its name, its cost and, against a non-zero total, its share. */
@@ -140,23 +180,15 @@ export function costTooltipHtml(
 
 /** The treemap of one panel's cards. */
 export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapOptions): EChartsCoreOption {
-  // The tile labels print their cost through the chrome's value formatter.
+  // The chrome's figures read in the report's currency.
   const ctx: ChartChromeContext = { theme: o.chrome, isRtl: o.isRtl, valueFormatter: o.format };
-  const drawn = items.filter((d) => d.cost > 0);
-  // Unmeasured, every tile keeps the series label.
-  const tiers = tileLabelTiers(drawn, o.areaPx);
-  const data: CostTreemapDatum[] = drawn.map((d, i) => {
-    const datum: CostTreemapDatum = {
-      name: d.name,
-      value: d.cost,
-      id: d.id,
-      index: d.index,
-      itemStyle: { color: treemapColor(d.index) },
-    };
-    const label = tiers && tileLabel(tiers[i]);
-    if (label) datum.label = label;
-    return datum;
-  });
+  const data: CostTreemapDatum[] = items.filter((d) => d.cost > 0).map((d) => ({
+    name: d.name,
+    value: d.cost,
+    id: d.id,
+    index: d.index,
+    itemStyle: { color: treemapColor(d.index) },
+  }));
   return {
     ...base(ctx),
     tooltip: tooltip(ctx, {
@@ -185,6 +217,9 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
         // The gaps between tiles are the paper the chart sits on.
         itemStyle: { borderColor: ctx.theme.surface, borderWidth: 2, gapWidth: 2, borderRadius: 3 },
         label: {
+          // The chrome's tile label for its styling (colours, sizes, the
+          // truncation and the cost line's rich style); the text itself
+          // comes from the tile's own rectangle.
           ...treemapLabel(ctx, {
             showValues: true,
             color: CHART_LABEL_ON_DARK,
@@ -193,6 +228,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
             valueFontSize: 10,
             valueColor: CHART_LABEL_ON_DARK_MUTED,
           }),
+          formatter: tileLabelFormatter(o),
           // Anchored at the tile's leading top corner — the right one in RTL.
           position: o.isRtl ? "insideTopRight" : "insideTopLeft",
           align: o.isRtl ? "right" : "left",

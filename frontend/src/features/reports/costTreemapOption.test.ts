@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import { CHART_LABEL_ON_DARK, CHART_LABEL_ON_DARK_MUTED, COST_TREEMAP_COLORS } from "@/theme/tokens";
 import {
-  TREEMAP_NAME_MIN_AREA,
-  TREEMAP_VALUE_MIN_AREA,
+  TILE_NAME_MIN,
+  TILE_VALUE_MIN,
   buildCostTreemapOption,
+  chartTileRect,
   costTooltipHtml,
+  tileLabelFormatter,
   tileLabelTier,
-  tileLabelTiers,
   treemapColor,
   type CostTreemapItem,
   type CostTreemapOptions,
@@ -253,141 +254,148 @@ describe("buildCostTreemapOption", () => {
 });
 
 describe("tileLabelTier", () => {
-  it("keeps the old Recharts rules as areas: a name from ≈ 55 × 40, a cost from ≈ 80 × 50", () => {
-    expect(TREEMAP_NAME_MIN_AREA).toBe(2200);
-    expect(TREEMAP_VALUE_MIN_AREA).toBe(4000);
+  it("keeps the old Recharts thresholds: a name above 50 × 30 px, a cost above 70 × 45 px", () => {
+    expect(TILE_NAME_MIN).toEqual({ width: 50, height: 30 });
+    expect(TILE_VALUE_MIN).toEqual({ width: 70, height: 45 });
   });
 
-  it("prints nothing below the name threshold", () => {
-    expect(tileLabelTier(0)).toBe("none");
-    expect(tileLabelTier(528)).toBe("none");
-    expect(tileLabelTier(2199.99)).toBe("none");
+  it("prints nothing on a tile no wider than 50 px or no taller than 30 px", () => {
+    expect(tileLabelTier(0, 0)).toBe("none");
+    expect(tileLabelTier(50, 30)).toBe("none");
+    expect(tileLabelTier(50, 31)).toBe("none");
+    expect(tileLabelTier(51, 30)).toBe("none");
   });
 
-  it("prints the name alone from the name threshold up to just below the cost threshold", () => {
-    expect(tileLabelTier(2200)).toBe("name");
-    expect(tileLabelTier(3165)).toBe("name");
-    expect(tileLabelTier(3999.99)).toBe("name");
+  it("prints the name alone from just past 50 × 30 up to 70 × 45", () => {
+    expect(tileLabelTier(51, 31)).toBe("name");
+    expect(tileLabelTier(70, 45)).toBe("name");
+    expect(tileLabelTier(70, 46)).toBe("name");
+    expect(tileLabelTier(71, 45)).toBe("name");
   });
 
-  it("prints the name and the cost from the cost threshold up", () => {
-    expect(tileLabelTier(4000)).toBe("full");
-    expect(tileLabelTier(527_000)).toBe("full");
+  it("prints the name and the cost once wider than 70 and taller than 45", () => {
+    expect(tileLabelTier(71, 46)).toBe("full");
+    expect(tileLabelTier(1180, 450)).toBe("full");
+  });
+
+  it("reads width and height each on its own, not their product", () => {
+    // Wide but short: room for a long line, not for one under it.
+    expect(tileLabelTier(1000, 31)).toBe("name");
+    expect(tileLabelTier(1000, 30)).toBe("none");
+    // Tall but narrow: the tile that printed "$95,…" under the area rule.
+    expect(tileLabelTier(70, 400)).toBe("name");
+    expect(tileLabelTier(50, 400)).toBe("none");
   });
 });
 
-describe("tileLabelTiers", () => {
-  const items: CostTreemapItem[] = [
-    { id: "a", name: "A", cost: 900, index: 0 },
-    { id: "z", name: "Zero", cost: 0, index: 1 },
-    { id: "b", name: "B", cost: 60, index: 2 },
-    { id: "n", name: "Negative", cost: -500, index: 3 },
-    { id: "c", name: "C", cost: 40, index: 4 },
-  ];
+describe("tileLabelFormatter", () => {
+  const format = (v: number) => `$${v.toLocaleString("en-US")}`;
+  const RECTS: Record<number, { width: number; height: number }> = {
+    1: { width: 300, height: 100 },
+    2: { width: 60, height: 35 },
+    3: { width: 48, height: 28 },
+  };
+  const tileRect = vi.fn((i: number) => RECTS[i]);
 
-  it("tiers the drawn tiles by their share of the drawn total, in order", () => {
-    // 900 / 60 / 40 of 1000 on 50 000 px²: 45 000, 3 000 and 2 000.
-    expect(tileLabelTiers(items, 50_000)).toEqual(["full", "name", "none"]);
+  it("prints name and cost, the name alone, or nothing, by the tile's rectangle", () => {
+    const f = tileLabelFormatter({ format, tileRect });
+    expect(f({ dataIndex: 1, name: "ERP", value: 95_000 })).toBe("ERP\n{value|$95,000}");
+    expect(f({ dataIndex: 2, name: "CRM", value: 4_000 })).toBe("CRM");
+    expect(f({ dataIndex: 3, name: "Tiny", value: 1_000 })).toBe("");
+    expect(tileRect.mock.calls.map((c) => c[0])).toEqual([1, 2, 3]);
   });
 
-  it("is undefined while the chart is unmeasured", () => {
-    expect(tileLabelTiers(items, undefined)).toBeUndefined();
-    expect(tileLabelTiers(items, 0)).toBeUndefined();
-    expect(tileLabelTiers(items, -1)).toBeUndefined();
-    expect(tileLabelTiers(items, Number.NaN)).toBeUndefined();
+  it("prints name and cost while there is no chart to ask", () => {
+    const f = tileLabelFormatter({ format });
+    expect(f({ dataIndex: 3, name: "Tiny", value: 1_000 })).toBe("Tiny\n{value|$1,000}");
   });
 
-  it("gives every tile its full label on an unbounded area", () => {
-    expect(tileLabelTiers(items, Number.POSITIVE_INFINITY)).toEqual(["full", "full", "full"]);
+  it("prints name and cost for a tile the chart has no rectangle for", () => {
+    const f = tileLabelFormatter({ format, tileRect: () => undefined });
+    expect(f({ dataIndex: 7, name: "Lost", value: 12 })).toBe("Lost\n{value|$12}");
   });
 
-  it("has no tiers for a panel with no tiles", () => {
-    expect(tileLabelTiers([], 50_000)).toEqual([]);
+  it("asks for index -1 when ECharts hands no dataIndex", () => {
+    const asked = vi.fn((_i: number) => undefined);
+    const f = tileLabelFormatter({ format, tileRect: asked });
+    expect(f({ name: "X", value: 3 })).toBe("X\n{value|$3}");
+    expect(asked).toHaveBeenCalledWith(-1);
+  });
+
+  it("prints an empty name and a zero cost for params without them", () => {
+    const f = tileLabelFormatter({ format, tileRect: () => ({ width: 60, height: 35 }) });
+    expect(f({ dataIndex: 0 })).toBe("");
+    expect(tileLabelFormatter({ format })({ dataIndex: 0 })).toBe("\n{value|$0}");
+    expect(tileLabelFormatter({ format })({ dataIndex: 0, name: "N", value: "12" })).toBe("N\n{value|$12}");
   });
 });
 
 describe("buildCostTreemapOption tile labels", () => {
-  // Shares of 1000: 900 / 60 / 40 → 45 000, 3 000 and 2 000 px² of 50 000.
-  const MIXED: CostTreemapItem[] = [
-    { id: "big", name: "Big", cost: 900, index: 0 },
-    { id: "mid", name: "Mid", cost: 60, index: 1 },
-    { id: "tiny", name: "Tiny", cost: 40, index: 2 },
-  ];
-  const labelsOf = (option: any) =>
-    seriesOf(option).data.map((d: any) => ("label" in d ? d.label : "series"));
-
-  it("gives each tile the label its share of the chart's area affords", () => {
-    expect(labelsOf(build(MIXED, { areaPx: 50_000 }))).toEqual([
-      "series",
-      { formatter: "{b}" },
-      { show: false },
-    ]);
-  });
-
-  it("names a mid-sized tile through a string formatter that replaces the name-and-cost one", () => {
-    const series = seriesOf(build(MIXED, { areaPx: 50_000 }));
-    // The series label still prints both lines for the tiles that keep it.
-    expect(series.label.formatter({ name: "Big", value: 900 })).toBe("Big\n{value|$900}");
-    expect(series.data[1]).toEqual({
-      name: "Mid",
-      value: 60,
-      id: "mid",
-      index: 1,
-      itemStyle: { color: COST_TREEMAP_COLORS[1] },
-      label: { formatter: "{b}" },
-    });
-  });
-
-  it("sizes the tiers by the chart's area: a larger chart labels more tiles in full", () => {
-    // 200 000 px²: 180 000, 12 000 and 8 000 — all full.
-    expect(labelsOf(build(MIXED, { areaPx: 200_000 }))).toEqual(["series", "series", "series"]);
-    // 5 000 px²: 4 500, 300 and 200.
-    expect(labelsOf(build(MIXED, { areaPx: 5_000 }))).toEqual(["series", { show: false }, { show: false }]);
-    // 4 000 px²: 3 600 — the largest tile keeps only its name.
-    expect(labelsOf(build(MIXED, { areaPx: 4_000 }))).toEqual([
-      { formatter: "{b}" },
-      { show: false },
-      { show: false },
-    ]);
-  });
-
-  it("reads each tile's share against the drawn tiles' total, ignoring the dropped ones", () => {
-    const withDropped: CostTreemapItem[] = [
-      ...MIXED,
-      { id: "zero", name: "Zero", cost: 0, index: 3 },
-      // Counted, it would halve the total and lift the tiny tile to a name.
-      { id: "neg", name: "Negative", cost: -500, index: 4 },
+  it("labels every tile through the rectangle formatter, never per datum", () => {
+    const rects = [
+      { width: 300, height: 100 },
+      { width: 60, height: 35 },
+      { width: 48, height: 28 },
     ];
-    expect(labelsOf(build(withDropped, { areaPx: 50_000 }))).toEqual([
-      "series",
-      { formatter: "{b}" },
-      { show: false },
-    ]);
+    const series = seriesOf(build(ITEMS, { tileRect: (i) => rects[i] }));
+    expect(series.data.every((d: any) => !("label" in d))).toBe(true);
+    expect(series.label.formatter({ dataIndex: 0, name: "ERP", value: 500 })).toBe("ERP\n{value|$500}");
+    expect(series.label.formatter({ dataIndex: 1, name: "CRM", value: 100 })).toBe("CRM");
+    expect(series.label.formatter({ dataIndex: 2, name: "Unlinked", value: 100 })).toBe("");
   });
 
-  it("is not thrown by the panel total it was handed: the share is of the tiles drawn", () => {
-    expect(labelsOf(build(MIXED, { areaPx: 50_000, panelTotal: 1_000_000 }))).toEqual([
-      "series",
-      { formatter: "{b}" },
-      { show: false },
-    ]);
+  it("keeps the chrome's tile label styling under its own formatter", () => {
+    const label = seriesOf(build(ITEMS, { tileRect: () => ({ width: 1, height: 1 }) })).label;
+    expect(label).toMatchObject({ show: true, overflow: "truncate", fontSize: 11, fontWeight: 600 });
+    expect(label.rich.value).toEqual({ color: CHART_LABEL_ON_DARK_MUTED, fontSize: 10, lineHeight: 16 });
+    expect(label.formatter({ dataIndex: 0, name: "ERP", value: 500 })).toBe("");
+  });
+});
+
+describe("chartTileRect", () => {
+  /** A chart whose series data lays tile `i` out as `layouts[i]`. */
+  function chartWith(layouts: Record<number, unknown>) {
+    const getItemLayout = vi.fn((i: number) => layouts[i]);
+    const getSeriesByIndex = vi.fn(() => ({ getData: () => ({ getItemLayout }) }));
+    return { chart: { getModel: () => ({ getSeriesByIndex }) }, getItemLayout, getSeriesByIndex };
+  }
+
+  it("reads the tile's width and height from the first series' item layout", () => {
+    const { chart, getItemLayout, getSeriesByIndex } = chartWith({
+      4: { x: 10, y: 20, width: 60, height: 35, area: 2100 },
+    });
+    expect(chartTileRect(chart, 4)).toEqual({ width: 60, height: 35 });
+    expect(getSeriesByIndex).toHaveBeenCalledWith(0);
+    expect(getItemLayout).toHaveBeenCalledWith(4);
   });
 
-  it("leaves every tile on the series label until the chart has been measured", () => {
-    for (const areaPx of [undefined, 0, -50_000, Number.NaN, Number.POSITIVE_INFINITY]) {
-      const data = seriesOf(build(MIXED, { areaPx })).data;
-      expect(data.map((d: any) => Object.keys(d)), String(areaPx)).toEqual([
-        ["name", "value", "id", "index", "itemStyle"],
-        ["name", "value", "id", "index", "itemStyle"],
-        ["name", "value", "id", "index", "itemStyle"],
-      ]);
-    }
+  it("is undefined without a chart, a model, a series or a layout", () => {
+    expect(chartTileRect(null, 0)).toBeUndefined();
+    expect(chartTileRect(undefined, 0)).toBeUndefined();
+    expect(chartTileRect({ getModel: () => null }, 0)).toBeUndefined();
+    expect(chartTileRect({ getModel: () => ({ getSeriesByIndex: () => undefined }) }, 0)).toBeUndefined();
+    expect(chartTileRect(chartWith({}).chart, 0)).toBeUndefined();
+    expect(chartTileRect(chartWith({ 0: null }).chart, 0)).toBeUndefined();
   });
 
-  it("labels a lone tile in full: it fills the chart", () => {
-    expect(labelsOf(build([{ id: "a", name: "A", cost: 1, index: 0 }], { areaPx: 4_000 }))).toEqual(["series"]);
-    expect(labelsOf(build([{ id: "a", name: "A", cost: 1, index: 0 }], { areaPx: 3_999 }))).toEqual([
-      { formatter: "{b}" },
-    ]);
+  it("is undefined for a layout without a numeric width and height", () => {
+    expect(chartTileRect(chartWith({ 0: { width: "60", height: 35 } }).chart, 0)).toBeUndefined();
+    expect(chartTileRect(chartWith({ 0: { width: 60 } }).chart, 0)).toBeUndefined();
+    expect(chartTileRect(chartWith({ 0: { height: 35 } }).chart, 0)).toBeUndefined();
+    expect(chartTileRect(chartWith({ 0: { width: 0, height: 0 } }).chart, 0)).toEqual({ width: 0, height: 0 });
+  });
+
+  it("is undefined, not a crash, when ECharts' internals throw or are missing", () => {
+    expect(
+      chartTileRect(
+        {
+          getModel: () => {
+            throw new Error("disposed");
+          },
+        },
+        0,
+      ),
+    ).toBeUndefined();
+    expect(chartTileRect({}, 0)).toBeUndefined();
   });
 });

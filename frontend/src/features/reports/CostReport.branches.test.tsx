@@ -76,7 +76,6 @@ vi.mock("@/components/CardDetailSidePanel", () => ({
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
 import { mockApi } from "@/test/apiMock";
-import { installResizeObserver } from "@/test/dom";
 import { echartState, type CapturedEChart } from "@/test/echartMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { userWith } from "@/test/render";
@@ -417,26 +416,23 @@ describe("CostReport cost sources and drill-down", () => {
     expect(within(panels).getByText("Contract · Contract Value")).toBeInTheDocument();
   });
 
-  it("measures every drilled panel, an empty one included, each on its own", async () => {
-    const ro = installResizeObserver();
-    try {
-      saved.config = { costSources: ["ITComponent:licenseCost", "Contract:contractValue"] };
-      renderCost();
-      await clickTile("ERP");
-      const empty = await screen.findByText("No cost data found.");
-      await findTile("Database");
-      const itcBox = screen.getByRole("img", { name: "IT Component · License Cost" }).parentElement!;
-      // The empty panel's box wraps its message instead of a chart.
-      const contractBox = empty.parentElement!.parentElement!;
-      expect(ro.observed).toEqual(expect.arrayContaining([itcBox, contractBox]));
-      // A resize of the other panel leaves this one unmeasured.
-      act(() => ro.resize({ width: 30, height: 360 }, contractBox));
-      expect(tilesOf(echartState.byName("IT Component · License Cost")).some((d) => "label" in d)).toBe(false);
-      act(() => ro.resize({ width: 30, height: 360 }, itcBox));
-      expect(tile("OS").label).toEqual({ show: false });
-    } finally {
-      ro();
-    }
+  it("hands each drilled panel's chart to that panel alone", async () => {
+    saved.config = { costSources: ["ITComponent:licenseCost", "Contract:contractValue"] };
+    renderCost();
+    await clickTile("ERP");
+    await screen.findByText("No cost data found.");
+    await findTile("Database");
+    const name = "IT Component · License Cost";
+    const getItemLayout = vi.fn(() => ({ x: 0, y: 0, width: 48, height: 28 }));
+    const chart = { getModel: () => ({ getSeriesByIndex: () => ({ getData: () => ({ getItemLayout }) }) }) };
+    act(() => echartState.byName(name).onInit!(chart));
+    const label = echartState.byName(name).option.series[0].label;
+    expect(label.formatter({ dataIndex: 1, name: "OS", value: 10 })).toBe("");
+    expect(getItemLayout).toHaveBeenCalledWith(1);
+    // The root treemap, unmounted by the drill, never saw this chart.
+    expect(rootChart().option.series[0].label.formatter({ dataIndex: 1, name: "ERP", value: 1 })).toBe(
+      "ERP\n{value|$1}",
+    );
   });
 
   it("restores a saved multi-level drill, migrating legacy frames and dropping broken ones", async () => {

@@ -36,6 +36,8 @@ export interface CapturedEChart {
   labelledBy?: string;
   style?: CSSProperties;
   devicePixelRatio?: number;
+  /** Never called by the double: a test hands it a stand-in chart itself. */
+  onInit?: (chart: any) => void;
 }
 
 function nameOf(entry: CapturedEChart): string | undefined {

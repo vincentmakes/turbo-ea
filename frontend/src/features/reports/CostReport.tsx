@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
@@ -18,10 +18,11 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import Tooltip from "@mui/material/Tooltip";
+import type { ECharts } from "echarts/core";
 import EChart, { EXPORT_DPR, type EChartClickParams } from "@/components/charts/EChart";
 import { useEChartsTheme, type EChartsThemeValue } from "@/components/charts/echartsTheme";
 import ReportShell from "./ReportShell";
-import { buildCostTreemapOption, tileLabelTiers, type CostTreemapItem } from "./costTreemapOption";
+import { buildCostTreemapOption, chartTileRect, type CostTreemapItem } from "./costTreemapOption";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -37,7 +38,6 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
-import { useElementSize } from "@/hooks/useElementSize";
 import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { CardType, FieldDef, RelationType } from "@/types";
@@ -166,9 +166,9 @@ interface CostTreemapPanelProps {
 
 /**
  * One panel of the report: its header (or the drill hint), then the treemap
- * or the empty state. It measures its own width, because the chart's pixel
- * area decides which tiles are big enough to print a name, or a name and a
- * cost (`tileLabelTier`).
+ * or the empty state. Each tile's label prints what its rectangle fits (a
+ * name, a name and a cost, or nothing — `tileLabelTier`), read from the
+ * panel's own chart while ECharts renders it.
  */
 function CostTreemapPanel({
   source,
@@ -182,17 +182,18 @@ function CostTreemapPanel({
   onTileClick,
 }: CostTreemapPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
-  // Measured on a wrapper that is always rendered, so the observer is
-  // attached whether the panel starts empty or not.
-  const [chartBoxRef, chartBox] = useElementSize<HTMLDivElement>();
-  const areaPx = chartBox ? chartBox.width * panelHeight : undefined;
-  // The size reaches the option only through the tiles' label tiers.
-  const tierKey = tileLabelTiers(data, areaPx)?.join() ?? "";
+  const chartRef = useRef<ECharts | null>(null);
+  const onInit = useCallback((chart: ECharts) => {
+    chartRef.current = chart;
+  }, []);
+  // The label formatter calls this while ECharts renders each tile, after it
+  // laid the tile out — so a resize, which ECharts re-lays and re-renders by
+  // itself, re-reads the real rectangles with no React work.
+  const tileRect = useCallback((dataIndex: number) => chartTileRect(chartRef.current, dataIndex), []);
 
   // Memoised: a new option replaces the chart's whole option and replays its
-  // animation, so it is rebuilt only when the data, the theme, the drill
-  // affordance or a tile's label tier change — not on every pixel of a
-  // resize, which ECharts handles by itself.
+  // animation, so it is rebuilt only when the data, the theme or the drill
+  // affordance change — never on a resize, which ECharts handles by itself.
   const option = useMemo(
     () =>
       buildCostTreemapOption(data, {
@@ -202,10 +203,9 @@ function CostTreemapPanel({
         panelTotal: total,
         percentOfTotal: (pct) => t("cost.percentOfTotalValue", { pct }),
         clickable,
-        areaPx,
+        tileRect,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `areaPx` is read through `tierKey`: the same tiers build the same option
-    [data, chrome, fmt, total, t, clickable, tierKey],
+    [data, chrome, fmt, total, t, clickable, tileRect],
   );
 
   return (
@@ -226,23 +226,22 @@ function CostTreemapPanel({
           </Typography>
         )
       )}
-      <Box ref={chartBoxRef}>
-        {data.length === 0 ? (
-          <Box sx={{ py: 6, textAlign: "center" }}>
-            <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
-          </Box>
-        ) : (
-          // Drawn at the export's pixel ratio so the PPTX / PNG capture of
-          // the canvas stays crisp.
-          <EChart
-            option={option}
-            style={{ height: panelHeight }}
-            devicePixelRatio={EXPORT_DPR}
-            ariaLabel={source ? source.label : t("cost.title")}
-            onClick={onTileClick}
-          />
-        )}
-      </Box>
+      {data.length === 0 ? (
+        <Box sx={{ py: 6, textAlign: "center" }}>
+          <Typography color="text.secondary" variant="body2">{t("cost.noCostData")}</Typography>
+        </Box>
+      ) : (
+        // Drawn at the export's pixel ratio so the PPTX / PNG capture of
+        // the canvas stays crisp.
+        <EChart
+          option={option}
+          style={{ height: panelHeight }}
+          devicePixelRatio={EXPORT_DPR}
+          ariaLabel={source ? source.label : t("cost.title")}
+          onClick={onTileClick}
+          onInit={onInit}
+        />
+      )}
     </Paper>
   );
 }

@@ -132,6 +132,35 @@ describe("EChart props", () => {
     expect(core.init.mock.calls[0][2]).toEqual({ renderer: "canvas", devicePixelRatio: 2 });
   });
 
+  it("hands the new instance to onInit once, before the first option is set", () => {
+    const onInit = vi.fn(() => {
+      // The option has not reached the chart yet.
+      expect(chart.setOption).not.toHaveBeenCalled();
+    });
+    render(<EChart option={{ a: 1 }} onInit={onInit} />);
+    expect(onInit).toHaveBeenCalledTimes(1);
+    expect(onInit).toHaveBeenCalledWith(core.init.mock.results[0].value);
+    expect(onInit.mock.calls[0]).toEqual([chart]);
+    expect(chart.setOption).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-initialise or call again when the onInit callback changes", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender } = render(<EChart option={{}} onInit={first} />);
+    rerender(<EChart option={{}} onInit={second} />);
+    rerender(<EChart option={{ a: 2 }} onInit={second} />);
+    expect(core.init).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+    expect(chart.dispose).not.toHaveBeenCalled();
+  });
+
+  it("mounts without an onInit callback", () => {
+    expect(() => render(<EChart option={{}} ariaLabel="bare" />)).not.toThrow();
+    expect(core.init).toHaveBeenCalledTimes(1);
+  });
+
   it("is named by the element labelledBy points at", () => {
     render(
       <>

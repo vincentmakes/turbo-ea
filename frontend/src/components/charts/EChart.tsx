@@ -79,14 +79,33 @@ interface Props {
    * when omitted). Read once, at init.
    */
   devicePixelRatio?: number;
+  /**
+   * Handed the ECharts instance once, right after it is created and before
+   * the first option is set — for a consumer whose option reads the chart's
+   * own state while ECharts renders it (the Cost treemap's tile rectangles).
+   * The instance is disposed on unmount; a consumer that keeps it clears its
+   * own reference if it cares.
+   */
+  onInit?: (chart: ECharts) => void;
 }
 
-export default function EChart({ option, onClick, style, ariaLabel, labelledBy, devicePixelRatio }: Props) {
+export default function EChart({
+  option,
+  onClick,
+  style,
+  ariaLabel,
+  labelledBy,
+  devicePixelRatio,
+  onInit,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<ECharts | null>(null);
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
   const dprRef = useRef(devicePixelRatio);
+  // Read at init only: a new callback identity never re-creates the chart.
+  const initRef = useRef(onInit);
+  initRef.current = onInit;
 
   // Init / dispose with the container.
   useEffect(() => {
@@ -99,6 +118,7 @@ export default function EChart({ option, onClick, style, ariaLabel, labelledBy, 
       ...(dpr !== undefined && { devicePixelRatio: Math.max(dpr, window.devicePixelRatio || 1) }),
     });
     chartRef.current = chart;
+    initRef.current?.(chart);
     const handleClick = (params: unknown) => clickRef.current?.(params as EChartClickParams);
     chart.on("click", handleClick);
 
