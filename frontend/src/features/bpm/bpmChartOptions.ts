@@ -12,29 +12,25 @@ import type { EChartsCoreOption } from "echarts/core";
 import type { EChartsChrome } from "@/components/charts/echartsTheme";
 import { axisLabel, base, grid, legend, splitLine, tooltip, type ChartChromeContext } from "@/components/charts/chrome";
 import { buildOption } from "@/features/dashboard/charts/buildOption";
-import { BPM_ASSESSMENT_COLORS, RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
+import { BPM_ASSESSMENT_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import type { DashboardKeyRow } from "@/types";
+import { ATTR_COLORS } from "./processNavigatorState";
 
-// Maturity is a 5-step CMMI scale; reuses severity hues to convey progression
-// from worst (red) to best (deep green). The fallback when the metamodel's
-// maturity option carries no colour of its own.
-export const MATURITY_COLORS: Record<string, string> = {
-  initial: SEVERITY_COLORS.critical,
-  managed: SEVERITY_COLORS.high,
-  defined: SEVERITY_COLORS.medium,
-  measured: SEVERITY_COLORS.low,
-  optimized: RAG_COLORS.green,
-};
+/** One colour per option key of a Process Navigator overlay map. */
+function overlayColors(overlay: keyof typeof ATTR_COLORS): Record<string, string> {
+  return Object.fromEntries(Object.entries(ATTR_COLORS[overlay]).map(([key, { color }]) => [key, color]));
+}
 
-// Process risk on the 4-step severity scale — the same hues the Process
-// Navigator's risk overlay uses, so the dashboard and the navigator agree. The
-// fallback when the metamodel's riskLevel option carries no colour of its own.
-export const RISK_COLORS: Record<string, string> = {
-  low: SEVERITY_COLORS.low,
-  medium: SEVERITY_COLORS.medium,
-  high: SEVERITY_COLORS.high,
-  critical: SEVERITY_COLORS.critical,
-};
+// Maturity is a 5-step CMMI scale on the severity hues, worst (red) to best
+// (deep green). Derived from the Process Navigator's maturity overlay so the
+// dashboard and the navigator cannot drift apart. The fallback when the
+// metamodel's maturity option carries no colour of its own.
+export const MATURITY_COLORS: Record<string, string> = overlayColors("maturity");
+
+// Process risk on the 4-step severity scale, derived from the Process
+// Navigator's risk overlay for the same reason. The fallback when the
+// metamodel's riskLevel option carries no colour of its own.
+export const RISK_COLORS: Record<string, string> = overlayColors("riskLevel");
 
 /** The colour of a value with none of its own. */
 export const BPM_NEUTRAL_COLOR = STATUS_COLORS.neutral;

@@ -8,6 +8,7 @@ import {
   relativeTime,
 } from "./formatActivityEvent";
 import type { EventEntry } from "@/types";
+import { BPM_CALLED_PROCESS_COLOR } from "@/theme/tokens";
 
 // Minimal i18n stub: returns a non-empty string so tests can assert against
 // deterministic strings without booting react-i18next. Mirrors the real
@@ -92,6 +93,12 @@ describe("formatActivityEvent", () => {
     expect(formatActivityEvent(make("approve"), t).category).toBe("approve");
     expect(formatActivityEvent(make("reject"), t).category).toBe("reject");
     expect(formatActivityEvent(make("reset"), t).category).toBe("reset");
+  });
+
+  it("colours a process event with the seeded BusinessProcess colour", () => {
+    const row = formatActivityEvent({ ...baseEvent, event_type: "process_flow.approved" }, t);
+    expect(row.color).toBe(BPM_CALLED_PROCESS_COLOR);
+    expect(row.color).toBe("#028f00");
   });
 
   it("classifies relation/comment/process/adr/soaw events", () => {

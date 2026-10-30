@@ -21,6 +21,7 @@
  * containing `<` renders literally instead of being stripped.
  */
 import i18n from "@/i18n";
+import { PRINT_COLORS } from "@/theme/tokens";
 import type { SoAWSignatory } from "@/types";
 import { escapeHtml } from "./escapeHtml";
 import { sanitizeRichHtml } from "./richHtml";
@@ -38,11 +39,11 @@ export const DOCUMENT_PRINT_CSS = `
   @page { size: A4 portrait; margin: 18mm; }
   body.doc-print { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #222; line-height: 1.6; font-size: 11pt; }
   .doc-print h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
-  .doc-print h2 { font-size: 16pt; color: #333; margin-top: 28px; }
+  .doc-print h2 { font-size: 16pt; color: ${PRINT_COLORS.text}; margin-top: 28px; }
   .doc-print h3 { font-size: 13pt; color: #444; margin-top: 20px; }
   .doc-print table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  .doc-print th, .doc-print td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; vertical-align: top; }
-  .doc-print th { background: #f5f5f5; font-weight: 600; }
+  .doc-print th, .doc-print td { border: 1px solid ${PRINT_COLORS.control}; padding: 6px 10px; text-align: left; font-size: 10pt; vertical-align: top; }
+  .doc-print th { background: ${PRINT_COLORS.panel}; font-weight: 600; }
   .doc-print .meta-label { font-weight: 600; width: 140px; }
   .doc-print .pre { white-space: pre-wrap; }
   .doc-signatures { margin-top: 36px; border-top: 2px solid #e0e0e0; padding-top: 16px; }
@@ -51,9 +52,9 @@ export const DOCUMENT_PRINT_CSS = `
   .doc-signatures .sig-badge.signed { background: #e8f5e9; color: #2e7d32; }
   .doc-signatures .sig-badge.fully-signed { background: #2e7d32; color: #fff; }
   .doc-signatures .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .doc-signatures .sig-card { padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+  .doc-signatures .sig-card { padding: 12px; border: 1px solid ${PRINT_COLORS.control}; border-radius: 4px; }
   .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9; }
-  .doc-signatures .sig-card.pending { border-color: #ccc; background: #fafafa; }
+  .doc-signatures .sig-card.pending { border-color: ${PRINT_COLORS.control}; background: #fafafa; }
   .doc-signatures .sig-card .sig-status { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 700; font-size: 10pt; }
   .doc-signatures .sig-card .sig-status.approved { color: #2e7d32; }
   .doc-signatures .sig-card .sig-status.pending { color: #ed6c02; }
@@ -66,7 +67,7 @@ export const DOCUMENT_PRINT_CSS = `
     .doc-signatures .sig-grid { grid-template-columns: 1fr 1fr; }
     .doc-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .doc-signatures .sig-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .doc-print-footer { display: block; position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ccc; padding-top: 4px; }
+    .doc-print-footer { display: block; position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: ${PRINT_COLORS.muted}; border-top: 1px solid ${PRINT_COLORS.control}; padding-top: 4px; }
   }
 `;
 

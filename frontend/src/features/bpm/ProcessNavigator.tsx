@@ -94,7 +94,7 @@ import { readableTextColor } from "@/lib/color";
 import {
   BPM_AUTOMATED_STEP_TINT,
   BPM_CALLED_PROCESS_COLOR,
-  BPM_EOL_WARNING_COLOR,
+  EOL_WARNING_COLOR,
   BPM_FLOW_ACCENT_COLOR,
   CARD_TYPE_COLORS,
 } from "@/theme/tokens";
@@ -136,8 +136,12 @@ const LazyBpmnViewer = lazy(() => import("./BpmnViewer"));
 /*  Constants                                                          */
 /* ================================================================== */
 
-/** A translucent white wash over a card-coloured header — an `sx` value, so it follows the theme. */
-const whiteAlpha = (opacity: number) => (theme: Theme) => alpha(theme.palette.common.white, opacity);
+/** A translucent wash over a card-coloured header, in the header's own text colour: white on a
+ *  dark header, black on a pale one (`readableTextColor`), so the drag handle, the "+N" chip and
+ *  the hover washes stay visible whatever colour an admin picks. */
+function textWash(headerColor: string, opacity: number): string {
+  return alpha(readableTextColor(headerColor), opacity);
+}
 
 const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] = [
   { key: "processType", labelKey: "navigator.overlayType", icon: "category" },
@@ -288,8 +292,8 @@ function HouseCard({
                 borderRadius: 0.5,
                 zIndex: 2,
                 position: "relative",
-                bgcolor: whiteAlpha(0.25),
-                "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.5) },
+                bgcolor: textWash(color, 0.25),
+                "&:hover": { opacity: 1, bgcolor: textWash(color, 0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
@@ -491,8 +495,8 @@ function HouseCard({
                 borderRadius: 0.5,
                 zIndex: 2,
                 position: "relative",
-                bgcolor: whiteAlpha(0.25),
-                "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.5) },
+                bgcolor: textWash(color, 0.25),
+                "&:hover": { opacity: 1, bgcolor: textWash(color, 0.5) },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
@@ -551,7 +555,7 @@ function HouseCard({
                   borderRadius: 1,
                   p: 0.25,
                   cursor: hasDiagram ? "pointer" : "default",
-                  ...(hasDiagram && { "&:hover": { bgcolor: whiteAlpha(0.2), opacity: 1 } }),
+                  ...(hasDiagram && { "&:hover": { bgcolor: textWash(color, 0.2), opacity: 1 } }),
                 }}
               >
                 <MaterialSymbol icon="schema" size={16} />
@@ -571,7 +575,7 @@ function HouseCard({
                 height: 20,
                 fontSize: "0.65rem",
                 fontWeight: 600,
-                bgcolor: whiteAlpha(0.25),
+                bgcolor: textWash(color, 0.25),
                 color: readableTextColor(color),
                 flexShrink: 0,
               }}
@@ -587,7 +591,7 @@ function HouseCard({
                   color: readableTextColor(color),
                   opacity: 0.7,
                   flexShrink: 0,
-                  "&:hover": { opacity: 1, bgcolor: whiteAlpha(0.2) },
+                  "&:hover": { opacity: 1, bgcolor: textWash(color, 0.2) },
                 }}
               >
                 <MaterialSymbol icon="zoom_in" size={18} />
@@ -599,7 +603,9 @@ function HouseCard({
       <Box
         {...nestedGridProps(nestedColumns(columns, depth + 1), {
           gap: 0.75,
-          sx: { p: 0.75, bgcolor: "action.hover" },
+          // A 2 % black tint in both modes, as it has always rendered: `action.hover` is a white
+          // 8 % wash in dark mode, which visibly lifted the panel off the dark paper.
+          sx: { p: 0.75, bgcolor: (theme: Theme) => alpha(theme.palette.common.black, 0.02) },
         })}
       >
         {node.children.map((ch) => (
@@ -828,45 +834,48 @@ function DrawerOverview({
             {t("navigator.subProcesses", { count: node.children.length })}
           </Typography>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-            {node.children.map((ch) => (
-              <Box
-                key={ch.id}
-                onClick={() => onSwitchNode(ch)}
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: 1,
-                  bgcolor: getCardColor(ch, overlay, resolveProcessType),
-                  color: readableTextColor(getCardColor(ch, overlay, resolveProcessType)),
-                  cursor: "pointer",
-                  "&:hover": { boxShadow: 2 },
-                }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.85rem", flex: 1 }}>
-                  {ch.name}
-                </Typography>
-                {ch.children.length > 0 && (
-                  <Chip
-                    size="small"
-                    label={`+${ch.children.length}`}
-                    sx={{
-                      height: 18,
-                      fontSize: "0.6rem",
-                      bgcolor: whiteAlpha(0.25),
-                      color: "inherit",
-                    }}
-                  />
-                )}
-                {ch.deepAppCount > 0 && (
-                  <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                    {t("navigator.appsCount", { count: ch.deepAppCount })}
+            {node.children.map((ch) => {
+              const bg = getCardColor(ch, overlay, resolveProcessType);
+              return (
+                <Box
+                  key={ch.id}
+                  onClick={() => onSwitchNode(ch)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.75,
+                    borderRadius: 1,
+                    bgcolor: bg,
+                    color: readableTextColor(bg),
+                    cursor: "pointer",
+                    "&:hover": { boxShadow: 2 },
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.85rem", flex: 1 }}>
+                    {ch.name}
                   </Typography>
-                )}
-              </Box>
-            ))}
+                  {ch.children.length > 0 && (
+                    <Chip
+                      size="small"
+                      label={`+${ch.children.length}`}
+                      sx={{
+                        height: 18,
+                        fontSize: "0.6rem",
+                        bgcolor: textWash(bg, 0.25),
+                        color: "inherit",
+                      }}
+                    />
+                  )}
+                  {ch.deepAppCount > 0 && (
+                    <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                      {t("navigator.appsCount", { count: ch.deepAppCount })}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
           </Box>
         </>
       )}
@@ -1485,7 +1494,7 @@ function DrawerApps({
           {app.lifecycle?.endOfLife && (
             <Tooltip title={t("navigator.endOfLife")}>
               <Box>
-                <MaterialSymbol icon="warning" size={16} color={BPM_EOL_WARNING_COLOR} />
+                <MaterialSymbol icon="warning" size={16} color={EOL_WARNING_COLOR} />
               </Box>
             </Tooltip>
           )}
@@ -1606,7 +1615,7 @@ function ProcessDrawer({
               width: 36,
               height: 36,
               borderRadius: 1.5,
-              bgcolor: whiteAlpha(0.2),
+              bgcolor: textWash(typeColor, 0.2),
               display: "flex",
               alignItems: "center",
               justifyContent: "center",

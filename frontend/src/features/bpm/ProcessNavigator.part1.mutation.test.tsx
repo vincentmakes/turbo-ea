@@ -544,6 +544,16 @@ describe("container cards", () => {
     expect(plain.getByText("Value Chain")).toHaveClass("MuiTypography-caption");
   });
 
+  it("tints the nested-children panel with a 2 % black wash, not the theme's hover wash", async () => {
+    renderBody({ items: CONTAINERS });
+    await screen.findByText("Kid One");
+    const panel = cardOf("Kid One").parentElement!.parentElement as HTMLElement;
+    expect(within(panel).getByText("Kid Two")).toBeInTheDocument();
+    expect(cardOf("Plain Parent")).toContainElement(panel);
+    // `action.hover` would be 4 % black in light mode and an 8 % white wash in dark mode.
+    expect(getComputedStyle(panel).backgroundColor).toBe("rgba(0, 0, 0, 0.02)");
+  });
+
   it("explains the step count of a container without a flow", async () => {
     const user = userEvent.setup();
     renderBody({ items: CONTAINERS });
@@ -853,6 +863,21 @@ describe("drawer overview", () => {
     expect(d.getByText("+1")).toBeInTheDocument();
     expect(d.queryByText("+0")).toBeNull();
     expect(d.queryByText("0 apps")).toBeNull();
+  });
+
+  it("paints each sub-process row in its own colour, with a +N wash in its text colour", async () => {
+    const { d } = await open("Order to Cash");
+    const chip = d.getByText("+1").closest(".MuiChip-root") as HTMLElement;
+    const row = d.getByText("Quote").parentElement as HTMLElement;
+    expect(row).toContainElement(chip);
+    const rowStyle = getComputedStyle(row);
+    // The row's background is the card colour and its text the readable contrast colour …
+    expect(rowStyle.backgroundColor).toBe(CORE_RGB);
+    expect(rowStyle.color).toBe("rgb(255, 255, 255)");
+    // … and the "+N" chip is a 25 % wash of that text colour, so it reads on any card colour.
+    expect(getComputedStyle(chip).backgroundColor).toBe(
+      rowStyle.color.replace("rgb(", "rgba(").replace(")", ", 0.25)"),
+    );
   });
 
   it("shows the subtype as a chip beside the attribute chips", async () => {

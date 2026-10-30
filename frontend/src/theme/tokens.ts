@@ -126,6 +126,25 @@ export const RAG_COLORS = {
   green: "#2e7d32",
 } as const;
 
+/** End-of-life warning — an application, component or capability whose end of
+ *  life has passed or is near (reports, card lists, the Process Navigator
+ *  drawer) — orange 900. Not the BusinessProcess card-type colour, which
+ *  shares the value today. */
+export const EOL_WARNING_COLOR = "#e65100";
+
+// ── Print pages (a bare browser window outside the MUI theme) ────────────
+
+/** Inks of every print page the app opens in a new window (`lib/printDocument.ts`,
+ *  the BPM process-flow print): white paper, outside the MUI theme and dark mode. */
+export const PRINT_COLORS = {
+  text: "#333333",
+  muted: "#888888",
+  rule: "#dddddd",
+  panel: "#f5f5f5",
+  control: "#cccccc", // border of the secondary (Close) button, table rules
+  paper: "#ffffff",
+} as const;
+
 // ── Notification-type accents (NotificationBell) ─────────────────────────
 // Categorical palette used only to visually differentiate notification
 // types in the bell dropdown — not a semantic status scale. Values reuse
@@ -377,21 +396,25 @@ export const BPM_ASSESSMENT_COLORS = {
 
 // ── BPM ─────────────────────────────────────────────────────────────────
 // The BPM screens' own hues, kept at the values they have always rendered.
-// Where a hue is an existing token's exact value AND means the same thing, the
-// token is referenced rather than repeated.
+// A token is referenced only where the hue IS that token's meaning (a data
+// object is the DataObject card); a hue that merely shares a value stays a literal.
 
 /** BPMN element-type icon colours, keyed by element family (resolved per
- *  element type in `features/bpm/elementTypes.ts`). */
+ *  element type in `features/bpm/elementTypes.ts`). This is the BPMN icon
+ *  palette and is deliberately literal, not references to the brand, severity,
+ *  RAG or card-type tokens that happen to share a value today: re-tuning one of
+ *  those (e.g. correcting the BusinessProcess fallback to the seeded `#028f00`)
+ *  must not repaint a BPMN element. */
 export const BPMN_ELEMENT_COLORS = {
-  task: brand.primary, // task, user task — #1976d2
+  task: "#1976d2", // task, user task — blue 700
   service: "#7b1fa2", // service task — purple 700
   script: "#00695c", // script task — teal 800
-  rule: CARD_TYPE_COLORS.BusinessProcess, // business-rule task, boundary event — #e65100
+  rule: "#e65100", // business-rule task, boundary event — orange 900
   messaging: "#0097a7", // send / receive task — cyan 700
   manual: "#795548", // manual task — brown 500
   subprocess: "#512da8", // call activity, sub-process, transaction, ad-hoc — deep purple 700
-  gateway: SEVERITY_COLORS.high, // every gateway, intermediate events — #f57c00
-  start: RAG_COLORS.green, // start event — #2e7d32
+  gateway: "#f57c00", // every gateway, intermediate events — orange 700
+  start: "#2e7d32", // start event — green 800
   end: "#c62828", // end event — red 800
   data: CARD_TYPE_COLORS.DataObject, // data object / data store references — #774fcc
   unknown: "#999999", // an element type the app does not know yet
@@ -418,28 +441,16 @@ export const BPM_FLOW_ACCENT_COLOR = "#7b1fa2";
  *  alpha) — deep purple 400. */
 export const BPM_AUTOMATED_STEP_TINT = "#7e57c2";
 
-/** End-of-life warning icon on an application in the navigator drawer — orange 900. */
-export const BPM_EOL_WARNING_COLOR = "#e65100";
-
 /** Outline of a link dot on the BPMN canvas, so a pale card-type colour still reads on white. */
 export const BPM_LINK_DOT_OUTLINE = "rgba(0,0,0,0.25)";
 
 /** Process-type option colours as seeded (`seed.py` `PROCESS_TYPE_OPTIONS`): the fallback while
- *  the metamodel loads. They mirror the seed, not the tokens that happen to share a value. */
+ *  the metamodel loads. Literals that mirror the seed, deliberately not tied to the brand token
+ *  that happens to share a value. */
 export const BPM_PROCESS_TYPE_COLORS = {
-  core: brand.primary, // #1976d2
+  core: "#1976d2", // blue 700
   support: "#607d8b", // blue grey 500
   management: "#9c27b0", // purple 500
-} as const;
-
-/** Inks of the process-flow print page — a bare browser window outside the MUI theme. */
-export const BPM_PRINT_COLORS = {
-  text: "#333333",
-  muted: "#888888",
-  rule: "#dddddd",
-  panel: "#f5f5f5",
-  control: "#cccccc", // border of the secondary (Close) button
-  paper: "#ffffff",
 } as const;
 
 /** Dark-mode values for the `--bio-*` variables of `@bpmn-io/properties-panel`, whose stylesheet

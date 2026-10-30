@@ -59,7 +59,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { escapeHtml } from "@/lib/printDocument";
 // Aliased: this file already has a local STATUS_COLORS holding MUI palette
 // names, which is a different thing from the design tokens' hex values.
-import { BPM_PRINT_COLORS, STATUS_COLORS as SEMANTIC_COLORS, brand } from "@/theme";
+import { PRINT_COLORS, STATUS_COLORS as SEMANTIC_COLORS, brand } from "@/theme";
 import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
@@ -495,24 +495,24 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 2px solid ${printSuccess}; margin-bottom: 16px; }
-    .header h1 { font-size: 18px; color: ${BPM_PRINT_COLORS.text}; }
+    .header h1 { font-size: 18px; color: ${PRINT_COLORS.text}; }
     .watermark { display: inline-flex; align-items: center; gap: 6px; background: ${alpha(printSuccess, 0.1)}; border: 1px solid ${printSuccess}; border-radius: 4px; padding: 4px 12px; }
     .watermark svg { width: 16px; height: 16px; fill: ${printSuccess}; }
     .watermark span { color: ${printSuccess}; font-weight: 600; font-size: 12px; }
     .diagram { width: 100%; text-align: center; }
     .diagram svg { max-width: 100%; height: auto; }
-    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid ${BPM_PRINT_COLORS.rule}; display: flex; justify-content: space-between; font-size: 11px; color: ${BPM_PRINT_COLORS.muted}; }
+    .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid ${PRINT_COLORS.rule}; display: flex; justify-content: space-between; font-size: 11px; color: ${PRINT_COLORS.muted}; }
     @media print {
       .no-print { display: none !important; }
     }
   </style>
 </head>
 <body>
-  <div class="no-print" style="padding:12px;text-align:center;background:${BPM_PRINT_COLORS.panel};border-bottom:1px solid ${BPM_PRINT_COLORS.rule}">
-    <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${brand.primary};color:${BPM_PRINT_COLORS.paper};border:none;border-radius:4px">
+  <div class="no-print" style="padding:12px;text-align:center;background:${PRINT_COLORS.panel};border-bottom:1px solid ${PRINT_COLORS.rule}">
+    <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${brand.primary};color:${PRINT_COLORS.paper};border:none;border-radius:4px">
       ${t("flowTab.printSaveAsPdf")}
     </button>
-    <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${BPM_PRINT_COLORS.paper};color:${BPM_PRINT_COLORS.text};border:1px solid ${BPM_PRINT_COLORS.control};border-radius:4px;margin-left:8px">
+    <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:${PRINT_COLORS.paper};color:${PRINT_COLORS.text};border:1px solid ${PRINT_COLORS.control};border-radius:4px;margin-left:8px">
       ${t("common:actions.close")}
     </button>
   </div>

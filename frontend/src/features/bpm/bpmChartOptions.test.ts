@@ -62,6 +62,37 @@ describe("MATURITY_COLORS", () => {
     });
   });
 
+  it("derives the risk and maturity maps from the Process Navigator's overlays", async () => {
+    // A level added to the navigator's overlay shows up on the dashboard without a second edit.
+    vi.resetModules();
+    vi.doMock("./processNavigatorState", async (importOriginal) => {
+      const mod = await importOriginal<typeof import("./processNavigatorState")>();
+      return {
+        ...mod,
+        ATTR_COLORS: {
+          ...mod.ATTR_COLORS,
+          riskLevel: { ...mod.ATTR_COLORS.riskLevel, extreme: { label: "Extreme", color: "#000001" } },
+          maturity: { ...mod.ATTR_COLORS.maturity, legendary: { label: "6", color: "#000002" } },
+        },
+      };
+    });
+    try {
+      const fresh = await import("./bpmChartOptions");
+      expect(fresh.RISK_COLORS).toEqual({
+        low: SEVERITY_COLORS.low,
+        medium: SEVERITY_COLORS.medium,
+        high: SEVERITY_COLORS.high,
+        critical: SEVERITY_COLORS.critical,
+        extreme: "#000001",
+      });
+      expect(fresh.MATURITY_COLORS.legendary).toBe("#000002");
+      expect(fresh.MATURITY_COLORS.optimized).toBe(RAG_COLORS.green);
+    } finally {
+      vi.doUnmock("./processNavigatorState");
+      vi.resetModules();
+    }
+  });
+
   it("keeps the neutral grey and the brand blue as the other two hues", () => {
     expect(BPM_NEUTRAL_COLOR).toBe(STATUS_COLORS.neutral);
     expect(AUTOMATION_COLOR).toBe(brand.primary);

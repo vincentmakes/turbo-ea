@@ -46,7 +46,7 @@ describe("colour tokens", () => {
       BPM_ASSESSMENT_COLORS: t.BPM_ASSESSMENT_COLORS,
       BPMN_ELEMENT_COLORS: t.BPMN_ELEMENT_COLORS,
       BPM_PROCESS_TYPE_COLORS: t.BPM_PROCESS_TYPE_COLORS,
-      BPM_PRINT_COLORS: t.BPM_PRINT_COLORS,
+      PRINT_COLORS: t.PRINT_COLORS,
     };
     for (const [name, group] of Object.entries(groups)) {
       for (const [key, value] of Object.entries(group)) {
@@ -153,7 +153,7 @@ describe("BPM tokens", () => {
       BPM_MESSAGE_FLOW_COLOR: t.BPM_MESSAGE_FLOW_COLOR,
       BPM_FLOW_ACCENT_COLOR: t.BPM_FLOW_ACCENT_COLOR,
       BPM_AUTOMATED_STEP_TINT: t.BPM_AUTOMATED_STEP_TINT,
-      BPM_EOL_WARNING_COLOR: t.BPM_EOL_WARNING_COLOR,
+      EOL_WARNING_COLOR: t.EOL_WARNING_COLOR,
     };
     for (const [name, value] of Object.entries(singles)) expect(value, name).toMatch(/^#[0-9a-f]{6}$/i);
     expect(t.BPM_LINK_DOT_OUTLINE).toMatch(CSS_COLOUR);
@@ -184,11 +184,11 @@ describe("BPM tokens", () => {
     expect(t.BPM_HIGHLIGHT_FILL).toBe("#e8f5e9");
     expect(t.BPM_FLOW_ACCENT_COLOR).toBe("#7b1fa2");
     expect(t.BPM_AUTOMATED_STEP_TINT).toBe("#7e57c2");
-    expect(t.BPM_EOL_WARNING_COLOR).toBe("#e65100");
+    expect(t.EOL_WARNING_COLOR).toBe("#e65100");
     expect(t.BPM_LINK_DOT_OUTLINE).toBe("rgba(0,0,0,0.25)");
     // Mirrors seed.py PROCESS_TYPE_OPTIONS.
     expect(t.BPM_PROCESS_TYPE_COLORS).toEqual({ core: "#1976d2", support: "#607d8b", management: "#9c27b0" });
-    expect(t.BPM_PRINT_COLORS).toEqual({
+    expect(t.PRINT_COLORS).toEqual({
       text: "#333333",
       muted: "#888888",
       rule: "#dddddd",
@@ -200,15 +200,22 @@ describe("BPM tokens", () => {
     expect(t.BPMN_DARK_THEME["--bio-surface-strong"]).toBe("#333333");
   });
 
+  it("pin the element and process-type hues as literals, not as other tokens' values", async () => {
+    const t = await freshTokens();
+    // The BPMN icon palette and the seeded process-type colours: their own values, so a
+    // brand / severity / RAG / card-type token can be re-tuned without repainting them.
+    expect(t.BPMN_ELEMENT_COLORS.task).toBe("#1976d2");
+    expect(t.BPMN_ELEMENT_COLORS.rule).toBe("#e65100");
+    expect(t.BPMN_ELEMENT_COLORS.gateway).toBe("#f57c00");
+    expect(t.BPMN_ELEMENT_COLORS.start).toBe("#2e7d32");
+    expect(t.BPM_PROCESS_TYPE_COLORS.core).toBe("#1976d2");
+  });
+
   it("reuse the shared tokens where the hue and the meaning match", async () => {
     const t = await freshTokens();
-    expect(t.BPMN_ELEMENT_COLORS.task).toBe(t.brand.primary);
-    expect(t.BPMN_ELEMENT_COLORS.rule).toBe(t.CARD_TYPE_COLORS.BusinessProcess);
-    expect(t.BPMN_ELEMENT_COLORS.gateway).toBe(t.SEVERITY_COLORS.high);
-    expect(t.BPMN_ELEMENT_COLORS.start).toBe(t.RAG_COLORS.green);
+    // A data-object reference IS a DataObject card.
     expect(t.BPMN_ELEMENT_COLORS.data).toBe(t.CARD_TYPE_COLORS.DataObject);
     expect(t.BPM_MESSAGE_FLOW_COLOR).toBe(t.BPMN_ELEMENT_COLORS.messaging);
-    expect(t.BPM_PROCESS_TYPE_COLORS.core).toBe(t.brand.primary);
     expect(t.BPMN_DARK_THEME["--bio-surface"]).toBe(t.surface.dark.paper);
     expect(t.BPMN_DARK_THEME["--bio-surface-overlay"]).toBe(t.surface.dark.paper);
   });

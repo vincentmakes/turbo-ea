@@ -10,6 +10,7 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { EOL_WARNING_COLOR } from "@/theme";
 
 /**
  * The right-hand drawer a report opens when you click an aggregate — a bar
@@ -71,7 +72,7 @@ export function ReportCardListRows({
               }}
             />
           )}
-          {item.warn && <MaterialSymbol icon="warning" size={16} color="#e65100" />}
+          {item.warn && <MaterialSymbol icon="warning" size={16} color={EOL_WARNING_COLOR} />}
         </ListItemButton>
       ))}
     </List>

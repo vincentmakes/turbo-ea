@@ -45,6 +45,7 @@ vi.mock("./publicApi", () => ({ publicGet: (...a: unknown[]) => publicGet(...a) 
 
 import PortalProcessNavigator from "./PortalProcessNavigator";
 import type { PublicPortal } from "@/types";
+import { BPM_CALLED_PROCESS_COLOR } from "@/theme";
 
 const PORTAL = {
   id: "p1",
@@ -175,6 +176,28 @@ describe("PortalProcessNavigator", () => {
     const tabNames = screen.getAllByRole("tab").map((t) => t.textContent ?? "");
     expect(tabNames.some((n) => /app/i.test(n))).toBe(false);
     expect(tabNames.some((n) => /data/i.test(n))).toBe(false);
+  });
+
+  it("paints the drawer header in the portal type's colour, else the seeded process colour", async () => {
+    const user = userEvent.setup();
+    const header = async () => {
+      await user.click(await screen.findByText("Order to Cash"));
+      const name = await screen.findByText("Order to Cash", { selector: "h6" });
+      return name.parentElement!.parentElement!;
+    };
+    const { unmount } = renderPortal({
+      ...PORTAL,
+      type_info: { ...PORTAL.type_info, color: "#123456" },
+    } as PublicPortal);
+    expect(await header()).toHaveStyle({ backgroundColor: "#123456" });
+    unmount();
+
+    renderPortal({
+      ...PORTAL,
+      type_info: { ...PORTAL.type_info, color: undefined },
+    } as unknown as PublicPortal);
+    expect(await header()).toHaveStyle({ backgroundColor: BPM_CALLED_PROCESS_COLOR });
+    expect(BPM_CALLED_PROCESS_COLOR).toBe("#028f00");
   });
 
   it("shows the description from the map rather than fetching the card", async () => {

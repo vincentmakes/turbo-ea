@@ -63,7 +63,7 @@ import {
   type BucketLabels,
   type FacetLabels,
 } from "@/lib/fieldFacets";
-import { CARD_TYPE_COLORS } from "@/theme";
+import { CARD_TYPE_COLORS, EOL_WARNING_COLOR } from "@/theme";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -637,7 +637,7 @@ function CapabilityCard({
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
             <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
               <Box sx={{ display: "flex" }}>
-                <MaterialSymbol icon="warning" size={16} color="#e65100" />
+                <MaterialSymbol icon="warning" size={16} color={EOL_WARNING_COLOR} />
               </Box>
             </Tooltip>
           )}
@@ -716,7 +716,7 @@ function CapabilityCard({
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
           <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
             <Box sx={{ display: "flex" }}>
-              <MaterialSymbol icon="warning" size={16} color="#e65100" />
+              <MaterialSymbol icon="warning" size={16} color={EOL_WARNING_COLOR} />
             </Box>
           </Tooltip>
         )}

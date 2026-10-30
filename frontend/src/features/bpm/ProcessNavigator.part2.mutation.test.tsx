@@ -1112,14 +1112,49 @@ describe("ProcessNavigator container", () => {
   });
 
   it("writes the drawer header in white on the type colour, and in black on a pale one", async () => {
+    /** The wash behind the type icon follows the header's text colour, so it never vanishes. */
+    const iconWash = (header: HTMLElement) =>
+      getComputedStyle(within(header).getByText("factory").parentElement!).backgroundColor;
+
     withMetamodel([bpType(DEFAULT_OPTIONS, { icon: "factory", color: "#123456" }), APP_TYPE]);
     const { user, unmount } = await renderLoaded();
-    expect(getComputedStyle(await drawerHeader(user)).color).toBe("rgb(255, 255, 255)");
+    const dark = await drawerHeader(user);
+    expect(getComputedStyle(dark).color).toBe("rgb(255, 255, 255)");
+    expect(iconWash(dark)).toBe("rgba(255, 255, 255, 0.2)");
     unmount();
 
     withMetamodel([bpType(DEFAULT_OPTIONS, { icon: "factory", color: "#fff9c4" }), APP_TYPE]);
     const pale = await renderLoaded();
-    expect(getComputedStyle(await drawerHeader(pale.user)).color).toBe("rgb(0, 0, 0)");
+    const paleHeader = await drawerHeader(pale.user);
+    expect(getComputedStyle(paleHeader).color).toBe("rgb(0, 0, 0)");
+    expect(iconWash(paleHeader)).toBe("rgba(0, 0, 0, 0.2)");
+  });
+
+  it("washes a pale sub-process row's +N chip in black, a dark one's in white", async () => {
+    const PALE_CORE = DEFAULT_OPTIONS.map((o) => (o.key === "core" ? { ...o, color: "#fff9c4" } : o));
+    const subRow = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.click(screen.getByText("Order to Cash"));
+      const d = await drawer();
+      const chip = d.getByText("+1").closest(".MuiChip-root") as HTMLElement;
+      const row = d.getByText("Quote").parentElement as HTMLElement;
+      expect(row).toContainElement(chip);
+      return { row: getComputedStyle(row), chip: getComputedStyle(chip) };
+    };
+
+    withMetamodel([bpType(DEFAULT_OPTIONS), APP_TYPE]);
+    const dark = await renderLoaded();
+    const onDark = await subRow(dark.user);
+    expect(onDark.row.backgroundColor).toBe("rgb(25, 118, 210)");
+    expect(onDark.row.color).toBe("rgb(255, 255, 255)");
+    expect(onDark.chip.backgroundColor).toBe("rgba(255, 255, 255, 0.25)");
+    dark.unmount();
+
+    withMetamodel([bpType(PALE_CORE), APP_TYPE]);
+    const pale = await renderLoaded();
+    const onPale = await subRow(pale.user);
+    expect(onPale.row.backgroundColor).toBe("rgb(255, 249, 196)");
+    expect(onPale.row.color).toBe("rgb(0, 0, 0)");
+    expect(onPale.chip.backgroundColor).toBe("rgba(0, 0, 0, 0.25)");
   });
 
   it("falls back to the seeded icon and colour without a BusinessProcess type", async () => {

@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PRINT_COLORS } from "@/theme/tokens";
 import {
+  DOCUMENT_PRINT_CSS,
   buildPrintHtml,
   documentHeader,
   escapeHtml,
@@ -17,6 +19,32 @@ import {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
+});
+
+describe("DOCUMENT_PRINT_CSS", () => {
+  it("inks the document with the shared print palette", () => {
+    expect(PRINT_COLORS).toMatchObject({
+      text: "#333333",
+      muted: "#888888",
+      panel: "#f5f5f5",
+      control: "#cccccc",
+    });
+    expect(DOCUMENT_PRINT_CSS).toContain(`.doc-print h2 { font-size: 16pt; color: ${PRINT_COLORS.text};`);
+    expect(DOCUMENT_PRINT_CSS).toContain(
+      `.doc-print th, .doc-print td { border: 1px solid ${PRINT_COLORS.control};`,
+    );
+    expect(DOCUMENT_PRINT_CSS).toContain(`.doc-print th { background: ${PRINT_COLORS.panel};`);
+    expect(DOCUMENT_PRINT_CSS).toContain(
+      `.doc-signatures .sig-card { padding: 12px; border: 1px solid ${PRINT_COLORS.control};`,
+    );
+    expect(DOCUMENT_PRINT_CSS).toContain(
+      `.doc-signatures .sig-card.pending { border-color: ${PRINT_COLORS.control};`,
+    );
+    expect(DOCUMENT_PRINT_CSS).toContain(
+      `font-size: 8pt; color: ${PRINT_COLORS.muted}; border-top: 1px solid ${PRINT_COLORS.control};`,
+    );
+    expect(DOCUMENT_PRINT_CSS).not.toMatch(/\$\{|undefined/);
+  });
 });
 
 describe("printDocument fragment builders", () => {

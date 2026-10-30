@@ -32,6 +32,7 @@ import type {
   ProcessNavigatorSource,
 } from "@/features/bpm/ProcessNavigatorContext";
 import { useProcessTypeOptionsFrom } from "@/features/bpm/useProcessTypeOptions";
+import { BPM_CALLED_PROCESS_COLOR } from "@/theme";
 import { publicGet } from "./publicApi";
 import type {
   PortalProcessFlow,
@@ -146,7 +147,7 @@ export default function PortalProcessNavigator({ slug, portal }: Props) {
   const meta = useMemo<NavigatorMeta>(
     () => ({
       typeIcon: portal.type_info?.icon ?? "route",
-      typeColor: portal.type_info?.color ?? "#028f00",
+      typeColor: portal.type_info?.color ?? BPM_CALLED_PROCESS_COLOR,
       subtypes: portal.type_info?.subtypes ?? [],
       processTypes,
     }),

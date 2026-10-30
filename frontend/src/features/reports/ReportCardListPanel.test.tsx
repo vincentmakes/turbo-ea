@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import ReportCardListPanel, { ReportCardListRows } from "./ReportCardListPanel";
 import type { ReportCardListItem } from "./ReportCardListPanel";
+import { EOL_WARNING_COLOR } from "@/theme";
 
 const ITEMS: ReportCardListItem[] = [
   { id: "a", name: "Alpha", secondary: "Business Application · 55%" },
@@ -36,6 +37,15 @@ describe("ReportCardListPanel", () => {
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.getByText("Beta")).toBeInTheDocument();
     expect(screen.getByText("Business Application · 55%")).toBeInTheDocument();
+  });
+
+  it("flags only a warned row, in the end-of-life warning colour", () => {
+    renderPanel();
+    const icons = screen.getAllByText("warning");
+    expect(icons).toHaveLength(1);
+    expect(screen.getByText("Beta").closest("[role=button]")).toContainElement(icons[0]);
+    expect(icons[0]).toHaveStyle({ color: EOL_WARNING_COLOR });
+    expect(EOL_WARNING_COLOR).toBe("#e65100");
   });
 
   it("reports the clicked item's id", async () => {
