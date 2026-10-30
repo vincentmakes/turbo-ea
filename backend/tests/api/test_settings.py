@@ -281,6 +281,86 @@ class TestSponsorButtonEnabledSettings:
 
 
 # -------------------------------------------------------------------
+# GET /settings/gamification-enabled + PATCH /settings/gamification-enabled
+# -------------------------------------------------------------------
+
+
+class TestGamificationEnabledSettings:
+    async def test_gamification_defaults_to_disabled_in_bootstrap(self, client, db, settings_env):
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200
+        assert resp.json()["gamification_enabled"] is False
+
+    async def test_get_gamification_enabled_defaults_to_false(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.get(
+            "/api/v1/settings/gamification-enabled", headers=auth_headers(member)
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"enabled": False}
+
+    async def test_get_gamification_enabled_requires_auth(self, client, db, settings_env):
+        resp = await client.get("/api/v1/settings/gamification-enabled")
+        assert resp.status_code == 401
+
+    async def test_admin_can_toggle_gamification(self, client, db, settings_env):
+        admin = settings_env["admin"]
+
+        resp = await client.patch(
+            "/api/v1/settings/gamification-enabled",
+            json={"enabled": True},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["ok"] is True
+
+        get_resp = await client.get(
+            "/api/v1/settings/gamification-enabled", headers=auth_headers(admin)
+        )
+        assert get_resp.json()["enabled"] is True
+        boot = await client.get("/api/v1/settings/bootstrap")
+        assert boot.json()["gamification_enabled"] is True
+
+        resp2 = await client.patch(
+            "/api/v1/settings/gamification-enabled",
+            json={"enabled": False},
+            headers=auth_headers(admin),
+        )
+        assert resp2.status_code == 200
+
+        get_resp2 = await client.get(
+            "/api/v1/settings/gamification-enabled", headers=auth_headers(admin)
+        )
+        assert get_resp2.json()["enabled"] is False
+        boot2 = await client.get("/api/v1/settings/bootstrap")
+        assert boot2.json()["gamification_enabled"] is False
+
+    async def test_member_cannot_toggle_gamification(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/gamification-enabled",
+            json={"enabled": True},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403
+
+        admin = settings_env["admin"]
+        get_resp = await client.get(
+            "/api/v1/settings/gamification-enabled", headers=auth_headers(admin)
+        )
+        assert get_resp.json()["enabled"] is False
+
+    async def test_gamification_payload_must_be_a_boolean(self, client, db, settings_env):
+        admin = settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/gamification-enabled",
+            json={"enabled": "sometimes"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+
+
+# -------------------------------------------------------------------
 # PATCH /settings/update-check-enabled
 # -------------------------------------------------------------------
 
@@ -831,6 +911,7 @@ class TestBootstrapSettings:
         assert data["turbolens_enabled"] is True
         assert data["grc_enabled"] is True
         assert data["sponsor_button_enabled"] is True
+        assert data["gamification_enabled"] is False
         assert data["file_uploads_enabled"] is True
         assert "en" in data["enabled_locales"]
         assert data["fiscal_year_start"] == 1

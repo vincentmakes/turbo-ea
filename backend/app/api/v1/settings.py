@@ -378,6 +378,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
         "sponsor_button_enabled": general.get("sponsorButtonEnabled", True),
+        "gamification_enabled": general.get("gamificationEnabled", False),
         "update_check_enabled": general.get("updateCheckEnabled", True),
         "announce_upgrades_enabled": general.get("announceUpgradesEnabled", True),
         "extension_notices_enabled": general.get("extensionNoticesEnabled", True),
@@ -951,6 +952,47 @@ async def update_sponsor_button_enabled(
     row.general_settings = general
 
     await _audit_setting(db, user, "sponsor-button-enabled", old, general["sponsorButtonEnabled"])
+    await db.commit()
+    return {"ok": True}
+
+
+class GamificationEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/gamification-enabled")
+async def get_gamification_enabled(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Whether saves that raise a card's data-quality score play the reward animation.
+
+    Off by default: the animated score, the flying gain and the sticky score
+    bar only appear once an administrator turns them on. The value also rides
+    along on ``GET /settings/bootstrap``; this read is the hook's fallback.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("gamificationEnabled", False)}
+
+
+@router.patch("/gamification-enabled")
+async def update_gamification_enabled(
+    body: GamificationEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — turn the gamified data-quality feedback on or off."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    old = general.get("gamificationEnabled", False)
+    general["gamificationEnabled"] = body.enabled
+    row.general_settings = general
+
+    await _audit_setting(db, user, "gamification-enabled", old, general["gamificationEnabled"])
     await db.commit()
     return {"ok": True}
 

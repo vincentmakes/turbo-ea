@@ -6689,6 +6689,19 @@
         "title": "ForgotPasswordRequest",
         "type": "object"
       },
+      "GamificationEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "GamificationEnabledPayload",
+        "type": "object"
+      },
       "GrcEnabledPayload": {
         "properties": {
           "enabled": {
@@ -39618,6 +39631,64 @@
           }
         },
         "summary": "Update Fiscal Year Start",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/gamification-enabled": {
+      "get": {
+        "description": "Whether saves that raise a card's data-quality score play the reward animation.\n\nOff by default: the animated score, the flying gain and the sticky score\nbar only appear once an administrator turns them on. The value also rides\nalong on ``GET /settings/bootstrap``; this read is the hook's fallback.",
+        "operationId": "get_gamification_enabled_api_v1_settings_gamification_enabled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Gamification Enabled",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 turn the gamified data-quality feedback on or off.",
+        "operationId": "update_gamification_enabled_api_v1_settings_gamification_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GamificationEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Gamification Enabled",
         "tags": [
           "settings"
         ]

@@ -28,6 +28,7 @@ import { invalidateResourceTypes } from "@/hooks/useResourceTypes";
 import { invalidateCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateSponsorButtonEnabled } from "@/hooks/useSponsorButtonEnabled";
+import { invalidateGamificationEnabled } from "@/hooks/useGamificationEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { invalidateAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
@@ -50,6 +51,7 @@ type BootstrapResponse = {
   turbolens_enabled: boolean;
   grc_enabled: boolean;
   sponsor_button_enabled: boolean;
+  gamification_enabled: boolean;
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
@@ -100,6 +102,8 @@ export function primeBootstrap(): Promise<void> {
       invalidatePpmEnabled(r.ppm_enabled);
       invalidateGrcEnabled(r.grc_enabled);
       invalidateSponsorButtonEnabled(r.sponsor_button_enabled);
+      // Off unless the backend says true (an older backend omits the key).
+      invalidateGamificationEnabled(r.gamification_enabled === true);
       invalidateFileUploadsEnabled(r.file_uploads_enabled);
 
       if (typeof r.archive_retention_days === "number") {

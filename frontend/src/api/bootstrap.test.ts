@@ -23,6 +23,7 @@ const BASE = {
   turbolens_enabled: false,
   grc_enabled: true,
   sponsor_button_enabled: true,
+  gamification_enabled: false,
   file_uploads_enabled: true,
   enabled_locales: ["en"],
   fiscal_year_start: 1,
@@ -151,5 +152,45 @@ describe("primeBootstrap — card type categories", () => {
     const { result } = renderHook(() => useCardTypeCategories());
     await waitFor(() => expect(result.current.loaded).toBe(true));
     expect(api.get).toHaveBeenLastCalledWith("/metamodel/categories");
+  });
+});
+
+describe("primeBootstrap — gamified data quality", () => {
+  it("primes the toggle on so the hook never fetches its own endpoint", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE, gamification_enabled: true });
+    await boot.primeBootstrap();
+
+    const { renderHook } = await import("@testing-library/react");
+    const { useGamificationEnabled } = await import("@/hooks/useGamificationEnabled");
+    const { result } = renderHook(() => useGamificationEnabled());
+    expect(result.current).toBe(true);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("primes the toggle off when the backend says false", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE, gamification_enabled: false });
+    await boot.primeBootstrap();
+
+    const { renderHook } = await import("@testing-library/react");
+    const { useGamificationEnabled } = await import("@/hooks/useGamificationEnabled");
+    const { result } = renderHook(() => useGamificationEnabled());
+    expect(result.current).toBe(false);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a backend without the key as off, still without a second fetch", async () => {
+    const { boot } = await fresh();
+    const legacy: Record<string, unknown> = { ...BASE };
+    delete legacy.gamification_enabled;
+    vi.mocked(api.get).mockResolvedValueOnce(legacy);
+    await boot.primeBootstrap();
+
+    const { renderHook } = await import("@testing-library/react");
+    const { useGamificationEnabled } = await import("@/hooks/useGamificationEnabled");
+    const { result } = renderHook(() => useGamificationEnabled());
+    expect(result.current).toBe(false);
+    expect(api.get).toHaveBeenCalledTimes(1);
   });
 });
