@@ -127,6 +127,21 @@ export async function useDateFormatModule() {
 
 export async function useCurrencyModule() {
   const actual = await vi.importActual<typeof import("@/hooks/useCurrency")>("@/hooks/useCurrency");
+  // One pair of formatters per symbol, as the real hook memoises them on the
+  // currency: a component that memoises on `fmt` / `fmtShort` sees the same
+  // functions across re-renders, and fresh ones when the symbol changes.
+  const formatters = new Map<
+    string,
+    { fmt: { format: (v: number) => string }; fmtShort: (v: number) => string }
+  >();
+  const formattersFor = (symbol: string) => {
+    let entry = formatters.get(symbol);
+    if (!entry) {
+      entry = { fmt: { format: (v: number) => `${symbol}${v}` }, fmtShort: (v: number) => `${symbol}${v}` };
+      formatters.set(symbol, entry);
+    }
+    return entry;
+  };
   return {
     ...actual,
     invalidateCurrency: vi.fn(),
@@ -135,8 +150,7 @@ export async function useCurrencyModule() {
       return {
         currency,
         loading,
-        fmt: { format: (v: number) => `${symbol}${v}` },
-        fmtShort: (v: number) => `${symbol}${v}`,
+        ...formattersFor(symbol),
         symbol,
         invalidate: vi.fn(),
       };

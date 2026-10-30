@@ -12,15 +12,19 @@ vi.mock("@/api/client", () => ({
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 
+import i18n from "@/i18n";
 import { api } from "@/api/client";
 import { echartState } from "@/test/echartMock";
 import { hookState } from "@/test/hooks";
+import { BPM_ASSESSMENT_COLORS } from "@/theme/tokens";
 import { DIMENSIONS } from "./bpmChartOptions";
 import ProcessAssessmentPanel from "./ProcessAssessmentPanel";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- option trees are plain JSON here */
 
 const TREND = "Process Assessments";
+/** The five dimension names, in series order, as the table header shows them. */
+const ENGLISH_NAMES = ["Overall", "Efficiency", "Effectiveness", "Compliance", "Automation"];
 
 const mockAssessments = [
   {
@@ -125,15 +129,14 @@ describe("ProcessAssessmentPanel", () => {
 
     const option = echartState.byName(TREND).option;
     expect(option.xAxis.data).toEqual(["01 May 2025", "15 Jun 2025"]);
-    expect(option.series.map((s: any) => s.name)).toEqual(DIMENSIONS.map((d) => d.label));
-    expect(option.series.map((s: any) => s.name)).toEqual([
-      "Overall",
-      "Efficiency",
-      "Effectiveness",
-      "Compliance",
-      "Automation",
+    expect(option.series.map((s: any) => s.name)).toEqual(ENGLISH_NAMES);
+    expect(option.series.map((s: any) => s.lineStyle.color)).toEqual([
+      BPM_ASSESSMENT_COLORS.overall_score,
+      BPM_ASSESSMENT_COLORS.efficiency,
+      BPM_ASSESSMENT_COLORS.effectiveness,
+      BPM_ASSESSMENT_COLORS.compliance,
+      BPM_ASSESSMENT_COLORS.automation,
     ]);
-    expect(option.series.map((s: any) => s.lineStyle.color)).toEqual(DIMENSIONS.map((d) => d.color));
     expect(option.series.map((s: any) => s.data)).toEqual([
       [3, 4],
       [2, 3],
@@ -151,8 +154,31 @@ describe("ProcessAssessmentPanel", () => {
     const option = echartState.byName(TREND).option;
     expect(option.yAxis).toMatchObject({ type: "value", min: 1, max: 5, interval: 1, position: "left" });
     expect(option.legend.selectedMode).toBe(false);
-    expect(option.legend.data).toEqual(DIMENSIONS.map((d) => d.label));
+    expect(option.legend.data).toEqual(ENGLISH_NAMES);
     expect(option.xAxis.inverse).toBe(false);
+  });
+
+  it("names the legend, the series and the sliders in the reader's language", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      const de = i18n.getFixedT("de", "bpm");
+      const names = DIMENSIONS.map((d) => de(d.labelKey));
+      // German really differs, so the English names cannot pass for it.
+      expect(names).not.toEqual(ENGLISH_NAMES);
+
+      renderPanel();
+      const chart = await screen.findByRole("img", { name: de("assessment.title") });
+      expect(chart).toBeInTheDocument();
+      const option = echartState.byName(de("assessment.title")).option;
+      expect(option.legend.data).toEqual(names);
+      expect(option.series.map((s: any) => s.name)).toEqual(names);
+
+      await userEvent.click(screen.getByText(de("assessment.newAssessment"), { selector: "button" }));
+      const dialog = screen.getByRole("dialog");
+      for (const name of names) expect(within(dialog).getByText(`${name}: 3`)).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("mirrors the trend in a right-to-left language", async () => {
@@ -163,6 +189,24 @@ describe("ProcessAssessmentPanel", () => {
     const option = echartState.byName(TREND).option;
     expect(option.xAxis.inverse).toBe(true);
     expect(option.yAxis.position).toBe("right");
+  });
+
+  it("edges each dimension in the guide with its trend colour", async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole("button", { name: "Assessment guide" }));
+
+    const edge = (title: string) => getComputedStyle(screen.getByText(title, { selector: "p" }).parentElement!).borderLeft;
+    const rgb = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `3px solid rgb(${n >> 16}, ${(n >> 8) & 255}, ${n & 255})`;
+    };
+    const guide = within(screen.getByRole("presentation"));
+    expect(guide.getByText("Assessment Guide")).toBeInTheDocument();
+    expect(edge("Efficiency")).toBe(rgb(BPM_ASSESSMENT_COLORS.efficiency));
+    expect(edge("Effectiveness")).toBe(rgb(BPM_ASSESSMENT_COLORS.effectiveness));
+    expect(edge("Compliance")).toBe(rgb(BPM_ASSESSMENT_COLORS.compliance));
+    expect(edge("Automation")).toBe(rgb(BPM_ASSESSMENT_COLORS.automation));
+    expect(edge("Overall")).toBe(rgb(BPM_ASSESSMENT_COLORS.overall_score));
   });
 
   it("shows empty state when no assessments", async () => {
@@ -189,11 +233,8 @@ describe("ProcessAssessmentPanel", () => {
     renderPanel();
     await userEvent.click(screen.getByText("New Assessment"));
 
-    expect(screen.getByText(/Overall:/)).toBeInTheDocument();
-    expect(screen.getByText(/Efficiency:/)).toBeInTheDocument();
-    expect(screen.getByText(/Effectiveness:/)).toBeInTheDocument();
-    expect(screen.getByText(/Compliance:/)).toBeInTheDocument();
-    expect(screen.getByText(/Automation:/)).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    for (const name of ENGLISH_NAMES) expect(within(dialog).getByText(`${name}: 3`)).toBeInTheDocument();
   });
 
   it("submits new assessment", async () => {

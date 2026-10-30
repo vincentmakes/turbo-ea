@@ -135,6 +135,37 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
   const capexColor = theme.palette.primary.main;
   const opexColor = theme.palette.secondary.main;
 
+  // Each chart's lines and budget references, memoised: `CumulativeChart`
+  // builds its option from them in a `useMemo`, and a fresh array on every
+  // render here would rebuild that option — and redraw the chart — each time.
+  const categoryLines = useMemo<CumulativeLine[]>(
+    () => [
+      { key: "capex", name: t("cumulativeCapex"), color: capexColor },
+      { key: "opex", name: t("cumulativeOpex"), color: opexColor },
+    ],
+    [t, capexColor, opexColor],
+  );
+  const totalLines = useMemo<CumulativeLine[]>(
+    () => [{ key: "total", name: t("cumulativeSpend"), color: capexColor }],
+    [t, capexColor],
+  );
+  const fyCategoryReferences = useMemo(
+    () => categoryReferences(fyBudget, t("capexBudgetLine"), t("opexBudgetLine"), capexColor, opexColor),
+    [fyBudget, t, capexColor, opexColor],
+  );
+  const fyTotalReferences = useMemo<BudgetReference[]>(
+    () =>
+      fyBudget.total > 0
+        ? [{ value: fyBudget.total, name: t("totalBudgetLine"), color: capexColor }]
+        : [],
+    [fyBudget, t, capexColor],
+  );
+  const projectReferences = useMemo(
+    () =>
+      categoryReferences(projectBudget, t("capexBudgetLine"), t("opexBudgetLine"), capexColor, opexColor),
+    [projectBudget, t, capexColor, opexColor],
+  );
+
   // Nothing to plot at all — leave the tab as it was rather than showing an
   // empty frame.
   if (costLines.length === 0 && budgetLines.length === 0) return null;
@@ -189,18 +220,8 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
             <CumulativeChart
               data={fySeries}
               labelledBy={`${headingId}-cat`}
-              lines={[
-                { key: "capex", name: t("cumulativeCapex"), color: capexColor },
-                { key: "opex", name: t("cumulativeOpex"), color: opexColor },
-              ]}
-              references={[
-                ...(fyBudget.capex > 0
-                  ? [{ value: fyBudget.capex, name: t("capexBudgetLine"), color: capexColor }]
-                  : []),
-                ...(fyBudget.opex > 0
-                  ? [{ value: fyBudget.opex, name: t("opexBudgetLine"), color: opexColor }]
-                  : []),
-              ]}
+              lines={categoryLines}
+              references={fyCategoryReferences}
               {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
             />
           </Box>
@@ -213,12 +234,8 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
             <CumulativeChart
               data={fySeries}
               labelledBy={`${headingId}-total`}
-              lines={[{ key: "total", name: t("cumulativeSpend"), color: capexColor }]}
-              references={
-                fyBudget.total > 0
-                  ? [{ value: fyBudget.total, name: t("totalBudgetLine"), color: capexColor }]
-                  : []
-              }
+              lines={totalLines}
+              references={fyTotalReferences}
               {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
             />
           </Box>
@@ -232,18 +249,8 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
           <CumulativeChart
             data={projectSeries}
             labelledBy={`${headingId}-proj`}
-            lines={[
-              { key: "capex", name: t("cumulativeCapex"), color: capexColor },
-              { key: "opex", name: t("cumulativeOpex"), color: opexColor },
-            ]}
-            references={[
-              ...(projectBudget.capex > 0
-                ? [{ value: projectBudget.capex, name: t("capexBudgetLine"), color: capexColor }]
-                : []),
-              ...(projectBudget.opex > 0
-                ? [{ value: projectBudget.opex, name: t("opexBudgetLine"), color: opexColor }]
-                : []),
-            ]}
+            lines={categoryLines}
+            references={projectReferences}
             {...{ fmt, fmtShort, locale: i18n.language, emptyLabel: t("noChartData") }}
           />
         </Box>
@@ -256,6 +263,20 @@ export default function PpmCostCharts({ costLines, budgetLines }: Props) {
       </Collapse>
     </Paper>
   );
+}
+
+/** The dotted CapEx and OpEx budget lines, each only when that budget is set. */
+function categoryReferences(
+  budget: { capex: number; opex: number },
+  capexName: string,
+  opexName: string,
+  capexColor: string,
+  opexColor: string,
+): BudgetReference[] {
+  return [
+    ...(budget.capex > 0 ? [{ value: budget.capex, name: capexName, color: capexColor }] : []),
+    ...(budget.opex > 0 ? [{ value: budget.opex, name: opexName, color: opexColor }] : []),
+  ];
 }
 
 /* ── Shared chart body ───────────────────────────────────────────────── */

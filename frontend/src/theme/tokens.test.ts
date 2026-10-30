@@ -43,6 +43,7 @@ describe("colour tokens", () => {
       COMPLIANCE_LIFECYCLE_COLORS: t.COMPLIANCE_LIFECYCLE_COLORS,
       CARD_TYPE_COLORS: t.CARD_TYPE_COLORS,
       LAYER_COLORS: t.LAYER_COLORS,
+      BPM_ASSESSMENT_COLORS: t.BPM_ASSESSMENT_COLORS,
     };
     for (const [name, group] of Object.entries(groups)) {
       for (const [key, value] of Object.entries(group)) {
@@ -52,6 +53,19 @@ describe("colour tokens", () => {
     for (const c of t.CATEGORICAL_COLORS) expect(c).toMatch(/^#[0-9a-f]{6}$/i);
     // Matches the backend's default for a category created without a colour.
     expect(t.DEFAULT_LAYER_COLOR).toBe("#999999");
+  });
+
+  it("give each of the five BPM assessment dimensions its own hue", async () => {
+    const t = await freshTokens();
+    expect(Object.keys(t.BPM_ASSESSMENT_COLORS)).toEqual([
+      "overall_score",
+      "efficiency",
+      "effectiveness",
+      "compliance",
+      "automation",
+    ]);
+    const hues = Object.values(t.BPM_ASSESSMENT_COLORS);
+    expect(new Set(hues).size).toBe(hues.length);
   });
 
   it("name the four EA layers", async () => {

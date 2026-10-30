@@ -9,7 +9,7 @@
  * toggle that choose which data that is.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { PpmBudgetLine, PpmCostLine } from "@/types";
 
@@ -19,6 +19,7 @@ vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlM
 
 vi.mock("@/components/charts/EChart", () => import("@/test/echartMock").then((m) => m.echartModule()));
 
+import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { echartState } from "@/test/echartMock";
@@ -276,7 +277,7 @@ describe("PpmCostCharts — project chart and chrome", () => {
   it("stretches the value axis to a budget above the spend", () => {
     renderCharts();
     // CapEx budget 800 against at most 160 spent.
-    expect(optionOf("Project to date").yAxis.max({ max: 200 })).toBe(800);
+    expect(optionOf("Project to date").yAxis.max).toBe(800);
   });
 
   it("formats axis ticks, tooltips and legend entries through the currency helpers", () => {
@@ -297,8 +298,81 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.animation).toBe(false);
     expect(option.xAxis.inverse).toBe(false);
     expect(option.yAxis.position).toBe("left");
-    // Both budgets (800, 200) are above the spend (160): labels drop below the line.
-    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndBottom"]);
+    // The axis runs to the CapEx budget (800): its label drops below the line,
+    // at the top edge; the OpEx budget (200) is far below it, so its label
+    // sits above — though both are above the spend (160).
+    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
+  });
+
+  it("keeps every chart's option when the tab re-renders with the same data", async () => {
+    const { user, rerender } = renderCharts();
+    // A year with a budget on both charts, so every chart draws budget lines.
+    await pickYear(user, "FY 2020");
+    const NAMES = ["Cumulative spend by category", "Cumulative total spend", "Project to date"];
+    const before = NAMES.map((name) => optionOf(name));
+    expect(refsOf("Cumulative total spend")).toEqual([["Total budget", 700]]);
+
+    rerender(<PpmCostCharts costLines={COSTS} budgetLines={BUDGETS} />);
+
+    // Same lines and budget references, so no option is rebuilt (and no
+    // chart redrawn with `notMerge`).
+    NAMES.forEach((name, i) => expect(optionOf(name)).toBe(before[i]));
+  });
+
+  it("rebuilds the charts when the budget changes", async () => {
+    const { user, rerender } = renderCharts();
+    await pickYear(user, "FY 2020");
+    const before = optionOf("Cumulative spend by category");
+
+    rerender(
+      <PpmCostCharts
+        costLines={COSTS}
+        budgetLines={[...BUDGETS, budget({ id: "b4", fiscal_year: 2020, category: "opex", amount: 50 })]}
+      />,
+    );
+
+    expect(optionOf("Cumulative spend by category")).not.toBe(before);
+    expect(refsOf("Cumulative spend by category")).toEqual([
+      ["CapEx budget", 500],
+      ["OpEx budget", 250],
+    ]);
+    expect(refsOf("Cumulative total spend")).toEqual([["Total budget", 750]]);
+    expect(refsOf("Project to date")).toEqual([
+      ["CapEx budget", 800],
+      ["OpEx budget", 250],
+    ]);
+  });
+
+  it("renames every line and budget line when the language changes", async () => {
+    const { user } = renderCharts();
+    await pickYear(user, "FY 2020");
+    try {
+      await act(() => i18n.changeLanguage("de"));
+      const de = i18n.getFixedT("de", "ppm");
+      // German really differs, so a stale English name cannot pass for it.
+      expect(de("cumulativeCapex")).not.toBe("Cumulative CapEx");
+
+      expect(linesOf(de("cumulativeByCategory"))).toEqual([
+        ["capex", de("cumulativeCapex")],
+        ["opex", de("cumulativeOpex")],
+      ]);
+      expect(refsOf(de("cumulativeByCategory"))).toEqual([
+        [de("capexBudgetLine"), 500],
+        [de("opexBudgetLine"), 200],
+      ]);
+      expect(linesOf(de("cumulativeTotal"))).toEqual([["total", de("cumulativeSpend")]]);
+      expect(refsOf(de("cumulativeTotal"))).toEqual([[de("totalBudgetLine"), 700]]);
+      expect(linesOf(de("projectCumulative"))).toEqual([
+        ["capex", de("cumulativeCapex")],
+        ["opex", de("cumulativeOpex")],
+      ]);
+      expect(refsOf(de("projectCumulative"))).toEqual([
+        [de("capexBudgetLine"), 800],
+        [de("opexBudgetLine"), 200],
+      ]);
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
   });
 
   it("counts undated cost lines that the charts cannot place", () => {
@@ -348,7 +422,7 @@ describe("PpmCostCharts — project chart and chrome", () => {
     expect(option.legend.left).toBe("right");
     expect(option.legend.data).toEqual(["Cumulative CapEx", "Cumulative OpEx"]);
     // A mark line runs along the inverted axis, so its end is already the left.
-    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndBottom"]);
+    expect(labelPositionsOf("Project to date")).toEqual(["insideEndBottom", "insideEndTop"]);
   });
 });
 

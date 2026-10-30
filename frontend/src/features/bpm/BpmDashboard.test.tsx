@@ -37,9 +37,13 @@ vi.mock("./useProcessTypeOptions", () => {
     Management: "#aa0055",
   };
   return {
+    // The metamodel lists Management first: the pie follows this order, not
+    // the dashboard's (and not the alphabet).
     useProcessTypeOptions: () => ({
       options: [],
-      byKey: new Map(),
+      byKey: new Map(
+        ["Management", "Core", "Support"].map((key) => [key, { key, label: LABELS[key], color: COLORS[key] }]),
+      ),
       defaultKey: "core",
       loading: false,
       resolve: (key: string) => ({ key, label: LABELS[key] ?? key, color: COLORS[key] ?? "#999999" }),
@@ -208,13 +212,13 @@ describe("BpmDashboard", () => {
     const pie = series(PIE);
     expect(pie.type).toBe("pie");
     // "Management" resolves to the customized label "Strategic"; "unknown" is dropped.
-    expect(pie.data.map((d: any) => d.name)).toEqual(["Core", "Support", "Strategic"]);
-    expect(pie.data.map((d: any) => d.key)).toEqual(["Core", "Support", "Management"]);
-    expect(pie.data.map((d: any) => d.value)).toEqual([20, 15, 7]);
-    expect(pie.data.map((d: any) => d.itemStyle.color)).toEqual(["#00aa55", "#0055aa", "#aa0055"]);
+    expect(pie.data.map((d: any) => d.name)).toEqual(["Strategic", "Core", "Support"]);
+    expect(pie.data.map((d: any) => d.key)).toEqual(["Management", "Core", "Support"]);
+    expect(pie.data.map((d: any) => d.value)).toEqual([7, 20, 15]);
+    expect(pie.data.map((d: any) => d.itemStyle.color)).toEqual(["#aa0055", "#00aa55", "#0055aa"]);
     expect(pie.cursor).toBe("pointer");
     expect(pie.name).toBe("Processes");
-    expect(echartState.byName(PIE).option.legend.data).toEqual(["Core", "Support", "Strategic"]);
+    expect(echartState.byName(PIE).option.legend.data).toEqual(["Strategic", "Core", "Support"]);
   });
 
   it("labels the maturity columns with the resolved option labels, not raw keys", async () => {
@@ -254,26 +258,29 @@ describe("BpmDashboard", () => {
     ]);
   });
 
-  it("keeps the process-type pie in data order", async () => {
+  it("orders the process-type slices by the metamodel's options, unknown types last in data order", async () => {
     vi.mocked(api.get).mockResolvedValue({
       ...mockDashboard,
-      by_process_type: { Support: 15, Management: 7, Core: 20 },
+      by_process_type: { Legacy: 3, Support: 15, Core: 20, Retired: 1, Management: 7, unknown: 2 },
     });
     await renderDashboard();
 
-    expect(series(PIE).data.map((d: any) => d.key)).toEqual(["Support", "Management", "Core"]);
+    expect(series(PIE).data.map((d: any) => d.key)).toEqual(["Management", "Core", "Support", "Legacy", "Retired"]);
+    expect(series(PIE).data.map((d: any) => d.value)).toEqual([7, 20, 15, 3, 1]);
   });
 
-  it("keeps every column label, wrapped at word boundaries", async () => {
+  it("keeps every column label, wrapped at a space and truncated per line", async () => {
     await renderDashboard();
 
     for (const name of [MATURITY, AUTOMATION]) {
-      expect(echartState.byName(name).option.xAxis.axisLabel).toMatchObject({
+      const axisLabel = echartState.byName(name).option.xAxis.axisLabel;
+      expect(axisLabel).toMatchObject({
         interval: 0,
         hideOverlap: false,
-        overflow: "break",
+        overflow: "truncate",
         width: BPM_COLUMN_LABEL_WIDTH,
       });
+      expect(axisLabel.formatter("Partially automated")).toBe("Partially\nautomated");
     }
   });
 

@@ -69,7 +69,14 @@ function BpmDashboardContent() {
   const { t } = useTranslation(["bpm", "common"]);
   const navigate = useNavigate();
   const chartTheme = useEChartsTheme();
-  const { resolve: resolveProcessType } = useProcessTypeOptions();
+  const { resolve: resolveProcessType, byKey: processTypes } = useProcessTypeOptions();
+  // The pie's slices in the metamodel's option order (hidden options keep
+  // their place), a type the field does not define last — the same rule as
+  // the columns' `useBpmFieldOptions(...).order`.
+  const processTypeOrder = useMemo(() => {
+    const index = new Map([...processTypes.keys()].map((key, i) => [key, i]));
+    return (key: string) => index.get(key) ?? index.size;
+  }, [processTypes]);
   const { resolve: resolveMaturity, order: maturityOrder } = useBpmFieldOptions("maturity");
   const { resolve: resolveAutomation, order: automationOrder } = useBpmFieldOptions("automationLevel");
   const [data, setData] = useState<BpmDashboardData | null>(null);
@@ -88,7 +95,7 @@ function BpmDashboardContent() {
   // empty until the dashboard arrives.
   const charts = useMemo(
     () => ({
-      processType: processTypePieOption(knownRows(data?.by_process_type ?? {}), {
+      processType: processTypePieOption(knownRows(data?.by_process_type ?? {}, processTypeOrder), {
         chrome: chartTheme,
         isRtl: chartTheme.isRtl,
         label: (key) => resolveProcessType(key).label,
@@ -113,6 +120,7 @@ function BpmDashboardContent() {
       data,
       chartTheme,
       resolveProcessType,
+      processTypeOrder,
       resolveMaturity,
       maturityOrder,
       resolveAutomation,

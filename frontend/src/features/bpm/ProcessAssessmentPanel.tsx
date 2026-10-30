@@ -33,6 +33,7 @@ import { todayIsoDate } from "@/lib/dates";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import EChart from "@/components/charts/EChart";
 import { useEChartsTheme } from "@/components/charts/echartsTheme";
+import { BPM_ASSESSMENT_COLORS } from "@/theme/tokens";
 import type { ProcessAssessment } from "@/types";
 import { DIMENSIONS, assessmentTrendOption } from "./bpmChartOptions";
 
@@ -84,6 +85,13 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
     load();
   };
 
+  // The dimensions with their names in the reader's language: the legend,
+  // the series names and the dialog's slider captions.
+  const dimensions = useMemo(
+    () => DIMENSIONS.map((d) => ({ key: d.key, label: t(d.labelKey), color: d.color })),
+    [t],
+  );
+
   // Chart data (oldest first), scores in dimension order
   const chartData = useMemo(
     () =>
@@ -94,8 +102,8 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
     [assessments, formatDate],
   );
   const trendOption = useMemo(
-    () => assessmentTrendOption(chartData, DIMENSIONS, { chrome: chartTheme, isRtl: chartTheme.isRtl }),
-    [chartData, chartTheme],
+    () => assessmentTrendOption(chartData, dimensions, { chrome: chartTheme, isRtl: chartTheme.isRtl }),
+    [chartData, dimensions, chartTheme],
   );
 
   return (
@@ -193,7 +201,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
             value={form.assessment_date}
             onChange={(v) => setForm({ ...form, assessment_date: v })}
           />
-          {DIMENSIONS.map((d) => (
+          {dimensions.map((d) => (
             <Box key={d.key} sx={{ mt: 2 }}>
               <Typography variant="body2" gutterBottom>
                 {d.label}: {form[d.key]}
@@ -256,11 +264,11 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
             {t("assessment.helpDimensions")}
           </Typography>
           {[
-            { title: "helpEfficiencyTitle", desc: "helpEfficiencyDesc", color: "#4caf50" },
-            { title: "helpEffectivenessTitle", desc: "helpEffectivenessDesc", color: "#ff9800" },
-            { title: "helpComplianceTitle", desc: "helpComplianceDesc", color: "#9c27b0" },
-            { title: "helpAutomationTitle", desc: "helpAutomationDesc", color: "#00bcd4" },
-            { title: "helpOverallTitle", desc: "helpOverallDesc", color: "#1976d2" },
+            { title: "helpEfficiencyTitle", desc: "helpEfficiencyDesc", color: BPM_ASSESSMENT_COLORS.efficiency },
+            { title: "helpEffectivenessTitle", desc: "helpEffectivenessDesc", color: BPM_ASSESSMENT_COLORS.effectiveness },
+            { title: "helpComplianceTitle", desc: "helpComplianceDesc", color: BPM_ASSESSMENT_COLORS.compliance },
+            { title: "helpAutomationTitle", desc: "helpAutomationDesc", color: BPM_ASSESSMENT_COLORS.automation },
+            { title: "helpOverallTitle", desc: "helpOverallDesc", color: BPM_ASSESSMENT_COLORS.overall_score },
           ].map((d) => (
             <Box
               key={d.title}

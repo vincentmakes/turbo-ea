@@ -8,7 +8,7 @@ vi.mock("@/features/dashboard/charts/buildOption", async (importOriginal) => {
 
 import { buildOption, type BuildContext } from "@/features/dashboard/charts/buildOption";
 import { buildEChartsChrome } from "@/components/charts/echartsTheme";
-import { RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
+import { BPM_ASSESSMENT_COLORS, RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import {
   AUTOMATION_COLOR,
   BPM_COLUMN_LABEL_LINE_HEIGHT,
@@ -21,6 +21,7 @@ import {
   maturityColor,
   maturityColumnOption,
   processTypePieOption,
+  wrapAtSpace,
   wrapColumnLabels,
 } from "./bpmChartOptions";
 
@@ -82,15 +83,17 @@ describe("maturityColor", () => {
   });
 });
 
-// Every category keeps its label, wrapped at word boundaries in a narrow card.
+// Every category keeps its label, on two lines broken at a space, each line
+// cut with an ellipsis rather than split mid-word.
 const WRAPPED_LABEL = {
   color: "#666666",
   fontSize: 12,
   interval: 0,
   hideOverlap: false,
-  overflow: "break",
+  overflow: "truncate",
   width: 64,
   lineHeight: 14,
+  formatter: expect.any(Function),
 };
 
 describe("BPM column label constants", () => {
@@ -100,33 +103,78 @@ describe("BPM column label constants", () => {
   });
 });
 
+describe("wrapAtSpace", () => {
+  it("breaks a two-word label at its space", () => {
+    expect(wrapAtSpace("Partially Automated")).toBe("Partially\nAutomated");
+  });
+
+  it("breaks at the space closest to the middle, never after the level number", () => {
+    expect(wrapAtSpace("2 - Managed")).toBe("2 -\nManaged");
+    expect(wrapAtSpace("4 - Measured")).toBe("4 -\nMeasured");
+  });
+
+  it("breaks an Arabic label only at a space, never inside a word", () => {
+    expect(wrapAtSpace("4 - مُقاس")).toBe("4 -\nمُقاس");
+    expect(wrapAtSpace("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
+  });
+
+  it("leaves a single word whole, on one line", () => {
+    expect(wrapAtSpace("Manual")).toBe("Manual");
+    expect(wrapAtSpace("مُحسَّن")).toBe("مُحسَّن");
+    expect(wrapAtSpace("")).toBe("");
+  });
+
+  it("makes exactly two lines of three words, split nearest the middle", () => {
+    expect(wrapAtSpace("aaa b c")).toBe("aaa\nb c");
+    expect(wrapAtSpace("a b ccc")).toBe("a b\nccc");
+    // Both spaces are as far from the middle: the earlier one wins.
+    expect(wrapAtSpace("a b c")).toBe("a\nb c");
+  });
+
+  it("trims spaces around the label and around the break", () => {
+    expect(wrapAtSpace("  Manual  ")).toBe("Manual");
+    expect(wrapAtSpace(" Partially Automated ")).toBe("Partially\nAutomated");
+    expect(wrapAtSpace("a  bb")).toBe("a\nbb");
+    expect(wrapAtSpace("aa  b")).toBe("aa\nb");
+  });
+});
+
 describe("wrapColumnLabels", () => {
   const built = {
     grid: { top: 16, bottom: 8, left: 8, containLabel: true },
     xAxis: {
       type: "category",
       data: ["A", "B"],
-      axisLabel: { color: "#666666", interval: 3, hideOverlap: true, width: 96, overflow: "truncate" },
+      axisLabel: { color: "#666666", interval: 3, hideOverlap: true, width: 96, overflow: "break" },
     },
     yAxis: { type: "value" },
     series: [{ type: "bar" }],
   };
 
-  it("shows every label, wrapped at word boundaries within the given width", () => {
+  it("shows every label, each line truncated within the given width", () => {
     const option = wrapColumnLabels(built, 50) as any;
     expect(option.xAxis.axisLabel).toEqual({
       color: "#666666",
       interval: 0,
       hideOverlap: false,
-      overflow: "break",
+      overflow: "truncate",
       width: 50,
       lineHeight: 14,
+      formatter: expect.any(Function),
     });
   });
 
-  it("raises the grid's bottom inset by one label line and keeps the rest of the grid", () => {
+  it("wraps each label at a space through its formatter", () => {
+    const { formatter } = (wrapColumnLabels(built, 50) as any).xAxis.axisLabel;
+    expect(formatter("2 - Managed")).toBe("2 -\nManaged");
+    expect(formatter("مؤتمت بالكامل")).toBe("مؤتمت\nبالكامل");
+    expect(formatter("Manual")).toBe("Manual");
+  });
+
+  it("leaves the grid as built: its containLabel already measures two-line labels", () => {
     const option = wrapColumnLabels(built, 50) as any;
-    expect(option.grid).toEqual({ top: 16, bottom: 22, left: 8, containLabel: true });
+    expect(option.grid).toBe(built.grid);
+    expect(option.grid).toEqual({ top: 16, bottom: 8, left: 8, containLabel: true });
   });
 
   it("keeps the rest of the option and leaves its input untouched", () => {
@@ -135,13 +183,12 @@ describe("wrapColumnLabels", () => {
     expect(option.xAxis.data).toEqual(["A", "B"]);
     expect(option.yAxis).toBe(built.yAxis);
     expect(option.series).toBe(built.series);
-    expect(built.grid.bottom).toBe(8);
     expect(built.xAxis.axisLabel).toEqual({
       color: "#666666",
       interval: 3,
       hideOverlap: true,
       width: 96,
-      overflow: "truncate",
+      overflow: "break",
     });
   });
 });
@@ -195,10 +242,12 @@ describe("maturityColumnOption", () => {
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual(["#aa0000", "#00bb00", "#0000cc"]);
   });
 
-  it("keeps every level's label, wrapped, with room for a second line", () => {
+  it("keeps every level's label, wrapped at a space, the grid as built", () => {
     const option = maturityColumnOption(rows, { chrome, isRtl: false, label, color, seriesName: "P" }) as any;
     expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
-    expect(option.grid).toMatchObject({ top: 16, bottom: 22, containLabel: true });
+    expect(option.xAxis.axisLabel.formatter("4 - Measured")).toBe("4 -\nMeasured");
+    expect(option.grid).toBe(vi.mocked(buildOption).mock.results[0].value.grid);
+    expect(option.grid).toMatchObject({ top: 16, bottom: 8, containLabel: true });
   });
 
   it("mirrors in RTL", () => {
@@ -225,10 +274,12 @@ describe("automationColumnOption", () => {
     expect(s.data.map((d: any) => d.itemStyle.color)).toEqual([brand.primary, brand.primary, brand.primary]);
   });
 
-  it("keeps every level's label, wrapped, with room for a second line", () => {
+  it("keeps every level's label, wrapped at a space, the grid as built", () => {
     const option = automationColumnOption(rows, { chrome, isRtl: false, label, seriesName: "P" }) as any;
     expect(option.xAxis.axisLabel).toEqual(WRAPPED_LABEL);
-    expect(option.grid).toMatchObject({ top: 16, bottom: 22, containLabel: true });
+    expect(option.xAxis.axisLabel.formatter("Partially Automated")).toBe("Partially\nAutomated");
+    expect(option.grid).toBe(vi.mocked(buildOption).mock.results[0].value.grid);
+    expect(option.grid).toMatchObject({ top: 16, bottom: 8, containLabel: true });
   });
 
   it("mirrors in RTL", () => {
@@ -248,14 +299,28 @@ describe("DIMENSIONS", () => {
       "compliance",
       "automation",
     ]);
-    expect(DIMENSIONS.map((d) => d.label)).toEqual([
-      "Overall",
-      "Efficiency",
-      "Effectiveness",
-      "Compliance",
-      "Automation",
+    expect(DIMENSIONS.map((d) => d.labelKey)).toEqual([
+      "assessment.overall",
+      "assessment.efficiency",
+      "assessment.effectiveness",
+      "assessment.compliance",
+      "assessment.automation",
     ]);
-    expect(DIMENSIONS.map((d) => d.color)).toEqual(["#1976d2", "#4caf50", "#ff9800", "#9c27b0", "#00bcd4"]);
+  });
+
+  it("carries a translation key, never an English name", () => {
+    for (const d of DIMENSIONS) expect(d).not.toHaveProperty("label");
+  });
+
+  it("takes each dimension's colour from the assessment token, the same hues as before", () => {
+    expect(DIMENSIONS.map((d) => d.color)).toEqual(DIMENSIONS.map((d) => BPM_ASSESSMENT_COLORS[d.key]));
+    expect(BPM_ASSESSMENT_COLORS).toEqual({
+      overall_score: "#1976d2",
+      efficiency: "#4caf50",
+      effectiveness: "#ff9800",
+      compliance: "#9c27b0",
+      automation: "#00bcd4",
+    });
   });
 });
 
@@ -352,7 +417,8 @@ describe("assessmentTrendOption", () => {
   });
 
   it("draws the five assessment dimensions", () => {
-    const option = assessmentTrendOption(points, DIMENSIONS, { chrome, isRtl: false }) as any;
+    const dimensions = DIMENSIONS.map((d) => ({ label: d.labelKey, color: d.color }));
+    const option = assessmentTrendOption(points, dimensions, { chrome, isRtl: false }) as any;
     expect(option.series).toHaveLength(5);
     expect(option.series.map((s: any) => s.data)).toEqual([
       [3, 4],

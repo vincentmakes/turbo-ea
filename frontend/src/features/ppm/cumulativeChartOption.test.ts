@@ -8,6 +8,7 @@ import { buildEChartsChrome } from "@/components/charts/echartsTheme";
 import type { MonthPoint } from "./costChartData";
 import {
   BUDGET_DASH,
+  BUDGET_LABEL_TOP_BAND,
   PPM_LEGEND_LABEL_WIDTH,
   budgetAxisMax,
   budgetLabelPosition,
@@ -106,32 +107,35 @@ describe("budgetAxisMax", () => {
     expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 160 }])).toBeUndefined();
   });
 
-  it("extends the axis to the highest budget when it is above the data", () => {
-    const max = budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 161 }]);
-    expect(max?.({ max: 160 })).toBe(161);
+  it("is the highest budget when it is above the data", () => {
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...CAPEX_BUDGET, value: 161 }])).toBe(161);
   });
 
   it("takes the highest budget, in whatever order the lines come", () => {
-    const lowFirst = budgetAxisMax(POINTS, [CAPEX], [{ ...OPEX_BUDGET, value: 100 }, CAPEX_BUDGET]);
-    const highFirst = budgetAxisMax(POINTS, [CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 100 }]);
-    expect(lowFirst?.({ max: 160 })).toBe(500);
-    expect(highFirst?.({ max: 160 })).toBe(500);
+    expect(budgetAxisMax(POINTS, [CAPEX], [{ ...OPEX_BUDGET, value: 100 }, CAPEX_BUDGET])).toBe(500);
+    expect(budgetAxisMax(POINTS, [CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 100 }])).toBe(500);
   });
 
-  it("never lowers an axis ECharts already drew higher", () => {
-    const max = budgetAxisMax(POINTS, [CAPEX], [CAPEX_BUDGET]);
-    expect(max?.({ max: 600 })).toBe(600);
+  it("is the budget itself when nothing is plotted yet", () => {
+    expect(budgetAxisMax([], [CAPEX], [CAPEX_BUDGET])).toBe(500);
   });
 });
 
 describe("budgetLabelPosition", () => {
-  it("sits above a line inside the data", () => {
+  it("sits above a line well below the axis top", () => {
     expect(budgetLabelPosition(100, 160)).toBe("insideEndTop");
+    expect(budgetLabelPosition(89, 100)).toBe("insideEndTop");
   });
 
-  it("drops below a line at or over the top of the data, where the axis ends", () => {
-    expect(budgetLabelPosition(160, 160)).toBe("insideEndBottom");
-    expect(budgetLabelPosition(500, 160)).toBe("insideEndBottom");
+  it("drops below a line within a tenth of the axis top, where a label above would be clipped", () => {
+    expect(BUDGET_LABEL_TOP_BAND).toBe(0.9);
+    expect(budgetLabelPosition(90, 100)).toBe("insideEndBottom");
+    expect(budgetLabelPosition(100, 100)).toBe("insideEndBottom");
+    expect(budgetLabelPosition(97_000, 100_000)).toBe("insideEndBottom");
+  });
+
+  it("drops below a line above the given top too", () => {
+    expect(budgetLabelPosition(120, 100)).toBe("insideEndBottom");
   });
 });
 
@@ -228,7 +232,7 @@ describe("buildCumulativeOption — axes", () => {
 
   it("stretches the value axis to a budget above the data", () => {
     const { yAxis } = build([CAPEX, OPEX], [CAPEX_BUDGET]);
-    expect(yAxis.max({ max: 160 })).toBe(500);
+    expect(yAxis.max).toBe(500);
   });
 
   it("leaves the value axis its own ceiling when no budget is above the data", () => {
@@ -292,6 +296,40 @@ describe("buildCumulativeOption — series", () => {
     expect(BUDGET_DASH).toEqual([6, 4]);
     // 30 sits inside the data: room above the line.
     expect(opex).toMatchObject({ yAxis: 30, name: "OpEx budget", label: { position: "insideEndTop" } });
+  });
+
+  it("measures a label against the axis top, the highest budget when it is above the data", () => {
+    // Data tops out at 160; the axis runs to the 500 budget. 400 is well below
+    // that edge, so its label fits above the line — though it is over the data.
+    const [high, mid] = build([CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 400 }]).series[0].markLine.data;
+    expect(high.label.position).toBe("insideEndBottom");
+    expect(mid.label.position).toBe("insideEndTop");
+    // Over 450 (nine tenths of 500) it would be clipped.
+    const [, near] = build([CAPEX], [CAPEX_BUDGET, { ...OPEX_BUDGET, value: 460 }]).series[0].markLine.data;
+    expect(near.label.position).toBe("insideEndBottom");
+  });
+
+  it("measures a label against the data's top when every budget is within it", () => {
+    // 150 is within a tenth of the data's 160 top; 100 is not.
+    const [near, low] = build([CAPEX], [
+      { ...CAPEX_BUDGET, value: 150 },
+      { ...OPEX_BUDGET, value: 100 },
+    ]).series[0].markLine.data;
+    expect(near.label.position).toBe("insideEndBottom");
+    expect(low.label.position).toBe("insideEndTop");
+  });
+
+  it("drops the label of a budget just under a much larger data top", () => {
+    const points = [point(1, 50_000, 0), point(2, 100_000, 0)];
+    const option: any = buildCumulativeOption(
+      points,
+      ["Jan", "Feb"],
+      [CAPEX],
+      [{ ...CAPEX_BUDGET, value: 97_000 }],
+      opts(),
+    );
+    expect(option.yAxis).not.toHaveProperty("max");
+    expect(option.series[0].markLine.data[0].label.position).toBe("insideEndBottom");
   });
 
   it("keeps the label at the line's end in RTL — the inverted axis mirrors it", () => {

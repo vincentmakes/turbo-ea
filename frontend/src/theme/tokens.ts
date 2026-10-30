@@ -365,6 +365,16 @@ export const DASHBOARD_KPI_COLORS = {
   qualityPoor: RAG_COLORS.red,
 } as const;
 
+/** The BPM process-assessment trend: one categorical hue per scored
+ *  dimension, keyed by the assessment field it plots — not a status scale. */
+export const BPM_ASSESSMENT_COLORS = {
+  overall_score: "#1976d2",
+  efficiency: "#4caf50",
+  effectiveness: "#ff9800",
+  compliance: "#9c27b0",
+  automation: "#00bcd4",
+} as const;
+
 // ── Non-color tokens ────────────────────────────────────────────────────
 
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */
