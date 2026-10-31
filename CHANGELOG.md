@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.0] - 2026-10-31
+
+### Changed
+- UI SDK 1.33: extension charts can now draw scatter plots and shaded reference areas through the shared chart loader (`loadECharts`); the deprecated `loadRecharts` and `useChartTheme` entries are removed and the Recharts library is no longer shipped.
+
 ## [2.185.0] - 2026-10-31
 
 ### Added

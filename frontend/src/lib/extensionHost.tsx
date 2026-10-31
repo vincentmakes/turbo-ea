@@ -28,16 +28,13 @@
  * (multi-select filter dropdown), and `sdk.CardDetailSidePanel` (card drawer)
  * — ReportShell/CardDetailSidePanel lazy-loaded with Suspense handled
  * internally. Since SDK 1.8 the sdk also carries `useCurrency` (workspace
- * currency formatting), `MetricCard` (KPI tile), `ReportLegend`,
- * `UserMultiSelect` (shared multi-user picker over GET /users), and
- * `loadRecharts` — an async loader returning the recharts module from core's
- * code-split chunk, so extensions never bundle a charting library (deprecated
- * since 1.32, removed at 2.0 — use `loadECharts`). Since SDK 1.9
- * `useChartTheme` returns the theme-aware Recharts chrome (grid stroke, axis
- * ticks, tooltip styling) core reports used (deprecated since 1.32, removed
- * at 2.0 — use `loadECharts`). Since SDK 1.11 `useThumbnailCapture`
- * captures a chart container as the PNG preview shown on saved-report cards
- * (html-to-image loads lazily on first capture). Since SDK 1.14
+ * currency formatting), `MetricCard` (KPI tile), `ReportLegend` and
+ * `UserMultiSelect` (shared multi-user picker over GET /users); its chart
+ * loader `loadRecharts` and 1.9's `useChartTheme` were deprecated at 1.32 and
+ * removed at 1.33 — `loadECharts` is the only chart stack. Since SDK 1.11
+ * `useThumbnailCapture` captures a chart container as the PNG preview shown
+ * on saved-report cards (html-to-image loads lazily on first capture). Since
+ * SDK 1.14
  * `CardScopeDialog` is the shared hierarchy-aware multi-select card picker
  * report scope controls are built on — pick cards and everything beneath them
  * comes with — plus its `dedupeScopeRoots` helper. Since SDK 1.15 the rest of
@@ -74,6 +71,9 @@
  * `buildEChartsChrome` (the MUI-derived chrome) and the pure `chrome` option
  * helpers — from core's code-split chunk, so an extension chart matches
  * core's in light, dark and right-to-left and never bundles a chart library.
+ * It is the only chart stack: since SDK 1.33 it also draws scatter plots and
+ * shaded reference areas (`markArea`), and the two deprecated chart entries of
+ * 1.8 / 1.9 are gone.
  *
  * Since SDK 1.12 the preferred way to add a plug point is the GENERIC SLOT
  * registry, not a new named extension point. An extension declares
@@ -115,7 +115,6 @@ import MetricCard from "@/features/reports/MetricCard";
 import ReportLegend from "@/features/reports/ReportLegend";
 import SaveReportDialog from "@/features/reports/SaveReportDialog";
 import type { ReportShellProps } from "@/features/reports/ReportShell";
-import { useChartTheme } from "@/hooks/useChartTheme";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport as useCoreSavedReport } from "@/hooks/useSavedReport";
@@ -157,7 +156,7 @@ import { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
 import { buildGanttArrowPath } from "@/features/ppm/ganttArrowPath";
 import type { ArchitectureDecision, Card } from "@/types";
 
-export const UI_SDK_VERSION = "1.32";
+export const UI_SDK_VERSION = "1.33";
 
 /**
  * Core nav groups an extension route may request placement into (instead of the
@@ -1028,11 +1027,9 @@ export function initExtensionHost(): void {
       FilterSelect,
       CardDetailSidePanel: ExtensionCardDetailSidePanel,
       // SDK 1.8 — dashboard-building additions: currency formatting, KPI tile,
-      // legend, the shared multi-user picker, and a lazy Recharts loader so
-      // extension charts reuse core's code-split chunk instead of bundling
-      // their own copy (a static import here would drag Recharts into the
-      // eager main bundle — same caveat as ReportShell above). `loadRecharts`
-      // is deprecated since 1.32 and removed at 2.0 — use `loadECharts`.
+      // legend and the shared multi-user picker. (`loadRecharts` 1.8 and
+      // `useChartTheme` 1.9 were removed at 1.33 — charts go through
+      // `loadECharts`.)
       useCurrency,
       MetricCard,
       ReportLegend,
@@ -1051,11 +1048,6 @@ export function initExtensionHost(): void {
       PHASES,
       getPhaseLabels,
       buildGanttArrowPath,
-      loadRecharts: () => import("recharts"),
-      // SDK 1.9 — theme-aware Recharts chrome (grid/axis/tooltip). Deprecated
-      // since 1.32 and removed at 2.0 — use `loadECharts` (`useEChartsTheme`
-      // + `chrome`), which is what core's own charts are drawn with now.
-      useChartTheme,
       useThumbnailCapture,
       // SDK 1.14 — the shared card scope picker. An extension report that
       // wants "narrow this to a few cards (and everything under them)" gets
@@ -1208,8 +1200,9 @@ export function initExtensionHost(): void {
       // SDK 1.32 — the charting stack core draws every chart with (dashboards
       // and reports): the ECharts wrapper, the MUI-derived chrome and the pure
       // option helpers, resolved from the code-split chunk core already ships,
-      // so an extension never bundles a chart library. `loadRecharts` (1.8) and
-      // `useChartTheme` (1.9) are deprecated and go at UI SDK 2.0.
+      // so an extension never bundles a chart library. The only chart stack:
+      // since 1.33 it also serves scatter plots and shaded reference areas
+      // (`markArea`), and the deprecated 1.8 / 1.9 chart entries are gone.
       loadECharts: () =>
         Promise.all([
           import("@/components/charts/EChart"),

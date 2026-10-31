@@ -19,6 +19,7 @@ vi.mock("echarts/charts", () => ({
   HeatmapChart: "HeatmapChart",
   TreemapChart: "TreemapChart",
   SankeyChart: "SankeyChart",
+  ScatterChart: "ScatterChart",
 }));
 vi.mock("echarts/components", () => ({
   GridComponent: "GridComponent",
@@ -26,6 +27,7 @@ vi.mock("echarts/components", () => ({
   LegendComponent: "LegendComponent",
   VisualMapComponent: "VisualMapComponent",
   MarkLineComponent: "MarkLineComponent",
+  MarkAreaComponent: "MarkAreaComponent",
   AriaComponent: "AriaComponent",
 }));
 vi.mock("echarts/renderers", () => ({ CanvasRenderer: "CanvasRenderer" }));
@@ -285,11 +287,13 @@ describe("EChart registration", () => {
       "HeatmapChart",
       "TreemapChart",
       "SankeyChart",
+      "ScatterChart",
       "GridComponent",
       "TooltipComponent",
       "LegendComponent",
       "VisualMapComponent",
       "MarkLineComponent",
+      "MarkAreaComponent",
       "AriaComponent",
       "CanvasRenderer",
     ]);

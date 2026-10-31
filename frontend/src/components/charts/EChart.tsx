@@ -15,12 +15,14 @@ import {
   LineChart,
   PieChart,
   SankeyChart,
+  ScatterChart,
   TreemapChart,
 } from "echarts/charts";
 import {
   AriaComponent,
   GridComponent,
   LegendComponent,
+  MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
@@ -35,6 +37,8 @@ echarts.use([
   HeatmapChart,
   TreemapChart,
   SankeyChart,
+  // An extension's quadrant plot: discs over shaded reference areas.
+  ScatterChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
@@ -42,6 +46,8 @@ echarts.use([
   // Draws the PPM cost charts' dotted budget reference lines (a `markLine` on
   // the first line series, `features/ppm/cumulativeChartOption.ts`).
   MarkLineComponent,
+  // The shaded reference areas behind that quadrant plot (a `markArea`).
+  MarkAreaComponent,
   AriaComponent,
   CanvasRenderer,
 ]);

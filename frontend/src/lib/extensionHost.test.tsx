@@ -71,10 +71,11 @@ describe("extensionHost", () => {
     expect(sdk.MetricCard).toBeDefined();
     expect(sdk.ReportLegend).toBeDefined();
     expect(sdk.UserMultiSelect).toBeDefined();
-    expect(typeof sdk.loadRecharts).toBe("function");
-    // SDK 1.9 — theme-aware chart chrome
-    expect(typeof sdk.useChartTheme).toBe("function");
     expect(typeof sdk.useThumbnailCapture).toBe("function");
+    // The 1.8 chart loader and the 1.9 chart theme hook — removed at UI SDK
+    // 1.33; `loadECharts` is the only chart stack.
+    expect(sdk.loadRecharts).toBeUndefined();
+    expect(sdk.useChartTheme).toBeUndefined();
     // SDK 1.14 — shared card scope picker
     expect(sdk.CardScopeDialog).toBeDefined();
     expect(typeof sdk.dedupeScopeRoots).toBe("function");
@@ -116,8 +117,8 @@ describe("extensionHost", () => {
     expect(sdk.PHASES).toEqual(["plan", "phaseIn", "active", "phaseOut", "endOfLife"]);
     expect(typeof sdk.getPhaseLabels).toBe("function");
     expect(typeof sdk.buildGanttArrowPath).toBe("function");
-    // SDK 1.32 — the ECharts stack core's dashboards and reports draw with.
-    // `loadRecharts` / `useChartTheme` above stay callable until UI SDK 2.0.
+    // SDK 1.32 — the ECharts stack core's dashboards and reports draw with,
+    // and since 1.33 the only one.
     expect(typeof sdk.loadECharts).toBe("function");
   });
 
@@ -508,7 +509,7 @@ describe("extensionHost", () => {
   });
 
   it("pins the current UI SDK version", () => {
-    expect(UI_SDK_VERSION).toBe("1.32");
+    expect(UI_SDK_VERSION).toBe("1.33");
   });
 
   it("whitelists the nav groups an extension route may request", () => {

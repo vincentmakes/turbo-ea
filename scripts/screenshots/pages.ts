@@ -290,7 +290,7 @@ export const DOC_PAGES: PageDef[] = [
     id: "01_dashboard",
     route: "/",
     // The homepage is a react-grid-layout grid of widgets; charts are ECharts
-    // canvases (Recharts is no longer used here).
+    // canvases.
     waitFor: ".react-grid-item canvas",
     actions: [{ type: "wait", ms: 800 }],
     filenames: {
