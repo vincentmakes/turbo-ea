@@ -14,10 +14,14 @@ import { describe, expect, it } from "vitest";
 
 const GOOGLE_FONTS_HOST = "fonts.googleapis.com";
 
-/** The `href` of a `<link>` tag, parsed; null when the tag has none. */
+/**
+ * The `href` of a `<link>` tag, parsed; null when the tag has none. Relative
+ * hrefs (the favicon links) resolve against a placeholder origin so they
+ * parse and simply never match the Google Fonts host.
+ */
 function hrefOf(tag: string): URL | null {
   const match = /\bhref="([^"]+)"/.exec(tag);
-  return match ? new URL(match[1]) : null;
+  return match ? new URL(match[1], "http://placeholder.invalid") : null;
 }
 
 describe("index.html font stylesheet links", () => {
