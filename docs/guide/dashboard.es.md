@@ -58,8 +58,19 @@ Bajo las tarjetas, el panel Resumen muestra:
 - **Visión general del ciclo de vida**: cuántas fichas hay en cada fase del ciclo de vida
 - **Explorar por tipo**: cada tipo de ficha con su recuento; haga clic en uno para abrir el [Inventario](inventory.md) prefiltrado por ese tipo
 - **Actividad reciente**: un feed de los últimos cambios: quién editó qué y cuándo
+- **Clasificación de calidad de datos**: las personas que mantienen sus fichas completas (véase más abajo)
 
 Al hacer clic en una barra o en un sector de un gráfico se abre lo que hay detrás: el [Inventario](inventory.md) filtrado por esas fichas para un tipo de ficha o un estado de aprobación, el informe de Ciclo de vida para una fase del ciclo de vida y el informe de Calidad de datos para un tramo de completitud.
+
+### Clasificación de calidad de datos
+
+La **Clasificación de calidad de datos** ordena a las personas que tienen un rol de parte interesada en fichas. De forma predeterminada las ordena por la **calidad de datos media** de sus fichas; cámbiela a **número de fichas** para ver quién tiene más. Cada fila muestra la posición de la persona, su nombre, una barra del color del nivel de calidad de datos de su media, la media y cuántas fichas tiene. Las personas con la misma cifra comparten posición.
+
+Una persona aparece cuando tiene un **número mínimo de fichas** (tres de forma predeterminada), de modo que una sola ficha perfecta no encabece la clasificación. Una ficha cuenta una vez por persona, sin importar cuántos roles tenga en ella, y solo cuentan las fichas activas. De forma predeterminada solo cuentan los roles que importan para la calidad de datos: un rol pasivo como *Observer* nunca da un puesto; los ajustes del widget permiten limitarla a algunos tipos de ficha o roles, o contar todos los roles. Los usuarios desactivados nunca aparecen. La clasificación se calcula para usted: una ficha que no tiene permiso para ver no suma al recuento de nadie ni modifica su media, por lo que dos lectores con permisos distintos pueden ver cifras distintas. Solo se muestran los nombres, nunca las direcciones de correo.
+
+La clasificación requiere el permiso `reports.ea_dashboard`, como el resto del panel Resumen, y un panel puede contener varias, por ejemplo una por tipo de ficha.
+
+![Panel - Clasificación de calidad de datos](../assets/img/es/04_panel_clasificacion_calidad.png)
 
 ## Pestaña «Espacio de trabajo» { #workspace-tab }
 
@@ -88,7 +99,7 @@ Haga clic en **Personalizar**, junto a las pestañas de los paneles, para editar
 - **Mueva** un widget arrastrándolo por su asa; la cuadrícula tiene 12 columnas de ancho y los demás widgets le hacen sitio.
 - **Cambie el tamaño** de un widget desde su borde derecho, su borde inferior o la esquina, con el ratón o con el tacto (en un móvil o una tableta en vertical el diseño es de solo lectura). El widget contiguo se ajusta mientras arrastra: se estrecha cuando su vecino crece y vuelve a ensancharse cuando este se reduce; si ya no puede estrecharse más, pasa a la fila siguiente. Las filas de debajo bajan y vuelven a subir por sí solas. El widget se ajusta a la cuadrícula mientras se arrastra, y en el modo de personalización la página deja cuatro filas vacías bajo el último widget para poder alargar la fila inferior; desplácese primero hasta que el asa quede bien dentro de la ventana.
 - **Elimine** un widget con su botón de cierre.
-- **Configure** una tarjeta KPI, un gráfico o el feed de actividad con su botón de engranaje.
+- **Configure** una tarjeta KPI, un gráfico, el feed de actividad o una clasificación de calidad de datos con su botón de engranaje.
 - **Deshaga** y **rehaga** los cambios: **Deshacer** y **Rehacer** recorren paso a paso los cambios realizados desde que se abrió Personalizar (un movimiento, cambio de tamaño, adición, eliminación o configuración cada vez) — con los dos botones de la barra de herramientas o con Ctrl+Z / Ctrl+Mayús+Z (⌘ en Mac). **Descartar** sigue eliminándolos todos a la vez.
 
 Haga clic en **Guardar** para conservar los cambios para todos, o en **Descartar** para volver al panel tal como estaba.

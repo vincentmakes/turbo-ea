@@ -369,6 +369,13 @@ export const DOC_PAGES: PageDef[] = [
     clipSelector: '.react-grid-item:has([data-testid="quality-leaderboard"])',
     filenames: {
       en: "04_dashboard_quality_leaderboard",
+      de: "04_dashboard_qualitaets_rangliste",
+      fr: "04_tableau_de_bord_classement_qualite",
+      es: "04_panel_clasificacion_calidad",
+      it: "04_dashboard_classifica_qualita",
+      pt: "04_painel_classificacao_qualidade",
+      zh: "04_dashboard_quality_leaderboard",
+      ru: "04_panel_reyting_kachestva",
     },
   },
 

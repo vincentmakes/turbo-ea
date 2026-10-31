@@ -58,8 +58,19 @@ Abaixo dos blocos, o painel Visão geral mostra:
 - **Visão geral do ciclo de vida**: quantos cards estão em cada fase do ciclo de vida
 - **Explorar por tipo**: cada tipo de card com a sua contagem — clique num para abrir o [Inventário](inventory.md) pré-filtrado por esse tipo
 - **Atividade recente**: um feed das últimas alterações — quem editou o quê e quando
+- **Classificação da qualidade dos dados**: as pessoas que mantêm os seus cards completos (ver abaixo)
 
 Clicar numa barra ou numa fatia de um gráfico abre o que está por trás: o [Inventário](inventory.md) filtrado por esses cards para um tipo de card ou um status de aprovação, o relatório de Ciclo de vida para uma fase do ciclo de vida, o relatório de Qualidade de dados para uma faixa de completude.
+
+### Classificação da qualidade dos dados
+
+A **Classificação da qualidade dos dados** ordena as pessoas que têm um papel de stakeholder em cards. Por predefinição, ordena-as pela **qualidade média dos dados** dos seus cards; mude para **número de cards** para ver quem tem mais. Cada linha mostra a posição da pessoa, o seu nome, uma barra na cor da faixa de qualidade dos dados da sua média, a média e quantos cards detém. As pessoas com o mesmo valor partilham a posição.
+
+Uma pessoa aparece quando detém um **número mínimo de cards** (três por predefinição), para que um único card perfeito não lidere a classificação. Um card conta uma vez por pessoa, independentemente de quantos papéis tenha nele, e só contam os cards ativos. Por predefinição, só contam os papéis relevantes para a qualidade dos dados — um papel passivo como *Observer* nunca garante um lugar; as definições do widget permitem restringi-la a alguns tipos de card ou papéis, ou contar todos os papéis. Os utilizadores desativados nunca aparecem. A classificação é calculada para si: um card que não tem permissão para ver não soma à contagem de ninguém nem altera a sua média, pelo que dois leitores com permissões diferentes podem ver valores diferentes. Só são mostrados os nomes, nunca os endereços de e-mail.
+
+A classificação requer a permissão `reports.ea_dashboard`, tal como o resto do painel Visão geral, e um painel pode conter várias — uma por tipo de card, por exemplo.
+
+![Painel - Classificação da qualidade dos dados](../assets/img/pt/04_painel_classificacao_qualidade.png)
 
 ## Aba «Espaço de trabalho» { #workspace-tab }
 
@@ -88,7 +99,7 @@ Clique em **Personalizar**, junto às abas dos painéis, para editar o painel at
 - **Mova** um widget arrastando-o pela sua pega; a grelha tem 12 colunas de largura e os outros widgets abrem espaço.
 - **Redimensione** um widget a partir do seu limite direito, do limite inferior ou do canto, com o rato ou por toque (num telemóvel ou tablet na vertical, o layout é só de leitura). O widget ao lado ajusta-se enquanto arrasta: estreita quando o vizinho cresce e volta a alargar quando este diminui; se já não puder estreitar mais, passa para a linha seguinte. As linhas abaixo descem e voltam a subir por si próprias. O widget ajusta-se à grelha enquanto o arrasta e, no modo de personalização, a página mantém quatro linhas vazias abaixo do último widget, para que a última linha possa ser esticada; desloque-se primeiro até a pega ficar bem dentro da janela.
 - **Remova** um widget com o seu botão de fechar.
-- **Configure** um bloco de KPI, um gráfico ou o feed de atividade com o seu botão de engrenagem.
+- **Configure** um bloco de KPI, um gráfico, o feed de atividade ou uma classificação da qualidade dos dados com o seu botão de engrenagem.
 - **Desfaça** e **refaça** as alterações: **Desfazer** e **Refazer** percorrem passo a passo as alterações feitas desde que Personalizar foi aberto (um movimento, redimensionamento, adição, remoção ou configuração de cada vez) — com os dois botões da barra de ferramentas ou com Ctrl+Z / Ctrl+Shift+Z (⌘ num Mac). **Descartar** continua a eliminá-las todas de uma só vez.
 
 Clique em **Salvar** para manter as alterações para todos, ou em **Descartar** para voltar ao painel como estava.

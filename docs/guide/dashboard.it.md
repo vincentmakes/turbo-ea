@@ -58,8 +58,19 @@ Sotto i tile, la dashboard Panoramica mostra:
 - **Panoramica del ciclo di vita**: quante card si trovano in ciascuna fase del ciclo di vita
 - **Esplora per tipo**: ogni tipo di card con il suo conteggio — fai clic su uno per aprire l'[Inventario](inventory.md) pre-filtrato su quel tipo
 - **Attività recente**: un feed delle ultime modifiche — chi ha modificato cosa e quando
+- **Classifica della qualità dei dati**: le persone che mantengono complete le proprie card (vedi sotto)
 
 Facendo clic su una barra o su una fetta di un grafico si apre ciò che c'è dietro: l'[Inventario](inventory.md) filtrato su quelle card per un tipo di card o uno stato di approvazione, il report Ciclo di vita per una fase del ciclo di vita, il report Qualità dei dati per una fascia di completezza.
+
+### Classifica della qualità dei dati
+
+La **Classifica della qualità dei dati** ordina le persone che hanno un ruolo di stakeholder sulle card. Per impostazione predefinita le ordina per **qualità dei dati media** delle loro card; passa a **numero di card** per vedere chi ne gestisce di più. Ogni riga mostra la posizione della persona, il suo nome, una barra del colore della fascia di qualità dei dati della sua media, la media e quante card gestisce. Le persone con lo stesso valore condividono la posizione.
+
+Una persona compare quando gestisce un **numero minimo di card** (tre per impostazione predefinita), così una sola card perfetta non porta in cima alla classifica. Una card conta una volta per persona, a prescindere da quanti ruoli abbia su di essa, e contano solo le card attive. Per impostazione predefinita contano solo i ruoli rilevanti per la qualità dei dati: un ruolo passivo come *Observer* non vale mai un posto; le impostazioni del widget permettono di limitarla ad alcuni tipi di card o ruoli, oppure di contare tutti i ruoli. Gli utenti disattivati non compaiono mai. La classifica è calcolata per te: una card che non hai il permesso di vedere non aggiunge nulla al conteggio di nessuno né ne modifica la media, quindi due lettori con permessi diversi possono vedere cifre diverse. Vengono mostrati solo i nomi, mai gli indirizzi e-mail.
+
+La classifica richiede il permesso `reports.ea_dashboard`, come il resto della dashboard Panoramica, e una dashboard può contenerne più di una, per esempio una per tipo di card.
+
+![Dashboard - Classifica della qualità dei dati](../assets/img/it/04_dashboard_classifica_qualita.png)
 
 ## Scheda «Spazio di lavoro» { #workspace-tab }
 
@@ -88,7 +99,7 @@ Fai clic su **Personalizza** accanto alle schede delle dashboard per modificare 
 - **Sposta** un widget trascinandolo per la sua maniglia; la griglia è larga 12 colonne e gli altri widget gli fanno spazio.
 - **Ridimensiona** un widget dal suo bordo destro, dal bordo inferiore o dall'angolo, con il mouse o con il tocco (su uno smartphone o un tablet tenuto in verticale il layout è di sola lettura). Il widget accanto si adatta mentre trascini: si restringe quando il vicino cresce e si allarga di nuovo quando questo si riduce; se non può restringersi ulteriormente, passa alla riga successiva. Le righe sottostanti scendono e risalgono da sole. Il widget si aggancia alla griglia durante il trascinamento e, in modalità di personalizzazione, la pagina lascia quattro righe vuote sotto l'ultimo widget, così l'ultima riga può essere allungata; scorri prima finché la maniglia è ben all'interno della finestra.
 - **Rimuovi** un widget con il suo pulsante di chiusura.
-- **Configura** un tile KPI, un grafico o il feed delle attività con il suo pulsante a forma di ingranaggio.
+- **Configura** un tile KPI, un grafico, il feed delle attività o una classifica della qualità dei dati con il suo pulsante a forma di ingranaggio.
 - **Annulla** e **ripeti** le modifiche: **Annulla** e **Ripeti** scorrono passo dopo passo le modifiche fatte da quando è stato aperto Personalizza (uno spostamento, ridimensionamento, aggiunta, rimozione o configurazione alla volta) — con i due pulsanti della barra degli strumenti o con Ctrl+Z / Ctrl+Maiusc+Z (⌘ su Mac). **Scarta** continua ad annullarle tutte in una volta.
 
 Fai clic su **Salva** per mantenere le modifiche per tutti, oppure su **Annulla modifiche** per tornare alla dashboard com'era.

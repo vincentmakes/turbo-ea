@@ -58,8 +58,19 @@ Unterhalb der Kacheln zeigt das Dashboard «Übersicht»:
 - **Lebenszyklus-Übersicht**: Wie viele Karten sich in welcher Lebenszyklusphase befinden
 - **Nach Typ durchsuchen**: Jeder Kartentyp mit seiner Anzahl — ein Klick öffnet das [Inventar](inventory.md), vorgefiltert nach diesem Typ
 - **Letzte Aktivitäten**: Ein Feed der neuesten Änderungen — wer hat was wann bearbeitet
+- **Rangliste der Datenqualität**: Die Personen, die ihre Karten vollständig pflegen (siehe unten)
 
 Ein Klick auf einen Balken oder ein Segment eines Diagramms öffnet, was dahintersteht: das [Inventar](inventory.md), gefiltert auf diese Karten, bei einem Kartentyp oder einem Genehmigungsstatus, den Lebenszyklusbericht bei einer Lebenszyklusphase, den Datenqualitätsbericht bei einer Vollständigkeitsstufe.
+
+### Rangliste der Datenqualität
+
+Die **Rangliste der Datenqualität** stuft die Personen ein, die auf Karten eine Stakeholder-Rolle innehaben. Standardmäßig werden sie nach der **durchschnittlichen Datenqualität** ihrer Karten geordnet; wechseln Sie zu **Anzahl der Karten**, um zu sehen, wer die meisten betreut. Jede Zeile zeigt den Rang der Person, ihren Namen, einen Balken in der Farbe der Datenqualitätsstufe ihres Durchschnitts, den Durchschnitt und die Anzahl ihrer Karten. Personen mit demselben Wert teilen sich einen Rang.
+
+Eine Person erscheint, sobald sie eine **Mindestanzahl an Karten** betreut (standardmäßig drei), sodass eine einzelne perfekte Karte nicht die Spitze belegt. Eine Karte zählt pro Person einmal, egal wie viele Rollen sie darauf innehat, und es zählen nur aktive Karten. Standardmäßig zählen nur die Rollen, die für die Datenqualität relevant sind — eine passive Rolle wie *Observer* verschafft nie einen Platz; in den Einstellungen des Widgets lässt sich die Rangliste auf einige Kartentypen oder Rollen eingrenzen oder auf alle Rollen ausweiten. Deaktivierte Benutzer erscheinen nie. Die Rangliste wird für Sie berechnet: Eine Karte, die Sie nicht sehen dürfen, erhöht weder die Anzahl noch verändert sie den Durchschnitt einer Person, sodass zwei Leser mit unterschiedlichen Berechtigungen unterschiedliche Werte sehen können. Angezeigt werden nur Namen, nie E-Mail-Adressen.
+
+Die Rangliste erfordert wie das übrige Dashboard «Übersicht» die Berechtigung `reports.ea_dashboard`, und ein Dashboard kann mehrere davon enthalten — etwa eine pro Kartentyp.
+
+![Dashboard - Rangliste der Datenqualität](../assets/img/de/04_dashboard_qualitaets_rangliste.png)
 
 ## Tab «Arbeitsbereich» { #workspace-tab }
 
@@ -88,7 +99,7 @@ Klicken Sie neben den Dashboard-Tabs auf **Anpassen**, um das aktuelle Dashboard
 - **Verschieben** Sie ein Widget, indem Sie es am Griff ziehen; das Raster ist 12 Spalten breit, und die anderen Widgets machen Platz.
 - **Ändern Sie die Größe** eines Widgets an seinem rechten Rand, seinem unteren Rand oder der Ecke, per Maus oder Touch (auf einem hochkant gehaltenen Smartphone oder Tablet ist das Layout schreibgeschützt). Das benachbarte Widget passt sich beim Ziehen an: Es wird schmaler, wenn sein Nachbar wächst, und wieder breiter, wenn dieser schrumpft; kann es nicht weiter schrumpfen, rutscht es in die nächste Zeile. Darunterliegende Zeilen rücken von selbst nach unten und wieder nach oben. Das Widget rastet beim Ziehen am Raster ein, und im Anpassungsmodus bleiben unter dem letzten Widget vier leere Zeilen frei, sodass sich die unterste Zeile höher ziehen lässt; scrollen Sie zuerst, bis der Griff deutlich innerhalb des Fensters liegt.
 - **Entfernen** Sie ein Widget mit seiner Schließen-Schaltfläche.
-- **Konfigurieren** Sie eine KPI-Kachel, ein Diagramm oder den Aktivitäts-Feed mit der Zahnrad-Schaltfläche.
+- **Konfigurieren** Sie eine KPI-Kachel, ein Diagramm, den Aktivitäts-Feed oder eine Rangliste der Datenqualität mit der Zahnrad-Schaltfläche.
 - **Machen Sie Änderungen rückgängig** oder **wiederholen** Sie sie: **Rückgängig** und **Wiederholen** gehen die seit dem Öffnen von Anpassen vorgenommenen Änderungen Schritt für Schritt durch (je ein Verschieben, Ändern der Größe, Hinzufügen, Entfernen oder Konfigurieren) — mit den beiden Schaltflächen der Symbolleiste oder mit Strg+Z / Strg+Umschalt+Z (⌘ auf dem Mac). **Verwerfen** verwirft weiterhin alle auf einmal.
 
 Klicken Sie auf **Speichern**, um die Änderungen für alle zu übernehmen, oder auf **Verwerfen**, um zum Dashboard im bisherigen Zustand zurückzukehren.

@@ -58,8 +58,19 @@ Under felterne viser dashboardet Oversigt:
 - **Livscyklusoversigt**: Hvor mange kort der er i hver livscyklusfase
 - **Gennemse efter type**: Hver korttype med sit antal — klik på en for at åbne [Inventar](inventory.md) forhåndsfiltreret til den type
 - **Seneste aktivitet**: Et feed med de seneste ændringer — hvem der redigerede hvad og hvornår
+- **Rangliste over datakvalitet**: De personer, der holder deres kort fuldstændige (se nedenfor)
 
 Et klik på en søjle eller et udsnit i et diagram åbner det, der ligger bag: [Inventar](inventory.md) filtreret til de kort for en korttype eller en godkendelsesstatus, livscyklusrapporten for en livscyklusfase og datakvalitetsrapporten for et fuldstændighedsinterval.
+
+### Rangliste over datakvalitet
+
+**Ranglisten over datakvalitet** rangerer de personer, der har en interessentrolle på kort. Som standard rangerer den dem efter den **gennemsnitlige datakvalitet** af deres kort; skift til **antal kort** for at se, hvem der har flest. Hver række viser personens placering, navn, en bjælke i farven for datakvalitetsbåndet for deres gennemsnit, gennemsnittet og antallet af kort, de har. Personer med samme tal deler en placering.
+
+En person vises, når vedkommende har et **minimum antal kort** (som standard tre), så ét enkelt perfekt kort ikke placerer nogen i toppen. Et kort tæller én gang pr. person, uanset hvor mange roller vedkommende har på det, og kun aktive kort tæller. Som standard tæller kun de roller, der tæller med i datakvaliteten — en passiv rolle som *Observer* giver aldrig en plads; widgettens indstillinger kan indsnævre ranglisten til nogle korttyper eller roller eller tælle alle roller. Deaktiverede brugere vises aldrig. Ranglisten beregnes for dig: Et kort, du ikke må se, lægger hverken til nogens antal eller ændrer deres gennemsnit, så to læsere med forskellige tilladelser kan se forskellige tal. Kun navne vises, aldrig e-mailadresser.
+
+Ranglisten kræver tilladelsen `reports.ea_dashboard`, ligesom resten af Oversigts-dashboardet, og et dashboard kan indeholde flere — for eksempel én pr. korttype.
+
+![Dashboard - Rangliste over datakvalitet](../assets/img/en/04_dashboard_quality_leaderboard.png)
 
 ## Arbejdsområde-fane { #workspace-tab }
 
@@ -88,7 +99,7 @@ Klik på **Tilpas** ved siden af dashboardfanerne for at redigere det aktuelle d
 - **Flyt** en widget ved at trække i dens håndtag; gitteret er 12 kolonner bredt, og de andre widgets giver plads.
 - **Tilpas størrelsen** på en widget fra dens højre kant, nederste kant eller hjørnet, med mus eller berøring (på en telefon eller tablet holdt lodret er layoutet skrivebeskyttet). Widgetten ved siden af tilpasser sig, mens du trækker: den bliver smallere, når naboen vokser, og bredere igen, når naboen skrumper; kan den ikke blive smallere, flyttes den til næste række. Rækkerne nedenunder flytter sig ned og op igen af sig selv. Widgetten flugter med gitteret, mens du trækker, og i tilpasningstilstand holder siden fire tomme rækker fri under den sidste widget, så den nederste række kan trækkes højere; rul først, indtil håndtaget sidder godt inde i vinduet.
 - **Fjern** en widget med dens lukkeknap.
-- **Konfigurer** et KPI-felt, et diagram eller aktivitetsfeedet med tandhjulsknappen.
+- **Konfigurer** et KPI-felt, et diagram, aktivitetsfeedet eller en rangliste over datakvalitet med tandhjulsknappen.
 - **Fortryd** og **gentag** ændringer: **Fortryd** og **Gentag** gennemgår trin for trin de ændringer, der er foretaget, siden Tilpas blev åbnet (ét flyt, én størrelsesændring, tilføjelse, fjernelse eller konfiguration ad gangen) — med de to knapper på værktøjslinjen eller med Ctrl+Z / Ctrl+Shift+Z (⌘ på Mac). **Kassér** fjerner stadig alle på én gang.
 
 Klik på **Gem** for at beholde ændringerne for alle, eller **Kassér ændringer** for at vende tilbage til dashboardet, som det var.

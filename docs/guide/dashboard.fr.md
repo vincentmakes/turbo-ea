@@ -58,8 +58,19 @@ Sous les tuiles, le tableau de bord « Vue d’ensemble » affiche :
 - **Vue d’ensemble du cycle de vie** : combien de fiches se trouvent dans chaque phase du cycle de vie
 - **Parcourir par type** : chaque type de fiche avec son nombre — cliquez sur l’un d’eux pour ouvrir l’[Inventaire](inventory.md) pré-filtré sur ce type
 - **Activité récente** : un fil des dernières modifications — qui a modifié quoi et quand
+- **Classement de la qualité des données** : les personnes qui maintiennent leurs fiches complètes (voir ci-dessous)
 
 Cliquer sur une barre ou une portion de graphique ouvre ce qui se cache derrière : l’[Inventaire](inventory.md) filtré sur ces fiches pour un type de fiche ou un statut d’approbation, le rapport Cycle de vie pour une phase du cycle de vie, le rapport Qualité des données pour une tranche de complétude.
+
+### Classement de la qualité des données
+
+Le **Classement de la qualité des données** classe les personnes qui détiennent un rôle de partie prenante sur des fiches. Par défaut, il les classe selon la **qualité des données moyenne** de leurs fiches ; passez à **nombre de fiches** pour voir qui en porte le plus. Chaque ligne affiche le rang de la personne, son nom, une barre de la couleur de la tranche de qualité des données de sa moyenne, la moyenne et le nombre de fiches qu’elle détient. Les personnes ayant la même valeur partagent un rang.
+
+Une personne apparaît dès qu’elle détient un **nombre minimal de fiches** (trois par défaut), de sorte qu’une seule fiche parfaite ne place personne en tête. Une fiche compte une fois par personne, quel que soit le nombre de rôles qu’elle y détient, et seules les fiches actives comptent. Par défaut, seuls les rôles qui comptent pour la qualité des données sont pris en compte — un rôle passif comme *Observer* ne donne jamais de place ; les paramètres du widget permettent de restreindre le classement à certains types de fiches ou rôles, ou de compter tous les rôles. Les utilisateurs désactivés n’apparaissent jamais. Le classement est calculé pour vous : une fiche que vous n’avez pas le droit de voir n’ajoute rien au nombre de fiches de quiconque et ne modifie pas sa moyenne, si bien que deux lecteurs aux permissions différentes peuvent voir des chiffres différents. Seuls les noms sont affichés, jamais les adresses e-mail.
+
+Le classement nécessite la permission `reports.ea_dashboard`, comme le reste du tableau de bord Vue d’ensemble, et un tableau de bord peut en contenir plusieurs — un par type de fiche, par exemple.
+
+![Tableau de bord - Classement de la qualité des données](../assets/img/fr/04_tableau_de_bord_classement_qualite.png)
 
 ## Onglet «Espace de travail» { #workspace-tab }
 
@@ -88,7 +99,7 @@ Cliquez sur **Personnaliser** à côté des onglets de tableaux de bord pour mod
 - **Déplacez** un widget en le faisant glisser par sa poignée ; la grille compte 12 colonnes de large et les autres widgets lui laissent la place.
 - **Redimensionnez** un widget depuis son bord droit, son bord inférieur ou son coin, à la souris ou au toucher (sur un téléphone ou une tablette tenus à la verticale, la disposition est en lecture seule). Le widget voisin s’ajuste pendant le glissement : il se rétrécit quand son voisin s’agrandit et s’élargit de nouveau quand celui-ci rétrécit ; s’il ne peut plus se rétrécir, il passe à la ligne suivante. Les lignes du dessous descendent puis remontent d’elles-mêmes. Le widget s’aligne sur la grille pendant le glissement, et en mode de personnalisation la page garde quatre lignes vides sous le dernier widget, afin de pouvoir agrandir la dernière ligne en hauteur ; faites d’abord défiler la page jusqu’à ce que la poignée soit bien à l’intérieur de la fenêtre.
 - **Retirez** un widget avec son bouton de fermeture.
-- **Configurez** une tuile KPI, un graphique ou le fil d’activité avec son bouton en forme d’engrenage.
+- **Configurez** une tuile KPI, un graphique, le fil d’activité ou un classement de la qualité des données avec son bouton en forme d’engrenage.
 - **Annulez** et **rétablissez** vos modifications : **Annuler** et **Rétablir** parcourent pas à pas les changements effectués depuis l’ouverture de Personnaliser (un déplacement, un redimensionnement, un ajout, un retrait ou une configuration à la fois) — avec les deux boutons de la barre d’outils ou Ctrl+Z / Ctrl+Maj+Z (⌘ sur Mac). **Abandonner** les supprime toujours tous d’un coup.
 
 Cliquez sur **Enregistrer** pour conserver les modifications pour tout le monde, ou sur **Annuler** pour revenir au tableau de bord tel qu’il était.
