@@ -12,14 +12,24 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+const GOOGLE_FONTS_HOST = "fonts.googleapis.com";
+
+/** The `href` of a `<link>` tag, parsed; null when the tag has none. */
+function hrefOf(tag: string): URL | null {
+  const match = /\bhref="([^"]+)"/.exec(tag);
+  return match ? new URL(match[1]) : null;
+}
+
 describe("index.html font stylesheet links", () => {
   const html = readFileSync(resolve(__dirname, "../../index.html"), "utf8");
   const links = [...html.matchAll(/<link\b[^>]*>/g)].map((m) => m[0]);
-  const fontLinks = links.filter((l) => l.includes("fonts.googleapis.com"));
+  // Matched on the parsed hostname, exactly, never on a substring of the URL.
+  const fontLinks = links.filter((l) => hrefOf(l)?.hostname === GOOGLE_FONTS_HOST);
+  const families = fontLinks.map((l) => hrefOf(l)?.searchParams.get("family") ?? "");
 
   it("loads Inter and Material Symbols from Google Fonts", () => {
-    expect(fontLinks.some((l) => l.includes("family=Inter"))).toBe(true);
-    expect(fontLinks.some((l) => l.includes("family=Material+Symbols+Outlined"))).toBe(true);
+    expect(families.some((f) => f.startsWith("Inter"))).toBe(true);
+    expect(families.some((f) => f.startsWith("Material Symbols Outlined"))).toBe(true);
   });
 
   it("marks every font stylesheet crossorigin so captures can embed the fonts", () => {
