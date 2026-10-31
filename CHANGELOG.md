@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - The Business Process card type's fallback colour (shown where the metamodel defines none, such as the compliance filter chips) was an older palette's orange instead of the seeded green every other BPM surface uses.
 
+### Security
+- Updated the frontend build's transitive development dependencies `qs` (to 6.17.1), `fast-uri` (to 3.1.9) and `zod` (to 4.6.7) to clear the open Dependabot and `npm audit` advisories; none of them ships in the application images.
+- Two dashboard test helpers built a regular expression from a label without escaping every metacharacter (CodeQL "Incomplete string escaping"); they now escape all of them.
+
 ## [2.184.0] - 2026-10-30
 
 ### Added
