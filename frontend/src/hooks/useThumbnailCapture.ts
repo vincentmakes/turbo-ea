@@ -22,6 +22,11 @@ export function useThumbnailCapture(openDialog: () => void) {
           pixelRatio: 1,
           quality: 0.8,
           backgroundColor: "#ffffff",
+          // Don't inline remote web fonts: Inter + Material Symbols come from
+          // fonts.googleapis.com, whose stylesheets html-to-image cannot read
+          // cross-origin (a SecurityError logged per sheet). Text rasterises
+          // with the browser's already-loaded faces, as in the LDV export.
+          skipFonts: true,
         });
         setThumbnail(dataUrl);
       } catch {

@@ -135,7 +135,13 @@ function LifecycleSection({
       disableGutters
       sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
-      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+      <AccordionSummary
+        // A div, not the default <button>: the summary holds the edit icon
+        // button, and a button may not contain a button.
+        // ButtonBase keeps role="button", tabindex and Enter/Space.
+        component="div"
+        expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} />
           <Typography fontWeight={600}>{t("lifecycle.title")}</Typography>

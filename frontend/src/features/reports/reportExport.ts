@@ -347,6 +347,11 @@ async function captureChartImage(
       backgroundColor: "#ffffff",
       width: captureWidth,
       height: captureHeight,
+      // Don't inline remote web fonts: Inter + Material Symbols come from
+      // fonts.googleapis.com, whose stylesheets html-to-image cannot read
+      // cross-origin (a SecurityError logged per sheet). Text rasterises with
+      // the browser's already-loaded faces, as in the LDV export.
+      skipFonts: true,
       // Neutralise any positioning on the capture root. html-to-image copies
       // the node's computed cssText onto the clone it renders inside a
       // foreignObject, so a root parked off-screen (position:absolute with a

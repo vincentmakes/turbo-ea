@@ -52,6 +52,7 @@ describe("useThumbnailCapture", () => {
     expect(toPng).toHaveBeenCalledWith(fakeDiv, expect.objectContaining({
       cacheBust: true,
       pixelRatio: 1,
+      skipFonts: true,
     }));
     expect(result.current.thumbnail).toBe("data:image/png;base64,abc123");
     expect(openDialog).toHaveBeenCalledOnce();

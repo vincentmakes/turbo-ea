@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Accordion, AccordionDetails, AccordionSummary } from "@mui/material";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -170,5 +172,53 @@ describe("DescriptionSection — a jump opens it in edit mode", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     rerender(<DescriptionSection card={card} onSave={async () => {}} editOn={request(undefined, 2)} />);
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  });
+});
+
+describe('AccordionSummary component="div" (the card sections rely on it)', () => {
+  function Plain() {
+    const [open, setOpen] = useState(false);
+    return (
+      <Accordion expanded={open} onChange={(_, v) => setOpen(v)}>
+        <AccordionSummary component="div">Header</AccordionSummary>
+        <AccordionDetails>Body</AccordionDetails>
+      </Accordion>
+    );
+  }
+
+  it("renders a focusable div[role=button] that still toggles on click, Enter and Space", () => {
+    const { container } = render(<Plain />);
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary).toHaveAttribute("tabindex", "0");
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(summary, { key: "Enter" });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.keyDown(summary, { key: " " });
+    fireEvent.keyUp(summary, { key: " " });
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+describe("DescriptionSection — the header is not a button inside a button", () => {
+  it("renders its summary as a div[role=button] around the AI and edit buttons", () => {
+    const { container } = render(
+      <DescriptionSection card={card} onSave={async () => {}} onAiSuggest={() => {}} />,
+    );
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary.querySelectorAll("button")).toHaveLength(2);
+    expect(container.querySelectorAll("button button")).toHaveLength(0);
+
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
   });
 });

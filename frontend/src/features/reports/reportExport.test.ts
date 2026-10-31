@@ -561,6 +561,7 @@ describe("exportReportToPptx", () => {
       backgroundColor: "#ffffff",
       width: 400,
       height: 1000,
+      skipFonts: true,
       style: { position: "static", left: "0", top: "0", margin: "0" },
     });
     // Material Symbols spans are left out of the capture; everything else is kept.
