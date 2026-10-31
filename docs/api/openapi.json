@@ -6877,6 +6877,112 @@
         "title": "InstanceOut",
         "type": "object"
       },
+      "LeaderboardResponse": {
+        "description": "The ``top`` ranked people; ``total_people`` is how many reach\n``min_cards`` before ``top`` cuts the list.",
+        "properties": {
+          "card_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Card Types",
+            "type": "array"
+          },
+          "counting_roles_only": {
+            "default": true,
+            "title": "Counting Roles Only",
+            "type": "boolean"
+          },
+          "min_cards": {
+            "default": 3,
+            "title": "Min Cards",
+            "type": "integer"
+          },
+          "rank_by": {
+            "default": "average_quality",
+            "enum": [
+              "average_quality",
+              "card_count"
+            ],
+            "title": "Rank By",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRow"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "top": {
+            "default": 10,
+            "title": "Top",
+            "type": "integer"
+          },
+          "total_people": {
+            "title": "Total People",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "total_people"
+        ],
+        "title": "LeaderboardResponse",
+        "type": "object"
+      },
+      "LeaderboardRow": {
+        "properties": {
+          "average_quality": {
+            "title": "Average Quality",
+            "type": "number"
+          },
+          "cards": {
+            "title": "Cards",
+            "type": "integer"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/LeaderboardUser"
+          }
+        },
+        "required": [
+          "rank",
+          "user",
+          "cards",
+          "average_quality"
+        ],
+        "title": "LeaderboardRow",
+        "type": "object"
+      },
+      "LeaderboardUser": {
+        "description": "A person on the board \u2014 the least-privilege user payload, never more.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "LeaderboardUser",
+        "type": "object"
+      },
       "LicenseIn": {
         "properties": {
           "confirm": {
@@ -26590,6 +26696,116 @@
           }
         },
         "summary": "Dashboard Kpi History",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/leaderboard": {
+      "get": {
+        "description": "The Data quality leaderboard widget: the ``top`` people holding at least\n``min_cards`` readable cards, ranked by the average data quality of those\ncards or by how many they hold. ``card_types`` / ``roles`` (repeatable)\nnarrow by key; ``counting_roles_only`` keeps the roles that count for data\nquality. A person is ``{id, display_name}`` only.",
+        "operationId": "dashboard_leaderboard_api_v1_dashboards_leaderboard_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "rank_by",
+            "required": false,
+            "schema": {
+              "default": "average_quality",
+              "enum": [
+                "average_quality",
+                "card_count"
+              ],
+              "title": "Rank By",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_cards",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Min Cards",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_types",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 100,
+              "title": "Card Types",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "roles",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "title": "Roles",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "counting_roles_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Counting Roles Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "top",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Top",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dashboard Leaderboard",
         "tags": [
           "dashboards"
         ]

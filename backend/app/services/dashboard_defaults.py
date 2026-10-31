@@ -46,7 +46,20 @@ WIDGET_TYPES: frozenset[str] = frozenset(
         "system_activity",
         "unassigned_todos",
         "stakeholder_directory",
+        "quality_leaderboard",
     }
+)
+
+# A ``quality_leaderboard`` widget ranks the people who hold stakeholder roles
+# by the average data quality of their cards, or by how many cards they hold
+# (``rank_by``); ``min_cards`` keeps someone with one perfect card off the top
+# and ``max_rows`` is how many people it lists. The bounds are the save-time
+# rule (``dashboard_service``) and the ``/dashboards/leaderboard`` parameters.
+LEADERBOARD_RANKINGS: tuple[str, ...] = ("average_quality", "card_count")
+LEADERBOARD_MIN_CARDS = (1, 100)
+LEADERBOARD_MAX_ROWS = (3, 50)
+LEADERBOARD_DEFAULT_CONFIG: Mapping[str, Any] = MappingProxyType(
+    {"rank_by": "average_quality", "min_cards": 3, "counting_roles_only": True, "max_rows": 10}
 )
 
 # A ``kpi`` widget shows one of these preset metrics (read from the existing
@@ -185,6 +198,7 @@ _OVERVIEW: list[dict[str, Any]] = [
     _chart("chart-lifecycle", "lifecycle_phase", "column", "dashboard.lifecycleOverview", 6, 7, 6),
     _w("browse-by-type", "browse_by_type", 0, 12, 5, 6),
     _w("recent-activity", "recent_activity", 5, 12, 7, 6, {"max_rows": 12}),
+    _w("quality-leaderboard", "quality_leaderboard", 0, 18, 6, 6, dict(LEADERBOARD_DEFAULT_CONFIG)),
 ]
 
 _WORKSPACE: list[dict[str, Any]] = [

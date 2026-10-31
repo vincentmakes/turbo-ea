@@ -390,7 +390,7 @@ class TestReset:
         assert r.status_code == 200
         assert r.json()["widgets"] == DEFAULT_DASHBOARDS["overview"]["widgets"]
         (entry,) = await _audit(db, "admin.dashboard.reset")
-        assert entry.details["changes"] == {"widget_count": {"old": 1, "new": 10}}
+        assert entry.details["changes"] == {"widget_count": {"old": 1, "new": 11}}
         assert {"kind": "dashboard_widget.removed", "widget": "my_todos", "type": "my_todos"} in (
             entry.details["items"]
         )

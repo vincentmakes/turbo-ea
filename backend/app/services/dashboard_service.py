@@ -38,6 +38,10 @@ from app.services.dashboard_defaults import (
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
     KPI_PRESETS,
+    LEADERBOARD_DEFAULT_CONFIG,
+    LEADERBOARD_MAX_ROWS,
+    LEADERBOARD_MIN_CARDS,
+    LEADERBOARD_RANKINGS,
     SERIES_SHAPES,
     SOURCE_SERIES,
     TWO_DIMENSION_CHARTS,
@@ -262,6 +266,33 @@ def _recent_activity_problem(config: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _int_within(value: Any, bounds: tuple[int, int]) -> bool:
+    """An int (never a bool) inside the inclusive ``bounds``."""
+    low, high = bounds
+    return isinstance(value, int) and not isinstance(value, bool) and low <= value <= high
+
+
+def _leaderboard_problem(config: Mapping[str, Any]) -> str | None:
+    """A leaderboard ranks by one of ``LEADERBOARD_RANKINGS``, counts someone
+    from ``min_cards`` cards, lists ``max_rows`` people, and filters by
+    card-type and role **keys** (lists of strings) and ``counting_roles_only``
+    (a bool). Every key is optional; an absent one takes the catalogue default."""
+    defaults = LEADERBOARD_DEFAULT_CONFIG
+    if config.get("rank_by", defaults["rank_by"]) not in LEADERBOARD_RANKINGS:
+        return "leaderboard_rank_by"
+    if not _int_within(config.get("min_cards", defaults["min_cards"]), LEADERBOARD_MIN_CARDS):
+        return "leaderboard_min_cards"
+    if not _int_within(config.get("max_rows", defaults["max_rows"]), LEADERBOARD_MAX_ROWS):
+        return "leaderboard_max_rows"
+    for name in ("card_types", "roles"):
+        keys = config.get(name, [])
+        if not isinstance(keys, list) or not all(isinstance(k, str) and k for k in keys):
+            return "leaderboard_filter_type"
+    if not isinstance(config.get("counting_roles_only", True), bool):
+        return "leaderboard_filter_type"
+    return None
+
+
 def widget_config_problem(widget_type: str, config: Any) -> str | None:
     """The first rule a widget's ``config`` breaks, or ``None``."""
     if widget_type not in WIDGET_TYPES:
@@ -278,6 +309,8 @@ def widget_config_problem(widget_type: str, config: Any) -> str | None:
         return _chart_problem(config)
     if widget_type == "recent_activity":
         return _recent_activity_problem(config)
+    if widget_type == "quality_leaderboard":
+        return _leaderboard_problem(config)
     return None
 
 

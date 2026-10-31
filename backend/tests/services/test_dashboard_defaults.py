@@ -12,6 +12,10 @@ from app.services.dashboard_defaults import (
     DEFAULT_DASHBOARDS,
     GRID_COLUMNS,
     KPI_PRESETS,
+    LEADERBOARD_DEFAULT_CONFIG,
+    LEADERBOARD_MAX_ROWS,
+    LEADERBOARD_MIN_CARDS,
+    LEADERBOARD_RANKINGS,
     SERIES_SHAPES,
     SOURCE_SERIES,
     TWO_DIMENSION_CHARTS,
@@ -30,8 +34,14 @@ ALL_WIDGETS = [
 
 
 def test_the_widget_vocabulary():
-    assert len(WIDGET_TYPES) == 19
-    assert {"kpi", "chart", "recent_activity", "stakeholder_directory"} <= WIDGET_TYPES
+    assert len(WIDGET_TYPES) == 20
+    assert {
+        "kpi",
+        "chart",
+        "recent_activity",
+        "stakeholder_directory",
+        "quality_leaderboard",
+    } <= WIDGET_TYPES
     assert len(KPI_PRESETS) == 13
 
 
@@ -121,6 +131,24 @@ def test_the_overview_reproduces_the_old_tab():
     assert widgets["chart-lifecycle"]["config"]["query"] == {"group_by": "lifecycle_phase"}
     assert widgets["recent-activity"]["config"] == {"max_rows": 12}
     assert widgets["browse-by-type"]["layout"] == {"x": 0, "y": 12, "w": 5, "h": 6}
+    # The Data quality leaderboard ships on the Overview with its catalogue
+    # defaults (fresh installs only: seeding is insert-only).
+    assert widgets["quality-leaderboard"]["type"] == "quality_leaderboard"
+    assert widgets["quality-leaderboard"]["config"] == {
+        "rank_by": "average_quality",
+        "min_cards": 3,
+        "counting_roles_only": True,
+        "max_rows": 10,
+    }
+    assert widgets["quality-leaderboard"]["layout"] == {"x": 0, "y": 18, "w": 6, "h": 6}
+
+
+def test_the_leaderboard_vocabulary():
+    assert LEADERBOARD_RANKINGS == ("average_quality", "card_count")
+    assert LEADERBOARD_MIN_CARDS == (1, 100)
+    assert LEADERBOARD_MAX_ROWS == (3, 50)
+    with pytest.raises(TypeError):
+        LEADERBOARD_DEFAULT_CONFIG["rank_by"] = "card_count"  # type: ignore[index]
 
 
 def test_the_workspace_and_admin_tabs():

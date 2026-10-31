@@ -1,8 +1,9 @@
 """Admin-editable homepage dashboards (``/dashboards``).
 
-Reads: the list of dashboards the caller sees, and the generic aggregation the
-Chart / KPI widgets draw from (``/query``, ``/kpi``, ``/kpi-history``) — every
-count through the caller's ``CardReadScope`` in module mode. Writes need
+Reads: the list of dashboards the caller sees, the generic aggregation the
+Chart / KPI widgets draw from (``/query``, ``/kpi``, ``/kpi-history``) and the
+Data quality leaderboard (``/leaderboard``) — every count through the caller's
+``CardReadScope`` in module mode. Writes need
 ``admin.dashboards`` and each records one Security & admin log row.
 
 The rules live in ``services/dashboard_service.py`` (visibility, validation,
@@ -14,22 +15,33 @@ only wire them together, so the logic carries a mutation score.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, require_permission
 from app.database import get_db
 from app.models.dashboard import Dashboard
 from app.models.user import User
-from app.schemas.dashboard import DashboardCreate, DashboardDuplicate, DashboardUpdate
+from app.schemas.dashboard import (
+    DashboardCreate,
+    DashboardDuplicate,
+    DashboardUpdate,
+    LeaderboardParams,
+    LeaderboardResponse,
+)
 from app.services import audit_log
 from app.services import dashboard_kpi_service as kpis
 from app.services import dashboard_service as svc
 from app.services.card_read_scope import CardReadScope
-from app.services.dashboard_defaults import DEFAULT_DASHBOARDS, default_widgets
+from app.services.dashboard_defaults import (
+    DEFAULT_DASHBOARDS,
+    LEADERBOARD_MIN_CARDS,
+    default_widgets,
+)
+from app.services.dashboard_leaderboard import LeaderboardError, leaderboard
 from app.services.dashboard_query import (
     DashboardQuery,
     DashboardQueryError,
@@ -183,6 +195,36 @@ async def dashboard_kpi(
     a narrowed count, the fiscal year for a cost."""
     resolved, read_scope = await _prepare(db, user, query)
     return await kpis.kpi_with_trend(db, resolved, read_scope)
+
+
+@router.get("/leaderboard", response_model=LeaderboardResponse)
+async def dashboard_leaderboard(
+    rank_by: Literal["average_quality", "card_count"] = Query("average_quality"),
+    min_cards: int = Query(3, ge=LEADERBOARD_MIN_CARDS[0], le=LEADERBOARD_MIN_CARDS[1]),
+    card_types: list[str] = Query([], max_length=100),
+    roles: list[str] = Query([], max_length=50),
+    counting_roles_only: bool = Query(True),
+    top: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_permission(READ_DATA)),
+):
+    """The Data quality leaderboard widget: the ``top`` people holding at least
+    ``min_cards`` readable cards, ranked by the average data quality of those
+    cards or by how many they hold. ``card_types`` / ``roles`` (repeatable)
+    narrow by key; ``counting_roles_only`` keeps the roles that count for data
+    quality. A person is ``{id, display_name}`` only."""
+    params = LeaderboardParams(
+        rank_by=rank_by,
+        min_cards=min_cards,
+        card_types=list(dict.fromkeys(card_types)),
+        roles=list(dict.fromkeys(roles)),
+        counting_roles_only=counting_roles_only,
+        top=top,
+    )
+    try:
+        return await leaderboard(db, await CardReadScope.load(db, user), params)
+    except LeaderboardError as exc:
+        raise HTTPException(400, exc.code) from exc
 
 
 @router.get("/kpi-history")

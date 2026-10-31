@@ -1,4 +1,5 @@
-"""Request bodies of ``/dashboards``.
+"""Request bodies of ``/dashboards``, and the Data quality leaderboard's
+parameters and response.
 
 The validators only call the plain rule functions in
 ``services/dashboard_service.py`` (decorated validators are invisible to
@@ -7,7 +8,7 @@ mutmut, the rules are not).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -123,3 +124,43 @@ class DashboardDuplicate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(None, max_length=200)
+
+
+# ── Data quality leaderboard (``GET /dashboards/leaderboard``) ──────────────
+
+
+class LeaderboardParams(BaseModel):
+    """What the board ranks. The endpoint's query parameters bound each value
+    (``LEADERBOARD_*`` in ``dashboard_defaults``); this is their typed bundle,
+    echoed back in the response."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rank_by: Literal["average_quality", "card_count"] = "average_quality"
+    min_cards: int = 3
+    card_types: list[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
+    counting_roles_only: bool = True
+    top: int = 10
+
+
+class LeaderboardUser(BaseModel):
+    """A person on the board — the least-privilege user payload, never more."""
+
+    id: str
+    display_name: str
+
+
+class LeaderboardRow(BaseModel):
+    rank: int
+    user: LeaderboardUser
+    cards: int
+    average_quality: float
+
+
+class LeaderboardResponse(LeaderboardParams):
+    """The ``top`` ranked people; ``total_people`` is how many reach
+    ``min_cards`` before ``top`` cuts the list."""
+
+    rows: list[LeaderboardRow]
+    total_people: int
