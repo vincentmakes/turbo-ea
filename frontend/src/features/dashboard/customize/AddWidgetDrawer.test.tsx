@@ -49,7 +49,7 @@ describe("AddWidgetDrawer", () => {
       expect(entry(id)).toHaveAttribute("aria-disabled", "true");
       expect(entry(id)).toHaveTextContent(tc("dashboard.customize.alreadyAdded"));
     }
-    for (const id of ["browse_by_type", "kpi:broken_count", "chart:lifecycle", "kpi", "chart"]) {
+    for (const id of ["browse_by_type", "kpi:broken_count", "chart:lifecycle", "kpi", "chart", "quality_leaderboard"]) {
       expect(entry(id)).not.toHaveAttribute("aria-disabled");
     }
     expect(entry("chart")).toHaveTextContent(tc("dashboard.customize.needsConfig"));
@@ -72,6 +72,13 @@ describe("AddWidgetDrawer", () => {
     expect(onPick.mock.calls[0][0]).toMatchObject({ id: "my_favorites", type: "my_favorites", needsConfig: false });
     await user.click(entry("chart"));
     expect(onPick.mock.calls[1][0]).toMatchObject({ id: "chart", type: "chart", needsConfig: true });
+    await user.click(entry("quality_leaderboard"));
+    expect(onPick.mock.calls[2][0]).toMatchObject({
+      id: "quality_leaderboard",
+      type: "quality_leaderboard",
+      needsConfig: false,
+      config: { rank_by: "average_quality", min_cards: 3, counting_roles_only: true, max_rows: 10 },
+    });
   });
 
   it("closes", async () => {

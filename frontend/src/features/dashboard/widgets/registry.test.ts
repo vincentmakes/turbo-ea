@@ -30,6 +30,7 @@ import ChartWidget from "./ChartWidget";
 import SectionWidget from "./SectionWidget";
 import RecentActivityWidget from "./RecentActivityWidget";
 import BrowseByTypeWidget from "./BrowseByTypeWidget";
+import QualityLeaderboardWidget from "./QualityLeaderboardWidget";
 
 const DEFAULTS_FILE = path.resolve(__dirname, "../../../../../backend/app/services/dashboard_defaults.py");
 
@@ -82,17 +83,42 @@ describe("WIDGET_REGISTRY", () => {
     expect(WIDGET_REGISTRY.chart.Component).toBe(ChartWidget);
     expect(WIDGET_REGISTRY.recent_activity.Component).toBe(RecentActivityWidget);
     expect(WIDGET_REGISTRY.browse_by_type.Component).toBe(BrowseByTypeWidget);
+    expect(WIDGET_REGISTRY.quality_leaderboard.Component).toBe(QualityLeaderboardWidget);
     expect(WIDGET_REGISTRY.my_todos.Component).toBe(SectionWidget);
     expect(WIDGET_REGISTRY.stakeholder_directory.Component).toBe(SectionWidget);
   });
 
-  it("allows many KPIs and charts but one of every section", () => {
+  it("allows many KPIs, charts and leaderboards but one of every section", () => {
+    const many: WidgetType[] = ["kpi", "chart", "quality_leaderboard"];
     for (const type of WIDGET_TYPE_KEYS) {
-      expect(WIDGET_META[type].single, type).toBe(type !== "kpi" && type !== "chart");
+      expect(WIDGET_META[type].single, type).toBe(!many.includes(type));
     }
     expect(WIDGET_META.kpi.configurable).toBe("kpi");
     expect(WIDGET_META.chart.configurable).toBe("chart");
     expect(WIDGET_META.recent_activity.configurable).toBe("activity");
+    expect(WIDGET_META.quality_leaderboard.configurable).toBe("leaderboard");
+    const configurable = WIDGET_TYPE_KEYS.filter((type) => WIDGET_META[type].configurable !== undefined);
+    expect(configurable.sort()).toEqual(["chart", "kpi", "quality_leaderboard", "recent_activity"]);
+  });
+
+  it("describes the Data quality leaderboard", () => {
+    expect(WIDGET_META.quality_leaderboard).toEqual({
+      type: "quality_leaderboard",
+      labelKey: "dashboard.widgets.qualityLeaderboard",
+      icon: "leaderboard",
+      family: "overview",
+      defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+      permission: "reports.ea_dashboard",
+      sources: [],
+      single: false,
+      configurable: "leaderboard",
+      chrome: "titled",
+    });
+    expect(t(WIDGET_META.quality_leaderboard.labelKey)).toBe("Data quality leaderboard");
+    expect(widgetPermission(w("quality_leaderboard"))).toBe("reports.ea_dashboard");
+    expect(widgetSources(w("quality_leaderboard"))).toEqual([]);
+    expect(widgetTitle(w("quality_leaderboard"), t)).toBe("Data quality leaderboard");
+    expect(widgetTitle(w("quality_leaderboard", {}, "Who keeps it tidy"), t)).toBe("Who keeps it tidy");
   });
 
   it("gates the overview family on the EA dashboard, admin on admin.users, workspace on nothing", () => {

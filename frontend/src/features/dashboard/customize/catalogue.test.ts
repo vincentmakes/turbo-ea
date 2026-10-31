@@ -48,6 +48,7 @@ describe("CATALOGUE", () => {
     expect(entry("top_contributors").family).toBe("admin");
     expect(entry("my_todos").family).toBe("workspace");
     expect(entry("recent_activity").family).toBe("overview");
+    expect(entry("quality_leaderboard").family).toBe("overview");
   });
 
   it("asks for configuration only for the generic KPI and chart", () => {
@@ -67,6 +68,19 @@ describe("CATALOGUE", () => {
     });
     expect(entry("chart:cards_by_type").labelKey).toBe("dashboard.cardsByType");
     expect(entry("recent_activity").config).toEqual({ max_rows: 12 });
+    // The leaderboard starts from the backend's LEADERBOARD_DEFAULT_CONFIG.
+    expect(entry("quality_leaderboard").config).toEqual({
+      rank_by: "average_quality",
+      min_cards: 3,
+      counting_roles_only: true,
+      max_rows: 10,
+    });
+    expect(entry("quality_leaderboard")).toMatchObject({
+      labelKey: "dashboard.widgets.qualityLeaderboard",
+      icon: "leaderboard",
+      needsConfig: false,
+      single: false,
+    });
     expect(entry("my_todos").config).toEqual({});
   });
 });
@@ -145,6 +159,10 @@ describe("isAlreadyAdded", () => {
     expect(isAlreadyAdded(entry("recent_activity"), [w("browse_by_type")])).toBe(false);
     expect(isAlreadyAdded(entry("recent_activity"), [])).toBe(false);
   });
+
+  it("never greys the leaderboard: a dashboard may hold several", () => {
+    expect(isAlreadyAdded(entry("quality_leaderboard"), [w("quality_leaderboard")])).toBe(false);
+  });
 });
 
 describe("catalogueFor", () => {
@@ -206,7 +224,9 @@ describe("catalogueFor", () => {
   it("adds the overview and generic widgets with reports.ea_dashboard, the admin ones with admin.users", () => {
     const ea = ids({ "reports.ea_dashboard": true });
     expect(ea).toEqual(expect.arrayContaining(["kpi", "chart", "kpi:total_cards", "chart:completion", "recent_activity"]));
+    expect(ea).toContain("quality_leaderboard");
     expect(ea).not.toContain("idle_users");
+    expect(ids({ "admin.users": true })).not.toContain("quality_leaderboard");
     const admin = ids({ "admin.users": true });
     expect(admin).toEqual(expect.arrayContaining(["idle_users", "kpi:active_users", "kpi:overall_quality"]));
     expect(admin).not.toContain("chart");

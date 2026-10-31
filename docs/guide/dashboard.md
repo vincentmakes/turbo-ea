@@ -58,8 +58,19 @@ Below the tiles, the Overview dashboard shows:
 - **Lifecycle overview**: How many cards are in each lifecycle phase
 - **Browse by type**: Every card type with its count — click one to open the [Inventory](inventory.md) pre-filtered to that type
 - **Recent activity**: A feed of the latest changes — who edited what and when
+- **Data quality leaderboard**: The people who keep their cards complete (see below)
 
 Clicking a bar or a slice of a chart opens what is behind it: the [Inventory](inventory.md) filtered to those cards for a card type or an approval status, the Lifecycle report for a lifecycle phase, the Data Quality report for a completion bucket.
+
+### Data quality leaderboard
+
+The **Data quality leaderboard** ranks the people who hold a stakeholder role on cards. By default it ranks them by the **average data quality** of their cards; switch it to **number of cards** to see who carries the most. Each row shows the person's rank, their name, a bar in the colour of their average's data-quality band, the average and how many cards they hold. People with the same figure share a rank.
+
+Someone appears once they hold a **minimum number of cards** (three by default), so a single perfect card does not top the board. A card counts once per person, however many roles they hold on it, and only active cards count. By default only the roles that count for data quality do — a passive role such as *Observer* never earns a place; the widget's settings can narrow it to some card types or roles, or count every role. Deactivated users never appear. The board is computed for you: a card you are not allowed to see neither adds to anyone's count nor moves their average, so two readers with different permissions can see different figures. Only names are shown, never email addresses.
+
+The leaderboard needs the `reports.ea_dashboard` permission, like the rest of the Overview dashboard, and a dashboard can hold several of them — one per card type, say.
+
+![Dashboard - Data quality leaderboard](../assets/img/en/04_dashboard_quality_leaderboard.png)
 
 ## Workspace tab
 
@@ -88,7 +99,7 @@ Click **Customize** next to the dashboard tabs to edit the current dashboard. Th
 - **Move** a widget by dragging its handle; the grid is 12 columns wide and the other widgets make room.
 - **Resize** a widget from its right edge, its bottom edge or the corner, by mouse or by touch (on a phone or a tablet held upright the layout is read-only). The widget beside it adjusts as you drag: it narrows when its neighbour grows and widens back when it shrinks; if it cannot narrow any further, it moves to the next row. Rows below move down and back up on their own. The widget snaps to the grid as you drag, and in customize mode the page keeps four empty rows under the last widget, so the bottom row can be dragged taller; scroll until the handle sits well inside the window first.
 - **Remove** a widget with its close button.
-- **Configure** a KPI tile, a chart or the activity feed with its gear button.
+- **Configure** a KPI tile, a chart, the activity feed or a data quality leaderboard with its gear button.
 - **Undo** and **Redo** step through the changes made since Customize was opened, one move, resize, addition, removal or configuration at a time — with the two toolbar buttons or Ctrl+Z / Ctrl+Shift+Z (⌘ on a Mac). **Discard** still drops them all at once.
 
 Click **Save** to keep the changes for everyone, or **Discard** to return to the dashboard as it was.

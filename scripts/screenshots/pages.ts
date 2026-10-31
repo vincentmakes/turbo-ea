@@ -356,6 +356,21 @@ export const DOC_PAGES: PageDef[] = [
       ru: "03_panel_upravleniya_nastroyka",
     },
   },
+  {
+    // The Data quality leaderboard ships at the bottom of the Overview
+    // dashboard; scroll to it and clip to its grid cell.
+    id: "04_dashboard_quality_leaderboard",
+    route: "/",
+    waitFor: '[data-testid="quality-leaderboard"]',
+    actions: [
+      { type: "scroll", target: '[data-testid="quality-leaderboard"]' },
+      { type: "wait", ms: 600 },
+    ],
+    clipSelector: '.react-grid-item:has([data-testid="quality-leaderboard"])',
+    filenames: {
+      en: "04_dashboard_quality_leaderboard",
+    },
+  },
 
   // ── Inventory ──────────────────────────────────────────────────────────
   // NOTE: the plain `03_inventory` grid shot was removed — `23_inventory_filters`

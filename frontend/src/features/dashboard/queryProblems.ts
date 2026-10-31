@@ -41,6 +41,12 @@ export const BACKEND_PROBLEMS: Record<string, string> = {
   invalid_thresholds: "invalidThresholds",
   invalid_good_direction: "invalidGoodDirection",
   invalid_show_values: "invalidShowValues",
+  unknown_card_type: "unknownCardType",
+  unknown_role: "unknownRole",
+  leaderboard_rank_by: "leaderboardRankBy",
+  leaderboard_min_cards: "leaderboardMinCards",
+  leaderboard_max_rows: "leaderboardMaxRows",
+  leaderboard_filter_type: "leaderboardFilterType",
 };
 
 // Longest first, so a code that contains another is matched whole.

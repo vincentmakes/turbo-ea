@@ -60,7 +60,7 @@ export interface WidgetMeta {
   sources: SourceName[];
   /** At most one per dashboard. */
   single: boolean;
-  configurable?: "kpi" | "chart" | "activity";
+  configurable?: "kpi" | "chart" | "activity" | "leaderboard";
   chrome: WidgetChrome;
 }
 
@@ -137,6 +137,18 @@ export const WIDGET_META: Record<WidgetType, WidgetMeta> = {
     permission: EA,
     sources: ["reports.dashboard"],
     single: true,
+    chrome: "titled",
+  },
+  quality_leaderboard: {
+    type: "quality_leaderboard",
+    labelKey: "dashboard.widgets.qualityLeaderboard",
+    icon: "leaderboard",
+    family: "overview",
+    defaultLayout: { w: 4, h: 6, minW: 3, minH: 4 },
+    permission: EA,
+    sources: [],
+    single: false,
+    configurable: "leaderboard",
     chrome: "titled",
   },
   needs_attention: section(

@@ -3,7 +3,8 @@
  * behind it and how it is drawn, split into sections — the sankey's relation
  * and sides (`SankeySection`), the card type / grouping / measure
  * (`QuerySection`), the filters (`FiltersSection`), and the presentation
- * (`PresentationSection`); a module widget gets `SourceForm`. A live preview
+ * (`PresentationSection`); a module widget gets `SourceForm`, the Data quality
+ * leaderboard `LeaderboardSection`. A live preview
  * renders the real widget with the draft, so what the admin sees is what the
  * dashboard will show. Save is offered only for a draft the backend accepts
  * (`widgetConfigModel.draftProblem`).
@@ -30,6 +31,7 @@ import { useDashboardModules } from "../useDashboardModules";
 import { WIDGET_REGISTRY } from "../widgets/registry";
 import WidgetFrame from "../widgets/WidgetFrame";
 import FiltersSection from "./sections/FiltersSection";
+import LeaderboardSection from "./sections/LeaderboardSection";
 import PresentationSection from "./sections/PresentationSection";
 import QuerySection from "./sections/QuerySection";
 import SankeySection from "./sections/SankeySection";
@@ -172,7 +174,7 @@ function ConfigForm({
   const percent = isGauge && gaugeIsPercent(kind, draft, { types });
 
   const showQuery = kind === "kpi" || isChart;
-  const showPreview = showQuery || kind === "source";
+  const showPreview = showQuery || kind === "source" || kind === "leaderboard";
   const secondaryAvailable = kind === "kpi" && secondaryApplies(cleanQuery(draftQuery(draft), "kpi", draft.chart));
   // A relation-presence filter is a flag on a type; a sankey keeps the
   // static flags only.
@@ -234,6 +236,8 @@ function ConfigForm({
                 secondaryAvailable={secondaryAvailable}
               />
             )}
+
+            {kind === "leaderboard" && <LeaderboardSection draft={draft} set={set} cardTypes={cardTypes} />}
 
             {kind === "activity" && (
               <>

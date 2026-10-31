@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.185.0] - 2026-10-31
+
+### Added
+- A **Data quality leaderboard** dashboard widget ranks the people who hold stakeholder roles by the average data quality of their cards, or by how many cards they hold, from a minimum number of cards; it can be narrowed to some card types or roles, counts only the roles that count for data quality by default, never counts a card the reader cannot see, and ships on the Overview dashboard of new installations (existing ones add it from **Add widget** or get it with **Reset to default**).
+
 ## [2.184.1] - 2026-10-31
 
 ### Fixed

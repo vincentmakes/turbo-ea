@@ -510,6 +510,107 @@ describe("WidgetConfigDialog — recent activity", () => {
   });
 });
 
+describe("WidgetConfigDialog — data quality leaderboard", () => {
+  const LEADERBOARD = widget("quality_leaderboard", {
+    rank_by: "average_quality",
+    min_cards: 3,
+    counting_roles_only: true,
+    max_rows: 10,
+  });
+  const DEFAULT_PATH = "/dashboards/leaderboard?rank_by=average_quality&min_cards=3&counting_roles_only=true&top=10";
+
+  /** Pick one option of a multi-select (it stays open on a pick) and close it. */
+  async function pick(user: ReturnType<typeof renderDialog>["user"], label: string, option: string) {
+    await user.click(combo(label));
+    const listbox = await screen.findByRole("listbox");
+    await user.click(within(listbox).getByRole("option", { name: option }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+  }
+
+  it("previews the real board and saves the chosen keys", async () => {
+    mockApi.on("get", DEFAULT_PATH, {
+      rows: [{ rank: 1, user: { id: "u1", display_name: "Alice" }, cards: 4, average_quality: 88 }],
+      total_people: 1,
+    });
+    const { user, onSave } = renderDialog(LEADERBOARD, { mode: "edit" });
+    const preview = screen.getByTestId("config-preview");
+    expect(await within(preview).findByTestId("quality-leaderboard")).toHaveTextContent("Alice");
+    expect(within(preview).getByText(tc("dashboard.widgets.qualityLeaderboard"))).toBeInTheDocument();
+
+    await choose(user, tc("dashboard.leaderboard.rankBy"), tc("dashboard.leaderboard.rankByCount"));
+    const minCards = screen.getByLabelText(tc("dashboard.leaderboard.minCards"));
+    await user.clear(minCards);
+    await user.type(minCards, "2");
+    const rows = screen.getByLabelText(tc("dashboard.leaderboard.maxRows"));
+    await user.clear(rows);
+    await user.type(rows, "15");
+
+    // Every readable type is offered; hidden ones are not.
+    expect(await options(user, tc("dashboard.leaderboard.cardTypes"))).toEqual([
+      "Business Capability",
+      "Application",
+      "IT Component",
+      "Provider",
+    ]);
+    expect(await options(user, tc("dashboard.leaderboard.roles"))).toEqual([
+      "Capability Owner",
+      "Application Owner",
+      "Technical Application Owner",
+      "Technical Owner",
+    ]);
+    await pick(user, tc("dashboard.leaderboard.cardTypes"), "Application");
+    // The roles narrow to the chosen types'.
+    expect(await options(user, tc("dashboard.leaderboard.roles"))).toEqual([
+      "Application Owner",
+      "Technical Application Owner",
+    ]);
+    await pick(user, tc("dashboard.leaderboard.roles"), "Application Owner");
+    await user.click(screen.getByRole("checkbox", { name: tc("dashboard.leaderboard.countingRolesOnly") }));
+
+    expect(problem()).toBeNull();
+    await user.click(saveButton("edit"));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].config).toEqual({
+      rank_by: "card_count",
+      min_cards: 2,
+      counting_roles_only: false,
+      max_rows: 15,
+      card_types: ["Application"],
+      roles: ["applicationOwner"],
+    });
+  });
+
+  it("refuses a minimum or a row count the backend would", async () => {
+    const { user } = renderDialog(LEADERBOARD, { mode: "edit" });
+    const minCards = screen.getByLabelText(tc("dashboard.leaderboard.minCards"));
+    await user.clear(minCards);
+    await user.type(minCards, "101");
+    expect(problem()).toBe(tc("dashboard.config.problem.leaderboardMinCards"));
+    expect(saveButton("edit")).toBeDisabled();
+    expect(screen.getByText(tc("dashboard.config.previewInvalid"))).toBeInTheDocument();
+    await user.clear(minCards);
+    await user.type(minCards, "1");
+    const rows = screen.getByLabelText(tc("dashboard.leaderboard.maxRows"));
+    await user.clear(rows);
+    await user.type(rows, "2");
+    expect(problem()).toBe(tc("dashboard.config.problem.leaderboardMaxRows"));
+    expect(saveButton("edit")).toBeDisabled();
+    await user.clear(rows);
+    await user.type(rows, "3");
+    expect(problem()).toBeNull();
+    expect(saveButton("edit")).toBeEnabled();
+  });
+
+  it("shows no query, filter or chart settings", () => {
+    renderDialog(LEADERBOARD, { mode: "edit" });
+    expect(screen.getByTestId("config-leaderboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("config-filters")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-card-type")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-max-rows")).not.toBeInTheDocument();
+  });
+});
+
 it("renders nothing without a widget", () => {
   renderWithProviders(<WidgetConfigDialog open widget={null} mode="edit" onClose={() => {}} onSave={() => {}} />);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

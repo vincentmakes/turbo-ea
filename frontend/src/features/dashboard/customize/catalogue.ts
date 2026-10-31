@@ -235,6 +235,15 @@ function presetEntry(preset: ChartPreset): CatalogueEntry {
 
 export const FAMILY_ORDER: WidgetFamily[] = ["kpi", "chart", "overview", "workspace", "admin"];
 
+/** The config a catalogue widget starts with (the backend's defaults). */
+function defaultConfig(type: WidgetType): Record<string, unknown> {
+  if (type === "recent_activity") return { max_rows: 12 };
+  if (type === "quality_leaderboard") {
+    return { rank_by: "average_quality", min_cards: 3, counting_roles_only: true, max_rows: 10 };
+  }
+  return {};
+}
+
 function buildCatalogue(): CatalogueEntry[] {
   const entries: CatalogueEntry[] = [];
   entries.push({
@@ -303,7 +312,7 @@ function buildCatalogue(): CatalogueEntry[] {
       family: meta.family,
       labelKey: meta.labelKey,
       icon: meta.icon,
-      config: type === "recent_activity" ? { max_rows: 12 } : {},
+      config: defaultConfig(type),
       needsConfig: false,
       single: meta.single,
     });

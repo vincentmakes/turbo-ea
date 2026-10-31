@@ -10,6 +10,7 @@ import { isEolType } from "@/lib/eol";
 import type {
   CardType,
   DashboardChartKind,
+  LeaderboardRankBy,
   DashboardQuery,
   DashboardWidget,
   FieldDef,
@@ -25,6 +26,11 @@ import {
 } from "../dashboardQuery";
 import { kpiPreset } from "../widgets/kpiPresets";
 import {
+  LEADERBOARD_MAX_ROWS,
+  LEADERBOARD_MIN_CARDS,
+  readLeaderboardConfig,
+} from "../widgets/leaderboardConfig";
+import {
   CHART_KINDS,
   PERCENT_SERIES,
   TWO_DIMENSION_KINDS,
@@ -35,7 +41,7 @@ import {
 import { isModuleSource, seriesShape } from "../widgets/sourceSeries";
 
 /** Which form a widget's configure button opens, or null for none. */
-export type ConfigKind = "title" | "kpi" | "chart" | "activity" | "source";
+export type ConfigKind = "title" | "kpi" | "chart" | "activity" | "source" | "leaderboard";
 
 export function configKind(widget: Pick<DashboardWidget, "type" | "config">): ConfigKind | null {
   switch (widget.type) {
@@ -46,6 +52,8 @@ export function configKind(widget: Pick<DashboardWidget, "type" | "config">): Co
       return isModuleSource(widget.config?.source) ? "source" : "chart";
     case "recent_activity":
       return "activity";
+    case "quality_leaderboard":
+      return "leaderboard";
     default:
       return null;
   }
@@ -364,8 +372,17 @@ export interface ConfigDraft {
   /** Text of a gauge's upper band edge ("" = none). */
   thresholdGood: string;
   format: "number" | "percent";
-  /** Text of the activity row count input. */
+  /** Text of the activity (or leaderboard) row count input. */
   maxRows: string;
+  /** How the leaderboard ranks people. */
+  rankBy: LeaderboardRankBy;
+  /** Text of the leaderboard's minimum-cards input. */
+  minCards: string;
+  /** The leaderboard's card-type and role key filters (empty = all). */
+  leaderboardTypes: string[];
+  leaderboardRoles: string[];
+  /** Count only the roles that fill the data-quality stakeholder slot. */
+  countingRolesOnly: boolean;
   activityFilter: (typeof ACTIVITY_FILTERS)[number];
   /** Flags other than the relation-presence one. */
   flags: string[];
@@ -408,6 +425,8 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
   const query: DashboardQuery = { ...(widget.type === "kpi" ? kpiQuery : chart.query) };
   const { flags, relationPresence } = splitFlags(query.flags);
   delete query.flags;
+  const leaderboard = readLeaderboardConfig(config);
+  const defaultRows = widget.type === "quality_leaderboard" ? leaderboard.maxRows : 12;
   return {
     title: widget.title ?? "",
     query,
@@ -419,7 +438,12 @@ export function draftFromWidget(widget: DashboardWidget): ConfigDraft {
     thresholdWarn: chart.thresholds ? String(chart.thresholds[0]) : "",
     thresholdGood: chart.thresholds ? String(chart.thresholds[1]) : "",
     format: config.format === "percent" ? "percent" : "number",
-    maxRows: typeof config.max_rows === "number" ? String(config.max_rows) : "12",
+    maxRows: typeof config.max_rows === "number" ? String(config.max_rows) : String(defaultRows),
+    rankBy: leaderboard.rankBy,
+    minCards: typeof config.min_cards === "number" ? String(config.min_cards) : String(leaderboard.minCards),
+    leaderboardTypes: leaderboard.cardTypes,
+    leaderboardRoles: leaderboard.roles,
+    countingRolesOnly: leaderboard.countingRolesOnly,
     activityFilter: filter,
     flags,
     relationPresence,
@@ -666,6 +690,18 @@ function gaugeProblem(draft: ConfigDraft, percent: boolean): string | null {
   return null;
 }
 
+const isIntWithin = (text: string, bounds: { min: number; max: number }) => {
+  const value = Number(text);
+  return text.trim() !== "" && Number.isInteger(value) && value >= bounds.min && value <= bounds.max;
+};
+
+/** A leaderboard draft's problem: the backend's `_leaderboard_problem` bounds. */
+function leaderboardProblem(draft: ConfigDraft): string | null {
+  if (!isIntWithin(draft.minCards, LEADERBOARD_MIN_CARDS)) return "leaderboardMinCards";
+  if (!isIntWithin(draft.maxRows, LEADERBOARD_MAX_ROWS)) return "leaderboardMaxRows";
+  return null;
+}
+
 /** The i18n key (under `dashboard.config.problem.`) of the first rule a draft breaks, or null. */
 export function draftProblem(
   kind: ConfigKind,
@@ -679,6 +715,7 @@ export function draftProblem(
     const rows = Number(draft.maxRows);
     return Number.isInteger(rows) && rows >= 1 && rows <= MAX_ACTIVITY_ROWS ? null : "maxRowsRange";
   }
+  if (kind === "leaderboard") return leaderboardProblem(draft);
   if (kind === "source") {
     const series = typeof widget?.config?.series === "string" ? widget.config.series : "";
     if (widget?.type === "chart") {
@@ -755,6 +792,17 @@ export function widgetFromDraft(
       break;
     case "activity":
       config = { ...base, max_rows: Number(draft.maxRows), filter: draft.activityFilter };
+      break;
+    case "leaderboard":
+      // Keys only, never ids: the filters are card-type and role keys.
+      config = {
+        rank_by: draft.rankBy,
+        min_cards: Number(draft.minCards),
+        counting_roles_only: draft.countingRolesOnly,
+        max_rows: Number(draft.maxRows),
+      };
+      if (draft.leaderboardTypes.length > 0) config.card_types = [...draft.leaderboardTypes];
+      if (draft.leaderboardRoles.length > 0) config.roles = [...draft.leaderboardRoles];
       break;
     case "source":
       config = { ...base };

@@ -8,6 +8,7 @@ import type { WidgetType } from "@/types";
 import BrowseByTypeWidget from "./BrowseByTypeWidget";
 import ChartWidget from "./ChartWidget";
 import KpiWidget from "./KpiWidget";
+import QualityLeaderboardWidget from "./QualityLeaderboardWidget";
 import RecentActivityWidget from "./RecentActivityWidget";
 import SectionWidget from "./SectionWidget";
 import { WIDGET_META, WIDGET_TYPE_KEYS, type WidgetMeta, type WidgetProps } from "./widgetMeta";
@@ -42,6 +43,8 @@ function componentFor(type: WidgetType): ComponentType<WidgetProps> {
       return RecentActivityWidget;
     case "browse_by_type":
       return BrowseByTypeWidget;
+    case "quality_leaderboard":
+      return QualityLeaderboardWidget;
     default:
       return SectionWidget;
   }

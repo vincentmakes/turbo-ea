@@ -67,6 +67,11 @@ const draft = (patch: Partial<ConfigDraft> = {}): ConfigDraft => ({
   format: "number",
   maxRows: "12",
   activityFilter: "all",
+  rankBy: "average_quality",
+  minCards: "3",
+  leaderboardTypes: [],
+  leaderboardRoles: [],
+  countingRolesOnly: true,
   flags: [],
   relationPresence: { rt: null, has: true },
   sparkline: false,
@@ -84,6 +89,7 @@ describe("configKind", () => {
   it("gives charts and the activity feed their forms, and sections none", () => {
     expect(configKind(widget("chart"))).toBe("chart");
     expect(configKind(widget("recent_activity"))).toBe("activity");
+    expect(configKind(widget("quality_leaderboard"))).toBe("leaderboard");
     expect(configKind(widget("my_todos"))).toBeNull();
     expect(configKind(widget("browse_by_type"))).toBeNull();
   });
@@ -221,6 +227,44 @@ describe("draftFromWidget", () => {
     });
   });
 
+  it("reads a leaderboard config", () => {
+    expect(
+      draftFromWidget(
+        widget("quality_leaderboard", {
+          rank_by: "card_count",
+          min_cards: 5,
+          max_rows: 20,
+          card_types: ["Application"],
+          roles: ["responsible"],
+          counting_roles_only: false,
+        }),
+      ),
+    ).toMatchObject({
+      rankBy: "card_count",
+      minCards: "5",
+      maxRows: "20",
+      leaderboardTypes: ["Application"],
+      leaderboardRoles: ["responsible"],
+      countingRolesOnly: false,
+    });
+  });
+
+  it("reads a leaderboard without a config as the catalogue default", () => {
+    expect(draftFromWidget(widget("quality_leaderboard"))).toMatchObject({
+      rankBy: "average_quality",
+      minCards: "3",
+      maxRows: "10",
+      leaderboardTypes: [],
+      leaderboardRoles: [],
+      countingRolesOnly: true,
+    });
+    // An out-of-range number stays in the draft, so the dialog says what is wrong.
+    expect(draftFromWidget(widget("quality_leaderboard", { min_cards: 0, max_rows: 99 }))).toMatchObject({
+      minCards: "0",
+      maxRows: "99",
+    });
+  });
+
   it("copies the query so editing the draft never edits the widget", () => {
     const w = widget("chart", { query: { group_by: "type" }, chart: "bar" });
     const d = draftFromWidget(w);
@@ -329,6 +373,26 @@ describe("draftProblem", () => {
     expect(draftProblem("activity", draft({ maxRows: "51" }))).toBe("maxRowsRange");
     expect(draftProblem("activity", draft({ maxRows: "2.5" }))).toBe("maxRowsRange");
     expect(draftProblem("activity", draft({ maxRows: "" }))).toBe("maxRowsRange");
+  });
+
+  it("bounds the leaderboard's minimum cards and rows like the backend", () => {
+    const lb = (patch: Partial<ConfigDraft>) => draftProblem("leaderboard", draft({ maxRows: "10", ...patch }));
+    expect(lb({})).toBeNull();
+    expect(lb({ minCards: "1", maxRows: "3" })).toBeNull();
+    expect(lb({ minCards: "100", maxRows: "50" })).toBeNull();
+    expect(lb({ minCards: "0" })).toBe("leaderboardMinCards");
+    expect(lb({ minCards: "101" })).toBe("leaderboardMinCards");
+    expect(lb({ minCards: "2.5" })).toBe("leaderboardMinCards");
+    expect(lb({ minCards: "" })).toBe("leaderboardMinCards");
+    expect(lb({ minCards: " " })).toBe("leaderboardMinCards");
+    expect(lb({ maxRows: "2" })).toBe("leaderboardMaxRows");
+    expect(lb({ maxRows: "51" })).toBe("leaderboardMaxRows");
+    expect(lb({ maxRows: "" })).toBe("leaderboardMaxRows");
+    // The minimum is checked first; the title before both.
+    expect(lb({ minCards: "0", maxRows: "0" })).toBe("leaderboardMinCards");
+    expect(lb({ title: "x".repeat(121), minCards: "0" })).toBe("titleTooLong");
+    // The leaderboard has no query to check.
+    expect(draftProblem("leaderboard", draft({ maxRows: "10", query: { group_by: "nope" } }))).toBeNull();
   });
 
   it("needs a relation type for a sankey", () => {
@@ -440,6 +504,47 @@ describe("widgetFromDraft", () => {
       draft({ maxRows: "20", activityFilter: "comments" }),
     );
     expect(out.config).toEqual({ max_rows: 20, filter: "comments" });
+  });
+
+  it("saves a leaderboard config of keys, with the filters only when set", () => {
+    const out = widgetFromDraft(
+      widget("quality_leaderboard", { rank_by: "average_quality", stale: true }),
+      "leaderboard",
+      draft({
+        title: " Tidy ",
+        rankBy: "card_count",
+        minCards: "4",
+        maxRows: "15",
+        leaderboardTypes: ["Application", "ITComponent"],
+        leaderboardRoles: ["responsible"],
+        countingRolesOnly: false,
+      }),
+    );
+    expect(out.title).toBe("Tidy");
+    expect(out.config).toEqual({
+      rank_by: "card_count",
+      min_cards: 4,
+      counting_roles_only: false,
+      max_rows: 15,
+      card_types: ["Application", "ITComponent"],
+      roles: ["responsible"],
+    });
+    const plain = widgetFromDraft(widget("quality_leaderboard"), "leaderboard", draft({ maxRows: "10" }));
+    expect(plain.config).toEqual({
+      rank_by: "average_quality",
+      min_cards: 3,
+      counting_roles_only: true,
+      max_rows: 10,
+    });
+  });
+
+  it("copies the leaderboard's key lists", () => {
+    const d = draft({ leaderboardTypes: ["Application"], leaderboardRoles: ["responsible"] });
+    const out = widgetFromDraft(widget("quality_leaderboard"), "leaderboard", d);
+    d.leaderboardTypes.push("X");
+    d.leaderboardRoles.push("Y");
+    expect(out.config.card_types).toEqual(["Application"]);
+    expect(out.config.roles).toEqual(["responsible"]);
   });
 });
 

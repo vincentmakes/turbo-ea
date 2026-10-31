@@ -844,7 +844,35 @@ export type WidgetType =
   | "approval_pipeline"
   | "system_activity"
   | "unassigned_todos"
-  | "stakeholder_directory";
+  | "stakeholder_directory"
+  | "quality_leaderboard";
+
+/** How the Data quality leaderboard ranks people. */
+export type LeaderboardRankBy = "average_quality" | "card_count";
+
+/** One person on the Data quality leaderboard (`GET /dashboards/leaderboard`).
+ *  The user is `{id, display_name}` only — the least-privilege payload. */
+export interface QualityLeaderboardRow {
+  /** Ties on the ranked figure share a rank (1, 2, 2, 4). */
+  rank: number;
+  user: { id: string; display_name: string };
+  /** Distinct readable cards the person holds a counted role on. */
+  cards: number;
+  /** Average data quality of those cards, 0–100, one decimal. */
+  average_quality: number;
+}
+
+export interface QualityLeaderboardResult {
+  rows: QualityLeaderboardRow[];
+  /** How many people reach `min_cards`, before `top` cuts the list. */
+  total_people: number;
+  rank_by: LeaderboardRankBy;
+  min_cards: number;
+  card_types: string[];
+  roles: string[];
+  counting_roles_only: boolean;
+  top: number;
+}
 
 export interface WidgetLayout {
   x: number;
