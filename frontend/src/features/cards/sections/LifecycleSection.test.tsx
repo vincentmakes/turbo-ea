@@ -133,3 +133,18 @@ describe("LifecycleSection — a jump opens it in edit mode", () => {
     expect(save()).not.toBeInTheDocument();
   });
 });
+
+describe("LifecycleSection — the header is not a button inside a button", () => {
+  it("renders its summary as a div[role=button] around the edit button", () => {
+    const { container } = render(<LifecycleSection card={cardWith({})} onSave={async () => {}} />);
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary.querySelectorAll("button")).toHaveLength(1);
+    expect(container.querySelectorAll("button button")).toHaveLength(0);
+
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+  });
+});

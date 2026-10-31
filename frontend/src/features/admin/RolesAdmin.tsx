@@ -780,6 +780,10 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
                       }}
                     >
                       <AccordionSummary
+                        // A div, not the default <button>: the summary holds
+                        // the select-all button, and a button may not contain
+                        // a button. ButtonBase keeps role="button" and keys.
+                        component="div"
                         expandIcon={
                           <MaterialSymbol icon="expand_more" size={20} />
                         }

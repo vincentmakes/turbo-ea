@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.1] - 2026-10-31
+
+### Fixed
+- The Description, Lifecycle and attribute section headers on a card, and the permission group headers in role management, are no longer a button nested in a button, which browsers flagged and screen readers announced twice.
+- Saving a report thumbnail or exporting a report no longer logs three font-stylesheet errors in the browser console.
+
 ## [2.186.0] - 2026-10-31
 
 ### Changed
