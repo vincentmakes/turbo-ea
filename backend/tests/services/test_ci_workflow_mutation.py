@@ -293,6 +293,7 @@ def test_vitest_does_not_flood_the_step_summary():
 # A frontend test that reads files off disk, and why it may skip the marker.
 READS_NO_SOURCE = {
     "src/features/reports/linkChangeGlyphs.test.ts": "reads SVG assets in node_modules",
+    "src/lib/fontStylesheetLinks.test.ts": "reads frontend/index.html, which Stryker never mutates",
 }
 
 
