@@ -23,7 +23,7 @@ paths:
 ## DrawIO Integration
 
 ### How It Works
-1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v31.5.3
+1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v32.6.9
 2. **Runtime**: Nginx serves DrawIO at `/drawio/` (same origin)
 3. **Editor**: `DiagramEditor.tsx` loads DrawIO in a same-origin iframe
 4. **Communication**: Direct DOM access to iframe's `mxGraph` API. Graph reference stored on `iframe.contentWindow.__turboGraph`
