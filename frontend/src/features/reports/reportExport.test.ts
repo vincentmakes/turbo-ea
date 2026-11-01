@@ -563,6 +563,11 @@ describe("exportReportToPptx", () => {
       height: 1000,
       style: { position: "static", left: "0", top: "0", margin: "0" },
     });
+    // Web fonts stay embedded: a capture that skipped them lost the Material
+    // Symbols glyphs and fell back to a local sans wherever Inter is not
+    // installed (the font stylesheets are readable thanks to `crossorigin`
+    // on their <link>s, see index.html).
+    expect(options).not.toHaveProperty("skipFonts");
     // Material Symbols spans are left out of the capture; everything else is kept.
     const icon = document.createElement("span");
     icon.className = "material-symbols-outlined";

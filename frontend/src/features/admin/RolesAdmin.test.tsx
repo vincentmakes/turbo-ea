@@ -195,6 +195,30 @@ describe("RolesAdmin", () => {
     });
   });
 
+  it("renders each permission group header as a div[role=button], not a button in a button", async () => {
+    const user = userEvent.setup();
+    const { container } = renderRoles();
+
+    await waitFor(() => {
+      expect(screen.getByText("Member")).toBeInTheDocument();
+    });
+    await user.click(screen.getByText("Member"));
+    await waitFor(() => {
+      expect(screen.getByText("Inventory")).toBeInTheDocument();
+    });
+
+    const summary = screen.getByText("Inventory").closest(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    // The select-all button sits inside the header.
+    expect(summary.querySelectorAll("button")).toHaveLength(1);
+    expect(container.querySelectorAll("button button")).toHaveLength(0);
+
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    await user.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("shows admin role info alert about full access", async () => {
     const user = userEvent.setup();
     renderRoles();
