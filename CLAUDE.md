@@ -198,7 +198,7 @@ Every feature or UI change updates the user manual (`docs/`, MkDocs Material, En
 └─────────────────────────────┘  └─────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v31.5.3) and served under `/drawio/` by Nginx.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v32.6.9) and served under `/drawio/` by Nginx.
 
 ---
 

@@ -66,7 +66,7 @@ All container images are built from one `/Dockerfile` at the repo root using mul
 | `backend` | `python:3.12-alpine` | Final backend image — copies `VERSION` + `backend/`, runs as non-root `appuser` |
 | `db` | `postgres:18-alpine` | Bundled PostgreSQL image |
 | `frontend-build` | `node:24-alpine` | Vite build of `frontend/` (consumes `VERSION` for `__APP_VERSION__`) |
-| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v31.5.3 |
+| `drawio` | `alpine/git:v2.47.2` | Clones jgraph/drawio v32.6.9 |
 | `frontend` | `nginx:1.30.6-alpine` | Final frontend image — built SPA + DrawIO assets, runs as non-root `nginx` |
 | `nginx` | `nginx:1.30.6-alpine` | Edge nginx (public entrypoint, proxies `/api`, `/mcp`, `/drawio`, `/`) — config from `nginx/default.conf` |
 | `mcp-server` | `python:3.12-alpine` | MCP server image — copies `VERSION` + `mcp-server/`, runs as non-root |
