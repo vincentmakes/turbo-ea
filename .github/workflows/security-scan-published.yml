@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload Trivy SARIF to Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: trivy-${{ matrix.image }}.sarif
           category: daily-trivy-${{ matrix.image }}
@@ -92,7 +92,7 @@ jobs:
         if: always() && env.DOCKERHUB_PAT != ''
         env:
           DOCKERHUB_PAT: ${{ secrets.DOCKERHUB_PAT }}
-        uses: docker/scout-action@7c6b6c3f7844478ace1ffd4e7aef649053d1f87d # v1.24.0
+        uses: docker/scout-action@e7e2a72bf1485d10a58f30696b6c513b261ce4fa # v1.29.0
         with:
           command: cves
           image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
@@ -105,7 +105,7 @@ jobs:
 
       - name: Upload Docker Scout SARIF to Security tab
         if: always() && hashFiles(format('scout-{0}.sarif', matrix.image)) != ''
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           sarif_file: scout-${{ matrix.image }}.sarif
           category: daily-scout-${{ matrix.image }}
