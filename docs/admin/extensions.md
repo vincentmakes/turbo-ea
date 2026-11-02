@@ -19,7 +19,7 @@ Two independent checks protect your instance:
 1. **Provenance (signature).** Every bundle carries an Ed25519 signature by the vendor's signing key. Turbo EA verifies it on upload *and again at every backend start*. Unsigned, tampered, or third-party bundles are rejected — an extension that installs is guaranteed to be exactly what the vendor built.
 2. **Activation (license).** A signed license file lists your entitlements — one per extension, each with its own expiry. An installed extension only runs while a usable entitlement exists. Licenses are **bound to your instance ID** — a license issued for a different instance is refused.
 
-   The pasted license file is stored encrypted with your instance's `SECRET_KEY`, because a store-bought license carries the key used to renew it. If you rotate `SECRET_KEY`, or restore a database backup onto a host configured with a different one, each paid extension shows *The stored license could not be decrypted* and pauses until you paste its license file again; no extension data is touched.
+   The pasted license file is stored encrypted with your instance's `SECRET_KEY`. If you rotate `SECRET_KEY`, or restore a database backup onto a host configured with a different one, each paid extension shows *The stored license could not be decrypted* and pauses until you paste its license file again; no extension data is touched.
 
 ## Free extensions
 

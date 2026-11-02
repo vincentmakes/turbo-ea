@@ -19,7 +19,7 @@ Deux vérifications indépendantes protègent votre instance :
 1. **Provenance (signature).** Chaque paquet porte une signature Ed25519 de la clé de l'éditeur. Turbo EA la vérifie au téléversement *et à chaque démarrage du backend*. Les paquets non signés, altérés ou tiers sont refusés — une extension installée est garantie être exactement ce que l'éditeur a construit.
 2. **Activation (licence).** Un fichier de licence signé liste vos droits — un par extension, chacun avec sa propre échéance. Une extension installée ne fonctionne que tant qu'un droit utilisable existe. Les licences sont **liées à l'ID de votre instance** — une licence émise pour une autre instance est refusée.
 
-   Le fichier de licence collé est stocké chiffré avec le `SECRET_KEY` de votre instance, car une licence achetée en boutique contient la clé servant à la renouveler. Si vous changez `SECRET_KEY`, ou si vous restaurez une sauvegarde de la base sur un hôte configuré avec une clé différente, chaque extension payante affiche *La licence enregistrée n'a pas pu être déchiffrée* et se met en pause jusqu'à ce que vous colliez à nouveau son fichier de licence ; aucune donnée d'extension n'est modifiée.
+   Le fichier de licence collé est stocké chiffré avec le `SECRET_KEY` de votre instance. Si vous changez `SECRET_KEY`, ou si vous restaurez une sauvegarde de la base sur un hôte configuré avec une clé différente, chaque extension payante affiche *La licence enregistrée n'a pas pu être déchiffrée* et se met en pause jusqu'à ce que vous colliez à nouveau son fichier de licence ; aucune donnée d'extension n'est modifiée.
 
 ## Extensions gratuites
 

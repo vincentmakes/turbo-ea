@@ -19,7 +19,7 @@ To uafhængige kontroller beskytter din installation:
 1. **Oprindelse (signatur).** Hver pakke bærer en Ed25519-signatur fra leverandørens nøgle. Turbo EA verificerer den ved upload *og igen ved hver backend-start*. Usignerede, manipulerede eller tredjepartspakker afvises — en installeret udvidelse er garanteret præcis det, leverandøren har bygget.
 2. **Aktivering (licens).** En signeret licensfil oplister dine rettigheder — én pr. udvidelse, hver med sin egen udløbsdato. En installeret udvidelse kører kun, så længe der findes en gyldig rettighed. Licenser er **bundet til din instans-ID** — en licens udstedt til en anden instans afvises.
 
-   Den indsatte licensfil gemmes krypteret med din instans' `SECRET_KEY`, fordi en licens købt i butikken indeholder den nøgle, der bruges til at forny den. Hvis du roterer `SECRET_KEY`, eller gendanner en databasebackup på en vært konfigureret med en anden, viser hver betalt udvidelse *Den gemte licens kunne ikke dekrypteres* og sættes på pause, indtil du indsætter dens licensfil igen; ingen udvidelsesdata berøres.
+   Den indsatte licensfil gemmes krypteret med din instans' `SECRET_KEY`. Hvis du roterer `SECRET_KEY`, eller gendanner en databasebackup på en vært konfigureret med en anden, viser hver betalt udvidelse *Den gemte licens kunne ikke dekrypteres* og sættes på pause, indtil du indsætter dens licensfil igen; ingen udvidelsesdata berøres.
 
 ## Gratis udvidelser
 

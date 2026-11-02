@@ -19,7 +19,7 @@ Dos comprobaciones independientes protegen su instancia:
 1. **Procedencia (firma).** Cada paquete lleva una firma Ed25519 de la clave del proveedor. Turbo EA la verifica al subirlo *y de nuevo en cada arranque del backend*. Los paquetes sin firma, manipulados o de terceros se rechazan — una extensión instalada es exactamente lo que el proveedor construyó.
 2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable. Las licencias están **vinculadas al ID de su instancia** — una licencia emitida para otra instancia se rechaza.
 
-   El archivo de licencia pegado se almacena cifrado con el `SECRET_KEY` de su instancia, porque una licencia comprada en la tienda contiene la clave con la que se renueva. Si rota `SECRET_KEY`, o restaura una copia de seguridad de la base de datos en un host configurado con otra distinta, cada extensión de pago muestra *No se pudo descifrar la licencia almacenada* y se pausa hasta que vuelva a pegar su archivo de licencia; no se modifica ningún dato de las extensiones.
+   El archivo de licencia pegado se almacena cifrado con el `SECRET_KEY` de su instancia. Si rota `SECRET_KEY`, o restaura una copia de seguridad de la base de datos en un host configurado con otra distinta, cada extensión de pago muestra *No se pudo descifrar la licencia almacenada* y se pausa hasta que vuelva a pegar su archivo de licencia; no se modifica ningún dato de las extensiones.
 
 ## Extensiones gratuitas
 

@@ -19,7 +19,7 @@ Duas verificações independentes protegem a sua instância:
 1. **Proveniência (assinatura).** Cada pacote tem uma assinatura Ed25519 da chave do fornecedor. O Turbo EA verifica-a no carregamento *e novamente em cada arranque do backend*. Pacotes não assinados, adulterados ou de terceiros são rejeitados — uma extensão instalada é exatamente o que o fornecedor construiu.
 2. **Ativação (licença).** Um ficheiro de licença assinado lista os seus direitos — um por extensão, cada um com a sua validade. Uma extensão instalada só funciona enquanto existir um direito utilizável. As licenças estão **vinculadas ao ID da sua instância** — uma licença emitida para outra instância é recusada.
 
-   O ficheiro de licença colado é guardado cifrado com o `SECRET_KEY` da sua instância, porque uma licença comprada na loja contém a chave usada para a renovar. Se rodar o `SECRET_KEY`, ou restaurar uma cópia de segurança da base de dados num anfitrião configurado com outro, cada extensão paga mostra *Não foi possível decifrar a licença guardada* e fica em pausa até colar novamente o seu ficheiro de licença; nenhum dado das extensões é alterado.
+   O ficheiro de licença colado é guardado cifrado com o `SECRET_KEY` da sua instância. Se rodar o `SECRET_KEY`, ou restaurar uma cópia de segurança da base de dados num anfitrião configurado com outro, cada extensão paga mostra *Não foi possível decifrar a licença guardada* e fica em pausa até colar novamente o seu ficheiro de licença; nenhum dado das extensões é alterado.
 
 ## Extensões gratuitas
 

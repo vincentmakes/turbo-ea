@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Collapsing and re-expanding a card's relations on a diagram puts the related cards back where you had arranged them, as the collapse confirmation always said it would.
 
 ### Security
-- Extension licence files are now stored encrypted; they hold the key used to renew a store-bought licence. Existing licences are encrypted on upgrade. **Upgrade note:** rotating `SECRET_KEY`, or restoring a database onto a host with a different one, now disables paid extensions until each licence file is pasted again under Admin → Extensions; nothing else is affected.
+- Extension licence files are now stored encrypted at rest. Existing licences are encrypted on upgrade. **Upgrade note:** rotating `SECRET_KEY`, or restoring a database onto a host with a different one, now disables paid extensions until each licence file is pasted again under Admin → Extensions; nothing else is affected.
 - ServiceNow connection credentials are stored through the same encryption helper as every other secret, so they are redacted wherever other secrets are.
 
 ## [2.186.4] - 2026-11-02

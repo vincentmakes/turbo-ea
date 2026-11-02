@@ -19,7 +19,7 @@ Zwei unabhängige Prüfungen schützen Ihre Instanz:
 1. **Herkunft (Signatur).** Jedes Paket trägt eine Ed25519-Signatur des Anbieter-Schlüssels. Turbo EA prüft sie beim Hochladen *und erneut bei jedem Backend-Start*. Unsignierte, manipulierte oder fremde Pakete werden abgelehnt — eine installierte Erweiterung ist garantiert genau das, was der Anbieter gebaut hat.
 2. **Aktivierung (Lizenz).** Eine signierte Lizenzdatei enthält Ihre Berechtigungen — eine pro Erweiterung, jede mit eigenem Ablaufdatum. Eine installierte Erweiterung läuft nur, solange eine gültige Berechtigung existiert. Lizenzen sind **an Ihre Instanz-ID gebunden** — eine für eine andere Instanz ausgestellte Lizenz wird abgelehnt.
 
-   Die eingefügte Lizenzdatei wird mit dem `SECRET_KEY` Ihrer Instanz verschlüsselt gespeichert, da eine im Store gekaufte Lizenz den Schlüssel zu ihrer Verlängerung enthält. Wenn Sie `SECRET_KEY` rotieren oder eine Datenbanksicherung auf einem Host mit einem anderen Schlüssel wiederherstellen, zeigt jede kostenpflichtige Erweiterung *Die gespeicherte Lizenz konnte nicht entschlüsselt werden* und pausiert, bis Sie ihre Lizenzdatei erneut einfügen; Erweiterungsdaten werden dabei nicht angetastet.
+   Die eingefügte Lizenzdatei wird mit dem `SECRET_KEY` Ihrer Instanz verschlüsselt gespeichert. Wenn Sie `SECRET_KEY` rotieren oder eine Datenbanksicherung auf einem Host mit einem anderen Schlüssel wiederherstellen, zeigt jede kostenpflichtige Erweiterung *Die gespeicherte Lizenz konnte nicht entschlüsselt werden* und pausiert, bis Sie ihre Lizenzdatei erneut einfügen; Erweiterungsdaten werden dabei nicht angetastet.
 
 ## Kostenlose Erweiterungen
 

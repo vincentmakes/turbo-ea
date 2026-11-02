@@ -19,7 +19,7 @@ Due verifiche indipendenti proteggono l'istanza:
 1. **Provenienza (firma).** Ogni pacchetto porta una firma Ed25519 della chiave del fornitore. Turbo EA la verifica al caricamento *e di nuovo a ogni avvio del backend*. I pacchetti non firmati, manomessi o di terzi vengono rifiutati — un'estensione installata è garantita essere esattamente ciò che il fornitore ha costruito.
 2. **Attivazione (licenza).** Un file di licenza firmato elenca i diritti — uno per estensione, ciascuno con la propria scadenza. Un'estensione installata funziona solo finché esiste un diritto utilizzabile. Le licenze sono **vincolate all'ID della tua istanza** — una licenza emessa per un'altra istanza viene rifiutata.
 
-   Il file di licenza incollato viene memorizzato cifrato con il `SECRET_KEY` della tua istanza, perché una licenza acquistata nello store contiene la chiave usata per rinnovarla. Se ruoti `SECRET_KEY`, o ripristini un backup del database su un host configurato con una chiave diversa, ogni estensione a pagamento mostra *Impossibile decifrare la licenza memorizzata* e viene messa in pausa finché non incolli di nuovo il suo file di licenza; nessun dato delle estensioni viene toccato.
+   Il file di licenza incollato viene memorizzato cifrato con il `SECRET_KEY` della tua istanza. Se ruoti `SECRET_KEY`, o ripristini un backup del database su un host configurato con una chiave diversa, ogni estensione a pagamento mostra *Impossibile decifrare la licenza memorizzata* e viene messa in pausa finché non incolli di nuovo il suo file di licenza; nessun dato delle estensioni viene toccato.
 
 ## Estensioni gratuite
 
