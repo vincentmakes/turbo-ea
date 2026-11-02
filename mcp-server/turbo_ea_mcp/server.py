@@ -4098,11 +4098,11 @@ class RequireBearerForMcp:
             if path == "/mcp" or path.startswith("/mcp/"):
                 headers = dict(scope.get("headers", []))
                 # Not mutated: any default header value reads as unauthenticated.
-                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate
+                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, see above
                 if not auth.lower().startswith("bearer "):
                     # Not mutated: a JSON response never reads the request body. A trailing
                     # pragma would push the line past 100 columns, so it is fenced instead.
-                    # pragma: no mutate start
+                    # pragma: no mutate start, a JSON response never reads the request body
                     await self._challenge(scope, receive, send, *_TOKEN_REQUIRED)
                     # pragma: no mutate end
                     return
@@ -4124,12 +4124,12 @@ class RequireBearerForMcp:
                         headers={oauth.RETRY_AFTER: "5"},
                     )
                     # Not mutated: a JSON response never reads the request body.
-                    await response(scope, receive, send)  # pragma: no mutate
+                    await response(scope, receive, send)  # pragma: no mutate, see above
                     return
                 if resolved is None:
                     # Not mutated: a JSON response never reads the request body. A trailing
                     # pragma would push the line past 100 columns, so it is fenced instead.
-                    # pragma: no mutate start
+                    # pragma: no mutate start, a JSON response never reads the request body
                     await self._challenge(scope, receive, send, *_TOKEN_INVALID)
                     # pragma: no mutate end
                     return
