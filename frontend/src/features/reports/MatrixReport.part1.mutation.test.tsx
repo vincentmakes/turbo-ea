@@ -9,7 +9,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ThemeProvider, alpha, createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -74,7 +74,7 @@ import { makeCardType, makeField, makeOption, makeRelationType } from "@/test/fi
 import type { CardType, RelationType } from "@/types";
 import type { ReportExportData } from "./reportExport";
 import MatrixReport from "./MatrixReport";
-import { MULTIPLE_VALUE_COLOR, STATUS_COLORS } from "@/theme/tokens";
+import { MATRIX_DIAGONAL_COLOR, MULTIPLE_VALUE_COLOR, SCREEN_INK, STATUS_COLORS } from "@/theme/tokens";
 
 /** A `#rrggbb` token as jsdom reports a computed colour, `rgb(r, g, b)`. */
 const cssRgb = (hex: string): string => {
@@ -1069,8 +1069,8 @@ describe("MatrixReport colours", () => {
     expect(busiest.style.backgroundColor).toBe("rgb(13, 71, 161)");
     expect(single.style.backgroundColor).toBe("rgb(66, 165, 245)");
     expect(color(busiest.firstElementChild!)).toBe("rgb(255, 255, 255)");
-    expect(color(single.firstElementChild!)).toBe("rgb(51, 51, 51)");
-    expect(color(diag.firstElementChild!)).toBe("rgb(102, 102, 102)");
+    expect(color(single.firstElementChild!)).toBe(cssRgb(SCREEN_INK.onLightFill));
+    expect(color(diag.firstElementChild!)).toBe(cssRgb(SCREEN_INK.secondary));
   });
 
   it("uses the dark text colours in the dark heatmap", async () => {
@@ -1079,23 +1079,36 @@ describe("MatrixReport colours", () => {
     await screen.findAllByText("App Three");
     const diag = within(table()).getByTitle(/^App One × App One/);
     const single = within(table()).getByTitle(/^App Two × App One/);
-    expect(color(single.firstElementChild!)).toBe("rgb(204, 204, 204)");
+    expect(color(single.firstElementChild!)).toBe(cssRgb(SCREEN_INK.onDark));
     expect(color(diag.firstElementChild!)).toBe(cssRgb(STATUS_COLORS.neutral));
   });
 
-  it("marks a related diagonal cell with a grey dot, and tints the hovered diagonal in the dark", async () => {
+  it("marks a related diagonal cell with a grey dot, and washes the hovered diagonal in its own hue in both modes", async () => {
     saved.config = { rowType: "Application", colType: "Application" };
+    /** Hovers the related diagonal and returns its wash, checking it left the resting
+     *  tint and stays apart from the related cell lit beside it on the same row. */
+    const hoverDiagonal = async (restingTint: string) => {
+      const diag = within(table()).getByTitle(/^App One × App One/);
+      const sibling = within(table()).getByTitle(/^App One × App Two/);
+      expect(diag.style.backgroundColor).toBe(restingTint);
+      fireEvent.mouseEnter(diag);
+      await waitFor(() => expect(diag.style.backgroundColor).not.toBe(restingTint));
+      expect(sibling.style.backgroundColor).not.toBe(diag.style.backgroundColor);
+      return diag.style.backgroundColor;
+    };
+
     const view = renderMatrix();
     await screen.findAllByText("App Three");
-    expect(bg(rowCells("App One")[0].firstElementChild!)).toBe("rgb(158, 158, 158)");
+    expect(bg(rowCells("App One")[0].firstElementChild!)).toBe(cssRgb(STATUS_COLORS.neutral));
+    expect(await hoverDiagonal(createTheme().palette.action.hover)).toBe(alpha(MATRIX_DIAGONAL_COLOR, 0.1));
     view.unmount();
 
     renderMatrix({ dark: true });
     await screen.findAllByText("App Three");
     expect(bg(rowCells("App One")[0].firstElementChild!)).toBe(cssRgb(MULTIPLE_VALUE_COLOR));
-    const diag = within(table()).getByTitle(/^App One × App One/);
-    fireEvent.mouseEnter(diag);
-    await waitFor(() => expect(diag.style.backgroundColor).toBe("rgba(69, 39, 160, 0.18)"));
+    expect(await hoverDiagonal(createTheme({ palette: { mode: "dark" } }).palette.action.hover)).toBe(
+      alpha(MATRIX_DIAGONAL_COLOR, 0.18),
+    );
   });
 
   it("draws the depth controls in the theme's icon colour", async () => {

@@ -43,7 +43,7 @@ import {
 } from "./ldvViewModel";
 import {
   LIFECYCLE_PHASE_COLORS,
-  PRINT_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
   brand,
   surface,
@@ -238,21 +238,21 @@ describe("line state", () => {
 
   it("colours an idle and a lit line per theme", () => {
     expect(edgeColors(false, false, false)).toEqual({
-      stroke: PRINT_COLORS.inkSecondary,
-      label: PRINT_COLORS.inkSecondary,
-      labelBorder: PRINT_COLORS.control,
-      labelBackground: PRINT_COLORS.paper,
+      stroke: SCREEN_INK.secondary,
+      label: SCREEN_INK.secondary,
+      labelBorder: SCREEN_INK.rule,
+      labelBackground: SCREEN_INK.paper,
     });
     expect(edgeColors(true, false, false)).toEqual({
       stroke: brand.primary,
       label: brand.primary,
       labelBorder: brand.primary,
-      labelBackground: PRINT_COLORS.paper,
+      labelBackground: SCREEN_INK.paper,
     });
     expect(edgeColors(false, false, true)).toEqual({
       stroke: STATUS_COLORS.neutral,
       label: STATUS_COLORS.neutral,
-      labelBorder: PRINT_COLORS.subheading,
+      labelBorder: SCREEN_INK.ruleDark,
       labelBackground: surface.dark.default,
     });
     expect(edgeColors(true, false, true)).toEqual({

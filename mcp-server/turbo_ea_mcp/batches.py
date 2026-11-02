@@ -102,9 +102,7 @@ async def mutation_batch(
     open_payload: dict[str, Any] = {"tool_name": tool_name, "dry_run": dry_run}
     if confirm_token:
         open_payload["confirm_token"] = confirm_token
-    open_resp = await bootstrap.post(
-        f"/mutation-batches?row_count={row_count}", json=open_payload
-    )
+    open_resp = await bootstrap.post(f"/mutation-batches?row_count={row_count}", json=open_payload)
     batch_id = open_resp.get("id") if isinstance(open_resp, dict) else None
     ctx = BatchContext(
         token=token,

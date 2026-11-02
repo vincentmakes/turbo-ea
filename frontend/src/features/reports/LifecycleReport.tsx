@@ -64,11 +64,11 @@ import {
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import {
-  BPM_UNSET_COLOR,
   EOL_WARNING_COLOR,
   LIFECYCLE_PHASE_COLORS,
   STATUS_CHIP_COLORS,
   STATUS_COLORS,
+  UNSET_VALUE_COLOR,
 } from "@/theme/tokens";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import {
@@ -119,7 +119,7 @@ const PHASES = [
   { key: "endOfLife", labelKey: "lifecycle.phaseEndOfLife", color: LIFECYCLE_PHASE_COLORS.endOfLife },
 ];
 
-const UNSET_BAR_COLOR = BPM_UNSET_COLOR;
+const UNSET_BAR_COLOR = UNSET_VALUE_COLOR;
 
 interface FieldOption {
   key: string;

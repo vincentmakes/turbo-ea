@@ -5,8 +5,9 @@ import {
   CATEGORICAL_COLORS,
   CHART_LABEL_ON_DARK,
   HEATMAP_RAMP,
+  MATRIX_DIAGONAL_COLOR,
   MULTIPLE_VALUE_COLOR,
-  PRINT_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
   brand,
 } from "@/theme/tokens";
@@ -170,13 +171,15 @@ export default function MatrixReport() {
   const opaqueBg = (tint: string) => `linear-gradient(0deg, ${tint}, ${tint}), ${theme.palette.background.paper}`;
   const highlightBg = isDark ? alpha(brand.primary, 0.18) : HEATMAP_RAMP.light[0];
   const highlightBgStrong = isDark ? alpha(brand.primary, 0.28) : HEATMAP_RAMP.light[1];
-  const diagonalHighlight = isDark ? "rgba(69, 39, 160, 0.18)" : "#e8eaf6";
+  // The hovered diagonal (a card against itself): a deep purple wash, apart from the blue of a
+  // related cell; stronger on the dark paper, where 10 % would not read.
+  const diagonalHighlight = alpha(MATRIX_DIAGONAL_COLOR, isDark ? 0.18 : 0.1);
   const dotColor = theme.palette.primary.main;
   const dotColorDiag = isDark ? MULTIPLE_VALUE_COLOR : STATUS_COLORS.neutral;
   const depthIconColor = theme.palette.text.secondary;
-  const countTextLow = isDark ? PRINT_COLORS.control : PRINT_COLORS.text;
+  const countTextLow = isDark ? SCREEN_INK.onDark : SCREEN_INK.onLightFill;
   const countTextHigh = CHART_LABEL_ON_DARK;
-  const countTextDiag = isDark ? STATUS_COLORS.neutral : PRINT_COLORS.inkSecondary;
+  const countTextDiag = isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary;
   const { types, relationTypes, loading: ml } = useMetamodel();
   // Report type pickers offer only the types the user may see.
   const readableTypes = useReadableCardTypes("module");

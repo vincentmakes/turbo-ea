@@ -33,7 +33,7 @@ import {
   makeSubtype,
 } from "@/test/fixtures/metamodel";
 import type { ArchitectureDecision, Card, DiagramSummary, SoAW } from "@/types";
-import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
+import { FAVORITE_COLOR } from "@/theme/tokens";
 import InitiativeWorkspace from "./InitiativeWorkspace";
 import type { InitiativeTreeNode } from "./useInitiativeData";
 
@@ -213,7 +213,7 @@ describe("InitiativeWorkspace", () => {
     first.unmount();
 
     renderWorkspace({ kind: "initiative", node: node(PROGRAM) }, { isFavorite: () => true });
-    expect(star("Remove from favorites")).toHaveStyle({ color: DASHBOARD_KPI_COLORS.favorites });
+    expect(star("Remove from favorites")).toHaveStyle({ color: FAVORITE_COLOR });
   });
 
   it("shows the subtype label as a header chip and a Subtype detail row", () => {

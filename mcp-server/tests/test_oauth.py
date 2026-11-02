@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import base64
+import hashlib
 import secrets
 import time
 from unittest.mock import AsyncMock, patch
@@ -15,15 +15,15 @@ from starlette.testclient import TestClient
 
 from turbo_ea_mcp import oauth
 from turbo_ea_mcp.oauth import (
+    AuthCode,
     OAuthStore,
     PendingAuth,
-    AuthCode,
     RegisteredClient,
     TokenEntry,
+    _estimate_jwt_expiry,
     _handle_code_exchange,
     _redirect_uri_registered,
     _verify_pkce,
-    _estimate_jwt_expiry,
 )
 
 
@@ -78,15 +78,13 @@ class TestPKCE:
 class TestJwtExpiry:
     def test_estimate_valid_jwt(self):
         """Extracts exp from a valid JWT payload."""
-        import json
         import base64
+        import json
 
         header = base64.urlsafe_b64encode(b'{"alg":"HS256"}').rstrip(b"=").decode()
         exp = int(time.time()) + 3600
         payload = (
-            base64.urlsafe_b64encode(
-                json.dumps({"sub": "user-id", "exp": exp}).encode()
-            )
+            base64.urlsafe_b64encode(json.dumps({"sub": "user-id", "exp": exp}).encode())
             .rstrip(b"=")
             .decode()
         )
@@ -262,22 +260,15 @@ class TestRedirectValidation:
         assert _redirect_uri_registered(client, "") is False
 
     def test_env_allowlist_uri_accepted_without_client(self):
-        with patch.object(
-            oauth, "MCP_OAUTH_ALLOWED_REDIRECT_URIS", ["https://gw.example.com/cb"]
-        ):
+        with patch.object(oauth, "MCP_OAUTH_ALLOWED_REDIRECT_URIS", ["https://gw.example.com/cb"]):
             assert _redirect_uri_registered(None, "https://gw.example.com/cb") is True
 
     def test_prefix_or_substring_not_matched(self):
         """Guards against an accidental startswith/`in` implementation."""
         client = self._client("http://good.example.com/cb")
         assert _redirect_uri_registered(client, "http://good.example.com") is False
-        assert (
-            _redirect_uri_registered(client, "http://good.example.com/cb/extra")
-            is False
-        )
-        assert (
-            _redirect_uri_registered(client, "http://good.example.com.evil/cb") is False
-        )
+        assert _redirect_uri_registered(client, "http://good.example.com/cb/extra") is False
+        assert _redirect_uri_registered(client, "http://good.example.com.evil/cb") is False
 
 
 # ── Token exchange binding ──────────────────────────────────────────────────
@@ -348,9 +339,7 @@ class TestCodeExchange:
     @pytest.mark.asyncio
     async def test_rejects_client_id_mismatch(self, fresh_store):
         verifier, _ = _pkce_pair_from("verifier-client")
-        self._seed_code(
-            fresh_store, verifier, "http://127.0.0.1:5000/cb", client_id="real"
-        )
+        self._seed_code(fresh_store, verifier, "http://127.0.0.1:5000/cb", client_id="real")
         resp = await _handle_code_exchange(
             {
                 "grant_type": "authorization_code",

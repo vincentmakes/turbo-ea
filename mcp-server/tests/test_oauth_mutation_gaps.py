@@ -19,7 +19,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from turbo_ea_mcp import api_client, oauth, server
-from turbo_ea_mcp.api_client import RefreshUnavailable, TurboEAClient
+from turbo_ea_mcp.api_client import RefreshUnavailableError, TurboEAClient
 from turbo_ea_mcp.oauth import (
     MAX_CLIENT_ID_LENGTH,
     OAuthStore,
@@ -157,7 +157,7 @@ class Down:
         pass
 
     async def refresh_token(self):
-        raise RefreshUnavailable("backend answered 502")
+        raise RefreshUnavailableError("backend answered 502")
 
 
 class TestOutageBoundaries:
@@ -166,7 +166,7 @@ class TestOutageBoundaries:
         monkeypatch.setattr(api_client, "TurboEAClient", Down)
         monkeypatch.setattr(oauth.time, "time", lambda: 5_000.0)
         store.tokens["acc"] = TokenEntry("jwt", 5_000.0, "ref", "mcp:read")
-        with pytest.raises(RefreshUnavailable):
+        with pytest.raises(RefreshUnavailableError):
             await resolve_token("acc")
 
     @pytest.mark.asyncio
@@ -180,13 +180,13 @@ class TestOutageBoundaries:
             await _handle_refresh({"refresh_token": "ref"})
         (record,) = [r for r in caplog.records if r.name == oauth.logger.name]
         assert record.getMessage() == "Turbo EA backend unavailable during token refresh"
-        assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailable
+        assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailableError
 
 
 class TestGateLogging:
     def test_a_failed_resolution_is_logged_with_its_cause(self, caplog):
         async def failing(token):
-            raise RefreshUnavailable("backend answered 503")
+            raise RefreshUnavailableError("backend answered 503")
 
         sent = []
 
@@ -212,7 +212,7 @@ class TestGateLogging:
             asyncio.run(gate(scope, receive, send))
         (record,) = [r for r in caplog.records if r.name == "turbo_ea_mcp"]
         assert record.getMessage() == "Could not resolve an MCP token"
-        assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailable
+        assert record.exc_info is not None and record.exc_info[0] is RefreshUnavailableError
         assert sent[0]["status"] == 503
 
 
@@ -246,6 +246,6 @@ class TestRefreshUnavailableMessage:
             "AsyncClient",
             lambda *a, **k: real(transport=transport, timeout=k.get("timeout")),
         )
-        with pytest.raises(RefreshUnavailable) as excinfo:
+        with pytest.raises(RefreshUnavailableError) as excinfo:
             await TurboEAClient("old").refresh_token()
         assert str(excinfo.value) == "connection refused"

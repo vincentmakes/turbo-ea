@@ -157,6 +157,18 @@ One palette wherever a phase is drawn as a colour (card Lifecycle section, LDV p
 | `MEDAL_COLORS.{gold,silver,bronze}` | Ranking tiers in TurboLens (gap-analysis product ranks, Dashboard quality tiers): `fill` for the medal (border, bar, icon), `text` for its label. The colours are the convention, like a brand: never re-tuned, never reused for a status |
 | `DELIVERABLE_COLORS.{soaw,adr,diagram}` | The accent per EA Delivery deliverable kind (initiative deliverable sections, New-artefact menu, SoAW header). Role aliases: orange 900, the info blue, the Application type colour |
 
+### 2.12 Role Aliases
+
+A screen whose meaning is not another feature's does not borrow that feature's token, even when the value matches: it takes a **role alias**, a named token that references the source and adds no colour. Each is pinned equal to its source in `tokens.test.ts`.
+
+| Token | Source | Use |
+| --- | --- | --- |
+| `REPORT_ICON_COLORS.{dataQuality,costDriver,privateReport}` | `FIELD_TYPE_COLORS.{percentage,cost,other}` | Report icon accents: the Data Quality report tile, the Cost report's top-cost-driver KPI, a private saved report's lock |
+| `FAVORITE_COLOR` | `DASHBOARD_KPI_COLORS.favorites` | A favourite: the star on a card, an initiative or a diagram, the favourites-only filter, the My Favourites section |
+| `UNSET_VALUE_COLOR` | `BPM_UNSET_COLOR` | "No value" on any colour-by screen: a diagram card with no value, a PPM project with no RAG yet, a Lifecycle bar in no bucket |
+| `SCREEN_INK.{onLightFill,onDark,secondary,muted,rule,ruleDark,paper}` | `PRINT_COLORS.{text,control,inkSecondary,muted,control,subheading,paper}` | Fixed on-screen inks set by the fill, not the theme: text on a light card-type or heat fill (capability map, portfolio, process map, matrix counts), Layered Dependency View lines, labels and arrowheads |
+| `MATRIX_DIAGONAL_COLOR` | `FIELD_TYPE_COLORS.multiple_select` (deep purple 800) | The Matrix report's hovered diagonal, as a wash: `alpha(…, 0.1)` light, `alpha(…, 0.18)` dark |
+
 ---
 
 ## 3. Layout Patterns
@@ -659,10 +671,11 @@ Every user-visible string must use a translation key. See `CLAUDE.md` for the fu
 ## 7. Adding a New Token
 
 1. Decide the **semantic** name. Status? Severity? Layer? Card type?
-2. Add it to `src/theme/tokens.ts`. Use `as const`.
-3. Add a row to the table in this doc (sec. 2).
-4. If it's a status hue, also wire it into the MUI palette in `src/theme/index.ts`.
-5. Confirm WCAG AA contrast against `#ffffff` and the dark `#1e1e1e` paper.
+2. **Reuse before you add — the palette does not grow.** A value within CIEDE2000 ΔE 5 of an existing token with the same kind of role *is* that token: reference it, or add a role alias (§2.12) when the meaning differs. A new hex value is only for a role nothing in the palette can carry, and two members of one scale or categorical group that must be told apart (severity steps, lifecycle phases, chart series, ramps) stay distinct. Brand marks and medal metals are never merged.
+3. Add it to `src/theme/tokens.ts`. Use `as const`.
+4. Add a row to the table in this doc (sec. 2).
+5. If it's a status hue, also wire it into the MUI palette in `src/theme/index.ts`.
+6. Confirm WCAG AA contrast against `#ffffff` and the dark `#1e1e1e` paper.
 
 ### 3.13 Naming a Relation Type in the UI
 

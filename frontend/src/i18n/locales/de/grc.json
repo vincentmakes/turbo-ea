@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "Governance, Risiko und Compliance"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "Governance",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "Architekturentscheidungen",
-      "empty": "Noch keine Architekturentscheidungen erfasst.",
-      "status": "Status",
-      "open": "Öffnen",
       "create": "Neue Entscheidung"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "KI-Anbieter ist nicht konfiguriert",
-      "body": "Compliance-Scans werden von einem LLM gesteuert — jede Regulierung wird beurteilt, indem der konfigurierte KI-Anbieter gegen Ihre Landschaft aufgerufen wird. Ohne Anbieter sind die Scans sofort fertig, aber jeder Befund weicht auf «KI ist nicht konfiguriert» aus; deshalb verbergen wir den Scanner, bis er sinnvolle Arbeit leisten kann.",
-      "regulations": "Abgedeckte Regulierungen: EU-KI-Verordnung · DSGVO · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "KI-Anbieter konfigurieren",
-      "contactAdmin": "Bitten Sie einen Administrator, unter Admin › Einstellungen › KI einen KI-Anbieter einzurichten, um Compliance-Scans zu aktivieren."
+      "configureCta": "KI-Anbieter konfigurieren"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "Risiko {{reference}} öffnen",
   "risks.createRisk": "Risiko erstellen",
   "risks.createRiskFromFinding": "Risiko aus Befund erstellen",
-  "risks.viewSource": "Quellbefund anzeigen",
   "risks.backToRegister": "Zurück zum Register",
   "risks.deleteRisk": "Risiko löschen",
   "risks.confirmDelete": "Risiko {{reference}} löschen? Dies kann nicht rückgängig gemacht werden.",
-  "risks.emptyState": "Noch keine Risiken. Erstellen Sie eines manuell oder stufen Sie einen Compliance-Befund aus TurboLens hoch.",
-  "risks.toastCreated": "Risiko {{reference}} erstellt.",
-  "risks.toastUpdated": "Risiko {{reference}} aktualisiert.",
-  "risks.toastDeleted": "Risiko {{reference}} gelöscht.",
   "risks.kpi.total": "Risiken gesamt",
   "risks.kpi.critical": "Kritisch",
   "risks.kpi.overdue": "Überfällig",
@@ -92,7 +79,6 @@
   "risks.filter.category": "Kategorie",
   "risks.filter.level": "Stufe",
   "risks.filter.owner": "Verantwortlich",
-  "risks.filter.all": "Alle",
   "risks.filter.overdueOnly": "Nur überfällige anzeigen",
   "risks.matrix.initial": "Initial",
   "risks.matrix.residual": "Residual",
@@ -147,13 +133,10 @@
   "risks.field.targetDate": "Ziel-Lösungsdatum",
   "risks.field.createdBy": "Erstellt von",
   "risks.field.updatedAt": "Zuletzt aktualisiert",
-  "risks.field.acceptedBy": "Akzeptiert von",
   "risks.field.acceptedAt": "Akzeptiert am",
   "risks.field.acceptanceRationale": "Begründung der Akzeptanz",
   "risks.cards.none": "Keine Karten verknüpft. Fügen Sie die Anwendungen, IT-Komponenten oder Systeme hinzu, die dieses Risiko betrifft.",
   "risks.cards.linkPlaceholder": "Karten zum Verknüpfen suchen…",
-  "risks.cards.link": "Karte verknüpfen",
-  "risks.cards.unlink": "Verknüpfung entfernen",
   "risks.cards.countLabel_one": "{{count}} betroffene Karte",
   "risks.cards.countLabel_other": "{{count}} betroffene Karten",
   "risks.action.accept": "Risiko akzeptieren",
@@ -165,10 +148,8 @@
   "risks.action.close": "Schließen",
   "risks.residual.lockedUntilMitigation": "Die Restrisikobewertung wird bearbeitbar, sobald die Minderung geplant ist.",
   "risks.residual.noneYet": "Noch nicht bewertet",
-  "risks.overdueTooltip": "Das Zieldatum {{date}} liegt in der Vergangenheit.",
   "risks.cardTab.title": "Risiken",
   "risks.cardTab.empty": "Keine Risiken mit dieser Karte verknüpft.",
-  "risks.cardTab.linkExisting": "Bestehendes Risiko verknüpfen",
   "risks.cardTab.createNew": "Neues Risiko erstellen",
   "risks.action.moveTo": "Weiter nach:",
   "risks.action.analyse": "Analyse starten",
@@ -183,11 +164,8 @@
   "risks.action.resume_mitigation": "Maßnahmen fortsetzen",
   "risks.action.close_now": "Ohne Überwachung schließen",
   "risks.filter.clearAll": "Filter zurücksetzen",
-  "risks.filter.quickSearch": "Schnellsuche",
   "risks.filter.activeCount_one": "{{count}} Filter",
   "risks.filter.activeCount_other": "{{count}} Filter",
-  "risks.grid.empty": "Keine Risiken entsprechen den aktiven Filtern.",
-  "risks.grid.rowsPerPage": "Zeilen pro Seite",
   "risks.filter.panelTitle": "Filter",
   "risks.filter.searchPlaceholder": "Referenz, Titel, Beschreibung...",
   "risks.filter.ownerSearchPlaceholder": "Benutzer suchen...",
@@ -271,13 +249,10 @@
   "risks.tasks.skip.confirm": "Durchgang überspringen",
   "risks.tasks.history.empty": "Noch keine Durchgänge.",
   "risks.tasks.history.cycleLabel": "Durchgang #{{sequence}}",
-  "risks.tasks.history.dueOn": "fällig am {{date}}",
   "risks.tasks.history.assignedTo": "Zugewiesen an {{name}}",
   "risks.tasks.history.unassigned": "Nicht zugewiesen",
-  "risks.tasks.history.closedAt": "Abgeschlossen am {{timestamp}}",
   "risks.tasks.history.completedBy": "Von {{name}} · Verantwortlich zu diesem Zeitpunkt: {{owner}}",
   "risks.tasks.history.byShort": "von {{name}}",
-  "risks.tasks.field.reference": "Maßnahmen-ID",
   "risks.tasks.actions.exportHistory": "Verlauf exportieren (Excel)",
   "risks.tasks.history.targetLabel": "Ziel",
   "risks.tasks.history.completedLabel": "Abgeschlossen",
@@ -285,8 +260,6 @@
   "risks.tasks.history.showOlder_one": "{{count}} älteren Durchgang anzeigen",
   "risks.tasks.history.showOlder_other": "{{count}} ältere Durchgänge anzeigen",
   "risks.tasks.history.collapse": "Verlauf einklappen",
-  "risks.export.sheetRisks": "Risiken",
-  "risks.export.sheetTasks": "Maßnahmen",
   "risks.export.documentTitle": "Risiko",
   "risks.import.title": "Risiken importieren",
   "risks.import.intro": "Laden Sie eine .xlsx-Datei hoch, um Risiken in großer Menge anzulegen. Jede Zeile wird zu einem neuen Risiko; Zeilen, deren Referenz bereits zu einem vorhandenen Risiko passt, werden übersprungen. Eigentümer werden per E-Mail und Karten anhand des exakten Namens zugeordnet — alles, was nicht zugeordnet werden kann, wird mit einer Warnung übersprungen.",

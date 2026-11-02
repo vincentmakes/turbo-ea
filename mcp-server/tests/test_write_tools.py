@@ -118,9 +118,7 @@ class TestCreateCardsBulk:
 
     @pytest.mark.asyncio
     async def test_single_row(self, fake_token):
-        patcher, write_call = _patched_post_batch_aware(
-            {"results": [], "created": 0, "failed": 0}
-        )
+        patcher, write_call = _patched_post_batch_aware({"results": [], "created": 0, "failed": 0})
         with patcher:
             await server.create_cards_bulk(
                 cards=[
@@ -209,9 +207,7 @@ class TestUpsertRelationsBulk:
     async def test_upsert_dry_run(self, fake_token):
         patcher, write_call = _patched_post_batch_aware(
             {
-                "results": [
-                    {"row_index": 0, "status": "upserted", "relation_id": "r1"}
-                ],
+                "results": [{"row_index": 0, "status": "upserted", "relation_id": "r1"}],
                 "upserted": 1,
                 "deleted": 0,
                 "failed": 0,
@@ -279,7 +275,10 @@ class TestUpsertRelationsBulk:
                     {
                         "row_index": 0,
                         "status": "failed",
-                        "error": "Source type 'X' does not match relation type's expected source 'Application'",
+                        "error": (
+                            "Source type 'X' does not match relation type's "
+                            "expected source 'Application'"
+                        ),
                     }
                 ],
                 "upserted": 0,
@@ -307,16 +306,14 @@ class TestUpsertRelationsBulk:
 
 _IGNORED_DRY_RUN_MESSAGE = (
     "The Turbo EA backend did not honour dry_run (it is older "
-            "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
-            "upgrade the backend before using diagram previews."
+    "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
+    "upgrade the backend before using diagram previews."
 )
 
 
 class TestCreateDiagram:
     @pytest.mark.asyncio
-    async def test_a_backend_that_ignored_dry_run_is_reported_as_persisted(
-        self, fake_token
-    ):
+    async def test_a_backend_that_ignored_dry_run_is_reported_as_persisted(self, fake_token):
         # A backend older than 2.180.0 drops the unknown `dry_run` flag and
         # creates the diagram: the tool must say so, not call it a preview.
         calls: list = []
@@ -342,9 +339,7 @@ class TestCreateDiagram:
         )
 
     @pytest.mark.asyncio
-    async def test_dry_run_is_verified_by_the_backend_inside_a_dry_run_batch(
-        self, fake_token
-    ):
+    async def test_dry_run_is_verified_by_the_backend_inside_a_dry_run_batch(self, fake_token):
         ref = "11111111-2222-3333-4444-555555555555"
         xml = f'<mxGraphModel><object cardId="{ref}"/></mxGraphModel>'
         calls: list = []
@@ -492,9 +487,7 @@ class TestImportBpmn:
                 '<bpmn:task id="t"/><bpmn:endEvent id="e"/></bpmn:process>'
                 "</bpmn:definitions>"
             )
-            out = await server.import_bpmn(
-                business_process_name="Order to Cash", bpmn_xml=bpmn
-            )
+            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
         # Only the preview's own dry-run batch — no draft, submit or approve.
         assert posted == PREVIEW_BATCH_PATHS
         assert post_mock.call_args_list[0].kwargs["json"] == {
@@ -541,9 +534,7 @@ class TestImportBpmn:
                 '<userTask id="t"/><endEvent id="e"/></process>'
                 "</definitions>"
             )
-            out = await server.import_bpmn(
-                business_process_name="Order to Cash", bpmn_xml=bpmn
-            )
+            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
         assert posted == PREVIEW_BATCH_PATHS
         data = _parse(out)
         assert data["diagram_preview"]["flow_nodes_estimated"] == 3
@@ -577,18 +568,14 @@ class TestImportBpmn:
                 '<bpmn:endEvent id="e"/></bpmn:process>'
                 "</bpmn:definitions>"
             )
-            out = await server.import_bpmn(
-                business_process_name="Order to Cash", bpmn_xml=bpmn
-            )
+            out = await server.import_bpmn(business_process_name="Order to Cash", bpmn_xml=bpmn)
         assert posted == PREVIEW_BATCH_PATHS
         data = _parse(out)
         assert data["diagram_preview"]["flow_nodes_estimated"] == 5
         assert data["diagram_preview"]["message_flows_estimated"] == 2
 
     @pytest.mark.asyncio
-    async def test_missing_card_returns_card_not_found_with_next_action(
-        self, fake_token
-    ):
+    async def test_missing_card_returns_card_not_found_with_next_action(self, fake_token):
         """import_bpmn no longer auto-creates a BusinessProcess card —
         forcing the agent into the explicit two-step flow (create card
         with all metadata via create_cards_bulk, then import the BPMN).
@@ -781,9 +768,7 @@ class TestImportBpmn:
         assert "processOwner" in data["warning"]
 
     @pytest.mark.asyncio
-    async def test_a_draft_that_was_not_created_closes_the_batch_as_failed(
-        self, fake_token
-    ):
+    async def test_a_draft_that_was_not_created_closes_the_batch_as_failed(self, fake_token):
         get_mock = AsyncMock(
             return_value={"items": [{"id": "bp-1", "name": "P", "parent_id": None}]}
         )
@@ -826,9 +811,7 @@ class TestGuardrails:
     @pytest.mark.asyncio
     async def test_cards_batch_over_cap_rejected(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "MCP_MAX_CARDS_PER_CALL", 3)
-        rows = [
-            {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(4)
-        ]
+        rows = [{"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(4)]
         post_mock = AsyncMock()  # must not be called
         with patch.object(server.TurboEAClient, "post", post_mock):
             out = await server.create_cards_bulk(cards=rows)
@@ -845,12 +828,8 @@ class TestGuardrails:
         # without first running a dry-run (3 rows is below the
         # default 20-row threshold anyway, but be explicit).
         monkeypatch.setattr(server, "MCP_REQUIRE_DRYRUN_FIRST", False)
-        rows = [
-            {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)
-        ]
-        patcher, write_call = _patched_post_batch_aware(
-            {"results": [], "created": 0, "failed": 0}
-        )
+        rows = [{"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)]
+        patcher, write_call = _patched_post_batch_aware({"results": [], "created": 0, "failed": 0})
         with patcher:
             await server.create_cards_bulk(cards=rows, dry_run=False)
         path, _ = write_call()
@@ -925,9 +904,7 @@ class TestGuardrails:
         assert _parse(out)["deleted"] == 1
 
     @pytest.mark.asyncio
-    async def test_writes_disabled_blocks_all_write_tools(
-        self, fake_token, monkeypatch
-    ):
+    async def test_writes_disabled_blocks_all_write_tools(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "MCP_WRITES_ENABLED", False)
         post_mock = AsyncMock()
         put_mock = AsyncMock()
@@ -941,9 +918,7 @@ class TestGuardrails:
                 await server.create_cards_bulk(cards=[]),
                 await server.upsert_relations_bulk(operations=[]),
                 await server.create_diagram(name="X", drawio_xml="<x/>"),
-                await server.import_bpmn(
-                    business_process_name="X", bpmn_xml="<bpmn:definitions/>"
-                ),
+                await server.import_bpmn(business_process_name="X", bpmn_xml="<bpmn:definitions/>"),
             ]:
                 assert _parse(out)["error"] == "writes_disabled"
         post_mock.assert_not_called()
@@ -963,9 +938,7 @@ class TestUnauthenticatedWrites:
     def test_create_cards_bulk_requires_auth(self, monkeypatch):
         monkeypatch.setattr(server, "_stdio_token", None)
         out = asyncio.run(
-            server.create_cards_bulk(
-                cards=[{"row_index": 0, "type": "Application", "name": "X"}]
-            )
+            server.create_cards_bulk(cards=[{"row_index": 0, "type": "Application", "name": "X"}])
         )
         assert "Not authenticated" in out
 

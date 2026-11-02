@@ -1,10 +1,6 @@
 {
   "required": "Ce champ est obligatoire",
   "requiredEmpty": "Ce champ est obligatoire — remplissez-le pour enregistrer.",
-  "invalidEmail": "Adresse e-mail invalide",
-  "tooLong": "Trop long (max. {{max}} caract\u00e8res)",
-  "tooShort": "Trop court (min. {{min}} caract\u00e8res)",
-  "invalidUrl": "URL invalide",
 
   "key.mustStartWithLetter": "Doit commencer par une lettre",
   "key.noUnderscores": "Les underscores ne sont pas autoris\u00e9s \u2014 utilisez le camelCase",

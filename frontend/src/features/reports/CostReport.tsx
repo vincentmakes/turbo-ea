@@ -36,7 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { FIELD_TYPE_COLORS, RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { RAG_COLORS, REPORT_ICON_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
@@ -802,7 +802,7 @@ export default function CostReport() {
             value={topDriver.name}
             subtitle={`${fmt.format(topDriver.cost)} (${total > 0 ? ((topDriver.cost / total) * 100).toFixed(0) : 0}%)`}
             icon="trending_up"
-            iconColor={FIELD_TYPE_COLORS.cost}
+            iconColor={REPORT_ICON_COLORS.costDriver}
           />
         )}
       </Box>

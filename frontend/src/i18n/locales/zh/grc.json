@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "治理、风险与合规"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "治理",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "架构决策",
-      "empty": "尚未记录任何架构决策。",
-      "status": "状态",
-      "open": "打开",
       "create": "新建决策"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "尚未配置 AI 提供方",
-      "body": "合规扫描依赖大语言模型 (LLM) — 每条法规都通过调用已配置的 AI 提供方对您的环境进行评估。未配置提供方时,扫描会立即结束,但每条结论都会回落到「AI 未配置」,因此在扫描器能产出有用结果之前我们将其隐藏。",
-      "regulations": "覆盖的法规:欧盟《人工智能法》· GDPR · NIS2 · DORA · SOC 2 · ISO 27001。",
-      "configureCta": "配置 AI 提供方",
-      "contactAdmin": "请联系管理员,在「管理 › 设置 › AI」中配置 AI 提供方以启用合规扫描。"
+      "configureCta": "配置 AI 提供方"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "打开风险 {{reference}}",
   "risks.createRisk": "创建风险",
   "risks.createRiskFromFinding": "从发现项创建风险",
-  "risks.viewSource": "查看来源发现项",
   "risks.backToRegister": "返回登记册",
   "risks.deleteRisk": "删除风险",
   "risks.confirmDelete": "删除风险 {{reference}}？此操作无法撤销。",
-  "risks.emptyState": "暂无风险。手动创建一条，或从 TurboLens 提升一个合规发现项。",
-  "risks.toastCreated": "已创建风险 {{reference}}。",
-  "risks.toastUpdated": "已更新风险 {{reference}}。",
-  "risks.toastDeleted": "已删除风险 {{reference}}。",
   "risks.kpi.total": "风险总数",
   "risks.kpi.critical": "严重",
   "risks.kpi.overdue": "已逾期",
@@ -92,7 +79,6 @@
   "risks.filter.category": "类别",
   "risks.filter.level": "等级",
   "risks.filter.owner": "负责人",
-  "risks.filter.all": "全部",
   "risks.filter.overdueOnly": "仅显示逾期",
   "risks.matrix.initial": "初始",
   "risks.matrix.residual": "剩余",
@@ -147,13 +133,10 @@
   "risks.field.targetDate": "目标解决日期",
   "risks.field.createdBy": "创建者",
   "risks.field.updatedAt": "最后更新",
-  "risks.field.acceptedBy": "接受者",
   "risks.field.acceptedAt": "接受时间",
   "risks.field.acceptanceRationale": "接受理由",
   "risks.cards.none": "未关联任何卡片。请添加此风险影响的应用、IT 组件或系统。",
   "risks.cards.linkPlaceholder": "搜索要关联的卡片…",
-  "risks.cards.link": "关联卡片",
-  "risks.cards.unlink": "移除关联",
   "risks.cards.countLabel_one": "{{count}} 张受影响的卡片",
   "risks.cards.countLabel_other": "{{count}} 张受影响的卡片",
   "risks.action.accept": "接受风险",
@@ -165,10 +148,8 @@
   "risks.action.close": "关闭",
   "risks.residual.lockedUntilMitigation": "一旦规划了缓解措施，剩余评估即可编辑。",
   "risks.residual.noneYet": "尚未评估",
-  "risks.overdueTooltip": "目标日期 {{date}} 已过期。",
   "risks.cardTab.title": "风险",
   "risks.cardTab.empty": "没有风险与此卡片关联。",
-  "risks.cardTab.linkExisting": "关联现有风险",
   "risks.cardTab.createNew": "创建新风险",
   "risks.action.moveTo": "移动到：",
   "risks.action.analyse": "开始分析",
@@ -183,11 +164,8 @@
   "risks.action.resume_mitigation": "恢复缓解",
   "risks.action.close_now": "不监控直接关闭",
   "risks.filter.clearAll": "清除筛选",
-  "risks.filter.quickSearch": "快速搜索",
   "risks.filter.activeCount_one": "{{count}} 个筛选",
   "risks.filter.activeCount_other": "{{count}} 个筛选",
-  "risks.grid.empty": "没有风险符合当前筛选条件。",
-  "risks.grid.rowsPerPage": "每页行数",
   "risks.filter.panelTitle": "筛选",
   "risks.filter.searchPlaceholder": "编号、标题、描述…",
   "risks.filter.ownerSearchPlaceholder": "搜索用户…",
@@ -271,13 +249,10 @@
   "risks.tasks.skip.confirm": "跳过周期",
   "risks.tasks.history.empty": "尚无执行记录。",
   "risks.tasks.history.cycleLabel": "第 {{sequence}} 次",
-  "risks.tasks.history.dueOn": "应于 {{date}} 完成",
   "risks.tasks.history.assignedTo": "指派给 {{name}}",
   "risks.tasks.history.unassigned": "未指派",
-  "risks.tasks.history.closedAt": "于 {{timestamp}} 关闭",
   "risks.tasks.history.completedBy": "由 {{name}} 完成 · 当时负责人：{{owner}}",
   "risks.tasks.history.byShort": "由 {{name}}",
-  "risks.tasks.field.reference": "任务编号",
   "risks.tasks.actions.exportHistory": "导出历史（Excel）",
   "risks.tasks.history.targetLabel": "目标",
   "risks.tasks.history.completedLabel": "已完成",
@@ -285,8 +260,6 @@
   "risks.tasks.history.showOlder_one": "显示更早的 {{count}} 次执行",
   "risks.tasks.history.showOlder_other": "显示更早的 {{count}} 次执行",
   "risks.tasks.history.collapse": "收起历史",
-  "risks.export.sheetRisks": "风险",
-  "risks.export.sheetTasks": "缓解任务",
   "risks.export.documentTitle": "风险",
   "risks.import.title": "导入风险",
   "risks.import.intro": "上传 .xlsx 文件以批量创建风险。每一行都会成为一条新风险；编号已与现有风险匹配的行会被跳过。负责人按电子邮件匹配，卡片按名称精确匹配——无法匹配的内容将被跳过并给出警告。",

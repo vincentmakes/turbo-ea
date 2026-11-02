@@ -15,7 +15,7 @@ import pytest
 
 from turbo_ea_mcp import api_client
 from turbo_ea_mcp.api_client import (
-    RefreshUnavailable,
+    RefreshUnavailableError,
     TurboEAClient,
     _raise_for_status_with_detail,
     chunked,
@@ -250,7 +250,7 @@ class TestRefreshUnavailable:
     async def test_a_5xx_raises(self, wire, status):
         wire.reply = lambda request: httpx.Response(status, json={"detail": "down"})
         client = TurboEAClient("old")
-        with pytest.raises(RefreshUnavailable, match=str(status)):
+        with pytest.raises(RefreshUnavailableError, match=str(status)):
             await client.refresh_token()
         wire.reply = lambda request: httpx.Response(200, json={})
         await client.get("/x")
@@ -262,7 +262,7 @@ class TestRefreshUnavailable:
             raise httpx.ConnectError("connection refused", request=request)
 
         wire.reply = refuse
-        with pytest.raises(RefreshUnavailable) as excinfo:
+        with pytest.raises(RefreshUnavailableError) as excinfo:
             await TurboEAClient("old").refresh_token()
         assert isinstance(excinfo.value.__cause__, httpx.ConnectError)
 

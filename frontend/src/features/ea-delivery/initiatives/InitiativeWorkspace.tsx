@@ -9,7 +9,7 @@ import LinkifiedText from "@/components/LinkifiedText";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
-import { CARD_TYPE_COLORS, DASHBOARD_KPI_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { CARD_TYPE_COLORS, FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import { selectOnKey } from "./selectOnKey";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
 import DeliverableSection, {
@@ -159,7 +159,7 @@ function InitiativeView({
             <MaterialSymbol
               icon="cards_star"
               size={22}
-              color={fav ? DASHBOARD_KPI_COLORS.favorites : "currentColor"}
+              color={fav ? FAVORITE_COLOR : "currentColor"}
             />
           </IconButton>
         </Tooltip>

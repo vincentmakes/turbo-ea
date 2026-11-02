@@ -3,8 +3,9 @@
 // wrappers) and the call shapes (`t("…")`, `i18n.t("…")`, `<Trans i18nKey>`).
 // Shared by the two guards that read `src/` for keys — `i18n/translationKeys.test.ts`
 // (every key the code asks for exists) and `i18n/unusedKeys.sourceScan.test.ts`
-// (every key English defines is asked for). Pure regexes over text; reading the
-// files is the caller's job, inside `describeSourceScan` / `itSourceScan`.
+// (every key English defines is asked for, which also reads `narrowedTParams`).
+// Pure regexes over text; reading the files is the caller's job, inside
+// `describeSourceScan` / `itSourceScan`.
 
 export const NAMESPACES = [
   "common",
@@ -51,6 +52,24 @@ export const WRAPPER_BINDING =
 
 /** `t: TFunction` / `t: TFunction<"common">` parameters — 2 files, no binding otherwise. */
 export const TFUNCTION_BINDING = /(\w+)\s*:\s*TFunction(?:<\s*"(\w+)")?/g;
+
+/**
+ * A `t` parameter typed with a narrowed signature instead of `TFunction`:
+ * `t: Translate`, `t: TFn`, `t: (key: string, …) => string` (also `tr`, or an
+ * alias such as `tCards`). Plain `.ts` helpers (`ppm/ppmPortfolioModel.ts`,
+ * `reports/matrixExport.ts`, `admin/securityLogDetails.ts`, …) take one so they
+ * need no i18n import, and the caller hands in its own bound `t` — so the
+ * namespace is decided at the call site, not in the file, and no binding can
+ * name it. Other parameters of the same shape (`subtypeLabel: (key: string) =>
+ * string`) are label resolvers, not translators, and are left alone.
+ */
+export const NARROWED_T_PARAM =
+  /\b(t|tr|t[A-Z]\w*)\s*\??\s*:\s*(?:(?:Translate|TFn)\b|\(\s*key\s*:\s*string\b[^)]*\)\s*=>\s*string\b)/g;
+
+/** The names of narrowed-`t` parameters in `src` (see `NARROWED_T_PARAM`). */
+export function narrowedTParams(src: string): string[] {
+  return [...new Set([...src.matchAll(NARROWED_T_PARAM)].map((m) => m[1]))];
+}
 
 export function extractBindings(src: string): { bindings: Bindings; unresolvable: string[] } {
   const bindings: Bindings = new Map();

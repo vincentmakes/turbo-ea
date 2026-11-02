@@ -16,7 +16,7 @@ import time
 import pytest
 
 from turbo_ea_mcp import api_client, oauth, server
-from turbo_ea_mcp.api_client import RefreshUnavailable
+from turbo_ea_mcp.api_client import RefreshUnavailableError
 from turbo_ea_mcp.oauth import (
     TURBO_JWT_REFRESH_BUFFER,
     OAuthStore,
@@ -36,7 +36,7 @@ class Down:
 
     async def refresh_token(self):
         Down.calls += 1
-        raise RefreshUnavailable("backend answered 502")
+        raise RefreshUnavailableError("backend answered 502")
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ class TestResolveDuringAnOutage:
     @pytest.mark.asyncio
     async def test_an_expired_jwt_raises_and_the_session_is_kept(self, store):
         seed(store, time.time() - 1)
-        with pytest.raises(RefreshUnavailable):
+        with pytest.raises(RefreshUnavailableError):
             await resolve_token("acc")
         assert set(store.tokens) == {"acc"}
         assert store.refresh_tokens == {"ref": "acc"}

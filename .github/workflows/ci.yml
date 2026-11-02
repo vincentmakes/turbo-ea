@@ -850,6 +850,16 @@ jobs:
           cache-dependency-path: mcp-server/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: mcp-server
+      # ruff and vulture come from the dev extras above; config in
+      # mcp-server/pyproject.toml ([tool.ruff], [tool.vulture]).
+      - run: ruff format --check .
+        working-directory: mcp-server
+      - run: ruff check .
+        working-directory: mcp-server
+      # Dead code at >= 80% confidence; structural false positives in
+      # mcp-server/vulture_whitelist.py with their reasons.
+      - run: vulture
+        working-directory: mcp-server
       # The coverage floor is `fail_under` in mcp-server/pyproject.toml.
       - run: python -m pytest -q --cov=turbo_ea_mcp --cov-report=term-missing --cov-report=xml
         working-directory: mcp-server

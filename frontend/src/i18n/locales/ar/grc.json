@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "الحوكمة وإدارة المخاطر والامتثال"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "الحوكمة",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "قرارات البنية المؤسسية",
-      "empty": "لم تُسجَّل أي قرارات بنية مؤسسية بعد.",
-      "status": "الحالة",
-      "open": "فتح",
       "create": "قرار جديد"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "مزوّد الذكاء الاصطناعي غير مُهيّأ",
-      "body": "يعتمد فحص الامتثال على نموذج لغوي كبير — يُقيَّم كل تنظيم باستدعاء مزوّد الذكاء الاصطناعي المُهيّأ مقابل بيئتك. وبدون مزوّد، تكتمل عمليات الفحص فورًا لكن كل نتيجة ترجع إلى «الذكاء الاصطناعي غير مُهيّأ»، لذا نخفي أداة الفحص حتى تتمكن من أداء عمل مفيد.",
-      "regulations": "التنظيمات المشمولة: EU AI Act · GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "تهيئة مزوّد الذكاء الاصطناعي",
-      "contactAdmin": "اطلب من المسؤول تهيئة مزوّد ذكاء اصطناعي في المسؤول › الإعدادات › الذكاء الاصطناعي لتفعيل فحص الامتثال."
+      "configureCta": "تهيئة مزوّد الذكاء الاصطناعي"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "فتح الخطر {{reference}}",
   "risks.createRisk": "إنشاء خطر",
   "risks.createRiskFromFinding": "إنشاء خطر من نتيجة",
-  "risks.viewSource": "عرض النتيجة المصدر",
   "risks.backToRegister": "العودة إلى السجل",
   "risks.deleteRisk": "حذف الخطر",
   "risks.confirmDelete": "حذف الخطر {{reference}}؟ لا يمكن التراجع عن ذلك.",
-  "risks.emptyState": "لا توجد مخاطر بعد. أنشئ واحدًا يدويًا أو رقِّ نتيجة امتثال من TurboLens.",
-  "risks.toastCreated": "تم إنشاء الخطر {{reference}}.",
-  "risks.toastUpdated": "تم تحديث الخطر {{reference}}.",
-  "risks.toastDeleted": "تم حذف الخطر {{reference}}.",
   "risks.kpi.total": "إجمالي المخاطر",
   "risks.kpi.critical": "حرجة",
   "risks.kpi.overdue": "متأخرة",
@@ -92,7 +79,6 @@
   "risks.filter.category": "الفئة",
   "risks.filter.level": "المستوى",
   "risks.filter.owner": "المالك",
-  "risks.filter.all": "الكل",
   "risks.filter.overdueOnly": "عرض المتأخرة فقط",
   "risks.matrix.initial": "الأولي",
   "risks.matrix.residual": "المتبقي",
@@ -148,13 +134,10 @@
   "risks.field.targetDate": "تاريخ الحل المستهدف",
   "risks.field.createdBy": "أنشئ بواسطة",
   "risks.field.updatedAt": "آخر تحديث",
-  "risks.field.acceptedBy": "قُبِل بواسطة",
   "risks.field.acceptedAt": "تاريخ القبول",
   "risks.field.acceptanceRationale": "مبرر القبول",
   "risks.cards.none": "لا توجد بطاقات مرتبطة. أضف التطبيقات أو مكونات تقنية المعلومات أو الأنظمة التي يؤثر عليها هذا الخطر.",
   "risks.cards.linkPlaceholder": "ابحث عن بطاقات لربطها…",
-  "risks.cards.link": "ربط بطاقة",
-  "risks.cards.unlink": "إزالة الرابط",
   "risks.cards.countLabel_zero": "{{count}} بطاقة متأثرة",
   "risks.cards.countLabel_one": "{{count}} بطاقة متأثرة",
   "risks.cards.countLabel_two": "{{count}} بطاقتان متأثرتان",
@@ -170,10 +153,8 @@
   "risks.action.close": "إغلاق",
   "risks.residual.lockedUntilMitigation": "يصبح التقييم المتبقي قابلاً للتحرير بمجرد تخطيط التخفيف.",
   "risks.residual.noneYet": "لم يُقيَّم بعد",
-  "risks.overdueTooltip": "التاريخ المستهدف {{date}} في الماضي.",
   "risks.cardTab.title": "المخاطر",
   "risks.cardTab.empty": "لا توجد مخاطر مرتبطة بهذه البطاقة.",
-  "risks.cardTab.linkExisting": "ربط خطر موجود",
   "risks.cardTab.createNew": "إنشاء خطر جديد",
   "risks.action.moveTo": "الانتقال إلى:",
   "risks.action.analyse": "بدء التحليل",
@@ -188,15 +169,12 @@
   "risks.action.resume_mitigation": "استئناف التخفيف",
   "risks.action.close_now": "إغلاق دون مراقبة",
   "risks.filter.clearAll": "مسح عوامل التصفية",
-  "risks.filter.quickSearch": "بحث سريع",
   "risks.filter.activeCount_zero": "{{count}} عامل تصفية",
   "risks.filter.activeCount_one": "{{count}} عامل تصفية",
   "risks.filter.activeCount_two": "{{count}} عاملا تصفية",
   "risks.filter.activeCount_few": "{{count}} عوامل تصفية",
   "risks.filter.activeCount_many": "{{count}} عامل تصفية",
   "risks.filter.activeCount_other": "{{count}} عامل تصفية",
-  "risks.grid.empty": "لا توجد مخاطر تطابق عوامل التصفية الحالية.",
-  "risks.grid.rowsPerPage": "صفوف لكل صفحة",
   "risks.filter.panelTitle": "عوامل التصفية",
   "risks.filter.searchPlaceholder": "المرجع، العنوان، الوصف...",
   "risks.filter.ownerSearchPlaceholder": "بحث عن مستخدمين...",
@@ -303,13 +281,10 @@
   "risks.tasks.skip.confirm": "تخطّي الدورة",
   "risks.tasks.history.empty": "لا توجد دورات بعد.",
   "risks.tasks.history.cycleLabel": "الدورة رقم {{sequence}}",
-  "risks.tasks.history.dueOn": "تستحق {{date}}",
   "risks.tasks.history.assignedTo": "مُسندة إلى {{name}}",
   "risks.tasks.history.unassigned": "غير مُسندة",
-  "risks.tasks.history.closedAt": "أُغلقت في {{timestamp}}",
   "risks.tasks.history.completedBy": "بواسطة {{name}} · المالك في حينها: {{owner}}",
   "risks.tasks.history.byShort": "بواسطة {{name}}",
-  "risks.tasks.field.reference": "معرّف المهمة",
   "risks.tasks.actions.exportHistory": "تصدير السجل (Excel)",
   "risks.tasks.history.targetLabel": "الهدف",
   "risks.tasks.history.completedLabel": "مكتملة",
@@ -321,8 +296,6 @@
   "risks.tasks.history.showOlder_many": "عرض {{count}} دورة أقدم",
   "risks.tasks.history.showOlder_other": "عرض {{count}} دورة أقدم",
   "risks.tasks.history.collapse": "طيّ السجل",
-  "risks.export.sheetRisks": "المخاطر",
-  "risks.export.sheetTasks": "مهام التخفيف",
   "risks.export.documentTitle": "خطر",
   "risks.import.title": "استيراد المخاطر",
   "risks.import.intro": "ارفع ملف .xlsx لإنشاء مخاطر بالجملة. يصبح كل صف خطرًا جديدًا؛ تُتخطّى الصفوف التي يطابق مرجعها خطرًا موجودًا. يُطابَق المالكون بالبريد الإلكتروني والبطاقات بالاسم الدقيق — ويُتخطّى كل ما لا يمكن مطابقته مع تحذير.",

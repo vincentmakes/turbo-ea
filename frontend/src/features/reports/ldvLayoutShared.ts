@@ -19,8 +19,8 @@ import {
 import {
   DEFAULT_LAYER_COLOR,
   LAYER_COLORS,
-  PRINT_COLORS,
   RAG_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
 } from "@/theme/tokens";
 import type { CardType, CardTypeCategory } from "@/types";
@@ -280,7 +280,7 @@ export function readFlowDir(attrs: Record<string, unknown> | undefined): FlowDir
 /* ------------------------------------------------------------------ */
 
 /** An arrowhead's grey. */
-export const ARROW_COLOR = PRINT_COLORS.muted;
+export const ARROW_COLOR = SCREEN_INK.muted;
 /** An arrowhead's red on a relation severed at the viewed date. */
 export const SEVERED_ARROW_COLOR = RAG_COLORS.red;
 

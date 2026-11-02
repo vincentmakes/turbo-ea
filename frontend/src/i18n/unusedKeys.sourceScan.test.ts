@@ -1,23 +1,15 @@
 /**
- * Unused translation keys ratchet down to zero — the reverse of
- * `translationKeys.test.ts` (every key the code asks for exists): every key
- * English defines must be asked for by the code.
+ * Every key English defines is read by some code — the reverse of
+ * `translationKeys.test.ts` (every key the code asks for exists).
  *
  * A key nobody reads still costs a translation in ten locale files and a row in
  * every `/translate` pass, and a dead key is how a renamed string keeps its
- * stale twin alive. Several hundred predated this guard, so it starts in REPORT
- * mode: the sorted list of unused English leaf keys must equal
- * `UNUSED_KEY_BASELINE` EXACTLY (the `theme/rawColours.sourceScan.test.ts`
- * ratchet):
- *
- *   - an unused key missing from the baseline fails, named — a new string is
- *     read by the code that adds it, or it is not added;
- *   - a baseline entry that is read again, or no longer exists, fails too,
- *     asking for the entry to be deleted — so the list can only shrink.
- *
- * Purging the baseline is a follow-up PR. Deleting a key means deleting it from
- * all 10 locale files (`src/i18n/locales/<locale>/<ns>.json`), or the parity
- * checks in `i18n.test.ts` fail on the other nine.
+ * stale twin alive. The check is strict: the list of unused English leaf keys
+ * must be empty. A new string is read by the code that adds it; a string the
+ * code stops reading is deleted from all 10 locale files
+ * (`src/i18n/locales/<locale>/<ns>.json`) in the same change, or the parity
+ * checks in `i18n.test.ts` fail on the other nine. A family whose keys no
+ * source literal spells goes in `DYNAMIC_PREFIXES`, with a reason.
  *
  * What counts as a reference (`collectReferences`). Every rule errs towards
  * "used", so the guard never asks for a live key to be deleted:
@@ -26,6 +18,10 @@
  *     `translationKeys.test.ts` resolves, shared in `@/test/i18nKeys` — and of
  *     `i18n.t(…)`, with a `ns:` prefix or an `{ ns }` option winning;
  *     `<Trans i18nKey="…" ns="…">` likewise;
+ *   - in a file that takes `t` as a narrowed parameter (`t: Translate`,
+ *     `t: TFn`, `t: (key: string, …) => string`), a bare word in any namespace:
+ *     the caller hands in its own bound `t`, so the file cannot say which
+ *     (`ppm/ppmPortfolioModel.ts` reads `ppm` keys through `PpmPortfolioView`'s `t`);
  *   - a template key matches every key of its shape: `t(`status.${s}`)` reads
  *     `status.*`, `t(`cards:${family}.industryValueAll`)` reads
  *     `cards:*.industryValueAll`;
@@ -55,6 +51,7 @@ import {
   TRANS_NS,
   TRANS_TAG,
   extractBindings,
+  narrowedTParams,
 } from "@/test/i18nKeys";
 import { describeSourceScan, itSourceScan } from "@/test/sourceScan";
 import { SRC, parse, walkSources } from "@/test/sourceScanners";
@@ -66,325 +63,6 @@ const LOCALE_DIR = path.join(SRC, "i18n", "locales", "en");
  * prefix counts as read. One-line reason each.
  */
 const DYNAMIC_PREFIXES: Record<string, string> = {};
-
-/**
- * English leaf keys (`ns:key`) no code reads, sorted and exact. Delete an entry
- * in the PR that reads or deletes the key (deleting: from all 10 locales).
- * Never add one: a new key is read by the code that adds it. Measured
- * 2026-11-02: 310 of the 7019 English leaves.
- */
-const UNUSED_KEY_BASELINE: string[] = [
-  "admin:calculations.columns.name",
-  "admin:calculations.columns.status",
-  "admin:calculations.newCalculationDialog",
-  "admin:cardLayout.builtinFields.name",
-  "admin:cardLayout.calc",
-  "admin:compliance_accept",
-  "admin:compliance_accepted_by",
-  "admin:compliance_acknowledge",
-  "admin:compliance_article",
-  "admin:compliance_filter_decision",
-  "admin:compliance_no_findings",
-  "admin:compliance_permission_denied",
-  "admin:compliance_reopen",
-  "admin:compliance_running",
-  "admin:eol.cardType",
-  "admin:eol.product",
-  "admin:eol.suggestedMatches",
-  "admin:extensions.install.choose",
-  "admin:extensions.license.title",
-  "admin:extensions.store.close",
-  "admin:extensions.store.details",
-  "admin:extensions.store.licensed",
-  "admin:metamodel.fieldEditor.weight",
-  "admin:metamodel.typeDrawer.addRelation",
-  "admin:metamodel.typeDrawer.icon",
-  "admin:migration.col.factSheets",
-  "admin:page.title",
-  "admin:settings.ai.sectionCards",
-  "admin:settings.favicon.reset",
-  "admin:settings.section.authentication",
-  "admin:settings.section.integrations",
-  "admin:surveys.respond.title",
-  "admin:turbolens_add_connection",
-  "admin:turbolens_analysis_started",
-  "admin:turbolens_arch_complexity",
-  "admin:turbolens_arch_components",
-  "admin:turbolens_arch_copy_mermaid",
-  "admin:turbolens_arch_critical",
-  "admin:turbolens_arch_custom_build",
-  "admin:turbolens_arch_data_flows",
-  "admin:turbolens_arch_diagram_error",
-  "admin:turbolens_arch_direction",
-  "admin:turbolens_arch_effort",
-  "admin:turbolens_arch_export_svg",
-  "admin:turbolens_arch_from",
-  "admin:turbolens_arch_gaps",
-  "admin:turbolens_arch_in_landscape",
-  "admin:turbolens_arch_integration_map",
-  "admin:turbolens_arch_integrations",
-  "admin:turbolens_arch_legend_existing",
-  "admin:turbolens_arch_legend_new",
-  "admin:turbolens_arch_mitigation",
-  "admin:turbolens_arch_next_steps",
-  "admin:turbolens_arch_notes",
-  "admin:turbolens_arch_protocol",
-  "admin:turbolens_arch_rendering_diagram",
-  "admin:turbolens_arch_reset_zoom",
-  "admin:turbolens_arch_risks",
-  "admin:turbolens_arch_tab_gaps",
-  "admin:turbolens_arch_tab_integrations",
-  "admin:turbolens_arch_tab_layers",
-  "admin:turbolens_arch_tab_plan",
-  "admin:turbolens_arch_timeline",
-  "admin:turbolens_arch_to",
-  "admin:turbolens_architect_diagram",
-  "admin:turbolens_architect_generate_architecture",
-  "admin:turbolens_architect_generate_capability_map",
-  "admin:turbolens_architect_recs_selected",
-  "admin:turbolens_architect_result_title",
-  "admin:turbolens_architect_summary",
-  "admin:turbolens_col_current_tech",
-  "admin:turbolens_col_effort",
-  "admin:turbolens_col_modernization_type",
-  "admin:turbolens_col_priority",
-  "admin:turbolens_col_recommendation",
-  "admin:turbolens_col_target_type",
-  "admin:turbolens_connected",
-  "admin:turbolens_dashboard_title",
-  "admin:turbolens_edit_connection",
-  "admin:turbolens_email",
-  "admin:turbolens_instance_url",
-  "admin:turbolens_last_synced",
-  "admin:turbolens_modernization_results",
-  "admin:turbolens_modernization_title",
-  "admin:turbolens_new_connection",
-  "admin:turbolens_no_connection_description",
-  "admin:turbolens_no_connection_title",
-  "admin:turbolens_no_connections",
-  "admin:turbolens_no_duplicate_data",
-  "admin:turbolens_no_vendor_data",
-  "admin:turbolens_not_tested",
-  "admin:turbolens_password",
-  "admin:turbolens_phase",
-  "admin:turbolens_push_ai_config",
-  "admin:turbolens_run_duplicate_detection",
-  "admin:turbolens_run_vendor_analysis",
-  "admin:turbolens_sync",
-  "admin:turbolens_sync_success",
-  "admin:turbolens_tab_architect",
-  "admin:turbolens_tab_connection",
-  "admin:turbolens_tab_history",
-  "admin:turbolens_tab_vendors",
-  "admin:turbolens_test",
-  "admin:turbolens_turbo_credentials",
-  "admin:turbolens_turbo_url",
-  "admin:turbolens_vendor_apps",
-  "admin:turbolens_vendor_category",
-  "admin:turbolens_vendor_cost",
-  "admin:users.archivedRoleTooltip",
-  "admin:users.columns.actions",
-  "admin:users.create.password",
-  "admin:users.create.passwordHelperText",
-  "admin:users.create.passwordRequiredLocal",
-  "admin:users.invitations.email",
-  "admin:users.invitations.invited",
-  "admin:users.invitations.role",
-  "admin:users.loadingUsers",
-  "admin:users.pendingInvitations",
-  "auth:login.noAccount",
-  "auth:login.register",
-  "auth:login.signIn",
-  "auth:login.ssoButton",
-  "auth:login.subtitle",
-  "auth:passwordRules.digit",
-  "auth:passwordRules.minLength",
-  "auth:passwordRules.uppercase",
-  "auth:register.button",
-  "auth:register.email",
-  "auth:register.password",
-  "auth:setPassword.invalidToken",
-  "auth:setPassword.success",
-  "auth:setPassword.welcome",
-  "auth:sso.error",
-  "auth:sso.noCode",
-  "bpm:navigator.hasBpmnDiagram",
-  "bpm:navigator.hasProcessFlow",
-  "cards:compliance.cardTab.col.actions",
-  "cards:compliance.cardTab.col.decision",
-  "cards:compliance.create.newFinding",
-  "cards:compliance.drawer.reopen",
-  "cards:compliance.lifecycle.advanceTo",
-  "cards:detail.actions.archiveTooltip",
-  "cards:detail.actions.deleteTooltip",
-  "cards:detail.dialogs.archive.descriptionIndefinite",
-  "cards:detail.dialogs.related.empty",
-  "cards:detail.dialogs.related.summary",
-  "cards:detail.title",
-  "cards:resources.deleteLink",
-  "cards:resources.error.createFailed",
-  "cards:resources.error.loadFailed",
-  "cards:resources.fileCategory.architecture",
-  "cards:resources.fileCategory.compliance",
-  "cards:resources.fileCategory.design",
-  "cards:resources.fileCategory.meeting_notes",
-  "cards:resources.fileCategory.operations",
-  "cards:resources.fileCategory.other",
-  "cards:resources.fileCategory.security",
-  "cards:resources.linkType.architecture",
-  "cards:resources.linkType.compliance",
-  "cards:resources.linkType.documentation",
-  "cards:resources.linkType.operations",
-  "cards:resources.linkType.other",
-  "cards:resources.linkType.security",
-  "cards:resources.linkType.support",
-  "cards:stakeholders.alreadyAssigned",
-  "cards:stakeholders.inviteEmailFailed",
-  "cards:stakeholders.inviteSuccess",
-  "common:actions.copy",
-  "common:actions.download",
-  "common:actions.print",
-  "common:actions.refresh",
-  "common:actions.send",
-  "common:actions.upload",
-  "common:emptyStates.noCards",
-  "common:emptyStates.noResults",
-  "common:errors.unauthorized",
-  "common:grid.fill.failed",
-  "common:labels.count",
-  "common:labels.createdBy",
-  "common:labels.optional",
-  "common:labels.updatedAt",
-  "common:labels.updatedBy",
-  "common:labels.version",
-  "common:portal.allTagGroup",
-  "common:portal.lifecycle",
-  "common:portal.loading",
-  "delivery:artefactGroup.noAdrs",
-  "delivery:artefactGroup.noDiagrams",
-  "delivery:artefactGroup.noSoaws",
-  "delivery:card.createAdrForInitiative",
-  "delivery:card.createArtefactTooltip",
-  "delivery:card.createSoaw",
-  "delivery:card.createSoawForInitiative",
-  "delivery:card.createSoawTooltip",
-  "delivery:card.linkDiagrams",
-  "delivery:diagram.label",
-  "delivery:editor.signDialog.sending",
-  "delivery:editor.status",
-  "delivery:empty.createAdr",
-  "delivery:empty.createSoaw",
-  "delivery:empty.linkDiagram",
-  "delivery:empty.noArtefacts",
-  "delivery:empty.or",
-  "delivery:header.searchInitiatives",
-  "delivery:list.actions",
-  "delivery:list.artefacts",
-  "delivery:list.businessValue",
-  "delivery:list.effort",
-  "delivery:list.name",
-  "delivery:list.relatedElements",
-  "delivery:list.soawCount",
-  "delivery:list.status",
-  "delivery:list.subtype",
-  "delivery:list.timeline",
-  "delivery:principles.empty",
-  "delivery:principles.implications",
-  "delivery:principles.rationale",
-  "delivery:tabs.decisions",
-  "delivery:tabs.principles",
-  "delivery:unlinked.title",
-  "delivery:view.cardView",
-  "delivery:view.listView",
-  "diagrams:cardPicker.search",
-  "diagrams:cardPicker.selectOrSearch",
-  "diagrams:cardPicker.title",
-  "diagrams:editor.alreadyDrilled",
-  "diagrams:editor.cardArchived",
-  "diagrams:editor.errors.archiveCardFailed",
-  "diagrams:editor.removedFromDiagram",
-  "diagrams:editor.toolbar.syncCount",
-  "diagrams:gallery.author",
-  "diagrams:sync.alsoArchive",
-  "diagrams:sync.archiveNow",
-  "diagrams:sync.removeNow",
-  "diagrams:sync.removedCards",
-  "diagrams:sync.willArchive",
-  "diagrams:sync.willKeepInInventory",
-  "grc:compliance.aiRequired.body",
-  "grc:compliance.aiRequired.contactAdmin",
-  "grc:compliance.aiRequired.regulations",
-  "grc:compliance.aiRequired.title",
-  "grc:governance.decisions.empty",
-  "grc:governance.decisions.open",
-  "grc:governance.decisions.status",
-  "grc:page.subtitle",
-  "grc:risks.cardTab.linkExisting",
-  "grc:risks.cards.link",
-  "grc:risks.cards.unlink",
-  "grc:risks.emptyState",
-  "grc:risks.export.sheetRisks",
-  "grc:risks.export.sheetTasks",
-  "grc:risks.field.acceptedBy",
-  "grc:risks.filter.all",
-  "grc:risks.filter.quickSearch",
-  "grc:risks.grid.empty",
-  "grc:risks.grid.rowsPerPage",
-  "grc:risks.overdueTooltip",
-  "grc:risks.tasks.field.reference",
-  "grc:risks.tasks.history.closedAt",
-  "grc:risks.tasks.history.dueOn",
-  "grc:risks.toastCreated",
-  "grc:risks.toastDeleted",
-  "grc:risks.toastUpdated",
-  "grc:risks.viewSource",
-  "inventory:import.errors.invalidRelationAction",
-  "inventory:import.errors.noExistingCard",
-  "inventory:massArchive.archiving",
-  "inventory:massArchive.cascadeHelp",
-  "inventory:massDelete.deleting",
-  "inventory:massEdit.clear",
-  "ppm:actual",
-  "ppm:budgetFrom",
-  "ppm:costLines",
-  "ppm:costManagement",
-  "ppm:costsFrom",
-  "ppm:datesFrom",
-  "ppm:deleteDependency",
-  "ppm:derivedBothTooltip_one",
-  "ppm:derivedBothTooltip_other",
-  "ppm:description",
-  "ppm:dueToday",
-  "ppm:fromBeneath_one",
-  "ppm:fromBeneath_other",
-  "ppm:fromOwn",
-  "ppm:kanbanView",
-  "ppm:listView",
-  "ppm:noReportAvailable",
-  "ppm:openRisks",
-  "ppm:overdue",
-  "ppm:parentColumn",
-  "ppm:planned",
-  "ppm:printOn",
-  "ppm:progress",
-  "ppm:riskDescription",
-  "ppm:status",
-  "ppm:totalPlanned",
-  "ppm:viewReport",
-  "ppm:workPackage",
-  "reports:common.center",
-  "reports:common.dateRange",
-  "reports:dependency.alsoAppearsElsewhere",
-  "reports:dependency.resetLayout",
-  "reports:dependency.viewInLdv",
-  "reports:flexiblePortfolio.title",
-  "reports:page.title",
-  "reports:portfolio.applicationFilters",
-  "validation:invalidEmail",
-  "validation:invalidUrl",
-  "validation:tooLong",
-  "validation:tooShort",
-];
 
 /** Anti-rot floor: a scanner that stops matching must not pass by reporting nothing as read. */
 const MIN_REFERENCED_KEYS = 3_000;
@@ -501,7 +179,10 @@ function collectReferences(
   out: References = emptyReferences(),
 ): References {
   const { bindings } = extractBindings(src);
-  const fileNamespaces = new Set<string>([DEFAULT_NS, ...bindings.values()]);
+  // A `t` taken as a narrowed parameter (`t: Translate`) is whatever `t` the
+  // caller hands in, so the file's bare words may be keys of any namespace.
+  const handedT = narrowedTParams(src).length > 0;
+  const fileNamespaces = new Set<string>(handedT ? NAMESPACES : [DEFAULT_NS, ...bindings.values()]);
 
   const addKey = (ns: string, key: string) => {
     if (key) out.keys.add(`${ns}:${key}`);
@@ -627,20 +308,6 @@ function unusedLeaves(leaves: string[], refs: References, dynamicPrefixes: strin
 }
 
 // ---------------------------------------------------------------------------
-// Ratchet
-// ---------------------------------------------------------------------------
-
-/** The ratchet's verdicts — both empty when the scan and the baseline agree. */
-function ratchet(unused: string[], baseline: string[]): { added: string[]; stale: string[] } {
-  const now = new Set(unused);
-  const listed = new Set(baseline);
-  return {
-    added: unused.filter((key) => !listed.has(key)),
-    stale: baseline.filter((key) => !now.has(key)),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Self-tests (strings only — no disk)
 // ---------------------------------------------------------------------------
 
@@ -653,6 +320,7 @@ const BUNDLES = {
   },
   cards: { "relations.title": "Relations", catalogue: { all: "All", none: "None" }, process: { all: "All" } },
   nav: { reports: "Reports", inventory: "Inventory" },
+  ppm: { printOn: "On", derivedTip_one: "From {{count}}", derivedTip_other: "From {{count}}" },
 };
 const KNOWN = knownKeys(BUNDLES);
 const LEAVES = Object.entries(BUNDLES).flatMap(([ns, bundle]) => leafKeys(bundle).map((key) => `${ns}:${key}`));
@@ -673,7 +341,8 @@ describe("collectReferences", () => {
   it("reads a template key as every key of its shape", () => {
     const unused = unusedIn("const { t } = useTranslation(); t(`status.${s}`); t(`cards:${family}.all`);");
     expect(unused).toEqual(["cards:catalogue.none", "cards:relations.title", "common:actions.save",
-      "common:items_one", "common:items_other", "nav:inventory", "nav:reports"]);
+      "common:items_one", "common:items_other", "nav:inventory", "nav:reports", "ppm:derivedTip_one",
+      "ppm:derivedTip_other", "ppm:printOn"]);
   });
 
   it("reads a dotted template outside t() in every namespace", () => {
@@ -729,21 +398,26 @@ describe("collectReferences", () => {
     ]);
   });
 
+  it("reads a bare word in every namespace where t is a narrowed parameter", () => {
+    const helper =
+      "export type Translate = (key: string, options?: Record<string, unknown>) => string;\n" +
+      'export const tip = (both: boolean) => (both ? "derivedTip" : null);\n' +
+      'export function params(t: Translate) { return [t("printOn")]; }';
+    const unused = unusedLeaves(LEAVES, refsOf(helper, "ppmModel.ts"));
+    expect(unused).not.toContain("ppm:printOn");
+    expect(unused).not.toContain("ppm:derivedTip_one");
+    for (const param of ["t: TFn", "t?: (key: string) => string", "tr: (key: string, o?: object) => string"]) {
+      expect(refsOf(`function f(${param}) { return t("printOn"); }`, "x.ts").keys).toContain("ppm:printOn");
+    }
+  });
+
+  it("does not widen for a label resolver of the same shape", () => {
+    const src = 'function f(subtypeLabel: (key: string) => string) { return subtypeLabel("printOn"); }';
+    expect(refsOf(src, "x.ts").keys.has("ppm:printOn")).toBe(false);
+  });
+
   it("marks a dynamic prefix's family read", () => {
     expect(unusedLeaves(LEAVES, emptyReferences(), ["cards:catalogue."])).not.toContain("cards:catalogue.none");
-  });
-});
-
-describe("ratchet", () => {
-  it("names a new unused key, and a baseline entry no longer unused", () => {
-    expect(ratchet(["a:x", "a:y"], ["a:x", "a:z"])).toEqual({ added: ["a:y"], stale: ["a:z"] });
-    expect(ratchet(["a:x"], ["a:x"])).toEqual({ added: [], stale: [] });
-  });
-});
-
-describe("UNUSED_KEY_BASELINE", () => {
-  it("is sorted and free of duplicates", () => {
-    expect(UNUSED_KEY_BASELINE).toEqual([...new Set(UNUSED_KEY_BASELINE)].sort());
   });
 });
 
@@ -774,24 +448,18 @@ function scan(): Scan {
   return scanned;
 }
 
-describeSourceScan("unused translation keys ratchet against UNUSED_KEY_BASELINE", () => {
+describeSourceScan("unused translation keys", () => {
   itSourceScan(`reads at least ${MIN_REFERENCED_KEYS} English keys`, () => {
     const { leaves, unused } = scan();
     expect(leaves.length - unused.length).toBeGreaterThanOrEqual(MIN_REFERENCED_KEYS);
   });
 
-  itSourceScan("adds no unused key", () => {
+  itSourceScan("every English key is read by some code", () => {
     expect(
-      ratchet(scan().unused, UNUSED_KEY_BASELINE).added,
+      scan().unused,
       "These English keys are read by no code. Read each where it is meant to show, or delete it " +
-        "from all 10 locale files. (A key built in a way this scan cannot see goes in DYNAMIC_PREFIXES, with why.)",
-    ).toEqual([]);
-  });
-
-  itSourceScan("lists only keys that are still unused (delete the rest from the baseline)", () => {
-    expect(
-      ratchet(scan().unused, UNUSED_KEY_BASELINE).stale,
-      "now read or deleted — delete these entries from UNUSED_KEY_BASELINE",
+        "from all 10 locale files (src/i18n/locales/<locale>/<ns>.json). A key built in a way this " +
+        "scan cannot see goes in DYNAMIC_PREFIXES, with why.",
     ).toEqual([]);
   });
 

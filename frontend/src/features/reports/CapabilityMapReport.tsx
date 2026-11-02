@@ -68,7 +68,7 @@ import {
   CARD_TYPE_COLORS,
   CHART_LABEL_ON_DARK,
   EOL_WARNING_COLOR,
-  PRINT_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
 } from "@/theme";
 import { HEAT_EMPTY, heatShade } from "./heatScale";
@@ -503,7 +503,7 @@ function AppChip({
         }}
         sx={{
           bgcolor: color,
-          color: light ? PRINT_COLORS.text : "common.white",
+          color: light ? SCREEN_INK.onLightFill : "common.white",
           fontWeight: 500,
           fontSize: "0.7rem",
           maxWidth: 160,
@@ -631,7 +631,7 @@ function CapabilityCard({
           <Chip
             size="small"
             label={fmtVal(val)}
-            sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: PRINT_COLORS.text }}
+            sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: SCREEN_INK.onLightFill }}
           />
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
             <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
@@ -710,7 +710,7 @@ function CapabilityCard({
         <Chip
           size="small"
           label={t("capabilityMap.apps", { count: node.deepAppCount })}
-          sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: PRINT_COLORS.text }}
+          sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: SCREEN_INK.onLightFill }}
         />
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
           <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>

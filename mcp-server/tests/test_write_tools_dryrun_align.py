@@ -81,9 +81,7 @@ class TestTransitionCardLifecycleDryRun:
     async def test_invalid_target_reported_before_any_batch(self, fake_token):
         post = AsyncMock()
         with patch.object(server.TurboEAClient, "post", post):
-            out = await server.transition_card_lifecycle(
-                card_id="c1", target="nonsense"
-            )
+            out = await server.transition_card_lifecycle(card_id="c1", target="nonsense")
         post.assert_not_called()
         assert _parse(out)["error"] == "invalid_target"
 

@@ -47,8 +47,8 @@ import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
 import {
   CARD_TYPE_COLORS,
   CATEGORICAL_COLORS,
-  PRINT_COLORS,
   RAG_COLORS,
+  SCREEN_INK,
   SEVERITY_COLORS,
   STATUS_COLORS,
 } from "@/theme";
@@ -430,7 +430,7 @@ function ProcessCard({
               fontWeight: 700,
               flex: 1,
               minWidth: CARD_TITLE_MIN_WIDTH,
-              color: isHighContrast ? "common.white" : PRINT_COLORS.text,
+              color: isHighContrast ? "common.white" : SCREEN_INK.onLightFill,
             }}
             noWrap
           >
@@ -499,7 +499,7 @@ function ProcessCard({
             fontWeight: 700,
             flex: 1,
             minWidth: CARD_TITLE_MIN_WIDTH,
-            color: isHighContrast ? "common.white" : PRINT_COLORS.text,
+            color: isHighContrast ? "common.white" : SCREEN_INK.onLightFill,
           }}
           noWrap
         >

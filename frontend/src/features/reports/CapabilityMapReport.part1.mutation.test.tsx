@@ -81,7 +81,7 @@ import { makeCardType } from "@/test/fixtures/metamodel";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import CapabilityMapReport from "./CapabilityMapReport";
 import { alpha, createTheme } from "@mui/material/styles";
-import { PRINT_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { SCREEN_INK, STATUS_COLORS } from "@/theme/tokens";
 import { HEAT_EMPTY, heatShade, type HeatScale } from "./heatScale";
 
 /** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
@@ -1123,7 +1123,7 @@ describe("chip colours", () => {
     renderMap();
     await loaded("Pool");
     expect(within(chart()).getByLabelText("Alpha — High Crit")).toHaveStyle({ color: WHITE });
-    expect(within(chart()).getByLabelText("Lo — Low Crit")).toHaveStyle({ color: PRINT_COLORS.text });
+    expect(within(chart()).getByLabelText("Lo — Low Crit")).toHaveStyle({ color: SCREEN_INK.onLightFill });
   });
 
   it("washes the value chip of a leaf and the app-count chip of a branch white", async () => {

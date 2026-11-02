@@ -90,10 +90,21 @@ export const FIELD_TYPE_COLORS = {
   single_select: "#00838f", // cyan 800
   multiple_select: "#4527a0", // deep purple 800
   percentage: "#00695c", // teal 800
-  other: "#666666", // grey
+  other: "#616161", // grey 700
 } as const;
 
 export type FieldTypeColorKey = keyof typeof FIELD_TYPE_COLORS;
+
+/** Icon accents in the reports area that take a field-type hue: the Data
+ *  Quality report's tile, the Cost report's top-cost-driver KPI and a private
+ *  saved report's lock. A role alias, so those screens say what they mean
+ *  rather than borrowing the card-layout editor's chip palette; the values are
+ *  `FIELD_TYPE_COLORS`' teal 800, orange 900 and grey. */
+export const REPORT_ICON_COLORS = {
+  dataQuality: FIELD_TYPE_COLORS.percentage,
+  costDriver: FIELD_TYPE_COLORS.cost,
+  privateReport: FIELD_TYPE_COLORS.other,
+} as const;
 
 // ── Status (matches MUI default success/warning/error/info hues) ─────────
 
@@ -234,23 +245,45 @@ export type LifecyclePhaseColorKey = keyof typeof LIFECYCLE_PHASE_COLORS;
 export const PRINT_COLORS = {
   text: "#333333",
   muted: "#888888",
-  rule: "#dddddd",
+  rule: "#e0e0e0", // grey 300, MUI's divider on white — the same rule as `ruleLight`
   panel: "#f5f5f5",
   control: "#cccccc", // border of the secondary (Close) button, table rules
   paper: "#ffffff", // also the text on a filled (fully-signed) badge
   // The document print (`DOCUMENT_PRINT_CSS`): headings, body ink, the
   // signature block's rule, cards and badges.
   heading: "#1a1a2e", // h1 title
-  ink: "#222222", // body text
+  ink: "#212121", // body text — grey 900, the charcoal navbar preset
   subheading: "#444444", // h3
-  inkSecondary: "#666666", // a signature's detail line
+  inkSecondary: "#616161", // a signature's detail line — grey 700
   ruleLight: "#e0e0e0", // the rule above the signatures
-  panelLight: "#fafafa", // a pending signature card
+  panelLight: "#fafbfc", // a pending signature card — the light page background
   success: "#2e7d32", // signed: badge text, fully-signed fill, approved status
   successLight: "#66bb6a", // an approved signature card's border
-  successPale: "#f1f8e9", // an approved signature card's fill
+  successPale: "#e8f5e9", // an approved signature card's fill — green 50, as `successTint`
   successTint: "#e8f5e9", // the "signed" badge's fill
   warning: "#ed6c02", // a pending signature's status
+} as const;
+
+/** Fixed inks drawn ON SCREEN whose colour is decided by what they sit on (a
+ *  light card-type fill, a heat step, a diagram line), not by the theme's text
+ *  colours. They share the print inks' values; this alias names the on-screen
+ *  role so the report screens do not borrow the print palette.
+ *  - `onLightFill`: dark text on a light fill in either mode (capability map,
+ *    portfolio, process map, the matrix's low counts in light mode).
+ *  - `onDark`: light text on a dark cell (the matrix's low counts in dark mode).
+ *  - `secondary`: a quiet line or label (the matrix diagonal's count, the
+ *    Layered Dependency View's resting line and label in light mode).
+ *  - `muted`: the Layered Dependency View's arrowhead.
+ *  - `rule` / `ruleDark`: a Layered Dependency View label's border, light / dark.
+ *  - `paper`: a Layered Dependency View label's background in light mode. */
+export const SCREEN_INK = {
+  onLightFill: PRINT_COLORS.text,
+  onDark: PRINT_COLORS.control,
+  secondary: PRINT_COLORS.inkSecondary,
+  muted: PRINT_COLORS.muted,
+  rule: PRINT_COLORS.control,
+  ruleDark: PRINT_COLORS.subheading,
+  paper: PRINT_COLORS.paper,
 } as const;
 
 // ── Notification-type accents (NotificationBell) ─────────────────────────
@@ -271,7 +304,7 @@ export const NOTIFICATION_TYPE_COLORS = {
   app_update_available: "#00796b", // teal 700
   app_updated: "#5e35b1", // deep purple 600
   extension_available: "#00838f", // cyan 800
-  extension_update_available: "#ef6c00", // orange 800
+  extension_update_available: "#ed6c02", // orange 800 (MUI's default warning)
   extension_updated: "#2e7d32", // green 800 — it landed, unlike the amber "available"
   extension_notice: "#00695c", // teal 800 — a message an installed extension sent
   // Documents and approvals reuse their family's hue so a glance at the bell
@@ -383,7 +416,7 @@ export const VENDOR_ACCENT = {
 export const TIMELINE_COLORS = {
   past: "#e68a00",
   future: "#7c4dff",
-  reset: "#ef6c00",
+  reset: "#ed6c02",
   /** Go-live accent — a card becoming active on the timeline. Deliberately
    *  more saturated than `brand.primary`: transition marks are 3px wide, and
    *  at that size the darker brand blue reads as grey next to the red
@@ -413,7 +446,7 @@ export const CATEGORICAL_COLORS = [
   "#1976d2",
   "#7b1fa2",
   "#00897b",
-  "#ef6c00",
+  "#ed6c02",
   "#c2185b",
   "#3949ab",
   "#00838f",
@@ -505,6 +538,14 @@ export const HEATMAP_RAMP = {
   ],
 } as const;
 
+/** The hue of the Matrix report's hovered diagonal (a card type against itself,
+ *  where a row and a column are the same card), drawn as a wash: 10 % alpha on
+ *  the light paper, 18 % on the dark one. Deep purple 800, the value of
+ *  `FIELD_TYPE_COLORS.multiple_select`, named here for this role: no other
+ *  token is a "self cell" highlight, and it must stay apart from the blue of a
+ *  related, hovered cell (`HEATMAP_RAMP`). */
+export const MATRIX_DIAGONAL_COLOR = FIELD_TYPE_COLORS.multiple_select;
+
 /** Accent colours of the homepage KPI tiles — the values the Overview,
  *  My Workspace and Admin tiles have always used, named once here. */
 export const DASHBOARD_KPI_COLORS = {
@@ -514,19 +555,24 @@ export const DASHBOARD_KPI_COLORS = {
   broken: RAG_COLORS.amber,
   favorites: "#f5a623",
   stakeholders: brand.primary,
-  todos: "#43a047",
+  todos: STATUS_COLORS.success,
   surveys: "#7b1fa2",
-  activeUsers: "#43a047",
-  noStakeholders: "#ef6c00",
+  activeUsers: STATUS_COLORS.success,
+  noStakeholders: "#ed6c02",
   overdue: RAG_COLORS.red,
   stuck: "#7b1fa2",
   // Activity feeds (system activity, recent activity on my cards).
   activity: "#5e35b1",
   /** Overall data quality: ≥ 75 %, ≥ 50 %, below. */
-  qualityGood: "#43a047",
+  qualityGood: STATUS_COLORS.success,
   qualityFair: "#f5a623",
   qualityPoor: RAG_COLORS.red,
 } as const;
+
+/** A favourite: the star on a card, an initiative or a diagram, the
+ *  favourites-only filter and the My Favourites section. The amber of the
+ *  homepage's Favourites KPI tile, named for every screen that marks one. */
+export const FAVORITE_COLOR = DASHBOARD_KPI_COLORS.favorites;
 
 /** The BPM process-assessment trend: one categorical hue per scored
  *  dimension, keyed by the assessment field it plots — not a status scale. */
@@ -585,6 +631,12 @@ export const BPMN_ELEMENT_COLORS = {
 /** A Process Navigator card with no value for the chosen colour overlay, or a value no option knows. */
 export const BPM_UNSET_COLOR = "#bdbdbd";
 
+/** A value the data does not carry, on any screen that colours by a value: a
+ *  diagram card with no value for its colour-by field, a PPM project with no
+ *  status-report RAG yet, a Lifecycle report bar in no bucket. The Process
+ *  Navigator's grey (`BPM_UNSET_COLOR`), named for everywhere else. */
+export const UNSET_VALUE_COLOR = BPM_UNSET_COLOR;
+
 /** The BusinessProcess type colour as seeded (`seed.py`, pinned by `tokens.test.ts`): the
  *  called-process badge, its link dot and the navigator header fallback, which also render
  *  where no metamodel is loaded (portals). */
@@ -622,7 +674,7 @@ export const BPM_PROCESS_TYPE_COLORS = {
 export const BPMN_DARK_THEME = {
   "--bio-surface": surface.dark.paper, // #1e1e1e
   "--bio-surface-overlay": surface.dark.paper, // #1e1e1e
-  "--bio-surface-subtle": "#232323",
+  "--bio-surface-subtle": "#212121", // grey 900, between the paper and the medium step
   "--bio-surface-medium": "#2a2a2a",
   "--bio-surface-strong": "#333333",
   "--bio-surface-inverted": "#e0e0e0",
