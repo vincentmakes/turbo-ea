@@ -20,6 +20,14 @@ function appSource(): string {
   return fs.readFileSync(path.resolve(__dirname, "../App.tsx"), "utf-8");
 }
 
+/**
+ * A `<Route>`'s `path`, wherever it sits among the tag's attributes and on
+ * whichever line — `<Route path="/x"`, `<Route\n  path="/x"`, or
+ * `<Route index\n  path="/x"`. `[^>]` keeps a match inside one tag; a `path`
+ * written after an `element={<X />}` is still missed, so keep `path` first.
+ */
+const ROUTE_PATH = /<Route\s[^>]*?\bpath="([^"]+)"/g;
+
 describe("titleKeyForPath", () => {
   it("resolves a concrete path", () => {
     expect(titleKeyForPath("/inventory")).toBe("inventory");
@@ -113,6 +121,22 @@ describe("composeTitle", () => {
   });
 });
 
+describe("ROUTE_PATH", () => {
+  it("finds a path on the tag's line, on a later line, or after another attribute", () => {
+    const src = [
+      '<Route path="/a" element={<A />} />',
+      "<Route",
+      '  path="/b"',
+      "  element={<B />}",
+      "/>",
+      '<Route caseSensitive\n  path="/c" element={<C />} />',
+      '<Route index element={<D />} />',
+      '<RouteGuard path="/e" />',
+    ].join("\n");
+    expect([...src.matchAll(ROUTE_PATH)].map((m) => m[1])).toEqual(["/a", "/b", "/c"]);
+  });
+});
+
 describe("parity", () => {
   /**
    * Every route declared in `App.tsx` — the authenticated table AND the
@@ -122,7 +146,7 @@ describe("parity", () => {
    */
   itSourceScan("covers every route in App.tsx", () => {
     const declared = new Set(
-      [...appSource().matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]),
+      [...appSource().matchAll(ROUTE_PATH)].map((m) => m[1]),
     );
     expect(declared.size).toBeGreaterThan(50);
 
@@ -133,7 +157,7 @@ describe("parity", () => {
 
   itSourceScan("has no stale entries pointing at routes that no longer exist", () => {
     const declared = new Set(
-      [...appSource().matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]),
+      [...appSource().matchAll(ROUTE_PATH)].map((m) => m[1]),
     );
     const stale = [...ROUTE_TITLES.map((r) => r.path), ...UNTITLED_ROUTES].filter(
       (p) => !declared.has(p),

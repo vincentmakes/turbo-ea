@@ -62,6 +62,31 @@ describe("ArchiveDeleteDialog", () => {
     expect(screen.queryByText(/cards linked via relationships/i)).not.toBeInTheDocument();
   });
 
+  it.each(["archive", "delete"] as const)(
+    "escapes HTML in the card name in the single-card %s confirm",
+    async (mode) => {
+      const name = '<img src="x" onerror="window.__xss=1">';
+      vi.mocked(api.get).mockResolvedValueOnce(baseImpact);
+      render(
+        <ArchiveDeleteDialog
+          open
+          mode={mode}
+          scope="single"
+          cardId="card-1"
+          cardName={name}
+          onClose={() => {}}
+          onConfirmed={() => {}}
+        />,
+      );
+      await waitFor(() => {
+        expect(screen.getByText(name)).toBeInTheDocument();
+      });
+      // Literal text inside the translation's <strong>, never live markup.
+      expect(screen.getByText(name).tagName).toBe("STRONG");
+      expect(document.body.querySelector("img")).toBeNull();
+    },
+  );
+
   it("hides reparent option when grandparent is null", async () => {
     vi.mocked(api.get).mockResolvedValueOnce({
       ...baseImpact,

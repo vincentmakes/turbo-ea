@@ -394,6 +394,70 @@ class TestMigrationRunner:
             ).scalar_one()
         assert count == 0
 
+    async def test_only_this_extensions_recorded_versions_are_skipped(
+        self, test_engine, monkeypatch
+    ):
+        """The applied set is read per extension key, and each step is recorded
+        with its (truncated) name and a timestamp."""
+        from sqlalchemy import delete, insert, select
+
+        from app.models.extension import ExtensionSchemaVersion
+        from app.services.extensions import migrations as mig_mod
+        from app.services.extensions.sdk import ExtensionMigration
+
+        key = f"mig-orm-{uuid.uuid4().hex[:8]}"
+        other = f"mig-other-{uuid.uuid4().hex[:8]}"
+        ran: list[int] = []
+
+        def step(version: int):
+            async def upgrade(conn):
+                ran.append(version)
+
+            return upgrade
+
+        long_name = "n" * 300
+        steps = [
+            ExtensionMigration(version=1, name="first", upgrade=step(1)),
+            ExtensionMigration(version=2, name=long_name, upgrade=step(2)),
+        ]
+        report = _report_with(**{key: {"get_migrations": lambda: steps}})
+        monkeypatch.setattr(mig_mod, "engine", test_engine)
+        try:
+            async with test_engine.begin() as conn:
+                await conn.execute(
+                    insert(ExtensionSchemaVersion),
+                    [
+                        {"extension_key": key, "version": 1, "name": "first"},
+                        # Another extension's version 2 must not count as ours.
+                        {"extension_key": other, "version": 2, "name": "theirs"},
+                    ],
+                )
+            errors = await mig_mod.run_extension_migrations(report, should_run={key: True})
+            assert errors == {}
+            assert ran == [2]
+
+            async with test_engine.connect() as conn:
+                rows = (
+                    await conn.execute(
+                        select(
+                            ExtensionSchemaVersion.version,
+                            ExtensionSchemaVersion.name,
+                            ExtensionSchemaVersion.applied_at,
+                        )
+                        .where(ExtensionSchemaVersion.extension_key == key)
+                        .order_by(ExtensionSchemaVersion.version)
+                    )
+                ).all()
+            assert [(r.version, r.name) for r in rows] == [(1, "first"), (2, "n" * 255)]
+            assert rows[1].applied_at is not None
+        finally:
+            async with test_engine.begin() as conn:
+                await conn.execute(
+                    delete(ExtensionSchemaVersion).where(
+                        ExtensionSchemaVersion.extension_key.in_([key, other])
+                    )
+                )
+
 
 # ---------------------------------------------------------------------------
 # Fail-soft paths, with stand-in extension instances (no wheel needed)

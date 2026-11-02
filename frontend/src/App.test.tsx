@@ -135,3 +135,25 @@ describe("deep link through sign-in", () => {
     });
   });
 });
+
+describe("pre-auth pages are code-split", () => {
+  it("renders the lazily loaded set-password page for a signed-out visitor", async () => {
+    window.history.pushState({}, "", "/auth/set-password");
+    vi.mocked(auth.me).mockRejectedValue(new Error("Unauthorized"));
+
+    render(<App />);
+
+    // No token in the link: the page says so instead of falling to the login form.
+    expect(await screen.findByText("Invalid Setup Link")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the lazily loaded SSO callback for a signed-out visitor", async () => {
+    window.history.pushState({}, "", "/auth/callback?error=access_denied");
+    vi.mocked(auth.me).mockRejectedValue(new Error("Unauthorized"));
+
+    render(<App />);
+
+    expect(await screen.findByText(/access_denied/)).toBeInTheDocument();
+  });
+});

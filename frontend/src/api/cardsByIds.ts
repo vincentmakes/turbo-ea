@@ -41,22 +41,50 @@ export async function fetchCardsByIdsDetailed(
   ids: Iterable<string>,
   opts: GetOptions = {},
 ): Promise<{ cards: Card[]; withheldIds: string[] }> {
-  const unique = Array.from(new Set(Array.from(ids).filter(Boolean)));
-  if (unique.length === 0) return { cards: [], withheldIds: [] };
-  const chunks: string[][] = [];
-  for (let i = 0; i < unique.length; i += CARD_IDS_CHUNK) {
-    chunks.push(unique.slice(i, i + CARD_IDS_CHUNK));
-  }
-  const pages = await Promise.all(
-    chunks.map((chunk) =>
-      api.get<CardListResponse>(
-        `/cards?ids=${encodeURIComponent(chunk.join(","))}`,
-        opts,
-      ),
-    ),
-  );
+  const pages = await Promise.all(chunkIds(ids).map((chunk) => fetchChunk(chunk, opts)));
   return {
     cards: pages.flatMap((page) => page.items),
     withheldIds: pages.flatMap((page) => page.withheld_ids ?? []),
   };
+}
+
+/**
+ * `fetchCardsByIds` for a best-effort caller: a failed chunk is skipped, not
+ * fatal.
+ *
+ * For callers that only enrich what they already show — a picker resolving
+ * chip labels, an export naming off-sheet relation targets — where a missing
+ * name falls back to something sensible and failing the whole batch would
+ * lose the names that did load. `failedChunks` lists the ids of every chunk
+ * that rejected (an abort included), in request order, so a caller can tell
+ * "absent" from "not fetched". Same chunking, dedupe and encoding as the
+ * strict version.
+ */
+export async function fetchCardsByIdsLenient(
+  ids: Iterable<string>,
+  opts: GetOptions = {},
+): Promise<{ cards: Card[]; failedChunks: string[][] }> {
+  const chunks = chunkIds(ids);
+  const settled = await Promise.allSettled(chunks.map((chunk) => fetchChunk(chunk, opts)));
+  const cards: Card[] = [];
+  const failedChunks: string[][] = [];
+  settled.forEach((result, i) => {
+    if (result.status === "fulfilled") cards.push(...result.value.items);
+    else failedChunks.push(chunks[i]);
+  });
+  return { cards, failedChunks };
+}
+
+/** Dedupe, drop falsy ids and split into request-sized chunks. */
+function chunkIds(ids: Iterable<string>): string[][] {
+  const unique = Array.from(new Set(Array.from(ids).filter(Boolean)));
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += CARD_IDS_CHUNK) {
+    chunks.push(unique.slice(i, i + CARD_IDS_CHUNK));
+  }
+  return chunks;
+}
+
+function fetchChunk(chunk: string[], opts: GetOptions): Promise<CardListResponse> {
+  return api.get<CardListResponse>(`/cards?ids=${encodeURIComponent(chunk.join(","))}`, opts);
 }

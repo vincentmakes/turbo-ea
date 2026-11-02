@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
 
 import { api } from "@/api/client";
-import { fetchCardsByIds, CARD_IDS_CHUNK } from "./cardsByIds";
+import {
+  fetchCardsByIds,
+  fetchCardsByIdsDetailed,
+  fetchCardsByIdsLenient,
+  CARD_IDS_CHUNK,
+} from "./cardsByIds";
 import type { Card } from "@/types";
 
 const mockGet = vi.mocked(api.get);
@@ -88,5 +93,76 @@ describe("fetchCardsByIds", () => {
     });
     const ids = Array.from({ length: CARD_IDS_CHUNK + 1 }, (_, i) => `id-${i}`);
     await expect(fetchCardsByIds(ids)).rejects.toThrow("HTTP 414");
+  });
+});
+
+describe("fetchCardsByIdsDetailed", () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+  });
+
+  it("merges every page's cards and withheld ids, tolerating a page without the key", async () => {
+    const ids = Array.from({ length: CARD_IDS_CHUNK + 2 }, (_, i) => `id-${i}`);
+    mockGet.mockImplementation(async (path: string) => {
+      const requested = idsOf(path);
+      // First chunk reports one withheld id; the second omits the key entirely.
+      if (requested[0] === "id-0") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { items: requested.map(card), withheld_ids: ["x"] } as any;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { items: requested.map(card) } as any;
+    });
+    const { cards, withheldIds } = await fetchCardsByIdsDetailed(ids);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(withheldIds).toEqual(["x"]);
+    expect(cards.map((c) => c.id)).toEqual(ids);
+  });
+});
+
+describe("fetchCardsByIdsLenient", () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+  });
+
+  it("returns every chunk's cards and no failed chunks when all succeed", async () => {
+    respondWithRequested();
+    const ids = Array.from({ length: CARD_IDS_CHUNK + 5 }, (_, i) => `id-${i}`);
+    const { cards, failedChunks } = await fetchCardsByIdsLenient(ids);
+    expect(cards.map((c) => c.id)).toEqual(ids);
+    expect(failedChunks).toEqual([]);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips a failed chunk, keeps the others' cards and reports the failed ids", async () => {
+    const ids = Array.from({ length: CARD_IDS_CHUNK * 2 + 3 }, (_, i) => `id-${i}`);
+    mockGet.mockImplementation(async (path: string) => {
+      if (idsOf(path)[0] === `id-${CARD_IDS_CHUNK}`) throw new Error("HTTP 403");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { items: idsOf(path).map(card) } as any;
+    });
+    const { cards, failedChunks } = await fetchCardsByIdsLenient(ids);
+    expect(mockGet).toHaveBeenCalledTimes(3);
+    expect(cards.map((c) => c.id)).toEqual([
+      ...ids.slice(0, CARD_IDS_CHUNK),
+      ...ids.slice(CARD_IDS_CHUNK * 2),
+    ]);
+    expect(failedChunks).toEqual([ids.slice(CARD_IDS_CHUNK, CARD_IDS_CHUNK * 2)]);
+  });
+
+  it("dedupes, encodes and forwards the signal like the strict version", async () => {
+    respondWithRequested();
+    const ctrl = new AbortController();
+    const { cards } = await fetchCardsByIdsLenient(["a&b", "", "a&b", "c"], {
+      signal: ctrl.signal,
+    });
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(mockGet).toHaveBeenCalledWith("/cards?ids=a%26b%2Cc", { signal: ctrl.signal });
+    expect(cards.map((c) => c.id)).toEqual(["a&b", "c"]);
+  });
+
+  it("makes no request for an empty list", async () => {
+    expect(await fetchCardsByIdsLenient(["", ""])).toEqual({ cards: [], failedChunks: [] });
+    expect(mockGet).not.toHaveBeenCalled();
   });
 });

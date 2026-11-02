@@ -17,6 +17,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
+import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useCardSearch } from "@/hooks/useCardSearch";
@@ -36,7 +37,7 @@ import {
 } from "@/lib/cardTree";
 import { readableTextColor } from "@/lib/color";
 import { cardSearchRank, compareByRank } from "@/lib/searchRank";
-import type { Card, CardListResponse } from "@/types";
+import type { Card } from "@/types";
 
 /**
  * What the picker hands back.
@@ -63,8 +64,6 @@ interface CountsResponse {
  */
 const MAX_TREE_PAGES = 5;
 const TREE_PAGE_SIZE = 1000;
-/** `GET /cards?ids=` chunk, kept well inside a sane URL length. */
-const LABEL_CHUNK = 100;
 
 /**
  * Shared multi-select card picker.
@@ -220,20 +219,9 @@ export default function CardMultiPicker({
       if (!open) return;
       const missing = value.filter((id) => !(initialOptions ?? []).some((o) => o.id === id));
       if (missing.length === 0) return;
-      const found: Card[] = [];
-      for (let i = 0; i < missing.length; i += LABEL_CHUNK) {
-        const chunk = missing.slice(i, i + LABEL_CHUNK);
-        try {
-          const r = await api.get<CardListResponse>(
-            `/cards?ids=${chunk.join(",")}&page_size=${LABEL_CHUNK}`,
-            { signal },
-          );
-          found.push(...(r.items ?? []));
-        } catch {
-          // A dead id is not an error here — its chip just keeps the fallback.
-        }
-        if (!isCurrent()) return;
-      }
+      // Lenient: a chunk that fails is not an error here — its chips just keep
+      // the fallback, while the chunks that loaded still resolve.
+      const { cards: found } = await fetchCardsByIdsLenient(missing, { signal });
       if (!isCurrent() || found.length === 0) return;
       setPicked((prev) => {
         const next = new Map(prev);

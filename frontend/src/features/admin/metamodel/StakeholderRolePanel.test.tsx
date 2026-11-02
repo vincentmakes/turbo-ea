@@ -6,7 +6,7 @@
  * and then could neither rename nor remove the role.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import StakeholderRolePanel from "./StakeholderRolePanel";
 
@@ -184,6 +184,34 @@ describe("StakeholderRolePanel — delete", () => {
       ),
     );
     expect(apiMock.delete).not.toHaveBeenCalled();
+  });
+
+  it("explains that the type's last active role cannot be deleted", async () => {
+    // Nobody holds it and no survey targets it — the only blocker is that it
+    // is the type's last active role, which gets its own explanation.
+    mockApi({
+      usage: {
+        ...UNUSED,
+        can_delete: false,
+        stakeholder_count: 0,
+        card_count: 0,
+        survey_count: 0,
+        is_last_active: true,
+      },
+    });
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Typo Role");
+    await user.click(screen.getAllByRole("button", { name: /delete/i })[1]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText(
+        "This is the last active role for this card type, so it cannot be deleted or archived.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete role$/i })).not.toBeInTheDocument();
   });
 
   it("keeps the destructive button disabled until the usage check returns", async () => {
@@ -379,5 +407,27 @@ describe("StakeholderRolePanel — legacy permission keys", () => {
     expect(await screen.findByText(/Unknown permission keys/)).toBeInTheDocument();
     // The drawer-level alert still fires for anyone scrolled to the top.
     expect(onError).toHaveBeenCalled();
+  });
+});
+
+describe("StakeholderRolePanel — confirmation escapes the role label", () => {
+  it("renders an admin-typed label as text, never as markup", async () => {
+    // The confirm line goes through `dangerouslySetInnerHTML` (the translation
+    // carries `<strong>`), so the interpolated label must be HTML-escaped.
+    const label = '<img data-xss="role" src="x" onerror="window.__xss=1">';
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema")) return Promise.resolve({});
+      return Promise.resolve([ROLES[0], { ...ROLES[1], label }]);
+    });
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText(label);
+    await user.click(screen.getAllByRole("button", { name: /delete/i })[1]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("strong")).toHaveTextContent(label);
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
   });
 });

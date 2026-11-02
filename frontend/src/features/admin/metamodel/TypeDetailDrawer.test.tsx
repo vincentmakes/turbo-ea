@@ -1469,3 +1469,53 @@ describe("TypeDetailDrawer — fields and sections", () => {
     expect(within(again).queryByText("rescore failed")).toBeNull();
   });
 });
+
+/* ------------------------------------------------------------------------- */
+/*  Confirmations render admin-typed names as text, never as markup          */
+/* ------------------------------------------------------------------------- */
+
+describe("TypeDetailDrawer — confirmations escape user-typed names", () => {
+  // The confirm lines go through `dangerouslySetInnerHTML` (the translations
+  // carry `<strong>`), so every interpolated label must be HTML-escaped.
+  const evil = (tag: string) => `<img data-xss="${tag}" src="x" onerror="window.__xss=1">`;
+
+  const hostileType = (fields: FieldDef[]): CardType =>
+    makeCardType({
+      key: "Vehicle",
+      label: "Vehicle",
+      fields_schema: [
+        makeSection({ section: "__description", fields: [] }),
+        makeSection({ section: evil("section"), fields }),
+      ],
+    });
+
+  it("escapes the field label and key in the delete-field confirmation", async () => {
+    const field = makeField({ key: evil("key"), label: evil("label") });
+    const { user } = renderDrawer("Vehicle", [hostileType([field])]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-delete-field" }));
+    const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteField") });
+    expect(confirm).toHaveTextContent(evil("label"));
+    expect(confirm).toHaveTextContent(evil("key"));
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+
+  it("escapes the section name when the section still holds fields", async () => {
+    mockApi.on("get", /\/section-usage\?/, { card_count: 1 });
+    const { user } = renderDrawer("Vehicle", [hostileType([makeField({ key: "wheels" })])]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-delete-section" }));
+    const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteSection") });
+    expect(confirm).toHaveTextContent(evil("section"));
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+
+  it("escapes the section name when the section is empty", async () => {
+    const { user } = renderDrawer("Vehicle", [hostileType([])]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("button", { name: "stub-delete-section" }));
+    const confirm = await screen.findByRole("dialog", { name: ta("metamodel.typeDrawer.deleteSection") });
+    expect(confirm).toHaveTextContent(evil("section"));
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+});

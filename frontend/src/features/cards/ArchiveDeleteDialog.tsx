@@ -273,7 +273,7 @@ export default function ArchiveDeleteDialog(props: Props) {
                       mode === "archive"
                         ? "cards:detail.dialogs.archive.confirm"
                         : "cards:detail.dialogs.delete.confirm",
-                      { name: cardName },
+                      { name: cardName, interpolation: { escapeValue: true } },
                     ),
                   }}
                 />

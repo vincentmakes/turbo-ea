@@ -1160,14 +1160,14 @@ export default function TypeDetailDrawer({
           )}
           {deleteFieldConfirm && (
             <>
-              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.deleteFieldConfirm", { label: deleteFieldConfirm.fieldLabel, key: deleteFieldConfirm.fieldKey }) }} />
+              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.deleteFieldConfirm", { label: deleteFieldConfirm.fieldLabel, key: deleteFieldConfirm.fieldKey, interpolation: { escapeValue: true } }) }} />
               {deleteFieldConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
                   {t("metamodel.typeDrawer.checkingFieldUsage")}
                 </Alert>
               ) : deleteFieldConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.fieldUsedByCards", { count: deleteFieldConfirm.cardCount }) }} />
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.fieldUsedByCards", { count: deleteFieldConfirm.cardCount, interpolation: { escapeValue: true } }) }} />
                 </Alert>
               ) : (
                 <Alert severity="info">{t("metamodel.typeDrawer.fieldSafeToDelete")}</Alert>
@@ -1210,8 +1210,8 @@ export default function TypeDetailDrawer({
           {deleteSectionConfirm && (
             <>
               <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: deleteSectionConfirm.fieldCount > 0
-                  ? t("metamodel.typeDrawer.deleteSectionWithFields", { name: deleteSectionConfirm.sectionName, count: deleteSectionConfirm.fieldCount })
-                  : t("metamodel.typeDrawer.deleteSectionConfirm", { name: deleteSectionConfirm.sectionName })
+                  ? t("metamodel.typeDrawer.deleteSectionWithFields", { name: deleteSectionConfirm.sectionName, count: deleteSectionConfirm.fieldCount, interpolation: { escapeValue: true } })
+                  : t("metamodel.typeDrawer.deleteSectionConfirm", { name: deleteSectionConfirm.sectionName, interpolation: { escapeValue: true } })
               }} />
               {deleteSectionConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
@@ -1221,7 +1221,7 @@ export default function TypeDetailDrawer({
                 <Alert severity="info">{t("metamodel.typeDrawer.sectionNoFields")}</Alert>
               ) : deleteSectionConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.sectionUsedByCards", { count: deleteSectionConfirm.cardCount }) }} />
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.sectionUsedByCards", { count: deleteSectionConfirm.cardCount, interpolation: { escapeValue: true } }) }} />
                 </Alert>
               ) : (
                 <Alert severity="info">{t("metamodel.typeDrawer.sectionSafeToDelete")}</Alert>
