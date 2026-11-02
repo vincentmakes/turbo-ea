@@ -70,16 +70,32 @@ async def stakeholders_env(db):
 # ---------------------------------------------------------------------------
 
 
+async def _viewer_headers(db) -> dict[str, str]:
+    """Headers for a fresh viewer, for tests that run without ``stakeholders_env``."""
+    await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+    viewer = await create_user(db, email="roles-viewer@test.com", role="viewer")
+    return auth_headers(viewer)
+
+
 class TestListStakeholderRoles:
+    async def test_list_roles_requires_auth(self, client, db):
+        """The role catalogue is for signed-in pickers only, like every other read here."""
+        resp = await client.get("/api/v1/stakeholder-roles")
+        assert resp.status_code == 401
+        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
+        assert resp.status_code == 401
+
     async def test_list_roles_empty(self, client, db):
         """Returns empty list when no role definitions exist."""
-        resp = await client.get("/api/v1/stakeholder-roles")
+        headers = await _viewer_headers(db)
+        resp = await client.get("/api/v1/stakeholder-roles", headers=headers)
         assert resp.status_code == 200
         assert resp.json() == []
 
     async def test_list_roles_with_definitions(self, client, db, stakeholders_env):
-        """Returns all unique roles across all types."""
-        resp = await client.get("/api/v1/stakeholder-roles")
+        """Returns all unique roles across all types — to any signed-in user."""
+        headers = auth_headers(stakeholders_env["viewer"])
+        resp = await client.get("/api/v1/stakeholder-roles", headers=headers)
         assert resp.status_code == 200
         data = resp.json()
         keys = {r["key"] for r in data}
@@ -97,7 +113,11 @@ class TestListStakeholderRoles:
             db, card_type_key="ITComponent", key="itOwner", label="IT Owner"
         )
 
-        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
+        resp = await client.get(
+            "/api/v1/stakeholder-roles",
+            params={"type_key": "Application"},
+            headers=auth_headers(stakeholders_env["viewer"]),
+        )
         assert resp.status_code == 200
         keys = {r["key"] for r in resp.json()}
         assert "responsible" in keys
@@ -106,8 +126,9 @@ class TestListStakeholderRoles:
 
     async def test_list_roles_expose_colour(self, client, db, stakeholders_env):
         """Both branches carry `color` so pickers can render the role's dot."""
+        headers = auth_headers(stakeholders_env["viewer"])
         for params in ({}, {"type_key": "Application"}):
-            resp = await client.get("/api/v1/stakeholder-roles", params=params)
+            resp = await client.get("/api/v1/stakeholder-roles", params=params, headers=headers)
             assert resp.status_code == 200
             data = resp.json()
             assert data, params
@@ -119,7 +140,10 @@ class TestListStakeholderRoles:
         """The hardcoded fallback roles have no colour — the field must still be
         present (as null) so the frontend can skip the dot rather than crash."""
         await create_card_type(db, key="Application", label="Application")
-        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
+        headers = await _viewer_headers(db)
+        resp = await client.get(
+            "/api/v1/stakeholder-roles", params={"type_key": "Application"}, headers=headers
+        )
         assert resp.status_code == 200
         for role in resp.json():
             assert role["color"] is None
@@ -127,7 +151,10 @@ class TestListStakeholderRoles:
     async def test_list_roles_filtered_by_type_key_with_no_defs(self, client, db):
         """Falls back to defaults when no definitions exist for a type."""
         await create_card_type(db, key="Application", label="Application")
-        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
+        headers = await _viewer_headers(db)
+        resp = await client.get(
+            "/api/v1/stakeholder-roles", params={"type_key": "Application"}, headers=headers
+        )
         assert resp.status_code == 200
         data = resp.json()
         # Should fall back to default roles

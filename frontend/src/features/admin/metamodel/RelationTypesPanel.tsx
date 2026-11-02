@@ -841,6 +841,7 @@ export default function RelationTypesPanel({
                     dangerouslySetInnerHTML={{
                       __html: t("metamodel.deleteRelHasInstances", {
                         count: deleteRelConfirm.instanceCount,
+                        interpolation: { escapeValue: true },
                       }),
                     }}
                   />

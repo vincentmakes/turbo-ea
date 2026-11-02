@@ -381,3 +381,25 @@ describe("StakeholderRolePanel — legacy permission keys", () => {
     expect(onError).toHaveBeenCalled();
   });
 });
+
+describe("StakeholderRolePanel — confirmation escapes the role label", () => {
+  it("renders an admin-typed label as text, never as markup", async () => {
+    // The confirm line goes through `dangerouslySetInnerHTML` (the translation
+    // carries `<strong>`), so the interpolated label must be HTML-escaped.
+    const label = '<img data-xss="role" src="x" onerror="window.__xss=1">';
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve(UNUSED);
+      if (path.includes("permissions-schema")) return Promise.resolve({});
+      return Promise.resolve([ROLES[0], { ...ROLES[1], label }]);
+    });
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText(label);
+    await user.click(screen.getAllByRole("button", { name: /delete/i })[1]);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("strong")).toHaveTextContent(label);
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+});

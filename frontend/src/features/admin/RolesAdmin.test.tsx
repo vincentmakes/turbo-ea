@@ -429,6 +429,32 @@ describe("RolesAdmin onRolesChanged", () => {
     });
   });
 
+  it("escapes HTML in the role label in the archive confirmation", async () => {
+    const user = userEvent.setup();
+    const label = '<img data-xss="role" src="x" onerror="window.__xss=1">';
+    const hostile = { ...MOCK_ROLES[1], key: "hostile", label, is_default: false };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/roles/permissions-schema")) return Promise.resolve(MOCK_SCHEMA);
+      if (path.startsWith("/roles/")) return Promise.resolve(hostile);
+      if (path.startsWith("/roles")) return Promise.resolve([...MOCK_ROLES, hostile]);
+      return Promise.resolve({});
+    });
+    renderRoles();
+
+    await waitFor(() => {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    });
+    await user.click(screen.getAllByText(label)[0]);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /archive role/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("button", { name: /archive role/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("strong")).toHaveTextContent(label);
+    expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+
   it("does not fire when a save fails", async () => {
     const user = userEvent.setup();
     const onRolesChanged = vi.fn();

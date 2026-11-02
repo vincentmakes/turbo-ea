@@ -31,8 +31,15 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
+// The real fetcher, wrapped so a test can see the exporter goes through it.
+vi.mock("@/api/cardsByIds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/cardsByIds")>();
+  return { ...actual, fetchCardsByIdsLenient: vi.fn(actual.fetchCardsByIdsLenient) };
+});
+
 // Late import so the mocks above are in place.
 import { api } from "@/api/client";
+import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 import {
   parseWorkbookSheets,
   validateMultiSheet,
@@ -978,6 +985,44 @@ describe("buildExportWorkbook", () => {
     );
     const rows = rowsOf(wb, APP_TYPE.label);
     expect(rows[0]["rel:depends_on"]).toBe("DB");
+  });
+
+  it("falls back to the embedded ref name when the card lookup fails outright", async () => {
+    // A rejected lookup chunk is skipped, not fatal: the export still ships,
+    // with the bare name from the relation payload.
+    vi.mocked(fetchCardsByIdsLenient).mockClear();
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+    const targetId = "22222222-2222-2222-2222-222222222222";
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations?")) {
+        return [
+          {
+            id: "rel1",
+            type: "depends_on",
+            source_id: app.id,
+            target_id: targetId,
+            source: { id: app.id, type: app.type, name: app.name },
+            target: { id: targetId, type: "ITComponent", name: "DB" },
+          },
+        ];
+      }
+      if (url.startsWith("/cards?")) throw new Error("HTTP 403");
+      return [];
+    });
+
+    const wb = await buildExportWorkbook(
+      [app],
+      APP_TYPE,
+      [APP_TYPE, ITC_TYPE],
+      [DEPENDS_ON_TYPE],
+    );
+    expect(rowsOf(wb, APP_TYPE.label)[0]["rel:depends_on"]).toBe("DB");
+    // Off-sheet cards are looked up through the shared, chunking fetcher.
+    expect(vi.mocked(fetchCardsByIdsLenient)).toHaveBeenCalledWith([targetId]);
   });
 
   it("scopes the relations request to the exported cards instead of fetching every relation", async () => {

@@ -46,6 +46,22 @@ export default tseslint.config(
             "toISOString() is UTC and yields the wrong calendar day west of UTC. Use todayIsoDate() / toIsoDate() from @/lib/dates.",
         },
       ],
+      // Icons are Google Material Symbols through the `MaterialSymbol`
+      // component (CLAUDE.md, Frontend Conventions). `@mui/icons-material` is
+      // still installed, so an auto-import would quietly pull a second icon
+      // set into the bundle; this rule is what keeps the count at zero.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@mui/icons-material", "@mui/icons-material/*"],
+              message:
+                "Icons use the MaterialSymbol component (Google Material Symbols), not @mui/icons-material — CLAUDE.md Frontend Conventions.",
+            },
+          ],
+        },
+      ],
     },
   },
   {

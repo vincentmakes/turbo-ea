@@ -7,6 +7,12 @@ vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
 }));
 
+// The real fetcher, wrapped so a test can see the picker goes through it.
+vi.mock("@/api/cardsByIds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/cardsByIds")>();
+  return { ...actual, fetchCardsByIdsLenient: vi.fn(actual.fetchCardsByIdsLenient) };
+});
+
 const TYPES = [
   {
     key: "Application",
@@ -49,6 +55,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
 }));
 
 import { api } from "@/api/client";
+import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 
 /**
  *  Sales
@@ -293,6 +300,24 @@ describe("CardMultiPicker", () => {
     // must still read as a name, not a placeholder.
     renderPicker({ types: "BusinessCapability", value: ["sap"] });
     expect(await screen.findByRole("button", { name: "SAP S/4HANA" })).toBeTruthy();
+    // Through the shared, chunking fetcher — never a hand-built ids URL.
+    expect(vi.mocked(fetchCardsByIdsLenient)).toHaveBeenCalledWith(["sap"], {
+      signal: expect.any(AbortSignal),
+    });
+  });
+
+  it("keeps the placeholder chip when the label lookup fails", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) =>
+      (new URL(path, "http://x").searchParams.has("ids")
+        ? Promise.reject(new Error("HTTP 403"))
+        : respond(path)) as never,
+    );
+    renderPicker({ types: "BusinessCapability", value: ["sap"] });
+    // The browse still loads, and the unresolved pick keeps its fallback chip.
+    expect(await row("Finance")).toBeTruthy();
+    await waitFor(() => expect(vi.mocked(fetchCardsByIdsLenient)).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: /loading/i })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "SAP S/4HANA" })).toBeNull();
   });
 
   it("removes a pick from its chip", async () => {

@@ -38,6 +38,7 @@ _DEFAULT_ROLES = [
 async def list_roles(
     type_key: str | None = Query(None, description="Filter roles by card type"),
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """Return role definitions from stakeholder_role_definitions table."""
     if type_key:

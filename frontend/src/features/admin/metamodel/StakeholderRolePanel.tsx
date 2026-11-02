@@ -853,7 +853,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                     confirm.action === "delete"
                       ? "metamodel.stakeholderPanel.deleteRoleConfirm"
                       : "metamodel.stakeholderPanel.archiveRoleConfirm",
-                    { label: confirm.role.label, key: confirm.role.key },
+                    {
+                      label: confirm.role.label,
+                      key: confirm.role.key,
+                      interpolation: { escapeValue: true },
+                    },
                   ),
                 }}
               />
@@ -868,6 +872,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                       dangerouslySetInnerHTML={{
                         __html: t("metamodel.stakeholderPanel.archiveRevokes", {
                           count: confirm.usage.stakeholder_count,
+                          interpolation: { escapeValue: true },
                         }),
                       }}
                     />
@@ -890,12 +895,16 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         ? t("metamodel.stakeholderPanel.roleUsedByCards", {
                             count: confirm.usage.stakeholder_count,
                             cards: confirm.usage.card_count,
+                            interpolation: { escapeValue: true },
                           })
                         : confirm.usage.survey_count
                           ? t("metamodel.stakeholderPanel.roleUsedBySurveys", {
                               count: confirm.usage.survey_count,
+                              interpolation: { escapeValue: true },
                             })
-                          : t("metamodel.stakeholderPanel.roleIsLastActive"),
+                          : t("metamodel.stakeholderPanel.roleIsLastActive", {
+                              interpolation: { escapeValue: true },
+                            }),
                     }}
                   />
                 </Alert>
