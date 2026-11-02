@@ -58,6 +58,7 @@ regexes = [
   '''^rk_auditsecret0123456$''',
   '''^tok_auditclaim0123456789$''',
   '''^self\.RENEWAL_KEY$''',
+  '''^renewal_key=self\.RENEWAL_KEY$''',
   '''^OtherPass1234$''',
 ]
 
