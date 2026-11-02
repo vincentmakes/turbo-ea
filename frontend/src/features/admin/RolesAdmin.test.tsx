@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RolesAdmin, { retainKnownPermissions } from "./RolesAdmin";
 
@@ -453,6 +453,10 @@ describe("RolesAdmin onRolesChanged", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog.querySelector("strong")).toHaveTextContent(label);
     expect(document.body.querySelector("[data-xss]")).toBeNull();
+    // The role is assigned to 5 users, so the count warning renders with the
+    // number interpolated (not the raw key, not an unrendered placeholder).
+    const alert = within(dialog).getByRole("alert");
+    expect(alert.querySelector("strong")).toHaveTextContent(/^5$/);
   });
 
   it("does not fire when a save fails", async () => {

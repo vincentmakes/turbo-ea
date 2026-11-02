@@ -3,7 +3,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
 
 import { api } from "@/api/client";
-import { fetchCardsByIds, fetchCardsByIdsLenient, CARD_IDS_CHUNK } from "./cardsByIds";
+import {
+  fetchCardsByIds,
+  fetchCardsByIdsDetailed,
+  fetchCardsByIdsLenient,
+  CARD_IDS_CHUNK,
+} from "./cardsByIds";
 import type { Card } from "@/types";
 
 const mockGet = vi.mocked(api.get);
@@ -88,6 +93,30 @@ describe("fetchCardsByIds", () => {
     });
     const ids = Array.from({ length: CARD_IDS_CHUNK + 1 }, (_, i) => `id-${i}`);
     await expect(fetchCardsByIds(ids)).rejects.toThrow("HTTP 414");
+  });
+});
+
+describe("fetchCardsByIdsDetailed", () => {
+  beforeEach(() => {
+    mockGet.mockReset();
+  });
+
+  it("merges every page's cards and withheld ids, tolerating a page without the key", async () => {
+    const ids = Array.from({ length: CARD_IDS_CHUNK + 2 }, (_, i) => `id-${i}`);
+    mockGet.mockImplementation(async (path: string) => {
+      const requested = idsOf(path);
+      // First chunk reports one withheld id; the second omits the key entirely.
+      if (requested[0] === "id-0") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { items: requested.map(card), withheld_ids: ["x"] } as any;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { items: requested.map(card) } as any;
+    });
+    const { cards, withheldIds } = await fetchCardsByIdsDetailed(ids);
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(withheldIds).toEqual(["x"]);
+    expect(cards.map((c) => c.id)).toEqual(ids);
   });
 });
 
