@@ -80,8 +80,8 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import CapabilityMapReport from "./CapabilityMapReport";
-import { alpha } from "@mui/material/styles";
-import { STATUS_COLORS } from "@/theme/tokens";
+import { alpha, createTheme } from "@mui/material/styles";
+import { PRINT_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { HEAT_EMPTY, heatShade, type HeatScale } from "./heatScale";
 
 /** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
@@ -1106,5 +1106,33 @@ describe("yes/no and multi-select fields", () => {
     renderMap();
     await loaded("Pool");
     expect(chipNames(["Yes App", "No App", "None App"])).toEqual(["None App"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Chip text and wash colours
+// ---------------------------------------------------------------------------
+
+describe("chip colours", () => {
+  const WHITE = createTheme().palette.common.white;
+  const WASH = alpha(WHITE, 0.7);
+
+  it("writes white on a dark application fill and dark text on a light one", async () => {
+    serve(payload([cap("pool", "Pool", null, [ALPHA, app("lo", "Lo", { attributes: { criticality: "low" } })])]));
+    ctl.config = { showApps: true, colorBy: "criticality" };
+    renderMap();
+    await loaded("Pool");
+    expect(within(chart()).getByLabelText("Alpha — High Crit")).toHaveStyle({ color: WHITE });
+    expect(within(chart()).getByLabelText("Lo — Low Crit")).toHaveStyle({ color: PRINT_COLORS.text });
+  });
+
+  it("washes the value chip of a leaf and the app-count chip of a branch white", async () => {
+    serve(payload([cap("p", "Parent", null), cap("c1", "Child One", "p", [app("x", "X")])]));
+    renderMap();
+    await loaded("Child One");
+    for (const name of ["Parent", "Child One"]) {
+      const chip = header(name).querySelector(".MuiChip-root");
+      expect(chip).toHaveStyle({ backgroundColor: WASH, fontSize: "0.7rem" });
+    }
   });
 });

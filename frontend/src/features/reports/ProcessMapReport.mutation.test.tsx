@@ -55,6 +55,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import ProcessMapReport from "./ProcessMapReport";
 import { HEAT_EMPTY, heatShade, type HeatScale } from "./heatScale";
+import { alpha, createTheme } from "@mui/material/styles";
 
 const BP_TYPE = makeCardType({
   key: "BusinessProcess",
@@ -869,5 +870,53 @@ describe("ProcessMapReport drawer contents", () => {
     const panel = await openDrawerFor("Bare Process");
     expect(within(panel).getByRole("heading", { name: "Bare Process" })).toBeInTheDocument();
     expect(within(panel).getByText("Process")).toBeInTheDocument();
+  });
+});
+
+describe("ProcessMapReport chip colours", () => {
+  const WASH_60 = alpha(createTheme().palette.common.white, 0.6);
+  const WASH_70 = alpha(createTheme().palette.common.white, 0.7);
+  const chipsOf = (name: string) =>
+    Array.from(header(name).querySelectorAll(".MuiChip-root")) as HTMLElement[];
+
+  it("washes a leaf's subtype and metric chips white over the heat colour", async () => {
+    renderMap();
+    await within(document.body).findByText("Collections");
+    const [subtype, metric] = chipsOf("Collections");
+    expect(subtype).toHaveStyle({ backgroundColor: WASH_60, fontSize: "0.65rem" });
+    expect(metric).toHaveStyle({ backgroundColor: WASH_70, fontSize: "0.7rem" });
+  });
+
+  it("washes a branch's subtype and app-count chips white over the heat colour", async () => {
+    renderMap();
+    await within(document.body).findByText("Order to Cash");
+    const [subtype, apps] = chipsOf("Order to Cash");
+    expect(subtype).toHaveStyle({ backgroundColor: WASH_60, fontSize: "0.65rem" });
+    expect(apps).toHaveStyle({ backgroundColor: WASH_70, fontSize: "0.7rem" });
+  });
+
+  it("writes the drawer's maturity and risk chips in white", async () => {
+    renderMap();
+    await within(document.body).findByText("Order to Cash");
+    const panel = await openDrawerFor("Order to Cash");
+    for (const label of ["3 - Defined", "Risk: High"]) {
+      const chip = within(panel).getByText(label).closest(".MuiChip-root");
+      expect(chip).toHaveStyle({ color: createTheme().palette.common.white });
+    }
+  });
+
+  it("leaves a process greyed out when every value is a credit, not a cost", async () => {
+    reply([
+      proc({
+        id: "refund",
+        name: "Refunds",
+        apps: [{ id: "credit", name: "Credit App", attributes: { costTotalAnnual: -100 } }],
+      }),
+    ]);
+    saved.config = { metric: "total_cost" };
+    renderMap();
+    await within(document.body).findByText("Refunds");
+    // The maximum is 0 and the value is below it: no ratio to shade by.
+    expect(heat("Refunds")).toBe(GRAY);
   });
 });

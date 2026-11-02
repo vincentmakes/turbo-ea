@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { alpha } from "@mui/material/styles";
+import { brand } from "@/theme/tokens";
 import NotificationBell from "./NotificationBell";
 
 const navigate = vi.fn();
@@ -467,3 +469,37 @@ describe("NotificationBell detail dialog (SDK 1.11)", () => {
   });
 });
 
+
+describe("NotificationBell row colours", () => {
+  it("tints an unread row and edges it in brand blue, leaving a read row clear", async () => {
+    const row = (id: string, is_read: boolean) => ({
+      id,
+      user_id: "u1",
+      type: "card_updated",
+      title: `notification ${id}`,
+      message: "",
+      link: "/cards/x",
+      is_read,
+      created_at: new Date().toISOString(),
+    });
+    vi.mocked(api.get).mockReset();
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path.startsWith("/notifications?")
+        ? { items: [row("read", true), row("unread", false)], total: 2, page: 1, page_size: 20 }
+        : { count: 1 },
+    );
+    render(<NotificationBell userId="u1" />);
+    await userEvent.setup().click(bellButton());
+    const item = async (id: string) =>
+      (await screen.findByText(`notification ${id}`)).closest(".MuiListItemButton-root");
+    // jsdom reports `transparent` as its rgba form.
+    expect(await item("read")).toHaveStyle({
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderLeft: "3px solid rgba(0, 0, 0, 0)",
+    });
+    expect(await item("unread")).toHaveStyle({
+      backgroundColor: alpha(brand.primary, 0.04),
+      borderLeft: `3px solid ${brand.primary}`,
+    });
+  });
+});

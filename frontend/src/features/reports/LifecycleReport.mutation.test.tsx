@@ -51,6 +51,8 @@ import { makeUser, wrapWithProviders } from "@/test/render";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 import LifecycleReport from "./LifecycleReport";
+import { createTheme } from "@mui/material/styles";
+import { LIFECYCLE_PHASE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Time axis
@@ -1280,5 +1282,36 @@ describe("LifecycleReport fixes", () => {
     expect(bodyRows()).toEqual(["Charlie", "Alpha", "Delta", "Bravo"]);
     fireEvent.click(sortHeader("Current Phase"));
     expect(bodyRows()).toEqual(["Bravo", "Delta", "Alpha", "Charlie"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Colours
+// ---------------------------------------------------------------------------
+
+describe("LifecycleReport colours", () => {
+  const WHITE = createTheme().palette.common.white;
+
+  it("counts each phase on a white-on-phase-colour chip and dashes today's line red", async () => {
+    renderReport();
+    await screen.findByText("Wide Estate", undefined, LONG);
+    const chips = Array.from(document.querySelectorAll(".report-legend .MuiChip-root"));
+    const { plan, phaseIn, active, phaseOut, endOfLife } = LIFECYCLE_PHASE_COLORS;
+    expect(chips).toHaveLength(5);
+    [plan, phaseIn, active, phaseOut, endOfLife].forEach((phase, i) =>
+      expect(chips[i]).toHaveStyle({ backgroundColor: phase, color: WHITE, fontSize: "0.7rem" }),
+    );
+    expect(chart().today).toHaveStyle({ borderLeft: `2px dashed ${STATUS_COLORS.error}` });
+  });
+
+  it("writes a date range's colour chip white on the option's colour", async () => {
+    storeConfig({ cardTypeKey: "Contract", view: "table" });
+    renderReport();
+    await screen.findByText("Kilo One", undefined, LONG);
+    fireEvent.click(rangeToggle());
+    const row = (await screen.findByRole("cell", { name: "Kilo One" }, LONG)).closest("tr")!;
+    const chip = within(row).getByText("Bad").closest(".MuiChip-root");
+    // The fixture's "Bad" option colour.
+    expect(chip).toHaveStyle({ backgroundColor: "#c62828", color: WHITE, fontSize: "0.72rem" });
   });
 });

@@ -38,6 +38,7 @@ import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { resetPageTitle, usePageTitleSlots } from "@/hooks/usePageTitle";
 import i18n from "@/i18n";
 import type { TurboLensAssessment } from "@/types";
+import { MEDAL_COLORS } from "@/theme/tokens";
 import AssessmentViewer from "./AssessmentViewer";
 
 const URL_A1 = "/turbolens/assessments/a-1";
@@ -740,6 +741,20 @@ describe("AssessmentViewer — loading by route", () => {
     await act(async () => failFirst(new Error("late failure")));
     expect(screen.getByRole("heading", { name: "Second assessment" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("AssessmentViewer — medal colours", () => {
+  it("colours the three ranked recommendations gold, silver and bronze", async () => {
+    mockApi.on("get", URL_A1, assessment());
+    renderViewer();
+    const lead = (await screen.findByText("Lead Scoring Gap")).closest(".MuiPaper-outlined") as HTMLElement;
+    const medals = [MEDAL_COLORS.gold, MEDAL_COLORS.silver, MEDAL_COLORS.bronze];
+    ["Einstein", "MadKudu", "6sense"].forEach((name, ri) => {
+      const card = within(lead).getByText(name).closest(".MuiPaper-root") as HTMLElement;
+      expect(card).toHaveStyle({ borderTopColor: medals[ri].fill });
+      expect(within(card).getByText(`#${ri + 1}`)).toHaveStyle({ color: medals[ri].text });
+    });
   });
 });
 

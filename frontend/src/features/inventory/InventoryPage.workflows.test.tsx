@@ -50,6 +50,8 @@ import {
 } from "@/test/fixtures/metamodel";
 import { exportCurrentViewToExcel, exportToExcel } from "./excelExport";
 import type { Card } from "@/types";
+import { createTheme } from "@mui/material/styles";
+import { APPROVAL_STATUS_COLORS, STATUS_CHIP_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -1458,6 +1460,71 @@ describe("InventoryPage archive, delete and restore", () => {
 // ---------------------------------------------------------------------------
 // Column definitions
 // ---------------------------------------------------------------------------
+
+describe("InventoryPage colours", () => {
+  const WHITE = createTheme().palette.common.white;
+  const filled = (bg: string) => ({ backgroundColor: bg, color: WHITE });
+  const option = (field: string, key: string) =>
+    APPLICATION_TYPE.fields_schema
+      .flatMap((s) => s.fields)
+      .find((f) => f.key === field)!
+      .options!.find((o) => o.key === key)!.color!;
+
+  it("paints coloured chips white on their colour", async () => {
+    renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    mount(gridStub.colDef("core_approval_status").cellRenderer({ value: "APPROVED" }));
+    expect(screen.getByText("Approved").closest(".MuiChip-root")).toHaveStyle(
+      filled(APPROVAL_STATUS_COLORS.APPROVED),
+    );
+    mount(gridStub.colDef("core_tags").cellRenderer({ value: ERP.tags }));
+    expect(screen.getByText("On-Prem").closest(".MuiChip-root")).toHaveStyle({
+      ...filled(ERP.tags![0].color!),
+      height: "16px",
+    });
+    mount(gridStub.colDef("attr_businessCriticality").cellRenderer({ value: "missionCritical" }));
+    expect(screen.getByText("Mission Critical").closest(".MuiChip-root")).toHaveStyle(
+      filled(option("businessCriticality", "missionCritical")),
+    );
+  });
+
+  it("paints the Archived status chip neutral", async () => {
+    renderInventory("/inventory?show_archived=true");
+    await waitForRows(2);
+    mount(gridStub.colDef("core_status").cellRenderer({ value: "ARCHIVED" }));
+    expect(screen.getByText("Archived").closest(".MuiChip-root")).toHaveStyle(filled(STATUS_COLORS.neutral));
+  });
+
+  it("paints a common single-select chip in its option colour", async () => {
+    withMetamodel([...CARD_TYPES, VEHICLE_TYPE, VESSEL_TYPE], RELATION_TYPES);
+    scriptCards([...ALL_CARDS, BUS, SHIP]);
+    const { user } = renderInventory();
+    await waitForRows(ALL_CARDS.filter((c) => c.status !== "ARCHIVED").length + 2);
+    await applyFilters(user, { types: ["Vehicle", "Vessel"] });
+    await waitFor(() => expect(gridStub.colDef("attr_grade")).toBeDefined());
+    mount(gridStub.colDef("attr_grade").cellRenderer({ value: "a" }));
+    expect(screen.getByText("Alpha").closest(".MuiChip-root")).toHaveStyle(filled(FLEET_FIELDS[0].options![0].color!));
+  });
+
+  it("colours the archive, restore and delete buttons of the selection bar", async () => {
+    const first = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    selectRows([ERP]);
+    expect(await screen.findByRole("button", { name: BTN.archive })).toHaveStyle({
+      color: STATUS_CHIP_COLORS.warning.text,
+    });
+    first.unmount();
+    renderInventory("/inventory?show_archived=true");
+    await waitForRows(2);
+    selectRows([ERP_ARCHIVED]);
+    expect(await screen.findByRole("button", { name: BTN.restore })).toHaveStyle({
+      color: STATUS_CHIP_COLORS.success.text,
+    });
+    expect(screen.getByRole("button", { name: BTN.deleteForever })).toHaveStyle({
+      color: STATUS_CHIP_COLORS.error.text,
+    });
+  });
+});
 
 describe("InventoryPage column definitions", () => {
   it("renders the core cells", async () => {

@@ -38,6 +38,7 @@ vi.mock("./AssignGroupsDialog", () => ({
 
 import { api } from "@/api/client";
 import { AuthProvider } from "@/hooks/AuthContext";
+import { alpha, createTheme } from "@mui/material/styles";
 import type { User } from "@/types";
 import DiagramsPage from "./DiagramsPage";
 
@@ -141,6 +142,21 @@ describe("DiagramsPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/Ada Admin/)).toBeInTheDocument();
     });
+  });
+
+  it("brightens the star and menu buttons' white backing on hover", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText(/Ada Admin/)).toBeInTheDocument());
+    const rules = Array.from(document.querySelectorAll("style"))
+      .map((el) => el.textContent ?? "")
+      .join("");
+    const white = createTheme().palette.common.white;
+    const card = screen.getAllByText(/Ada Admin/)[0].closest(".MuiCard-root") as HTMLElement;
+    for (const icon of ["star", "more_vert"]) {
+      const btn = within(card).getByText(icon).closest("button")!;
+      const cls = Array.from(btn.classList).find((c) => c.startsWith("css-"));
+      expect(rules).toContain(`.${cls}:hover{background-color:${alpha(white, 0.95)};}`);
+    }
   });
 
   it("marks a diagram an AI agent created with the MCP chip, naming the author", async () => {

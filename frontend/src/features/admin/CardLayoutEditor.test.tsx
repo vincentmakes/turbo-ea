@@ -27,7 +27,8 @@ import { renderWithProviders } from "@/test/render";
 import { makeCardType, makeField, makeSection } from "@/test/fixtures/metamodel";
 import type { CardType, FieldDef, SectionConfig, SectionDef } from "@/types";
 import CardLayoutEditor from "./CardLayoutEditor";
-import { hexToRgb } from "@mui/material/styles";
+import { createTheme, hexToRgb } from "@mui/material/styles";
+import { brand } from "@/theme";
 import { FIELD_TYPE_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------------- */
@@ -359,6 +360,20 @@ describe("CardLayoutEditor — rendering", () => {
     expect(chipBg("Delta", "cost")).toBe(hexToRgb(FIELD_TYPE_COLORS.cost));
     expect(chipBg("Gamma", "single select")).toBe(hexToRgb(FIELD_TYPE_COLORS.single_select));
     expect(chipBg("Memo", "multiline text")).toBe(hexToRgb(FIELD_TYPE_COLORS.other));
+  });
+
+  it("marks a required field with a brand dot and prints its weight and type in white", () => {
+    setup();
+    const label = within(fieldRoot("Alpha")).getByText("Alpha", { selector: "p" });
+    const dot = label.previousElementSibling; // only a required field has one
+    expect(dot).toHaveStyle({ backgroundColor: brand.primary, borderRadius: "50%" });
+    expect(within(fieldRoot("Delta")).getByText("Delta", { selector: "p" }).previousElementSibling).toBeNull();
+    const white = createTheme().palette.common.white;
+    expect(label.nextElementSibling).toHaveStyle({ color: white }); // the weight badge
+    expect(within(fieldRoot("Alpha")).getByText("text").closest(".MuiChip-root")).toHaveStyle({
+      color: white,
+      fontSize: "0.6rem",
+    });
   });
 
   it("offers an Ungrouped fields zone only in a column that holds a group (#1286)", () => {

@@ -10,6 +10,7 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, RELATION_TYPES, REL_APP_TO_ITC } from "@/test/fixtures/metamodel";
 import { adminUser, renderWithProviders } from "@/test/render";
 import type { Survey, SurveyField, SurveyResponseDetail } from "@/types";
+import { RAG_COLORS } from "@/theme/tokens";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -234,6 +235,9 @@ describe("SurveyResults — load", () => {
     // Already applied rows cannot be selected again.
     expect(within(rows[1]).getByRole("checkbox")).toBeDisabled();
     expect(within(rows[0]).getByRole("checkbox")).toBeEnabled();
+    // Only the applied row carries the green tick.
+    expect(within(rows[1]).getByText("check_circle")).toHaveStyle({ color: RAG_COLORS.green });
+    expect(within(rows[0]).queryByText("check_circle")).not.toBeInTheDocument();
   });
 
   it("reads the id from a different route param value", async () => {

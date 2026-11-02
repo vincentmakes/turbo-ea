@@ -5,6 +5,8 @@ import { HEAT_EMPTY, HEAT_SCALES, heatShade, mixHex } from "./heatScale";
 describe("mixHex", () => {
   it("returns either end at 0 and 1, normalised to #rrggbb", () => {
     expect(mixHex("#fff", "#d32f2f", 0)).toBe("#ffffff");
+    // Each shorthand digit doubles in place: #abc is #aabbcc, not #abcabc.
+    expect(mixHex("#abc", "#000", 0)).toBe("#aabbcc");
     expect(mixHex("#fff", "#d32f2f", 1)).toBe("#d32f2f");
   });
 

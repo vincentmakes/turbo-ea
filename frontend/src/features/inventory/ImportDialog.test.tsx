@@ -16,6 +16,7 @@ vi.mock("@/hooks/useCalculatedFields", () =>
 );
 
 import { mockApi } from "@/test/apiMock";
+import { STATUS_COLORS } from "@/theme/tokens";
 import { hookState } from "@/test/hooks";
 import { renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
 import {
@@ -836,7 +837,7 @@ describe("ImportDialog — progress and done details", () => {
     await user.click(importButton());
     expect(await screen.findByText("Import Complete")).toBeInTheDocument();
     expect(screen.getByText("1 created")).toBeInTheDocument();
-    expect(screen.getByText("check_circle")).toBeInTheDocument();
+    expect(screen.getByText("check_circle")).toHaveStyle({ color: STATUS_COLORS.success });
     expect(screen.queryByText("warning")).not.toBeInTheDocument();
     for (const absent of [/updated/, /relations? added/, /relations? removed/, /stakeholder/, /failed/i]) {
       expect(screen.queryByText(absent)).not.toBeInTheDocument();
@@ -857,7 +858,7 @@ describe("ImportDialog — progress and done details", () => {
     await uploadAndReport(workbook({ Application: [app()] }));
     await user.click(importButton());
     expect(await screen.findByText("Import Complete")).toBeInTheDocument();
-    expect(screen.getByText("warning")).toBeInTheDocument();
+    expect(screen.getByText("warning")).toHaveStyle({ color: STATUS_COLORS.warning });
     expect(screen.queryByText("check_circle")).not.toBeInTheDocument();
     expect(screen.getByText("Failed rows (1)")).toHaveTextContent("expand_more");
   });

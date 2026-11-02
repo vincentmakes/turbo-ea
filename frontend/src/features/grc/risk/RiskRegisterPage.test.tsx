@@ -113,6 +113,7 @@ import { CARD_TYPES, USERS } from "@/test/fixtures/metamodel";
 import { renderWithProviders, userWith } from "@/test/render";
 import { exportRegister } from "./mitigation/taskHistoryExport";
 import RiskRegisterPage, { LOCKED_RISK_COLUMNS, RISK_GRID_COLUMNS } from "./RiskRegisterPage";
+import { createTheme } from "@mui/material/styles";
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`grc:${key}`, opts as never) as string;
 const tc = (key: string, opts?: Record<string, unknown>) => i18n.t(`common:${key}`, opts as never) as string;
@@ -378,6 +379,41 @@ describe("RiskRegisterPage — filters re-query the backend", () => {
         `/risks?page=1&page_size=1000&card_id=${APP_ID}&card_type=Application`,
       ),
     );
+  });
+});
+
+describe("RiskRegisterPage — filter option colours", () => {
+  it("dots each card type and card in its type colour, and an unknown type in grey", async () => {
+    mockApi.on("get", /^\/risks\?/, {
+      items: [
+        makeRisk({
+          id: "rx",
+          cards: [
+            { card_id: APP_ID, card_name: "ERP", card_type: "Application", role: "affected" },
+            { card_id: CRM_ID, card_name: "Ghost", card_type: "Mystery", role: "affected" },
+          ],
+        }),
+      ],
+      total: 1,
+      page: 1,
+      page_size: 1000,
+    });
+    const { user } = renderPage();
+    await waitForRows(1);
+    const appColor = CARD_TYPES.find((ct) => ct.key === "Application")!.color;
+    const grey = createTheme().palette.text.secondary;
+    const dot = (name: string) =>
+      screen.getByRole("button", { name }).querySelector(".MuiBox-root") as HTMLElement;
+
+    await user.click(screen.getByText(t("risks.filter.cardType")));
+    await screen.findByRole("button", { name: "Application" });
+    expect(dot("Application")).toHaveStyle({ backgroundColor: appColor });
+    expect(dot("Mystery")).toHaveStyle({ backgroundColor: grey });
+
+    await user.click(screen.getByText(t("risks.filter.cards")));
+    await screen.findByRole("button", { name: "ERP" });
+    expect(dot("ERP")).toHaveStyle({ backgroundColor: appColor });
+    expect(dot("Ghost")).toHaveStyle({ backgroundColor: grey });
   });
 });
 

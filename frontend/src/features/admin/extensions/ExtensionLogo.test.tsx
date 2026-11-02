@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+import { createTheme } from "@mui/material/styles";
 import ExtensionLogo from "./ExtensionLogo";
 
 describe("ExtensionLogo", () => {
@@ -54,6 +55,8 @@ describe("ExtensionLogo", () => {
   it("falls back to initials when the extension ships no artwork at all", () => {
     render(<ExtensionLogo extKey="a-ext" name="Alpha Ext" />);
     expect(screen.getByText("AE")).toBeInTheDocument();
+    // White initials on the key's categorical plate.
+    expect(screen.getByText("AE")).toHaveStyle({ color: createTheme().palette.common.white });
   });
 
   it("gives the same key the same colour every time", () => {

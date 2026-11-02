@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createTheme } from "@mui/material/styles";
 import TimelineSlider from "./TimelineSlider";
 import type { TimelineMilestoneCard } from "./TimelineSlider";
 
@@ -68,6 +69,12 @@ describe("TimelineSlider transition pills", () => {
     renderSlider(TODAY);
     expect(screen.queryByText("PTC Windchill")).toBeNull();
     expect(screen.queryByText("PLM Analytics Workbench")).toBeNull();
+  });
+
+  it("rings the thumb in white so it stands off the accent-coloured rail", () => {
+    const { container } = renderSlider(TODAY);
+    const thumb = container.querySelector(".MuiSlider-thumb");
+    expect(thumb).toHaveStyle({ border: `2px solid ${createTheme().palette.common.white}` });
   });
 
   it("names the cards changing at the mark it is standing on", () => {

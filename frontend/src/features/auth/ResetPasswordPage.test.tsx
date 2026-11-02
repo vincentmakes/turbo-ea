@@ -6,6 +6,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+import { brand } from "@/theme/tokens";
 
 import ResetPasswordPage from "./ResetPasswordPage";
 
@@ -60,7 +61,7 @@ describe("ResetPasswordPage — token validation on mount", () => {
     mockApi.auth.validateResetToken.mockReturnValue(pending.promise);
     renderPage();
 
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveStyle({ color: brand.primaryLight });
     expect(mockApi.auth.validateResetToken).toHaveBeenCalledWith(TOKEN);
 
     pending.resolve({ email: EMAIL });

@@ -16,7 +16,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { createPortal } from "react-dom";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { ThemeProvider, alpha, createTheme } from "@mui/material/styles";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Position, type Edge, type Node } from "@xyflow/react";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
@@ -419,6 +419,37 @@ describe("ArchitectureDiagram", () => {
     expect(rf.props?.colorMode).toBe("light");
     // Without a card-type colour the node falls back to its kind's tint.
     expect(within(nodeEl("arch-4")).getByText("Buy")).toBeInTheDocument();
+  });
+});
+
+describe("ArchitectureDiagram — node and label colours", () => {
+  const light = createTheme().palette;
+  const dark = createTheme({ palette: { mode: "dark" } }).palette;
+
+  it.each([
+    ["light", false, 0.08, 0.08],
+    ["dark", true, 0.12, 0.4],
+  ])("tints a node by its kind without a card type (%s)", (_mode, isDark, tint, shadow) => {
+    renderDiagram(ARCH, { types: false, dark: isDark });
+    const reuse = nodeEl("arch-2").firstElementChild as HTMLElement;
+    expect(reuse).toHaveStyle({
+      backgroundColor: alpha(STATUS_COLORS.success, tint),
+      boxShadow: `0 2px 8px ${alpha(light.common.black, shadow)}`,
+    });
+    expect(within(reuse).getByText("Reuse")).toHaveStyle({
+      backgroundColor: STATUS_COLORS.success,
+      color: light.common.white,
+    });
+  });
+
+  it.each([
+    ["light", false, light.grey[400]],
+    ["dark", true, dark.grey[800]],
+  ])("frames an edge label in the theme's grey (%s)", (_mode, isDark, grey) => {
+    renderDiagram(ARCH, { dark: isDark });
+    fireEvent.mouseEnter(nodeEl("arch-0"));
+    const label = screen.getAllByTestId("edge-label")[0].firstElementChild;
+    expect(label).toHaveStyle({ border: `1px solid ${grey}` });
   });
 });
 

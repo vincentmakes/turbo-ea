@@ -37,11 +37,15 @@ import {
 import { mockApi } from "@/test/apiMock";
 import { withMetamodel } from "@/test/hooks";
 import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
+import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("html-to-image", () => ({ toBlob: vi.fn(), toSvg: vi.fn() }));
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
+
+/** The props each `<Background>` render received, newest last. */
+const backgroundProps = vi.hoisted(() => [] as Array<{ variant?: string; color?: string }>);
 
 vi.mock("@xyflow/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@xyflow/react")>();
@@ -84,7 +88,10 @@ vi.mock("@xyflow/react", async (importOriginal) => {
     Controls: ({ children }: { children?: ReactNode }) => (
       <div data-testid="rf-controls">{children}</div>
     ),
-    Background: () => null,
+    Background: (props: { variant?: string; color?: string }) => {
+      backgroundProps.push(props);
+      return null;
+    },
     Handle: () => null,
     useReactFlow: () => instance,
   };
@@ -474,5 +481,22 @@ describe("LayeredDependencyView view options", () => {
       setLdvSettings({ showEndOfLife: true });
     });
     expect(toggle(T.showEndOfLife).checked).toBe(true);
+  });
+});
+
+describe("LayeredDependencyView canvas colours", () => {
+  const DIVIDER = createTheme().palette.divider;
+
+  it("leaves the dots in React Flow's own colour and draws grid lines in the divider colour", () => {
+    renderView();
+    expect(backgroundProps[backgroundProps.length - 1]).toMatchObject({ variant: "dots", color: undefined });
+    fireEvent.click(screen.getByRole("button", { name: "Background: dots" }));
+    expect(backgroundProps[backgroundProps.length - 1]).toMatchObject({ variant: "lines", color: DIVIDER });
+  });
+
+  it("rules the band between the control groups in the divider colour", () => {
+    renderView();
+    const band = within(screen.getByTestId("rf-controls")).getAllByText("", { selector: "div[aria-hidden]" })[0];
+    expect(band).toHaveStyle({ borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` });
   });
 });

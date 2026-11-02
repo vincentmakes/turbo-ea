@@ -63,7 +63,7 @@ import PortalViewer from "./PortalViewer";
 import { todayIsoDate } from "@/lib/dates";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
 import { BOOLEAN_COLORS, LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
-import { alpha, hexToRgb } from "@mui/material/styles";
+import { ThemeProvider, alpha, createTheme, hexToRgb } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1087,6 +1087,24 @@ describe("PortalViewer field values", () => {
     });
     await renderLoaded();
     expect(tileOf("SAP S/4HANA").getByText("AB")).toBeInTheDocument();
+  });
+});
+
+describe("PortalViewer stakeholder avatars", () => {
+  it("rings each avatar in the paper colour, not the page background", async () => {
+    // Paper and page background differ here, so a ring that fell back to
+    // AvatarGroup's own background-coloured border would show.
+    const theme = createTheme({ palette: { background: { default: "#000000", paper: "#fafafa" } } });
+    serve(SLUG, {
+      cards: {
+        items: [card({ stakeholders: [{ role: "responsible", display_name: "Ada Lovelace" }] })],
+        total: 1,
+      } as CardPage,
+    });
+    render(<ThemeProvider theme={theme}>{tree(`/portal/${SLUG}`)}</ThemeProvider>);
+    await screen.findByText("SAP S/4HANA");
+    const avatar = tileOf("SAP S/4HANA").getByText("AL").closest(".MuiAvatar-root");
+    expect(avatar).toHaveStyle({ borderTopColor: theme.palette.background.paper });
   });
 });
 

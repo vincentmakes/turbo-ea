@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import CardDetail from "./CardDetail";
 import { installIntersectionObserver } from "@/test/dom";
+import { alpha, createTheme } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -902,6 +903,19 @@ describe("CardDetail custom logo", () => {
     await waitFor(() => {
       const img = document.querySelector("img");
       expect(img?.getAttribute("src")).toContain("/api/v1/cards/card-1/logo");
+    });
+  });
+
+  it("shades the logo's edit overlay with white on translucent black", async () => {
+    mockTypes(LOGO_TYPE);
+    mockCardWith(mockCard);
+    renderCardDetail();
+    await waitFor(() => expect(screen.getByText("My Application")).toBeInTheDocument());
+
+    const { common } = createTheme().palette;
+    expect(document.querySelector(".card-logo-edit")).toHaveStyle({
+      color: common.white,
+      backgroundColor: alpha(common.black, 0.45),
     });
   });
 

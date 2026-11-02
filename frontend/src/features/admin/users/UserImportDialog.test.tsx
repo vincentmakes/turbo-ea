@@ -22,6 +22,7 @@ vi.mock("@/features/admin/users/userExcelImport", () => ({
 }));
 
 import type { AppRole } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 import { MEMBER_USER, USERS } from "@/test/fixtures/metamodel";
 import UserImportDialog from "./UserImportDialog";
 import type { ParsedUserRow, UserImportReport, UserImportResult } from "./userExcelImport";
@@ -294,6 +295,8 @@ describe("UserImportDialog import", () => {
     expect(within(dialog).getByText("2 created")).toBeInTheDocument();
     expect(within(dialog).getByText("1 updated")).toBeInTheDocument();
     expect(within(dialog).queryByText(/^\d+ failed$/)).not.toBeInTheDocument();
+    // No failed rows: the green tick, even though an invite e-mail failed.
+    expect(within(dialog).getByText("check_circle")).toHaveStyle({ color: STATUS_COLORS.success });
 
     await user.click(within(dialog).getByText("1 row failed"));
     expect(within(dialog).getByText("Row 2: a@test.local: SMTP refused")).toBeInTheDocument();
@@ -323,6 +326,7 @@ describe("UserImportDialog import", () => {
     expect(h.execute.mock.calls[0][1]).toBe(true);
     expect(within(dialog).getByText("1 created")).toBeInTheDocument();
     expect(within(dialog).getByText("2 failed")).toBeInTheDocument();
+    expect(within(dialog).getByText("warning")).toHaveStyle({ color: STATUS_COLORS.warning });
     expect(within(dialog).queryByText(/updated$/)).not.toBeInTheDocument();
     await user.click(within(dialog).getByText("2 rows failed"));
     expect(within(dialog).getByText("Row 3: duplicate")).toBeInTheDocument();

@@ -32,7 +32,8 @@ import { api } from "@/api/client";
 import ADRPreview from "./ADRPreview";
 import { installClipboard } from "@/test/dom";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
-import { RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
+import { setViewportWidth } from "@/test/matchMedia";
+import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 const BASE: ArchitectureDecision = {
   id: "adr-1",
@@ -199,6 +200,17 @@ describe("ADRPreview — content", () => {
     expect(await screen.findByRole("heading", { name: "ADR-0001", level: 4 })).toBeInTheDocument();
     expect(screen.queryByText("Linked Cards")).not.toBeInTheDocument();
     expect(screen.queryByText("Signatures")).not.toBeInTheDocument();
+  });
+
+  it("shows the gavel glyph in the brand colour on a wide screen only", async () => {
+    const first = renderPreview();
+    expect(await screen.findByText("gavel")).toHaveStyle({ color: brand.primary });
+    first.unmount();
+
+    setViewportWidth(500);
+    renderPreview();
+    expect(await screen.findByRole("heading", { name: "ADR-0001", level: 4 })).toBeInTheDocument();
+    expect(screen.queryByText("gavel")).not.toBeInTheDocument();
   });
 
   it("shows no snackbar once loaded", async () => {
