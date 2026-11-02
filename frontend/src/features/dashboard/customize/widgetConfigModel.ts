@@ -144,12 +144,6 @@ export function needsCardType(dimension: string | null | undefined): boolean {
   );
 }
 
-/** Whether a measure needs a card type (a field of it, or a relation of it). */
-export function measureNeedsCardType(field: string | null | undefined): boolean {
-  if (!field) return false;
-  return !field.startsWith("@") || field.startsWith(RELATIONS_MEASURE);
-}
-
 const NUMERIC_TYPES = new Set(["number", "cost", "percentage"]);
 const DIMENSION_FIELD_TYPES = new Set(["single_select", "boolean"]);
 

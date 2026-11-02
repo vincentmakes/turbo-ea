@@ -139,7 +139,7 @@ import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
-import OptionChip from "@/components/OptionChip";
+import { OptionChip } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
 import { orderByOptions } from "@/lib/optionOrder";

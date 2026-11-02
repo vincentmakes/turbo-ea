@@ -315,3 +315,59 @@ class TestLicenseAdjustments:
             assert fingerprint == fingerprint.lower()
             int(fingerprint, 16)
             assert cap.utcoffset() == timedelta(0)
+
+
+class TestLicenseTextAtRest:
+    """``raw_text`` is encrypted at rest because the envelope carries the renewal key."""
+
+    def test_sealed_text_is_encrypted_and_hides_the_renewal_key(self):
+        from app.core.encryption import is_encrypted
+
+        private, _ = make_keypair()
+        text = make_license(private, {**PAYLOAD, "renewal_key": "rk_secret_bearer"})
+        sealed = license_module.seal_license_text(text)
+        assert is_encrypted(sealed)
+        assert "rk_secret_bearer" not in sealed
+        # The payload is base64 inside the envelope; neither form may leak.
+        assert base64.b64encode(json.dumps(PAYLOAD).encode()).decode()[:16] not in sealed
+
+    def test_open_returns_the_envelope_byte_exact_and_it_still_verifies(self):
+        private, public_b64 = make_keypair()
+        text = make_license(private, {**PAYLOAD, "renewal_key": "rk_1"})
+        opened = license_module.open_stored_license_text(license_module.seal_license_text(text))
+        assert opened == text
+        assert parse_and_verify(opened, public_key_b64=public_b64).renewal_key == "rk_1"
+
+    def test_legacy_plaintext_row_passes_through(self):
+        private, public_b64 = make_keypair()
+        text = make_license(private, PAYLOAD)
+        assert license_module.open_stored_license_text(text) == text
+        assert parse_and_verify(
+            license_module.open_stored_license_text(text), public_key_b64=public_b64
+        ).licensee == ("ACME Corp")
+
+    def test_rotated_secret_key_raises_the_dedicated_problem(self, monkeypatch):
+        from app.config import settings
+
+        private, _ = make_keypair()
+        sealed = license_module.seal_license_text(make_license(private, PAYLOAD))
+        monkeypatch.setattr(settings, "SECRET_KEY", settings.SECRET_KEY + "-rotated")
+        with pytest.raises(license_module.LicenseUndecryptableError) as excinfo:
+            license_module.open_stored_license_text(sealed)
+        # A LicenseError, so every reader's existing soft-disable path catches it.
+        assert isinstance(excinfo.value, LicenseError)
+        assert str(excinfo.value) == license_module.LICENSE_UNDECRYPTABLE_MESSAGE
+        assert "SECRET_KEY changed" in str(excinfo.value)
+        assert "Re-paste the license file" in str(excinfo.value)
+
+    def test_empty_value_is_not_an_undecryptable_license(self):
+        # Empty is "nothing stored", which parse_and_verify reports as invalid
+        # JSON — not a SECRET_KEY problem.
+        assert license_module.open_stored_license_text("") == ""
+        with pytest.raises(LicenseError) as excinfo:
+            parse_and_verify(license_module.open_stored_license_text(""))
+        assert not isinstance(excinfo.value, license_module.LicenseUndecryptableError)
+
+    def test_corrupted_ciphertext_raises_the_dedicated_problem(self):
+        with pytest.raises(license_module.LicenseUndecryptableError):
+            license_module.open_stored_license_text("enc:not-a-fernet-token")

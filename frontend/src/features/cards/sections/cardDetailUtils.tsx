@@ -21,7 +21,7 @@ import { PercentageInput } from "@/components/PercentageInput";
 import { BooleanField } from "@/components/BooleanField";
 import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
-import { OptionChip, SELECT_CHIP_BASE, chipWidthForField } from "@/components/OptionChip";
+import { OptionChip, chipWidthForField } from "@/components/OptionChip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
@@ -231,8 +231,6 @@ export function isValidUrl(value: string): boolean {
   if (!value) return true; // empty is valid (field not required)
   return ALLOWED_URL_SCHEMES.some((s) => value.trim().startsWith(s));
 }
-export const URL_ERROR_MSG_KEY = "cards:utils.urlError";
-export const URL_ERROR_MSG = "Must use http://, https://, or mailto: scheme";
 export function getUrlErrorMsg(t: (key: string) => string): string {
   return t("utils.urlError");
 }
@@ -307,15 +305,8 @@ export function CardIdPill({
 // ── Lifecycle Phase Labels ──────────────────────────────────────
 // `PHASES` / `getPhaseLabels` moved to the leaf `@/lib/lifecyclePhases` so the
 // extension host can re-export them without importing this module, which
-// imports the host. Re-exported here so every existing call site is unchanged.
-export { PHASES, getPhaseLabels } from "@/lib/lifecyclePhases";
-export const PHASE_LABELS: Record<string, string> = {
-  plan: "Plan",
-  phaseIn: "Phase In",
-  active: "Active",
-  phaseOut: "Phase Out",
-  endOfLife: "End of Life",
-};
+// imports the host. `getPhaseLabels` is re-exported here for its existing call sites.
+export { getPhaseLabels } from "@/lib/lifecyclePhases";
 
 // ── Safe string coercion (never returns an object/array) ────────
 export function safeString(value: unknown): string {
@@ -328,9 +319,9 @@ export function safeString(value: unknown): string {
 
 // The select-option pill lives in `@/components/OptionChip` (a leaf module, so
 // the extension SDK can re-export it without a cycle back into this file).
-// Re-exported here because these two names are imported from `cardDetailUtils`
+// Re-exported here because `chipWidthForField` is imported from `cardDetailUtils`
 // across the app.
-export { SELECT_CHIP_BASE, chipWidthForField };
+export { chipWidthForField };
 
 // ── Read-only field value renderer ──────────────────────────────
 export function FieldValue({

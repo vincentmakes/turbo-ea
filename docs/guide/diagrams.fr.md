@@ -60,6 +60,8 @@ Les lignes avec un compteur à zéro sont grisées, et les voisins / enfants dé
 
 Une fiche déployée affiche une pastille `−` pour la réduire. La réduction retire les fiches déployées du canevas : Turbo EA demande donc confirmation si vous en avez déplacé ou remis en forme une ; un nouveau déploiement les replace exactement où vous les aviez laissées.
 
+Une fiche ou une relation que vous retirez du canevas alors qu'une fiche est déployée reste masquée lorsque vous redéployez cette fiche — jusqu'au rechargement de la page. Une fiche qui omet ainsi des éléments affiche un `!` orange dans son coin supérieur gauche : cliquez dessus pour oublier ce que vous avez retiré, et le prochain déploiement ramènera tout.
+
 ### La hiérarchie sur le canevas
 
 Les conteneurs correspondent au `parent_id` d'une fiche :

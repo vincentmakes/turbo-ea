@@ -14,7 +14,6 @@ import SectionWidget from "./SectionWidget";
 import { WIDGET_META, WIDGET_TYPE_KEYS, type WidgetMeta, type WidgetProps } from "./widgetMeta";
 
 export {
-  NO_MODULES,
   WIDGET_META,
   WIDGET_TYPE_KEYS,
   chartTitleKey,
@@ -27,7 +26,7 @@ export {
   widgetSources,
   widgetTitle,
 } from "./widgetMeta";
-export type { DashboardModules, WidgetChrome, WidgetFamily, WidgetMeta, WidgetProps } from "./widgetMeta";
+export type { WidgetMeta, WidgetProps } from "./widgetMeta";
 
 export interface WidgetRegistryEntry extends WidgetMeta {
   Component: ComponentType<WidgetProps>;

@@ -60,6 +60,8 @@ As linhas com contador a zero ficam a cinzento, e os vizinhos / filhos já prese
 
 Um cartão expandido mostra um ícone `−` para o voltar a recolher. Ao recolher, os cartões expandidos são removidos da tela, por isso o Turbo EA pede confirmação se tiver movido ou reformatado algum; ao expandir novamente, voltam exatamente onde os deixou.
 
+Um cartão ou uma relação que remova da tela enquanto um cartão está expandido permanece oculto quando voltar a expandir esse cartão, até recarregar a página. Um cartão que omite algo desta forma mostra um `!` laranja no canto superior esquerdo: clique nele para esquecer o que removeu, e a expansão seguinte traz tudo de volta.
+
 ### A hierarquia na tela
 
 Os contentores correspondem ao `parent_id` de um cartão:

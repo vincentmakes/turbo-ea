@@ -61,7 +61,6 @@
   "editor.errors.loadFailed": "Failed to load diagram",
   "editor.errors.saveFailed": "Save failed",
   "editor.errors.loadRelationsFailed": "Failed to load relations",
-  "editor.errors.resyncFailed": "Failed to resync relations",
   "editor.errors.editorNotReady": "Editor not ready — try again in a moment",
   "editor.errors.createCardFailed": "Failed to create card",
   "editor.errors.createRelationFailed": "Failed to create relation",

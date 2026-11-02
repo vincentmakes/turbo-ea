@@ -38,7 +38,6 @@
   "editor.errors.loadFailed": "Impossibile caricare il diagramma",
   "editor.errors.saveFailed": "Salvataggio non riuscito",
   "editor.errors.loadRelationsFailed": "Impossibile caricare le relazioni",
-  "editor.errors.resyncFailed": "Impossibile risincronizzare le relazioni",
   "editor.errors.editorNotReady": "Editor non pronto — riprovare tra un momento",
   "editor.errors.createCardFailed": "Impossibile creare la scheda",
   "editor.errors.createRelationFailed": "Impossibile creare la relazione",

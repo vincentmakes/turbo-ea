@@ -345,5 +345,3 @@ export function DataQualityPill({
     </>
   );
 }
-
-export default DataQualityPill;

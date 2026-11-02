@@ -513,22 +513,3 @@ export default function ComplianceFilterSidebar({
     </Box>
   );
 }
-
-export function defaultComplianceFilters(): ComplianceFilters {
-  return {
-    statuses: new Set(STATUSES),
-    severities: new Set(SEVERITIES),
-    decisions: new Set<ComplianceDecision>([
-      "new",
-      "in_review",
-      "mitigated",
-      "verified",
-      "risk_tracked",
-      "accepted",
-    ]),
-    cardTypes: new Set<"Application" | "ITComponent">(["Application", "ITComponent"]),
-    aiOnly: false,
-    aiConfirmedOnly: false,
-    includeResolved: false,
-  };
-}

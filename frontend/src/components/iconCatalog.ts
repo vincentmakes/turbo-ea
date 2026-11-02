@@ -168,8 +168,3 @@ export const ICON_CATEGORIES: { labelKey: string; icons: string[] }[] = [
     ],
   },
 ];
-
-/** Flat, de-duplicated list of every selectable icon name. */
-export const ICON_NAMES: string[] = Array.from(
-  new Set(ICON_CATEGORIES.flatMap((c) => c.icons)),
-);

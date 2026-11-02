@@ -72,8 +72,6 @@ export const SOURCE_PATHS: Record<SourceName, string> = {
   ...MODULE_SOURCE_PATHS,
 };
 
-export const SOURCE_NAMES = Object.keys(SOURCE_PATHS) as SourceName[];
-
 export type KpiFormat = "number" | "percent";
 
 export function formatKpiValue(value: number | null | undefined, format: KpiFormat = "number"): string {

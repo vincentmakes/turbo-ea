@@ -46,11 +46,8 @@ export {
   BAR_MAX_THICKNESS,
   COLUMN_MAX_WIDTH,
   defaultValueFormatter,
-  GRID_TRAILING_INSET,
-  LABEL_CHAR_WIDTH,
   LEGEND_LABEL_WIDTH,
   niceMax,
-  VALUE_LABEL_DISTANCE,
   VALUE_LABEL_FONT_SIZE,
   valueLabelInset,
 } from "@/components/charts/chrome";

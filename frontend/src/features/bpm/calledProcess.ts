@@ -154,9 +154,6 @@ export function linkDotTitles(links: ElementLinks): Partial<Record<LinkKind, str
   return titles;
 }
 
-/** @deprecated alias kept for the call-activity-only helpers below. */
-export type CallActivityLike = FlowNodeLike;
-
 export function isCallActivity(element: FlowNodeLike | null | undefined): boolean {
   return element?.businessObject?.$type === "bpmn:CallActivity";
 }

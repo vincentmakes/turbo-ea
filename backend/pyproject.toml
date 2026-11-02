@@ -60,6 +60,10 @@ dev = [
     "mutmut==3.8.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
+    # Dead-code scan ([tool.vulture] below). Pinned exactly: the Backend Lint
+    # job in .github/workflows/ci.yml installs this same version without the
+    # rest of the dev extras, so bump both together.
+    "vulture==2.16",
     "pip-audit>=2.7.0",
     "pip-tools>=7.4.0",
     "mypy>=1.11.0",
@@ -89,6 +93,16 @@ select = ["E", "F", "I", "N", "W"]
 "app/services/seed*.py" = ["E501"]
 "app/services/turbolens_*.py" = ["E501"]
 "alembic/versions/*.py" = ["E501"]
+
+[tool.vulture]
+# Run from backend/ as plain `vulture`. Findings below 80% confidence are the
+# structural false positives of a FastAPI + SQLAlchemy + Pydantic app (route
+# handlers reached through decorators, model fields and mapped columns read by
+# the framework, the extension SDK surface) and stay out of the gate.
+# A real false positive at 80%+ goes into vulture_whitelist.py with a reason.
+min_confidence = 80
+exclude = ["alembic/versions/"]
+paths = ["app", "vulture_whitelist.py"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

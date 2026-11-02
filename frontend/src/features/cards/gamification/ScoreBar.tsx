@@ -188,5 +188,3 @@ export function ScoreBar({
     </Box>
   );
 }
-
-export default ScoreBar;

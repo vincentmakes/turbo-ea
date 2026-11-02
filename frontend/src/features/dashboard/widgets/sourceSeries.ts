@@ -27,7 +27,6 @@ export const SOURCE_SERIES = {
 } as const satisfies Record<string, readonly string[]>;
 
 export type ModuleSourceName = keyof typeof SOURCE_SERIES;
-export type SourceSeriesKey<S extends ModuleSourceName = ModuleSourceName> = (typeof SOURCE_SERIES)[S][number];
 
 export const MODULE_SOURCE_NAMES = Object.keys(SOURCE_SERIES) as ModuleSourceName[];
 
@@ -125,13 +124,6 @@ export interface BpmDashboardPayload {
   total_processes: number;
   by_maturity: Counts;
   diagram_coverage: { with_diagram: number; total: number; percentage?: number };
-}
-
-export interface ModuleSourcePayloads {
-  risks_metrics: RiskMetricsPayload;
-  compliance_overview: ComplianceOverviewPayload;
-  ppm_dashboard: PpmDashboardPayload;
-  bpm_dashboard: BpmDashboardPayload;
 }
 
 // ── Fixed orders ─────────────────────────────────────────────────────────

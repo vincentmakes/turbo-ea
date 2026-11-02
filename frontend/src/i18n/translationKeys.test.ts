@@ -3,6 +3,18 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
 import i18n from "@/i18n";
+import {
+  DEFAULT_NS,
+  DIRECT_I18N_CALL,
+  NAMESPACES,
+  NS_SET,
+  TRANS_ATTR_WINDOW,
+  TRANS_KEY_ATTR,
+  TRANS_NS,
+  TRANS_TAG,
+  buildCallRegex,
+  extractBindings,
+} from "@/test/i18nKeys";
 import { describeSourceScan } from "@/test/sourceScan";
 
 /**
@@ -30,30 +42,9 @@ import { describeSourceScan } from "@/test/sourceScan";
  */
 
 // ---------------------------------------------------------------------------
-// Constants
+// Constants (the namespace list, the per-file `t` bindings and the call
+// shapes live in `@/test/i18nKeys`, shared with `unusedKeys.sourceScan.test.ts`)
 // ---------------------------------------------------------------------------
-
-const NAMESPACES = [
-  "common",
-  "auth",
-  "nav",
-  "inventory",
-  "cards",
-  "reports",
-  "admin",
-  "bpm",
-  "diagrams",
-  "delivery",
-  "grc",
-  "ppm",
-  "notifications",
-  "validation",
-] as const;
-
-const NS_SET = new Set<string>(NAMESPACES);
-
-/** `i18n/index.ts` sets this and declares no `fallbackNS`. */
-const DEFAULT_NS = "common";
 
 const SRC_ROOT = resolve(__dirname, "..");
 
@@ -118,94 +109,8 @@ function collectSourceFiles(dir: string, out: string[] = []): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Per-file namespace bindings
-// ---------------------------------------------------------------------------
-
-/**
- * Bindings are per file and there can be several: 9 files declare more than
- * one, and ~99 call sites go through an alias such as `t: tCards`. Resolving
- * every bare `t()` against "the first useTranslation in the file" mis-attributes
- * all of them.
- */
-type Bindings = Map<string, string>;
-
-/** `const { t } = useTranslation("x")` / `const { t: tCards } = useTranslation(["cards", …])` */
-const HOOK_BINDING = /\{\s*t\s*(?::\s*(\w+))?\s*[,}][^=]*?=\s*useTranslation\(\s*([^)]*)\)/g;
-
-/**
- * Namespace-binding wrapper helpers in plain `.ts` modules — they have no
- * `useTranslation`, so without this they would all default to `common` and
- * every key in them would read as a miss (~170 phantoms across 6 files). Two
- * shapes exist: a template prefix (``i18n.t(`delivery:${key}`)``) and an
- * options object (`i18n.t(key, { ns: "inventory" })`).
- */
-const WRAPPER_BINDING =
-  /(?:const|let)\s+(\w+)\s*=\s*\([^)]*\)\s*(?::[^=]*?)?=>\s*(?:String\()?\s*i18n\.t\(\s*(?:`(\w+):\$\{|[^;]*?\{\s*ns:\s*"(\w+)")/g;
-
-/** `t: TFunction` / `t: TFunction<"common">` parameters — 2 files, no binding otherwise. */
-const TFUNCTION_BINDING = /(\w+)\s*:\s*TFunction(?:<\s*"(\w+)")?/g;
-
-function extractBindings(src: string): { bindings: Bindings; unresolvable: string[] } {
-  const bindings: Bindings = new Map();
-  const unresolvable: string[] = [];
-
-  for (const m of src.matchAll(TFUNCTION_BINDING)) {
-    bindings.set(m[1], m[2] && NS_SET.has(m[2]) ? m[2] : DEFAULT_NS);
-  }
-
-  for (const m of src.matchAll(HOOK_BINDING)) {
-    const name = m[1] ?? "t";
-    const args = m[2] ?? "";
-    const literals = [...args.matchAll(/"([^"]+)"|'([^']+)'/g)].map((l) => l[1] ?? l[2]);
-    if (literals.length === 0) {
-      // `useTranslation()` with no argument is the documented default-namespace
-      // form. Anything else means a shape this scanner does not understand —
-      // record it rather than guessing `common` and emitting phantom misses.
-      if (args.trim() === "") bindings.set(name, DEFAULT_NS);
-      else unresolvable.push(`${name} = useTranslation(${args.trim()})`);
-      continue;
-    }
-    bindings.set(name, literals[0]);
-  }
-
-  // A wrapper rebinds the namespace outright, so it wins over anything above.
-  for (const m of src.matchAll(WRAPPER_BINDING)) {
-    bindings.set(m[1], m[2] ?? m[3]);
-  }
-
-  return { bindings, unresolvable };
-}
-
-// ---------------------------------------------------------------------------
 // Call extraction
 // ---------------------------------------------------------------------------
-
-/** `i18n.t("literal…")` called directly, outside any binding. */
-const DIRECT_I18N_CALL = /i18n\.t\(\s*"((?:[^"\\]|\\.)*)"/g;
-
-/**
- * `<Trans i18nKey="…" ns="…">`. Matched as "tag head + a bounded attribute
- * window" rather than one regex ending at `i18nKey`, because `ns=` is usually
- * written *after* it and a pattern that stops at the key never sees it — and
- * because an attribute value can itself contain `>` (`components={{ strong:
- * <strong /> }}`), so `[^>]*` is not a safe way to reach the end of the tag.
- */
-const TRANS_TAG = /<Trans\b/g;
-const TRANS_ATTR_WINDOW = 400;
-const TRANS_KEY_ATTR = /i18nKey=(?:"([^"]+)"|\{"([^"]+)"\})/;
-const TRANS_NS = /\bns="(\w+)"/;
-
-function buildCallRegex(names: string[]): RegExp {
-  // The lookbehind is load-bearing: it excludes `it(`, `format(`, `expect(`
-  // and — critically — `i18n.t(`, which has its own namespace rules below.
-  return new RegExp(
-    `(?<![\\w$.])(${names.join("|")})\\(\\s*` +
-      `(?:"((?:[^"\\\\]|\\\\.)*)"` +
-      `|'((?:[^'\\\\]|\\\\.)*)'` +
-      "|(`|[A-Za-z_$]))",
-    "g",
-  );
-}
 
 /**
  * `t("k", "Literal")`, `t("k", { defaultValue: … })`, and the 3-arg wrapper

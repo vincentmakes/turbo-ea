@@ -1133,8 +1133,6 @@ async def suggest_metadata(
     subtype: str | None,
     provider_url: str,
     model: str,
-    search_provider: str = "duckduckgo",
-    search_url: str = "",
     context: str | None = None,
     *,
     provider_type: str = "ollama",

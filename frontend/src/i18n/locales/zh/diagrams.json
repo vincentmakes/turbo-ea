@@ -38,7 +38,6 @@
   "editor.errors.loadFailed": "加载图表失败",
   "editor.errors.saveFailed": "保存失败",
   "editor.errors.loadRelationsFailed": "加载关系失败",
-  "editor.errors.resyncFailed": "重新同步关系失败",
   "editor.errors.editorNotReady": "编辑器尚未就绪 — 请稍后再试",
   "editor.errors.createCardFailed": "创建卡片失败",
   "editor.errors.createRelationFailed": "创建关系失败",

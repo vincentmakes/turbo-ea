@@ -168,5 +168,3 @@ export function PercentageInput({
     </Box>
   );
 }
-
-export default PercentageInput;

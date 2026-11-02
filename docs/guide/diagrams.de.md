@@ -60,6 +60,8 @@ Zeilen mit Zähler = 0 sind ausgegraut, und Nachbarn oder Kinder, die bereits au
 
 Eine ausgeklappte Karte zeigt ein `−`-Symbol zum erneuten Einklappen. Beim Einklappen werden die ausgeklappten Karten von der Leinwand entfernt — Turbo EA fragt daher vorher nach, wenn Sie eine davon verschoben oder umgestaltet haben; beim erneuten Ausklappen erscheinen sie genau dort wieder, wo Sie sie gelassen haben.
 
+Eine Karte oder Beziehung, die Sie von der Leinwand entfernen, während eine Karte ausgeklappt ist, bleibt beim erneuten Ausklappen dieser Karte ausgeblendet — bis Sie die Seite neu laden. Eine Karte, die auf diese Weise etwas auslässt, zeigt oben links ein orangefarbenes `!`: Klicken Sie darauf, um das Entfernte zu vergessen; beim nächsten Ausklappen kommt dann wieder alles zurück.
+
 ### Hierarchie auf der Leinwand
 
 Container entsprechen der `parent_id` einer Karte:

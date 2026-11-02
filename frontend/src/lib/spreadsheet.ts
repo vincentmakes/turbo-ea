@@ -4,8 +4,7 @@
  * `excelImport.ts` is a 2,000-line card importer whose only generic piece is
  * "read this file into rows"; lifting that piece here means the loader hands
  * an extension the readers without dragging the card-import validators,
- * and the importer itself re-exports `parseWorkbook` from here so its own
- * callers never moved. Both readers set `cellDates: true` so a date cell
+ * and the importer reads its sheets from here too. Both readers set `cellDates: true` so a date cell
  * Excel reformatted comes back as a JS `Date` (UTC midnight) instead of an
  * opaque serial number, and `defval: ""` so a blank cell is a blank string
  * rather than a missing key.

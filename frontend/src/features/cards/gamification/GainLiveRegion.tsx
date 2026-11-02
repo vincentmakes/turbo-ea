@@ -58,5 +58,3 @@ export function GainLiveRegion({ gain }: { gain: ScoreGain | null }) {
     </Box>
   );
 }
-
-export default GainLiveRegion;

@@ -96,10 +96,3 @@ export function invalidateNavbarStyle(style: Partial<NavbarStyle>) {
   const base = _cache || readStored() || DEFAULT_NAVBAR_STYLE;
   notify(sanitize({ ...base, ...style }));
 }
-
-/** Test-only: reset the module-level cache between tests. */
-export function _resetNavbarStyleCache() {
-  _cache = null;
-  _inflight = null;
-  _listeners.clear();
-}
