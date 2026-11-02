@@ -94,12 +94,10 @@ class LicenseUndecryptableError(LicenseError):
 def seal_license_text(text: str) -> str:
     """The value written to ``extension_licenses.raw_text``: the envelope, encrypted.
 
-    The envelope carries the store ``renewal_key`` — a bearer credential that
-    renews the license and opens the billing portal — and the signature covers
-    the payload's exact bytes, so the credential cannot be split out of it.
-    The whole envelope is therefore encrypted at rest (``enc:`` prefix, key
-    derived from ``SECRET_KEY``); ``open_stored_license_text`` gives back the
-    byte-exact text for re-verification.
+    The signature covers the payload's exact bytes, so the envelope is stored
+    whole, encrypted at rest (``enc:`` prefix, key derived from
+    ``SECRET_KEY``); ``open_stored_license_text`` gives back the byte-exact
+    text for re-verification.
     """
     return encrypt_value(text)
 

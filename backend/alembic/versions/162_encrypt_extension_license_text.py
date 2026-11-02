@@ -1,18 +1,14 @@
 """Encrypt ``extension_licenses.raw_text`` at rest.
 
-A store-issued license envelope carries a ``renewal_key`` — a bearer
-credential that renews the license from the store and opens the customer's
-billing portal. The signature covers the payload's exact bytes, so the key
-cannot be split out of the envelope into a separate encrypted column: the
-whole ``raw_text`` is encrypted instead, with the shared ``encrypt_value``
+The license signature covers the payload's exact bytes, so the envelope is
+stored whole: ``raw_text`` is encrypted with the shared ``encrypt_value``
 helper (``enc:`` prefix, Fernet key derived from ``SECRET_KEY``). The readers
 (``registry.refresh_from_db``, ``license_refresh.refresh_license``) decrypt
 before verifying, and pass a prefix-less value through as legacy plaintext,
 so the application works whether or not this migration has run.
 
 **Upgrade** encrypts every row not yet encrypted — the active license and the
-superseded audit rows alike, since a superseded envelope carries a renewal key
-too. Idempotent: an ``enc:`` row is left alone.
+superseded audit rows alike. Idempotent: an ``enc:`` row is left alone.
 
 **Downgrade** writes the plaintext back, but only for a row that decrypts
 under the current ``SECRET_KEY``. A row that does not (the key was rotated)

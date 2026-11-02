@@ -2169,8 +2169,8 @@ class TestExtensionAudit:
 class TestLicenseTextAtRest:
     """``extension_licenses.raw_text`` is encrypted at rest (migration 162).
 
-    The envelope carries the store ``renewal_key``, a bearer credential, and the
-    signature covers its exact bytes, so the whole text is encrypted.
+    The signature covers the envelope's exact bytes, so the whole text is
+    encrypted rather than a column of it.
     """
 
     RENEWAL_KEY = "rk_0123456789abcdef"
