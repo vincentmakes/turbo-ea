@@ -13,6 +13,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import { api } from "@/api/client";
 import type { User } from "@/types";
 
@@ -75,7 +76,7 @@ export default function SaveReportDialog({ open, onClose, reportType, config, th
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <MaterialSymbol icon="bookmark_add" size={22} color="#1976d2" />
+        <MaterialSymbol icon="bookmark_add" size={22} color={brand.primary} />
         {t("save.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>

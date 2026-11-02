@@ -21,6 +21,8 @@ import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { EAPrinciple } from "@/types";
+import { useTheme } from "@mui/material/styles";
+import { brand } from "@/theme/tokens";
 
 interface PrincipleForm {
   title: string;
@@ -39,6 +41,7 @@ const EMPTY_FORM: PrincipleForm = {
 };
 
 export default function PrinciplesAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,7 +203,7 @@ export default function PrinciplesAdmin() {
             borderRadius: 2,
           }}
         >
-          <MaterialSymbol icon="bookmark_star" size={40} color="#bbb" />
+          <MaterialSymbol icon="bookmark_star" size={40} color={theme.palette.action.disabled} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("metamodel.principles.empty")}
           </Typography>
@@ -221,7 +224,7 @@ export default function PrinciplesAdmin() {
                 <MaterialSymbol
                   icon="bookmark_star"
                   size={22}
-                  color={p.is_active ? "#1976d2" : "#bbb"}
+                  color={p.is_active ? brand.primary : theme.palette.action.disabled}
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>

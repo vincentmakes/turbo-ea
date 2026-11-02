@@ -13,7 +13,11 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 import { mockApi } from "@/test/apiMock";
 import { installConfirm } from "@/test/dom";
 import type { DiagramGroup } from "@/types";
+import { PRESET_COLORS } from "@/components/ColorPicker";
 import ManageGroupsDialog from "./ManageGroupsDialog";
+
+/** The colour a new group starts on: the picker's first-row blue. */
+const DEFAULT_GROUP_COLOR = PRESET_COLORS[6];
 
 type Props = React.ComponentProps<typeof ManageGroupsDialog>;
 
@@ -64,13 +68,17 @@ describe("ManageGroupsDialog", () => {
     expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
   });
 
+  it("starts a new group on the picker's first-row blue, as before the swatch list was shared", () => {
+    expect(DEFAULT_GROUP_COLOR).toBe("#60a5fa");
+  });
+
   it("creates a group on Enter with the default colour and the next sort order", async () => {
     const { user, onChanged } = renderDialog();
     const input = screen.getByPlaceholderText("New group name");
     await user.type(input, "  Security  {Enter}");
     expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toEqual({
       name: "Security",
-      color: "#60a5fa",
+      color: DEFAULT_GROUP_COLOR,
       sort_order: 2,
     });
     expect(onChanged).toHaveBeenCalledTimes(1);
@@ -185,7 +193,7 @@ describe("ManageGroupsDialog", () => {
     await user.type(input, "Ops{Enter}");
     expect(mockApi.callsOf("post", "/diagram-groups")[1].body).toMatchObject({
       name: "Ops",
-      color: "#60a5fa",
+      color: DEFAULT_GROUP_COLOR,
     });
   });
 
@@ -196,7 +204,7 @@ describe("ManageGroupsDialog", () => {
     rerender(<ManageGroupsDialog open={false} {...props} />);
     rerender(<ManageGroupsDialog open {...props} />);
     await user.type(screen.getByPlaceholderText("New group name"), "Security{Enter}");
-    expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toMatchObject({ color: "#60a5fa" });
+    expect(mockApi.callsOf("post", "/diagram-groups")[0].body).toMatchObject({ color: DEFAULT_GROUP_COLOR });
   });
 
   it("refuses a whitespace-only rename through the check button", async () => {

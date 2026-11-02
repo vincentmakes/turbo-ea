@@ -14,6 +14,7 @@ import demo from "./__fixtures__/demoDependencies.json";
 import type { GNode, GEdge, LdvEdgeData } from "./layeredDependencyLayout";
 import { handleBaseId } from "./ldvViewModel";
 import type { CardType } from "@/types";
+import { ARROW_COLOR, SEVERED_ARROW_COLOR } from "./ldvLayoutShared";
 
 function makeType(overrides: Partial<CardType> & { key: string }): CardType {
   return {
@@ -531,8 +532,8 @@ describe("one line per pair, on the demo landscape", () => {
 });
 
 describe("connector arrowheads", () => {
-  const grey = { type: "arrowclosed", color: "#888" };
-  const red = { type: "arrowclosed", color: "#d32f2f" };
+  const grey = { type: "arrowclosed", color: ARROW_COLOR };
+  const red = { type: "arrowclosed", color: SEVERED_ARROW_COLOR };
   const markers = (e: { markerStart?: unknown; markerEnd?: unknown }) => ({
     start: e.markerStart,
     end: e.markerEnd,

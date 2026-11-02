@@ -139,7 +139,7 @@ export function printDocument(opts: PrintDocumentOptions): void {
 export function documentHeader(typeLabel: string, name: string): string {
   return (
     `<h1 style="text-align:center;border:none;">${escapeHtml(typeLabel)}</h1>` +
-    `<p style="text-align:center;font-size:14pt;color:#555;">${escapeHtml(name)}</p>`
+    `<p style="text-align:center;font-size:14pt;color:${PRINT_COLORS.inkSecondary};">${escapeHtml(name)}</p>`
   );
 }
 

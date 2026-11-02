@@ -22,6 +22,7 @@ import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { TranslationGroup, TranslationRow } from "./translationParts";
 import { cleanTranslationMap, cleanTranslations } from "./helpers";
 import type { CardType, FieldOption, MetamodelTranslations, RelationType } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * Stable identity for the optional `hierarchyTypes` prop. It is a dependency of
@@ -73,6 +74,7 @@ export default function RelationTranslationDialog({
   onClose,
   onSaved,
 }: RelationTranslationDialogProps) {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { enabledLocales } = useEnabledLocales();
   const typeLabel = useTypeLabel();
@@ -222,7 +224,7 @@ export default function RelationTranslationDialog({
         sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", pb: 1 }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <MaterialSymbol icon="translate" size={22} color="#666" />
+          <MaterialSymbol icon="translate" size={22} color={theme.palette.text.secondary} />
           <span>{t("metamodel.translationDialog.relationsTitle")}</span>
         </Box>
         <IconButton onClick={onClose} size="small">

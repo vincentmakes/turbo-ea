@@ -13,7 +13,7 @@ import InputLabel from "@mui/material/InputLabel";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import { PercentBar } from "@/components/PercentBar";
@@ -29,6 +29,7 @@ import type { FieldDef, Relation } from "@/types";
 import { otherEnd, sortRelationsByName } from "@/lib/relationSort";
 import { booleanOption, facetOptions } from "@/lib/fieldFacets";
 import { orderByOptions } from "@/lib/optionOrder";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // Re-exported so the Relations section keeps one import site for its helpers.
 export { otherEnd, sortRelationsByName };
@@ -260,12 +261,9 @@ export function CardIdPill({
 
   const isDark = theme.palette.mode === "dark";
   // Guard non-hex metamodel colors (mirrors LayeredDependencyView's fallback).
-  const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : "#9e9e9e";
+  const hex = /^#[0-9a-fA-F]{6}$/.test(typeColor || "") ? (typeColor as string) : STATUS_COLORS.neutral;
   const accent = readableTypeColor(hex, isDark);
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const bg = `rgba(${r},${g},${b},${isDark ? 0.18 : 0.12})`;
+  const bg = alpha(hex, isDark ? 0.18 : 0.12);
 
   const copy = () => {
     void navigator.clipboard?.writeText(reference).then(() => {
@@ -356,7 +354,7 @@ export function FieldValue({
     return (
       <Tooltip title={t("cards:utils.costRestricted")}>
         <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-          <MaterialSymbol icon="lock" size={14} color="#9e9e9e" />
+          <MaterialSymbol icon="lock" size={14} color={STATUS_COLORS.neutral} />
           <Typography variant="body2" color="text.secondary">
             —
           </Typography>

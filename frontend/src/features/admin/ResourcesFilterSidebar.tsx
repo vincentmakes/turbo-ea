@@ -695,7 +695,7 @@ export default function ResourcesFilterSidebar({
                         onClick={() => setField("archived", o.id)}
                         sx={
                           selected
-                            ? { bgcolor: o.color, color: "#fff", borderColor: o.color }
+                            ? { bgcolor: o.color, color: "common.white", borderColor: o.color }
                             : { borderColor: o.color, color: o.color }
                         }
                       />

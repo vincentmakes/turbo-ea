@@ -17,6 +17,7 @@
  */
 import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
+import { alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 import CardLogoAvatar from "@/components/CardLogoAvatar";
@@ -99,7 +100,8 @@ export default function LogoCell({ card, type, editable, onEdit }: Props) {
                 position: "absolute",
                 inset: 0,
                 borderRadius: 2,
-                bgcolor: "rgba(0,0,0,0.45)",
+                bgcolor: (theme) => alpha(theme.palette.common.black, 0.45),
+                color: "common.white",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -107,7 +109,7 @@ export default function LogoCell({ card, type, editable, onEdit }: Props) {
                 transition: "opacity 120ms",
               }}
             >
-              <MaterialSymbol icon="photo_camera" size={18} color="#fff" />
+              <MaterialSymbol icon="photo_camera" size={18} />
             </Box>
           )}
         </Box>

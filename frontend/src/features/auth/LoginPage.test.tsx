@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import { alpha, createTheme } from "@mui/material/styles";
 import LoginPage from "./LoginPage";
 import { _resetLoginBrandingCache, invalidateLoginBranding } from "@/hooks/useLoginBranding";
 
@@ -416,5 +417,20 @@ describe("LoginPage", () => {
     });
     const link = screen.getByText("support@example.com").closest("a")!;
     expect(link).toHaveAttribute("href", "mailto:support@example.com");
+  });
+
+  it("dims the tagline and the help text to translucent white on the dark backdrop", async () => {
+    vi.mocked(auth.ssoConfig).mockResolvedValueOnce({ enabled: false });
+    invalidateLoginBranding({
+      tagline: "Our landscape",
+      taglineHidden: false,
+      helpText: "Need help?",
+      helpLink: "",
+      smtpConfigured: false,
+    });
+    renderLogin();
+    const white = createTheme().palette.common.white;
+    expect(await screen.findByText("Our landscape")).toHaveStyle({ color: alpha(white, 0.6) });
+    expect((await screen.findByText("Need help?")).parentElement).toHaveStyle({ color: alpha(white, 0.7) });
   });
 });

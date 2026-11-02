@@ -50,6 +50,7 @@ import type { RelTypeDef, TagGroupDef } from "@/features/reports/portfolioHelper
 import { useCardFilterOptions } from "@/features/reports/useCardFilterOptions";
 import type { WebPortal, TagGroup, PortalView, PpmGroupOption } from "@/types";
 import { legacyTagsSpanGroups, portalCardFilters, portalFiltersBody } from "./webPortalFilters";
+import { alpha, useTheme } from "@mui/material/styles";
 
 interface ToggleEntry {
   card: boolean;
@@ -103,6 +104,7 @@ const EMPTY_GROUPABLE: Record<string, FilterMember[]> = {};
 const EMPTY_TAG_GROUPS: TagGroupDef[] = [];
 
 export default function WebPortalsAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
@@ -442,7 +444,7 @@ export default function WebPortalsAdmin() {
 
   const getTypeColor = (key: string) => {
     const ct = types.find((tp) => tp.key === key);
-    return ct?.color || "#666";
+    return ct?.color || theme.palette.grey[700];
   };
 
   return (
@@ -472,7 +474,7 @@ export default function WebPortalsAdmin() {
             <MaterialSymbol
               icon="language"
               size={48}
-              color="#ccc"
+              color={theme.palette.action.disabled}
             />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
               {t("webPortals.noPortals")}
@@ -518,7 +520,7 @@ export default function WebPortalsAdmin() {
                   sx={{
                     height: 20,
                     fontSize: "0.65rem",
-                    bgcolor: `${getTypeColor(portal.card_type)}18`,
+                    bgcolor: alpha(getTypeColor(portal.card_type), 0.094),
                     color: getTypeColor(portal.card_type),
                     fontWeight: 600,
                   }}

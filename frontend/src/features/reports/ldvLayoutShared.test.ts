@@ -15,10 +15,12 @@ import {
   ldvLayers,
   DEFAULT_LDV_LAYERS,
   CATEGORY_COLORS,
+  ARROW_COLOR,
   CATEGORY_ORDER,
   DRAG_ROOM,
   MAX_COLS,
   PAD,
+  SEVERED_ARROW_COLOR,
   alignLanesX,
   flowMarkers,
   layoutGroup,
@@ -32,6 +34,7 @@ import {
   typeIcon,
   typeLabel,
 } from "./ldvLayoutShared";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 const node = (id: string, type = "Application"): GNode => ({ id, name: id.toUpperCase(), type });
 const edge = (source: string, target: string, type = "relAppToApp"): GEdge => ({ source, target, type });
@@ -43,7 +46,7 @@ function overlaps(a: { x: number; y: number }, b: { x: number; y: number }, w = 
 describe("type lookups", () => {
   it("read the metamodel and fall back per attribute", () => {
     expect(typeColor("Application", CARD_TYPES)).toBe("#0f7eb5");
-    expect(typeColor("Nope", CARD_TYPES)).toBe("#999");
+    expect(typeColor("Nope", CARD_TYPES)).toBe(STATUS_COLORS.neutral);
     expect(typeLabel("ITComponent", CARD_TYPES)).toBe("IT Component");
     expect(typeLabel("Nope", CARD_TYPES)).toBe("Nope");
     expect(typeIcon("Provider", CARD_TYPES)).toBe("storefront");
@@ -268,8 +271,8 @@ describe("alignLanesX", () => {
 });
 
 describe("flowMarkers", () => {
-  const grey = { type: "arrowclosed", color: "#888" };
-  const red = { type: "arrowclosed", color: "#d32f2f" };
+  const grey = { type: "arrowclosed", color: ARROW_COLOR };
+  const red = { type: "arrowclosed", color: SEVERED_ARROW_COLOR };
 
   it("points at the target for forward or unset flow, and nowhere else", () => {
     expect(flowMarkers(undefined, false)).toStrictEqual({ markerEnd: grey });

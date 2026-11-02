@@ -58,7 +58,9 @@ import i18n from "@/i18n";
 import { mockApi } from "@/test/apiMock";
 import { hookState } from "@/test/hooks";
 import { ADMIN_USER, makeCard } from "@/test/fixtures/metamodel";
+import { setViewportWidth } from "@/test/matchMedia";
 import { renderWithProviders } from "@/test/render";
+import { DELIVERABLE_COLORS, brand } from "@/theme/tokens";
 
 import SoAWEditor from "./SoAWEditor";
 import { exportToDocx, exportToPdf } from "./soawExport";
@@ -808,5 +810,29 @@ describe("SoAWEditor — a signed document", () => {
 
     fireEvent.click(screen.getAllByText(t("editor.newRevision"), { selector: "button" })[0]);
     expect(await screen.findByText("POST /soaw/s1/revise failed")).toBeInTheDocument();
+  });
+});
+
+describe("SoAWEditor — colours", () => {
+  /** The Material Symbols glyph spelled `icon`, if one is rendered. */
+  const glyph = (icon: string) =>
+    [...document.querySelectorAll(".material-symbols-outlined")].find((el) => el.textContent === icon);
+
+  it("shows the document glyph in the SoAW colour on a wide screen only", async () => {
+    const first = renderEdit();
+    await waitForLoaded();
+    expect(glyph("description")).toHaveStyle({ color: DELIVERABLE_COLORS.soaw });
+    first.unmount();
+
+    setViewportWidth(500);
+    renderEdit();
+    await waitForLoaded();
+    expect(glyph("description")).toBeUndefined();
+  });
+
+  it("edges a custom section with the brand colour", async () => {
+    renderEdit();
+    await waitForLoaded();
+    expect(sectionPaper("Appendix A")).toHaveStyle({ borderLeft: `4px solid ${brand.primary}` });
   });
 });

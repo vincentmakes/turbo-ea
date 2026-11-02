@@ -29,6 +29,7 @@ import type {
   ProposedCard,
   ProposedRelation,
 } from "@/types";
+import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 interface Props {
   open: boolean;
@@ -326,7 +327,7 @@ export default function CommitInitiativeDialog({
       <DialogContent dividers>
         {done ? (
           <Box sx={{ textAlign: "center", py: 4 }}>
-            <MaterialSymbol icon="check_circle" size={48} color="#4caf50" />
+            <MaterialSymbol icon="check_circle" size={48} color={STATUS_COLORS.success} />
             <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
               {t("turbolens_commit_success")}
             </Typography>
@@ -429,7 +430,7 @@ export default function CommitInitiativeDialog({
                       <MaterialSymbol
                         icon="flag"
                         size={16}
-                        color={typeInfo("Objective")?.color || "#c7527d"}
+                        color={typeInfo("Objective")?.color || CARD_TYPE_COLORS.Objective}
                       />
                       <Typography variant="body2">
                         {resolveName(oid)}
@@ -654,7 +655,7 @@ export default function CommitInitiativeDialog({
                           <MaterialSymbol
                             icon="arrow_forward"
                             size={12}
-                            color="#999"
+                            color={STATUS_COLORS.neutral}
                           />
                           <Typography
                             variant="caption"

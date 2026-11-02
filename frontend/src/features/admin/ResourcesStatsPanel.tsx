@@ -23,6 +23,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import { formatBytes, type ByteUnitKey } from "@/lib/formatBytes";
 import type { ResourceStats } from "@/types";
+import { CATEGORICAL_COLORS } from "@/theme/tokens";
 
 interface Props {
   stats: ResourceStats | null;
@@ -74,7 +75,7 @@ export default function ResourcesStatsPanel({
           label={t("resources.stats.storage")}
           value={formatBytes(stats.total_bytes, unitLabel)}
           icon="database"
-          iconColor="#7b1fa2"
+          iconColor={CATEGORICAL_COLORS[1]}
         />
         <MetricCard
           label={t("resources.stats.cards")}

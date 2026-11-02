@@ -10,6 +10,7 @@ import { todayIsoDate } from "@/lib/dates";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
+import { DASHBOARD_KPI_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 interface TodoRow {
   id: string;
@@ -44,7 +45,7 @@ export default function MyTodosSection() {
   return (
     <SectionPaper
       icon="task_alt"
-      iconColor="#43a047"
+      iconColor={DASHBOARD_KPI_COLORS.todos}
       title={t("dashboard.workspace.myTodos")}
       action={<ViewAllLink to="/todos" label={t("dashboard.workspace.viewAll")} />}
     >
@@ -81,7 +82,7 @@ export default function MyTodosSection() {
                   <MaterialSymbol
                     icon="repeat"
                     size={16}
-                    color="#888"
+                    color={STATUS_COLORS.neutral}
                     style={{ flexShrink: 0 }}
                   />
                 )}

@@ -9,6 +9,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import "@/i18n";
+import { brand } from "@/theme/tokens";
 import type { Card, FieldDef } from "@/types";
 import DescriptionSection from "./DescriptionSection";
 
@@ -207,6 +208,11 @@ describe('AccordionSummary component="div" (the card sections rely on it)', () =
 });
 
 describe("DescriptionSection — the header is not a button inside a button", () => {
+  it("draws the AI-suggest button in the brand colour", () => {
+    render(<DescriptionSection card={card} onSave={async () => {}} onAiSuggest={() => {}} />);
+    expect(screen.getByTestId("ai-suggest-button")).toHaveStyle({ color: brand.primary });
+  });
+
   it("renders its summary as a div[role=button] around the AI and edit buttons", () => {
     const { container } = render(
       <DescriptionSection card={card} onSave={async () => {}} onAiSuggest={() => {}} />,

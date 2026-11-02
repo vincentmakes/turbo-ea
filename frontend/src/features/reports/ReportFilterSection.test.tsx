@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReportFilterSection from "./ReportFilterSection";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 function renderSection(
   props: Partial<Parameters<typeof ReportFilterSection>[0]> = {},
@@ -121,5 +122,15 @@ describe("ReportFilterSection", () => {
   it("omits the clear affordance when no handler is supplied", () => {
     renderSection({ clearAllLabel: "Clear all" });
     expect(screen.queryByText("Clear all")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { collapsed: false, chevron: "expand_more" },
+    { collapsed: true, chevron: "chevron_right" },
+  ])("points its grey chevron $chevron when collapsed is $collapsed", ({ collapsed, chevron }) => {
+    renderSection({ collapsed });
+    const glyph = toggle().querySelector(".material-symbols-outlined");
+    expect(glyph).toHaveTextContent(chevron);
+    expect(glyph).toHaveStyle({ color: STATUS_COLORS.neutral });
   });
 });

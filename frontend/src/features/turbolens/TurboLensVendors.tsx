@@ -31,6 +31,8 @@ import { api, ApiError } from "@/api/client";
 import type { TurboLensVendor } from "@/types";
 import { formatCost } from "./utils";
 import { useAnalysisPolling } from "./useAnalysisPolling";
+import { CARD_TYPE_COLORS, CATEGORICAL_COLORS, STATUS_COLORS, VENDOR_ACCENT } from "@/theme/tokens";
+import { useTheme } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +57,7 @@ function groupByCategory(
 
 export default function TurboLensVendors() {
   const { t } = useTranslation("admin");
+  const theme = useTheme();
   // One label for a vendor without a category: grid, filter and table alike.
   const uncategorized = t("turbolens_vendor_uncategorized");
   const [vendors, setVendors] = useState<TurboLensVendor[]>([]);
@@ -176,7 +179,7 @@ export default function TurboLensVendors() {
         <Alert severity="error">{loadError || t("common:errors.generic")}</Alert>
       ) : vendors.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: "center" }}>
-          <MaterialSymbol icon="storefront" size={48} color="#9e9e9e" />
+          <MaterialSymbol icon="storefront" size={48} color={STATUS_COLORS.neutral} />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {t("turbolens_no_vendors")}
           </Typography>
@@ -192,20 +195,20 @@ export default function TurboLensVendors() {
               icon="storefront"
               label={t("turbolens_kpi_unique_vendors")}
               value={vendors.length}
-              color="#0f7eb5"
+              color={CARD_TYPE_COLORS.Application}
             />
             <MetricCard
               icon="link"
               label={t("turbolens_kpi_app_links")}
               value={totalAppLinks}
-              color="#4caf50"
+              color={STATUS_COLORS.success}
             />
             {totalCost > 0 && (
               <MetricCard
                 icon="payments"
                 label={t("turbolens_kpi_annual_cost")}
                 value={formatCost(totalCost)}
-                color="#00897b"
+                color={CATEGORICAL_COLORS[2]}
               />
             )}
             {topCategory && (
@@ -213,7 +216,7 @@ export default function TurboLensVendors() {
                 icon="category"
                 label={t("turbolens_kpi_top_category")}
                 value={`${topCategory[0]} (${topCategory[1].length})`}
-                color="#ffa31f"
+                color={VENDOR_ACCENT.fill}
               />
             )}
           </Stack>
@@ -282,7 +285,7 @@ export default function TurboLensVendors() {
                       >
                         <CardContent>
                           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                            <MaterialSymbol icon="category" size={20} color="#757575" />
+                            <MaterialSymbol icon="category" size={20} color={theme.palette.text.secondary} />
                             <Typography variant="subtitle2" fontWeight="bold" noWrap>
                               {category}
                             </Typography>

@@ -15,6 +15,7 @@ import { renderWithProviders } from "@/test/render";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { SavedReport } from "@/types";
 import MySavedReportsSection from "./MySavedReportsSection";
+import { REPORT_TYPE_STYLE, UNKNOWN_REPORT_COLOR } from "@/features/reports/savedReportStyles";
 
 const MINE = "/saved-reports?filter=my";
 
@@ -186,5 +187,15 @@ describe("MySavedReportsSection", () => {
     const { user } = renderSection();
     await user.hover(await tileOf("Report a"));
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Report a");
+  });
+
+  it.each([
+    ["a core report in its type's colour", "eol", REPORT_TYPE_STYLE.eol.color],
+    ["an unknown report in the neutral colour", "mystery", UNKNOWN_REPORT_COLOR],
+  ])("tints the icon of %s", async (_label, type, colour) => {
+    mockApi.on("get", MINE, [report("a", type)]);
+    renderSection();
+    const icon = (await tileOf("Report a")).querySelector(".material-symbols-outlined");
+    expect(icon).toHaveStyle({ color: `${colour}80` });
   });
 });

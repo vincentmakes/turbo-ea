@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { LegendSectionData } from "./viewSource";
 
@@ -27,6 +28,7 @@ interface Props {
  * belong to.
  */
 export default function DiagramViewLegend({ sections, appliedCount, onReset }: Props) {
+  const theme = useTheme();
   const { t } = useTranslation(["diagrams", "common"]);
   if (sections.every((s) => s.entries.length === 0)) return null;
   return (
@@ -66,7 +68,8 @@ export default function DiagramViewLegend({ sections, appliedCount, onReset }: P
                       height: 12,
                       borderRadius: "3px",
                       bgcolor: e.color,
-                      border: "1px solid rgba(0,0,0,0.2)",
+                      border: 1,
+                      borderColor: alpha(theme.palette.common.black, 0.2),
                     }}
                   />
                   <Typography variant="caption">{e.label}</Typography>

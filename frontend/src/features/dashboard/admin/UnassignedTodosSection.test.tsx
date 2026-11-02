@@ -11,6 +11,7 @@ vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useD
 import { hookState } from "@/test/hooks";
 import { renderWithProviders } from "@/test/render";
 import UnassignedTodosSection, { type OverdueTodoRow } from "./UnassignedTodosSection";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 const todo = (id: string, over: Partial<OverdueTodoRow> = {}): OverdueTodoRow => ({
   id,
@@ -75,6 +76,14 @@ describe("UnassignedTodosSection", () => {
     expect(within(rowOf("Todo b")).getByText("Unassigned")).toBeInTheDocument();
     expect(within(rowOf("Todo b")).getByText("2026-02-10")).toBeInTheDocument();
     expect(rowOf("Todo c").textContent).toBe("Todo cAda");
+  });
+
+  it("writes the due date bold in the overdue colour", () => {
+    renderSection([todo("a")]);
+    expect(within(rowOf("Todo a")).getByText("2026-01-05")).toHaveStyle({
+      color: DASHBOARD_KPI_COLORS.overdue,
+      fontWeight: "600",
+    });
   });
 
   it("writes the due date in the workspace format", () => {

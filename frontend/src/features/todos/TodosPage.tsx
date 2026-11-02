@@ -21,13 +21,14 @@ import Tooltip from "@mui/material/Tooltip";
 import Badge from "@mui/material/Badge";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { usePageSection } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
-import { brand, STATUS_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 import type { RecurrenceUnit, Todo, TodoOrigin, MySurveyItem } from "@/types";
 import { ORIGIN_META, ORIGIN_ORDER, originOf, type OriginMeta } from "./originMeta";
 import {
@@ -78,6 +79,7 @@ type StatusFilter = "open" | "upcoming" | "done" | "all";
 
 function TodosPanel() {
   const { t } = useTranslation(["common", "cards"]);
+  const theme = useTheme();
   const navigate = useNavigate();
   const { formatDate } = useDateFormat();
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -467,9 +469,9 @@ function TodosPanel() {
                 selected
                   ? {
                       bgcolor: meta.color,
-                      color: "#fff",
+                      color: "common.white",
                       "&:hover": { bgcolor: meta.color },
-                      "& .MuiChip-icon": { color: "#fff" },
+                      "& .MuiChip-icon": { color: "common.white" },
                     }
                   : {
                       color: meta.color,
@@ -589,7 +591,7 @@ function TodosPanel() {
                   <MaterialSymbol
                     icon={isCollapsed ? "chevron_right" : "expand_more"}
                     size={18}
-                    color="var(--mui-palette-text-secondary, #666)"
+                    color={theme.palette.text.secondary}
                   />
                   <MaterialSymbol icon={meta.icon} size={16} color={meta.color} />
                   <Typography variant="subtitle2">{t(meta.labelKey)}</Typography>
@@ -678,7 +680,7 @@ function SurveysPanel() {
         <Card key={s.survey_id} sx={{ mb: 2 }}>
           <Box sx={{ p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
+              <MaterialSymbol icon="assignment" size={22} color={brand.primary} />
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.survey_name}</Typography>
               <Chip
                 label={t("todos.surveyPendingCount", { count: s.pending_count })}
@@ -701,7 +703,7 @@ function SurveysPanel() {
                   onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.card_id}`)}
                   sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
                 >
-                  <MaterialSymbol icon="edit_note" size={20} color="#ed6c02" />
+                  <MaterialSymbol icon="edit_note" size={20} color={WARNING_STRONG_COLOR} />
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
                     {item.card_name}
                   </Typography>

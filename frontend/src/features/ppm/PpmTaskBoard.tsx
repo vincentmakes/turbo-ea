@@ -48,22 +48,17 @@ import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import PpmTaskCard from "./PpmTaskCard";
 import PpmTaskDialog from "./PpmTaskDialog";
+import { PRIORITY_COLORS, RAG_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import type { PpmTask, PpmTaskStatus, PpmWbs } from "@/types";
 
 const COLUMNS: PpmTaskStatus[] = ["todo", "in_progress", "done", "blocked"];
 
-const STATUS_COLORS: Record<string, string> = {
-  todo: "#9e9e9e",
-  in_progress: "#1976d2",
-  done: "#2e7d32",
-  blocked: "#d32f2f",
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  critical: "#d32f2f",
-  high: "#f57c00",
-  medium: "#fbc02d",
-  low: "#66bb6a",
+/** A task status column's accent: to do grey, in progress blue, done green, blocked red. */
+const TASK_STATUS_COLORS: Record<PpmTaskStatus, string> = {
+  todo: STATUS_COLORS.neutral,
+  in_progress: brand.primary,
+  done: RAG_COLORS.green,
+  blocked: RAG_COLORS.red,
 };
 
 function initials(name: string): string {
@@ -371,7 +366,7 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
                 sx={{
                   display: "flex",
                   flexDirection: "column",
-                  borderTop: `3px solid ${STATUS_COLORS[status]}`,
+                  borderTop: `3px solid ${TASK_STATUS_COLORS[status]}`,
                   scrollSnapAlign: { xs: "start", md: "none" },
                 }}
               >
@@ -563,8 +558,8 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
               )}
               size="small"
               sx={{
-                bgcolor: STATUS_COLORS[task.status],
-                color: "#fff",
+                bgcolor: TASK_STATUS_COLORS[task.status],
+                color: "common.white",
                 fontWeight: 600,
                 fontSize: "0.7rem",
               }}

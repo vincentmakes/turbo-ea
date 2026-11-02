@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
@@ -45,6 +45,9 @@ const LdvCluster = memo(({ data }: NodeProps<Node<LdvClusterData>>) => {
   const subtypeLabel = useCardSubtypeLabel();
   const isDark = theme.palette.mode === "dark";
   const accent = readableTypeColor(data.color, isDark);
+  const wash = isDark
+    ? alpha(theme.palette.common.white, 0.03)
+    : alpha(theme.palette.common.black, 0.02);
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
   const hs = (id: string, extra?: React.CSSProperties) => {
@@ -87,9 +90,7 @@ const LdvCluster = memo(({ data }: NodeProps<Node<LdvClusterData>>) => {
         border: `1.5px solid ${accent}`,
         borderRadius: "10px",
         bgcolor: "background.paper",
-        backgroundImage: `linear-gradient(${
-          isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"
-        }, ${isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"})`,
+        backgroundImage: `linear-gradient(${wash}, ${wash})`,
         position: "relative",
         // A box drags like a layer lane: the whole group moves and its cards
         // ride along (they are its React Flow children, clamped by `extent`).

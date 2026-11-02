@@ -46,6 +46,8 @@ import { FieldEditor } from "@/features/cards/sections/cardDetailUtils";
 import type { FieldDef } from "@/types";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
+import { useTheme } from "@mui/material/styles";
+import { brand, STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Helpers — derive Turbo EA field path options from a card type
@@ -157,6 +159,7 @@ export default function ServiceNowAdmin() {
 // ---------------------------------------------------------------------------
 
 function ConnectionsTab() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,7 +227,7 @@ function ConnectionsTab() {
       {connections.length === 0 ? (
         <Card variant="outlined">
           <CardContent sx={{ textAlign: "center", py: 6 }}>
-            <MaterialSymbol icon="cloud_off" size={48} color="#ccc" />
+            <MaterialSymbol icon="cloud_off" size={48} color={theme.palette.action.disabled} />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {t("servicenow.connections.noConnections")}
             </Typography>
@@ -236,7 +239,7 @@ function ConnectionsTab() {
             <Card key={conn.id} variant="outlined">
               <CardContent>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <MaterialSymbol icon="cloud" size={24} color={conn.is_active ? "#1976d2" : "#999"} />
+                  <MaterialSymbol icon="cloud" size={24} color={conn.is_active ? brand.primary : STATUS_COLORS.neutral} />
                   <Box sx={{ flex: 1 }}>
                     <Typography fontWeight={600}>{conn.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -288,7 +291,7 @@ function ConnectionsTab() {
                   </Tooltip>
                   <Tooltip title={t("common:actions.delete")}>
                     <IconButton size="small" onClick={() => handleDelete(conn.id)}>
-                      <MaterialSymbol icon="delete" size={18} color="#f44336" />
+                      <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.error} />
                     </IconButton>
                   </Tooltip>
                 </Box>
@@ -464,6 +467,7 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
 // ---------------------------------------------------------------------------
 
 function MappingsTab() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
@@ -539,7 +543,7 @@ function MappingsTab() {
       {mappings.length === 0 ? (
         <Card variant="outlined">
           <CardContent sx={{ textAlign: "center", py: 6 }}>
-            <MaterialSymbol icon="swap_horiz" size={48} color="#ccc" />
+            <MaterialSymbol icon="swap_horiz" size={48} color={theme.palette.action.disabled} />
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {t("servicenow.mappings.noMappings")}
             </Typography>
@@ -557,7 +561,7 @@ function MappingsTab() {
                     <MaterialSymbol
                       icon={ct?.icon || "swap_horiz"}
                       size={24}
-                      color={ct?.color || "#999"}
+                      color={ct?.color || STATUS_COLORS.neutral}
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography fontWeight={600}>
@@ -595,7 +599,7 @@ function MappingsTab() {
                     </Tooltip>
                     <Tooltip title={t("common:actions.delete")}>
                       <IconButton size="small" onClick={() => handleDelete(mapping.id)}>
-                        <MaterialSymbol icon="delete" size={18} color="#f44336" />
+                        <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.error} />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -638,7 +642,7 @@ function MappingsTab() {
                               </TableCell>
                               <TableCell>
                                 {fm.is_identity && (
-                                  <MaterialSymbol icon="key" size={16} color="#ff9800" />
+                                  <MaterialSymbol icon="key" size={16} color={STATUS_COLORS.warning} />
                                 )}
                               </TableCell>
                             </TableRow>
@@ -987,7 +991,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 )}
                 sx={{ flex: 1 }}
               />
-              <MaterialSymbol icon="sync_alt" size={16} color="#999" />
+              <MaterialSymbol icon="sync_alt" size={16} color={STATUS_COLORS.neutral} />
               <TextField
                 label={t("servicenow.mappings.dialog.snowFieldLabel")}
                 size="small"
@@ -1168,7 +1172,7 @@ function SyncDashboardTab() {
                     <MaterialSymbol
                       icon={ct?.icon || "swap_horiz"}
                       size={20}
-                      color={ct?.color || "#999"}
+                      color={ct?.color || STATUS_COLORS.neutral}
                     />
                     <Typography fontWeight={500} sx={{ flex: 1 }}>
                       {ct ? typeLabel(ct) : mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
@@ -1256,16 +1260,16 @@ function SyncDashboardTab() {
                       />
                     </TableCell>
                     <TableCell sx={{ fontSize: "0.8rem" }}>{stats.fetched ?? stats.processed ?? "-"}</TableCell>
-                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.created || 0) > 0 ? "#4caf50" : undefined }}>
+                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.created || 0) > 0 ? "success.main" : undefined }}>
                       {stats.created ?? 0}
                     </TableCell>
-                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.updated || 0) > 0 ? "#1976d2" : undefined }}>
+                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.updated || 0) > 0 ? "primary.main" : undefined }}>
                       {stats.updated ?? 0}
                     </TableCell>
-                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.deleted || 0) > 0 ? "#f44336" : undefined }}>
+                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.deleted || 0) > 0 ? "error.main" : undefined }}>
                       {stats.deleted ?? 0}
                     </TableCell>
-                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.errors || 0) > 0 ? "#f44336" : undefined }}>
+                    <TableCell sx={{ fontSize: "0.8rem", color: (stats.errors || 0) > 0 ? "error.main" : undefined }}>
                       {stats.errors ?? 0}
                     </TableCell>
                     <TableCell sx={{ fontSize: "0.8rem" }}>{duration}</TableCell>
@@ -1345,7 +1349,7 @@ function SyncDashboardTab() {
                       <TableCell sx={{ fontSize: "0.75rem" }}>
                         {sr.diff ? Object.keys(sr.diff).join(", ") : "-"}
                       </TableCell>
-                      <TableCell sx={{ fontSize: "0.75rem", color: "#f44336" }}>
+                      <TableCell sx={{ fontSize: "0.75rem", color: "error.main" }}>
                         {sr.error_message || "-"}
                       </TableCell>
                     </TableRow>

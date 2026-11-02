@@ -16,6 +16,7 @@ import { mockApi } from "@/test/apiMock";
 import { installWindowOpen } from "@/test/dom";
 import { USERS } from "@/test/fixtures/metamodel";
 import type { Todo } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 import TodosTab from "./TodosTab";
 
 const FS_ID = "ca4d0000-0000-4000-8000-000000000011";
@@ -125,6 +126,14 @@ describe("TodosTab", () => {
 
     expect(within(rowOf("Mirrored ticket")).getByText("JIRA-42")).toBeInTheDocument();
     expect(screen.queryByText("No todos yet.")).not.toBeInTheDocument();
+  });
+
+  it("colours only a done todo's toggle glyph green", async () => {
+    render(<TodosTab fsId={FS_ID} />);
+    await screen.findByText("Archive the old instance");
+    const glyph = (text: string) => within(rowOf(text)).getAllByRole("button")[0].querySelector("span")!;
+    expect(glyph("Archive the old instance")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(glyph("Mirrored ticket")).not.toHaveStyle({ color: STATUS_COLORS.success });
   });
 
   it("marks each todo's state on its toggle button", async () => {

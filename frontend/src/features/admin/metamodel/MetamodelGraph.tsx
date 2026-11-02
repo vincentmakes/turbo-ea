@@ -2,7 +2,7 @@ import { useState, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, darken } from "@mui/material/styles";
 import type {
   CardType as FSType,
   RelationType as RType,
@@ -29,6 +29,10 @@ import {
   LABEL_W,
   LABEL_H,
 } from "./constants";
+import { RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
+
+/** Hover / highlight accent of an edge (its stroke, arrowhead and label pill). */
+const EDGE_HOVER = RAG_COLORS.amber;
 
 /* ------------------------------------------------------------------ */
 /*  Edge routing types                                                 */
@@ -566,10 +570,10 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
         style={{ display: "block", minWidth: svgDimensions.svgW }}
       >
         <style>{`
-          .mm-edge:hover > path, .mm-edge-hl > path { stroke: #e67700; stroke-width: 2; }
+          .mm-edge:hover > path, .mm-edge-hl > path { stroke: ${EDGE_HOVER}; stroke-width: 2; }
           .mm-edge:hover > path[marker-end], .mm-edge-hl > path[marker-end] { marker-end: url(#mm-arrow-hover); }
-          .mm-edge:hover .mm-edge-label rect, .mm-edge-hl .mm-edge-label rect { fill: #e67700; fill-opacity: 1; stroke: #c45d00; }
-          .mm-edge:hover .mm-edge-label text, .mm-edge-hl .mm-edge-label text { fill: #fff; font-weight: 600; }
+          .mm-edge:hover .mm-edge-label rect, .mm-edge-hl .mm-edge-label rect { fill: ${EDGE_HOVER}; fill-opacity: 1; stroke: ${darken(EDGE_HOVER, 0.2)}; }
+          .mm-edge:hover .mm-edge-label text, .mm-edge-hl .mm-edge-label text { fill: ${theme.palette.common.white}; font-weight: 600; }
         `}</style>
         <defs>
           <marker
@@ -580,7 +584,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             refY="3"
             orient="auto"
           >
-            <path d="M0,0.5 L9,3 L0,5.5 Z" fill="#b0b8c4" />
+            <path d="M0,0.5 L9,3 L0,5.5 Z" fill={theme.palette.grey[400]} />
           </marker>
           <marker
             id="mm-arrow-hover"
@@ -590,7 +594,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             refY="3"
             orient="auto"
           >
-            <path d="M0,0.5 L9,3 L0,5.5 Z" fill="#e67700" />
+            <path d="M0,0.5 L9,3 L0,5.5 Z" fill={EDGE_HOVER} />
           </marker>
           <filter
             id="mm-shadow"
@@ -603,7 +607,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
               dx="0"
               dy="2"
               stdDeviation="4"
-              floodColor="#000"
+              floodColor={theme.palette.common.black}
               floodOpacity="0.12"
             />
           </filter>
@@ -628,7 +632,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
               y={ll.y + NODE_H / 2 + 5}
               fontSize={12}
               fontWeight={600}
-              fill="#8a8f98"
+              fill={STATUS_COLORS.neutral}
               fontFamily="Inter, Roboto, system-ui, sans-serif"
             >
               {ll.label}
@@ -670,7 +674,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
                 y={e.labelY + 4}
                 textAnchor="middle"
                 fontSize={10}
-                fill="#777"
+                fill={theme.palette.text.secondary}
                 fontFamily="Inter, Roboto, system-ui, sans-serif"
               >
                 {truncate(e.label, 16)}

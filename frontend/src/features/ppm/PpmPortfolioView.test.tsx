@@ -11,6 +11,7 @@ import { MemoryRouter, useLocation } from "react-router";
 import { setViewportWidth } from "@/test/matchMedia";
 import PpmPortfolioView from "./PpmPortfolioView";
 import type { PpmPortfolioItem, PpmPortfolioDashboard } from "@/types";
+import { alpha, createTheme } from "@mui/material/styles";
 
 vi.mock("@/hooks/useCurrency", () => ({
   useCurrency: () => ({
@@ -712,6 +713,26 @@ describe("PpmPortfolioView subtype sub-groups", () => {
     // A totals row per sub-group with costs (Program and the none group have
     // none), plus the group's own.
     expect(screen.getAllByText(/Totals/)).toHaveLength(3);
+  });
+
+  it("writes white on the group banner and theme text on a sub-group header", () => {
+    const { common, text } = createTheme().palette;
+    renderAt("/?bySubtype=1", { items: ROWS, subtypeDefs: SUBTYPES });
+    const header = (variant: string, name: string) =>
+      Array.from(document.querySelectorAll<HTMLElement>(`[data-group-variant="${variant}"]`)).find(
+        (el) => within(el).queryByRole("button", { name }),
+      )!;
+    const banner = header("group", "Sales");
+    expect(within(banner).getByRole("button", { name: "Sales" })).toHaveStyle({ color: common.white });
+    const [bannerName, bannerCount] = Array.from(banner.querySelectorAll("p"));
+    expect(bannerName).toHaveStyle({ color: common.white });
+    expect(bannerCount).toHaveStyle({ color: alpha(common.white, 0.8) });
+
+    const sub = header("sub", "Project");
+    expect(within(sub).getByRole("button", { name: "Project" })).toHaveStyle({ color: text.primary });
+    const [subName, subCount] = Array.from(sub.querySelectorAll("p"));
+    expect(subName).toHaveStyle({ color: text.primary });
+    expect(subCount).toHaveStyle({ color: text.secondary });
   });
 
   it("collapses one sub-group on its own", () => {

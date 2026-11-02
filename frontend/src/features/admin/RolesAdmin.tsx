@@ -29,6 +29,8 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { AppRole } from "@/types";
+import { ROLE_COLOR_PRESETS } from "@/theme/tokens";
+import { useTheme } from "@mui/material/styles";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -79,23 +81,8 @@ const EMPTY_CREATE_FORM: CreateFormState = {
   key: "",
   label: "",
   description: "",
-  color: "#1976d2",
+  color: ROLE_COLOR_PRESETS[0],
 };
-
-const PRESET_COLORS = [
-  "#1976d2",
-  "#388e3c",
-  "#d32f2f",
-  "#f57c00",
-  "#7b1fa2",
-  "#0097a7",
-  "#c2185b",
-  "#5d4037",
-  "#455a64",
-  "#303f9f",
-  "#00796b",
-  "#afb42b",
-];
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -118,6 +105,7 @@ interface RolesAdminProps {
 }
 
 export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   /* ---- Data state ---- */
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -136,7 +124,7 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
   /* ---- Detail editing state ---- */
   const [editLabel, setEditLabel] = useState("");
   const [editDescription, setEditDescription] = useState("");
-  const [editColor, setEditColor] = useState("#1976d2");
+  const [editColor, setEditColor] = useState<string>(ROLE_COLOR_PRESETS[0]);
   const [editIsDefault, setEditIsDefault] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
@@ -524,7 +512,7 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
                 <MaterialSymbol
                   icon="shield_person"
                   size={48}
-                  color="#bdbdbd"
+                  color={theme.palette.action.disabled}
                 />
                 <Typography
                   color="text.secondary"
@@ -666,7 +654,7 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
                         flexWrap: "wrap",
                       }}
                     >
-                      {PRESET_COLORS.map((c) => (
+                      {ROLE_COLOR_PRESETS.map((c) => (
                         <Box
                           key={c}
                           onClick={() => {
@@ -737,7 +725,7 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
                         borderRadius: 1,
                       }}
                     >
-                      <MaterialSymbol icon="group" size={20} color="#757575" />
+                      <MaterialSymbol icon="group" size={20} color={theme.palette.text.secondary} />
                       <Typography variant="body2" color="text.secondary">
                         {t("roles.usersAssigned", { count: selectedRole.user_count })}
                       </Typography>
@@ -985,7 +973,7 @@ export default function RolesAdmin({ onRolesChanged }: RolesAdminProps) {
                   flexWrap: "wrap",
                 }}
               >
-                {PRESET_COLORS.map((c) => (
+                {ROLE_COLOR_PRESETS.map((c) => (
                   <Box
                     key={c}
                     onClick={() => setCreateForm((p) => ({ ...p, color: c }))}

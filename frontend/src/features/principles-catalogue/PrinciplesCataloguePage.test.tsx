@@ -17,6 +17,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import PrinciplesCataloguePage from "./PrinciplesCataloguePage";
+import { createTheme } from "@mui/material/styles";
 
 function principle(overrides: Partial<CataloguePrinciple> & { id: string; title: string }): CataloguePrinciple {
   return {
@@ -111,6 +112,11 @@ describe("PrinciplesCataloguePage — browsing", () => {
       marginTop: "8px",
     });
     expect(screen.queryByText(NO_MATCHES)).not.toBeInTheDocument();
+    // The search box leads with a muted magnifier, spaced off the text.
+    expect(screen.getByText("search")).toHaveStyle({
+      color: createTheme().palette.text.disabled,
+      marginRight: "6px",
+    });
 
     const card = cardOf("Data is an Asset");
     expect(within(card).getByText("PR-001")).toBeInTheDocument();

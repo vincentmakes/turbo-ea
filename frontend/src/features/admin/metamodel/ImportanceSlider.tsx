@@ -72,7 +72,7 @@ export function WeightBadge({ weight }: { weight: number | undefined }) {
           bgcolor: tier === 0 ? "transparent" : tierColor(tier),
           border: tier === 0 ? "1px dashed" : "none",
           borderColor: "text.disabled",
-          color: "#fff",
+          color: "common.white",
           fontSize: "0.6rem",
           fontWeight: 700,
           display: "flex",

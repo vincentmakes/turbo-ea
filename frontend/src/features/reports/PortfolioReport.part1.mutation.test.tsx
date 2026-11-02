@@ -111,6 +111,7 @@ import { APPLICATION_TYPE, makeCardType } from "@/test/fixtures/metamodel";
 import { userWith, wrapWithProviders } from "@/test/render";
 import i18n from "@/i18n";
 import PortfolioReport from "./PortfolioReport";
+import { createTheme } from "@mui/material/styles";
 
 /* ------------------------------------------------------------------ */
 /*  Fixtures                                                           */
@@ -957,6 +958,13 @@ describe("AI insights request", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("tints the AI insights button in the primary colour", async () => {
+    state.aiEnabled = true;
+    renderPortfolio();
+    await within(document.body).findByText("SAP ERP");
+    expect(aiButton()).toHaveStyle({ color: createTheme().palette.primary.main });
   });
 
   it("names the default axis and colouring, shows progress, and clears a stale error", async () => {

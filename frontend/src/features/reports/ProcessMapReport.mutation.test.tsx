@@ -54,6 +54,8 @@ import {
   makeSection,
 } from "@/test/fixtures/metamodel";
 import ProcessMapReport from "./ProcessMapReport";
+import { HEAT_EMPTY, heatShade, type HeatScale } from "./heatScale";
+import { alpha, createTheme } from "@mui/material/styles";
 
 const BP_TYPE = makeCardType({
   key: "BusinessProcess",
@@ -194,7 +196,12 @@ const relatedChip = (name: string) =>
 const titles = () =>
   Array.from(chart().querySelectorAll(".MuiTypography-subtitle2")).map((e) => e.textContent);
 
-const GRAY = "rgba(128, 128, 128, 0.1)";
+const GRAY = HEAT_EMPTY;
+/** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
+const shade = (scale: HeatScale, ratio: number): string => {
+  const n = parseInt(heatShade(scale, ratio).slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
 const WHITE_TEXT = "rgb(255, 255, 255)";
 const DARK_TEXT = "rgb(51, 51, 51)";
 
@@ -239,8 +246,8 @@ describe("ProcessMapReport heat colours", () => {
     renderMap();
     await within(document.body).findByText("Order to Cash");
     // Invoicing (5) sets the maximum; Order to Cash (3) sits at 60% of it.
-    expect(heat("Invoicing")).toBe("rgb(42, 125, 45)");
-    expect(heat("Order to Cash")).toBe("rgb(127, 177, 129)");
+    expect(heat("Invoicing")).toBe(shade("better", 1));
+    expect(heat("Order to Cash")).toBe(shade("better", 3 / 5));
     expect(heat("Hire to Retire")).toBe(GRAY);
     expect(heat("Collections")).toBe(GRAY);
     // Only a process well above the middle of the scale switches to white text.
@@ -254,8 +261,8 @@ describe("ProcessMapReport heat colours", () => {
     renderMap();
     await within(document.body).findByText("Order to Cash");
     // Order to Cash rolls up three apps (the maximum), Invoicing two.
-    expect(heat("Order to Cash")).toBe("rgb(25, 90, 202)");
-    expect(heat("Invoicing")).toBe("rgb(92, 141, 219)");
+    expect(heat("Order to Cash")).toBe(shade("amount", 1));
+    expect(heat("Invoicing")).toBe(shade("amount", 2 / 3));
     expect(heat("Collections")).toBe(GRAY);
     expect(titleColor("Order to Cash")).toBe(WHITE_TEXT);
     expect(titleColor("Invoicing")).toBe(WHITE_TEXT);
@@ -263,10 +270,10 @@ describe("ProcessMapReport heat colours", () => {
     const swatches = within(legend()).getByText("Low").nextElementSibling as HTMLElement;
     expect(Array.from(swatches.children).map((s) => getComputedStyle(s).backgroundColor)).toEqual([
       GRAY,
-      "rgb(177, 204, 240)",
-      "rgb(126, 166, 228)",
-      "rgb(76, 128, 215)",
-      "rgb(25, 90, 202)",
+      shade("amount", 0.25),
+      shade("amount", 0.5),
+      shade("amount", 0.75),
+      shade("amount", 1),
     ]);
   });
 
@@ -274,13 +281,13 @@ describe("ProcessMapReport heat colours", () => {
     saved.config = { metric: "automation", displayLevel: 3 };
     renderMap();
     await within(document.body).findByText("Send Invoice");
-    expect(heat("Send Invoice")).toBe("rgb(42, 125, 45)");
-    expect(heat("Order to Cash")).toBe("rgb(113, 168, 115)");
+    expect(heat("Send Invoice")).toBe(shade("better", 1));
+    expect(heat("Order to Cash")).toBe(shade("better", 2 / 3));
     expect(heat("Invoicing")).toBe(GRAY);
 
     await pick(/heatmap metric/i, /Risk Level/);
-    expect(heat("Send Invoice")).toBe("rgb(200, 48, 40)");
-    expect(heat("Order to Cash")).toBe("rgb(214, 100, 94)");
+    expect(heat("Send Invoice")).toBe(shade("risk", 1));
+    expect(heat("Order to Cash")).toBe(shade("risk", 3 / 4));
     expect(heat("Invoicing")).toBe(GRAY);
   });
 
@@ -863,5 +870,53 @@ describe("ProcessMapReport drawer contents", () => {
     const panel = await openDrawerFor("Bare Process");
     expect(within(panel).getByRole("heading", { name: "Bare Process" })).toBeInTheDocument();
     expect(within(panel).getByText("Process")).toBeInTheDocument();
+  });
+});
+
+describe("ProcessMapReport chip colours", () => {
+  const WASH_60 = alpha(createTheme().palette.common.white, 0.6);
+  const WASH_70 = alpha(createTheme().palette.common.white, 0.7);
+  const chipsOf = (name: string) =>
+    Array.from(header(name).querySelectorAll(".MuiChip-root")) as HTMLElement[];
+
+  it("washes a leaf's subtype and metric chips white over the heat colour", async () => {
+    renderMap();
+    await within(document.body).findByText("Collections");
+    const [subtype, metric] = chipsOf("Collections");
+    expect(subtype).toHaveStyle({ backgroundColor: WASH_60, fontSize: "0.65rem" });
+    expect(metric).toHaveStyle({ backgroundColor: WASH_70, fontSize: "0.7rem" });
+  });
+
+  it("washes a branch's subtype and app-count chips white over the heat colour", async () => {
+    renderMap();
+    await within(document.body).findByText("Order to Cash");
+    const [subtype, apps] = chipsOf("Order to Cash");
+    expect(subtype).toHaveStyle({ backgroundColor: WASH_60, fontSize: "0.65rem" });
+    expect(apps).toHaveStyle({ backgroundColor: WASH_70, fontSize: "0.7rem" });
+  });
+
+  it("writes the drawer's maturity and risk chips in white", async () => {
+    renderMap();
+    await within(document.body).findByText("Order to Cash");
+    const panel = await openDrawerFor("Order to Cash");
+    for (const label of ["3 - Defined", "Risk: High"]) {
+      const chip = within(panel).getByText(label).closest(".MuiChip-root");
+      expect(chip).toHaveStyle({ color: createTheme().palette.common.white });
+    }
+  });
+
+  it("leaves a process greyed out when every value is a credit, not a cost", async () => {
+    reply([
+      proc({
+        id: "refund",
+        name: "Refunds",
+        apps: [{ id: "credit", name: "Credit App", attributes: { costTotalAnnual: -100 } }],
+      }),
+    ]);
+    saved.config = { metric: "total_cost" };
+    renderMap();
+    await within(document.body).findByText("Refunds");
+    // The maximum is 0 and the value is below it: no ratio to shade by.
+    expect(heat("Refunds")).toBe(GRAY);
   });
 });

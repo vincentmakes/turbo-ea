@@ -72,6 +72,7 @@ import {
   type StoreCatalog,
   type StoreItem,
 } from "./extensions/types";
+import { brand } from "@/theme/tokens";
 
 const POLL_MS = 2000;
 const CLAIM_POLL_MS = 5000;
@@ -1116,7 +1117,7 @@ export default function ExtensionsAdmin() {
       <Box
         sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}
       >
-        <MaterialSymbol icon="extension" size={28} color="#1976d2" />
+        <MaterialSymbol icon="extension" size={28} color={brand.primary} />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("extensions.title", "Extensions")}
         </Typography>

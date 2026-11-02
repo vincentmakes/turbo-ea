@@ -378,7 +378,7 @@ export default function PublicDiagramPage() {
         height: "100vh",
         width: "100vw",
         overflow: "hidden",
-        bgcolor: "#fff",
+        bgcolor: "common.white",
         position: "relative",
       }}
     >

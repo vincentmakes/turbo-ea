@@ -16,6 +16,7 @@ vi.mock("@/features/reference-catalogue/CataloguePage", () => ({
 }));
 
 import CapabilityCataloguePage from "./CapabilityCataloguePage";
+import { brand } from "@/theme/tokens";
 
 describe("CapabilityCataloguePage", () => {
   it("browses business capabilities", () => {
@@ -29,7 +30,7 @@ describe("CapabilityCataloguePage", () => {
       i18nNamespace: "catalogue",
       inventoryCardType: "BusinessCapability",
       accentColor: "#003399",
-      selectionColor: "#D63384",
+      selectionColor: brand.primary,
       heroIcon: "account_tree",
     });
   });

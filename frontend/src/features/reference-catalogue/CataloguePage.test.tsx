@@ -18,6 +18,7 @@ import { makeUser, renderWithProviders } from "@/test/render";
 
 import CataloguePage from "./CataloguePage";
 import type { CatalogueKindConfig, CatalogueNode, CataloguePayload, ImportResult, UpdateStatus } from "./types";
+import { brand } from "@/theme/tokens";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useAuth", () => import("@/test/hooks").then((m) => m.useAuthModule()));
@@ -63,7 +64,7 @@ const CONFIG: CatalogueKindConfig = {
   i18nNamespace: "catalogue",
   inventoryCardType: "BusinessCapability",
   accentColor: "#003399",
-  selectionColor: "#D63384",
+  selectionColor: brand.primary,
   levelLabel: (level) => (level === 0 ? "Macro" : `L${level}`),
   heroIcon: "account_tree",
 };

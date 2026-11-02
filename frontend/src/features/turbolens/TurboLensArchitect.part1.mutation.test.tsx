@@ -47,6 +47,8 @@ import type {
 } from "@/types";
 import type { GEdge, GNode } from "@/features/reports/layeredDependencyLayout";
 import type CommitInitiativeDialogType from "./CommitInitiativeDialog";
+import { createTheme } from "@mui/material/styles";
+import { CARD_TYPE_COLORS } from "@/theme/tokens";
 import TurboLensArchitect from "./TurboLensArchitect";
 
 // ---------------------------------------------------------------------------
@@ -458,6 +460,22 @@ describe("TurboLensArchitect — option impact preview", () => {
 // ---------------------------------------------------------------------------
 // Phase 3b — gap tiles
 // ---------------------------------------------------------------------------
+
+describe("TurboLensArchitect — colours", () => {
+  it("heads an option's new integrations as a block in the Application colour", () => {
+    startAt(3, { archOptions: IMPACT_OPTIONS });
+    expect(within(optionCard("Only integrations")).getByText("New Integrations")).toHaveStyle({
+      display: "block",
+      color: CARD_TYPE_COLORS.Application,
+    });
+  });
+
+  it("numbers each question in white", () => {
+    startAt(1, { archQuestions: [{ question: "Uptime target?", answer: "" }] });
+    const paper = screen.getByText("Uptime target?").closest(".MuiPaper-root") as HTMLElement;
+    expect(within(paper).getByText("1")).toHaveStyle({ color: createTheme().palette.common.white });
+  });
+});
 
 describe("TurboLensArchitect — gap tiles", () => {
   const gapsWithEdges: GapAnalysisResult = {

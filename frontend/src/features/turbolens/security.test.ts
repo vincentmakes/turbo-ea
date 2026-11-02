@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { alpha } from "@mui/material/styles";
+import { SEVERITY_COLORS } from "@/theme/tokens";
 import { complianceStatusColor } from "./utils";
 import {
   deriveLevelFromPair,
@@ -23,8 +25,8 @@ describe("riskLevelBackground", () => {
   });
 
   it("returns green for the low × low cell", () => {
-    expect(riskLevelBackground(deriveLevelFromPair("low", "low"))).toMatch(
-      /rgba\(56/,
+    expect(riskLevelBackground(deriveLevelFromPair("low", "low"))).toBe(
+      alpha(SEVERITY_COLORS.low, 0.18),
     );
   });
 

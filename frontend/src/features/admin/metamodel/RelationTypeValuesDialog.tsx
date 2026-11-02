@@ -24,6 +24,7 @@ import type { FieldDef, FieldOption, RelationType, TranslationMap } from "@/type
 import { DEFAULT_OPTION_COLOR } from "./constants";
 import { cleanTranslationMap } from "./helpers";
 import { relationValueErrorMessage } from "./relationValueErrors";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 /** A dimension or a value, as far as its name goes. */
 type LabelledRow = { label?: string; translations?: TranslationMap };
@@ -262,7 +263,7 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               {f.built_in ? (
                 <>
-                  <MaterialSymbol icon="lock" size={16} color="#888" />
+                  <MaterialSymbol icon="lock" size={16} color={STATUS_COLORS.neutral} />
                   <Typography variant="subtitle2">{fieldLabel(f)}</Typography>
                   <Chip size="small" label={t("metamodel.builtIn")} color="info" sx={{ height: 20 }} />
                 </>
@@ -313,13 +314,13 @@ export default function RelationTypeValuesDialog({ open, relationType, onClose, 
                     opacity: opt.hidden ? 0.5 : 1,
                   }}
                 >
-                  <MaterialSymbol icon="lock" size={16} color="#aaa" />
+                  <MaterialSymbol icon="lock" size={16} color={STATUS_COLORS.neutral} />
                   <Box
                     sx={{
                       width: 14,
                       height: 14,
                       borderRadius: "50%",
-                      bgcolor: opt.color || "#bbb",
+                      bgcolor: opt.color || "grey.400",
                       flexShrink: 0,
                     }}
                   />

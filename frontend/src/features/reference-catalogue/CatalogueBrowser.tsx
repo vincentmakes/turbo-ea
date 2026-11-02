@@ -10,7 +10,7 @@ import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import IndustryFilter from "./IndustryFilter";
 import type { CatalogueNode, CatalogueKindConfig } from "./types";
@@ -66,7 +66,8 @@ export default function CatalogueBrowser({
   config,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
-  const isDark = useTheme().palette.mode === "dark";
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const ns = config.i18nNamespace;
   const compareIds = useMemo(() => makeCompareIds(), []);
 
@@ -371,9 +372,7 @@ export default function CatalogueBrowser({
           pb: 1.5,
           boxShadow: {
             xs: "none",
-            sm: isDark
-              ? "0 2px 6px -1px rgba(0,0,0,0.45)"
-              : "0 2px 6px -1px rgba(0,0,0,0.08)",
+            sm: `0 2px 6px -1px ${alpha(theme.palette.common.black, isDark ? 0.45 : 0.08)}`,
           },
         }}
       >

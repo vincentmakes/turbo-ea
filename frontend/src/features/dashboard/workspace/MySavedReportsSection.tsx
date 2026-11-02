@@ -8,7 +8,12 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { SavedReport } from "@/types";
-import { REPORT_TYPE_STYLE } from "@/features/reports/savedReportStyles";
+import {
+  EXTENSION_REPORT_COLOR,
+  REPORT_TYPE_STYLE,
+  UNKNOWN_REPORT_COLOR,
+} from "@/features/reports/savedReportStyles";
+import { brand } from "@/theme/tokens";
 import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
 
@@ -46,7 +51,7 @@ export default function MySavedReportsSection() {
   return (
     <SectionPaper
       icon="bookmarks"
-      iconColor="#1976d2"
+      iconColor={brand.primary}
       title={t("common:dashboard.workspace.mySavedReports")}
       action={<ViewAllLink to="/reports/saved" label={t("common:actions.viewAll")} />}
     >
@@ -67,7 +72,7 @@ export default function MySavedReportsSection() {
             const extRoute = style ? null : extRouteFor(report.report_type);
             const path = style?.path ?? extRoute?.path;
             const openable = Boolean(path);
-            const fallbackColor = style?.color ?? (extRoute ? "#607d8b" : "#9e9e9e");
+            const fallbackColor = style?.color ?? (extRoute ? EXTENSION_REPORT_COLOR : UNKNOWN_REPORT_COLOR);
             const fallbackIcon = style?.icon ?? extRoute?.icon ?? "analytics";
             return (
               <Tooltip key={report.id} title={report.name} placement="top" arrow>

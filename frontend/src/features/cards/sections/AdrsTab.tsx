@@ -37,6 +37,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import type { ArchitectureDecision } from "@/types";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
+import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 /** Status chip colour per ADR workflow state. */
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
@@ -257,8 +258,8 @@ export default function AdrsTab({
                           height: 20,
                           fontSize: "0.7rem",
                           maxWidth: 140,
-                          bgcolor: typeColorMap[lc.type] || "#9e9e9e",
-                          color: "#fff",
+                          bgcolor: typeColorMap[lc.type] || STATUS_HUES.neutral,
+                          color: "common.white",
                           "& .MuiChip-label": { px: 0.75 },
                         }}
                       />

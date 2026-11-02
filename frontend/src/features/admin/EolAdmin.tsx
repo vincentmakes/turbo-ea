@@ -24,6 +24,8 @@ import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { toLocalDate } from "@/lib/dates";
 import type { MassEolResult, EolCycle } from "@/types";
+import { useTheme, alpha } from "@mui/material/styles";
+import { brand, CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 type LinkSelection = Record<
   string,
@@ -35,20 +37,20 @@ function computeEolStatus(cycle: EolCycle, t: (key: string) => string): {
   color: string;
 } {
   const eol = cycle.eol;
-  if (eol === true) return { label: t("eol.status.endOfLife"), color: "#f44336" };
+  if (eol === true) return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error };
   const eolDate = typeof eol === "string" ? toLocalDate(eol) : null;
   if (eolDate) {
     // Parsed locally: `new Date("2026-08-27")` is UTC midnight, which is
     // 17:00 the previous day in the Americas, so the chip flipped to
     // "End of life" a day early there (#1016).
     const now = new Date();
-    if (eolDate <= now) return { label: t("eol.status.endOfLife"), color: "#f44336" };
+    if (eolDate <= now) return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error };
     const sixMonths = new Date();
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     if (eolDate <= sixMonths)
-      return { label: t("eol.status.approachingEol"), color: "#ff9800" };
+      return { label: t("eol.status.approachingEol"), color: STATUS_COLORS.warning };
   }
-  return { label: t("eol.status.supported"), color: "#4caf50" };
+  return { label: t("eol.status.supported"), color: STATUS_COLORS.success };
 }
 
 // ── Cycle Picker Dialog ──────────────────────────────────────────
@@ -158,7 +160,7 @@ function CyclePickerDialog({
                           label={status.label}
                           sx={{
                             bgcolor: status.color,
-                            color: "#fff",
+                            color: "common.white",
                             height: 20,
                             fontSize: "0.65rem",
                           }}
@@ -197,6 +199,7 @@ function CyclePickerDialog({
 // ── Main Admin Page ──────────────────────────────────────────────
 
 export default function EolAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [typeKey, setTypeKey] = useState<"Application" | "ITComponent">("ITComponent");
   const [results, setResults] = useState<MassEolResult[]>([]);
@@ -314,13 +317,13 @@ export default function EolAdmin() {
               >
                 <MenuItem value="ITComponent">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon="memory" size={18} color="#d29270" />
+                    <MaterialSymbol icon="memory" size={18} color={CARD_TYPE_COLORS.ITComponent} />
                     {t("eol.itComponent")}
                   </Box>
                 </MenuItem>
                 <MenuItem value="Application">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon="apps" size={18} color="#0f7eb5" />
+                    <MaterialSymbol icon="apps" size={18} color={CARD_TYPE_COLORS.Application} />
                     {t("eol.application")}
                   </Box>
                 </MenuItem>
@@ -461,7 +464,7 @@ export default function EolAdmin() {
                   </Typography>
                   {isAlreadyLinked && (
                     <Box sx={{ mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
-                      <MaterialSymbol icon="check_circle" size={14} color="#4caf50" />
+                      <MaterialSymbol icon="check_circle" size={14} color={STATUS_COLORS.success} />
                       <Typography variant="caption" color="success.main">
                         {r.current_eol_product} {r.current_eol_cycle}
                       </Typography>
@@ -478,11 +481,11 @@ export default function EolAdmin() {
                         alignItems: "center",
                         gap: 1,
                         p: 1,
-                        bgcolor: "rgba(76, 175, 80, 0.06)",
+                        bgcolor: alpha(STATUS_COLORS.success, 0.06),
                         borderRadius: 1,
                       }}
                     >
-                      <MaterialSymbol icon="check_circle" size={18} color="#4caf50" />
+                      <MaterialSymbol icon="check_circle" size={18} color={STATUS_COLORS.success} />
                       <Typography variant="body2">{t("eol.willLinkTo")} <strong>{selection.product}</strong> {selection.cycle}</Typography>
                       <IconButton
                         size="small"
@@ -546,7 +549,7 @@ export default function EolAdmin() {
       {!loading && results.length === 0 && (
         <Card>
           <CardContent sx={{ textAlign: "center", py: 6 }}>
-            <MaterialSymbol icon="search" size={48} color="#ccc" />
+            <MaterialSymbol icon="search" size={48} color={theme.palette.action.disabled} />
             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
               {t("eol.emptyState", { type: typeKey === "ITComponent" ? t("eol.emptyStateType.ITComponent") : t("eol.emptyStateType.Application") })}
             </Typography>
@@ -572,7 +575,7 @@ export default function EolAdmin() {
             borderColor: "divider",
           }}
         >
-          <MaterialSymbol icon="link" size={20} color="#1976d2" />
+          <MaterialSymbol icon="link" size={20} color={brand.primary} />
           <Typography variant="body2" fontWeight={600}>
             {t("eol.selectedCount", { count: selectedCount })}
           </Typography>

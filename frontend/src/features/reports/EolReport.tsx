@@ -18,6 +18,13 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  EOL_COVERAGE_COLORS,
+  LIFECYCLE_PHASE_COLORS,
+  RAG_COLORS,
+  STATUS_COLORS,
+  brand,
+} from "@/theme/tokens";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
@@ -86,14 +93,14 @@ interface EolReportData {
 /* ------------------------------------------------------------------ */
 
 const STATUS_CONFIG = {
-  eol: { labelKey: "eol.statusEol", color: "#d32f2f", icon: "cancel" },
-  approaching: { labelKey: "eol.statusApproaching", color: "#ed6c02", icon: "warning" },
-  supported: { labelKey: "eol.statusSupported", color: "#2e7d32", icon: "check_circle" },
-  unknown: { labelKey: "eol.statusUnknown", color: "#9e9e9e", icon: "help" },
+  eol: { labelKey: "eol.statusEol", color: LIFECYCLE_PHASE_COLORS.endOfLife, icon: "cancel" },
+  approaching: { labelKey: "eol.statusApproaching", color: LIFECYCLE_PHASE_COLORS.phaseOut, icon: "warning" },
+  supported: { labelKey: "eol.statusSupported", color: LIFECYCLE_PHASE_COLORS.active, icon: "check_circle" },
+  unknown: { labelKey: "eol.statusUnknown", color: STATUS_COLORS.neutral, icon: "help" },
   // Not a classification but the absence of one: nobody has recorded an end
   // of life for this card. Grey rather than red — it is a gap in the
   // inventory, not a risk anyone has established.
-  missing: { labelKey: "eol.statusMissing", color: "#9e9e9e", icon: "event_busy" },
+  missing: { labelKey: "eol.statusMissing", color: STATUS_COLORS.neutral, icon: "event_busy" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -222,6 +229,7 @@ function KpiCard({
 /* ------------------------------------------------------------------ */
 
 export default function EolReport() {
+  const theme = useTheme();
   const { t } = useTranslation(["reports", "common"]);
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
@@ -412,7 +420,7 @@ export default function EolReport() {
     <ReportShell
       title={t("eol.title")}
       icon="update"
-      iconColor="#d32f2f"
+      iconColor={STATUS_CONFIG.eol.color}
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -464,13 +472,13 @@ export default function EolReport() {
             <MenuItem value="">{t("eol.allSources")}</MenuItem>
             <MenuItem value="api">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="cloud" size={16} color="#1976d2" />
+                <MaterialSymbol icon="cloud" size={16} color={EOL_COVERAGE_COLORS.linked} />
                 endoflife.date
               </Box>
             </MenuItem>
             <MenuItem value="manual">
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="edit_note" size={16} color="#3949ab" />
+                <MaterialSymbol icon="edit_note" size={16} color={EOL_COVERAGE_COLORS.manual} />
                 {t("eol.manual")}
               </Box>
             </MenuItem>
@@ -484,7 +492,7 @@ export default function EolReport() {
               label: t(s.labelKey),
               color: s.color,
             })),
-            { label: t("eol.manuallyMaintained"), color: "#3949ab" },
+            { label: t("eol.manuallyMaintained"), color: EOL_COVERAGE_COLORS.manual },
           ]}
         />
       }
@@ -495,31 +503,31 @@ export default function EolReport() {
           icon="cancel"
           label={t("eol.statusEol")}
           value={data.summary.eol}
-          color="#d32f2f"
+          color={STATUS_CONFIG.eol.color}
         />
         <KpiCard
           icon="warning"
           label={t("eol.statusApproaching")}
           value={data.summary.approaching}
-          color="#ed6c02"
+          color={STATUS_CONFIG.approaching.color}
         />
         <KpiCard
           icon="check_circle"
           label={t("eol.statusSupported")}
           value={data.summary.supported}
-          color="#2e7d32"
+          color={STATUS_CONFIG.supported.color}
         />
         <KpiCard
           icon="apps"
           label={t("eol.impactedApps")}
           value={data.summary.impacted_apps}
-          color="#1565c0"
+          color={brand.primary}
         />
         <KpiCard
           icon="edit_note"
           label={t("eol.manuallyMaintained")}
           value={data.summary.manual}
-          color="#3949ab"
+          color={EOL_COVERAGE_COLORS.manual}
         />
         {/* The backlog: components nobody has recorded an end of life for.
             Clicking filters the table to exactly them — the question this
@@ -528,7 +536,7 @@ export default function EolReport() {
           icon="event_busy"
           label={t("eol.noEolDataKpi")}
           value={data.summary.missing}
-          color="#9e9e9e"
+          color={STATUS_CONFIG.missing.color}
           onClick={() =>
             setFilterStatus((current) => (current === "missing" ? "" : "missing"))
           }
@@ -537,7 +545,7 @@ export default function EolReport() {
 
       {filteredItems.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
-          <MaterialSymbol icon="info" size={40} color="#bdbdbd" />
+          <MaterialSymbol icon="info" size={40} color={theme.palette.action.disabled} />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {data.items.length === 0
               ? t("eol.noEolData")
@@ -662,7 +670,7 @@ export default function EolReport() {
                           <MaterialSymbol
                             icon={isExpanded ? "expand_less" : "expand_more"}
                             size={14}
-                            color="#999"
+                            color={STATUS_COLORS.neutral}
                           />
                         )}
                       </Box>
@@ -686,8 +694,8 @@ export default function EolReport() {
                               setSidePanelCardId(app.id);
                             }}
                           >
-                            <MaterialSymbol icon="subdirectory_arrow_right" size={14} color="#90caf9" />
-                            <MaterialSymbol icon="apps" size={14} color="#1565c0" />
+                            <MaterialSymbol icon="subdirectory_arrow_right" size={14} color={brand.primaryLight} />
+                            <MaterialSymbol icon="apps" size={14} color={brand.primary} />
                             <Typography variant="caption" noWrap sx={{ flex: 1, minWidth: 0 }}>
                               {app.name}
                             </Typography>
@@ -839,7 +847,7 @@ export default function EolReport() {
                                       cy="12"
                                       r="10"
                                       fill={cfg.color}
-                                      stroke="#fff"
+                                      stroke={theme.palette.common.white}
                                       strokeWidth="2"
                                     />
                                     {isManual ? (
@@ -848,7 +856,7 @@ export default function EolReport() {
                                         x="12"
                                         y="16"
                                         textAnchor="middle"
-                                        fill="#fff"
+                                        fill={theme.palette.common.white}
                                         fontSize="12"
                                         fontWeight="bold"
                                       >
@@ -861,7 +869,7 @@ export default function EolReport() {
                                         width="14"
                                         height="4"
                                         rx="1"
-                                        fill="#fff"
+                                        fill={theme.palette.common.white}
                                       />
                                     )}
                                   </svg>
@@ -904,7 +912,7 @@ export default function EolReport() {
                       top: 0,
                       bottom: 0,
                       width: 0,
-                      borderLeft: "2px dashed #d32f2f",
+                      borderLeft: `2px dashed ${RAG_COLORS.red}`,
                       pointerEvents: "none",
                       zIndex: 3,
                     }}
@@ -916,8 +924,8 @@ export default function EolReport() {
                       left: `${todayPct}%`,
                       top: -2,
                       transform: "translateX(-50%)",
-                      bgcolor: "#d32f2f",
-                      color: "#fff",
+                      bgcolor: RAG_COLORS.red,
+                      color: "common.white",
                       px: 0.5,
                       borderRadius: 0.5,
                       fontSize: "0.6rem",
@@ -1081,11 +1089,11 @@ export default function EolReport() {
                         label={t(cfg.labelKey)}
                         sx={{
                           bgcolor: cfg.color,
-                          color: "#fff",
+                          color: "common.white",
                           fontWeight: 600,
                           height: 22,
                           fontSize: "0.7rem",
-                          "& .MuiChip-icon": { color: "#fff" },
+                          "& .MuiChip-icon": { color: "common.white" },
                         }}
                       />
                     </TableCell>
@@ -1098,7 +1106,12 @@ export default function EolReport() {
                           <Typography
                             variant="caption"
                             sx={{
-                              color: eolDays <= 0 ? "#d32f2f" : eolDays <= 182 ? "#ed6c02" : "#2e7d32",
+                              color:
+                                eolDays <= 0
+                                  ? STATUS_CONFIG.eol.color
+                                  : eolDays <= 182
+                                    ? STATUS_CONFIG.approaching.color
+                                    : STATUS_CONFIG.supported.color,
                               fontWeight: 600,
                             }}
                           >

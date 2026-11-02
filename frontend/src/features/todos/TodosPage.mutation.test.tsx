@@ -404,6 +404,9 @@ describe("TodosPage — chips and view controls", () => {
     expect(chipOf("All · 2")).not.toHaveClass("MuiChip-colorPrimary");
     // Selected: white text on the origin colour (the fill itself is masked by focus here).
     expect(chipOf("Risk · 1")).toHaveStyle({ color: "#fff" });
+    // …and its icon follows: white on the fill, the origin colour when not selected.
+    const white = createTheme().palette.common.white;
+    expect(chipOf("Risk · 1").querySelector(".MuiChip-icon")).toHaveStyle({ color: white });
 
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(await screen.findByText("No tasks match the current filters.")).toBeInTheDocument();

@@ -16,6 +16,7 @@ import { useResolveLabel } from "@/hooks/useResolveLabel";
 import type { Card as CardType, TranslationMap, User } from "@/types";
 import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
+import { brand } from "@/theme/tokens";
 
 interface RoleDescriptor {
   key: string;
@@ -181,7 +182,7 @@ export default function MyRolesSection() {
   return (
     <SectionPaper
       icon="groups"
-      iconColor="#1976d2"
+      iconColor={brand.primary}
       title={title}
       action={headerAction}
     >

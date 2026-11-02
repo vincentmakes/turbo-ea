@@ -16,6 +16,7 @@ import { mockApi } from "@/test/apiMock";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import i18n from "@/i18n";
 import type { TurboLensVendorHierarchy } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 import TurboLensResolution from "./TurboLensResolution";
 
 const LIST_URL = "/turbolens/vendors/hierarchy";
@@ -190,6 +191,17 @@ describe("TurboLensResolution", () => {
     // Hana Cloud (product) and Widget Module (module) only.
     expect(kpiValue("Products / Modules")).toBe("2");
     expect(kpiValue("Canonical Vendors")).toBe("2");
+  });
+
+  it.each([
+    [80, STATUS_COLORS.success],
+    [50, STATUS_COLORS.warning],
+    [49, STATUS_COLORS.error],
+  ])("edges the average-confidence tile at %i percent in %s", async (confidence, color) => {
+    mockApi.on("get", LIST_URL, [entry({ id: "v", canonical_name: "V", confidence })]);
+    renderTab();
+    const tile = (await screen.findByText("Avg Confidence")).closest(".MuiPaper-root");
+    expect(tile).toHaveStyle({ borderLeft: `4px solid ${color}` });
   });
 
   it("reports 0% confidence when no entry carries one", async () => {

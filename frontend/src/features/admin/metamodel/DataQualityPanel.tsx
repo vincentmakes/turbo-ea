@@ -9,6 +9,7 @@ import { api } from "@/api/client";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
 import type { CardType, DataQualityConfig } from "@/types";
 import ImportanceSlider, { useTierColor, weightToTier } from "./ImportanceSlider";
+import { alpha } from "@mui/material/styles";
 
 interface Factor {
   id: string;
@@ -156,7 +157,7 @@ export default function DataQualityPanel({ cardType, onRefresh }: DataQualityPan
                     sx={{
                       width: `${pct}%`,
                       bgcolor: tierColor(weightToTier(f.weight)),
-                      borderRight: "1px solid rgba(255,255,255,0.5)",
+                      borderRight: (theme) => `1px solid ${alpha(theme.palette.common.white, 0.5)}`,
                     }}
                   />
                 </Tooltip>

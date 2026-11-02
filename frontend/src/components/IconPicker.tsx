@@ -8,6 +8,8 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "./MaterialSymbol";
 import { ICON_CATEGORIES } from "./iconCatalog";
+import { useTheme } from "@mui/material/styles";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 
 interface IconPickerProps {
@@ -18,6 +20,7 @@ interface IconPickerProps {
 }
 
 export default function IconPicker({ value, onChange, color, disabled }: IconPickerProps) {
+  const theme = useTheme();
   const { t } = useTranslation("common");
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [search, setSearch] = useState("");
@@ -80,7 +83,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
             if (!disabled) setAnchorEl(e.currentTarget);
           }}
         >
-          <MaterialSymbol icon={value} size={22} color={color ? "#fff" : undefined} />
+          <MaterialSymbol icon={value} size={22} color={color ? theme.palette.common.white : undefined} />
         </Box>
       </Tooltip>
 
@@ -110,7 +113,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={18} color="#999" />
+                    <MaterialSymbol icon="search" size={18} color={STATUS_COLORS.neutral} />
                   </InputAdornment>
                 ),
               },
@@ -127,7 +130,7 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
         <Box sx={{ flex: 1, overflow: "auto", px: 1.5, pb: 1.5 }}>
           {filteredCategories.length === 0 ? (
             <Box sx={{ py: 4, textAlign: "center" }}>
-              <MaterialSymbol icon="search_off" size={32} color="#ccc" />
+              <MaterialSymbol icon="search_off" size={32} color={theme.palette.action.disabled} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {t("iconPicker.noMatch", { search })}
               </Typography>

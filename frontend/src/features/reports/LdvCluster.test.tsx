@@ -10,6 +10,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { CardType } from "@/types";
 import type { LdvClusterData } from "./ldvAggregate";
+import { alpha, createTheme } from "@mui/material/styles";
 
 vi.mock("@xyflow/react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@xyflow/react")>()),
@@ -104,5 +105,13 @@ describe("LdvCluster", () => {
       count: 12,
     });
     expect(screen.getByText("Application & Data (12)")).toBeInTheDocument();
+  });
+
+  it("washes the box faintly darker than the paper it sits on", () => {
+    const { container } = renderCluster();
+    const wash = alpha(createTheme().palette.common.black, 0.02);
+    expect(container.firstElementChild).toHaveStyle({
+      backgroundImage: `linear-gradient(${wash}, ${wash})`,
+    });
   });
 });

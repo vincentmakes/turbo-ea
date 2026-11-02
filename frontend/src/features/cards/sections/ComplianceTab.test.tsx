@@ -104,6 +104,8 @@ import { hookState } from "@/test/hooks";
 import { renderWithProviders, wrapWithProviders } from "@/test/render";
 import { setViewportWidth } from "@/test/matchMedia";
 import type { ComplianceRegulation, TurboLensComplianceFinding } from "@/types";
+import { createTheme } from "@mui/material/styles";
+import { COMPLIANCE_LIFECYCLE_COLORS } from "@/theme/tokens";
 import ComplianceTab from "./ComplianceTab";
 
 const CARD_ID = "ca4d0000-0000-4000-8000-000000000011";
@@ -364,6 +366,19 @@ describe("ComplianceTab", () => {
 
     await user.click(screen.getByText("Register the AI system"));
     expect(screen.getByTestId("drawer-requirement")).toHaveTextContent("Register the AI system");
+  });
+
+  it.each([
+    ["a phone", 400],
+    ["a wide screen", 1280],
+  ])("fills the lifecycle chip with its lifecycle colour and white text on %s", async (_label, width) => {
+    setViewportWidth(width);
+    renderTab();
+    await screen.findByText("Keep a record of processing");
+    expect(screen.getByText("New").closest(".MuiChip-root")).toHaveStyle({
+      backgroundColor: COMPLIANCE_LIFECYCLE_COLORS.new,
+      color: createTheme().palette.common.white,
+    });
   });
 
   it("names an unknown regulation by its key on a phone too", async () => {

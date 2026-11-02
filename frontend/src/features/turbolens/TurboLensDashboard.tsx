@@ -20,6 +20,14 @@ import MetricCard from "@/features/reports/MetricCard";
 import { api } from "@/api/client";
 import { formatCost } from "./utils";
 import type { TurboLensOverview } from "@/types";
+import {
+  CARD_TYPE_COLORS,
+  CATEGORICAL_COLORS,
+  MEDAL_COLORS,
+  STATUS_COLORS,
+  VENDOR_ACCENT,
+} from "@/theme/tokens";
+import { alpha } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Quality tier helpers
@@ -29,20 +37,17 @@ const TIERS = [
   {
     key: "bronze",
     icon: "shield",
-    color: "#CD7F32",
-    bg: "#CD7F3218",
+    color: MEDAL_COLORS.bronze.fill,
   },
   {
     key: "silver",
     icon: "shield",
-    color: "#808080",
-    bg: "#80808018",
+    color: MEDAL_COLORS.silver.text,
   },
   {
     key: "gold",
     icon: "workspace_premium",
-    color: "#FFD700",
-    bg: "#FFD70018",
+    color: MEDAL_COLORS.gold.fill,
   },
 ] as const;
 
@@ -110,38 +115,38 @@ export default function TurboLensDashboard() {
           icon="inventory_2"
           label={t("turbolens_kpi_total_cards")}
           value={data.total_cards}
-          color="#0f7eb5"
+          color={CARD_TYPE_COLORS.Application}
         />
         <MetricCard
           icon="speed"
           label={t("turbolens_kpi_avg_quality")}
           value={`${Math.round(data.quality_avg)}%`}
-          color="#4caf50"
+          color={STATUS_COLORS.success}
         />
         <MetricCard
           icon="storefront"
           label={t("turbolens_kpi_vendors")}
           value={data.vendor_count}
-          color="#ffa31f"
+          color={VENDOR_ACCENT.fill}
         />
         <MetricCard
           icon="content_copy"
           label={t("turbolens_kpi_duplicates")}
           value={data.duplicate_clusters}
-          color="#f44336"
+          color={STATUS_COLORS.error}
         />
         <MetricCard
           icon="auto_fix_high"
           label={t("turbolens_kpi_modernizations")}
           value={data.modernization_count}
-          color="#8e24aa"
+          color={CATEGORICAL_COLORS[1]}
         />
         {data.total_cost > 0 && (
           <MetricCard
             icon="payments"
             label={t("turbolens_kpi_annual_cost")}
             value={formatCost(data.total_cost)}
-            color="#00897b"
+            color={CATEGORICAL_COLORS[2]}
           />
         )}
       </Stack>
@@ -177,7 +182,8 @@ export default function TurboLensDashboard() {
                   sx={{
                     height: 8,
                     borderRadius: 4,
-                    bgcolor: tier.bg,
+                    // 0x18 / 0xff — the eight-digit hex tint the tier track has always had.
+                    bgcolor: alpha(tier.color, 0.094),
                     "& .MuiLinearProgress-bar": { bgcolor: tier.color, borderRadius: 4 },
                   }}
                 />

@@ -27,6 +27,7 @@ import { api, ApiError } from "@/api/client";
 import type { TurboLensDuplicateCluster, TurboLensModernization } from "@/types";
 import { statusColor, priorityColor, effortColor } from "./utils";
 import { useAnalysisPolling } from "./useAnalysisPolling";
+import { CARD_TYPE_COLORS, CATEGORICAL_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Target Type Options
@@ -260,25 +261,25 @@ export default function TurboLensDuplicates() {
           icon="content_copy"
           label={t("turbolens_kpi_duplicate_clusters")}
           value={`${clusters.length}${pendingCount > 0 ? ` (${pendingCount} ${t("turbolens_pending")})` : ""}`}
-          color="#f44336"
+          color={STATUS_COLORS.error}
         />
         <MetricCard
           icon="check_circle"
           label={t("turbolens_kpi_confirmed")}
           value={confirmedCount}
-          color="#4caf50"
+          color={STATUS_COLORS.success}
         />
         <MetricCard
           icon="apps"
           label={t("turbolens_kpi_affected_cards")}
           value={affectedCards}
-          color="#0f7eb5"
+          color={CARD_TYPE_COLORS.Application}
         />
         <MetricCard
           icon="auto_fix_high"
           label={t("turbolens_kpi_mod_opportunities")}
           value={`${modernizations.length}${criticalMods > 0 ? ` (${criticalMods} ${t("turbolens_critical_high")})` : ""}`}
-          color="#8e24aa"
+          color={CATEGORICAL_COLORS[1]}
         />
       </Stack>
 
@@ -343,7 +344,7 @@ export default function TurboLensDuplicates() {
             <Alert severity="error">{clustersLoadError || t("common:errors.generic")}</Alert>
           ) : filteredClusters.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: "center" }}>
-              <MaterialSymbol icon="content_copy" size={48} color="#9e9e9e" />
+              <MaterialSymbol icon="content_copy" size={48} color={STATUS_COLORS.neutral} />
               <Typography color="text.secondary" sx={{ mt: 1 }}>
                 {t("turbolens_no_duplicates")}
               </Typography>
@@ -547,7 +548,7 @@ export default function TurboLensDuplicates() {
             <Alert severity="error">{modernLoadError || t("common:errors.generic")}</Alert>
           ) : filteredMods.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: "center" }}>
-              <MaterialSymbol icon="auto_fix_high" size={48} color="#9e9e9e" />
+              <MaterialSymbol icon="auto_fix_high" size={48} color={STATUS_COLORS.neutral} />
               <Typography color="text.secondary" sx={{ mt: 1 }}>
                 {t("turbolens_no_modernizations")}
               </Typography>

@@ -18,9 +18,11 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { STATUS_CHIP_COLORS, brand } from "@/theme/tokens";
 import type {
   CataloguePrinciple,
   PrinciplesCataloguePayload,
@@ -48,6 +50,7 @@ function BulletList({ text }: { text: string }) {
 
 export default function PrinciplesCataloguePage() {
   const { t } = useTranslation(["admin", "common"]);
+  const theme = useTheme();
   const navigate = useNavigate();
 
   const [payload, setPayload] = useState<PrinciplesCataloguePayload | null>(null);
@@ -153,7 +156,7 @@ export default function PrinciplesCataloguePage() {
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto", px: { xs: 2, md: 3 }, py: 3 }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-        <MaterialSymbol icon="bookmark_star" size={28} color="#1976d2" />
+        <MaterialSymbol icon="bookmark_star" size={28} color={brand.primary} />
         <Box sx={{ flex: 1 }}>
           <Typography variant="h5" fontWeight={600}>
             {t("principlesCatalogue.pageTitle")}
@@ -200,7 +203,7 @@ export default function PrinciplesCataloguePage() {
             sx={{ flex: 1, minWidth: 240 }}
             InputProps={{
               startAdornment: (
-                <MaterialSymbol icon="search" size={18} color="#999" style={{ marginRight: 6 }} />
+                <MaterialSymbol icon="search" size={18} color={theme.palette.text.disabled} style={{ marginRight: 6 }} />
               ),
             }}
           />
@@ -255,7 +258,7 @@ export default function PrinciplesCataloguePage() {
             borderRadius: 2,
           }}
         >
-          <MaterialSymbol icon="search_off" size={40} color="#bbb" />
+          <MaterialSymbol icon="search_off" size={40} color={theme.palette.action.disabled} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("principlesCatalogue.noMatches")}
           </Typography>
@@ -281,7 +284,7 @@ export default function PrinciplesCataloguePage() {
                   {isImported ? (
                     <Tooltip title={t("principlesCatalogue.alreadyExists")}>
                       <Box sx={{ p: "9px" }}>
-                        <MaterialSymbol icon="check_circle" size={22} color="#2e7d32" />
+                        <MaterialSymbol icon="check_circle" size={22} color={STATUS_CHIP_COLORS.success.text} />
                       </Box>
                     </Tooltip>
                   ) : (

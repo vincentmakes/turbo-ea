@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { alpha, createTheme } from "@mui/material/styles";
 import DataQualityPanel from "./DataQualityPanel";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
@@ -40,6 +41,14 @@ describe("DataQualityPanel built-in factors", () => {
 
     // One slider per built-in (5) + one per field (1) = 6.
     expect(screen.getAllByRole("slider")).toHaveLength(6);
+  });
+
+  it("separates the share bar's segments with a translucent white hairline", () => {
+    render(<DataQualityPanel cardType={makeType()} onRefresh={() => {}} />);
+    const segments = screen.getAllByLabelText(/ — \d+%$/);
+    expect(segments.length).toBeGreaterThan(1);
+    const hairline = `1px solid ${alpha(createTheme().palette.common.white, 0.5)}`;
+    for (const segment of segments) expect(segment).toHaveStyle({ borderRight: hairline });
   });
 
   it("shows the configured weight for lifecycle (and defaults the rest to Normal)", () => {

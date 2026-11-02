@@ -45,6 +45,8 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { renderWithProviders, userWith, wrapWithProviders } from "@/test/render";
+import { createTheme } from "@mui/material/styles";
+import { HEATMAP_RAMP } from "@/theme/tokens";
 import HierarchySection from "./HierarchySection";
 import type { Card, FieldOption, HierarchyData, User } from "@/types";
 
@@ -330,6 +332,15 @@ describe("HierarchySection — section", () => {
       // The first match is the breadcrumb; "Tier 6" is also the parent chip.
       expect(chip(screen.getAllByText(`Tier ${i + 1}`)[0])).toHaveStyle({ color });
     });
+  });
+
+  it("fills the level chip and the card's own path chip with the level colour, in white", async () => {
+    serve(LABELLED);
+    renderSection();
+    const chip = (el: HTMLElement) => el.closest(".MuiChip-root") as HTMLElement;
+    const filled = { backgroundColor: HEATMAP_RAMP.light[4], color: createTheme().palette.common.white };
+    expect(chip(await screen.findByText("Level 2"))).toHaveStyle({ ...filled, fontSize: "0.7rem" });
+    expect(chip(screen.getByText("Billing"))).toHaveStyle(filled);
   });
 
   it("collapses when its header is clicked", async () => {

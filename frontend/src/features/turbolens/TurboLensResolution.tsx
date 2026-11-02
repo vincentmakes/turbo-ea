@@ -26,6 +26,7 @@ import { api, ApiError } from "@/api/client";
 import type { TurboLensVendorHierarchy } from "@/types";
 import { formatCost, vendorTypeColor } from "./utils";
 import { useAnalysisPolling } from "./useAnalysisPolling";
+import { CARD_TYPE_COLORS, CATEGORICAL_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Sort options
@@ -182,7 +183,7 @@ export default function TurboLensResolution() {
         <Alert severity="error">{loadError || t("common:errors.generic")}</Alert>
       ) : hierarchy.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: "center" }}>
-          <MaterialSymbol icon="account_tree" size={48} color="#9e9e9e" />
+          <MaterialSymbol icon="account_tree" size={48} color={STATUS_COLORS.neutral} />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {t("turbolens_no_hierarchy")}
           </Typography>
@@ -198,25 +199,25 @@ export default function TurboLensResolution() {
               icon="storefront"
               label={t("turbolens_kpi_canonical_vendors")}
               value={canonicalVendors}
-              color="#0f7eb5"
+              color={CARD_TYPE_COLORS.Application}
             />
             <MetricCard
               icon="inventory_2"
               label={t("turbolens_kpi_products_modules")}
               value={productsModules}
-              color="#8e24aa"
+              color={CATEGORICAL_COLORS[1]}
             />
             <MetricCard
               icon="link"
               label={t("turbolens_kpi_linked_cards")}
               value={totalLinked}
-              color="#4caf50"
+              color={STATUS_COLORS.success}
             />
             <MetricCard
               icon="speed"
               label={t("turbolens_kpi_avg_confidence")}
               value={`${Math.round(avgConfidence)}%`}
-              color={avgConfidence >= 80 ? "#4caf50" : avgConfidence >= 50 ? "#ffa31f" : "#f44336"}
+              color={avgConfidence >= 80 ? STATUS_COLORS.success : avgConfidence >= 50 ? STATUS_COLORS.warning : STATUS_COLORS.error}
             />
           </Stack>
 

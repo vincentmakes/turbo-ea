@@ -18,6 +18,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { Card, DiagramSummary } from "@/types";
+import { brand } from "@/theme/tokens";
 
 interface Props {
   open: boolean;
@@ -150,7 +151,7 @@ export default function LinkDiagramsDialog({
                         />
                       </ListItemIcon>
                       <ListItemIcon sx={{ minWidth: 32 }}>
-                        <MaterialSymbol icon="schema" size={18} color="#1976d2" />
+                        <MaterialSymbol icon="schema" size={18} color={brand.primary} />
                       </ListItemIcon>
                       <ListItemText
                         primary={d.name}

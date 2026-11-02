@@ -34,6 +34,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
+import { brand, RAG_COLORS } from "@/theme/tokens";
 
 /** True when a value is a list of related-card references ({id, name}). */
 function isRelationRefList(val: unknown): val is { id: string; name: string }[] {
@@ -248,7 +249,7 @@ export default function SurveyResults() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
+        <MaterialSymbol icon="assignment" size={28} color={brand.primary} />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {survey.name}
         </Typography>
@@ -424,7 +425,7 @@ export default function SurveyResults() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {r.applied && <MaterialSymbol icon="check_circle" size={18} color="#2e7d32" />}
+                    {r.applied && <MaterialSymbol icon="check_circle" size={18} color={RAG_COLORS.green} />}
                   </TableCell>
                   <TableCell>
                     {r.responded_at && (

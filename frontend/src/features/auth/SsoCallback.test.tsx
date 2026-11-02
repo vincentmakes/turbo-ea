@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import SsoCallback from "./SsoCallback";
 import { SSO_RETURN_PATH_KEY } from "@/lib/returnPath";
 import type { User } from "@/types";
+import { brand, NAVBAR_DEFAULTS } from "@/theme/tokens";
 
 const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
 
@@ -45,6 +46,9 @@ describe("SsoCallback — normal login", () => {
     onSsoCallback.mockResolvedValueOnce(undefined);
 
     renderCallback("?code=auth-code-123&state=expected-state");
+    // The brand spinner and the navbar-coloured caption while the code is exchanged.
+    expect(screen.getByRole("progressbar")).toHaveStyle({ color: brand.primaryLight });
+    expect(screen.getByText("Completing sign-in...")).toHaveStyle({ color: NAVBAR_DEFAULTS.fg });
 
     await waitFor(() => {
       expect(onSsoCallback).toHaveBeenCalledWith(

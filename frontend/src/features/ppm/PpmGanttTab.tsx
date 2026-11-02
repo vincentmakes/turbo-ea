@@ -14,7 +14,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTranslation } from "react-i18next";
 import {
@@ -42,7 +42,7 @@ import Snackbar from "@mui/material/Snackbar";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
-import { brand } from "@/theme/tokens";
+import { CHART_SEQUENTIAL, brand } from "@/theme/tokens";
 import PpmWbsDialog from "./PpmWbsDialog";
 import PpmTaskDialog from "./PpmTaskDialog";
 import GanttAddItemMenu from "./GanttAddItemMenu";
@@ -1538,7 +1538,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             borderBottom: `1px solid ${theme.palette.divider}`,
           },
           /* White text on bar labels only (SVG), not on table list */
-          "& [class*='barLabel_']": { fill: "#fff !important" },
+          "& [class*='barLabel_']": { fill: `${theme.palette.common.white} !important` },
           "& [class*='barLabelOutside_']": {
             fill: `${theme.palette.text.primary} !important`,
           },
@@ -1581,7 +1581,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           "& [class*='ganttTaskContent_'] > div": {
             backgroundImage: `
               linear-gradient(to right, ${theme.palette.divider} 1px, transparent 2px),
-              linear-gradient(to bottom, transparent 40px, ${theme.palette.mode === "dark" ? theme.palette.background.paper : "#f5f5f5"} 40px)
+              linear-gradient(to bottom, transparent 40px, ${theme.palette.mode === "dark" ? theme.palette.background.paper : theme.palette.grey[100]} 40px)
             !important`,
           },
           "& [class*='ganttTaskContent_'] > div > svg": {
@@ -1654,7 +1654,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             },
             /* Scrollbar */
             "& [class*='ganttTableWrapper']::-webkit-scrollbar-thumb": {
-              background: "rgba(255, 255, 255, 0.2) !important",
+              background: `${alpha(theme.palette.common.white, 0.2)} !important`,
             },
           }),
         }}
@@ -1682,21 +1682,21 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             evenTaskBackgroundColor:
               theme.palette.mode === "dark"
                 ? theme.palette.background.paper
-                : "#f5f5f5",
+                : theme.palette.grey[100],
             oddTaskBackgroundColor: theme.palette.background.default,
             /* Opaque selection colors — semi-transparent values cause white
                flash on some rows because the library's internal MUI theme is
                always "light", which paints white focus/hover overlays. */
             selectedTaskBackgroundColor:
-              theme.palette.mode === "dark" ? "#1a3a5c" : "#e3f2fd",
+              CHART_SEQUENTIAL[theme.palette.mode][0],
             todayColor:
               theme.palette.mode === "dark"
-                ? "rgba(25, 118, 210, 0.15)"
-                : "rgba(25, 118, 210, 0.08)",
+                ? alpha(theme.palette.primary.main, 0.15)
+                : alpha(theme.palette.primary.main, 0.08),
             holidayBackgroundColor:
               theme.palette.mode === "dark"
-                ? "rgba(255, 255, 255, 0.03)"
-                : "rgba(0, 0, 0, 0.04)",
+                ? alpha(theme.palette.common.white, 0.03)
+                : alpha(theme.palette.common.black, 0.04),
             /* Text — barLabelColor defaults to #000, applied as inline
                style on the wrapper div and inherited by table text. */
             barLabelColor: theme.palette.text.primary,
@@ -1735,8 +1735,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               onClick={handleArrowClick}
               color={
                 theme.palette.mode === "dark"
-                  ? "rgba(255, 255, 255, 0.38)"
-                  : "rgba(0, 0, 0, 0.32)"
+                  ? alpha(theme.palette.common.white, 0.38)
+                  : alpha(theme.palette.common.black, 0.32)
               }
               dangerColor={theme.palette.error.main}
             />,

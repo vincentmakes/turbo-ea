@@ -11,6 +11,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 
 import i18n from "@/i18n";
 import type { WebPortal } from "@/types";
+import { alpha, createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -280,6 +281,20 @@ describe("WebPortalsAdmin — the portal list", () => {
     // The open-portal icon buttons are anchors to the public page.
     const opens = screen.getAllByRole("link", { name: t("webPortals.openPortal") });
     expect(opens[0]).toHaveAttribute("href", "/portal/app-catalog");
+  });
+
+  it("colours each portal by its card type, dark grey for a type the metamodel lacks", async () => {
+    const ghost: WebPortal = { ...PPM_PORTAL, id: "p9", name: "Ghost portal", slug: "ghost", card_type: "Ghost" };
+    await renderList([CARDS_PORTAL, ghost]);
+    const grey = createTheme().palette.grey[700];
+    expect(screen.getByText("Application").closest(".MuiChip-root")).toHaveStyle({ color: APPLICATION_TYPE.color });
+    expect(screen.getByText("Ghost").closest(".MuiChip-root")).toHaveStyle({
+      color: grey,
+      backgroundColor: alpha(grey, 0.094),
+    });
+    const globe = screen.getAllByText("language");
+    expect(globe[0]).toHaveStyle({ color: APPLICATION_TYPE.color });
+    expect(globe[1]).toHaveStyle({ color: grey });
   });
 
   it("flips publication and reloads the list", async () => {

@@ -30,6 +30,7 @@ import { STATUS_COLORS } from "@/theme/tokens";
 import { toLocalDate } from "@/lib/dates";
 import { isEolType } from "@/lib/eol";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 const isEolEligible = isEolType;
 
@@ -355,7 +356,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
                         label={status.label}
                         sx={{
                           bgcolor: status.color,
-                          color: "#fff",
+                          color: "common.white",
                           height: 20,
                           fontSize: "0.65rem",
                         }}
@@ -407,7 +408,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
         <MaterialSymbol icon={status.icon} size={20} color={status.color} />
         <Chip
           label={status.label}
-          sx={{ bgcolor: status.color, color: "#fff", fontWeight: 600 }}
+          sx={{ bgcolor: status.color, color: "common.white", fontWeight: 600 }}
           size="small"
         />
       </Box>
@@ -524,6 +525,7 @@ interface EolLinkSectionProps {
 }
 
 export default function EolLinkSection({ card, onSave, initialExpanded }: EolLinkSectionProps) {
+  const theme = useTheme();
   const { t } = useTranslation(["cards", "common"]);
   const eolProduct = (card.attributes?.eol_product as string) || "";
   const eolCycle = (card.attributes?.eol_cycle as string) || "";
@@ -627,7 +629,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
         expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
-          <MaterialSymbol icon="update" size={20} color="#666" />
+          <MaterialSymbol icon="update" size={20} color={theme.palette.text.secondary} />
           <Typography fontWeight={600}>{t("eol.title")}</Typography>
           {isLinked && cycleData && (
             <Chip
@@ -638,7 +640,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                 height: 20,
                 fontSize: "0.7rem",
                 bgcolor: computeEolStatus(cycleData, t).color,
-                color: "#fff",
+                color: "common.white",
               }}
             />
           )}

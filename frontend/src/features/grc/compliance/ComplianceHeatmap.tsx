@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { alpha } from "@mui/material/styles";
+import { RAG_COLORS, SEVERITY_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import type { ComplianceStatus, RegulationKey } from "@/types";
 
 export interface HeatmapRegulation {
@@ -30,17 +32,19 @@ const STATUSES: ComplianceStatus[] = [
   "not_applicable",
 ];
 
-function cellColor(status: ComplianceStatus, count: number) {
-  if (count === 0) return "rgba(117, 117, 117, 0.08)";
+/** A cell's wash: its status hue, deeper the more findings it holds; `neutral` (the
+ *  theme's grey 600) for an empty cell and for not applicable. */
+function cellColor(status: ComplianceStatus, count: number, neutral: string) {
+  if (count === 0) return alpha(neutral, 0.08);
   const intensity = Math.min(0.15 + count * 0.05, 0.45);
   const base: Record<ComplianceStatus, string> = {
-    compliant: "46, 125, 50",
-    partial: "251, 192, 45",
-    non_compliant: "211, 47, 47",
-    review_needed: "2, 136, 209",
-    not_applicable: "117, 117, 117",
+    compliant: RAG_COLORS.green,
+    partial: SEVERITY_COLORS.medium,
+    non_compliant: RAG_COLORS.red,
+    review_needed: STATUS_COLORS.info,
+    not_applicable: neutral,
   };
-  return `rgba(${base[status]}, ${intensity})`;
+  return alpha(base[status], intensity);
 }
 
 function scoreColor(score: number) {
@@ -103,7 +107,7 @@ export default function ComplianceHeatmap({
                     textAlign: "center",
                     borderRadius: 1,
                     cursor: onSelect ? "pointer" : "default",
-                    bgcolor: cellColor(s, count),
+                    bgcolor: (theme) => cellColor(s, count, theme.palette.grey[600]),
                     outline: isActive ? "2px solid" : "none",
                     outlineColor: "primary.main",
                     transition: "outline 120ms",

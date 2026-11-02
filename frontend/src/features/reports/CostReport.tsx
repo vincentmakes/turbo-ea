@@ -36,6 +36,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTypeLabel, useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FIELD_TYPE_COLORS, RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
@@ -652,9 +653,9 @@ export default function CostReport() {
 
   if (!canViewCostsGlobally) {
     return (
-      <ReportShell title={t("cost.title")} icon="payments" iconColor="#2e7d32" view={view} onViewChange={setView}>
+      <ReportShell title={t("cost.title")} icon="payments" iconColor={RAG_COLORS.green} view={view} onViewChange={setView}>
         <Box sx={{ py: 8, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-          <MaterialSymbol icon="lock" size={32} color="#9e9e9e" />
+          <MaterialSymbol icon="lock" size={32} color={STATUS_COLORS.neutral} />
           <Typography variant="h6" color="text.secondary">
             {t("cost.permissionDeniedTitle")}
           </Typography>
@@ -684,7 +685,7 @@ export default function CostReport() {
     <ReportShell
       title={t("cost.title")}
       icon="payments"
-      iconColor="#2e7d32"
+      iconColor={RAG_COLORS.green}
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -792,7 +793,7 @@ export default function CostReport() {
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label={t("cost.totalCost")} value={fmt.format(total)} icon="payments" iconColor="#2e7d32" color="#2e7d32" />
+        <MetricCard label={t("cost.totalCost")} value={fmt.format(total)} icon="payments" iconColor={RAG_COLORS.green} color={RAG_COLORS.green} />
         <MetricCard label={t("cost.items")} value={items.length} icon="inventory_2" />
         <MetricCard label={t("cost.average")} value={fmt.format(avgCost)} icon="calculate" />
         {topDriver && (
@@ -801,7 +802,7 @@ export default function CostReport() {
             value={topDriver.name}
             subtitle={`${fmt.format(topDriver.cost)} (${total > 0 ? ((topDriver.cost / total) * 100).toFixed(0) : 0}%)`}
             icon="trending_up"
-            iconColor="#e65100"
+            iconColor={FIELD_TYPE_COLORS.cost}
           />
         )}
       </Box>

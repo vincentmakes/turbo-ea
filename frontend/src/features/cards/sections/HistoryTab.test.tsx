@@ -8,11 +8,14 @@ vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
   ApiError: class ApiError extends Error {},
 }));
+const meta = vi.hoisted(() => ({
+  type: { key: "Application", color: "#0f7eb5", fields_schema: [] } as Record<string, unknown>,
+}));
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     types: [{ key: "Application", color: "#0f7eb5", fields_schema: [] }],
     relationTypes: [],
-    getType: () => ({ key: "Application", color: "#0f7eb5", fields_schema: [] }),
+    getType: () => meta.type,
     invalidateCache: vi.fn(),
   }),
 }));
@@ -24,6 +27,7 @@ vi.mock("@/hooks/useDateFormat", () => ({
 }));
 
 import { api } from "@/api/client";
+import { STATUS_COLORS } from "@/theme/tokens";
 import { AuthProvider } from "@/hooks/AuthContext";
 import i18n from "@/i18n";
 import type { User } from "@/types";
@@ -193,6 +197,7 @@ describe("HistoryTab — file attachment replace and edit (#1166)", () => {
 describe("HistoryTab — event detail lines", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    meta.type = { key: "Application", color: "#0f7eb5", fields_schema: [] };
   });
 
   function event(id: string, event_type: string, data: Record<string, unknown>) {
@@ -222,6 +227,29 @@ describe("HistoryTab — event detail lines", () => {
       "href",
       "/cards/peer-9",
     );
+  });
+
+  it.each([
+    ["outgoing", "arrow_forward"],
+    ["incoming", "arrow_back"],
+  ])("points the relation arrow for an %s relation", async (direction, arrow) => {
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "relation.created", { directional_label: "uses", direction, peer_name: "X" }),
+    ]);
+    renderTab();
+    expect(await screen.findByText(arrow)).toHaveStyle({ color: STATUS_COLORS.neutral });
+  });
+
+  it.each([
+    ["its own icon and colour", { icon: "apps", color: "#123456" }, "apps", "#123456"],
+    ["the fallback icon and colour", {}, "category", STATUS_COLORS.neutral],
+  ])("draws the peer's type with %s", async (_label, typeFields, icon, color) => {
+    meta.type = { key: "Application", fields_schema: [], ...typeFields };
+    vi.mocked(api.get).mockResolvedValue([
+      event("e1", "relation.created", { directional_label: "uses", peer_name: "X", peer_type: "T" }),
+    ]);
+    renderTab();
+    expect(await screen.findByText(icon)).toHaveStyle({ color });
   });
 
   it("links a risk by its reference and shows its level", async () => {

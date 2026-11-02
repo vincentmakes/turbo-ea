@@ -23,6 +23,7 @@ import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
 import { ADR_COLUMN_DEFS, ADR_LOCKED_COLUMN_KEYS } from "./adrGridPrefs";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -78,9 +79,9 @@ interface Props {
 }
 
 const STATUS_OPTIONS = [
-  { key: "draft", tKey: "status.draft" as const, color: "#9e9e9e" },
-  { key: "in_review", tKey: "status.inReview" as const, color: "#ff9800" },
-  { key: "signed", tKey: "status.signed" as const, color: "#4caf50" },
+  { key: "draft", tKey: "status.draft" as const, color: STATUS_COLORS.neutral },
+  { key: "in_review", tKey: "status.inReview" as const, color: STATUS_COLORS.warning },
+  { key: "signed", tKey: "status.signed" as const, color: STATUS_COLORS.success },
 ];
 
 const MIN_WIDTH = 220;

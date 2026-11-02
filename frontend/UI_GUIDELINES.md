@@ -47,6 +47,8 @@ The four MUI status hues. Wired into `palette.success/warning/error/info`, so `<
 | `STATUS_COLORS.info` | `#2196f3` | Informational, neutral feedback |
 | `STATUS_COLORS.neutral` | `#9e9e9e` | Draft, not set, archived |
 
+`WARNING_STRONG_COLOR` (`#ed6c02`, orange 800 — MUI's *default* `warning.main`, not wired into the app theme) is the warning drawn as a small icon or dot: a pending signature, an invited user, an at-risk project, a medium TurboLens finding. `STATUS_COLORS.warning` is too faint on white for a glyph (2.2:1); `RAG_COLORS.amber` (`#f57c00`) is the status-report amber, a different role.
+
 ### 2.3 Approval Status
 
 | Token | Hex |
@@ -128,6 +130,32 @@ Section spacing is `mb: 2`. Inline element gap is `gap: 1` or `gap: 1.5`.
 | `typography.h3` | 1.25 rem / 600 | Subsection |
 
 Default page header is `<Typography variant="h5">`. Use `variant="h6"` for in-card headers, `variant="subtitle2"` for tile labels.
+
+### 2.10 Lifecycle Phases
+
+One palette wherever a phase is drawn as a colour (card Lifecycle section, LDV phase dot, Lifecycle report, inventory phase filter and group-by, web portal lifecycle bar). Darker Material steps so a phase told apart by colour alone clears 3:1 on both papers.
+
+| Token | Hex |
+| --- | --- |
+| `LIFECYCLE_PHASE_COLORS.plan` | `#9e9e9e` |
+| `LIFECYCLE_PHASE_COLORS.phaseIn` | `#1976d2` |
+| `LIFECYCLE_PHASE_COLORS.active` | `#2e7d32` |
+| `LIFECYCLE_PHASE_COLORS.phaseOut` | `#ed6c02` |
+| `LIFECYCLE_PHASE_COLORS.endOfLife` | `#d32f2f` |
+
+### 2.11 Feature Palettes
+
+| Token | Use |
+| --- | --- |
+| `STATUS_CHIP_COLORS.{success,warning,error}` | A soft status chip: `fill` (Material 50) + `text` (800–900) — portal approval and data-quality chips |
+| `ROLE_COLOR_PRESETS` | The twelve swatches the role editor offers; `[0]` is a new role's colour |
+| `FIELD_TYPE_COLORS` | The field-type chip in the card-layout editor; `other` for a type without its own hue |
+| `PPM_GANTT_COLORS.{status}` | PPM Gantt bars per task status: `bar`, `progress`, `barSelected`, `progressSelected` |
+| `HEATMAP_RAMP.{light,dark}` | Ten discrete steps for a grid of counts (Matrix report). Continuous heatmaps use `CHART_SEQUENTIAL` |
+| `SURFACE_SHADOW.sticky` / `.hover` | Hairline under a pinned bar; lift of a clickable card under the pointer |
+| `THIRD_PARTY_BRAND.{microsoft,google,okta}` | The SSO providers' logo colours on the login page's sign-in button. The colour is the brand (data, like `ROLE_COLOR_PRESETS`): never re-tuned, never reused for anything else |
+| `MEDAL_COLORS.{gold,silver,bronze}` | Ranking tiers in TurboLens (gap-analysis product ranks, Dashboard quality tiers): `fill` for the medal (border, bar, icon), `text` for its label. The colours are the convention, like a brand: never re-tuned, never reused for a status |
+| `DELIVERABLE_COLORS.{soaw,adr,diagram}` | The accent per EA Delivery deliverable kind (initiative deliverable sections, New-artefact menu, SoAW header). Role aliases: orange 900, the info blue, the Application type colour |
 
 ---
 

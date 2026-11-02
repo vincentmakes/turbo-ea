@@ -16,7 +16,13 @@ import {
   orderCategoryKeys,
   UNCATEGORIZED_GROUP_KEY,
 } from "@/lib/cardTypeOrder";
-import { DEFAULT_LAYER_COLOR, LAYER_COLORS } from "@/theme/tokens";
+import {
+  DEFAULT_LAYER_COLOR,
+  LAYER_COLORS,
+  PRINT_COLORS,
+  RAG_COLORS,
+  STATUS_COLORS,
+} from "@/theme/tokens";
 import type { CardType, CardTypeCategory } from "@/types";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
 import type { LdvRoute } from "./ldvEdgeRouting";
@@ -108,7 +114,7 @@ export const MAX_COLS = 3;
 /* ------------------------------------------------------------------ */
 
 export function typeColor(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.color || "#999";
+  return types.find((t) => t.key === key)?.color || STATUS_COLORS.neutral;
 }
 
 export function typeLabel(key: string, types: CardType[]): string {
@@ -274,9 +280,9 @@ export function readFlowDir(attrs: Record<string, unknown> | undefined): FlowDir
 /* ------------------------------------------------------------------ */
 
 /** An arrowhead's grey. */
-export const ARROW_COLOR = "#888";
+export const ARROW_COLOR = PRINT_COLORS.muted;
 /** An arrowhead's red on a relation severed at the viewed date. */
-export const SEVERED_ARROW_COLOR = "#d32f2f";
+export const SEVERED_ARROW_COLOR = RAG_COLORS.red;
 
 export interface LdvArrow {
   type: "arrowclosed";

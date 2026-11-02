@@ -47,7 +47,7 @@ import {
 } from "@/lib/dataQualityBands";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { api } from "@/api/client";
-import { EOL_COVERAGE_COLORS } from "@/theme";
+import { EOL_COVERAGE_COLORS, RAG_COLORS, STATUS_CHIP_COLORS, brand } from "@/theme";
 import { EOL_COVERAGE_BUCKETS, type EolCoverageBucket } from "@/lib/eol";
 
 interface TypeStat {
@@ -414,7 +414,7 @@ export default function DataQualityReport() {
     <ReportShell
       title={t("dataQuality.title")}
       icon="verified"
-      iconColor="#2e7d32"
+      iconColor={RAG_COLORS.green}
       paginateRowSelector="[data-export-row]"
       view={view}
       onViewChange={setView}
@@ -454,14 +454,14 @@ export default function DataQualityReport() {
           value={`${lifecyclePct}%`}
           subtitle={`${data.with_lifecycle} of ${data.total_items}`}
           icon="schedule"
-          iconColor="#1976d2"
+          iconColor={brand.primary}
         />
         <MetricCard
           label={t("dataQuality.orphaned")}
           value={data.orphaned}
           subtitle={t("dataQuality.percentOfTotal", { pct: orphanedPct })}
           icon="link_off"
-          iconColor={data.orphaned > 5 ? "#e65100" : theme.palette.text.secondary}
+          iconColor={data.orphaned > 5 ? STATUS_CHIP_COLORS.warning.text : theme.palette.text.secondary}
           onClick={() => setScope({ kind: "flag", flag: "orphaned" })}
         />
         <MetricCard
@@ -469,7 +469,7 @@ export default function DataQualityReport() {
           value={data.stale}
           subtitle={t("dataQuality.percentOfTotal", { pct: stalePct })}
           icon="update_disabled"
-          iconColor={data.stale > 5 ? "#e65100" : theme.palette.text.secondary}
+          iconColor={data.stale > 5 ? STATUS_CHIP_COLORS.warning.text : theme.palette.text.secondary}
           onClick={() => setScope({ kind: "flag", flag: "stale" })}
         />
       </Box>
@@ -616,7 +616,7 @@ export default function DataQualityReport() {
                         label={`${bt.avg_data_quality}%`}
                         sx={{
                           bgcolor: dataQualityColor(bt.avg_data_quality),
-                          color: "#fff",
+                          color: "common.white",
                           fontWeight: 700,
                           height: 22,
                           fontSize: 11,
@@ -683,7 +683,7 @@ export default function DataQualityReport() {
                         label={t(dataQualityLabelKey(item.data_quality))}
                         sx={{
                           bgcolor: dataQualityColor(item.data_quality),
-                          color: "#fff",
+                          color: "common.white",
                           height: 20,
                           fontSize: 10,
                           fontWeight: 600,

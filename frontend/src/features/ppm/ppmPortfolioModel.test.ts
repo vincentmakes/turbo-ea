@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { WARNING_STRONG_COLOR } from "@/theme/tokens";
 import type { PpmPortfolioItem, PpmPortfolioReport } from "@/types";
 import {
   ALL_LEVELS,
@@ -119,7 +120,7 @@ describe("projectManager", () => {
 describe("ragColor", () => {
   it("colours each known health value", () => {
     expect(ragColor("onTrack")).toBe("#2e7d32");
-    expect(ragColor("atRisk")).toBe("#ed6c02");
+    expect(ragColor("atRisk")).toBe(WARNING_STRONG_COLOR);
     expect(ragColor("offTrack")).toBe("#d32f2f");
   });
 
@@ -404,7 +405,7 @@ describe("barModel", () => {
   });
 
   it("takes the colour of an at-risk or off-track schedule", () => {
-    expect(barModel(dated("2026-01-03", "2026-01-05", "atRisk"), eightDays)?.color).toBe("#ed6c02");
+    expect(barModel(dated("2026-01-03", "2026-01-05", "atRisk"), eightDays)?.color).toBe(WARNING_STRONG_COLOR);
     expect(barModel(dated("2026-01-03", "2026-01-05", "offTrack"), eightDays)?.color).toBe(
       "#d32f2f",
     );

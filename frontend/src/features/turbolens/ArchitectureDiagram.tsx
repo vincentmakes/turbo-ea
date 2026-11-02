@@ -13,8 +13,16 @@ import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  CATEGORICAL_COLORS,
+  LAYER_COLORS as LAYER_COLORS_BY_NAME,
+  STATUS_COLORS,
+  VENDOR_ACCENT,
+  brand,
+  surface,
+} from "@/theme/tokens";
 import {
   ReactFlow,
   Background,
@@ -44,16 +52,14 @@ const GROUP_PAD_TOP = 44;
 const GROUP_PAD_BOTTOM = 28;
 
 const TYPE_COLORS: Record<string, string> = {
-  existing: "#4caf50",
-  new: "#1976d2",
-  recommended: "#ff9800",
+  existing: STATUS_COLORS.success,
+  new: brand.primary,
+  recommended: STATUS_COLORS.warning,
 };
 
-const TYPE_BG: Record<string, { light: string; dark: string }> = {
-  existing: { light: "rgba(76,175,80,0.08)", dark: "rgba(76,175,80,0.12)" },
-  new: { light: "rgba(25,118,210,0.08)", dark: "rgba(25,118,210,0.12)" },
-  recommended: { light: "rgba(255,152,0,0.08)", dark: "rgba(255,152,0,0.12)" },
-};
+const TYPE_BG: Record<string, { light: string; dark: string }> = Object.fromEntries(
+  Object.entries(TYPE_COLORS).map(([k, c]) => [k, { light: alpha(c, 0.08), dark: alpha(c, 0.12) }]),
+);
 
 // ---------------------------------------------------------------------------
 // Node data types
@@ -100,13 +106,13 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
   const { t } = useTranslation("admin");
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const typeColor = TYPE_COLORS[data.compType] || "#999";
+  const typeColor = TYPE_COLORS[data.compType] || STATUS_COLORS.neutral;
   // Use metamodel color for the border when available, but keep type-based badge
   const metaColor = data.cardTypeColor;
   const borderColor = metaColor || typeColor;
   const bg = metaColor
     ? `${metaColor}${isDark ? "1F" : "14"}`
-    : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
+    : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? alpha(theme.palette.common.black, 0.04);
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
   const handleStyle = { width: 6, height: 6, border: "none" };
   const badgeLabelKey = TYPE_LABEL_KEYS[data.compType];
@@ -126,7 +132,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
         justifyContent: "center",
         px: 1.2,
         position: "relative",
-        boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.08)",
+        boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, isDark ? 0.4 : 0.08)}`,
       }}
     >
       <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: borderColor }} />
@@ -136,7 +142,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       {/* Type badge (Reuse / New / Buy) */}
       <Box sx={{
         position: "absolute", top: -8, left: 8,
-        bgcolor: typeColor, color: "#fff",
+        bgcolor: typeColor, color: "common.white",
         fontSize: 9, fontWeight: 700, lineHeight: 1,
         px: 0.7, py: 0.25, borderRadius: "4px",
         textTransform: "uppercase", letterSpacing: 0.5,
@@ -203,7 +209,9 @@ const ArchGroup = memo(({ data }: NodeProps<Node<ArchGroupData>>) => {
         height: "100%",
         border: `1.5px dashed ${data.color}`,
         borderRadius: "12px",
-        bgcolor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)",
+        bgcolor: isDark
+          ? alpha(theme.palette.common.white, 0.02)
+          : alpha(theme.palette.common.black, 0.012),
         position: "relative",
       }}
     >
@@ -234,8 +242,8 @@ const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
   const edgeData = data as ArchEdgeData | undefined;
   const active = edgeData?.isHovered || edgeData?.connectedToHovered;
   const isDark = theme.palette.mode === "dark";
-  const baseColor = isDark ? "#aaa" : "#777";
-  const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
+  const baseColor = theme.palette.text.secondary;
+  const hoverColor = isDark ? brand.primaryLight : brand.primary;
   const color = active ? hoverColor : baseColor;
 
   const [path, lx, ly] = getSmoothStepPath({
@@ -246,7 +254,7 @@ const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
   });
 
   const label = edgeData?.label || "";
-  const labelBg = isDark ? "#121212" : "#ffffff";
+  const labelBg = isDark ? surface.dark.default : surface.light.paper;
 
   return (
     <>
@@ -272,9 +280,9 @@ const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targ
               pointerEvents: "none",
               fontSize: 10,
               fontFamily: "inherit",
-              color: active ? hoverColor : (isDark ? "#aaa" : "#666"),
+              color: active ? hoverColor : theme.palette.text.secondary,
               background: labelBg,
-              border: `1px solid ${isDark ? "#444" : "#ccc"}`,
+              border: `1px solid ${theme.palette.grey[isDark ? 800 : 400]}`,
               borderRadius: 4,
               padding: "2px 6px",
               whiteSpace: "nowrap",
@@ -361,7 +369,13 @@ function buildArchFlow(
   const NODESEP = 60;
   const LAYER_GAP = 48;
   const LAYER_COLORS = [
-    "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
+    brand.primary,
+    LAYER_COLORS_BY_NAME["Strategy & Transformation"],
+    CATEGORICAL_COLORS[1],
+    LAYER_COLORS_BY_NAME["Technical Architecture"],
+    LAYER_COLORS_BY_NAME["Application & Data"],
+    VENDOR_ACCENT.fill,
+    STATUS_COLORS.error,
   ];
 
   // Determine the widest row so all groups share the same width
@@ -483,7 +497,7 @@ function buildArchFlow(
     }
     if (swapped) [source, target] = [target, source];
 
-    const arrow = { type: "arrowclosed" as const, color: "#888" };
+    const arrow = { type: "arrowclosed" as const, color: STATUS_COLORS.neutral };
 
     const labelParts: string[] = [];
     if (re.intg.protocol) labelParts.push(re.intg.protocol);

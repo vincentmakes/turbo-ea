@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { useLocation } from "react-router";
+import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -349,6 +350,19 @@ describe("SurveyBuilder — fields, preview and send", () => {
 
     await user.click(screen.getByRole("button", { name: /Send Survey/ }));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/admin/surveys/survey-1/results"));
+  });
+
+  it("shows the preview's three counts in bold primary", async () => {
+    mockApi.on("post", "/surveys/survey-1/preview", { ...PREVIEW, total_cards: 7, total_matched: 7, total_users: 3 });
+    const { user } = renderBuilder();
+    await toFields(user);
+    await user.click(screen.getByText("Criticality"));
+    await user.click(nextButton());
+    await screen.findByText("CRM");
+    const primary = createTheme().palette.primary.main;
+    for (const count of ["7", "3", "1"]) {
+      expect(screen.getByText(count, { selector: "h4" })).toHaveStyle({ fontWeight: 700, color: primary });
+    }
   });
 
   it("surfaces a failed send and stays on the step", async () => {

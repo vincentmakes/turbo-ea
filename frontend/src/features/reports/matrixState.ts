@@ -10,6 +10,7 @@
  * `matrixDimensions`; the export sheets in `matrixExport`.
  */
 import type { CardType, RelationType } from "@/types";
+import { HEATMAP_RAMP } from "@/theme/tokens";
 import type { MatrixFilterState } from "./MatrixFilterBar";
 import {
   DIR_FORWARD,
@@ -47,31 +48,9 @@ export type Translate = (key: string, options?: Record<string, unknown>) => stri
 /*  Heat scale                                                         */
 /* ------------------------------------------------------------------ */
 
-export const HEAT_COLORS_LIGHT = [
-  "#e3f2fd",
-  "#bbdefb",
-  "#90caf9",
-  "#64b5f6",
-  "#42a5f5",
-  "#2196f3",
-  "#1e88e5",
-  "#1976d2",
-  "#1565c0",
-  "#0d47a1",
-];
-
-export const HEAT_COLORS_DARK = [
-  "#0d2137",
-  "#0d3054",
-  "#0a3d6e",
-  "#0d4a88",
-  "#10579e",
-  "#1565c0",
-  "#1976d2",
-  "#1e88e5",
-  "#2196f3",
-  "#42a5f5",
-];
+/** The ten-step heat scale per mode (`HEATMAP_RAMP`). */
+export const HEAT_COLORS_LIGHT: readonly string[] = HEATMAP_RAMP.light;
+export const HEAT_COLORS_DARK: readonly string[] = HEATMAP_RAMP.dark;
 
 /** A count's shade on the ten-step heat scale; an empty cell keeps the paper colour. */
 export function heatColor(value: number, max: number, paperBg: string, isDark: boolean): string {

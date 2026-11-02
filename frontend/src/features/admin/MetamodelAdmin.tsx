@@ -38,6 +38,8 @@ import { categoryErrorMessage } from "./metamodel/categoryErrors";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import { categoryDisplayName, defaultNewTypeCategory } from "@/lib/cardTypeOrder";
 import { successorRelationKeys } from "@/lib/successorRelation";
+import { useTheme } from "@mui/material/styles";
+import { brand, RAG_COLORS } from "@/theme/tokens";
 
 /* ================================================================== */
 /*  Main Component                                                     */
@@ -60,7 +62,7 @@ function emptyNewType(category: string | null): NewTypeDraft {
     key: "",
     label: "",
     icon: "category",
-    color: "#1976d2",
+    color: brand.primary,
     category,
     has_hierarchy: false,
     has_successors: false,
@@ -69,6 +71,7 @@ function emptyNewType(category: string | null): NewTypeDraft {
 }
 
 export default function MetamodelAdmin() {
+  const theme = useTheme();
   const { t, i18n } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
   const { categories } = useCardTypeCategories();
@@ -279,7 +282,7 @@ export default function MetamodelAdmin() {
                         <MaterialSymbol
                           icon={ct.icon}
                           size={22}
-                          color="#fff"
+                          color={theme.palette.common.white}
                         />
                       </Box>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -308,7 +311,7 @@ export default function MetamodelAdmin() {
                           <MaterialSymbol
                             icon={ct.is_hidden ? "visibility_off" : "visibility"}
                             size={18}
-                            color={ct.is_hidden ? "#f57c00" : "#bbb"}
+                            color={ct.is_hidden ? RAG_COLORS.amber : theme.palette.action.disabled}
                           />
                         </IconButton>
                       </Tooltip>

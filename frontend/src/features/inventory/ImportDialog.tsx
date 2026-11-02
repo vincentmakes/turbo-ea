@@ -21,6 +21,7 @@ import { api } from "@/api/client";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { Card, CardType, Relation, RelationType, TagGroup } from "@/types";
 
 import {
@@ -519,7 +520,7 @@ export default function ImportDialog({
               <MaterialSymbol
                 icon={result.failed > 0 ? "warning" : "check_circle"}
                 size={48}
-                color={result.failed > 0 ? "#ff9800" : "#4caf50"}
+                color={result.failed > 0 ? STATUS_COLORS.warning : STATUS_COLORS.success}
               />
               <Typography variant="h6" sx={{ mt: 1 }}>
                 {t("import.complete")}

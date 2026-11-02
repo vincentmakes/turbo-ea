@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createTheme } from "@mui/material/styles";
 
 import i18n from "@/i18n";
 import { SUPPORTED_LOCALES } from "@/i18n";
@@ -570,9 +571,10 @@ describe("SettingsAdmin — module toggles", () => {
     mockApi.on("patch", "/settings/sponsor-button-enabled", {});
     const card = section(t("settings.sponsorButton.title"));
     expect(screen.queryByTestId("sponsor-dialog")).toBeNull();
-    await user.click(
-      card.getByRole("button", { name: endsWith(i18n.t("nav:userMenu.sponsorship") as string) }),
-    );
+    const sponsor = card.getByRole("button", { name: endsWith(i18n.t("nav:userMenu.sponsorship") as string) });
+    // White on the sponsor gradient, never the text button's primary blue.
+    expect(sponsor).toHaveStyle({ color: createTheme().palette.common.white });
+    await user.click(sponsor);
     expect(screen.getByTestId("sponsor-dialog")).toBeInTheDocument();
 
     await user.click(card.getByRole("checkbox", { name: t("settings.sponsorButton.visible") }));

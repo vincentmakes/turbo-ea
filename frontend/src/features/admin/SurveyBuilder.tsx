@@ -72,6 +72,7 @@ import type {
   StalenessUnit,
   StalenessWindow,
 } from "@/types";
+import { STATUS_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 // A stable empty list, so the fallback never re-triggers effects keyed on `roles`.
 const EMPTY_ROLES: StakeholderRoleDef[] = [];
@@ -784,7 +785,7 @@ export default function SurveyBuilder() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
+        <MaterialSymbol icon="assignment" size={28} color={brand.primary} />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {id ? t("surveyBuilder.editSurvey") : t("surveyBuilder.newSurvey")}
         </Typography>
@@ -1061,7 +1062,7 @@ export default function SurveyBuilder() {
                     setAttributeFilters((prev) => prev.filter((_, i) => i !== idx))
                   }
                 >
-                  <MaterialSymbol icon="close" size={18} color="#999" />
+                  <MaterialSymbol icon="close" size={18} color={STATUS_COLORS.neutral} />
                 </IconButton>
               </Box>
             );
@@ -1346,7 +1347,7 @@ export default function SurveyBuilder() {
                                   {isInactiveExtType(f.type) && (
                                     <Tooltip title={t("surveyBuilder.fields.inactiveExtType")}>
                                       <Box component="span" sx={{ display: "inline-flex" }}>
-                                        <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
+                                        <MaterialSymbol icon="warning" size={16} color={WARNING_STRONG_COLOR} />
                                       </Box>
                                     </Tooltip>
                                   )}
@@ -1609,7 +1610,7 @@ export default function SurveyBuilder() {
             <>
               <Box sx={{ display: "flex", gap: 3, mb: 3 }}>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "primary.main" }}>
                     {preview.total_cards}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -1626,7 +1627,7 @@ export default function SurveyBuilder() {
                   )}
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "primary.main" }}>
                     {preview.total_users}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -1640,7 +1641,7 @@ export default function SurveyBuilder() {
                   </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "primary.main" }}>
                     {selectedFields.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">

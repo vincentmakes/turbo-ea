@@ -52,6 +52,8 @@ import type {
   TagGroup,
   SiblingNameConflictDetail,
 } from "@/types";
+import { useTheme, alpha } from "@mui/material/styles";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
@@ -86,6 +88,7 @@ export default function CreateCardDialog({
   initialSubtype,
   initialAttributes,
 }: Props) {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
   const { types, relationTypes } = useMetamodel();
@@ -901,7 +904,7 @@ export default function CreateCardDialog({
               borderColor: eolProduct ? "success.main" : "divider",
               borderRadius: 1,
               ...(eolProduct
-                ? { bgcolor: "rgba(76, 175, 80, 0.04)" }
+                ? { bgcolor: alpha(STATUS_COLORS.success, 0.04) }
                 : {}),
             }}
           >
@@ -917,7 +920,7 @@ export default function CreateCardDialog({
                 <MaterialSymbol
                   icon="check_circle"
                   size={18}
-                  color="#4caf50"
+                  color={STATUS_COLORS.success}
                 />
                 <Typography variant="body2">
                   {t("eol.linkedTo")}{" "}
@@ -955,7 +958,7 @@ export default function CreateCardDialog({
                     mb: eolSearching || (eolAutoSearchDone && eolSuggestions.length > 0) ? 1.5 : 0,
                   }}
                 >
-                  <MaterialSymbol icon="update" size={18} color="#666" />
+                  <MaterialSymbol icon="update" size={18} color={theme.palette.text.secondary} />
                   <Typography variant="body2" color="text.secondary">
                     {t("eol.tracking")}
                   </Typography>

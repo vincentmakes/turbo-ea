@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import { LdvNode } from "./LayeredDependencyView";
 import type { LdvNodeData } from "./layeredDependencyLayout";
 import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme";
+import { createTheme } from "@mui/material/styles";
 
 /**
  * The card's chrome, rendered for real.
@@ -113,9 +114,20 @@ describe("LdvNode connection-change icons", () => {
 });
 
 describe("LdvNode badges and focus ring", () => {
-  it("badges a proposed card as new", () => {
+  it("badges a proposed card as new, white on green", () => {
     renderNode({ proposed: true });
-    expect(screen.getByText("NEW")).toBeInTheDocument();
+    expect(screen.getByText("NEW")).toHaveStyle({
+      backgroundColor: STATUS_COLORS.success,
+      color: createTheme().palette.common.white,
+    });
+  });
+
+  it("badges a card retired by the viewed date, white on its change colour", () => {
+    renderNode({ changeState: "retired" });
+    expect(screen.getByText("RETIRED")).toHaveStyle({
+      backgroundColor: STATUS_COLORS.error,
+      color: createTheme().palette.common.white,
+    });
   });
 
   it("leaves an ordinary card unbadged", () => {

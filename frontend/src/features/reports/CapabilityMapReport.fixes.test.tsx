@@ -6,6 +6,7 @@
  * end-of-life note.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { heatShade, type HeatScale } from "./heatScale";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
@@ -58,6 +59,13 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import CapabilityMapReport from "./CapabilityMapReport";
+
+/** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
+const shade = (scale: HeatScale, ratio: number): string => {
+  const n = parseInt(heatShade(scale, ratio).slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -420,8 +428,8 @@ describe("CapabilityMapReport heat scale", () => {
     );
     renderMap();
     await loaded("Credit");
-    expect(bg(header("Spend"))).toBe("rgb(25, 90, 202)");
-    expect(bg(header("Credit"))).toBe("rgb(227, 242, 253)");
+    expect(bg(header("Spend"))).toBe(shade("amount", 1));
+    expect(bg(header("Credit"))).toBe(shade("amount", 0));
     expect(within(legend()).getByText("Max: $500")).toBeInTheDocument();
   });
 

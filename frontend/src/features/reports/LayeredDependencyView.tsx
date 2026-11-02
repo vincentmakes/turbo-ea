@@ -28,7 +28,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { toBlob, toSvg } from "html-to-image";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router";
@@ -489,7 +489,9 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
             borderRadius: "50%",
             bgcolor: dotColor,
             border: "1.5px solid",
-            borderColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.85)",
+            borderColor: isDark
+              ? alpha(theme.palette.common.black, 0.4)
+              : alpha(theme.palette.common.white, 0.85),
           }}
         />
       )}
@@ -539,7 +541,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
       {data.proposed && (
         <Box sx={{
           position: "absolute", top: -8, left: 8,
-          bgcolor: "#4caf50", color: "#fff",
+          bgcolor: STATUS_COLORS.success, color: "common.white",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
@@ -555,7 +557,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
         <Box sx={{
           position: "absolute",
           ...(badge.onTop ? { top: -8, left: 8 } : { bottom: -8, right: 8 }),
-          bgcolor: changeColor, color: "#fff",
+          bgcolor: changeColor, color: "common.white",
           fontSize: 9, fontWeight: 700, lineHeight: 1,
           px: 0.7, py: 0.25, borderRadius: "4px",
           textTransform: "uppercase", letterSpacing: 0.5,
@@ -730,7 +732,9 @@ const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
         height: "100%",
         border: `1.5px dashed ${accent}`,
         borderRadius: "12px",
-        bgcolor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)",
+        bgcolor: isDark
+          ? alpha(theme.palette.common.white, 0.02)
+          : alpha(theme.palette.common.black, 0.012),
         position: "relative",
       }}
     >
@@ -987,7 +991,7 @@ const LdvEdgeComponent = memo(
                     padding: "1px 6px",
                     borderRadius: 9,
                     background: color,
-                    color: "#fff",
+                    color: theme.palette.common.white,
                     fontSize: 11,
                     fontWeight: 700,
                     lineHeight: "16px",
@@ -1984,13 +1988,7 @@ function LayeredDependencyInner({
               }
               gap={settings.background === "dots" ? 16 : 28}
               size={1}
-              color={
-                settings.background === "dots"
-                  ? undefined
-                  : theme.palette.mode === "dark"
-                    ? "#2a2a2a"
-                    : "#e9ebee"
-              }
+              color={settings.background === "dots" ? undefined : theme.palette.divider}
             />
           )}
           {/* Default zoom + fitView controls are disabled so we can order the
@@ -2031,9 +2029,9 @@ function LayeredDependencyInner({
               aria-hidden
               style={{
                 height: 6,
-                background: theme.palette.mode === "dark" ? "#2b2b2b" : "#eceef0",
-                borderTop: `1px solid ${theme.palette.mode === "dark" ? "#444" : "#d7dade"}`,
-                borderBottom: `1px solid ${theme.palette.mode === "dark" ? "#444" : "#d7dade"}`,
+                background: theme.palette.action.hover,
+                borderTop: `1px solid ${theme.palette.divider}`,
+                borderBottom: `1px solid ${theme.palette.divider}`,
               }}
             />
             {/* --- Exploration group: highlight, expand, reveal parent/children --- */}

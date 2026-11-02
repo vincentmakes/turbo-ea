@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createTheme } from "@mui/material/styles";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -10,9 +11,10 @@ vi.mock("@/hooks/useCurrency", () => import("@/test/hooks").then((m) => m.useCur
 import i18n from "@/i18n";
 import { formatDateTimeWith } from "@/hooks/useDateFormat";
 import { mockApi } from "@/test/apiMock";
-import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
+import { APPLICATION_TYPE, CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { renderWithProviders } from "@/test/render";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { SnowConnection, SnowMapping, SnowStagedRecord, SnowSyncRun } from "@/types";
 import ServiceNowAdmin from "./ServiceNowAdmin";
 
@@ -765,5 +767,60 @@ describe("ServiceNowAdmin sync dashboard", () => {
     await user.click(within(screen.getByText("failed").closest("tr")!).getByRole("button", { name: T("servicenow.sync.viewStaged") }));
     // The staged dialog stays open over the error, so the page's alert is aria-hidden.
     expect(await screen.findByText("GET /servicenow/sync/runs/r2/staged failed")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Colours: each colour ternary rendered on both of its branches
+// ---------------------------------------------------------------------------
+
+describe("ServiceNowAdmin colours", () => {
+  const palette = createTheme().palette;
+  const iconOf = (root: HTMLElement, icon: string) =>
+    within(root).getAllByText(icon).find((el) => el.classList.contains("material-symbols-outlined"))!;
+
+  it("tints a mapping's icon with its card type's colour, neutral grey for an unknown type", async () => {
+    const { user } = renderWithProviders(<ServiceNowAdmin />);
+    await screen.findByText("Prod SNOW");
+    await openTab(user, "servicenow.tabs.mappings");
+    const app = (await screen.findByText("cmdb_ci_business_app")).closest(".MuiCard-root") as HTMLElement;
+    expect(iconOf(app, "apps")).toHaveStyle({ color: APPLICATION_TYPE.color });
+    expect(iconOf(card("x_ghost"), "swap_horiz")).toHaveStyle({ color: STATUS_COLORS.neutral });
+  });
+
+  it("tints the sync dashboard's mapping icons the same way", async () => {
+    mappings = [MAP_APP, { ...MAP_OFF, is_active: true }];
+    const { user } = renderWithProviders(<ServiceNowAdmin />);
+    await openTab(user, "servicenow.tabs.syncDashboard");
+    const app = (await screen.findByText(/cmdb_ci_business_app/)).closest(".MuiCard-root") as HTMLElement;
+    expect(iconOf(app, "apps")).toHaveStyle({ color: APPLICATION_TYPE.color });
+    expect(iconOf(card(/x_ghost/), "swap_horiz")).toHaveStyle({ color: STATUS_COLORS.neutral });
+  });
+
+  it("colours a run's created/updated/deleted/errors counts only when they are above zero", async () => {
+    const { user } = renderWithProviders(<ServiceNowAdmin />);
+    await openTab(user, "servicenow.tabs.syncDashboard");
+    await screen.findByText(/cmdb_ci_business_app/);
+    const cells = (status: string) => within(screen.getByText(status).closest("tr")!).getAllByRole("cell");
+    const done = cells("completed"); // created 3, updated 5, deleted 1, errors 0
+    const failed = cells("failed"); // created/updated/deleted absent, errors 2
+    for (const cell of [...done.slice(4, 8), ...failed.slice(4, 8)]) {
+      expect(cell).toHaveStyle({ fontSize: "0.8rem" });
+    }
+    expect(done[4]).toHaveStyle({ color: palette.success.main });
+    expect(done[5]).toHaveStyle({ color: palette.primary.main });
+    expect(done[6]).toHaveStyle({ color: palette.error.main });
+    expect(done[7]).toHaveStyle({ color: palette.text.primary });
+    for (const cell of failed.slice(4, 7)) expect(cell).toHaveStyle({ color: palette.text.primary });
+    expect(failed[7]).toHaveStyle({ color: palette.error.main });
+  });
+
+  it("shows a staged record's error message in the error colour", async () => {
+    const { user } = renderWithProviders(<ServiceNowAdmin />);
+    await openTab(user, "servicenow.tabs.syncDashboard");
+    await screen.findByText(/cmdb_ci_business_app/);
+    await user.click(within(screen.getByText("completed").closest("tr")!).getByRole("button", { name: T("servicenow.sync.viewStaged") }));
+    const message = await within(await screen.findByRole("dialog")).findByText("Guard tripped");
+    expect(message).toHaveStyle({ fontSize: "0.75rem", color: palette.error.main });
   });
 });

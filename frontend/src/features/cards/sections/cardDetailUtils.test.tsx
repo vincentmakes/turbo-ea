@@ -9,7 +9,7 @@ vi.mock("@/api/client", () => ({
 
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
-import { BOOLEAN_COLORS } from "@/theme/tokens";
+import { BOOLEAN_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 import {
   bucketBySubtype,
@@ -294,6 +294,16 @@ describe("CardIdPill (#811)", () => {
   it("renders the reference when present", () => {
     render(<CardIdPill reference="APP-10000" typeColor="#0f7eb5" />);
     expect(screen.getByText("APP-10000")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["a six-digit hex", "#0f7eb5", "#0f7eb5"],
+    ["no colour", undefined, STATUS_COLORS.neutral],
+    ["a hex behind a prefix", "x#0f7eb5", STATUS_COLORS.neutral],
+    ["a hex with a suffix", "#0f7eb5zz", STATUS_COLORS.neutral],
+  ])("accents the pill with the type colour only for %s", (_label, typeColor, expected) => {
+    render(<CardIdPill reference="APP-1" typeColor={typeColor} />);
+    expect(screen.getByText("tag")).toHaveStyle({ color: expected });
   });
 
   it("copies the reference to the clipboard on click", async () => {
