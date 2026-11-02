@@ -12,6 +12,7 @@ import { ViewMode } from "@wamra/gantt-task-react";
 import type { Dependency, TaskOrEmpty } from "@wamra/gantt-task-react";
 import type { PpmDependency, PpmTask, PpmTaskStatus, PpmWbs } from "@/types";
 import { startOfLocalDay, toIsoDate, toLocalDate } from "@/lib/dates";
+import { PPM_GANTT_COLORS } from "@/theme/tokens";
 import { percentFromStatus } from "./taskProgress";
 
 const DAY_MS = 86_400_000;
@@ -289,7 +290,7 @@ export function alignWbsPatch(
 /*  Rows                                                               */
 /* ------------------------------------------------------------------ */
 
-/** Bar colours per task status — the standard palette from PpmTaskBoard. */
+/** Bar colours per task status, in the chart library's style keys (`PPM_GANTT_COLORS`). */
 export const TASK_STATUS_BAR_COLORS: Record<
   PpmTaskStatus,
   {
@@ -300,28 +301,28 @@ export const TASK_STATUS_BAR_COLORS: Record<
   }
 > = {
   todo: {
-    barBackgroundColor: "#9e9e9e",
-    barProgressColor: "#757575",
-    barBackgroundSelectedColor: "#757575",
-    barProgressSelectedColor: "#616161",
+    barBackgroundColor: PPM_GANTT_COLORS.todo.bar,
+    barProgressColor: PPM_GANTT_COLORS.todo.progress,
+    barBackgroundSelectedColor: PPM_GANTT_COLORS.todo.barSelected,
+    barProgressSelectedColor: PPM_GANTT_COLORS.todo.progressSelected,
   },
   in_progress: {
-    barBackgroundColor: "#90caf9",
-    barProgressColor: "#1976d2",
-    barBackgroundSelectedColor: "#1565c0",
-    barProgressSelectedColor: "#1976d2",
+    barBackgroundColor: PPM_GANTT_COLORS.in_progress.bar,
+    barProgressColor: PPM_GANTT_COLORS.in_progress.progress,
+    barBackgroundSelectedColor: PPM_GANTT_COLORS.in_progress.barSelected,
+    barProgressSelectedColor: PPM_GANTT_COLORS.in_progress.progressSelected,
   },
   done: {
-    barBackgroundColor: "#a5d6a7",
-    barProgressColor: "#2e7d32",
-    barBackgroundSelectedColor: "#1b5e20",
-    barProgressSelectedColor: "#2e7d32",
+    barBackgroundColor: PPM_GANTT_COLORS.done.bar,
+    barProgressColor: PPM_GANTT_COLORS.done.progress,
+    barBackgroundSelectedColor: PPM_GANTT_COLORS.done.barSelected,
+    barProgressSelectedColor: PPM_GANTT_COLORS.done.progressSelected,
   },
   blocked: {
-    barBackgroundColor: "#d32f2f",
-    barProgressColor: "#c62828",
-    barBackgroundSelectedColor: "#b71c1c",
-    barProgressSelectedColor: "#c62828",
+    barBackgroundColor: PPM_GANTT_COLORS.blocked.bar,
+    barProgressColor: PPM_GANTT_COLORS.blocked.progress,
+    barBackgroundSelectedColor: PPM_GANTT_COLORS.blocked.barSelected,
+    barProgressSelectedColor: PPM_GANTT_COLORS.blocked.progressSelected,
   },
 };
 

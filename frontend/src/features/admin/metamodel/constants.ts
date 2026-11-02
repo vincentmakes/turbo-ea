@@ -1,4 +1,5 @@
 import type { FieldDef } from "@/types";
+import { brand } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -29,7 +30,7 @@ export const CARDINALITY_OPTIONS: ("1:1" | "1:n" | "n:m")[] = ["1:1", "1:n", "n:
  * value persisted on save — otherwise the picker shows blue but the stored
  * option has no color and its dot never renders (issue #718).
  */
-export const DEFAULT_OPTION_COLOR = "#1976d2";
+export const DEFAULT_OPTION_COLOR = brand.primary;
 
 /* ------------------------------------------------------------------ */
 /*  Graph layout constants                                             */

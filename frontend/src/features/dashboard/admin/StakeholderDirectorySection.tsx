@@ -12,6 +12,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useResolveLabel, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
+import { DASHBOARD_KPI_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 interface DirectoryCard {
   id: string;
@@ -144,7 +145,7 @@ export default function StakeholderDirectorySection() {
   return (
     <SectionPaper
       icon="groups_3"
-      iconColor="#1976d2"
+      iconColor={DASHBOARD_KPI_COLORS.stakeholders}
       title={t("dashboard.admin.stakeholderDirectory")}
     >
       {loading ? (
@@ -164,7 +165,7 @@ export default function StakeholderDirectorySection() {
               input: {
                 startAdornment: (
                   <Box sx={{ display: "flex", alignItems: "center", pr: 1 }}>
-                    <MaterialSymbol icon="search" size={18} color="#999" />
+                    <MaterialSymbol icon="search" size={18} color={STATUS_COLORS.neutral} />
                   </Box>
                 ),
                 endAdornment: filterActive ? (

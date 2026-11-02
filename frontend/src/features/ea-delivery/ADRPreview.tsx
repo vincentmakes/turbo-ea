@@ -23,6 +23,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import type { ArchitectureDecision } from "@/types";
+import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
@@ -117,7 +118,7 @@ export default function ADRPreview() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        {!compact && <MaterialSymbol icon="gavel" size={26} color="#1976d2" />}
+        {!compact && <MaterialSymbol icon="gavel" size={26} color={brand.primary} />}
         <Typography
           variant={compact ? "subtitle1" : "h5"}
           sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
@@ -283,7 +284,7 @@ export default function ADRPreview() {
               <MaterialSymbol
                 icon={adr.status === "signed" ? "verified" : "draw"}
                 size={24}
-                color={adr.status === "signed" ? "#2e7d32" : "#ed6c02"}
+                color={adr.status === "signed" ? RAG_COLORS.green : WARNING_STRONG_COLOR}
               />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {t("adr.editor.signatures")}
@@ -316,7 +317,7 @@ export default function ADRPreview() {
                   {sig.status === "signed" ? (
                     <>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                        <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
+                        <MaterialSymbol icon="verified" size={20} color={RAG_COLORS.green} />
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "success.dark" }}>
                           {t("adr.editor.sigApproved")}
                         </Typography>
@@ -338,7 +339,7 @@ export default function ADRPreview() {
                   ) : (
                     <>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                        <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
+                        <MaterialSymbol icon="pending" size={20} color={WARNING_STRONG_COLOR} />
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "warning.dark" }}>
                           {t("adr.editor.sigPending")}
                         </Typography>

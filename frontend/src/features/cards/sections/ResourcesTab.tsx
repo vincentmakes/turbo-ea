@@ -38,6 +38,7 @@ import {
   keepsStoredFormat,
 } from "@/lib/attachmentFormats";
 import type { DiagramSummary, FileAttachment } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 interface DocumentLink {
   id: string;
@@ -791,7 +792,7 @@ function ResourcesTab({
                         justifyContent: "center",
                       }}
                     >
-                      <MaterialSymbol icon="schema" size={20} color="#999" />
+                      <MaterialSymbol icon="schema" size={20} color={STATUS_COLORS.neutral} />
                     </Box>
                   </ListItemIcon>
                 )}

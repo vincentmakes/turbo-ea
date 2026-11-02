@@ -32,6 +32,7 @@ import {
 } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
+import { brand } from "@/theme/tokens";
 
 // ── Section: Description ────────────────────────────────────────
 function DescriptionSection({
@@ -195,7 +196,7 @@ function DescriptionSection({
                   e.stopPropagation();
                   onAiSuggest();
                 }}
-                sx={{ color: "#1976d2" }}
+                sx={{ color: brand.primary }}
               >
                 <MaterialSymbol icon="auto_awesome" size={20} />
               </IconButton>

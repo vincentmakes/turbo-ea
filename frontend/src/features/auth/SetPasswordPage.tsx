@@ -9,6 +9,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { NAVBAR_DEFAULTS, RAG_COLORS, brand } from "@/theme/tokens";
 import { api } from "@/api/client";
 
 interface Props {
@@ -84,10 +85,10 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: "#1a1a2e",
+          bgcolor: NAVBAR_DEFAULTS.bg,
         }}
       >
-        <CircularProgress sx={{ color: "#64b5f6" }} />
+        <CircularProgress sx={{ color: brand.primaryLight }} />
       </Box>
     );
   }
@@ -100,11 +101,11 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: "#1a1a2e",
+          bgcolor: NAVBAR_DEFAULTS.bg,
         }}
       >
         <Card sx={{ p: 4, width: 400, maxWidth: "90vw", textAlign: "center" }}>
-          <MaterialSymbol icon="error" size={48} color="#d32f2f" />
+          <MaterialSymbol icon="error" size={48} color={RAG_COLORS.red} />
           <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
             {t("setPassword.invalidLink.title")}
           </Typography>
@@ -129,12 +130,12 @@ export default function SetPasswordPage({ onSetPassword }: Props) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#1a1a2e",
+        bgcolor: NAVBAR_DEFAULTS.bg,
       }}
     >
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
         <Box sx={{ textAlign: "center", mb: 3 }}>
-          <MaterialSymbol icon="hub" size={48} color="#1976d2" />
+          <MaterialSymbol icon="hub" size={48} color={brand.primary} />
           <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>
             {t("setPassword.title")}
           </Typography>

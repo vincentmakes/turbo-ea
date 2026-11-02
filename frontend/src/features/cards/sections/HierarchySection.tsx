@@ -39,9 +39,16 @@ import { sectionAnchor } from "@/features/cards/dataQualityJump";
 import type { Card, FieldOption, HierarchyData, HierarchyNode, SubtypeDef } from "@/types";
 import { bucketBySubtype, shouldGroupBySubtype } from "./cardDetailUtils";
 import { SubtypeBucket, useCollapsedBuckets, useSubtypeGrouping } from "./SubtypeBucket";
+import { HEATMAP_RAMP } from "@/theme/tokens";
 
 // ── Section: Hierarchy ───────────────────────────────────────────
-const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
+const LEVEL_COLORS = [
+  HEATMAP_RAMP.light[8],
+  HEATMAP_RAMP.light[4],
+  HEATMAP_RAMP.light[2],
+  HEATMAP_RAMP.light[1],
+  HEATMAP_RAMP.light[0],
+];
 
 /**
  * The link type on one parent→child edge (discussion #1100).
@@ -451,7 +458,7 @@ function HierarchySection({
             <Chip
               size="small"
               label={t("hierarchy.level", { level })}
-              sx={{ ml: 1, height: 20, fontSize: "0.7rem", bgcolor: levelColor, color: "#fff" }}
+              sx={{ ml: 1, height: 20, fontSize: "0.7rem", bgcolor: levelColor, color: "common.white" }}
             />
           )}
         </Box>
@@ -507,7 +514,7 @@ function HierarchySection({
                   <Chip
                     size="small"
                     label={card.name}
-                    sx={{ bgcolor: levelColor, color: "#fff", fontWeight: 600 }}
+                    sx={{ bgcolor: levelColor, color: "common.white", fontWeight: 600 }}
                   />
                 </Box>
               </Box>

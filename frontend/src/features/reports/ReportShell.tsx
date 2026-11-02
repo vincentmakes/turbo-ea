@@ -14,6 +14,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import {
   exportReportToPptx,
   exportReportToXlsx,
@@ -84,7 +85,7 @@ export interface ReportShellProps {
 export default function ReportShell({
   title,
   icon,
-  iconColor = "#1976d2",
+  iconColor = brand.primary,
   toolbar,
   legend,
   hasTableToggle = true,

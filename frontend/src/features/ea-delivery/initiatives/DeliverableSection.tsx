@@ -8,7 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { DELIVERABLE_COLORS } from "@/theme/tokens";
 import { SOAW_STATUS_COLORS } from "./constants";
 import type {
   ArchitectureDecision,
@@ -47,9 +47,9 @@ const KIND_META: Record<
   DeliverableKind,
   { icon: string; color: string }
 > = {
-  soaw: { icon: "description", color: "#e65100" },
-  diagram: { icon: "schema", color: CARD_TYPE_COLORS.Application },
-  adr: { icon: "gavel", color: STATUS_COLORS.info },
+  soaw: { icon: "description", color: DELIVERABLE_COLORS.soaw },
+  diagram: { icon: "schema", color: DELIVERABLE_COLORS.diagram },
+  adr: { icon: "gavel", color: DELIVERABLE_COLORS.adr },
 };
 
 /**

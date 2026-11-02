@@ -3,6 +3,8 @@ import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { isHexColor, readableTextColor, readableTypeColor } from "@/lib/color";
+import { alpha, lighten, useTheme } from "@mui/material/styles";
+import { STATUS_COLORS, surface } from "@/theme/tokens";
 
 /**
  * Live sample panel for the card-type color picker: shows how the draft
@@ -32,19 +34,16 @@ function SampleCanvas({
   isDark,
   title,
 }: Props & { isDark: boolean; title: string }) {
+  const theme = useTheme();
   // Same non-hex guard as LdvNode / CardIdPill.
-  const hex = isHexColor(color) ? color : "#9e9e9e";
+  const hex = isHexColor(color) ? color : STATUS_COLORS.neutral;
   const accent = readableTypeColor(hex, isDark);
   const chipText = readableTextColor(hex);
-  const textPrimary = isDark ? "#fff" : "#333";
+  const textPrimary = isDark ? theme.palette.common.white : alpha(theme.palette.common.black, 0.87);
 
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
   // LDV node tint: opaque mix toward white (light) / low-alpha wash (dark).
-  const mix = (c: number) => Math.round(c + (255 - c) * 0.88);
-  const ldvBg = isDark ? `rgba(${r},${g},${b},0.12)` : `rgb(${mix(r)},${mix(g)},${mix(b)})`;
-  const pillBg = `rgba(${r},${g},${b},${isDark ? 0.18 : 0.12})`;
+  const ldvBg = isDark ? alpha(hex, 0.12) : lighten(hex, 0.88);
+  const pillBg = alpha(hex, isDark ? 0.18 : 0.12);
 
   return (
     <Box>
@@ -61,7 +60,7 @@ function SampleCanvas({
           borderRadius: 1,
           border: "1px solid",
           borderColor: "divider",
-          bgcolor: isDark ? "#121212" : "#ffffff",
+          bgcolor: isDark ? surface.dark.default : surface.light.paper,
           p: 1.25,
           display: "flex",
           flexDirection: "column",

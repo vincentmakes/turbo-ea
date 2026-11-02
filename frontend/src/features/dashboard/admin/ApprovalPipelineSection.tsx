@@ -6,7 +6,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
-import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
+import { APPROVAL_STATUS_COLORS, DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
 
 export interface PipelineRow {
@@ -52,7 +52,7 @@ export default function ApprovalPipelineSection({ rows, loading }: Props) {
   return (
     <SectionPaper
       icon="hourglass_bottom"
-      iconColor="#7b1fa2"
+      iconColor={DASHBOARD_KPI_COLORS.stuck}
       title={t("dashboard.admin.approvalPipeline")}
     >
       {loading ? (

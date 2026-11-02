@@ -62,7 +62,8 @@ vi.mock("@/components/TagPicker", () => ({
 import PortalViewer from "./PortalViewer";
 import { todayIsoDate } from "@/lib/dates";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
-import { BOOLEAN_COLORS } from "@/theme/tokens";
+import { BOOLEAN_COLORS, LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
+import { alpha, hexToRgb } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1109,10 +1110,10 @@ describe("PortalViewer lifecycle bar", () => {
     await renderLoaded();
     const tile = screen.getByText("SAP S/4HANA").closest(".MuiCard-root") as HTMLElement;
     // Active started today, so it is the current phase.
-    expect(bg(segment(tile, `Active: ${today}`))).toBe("rgb(76, 175, 80)");
+    expect(bg(segment(tile, `Active: ${today}`))).toBe(hexToRgb(LIFECYCLE_PHASE_COLORS.active));
     // Dated phases that are not current are tinted.
-    expect(bg(segment(tile, "Plan: 2020-01-01"))).toBe("rgba(144, 202, 249, 0.25)");
-    expect(bg(segment(tile, "Phase Out: 2099-01-01"))).toBe("rgba(255, 152, 0, 0.25)");
+    expect(bg(segment(tile, "Plan: 2020-01-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.plan, 0.25));
+    expect(bg(segment(tile, "Phase Out: 2099-01-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.phaseOut, 0.25));
     // Undated phases are grey.
     expect(bg(segment(tile, "Phase In"))).toBe("rgb(224, 224, 224)");
     expect(bg(segment(tile, "End of Life"))).toBe("rgb(224, 224, 224)");
@@ -1137,10 +1138,10 @@ describe("PortalViewer lifecycle bar", () => {
     });
     await renderLoaded();
     const tile = screen.getByText("SAP S/4HANA").closest(".MuiCard-root") as HTMLElement;
-    expect(bg(segment(tile, "Phase In: 2019-06-01"))).toBe("rgba(102, 187, 106, 0.25)");
+    expect(bg(segment(tile, "Phase In: 2019-06-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.phaseIn, 0.25));
     expect(segment(tile, "Active: 2020-01-01")).not.toBeNull();
     expect(segment(tile, "Phase Out: 2021-01-01")).not.toBeNull();
     // Every date is past, so End of Life is the current phase.
-    expect(bg(segment(tile, "End of Life: 2022-01-01"))).toBe("rgb(244, 67, 54)");
+    expect(bg(segment(tile, "End of Life: 2022-01-01"))).toBe(hexToRgb(LIFECYCLE_PHASE_COLORS.endOfLife));
   });
 });

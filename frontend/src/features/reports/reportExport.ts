@@ -3,6 +3,7 @@ import { toPng } from "html-to-image";
 import PptxGenJS from "pptxgenjs";
 import i18n from "@/i18n";
 import { toIsoDate } from "@/lib/dates";
+import { PRINT_COLORS } from "@/theme/tokens";
 
 export type ExportColumnType = "text" | "number" | "currency" | "date";
 
@@ -344,7 +345,7 @@ async function captureChartImage(
     const dataUrl = await toPng(node, {
       cacheBust: true,
       pixelRatio: 2,
-      backgroundColor: "#ffffff",
+      backgroundColor: PRINT_COLORS.paper,
       width: captureWidth,
       height: captureHeight,
       // Neutralise any positioning on the capture root. html-to-image copies
@@ -490,7 +491,7 @@ async function paginateChartImage(
     canvas.height = Math.round(sliceSrcH * scale);
     const ctx = canvas.getContext("2d");
     if (!ctx) break;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = PRINT_COLORS.paper;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(
       img,

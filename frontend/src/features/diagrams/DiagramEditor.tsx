@@ -19,6 +19,8 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { alpha } from "@mui/material/styles";
+import { DEFAULT_LAYER_COLOR, WARNING_STRONG_COLOR } from "@/theme/tokens";
 import { api } from "@/api/client";
 import { fetchCardsByIds } from "@/api/cardsByIds";
 import InsertCardsDialog from "./InsertCardsDialog";
@@ -603,7 +605,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
               const tgtStyle = model.getStyle(tgt) || "";
               const pick = (s: string) => {
                 const m = /fillColor=([^;]+)/.exec(s);
-                return m ? m[1] : "#999";
+                return m ? m[1] : DEFAULT_LAYER_COLOR;
               };
 
               win.parent.postMessage(
@@ -1218,7 +1220,7 @@ export default function DiagramEditor() {
                 id: other.id,
                 name: other.name,
                 type: other.type,
-                color: ct?.color || "#999",
+                color: ct?.color || DEFAULT_LAYER_COLOR,
                 icon: ct?.icon,
                 relationType: primary.type,
                 relationId: primary.id,
@@ -1279,7 +1281,7 @@ export default function DiagramEditor() {
   /** Map a hierarchy reference to the metamodel-derived colour we use for
    *  drill-down / roll-up child cells. */
   const colorForType = useCallback((typeKey: string): string => {
-    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || "#999";
+    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || DEFAULT_LAYER_COLOR;
   }, []);
 
   /** Card-type icon name for drill-down / roll-up child cells. */
@@ -1642,7 +1644,7 @@ export default function DiagramEditor() {
                 id: other.id,
                 name: other.name,
                 type: other.type,
-                color: ct?.color || "#999",
+                color: ct?.color || DEFAULT_LAYER_COLOR,
                 icon: ct?.icon,
                 relationType: primary.type,
                 relationId: primary.id,
@@ -2297,7 +2299,7 @@ export default function DiagramEditor() {
           cellId: p.cellId,
           type: p.type,
           typeLabel: typeLabel(typeInfo) || p.type,
-          typeColor: typeInfo?.color || "#999",
+          typeColor: typeInfo?.color || DEFAULT_LAYER_COLOR,
           name: p.name,
           description: p.description,
         };
@@ -2315,8 +2317,8 @@ export default function DiagramEditor() {
           relationLabel: p.relationLabel,
           sourceName: p.sourceName,
           targetName: p.targetName,
-          sourceColor: srcType?.color || "#999",
-          targetColor: "#999",
+          sourceColor: srcType?.color || DEFAULT_LAYER_COLOR,
+          targetColor: DEFAULT_LAYER_COLOR,
           sourceCardId: p.sourceCardId,
           targetCardId: p.targetCardId,
         };
@@ -2331,7 +2333,7 @@ export default function DiagramEditor() {
       if (!frame) return;
 
       const typeInfo = fsTypesRef.current.find((t) => t.key === data.type);
-      const color = typeInfo?.color || "#999";
+      const color = typeInfo?.color || DEFAULT_LAYER_COLOR;
       const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
       // Convert mode: replace an existing plain shape rather than create a
@@ -2565,7 +2567,7 @@ export default function DiagramEditor() {
         const typeInfo = fsTypesRef.current.find((t) => t.key === p.type);
         try {
           const resp = await api.post<Card>("/cards", cardCreatePayload(p));
-          markCellSynced(frame, p.cellId, resp.id, typeInfo?.color || "#999");
+          markCellSynced(frame, p.cellId, resp.id, typeInfo?.color || DEFAULT_LAYER_COLOR);
           const insertedCellId = p.cellId;
           const insertedCardId = resp.id;
           addChevronOverlay(frame, insertedCellId, (anchor) =>
@@ -2778,7 +2780,7 @@ export default function DiagramEditor() {
             inventory,
             (typeKey) =>
               fsTypesRef.current.find((tp) => tp.key === typeKey)?.color ||
-              "#999",
+              DEFAULT_LAYER_COLOR,
             (edge) => humanRelationLabel(edge.relationType) || edge.edgeLabel,
             (relationTypeKey, attributes) =>
               relationFlowFor(
@@ -3031,8 +3033,8 @@ export default function DiagramEditor() {
               targetType: msg.targetType,
               sourceName: msg.sourceName || "?",
               targetName: msg.targetName || "?",
-              sourceColor: msg.sourceColor || "#999",
-              targetColor: msg.targetColor || "#999",
+              sourceColor: msg.sourceColor || DEFAULT_LAYER_COLOR,
+              targetColor: msg.targetColor || DEFAULT_LAYER_COLOR,
             };
             setRelPickerOpen(true);
           }
@@ -3320,7 +3322,7 @@ export default function DiagramEditor() {
             const image = await composeCardLogoImage(
               cardLogoUrl(c.id, c.logo_updated_at as string),
               iconByType.get(c.type),
-              colorByType.get(c.type) ?? "#999999",
+              colorByType.get(c.type) ?? DEFAULT_LAYER_COLOR,
               b.w,
               b.h,
             );
@@ -3391,7 +3393,7 @@ export default function DiagramEditor() {
     const colorByType = new Map(
       fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
     );
-    const restore = { colorByType, fallback: "#999" };
+    const restore = { colorByType, fallback: DEFAULT_LAYER_COLOR };
 
     if (view.kind === "card_type") {
       // Nothing to fetch: hand every view-managed cell back to its base colour.
@@ -3802,8 +3804,8 @@ export default function DiagramEditor() {
                     ? "turboea-pulse 1.6s ease-in-out infinite"
                     : "none",
                 "@keyframes turboea-pulse": {
-                  "0%,100%": { boxShadow: "0 0 0 0 rgba(237,108,2,0.5)" },
-                  "50%": { boxShadow: "0 0 0 6px rgba(237,108,2,0)" },
+                  "0%,100%": { boxShadow: `0 0 0 0 ${alpha(WARNING_STRONG_COLOR, 0.5)}` },
+                  "50%": { boxShadow: `0 0 0 6px ${alpha(WARNING_STRONG_COLOR, 0)}` },
                 },
               }}
             >

@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 interface Props {
   /**
@@ -167,7 +168,7 @@ export default function RequirePermission({ permission, children }: Props) {
     <Box sx={{ maxWidth: 640, mx: "auto", mt: { xs: 4, sm: 8 }, px: 2 }}>
       <Paper variant="outlined" sx={{ p: 4, textAlign: "center" }}>
         <Stack alignItems="center" spacing={2}>
-          <MaterialSymbol icon="block" size={56} color="#888" />
+          <MaterialSymbol icon="block" size={56} color={STATUS_COLORS.neutral} />
           <Typography variant="h5" fontWeight={600}>
             {t("accessDenied.title")}
           </Typography>

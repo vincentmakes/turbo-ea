@@ -268,7 +268,7 @@ function GroupHeader({
         aria-label={name}
         sx={{
           mr: 0.5,
-          color: onBanner ? "#fff" : "text.primary",
+          color: onBanner ? "common.white" : "text.primary",
         }}
       >
         <MaterialSymbol
@@ -281,13 +281,13 @@ function GroupHeader({
         size={18}
         style={{
           marginRight: 6,
-          color: onBanner ? "#fff" : undefined,
+          color: onBanner ? theme.palette.common.white : undefined,
         }}
       />
       <Typography
         variant="body2"
         fontWeight={sub ? 600 : 700}
-        sx={{ color: onBanner ? "#fff" : "text.primary" }}
+        sx={{ color: onBanner ? "common.white" : "text.primary" }}
       >
         {name}
       </Typography>
@@ -295,7 +295,7 @@ function GroupHeader({
         variant="body2"
         sx={{
           ml: 1,
-          color: onBanner ? alpha("#fff", 0.8) : "text.secondary",
+          color: onBanner ? alpha(theme.palette.common.white, 0.8) : "text.secondary",
         }}
       >
         &mdash; {t("projectCount", { count })}

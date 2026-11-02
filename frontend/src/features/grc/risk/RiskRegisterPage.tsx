@@ -24,6 +24,7 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
+import { useTheme } from "@mui/material/styles";
 import Stack from "@mui/material/Stack";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
@@ -75,7 +76,7 @@ import RiskFilterSidebar, {
 } from "./RiskFilterSidebar";
 import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
 import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
-import { SEVERITY_COLORS } from "@/theme/tokens";
+import { RAG_COLORS, SEVERITY_COLORS, brand } from "@/theme/tokens";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
@@ -211,6 +212,9 @@ export default function RiskRegisterPage() {
   const { types: metamodelTypes } = useMetamodel();
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+  const theme = useTheme();
+  // A card whose type the metamodel does not know gets a neutral swatch.
+  const unknownTypeColor = theme.palette.text.secondary;
   const isRtl = useIsRtl();
   const { formatDate } = useDateFormat();
   const { user } = useAuthContext();
@@ -366,18 +370,18 @@ export default function RiskRegisterPage() {
         return {
           key,
           label: mt ? typeLabel(mt, i18n.language) : key,
-          color: mt?.color ?? "#666",
+          color: mt?.color ?? unknownTypeColor,
         };
       })
       .sort((a, b) => a.label.localeCompare(b.label, i18n.language));
-  }, [rows, filters.cardTypes, metamodelTypes, i18n.language]);
+  }, [rows, filters.cardTypes, metamodelTypes, i18n.language, unknownTypeColor]);
 
   const availableCards = useMemo(() => {
     const seen = new Map<string, CardFilterOption>();
     const add = (id: string, name: string, type: string) => {
       if (seen.has(id)) return;
       const mt = metamodelTypes.find((x) => x.key === type);
-      seen.set(id, { id, name, type, color: mt?.color ?? "#666" });
+      seen.set(id, { id, name, type, color: mt?.color ?? unknownTypeColor });
     };
     for (const r of rows) {
       for (const c of r.cards ?? []) {
@@ -390,7 +394,7 @@ export default function RiskRegisterPage() {
     }
     for (const sel of filters.cards) add(sel.id, sel.name, sel.type);
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name, i18n.language));
-  }, [rows, filters.cards, filters.cardTypes, metamodelTypes, i18n.language]);
+  }, [rows, filters.cards, filters.cardTypes, metamodelTypes, i18n.language, unknownTypeColor]);
 
   // ── Shared URLSearchParams builder. Multi-valued filters ride as
   //    repeat keys (``?status=identified&status=analysed``) — both the
@@ -786,7 +790,7 @@ export default function RiskRegisterPage() {
             d < today
             && !["closed", "accepted", "mitigated"].includes(p.data.status);
           return overdue
-            ? { color: "var(--mui-palette-error-main, #d32f2f)", fontWeight: 600 }
+            ? { color: RAG_COLORS.red, fontWeight: 600 }
             : null;
         },
       },
@@ -901,7 +905,7 @@ export default function RiskRegisterPage() {
             label={t("risks.kpi.total")}
             value={metrics?.total ?? 0}
             icon="shield"
-            color="#1976d2"
+            color={brand.primary}
           />
         </Grid>
         <Grid item xs={6} md={2.4}>
@@ -909,8 +913,8 @@ export default function RiskRegisterPage() {
             label={t("risks.kpi.critical")}
             value={metrics?.by_level?.critical ?? 0}
             icon="error"
-            color="#d32f2f"
-            iconColor="#d32f2f"
+            color={SEVERITY_COLORS.critical}
+            iconColor={SEVERITY_COLORS.critical}
           />
         </Grid>
         <Grid item xs={6} md={2.4}>
@@ -918,8 +922,8 @@ export default function RiskRegisterPage() {
             label={t("risks.kpi.overdue")}
             value={metrics?.overdue ?? 0}
             icon="schedule"
-            color="#f57c00"
-            iconColor="#f57c00"
+            color={RAG_COLORS.amber}
+            iconColor={RAG_COLORS.amber}
           />
         </Grid>
         <Grid item xs={6} md={2.4}>
@@ -927,8 +931,8 @@ export default function RiskRegisterPage() {
             label={t("risks.kpi.createdMonth")}
             value={metrics?.created_this_month ?? 0}
             icon="trending_up"
-            color="#2e7d32"
-            iconColor="#2e7d32"
+            color={RAG_COLORS.green}
+            iconColor={RAG_COLORS.green}
           />
         </Grid>
         <Grid item xs={6} md={2.4}>
@@ -936,8 +940,8 @@ export default function RiskRegisterPage() {
             label={t("risks.kpi.avgLevel")}
             value={topLvl ? t(`risks.level.${topLvl}`) : "—"}
             icon="assessment"
-            color="#6a1b9a"
-            iconColor="#6a1b9a"
+            color={theme.palette.secondary.dark}
+            iconColor={theme.palette.secondary.dark}
           />
         </Grid>
       </Grid>

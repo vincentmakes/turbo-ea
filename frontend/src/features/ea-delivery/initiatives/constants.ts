@@ -1,3 +1,5 @@
+import { brand, HEALTH_COLORS, RAG_COLORS, STATUS_COLORS } from "@/theme/tokens";
+
 export const SOAW_STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
   in_review: "warning",
@@ -6,9 +8,9 @@ export const SOAW_STATUS_COLORS: Record<string, "default" | "warning" | "success
 };
 
 export const INITIATIVE_STATUS_COLORS: Record<string, string> = {
-  onTrack: "#4caf50",
-  atRisk: "#ff9800",
-  offTrack: "#d32f2f",
-  onHold: "#9e9e9e",
-  completed: "#1976d2",
+  onTrack: HEALTH_COLORS.good,
+  atRisk: HEALTH_COLORS.warn,
+  offTrack: RAG_COLORS.red,
+  onHold: STATUS_COLORS.neutral,
+  completed: brand.primary,
 };

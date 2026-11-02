@@ -27,6 +27,7 @@ import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
+import { brand } from "@/theme/tokens";
 
 /** What blocks deleting or re-keying a role, from `.../stakeholder-roles/{key}/usage`. */
 interface RoleUsage {
@@ -110,7 +111,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     key: "",
     label: "",
     description: "",
-    color: "#1976d2",
+    color: brand.primary as string,
     countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
@@ -125,7 +126,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     key: "",
     label: "",
     description: "",
-    color: "#1976d2",
+    color: brand.primary as string,
     countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
@@ -214,7 +215,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         key: "",
         label: "",
         description: "",
-        color: "#1976d2",
+        color: brand.primary,
         countsForQuality: true,
         permissions: {},
         translations: {},
@@ -793,7 +794,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         key: "",
         label: "",
         description: "",
-        color: "#1976d2",
+        color: brand.primary,
         countsForQuality: true,
         permissions: {},
         translations: {},

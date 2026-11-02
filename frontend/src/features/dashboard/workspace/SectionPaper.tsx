@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import { DRAG_HANDLE_CLASS, useWidgetControls } from "../widgets/WidgetFrame";
 
 interface Props {
@@ -23,7 +24,7 @@ interface Props {
  */
 export default function SectionPaper({
   icon,
-  iconColor = "#1976d2",
+  iconColor = brand.primary,
   title,
   action,
   children,

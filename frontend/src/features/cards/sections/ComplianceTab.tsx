@@ -219,7 +219,7 @@ export default function ComplianceTab({ cardId }: Props) {
                       COMPLIANCE_LIFECYCLE_COLORS[
                         f.decision as ComplianceDecision
                       ] || undefined,
-                    color: "#fff",
+                    color: "common.white",
                     fontWeight: 600,
                   }}
                 />
@@ -310,7 +310,7 @@ export default function ComplianceTab({ cardId }: Props) {
                           COMPLIANCE_LIFECYCLE_COLORS[
                             f.decision as ComplianceDecision
                           ] || undefined,
-                        color: "#fff",
+                        color: "common.white",
                         fontWeight: 600,
                       }}
                     />

@@ -1,5 +1,5 @@
 import { MULTIPLE_COLOR, facetOptions, rawValues } from "@/lib/fieldFacets";
-import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
+import { APPROVAL_STATUS_COLORS, BPM_UNSET_COLOR } from "@/theme/tokens";
 import type { CardType, FieldDef } from "@/types";
 
 /**
@@ -43,8 +43,9 @@ export interface ColorEntry {
 /** Stands in for "this card's type has a rule, but the card has no value for it". */
 export const NO_VALUE = "__none__";
 
-/** Colour used for {@link NO_VALUE}. */
-export const NO_VALUE_COLOR = "#cbd5e1";
+/** Colour used for {@link NO_VALUE} — the grey the Process Navigator gives a card with no value
+ *  for its colour overlay, the same "nothing to colour by" reading. */
+export const NO_VALUE_COLOR = BPM_UNSET_COLOR;
 
 /** Stands in for "this card carries several values of a multi-select rule". */
 export const MULTI_VALUE = "__multiple__";

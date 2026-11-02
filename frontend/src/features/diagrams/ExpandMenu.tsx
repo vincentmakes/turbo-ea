@@ -10,7 +10,9 @@ import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import MenuSectionHeader from "@/components/MenuSectionHeader";
 import { api } from "@/api/client";
 
@@ -101,6 +103,7 @@ interface Props {
  * details from `GET /cards/{id}/hierarchy` + `GET /cards?parent_id=…`.
  */
 export default function ExpandMenu({ target, onClose, onPick }: Props) {
+  const theme = useTheme();
   const { t } = useTranslation(["diagrams", "common"]);
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<RelationSummaryEntry[] | null>(null);
@@ -337,7 +340,7 @@ export default function ExpandMenu({ target, onClose, onPick }: Props) {
                         : "arrow_downward"
                     }
                     size={14}
-                    color={disabled ? "#bbb" : "#1976d2"}
+                    color={disabled ? theme.palette.action.disabled : brand.primary}
                   />
                 </ListItemIcon>
                 <ListItemText

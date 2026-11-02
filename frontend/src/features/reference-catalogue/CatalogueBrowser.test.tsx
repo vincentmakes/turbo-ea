@@ -16,6 +16,7 @@ import { renderWithProviders } from "@/test/render";
 
 import CatalogueBrowser from "./CatalogueBrowser";
 import type { CatalogueKindConfig, CatalogueNode } from "./types";
+import { brand } from "@/theme/tokens";
 
 /* ------------------------------------------------------------------------- */
 /*  Fixtures                                                                  */
@@ -29,7 +30,7 @@ const CONFIG: CatalogueKindConfig = {
   i18nNamespace: "catalogue",
   inventoryCardType: "BusinessCapability",
   accentColor: "#003399",
-  selectionColor: "#D63384",
+  selectionColor: brand.primary,
   levelLabel: (level) => (level === 0 ? "Macro" : `L${level}`),
   heroIcon: "account_tree",
 };

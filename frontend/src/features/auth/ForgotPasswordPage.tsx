@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { NAVBAR_DEFAULTS, brand } from "@/theme/tokens";
 import { auth } from "@/api/client";
 
 export default function ForgotPasswordPage() {
@@ -40,12 +41,12 @@ export default function ForgotPasswordPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#1a1a2e",
+        bgcolor: NAVBAR_DEFAULTS.bg,
       }}
     >
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
         <Box sx={{ textAlign: "center", mb: 3 }}>
-          <MaterialSymbol icon="lock_reset" size={48} color="#1976d2" />
+          <MaterialSymbol icon="lock_reset" size={48} color={brand.primary} />
           <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>
             {t("forgotPassword.title")}
           </Typography>

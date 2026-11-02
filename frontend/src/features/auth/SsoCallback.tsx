@@ -18,6 +18,7 @@ import {
   type PublicSsoMessage,
 } from "@/lib/publicSso";
 import type { User } from "@/types";
+import { NAVBAR_DEFAULTS, brand } from "@/theme/tokens";
 
 interface Props {
   /** Resolves with the signed-in user, so the landing decision below can check
@@ -194,7 +195,7 @@ export default function SsoCallback({ onSsoCallback }: Props) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          bgcolor: "#1a1a2e",
+          bgcolor: NAVBAR_DEFAULTS.bg,
           gap: 2,
           px: 3,
         }}
@@ -223,12 +224,12 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#1a1a2e",
+        bgcolor: NAVBAR_DEFAULTS.bg,
         gap: 2,
       }}
     >
       {relayed ? (
-        <Typography color="#fff">{t("sso.popupDone")}</Typography>
+        <Typography color={NAVBAR_DEFAULTS.fg}>{t("sso.popupDone")}</Typography>
       ) : error ? (
         <>
           <Alert severity="error" sx={{ maxWidth: 500 }}>
@@ -244,8 +245,8 @@ export default function SsoCallback({ onSsoCallback }: Props) {
         </>
       ) : (
         <>
-          <CircularProgress sx={{ color: "#64b5f6" }} />
-          <Typography color="#fff">{t("sso.completing")}</Typography>
+          <CircularProgress sx={{ color: brand.primaryLight }} />
+          <Typography color={NAVBAR_DEFAULTS.fg}>{t("sso.completing")}</Typography>
         </>
       )}
     </Box>

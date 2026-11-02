@@ -14,6 +14,7 @@ import { api } from "@/api/client";
 import type { Card as CardType } from "@/types";
 import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 interface FavoriteRow {
   id: string;
@@ -92,7 +93,7 @@ export default function MyFavoritesSection() {
   return (
     <SectionPaper
       icon="cards_star"
-      iconColor="#f5a623"
+      iconColor={DASHBOARD_KPI_COLORS.favorites}
       title={t("common:dashboard.workspace.myFavorites")}
     >
       {error && (
@@ -134,7 +135,7 @@ export default function MyFavoritesSection() {
                     removeFavorite(card);
                   }}
                 >
-                  <MaterialSymbol icon="cards_star" size={18} color="#f5a623" />
+                  <MaterialSymbol icon="cards_star" size={18} color={DASHBOARD_KPI_COLORS.favorites} />
                 </IconButton>
               </Tooltip>
             </Box>

@@ -35,6 +35,7 @@ import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import { brand } from "@/theme/tokens";
 import type { ComplianceRegulation, TranslationMap } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 interface FormState {
   key: string;
@@ -63,6 +64,7 @@ function cleanTranslations(map: TranslationMap): TranslationMap {
 }
 
 export default function RegulationsAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { refresh } = useComplianceRegulations();
 
@@ -209,7 +211,7 @@ export default function RegulationsAdmin() {
             borderRadius: 2,
           }}
         >
-          <MaterialSymbol icon="gavel" size={40} color="#bbb" />
+          <MaterialSymbol icon="gavel" size={40} color={theme.palette.action.disabled} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("metamodel.regulations.empty")}
           </Typography>
@@ -232,7 +234,7 @@ export default function RegulationsAdmin() {
                 <MaterialSymbol
                   icon="gavel"
                   size={22}
-                  color={r.is_enabled ? brand.primary : "#bbb"}
+                  color={r.is_enabled ? brand.primary : theme.palette.action.disabled}
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box

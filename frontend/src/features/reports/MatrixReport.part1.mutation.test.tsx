@@ -74,6 +74,13 @@ import { makeCardType, makeField, makeOption, makeRelationType } from "@/test/fi
 import type { CardType, RelationType } from "@/types";
 import type { ReportExportData } from "./reportExport";
 import MatrixReport from "./MatrixReport";
+import { MULTIPLE_VALUE_COLOR, STATUS_COLORS } from "@/theme/tokens";
+
+/** A `#rrggbb` token as jsdom reports a computed colour, `rgb(r, g, b)`. */
+const cssRgb = (hex: string): string => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1073,7 +1080,7 @@ describe("MatrixReport colours", () => {
     const diag = within(table()).getByTitle(/^App One × App One/);
     const single = within(table()).getByTitle(/^App Two × App One/);
     expect(color(single.firstElementChild!)).toBe("rgb(204, 204, 204)");
-    expect(color(diag.firstElementChild!)).toBe("rgb(170, 170, 170)");
+    expect(color(diag.firstElementChild!)).toBe(cssRgb(STATUS_COLORS.neutral));
   });
 
   it("marks a related diagonal cell with a grey dot, and tints the hovered diagonal in the dark", async () => {
@@ -1085,7 +1092,7 @@ describe("MatrixReport colours", () => {
 
     renderMatrix({ dark: true });
     await screen.findAllByText("App Three");
-    expect(bg(rowCells("App One")[0].firstElementChild!)).toBe("rgb(120, 144, 156)");
+    expect(bg(rowCells("App One")[0].firstElementChild!)).toBe(cssRgb(MULTIPLE_VALUE_COLOR));
     const diag = within(table()).getByTitle(/^App One × App One/);
     fireEvent.mouseEnter(diag);
     await waitFor(() => expect(diag.style.backgroundColor).toBe("rgba(69, 39, 160, 0.18)"));
@@ -1097,12 +1104,14 @@ describe("MatrixReport colours", () => {
     const view = renderMatrix();
     await screen.findByText("App One Child");
     const icon = () => screen.getByLabelText("Collapse rows").firstElementChild as HTMLElement;
-    expect(icon().style.color).toBe("rgb(85, 85, 85)");
+    expect(icon().style.color).toBe(createTheme().palette.text.secondary);
     view.unmount();
 
     renderMatrix({ dark: true });
     await screen.findByText("App One Child");
-    expect(icon().style.color).toBe("rgb(170, 170, 170)");
+    expect(icon().style.color).toBe(
+      createTheme({ palette: { mode: "dark" } }).palette.text.secondary,
+    );
   });
 });
 

@@ -3,6 +3,7 @@
  */
 import type { ChipProps } from "@mui/material/Chip";
 import type { TFunction } from "i18next";
+import { RAG_COLORS, STATUS_COLORS as STATUS_HUES, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 // ── Status types ────────────────────────────────────────────────────────
 
@@ -81,9 +82,9 @@ export function vendorTypeColor(vendorType: string): ChipColor {
 // ── Architecture result color helpers ───────────────────────────────────
 
 export const TYPE_COLORS: Record<string, string> = {
-  existing: "#4caf50",
-  new: "#2196f3",
-  recommended: "#ff9800",
+  existing: STATUS_HUES.success,
+  new: STATUS_HUES.info,
+  recommended: STATUS_HUES.warning,
 };
 
 export function typeChipColor(
@@ -116,10 +117,10 @@ export function severityIcon(s?: string): string {
 
 export function severityColor(s?: string): string {
   return s === "high"
-    ? "#d32f2f"
+    ? RAG_COLORS.red
     : s === "medium"
-      ? "#ed6c02"
-      : "#2e7d32";
+      ? WARNING_STRONG_COLOR
+      : RAG_COLORS.green;
 }
 
 // ── Architect steps ─────────────────────────────────────────────────────

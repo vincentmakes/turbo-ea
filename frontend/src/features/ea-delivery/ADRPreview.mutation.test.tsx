@@ -32,6 +32,7 @@ import { api } from "@/api/client";
 import ADRPreview from "./ADRPreview";
 import { installClipboard } from "@/test/dom";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
+import { RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 const BASE: ArchitectureDecision = {
   id: "adr-1",
@@ -214,7 +215,7 @@ describe("ADRPreview — signature block", () => {
     const heading = await screen.findByRole("heading", { name: "Signatures" });
     const icon = heading.previousElementSibling as HTMLElement;
     expect(icon).toHaveTextContent("draw");
-    expect(icon).toHaveStyle({ color: "#ed6c02" });
+    expect(icon).toHaveStyle({ color: WARNING_STRONG_COLOR });
     expect(screen.queryByText("verified")).not.toBeInTheDocument();
   });
 
@@ -224,7 +225,7 @@ describe("ADRPreview — signature block", () => {
     const heading = await screen.findByRole("heading", { name: "Signatures" });
     const icon = heading.previousElementSibling as HTMLElement;
     expect(icon).toHaveTextContent("verified");
-    expect(icon).toHaveStyle({ color: "#2e7d32" });
+    expect(icon).toHaveStyle({ color: RAG_COLORS.green });
     expect(screen.queryByText("draw")).not.toBeInTheDocument();
   });
 

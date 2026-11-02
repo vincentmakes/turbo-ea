@@ -4,6 +4,7 @@ import Stack from "@mui/material/Stack";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import CataloguePage from "@/features/reference-catalogue/CataloguePage";
+import { RAG_COLORS, brand } from "@/theme/tokens";
 import type {
   CatalogueKindConfig,
   CatalogueNode,
@@ -60,8 +61,8 @@ const config: CatalogueKindConfig = {
   // maturity, start events, watermarks). Slightly deeper green than the
   // BusinessProcess type token (#028f00) for better contrast against the
   // catalogue's hero/header chrome.
-  accentColor: "#2e7d32",
-  selectionColor: "#D63384",
+  accentColor: RAG_COLORS.green,
+  selectionColor: brand.primary,
   levelLabel: (level) => `L${level}`,
   heroIcon: "route",
   renderDetailExtras: (node) => <ProcessDetailExtras node={node} />,

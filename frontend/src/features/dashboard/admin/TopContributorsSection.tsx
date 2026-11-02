@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 export interface ContributorRow {
   user_id: string;
@@ -25,7 +26,7 @@ export default function TopContributorsSection({ rows, loading }: Props) {
   return (
     <SectionPaper
       icon="emoji_events"
-      iconColor="#f5a623"
+      iconColor={DASHBOARD_KPI_COLORS.favorites}
       title={t("dashboard.admin.topContributors")}
     >
       {loading ? (

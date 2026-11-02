@@ -25,6 +25,7 @@ import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useExtensionSurveyTemplates } from "@/lib/extensionHost";
 import type { Survey } from "@/types";
+import { brand } from "@/theme/tokens";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
@@ -98,7 +99,7 @@ export default function SurveysAdmin() {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-        <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
+        <MaterialSymbol icon="assignment" size={28} color={brand.primary} />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700, flex: 1 }}>
           {t("surveysAdmin.title")}
         </Typography>
@@ -194,7 +195,7 @@ export default function SurveysAdmin() {
               sx={{ p: 2, pr: 6 }}
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
+                <MaterialSymbol icon="assignment" size={22} color={brand.primary} />
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.name}</Typography>
                 <Chip
                   label={t(`surveysAdmin.status.${s.status}`, { defaultValue: s.status })}

@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.4] - 2026-11-02
+
+### Changed
+- Lifecycle phase colours are the same on every screen: the Lifecycle report, the inventory's phase filter chips and group headers, the web portal's lifecycle bar and the Layered Dependency View now use the card page's set (grey plan, blue phase-in, green active, orange phase-out, red end of life).
+- Risk levels use one severity scale everywhere: the risk matrix and a card's history tab show "low" in the same green as the risk badges.
+- The capability, process and value-stream catalogues highlight the selected item in the brand blue rather than magenta.
+- Secondary and disabled icon greys follow the theme, so they dim correctly in dark mode instead of staying a fixed light-mode grey.
+- In dark mode, a hovered edge in the TurboLens architecture diagram uses the same light-blue highlight as the Layered Dependency View.
+
+### Security
+- Updated the frontend build's transitive development dependency `minimatch` to 11.0.4 to clear the open Dependabot advisory (GHSA-g3hv-75wg-m249, pattern amplification in glob matching); it does not ship in the application images.
+
 ## [2.186.3] - 2026-11-02
 
 ### Security

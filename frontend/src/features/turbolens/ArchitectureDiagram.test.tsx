@@ -20,6 +20,13 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { Position, type Edge, type Node } from "@xyflow/react";
 import { CARD_TYPES } from "@/test/fixtures/metamodel";
+import {
+  CATEGORICAL_COLORS,
+  LAYER_COLORS,
+  STATUS_COLORS,
+  VENDOR_ACCENT,
+  brand,
+} from "@/theme/tokens";
 import i18n from "@/i18n";
 import type { ArchitectureResult } from "@/types";
 
@@ -172,7 +179,11 @@ function edgeOf(source: string, target: string): Edge {
 }
 
 /** The closed arrowhead every integration carries at its target end. */
-const ARROW = { type: "arrowclosed", color: "#888" };
+/** A resting edge is drawn in the theme's secondary text colour. */
+const LIGHT_EDGE = createTheme().palette.text.secondary;
+const DARK_EDGE = createTheme({ palette: { mode: "dark" } }).palette.text.secondary;
+
+const ARROW = { type: "arrowclosed", color: STATUS_COLORS.neutral };
 
 beforeEach(() => {
   rf.props = null;
@@ -222,7 +233,7 @@ describe("ArchitectureDiagram", () => {
     ]);
     // Every group is as wide as the widest row: 3 nodes × 200 + 2 gaps × 60 + 2 × 40 padding.
     for (const g of groups) expect(g.style).toMatchObject({ width: 800, height: 152 });
-    expect((groups[1].data as { color: string }).color).toBe("#8e24aa");
+    expect((groups[1].data as { color: string }).color).toBe(CATEGORICAL_COLORS[1]);
     expect(within(nodeEl("layer-0")).getByText("Experience")).toBeInTheDocument();
 
     const comps = nodes.filter((n) => n.type === "archNode");
@@ -508,14 +519,14 @@ describe("ArchitectureDiagram — what React Flow is handed", () => {
       .filter((n) => n.type === "archGroup")
       .map((g) => (g.data as { color: string }).color);
     expect(colours).toEqual([
-      "#1976d2",
-      "#33cc58",
-      "#8e24aa",
-      "#d29270",
-      "#0f7eb5",
-      "#ffa31f",
-      "#f44336",
-      "#1976d2",
+      brand.primary,
+      LAYER_COLORS["Strategy & Transformation"],
+      CATEGORICAL_COLORS[1],
+      LAYER_COLORS["Technical Architecture"],
+      LAYER_COLORS["Application & Data"],
+      VENDOR_ACCENT.fill,
+      STATUS_COLORS.error,
+      brand.primary,
     ]);
   });
 
@@ -549,10 +560,10 @@ describe("ArchitectureDiagram — what React Flow is handed", () => {
       { types: false },
     );
     expect(["arch-0", "arch-1", "arch-2", "arch-3"].map((id) => handlesOf(id)[0].background)).toEqual([
-      "#1976d2",
-      "#ff9800",
-      "#4caf50",
-      "#999",
+      brand.primary,
+      STATUS_COLORS.warning,
+      STATUS_COLORS.success,
+      STATUS_COLORS.neutral,
     ]);
   });
 
@@ -680,24 +691,24 @@ describe("ArchitectureDiagram — edge rendering", () => {
 
   it("draws the hovered component's edges solid and in the highlight colour (light theme)", () => {
     renderDiagram();
-    expect(edgePath("arch-e-0").style.stroke).toBe("#777");
+    expect(edgePath("arch-e-0").style.stroke).toBe(LIGHT_EDGE);
 
     fireEvent.mouseEnter(nodeEl("arch-2"));
     const hot = edgePath("arch-e-0");
-    expect(hot.style.stroke).toBe("#1976d2");
+    expect(hot.style.stroke).toBe(brand.primary);
     expect(hot.style.strokeDasharray).toBe("none");
     // An edge not touching the hovered component keeps the resting style.
-    expect(edgePath("arch-e-1").style.stroke).toBe("#777");
+    expect(edgePath("arch-e-1").style.stroke).toBe(LIGHT_EDGE);
     expect(edgePath("arch-e-1").style.strokeDasharray).toBe("5 3");
   });
 
   it("uses the dark theme's edge colours", () => {
     renderDiagram(ARCH, { dark: true });
-    expect(edgePath("arch-e-0").style.stroke).toBe("#aaa");
+    expect(edgePath("arch-e-0").style.stroke).toBe(DARK_EDGE);
 
     fireEvent.mouseEnter(nodeEl("arch-2"));
-    expect(edgePath("arch-e-0").style.stroke).toBe("#4fc3f7");
-    expect(edgePath("arch-e-1").style.stroke).toBe("#aaa");
+    expect(edgePath("arch-e-0").style.stroke).toBe(brand.primaryLight);
+    expect(edgePath("arch-e-1").style.stroke).toBe(DARK_EDGE);
   });
 
   it("draws an edge that carries no data as a plain dashed line without a label", () => {
@@ -722,7 +733,7 @@ describe("ArchitectureDiagram — edge rendering", () => {
     );
     const path = document.getElementById("bare") as unknown as SVGPathElement;
     expect(path.style.strokeDasharray).toBe("5 3");
-    expect(path.style.stroke).toBe("#777");
+    expect(path.style.stroke).toBe(LIGHT_EDGE);
     expect(screen.queryByTestId("edge-label")).not.toBeInTheDocument();
   });
 

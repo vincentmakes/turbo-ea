@@ -14,6 +14,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useTheme } from "@mui/material/styles";
 
 interface SsoSettings {
   enabled: boolean;
@@ -55,6 +56,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 export default function AuthAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -162,7 +164,7 @@ export default function AuthAdmin() {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="person_add" size={22} color="#555" />
+          <MaterialSymbol icon="person_add" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.registration.title")}
           </Typography>
@@ -199,7 +201,7 @@ export default function AuthAdmin() {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="shield_person" size={22} color="#555" />
+          <MaterialSymbol icon="shield_person" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.sso.title")}
           </Typography>

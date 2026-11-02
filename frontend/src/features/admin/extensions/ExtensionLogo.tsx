@@ -98,7 +98,7 @@ export default function ExtensionLogo({
       sx={{
         ...common,
         bgcolor: fallbackColor(extKey),
-        color: "#fff",
+        color: "common.white",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

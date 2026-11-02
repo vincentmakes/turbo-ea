@@ -13,6 +13,7 @@ import {
   type GEdge,
 } from "./layeredDependencyLayout";
 import type { CardType, CardTypeCategory, RelationType, FieldOption } from "@/types";
+import { ARROW_COLOR, SEVERED_ARROW_COLOR } from "./ldvLayoutShared";
 
 const PAST = "2000-01-01";
 const FUTURE = "2999-01-01";
@@ -980,8 +981,8 @@ describe("stripEdgeLabels with aggregate connectors", () => {
 });
 
 describe("buildLdvFlow arrowheads", () => {
-  const grey = { type: "arrowclosed", color: "#888" };
-  const red = { type: "arrowclosed", color: "#d32f2f" };
+  const grey = { type: "arrowclosed", color: ARROW_COLOR };
+  const red = { type: "arrowclosed", color: SEVERED_ARROW_COLOR };
   const nodes: GNode[] = [
     { id: "a", name: "A", type: "Application" },
     { id: "b", name: "B", type: "ITComponent" },

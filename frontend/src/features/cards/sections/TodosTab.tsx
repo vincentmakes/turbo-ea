@@ -30,6 +30,7 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { RecurrenceUnit, Todo, User } from "@/types";
 import { defaultLeadTimeDays } from "@/lib/recurrence/leadTime";
 import { formatRecurrence, RECURRENCE_UNIT_OPTIONS } from "@/lib/recurrence/recurrenceLabel";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // ── Tab: Todos ──────────────────────────────────────────────────
 // Stryker disable next-line ObjectLiteral: spacing is presentation
@@ -231,7 +232,7 @@ function TodosTab({ fsId }: { fsId: string }) {
                         : "radio_button_unchecked"
                   }
                   size={20}
-                  color={td.status === "done" ? "#4caf50" : undefined}
+                  color={td.status === "done" ? STATUS_COLORS.success : undefined}
                 />
               </IconButton>
               <ListItemText

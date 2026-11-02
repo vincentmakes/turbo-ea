@@ -7,6 +7,7 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import AdrGrid from "@/features/ea-delivery/AdrGrid";
@@ -50,6 +51,8 @@ export default function DecisionsPanel() {
   const { user } = useAuthContext();
   const { types: metamodelTypes } = useMetamodel();
   const typeLabel = useTypeLabel();
+  // A linked card whose type the metamodel does not know gets a neutral swatch.
+  const unknownTypeColor = useTheme().palette.text.secondary;
 
   const canManage = !!user?.permissions?.["*"] || !!user?.permissions?.["adr.manage"];
 
@@ -225,10 +228,10 @@ export default function DecisionsPanel() {
       return {
         key,
         label: mt ? typeLabel(mt) : key,
-        color: mt?.color ?? "#666",
+        color: mt?.color ?? unknownTypeColor,
       };
     });
-  }, [adrs, metamodelTypes, typeLabel]);
+  }, [adrs, metamodelTypes, typeLabel, unknownTypeColor]);
 
   const availableLinkedCards = useMemo(() => {
     const seen = new Map<
@@ -246,13 +249,13 @@ export default function DecisionsPanel() {
             id: c.id,
             name: c.name,
             type: c.type,
-            color: mt?.color ?? "#666",
+            color: mt?.color ?? unknownTypeColor,
           });
         }
       }
     }
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [adrs, metamodelTypes, adrFilters.cardTypes]);
+  }, [adrs, metamodelTypes, adrFilters.cardTypes, unknownTypeColor]);
 
   const availableSignatories = useMemo(() => {
     const seen = new Map<string, { userId: string; displayName: string }>();

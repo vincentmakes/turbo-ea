@@ -26,6 +26,7 @@ import {
   readCardBoxesFromXml,
 } from "./drawio-shapes";
 import { composeCardLogoImage } from "./cardLogoImage";
+import { DEFAULT_LAYER_COLOR } from "@/theme/tokens";
 import DiagramViewLegend from "./DiagramViewLegend";
 import { buildLegend, normaliseViewSource, type ViewResolvers } from "./viewSource";
 import type { Card } from "@/types";
@@ -136,7 +137,7 @@ async function withCardLogos(
       const image = await composeCardLogoImage(
         cardLogoUrl(c.id, c.logo_updated_at as string),
         tp?.icon,
-        tp?.color ?? "#999999",
+        tp?.color ?? DEFAULT_LAYER_COLOR,
         b.w,
         b.h,
       );

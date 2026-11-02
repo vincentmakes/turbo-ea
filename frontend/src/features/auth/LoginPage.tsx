@@ -11,6 +11,8 @@ import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
+import { alpha } from "@mui/material/styles";
+import { NAVBAR_DEFAULTS, THIRD_PARTY_BRAND, brand } from "@/theme/tokens";
 import { useTranslation } from "react-i18next";
 import { PROXY_SIGNOUT_KEY, SSO_CACHE_KEY } from "@/hooks/useAuth";
 import { auth } from "@/api/client";
@@ -202,7 +204,7 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        bgcolor: "#1a1a2e",
+        bgcolor: NAVBAR_DEFAULTS.bg,
         py: 4,
       }}
     >
@@ -226,7 +228,7 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
             style={{ height: 64, maxWidth: 280, objectFit: "contain" }}
           />
           {!branding.taglineHidden && (
-            <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
+            <Typography variant="body2" sx={{ mt: 1, color: (theme) => alpha(theme.palette.common.white, 0.6) }}>
               {branding.tagline || t("login.title")}
             </Typography>
           )}
@@ -309,21 +311,21 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
               startIcon={
                 provider === "microsoft" ? (
                   <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-                    <rect x="1" y="1" width="9" height="9" fill="#f25022" />
-                    <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
-                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
-                    <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                    <rect x="1" y="1" width="9" height="9" fill={THIRD_PARTY_BRAND.microsoft.red} />
+                    <rect x="11" y="1" width="9" height="9" fill={THIRD_PARTY_BRAND.microsoft.green} />
+                    <rect x="1" y="11" width="9" height="9" fill={THIRD_PARTY_BRAND.microsoft.blue} />
+                    <rect x="11" y="11" width="9" height="9" fill={THIRD_PARTY_BRAND.microsoft.yellow} />
                   </svg>
                 ) : provider === "google" ? (
                   <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill={THIRD_PARTY_BRAND.google.blue}/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill={THIRD_PARTY_BRAND.google.green}/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill={THIRD_PARTY_BRAND.google.yellow}/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill={THIRD_PARTY_BRAND.google.red}/>
                   </svg>
                 ) : provider === "okta" ? (
                   <svg width="20" height="20" viewBox="0 0 24 24">
-                    <path d="M12 0C5.389 0 0 5.389 0 12s5.389 12 12 12 12-5.389 12-12S18.611 0 12 0zm0 18c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6z" fill="#007DC1"/>
+                    <path d="M12 0C5.389 0 0 5.389 0 12s5.389 12 12 12 12-5.389 12-12S18.611 0 12 0zm0 18c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6z" fill={THIRD_PARTY_BRAND.okta.blue}/>
                   </svg>
                 ) : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -444,7 +446,7 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
             width: 400,
             maxWidth: "90vw",
             textAlign: "center",
-            color: "rgba(255,255,255,0.7)",
+            color: (theme) => alpha(theme.palette.common.white, 0.7),
           }}
         >
           {branding.helpText && (
@@ -460,7 +462,7 @@ export default function LoginPage({ onLogin, onRegister, onProxySession }: Props
               sx={{
                 display: "inline-block",
                 mt: branding.helpText ? 0.5 : 0,
-                color: "#64b5f6",
+                color: brand.primaryLight,
               }}
             >
               {branding.helpLink}

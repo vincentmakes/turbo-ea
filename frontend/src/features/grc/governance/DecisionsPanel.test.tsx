@@ -11,6 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createTheme } from "@mui/material/styles";
 import { useLocation } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
@@ -170,6 +171,9 @@ import { ADR_GRID_LS_KEY } from "@/features/ea-delivery/adrGridPrefs";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
 import DecisionsPanel from "./DecisionsPanel";
 
+// A type the metamodel does not know is drawn in the theme's secondary text grey.
+const UNKNOWN_TYPE_COLOR = createTheme().palette.text.secondary;
+
 function makeAdr(overrides: Partial<ArchitectureDecision> & { id: string }): ArchitectureDecision {
   return {
     reference_number: `ADR-${overrides.id}`,
@@ -308,11 +312,11 @@ describe("DecisionsPanel — loading and layout", () => {
     expect(types).toEqual([
       { key: "Application", label: "Application", color: expect.any(String) },
       { key: "ITComponent", label: "IT Component", color: expect.any(String) },
-      { key: "Gadget", label: "Gadget", color: "#666" },
+      { key: "Gadget", label: "Gadget", color: UNKNOWN_TYPE_COLOR },
     ]);
     const cards = JSON.parse(sidebar().getAttribute("data-cards")!);
     expect(cards.map((c: { name: string }) => c.name)).toEqual(["ERP", "Mystery", "Postgres"]);
-    expect(cards.find((c: { id: string }) => c.id === "c-unknown").color).toBe("#666");
+    expect(cards.find((c: { id: string }) => c.id === "c-unknown").color).toBe(UNKNOWN_TYPE_COLOR);
     // Only signed signatories, sorted by name.
     expect(JSON.parse(sidebar().getAttribute("data-signatories")!)).toEqual([
       { userId: "u-adam", displayName: "Adam" },

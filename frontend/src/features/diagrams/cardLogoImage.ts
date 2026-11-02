@@ -34,6 +34,7 @@
  */
 
 import { tint } from "@/lib/color";
+import { CHART_LABEL_ON_DARK } from "@/theme/tokens";
 
 import { ICON_PATHS } from "./iconPaths";
 
@@ -293,7 +294,7 @@ function drawTypeBadge(
   ctx.translate(cardW - TYPE_GLYPH_PX - GLYPH_PAD_RIGHT, GLYPH_PAD_TOP);
   ctx.scale(scale, scale);
   ctx.translate(-vx, -vy);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = CHART_LABEL_ON_DARK;
   ctx.fill(path);
   ctx.restore();
 }

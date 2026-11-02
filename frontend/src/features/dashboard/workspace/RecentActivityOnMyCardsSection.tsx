@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import type { EventEntry } from "@/types";
 import RecentActivity from "../RecentActivity";
 import SectionPaper, { EmptyState } from "./SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 export default function RecentActivityOnMyCardsSection() {
   const { t } = useTranslation("common");
@@ -23,7 +24,7 @@ export default function RecentActivityOnMyCardsSection() {
   return (
     <SectionPaper
       icon="schedule"
-      iconColor="#5e35b1"
+      iconColor={DASHBOARD_KPI_COLORS.activity}
       title={t("dashboard.workspace.recentActivity")}
     >
       {loading ? (

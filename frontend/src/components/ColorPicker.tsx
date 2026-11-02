@@ -12,7 +12,7 @@ import { contrastRatio, isHexColor } from "@/lib/color";
  * Curated preset colors for the Sketch picker bottom row.
  * 12 hues x 5 shades — gives a wide range of modern colors.
  */
-const PRESET_COLORS = [
+export const PRESET_COLORS = [
   // row 1: vivid primaries + accents
   "#f87171", "#fb923c", "#fbbf24", "#4ade80", "#2dd4bf",
   "#22d3ee", "#60a5fa", "#818cf8", "#a78bfa", "#f472b6",

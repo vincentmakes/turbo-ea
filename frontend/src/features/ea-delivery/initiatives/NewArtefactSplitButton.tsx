@@ -8,7 +8,7 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { DELIVERABLE_COLORS } from "@/theme/tokens";
 
 export type ArtefactKind = "soaw" | "diagram" | "adr";
 
@@ -53,17 +53,17 @@ export default function NewArtefactSplitButton({
   > = {
     soaw: {
       icon: "description",
-      color: "#e65100",
+      color: DELIVERABLE_COLORS.soaw,
       labelKey: "header.newSoaw",
     },
     diagram: {
       icon: "schema",
-      color: CARD_TYPE_COLORS.Application,
+      color: DELIVERABLE_COLORS.diagram,
       labelKey: "header.newDiagram",
     },
     adr: {
       icon: "gavel",
-      color: STATUS_COLORS.info,
+      color: DELIVERABLE_COLORS.adr,
       labelKey: "header.newAdr",
     },
   };

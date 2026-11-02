@@ -52,6 +52,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import ComplianceScanCard from "./ComplianceScanCard";
 import { useAnalysisPolling } from "@/features/turbolens/useAnalysisPolling";
 import { todayIsoDate } from "@/lib/dates";
+import { RAG_COLORS } from "@/theme/tokens";
 
 /**
  * Resolve a regulation key to a display label. Order of precedence:
@@ -645,10 +646,10 @@ export default function ComplianceScanner() {
               icon="verified"
               color={
                 avgCompliance >= 80
-                  ? "#2e7d32"
+                  ? RAG_COLORS.green
                   : avgCompliance >= 60
-                    ? "#f57c00"
-                    : "#d32f2f"
+                    ? RAG_COLORS.amber
+                    : RAG_COLORS.red
               }
             />
           </Grid>

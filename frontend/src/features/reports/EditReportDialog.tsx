@@ -12,6 +12,7 @@ import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import { api } from "@/api/client";
 import type { SavedReport, User } from "@/types";
 
@@ -77,7 +78,7 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <MaterialSymbol icon="edit" size={22} color="#1976d2" />
+        <MaterialSymbol icon="edit" size={22} color={brand.primary} />
         {t("edit.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>

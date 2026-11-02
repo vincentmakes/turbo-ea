@@ -9,6 +9,7 @@ import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { RAG_COLORS, brand } from "@/theme/tokens";
 import { api } from "@/api/client";
 import CreateSoAWDialog from "@/features/ea-delivery/CreateSoAWDialog";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
@@ -229,7 +230,7 @@ export default function EaDeliveryReport() {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", flex: "1 1 auto", minWidth: 0 }}>
-          <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
+          <MaterialSymbol icon="architecture" size={28} color={brand.primary} />
           <Box sx={{ ml: 1, minWidth: 0 }}>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>
               {t("page.title")}
@@ -306,7 +307,7 @@ export default function EaDeliveryReport() {
           sx={{ color: "error.main" }}
         >
           <ListItemIcon>
-            <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
+            <MaterialSymbol icon="delete" size={18} color={RAG_COLORS.red} />
           </ListItemIcon>
           <ListItemText>{t("menu.delete")}</ListItemText>
         </MenuItem>

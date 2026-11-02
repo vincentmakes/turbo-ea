@@ -49,6 +49,14 @@ vi.mock("@/components/TagPicker", () => ({
 
 import PortalViewer from "./PortalViewer";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
+import { hexToRgb } from "@mui/material/styles";
+import { STATUS_CHIP_COLORS, STATUS_COLORS, type StatusChipKey } from "@/theme/tokens";
+
+/** A soft status chip's fill and text, as the browser reports them. */
+const chipRgb = (key: StatusChipKey) => ({
+  bg: hexToRgb(STATUS_CHIP_COLORS[key].fill),
+  fg: hexToRgb(STATUS_CHIP_COLORS[key].text),
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -133,7 +141,7 @@ const TYPE_INFO = {
 
 /** The portal type colour, as the browser reports it. */
 const TYPE_RGB = "rgb(15, 126, 181)";
-const GREY_RGB = "rgb(158, 158, 158)";
+const GREY_RGB = hexToRgb(STATUS_COLORS.neutral);
 
 function portal(
   toggles: Record<string, { card: boolean; detail: boolean }> = {},
@@ -429,18 +437,9 @@ describe("PortalViewer tile approval status", () => {
   it("colours each status chip by its verdict, and shows none for a draft", async () => {
     serveCards(cards, { approval_status: BOTH });
     await renderLoaded("Approved App");
-    expect(colours(chipOf(tileOf("Approved App").getByText("Approved")))).toEqual({
-      bg: "rgb(232, 245, 233)",
-      fg: "rgb(46, 125, 50)",
-    });
-    expect(colours(chipOf(tileOf("Rejected App").getByText("Rejected")))).toEqual({
-      bg: "rgb(255, 235, 238)",
-      fg: "rgb(198, 40, 40)",
-    });
-    expect(colours(chipOf(tileOf("Submitted App").getByText("SUBMITTED")))).toEqual({
-      bg: "rgb(255, 243, 224)",
-      fg: "rgb(230, 81, 0)",
-    });
+    expect(colours(chipOf(tileOf("Approved App").getByText("Approved")))).toEqual(chipRgb("success"));
+    expect(colours(chipOf(tileOf("Rejected App").getByText("Rejected")))).toEqual(chipRgb("error"));
+    expect(colours(chipOf(tileOf("Submitted App").getByText("SUBMITTED")))).toEqual(chipRgb("warning"));
     expect(tileOf("Draft App").queryByText("DRAFT")).toBeNull();
   });
 });
@@ -641,6 +640,26 @@ describe("PortalViewer detail dialog chrome", () => {
     expect(dialog.getByText("description")).toBeInTheDocument();
   });
 
+  it("tints the dialog's data-quality chip by the score's band", async () => {
+    serveCards([
+      card({ id: "c1", name: "Complete App", data_quality: 80 }),
+      card({ id: "c2", name: "Partial App", data_quality: 50 }),
+      card({ id: "c3", name: "Minimal App", data_quality: 10 }),
+    ]);
+    const user = await renderLoaded("Complete App");
+
+    let dialog = await openDetail(user, "Complete App");
+    expect(colours(chipOf(dialog.getByText("80% data quality")))).toEqual(chipRgb("success"));
+    await closeDetail(user);
+
+    dialog = await openDetail(user, "Partial App");
+    expect(colours(chipOf(dialog.getByText("50% data quality")))).toEqual(chipRgb("warning"));
+    await closeDetail(user);
+
+    dialog = await openDetail(user, "Minimal App");
+    expect(colours(chipOf(dialog.getByText("10% data quality")))).toEqual(chipRgb("error"));
+  });
+
   it("leaves the data-quality chip out of the dialog when the portal hides it there", async () => {
     serveCards([card()], { data_quality: CARD_ONLY });
     const user = await renderLoaded();
@@ -676,24 +695,15 @@ describe("PortalViewer detail approval status", () => {
     const user = await renderLoaded("Approved App");
 
     let dialog = await openDetail(user, "Approved App");
-    expect(colours(chipOf(dialog.getByText("Approved")))).toEqual({
-      bg: "rgb(232, 245, 233)",
-      fg: "rgb(46, 125, 50)",
-    });
+    expect(colours(chipOf(dialog.getByText("Approved")))).toEqual(chipRgb("success"));
     await closeDetail(user);
 
     dialog = await openDetail(user, "Rejected App");
-    expect(colours(chipOf(dialog.getByText("Rejected")))).toEqual({
-      bg: "rgb(255, 235, 238)",
-      fg: "rgb(198, 40, 40)",
-    });
+    expect(colours(chipOf(dialog.getByText("Rejected")))).toEqual(chipRgb("error"));
     await closeDetail(user);
 
     dialog = await openDetail(user, "Submitted App");
-    expect(colours(chipOf(dialog.getByText("SUBMITTED")))).toEqual({
-      bg: "rgb(255, 243, 224)",
-      fg: "rgb(230, 81, 0)",
-    });
+    expect(colours(chipOf(dialog.getByText("SUBMITTED")))).toEqual(chipRgb("warning"));
   });
 });
 

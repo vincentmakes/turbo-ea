@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -63,7 +64,14 @@ import {
   type BucketLabels,
   type FacetLabels,
 } from "@/lib/fieldFacets";
-import { CARD_TYPE_COLORS, EOL_WARNING_COLOR } from "@/theme";
+import {
+  CARD_TYPE_COLORS,
+  CHART_LABEL_ON_DARK,
+  EOL_WARNING_COLOR,
+  PRINT_COLORS,
+  STATUS_COLORS,
+} from "@/theme";
+import { HEAT_EMPTY, heatShade } from "./heatScale";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -162,7 +170,7 @@ const METRIC_OPTIONS: { key: Metric; labelKey: string; icon: string }[] = [
   { key: "risk_count", labelKey: "capabilityMap.metricRiskCount", icon: "warning" },
 ];
 
-const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
+const UNSET_COLOR = alpha(STATUS_COLORS.neutral, 0.2);
 
 /** A persisted config is free-form JSON, so a restored metric is checked. */
 function isMetric(value: unknown): value is Metric {
@@ -208,18 +216,8 @@ function heatRatio(value: number, min: number, max: number): number {
 }
 
 function heatColor(value: number, min: number, max: number, metric: Metric): string {
-  if (max === min) return "rgba(128, 128, 128, 0.1)";
-  const ratio = heatRatio(value, min, max);
-  if (metric === "risk_count") {
-    const r = Math.round(255 - ratio * 55);
-    const g = Math.round(255 - ratio * 207);
-    const b = Math.round(255 - ratio * 215);
-    return `rgb(${r},${g},${b})`;
-  }
-  const r = Math.round(227 - ratio * 202);
-  const g = Math.round(242 - ratio * 152);
-  const b = Math.round(253 - ratio * 51);
-  return `rgb(${r},${g},${b})`;
+  if (max === min) return HEAT_EMPTY;
+  return heatShade(metric === "risk_count" ? "risk" : "amount", heatRatio(value, min, max));
 }
 
 function getAppColor(
@@ -490,7 +488,8 @@ function AppChip({
   const labels = useColorLabels();
   const color = getAppColor(app, colorBy, selectFields, labels, appDefault);
   const colorLabel = getAppColorLabel(app, colorBy, selectFields, labels);
-  const light = readableTextColor(color) === "#000000";
+  // `readableTextColor` answers white for a dark fill, so anything else is a light one.
+  const light = readableTextColor(color) !== CHART_LABEL_ON_DARK;
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (
@@ -504,7 +503,7 @@ function AppChip({
         }}
         sx={{
           bgcolor: color,
-          color: light ? "#333" : "#fff",
+          color: light ? PRINT_COLORS.text : "common.white",
           fontWeight: 500,
           fontSize: "0.7rem",
           maxWidth: 160,
@@ -632,7 +631,7 @@ function CapabilityCard({
           <Chip
             size="small"
             label={fmtVal(val)}
-            sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)", color: "#333" }}
+            sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: PRINT_COLORS.text }}
           />
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
             <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
@@ -711,7 +710,7 @@ function CapabilityCard({
         <Chip
           size="small"
           label={t("capabilityMap.apps", { count: node.deepAppCount })}
-          sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)", color: "#333" }}
+          sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7), color: PRINT_COLORS.text }}
         />
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
           <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>

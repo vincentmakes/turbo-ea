@@ -27,6 +27,7 @@ import {
   type UserImportReport,
   type UserImportResult,
 } from "./userExcelImport";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 interface UserImportDialogProps {
   open: boolean;
@@ -414,7 +415,7 @@ export default function UserImportDialog({
               <MaterialSymbol
                 icon={result.failed > 0 ? "warning" : "check_circle"}
                 size={48}
-                color={result.failed > 0 ? "#ff9800" : "#4caf50"}
+                color={result.failed > 0 ? STATUS_COLORS.warning : STATUS_COLORS.success}
               />
               <Typography variant="h6" sx={{ mt: 1 }}>
                 {t("users.import.complete")}

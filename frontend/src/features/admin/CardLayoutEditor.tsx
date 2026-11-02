@@ -59,6 +59,8 @@ import {
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FIELD_TYPE_COLORS, brand, STATUS_COLORS } from "@/theme/tokens";
+import { useTheme } from "@mui/material/styles";
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -91,12 +93,8 @@ function getSectionInfo(key: string, customSections: SectionDef[], type: CardTyp
 }
 
 function fieldTypeColor(type: string): string {
-  const map: Record<string, string> = {
-    text: "#1976d2", number: "#7b1fa2", cost: "#e65100", boolean: "#2e7d32",
-    date: "#c2185b", url: "#0277bd", single_select: "#00838f", multiple_select: "#4527a0",
-    percentage: "#00695c",
-  };
-  return map[type] || "#666";
+  const map: Record<string, string> = FIELD_TYPE_COLORS;
+  return map[type] || FIELD_TYPE_COLORS.other;
 }
 
 // ── Container ↔ Fields conversion ────────────────────────────────
@@ -256,14 +254,14 @@ function FieldCard({
       }}
     >
       {field.required && (
-        <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "#1976d2", flexShrink: 0 }} />
+        <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: brand.primary, flexShrink: 0 }} />
       )}
       <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }} noWrap>
         {isProtected ? field.label : fieldLabel(field)}
         {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.6rem" }} />}
       </Typography>
       <WeightBadge weight={field.weight} />
-      <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 18, fontSize: "0.6rem" }} />
+      <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "common.white", height: 18, fontSize: "0.6rem" }} />
       {(!isProtected && (onEdit || onDelete || onMove)) && (
         <Box className="field-actions" sx={{ display: "flex", gap: 0.25, opacity: 0, transition: "opacity 0.15s" }}>
           {onMove && (
@@ -288,6 +286,7 @@ function SortableFieldCard({
   onEdit?: () => void; onDelete?: () => void;
   onMove?: (e: React.MouseEvent<HTMLElement>) => void;
 }) {
+  const theme = useTheme();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     data: { type: "field", field },
@@ -298,7 +297,7 @@ function SortableFieldCard({
     <Box ref={setNodeRef} style={style} sx={{ mb: 0.75 }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", flexShrink: 0, "&:active": { cursor: "grabbing" } }}>
-          <MaterialSymbol icon="drag_indicator" size={16} color="#bbb" />
+          <MaterialSymbol icon="drag_indicator" size={16} color={theme.palette.action.disabled} />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <FieldCard field={field} isCalc={isCalc} onEdit={onEdit} onDelete={onDelete} onMove={onMove} isDragging={isDragging} />
@@ -1165,6 +1164,7 @@ function SortableSectionItem({
   children?: React.ReactNode;
   dqWeight?: number;
 }) {
+  const theme = useTheme();
   const { t } = useTranslation(["admin"]);
   const rl = useResolveLabel();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -1175,10 +1175,10 @@ function SortableSectionItem({
     <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1.5, mb: 1, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
       <Box sx={{ display: "flex", alignItems: "center", px: 1.5, py: 0.75, gap: 0.75 }}>
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
-          <MaterialSymbol icon="drag_indicator" size={20} color="#999" />
+          <MaterialSymbol icon="drag_indicator" size={20} color={STATUS_COLORS.neutral} />
         </Box>
         <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.75, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
-          <MaterialSymbol icon={info.icon} size={20} color={cfg.hidden ? "#bbb" : "#666"} />
+          <MaterialSymbol icon={info.icon} size={20} color={cfg.hidden ? theme.palette.action.disabled : theme.palette.text.secondary} />
           <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.labelKey ? t(info.labelKey) : (info.isCustom ? rl(info.label, info.section?.translations) : info.label)}</Typography>
           {dqWeight !== undefined && <WeightBadge weight={dqWeight} />}
         </Box>
@@ -1199,7 +1199,7 @@ function SortableSectionItem({
         {onDelete && (
           <Tooltip title={t("cardLayout.deleteSection")}>
             <IconButton size="small" onClick={onDelete}>
-              <MaterialSymbol icon="delete" size={18} color="#999" />
+              <MaterialSymbol icon="delete" size={18} color={STATUS_COLORS.neutral} />
             </IconButton>
           </Tooltip>
         )}
