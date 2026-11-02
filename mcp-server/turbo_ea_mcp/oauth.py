@@ -567,9 +567,8 @@ async def _read_token_body(request: Request) -> dict | None:
     The content type is read first because ``request.form()`` does not raise
     on a JSON body — it returns an empty form, so a JSON request used to be
     answered ``unsupported_grant_type``."""
-    content_type = request.headers.get(
-        "content-type", ""
-    )  # pragma: no mutate, header names are case-insensitive and any non-JSON default reads as form
+    # Not mutated: header names are case-insensitive and any non-JSON default reads as form.
+    content_type = request.headers.get("content-type", "")  # pragma: no mutate, see above
     media_type = content_type.split(";")[0].strip().lower()
     if media_type != "application/json":
         try:

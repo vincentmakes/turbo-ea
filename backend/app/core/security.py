@@ -19,9 +19,8 @@ PORTAL_AUD = "turbo-ea-portal"
 
 
 def _sign(payload: dict) -> str:
-    return jwt.encode(
-        payload, settings.SECRET_KEY, algorithm=ALGORITHM
-    )  # pragma: no mutate, HS256 is PyJWT's default too
+    # Not mutated: HS256 is PyJWT's default too, so dropping the algorithm is equivalent.
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)  # pragma: no mutate
 
 
 def create_access_token(

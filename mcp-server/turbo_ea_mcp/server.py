@@ -4090,22 +4090,21 @@ class RequireBearerForMcp:
                 ),
             },
         )
-        await response(
-            scope, receive, send
-        )  # pragma: no mutate, a JSON response never reads the body
+        await response(scope, receive, send)  # pragma: no mutate, JSON never reads the body
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")  # pragma: no mutate, no default can read as /mcp
             if path == "/mcp" or path.startswith("/mcp/"):
                 headers = dict(scope.get("headers", []))
-                auth = headers.get(
-                    b"authorization", b""
-                ).decode()  # pragma: no mutate, any default reads as unauthenticated
+                # Not mutated: any default header value reads as unauthenticated.
+                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate
                 if not auth.lower().startswith("bearer "):
-                    await self._challenge(
-                        scope, receive, send, *_TOKEN_REQUIRED
-                    )  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body. A trailing
+                    # pragma would push the line past 100 columns, so it is fenced instead.
+                    # pragma: no mutate start
+                    await self._challenge(scope, receive, send, *_TOKEN_REQUIRED)
+                    # pragma: no mutate end
                     return
                 try:
                     resolved = await self.resolve(auth[7:])
@@ -4124,14 +4123,15 @@ class RequireBearerForMcp:
                         status_code=503,
                         headers={oauth.RETRY_AFTER: "5"},
                     )
-                    await response(
-                        scope, receive, send
-                    )  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body.
+                    await response(scope, receive, send)  # pragma: no mutate
                     return
                 if resolved is None:
-                    await self._challenge(
-                        scope, receive, send, *_TOKEN_INVALID
-                    )  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body. A trailing
+                    # pragma would push the line past 100 columns, so it is fenced instead.
+                    # pragma: no mutate start
+                    await self._challenge(scope, receive, send, *_TOKEN_INVALID)
+                    # pragma: no mutate end
                     return
         await self.app(scope, receive, send)
 
