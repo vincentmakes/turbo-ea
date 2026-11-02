@@ -119,5 +119,3 @@ export function BooleanField({
     </FormControl>
   );
 }
-
-export default BooleanField;

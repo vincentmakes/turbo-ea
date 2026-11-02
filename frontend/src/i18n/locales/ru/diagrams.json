@@ -44,7 +44,6 @@
   "editor.errors.loadFailed": "Не удалось загрузить диаграмму",
   "editor.errors.saveFailed": "Ошибка сохранения",
   "editor.errors.loadRelationsFailed": "Не удалось загрузить связи",
-  "editor.errors.resyncFailed": "Не удалось повторно синхронизировать связи",
   "editor.errors.editorNotReady": "Редактор не готов — попробуйте через мгновение",
   "editor.errors.createCardFailed": "Не удалось создать карточку",
   "editor.errors.createRelationFailed": "Не удалось создать связь",

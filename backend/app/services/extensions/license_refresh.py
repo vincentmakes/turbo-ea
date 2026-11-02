@@ -26,7 +26,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.models.extension import ExtensionLicense
 from app.services.extensions.instance_id import get_instance_id, license_binding_problem
-from app.services.extensions.license import LicenseDocument, LicenseError, parse_and_verify
+from app.services.extensions.license import (
+    LicenseDocument,
+    LicenseError,
+    open_stored_license_text,
+    parse_and_verify,
+    seal_license_text,
+)
 from app.services.extensions.registry import extension_registry
 from app.services.extensions.store_catalog import store_client
 
@@ -56,7 +62,8 @@ async def persist_license(
     for old in actives:
         old.is_active = False
     row = ExtensionLicense(
-        raw_text=doc.raw_text,
+        # Encrypted at rest: the envelope carries the store renewal credential.
+        raw_text=seal_license_text(doc.raw_text),
         key_id=doc.key_id or None,
         licensee=doc.licensee,
         customer_id=doc.customer_id or None,
@@ -178,7 +185,7 @@ async def refresh_license_if_due(
         return False
 
     try:
-        current = parse_and_verify(row.raw_text)
+        current = parse_and_verify(open_stored_license_text(row.raw_text))
     except LicenseError:
         logger.warning("Active license no longer verifies — skipping auto-renewal")
         return False

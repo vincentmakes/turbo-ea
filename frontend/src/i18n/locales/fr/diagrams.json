@@ -38,7 +38,6 @@
   "editor.errors.loadFailed": "Échec du chargement du diagramme",
   "editor.errors.saveFailed": "Échec de l’enregistrement",
   "editor.errors.loadRelationsFailed": "Échec du chargement des relations",
-  "editor.errors.resyncFailed": "Échec de la resynchronisation des relations",
   "editor.errors.editorNotReady": "Éditeur pas encore prêt — réessayez dans un instant",
   "editor.errors.createCardFailed": "Échec de la création de la fiche",
   "editor.errors.createRelationFailed": "Échec de la création de la relation",

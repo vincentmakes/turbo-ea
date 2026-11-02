@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.5] - 2026-11-02
+
+### Fixed
+- Expanding a card's relations again on a diagram no longer brings back the related cards or relation lines you had removed from the canvas while the group was expanded; an orange `!` on the card restores them when you want them back.
+- Collapsing and re-expanding a card's relations on a diagram puts the related cards back where you had arranged them, as the collapse confirmation always said it would.
+
+### Security
+- Extension licence files are now stored encrypted at rest. Existing licences are encrypted on upgrade. **Upgrade note:** rotating `SECRET_KEY`, or restoring a database onto a host with a different one, now disables paid extensions until each licence file is pasted again under Admin → Extensions; nothing else is affected.
+- ServiceNow connection credentials are stored through the same encryption helper as every other secret, so they are redacted wherever other secrets are.
+
 ## [2.186.4] - 2026-11-02
 
 ### Changed

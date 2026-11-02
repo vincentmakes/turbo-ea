@@ -33,5 +33,3 @@ export function useSyncedExpanded(
 
   return [expanded, setExpanded];
 }
-
-export default useSyncedExpanded;

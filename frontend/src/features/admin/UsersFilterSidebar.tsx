@@ -76,8 +76,6 @@ export const USER_COLUMNS = [
   },
 ];
 
-export const USER_COLUMN_KEYS = USER_COLUMNS.map((c) => c.key);
-
 export const DEFAULT_USER_COLUMNS = new Set<string>([
   "name",
   "email",

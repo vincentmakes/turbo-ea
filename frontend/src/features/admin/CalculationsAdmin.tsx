@@ -1142,7 +1142,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
             loading={searchLoading || searchDebouncePending}
             noOptionsText={searchInput.length < 2 ? t("calculations.typeToSearch") : t("calculations.noCardsFound")}
-            renderOption={({ key, ...optProps }, option) => (
+            renderOption={({ key: _key, ...optProps }, option) => (
               <li key={option.id} {...optProps}>
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
                   <Typography variant="body2">{option.name}</Typography>

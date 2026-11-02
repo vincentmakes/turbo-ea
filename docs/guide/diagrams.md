@@ -60,6 +60,8 @@ Rows with count = 0 are greyed out, and neighbours / children already on the can
 
 An expanded card shows a `−` overlay to collapse it again. Collapsing removes the expanded cards from the canvas, so Turbo EA asks for confirmation first if you have moved or restyled any of them; expanding again puts them back exactly where you left them.
 
+A card or relation you remove from the canvas while a card is expanded stays hidden when you expand that card again — until you reload the page. A card that is leaving something out this way shows an orange `!` in its top-left corner: click it to forget what you removed, and the next expansion brings everything back.
+
 ### Hierarchy on the canvas
 
 Containers correspond to a card's `parent_id`:

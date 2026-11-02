@@ -768,6 +768,7 @@ class TestClient:
     def test_credentials_round_trip_and_bad_token(self):
         stored = encrypt_credentials({"username": "u"})
         assert set(stored) == {"_enc"}
+        assert stored["_enc"].startswith("enc:")
         assert snow.decrypt_credentials(stored) == {"username": "u"}
         assert snow.decrypt_credentials({"username": "legacy"}) == {"username": "legacy"}
         assert snow.decrypt_credentials({"_enc": "garbage"}) == {}

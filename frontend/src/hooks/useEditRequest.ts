@@ -78,5 +78,3 @@ export function focusFieldControl(root: Element | null | undefined, fieldKey: st
   );
   return focusFirstControl(wrapper);
 }
-
-export default useEditRequest;

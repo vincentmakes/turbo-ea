@@ -38,7 +38,6 @@
   "editor.errors.loadFailed": "Diagramm konnte nicht geladen werden",
   "editor.errors.saveFailed": "Speichern fehlgeschlagen",
   "editor.errors.loadRelationsFailed": "Beziehungen konnten nicht geladen werden",
-  "editor.errors.resyncFailed": "Beziehungen konnten nicht neu synchronisiert werden",
   "editor.errors.editorNotReady": "Editor nicht bereit — versuchen Sie es gleich erneut",
   "editor.errors.createCardFailed": "Karte konnte nicht erstellt werden",
   "editor.errors.createRelationFailed": "Beziehung konnte nicht erstellt werden",

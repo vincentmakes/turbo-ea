@@ -51,6 +51,7 @@ import {
   findExistingCardCellId,
   getCellLabel,
   getGroupChildCardIds,
+  isGroupExpanded,
   getGroupChildRelationIds,
   getNestedCardIds,
   getVisibleCenter,
@@ -578,6 +579,26 @@ describe("expansion groups", () => {
     expect(getGroupChildRelationIds(NO_GRAPH, "p")).toEqual(new Set());
   });
 
+  it("isGroupExpanded needs the expanded marker and a child still drawn", () => {
+    const { f, c1, c2, g } = groupFixture();
+    expect(isGroupExpanded(f.iframe, "p")).toBe(true);
+    // A child's own subtree counts for that child: c1 has g, c2 has nothing.
+    expect(isGroupExpanded(f.iframe, "c1")).toBe(false);
+    c1.value.setAttribute("expanded", "1");
+    expect(isGroupExpanded(f.iframe, "c1")).toBe(true);
+    f.graph.removeCells([g]);
+    expect(isGroupExpanded(f.iframe, "c1")).toBe(false);
+    // Marked expanded but every child deleted reads as collapsed …
+    f.graph.removeCells([c1, c2]);
+    expect(isGroupExpanded(f.iframe, "p")).toBe(false);
+    // … and so does a collapsed marker, whatever is still drawn.
+    const again = groupFixture();
+    again.parent.value.setAttribute("expanded", "0");
+    expect(isGroupExpanded(again.f.iframe, "p")).toBe(false);
+    expect(isGroupExpanded(f.iframe, "missing")).toBe(false);
+    expect(isGroupExpanded(NO_GRAPH, "p")).toBe(false);
+  });
+
   it("collapseCardGroup removes the whole subtree with its edges and resets the parent's markers", () => {
     const { f, parent } = groupFixture();
     const { removedCellIds } = collapseCardGroup(f.iframe, "p");
@@ -1062,7 +1083,7 @@ describe("attachCellLifecycleListeners", () => {
 
   it("synthesises a removal from the CHANGE diff when DrawIO fires no CELLS_REMOVED at all", () => {
     vi.useFakeTimers();
-    const { f, a, rel } = relationFixture();
+    const { f, rel } = relationFixture();
     const { handlers } = lifecycle(f, ["a", "b"]);
     // A plain CHANGE with nothing missing only refreshes the known sets.
     f.graph.insertVertex(f.defaultParent, "late", attrBag({ cardId: "late" }), 0, 0, 1, 1);

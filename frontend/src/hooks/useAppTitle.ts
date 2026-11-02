@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 
 export const DEFAULT_APP_TITLE = "Turbo EA";
@@ -72,14 +72,4 @@ export function useAppTitle(): string {
 /** Broadcast a freshly saved app title to all mounted consumers. */
 export function invalidateAppTitle(title: string) {
   notify(title.trim() || DEFAULT_APP_TITLE);
-}
-
-/** Hook variant that also exposes the setter (for admin screens). */
-export function useAppTitleWithSetter(): {
-  title: string;
-  set: (t: string) => void;
-} {
-  const title = useAppTitle();
-  const set = useCallback((t: string) => invalidateAppTitle(t), []);
-  return { title, set };
 }

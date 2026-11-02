@@ -209,5 +209,3 @@ export function GainFlight({
     document.body,
   );
 }
-
-export default GainFlight;

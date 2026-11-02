@@ -328,8 +328,8 @@ def _license_store_managed() -> bool:
     """Whether the active license carries a store renewal credential.
 
     Read from the registry's parsed document — the credential lives only
-    inside the signed ``raw_text``, is never denormalised to a column, and is
-    never serialized to the browser; only this boolean is.
+    inside the signed ``raw_text`` (encrypted at rest), is never denormalised
+    to a column, and is never serialized to the browser; only this boolean is.
     """
     doc = extension_registry.license
     return bool(doc and doc.renewal_key)

@@ -89,7 +89,6 @@
   "editor.errors.loadFailed": "تعذّر تحميل المخطّط",
   "editor.errors.saveFailed": "فشل الحفظ",
   "editor.errors.loadRelationsFailed": "تعذّر تحميل العلاقات",
-  "editor.errors.resyncFailed": "تعذّرت إعادة مزامنة العلاقات",
   "editor.errors.editorNotReady": "المحرّر غير جاهز — حاول مرة أخرى بعد لحظة",
   "editor.errors.createCardFailed": "تعذّر إنشاء البطاقة",
   "editor.errors.createRelationFailed": "تعذّر إنشاء العلاقة",

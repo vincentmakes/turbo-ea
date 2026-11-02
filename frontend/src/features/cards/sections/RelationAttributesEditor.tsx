@@ -253,17 +253,10 @@ export function flowDirectionBadge(
 }
 
 /**
- * Returns true if a relation type has any schema-declared attributes.
- */
-export function hasRelationAttributes(relationType: RelationType | undefined): boolean {
-  return !!relationType && (relationType.attributes_schema ?? []).length > 0;
-}
-
-/**
  * Returns true only when a relation type declares at least one attribute the
  * user can actually edit — a `single_select` with options, or a `boolean` flag.
- * Stricter than {@link hasRelationAttributes} (which is true for any schema
- * entry, even an options-less or unrenderable field), so UI gates don't surface
+ * Stricter than "has any schema entry" (true even for an options-less or
+ * unrenderable field), so UI gates don't surface
  * an empty attribute editor for relations with nothing to set.
  *
  * Booleans count: a relation type whose only dimensions are flags (the seeded

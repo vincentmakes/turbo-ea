@@ -484,17 +484,6 @@ const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";
 
 /**
- * Legacy single-sheet parser. Kept for backwards compatibility with callers
- * that only care about the first sheet. New code should use
- * `parseWorkbookSheets()` to get a structured view of every sheet.
- *
- * The reader itself lives in the leaf `@/lib/spreadsheet` (it is what the
- * extension SDK's `loadSpreadsheet` resolves — an extension needs "read this
- * file into rows" without this module's card-import validators riding along).
- */
-export { parseWorkbook } from "@/lib/spreadsheet";
-
-/**
  * Multi-sheet parser: returns one entry per non-meta, non-relations sheet,
  * plus the relations rows and meta info. Sheet → type-key mapping is best
  * effort: the workbook produced by `exportToExcel()` uses the type's label

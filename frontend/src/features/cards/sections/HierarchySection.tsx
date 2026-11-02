@@ -27,7 +27,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import ClickableCardName from "@/components/ClickableCardName";
-import OptionChip from "@/components/OptionChip";
+import { OptionChip } from "@/components/OptionChip";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { hasTypePermission } from "@/components/RequirePermission";
 import { useAuthContext } from "@/hooks/AuthContext";

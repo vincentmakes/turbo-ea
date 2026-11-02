@@ -40,8 +40,10 @@ regexes = [
 ]
 
 # pytest fixtures: the extension-store tests exercise claim/renewal tokens with
-# literal counting-sequence values, and the password-reset tests set a second
-# throwaway password to prove the old one stopped working.
+# literal counting-sequence values (and pass one through ``self.RENEWAL_KEY``,
+# an attribute reference the generic-api-key rule reads as a value), and the
+# password-reset tests set a second throwaway password to prove the old one
+# stopped working.
 [[allowlists]]
 description = "backend/tests/api — literal token and password fixtures"
 condition = "AND"
@@ -53,6 +55,10 @@ regexTarget = "secret"
 regexes = [
   '''^tok_1234567890abcdef$''',
   '''^rk_0123456789abcdef$''',
+  '''^rk_auditsecret0123456$''',
+  '''^tok_auditclaim0123456789$''',
+  '''^self\.RENEWAL_KEY$''',
+  '''^renewal_key=self\.RENEWAL_KEY$''',
   '''^OtherPass1234$''',
 ]
 

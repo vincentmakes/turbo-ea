@@ -3,8 +3,13 @@
 Four tables back the store:
 
 - ``extension_licenses`` — every uploaded license envelope (audit trail;
-  exactly one row has ``is_active=True``). ``raw_text`` preserves the
-  signed envelope byte-exact so it can be re-verified at any time.
+  exactly one row has ``is_active=True``). ``raw_text`` holds the signed
+  envelope **encrypted at rest** (``enc:`` + Fernet under the key derived
+  from ``SECRET_KEY``, migration 162). Decrypting gives the envelope back
+  byte-exact so it can be re-verified at any time; rotating ``SECRET_KEY``
+  makes the stored licence undecryptable and the admin re-pastes the file.
+  A value without the prefix is a legacy plaintext row and is still read.
+  The table is not part of workspace transfer.
 - ``extensions`` — one row per installed extension (the registry).
 - ``extension_schema_versions`` — core-owned ledger of applied
   per-extension migrations. Extension tables (``ext_{key}_*``) are never

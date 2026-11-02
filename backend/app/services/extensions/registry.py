@@ -27,6 +27,7 @@ from app.services.extensions.license import (
     LicenseError,
     entitlement_state,
     grace_until,
+    open_stored_license_text,
     parse_and_verify,
 )
 
@@ -125,7 +126,10 @@ class ExtensionRegistry:
             self._license_problem = None
             return
         try:
-            doc = parse_and_verify(license_row.raw_text)
+            # A row encrypted under a SECRET_KEY this instance no longer has
+            # raises LicenseUndecryptableError, whose message asks the admin
+            # to re-paste the license file.
+            doc = parse_and_verify(open_stored_license_text(license_row.raw_text))
         except LicenseError as exc:
             logger.error("Stored extension license failed verification: %s", exc)
             self._license = None

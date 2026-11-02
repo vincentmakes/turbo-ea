@@ -121,8 +121,13 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - run: pip install ruff>=0.8.0
+      # vulture is pinned to the version in backend/pyproject.toml's dev extras.
+      - run: pip install "ruff>=0.8.0" "vulture==2.16"
       - run: ruff check backend/
+      # Dead code at >= 80% confidence; config in [tool.vulture], structural
+      # false positives in backend/vulture_whitelist.py with their reasons.
+      - run: vulture
+        working-directory: backend
       - run: ruff format --check backend/
 
   # Unit suite — pure logic, no Postgres. Fast (~2 min). Required for merge.
@@ -512,6 +517,8 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: npm run lint
+        working-directory: frontend
+      - run: npm run knip
         working-directory: frontend
 
   frontend-build:

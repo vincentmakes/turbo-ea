@@ -13,7 +13,7 @@
 //   1. @material-symbols/svg-400 (outlined, weight 400) — the modern Material
 //      Symbols set, snake_case names, viewBox "0 -960 960 960". Matches the
 //      Material Symbols Outlined font the UI renders.
-//   2. @mui/icons-material (already a dependency) — covers the handful of
+//   2. @mui/icons-material (a devDependency kept for this script) — covers the handful of
 //      *legacy Material Icons* names the picker still uses (email, business,
 //      done, people, …) that the Symbols SVG package only ships as font
 //      aliases. viewBox "0 0 24 24".

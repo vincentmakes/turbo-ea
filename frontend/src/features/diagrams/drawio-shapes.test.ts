@@ -13,7 +13,7 @@ import {
   rollUpInto,
   drillDownInto,
   convertShapeToContainer,
-  expandCardGroup,
+  expandCardGroupAt,
   childEscapedParentBounds,
   applyViewToGraph,
   resetViewColors,
@@ -1352,7 +1352,7 @@ describe("flowDirection survives the pending → synced switch", () => {
 });
 
 /* ---------------------------------------------------------------------- */
-/*  expandCardGroup — the edges the + / Expand menu inserts (#905)          */
+/*  expandCardGroupAt — the edges the Expand menu inserts (#905)            */
 /* ---------------------------------------------------------------------- */
 
 /** The expanded card on a fake canvas; `cells` omits mxGraph's root and default parent. */
@@ -1385,16 +1385,16 @@ const expandChild = (incoming: boolean) => ({
   incoming,
 });
 
-describe("expandCardGroup edges", () => {
+describe("expandCardGroupAt edges", () => {
   it("reads the same verb whichever end of the relation you expanded from", () => {
     // The reported case. Expanding the Organization shows "Nexatech uses
     // Copilot"; expanding the Application must NOT flip the verb to "is used
     // by", because the arrowhead still points at the Application, so the
     // sentence along the arrow is unchanged.
     const outgoing = expandFrame();
-    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    expandCardGroupAt(outgoing.iframe, "parent-cell", [expandChild(false)], "right");
     const incoming = expandFrame();
-    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+    expandCardGroupAt(incoming.iframe, "parent-cell", [expandChild(true)], "right");
 
     const labelOf = (f: ReturnType<typeof expandFrame>) => {
       const edge = Object.values(f.cells).find((c) => c.edge);
@@ -1407,9 +1407,9 @@ describe("expandCardGroup edges", () => {
   it("puts the arrowhead on opposite ends for the two directions", () => {
     // The verb stays put; the arrow is what carries the direction.
     const outgoing = expandFrame();
-    expandCardGroup(outgoing.iframe, "parent-cell", [expandChild(false)]);
+    expandCardGroupAt(outgoing.iframe, "parent-cell", [expandChild(false)], "right");
     const incoming = expandFrame();
-    expandCardGroup(incoming.iframe, "parent-cell", [expandChild(true)]);
+    expandCardGroupAt(incoming.iframe, "parent-cell", [expandChild(true)], "right");
 
     const styleOf = (f: ReturnType<typeof expandFrame>) =>
       Object.values(f.cells).find((c) => c.edge).style.split(";");
@@ -1421,7 +1421,7 @@ describe("expandCardGroup edges", () => {
 
   it("stamps the relation id and type so canvas deletes reach the backend", () => {
     const f = expandFrame();
-    const inserted = expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+    const inserted = expandCardGroupAt(f.iframe, "parent-cell", [expandChild(false)], "right");
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.value.getAttribute("relationId")).toBe("rel-1");
@@ -1435,11 +1435,11 @@ describe("expandCardGroup edges", () => {
     // the canvas dedup and unlink one of them — so the extra relation becomes an
     // extra edge on that vertex.
     const f = expandFrame();
-    const inserted = expandCardGroup(f.iframe, "parent-cell", [
+    const inserted = expandCardGroupAt(f.iframe, "parent-cell", [
       { ...expandChild(false), extraRelations: [
         { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
       ] },
-    ]);
+    ], "right");
 
     const vertices = Object.values(f.cells).filter((c) => !c.edge && c.id !== "parent-cell");
     const edges = Object.values(f.cells).filter((c) => c.edge);
@@ -1473,11 +1473,11 @@ describe("expandCardGroup edges", () => {
     // The default ER router ignores fixed anchors, so without this both lines
     // follow the same path and read as one line with two superimposed verbs.
     const f = expandFrame();
-    expandCardGroup(f.iframe, "parent-cell", [
+    expandCardGroupAt(f.iframe, "parent-cell", [
       { ...expandChild(false), extraRelations: [
         { relationType: "relOrgToAppOwns", relationId: "rel-2", relationLabel: "owns" },
       ] },
-    ]);
+    ], "right");
 
     const edges = Object.values(f.cells).filter((c) => c.edge);
     for (const e of edges) {
@@ -1499,7 +1499,7 @@ describe("expandCardGroup edges", () => {
 
   it("leaves a lone relation on the default router with no waypoint", () => {
     const f = expandFrame();
-    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)]);
+    expandCardGroupAt(f.iframe, "parent-cell", [expandChild(false)], "right");
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style).toContain("entityRelationEdgeStyle");
@@ -1508,7 +1508,7 @@ describe("expandCardGroup edges", () => {
 
   it("hides the verb on expansion edges when the diagram hides labels", () => {
     const f = expandFrame();
-    expandCardGroup(f.iframe, "parent-cell", [expandChild(false)], true);
+    expandCardGroupAt(f.iframe, "parent-cell", [expandChild(false)], "right", true);
 
     const edge = Object.values(f.cells).find((c) => c.edge);
     expect(edge.style.split(";")).toContain("noLabel=1");

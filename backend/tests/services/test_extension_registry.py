@@ -2,14 +2,23 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.services.extensions.gate import require_extension
-from app.services.extensions.license import Entitlement, LicenseDocument
+from app.services.extensions.license import (
+    LICENSE_UNDECRYPTABLE_MESSAGE,
+    Entitlement,
+    LicenseDocument,
+    seal_license_text,
+)
 from app.services.extensions.registry import (
     ExtensionInfo,
     ExtensionRegistry,
@@ -274,3 +283,80 @@ class TestRequireExtensionGate:
             )
         )
         assert await _get(gate_app) == 200
+
+
+class TestRefreshFromDbStoredText:
+    """The registry decrypts ``raw_text`` before verifying (migration 162)."""
+
+    INSTANCE = "TEA-TEST-TEST-TEST"
+
+    @staticmethod
+    def _db(license_row) -> MagicMock:
+        extensions_result = MagicMock()
+        extensions_result.scalars.return_value.all.return_value = []
+        license_result = MagicMock()
+        license_result.scalar_one_or_none.return_value = license_row
+        db = MagicMock()
+        db.execute = AsyncMock(side_effect=[extensions_result, license_result])
+        return db
+
+    @pytest.fixture
+    def signed(self, monkeypatch):
+        from app.services.extensions.instance_id import get_instance_id, set_instance_id
+        from tests.teax_helpers import make_keypair, trust_test_key
+
+        private, public_b64 = make_keypair()
+        trust_test_key(monkeypatch, public_b64)
+        previous = get_instance_id()
+        set_instance_id(self.INSTANCE)
+        payload = json.dumps(
+            {
+                "licensee": "ACME Corp",
+                "customer_id": "cus_1",
+                "instance_id": self.INSTANCE,
+                "renewal_key": "rk_bearer",
+                "entitlements": [{"extension_key": "sample-ext", "expires_at": None}],
+            }
+        ).encode()
+        text = json.dumps(
+            {
+                "schema": "turboea-license/1",
+                "key_id": "test",
+                "payload": base64.b64encode(payload).decode(),
+                "signature": base64.b64encode(private.sign(payload)).decode(),
+            }
+        )
+        yield text
+        set_instance_id(previous)
+
+    async def test_encrypted_row_loads(self, signed):
+        reg = ExtensionRegistry()
+        row = SimpleNamespace(raw_text=seal_license_text(signed))
+        await reg.refresh_from_db(self._db(row))
+        assert reg.license_problem is None
+        assert reg.license is not None
+        assert reg.license.renewal_key == "rk_bearer"
+        assert reg.license.raw_text == signed
+
+    async def test_legacy_plaintext_row_still_loads(self, signed):
+        reg = ExtensionRegistry()
+        await reg.refresh_from_db(self._db(SimpleNamespace(raw_text=signed)))
+        assert reg.license_problem is None
+        assert reg.license is not None and reg.license.licensee == "ACME Corp"
+
+    async def test_rotated_secret_key_soft_disables_with_the_specific_problem(
+        self, signed, monkeypatch
+    ):
+        from app.config import settings
+
+        sealed = seal_license_text(signed)
+        row = SimpleNamespace(raw_text=sealed)
+        monkeypatch.setattr(settings, "SECRET_KEY", settings.SECRET_KEY + "-rotated")
+        reg = ExtensionRegistry()
+        reg.set_license(make_license(Entitlement(extension_key="sample-ext")))
+        await reg.refresh_from_db(self._db(row))
+        assert reg.license is None
+        assert reg.license_problem == LICENSE_UNDECRYPTABLE_MESSAGE
+        assert reg.entitlement("sample-ext").state == "unlicensed"
+        # Nothing was written back: the stored envelope is untouched.
+        assert row.raw_text == sealed

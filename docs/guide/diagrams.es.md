@@ -60,6 +60,8 @@ Las filas con contador a cero aparecen en gris, y los vecinos / hijos ya present
 
 Una tarjeta desplegada muestra un icono `−` para volver a contraerla. Al contraer se quitan del lienzo las tarjetas desplegadas, así que Turbo EA pide confirmación si has movido o cambiado el formato de alguna; al volver a desplegarlas aparecen exactamente donde las dejaste.
 
+Una tarjeta o relación que quitas del lienzo mientras una tarjeta está desplegada sigue oculta cuando vuelves a desplegar esa tarjeta, hasta que recargues la página. Una tarjeta que omite algo de este modo muestra un `!` naranja en su esquina superior izquierda: haz clic en él para olvidar lo que quitaste, y el siguiente despliegue lo traerá todo de vuelta.
+
 ### La jerarquía en el lienzo
 
 Los contenedores corresponden al `parent_id` de una tarjeta:

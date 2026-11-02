@@ -122,7 +122,7 @@ describe("InsertCardsDialog candidate search", () => {
     const before = (a: string, b: string) => {
       const nodeA = within(list()).getByText(a);
       const nodeB = within(list()).getByText(b);
-      // eslint-disable-next-line no-bitwise
+       
       return Boolean(
         nodeA.compareDocumentPosition(nodeB) & Node.DOCUMENT_POSITION_FOLLOWING,
       );

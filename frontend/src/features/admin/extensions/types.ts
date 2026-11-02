@@ -210,7 +210,6 @@ export const STORE_CATEGORIES = [
   "integrations",
   "regulations",
 ] as const;
-export type StoreCategory = (typeof STORE_CATEGORIES)[number];
 // Where an item with no recognised category lands — always the last section.
 export const OTHER_CATEGORY = "other";
 

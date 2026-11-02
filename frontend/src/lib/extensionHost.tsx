@@ -136,7 +136,7 @@ import { useNavigate } from "react-router";
 // draft), so an extension form gets the same date-entry behaviour as core
 // and cannot reintroduce the mid-edit value-clobber bug (#865). MUI-only
 // leaf module, so a static import is safe.
-import DateField from "@/components/DateField";
+import { DateField } from "@/components/DateField";
 // SDK 1.21 — the shared filter-sidebar building blocks (UI_GUIDELINES §3.11).
 // MUI-only leaf modules like FilterSelect, so static imports are safe: no
 // code-split graph is dragged into the eager bundle and no cycle back here.

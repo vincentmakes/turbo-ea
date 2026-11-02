@@ -1,0 +1,52 @@
+// Dead-code finder (`npm run knip`, run by CI's Frontend Lint job after ESLint).
+//
+// The script passes `--no-gitignore`: knip re-anchors the repo-root
+// `.gitignore` entry `frontend/reports/` (Stryker's output) as `**/reports`,
+// which silently hid the whole of `src/features/reports/` from the analysis.
+// Nothing under `src/`, `scripts/` or `e2e/` is git-ignored, so dropping the
+// gitignore costs nothing. Run knip through the npm script, not bare `npx knip`.
+//
+// Every ignore below carries its reason. Prefer deleting what knip reports;
+// add an entry here only for code that is used in a way knip cannot see.
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // index.html (→ src/main.tsx), vite/vitest/playwright configs and the
+  // Vitest test files are found by knip's own plugins; these are the rest.
+  "entry": [
+    "index.html",
+    "vitest.stryker.config.ts",
+    "e2e/**/*.ts",
+    "scripts/*.mjs",
+    "scripts/*.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "scripts/**", "e2e/**/*.ts"],
+  // An export also used in its own file is live code; dropping the `export`
+  // keyword is churn, not dead-code removal. Knip still reports an export
+  // used nowhere at all.
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    // Read straight out of node_modules (not imported) by
+    // scripts/gen-diagram-icon-paths.mjs (`npm run gen:diagram-icons`).
+    // @mui/icons-material is read the same way; knip does not report it.
+    "@material-symbols/svg-400",
+    // Not a real package: the local stub `overrides` points at
+    // ("image-size": "$image-size" requires a direct dependency), see
+    // stubs/image-size/package.json.
+    "image-size",
+    // Imported directly but owned by the package that pins them: types only
+    // (`didi`, via bpmn-js → diagram-js), the BPMN moddle the tests parse with (bpmn-js),
+    // the zip reader the SoAW export test opens .docx files with (docx, pptxgenjs), and
+    // the resize-handle CSS of react-grid-layout. Declaring them separately
+    // could install a second, mismatched copy beside the one the parent uses.
+    "didi",
+    "bpmn-moddle",
+    "jszip",
+    "react-resizable"
+  ],
+  "ignoreIssues": {
+    // Deliberate aliases: one implementation, a name per call-site intent.
+    "src/features/dashboard/dashboardQuery.ts": ["duplicates"],
+    "src/hooks/useResolveLabel.ts": ["duplicates"],
+    "src/theme/tokens.ts": ["duplicates"]
+  }
+}

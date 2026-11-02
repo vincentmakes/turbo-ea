@@ -1,14 +1,4 @@
-export {
-  DataQualityPill,
-  CardIdPill,
-  PHASES,
-  PHASE_LABELS,
-  safeString,
-  SELECT_CHIP_BASE,
-  chipWidthForField,
-  FieldValue,
-  FieldEditor,
-} from "@/features/cards/sections/cardDetailUtils";
+export { DataQualityPill, CardIdPill } from "@/features/cards/sections/cardDetailUtils";
 
 export { default as DescriptionSection } from "@/features/cards/sections/DescriptionSection";
 export { default as LifecycleSection } from "@/features/cards/sections/LifecycleSection";

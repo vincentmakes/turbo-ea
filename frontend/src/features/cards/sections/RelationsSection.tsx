@@ -50,7 +50,7 @@ import RelationAttributesEditor, {
   hasEditableRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
-import OptionChip from "@/components/OptionChip";
+import { OptionChip } from "@/components/OptionChip";
 import ClickableCardName from "@/components/ClickableCardName";
 import {
   bucketRelationsBySubtype,

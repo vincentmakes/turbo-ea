@@ -38,7 +38,6 @@
   "editor.errors.loadFailed": "Falha ao carregar diagrama",
   "editor.errors.saveFailed": "Falha ao salvar",
   "editor.errors.loadRelationsFailed": "Falha ao carregar relações",
-  "editor.errors.resyncFailed": "Falha ao ressincronizar relações",
   "editor.errors.editorNotReady": "Editor não está pronto — tente novamente em instantes",
   "editor.errors.createCardFailed": "Falha ao criar ficha",
   "editor.errors.createRelationFailed": "Falha ao criar relação",

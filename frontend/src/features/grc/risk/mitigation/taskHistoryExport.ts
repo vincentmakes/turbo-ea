@@ -161,7 +161,6 @@ export function exportTaskHistory(task: MitigationTask, riskReference: string): 
     const ref = task.reference || task.id;
     XLSX.writeFile(wb, `mitigation-task-${ref}-${timestamp()}.xlsx`);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Failed to export mitigation task history:", err);
     throw err;
   }
@@ -244,7 +243,6 @@ export function exportRegister(risks: Risk[], allTasks: MitigationTask[]): void 
     XLSX.utils.book_append_sheet(wb, buildOccurrenceSheet(taskRows), "Mitigation tasks");
     XLSX.writeFile(wb, `risk-register-${timestamp()}.xlsx`);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error("Failed to export risk register:", err);
     throw err;
   }

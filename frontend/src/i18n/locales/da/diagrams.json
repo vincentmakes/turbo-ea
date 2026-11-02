@@ -61,7 +61,6 @@
   "editor.errors.loadFailed": "Kunne ikke indlæse diagrammet",
   "editor.errors.saveFailed": "Lagring mislykkedes",
   "editor.errors.loadRelationsFailed": "Kunne ikke indlæse relationer",
-  "editor.errors.resyncFailed": "Kunne ikke gen-synkronisere relationer",
   "editor.errors.editorNotReady": "Editoren er ikke klar — prøv igen om et øjeblik",
   "editor.errors.createCardFailed": "Kunne ikke oprette kort",
   "editor.errors.createRelationFailed": "Kunne ikke oprette relation",
