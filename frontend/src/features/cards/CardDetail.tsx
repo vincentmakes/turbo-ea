@@ -60,7 +60,7 @@ import type {
   CardEffectivePermissions,
   AiSuggestResponse,
 } from "@/types";
-import { brand, DASHBOARD_KPI_COLORS, SEVERITY_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
+import { brand, FAVORITE_COLOR, SEVERITY_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 // ── Default permissions (allow everything until loaded) ─────────
 const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
@@ -866,7 +866,7 @@ export default function CardDetail() {
                   <MaterialSymbol
                     icon="cards_star"
                     size={20}
-                    color={isFavorite ? DASHBOARD_KPI_COLORS.favorites : theme.palette.grey[400]}
+                    color={isFavorite ? FAVORITE_COLOR : theme.palette.grey[400]}
                   />
                 </ListItemIcon>
                 <ListItemText>

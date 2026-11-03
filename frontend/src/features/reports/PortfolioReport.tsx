@@ -35,7 +35,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   CHART_LABEL_ON_DARK,
   EOL_WARNING_COLOR,
-  PRINT_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
 } from "@/theme";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
@@ -298,7 +298,7 @@ function AppChip({
         }}
         sx={{
           bgcolor: color,
-          color: light ? PRINT_COLORS.text : "common.white",
+          color: light ? SCREEN_INK.onLightFill : "common.white",
           fontWeight: 500,
           fontSize: "0.72rem",
           maxWidth: 180,

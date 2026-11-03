@@ -84,9 +84,7 @@ def resign(client_id: str, claims: dict) -> str:
 
 
 class TestSurvivesARestart:
-    def test_an_id_registered_before_the_store_was_lost_still_authorizes(
-        self, app, store
-    ):
+    def test_an_id_registered_before_the_store_was_lost_still_authorizes(self, app, store):
         cid = app.post("/oauth/register", json={"redirect_uris": [CB]}).json()["client_id"]
         store.clients.clear()  # what a restart does to the in-memory store
         resp = authorize(app, cid)
@@ -120,9 +118,7 @@ class TestForgedIds:
         prefix, payload, signature = cid.split(".")
         claims = json.loads(base64.urlsafe_b64decode(payload + "=="))
         claims["r"] = ["https://evil.example/cb"]
-        forged_payload = (
-            base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
-        )
+        forged_payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).rstrip(b"=").decode()
         assert client_from_id(f"{prefix}.{forged_payload}.{signature}") is None
 
     def test_a_tampered_signature_is_refused(self, cid):
@@ -183,9 +179,7 @@ class TestRegistrationBounds:
         assert mint_client_id([CB]) != mint_client_id([CB])
 
     def test_too_many_redirect_uris_are_refused(self, app, store):
-        resp = app.post(
-            "/oauth/register", json={"redirect_uris": [CB] * (MAX_REDIRECT_URIS + 1)}
-        )
+        resp = app.post("/oauth/register", json={"redirect_uris": [CB] * (MAX_REDIRECT_URIS + 1)})
         assert resp.status_code == 400
         assert resp.json() == {
             "error": "invalid_client_metadata",
@@ -285,9 +279,10 @@ class TestSigningKey:
         import hashlib
         import hmac
 
-        assert config.oauth_client_key("s") == hmac.new(
-            b"s", b"turbo-ea-mcp/oauth-client-id/v1", hashlib.sha256
-        ).digest()
+        assert (
+            config.oauth_client_key("s")
+            == hmac.new(b"s", b"turbo-ea-mcp/oauth-client-id/v1", hashlib.sha256).digest()
+        )
 
     def test_no_secret_gives_no_key(self):
         assert config.oauth_client_key("") is None

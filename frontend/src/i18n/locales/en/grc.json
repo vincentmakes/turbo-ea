@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "Governance, Risk and Compliance"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "Governance",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "Architecture Decisions",
-      "empty": "No architecture decisions recorded yet.",
-      "status": "Status",
-      "open": "Open",
       "create": "New decision"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "AI provider is not configured",
-      "body": "Compliance scanning is driven by an LLM — each regulation is assessed by calling the configured AI provider against your landscape. Without a provider, scans complete instantly but every finding falls back to «AI is not configured», so we hide the scanner until it can do useful work.",
-      "regulations": "Covered regulations: EU AI Act · GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "Configure AI provider",
-      "contactAdmin": "Ask an administrator to configure an AI provider in Admin › Settings › AI to enable Compliance scanning."
+      "configureCta": "Configure AI provider"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "Open risk {{reference}}",
   "risks.createRisk": "Create risk",
   "risks.createRiskFromFinding": "Create risk from finding",
-  "risks.viewSource": "View source finding",
   "risks.backToRegister": "Back to register",
   "risks.deleteRisk": "Delete risk",
   "risks.confirmDelete": "Delete risk {{reference}}? This cannot be undone.",
-  "risks.emptyState": "No risks yet. Create one manually or promote a compliance finding from TurboLens.",
-  "risks.toastCreated": "Risk {{reference}} created.",
-  "risks.toastUpdated": "Risk {{reference}} updated.",
-  "risks.toastDeleted": "Risk {{reference}} deleted.",
   "risks.kpi.total": "Total risks",
   "risks.kpi.critical": "Critical",
   "risks.kpi.overdue": "Overdue",
@@ -92,7 +79,6 @@
   "risks.filter.category": "Category",
   "risks.filter.level": "Level",
   "risks.filter.owner": "Owner",
-  "risks.filter.all": "All",
   "risks.filter.overdueOnly": "Show overdue only",
   "risks.matrix.initial": "Initial",
   "risks.matrix.residual": "Residual",
@@ -148,13 +134,10 @@
   "risks.field.targetDate": "Target resolution date",
   "risks.field.createdBy": "Created by",
   "risks.field.updatedAt": "Last updated",
-  "risks.field.acceptedBy": "Accepted by",
   "risks.field.acceptedAt": "Accepted at",
   "risks.field.acceptanceRationale": "Acceptance rationale",
   "risks.cards.none": "No cards linked. Add the applications, IT components or systems this risk affects.",
   "risks.cards.linkPlaceholder": "Search cards to link…",
-  "risks.cards.link": "Link card",
-  "risks.cards.unlink": "Remove link",
   "risks.cards.countLabel_one": "{{count}} affected card",
   "risks.cards.countLabel_other": "{{count}} affected cards",
   "risks.action.accept": "Accept risk",
@@ -166,10 +149,8 @@
   "risks.action.close": "Close",
   "risks.residual.lockedUntilMitigation": "Residual assessment becomes editable once mitigation is planned.",
   "risks.residual.noneYet": "Not assessed yet",
-  "risks.overdueTooltip": "Target date {{date}} is in the past.",
   "risks.cardTab.title": "Risks",
   "risks.cardTab.empty": "No risks linked to this card.",
-  "risks.cardTab.linkExisting": "Link existing risk",
   "risks.cardTab.createNew": "Create new risk",
   "risks.action.moveTo": "Move to:",
   "risks.action.analyse": "Start analysis",
@@ -184,11 +165,8 @@
   "risks.action.resume_mitigation": "Resume mitigation",
   "risks.action.close_now": "Close without monitoring",
   "risks.filter.clearAll": "Clear filters",
-  "risks.filter.quickSearch": "Quick search",
   "risks.filter.activeCount_one": "{{count}} filter",
   "risks.filter.activeCount_other": "{{count}} filters",
-  "risks.grid.empty": "No risks match the current filters.",
-  "risks.grid.rowsPerPage": "Rows per page",
   "risks.filter.panelTitle": "Filters",
   "risks.filter.searchPlaceholder": "Reference, title, description...",
   "risks.filter.ownerSearchPlaceholder": "Search users...",
@@ -271,13 +249,10 @@
   "risks.tasks.skip.confirm": "Skip cycle",
   "risks.tasks.history.empty": "No occurrences yet.",
   "risks.tasks.history.cycleLabel": "Cycle #{{sequence}}",
-  "risks.tasks.history.dueOn": "due {{date}}",
   "risks.tasks.history.assignedTo": "Assigned to {{name}}",
   "risks.tasks.history.unassigned": "Unassigned",
-  "risks.tasks.history.closedAt": "Closed on {{timestamp}}",
   "risks.tasks.history.completedBy": "By {{name}} · owner at the time: {{owner}}",
   "risks.tasks.history.byShort": "by {{name}}",
-  "risks.tasks.field.reference": "Task ID",
   "risks.tasks.actions.exportHistory": "Export history (Excel)",
   "risks.tasks.history.targetLabel": "Target",
   "risks.tasks.history.completedLabel": "Completed",
@@ -285,8 +260,6 @@
   "risks.tasks.history.showOlder_one": "Show {{count}} older cycle",
   "risks.tasks.history.showOlder_other": "Show {{count}} older cycles",
   "risks.tasks.history.collapse": "Collapse history",
-  "risks.export.sheetRisks": "Risks",
-  "risks.export.sheetTasks": "Mitigation tasks",
   "risks.export.documentTitle": "Risk",
   "risks.import.title": "Import risks",
   "risks.import.intro": "Upload an .xlsx file to create risks in bulk. Each row becomes a new risk; rows whose reference already matches an existing risk are skipped. Owners are matched by email and cards by exact name — anything that can't be matched is skipped with a warning.",

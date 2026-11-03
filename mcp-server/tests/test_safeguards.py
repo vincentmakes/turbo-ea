@@ -44,14 +44,10 @@ def _parse(s: str) -> dict | list:
 
 class TestConfirmationGate:
     @pytest.mark.asyncio
-    async def test_commit_above_threshold_without_token_rejected(
-        self, fake_token, monkeypatch
-    ):
+    async def test_commit_above_threshold_without_token_rejected(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 2)
         monkeypatch.setattr(server, "MCP_REQUIRE_DRYRUN_FIRST", True)
-        rows = [
-            {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)
-        ]
+        rows = [{"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)]
         post_mock = AsyncMock()  # must not be called
         with patch.object(server.TurboEAClient, "post", post_mock):
             out = await server.create_cards_bulk(cards=rows, dry_run=False)
@@ -67,9 +63,7 @@ class TestConfirmationGate:
         # Dry-run is *exactly* how the agent obtains the token, so it
         # must never be rejected by the gate.
         monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 2)
-        rows = [
-            {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(5)
-        ]
+        rows = [{"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(5)]
         write_calls: list = []
 
         async def router(path, json=None):
@@ -90,13 +84,9 @@ class TestConfirmationGate:
         assert len(write_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_commit_above_threshold_with_token_passes(
-        self, fake_token, monkeypatch
-    ):
+    async def test_commit_above_threshold_with_token_passes(self, fake_token, monkeypatch):
         monkeypatch.setattr(server, "MCP_BATCH_CONFIRMATION_THRESHOLD", 2)
-        rows = [
-            {"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)
-        ]
+        rows = [{"row_index": i, "type": "Application", "name": f"A{i}"} for i in range(3)]
         write_calls: list = []
         open_calls: list = []
         commit_calls: list = []
@@ -203,9 +193,7 @@ class TestMutationBatchWrapper:
             patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=router)),
             pytest.raises(RuntimeError, match="boom"),
         ):
-            async with mutation_batch(
-                "t", tool_name="create_risks", row_count=30, dry_run=True
-            ):
+            async with mutation_batch("t", tool_name="create_risks", row_count=30, dry_run=True):
                 raise RuntimeError("boom")
         assert calls[1] == (
             "/mutation-batches/b1/commit",
@@ -263,8 +251,7 @@ def _tool_call(tool: str, n: int, **kw):
         return server.update_risks(updates=rows, **kw)
     if tool == "set_card_logos":
         rows = [
-            {"card_id": f"c{i}", "image_base64": _PNG_B64, "mime": "image/png"}
-            for i in range(n)
+            {"card_id": f"c{i}", "image_base64": _PNG_B64, "mime": "image/png"} for i in range(n)
         ]
         return server.set_card_logos(items=rows, **kw)
     assert tool == "clear_card_logos"
@@ -323,7 +310,9 @@ class _Backend:
     async def get(self, path, params=None):
         if path == "/cards":
             ids = (params or {}).get("ids", "").split(",")
-            return {"items": [{"id": i, "type": "Application", "logo_updated_at": "x"} for i in ids]}
+            return {
+                "items": [{"id": i, "type": "Application", "logo_updated_at": "x"} for i in ids]
+            }
         if path == "/metamodel/types":
             return [{"key": "Application", "allow_card_logo": True}]
         return {}
@@ -349,9 +338,7 @@ class _Backend:
             patch.object(server.TurboEAClient, "get", AsyncMock(side_effect=self.get)),
             patch.object(server.TurboEAClient, "patch", AsyncMock(side_effect=self.patch)),
             patch.object(server.TurboEAClient, "delete", AsyncMock(side_effect=self.delete)),
-            patch.object(
-                server.TurboEAClient, "post_file", AsyncMock(side_effect=self.post_file)
-            ),
+            patch.object(server.TurboEAClient, "post_file", AsyncMock(side_effect=self.post_file)),
         )
 
 
@@ -498,9 +485,7 @@ class TestEveryBulkToolFollowsTheCycle:
         assert backend.posts[-1][1]["summary"] == {"rows": 3, "would_clear": 3}
 
     @pytest.mark.asyncio
-    async def test_set_logos_preview_counts_every_row_asked_for(
-        self, fake_token, threshold_two
-    ):
+    async def test_set_logos_preview_counts_every_row_asked_for(self, fake_token, threshold_two):
         # Two rows are dropped by the preview's type check; the batch still
         # opens with all three so the commit (which skips that check) is not
         # left without a token.
@@ -659,7 +644,6 @@ class TestDocumentedToolCounts:
         assert not missing, f"tools missing from docs/admin/mcp.md: {missing}"
 
 
-
 # ── The batch rule, on every write tool ─────────────────────────────────────
 #
 # Every write tool opens a mutation batch before its first backend write — on
@@ -769,13 +753,9 @@ class _BatchRecorder(_Backend):
                 self.calls.append((method, path, client._batch_id))
                 return await inner(path, *args, **kwargs)
 
-            return patch.object(
-                server.TurboEAClient, method, autospec=True, side_effect=recorded
-            )
+            return patch.object(server.TurboEAClient, method, autospec=True, side_effect=recorded)
 
-        return [
-            wrap(m) for m in ("post", "get", "patch", "delete", "post_file", "post_multipart")
-        ]
+        return [wrap(m) for m in ("post", "get", "patch", "delete", "post_file", "post_multipart")]
 
 
 class TestEveryWriteToolIsABatch:
@@ -794,9 +774,7 @@ class TestEveryWriteToolIsABatch:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("dry_run", [True, False], ids=["preview", "commit"])
     @pytest.mark.parametrize("tool", _batch_write_tools())
-    async def test_the_call_opens_writes_in_and_closes_one_batch(
-        self, fake_token, tool, dry_run
-    ):
+    async def test_the_call_opens_writes_in_and_closes_one_batch(self, fake_token, tool, dry_run):
         if tool not in _BATCH_TOOL_CALLS:
             pytest.fail(f"{tool} has no argument set in _BATCH_TOOL_CALLS")
         rec = _BatchRecorder()

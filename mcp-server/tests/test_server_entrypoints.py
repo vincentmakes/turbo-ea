@@ -78,9 +78,7 @@ class TestTransportSecurity:
     def test_an_entry_that_can_never_match_is_warned_about(self, monkeypatch, caplog):
         monkeypatch.setattr(server, "MCP_PUBLIC_URL", "")
         monkeypatch.setattr(server, "TURBO_EA_PUBLIC_URL", "")
-        monkeypatch.setattr(
-            server, "MCP_ALLOWED_HOSTS", ["https://route.example", "ok.example"]
-        )
+        monkeypatch.setattr(server, "MCP_ALLOWED_HOSTS", ["https://route.example", "ok.example"])
         with caplog.at_level(logging.WARNING, logger="turbo_ea_mcp"):
             server._build_transport_security()
         assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
@@ -252,7 +250,7 @@ class TestCreateApp:
         )
 
 
-class _Stop(Exception):
+class _StopError(Exception):
     """Ends the otherwise endless refresh loop after its scripted turns."""
 
 
@@ -266,7 +264,7 @@ class TestRefreshLoop:
         def run(n):
             async def sleep(seconds):
                 if len(slept) == n:
-                    raise _Stop
+                    raise _StopError
                 slept.append(seconds)
 
             monkeypatch.setattr(server.asyncio, "sleep", sleep)
@@ -291,7 +289,7 @@ class TestRefreshLoop:
         slept = turns(2)
         monkeypatch.setattr(server, "_stdio_token", None)
         seen = self._client(monkeypatch, AsyncMock())
-        with pytest.raises(_Stop):
+        with pytest.raises(_StopError):
             await server._refresh_loop()
         assert slept == [600, 600]
         assert seen == []
@@ -301,7 +299,7 @@ class TestRefreshLoop:
         monkeypatch.setattr(server, "_stdio_token", "old")
         tokens = iter(["new", "newer"])
         seen = self._client(monkeypatch, AsyncMock(side_effect=lambda: next(tokens)))
-        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_Stop):
+        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_StopError):
             await server._refresh_loop(interval=5)
         assert slept == [5, 5]
         assert seen == ["old", "new"]
@@ -312,7 +310,7 @@ class TestRefreshLoop:
         turns(1)
         monkeypatch.setattr(server, "_stdio_token", "old")
         self._client(monkeypatch, AsyncMock(return_value=None))
-        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_Stop):
+        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_StopError):
             await server._refresh_loop()
         assert server._stdio_token == "old"
         assert [(r.levelname, r.getMessage()) for r in caplog.records] == [
@@ -323,7 +321,7 @@ class TestRefreshLoop:
         slept = turns(2)
         monkeypatch.setattr(server, "_stdio_token", "old")
         self._client(monkeypatch, AsyncMock(side_effect=OSError("down")))
-        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_Stop):
+        with caplog.at_level(logging.INFO, logger="turbo_ea_mcp"), pytest.raises(_StopError):
             await server._refresh_loop()
         assert len(slept) == 2
         assert server._stdio_token == "old"

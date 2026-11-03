@@ -32,7 +32,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
 from turbo_ea_mcp import api_client
-from turbo_ea_mcp.api_client import RefreshUnavailable
+from turbo_ea_mcp.api_client import RefreshUnavailableError
 from turbo_ea_mcp.config import (
     MCP_OAUTH_ALLOWED_REDIRECT_URIS,
     MCP_OAUTH_CLIENT_KEY,
@@ -135,15 +135,11 @@ class OAuthStore:
     def cleanup_expired(self) -> None:
         now = time.time()
         # Pending auths
-        expired = [
-            k for k, v in self.pending.items() if now - v.created_at > AUTH_CODE_TTL
-        ]
+        expired = [k for k, v in self.pending.items() if now - v.created_at > AUTH_CODE_TTL]
         for k in expired:
             del self.pending[k]
         # Auth codes
-        expired = [
-            k for k, v in self.codes.items() if now - v.created_at > AUTH_CODE_TTL
-        ]
+        expired = [k for k, v in self.codes.items() if now - v.created_at > AUTH_CODE_TTL]
         for k in expired:
             del self.codes[k]
 
@@ -216,6 +212,7 @@ def _valid_redirect_uris(uris: object) -> bool:
         and 0 < len(uris) <= MAX_REDIRECT_URIS
         and all(isinstance(u, str) and 0 < len(u) <= MAX_REDIRECT_URI_LENGTH for u in uris)
     )
+
 
 # ── SSO config cache (refreshed periodically) ──────────────────────────────
 
@@ -356,9 +353,7 @@ async def register_client(request: Request) -> Response:
     )
 
 
-def _redirect_uri_registered(
-    client: RegisteredClient | None, redirect_uri: str | None
-) -> bool:
+def _redirect_uri_registered(client: RegisteredClient | None, redirect_uri: str | None) -> bool:
     """True iff ``redirect_uri`` is an exact match of a URI the client
     registered, or of an operator-configured static allowlist entry.
 
@@ -469,9 +464,7 @@ async def sso_callback(request: Request) -> Response:
     params = request.query_params
     error = params.get("error")
     if error:
-        logger.warning(
-            "SSO callback error: %s — %s", error, params.get("error_description", "")
-        )
+        logger.warning("SSO callback error: %s — %s", error, params.get("error_description", ""))
         return JSONResponse(
             {
                 "error": "access_denied",
@@ -510,9 +503,7 @@ async def sso_callback(request: Request) -> Response:
                 "state": pending.state,
             }
         )
-        return RedirectResponse(
-            f"{pending.redirect_uri}?{error_params}", status_code=302
-        )
+        return RedirectResponse(f"{pending.redirect_uri}?{error_params}", status_code=302)
 
     turbo_jwt = data.get("access_token")
     if not turbo_jwt:
@@ -523,9 +514,7 @@ async def sso_callback(request: Request) -> Response:
                 "state": pending.state,
             }
         )
-        return RedirectResponse(
-            f"{pending.redirect_uri}?{error_params}", status_code=302
-        )
+        return RedirectResponse(f"{pending.redirect_uri}?{error_params}", status_code=302)
 
     # Generate our own authorization code for the AI tool
     our_code = secrets.token_urlsafe(48)
@@ -543,9 +532,7 @@ async def sso_callback(request: Request) -> Response:
     # authorize() before this PendingAuth was ever stored — authorize() is the
     # only writer of store.pending.
     redirect_params = urlencode({"code": our_code, "state": pending.state})
-    return RedirectResponse(
-        f"{pending.redirect_uri}?{redirect_params}", status_code=302
-    )
+    return RedirectResponse(f"{pending.redirect_uri}?{redirect_params}", status_code=302)
 
 
 # ── Token endpoint ──────────────────────────────────────────────────────────
@@ -580,7 +567,8 @@ async def _read_token_body(request: Request) -> dict | None:
     The content type is read first because ``request.form()`` does not raise
     on a JSON body — it returns an empty form, so a JSON request used to be
     answered ``unsupported_grant_type``."""
-    content_type = request.headers.get("content-type", "")  # pragma: no mutate, header names are case-insensitive and any non-JSON default reads as form
+    # Not mutated: header names are case-insensitive and any non-JSON default reads as form.
+    content_type = request.headers.get("content-type", "")  # pragma: no mutate, see above
     media_type = content_type.split(";")[0].strip().lower()
     if media_type != "application/json":
         try:
@@ -720,7 +708,7 @@ async def _handle_refresh(body: dict) -> Response:
     client = TurboEAClient(old_entry.turbo_jwt)
     try:
         new_jwt = await client.refresh_token()
-    except RefreshUnavailable:
+    except RefreshUnavailableError:
         # The backend could not answer; the session is fine. Keep both tokens
         # so the client's retry can succeed once the backend is back.
         logger.warning("Turbo EA backend unavailable during token refresh", exc_info=True)
@@ -786,7 +774,7 @@ async def resolve_token(access_token: str) -> str | None:
     ``None`` means the token is unknown or its session was refused. When the
     backend cannot be reached the session is kept: a JWT that is still valid
     is returned as is (the refresh is retried on the next call), and an
-    expired one raises ``RefreshUnavailable`` so the caller can answer
+    expired one raises ``RefreshUnavailableError`` so the caller can answer
     "try again" rather than "sign in again"."""
     entry = store.tokens.get(access_token)
     if not entry:
@@ -801,7 +789,7 @@ async def resolve_token(access_token: str) -> str | None:
         client = TurboEAClient(entry.turbo_jwt)
         try:
             new_jwt = await client.refresh_token()
-        except RefreshUnavailable:
+        except RefreshUnavailableError:
             if entry.turbo_jwt_exp > now:
                 return entry.turbo_jwt
             raise

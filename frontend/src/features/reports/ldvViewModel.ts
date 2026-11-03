@@ -11,7 +11,7 @@ import type { CSSProperties } from "react";
 import { alpha } from "@mui/material/styles";
 import {
   LIFECYCLE_PHASE_COLORS,
-  PRINT_COLORS,
+  SCREEN_INK,
   STATUS_COLORS,
   TIMELINE_COLORS,
   brand,
@@ -193,13 +193,13 @@ export function edgeColors(
   isDark: boolean,
 ): { stroke: string; label: string; labelBorder: string; labelBackground: string } {
   const lit = isDark ? brand.primaryLight : brand.primary;
-  const base = severed ? STATUS_COLORS.error : isDark ? STATUS_COLORS.neutral : PRINT_COLORS.inkSecondary;
+  const base = severed ? STATUS_COLORS.error : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary;
   const hover = severed ? STATUS_COLORS.error : lit;
   return {
     stroke: active ? hover : base,
-    label: active ? lit : isDark ? STATUS_COLORS.neutral : PRINT_COLORS.inkSecondary,
-    labelBorder: active ? lit : isDark ? PRINT_COLORS.subheading : PRINT_COLORS.control,
-    labelBackground: isDark ? surface.dark.default : PRINT_COLORS.paper,
+    label: active ? lit : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary,
+    labelBorder: active ? lit : isDark ? SCREEN_INK.ruleDark : SCREEN_INK.rule,
+    labelBackground: isDark ? surface.dark.default : SCREEN_INK.paper,
   };
 }
 

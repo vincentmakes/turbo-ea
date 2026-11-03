@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "Gouvernance, Risque et Conformité"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "Gouvernance",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "Décisions d'architecture",
-      "empty": "Aucune décision d'architecture enregistrée.",
-      "status": "Statut",
-      "open": "Ouvrir",
       "create": "Nouvelle décision"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "Le fournisseur IA n'est pas configuré",
-      "body": "L'analyse de conformité s'appuie sur un LLM — chaque règlement est évalué en appelant le fournisseur IA configuré sur votre paysage. Sans fournisseur, les analyses se terminent instantanément, mais chaque constat retombe sur «IA non configurée»; c'est pourquoi nous masquons le scanner tant qu'il ne peut pas produire de résultats utiles.",
-      "regulations": "Règlements couverts : règlement IA de l'UE · RGPD · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "Configurer le fournisseur IA",
-      "contactAdmin": "Demandez à un administrateur de configurer un fournisseur IA dans Admin › Paramètres › IA pour activer l'analyse de conformité."
+      "configureCta": "Configurer le fournisseur IA"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "Ouvrir le risque {{reference}}",
   "risks.createRisk": "Créer un risque",
   "risks.createRiskFromFinding": "Créer un risque à partir du constat",
-  "risks.viewSource": "Voir le constat source",
   "risks.backToRegister": "Retour au registre",
   "risks.deleteRisk": "Supprimer le risque",
   "risks.confirmDelete": "Supprimer le risque {{reference}} ? Cette action est irréversible.",
-  "risks.emptyState": "Aucun risque pour l'instant. Créez-en un manuellement ou promouvez un constat de conformité depuis TurboLens.",
-  "risks.toastCreated": "Risque {{reference}} créé.",
-  "risks.toastUpdated": "Risque {{reference}} mis à jour.",
-  "risks.toastDeleted": "Risque {{reference}} supprimé.",
   "risks.kpi.total": "Total des risques",
   "risks.kpi.critical": "Critiques",
   "risks.kpi.overdue": "En retard",
@@ -92,7 +79,6 @@
   "risks.filter.category": "Catégorie",
   "risks.filter.level": "Niveau",
   "risks.filter.owner": "Responsable",
-  "risks.filter.all": "Tous",
   "risks.filter.overdueOnly": "Afficher uniquement les retards",
   "risks.matrix.initial": "Initial",
   "risks.matrix.residual": "Résiduel",
@@ -147,13 +133,10 @@
   "risks.field.targetDate": "Date de résolution cible",
   "risks.field.createdBy": "Créé par",
   "risks.field.updatedAt": "Dernière mise à jour",
-  "risks.field.acceptedBy": "Accepté par",
   "risks.field.acceptedAt": "Accepté le",
   "risks.field.acceptanceRationale": "Justification de l'acceptation",
   "risks.cards.none": "Aucune fiche liée. Ajoutez les applications, composants informatiques ou systèmes concernés par ce risque.",
   "risks.cards.linkPlaceholder": "Rechercher des fiches à lier…",
-  "risks.cards.link": "Lier la fiche",
-  "risks.cards.unlink": "Supprimer le lien",
   "risks.cards.countLabel_one": "{{count}} fiche concernée",
   "risks.cards.countLabel_other": "{{count}} fiches concernées",
   "risks.action.accept": "Accepter le risque",
@@ -165,10 +148,8 @@
   "risks.action.close": "Clôturer",
   "risks.residual.lockedUntilMitigation": "L'évaluation résiduelle devient modifiable une fois l'atténuation planifiée.",
   "risks.residual.noneYet": "Pas encore évalué",
-  "risks.overdueTooltip": "La date cible {{date}} est dépassée.",
   "risks.cardTab.title": "Risques",
   "risks.cardTab.empty": "Aucun risque lié à cette fiche.",
-  "risks.cardTab.linkExisting": "Lier un risque existant",
   "risks.cardTab.createNew": "Créer un nouveau risque",
   "risks.action.moveTo": "Déplacer vers :",
   "risks.action.analyse": "Démarrer l'analyse",
@@ -183,11 +164,8 @@
   "risks.action.resume_mitigation": "Reprendre l'atténuation",
   "risks.action.close_now": "Clôturer sans surveillance",
   "risks.filter.clearAll": "Effacer les filtres",
-  "risks.filter.quickSearch": "Recherche rapide",
   "risks.filter.activeCount_one": "{{count}} filtre",
   "risks.filter.activeCount_other": "{{count}} filtres",
-  "risks.grid.empty": "Aucun risque ne correspond aux filtres actuels.",
-  "risks.grid.rowsPerPage": "Lignes par page",
   "risks.filter.panelTitle": "Filtres",
   "risks.filter.searchPlaceholder": "Référence, titre, description…",
   "risks.filter.ownerSearchPlaceholder": "Rechercher des utilisateurs…",
@@ -271,13 +249,10 @@
   "risks.tasks.skip.confirm": "Passer le cycle",
   "risks.tasks.history.empty": "Aucune occurrence pour le moment.",
   "risks.tasks.history.cycleLabel": "Cycle n°{{sequence}}",
-  "risks.tasks.history.dueOn": "due le {{date}}",
   "risks.tasks.history.assignedTo": "Assignée à {{name}}",
   "risks.tasks.history.unassigned": "Non assignée",
-  "risks.tasks.history.closedAt": "Clôturée le {{timestamp}}",
   "risks.tasks.history.completedBy": "Par {{name}} · responsable à ce moment : {{owner}}",
   "risks.tasks.history.byShort": "par {{name}}",
-  "risks.tasks.field.reference": "Identifiant",
   "risks.tasks.actions.exportHistory": "Exporter l'historique (Excel)",
   "risks.tasks.history.targetLabel": "Cible",
   "risks.tasks.history.completedLabel": "Terminée",
@@ -285,8 +260,6 @@
   "risks.tasks.history.showOlder_one": "Afficher {{count}} cycle plus ancien",
   "risks.tasks.history.showOlder_other": "Afficher {{count}} cycles plus anciens",
   "risks.tasks.history.collapse": "Réduire l'historique",
-  "risks.export.sheetRisks": "Risques",
-  "risks.export.sheetTasks": "Actions de mitigation",
   "risks.export.documentTitle": "Risque",
   "risks.import.title": "Importer des risques",
   "risks.import.intro": "Téléchargez un fichier .xlsx pour créer des risques en masse. Chaque ligne devient un nouveau risque ; les lignes dont la référence correspond déjà à un risque existant sont ignorées. Les responsables sont identifiés par e-mail et les fiches par nom exact — tout ce qui ne peut pas être identifié est ignoré avec un avertissement.",

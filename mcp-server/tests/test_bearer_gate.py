@@ -18,7 +18,7 @@ import json
 import pytest
 
 from turbo_ea_mcp import oauth
-from turbo_ea_mcp.api_client import RefreshUnavailable
+from turbo_ea_mcp.api_client import RefreshUnavailableError
 from turbo_ea_mcp.server import RequireBearerForMcp
 
 METADATA = "https://mcp.example/.well-known/oauth-protected-resource"
@@ -72,17 +72,13 @@ def call(
 
 def response_of(sent):
     start = next(m for m in sent if m["type"] == "http.response.start")
-    body = b"".join(
-        m.get("body", b"") for m in sent if m["type"] == "http.response.body"
-    )
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
     headers = {k.decode().lower(): v.decode() for k, v in start["headers"]}
     return start["status"], headers, json.loads(body)
 
 
 @pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/mcp/messages"])
-@pytest.mark.parametrize(
-    "auth", [None, b"", b"Basic dXNlcjpwYXNz", b"Bearer", b"token abc"]
-)
+@pytest.mark.parametrize("auth", [None, b"", b"Basic dXNlcjpwYXNz", b"Bearer", b"token abc"])
 def test_an_unauthenticated_protocol_request_gets_the_oauth_challenge(path, auth):
     reached, sent = call(path=path, auth=auth)
     assert not reached
@@ -104,9 +100,7 @@ def test_a_bearer_request_with_a_known_token_passes_through(auth):
 
 
 @pytest.mark.parametrize("path", ["/mcp", "/mcp/", "/mcp/messages"])
-@pytest.mark.parametrize(
-    "auth", [b"Bearer stale", b"bearer nope", b"Bearer abcd", b"Bearer "]
-)
+@pytest.mark.parametrize("auth", [b"Bearer stale", b"bearer nope", b"Bearer abcd", b"Bearer "])
 def test_a_token_that_does_not_resolve_gets_the_invalid_token_challenge(path, auth):
     resolver = Resolver()
     reached, sent = call(path=path, auth=auth, resolver=resolver)
@@ -133,7 +127,7 @@ class Failing:
 
 @pytest.mark.parametrize("path", ["/mcp", "/mcp/"])
 @pytest.mark.parametrize(
-    "exc", [RefreshUnavailable("backend answered 502"), RuntimeError("boom")]
+    "exc", [RefreshUnavailableError("backend answered 502"), RuntimeError("boom")]
 )
 def test_a_backend_failure_while_resolving_is_a_503_not_a_500(path, exc):
     reached, sent = call(path=path, auth=b"Bearer abc", resolver=Failing(exc))

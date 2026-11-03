@@ -28,7 +28,7 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { DASHBOARD_KPI_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
+import { FAVORITE_COLOR, STATUS_COLORS, brand } from "@/theme/tokens";
 import OriginChip from "@/components/OriginChip";
 import ShareDiagramDialog from "./ShareDiagramDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -48,7 +48,6 @@ import DiagramsFilterSidebar, {
 
 type SortKey = "updated_at" | "created_at" | "name";
 
-const FAVORITE_COLOR = DASHBOARD_KPI_COLORS.favorites;
 const DIAGRAM_ICON = "schema";
 
 export default function DiagramsPage() {

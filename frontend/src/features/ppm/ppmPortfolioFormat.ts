@@ -8,9 +8,9 @@
 
 import { toLocalDate } from "@/lib/dates";
 import {
-  BPM_UNSET_COLOR,
   RAG_COLORS,
   STATUS_CHIP_COLORS,
+  UNSET_VALUE_COLOR,
   WARNING_STRONG_COLOR,
   brand,
 } from "@/theme/tokens";
@@ -22,7 +22,7 @@ export const RAG: Record<string, string> = {
 };
 
 /** A health dot with no report behind it, or a value the board does not know. */
-export const RAG_NONE = BPM_UNSET_COLOR;
+export const RAG_NONE = UNSET_VALUE_COLOR;
 
 export const RAG_LABEL: Record<string, string> = {
   onTrack: "health_onTrack",

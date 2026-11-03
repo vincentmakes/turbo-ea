@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "Управление, Риск и Соответствие"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "Управление",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "Архитектурные решения",
-      "empty": "Архитектурные решения пока не зафиксированы.",
-      "status": "Статус",
-      "open": "Открыть",
       "create": "Новое решение"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "Провайдер ИИ не настроен",
-      "body": "Анализ соответствия выполняется LLM — каждое регулирование оценивается путём обращения к настроенному провайдеру ИИ по вашей среде. Без провайдера сканирования завершаются мгновенно, но каждый вывод сводится к «ИИ не настроен», поэтому мы скрываем сканер до тех пор, пока он не сможет выдавать полезные результаты.",
-      "regulations": "Охватываемые регулирования: Закон ЕС об ИИ · GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "Настроить провайдера ИИ",
-      "contactAdmin": "Попросите администратора настроить провайдера ИИ в разделе Админ › Настройки › ИИ, чтобы включить анализ соответствия."
+      "configureCta": "Настроить провайдера ИИ"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "Открыть риск {{reference}}",
   "risks.createRisk": "Создать риск",
   "risks.createRiskFromFinding": "Создать риск из результата",
-  "risks.viewSource": "Показать исходный результат",
   "risks.backToRegister": "Назад к реестру",
   "risks.deleteRisk": "Удалить риск",
   "risks.confirmDelete": "Удалить риск {{reference}}? Это действие нельзя отменить.",
-  "risks.emptyState": "Пока нет рисков. Создайте риск вручную или повысьте до риска результат проверки соответствия из TurboLens.",
-  "risks.toastCreated": "Риск {{reference}} создан.",
-  "risks.toastUpdated": "Риск {{reference}} обновлён.",
-  "risks.toastDeleted": "Риск {{reference}} удалён.",
   "risks.kpi.total": "Всего рисков",
   "risks.kpi.critical": "Критические",
   "risks.kpi.overdue": "Просроченные",
@@ -92,7 +79,6 @@
   "risks.filter.category": "Категория",
   "risks.filter.level": "Уровень",
   "risks.filter.owner": "Ответственный",
-  "risks.filter.all": "Все",
   "risks.filter.overdueOnly": "Показать только просроченные",
   "risks.matrix.initial": "Первичный",
   "risks.matrix.residual": "Остаточный",
@@ -147,13 +133,10 @@
   "risks.field.targetDate": "Целевая дата устранения",
   "risks.field.createdBy": "Создан",
   "risks.field.updatedAt": "Последнее обновление",
-  "risks.field.acceptedBy": "Принял",
   "risks.field.acceptedAt": "Дата принятия",
   "risks.field.acceptanceRationale": "Обоснование принятия",
   "risks.cards.none": "Нет связанных карточек. Добавьте приложения, ИТ-компоненты или системы, на которые влияет этот риск.",
   "risks.cards.linkPlaceholder": "Поиск карточек для связи…",
-  "risks.cards.link": "Связать карточку",
-  "risks.cards.unlink": "Удалить связь",
   "risks.cards.countLabel_one": "{{count}} затронутая карточка",
   "risks.cards.countLabel_few": "{{count}} затронутые карточки",
   "risks.cards.countLabel_many": "{{count}} затронутых карточек",
@@ -167,10 +150,8 @@
   "risks.action.close": "Закрыть",
   "risks.residual.lockedUntilMitigation": "Оценка остаточного риска становится редактируемой после планирования снижения.",
   "risks.residual.noneYet": "Ещё не оценено",
-  "risks.overdueTooltip": "Целевая дата {{date}} уже прошла.",
   "risks.cardTab.title": "Риски",
   "risks.cardTab.empty": "С этой карточкой не связано ни одного риска.",
-  "risks.cardTab.linkExisting": "Связать существующий риск",
   "risks.cardTab.createNew": "Создать новый риск",
   "risks.action.moveTo": "Перейти к:",
   "risks.action.analyse": "Начать анализ",
@@ -185,13 +166,10 @@
   "risks.action.resume_mitigation": "Возобновить снижение",
   "risks.action.close_now": "Закрыть без мониторинга",
   "risks.filter.clearAll": "Сбросить фильтры",
-  "risks.filter.quickSearch": "Быстрый поиск",
   "risks.filter.activeCount_one": "{{count}} фильтр",
   "risks.filter.activeCount_few": "{{count}} фильтра",
   "risks.filter.activeCount_many": "{{count}} фильтров",
   "risks.filter.activeCount_other": "{{count}} фильтра",
-  "risks.grid.empty": "Нет рисков, соответствующих текущим фильтрам.",
-  "risks.grid.rowsPerPage": "Строк на странице",
   "risks.filter.panelTitle": "Фильтры",
   "risks.filter.searchPlaceholder": "Ссылка, название, описание…",
   "risks.filter.ownerSearchPlaceholder": "Поиск пользователей…",
@@ -287,13 +265,10 @@
   "risks.tasks.skip.confirm": "Пропустить цикл",
   "risks.tasks.history.empty": "Выполнений пока нет.",
   "risks.tasks.history.cycleLabel": "Цикл №{{sequence}}",
-  "risks.tasks.history.dueOn": "до {{date}}",
   "risks.tasks.history.assignedTo": "Назначена {{name}}",
   "risks.tasks.history.unassigned": "Не назначена",
-  "risks.tasks.history.closedAt": "Закрыта {{timestamp}}",
   "risks.tasks.history.completedBy": "Выполнил(а): {{name}} · ответственный на момент: {{owner}}",
   "risks.tasks.history.byShort": "автор: {{name}}",
-  "risks.tasks.field.reference": "ID задачи",
   "risks.tasks.actions.exportHistory": "Экспорт истории (Excel)",
   "risks.tasks.history.targetLabel": "Цель",
   "risks.tasks.history.completedLabel": "Завершено",
@@ -303,8 +278,6 @@
   "risks.tasks.history.showOlder_many": "Показать {{count}} предыдущих циклов",
   "risks.tasks.history.showOlder_other": "Показать {{count}} предыдущих циклов",
   "risks.tasks.history.collapse": "Свернуть историю",
-  "risks.export.sheetRisks": "Риски",
-  "risks.export.sheetTasks": "Меры по снижению",
   "risks.export.documentTitle": "Риск",
   "risks.import.title": "Импорт рисков",
   "risks.import.intro": "Загрузите файл .xlsx для массового создания рисков. Каждая строка становится новым риском; строки, ссылка которых уже совпадает с существующим риском, пропускаются. Владельцы сопоставляются по электронной почте, а карточки — по точному названию; всё, что не удалось сопоставить, пропускается с предупреждением.",

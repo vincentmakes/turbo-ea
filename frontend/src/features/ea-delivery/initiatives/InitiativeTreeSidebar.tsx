@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
-import { CARD_TYPE_COLORS, DASHBOARD_KPI_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { CARD_TYPE_COLORS, FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import { treeKeyAction, visibleTreeRows } from "./treeKeys";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
 import { flattenTree, type InitiativeTreeNode } from "./useInitiativeData";
@@ -220,9 +220,9 @@ export default function InitiativeTreeSidebar({
                 filterSetters.setFavoritesOnly(!filter.favoritesOnly)
               }
               sx={{
-                color: filter.favoritesOnly ? DASHBOARD_KPI_COLORS.favorites : "text.secondary",
+                color: filter.favoritesOnly ? FAVORITE_COLOR : "text.secondary",
                 border: filter.favoritesOnly
-                  ? `1px solid ${DASHBOARD_KPI_COLORS.favorites}`
+                  ? `1px solid ${FAVORITE_COLOR}`
                   : "1px solid transparent",
                 borderRadius: 1,
               }}
@@ -459,7 +459,7 @@ function TreeBranch({
           <MaterialSymbol
             icon="cards_star"
             size={16}
-            color={isFavorite ? DASHBOARD_KPI_COLORS.favorites : "currentColor"}
+            color={isFavorite ? FAVORITE_COLOR : "currentColor"}
           />
         </IconButton>
       </Box>

@@ -67,6 +67,8 @@ import { installResizeObserver } from "@/test/dom";
 import { makeCardType, makeField, makeOption, makeRelationType } from "@/test/fixtures/metamodel";
 import type { ReportExportData } from "./reportExport";
 import MatrixReport from "./MatrixReport";
+import { alpha } from "@mui/material/styles";
+import { MATRIX_DIAGONAL_COLOR } from "@/theme/tokens";
 
 const TYPES = [
   makeCardType({ key: "Application", label: "Application", has_hierarchy: true }),
@@ -269,7 +271,7 @@ describe("MatrixReport cells", () => {
     // Shaded like a hovered cell even at rest, and tinted when hovered.
     await waitFor(() => expect(diagonal().style.backgroundColor).toBe("rgba(0, 0, 0, 0.04)"));
     fireEvent.mouseEnter(diagonal());
-    await waitFor(() => expect(diagonal().style.backgroundColor).toBe("rgb(232, 234, 246)"));
+    await waitFor(() => expect(diagonal().style.backgroundColor).toBe(alpha(MATRIX_DIAGONAL_COLOR, 0.1)));
   });
 });
 

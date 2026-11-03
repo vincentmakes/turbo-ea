@@ -114,9 +114,7 @@ class TestTheAllowlist:
     @pytest.mark.asyncio
     async def test_credentials_in_the_url_are_refused(self, public_dns):
         with pytest.raises(logo_fetch.LogoFetchError) as err:
-            await logo_fetch.fetch_logo(
-                "https://user:pw@raw.githubusercontent.com/x.png", _sniff
-            )
+            await logo_fetch.fetch_logo("https://user:pw@raw.githubusercontent.com/x.png", _sniff)
         assert err.value.status == "image_url_invalid"
 
     @pytest.mark.asyncio
@@ -124,9 +122,7 @@ class TestTheAllowlist:
         monkeypatch.setattr(logo_fetch, "MCP_LOGO_FETCH_HOSTS", ("icons.example.test",))
         seen: list[str] = []
         with patch.object(httpx, "AsyncClient", _client(_FakeStream(), seen)):
-            data, mime = await logo_fetch.fetch_logo(
-                "https://icons.example.test/logo.png", _sniff
-            )
+            data, mime = await logo_fetch.fetch_logo("https://icons.example.test/logo.png", _sniff)
         assert (data, mime) == (PNG, "image/png")
         assert seen == ["https://icons.example.test/logo.png"]
 
@@ -142,9 +138,7 @@ class TestPrivateSpace:
             lambda *a, **kw: [(2, 1, 6, "", ("169.254.169.254", 443))],
         )
         with pytest.raises(logo_fetch.LogoFetchError) as err:
-            await logo_fetch.fetch_logo(
-                "https://raw.githubusercontent.com/x.png", _sniff
-            )
+            await logo_fetch.fetch_logo("https://raw.githubusercontent.com/x.png", _sniff)
         assert err.value.status == "image_url_blocked"
 
     @pytest.mark.asyncio
@@ -155,9 +149,7 @@ class TestPrivateSpace:
             lambda *a, **kw: [(2, 1, 6, "", ("10.0.0.5", 443))],
         )
         with pytest.raises(logo_fetch.LogoFetchError) as err:
-            await logo_fetch.fetch_logo(
-                "https://raw.githubusercontent.com/x.png", _sniff
-            )
+            await logo_fetch.fetch_logo("https://raw.githubusercontent.com/x.png", _sniff)
         assert err.value.status == "image_url_blocked"
 
 
@@ -169,9 +161,7 @@ class TestTheResponse:
         big = b"\x89PNG\r\n\x1a\n" + b"\x00" * (logo_fetch.MAX_LOGO_BYTES // 2)
         with patch.object(httpx, "AsyncClient", _client(_FakeStream(chunks=(big, big, big)))):
             with pytest.raises(logo_fetch.LogoFetchError) as err:
-                await logo_fetch.fetch_logo(
-                    "https://raw.githubusercontent.com/x.png", _sniff
-                )
+                await logo_fetch.fetch_logo("https://raw.githubusercontent.com/x.png", _sniff)
         assert err.value.status == "too_large"
 
     @pytest.mark.asyncio
@@ -181,18 +171,14 @@ class TestTheResponse:
         svg = b"<svg xmlns='http://www.w3.org/2000/svg'><script/></svg>"
         with patch.object(httpx, "AsyncClient", _client(_FakeStream(chunks=(svg,)))):
             with pytest.raises(logo_fetch.LogoFetchError) as err:
-                await logo_fetch.fetch_logo(
-                    "https://raw.githubusercontent.com/x.svg", _sniff
-                )
+                await logo_fetch.fetch_logo("https://raw.githubusercontent.com/x.svg", _sniff)
         assert err.value.status == "missing_mime"
 
     @pytest.mark.asyncio
     async def test_an_error_status_is_reported_not_stored(self, public_dns):
         with patch.object(httpx, "AsyncClient", _client(_FakeStream(status=404, chunks=()))):
             with pytest.raises(logo_fetch.LogoFetchError) as err:
-                await logo_fetch.fetch_logo(
-                    "https://raw.githubusercontent.com/missing.png", _sniff
-                )
+                await logo_fetch.fetch_logo("https://raw.githubusercontent.com/missing.png", _sniff)
         assert err.value.status == "image_url_unreachable"
         assert "404" in err.value.message
 
@@ -206,9 +192,7 @@ class TestRedirects:
         )
         with patch.object(httpx, "AsyncClient", _client(redirect)):
             with pytest.raises(logo_fetch.LogoFetchError) as err:
-                await logo_fetch.fetch_logo(
-                    "https://cdn.jsdelivr.net/x.png", _sniff
-                )
+                await logo_fetch.fetch_logo("https://cdn.jsdelivr.net/x.png", _sniff)
         assert err.value.status == "image_url_not_allowed"
 
     @pytest.mark.asyncio
@@ -238,9 +222,7 @@ class TestRedirects:
                 return states[len(seen) - 1]
 
         with patch.object(httpx, "AsyncClient", FakeClient):
-            data, _ = await logo_fetch.fetch_logo(
-                "https://cdn.jsdelivr.net/x.png", _sniff
-            )
+            data, _ = await logo_fetch.fetch_logo("https://cdn.jsdelivr.net/x.png", _sniff)
         assert data == PNG
         assert seen[-1] == "https://raw.githubusercontent.com/real.png"
 
@@ -251,9 +233,7 @@ class TestTheKillSwitch:
         monkeypatch.setattr(logo_fetch, "MCP_LOGO_FETCH_ENABLED", False)
         with patch.object(httpx, "AsyncClient", AsyncMock(side_effect=AssertionError)):
             with pytest.raises(logo_fetch.LogoFetchError) as err:
-                await logo_fetch.fetch_logo(
-                    "https://raw.githubusercontent.com/x.png", _sniff
-                )
+                await logo_fetch.fetch_logo("https://raw.githubusercontent.com/x.png", _sniff)
         assert err.value.status == "image_url_disabled"
         assert "image_base64" in (err.value.remedy or "")
 
@@ -297,9 +277,7 @@ class TestTheToolRow:
             yield
 
     @pytest.mark.asyncio
-    async def test_a_url_row_previews_with_the_bytes_it_would_upload(
-        self, fake_token, public_dns
-    ):
+    async def test_a_url_row_previews_with_the_bytes_it_would_upload(self, fake_token, public_dns):
         async def get_router(path, params=None):
             if path == "/cards":
                 return {"items": [{"id": "c1", "type": "Application"}]}

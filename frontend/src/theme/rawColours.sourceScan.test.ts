@@ -1,25 +1,24 @@
 /**
- * Raw colours ratchet down to zero — CLAUDE.md "Design tokens": "Never hardcode
- * hex codes — import the named token", UI_GUIDELINES.md §1.3.
+ * No raw colour in `src/` — CLAUDE.md "Design tokens": "Never hardcode hex
+ * codes — import the named token", UI_GUIDELINES.md §1.3.
  *
  * Every colour the app draws is a design token (`src/theme/tokens.ts`) or a MUI
- * theme value. About a thousand hex / `rgb()` literals predated the rule, so
- * this started as a per-file baseline with EXACT counts rather than a flat ban:
+ * theme value, and this guard is strict: any hex / `rgb()` literal in a scanned
+ * file fails and lists every hit.
  *
- *   - a file above its count (or an unlisted file with any hit) fails and lists
- *     every hit — a new raw colour is never allowed in;
- *   - a file below its count fails too, asking for the entry to be lowered — so
- *     every PR that swaps colours for tokens moves the number, and the baseline
- *     can never rot into headroom a later PR spends quietly;
- *   - a listed file at zero fails, asking for the entry to be deleted.
+ * About a thousand literals predated the rule, so it started as a per-file
+ * baseline with EXACT counts (a file above its count failed, so did one below
+ * it until the entry was lowered). The backlog was cleared in two PRs; the
+ * baseline is gone. `ratchet()` and its self-tests stay so a future backlog
+ * (a new rule over old code) can reuse the mechanism: pass it a baseline again.
  *
  * What counts is `rawColours` (`src/test/sourceScanners.ts`): comments are
  * skipped, string literals, template literals and JSX text are not; selectors,
  * translation keys and links are not colours. `src/theme/**` is where tokens
  * are defined, and `EXEMPT` holds the few files whose colours are data, not
  * styling. Measured 2026-11-02 at the start: 170 files, 972 hits, 624 files
- * scanned. The backlog is now cleared but for one entry, MatrixReport's two
- * (see `RAW_COLOUR_BASELINE`); every other file in `src/` holds no raw colour.
+ * scanned; zero since the Matrix report's diagonal highlight moved onto
+ * `MATRIX_DIAGONAL_COLOR`.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -37,21 +36,6 @@ const EXEMPT: Record<string, string> = {
   "src/lib/color.ts": "contrast math returns black or white",
   "src/features/diagrams/drawio-shapes.ts":
     "draw.io style strings and inline SVG written at export time",
-};
-
-/**
- * Raw colours per file, exact. Lower an entry in the PR that removes colours
- * from that file; delete it when the file reaches zero. Never raise one: use a
- * token from `src/theme/tokens.ts` (add a named one if none fits).
- *
- * MatrixReport's two are its diagonal highlight (indigo 50 in light mode, a
- * deep purple 800 wash in dark), deliberately not snapped to a near token. When
- * this entry goes, replace this dict and the
- * per-file checks below with one strict `expect(hits).toEqual([])` over the
- * whole scan (the `ratchet()` self-tests then go with it).
- */
-const RAW_COLOUR_BASELINE: Record<string, number> = {
-  "src/features/reports/MatrixReport.tsx": 2,
 };
 
 /** Anti-rot floor: a walker or exclusion bug that empties the scan must not pass vacuously. */
@@ -79,7 +63,9 @@ function scan(): Map<string, string[]> {
   return scanned;
 }
 
-/** The ratchet's verdicts for one scan against one baseline — empty when the two agree. */
+/** The ratchet's verdicts for one scan against one per-file baseline of exact counts — empty when
+ *  the two agree. Unused by the live scan while the codebase holds no raw colour; kept, with its
+ *  self-tests, for the next rule that has to start from a backlog. */
 function ratchet(
   hits: Map<string, string[]>,
   baseline: Record<string, number>,
@@ -92,9 +78,9 @@ function ratchet(
     if (found.length > allowed) {
       over.push(...found.map((hit) => `${file}:${hit}`));
     } else if (file in baseline && found.length === 0) {
-      zero.push(`${file}: no raw colour left — delete the entry from RAW_COLOUR_BASELINE`);
+      zero.push(`${file}: no raw colour left — delete its baseline entry`);
     } else if (found.length < allowed) {
-      under.push(`lower RAW_COLOUR_BASELINE["${file}"] to ${found.length} (was ${allowed})`);
+      under.push(`lower the baseline for "${file}" to ${found.length} (was ${allowed})`);
     }
   }
   return { over, under, zero };
@@ -133,8 +119,8 @@ describe("ratchet", () => {
     ]);
     const { over, under, zero } = ratchet(hits, baseline);
     expect(over).toEqual([]);
-    expect(under).toEqual(['lower RAW_COLOUR_BASELINE["src/a.ts"] to 1 (was 2)']);
-    expect(zero).toEqual(["src/b.ts: no raw colour left — delete the entry from RAW_COLOUR_BASELINE"]);
+    expect(under).toEqual(['lower the baseline for "src/a.ts" to 1 (was 2)']);
+    expect(zero).toEqual(["src/b.ts: no raw colour left — delete its baseline entry"]);
   });
 
   it("with an empty baseline demands zero hits everywhere", () => {
@@ -149,38 +135,18 @@ describe("ratchet", () => {
   });
 });
 
-describeSourceScan("raw colours ratchet against RAW_COLOUR_BASELINE", () => {
+describeSourceScan("no raw colour in src/", () => {
   itSourceScan("scans the whole of src/", () => {
     expect(scan().size).toBeGreaterThan(MIN_FILES_SCANNED);
   });
 
-  itSourceScan("adds no raw colour to any file", () => {
-    expect(ratchet(scan(), RAW_COLOUR_BASELINE).over, TOKEN_HINT).toEqual([]);
-  });
-
-  itSourceScan("keeps every baseline entry exact (lower it as colours go)", () => {
-    expect(ratchet(scan(), RAW_COLOUR_BASELINE).under).toEqual([]);
-  });
-
-  itSourceScan("lists no file that has reached zero", () => {
-    expect(ratchet(scan(), RAW_COLOUR_BASELINE).zero).toEqual([]);
-  });
-
-  itSourceScan("lists only files that are still scanned (stale baseline entries)", () => {
-    const stale = Object.keys(RAW_COLOUR_BASELINE).filter((file) => !scan().has(file));
-    expect(stale, "the file was moved, deleted or excluded — remove its entry").toEqual([]);
+  itSourceScan("holds no raw colour in any scanned file", () => {
+    const hits = [...scan()].flatMap(([file, found]) => found.map((hit) => `${file}:${hit}`));
+    expect(hits, TOKEN_HINT).toEqual([]);
   });
 
   itSourceScan("exempts only files that exist", () => {
     const stale = Object.keys(EXEMPT).filter((file) => !fs.existsSync(path.join(SRC, "..", file)));
     expect(stale, "remove the EXEMPT entry").toEqual([]);
-  });
-});
-
-describe("RAW_COLOUR_BASELINE", () => {
-  it("is sorted by path and holds only positive counts", () => {
-    const keys = Object.keys(RAW_COLOUR_BASELINE);
-    expect(keys).toEqual([...keys].sort());
-    expect(Object.values(RAW_COLOUR_BASELINE).filter((n) => !(n > 0))).toEqual([]);
   });
 });

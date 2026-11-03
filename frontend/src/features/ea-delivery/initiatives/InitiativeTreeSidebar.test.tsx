@@ -16,7 +16,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import type { Card, DiagramSummary, SoAW } from "@/types";
 import { createTheme } from "@mui/material/styles";
-import { DASHBOARD_KPI_COLORS, STATUS_COLORS } from "@/theme/tokens";
+import { FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import InitiativeTreeSidebar, { UNLINKED_KEY } from "./InitiativeTreeSidebar";
 import type { InitiativeTreeNode } from "./useInitiativeData";
 
@@ -451,15 +451,15 @@ describe("InitiativeTreeSidebar — colours", () => {
 
     renderSidebar({ filter: { ...FILTER, favoritesOnly: true } });
     expect(favouritesOnly()).toHaveStyle({
-      color: DASHBOARD_KPI_COLORS.favorites,
-      border: `1px solid ${DASHBOARD_KPI_COLORS.favorites}`,
+      color: FAVORITE_COLOR,
+      border: `1px solid ${FAVORITE_COLOR}`,
     });
   });
 
   it("paints a favourite's star in the favourites colour and leaves the others in currentColor", () => {
     renderSidebar();
     const star = (name: string) => within(screen.getByRole("button", { name })).getByText("cards_star");
-    expect(star("Remove Lift and shift from favorites")).toHaveStyle({ color: DASHBOARD_KPI_COLORS.favorites });
+    expect(star("Remove Lift and shift from favorites")).toHaveStyle({ color: FAVORITE_COLOR });
     expect(star("Mark Cloud Migration as favorite").style.color).toBe("currentcolor");
   });
 

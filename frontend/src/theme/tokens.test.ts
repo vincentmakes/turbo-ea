@@ -202,7 +202,7 @@ describe("admin picker presets", () => {
       single_select: "#00838f",
       multiple_select: "#4527a0",
       percentage: "#00695c",
-      other: "#666666",
+      other: "#616161",
     });
     const hues = Object.values(t.FIELD_TYPE_COLORS);
     expect(new Set(hues).size).toBe(hues.length);
@@ -330,20 +330,20 @@ describe("BPM tokens", () => {
     expect(t.PRINT_COLORS).toEqual({
       text: "#333333",
       muted: "#888888",
-      rule: "#dddddd",
+      rule: "#e0e0e0",
       panel: "#f5f5f5",
       control: "#cccccc",
       paper: "#ffffff",
       // The document print's own inks, as `DOCUMENT_PRINT_CSS` always drew them.
       heading: "#1a1a2e",
-      ink: "#222222",
+      ink: "#212121",
       subheading: "#444444",
-      inkSecondary: "#666666",
+      inkSecondary: "#616161",
       ruleLight: "#e0e0e0",
-      panelLight: "#fafafa",
+      panelLight: "#fafbfc",
       success: "#2e7d32",
       successLight: "#66bb6a",
-      successPale: "#f1f8e9",
+      successPale: "#e8f5e9",
       successTint: "#e8f5e9",
       warning: "#ed6c02",
     });
@@ -468,5 +468,96 @@ describeSourceScan("card-type fallbacks match the seeded card types", () => {
     for (const key of compared) {
       expect({ [key]: t.CARD_TYPE_COLORS[key as keyof typeof t.CARD_TYPE_COLORS] }).toEqual({ [key]: seeded[key] });
     }
+  });
+});
+
+// Eight pairs of near-identical values (CIEDE2000 ΔE < 5, same role) were merged
+// into one value each, so the palette shrank from 135 to 127 hex values. These pin
+// the survivors: a revert that brings a near-duplicate back fails here.
+describe("merged near-duplicate colours", () => {
+  it("draw near-black ink and the BPMN panel's subtle dark surface in grey 900, the charcoal navbar", async () => {
+    const t = await freshTokens();
+    const charcoal = t.NAVBAR_PRESETS.find((p) => p.key === "charcoal")!.bg;
+    expect(charcoal).toBe("#212121");
+    expect(t.PRINT_COLORS.ink).toBe(charcoal);
+    expect(t.BPMN_DARK_THEME["--bio-surface-subtle"]).toBe(charcoal);
+  });
+
+  it("use MUI's default warning orange for every orange 800", async () => {
+    const t = await freshTokens();
+    for (const value of [
+      t.NOTIFICATION_TYPE_COLORS.extension_update_available,
+      t.NOTIFICATION_TYPE_COLORS.card_updated,
+      t.TIMELINE_COLORS.reset,
+      t.CATEGORICAL_COLORS[3],
+      t.DASHBOARD_KPI_COLORS.noStakeholders,
+      t.LIFECYCLE_PHASE_COLORS.phaseOut,
+      t.PRINT_COLORS.warning,
+    ]) {
+      expect(value).toBe(t.WARNING_STRONG_COLOR);
+    }
+  });
+
+  it("give the print pages one rule grey, the light page background and the green 50 tint", async () => {
+    const t = await freshTokens();
+    expect(t.PRINT_COLORS.rule).toBe(t.PRINT_COLORS.ruleLight);
+    expect(t.PRINT_COLORS.panelLight).toBe(t.surface.light.default);
+    expect(t.PRINT_COLORS.successPale).toBe(t.PRINT_COLORS.successTint);
+    expect(t.PRINT_COLORS.successTint).toBe(t.STATUS_CHIP_COLORS.success.fill);
+  });
+
+  it("use grey 700 for the field-type fallback chip and secondary print ink", async () => {
+    const t = await freshTokens();
+    expect(t.FIELD_TYPE_COLORS.other).toBe(t.PPM_GANTT_COLORS.todo.progressSelected);
+    expect(t.PRINT_COLORS.inkSecondary).toBe(t.FIELD_TYPE_COLORS.other);
+  });
+
+  it("draw the green KPI accents in the theme's success green", async () => {
+    const t = await freshTokens();
+    for (const key of ["completion", "todos", "activeUsers", "qualityGood"] as const) {
+      expect(t.DASHBOARD_KPI_COLORS[key], key).toBe(t.STATUS_COLORS.success);
+    }
+  });
+});
+
+// A role alias names a value another feature owns, for a screen whose meaning is not
+// that feature's. It adds no colour: each one IS its source.
+describe("role aliases", () => {
+  it("REPORT_ICON_COLORS takes its hues from the field-type chips", async () => {
+    const t = await freshTokens();
+    expect(t.REPORT_ICON_COLORS).toEqual({
+      dataQuality: t.FIELD_TYPE_COLORS.percentage,
+      costDriver: t.FIELD_TYPE_COLORS.cost,
+      privateReport: t.FIELD_TYPE_COLORS.other,
+    });
+  });
+
+  it("FAVORITE_COLOR is the Favourites KPI tile's amber", async () => {
+    const t = await freshTokens();
+    expect(t.FAVORITE_COLOR).toBe(t.DASHBOARD_KPI_COLORS.favorites);
+  });
+
+  it("UNSET_VALUE_COLOR is the Process Navigator's no-value grey", async () => {
+    const t = await freshTokens();
+    expect(t.UNSET_VALUE_COLOR).toBe(t.BPM_UNSET_COLOR);
+  });
+
+  it("SCREEN_INK takes its inks from the print palette", async () => {
+    const t = await freshTokens();
+    expect(t.SCREEN_INK).toEqual({
+      onLightFill: t.PRINT_COLORS.text,
+      onDark: t.PRINT_COLORS.control,
+      secondary: t.PRINT_COLORS.inkSecondary,
+      muted: t.PRINT_COLORS.muted,
+      rule: t.PRINT_COLORS.control,
+      ruleDark: t.PRINT_COLORS.subheading,
+      paper: t.PRINT_COLORS.paper,
+    });
+  });
+
+  it("MATRIX_DIAGONAL_COLOR is the multiple-select chip's deep purple 800", async () => {
+    const t = await freshTokens();
+    expect(t.MATRIX_DIAGONAL_COLOR).toBe(t.FIELD_TYPE_COLORS.multiple_select);
+    expect(t.MATRIX_DIAGONAL_COLOR).toBe("#4527a0");
   });
 });

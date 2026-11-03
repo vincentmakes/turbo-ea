@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.6] - 2026-11-02
+
+### Changed
+- The dashboard's to-do, active-user and data-quality tiles use the same green as every other success indicator; it was a near-identical shade of its own.
+- A few near-identical shades were merged into the palette colour they stood next to: the matrix report's diagonal highlight in light mode, the extension-update notification orange, the timeline's reset mark, the ink, rules and secondary text of printed reports, the approved-signature fill, and the BPMN properties panel's dark surface. None of them differs by more than a barely perceptible step.
+
 ## [2.186.5] - 2026-11-02
 
 ### Fixed
