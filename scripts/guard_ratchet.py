@@ -183,8 +183,8 @@ def _strip_comments(s: str) -> str:
     return "\n".join(re.sub(r"^\s*//.*$", "", line) for line in s.splitlines())
 
 
-_TS_STRING = re.compile(r"""^(["'`])((?:\\.|(?!\1).)*)\1""", re.DOTALL)
-_TS_KEY = re.compile(r"""^(?:(["'`])((?:\\.|(?!\1).)*)\1|([A-Za-z_$][\w$]*))\s*:""", re.DOTALL)
+_TS_STRING = re.compile(r"""^(["'`])((?:\\.|(?!\1)[^\\])*)\1""", re.DOTALL)
+_TS_KEY = re.compile(r"""^(?:(["'`])((?:\\.|(?!\1)[^\\])*)\1|([A-Za-z_$][\w$]*))\s*:""", re.DOTALL)
 
 
 def ts_collection(text: str, name: str) -> list[str] | None:
