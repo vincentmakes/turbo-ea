@@ -77,13 +77,16 @@ async def create_decision(
     attributes: dict[str, Any] | None = None,
     linked_card_ids: Sequence[uuid.UUID] = (),
     created_by: uuid.UUID | None = None,
+    publish: bool = True,
 ) -> ArchitectureDecision:
     """Insert a draft decision and its card links; flush, never commit.
 
     ``status`` is not a parameter on purpose — a new decision is always a
     draft; signing and status transitions have their own routes. Linked
     card ids are expected to be resolved already (``resolve_card_ids`` or
-    the caller's own check); duplicates link once.
+    the caller's own check); duplicates link once. ``publish=False`` skips
+    the ``adr.created`` event — for a dry-run preview that will be rolled
+    back, whose event would otherwise still reach every open SSE stream.
     """
     adr = ArchitectureDecision(
         reference_number=await next_reference_number(db),
@@ -105,6 +108,8 @@ async def create_decision(
         seen.add(cid)
         db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.flush()
+    if not publish:
+        return adr
     await event_bus.publish(
         "adr.created",
         {

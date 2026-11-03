@@ -42,6 +42,7 @@ from app.models.card_type import CardType
 from app.models.card_type_category import CardTypeCategory
 from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_group import DiagramGroup, diagram_group_members
+from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
@@ -51,6 +52,7 @@ from app.models.user import User
 from app.services import card_reference, card_type_categories
 from app.services.card_resolver import CardResolver
 from app.services.email_backends.runtime import apply_email_settings_to_runtime
+from app.services.principle_service import ensure_principle_references
 from app.services.relation_orientation import oriented
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import remap as rm
@@ -755,6 +757,8 @@ def _make_config_applier(sec: schema.ConfigSection):
                 cols = [c for c in sec.columns if c not in sec.natural_key]
                 _update_if_changed(current, data, cols, sr)
         await db.flush()
+        if sec.model is EAPrinciple:
+            await ensure_principle_references(db)
 
     return _apply
 

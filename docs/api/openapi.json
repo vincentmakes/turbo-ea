@@ -96,6 +96,232 @@
         "title": "ADRCreate",
         "type": "object"
       },
+      "ADRImportItem": {
+        "description": "One spreadsheet row for ``POST /adr/bulk-import``.\n\n``title`` is not length-checked here so a blank or over-long title fails\nits own row instead of 422-ing the batch. The four sections arrive as\nHTML (the dialog converts plain-text cells). ``status`` is read only to\nwarn that an imported decision always lands as a draft.",
+        "properties": {
+          "alternatives_considered": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alternatives Considered"
+          },
+          "card_names": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Card Names",
+            "type": "array"
+          },
+          "consequences": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Consequences"
+          },
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "related_references": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Related References",
+            "type": "array"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 5000,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index"
+        ],
+        "title": "ADRImportItem",
+        "type": "object"
+      },
+      "ADRImportRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ADRImportItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ADRImportRequest",
+        "type": "object"
+      },
+      "ADRImportResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ADRImportResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "created",
+          "skipped",
+          "failed"
+        ],
+        "title": "ADRImportResponse",
+        "type": "object"
+      },
+      "ADRImportResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "ADRImportResult",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
@@ -11510,6 +11736,230 @@
         "title": "PrincipleCreate",
         "type": "object"
       },
+      "PrincipleImportItem": {
+        "description": "One spreadsheet row.\n\nEvery column except ``title`` is optional, and ``None`` means *the sheet\nhas no such column*: the importer then leaves that field as it is. An\nempty string is a deliberate blank and clears the field. ``is_active``\nand ``sort_order`` arrive as text so a bad cell fails only its own row\ninstead of 422-ing the whole batch; so does ``title`` (a blank title is a\nper-row error).",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "implications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Implications"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "title": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index"
+        ],
+        "title": "PrincipleImportItem",
+        "type": "object"
+      },
+      "PrincipleImportRequest": {
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrincipleImportItem"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "PrincipleImportRequest",
+        "type": "object"
+      },
+      "PrincipleImportResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PrincipleImportResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "created",
+          "updated",
+          "skipped",
+          "failed"
+        ],
+        "title": "PrincipleImportResponse",
+        "type": "object"
+      },
+      "PrincipleImportResult": {
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "reference_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Number"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "updated",
+              "skipped",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "PrincipleImportResult",
+        "type": "object"
+      },
       "PrincipleUpdate": {
         "properties": {
           "description": {
@@ -19573,6 +20023,18 @@
               ],
               "title": "Signed To"
             }
+          },
+          {
+            "description": "Also return every section's text and related decision references (the spreadsheet export)",
+            "in": "query",
+            "name": "include_content",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also return every section's text and related decision references (the spreadsheet export)",
+              "title": "Include Content",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -19633,6 +20095,48 @@
           }
         },
         "summary": "Create Adr",
+        "tags": [
+          "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/bulk-import": {
+      "post": {
+        "description": "Spreadsheet importer for decision records \u2014 create-only.\n\nA row whose ``reference_number`` already exists is skipped, so\nre-importing an exported register is a no-op; every other row creates a\n**draft** with a fresh ``ADR-NNN`` reference (status and signatories are\nnever imported). Cards are linked by exact name among those the caller\nmay read; related decisions resolve against existing references and the\nfile's own rows. ``dry_run=True`` runs everything, publishes nothing and\nrolls back, so the dialog previews exactly what applying will do.",
+        "operationId": "bulk_import_adrs_api_v1_adr_bulk_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ADRImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ADRImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Import Adrs",
         "tags": [
           "adr"
         ]
@@ -29506,6 +30010,48 @@
           }
         },
         "summary": "Create Principle",
+        "tags": [
+          "metamodel"
+        ]
+      }
+    },
+    "/api/v1/metamodel/principles/bulk-import": {
+      "post": {
+        "description": "Spreadsheet importer for EA principles (admin only).\n\nEach row is matched on ``reference_number``, then on title\n(case-insensitive). A matched principle is updated when a value differs\nand skipped when nothing does; any other row creates a principle with a\nfresh ``P-NNN`` reference. A column missing from the sheet leaves that\nfield untouched. ``dry_run=True`` validates and matches every row, then\nrolls back, so the dialog can preview exactly what applying will do.",
+        "operationId": "bulk_import_principles_api_v1_metamodel_principles_bulk_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrincipleImportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrincipleImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Import Principles",
         "tags": [
           "metamodel"
         ]

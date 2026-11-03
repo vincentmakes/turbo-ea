@@ -1,0 +1,315 @@
+"""EA principle references (``P-NNN``) and the spreadsheet import engine.
+
+The pure helpers run without a database; the rest are DB-backed (skipped
+locally without PostgreSQL, run in CI).
+"""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+from sqlalchemy import select
+
+from app.models.ea_principle import EAPrinciple
+from app.services import principle_service as svc
+from app.services import principles_catalogue_service as catalogue
+from app.services.principle_service import PrincipleImportRow as Row
+
+# ---------------------------------------------------------------------------
+# Pure helpers
+# ---------------------------------------------------------------------------
+
+
+def test_format_reference_pads_to_three_digits_and_grows_past_them():
+    assert svc.format_reference(1) == "P-001"
+    assert svc.format_reference(42) == "P-042"
+    assert svc.format_reference(1000) == "P-1000"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("P-007", 7),
+        ("p-12", 12),
+        (" P-1000 ", 1000),
+        ("PR-001", None),
+        ("P-", None),
+        ("P-1a", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_reference_sequence_reads_only_p_numbers(value, expected):
+    assert svc.reference_sequence(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("true", True),
+        ("Yes", True),
+        (" y ", True),
+        ("1", True),
+        ("ACTIVE", True),
+        ("false", False),
+        ("No", False),
+        ("n", False),
+        ("0", False),
+        ("inactive", False),
+    ],
+)
+def test_parse_active_accepts_the_usual_spellings(value, expected):
+    assert svc.parse_active(value) is expected
+
+
+def test_parse_active_refuses_anything_else():
+    with pytest.raises(ValueError, match="Invalid is_active: 'maybe'"):
+        svc.parse_active("maybe")
+
+
+def test_parse_sort_order_accepts_whole_numbers_even_as_floats():
+    assert svc.parse_sort_order("30") == 30
+    assert svc.parse_sort_order(" 40.0 ") == 40
+    assert svc.parse_sort_order("-5") == -5
+
+
+@pytest.mark.parametrize("value", ["abc", "2.5", ""])
+def test_parse_sort_order_refuses_fractions_and_text(value):
+    with pytest.raises(ValueError, match="Invalid sort_order"):
+        svc.parse_sort_order(value)
+
+
+# ---------------------------------------------------------------------------
+# References (DB)
+# ---------------------------------------------------------------------------
+
+
+def _principle(title: str, *, ref: str | None = None, sort_order: int = 0, **kw) -> EAPrinciple:
+    return EAPrinciple(
+        id=uuid.uuid4(), title=title, reference_number=ref, sort_order=sort_order, **kw
+    )
+
+
+async def _by_title(db) -> dict[str, EAPrinciple]:
+    rows = (await db.execute(select(EAPrinciple))).scalars().all()
+    return {p.title: p for p in rows}
+
+
+async def test_next_reference_starts_at_one(db):
+    assert await svc.next_principle_reference(db) == "P-001"
+
+
+async def test_next_reference_is_numeric_not_lexical(db):
+    """``"P-999" > "P-1000"`` as strings; the sequence must still move on."""
+    db.add_all([_principle("A", ref="P-999"), _principle("B", ref="P-1000")])
+    db.add(_principle("Foreign", ref="X-5000"))
+    await db.flush()
+    assert await svc.next_principle_reference(db) == "P-1001"
+
+
+async def test_ensure_numbers_missing_rows_in_page_order_after_the_highest(db):
+    db.add_all(
+        [
+            _principle("Kept", ref="P-004", sort_order=0),
+            _principle("Second", sort_order=20),
+            _principle("First", sort_order=10),
+        ]
+    )
+    assert await svc.ensure_principle_references(db) == 2
+    rows = await _by_title(db)
+    assert rows["Kept"].reference_number == "P-004"
+    assert rows["First"].reference_number == "P-005"
+    assert rows["Second"].reference_number == "P-006"
+    # Nothing left to number on a second call.
+    assert await svc.ensure_principle_references(db) == 0
+
+
+async def test_catalogue_import_numbers_what_it_creates(db):
+    await catalogue.import_principles(db, catalogue_ids=["PR-001", "PR-002"])
+    refs = sorted(p.reference_number for p in (await _by_title(db)).values())
+    assert refs == ["P-001", "P-002"]
+
+
+# ---------------------------------------------------------------------------
+# Spreadsheet import engine (DB)
+# ---------------------------------------------------------------------------
+
+
+async def test_import_creates_with_fresh_references_and_defaults(db):
+    db.add(_principle("Existing", ref="P-003", sort_order=50))
+    await db.flush()
+
+    outcomes = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title="Cloud first", description="Prefer SaaS"),
+            Row(row_index=1, title="API first", is_active="no", sort_order="5"),
+        ],
+    )
+
+    assert [(o.status, o.reference_number) for o in outcomes] == [
+        ("created", "P-004"),
+        ("created", "P-005"),
+    ]
+    rows = await _by_title(db)
+    cloud, api = rows["Cloud first"], rows["API first"]
+    assert cloud.description == "Prefer SaaS"
+    assert cloud.is_active is True
+    # Appended after the highest sort order, one step of ten apart.
+    assert cloud.sort_order == 60
+    assert api.is_active is False
+    assert api.sort_order == 5
+    assert outcomes[0].id == str(cloud.id)
+
+
+async def test_import_updates_by_reference_including_a_rename(db):
+    db.add(_principle("Old name", ref="P-001", description="old", rationale="keep"))
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db,
+        [Row(row_index=0, reference_number="p-001", title="New name", description="new")],
+    )
+
+    assert outcome.status == "updated"
+    assert outcome.reference_number == "P-001"
+    assert outcome.changed_fields == ["title", "description"]
+    principle = (await _by_title(db))["New name"]
+    assert principle.description == "new"
+    # The sheet had no rationale column: the field is left alone.
+    assert principle.rationale == "keep"
+
+
+async def test_import_updates_by_title_ignoring_case(db):
+    db.add(_principle("Reuse before buy", ref="P-002", implications="x"))
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db, [Row(row_index=0, title="  reuse BEFORE buy ", implications="")]
+    )
+
+    assert outcome.status == "updated"
+    assert outcome.changed_fields == ["title", "implications"]
+    # An empty cell is a deliberate blank and clears the field.
+    principle = (await db.execute(select(EAPrinciple))).scalar_one()
+    assert principle.implications is None
+    assert principle.title == "reuse BEFORE buy"
+
+
+async def test_import_skips_rows_that_change_nothing(db):
+    db.add(_principle("Same", ref="P-001", description="d", sort_order=10))
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db,
+        [
+            Row(
+                row_index=0,
+                reference_number="P-001",
+                title="Same",
+                description=" d ",
+                is_active="true",
+                sort_order="10",
+            )
+        ],
+    )
+
+    assert (outcome.status, outcome.reference_number, outcome.changed_fields) == (
+        "skipped",
+        "P-001",
+        [],
+    )
+
+
+async def test_unknown_reference_falls_back_to_title_with_a_warning(db):
+    db.add(_principle("Shared", ref="P-001"))
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db, [Row(row_index=0, reference_number="P-999", title="Shared", description="d")]
+    )
+
+    assert outcome.status == "updated"
+    assert outcome.reference_number == "P-001"
+    assert outcome.warnings == ["Reference P-999 not found; matched P-001 by title"]
+
+
+async def test_unknown_reference_with_a_new_title_creates_with_a_warning(db):
+    [outcome] = await svc.import_principle_rows(
+        db, [Row(row_index=0, reference_number="P-077", title="Brand new")]
+    )
+
+    assert (outcome.status, outcome.reference_number) == ("created", "P-001")
+    assert outcome.warnings == ["Reference P-077 not found; a new reference was assigned"]
+
+
+async def test_bad_rows_fail_alone(db):
+    outcomes = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title=""),
+            Row(row_index=1, title="x" * 301),
+            Row(row_index=2, title="Bad flag", is_active="maybe"),
+            Row(row_index=3, title="Bad order", sort_order="first"),
+            Row(row_index=4, title="Good"),
+        ],
+    )
+
+    assert [o.status for o in outcomes] == ["failed"] * 4 + ["created"]
+    assert outcomes[0].error == "Title is required"
+    assert outcomes[1].error == "Title is longer than 300 characters"
+    assert "Invalid is_active" in outcomes[2].error
+    assert "Invalid sort_order" in outcomes[3].error
+    assert list(await _by_title(db)) == ["Good"]
+
+
+async def test_duplicates_within_the_file_fail_the_later_row(db):
+    db.add(_principle("Existing", ref="P-001"))
+    await db.flush()
+
+    outcomes = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title="One"),
+            Row(row_index=1, title="one"),
+            Row(row_index=2, reference_number="P-001", title="Existing"),
+            Row(row_index=3, reference_number="p-001", title="Other"),
+        ],
+    )
+
+    assert [o.status for o in outcomes] == ["created", "failed", "skipped", "failed"]
+    assert outcomes[1].error == "Title 'one' appears more than once in the file"
+    assert outcomes[3].error == "Reference P-001 appears more than once in the file"
+
+
+async def test_renaming_onto_another_principles_title_fails(db):
+    db.add_all([_principle("Alpha", ref="P-001"), _principle("Beta", ref="P-002")])
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db, [Row(row_index=0, reference_number="P-001", title="beta")]
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.reference_number == "P-001"
+    assert outcome.error == "Another principle (P-002) already has the title 'beta'"
+    assert (await _by_title(db))["Alpha"].reference_number == "P-001"
+
+
+async def test_a_rename_frees_the_old_title_for_a_later_row(db):
+    db.add(_principle("Alpha", ref="P-001"))
+    await db.flush()
+
+    outcomes = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, reference_number="P-001", title="Gamma"),
+            Row(row_index=1, title="Alpha"),
+        ],
+    )
+
+    assert [(o.status, o.reference_number) for o in outcomes] == [
+        ("updated", "P-001"),
+        ("created", "P-002"),
+    ]

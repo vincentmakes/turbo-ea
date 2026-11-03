@@ -30,6 +30,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.user import User
+from app.services.principle_service import ensure_principle_references
 from app.services.principles_catalogue_service import get_catalogue_principle
 from app.services.seed_markers import demo_seed_completed, mark_demo_seed_completed
 
@@ -1453,7 +1454,7 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
                 )
             )
             principle_count += 1
-        await db.flush()
+        await ensure_principle_references(db)
     counts["principles"] = principle_count
 
     await mark_demo_seed_completed(db, SEEDER_KEY)

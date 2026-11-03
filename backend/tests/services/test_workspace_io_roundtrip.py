@@ -2042,3 +2042,46 @@ async def seed_default_categories_for_test(db):
 
     await seed_default_categories(db)
     await db.flush()
+
+
+async def test_principles_roundtrip_and_are_numbered_by_the_target(db):
+    """Principles travel by title; each instance numbers its own (``P-NNN``).
+
+    The source's reference is not carried (it could collide with a number the
+    target already uses), so a re-created principle takes the target's next
+    reference and a matched one keeps the reference it already had.
+    """
+    from app.models.ea_principle import EAPrinciple
+
+    user = await create_user(db, email="pr-ws@test.com", role="admin")
+    db.add_all(
+        [
+            EAPrinciple(title="Reuse first", reference_number="P-001", sort_order=10),
+            EAPrinciple(
+                title="Cloud first",
+                reference_number="P-002",
+                sort_order=20,
+                rationale="Elastic",
+            ),
+        ]
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    principles_sheet = parse_bundle(raw).rows(schema.SHEET_PRINCIPLES)
+    assert all("reference_number" not in row for row in principles_sheet)
+
+    # "Reuse first" stays (matched by title); "Cloud first" is re-created after
+    # a target-side principle took the next number.
+    await db.execute(delete(EAPrinciple).where(EAPrinciple.title == "Cloud first"))
+    db.add(EAPrinciple(title="Target only", reference_number="P-007", sort_order=5))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    rows = {p.title: p for p in (await db.execute(select(EAPrinciple))).scalars().all()}
+    assert rows["Reuse first"].reference_number == "P-001"
+    assert rows["Target only"].reference_number == "P-007"
+    assert rows["Cloud first"].reference_number == "P-008"
+    assert rows["Cloud first"].rationale == "Elastic"
