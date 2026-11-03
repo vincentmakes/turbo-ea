@@ -261,9 +261,10 @@ async def import_principle_rows(
         if reference:
             warnings.append(f"Reference {reference} not found; a new reference was assigned")
         next_seq += 1
+        new_reference = format_reference(next_seq)
         principle = EAPrinciple(
             id=uuid.uuid4(),
-            reference_number=format_reference(next_seq),
+            reference_number=new_reference,
             title=title,
             description=values.get("description"),
             rationale=values.get("rationale"),
@@ -276,13 +277,13 @@ async def import_principle_rows(
         db.add(principle)
         await db.flush()
         by_title[title_key] = principle
-        by_reference[principle.reference_number] = principle
+        by_reference[new_reference] = principle
         outcomes.append(
             PrincipleImportOutcome(
                 row_index=row.row_index,
                 status="created",
                 id=str(principle.id),
-                reference_number=principle.reference_number,
+                reference_number=new_reference,
                 warnings=warnings,
             )
         )

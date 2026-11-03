@@ -148,9 +148,9 @@ async def import_decision_rows(
             seen_refs.add(reference)
 
         card_ids, warnings = await _resolve_cards(db, row.card_names, readable_cards)
-        status = (row.status or "").strip().lower()
-        if status and status != "draft":
-            warnings.append(f"Status {row.status.strip()!r} is not imported; created as a draft")
+        status = (row.status or "").strip()
+        if status and status.lower() != "draft":
+            warnings.append(f"Status {status!r} is not imported; created as a draft")
 
         adr = await adr_service.create_decision(
             db,
