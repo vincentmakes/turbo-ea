@@ -291,6 +291,22 @@ Each principle has four fields:
 
 Principles can be **activated** or **deactivated** individually using the toggle switch on each card.
 
+Every principle carries a **reference number** (`P-001`, `P-002`, …), assigned when it is created and shown next to its title. References are numbered per instance: a principle brought in through [workspace transfer](workspace-transfer.md) takes the next free number on the target.
+
+### Exporting and importing principles {: #principles-import }
+
+**Export** (next to **New Principle**) downloads every principle as an `.xlsx` file with the columns `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` and `sort_order`. The export is a valid import file, so you can edit principles in Excel and load them back.
+
+**Import** loads principles in bulk from an `.xlsx` file. Click **Download template** for a starter workbook, fill in one principle per row, and upload it. Each row is matched to an existing principle by its `reference_number` first, then by its title (ignoring case):
+
+- A matched principle is **updated** with the values that differ; if nothing differs, the row is **skipped**.
+- Any other row **creates** a new principle with the next free reference. A reference that does not exist on this instance is not reused; the preview warns about it.
+- A column missing from the sheet leaves that field unchanged, while an empty cell clears it. `title` is the only required column.
+- `is_active` accepts `true` / `false` (also `yes` / `no`, `1` / `0`); `sort_order` must be a whole number. New principles without a `sort_order` are added at the end of the list.
+- A title or reference that appears twice in the file, or a rename onto another principle's title, fails that row.
+
+Before anything is written you get a preview of how many rows will be created, updated, skipped and failed, with each error and warning listed by row; nothing changes until you confirm. Importing requires the `admin.metamodel` permission and is recorded in the [Security & admin log](audit-log.md).
+
 ### Importing from the Principles Catalogue
 
 Turbo EA ships a **curated reference catalogue of 10 industry-standard EA principles** so you don't have to start from a blank page. Open the avatar menu in the top-right corner and pick **Reference Catalogues → Principles Catalogue**. From there you can:

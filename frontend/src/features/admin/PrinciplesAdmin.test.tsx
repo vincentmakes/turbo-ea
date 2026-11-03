@@ -9,10 +9,46 @@ import { renderToStaticMarkup } from "react-dom/server";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+// Mocked by its alias path so the mutation harness's copies see the same mock.
+vi.mock("@/features/admin/principles/principleSpreadsheet", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/features/admin/principles/principleSpreadsheet")
+  >("@/features/admin/principles/principleSpreadsheet");
+  return { ...actual, exportPrinciples: vi.fn() };
+});
+// The dialog has its own test; the page's job is what it hands it.
+vi.mock("@/components/SpreadsheetImportDialog", () => ({
+  default: (props: {
+    open: boolean;
+    onClose: () => void;
+    onComplete: () => void;
+    title: string;
+    intro: string;
+    skippedHint: string;
+    endpoint: string;
+    parse: unknown;
+    downloadTemplate: unknown;
+  }) =>
+    props.open ? (
+      <div
+        data-testid="import-dialog"
+        data-title={props.title}
+        data-endpoint={props.endpoint}
+        data-intro={props.intro}
+        data-skipped={props.skippedHint}
+        data-has-parse={String(typeof props.parse === "function")}
+        data-has-template={String(typeof props.downloadTemplate === "function")}
+      >
+        <button type="button" data-testid="import-complete" onClick={props.onComplete} />
+        <button type="button" data-testid="import-close" onClick={props.onClose} />
+      </div>
+    ) : null,
+}));
 
 import { mockApi } from "@/test/apiMock";
 import i18n from "@/i18n";
 import type { EAPrinciple } from "@/types";
+import { exportPrinciples } from "@/features/admin/principles/principleSpreadsheet";
 import PrinciplesAdmin from "./PrinciplesAdmin";
 
 const PATH = "/metamodel/principles";
@@ -20,6 +56,7 @@ const DISPLAY = "/settings/principles-display";
 
 const REUSE: EAPrinciple = {
   id: "p-1",
+  reference_number: "P-001",
   title: "Reuse before Buy before Build",
   description: "Prefer what exists. See https://example.com/principles",
   rationale: "Lower cost\nFaster delivery",
@@ -58,6 +95,7 @@ async function expectNoDialog() {
 }
 
 beforeEach(() => {
+  vi.mocked(exportPrinciples).mockClear();
   mockApi.reset();
   mockApi.on("get", PATH, ITEMS);
   mockApi.on("get", DISPLAY, { enabled: true });
@@ -437,5 +475,49 @@ describe("PrinciplesAdmin — details the first pass missed", () => {
     await expectNoDialog();
     expect(mockApi.callsOf("delete")).toHaveLength(1);
     expect(screen.queryByText("Failed to delete principle")).not.toBeInTheDocument();
+  });
+});
+
+describe("PrinciplesAdmin — spreadsheet export and import", () => {
+  it("shows a principle's reference, and nothing for one without", async () => {
+    await renderPage();
+    expect(within(rowOf(REUSE.title)).getByLabelText("Reference P-001")).toHaveTextContent("P-001");
+    expect(within(rowOf(CLOUD.title)).queryByText(/^P-/)).not.toBeInTheDocument();
+  });
+
+  it("exports the loaded principles", async () => {
+    const user = await renderPage();
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+    expect(exportPrinciples).toHaveBeenCalledTimes(1);
+    expect(exportPrinciples).toHaveBeenCalledWith(ITEMS);
+  });
+
+  it("disables Export while there is nothing to export", async () => {
+    mockApi.on("get", PATH, []);
+    render(<PrinciplesAdmin />);
+    await screen.findByText(/No EA principles defined yet/);
+    expect(screen.getByRole("button", { name: /^download Export$/ })).toBeDisabled();
+  });
+
+  it("opens the importer on the principles endpoint and reloads when it completes", async () => {
+    const user = await renderPage();
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^upload Import$/ }));
+    const dialog = screen.getByTestId("import-dialog");
+    expect(dialog).toHaveAttribute("data-endpoint", "/metamodel/principles/bulk-import");
+    expect(dialog).toHaveAttribute("data-title", "Import EA principles");
+    expect(dialog.getAttribute("data-intro")).toMatch(/matched to an existing principle by its reference/);
+    expect(dialog.getAttribute("data-skipped")).toMatch(/change nothing/);
+    expect(dialog).toHaveAttribute("data-has-parse", "true");
+    expect(dialog).toHaveAttribute("data-has-template", "true");
+
+    mockApi.on("get", PATH, [CLOUD]);
+    await user.click(screen.getByTestId("import-complete"));
+    await waitFor(() => expect(screen.queryByText(REUSE.title)).not.toBeInTheDocument());
+    expect(mockApi.callsOf("get", PATH)).toHaveLength(2);
+
+    await user.click(screen.getByTestId("import-close"));
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
   });
 });

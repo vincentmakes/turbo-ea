@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.187.0] - 2026-11-04
+
+### Added
+- EA principles can be exported to Excel and imported back from Admin → Metamodel → EA Principles: a re-import updates the principles you edited, skips the unchanged ones and creates the new ones, with a preview of every change before anything is saved.
+- Every EA principle now has a reference number (P-001, P-002, …), shown next to its title; existing principles are numbered on upgrade.
+- Architecture decisions can be exported to Excel and imported from GRC → Governance → Decisions: the export follows the current filters, and the import creates a draft decision per row, linking cards by name and related decisions by reference, while skipping decisions that already exist.
+
 ## [2.186.7] - 2026-11-04
 
 ### Fixed

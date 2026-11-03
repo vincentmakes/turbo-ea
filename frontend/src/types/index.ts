@@ -485,6 +485,8 @@ export interface CalculationRunReport {
 
 export interface EAPrinciple {
   id: string;
+  /** Human-readable reference (`P-001`); what a spreadsheet re-import matches on first. */
+  reference_number?: string | null;
   title: string;
   description?: string;
   rationale?: string;
@@ -1198,6 +1200,8 @@ export interface ArchitectureDecision {
   created_via?: string | null;
   updated_via?: string | null;
   updated_at: string | null;
+  /** `GET /adr?include_content=true` only: `related_decisions` as reference numbers. */
+  related_references?: string[];
 }
 
 export interface FileAttachment {
@@ -2611,6 +2615,56 @@ export interface RiskImportResponse {
   skipped: number;
   failed: number;
   dry_run: boolean;
+}
+
+/** One row's outcome in a spreadsheet import's dry run or apply
+ *  (`/metamodel/principles/bulk-import`, `/adr/bulk-import`). */
+export interface SpreadsheetImportRowResult {
+  row_index: number;
+  status: "created" | "updated" | "skipped" | "failed";
+  id: string | null;
+  reference_number: string | null;
+  /** Principles only: the columns an `updated` row changes. */
+  changed_fields?: string[];
+  error: string | null;
+  warnings: string[];
+}
+
+export interface SpreadsheetImportResponse {
+  results: SpreadsheetImportRowResult[];
+  created: number;
+  /** Absent for create-only importers (ADRs). */
+  updated?: number;
+  skipped: number;
+  failed: number;
+  dry_run: boolean;
+}
+
+/** One parsed principles row. A column the sheet lacks is `undefined`, which
+ *  the server reads as "leave this field as it is"; `""` clears it. */
+export interface PrincipleImportItem {
+  row_index: number;
+  title: string;
+  reference_number?: string;
+  description?: string;
+  rationale?: string;
+  implications?: string;
+  is_active?: string;
+  sort_order?: string;
+}
+
+/** One parsed decision row; the four sections are already HTML. */
+export interface AdrImportItem {
+  row_index: number;
+  title: string;
+  reference_number?: string;
+  context?: string;
+  decision?: string;
+  consequences?: string;
+  alternatives_considered?: string;
+  card_names: string[];
+  related_references: string[];
+  status?: string;
 }
 
 export type RecurrenceUnit = "none" | "days" | "weeks" | "months" | "years";

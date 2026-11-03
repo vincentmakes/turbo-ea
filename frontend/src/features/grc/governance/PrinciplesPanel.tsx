@@ -92,6 +92,16 @@ export default function PrinciplesPanel() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.25 }}>
                   {p.title}
+                  {p.reference_number && (
+                    <Typography
+                      component="span"
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ ml: 1, fontFamily: "monospace", fontWeight: 400 }}
+                    >
+                      {p.reference_number}
+                    </Typography>
+                  )}
                 </Typography>
                 {p.description && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
