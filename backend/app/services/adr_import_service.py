@@ -115,12 +115,14 @@ async def import_decision_rows(
 
     outcomes: list[DecisionImportOutcome] = []
     created: list[tuple[DecisionImportOutcome, ArchitectureDecision, DecisionImportRow]] = []
+    # The file's own references, mapped to the decision each row created —
+    # what a later row repeating one collides with, and what related
+    # references between rows resolve against.
     file_refs: dict[str, uuid.UUID] = {}
-    seen_refs: set[str] = set()
 
     for row in rows:
         reference = _norm_ref(row.reference_number)
-        if reference and reference in existing:
+        if reference in existing:
             outcomes.append(
                 DecisionImportOutcome(
                     row_index=row.row_index,
@@ -137,15 +139,13 @@ async def import_decision_rows(
             error = "Title is required"
         elif len(title) > TITLE_MAX_LENGTH:
             error = f"Title is longer than {TITLE_MAX_LENGTH} characters"
-        elif reference and reference in seen_refs:
+        elif reference in file_refs:
             error = f"Reference {reference} appears more than once in the file"
         if error is not None:
             outcomes.append(
                 DecisionImportOutcome(row_index=row.row_index, status="failed", error=error)
             )
             continue
-        if reference:
-            seen_refs.add(reference)
 
         card_ids, warnings = await _resolve_cards(db, row.card_names, readable_cards)
         status = (row.status or "").strip()
@@ -185,8 +185,7 @@ async def import_decision_rows(
                 outcome.warnings.append(f"Related decision not found: {ref}")
             elif target != adr.id and str(target) not in related:
                 related.append(str(target))
-        if related:
-            adr.related_decisions = related
+        adr.related_decisions = related
     await db.flush()
 
     return outcomes
@@ -209,24 +208,15 @@ async def related_reference_labels(
 
     ids = [uuid.UUID(c) for c in candidates if _is_uuid(c)]
     refs = [c.upper() for c in candidates if not _is_uuid(c)]
-    by_id: dict[str, str] = {}
-    known_refs: set[str] = set()
-    stmt = select(ArchitectureDecision.id, ArchitectureDecision.reference_number)
-    if ids:
-        for adr_id, ref in (await db.execute(stmt.where(ArchitectureDecision.id.in_(ids)))).all():
-            by_id[str(adr_id)] = ref
-    if refs:
-        known_refs = set(
-            (
-                await db.execute(
-                    select(ArchitectureDecision.reference_number).where(
-                        ArchitectureDecision.reference_number.in_(refs)
-                    )
-                )
+    found = (
+        await db.execute(
+            select(ArchitectureDecision.id, ArchitectureDecision.reference_number).where(
+                ArchitectureDecision.id.in_(ids) | ArchitectureDecision.reference_number.in_(refs)
             )
-            .scalars()
-            .all()
         )
+    ).all()
+    by_id = {str(adr_id): ref for adr_id, ref in found}
+    known_refs = {ref for _, ref in found}
 
     labels: dict[uuid.UUID, list[str]] = {}
     for adr in decisions:

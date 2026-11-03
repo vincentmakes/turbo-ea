@@ -7,6 +7,7 @@ locally without PostgreSQL, run in CI).
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import select
@@ -86,9 +87,16 @@ def test_parse_sort_order_refuses_fractions_and_text(value):
 
 
 def _principle(title: str, *, ref: str | None = None, sort_order: int = 0, **kw) -> EAPrinciple:
-    return EAPrinciple(
-        id=uuid.uuid4(), title=title, reference_number=ref, sort_order=sort_order, **kw
-    )
+    kw.setdefault("id", uuid.uuid4())
+    return EAPrinciple(title=title, reference_number=ref, sort_order=sort_order, **kw)
+
+
+def _uuid(n: int) -> uuid.UUID:
+    return uuid.UUID(int=n)
+
+
+def _at(day: int) -> datetime:
+    return datetime(2026, 1, day, tzinfo=timezone.utc)
 
 
 async def _by_title(db) -> dict[str, EAPrinciple]:
@@ -123,6 +131,34 @@ async def test_ensure_numbers_missing_rows_in_page_order_after_the_highest(db):
     assert rows["Second"].reference_number == "P-006"
     # Nothing left to number on a second call.
     assert await svc.ensure_principle_references(db) == 0
+
+
+async def test_ensure_orders_by_sort_order_then_creation_then_id(db):
+    """Each ORDER BY key decides one pair: the ids run against sort_order and
+    creation, so dropping any key renumbers the rows."""
+    db.add_all(
+        [
+            # Sort order decides: B sorts first though created later, larger id.
+            _principle("A", sort_order=20, id=_uuid(1), created_at=_at(1)),
+            _principle("B", sort_order=10, id=_uuid(9), created_at=_at(9)),
+            # Same sort order: creation decides, against the id order.
+            _principle("C", sort_order=30, id=_uuid(2), created_at=_at(5)),
+            _principle("D", sort_order=30, id=_uuid(8), created_at=_at(4)),
+            # Same sort order and creation: the id decides.
+            _principle("F", sort_order=40, id=_uuid(7), created_at=_at(6)),
+            _principle("E", sort_order=40, id=_uuid(3), created_at=_at(6)),
+        ]
+    )
+    assert await svc.ensure_principle_references(db) == 6
+    rows = await _by_title(db)
+    assert [rows[t].reference_number for t in "BADCEF"] == [
+        "P-001",
+        "P-002",
+        "P-003",
+        "P-004",
+        "P-005",
+        "P-006",
+    ]
 
 
 async def test_catalogue_import_numbers_what_it_creates(db):
@@ -313,3 +349,127 @@ async def test_a_rename_frees_the_old_title_for_a_later_row(db):
         ("updated", "P-001"),
         ("created", "P-002"),
     ]
+
+
+async def test_created_rows_carry_every_column(db):
+    """On an empty table the first new principle gets sort order 10."""
+    [outcome] = await svc.import_principle_rows(
+        db,
+        [
+            Row(
+                row_index=4,
+                title="Full",
+                description=" Statement ",
+                rationale="Why",
+                implications="So what",
+                is_active="false",
+            )
+        ],
+    )
+
+    principle = (await db.execute(select(EAPrinciple))).scalar_one()
+    assert outcome.row_index == 4
+    assert outcome.id == str(principle.id)
+    assert (
+        principle.reference_number,
+        principle.title,
+        principle.description,
+        principle.rationale,
+        principle.implications,
+        principle.is_active,
+        principle.sort_order,
+    ) == ("P-001", "Full", "Statement", "Why", "So what", False, 10)
+
+
+async def test_a_title_of_exactly_the_limit_is_accepted(db):
+    [outcome] = await svc.import_principle_rows(db, [Row(row_index=0, title="x" * 300)])
+    assert outcome.status == "created"
+
+
+async def test_rows_without_a_reference_are_not_duplicates_of_each_other(db):
+    outcomes = await svc.import_principle_rows(
+        db, [Row(row_index=0, title="One"), Row(row_index=1, title="Two", reference_number="  ")]
+    )
+    assert [(o.status, o.reference_number) for o in outcomes] == [
+        ("created", "P-001"),
+        ("created", "P-002"),
+    ]
+
+
+async def test_skipped_and_updated_outcomes_name_the_principle(db):
+    same = _principle("Same", ref="P-001")
+    changed = _principle("Changed", ref="P-002")
+    db.add_all([same, changed])
+    await db.flush()
+
+    skipped, updated = await svc.import_principle_rows(
+        db,
+        [
+            # An unknown reference falls back to the title; nothing differs.
+            Row(row_index=0, reference_number="P-404", title="Same"),
+            Row(row_index=1, reference_number="P-002", title="Changed", description="new"),
+        ],
+    )
+
+    assert (skipped.status, skipped.id, skipped.reference_number) == (
+        "skipped",
+        str(same.id),
+        "P-001",
+    )
+    assert skipped.warnings == ["Reference P-404 not found; matched P-001 by title"]
+    assert (updated.status, updated.id, updated.row_index) == ("updated", str(changed.id), 1)
+
+
+async def test_rows_after_a_refused_rename_are_still_imported(db):
+    db.add_all([_principle("Alpha", ref="P-001"), _principle("Beta", ref="P-002")])
+    await db.flush()
+
+    refused, later = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=3, reference_number="P-001", title="Beta"),
+            Row(row_index=4, title="Delta"),
+        ],
+    )
+
+    assert (refused.status, refused.row_index) == ("failed", 3)
+    assert (later.status, later.reference_number) == ("created", "P-003")
+
+
+async def test_a_rename_keeps_a_case_twin_reachable_by_title(db):
+    """Two stored principles may share a title up to case; renaming the one the
+    title index does not point at must not drop the other from it."""
+    first = _principle("Alpha", ref="P-001")
+    twin = _principle("alpha", ref="P-002")
+    db.add_all([first, twin])
+    await db.flush()
+
+    renamed, matched = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, reference_number="P-001", title="Gamma"),
+            Row(row_index=1, title="ALPHA", description="found"),
+        ],
+    )
+
+    assert renamed.status == "updated"
+    assert (matched.status, matched.id) == ("updated", str(twin.id))
+    assert len((await db.execute(select(EAPrinciple))).scalars().all()) == 2
+
+
+async def test_a_reference_minted_by_this_import_is_not_matched_by_a_later_row(db):
+    db.add(_principle("Existing", ref="P-001"))
+    await db.flush()
+
+    created, later = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title="New"),
+            Row(row_index=1, reference_number="P-002", title="Other"),
+        ],
+    )
+
+    assert (created.status, created.reference_number) == ("created", "P-002")
+    assert (later.status, later.reference_number) == ("created", "P-003")
+    assert later.warnings == ["Reference P-002 not found; a new reference was assigned"]
+    assert sorted(await _by_title(db)) == ["Existing", "New", "Other"]

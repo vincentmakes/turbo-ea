@@ -18,7 +18,6 @@ the dry-run rollback).
 from __future__ import annotations
 
 import re
-import uuid
 from dataclasses import dataclass, field
 
 from sqlalchemy import func, select
@@ -168,19 +167,21 @@ async def import_principle_rows(
     by_reference = {p.reference_number.upper(): p for p in existing if p.reference_number}
     by_title = {p.title.strip().casefold(): p for p in existing}
 
-    max_sort = (
-        await db.execute(select(func.coalesce(func.max(EAPrinciple.sort_order), 0)))
-    ).scalar_one() or 0
+    max_sort = (await db.execute(select(func.max(EAPrinciple.sort_order)))).scalar_one() or 0
     next_sort = max_sort + 10
     next_seq = await highest_reference_sequence(db)
 
-    seen_titles: dict[str, int] = {}
-    seen_references: dict[str, int] = {}
+    # Titles and references already used by an earlier row of the file. A
+    # later row repeating one fails, which is also why the indexes above are
+    # never updated with what this import creates or renames: no later row
+    # can reach that entry.
+    seen_titles: set[str] = set()
+    seen_references: set[str] = set()
     outcomes: list[PrincipleImportOutcome] = []
 
     for row in rows:
         warnings: list[str] = []
-        reference = (row.reference_number or "").strip().upper() or None
+        reference = (row.reference_number or "").strip().upper()
         title = row.title.strip()
         title_key = title.casefold()
 
@@ -200,10 +201,10 @@ async def import_principle_rows(
             )
             continue
         if reference:
-            seen_references[reference] = row.row_index
-        seen_titles[title_key] = row.row_index
+            seen_references.add(reference)
+        seen_titles.add(title_key)
 
-        target = by_reference.get(reference) if reference else None
+        target = by_reference.get(reference)
         if target is None:
             target = by_title.get(title_key)
             if reference and target is not None:
@@ -243,9 +244,11 @@ async def import_principle_rows(
             for name in changes:
                 setattr(target, name, values[name])
             await db.flush()
-            if old_title_key != title_key:
-                by_title.pop(old_title_key, None)
-                by_title[title_key] = target
+            # A rename frees the old title for a later row, but only when the
+            # index holds this principle under it: two stored principles can
+            # share a title that differs only in case.
+            if old_title_key != title_key and by_title.get(old_title_key) is target:
+                del by_title[old_title_key]
             outcomes.append(
                 PrincipleImportOutcome(
                     row_index=row.row_index,
@@ -263,7 +266,6 @@ async def import_principle_rows(
         next_seq += 1
         new_reference = format_reference(next_seq)
         principle = EAPrinciple(
-            id=uuid.uuid4(),
             reference_number=new_reference,
             title=title,
             description=values.get("description"),
@@ -276,8 +278,6 @@ async def import_principle_rows(
             next_sort += 10
         db.add(principle)
         await db.flush()
-        by_title[title_key] = principle
-        by_reference[new_reference] = principle
         outcomes.append(
             PrincipleImportOutcome(
                 row_index=row.row_index,
