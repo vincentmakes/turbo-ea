@@ -473,3 +473,21 @@ async def test_a_reference_minted_by_this_import_is_not_matched_by_a_later_row(d
     assert (later.status, later.reference_number) == ("created", "P-003")
     assert later.warnings == ["Reference P-002 not found; a new reference was assigned"]
     assert sorted(await _by_title(db)) == ["Existing", "New", "Other"]
+
+
+async def test_rows_without_a_sort_order_are_appended_ten_apart(db):
+    db.add(_principle("Existing", ref="P-001", sort_order=50))
+    await db.flush()
+
+    await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title="First"),
+            Row(row_index=1, title="Pinned", sort_order="5"),
+            Row(row_index=2, title="Second"),
+        ],
+    )
+
+    rows = await _by_title(db)
+    assert [rows[t].sort_order for t in ("First", "Pinned", "Second")] == [60, 5, 70]
+    assert all(rows[t].is_active is True for t in ("First", "Pinned", "Second"))

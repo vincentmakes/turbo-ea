@@ -71,12 +71,8 @@ def _text(value: str | None) -> str | None:
 
 
 def _unique(values: Iterable[str]) -> list[str]:
-    seen: dict[str, None] = {}
-    for value in values:
-        cleaned = value.strip()
-        if cleaned:
-            seen.setdefault(cleaned, None)
-    return list(seen)
+    """Trimmed, non-empty values, first occurrence first."""
+    return list(dict.fromkeys(v.strip() for v in values if v.strip()))
 
 
 async def _resolve_cards(

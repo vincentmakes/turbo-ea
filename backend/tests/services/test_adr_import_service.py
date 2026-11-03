@@ -42,7 +42,7 @@ async def test_publish_false_writes_no_event_and_true_writes_one(db):
 
 
 async def test_every_section_is_stored_trimmed_and_a_blank_one_as_null(db):
-    [outcome] = await svc.import_decision_rows(
+    outcome, _ = await svc.import_decision_rows(
         db,
         [
             Row(
@@ -51,8 +51,9 @@ async def test_every_section_is_stored_trimmed_and_a_blank_one_as_null(db):
                 context=" <p>c</p> ",
                 decision="<p>d</p>",
                 consequences="<p>q</p>",
-                alternatives_considered="   ",
-            )
+                alternatives_considered="<p>a</p>",
+            ),
+            Row(row_index=3, title="Blank", context="   "),
         ],
         created_by=None,
     )
@@ -66,7 +67,8 @@ async def test_every_section_is_stored_trimmed_and_a_blank_one_as_null(db):
         adr.decision,
         adr.consequences,
         adr.alternatives_considered,
-    ) == ("Sections", "draft", "<p>c</p>", "<p>d</p>", "<p>q</p>", None)
+    ) == ("Sections", "draft", "<p>c</p>", "<p>d</p>", "<p>q</p>", "<p>a</p>")
+    assert (await _decisions(db))["ADR-002"].context is None
 
 
 async def test_a_skipped_row_names_the_existing_decision_and_later_rows_still_import(db):
@@ -99,7 +101,7 @@ async def test_a_title_of_exactly_the_limit_is_accepted(db):
 async def test_rows_without_a_reference_are_not_duplicates_of_each_other(db):
     outcomes = await svc.import_decision_rows(
         db,
-        [Row(row_index=0, title="One"), Row(row_index=1, title="Two", reference_number=" ")],
+        [Row(row_index=0, title="One"), Row(row_index=1, title="Two")],
         created_by=None,
     )
     assert [o.status for o in outcomes] == ["created", "created"]

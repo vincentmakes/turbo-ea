@@ -265,16 +265,9 @@ async def import_principle_rows(
             warnings.append(f"Reference {reference} not found; a new reference was assigned")
         next_seq += 1
         new_reference = format_reference(next_seq)
-        principle = EAPrinciple(
-            reference_number=new_reference,
-            title=title,
-            description=values.get("description"),
-            rationale=values.get("rationale"),
-            implications=values.get("implications"),
-            is_active=values.get("is_active", True),
-            sort_order=values.get("sort_order", next_sort),
-        )
+        principle = EAPrinciple(reference_number=new_reference, **values)
         if "sort_order" not in values:
+            principle.sort_order = next_sort
             next_sort += 10
         db.add(principle)
         await db.flush()

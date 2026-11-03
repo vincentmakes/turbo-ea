@@ -42,7 +42,6 @@ from app.models.card_type import CardType
 from app.models.card_type_category import CardTypeCategory
 from app.models.diagram import Diagram, diagram_cards
 from app.models.diagram_group import DiagramGroup, diagram_group_members
-from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
@@ -275,6 +274,9 @@ async def _run(
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
+        # The Principles sheet does not carry the source's references (each
+        # instance numbers its own), so number whatever that section created.
+        await ensure_principle_references(db)
 
         # --- Generic entity sections (module + card-context tables) -----
         # Built after the cards pass so every card FK resolves. Cards never
@@ -757,8 +759,6 @@ def _make_config_applier(sec: schema.ConfigSection):
                 cols = [c for c in sec.columns if c not in sec.natural_key]
                 _update_if_changed(current, data, cols, sr)
         await db.flush()
-        if sec.model is EAPrinciple:
-            await ensure_principle_references(db)
 
     return _apply
 
