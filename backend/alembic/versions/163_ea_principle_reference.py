@@ -35,12 +35,12 @@ _principles = sa.table(
 
 
 def upgrade() -> None:
+    # ``unique=True`` on the column, as the model declares it, so an upgraded
+    # install and a fresh one (``create_all``) end up with the same
+    # PostgreSQL-named constraint (``ea_principles_reference_number_key``).
     op.add_column(
         "ea_principles",
-        sa.Column("reference_number", sa.String(length=20), nullable=True),
-    )
-    op.create_unique_constraint(
-        "uq_ea_principles_reference_number", "ea_principles", ["reference_number"]
+        sa.Column("reference_number", sa.String(length=20), nullable=True, unique=True),
     )
 
     bind = op.get_bind()
@@ -62,5 +62,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_ea_principles_reference_number", "ea_principles", type_="unique")
+    # Dropping the column drops its unique constraint with it.
     op.drop_column("ea_principles", "reference_number")
