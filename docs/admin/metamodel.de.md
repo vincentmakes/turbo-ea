@@ -289,6 +289,22 @@ Jedes Prinzip hat vier Felder:
 
 Prinzipien können über den Umschalter auf jeder Karte einzeln **aktiviert** oder **deaktiviert** werden.
 
+Jedes Prinzip hat eine **Referenznummer** (`P-001`, `P-002`, …), die bei der Erstellung vergeben und neben dem Titel angezeigt wird. Referenzen werden pro Instanz nummeriert: Ein Prinzip, das über den [Workspace-Transfer](workspace-transfer.md) übernommen wird, erhält auf dem Ziel die nächste freie Nummer.
+
+### Prinzipien exportieren und importieren {: #principles-import }
+
+**Exportieren** (neben **Neues Prinzip**) lädt alle Prinzipien als `.xlsx`-Datei mit den Spalten `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` und `sort_order` herunter. Der Export ist zugleich eine gültige Importdatei, sodass Sie Prinzipien in Excel bearbeiten und wieder laden können.
+
+**Importieren** lädt Prinzipien gesammelt aus einer `.xlsx`-Datei. Klicken Sie auf **Vorlage herunterladen**, um eine Beispielarbeitsmappe zu erhalten, füllen Sie pro Zeile ein Prinzip aus und laden Sie die Datei hoch. Jede Zeile wird zuerst über ihre `reference_number`, dann über ihren Titel (ohne Beachtung der Groß-/Kleinschreibung) einem vorhandenen Prinzip zugeordnet:
+
+- Ein zugeordnetes Prinzip wird mit den abweichenden Werten **aktualisiert**; weicht nichts ab, wird die Zeile **übersprungen**.
+- Jede andere Zeile **legt** ein neues Prinzip mit der nächsten freien Referenz **an**. Eine Referenz, die es auf dieser Instanz nicht gibt, wird nicht wiederverwendet; die Vorschau warnt davor.
+- Eine in der Tabelle fehlende Spalte lässt das Feld unverändert, eine leere Zelle leert es. `title` ist die einzige Pflichtspalte.
+- `is_active` akzeptiert `true` / `false` (auch `yes` / `no`, `1` / `0`); `sort_order` muss eine ganze Zahl sein. Neue Prinzipien ohne `sort_order` werden am Ende der Liste hinzugefügt.
+- Ein Titel oder eine Referenz, die in der Datei doppelt vorkommt, oder eine Umbenennung auf den Titel eines anderen Prinzips lässt diese Zeile fehlschlagen.
+
+Bevor etwas geschrieben wird, erhalten Sie eine Vorschau, wie viele Zeilen erstellt, aktualisiert, übersprungen werden und fehlschlagen, mit jedem Fehler und jeder Warnung pro Zeile; nichts ändert sich, bis Sie bestätigen. Der Import erfordert die Berechtigung `admin.metamodel` und wird im [Sicherheits- und Admin-Log](audit-log.md) erfasst.
+
 ### Aus dem Prinzipienkatalog importieren
 
 Turbo EA liefert einen **kuratierten Referenzkatalog mit 10 branchenüblichen EA-Prinzipien**, damit Sie nicht bei null anfangen müssen. Öffnen Sie das Avatar-Menü oben rechts und wählen Sie **Referenzkataloge → Prinzipienkatalog**. Dort können Sie:

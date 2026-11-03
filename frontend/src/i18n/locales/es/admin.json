@@ -2830,5 +2830,9 @@
   "metamodel.typeDrawer.optionalRelations": "Relaciones no obligatorias para este subtipo",
   "metamodel.typeDrawer.optionalRelationsHelp": "Marque una relación obligatoria para que sea opcional en las fichas de este subtipo: deja de bloquear la aprobación y de reducir la calidad de datos.",
   "metamodel.typeDrawer.noMandatoryRelations": "Este tipo de ficha no tiene relaciones obligatorias.",
-  "securityLog.fields.optional_relations": "Relaciones no obligatorias"
+  "securityLog.fields.optional_relations": "Relaciones no obligatorias",
+  "metamodel.principles.reference": "Referencia",
+  "metamodel.principles.import.title": "Importar principios de AE",
+  "metamodel.principles.import.intro": "Suba un archivo .xlsx para crear o actualizar principios de forma masiva. Cada fila se asocia a un principio existente por su referencia (P-001) y, si no, por su título; un principio asociado se actualiza con los valores que difieren, y cualquier otra fila crea un principio nuevo. Una columna ausente de la hoja deja el campo sin cambios, y una celda vacía lo borra.",
+  "metamodel.principles.import.skippedHint": "Estas filas coinciden con un principio existente y no cambian nada."
 }

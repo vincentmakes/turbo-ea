@@ -2830,5 +2830,9 @@
   "metamodel.typeDrawer.optionalRelations": "Relations non requises pour ce sous-type",
   "metamodel.typeDrawer.optionalRelationsHelp": "Cochez une relation obligatoire pour la rendre facultative pour les fiches de ce sous-type : elle ne bloque plus l'approbation et ne fait plus baisser la qualité des données.",
   "metamodel.typeDrawer.noMandatoryRelations": "Ce type de fiche n'a aucune relation obligatoire.",
-  "securityLog.fields.optional_relations": "Relations non requises"
+  "securityLog.fields.optional_relations": "Relations non requises",
+  "metamodel.principles.reference": "Référence",
+  "metamodel.principles.import.title": "Importer des principes d'architecture d'entreprise",
+  "metamodel.principles.import.intro": "Importez un fichier .xlsx pour créer ou mettre à jour des principes en masse. Chaque ligne est rapprochée d'un principe existant par sa référence (P-001), puis par son titre ; un principe rapproché est mis à jour avec les valeurs qui diffèrent, et toute autre ligne crée un nouveau principe. Une colonne absente de la feuille laisse le champ inchangé, et une cellule vide l'efface.",
+  "metamodel.principles.import.skippedHint": "Ces lignes correspondent à un principe existant et ne modifient rien."
 }

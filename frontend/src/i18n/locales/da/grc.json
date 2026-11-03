@@ -20,7 +20,13 @@
     },
     "decisions": {
       "title": "Arkitekturbeslutninger",
-      "create": "Ny beslutning"
+      "create": "Ny beslutning",
+      "exportError": "Eksport mislykkedes",
+      "import": {
+        "title": "Importér arkitekturbeslutninger",
+        "intro": "Upload en .xlsx-fil for at oprette beslutninger samlet. Hver række bliver til en ny beslutning som kladde med sin egen ADR-reference; rækker, hvis reference allerede tilhører en beslutning, springes over, så en genimport af en eksport ikke ændrer noget. Kort kobles via det præcise navn og relaterede beslutninger via reference. Status og underskrifter importeres ikke.",
+        "skippedHint": "Disse rækker matcher en eksisterende beslutning via referencen og springes over; importen ændrer aldrig en eksisterende beslutning."
+      }
     }
   },
   "compliance": {

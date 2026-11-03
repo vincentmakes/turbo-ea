@@ -62,6 +62,20 @@ A barra lateral persistente à esquerda tem duas abas:
 
 Use a barra de **filtro rápido** para pesquisa de texto completo. Clique com o botão direito em qualquer linha para um menu de contexto (**Editar**, **Pré-visualizar**, **Duplicar**, **Excluir**).
 
+#### Exportar e importar decisões {: #decisions-import }
+
+**Exportar** (junto a **+ Nova decisão**) transfere as decisões que a barra lateral de filtros mostra atualmente como um ficheiro `.xlsx`, uma linha por decisão: referência, título, estado, revisão, as quatro secções (Contexto, Decisão, Consequências, Alternativas consideradas) como texto simples, fichas associadas e decisões relacionadas (separadas por ponto e vírgula), autor, signatários e as datas de criação, modificação e assinatura. A formatação, como o negrito ou as ligações, não passa para a folha de cálculo. Para partilhar decisões com toda a formatação, selecione linhas na grelha e utilize o botão **Export** da própria grelha, que gera um documento Word.
+
+**Importar** cria decisões em massa a partir de um ficheiro `.xlsx`. Clique em **Transferir modelo** para obter um livro inicial, preencha uma decisão por linha e carregue-o:
+
+- Cada linha torna-se uma nova decisão em **rascunho** com a próxima referência `ADR-NNN`. O estado e as assinaturas nunca são importados — uma decisão é assinada através do **fluxo de assinatura** — e a pré-visualização avisa sobre uma linha cujo `status` não seja rascunho (draft).
+- Uma linha cuja `reference_number` já pertence a uma decisão é **ignorada**: a importação nunca altera uma decisão existente, pelo que reimportar uma exportação não altera nada.
+- `title` é obrigatório. Nas quatro colunas de secção, uma linha em branco inicia um novo parágrafo, as linhas que começam por `- ` tornam-se uma lista com marcadores e as que começam por `1. ` uma lista numerada.
+- `cards` associa fichas pelo nome exato, entre as fichas que pode ver; uma ficha que não é encontrada, ou cujo nome é partilhado por várias fichas, é ignorada com um aviso e a decisão é importada na mesma.
+- `related_decisions` lista referências, quer de decisões existentes, quer de outras linhas do mesmo ficheiro (mesmo linhas posteriores).
+
+A pré-visualização mostra quantas linhas serão criadas, ignoradas e quantas falharão, com cada erro e aviso listado por linha; nada é escrito até confirmar. A importação requer a permissão `adr.manage`.
+
 #### Criar um ADR
 
 Os ADR podem ser criados a partir de três locais — todos abrem o mesmo editor e alimentam o mesmo registro:

@@ -62,6 +62,20 @@ La barre latérale persistante à gauche comporte deux onglets :
 
 Utilisez la barre de **filtre rapide** pour une recherche en texte intégral. Faites un clic droit sur n'importe quelle ligne pour un menu contextuel (**Modifier**, **Aperçu**, **Dupliquer**, **Supprimer**).
 
+#### Exporter et importer des décisions {: #decisions-import }
+
+**Exporter** (à côté de **+ Nouvelle décision**) télécharge les décisions actuellement affichées par la barre latérale de filtres sous forme de fichier `.xlsx`, une ligne par décision : référence, titre, statut, révision, les quatre sections (Contexte, Décision, Conséquences, Alternatives envisagées) en texte brut, fiches liées et décisions associées (séparées par des points-virgules), auteur, signataires et dates de création, de modification et de signature. La mise en forme (gras, liens, etc.) n'est pas reprise dans le tableur. Pour partager des décisions entièrement mises en forme, sélectionnez des lignes dans la grille et utilisez le bouton **Export** de la grille, qui produit un document Word.
+
+**Importer** crée des décisions en masse à partir d'un fichier `.xlsx`. Cliquez sur **Télécharger le modèle** pour obtenir un classeur de départ, renseignez une décision par ligne et importez-le :
+
+- Chaque ligne devient une nouvelle décision **brouillon** avec la prochaine référence `ADR-NNN`. Le statut et les signatures ne sont jamais importés — une décision est signée via le **workflow de signature** — et l'aperçu vous avertit d'une ligne dont le `status` n'est pas « draft ».
+- Une ligne dont la `reference_number` appartient déjà à une décision est **ignorée** : l'import ne modifie jamais une décision existante, de sorte que réimporter un export ne change rien.
+- `title` est obligatoire. Dans les quatre colonnes de section, une ligne vide commence un nouveau paragraphe, les lignes commençant par `- ` deviennent une liste à puces et celles commençant par `1. ` une liste numérotée.
+- `cards` lie des fiches par leur nom exact, parmi les fiches que vous pouvez voir ; une fiche introuvable, ou dont le nom est partagé par plusieurs fiches, est ignorée avec un avertissement et la décision est tout de même importée.
+- `related_decisions` liste des références, soit de décisions existantes, soit d'autres lignes du même fichier (y compris des lignes ultérieures).
+
+L'aperçu indique combien de lignes seront créées, ignorées et en échec, avec chaque erreur et avertissement listés par ligne ; rien n'est écrit tant que vous n'avez pas confirmé. L'import requiert la permission `adr.manage`.
+
 #### Créer un ADR
 
 Les ADR peuvent être créés depuis trois endroits — tous ouvrent le même éditeur et alimentent le même registre :

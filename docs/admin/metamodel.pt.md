@@ -290,6 +290,22 @@ Cada princípio tem quatro campos:
 
 Os princípios podem ser **ativados** ou **desativados** individualmente através do interruptor em cada cartão.
 
+Cada princípio tem um **número de referência** (`P-001`, `P-002`, …), atribuído quando é criado e apresentado junto ao título. As referências são numeradas por instância: um princípio trazido através da [transferência do espaço de trabalho](workspace-transfer.md) recebe o próximo número livre no destino.
+
+### Exportar e importar princípios {: #principles-import }
+
+**Exportar** (junto a **Novo princípio**) transfere todos os princípios como um ficheiro `.xlsx` com as colunas `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` e `sort_order`. A exportação é um ficheiro de importação válido, pelo que pode editar os princípios no Excel e carregá-los de volta.
+
+**Importar** carrega princípios em massa a partir de um ficheiro `.xlsx`. Clique em **Transferir modelo** para obter um livro inicial, preencha um princípio por linha e carregue-o. Cada linha é associada a um princípio existente primeiro pela sua `reference_number` e depois pelo título (sem distinguir maiúsculas de minúsculas):
+
+- Um princípio associado é **atualizado** com os valores que diferem; se nada diferir, a linha é **ignorada**.
+- Qualquer outra linha **cria** um novo princípio com a próxima referência livre. Uma referência que não existe nesta instância não é reutilizada; a pré-visualização avisa sobre isso.
+- Uma coluna ausente da folha deixa o campo inalterado, enquanto uma célula vazia o limpa. `title` é a única coluna obrigatória.
+- `is_active` aceita `true` / `false` (também `yes` / `no`, `1` / `0`); `sort_order` tem de ser um número inteiro. Os novos princípios sem `sort_order` são adicionados no fim da lista.
+- Um título ou uma referência que apareça duas vezes no ficheiro, ou uma mudança de nome para o título de outro princípio, faz essa linha falhar.
+
+Antes de se escrever o que quer que seja, obtém uma pré-visualização de quantas linhas serão criadas, atualizadas, ignoradas e quantas falharão, com cada erro e aviso listado por linha; nada muda até confirmar. A importação requer a permissão `admin.metamodel` e fica registada no [registo de segurança e administração](audit-log.md).
+
 ### Importar do Catálogo de princípios
 
 O Turbo EA é fornecido com um **catálogo de referência curado com 10 princípios EA padrão do setor** para que não tenha de começar com uma página em branco. Abra o menu do avatar no canto superior direito e selecione **Catálogos de referência → Catálogo de princípios**. A partir daí pode:

@@ -20,7 +20,13 @@
     },
     "decisions": {
       "title": "Decisioni di architettura",
-      "create": "Nuova decisione"
+      "create": "Nuova decisione",
+      "exportError": "Esportazione non riuscita",
+      "import": {
+        "title": "Importa decisioni architetturali",
+        "intro": "Carica un file .xlsx per creare decisioni in blocco. Ogni riga diventa una nuova decisione in bozza con un proprio riferimento ADR; le righe il cui riferimento appartiene già a una decisione vengono saltate, quindi reimportare un'esportazione non cambia nulla. Le schede sono collegate tramite il nome esatto e le decisioni correlate tramite il riferimento. Stato e firme non vengono importati.",
+        "skippedHint": "Queste righe corrispondono a una decisione esistente tramite il riferimento e vengono saltate; l'importazione non modifica mai una decisione esistente."
+      }
     }
   },
   "compliance": {
