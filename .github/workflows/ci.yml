@@ -62,6 +62,8 @@ jobs:
             backend:
               - 'backend/**'
               - 'scripts/dump_openapi.py'
+              # Tested by backend/tests/core/test_guard_ratchet.py.
+              - 'scripts/guard_ratchet.py'
             frontend:
               - 'frontend/**'
               - '.github/audit-ci.jsonc'
