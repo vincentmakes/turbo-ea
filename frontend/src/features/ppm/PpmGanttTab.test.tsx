@@ -389,6 +389,7 @@ describe("PpmGanttTab — sorting the task list", () => {
     await user.click(header("Start Date"));
     expect(ids()).toEqual(["task-t1", "wbs-w1", "wbs-w2", "__empty__"]);
     expect(header("Start Date")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
+    expect(header("Title")).toHaveClass("MuiTableSortLabel-directionAsc");
     expect(localStorage.getItem("ppm.gantt.sort")).toBe("start:desc");
 
     await user.click(header("Start Date"));
@@ -409,6 +410,26 @@ describe("PpmGanttTab — sorting the task list", () => {
     expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
     await user.click(header("Title"));
     expect(ids()).toEqual(["task-t1", "wbs-w1", "wbs-w2", "__empty__"]);
+  });
+
+  it("hands the chart its columns, the resizable ones marked, fewer on a phone", async () => {
+    plan();
+    const layout = () => gantt.props!.columns.map(({ id, width, canResize }) => [id, width, canResize]);
+    await renderTab();
+    expect(layout()).toEqual([
+      ["title", 200, true],
+      ["completion", 64, false],
+      ["assignee", 110, true],
+      ["start", 100, true],
+      ["end", 100, true],
+    ]);
+    act(() => setViewportWidth(600));
+    await waitFor(() =>
+      expect(layout()).toEqual([
+        ["title", 150, true],
+        ["completion", 56, false],
+      ]),
+    );
   });
 
   it("opens on the sort the user last chose", async () => {

@@ -691,8 +691,61 @@ describe("sorting", () => {
   });
 
   it("keeps rows with no value to sort on in their planned order", () => {
-    const sorted = sortGanttRows(rows, new Map(), { key: "completion", dir: "asc" }, "en");
-    expect(sorted.map((r) => r.id)).toEqual(rows.map((r) => r.id));
+    for (const key of ["completion", "assignee"] as const) {
+      const sorted = sortGanttRows(rows, new Map(), { key, dir: "asc" }, "en");
+      expect(sorted.map((r) => r.id)).toEqual(rows.map((r) => r.id));
+    }
+  });
+
+  /** Flat work packages, built and sorted in one go. */
+  const sortFlat = (list: PpmWbs[], sort: GanttSort) =>
+    sortGanttRows(
+      buildGanttRows({
+        wbsList: list,
+        tasks: [],
+        dependencies: new Map(),
+        collapsed: new Set(),
+        range,
+        projectStyles: {},
+      }),
+      buildRowMeta(list, [], new Set()),
+      sort,
+      "en",
+    ).map((r) => r.id);
+
+  it("puts the unassigned after every named row, whatever the input order", () => {
+    const people = [
+      wbs("u1"),
+      wbs("zed", { assignee_name: "Zed" }),
+      wbs("u2"),
+      wbs("amy", { assignee_name: "Amy" }),
+    ];
+    expect(sortFlat(people, { key: "assignee", dir: "asc" })).toEqual([
+      "wbs-amy", "wbs-zed", "wbs-u1", "wbs-u2", EMPTY_ROW_ID,
+    ]);
+    expect(sortFlat(people, { key: "assignee", dir: "desc" })).toEqual([
+      "wbs-zed", "wbs-amy", "wbs-u1", "wbs-u2", EMPTY_ROW_ID,
+    ]);
+    const amy = wbs("amy", { assignee_name: "Amy" });
+    for (const dir of ["asc", "desc"] as const) {
+      for (const pair of [[wbs("u"), amy], [amy, wbs("u")]]) {
+        expect(sortFlat(pair, { key: "assignee", dir })).toEqual(["wbs-amy", "wbs-u", EMPTY_ROW_ID]);
+      }
+    }
+  });
+
+  it("compares completions as numbers, fractions included", () => {
+    const shares = [
+      wbs("third", { completion: 33.3 }),
+      wbs("quarter", { completion: 33.25 }),
+      wbs("five", { completion: 5 }),
+    ];
+    expect(sortFlat(shares, { key: "completion", dir: "asc" })).toEqual([
+      "wbs-five", "wbs-quarter", "wbs-third", EMPTY_ROW_ID,
+    ]);
+    expect(sortFlat(shares, { key: "completion", dir: "desc" })).toEqual([
+      "wbs-third", "wbs-quarter", "wbs-five", EMPTY_ROW_ID,
+    ]);
   });
 
   it("returns a new list and leaves its input as it was", () => {

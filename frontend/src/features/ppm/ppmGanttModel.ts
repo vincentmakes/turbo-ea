@@ -482,7 +482,7 @@ export function loadGanttSort(
   storage: () => Pick<Storage, "getItem"> = () => localStorage,
 ): GanttSort | null {
   try {
-    const [key, dir] = (storage().getItem(SORT_KEY) ?? "").split(":");
+    const [key, dir] = String(storage().getItem(SORT_KEY)).split(":");
     if (GANTT_SORT_KEYS.includes(key as GanttSortKey) && (dir === "asc" || dir === "desc")) {
       return { key: key as GanttSortKey, dir };
     }
@@ -540,19 +540,24 @@ export function sortGanttRows(
 ): TaskOrEmpty[] {
   if (!sort) return rows;
   const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" });
-  const sign = sort.dir === "asc" ? 1 : -1;
   const keyed = rows.flatMap((row) =>
     row.type === "empty" ? [] : [{ row, value: sortValue(row, sort.key, meta) }],
   );
-  keyed.sort((a, b) => {
-    if (a.value === null || b.value === null) {
-      return Number(a.value === null) - Number(b.value === null);
-    }
+  // Rows with nothing to sort on are set aside rather than ranked, so they
+  // follow the sorted ones in their planned order whichever way the sort runs.
+  const valued = keyed.filter(
+    (k): k is { row: (typeof keyed)[number]["row"]; value: string | number } => k.value !== null,
+  );
+  valued.sort((a, b) => {
     const cmp =
       typeof a.value === "string"
         ? collator.compare(a.value, String(b.value))
         : a.value - Number(b.value);
-    return cmp * sign;
+    return sort.dir === "asc" ? cmp : -cmp;
   });
-  return [...keyed.map((k) => k.row), ...rows.filter((row) => row.type === "empty")];
+  return [
+    ...valued.map((k) => k.row),
+    ...keyed.filter((k) => k.value === null).map((k) => k.row),
+    ...rows.filter((row) => row.type === "empty"),
+  ];
 }
