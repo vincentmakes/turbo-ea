@@ -23,6 +23,7 @@ from app.schemas.ai_suggest import (
     PortfolioInsightsRequest,
     PortfolioInsightsResponse,
 )
+from app.services import openai_chat
 from app.services.ai_service import (
     DEFAULT_AZURE_API_VERSION,
     fetch_running_models,
@@ -34,6 +35,48 @@ from app.services.permission_service import PermissionService
 logger = logging.getLogger("turboea.ai")
 
 router = APIRouter(prefix="/ai", tags=["AI Suggestions"])
+
+
+UNREACHABLE_DETAIL = "Could not reach the AI provider. Check that it is running and accessible."
+
+
+def provider_failure_detail(exc: httpx.HTTPError) -> str:
+    """What to tell the user when the AI provider call failed.
+
+    A provider that answered with an error status is reachable — it refused the
+    request — and saying "could not reach" sent admins looking at the network
+    while the provider was naming the problem (#1358). Its own reason is shown,
+    except on an auth refusal: OpenAI's 401 message echoes part of the key, and
+    this message reaches every ``ai.suggest`` holder, not only admins.
+    """
+    if not isinstance(exc, httpx.HTTPStatusError):
+        return UNREACHABLE_DETAIL
+    status = exc.response.status_code
+    if status in (401, 403):
+        return (
+            f"The AI provider rejected the request ({status}): check the API key "
+            "and that it may use the configured model."
+        )
+    if status in (402, 429):
+        return (
+            f"The AI provider rejected the request ({status}): rate limit or quota "
+            "exceeded. Try again later."
+        )
+    return (
+        f"The AI provider rejected the request ({status}): {openai_chat.error_detail(exc.response)}"
+    )
+
+
+def _log_provider_failure(what: str, exc: httpx.HTTPError) -> None:
+    if isinstance(exc, httpx.HTTPStatusError):
+        logger.warning(
+            "%s failed: provider answered %s — %s",
+            what,
+            exc.response.status_code,
+            openai_chat.error_detail(exc.response),
+        )
+    else:
+        logger.warning("%s failed: %s", what, exc)
 
 
 def _get_ai_config(general: dict) -> dict:
@@ -119,11 +162,8 @@ async def suggest(
             fields_schema=card_type.fields_schema or [],
         )
     except httpx.HTTPError as exc:
-        logger.warning("AI suggestion failed for '%s': %s", body.name, exc)
-        raise HTTPException(
-            status_code=502,
-            detail="Could not reach the AI provider. Check that it is running and accessible.",
-        ) from exc
+        _log_provider_failure(f"AI suggestion for '{body.name}'", exc)
+        raise HTTPException(status_code=502, detail=provider_failure_detail(exc)) from exc
     except Exception as exc:
         logger.exception("AI suggestion failed for '%s'", body.name)
         raise HTTPException(
@@ -194,11 +234,8 @@ async def portfolio_insights(
             principles=principles,
         )
     except httpx.HTTPError as exc:
-        logger.warning("AI portfolio insights failed: %s", exc)
-        raise HTTPException(
-            status_code=502,
-            detail="Could not reach the AI provider. Check that it is running and accessible.",
-        ) from exc
+        _log_provider_failure("AI portfolio insights", exc)
+        raise HTTPException(status_code=502, detail=provider_failure_detail(exc)) from exc
     except Exception as exc:
         logger.exception("AI portfolio insights failed")
         raise HTTPException(
