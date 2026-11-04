@@ -318,6 +318,7 @@
   "eol.unlinkTooltip": "Unlink EOL data",
   "eol.linkDescription.itComponent": "Link this IT component to a product on endoflife.date to track its support lifecycle.",
   "eol.linkDescription.application": "Link this application to a product on endoflife.date to track its support lifecycle.",
+  "eol.linkDescription.other": "Link this card to a product on endoflife.date to track its support lifecycle.",
   "eol.status.endOfLife": "End of Life",
   "eol.status.approachingEol": "Approaching EOL",
   "eol.status.securityOnly": "Security fixes only",

@@ -318,6 +318,7 @@
   "eol.unlinkTooltip": "EOL-Daten trennen",
   "eol.linkDescription.itComponent": "Verknüpfen Sie diese IT-Komponente mit einem Produkt auf endoflife.date, um den Support-Lebenszyklus zu verfolgen.",
   "eol.linkDescription.application": "Verknüpfen Sie diese Anwendung mit einem Produkt auf endoflife.date, um den Support-Lebenszyklus zu verfolgen.",
+  "eol.linkDescription.other": "Verknüpfen Sie diese Karte mit einem Produkt auf endoflife.date, um den Support-Lebenszyklus zu verfolgen.",
   "eol.status.endOfLife": "End of Life",
   "eol.status.approachingEol": "EOL-Annäherung",
   "eol.status.securityOnly": "Nur Sicherheitsupdates",

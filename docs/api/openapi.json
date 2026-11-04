@@ -29511,7 +29511,7 @@
     },
     "/api/v1/eol/custom-products/{key}/cycles/{cycle_id}": {
       "delete": {
-        "description": "Delete one cycle; reports how many visible cards were linked to it.",
+        "description": "Delete a cycle no card links (409 ``cards_linked`` otherwise).",
         "operationId": "delete_custom_cycle_api_v1_eol_custom_products__key__cycles__cycle_id__delete",
         "parameters": [
           {

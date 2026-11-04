@@ -274,7 +274,13 @@ class TestCycles:
         assert "release date" in resp.json()["detail"]
 
     async def test_patch_rename_moves_linked_cards(self, client, admin, acme, db, itc_type):
-        card = await _link(db, "ERP host", "custom:acme-erp", "1", lifecycle={"active": PAST})
+        card = await create_card(
+            db,
+            card_type="ITComponent",
+            name="ERP host",
+            attributes={"eol_product": "custom:acme-erp", "eol_cycle": "1", "vendor": "Acme"},
+            lifecycle={"active": PAST},
+        )
         await _link(db, "Other", "custom:acme-erp", "2")
         cid = _cycle_id(acme, "1")
         resp = await client.patch(
@@ -282,10 +288,16 @@ class TestCycles:
         )
         assert resp.status_code == 200
         await db.refresh(card)
-        assert card.attributes == {"eol_product": "custom:acme-erp", "eol_cycle": "1.0"}
+        moved = {"eol_product": "custom:acme-erp", "eol_cycle": "1.0", "vendor": "Acme"}
+        assert card.attributes == moved
         assert card.lifecycle == {"active": PAST}
         events = (await db.execute(select(Event).where(Event.card_id == card.id))).scalars().all()
         assert [e.data["source"] for e in events] == ["eol_custom_rename"]
+        # History reads the whole attribute dict on both sides.
+        assert events[0].data["changes"]["attributes"] == {
+            "old": {"eol_product": "custom:acme-erp", "eol_cycle": "1", "vendor": "Acme"},
+            "new": moved,
+        }
 
     async def test_rename_onto_existing_cycle_is_409(self, client, admin, acme):
         cid = _cycle_id(acme, "1")
@@ -304,16 +316,102 @@ class TestCycles:
             resp = await client.patch(path, json={"latest": "x"}, headers=auth_headers(admin))
             assert resp.status_code == 404, path
 
-    async def test_delete_cycle_reports_linked_cards(self, client, admin, acme, db, itc_type):
+    async def test_delete_linked_cycle_is_refused(self, client, admin, acme, db, itc_type):
         await _link(db, "ERP host", "custom:acme-erp", "1")
         cid = _cycle_id(acme, "1")
         resp = await client.delete(f"{BASE}/acme-erp/cycles/{cid}", headers=auth_headers(admin))
-        assert resp.status_code == 200
-        assert resp.json() == {"linked_cards": 1}
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["code"] == "cards_linked"
+        assert resp.json()["detail"]["count"] == 1
         listed = (await client.get(BASE, headers=auth_headers(admin))).json()
-        assert [c["cycle"] for c in listed[0]["cycles"]] == ["2"]
-        # The orphaned link still counts against the product, so it cannot vanish.
+        assert [c["cycle"] for c in listed[0]["cycles"]] == ["2", "1"]
+
+    async def test_delete_unlinked_cycle(self, client, admin, acme, db, itc_type):
+        await _link(db, "ERP host", "custom:acme-erp", "1")
+        cid = _cycle_id(acme, "2")
+        resp = await client.delete(f"{BASE}/acme-erp/cycles/{cid}", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+        listed = (await client.get(BASE, headers=auth_headers(admin))).json()
+        assert [c["cycle"] for c in listed[0]["cycles"]] == ["1"]
+        entry = (
+            await db.execute(
+                select(AuditLogEntry).where(
+                    AuditLogEntry.action == "admin.eol_custom_cycle.deleted"
+                )
+            )
+        ).scalar_one()
+        assert entry.details["context"] == {"cycle": "2"}
+
+    async def test_viewer_cannot_delete_cycle(self, client, viewer, acme):
+        cid = _cycle_id(acme, "2")
+        resp = await client.delete(f"{BASE}/acme-erp/cycles/{cid}", headers=auth_headers(viewer))
+        assert resp.status_code == 403
+
+    async def test_hidden_card_blocks_cycle_delete_without_being_counted(
+        self, client, admin, acme, db
+    ):
+        await create_card_type(
+            db,
+            key="ITComponent",
+            label="IT Component",
+            role_permissions={"restricted": {"inventory.view": False}},
+        )
+        await create_role(
+            db,
+            key="restricted",
+            label="Restricted",
+            permissions={"eol.view": True, "eol.manage": True, "inventory.view": True},
+        )
+        restricted = await create_user(db, email="r@test.com", role="restricted")
+        await _link(db, "Secret host", "custom:acme-erp", "1")
+        cid = _cycle_id(acme, "1")
+        resp = await client.delete(
+            f"{BASE}/acme-erp/cycles/{cid}", headers=auth_headers(restricted)
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["count"] == 0
+        assert "Secret host" not in resp.text
+
+    async def test_a_link_without_cycle_counts_against_the_product(
+        self, client, admin, acme, db, itc_type
+    ):
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Half-linked",
+            attributes={"eol_product": "custom:acme-erp"},
+        )
+        listed = (await client.get(BASE, headers=auth_headers(admin))).json()
         assert listed[0]["linked_cards"] == 1
+        assert [c["linked_cards"] for c in listed[0]["cycles"]] == [0, 0]
+        resp = await client.delete(f"{BASE}/acme-erp", headers=auth_headers(admin))
+        assert resp.status_code == 409
+        assert resp.json()["detail"]["count"] == 1
+
+    async def test_patch_accepts_any_spelling_of_the_cycle_id(self, client, admin, acme):
+        cid = _cycle_id(acme, "1").upper()
+        resp = await client.patch(
+            f"{BASE}/acme-erp/cycles/{cid}", json={"latest": "1.6"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["latest"] == "1.6"
+
+    async def test_sort_order_change_is_audited(self, client, admin, acme, db):
+        cid = _cycle_id(acme, "1")
+        resp = await client.patch(
+            f"{BASE}/acme-erp/cycles/{cid}", json={"sort_order": 3}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["sort_order"] == 3
+        entry = (
+            await db.execute(
+                select(AuditLogEntry).where(
+                    AuditLogEntry.action == "admin.eol_custom_cycle.updated"
+                )
+            )
+        ).scalar_one()
+        assert entry.details["changes"] == {"sort_order": {"old": 0, "new": 3}}
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +480,8 @@ class TestCustomCycles:
         assert [c["cycle"] for c in resp.json()] == ["2", "1"]
         assert resp.json()[1]["eol"] == PAST
         assert resp.json()[1]["releaseDate"] == LONG_AGO
+        # The product's link stands in for endoflife.date's per-cycle link.
+        assert {c["link"] for c in resp.json()} == {"https://acme.example/erp"}
 
     async def test_unknown_custom_product_is_404(self, client, admin):
         with _no_upstream():
@@ -491,6 +591,35 @@ class TestUpstreamMatches:
             resp = await client.get(f"{BASE}/upstream-matches", headers=auth_headers(admin))
         assert resp.status_code == 200
         assert resp.json() == {"postgres-internal": {"name": "postgresql", "score": 1.0}}
+
+    async def test_a_short_slug_inside_a_title_is_no_match(self, client, admin, db):
+        # "go" sits inside "pingoanalytics" — a substring hit scores 0.85.
+        resp = await client.post(
+            BASE,
+            json={"key": "pingo-analytics", "title": "Pingo Analytics"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        with (
+            patch("app.api.v1.eol._products_cache", [*UPSTREAM, "go"]),
+            patch("app.api.v1.eol._products_cache_time", 9999999999.0),
+        ):
+            resp = await client.get(f"{BASE}/upstream-matches", headers=auth_headers(admin))
+        assert resp.json() == {}
+
+    async def test_a_title_inside_the_slug_still_matches(self, client, admin, db):
+        resp = await client.post(
+            BASE, json={"key": "pg", "title": "Postgres"}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 201
+        with (
+            patch("app.api.v1.eol._products_cache", UPSTREAM),
+            patch("app.api.v1.eol._products_cache_time", 9999999999.0),
+        ):
+            resp = await client.get(f"{BASE}/upstream-matches", headers=auth_headers(admin))
+        assert list(resp.json()) == ["pg"]
+        assert resp.json()["pg"]["name"] == "postgresql"
+        assert resp.json()["pg"]["score"] >= 0.9
 
     async def test_empty_when_upstream_is_down(self, client, admin, acme):
         down = AsyncMock(side_effect=HTTPException(502, "down"))

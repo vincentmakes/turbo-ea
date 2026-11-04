@@ -344,6 +344,24 @@ describe("CardDetailContent section order", () => {
       "sec-relations",
       "sec-custom-Commercials",
       "sec-description",
+      "sec-eol",
+      "sec-ldv",
+    ]);
+  });
+
+  it("shows End of Life on a custom type that turns it on, even with an order lacking it", () => {
+    useType(
+      typeFor("Gadget", {
+        section_config: { eol: { hidden: false }, __order: ["description", "relations"] },
+      }),
+    );
+    renderCard(cardOf("Gadget"));
+    expect(order()).toEqual([
+      "sec-description",
+      "sec-eol",
+      "sec-tags",
+      "sec-relations",
+      "sec-custom-Commercials",
       "sec-ldv",
     ]);
   });

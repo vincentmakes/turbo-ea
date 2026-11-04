@@ -318,6 +318,7 @@
   "eol.unlinkTooltip": "Délier les données EOL",
   "eol.linkDescription.itComponent": "Liez ce composant IT à un produit sur endoflife.date pour suivre son cycle de support.",
   "eol.linkDescription.application": "Liez cette application à un produit sur endoflife.date pour suivre son cycle de support.",
+  "eol.linkDescription.other": "Liez cette fiche à un produit sur endoflife.date pour suivre son cycle de support.",
   "eol.status.endOfLife": "Fin de vie",
   "eol.status.approachingEol": "Fin de vie imminente",
   "eol.status.securityOnly": "Correctifs de sécurité uniquement",

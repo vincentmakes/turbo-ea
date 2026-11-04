@@ -116,9 +116,24 @@ export function buildEolProductFile(
   for (const c of cycles) front.push(...releaseLines(c));
   front.push("", "---");
 
-  const name = product.link ? `[${product.title}](${product.link})` : product.title;
-  const description = product.description?.trim() || options.descriptionPlaceholder;
+  const title = markdownText(product.title);
+  const name = product.link ? `[${title}](${markdownUrl(product.link)})` : title;
+  const description = markdownText(product.description ?? "") || options.descriptionPlaceholder;
   return [...front, "", `> ${name} ${description}`, "", options.policyPlaceholder, ""].join("\n");
+}
+
+/** One line of Markdown prose: whitespace collapsed (a newline would end the
+ * blockquote) and link syntax escaped, so user text cannot become a link. */
+function markdownText(text: string): string {
+  return text
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/([[\]()])/g, "\\$1");
+}
+
+/** A link target that cannot end the `(...)` early or break on a space. */
+function markdownUrl(url: string): string {
+  return url.trim().replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
 }
 
 /**

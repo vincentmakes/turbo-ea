@@ -92,11 +92,11 @@ El soporte activo y el fin de vida admiten cada uno una **fecha**, o una de dos 
 
 ### Gestionar ciclos en la cuadrícula
 
-La pestaña Productos personalizados muestra una fila por ciclo de lanzamiento, agrupada por producto. Funciona como las demás cuadrículas: fije y reordene columnas, muéstrelas u ocúltelas y filtre por producto, estado o uso desde el panel izquierdo. La columna **Fichas vinculadas** indica cuántas de las fichas que puede ver usan cada ciclo.
+La pestaña Productos personalizados muestra una fila por ciclo de lanzamiento, agrupada por producto. Funciona como las demás cuadrículas: fije y reordene columnas, muéstrelas u ocúltelas y filtre por producto, estado o uso desde el panel izquierdo. La columna **Fichas vinculadas** indica cuántas de las fichas que puede ver usan cada ciclo. La **Descripción** y el **Enlace** del producto también están disponibles como columnas; al principio están ocultas, así que actívelas desde la pestaña **Columnas** del panel.
 
 Haga clic en **Editar en la cuadrícula** para cambiar las celdas directamente. Las fechas y las respuestas de soporte abren un pequeño editor, y puede arrastrar el valor de una celda hacia abajo por una columna (como en Excel) para copiarlo a varios ciclos. El menú de fila (**⋮**) añade un ciclo al producto, edita el nombre, el enlace y la descripción del producto, o elimina un ciclo o el producto.
 
-Un producto no se puede eliminar mientras haya fichas vinculadas a él. Eliminar un ciclo que usan fichas deja su estado de fin de vida **desconocido** hasta que alguien elija otro ciclo. Renombrar un ciclo mueve con él las fichas vinculadas.
+Un producto o un ciclo no se puede eliminar mientras haya fichas vinculadas a él, incluidas las fichas que usted no puede ver. Para retirar un ciclo que usan fichas, cámbiele el nombre (al renombrarlo, las fichas vinculadas se mueven con él) o vincule primero esas fichas a otro ciclo. El enlace de un producto se ofrece en sus fichas como enlace a las notas de la versión.
 
 También puede añadir un ciclo que falte desde una ficha: una vez seleccionado un producto personalizado en la sección Fin de vida de la ficha, la lista de ciclos termina con **Añadir ciclo…**.
 
@@ -112,7 +112,7 @@ Turbo EA nunca envía nada a GitHub por sí mismo y no almacena credenciales de 
 
 ### Cambiar a endoflife.date
 
-Cuando endoflife.date empieza a rastrear un producto que usted mantenía como personalizado, la cuadrícula muestra junto a él una indicación **En endoflife.date**. Haga clic en la indicación, o elija **Cambiar a un producto de endoflife.date…** en el menú de fila:
+Cuando endoflife.date empieza a rastrear un producto que usted mantenía como personalizado, la cuadrícula muestra junto a él una indicación **En endoflife.date**. La indicación solo aparece cuando la coincidencia es cercana (el mismo nombre, o el nombre de su producto dentro del de endoflife.date), de modo que un nombre corto de endoflife.date que simplemente aparece dentro del suyo no la activa. Haga clic en la indicación, o elija **Cambiar a un producto de endoflife.date…** en el menú de fila:
 
 1. Elija el producto de endoflife.date.
 2. Para cada uno de sus ciclos, elija el ciclo de endoflife.date al que deben pasar sus fichas (los ciclos con el mismo nombre se emparejan automáticamente), o manténgalo en el producto personalizado.

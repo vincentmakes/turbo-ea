@@ -294,7 +294,8 @@ describe("CardLayoutEditor — rendering", () => {
       } as unknown as Record<string, SectionConfig>,
     });
     setup({ cardType: stale });
-    expect(sectionHeaders()).toEqual(["Lifecycle", "Only", "Description", "Tags", "Relations"]);
+    // End of Life, absent from the stored order, is spliced in before Lifecycle.
+    expect(sectionHeaders()).toEqual(["End of Life", "Lifecycle", "Only", "Description", "Tags", "Relations"]);
   });
 
   it("appends lineage and tags when a saved order has no relations entry to anchor them on", () => {
@@ -305,7 +306,7 @@ describe("CardLayoutEditor — rendering", () => {
       section_config: { __order: ["custom:0", "description"] } as unknown as Record<string, SectionConfig>,
     });
     setup({ cardType: anchorless });
-    expect(sectionHeaders()).toEqual(["Only", "Description", "Lineage", "Tags"]);
+    expect(sectionHeaders()).toEqual(["Only", "Description", "End of Life", "Lineage", "Tags"]);
   });
 
   it("renders the Description section's protected built-ins plus its own fields", () => {

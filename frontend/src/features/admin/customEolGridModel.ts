@@ -9,7 +9,10 @@ import type { EolStatusKey } from "@/lib/eol";
 import type { EolCustomProduct, EolMilestone } from "@/types";
 import {
   CUSTOM_EOL_COLUMNS,
+  DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS,
   LOCKED_CUSTOM_EOL_COLUMNS,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
   type CustomEolFilters,
 } from "./CustomEolFilterSidebar";
 
@@ -130,7 +133,7 @@ export interface CustomEolPrefs {
 export const DEFAULT_PREFS: CustomEolPrefs = {
   filtersCollapsed: false,
   sidebarWidth: 260,
-  visibleColumns: ALL_COLUMN_IDS,
+  visibleColumns: DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS,
   // The two columns that say which row you are looking at stay in view.
   frozenColumns: ["product", "cycle"],
   columnOrder: [],
@@ -152,10 +155,12 @@ export function loadPrefs(): CustomEolPrefs {
     return {
       filtersCollapsed: !!p.filtersCollapsed,
       sidebarWidth:
-        typeof p.sidebarWidth === "number" ? p.sidebarWidth : DEFAULT_PREFS.sidebarWidth,
+        typeof p.sidebarWidth === "number" && Number.isFinite(p.sidebarWidth)
+          ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, p.sidebarWidth))
+          : DEFAULT_PREFS.sidebarWidth,
       visibleColumns: visible.length
         ? Array.from(new Set([...LOCKED_CUSTOM_EOL_COLUMNS, ...visible]))
-        : ALL_COLUMN_IDS,
+        : DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS,
       frozenColumns: Array.isArray(p.frozenColumns)
         ? knownIds(p.frozenColumns)
         : DEFAULT_PREFS.frozenColumns,

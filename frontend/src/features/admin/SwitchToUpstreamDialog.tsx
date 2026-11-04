@@ -181,6 +181,11 @@ function SwitchBody({
           sx={{ mb: 2 }}
         />
         {loadingCycles && <LinearProgress sx={{ mb: 2 }} />}
+        {target && !loadingCycles && !error && upstream.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("eol.custom.switch.noCycles")}
+          </Typography>
+        )}
         {target && !loadingCycles && upstream.length > 0 && (
           <Box sx={{ overflowX: "auto", mb: 2 }}>
             <Table size="small">

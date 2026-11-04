@@ -327,6 +327,33 @@ describe("MilestoneField — choosing Date (regression: the date field never app
     expect(screen.getByLabelText("Date")).toBeInTheDocument();
   });
 
+  it("drops a pending date when a yes/no answer arrives from outside", async () => {
+    function Controlled() {
+      const [value, setValue] = useState<EolMilestone>(null);
+      return (
+        <>
+          <MilestoneField kind="eol" value={value} onChange={setValue} />
+          <button onClick={() => setValue(true)}>set ended</button>
+          <button onClick={() => setValue(null)}>unset</button>
+        </>
+      );
+    }
+    render(<Controlled />);
+    await pick(screen.getByRole("combobox"), "Date");
+    expect(screen.getByLabelText("Date")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "set ended" }));
+    await userEvent.click(screen.getByRole("button", { name: "unset" }));
+    expect(screen.queryByLabelText("Date")).toBeNull();
+    expect(screen.getByRole("combobox")).toHaveTextContent("Not set");
+  });
+
+  it("opens in date mode on a stored date, and stays there when it is cleared", () => {
+    render(<Stateful initial="2026-01-01" />);
+    const date = screen.getByLabelText("Date");
+    fireEvent.change(date, { target: { value: "" } });
+    expect(screen.getByLabelText("Date")).toBeInTheDocument();
+  });
+
   it("drops the pending date once another answer is chosen", async () => {
     render(<Stateful initial={null} />);
     await pick(screen.getByRole("combobox"), "Date");
@@ -442,6 +469,17 @@ describe("CustomEolProductDialog — details", () => {
     await userEvent.type(cycleInputs()[0], " 1");
     await userEvent.type(cycleInputs()[1], "1 ");
     expect(screen.getByText("Two cycles have the same name.")).toBeInTheDocument();
+  });
+
+  it("keeps each row's own choices when another row is removed", async () => {
+    render(<CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: /Add another cycle/ }));
+    // Row 1's End of Life select is the fourth combobox (support, eol per row).
+    await pick(screen.getAllByRole("combobox")[1], "Date");
+    expect(screen.getAllByLabelText("Date")).toHaveLength(1);
+    await userEvent.click(screen.getAllByRole("button", { name: "Remove cycle" })[0]);
+    expect(screen.queryByLabelText("Date")).toBeNull();
+    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Not set");
   });
 
   it("edits only the cycle typed in, and removes the one asked for", async () => {

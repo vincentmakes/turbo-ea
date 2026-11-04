@@ -117,6 +117,25 @@ describe("buildEolProductFile", () => {
     expect(file).toContain('> Quote "me" DESCRIBE');
   });
 
+  it("keeps the summary on one line and user text out of link syntax", () => {
+    const file = buildEolProductFile(
+      {
+        key: "x",
+        title: "Acme [beta]",
+        description: "Line one.\n\n  Line (two) [x].",
+        link: "https://acme.example/a (b)",
+        cycles: [cycle({ cycle: "1", eol: "2030-01-01" })],
+      },
+      OPTIONS,
+    );
+    expect(file).toContain(
+      "> [Acme \\[beta\\]](https://acme.example/a%20%28b%29) Line one. Line \\(two\\) \\[x\\].",
+    );
+    // The blockquote is a single line: nothing of it spills onto the next.
+    const quote = file.split("\n").findIndex((l) => l.startsWith("> "));
+    expect(file.split("\n")[quote + 1]).toBe("");
+  });
+
   it("uses today when no date is given", () => {
     const { today: _today, ...rest } = OPTIONS;
     expect(buildEolProductFile(PRODUCT, rest)).toMatch(/addedAt: \d{4}-\d{2}-\d{2}\n/);

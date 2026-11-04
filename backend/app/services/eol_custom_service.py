@@ -38,6 +38,7 @@ from app.models.eol_custom_cycle import EolCustomCycle
 from app.models.eol_custom_product import EolCustomProduct
 from app.models.user import User
 from app.schemas.eol_custom import (
+    MAX_CYCLES_PER_PRODUCT,
     EolCustomCycleCreate,
     EolCustomCycleUpdate,
     EolCustomProductCreate,
@@ -110,20 +111,26 @@ async def load_custom_cycles(db: AsyncSession, products: Iterable[object]) -> di
         .all()
     )
     out: dict[str, list[dict]] = {product_ref(k): [] for k in keys}
-    existing = set(
-        (await db.execute(select(EolCustomProduct.key).where(EolCustomProduct.key.in_(keys))))
-        .scalars()
-        .all()
+    # The product's own link (a vendor policy or release page) stands in for
+    # endoflife.date's per-cycle `link`, so the card offers it the same way.
+    product_rows = await db.execute(
+        select(EolCustomProduct.key, EolCustomProduct.link).where(EolCustomProduct.key.in_(keys))
     )
+    links: dict[str, str | None] = {key: link for key, link in product_rows.all()}
     for c in sorted_cycles(rows):
-        out[product_ref(c.product_key)].append(cycle_to_dict(c))
-    return {ref: cycles for ref, cycles in out.items() if key_of(ref) in existing}
+        out[product_ref(c.product_key)].append(
+            {**cycle_to_dict(c), "link": links.get(c.product_key)}
+        )
+    return {ref: cycles for ref, cycles in out.items() if key_of(ref) in links}
 
 
 async def linked_counts(
     db: AsyncSession, read_scope: CardReadScope | None
 ) -> dict[tuple[str, str], int]:
     """``{(product key, cycle): n}`` — cards linked to each custom cycle.
+
+    A link with no cycle is counted under the cycle ``""`` (never a real
+    cycle name), so a product's total still includes it.
 
     Counts what the caller may see (module mode, like the EOL report), so the
     number on a row agrees with the cards the caller can find. Archived cards
@@ -141,8 +148,8 @@ async def linked_counts(
         stmt = stmt.where(*read_scope.where(Card, mode="module"))
     out: dict[tuple[str, str], int] = {}
     for product, cycle, count in (await db.execute(stmt)).all():
-        if cycle:
-            out[(key_of(product), cycle)] = int(count)
+        slot = (key_of(product), cycle or "")
+        out[slot] = out.get(slot, 0) + int(count)
     return out
 
 
@@ -222,8 +229,11 @@ async def _product_cycles(db: AsyncSession, key: str) -> list[EolCustomCycle]:
 
 async def product_cycles(db: AsyncSession, key: str) -> list[dict]:
     """A product's cycles in endoflife.date's shape (404 when unknown)."""
-    await get_product(db, key)
-    return [cycle_to_dict(c) for c in sorted_cycles(await _product_cycles(db, key))]
+    product = await get_product(db, key)
+    return [
+        {**cycle_to_dict(c), "link": product.link}
+        for c in sorted_cycles(await _product_cycles(db, key))
+    ]
 
 
 def _new_cycle(key: str, body: EolCustomCycleCreate, sort_order: int) -> EolCustomCycle:
@@ -355,8 +365,8 @@ async def create_cycle(
     existing = await _product_cycles(db, key)
     if any(c.cycle == body.cycle for c in existing):
         raise HTTPException(409, "This product already has a cycle with that name")
-    if len(existing) >= 200:
-        raise HTTPException(422, "A product has at most 200 cycles")
+    if len(existing) >= MAX_CYCLES_PER_PRODUCT:
+        raise HTTPException(422, f"A product has at most {MAX_CYCLES_PER_PRODUCT} cycles")
     cycle = _new_cycle(key, body, 0)
     db.add(cycle)
     await db.flush()
@@ -416,8 +426,12 @@ async def update_cycle(
         for f, v in new_values.items()
         if getattr(cycle, f) != v
     }
-    if "sort_order" in body.model_fields_set and body.sort_order is not None:
-        cycle.sort_order = body.sort_order
+    if (
+        "sort_order" in body.model_fields_set
+        and body.sort_order is not None
+        and body.sort_order != cycle.sort_order
+    ):
+        changes["sort_order"] = {"old": cycle.sort_order, "new": body.sort_order}
     if not changes:
         await db.flush()
         return cycle
@@ -441,24 +455,37 @@ async def update_cycle(
 
 async def delete_cycle(
     db: AsyncSession, user: User, key: str, cycle_id: str, read_scope: CardReadScope | None
-) -> int:
-    """Delete one cycle. Returns how many visible cards were linked to it —
-    their status reads "unknown" until someone picks another cycle."""
+) -> None:
+    """Delete a cycle nothing links to any more (409 ``cards_linked``).
+
+    Same rule as a product: a linked cycle could not be deleted without
+    stranding its cards on a cycle that no longer exists, which neither a
+    switch to endoflife.date nor the product delete could then resolve.
+    Renaming the cycle moves its cards instead. The 409 counts only the
+    cards the caller can see, so it never reveals a hidden one.
+    """
     product = await get_product(db, key)
     cycle = await _get_cycle(db, key, cycle_id)
-    counts = await linked_counts(db, read_scope)
-    linked = counts.get((key, cycle.cycle), 0)
+    if await _all_link_count(db, key, cycle.cycle):
+        counts = await linked_counts(db, read_scope)
+        raise HTTPException(
+            409,
+            {
+                "code": "cards_linked",
+                "count": counts.get((key, cycle.cycle), 0),
+                "message": "Cards are still linked to this cycle",
+            },
+        )
     await audit_log.record(
         db,
         action="admin.eol_custom_cycle.deleted",
         category="admin",
         actor=user,
         target=_target(product),
-        context={"cycle": cycle.cycle, "linked_cards": linked},
+        context={"cycle": cycle.cycle},
     )
     await db.delete(cycle)
     await db.flush()
-    return linked
 
 
 async def _relink(
@@ -496,15 +523,7 @@ async def _relink(
             {
                 "id": str(card.id),
                 "source": source,
-                "changes": {
-                    "attributes": {
-                        "old": {
-                            EOL_PRODUCT_KEY: old_attrs.get(EOL_PRODUCT_KEY),
-                            EOL_CYCLE_KEY: old_attrs.get(EOL_CYCLE_KEY),
-                        },
-                        "new": {EOL_PRODUCT_KEY: new_product, EOL_CYCLE_KEY: new_cycle},
-                    }
-                },
+                "changes": {"attributes": {"old": old_attrs, "new": attrs}},
             },
             db=db,
             card_id=card.id,

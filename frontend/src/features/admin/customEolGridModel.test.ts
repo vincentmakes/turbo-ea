@@ -181,6 +181,28 @@ describe("prefs", () => {
     expect(prefs.sidebarWidth).toBe(DEFAULT_PREFS.sidebarWidth);
   });
 
+  it("shows the default columns, without description and link, until told otherwise", () => {
+    expect(DEFAULT_PREFS.visibleColumns).not.toContain("description");
+    expect(DEFAULT_PREFS.visibleColumns).not.toContain("link");
+    expect(DEFAULT_PREFS.visibleColumns).toContain("updated");
+    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify({ visibleColumns: ["nope"] }));
+    expect(loadPrefs().visibleColumns).toEqual(DEFAULT_PREFS.visibleColumns);
+  });
+
+  it("keeps a stored sidebar width within the sidebar's bounds", () => {
+    const width = (w: unknown) => {
+      localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify({ sidebarWidth: w }));
+      return loadPrefs().sidebarWidth;
+    };
+    expect(width(300)).toBe(300);
+    expect(width(220)).toBe(220);
+    expect(width(480)).toBe(480);
+    expect(width(5)).toBe(220);
+    expect(width(99999)).toBe(480);
+    // JSON has no NaN; a null or a string falls back to the default.
+    expect(width(null)).toBe(DEFAULT_PREFS.sidebarWidth);
+  });
+
   it("survives corrupt storage", () => {
     localStorage.setItem(PREFS_STORAGE_KEY, "{not json");
     expect(loadPrefs()).toEqual(DEFAULT_PREFS);

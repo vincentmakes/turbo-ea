@@ -57,7 +57,16 @@ export default function EolCycleCellEditor(props: Params) {
           onChange={(v) => change(v || null)}
         />
       ) : (
-        <MilestoneField kind={props.mode} value={value} onChange={change} />
+        // AG Grid ends a popup edit on any click outside the popup, and the
+        // select's menu is portalled to <body>: the class marks it as part
+        // of this editor (AG Grid's `isElementWithinCustomPopup`), so picking
+        // an option does not commit the previous value.
+        <MilestoneField
+          kind={props.mode}
+          value={value}
+          onChange={change}
+          menuProps={{ className: "ag-custom-component-popup" }}
+        />
       )}
       <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 1.5 }}>
         <Button size="small" onClick={() => props.api.stopEditing(true)}>

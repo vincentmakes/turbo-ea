@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from difflib import SequenceMatcher
 
 import httpx
@@ -43,6 +44,11 @@ logger = logging.getLogger("turboea.eol")
 router = APIRouter(prefix="/eol", tags=["End of Life"])
 
 EOL_BASE = "https://endoflife.date/api"
+
+#: The "now on endoflife.date?" hint needs more than ``_fuzzy_score``'s 0.85,
+#: which any upstream slug contained in a title scores — "go" inside "Pingo
+#: Analytics". From 0.9 only an exact match, or the title inside the slug, counts.
+UPSTREAM_MATCH_THRESHOLD = 0.9
 
 # ---------------------------------------------------------------------------
 # Response schemas
@@ -630,9 +636,9 @@ async def custom_product_upstream_matches(
         return {}
     out: dict[str, EolUpstreamMatch] = {}
     for key, title in titles:
-        best = _fuzzy_search(title, products, limit=1, threshold=0.85) or _fuzzy_search(
-            key, products, limit=1, threshold=0.85
-        )
+        best = _fuzzy_search(
+            title, products, limit=1, threshold=UPSTREAM_MATCH_THRESHOLD
+        ) or _fuzzy_search(key, products, limit=1, threshold=UPSTREAM_MATCH_THRESHOLD)
         if best:
             out[key] = EolUpstreamMatch(name=best[0][0], score=round(best[0][1], 3))
     return out
@@ -726,18 +732,22 @@ async def delete_custom_cycle(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Delete one cycle; reports how many visible cards were linked to it."""
+    """Delete a cycle no card links (409 ``cards_linked`` otherwise)."""
     await PermissionService.require_permission(db, user, "eol.manage")
     read_scope = await CardReadScope.load(db, user)
-    linked = await custom.delete_cycle(db, user, key, cycle_id, read_scope)
+    await custom.delete_cycle(db, user, key, cycle_id, read_scope)
     await db.commit()
-    return {"linked_cards": linked}
+    return {"ok": True}
 
 
 def _cycle_out(product: dict, cycle_id: str) -> dict:
+    try:
+        wanted = uuid.UUID(cycle_id)
+    except ValueError:
+        raise HTTPException(404, "Cycle not found") from None
     cycles: list[dict] = product["cycles"]
     for c in cycles:
-        if c["id"] == cycle_id:
+        if uuid.UUID(c["id"]) == wanted:
             return c
     raise HTTPException(404, "Cycle not found")
 

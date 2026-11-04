@@ -92,11 +92,11 @@ Aktiv support og udløb tager hver en **dato** eller et af to svar, når ingen d
 
 ### Administration af cyklusser i gitteret
 
-Fanen Brugerdefinerede produkter viser én række pr. udgivelsescyklus, grupperet efter produkt. Den fungerer som de andre gitre: frys og omarranger kolonner, vis eller skjul dem, og filtrer efter produkt, status eller anvendelse i panelet til venstre. Kolonnen **Tilknyttede kort** viser, hvor mange af de kort, du kan se, der bruger hver cyklus.
+Fanen Brugerdefinerede produkter viser én række pr. udgivelsescyklus, grupperet efter produkt. Den fungerer som de andre gitre: frys og omarranger kolonner, vis eller skjul dem, og filtrer efter produkt, status eller anvendelse i panelet til venstre. Kolonnen **Tilknyttede kort** viser, hvor mange af de kort, du kan se, der bruger hver cyklus. Produktets **Beskrivelse** og **Link** er også tilgængelige som kolonner; de er skjult fra start, så slå dem til fra fanen **Kolonner** i panelet.
 
 Klik på **Rediger i gitteret** for at ændre celler direkte. Datoer og supportsvar åbner en lille editor, og du kan trække en celles værdi ned gennem en kolonne (som i Excel) for at kopiere den til flere cyklusser. Rækkemenuen (**⋮**) tilføjer en cyklus til produktet, redigerer produktets navn, link og beskrivelse eller sletter en cyklus eller produktet.
 
-Et produkt kan ikke slettes, så længe kort stadig er tilknyttet det. Sletning af en cyklus, som kort bruger, lader deres udløbsstatus være **ukendt**, indtil nogen vælger en anden cyklus. Omdøbning af en cyklus flytter de tilknyttede kort med.
+Et produkt eller en cyklus kan ikke slettes, så længe kort stadig er tilknyttet, heller ikke kort, du ikke kan se. For at udfase en cyklus, som kort bruger, skal du i stedet omdøbe den (omdøbning flytter de tilknyttede kort med) eller først tilknytte kortene til en anden cyklus. Et produkts link tilbydes på dets kort som link til udgivelsesnoter.
 
 Du kan også tilføje en manglende cyklus fra et kort: Når et brugerdefineret produkt er valgt i kortets sektion Udløb, slutter cykluslisten med **Tilføj cyklus …**.
 
@@ -112,7 +112,7 @@ Turbo EA sender aldrig selv noget til GitHub og gemmer ingen GitHub-legitimation
 
 ### Skift til endoflife.date
 
-Når endoflife.date begynder at spore et produkt, du havde beholdt som brugerdefineret, viser gitteret et tip **På endoflife.date** ved siden af det. Klik på tippet, eller vælg **Skift til et endoflife.date-produkt …** i rækkemenuen:
+Når endoflife.date begynder at spore et produkt, du havde beholdt som brugerdefineret, viser gitteret et tip **På endoflife.date** ved siden af det. Tippet vises kun ved et tæt match (samme navn, eller dit produkts navn indeholdt i endoflife.date-navnet), så et kort endoflife.date-navn, der blot forekommer inde i dit, udløser det ikke. Klik på tippet, eller vælg **Skift til et endoflife.date-produkt …** i rækkemenuen:
 
 1. Vælg endoflife.date-produktet.
 2. Vælg for hver af dine cyklusser den endoflife.date-cyklus, som dens kort skal flyttes til (cyklusser med samme navn matches automatisk), eller behold den på det brugerdefinerede produkt.

@@ -6,7 +6,7 @@
  * in Settings → EOL. A product is created with its first cycles in one
  * request, so the card flow can pick the new cycle straight away.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -21,6 +21,7 @@ import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
+import type { MenuProps } from "@mui/material/Menu";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
@@ -48,19 +49,29 @@ interface MilestoneFieldProps {
   value: EolMilestone;
   onChange: (value: EolMilestone) => void;
   size?: "small" | "medium";
+  /** Passed to the select's menu — a grid cell editor needs `disablePortal`. */
+  menuProps?: Partial<MenuProps>;
 }
 
 /**
  * A date, or one of the two answers endoflife.date allows when no date is
  * known: still going ("no end announced" / "still supported") or already over.
  */
-export function MilestoneField({ kind, value, onChange, size = "small" }: MilestoneFieldProps) {
+export function MilestoneField({
+  kind,
+  value,
+  onChange,
+  size = "small",
+  menuProps,
+}: MilestoneFieldProps) {
   const { t } = useTranslation("cards");
   // Choosing "Date" stores nothing until a date is picked, so the stored
   // value alone would read "Not set" and never show the date field: the
   // choice is remembered here until a date or another answer replaces it.
-  const [datePicked, setDatePicked] = useState(false);
   const stored = milestoneMode(value, kind);
+  const [datePicked, setDatePicked] = useState(stored === "date");
+  // A yes/no answer set from outside replaces a pending "Date" choice.
+  if (datePicked && (stored === "ended" || stored === "ongoing")) setDatePicked(false);
   const mode: MilestoneMode = stored === "unset" && datePicked ? "date" : stored;
   const label = t(kind === "eol" ? "eol.endOfLife" : "eol.activeSupport");
   return (
@@ -76,6 +87,7 @@ export function MilestoneField({ kind, value, onChange, size = "small" }: Milest
             onChange(milestoneValue(next, kind, typeof value === "string" ? value : ""));
           }}
           inputProps={{ "aria-label": label }}
+          MenuProps={menuProps}
         >
           {MODES.map((m) => (
             <MenuItem key={m} value={m}>
@@ -210,6 +222,11 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
   const [link, setLink] = useState(product?.link ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [cycles, setCycles] = useState<CycleDraft[]>(editing ? [] : [{ ...EMPTY_CYCLE }]);
+  // Rows are keyed by a stable id, never their index: a field's own state
+  // (MilestoneField's pending "Date") must not slide onto the next row when
+  // one is removed.
+  const nextRowId = useRef(1);
+  const [rowIds, setRowIds] = useState<number[]>(editing ? [] : [0]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -332,7 +349,7 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
             </Typography>
             <Stack spacing={2} divider={<Divider flexItem />}>
               {cycles.map((c, i) => (
-                <Box key={i} sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+                <Box key={rowIds[i]} sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <CycleFields
                       value={c}
@@ -347,7 +364,10 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
                         size="small"
                         aria-label={t("eol.custom.removeCycle")}
                         disabled={cycles.length === 1}
-                        onClick={() => setCycles((prev) => prev.filter((_, j) => j !== i))}
+                        onClick={() => {
+                          setCycles((prev) => prev.filter((_, j) => j !== i));
+                          setRowIds((prev) => prev.filter((_, j) => j !== i));
+                        }}
                       >
                         <MaterialSymbol icon="delete" size={18} />
                       </IconButton>
@@ -360,7 +380,10 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
               size="small"
               sx={{ mt: 1.5 }}
               startIcon={<MaterialSymbol icon="add" size={16} />}
-              onClick={() => setCycles((prev) => [...prev, { ...EMPTY_CYCLE }])}
+              onClick={() => {
+                setCycles((prev) => [...prev, { ...EMPTY_CYCLE }]);
+                setRowIds((prev) => [...prev, nextRowId.current++]);
+              }}
             >
               {t("eol.custom.addCycleRow")}
             </Button>

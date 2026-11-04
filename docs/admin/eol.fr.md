@@ -92,11 +92,11 @@ Le support actif et la fin de vie acceptent chacun une **date**, ou l'une de deu
 
 ### Gérer les cycles dans la grille
 
-L'onglet Produits personnalisés affiche une ligne par cycle de publication, regroupée par produit. Il fonctionne comme les autres grilles : figer et réorganiser les colonnes, les afficher ou les masquer, et filtrer par produit, statut ou utilisation depuis le panneau de gauche. La colonne **Fiches liées** indique combien des fiches que vous pouvez voir utilisent chaque cycle.
+L'onglet Produits personnalisés affiche une ligne par cycle de publication, regroupée par produit. Il fonctionne comme les autres grilles : figer et réorganiser les colonnes, les afficher ou les masquer, et filtrer par produit, statut ou utilisation depuis le panneau de gauche. La colonne **Fiches liées** indique combien des fiches que vous pouvez voir utilisent chaque cycle. La **Description** et le **Lien** du produit sont également disponibles comme colonnes ; elles sont masquées au départ, activez-les depuis l'onglet **Colonnes** du panneau.
 
 Cliquez sur **Modifier dans la grille** pour changer les cellules directement. Les dates et les réponses de support ouvrent un petit éditeur, et vous pouvez faire glisser la valeur d'une cellule vers le bas d'une colonne (comme dans Excel) pour la copier sur plusieurs cycles. Le menu de ligne (**⋮**) ajoute un cycle au produit, modifie le nom, le lien et la description du produit, ou supprime un cycle ou le produit.
 
-Un produit ne peut pas être supprimé tant que des fiches y sont liées. Supprimer un cycle utilisé par des fiches laisse leur statut de fin de vie **inconnu** jusqu'à ce que quelqu'un choisisse un autre cycle. Renommer un cycle déplace avec lui les fiches qui y sont liées.
+Un produit ou un cycle ne peut pas être supprimé tant que des fiches y sont liées, y compris des fiches que vous ne pouvez pas voir. Pour retirer un cycle utilisé par des fiches, renommez-le plutôt (le renommage déplace avec lui les fiches qui y sont liées), ou liez d'abord ces fiches à un autre cycle. Le lien d'un produit est proposé sur ses fiches comme lien vers les notes de version.
 
 Vous pouvez aussi ajouter un cycle manquant depuis une fiche : une fois un produit personnalisé sélectionné dans la section Fin de vie de la fiche, la liste des cycles se termine par **Ajouter un cycle…**.
 
@@ -112,7 +112,7 @@ Turbo EA n'envoie jamais rien à GitHub lui-même et ne stocke aucun identifiant
 
 ### Basculer vers endoflife.date
 
-Lorsque endoflife.date commence à suivre un produit que vous aviez gardé comme personnalisé, la grille affiche à côté une indication **Sur endoflife.date**. Cliquez sur cette indication, ou choisissez **Basculer vers un produit endoflife.date…** dans le menu de ligne :
+Lorsque endoflife.date commence à suivre un produit que vous aviez gardé comme personnalisé, la grille affiche à côté une indication **Sur endoflife.date**. L'indication n'apparaît que pour une correspondance étroite (même nom, ou le nom de votre produit contenu dans celui d'endoflife.date) ; un nom court d'endoflife.date qui figure simplement dans le vôtre ne la déclenche donc pas. Cliquez sur cette indication, ou choisissez **Basculer vers un produit endoflife.date…** dans le menu de ligne :
 
 1. Choisissez le produit endoflife.date.
 2. Pour chacun de vos cycles, choisissez le cycle endoflife.date vers lequel ses fiches doivent passer (les cycles de même nom sont associés automatiquement), ou conservez-le sur le produit personnalisé.

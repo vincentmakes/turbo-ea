@@ -318,6 +318,7 @@
   "eol.unlinkTooltip": "Desvincular dados EOL",
   "eol.linkDescription.itComponent": "Vincule este componente de TI a um produto no endoflife.date para rastrear seu ciclo de suporte.",
   "eol.linkDescription.application": "Vincule esta aplicação a um produto no endoflife.date para rastrear seu ciclo de suporte.",
+  "eol.linkDescription.other": "Vincule esta ficha a um produto no endoflife.date para rastrear seu ciclo de suporte.",
   "eol.status.endOfLife": "Fim de vida",
   "eol.status.approachingEol": "Aproximando-se do EOL",
   "eol.status.securityOnly": "Apenas correções de segurança",

@@ -318,6 +318,7 @@
   "eol.unlinkTooltip": "Scollega dati EOL",
   "eol.linkDescription.itComponent": "Colleghi questo componente IT a un prodotto su endoflife.date per monitorarne il ciclo di vita del supporto.",
   "eol.linkDescription.application": "Colleghi questa applicazione a un prodotto su endoflife.date per monitorarne il ciclo di vita del supporto.",
+  "eol.linkDescription.other": "Colleghi questa scheda a un prodotto su endoflife.date per monitorarne il ciclo di vita del supporto.",
   "eol.status.endOfLife": "Fine vita",
   "eol.status.approachingEol": "Fine vita imminente",
   "eol.status.securityOnly": "Solo correzioni di sicurezza",

@@ -92,11 +92,11 @@ O suporte ativo e o fim de vida aceitam cada um uma **data**, ou uma de duas res
 
 ### Gerir ciclos na grelha
 
-O separador Produtos personalizados mostra uma linha por ciclo de lançamento, agrupada por produto. Funciona como as outras grelhas: fixar e reordenar colunas, mostrá-las ou ocultá-las e filtrar por produto, estado ou utilização a partir do painel esquerdo. A coluna **Fichas vinculadas** mostra quantas das fichas que pode ver usam cada ciclo.
+O separador Produtos personalizados mostra uma linha por ciclo de lançamento, agrupada por produto. Funciona como as outras grelhas: fixar e reordenar colunas, mostrá-las ou ocultá-las e filtrar por produto, estado ou utilização a partir do painel esquerdo. A coluna **Fichas vinculadas** mostra quantas das fichas que pode ver usam cada ciclo. A **Descrição** e a **Ligação** do produto também estão disponíveis como colunas; ficam ocultas no início, por isso ative-as no separador **Colunas** do painel.
 
 Clique em **Editar na grelha** para alterar as células diretamente. As datas e as respostas de suporte abrem um pequeno editor, e pode arrastar o valor de uma célula para baixo numa coluna (como no Excel) para o copiar para vários ciclos. O menu da linha (**⋮**) adiciona um ciclo ao produto, edita o nome, a ligação e a descrição do produto, ou elimina um ciclo ou o produto.
 
-Um produto não pode ser eliminado enquanto houver fichas vinculadas a ele. Eliminar um ciclo usado por fichas deixa o seu estado de fim de vida **desconhecido** até alguém escolher outro ciclo. Mudar o nome de um ciclo leva consigo as fichas vinculadas.
+Um produto ou um ciclo não pode ser eliminado enquanto houver fichas vinculadas a ele, incluindo fichas que não pode ver. Para retirar um ciclo usado por fichas, mude-lhe antes o nome (ao mudar o nome, as fichas vinculadas acompanham-no) ou vincule primeiro essas fichas a outro ciclo. A ligação de um produto é oferecida nas suas fichas como ligação para as notas de lançamento.
 
 Também pode adicionar um ciclo em falta a partir de uma ficha: depois de selecionado um produto personalizado na secção Fim de vida da ficha, a lista de ciclos termina com **Adicionar ciclo…**.
 
@@ -112,7 +112,7 @@ O Turbo EA nunca envia nada para o GitHub por si próprio e não guarda credenci
 
 ### Mudar para o endoflife.date
 
-Quando o endoflife.date começa a acompanhar um produto que manteve como personalizado, a grelha mostra junto dele uma indicação **No endoflife.date**. Clique na indicação, ou escolha **Mudar para um produto do endoflife.date…** no menu da linha:
+Quando o endoflife.date começa a acompanhar um produto que manteve como personalizado, a grelha mostra junto dele uma indicação **No endoflife.date**. A indicação só aparece para uma correspondência próxima (o mesmo nome, ou o nome do seu produto contido no do endoflife.date), pelo que um nome curto do endoflife.date que apenas ocorre dentro do seu não a ativa. Clique na indicação, ou escolha **Mudar para um produto do endoflife.date…** no menu da linha:
 
 1. Escolha o produto do endoflife.date.
 2. Para cada um dos seus ciclos, escolha o ciclo do endoflife.date para o qual as suas fichas devem passar (os ciclos com o mesmo nome são emparelhados automaticamente), ou mantenha-o no produto personalizado.

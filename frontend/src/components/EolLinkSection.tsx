@@ -167,6 +167,10 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   const [eolSuggestions, setEolSuggestions] = useState<EolProductMatch[]>([]);
   const [eolSearching, setEolSearching] = useState(false);
   const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
+  // A search that failed (endoflife.date unreachable) says nothing about
+  // whether it tracks the product, so neither may prompt "define it here".
+  const [suggestFailed, setSuggestFailed] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState("");
   const [addCycleOpen, setAddCycleOpen] = useState(false);
@@ -204,6 +208,8 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
     setError("");
     setEolSuggestions([]);
     setEolAutoSearchDone(false);
+    setSuggestFailed(false);
+    setSearchFailed(false);
   }, [resetKey]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-fuzzy-search using card name (mirrors CreateCardDialog pattern)
@@ -215,6 +221,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         setEolSuggestions([]);
         setEolAutoSearchDone(false);
         setEolSearching(false);
+        setSuggestFailed(false);
         return;
       }
       if (productSearch && productSearch !== trimmed) return;
@@ -227,10 +234,12 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         if (!isCurrent()) return;
         setEolSuggestions(res);
         rememberTitles(res);
+        setSuggestFailed(false);
         setEolAutoSearchDone(true);
       } catch {
         if (!isCurrent()) return;
         setEolSuggestions([]);
+        setSuggestFailed(true);
         setEolAutoSearchDone(true);
       } finally {
         if (isCurrent()) setEolSearching(false);
@@ -247,6 +256,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
       if (debouncedProductSearch.length < 2) {
         setProductOptions([]);
         setProductLoading(false);
+        setSearchFailed(false);
         return;
       }
       setProductLoading(true);
@@ -258,9 +268,11 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         if (!isCurrent()) return;
         setProductOptions(res);
         rememberTitles(res);
+        setSearchFailed(false);
       } catch {
         if (!isCurrent()) return;
         setProductOptions([]);
+        setSearchFailed(true);
       } finally {
         if (isCurrent()) setProductLoading(false);
       }
@@ -268,26 +280,38 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
     [debouncedProductSearch],
   );
 
-  // Fetch cycles when product is selected
-  useEffect(() => {
-    if (!selectedProduct) {
-      setCycles([]);
-      setSelectedCycle("");
-      return;
-    }
-    setCyclesLoading(true);
-    setError("");
-    api
-      .get<EolCycle[]>(`/eol/products/${encodeURIComponent(selectedProduct)}`)
-      .then((res) => {
+  // Fetch cycles when product is selected. Picking another product while a
+  // slow reply is in flight must not let that reply land on the new product.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!selectedProduct) {
+        setCycles([]);
+        setSelectedCycle("");
+        setCyclesLoading(false);
+        return;
+      }
+      setCyclesLoading(true);
+      setError("");
+      try {
+        const res = await api.get<EolCycle[]>(
+          `/eol/products/${encodeURIComponent(selectedProduct)}`,
+          { signal },
+        );
+        if (!isCurrent()) return;
         setCycles(res);
         const pending = pendingCycleRef.current;
         pendingCycleRef.current = null;
         setSelectedCycle(pending && res.some((c) => c.cycle === pending) ? pending : "");
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setCyclesLoading(false));
-  }, [selectedProduct, cyclesRev]);
+      } catch (e) {
+        if (!isCurrent()) return;
+        setCycles([]);
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (isCurrent()) setCyclesLoading(false);
+      }
+    },
+    [selectedProduct, cyclesRev],
+  );
 
   const selectedIsCustom = isCustomEolProduct(selectedProduct);
   // Nothing on endoflife.date for what was typed (or, before anything was
@@ -296,12 +320,17 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   const typed = productSearch.trim();
   const searchSettled = debouncedProductSearch === productSearch && !productLoading;
   const noUpstreamForTyped =
-    typed.length >= 2 && searchSettled && !productOptions.some((p) => !p.custom);
+    typed.length >= 2 &&
+    searchSettled &&
+    !searchFailed &&
+    !productOptions.some((p) => !p.custom);
   const noUpstreamForCard =
     !typed &&
     eolAutoSearchDone &&
     !eolSearching &&
-    !eolSuggestions.some((s) => !s.custom && s.score >= STRONG_MATCH);
+    !suggestFailed &&
+    // Any strong match, custom included: a strong custom one already exists.
+    !eolSuggestions.some((s) => s.score >= STRONG_MATCH);
   const offerCreate = !selectedProduct && (noUpstreamForTyped || noUpstreamForCard);
   const createFrom = typed || (cardName || "").trim();
 
@@ -906,7 +935,9 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {card.type === "ITComponent"
                 ? t("eol.linkDescription.itComponent")
-                : t("eol.linkDescription.application")}
+                : card.type === "Application"
+                  ? t("eol.linkDescription.application")
+                  : t("eol.linkDescription.other")}
             </Typography>
             <EolPicker
               onSelect={handleLink}

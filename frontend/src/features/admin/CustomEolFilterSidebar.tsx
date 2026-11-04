@@ -72,11 +72,29 @@ export const CUSTOM_EOL_COLUMNS: CustomEolColumn[] = [
   { id: "status", labelKey: "eol.custom.columns.status", icon: "traffic" },
   { id: "linked", labelKey: "eol.custom.columns.linked", icon: "link" },
   { id: "updated", labelKey: "eol.custom.columns.updated", icon: "schedule" },
+  { id: "description", labelKey: "eol.custom.columns.description", icon: "notes" },
+  { id: "link", labelKey: "eol.custom.columns.link", icon: "open_in_new" },
   { id: "actions", labelKey: "eol.custom.columns.actions", icon: "more_horiz" },
 ];
 
 /** Columns that anchor each row and cannot be hidden. */
 export const LOCKED_CUSTOM_EOL_COLUMNS = new Set(["product", "cycle", "actions"]);
+
+/** Product-level detail, shown on request: it repeats on every cycle row. */
+const HIDDEN_BY_DEFAULT = new Set(["description", "link"]);
+
+/** The columns a first visit shows, and what Reset brings back. */
+export const DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS = CUSTOM_EOL_COLUMNS.map((c) => c.id).filter(
+  (id) => !HIDDEN_BY_DEFAULT.has(id),
+);
+
+/** True when `visible` is anything but the default column set. */
+export function columnsDifferFromDefault(visible: Set<string>): boolean {
+  return (
+    visible.size !== DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS.length ||
+    DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS.some((id) => !visible.has(id))
+  );
+}
 
 const USAGE_OPTIONS: { id: UsageFilter; labelKey: string; color: string }[] = [
   { id: "any", labelKey: "eol.custom.filters.usageAny", color: STATUS_COLORS.info },
@@ -84,8 +102,9 @@ const USAGE_OPTIONS: { id: UsageFilter; labelKey: string; color: string }[] = [
   { id: "unused", labelKey: "eol.custom.filters.usageUnused", color: STATUS_COLORS.neutral },
 ];
 
-const MIN_WIDTH = 220;
-const MAX_WIDTH = 480;
+/** The sidebar's resize bounds; stored prefs are clamped to them too. */
+export const SIDEBAR_MIN_WIDTH = 220;
+export const SIDEBAR_MAX_WIDTH = 480;
 
 // Stryker disable all: layout, spacing and colour are presentation; jsdom lays nothing out
 const SX = {
@@ -263,7 +282,7 @@ export default function CustomEolFilterSidebar({
   const toggleSection = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
   const activeCount = useMemo(() => activeFilterCount(filters), [filters]);
   const allColumnIds = useMemo(() => CUSTOM_EOL_COLUMNS.map((c) => c.id), []);
-  const columnsChanged = visibleColumns.size < CUSTOM_EOL_COLUMNS.length;
+  const columnsChanged = columnsDifferFromDefault(visibleColumns);
 
   const toggleIn = (key: "products" | "statuses", value: string) => {
     const current = filters[key];
@@ -286,7 +305,9 @@ export default function CustomEolFilterSidebar({
     const startX = e.clientX;
     const startW = width;
     const onMove = (ev: MouseEvent) =>
-      onWidthChange(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startW + (ev.clientX - startX))));
+      onWidthChange(
+        Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, startW + (ev.clientX - startX))),
+      );
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
@@ -385,6 +406,17 @@ export default function CustomEolFilterSidebar({
                         <MaterialSymbol icon="search" size={16} />
                       </InputAdornment>
                     ),
+                    endAdornment: filters.search ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          aria-label={t("eol.custom.filters.clearSearch")}
+                          onClick={() => onFiltersChange({ ...filters, search: "" })}
+                        >
+                          <MaterialSymbol icon="close" size={16} />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : undefined,
                   }}
                 />
               </Collapse>
@@ -506,7 +538,7 @@ export default function CustomEolFilterSidebar({
                 {columnsChanged && (
                   <Button
                     size="small"
-                    onClick={() => onVisibleColumnsChange(new Set(allColumnIds))}
+                    onClick={() => onVisibleColumnsChange(new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS))}
                     startIcon={<MaterialSymbol icon="restart_alt" size={14} />}
                     sx={SX.resetButton}
                   >

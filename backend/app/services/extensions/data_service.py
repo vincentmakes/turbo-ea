@@ -67,6 +67,7 @@ from app.services import (
     stakeholder_service,
     tag_service,
 )
+from app.services.card_flags import eol_type_keys
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_write_service import WriteActor
 from app.services.eol_custom_service import load_custom_cycles
@@ -610,6 +611,9 @@ class ExtensionData:
             .where(Card.status == "ACTIVE")
         )
         async with async_session() as db:
+            # Only types whose End of Life section is on take part, like
+            # every other EOL surface (`card_flags.type_tracks_eol`).
+            q = q.where(Card.type.in_(await eol_type_keys(db)))
             rows = (await db.execute(q)).all()
             # Custom EOL products are database rows: read them in this same
             # short session, before the outbound endoflife.date fetch.

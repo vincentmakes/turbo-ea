@@ -92,11 +92,11 @@ Aktiver Support und End of Life nehmen jeweils ein **Datum** oder eine von zwei 
 
 ### Zyklen im Raster verwalten
 
-Der Tab Eigene Produkte zeigt pro Release-Zyklus eine Zeile, nach Produkt gruppiert. Er funktioniert wie die anderen Raster: Spalten fixieren und neu anordnen, ein- oder ausblenden und im linken Bereich nach Produkt, Status oder Nutzung filtern. Die Spalte **Verknüpfte Karten** zeigt, wie viele der für Sie sichtbaren Karten den jeweiligen Zyklus verwenden.
+Der Tab Eigene Produkte zeigt pro Release-Zyklus eine Zeile, nach Produkt gruppiert. Er funktioniert wie die anderen Raster: Spalten fixieren und neu anordnen, ein- oder ausblenden und im linken Bereich nach Produkt, Status oder Nutzung filtern. Die Spalte **Verknüpfte Karten** zeigt, wie viele der für Sie sichtbaren Karten den jeweiligen Zyklus verwenden. Auch **Beschreibung** und **Link** des Produkts stehen als Spalten zur Verfügung; sie sind zunächst ausgeblendet und lassen sich im Tab **Spalten** des Bereichs einblenden.
 
 Klicken Sie auf **Im Raster bearbeiten**, um Zellen direkt zu ändern. Daten und Support-Angaben öffnen einen kleinen Editor, und Sie können den Wert einer Zelle (wie in Excel) in einer Spalte nach unten ziehen, um ihn auf mehrere Zyklen zu kopieren. Das Zeilenmenü (**⋮**) fügt dem Produkt einen Zyklus hinzu, bearbeitet Name, Link und Beschreibung des Produkts oder löscht einen Zyklus oder das Produkt.
 
-Ein Produkt kann nicht gelöscht werden, solange noch Karten damit verknüpft sind. Wird ein Zyklus gelöscht, den Karten verwenden, bleibt deren End-of-Life-Status **unbekannt**, bis jemand einen anderen Zyklus auswählt. Wird ein Zyklus umbenannt, ziehen die damit verknüpften Karten mit um.
+Ein Produkt oder ein Zyklus kann nicht gelöscht werden, solange noch Karten damit verknüpft sind, auch solche, die Sie nicht sehen können. Um einen von Karten verwendeten Zyklus auszumustern, benennen Sie ihn stattdessen um (beim Umbenennen ziehen die verknüpften Karten mit um) oder verknüpfen Sie diese Karten zuerst mit einem anderen Zyklus. Der Link eines Produkts wird an seinen Karten als Link zu den Release-Hinweisen angeboten.
 
 Einen fehlenden Zyklus können Sie auch an einer Karte hinzufügen: Sobald im Abschnitt End of Life der Karte ein eigenes Produkt ausgewählt ist, endet die Zyklenliste mit **Zyklus hinzufügen …**.
 
@@ -112,7 +112,7 @@ Turbo EA sendet selbst nie etwas an GitHub und speichert keine GitHub-Zugangsdat
 
 ### Auf endoflife.date umstellen
 
-Beginnt endoflife.date, ein Produkt zu erfassen, das Sie als eigenes geführt haben, zeigt das Raster daneben den Hinweis **Auf endoflife.date** an. Klicken Sie auf den Hinweis oder wählen Sie im Zeilenmenü **Auf Produkt von endoflife.date umstellen …**:
+Beginnt endoflife.date, ein Produkt zu erfassen, das Sie als eigenes geführt haben, zeigt das Raster daneben den Hinweis **Auf endoflife.date** an. Der Hinweis erscheint nur bei einer engen Übereinstimmung, also bei gleichem Namen oder wenn der Name Ihres Produkts im Namen auf endoflife.date enthalten ist; ein kurzer Name auf endoflife.date, der nur zufällig in Ihrem vorkommt, löst ihn nicht aus. Klicken Sie auf den Hinweis oder wählen Sie im Zeilenmenü **Auf Produkt von endoflife.date umstellen …**:
 
 1. Wählen Sie das Produkt von endoflife.date.
 2. Wählen Sie für jeden Ihrer Zyklen den Zyklus von endoflife.date, auf den seine Karten wechseln sollen (Zyklen mit demselben Namen werden automatisch zugeordnet), oder belassen Sie ihn beim eigenen Produkt.

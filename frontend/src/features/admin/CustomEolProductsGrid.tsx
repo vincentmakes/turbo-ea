@@ -26,6 +26,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
@@ -58,7 +59,7 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import { EOL_STATUSES, EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS } from "@/lib/eol";
-import { milestoneMode, type MilestoneKind } from "@/lib/eolCustom";
+import { isValidEolLink, milestoneMode, type MilestoneKind } from "@/lib/eolCustom";
 import type { EolCustomProduct, EolMilestone } from "@/types";
 import CustomEolFilterSidebar, {
   CUSTOM_EOL_COLUMNS,
@@ -135,6 +136,18 @@ export default function CustomEolProductsGrid() {
           // Not clearing `error`: a reload follows every write, and the
           // write's own failure is exactly what the user needs to read.
           setProducts(res);
+          // "Now on endoflife.date?" hints, refreshed with every reload so a
+          // product just created or renamed gets its hint. A hint only: it
+          // never blocks the grid, and a failure leaves the last hints up.
+          api
+            .get<Record<string, { name: string; score: number }>>(
+              "/eol/custom-products/upstream-matches",
+              { signal },
+            )
+            .then((m) => {
+              if (isCurrent()) setMatches(m);
+            })
+            .catch(() => {});
         } catch (e) {
           if (isCurrent()) setError(e instanceof Error ? e.message : t("common:errors.generic"));
         } finally {
@@ -146,18 +159,6 @@ export default function CustomEolProductsGrid() {
   useEffect(() => {
     load();
   }, [load]);
-
-  // "Now on endoflife.date?" hints — fetched once, never blocking the grid.
-  useEffect(() => {
-    let alive = true;
-    api
-      .get<Record<string, { name: string; score: number }>>("/eol/custom-products/upstream-matches")
-      .then((res) => alive && setMatches(res))
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   const rows = useMemo(() => buildRows(products), [products]);
   const visibleRows = useMemo(() => filterRows(rows, filters), [rows, filters]);
@@ -310,7 +311,12 @@ export default function CustomEolProductsGrid() {
       const detail = e instanceof ApiError ? (e.detail as { code?: string; count?: number }) : null;
       setError(
         detail?.code === "cards_linked"
-          ? t("eol.custom.errors.cardsLinked", { count: detail.count ?? 0 })
+          ? t(
+              current.kind === "cycle"
+                ? "eol.custom.errors.cycleLinked"
+                : "eol.custom.errors.cardsLinked",
+              { count: detail.count ?? 0 },
+            )
           : e instanceof Error
             ? e.message
             : t("common:errors.generic"),
@@ -490,6 +496,26 @@ export default function CustomEolProductsGrid() {
         valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
       },
       {
+        colId: "description",
+        headerName: t("eol.custom.columns.description"),
+        width: 240,
+        // Truncated, so plain text: a cut-off address is not a link (§3.14).
+        valueGetter: (p) => (p.data?.product ? (p.data.product.description ?? "") : ""),
+        tooltipValueGetter: (p) => p.value || undefined,
+      },
+      {
+        colId: "link",
+        headerName: t("eol.custom.columns.link"),
+        width: 220,
+        valueGetter: (p) => (p.data?.product ? (p.data.product.link ?? "") : ""),
+        cellRenderer: (p: { value?: string }) =>
+          p.value && isValidEolLink(p.value) ? (
+            <Link href={p.value} target="_blank" rel="noopener noreferrer" underline="hover">
+              {p.value}
+            </Link>
+          ) : null,
+      },
+      {
         colId: "actions",
         headerName: "",
         width: 64,
@@ -551,6 +577,14 @@ export default function CustomEolProductsGrid() {
   );
 
   const menuRow = menu?.row;
+  // Cards the caller can see still linking what the dialog would delete: the
+  // server refuses that delete, so the dialog explains instead of offering it.
+  const confirmLinked =
+    confirm?.kind === "product"
+      ? confirm.product.linked_cards
+      : confirm?.kind === "cycle"
+        ? confirm.row.linked
+        : 0;
   const closeMenu = () => setMenu(null);
 
   return (
@@ -792,20 +826,26 @@ export default function CustomEolProductsGrid() {
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {confirm?.kind === "product"
-              ? confirm.product.linked_cards > 0
-                ? t("eol.custom.confirmDeleteProductLinked", {
-                    count: confirm.product.linked_cards,
-                  })
-                : t("eol.custom.confirmDeleteProduct")
-              : t("eol.custom.confirmDeleteCycle", {
-                  count: confirm?.kind === "cycle" ? confirm.row.linked : 0,
-                })}
+            {confirmLinked > 0
+              ? t(
+                  confirm?.kind === "product"
+                    ? "eol.custom.confirmDeleteProductBlocked"
+                    : "eol.custom.confirmDeleteCycleBlocked",
+                  { count: confirmLinked },
+                )
+              : confirm?.kind === "product"
+                ? t("eol.custom.confirmDeleteProduct")
+                : t("eol.custom.confirmDeleteCycle")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirm(null)}>{t("common:actions.cancel")}</Button>
-          <Button color="error" variant="contained" onClick={runDelete}>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={runDelete}
+            disabled={confirmLinked > 0}
+          >
             {t("common:actions.delete")}
           </Button>
         </DialogActions>

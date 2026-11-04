@@ -92,11 +92,11 @@ Active support and End of life each take a **date**, or one of two answers for w
 
 ### Managing cycles in the grid
 
-The Custom products tab shows one row per release cycle, grouped by product. It works like the other grids: freeze and reorder columns, show or hide them and filter by product, status or usage from the left-hand panel. The **Linked cards** column shows how many of the cards you can see use each cycle.
+The Custom products tab shows one row per release cycle, grouped by product. It works like the other grids: freeze and reorder columns, show or hide them and filter by product, status or usage from the left-hand panel. The **Linked cards** column shows how many of the cards you can see use each cycle. The product's **Description** and **Link** are available as columns too; they are hidden at first, so turn them on from the panel's **Columns** tab.
 
 Click **Edit in grid** to change cells in place. Dates and support answers open a small editor, and you can drag a cell's value down a column (Excel-style) to copy it to several cycles. The row menu (**⋮**) adds a cycle to the product, edits the product's name, link and description, or deletes a cycle or the product.
 
-A product cannot be deleted while cards still link to it. Deleting a cycle that cards use leaves their End of Life status **unknown** until someone picks another cycle. Renaming a cycle moves the cards linked to it along with it.
+A product or a cycle cannot be deleted while cards still link to it — including cards you cannot see. To retire a cycle that cards use, rename it instead (renaming moves the cards linked to it along with it), or link those cards to another cycle first. A product's link is offered on its cards as the release notes link.
 
 You can also add a missing cycle from a card: once a custom product is selected in the card's End of Life section, the cycle list ends with **Add cycle…**.
 
@@ -112,7 +112,7 @@ Turbo EA never sends anything to GitHub itself and stores no GitHub credentials.
 
 ### Switching to endoflife.date
 
-When endoflife.date starts tracking a product you kept as a custom one, the grid shows an **On endoflife.date** hint next to it. Click the hint, or choose **Switch to endoflife.date product…** from the row menu:
+When endoflife.date starts tracking a product you kept as a custom one, the grid shows an **On endoflife.date** hint next to it. The hint appears only for a close match — the same name, or your product's name within the endoflife.date one — so a short endoflife.date name that merely occurs inside yours does not trigger it. Click the hint, or choose **Switch to endoflife.date product…** from the row menu:
 
 1. Pick the endoflife.date product.
 2. For each of your cycles, choose the endoflife.date cycle its cards should move to (cycles with the same name are matched for you), or keep it on the custom product.

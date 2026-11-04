@@ -10,11 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - Custom EOL products: when endoflife.date has no entry for a product, define it yourself with its release cycles and link cards to it like any endoflife.date product. Its status shows on the card, in the inventory's End of life column, in the EOL report and in the data quality figures.
 - Create a custom EOL product straight from a card's End of Life section when the search finds nothing on endoflife.date, and add a missing cycle from the cycle list.
-- Settings → EOL → Custom products: a grid of every custom product's cycles, grouped by product, with filters, column freeze, in-place editing and drag-fill.
+- Settings → EOL → Custom products: a grid of every custom product's cycles, grouped by product, with filters, column freeze, in-place editing and drag-fill. A product or a cycle that cards still link cannot be deleted; rename the cycle instead, and its cards move with it.
 - "Propose to endoflife.date" drafts a custom product's file in endoflife.date's format and opens it on GitHub, so you can contribute the product from your own account.
 - "Switch to endoflife.date product…" moves a custom product's cards onto endoflife.date once it tracks the product, cycle by cycle; the grid points out custom products that endoflife.date now appears to cover.
 - The EOL report's Source filter and badges distinguish custom products from endoflife.date and from dates entered by hand.
-- End of Life can be tracked on any card type, custom ones included: turn on the End of Life section in the type's card layout and the type joins the card section, the EOL report, coverage figures, dashboards, the inventory column and bulk linking. It stays on by default for Applications and IT Components only.
+- End of Life can be tracked on any card type, custom ones included: turn on the End of Life section in the type's card layout and the type joins the card section, the EOL report, coverage figures, dashboards, the inventory column, bulk linking and the extension SDK's EOL status. It stays on by default for Applications and IT Components only.
 
 ### Changed
 - The data quality and dashboard end-of-life coverage label "Linked to endoflife.date" now reads "Linked to an EOL product", since a link to a custom product counts too.

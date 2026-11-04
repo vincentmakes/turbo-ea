@@ -136,6 +136,8 @@ describe("SwitchToUpstreamDialog", () => {
     );
     expect(await screen.findByText("GET /eol/products/nope failed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Switch" })).toBeDisabled();
+    // The error says it all: no "no cycles" line under it.
+    expect(screen.queryByText(/lists no release cycles yet/)).toBeNull();
   });
 });
 
@@ -206,9 +208,15 @@ describe("SwitchToUpstreamDialog — details", () => {
     open({ initialTarget: "acme" });
     expect(await screen.findByRole("progressbar")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByText(/lists no release cycles yet/)).toBeNull();
     release([]);
     await waitFor(() => expect(screen.queryByRole("progressbar")).toBeNull());
     expect(screen.queryByRole("table")).toBeNull();
+    expect(
+      screen.getByText(
+        "This endoflife.date product lists no release cycles yet, so there is nothing to switch the cards to.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/will be linked to/)).toBeNull();
     expect(screen.getByRole("button", { name: "Switch" })).toBeDisabled();
   });

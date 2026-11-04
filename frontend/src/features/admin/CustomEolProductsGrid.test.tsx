@@ -213,22 +213,34 @@ describe("toolbar and row menu", () => {
     ]);
   });
 
-  it("explains a refused delete instead of the raw error", async () => {
-    mockApi.fail("delete", "/eol/custom-products/acme-erp", 409, {
-      code: "cards_linked",
-      count: 2,
-      message: "Cards are still linked to this product",
-    });
+  it("does not offer to delete a product cards still link", async () => {
     const { user } = await renderGrid();
     const cell = gridStub.colDef("actions").cellRenderer as (p: { data: unknown }) => React.ReactElement;
     const actions = render(cell({ data: row("c1") }));
     await user.click(within(actions.container).getByRole("button"));
     await user.click(await screen.findByRole("menuitem", { name: /Delete product/ }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText(/2 cards still link this product/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/^2 cards still link this product, so it cannot be deleted/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("explains a refusal for cards the caller cannot see instead of the raw error", async () => {
+    mockApi.fail("delete", "/eol/custom-products/bare", 409, {
+      code: "cards_linked",
+      count: 0,
+      message: "Cards are still linked to this product",
+    });
+    const { user } = await renderGrid();
+    const cell = gridStub.colDef("actions").cellRenderer as (p: { data: unknown }) => React.ReactElement;
+    const actions = render(cell({ data: row("product:bare") }));
+    await user.click(within(actions.container).getByRole("button"));
+    await user.click(await screen.findByRole("menuitem", { name: /Delete product/ }));
+    const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     // The reload that follows the delete must not wipe the explanation.
-    expect(await screen.findByText(/Cards still link this product \(2 that you can see\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Cards still link this product \(0 that you can see\)/)).toBeInTheDocument();
     await waitFor(() => expect(mockApi.callsOf("get", "/eol/custom-products")).toHaveLength(2));
     expect(screen.getByText(/Cards still link this product/)).toBeInTheDocument();
   });
@@ -315,6 +327,50 @@ describe("columns", () => {
     expect(render(<>{statusCell({ data: row("c1") })}</>).container).toHaveTextContent("End of Life");
   });
 
+  it("offers the product's description and link as columns, hidden by default", async () => {
+    mockApi.on("get", "/eol/custom-products", [
+      { ...ACME, description: "Our ERP", link: "https://acme.example/erp" },
+      { ...BARE, link: "javascript:alert(1)" },
+    ]);
+    await renderGrid();
+    expect(gridStub.colDef("description").hide).toBe(true);
+    expect(gridStub.colDef("link").hide).toBe(true);
+    expect(gridStub.colDef("description").headerName).toBe("Description");
+    expect(gridStub.colDef("link").headerName).toBe("Link");
+    expect(gridStub.cellValue("description", row("c2"))).toBe("Our ERP");
+    expect(gridStub.cellValue("description", row("product:bare"))).toBe("");
+    const linkCell = gridStub.colDef("link").cellRenderer as (p: { value?: string }) => React.ReactNode;
+    const link = render(<>{linkCell({ value: gridStub.cellValue("link", row("c2")) as string })}</>);
+    const anchor = within(link.container).getByRole("link", { name: "https://acme.example/erp" });
+    expect(anchor).toHaveAttribute("href", "https://acme.example/erp");
+    expect(anchor).toHaveAttribute("target", "_blank");
+    expect(anchor).toHaveAttribute("rel", "noopener noreferrer");
+    // Never a link to anything but http(s).
+    const unsafe = render(<>{linkCell({ value: "javascript:alert(1)" })}</>);
+    expect(unsafe.container).toBeEmptyDOMElement();
+  });
+
+  it("refreshes the endoflife.date hints with every reload", async () => {
+    mockApi.on("get", "/eol/custom-products/upstream-matches", {});
+    mockApi.on("patch", "/eol/custom-products/acme-erp/cycles/c2", {});
+    await renderGrid();
+    // Read the renderer afresh each time: it closes over the current hints.
+    const productCell = () =>
+      render(
+        (gridStub.colDef("product").cellRenderer as (p: { data: unknown }) => React.ReactElement)({
+          data: row("c2"),
+        }),
+      ).container;
+    expect(productCell()).not.toHaveTextContent(/On endoflife.date/);
+    mockApi.on("get", "/eol/custom-products/upstream-matches", { "acme-erp": { name: "acme", score: 1 } });
+    gridStub.editCell("latest", row("c2"), "2.5", "2.4");
+    await waitFor(() =>
+      expect(mockApi.callsOf("get", "/eol/custom-products/upstream-matches")).toHaveLength(2),
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(productCell()).toHaveTextContent("On endoflife.date: acme");
+  });
+
   it("hides the columns the stored preference leaves out", async () => {
     localStorage.setItem(
       PREFS_STORAGE_KEY,
@@ -363,18 +419,47 @@ describe("toolbar and notices", () => {
     return screen.findByRole("menu");
   }
 
-  it("deletes a cycle after confirming, reports it, and lets the notice go", async () => {
-    mockApi.on("delete", "/eol/custom-products/acme-erp/cycles/c1", {});
+  it("does not offer to delete a cycle cards still link, and suggests renaming it", async () => {
     const { user } = await renderGrid();
     const menu = await openMenu(user, "c1");
     await user.click(within(menu).getByRole("menuitem", { name: /Delete cycle/ }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Delete cycle 1?")).toBeInTheDocument();
-    expect(within(dialog).getByText(/^2 cards link this cycle/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/^2 cards still link this cycle, so it cannot be deleted\. Rename/),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete" })).toBeDisabled();
+  });
+
+  it("explains a cycle delete refused by the server", async () => {
+    mockApi.fail("delete", "/eol/custom-products/acme-erp/cycles/c2", 409, {
+      code: "cards_linked",
+      count: 1,
+      message: "Cards are still linked to this cycle",
+    });
+    const { user } = await renderGrid();
+    const menu = await openMenu(user, "c2");
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete cycle/ }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "1 card still links this cycle. Rename the cycle, or link the card to another cycle, first.",
+    );
+  });
+
+  it("deletes a cycle after confirming, reports it, and lets the notice go", async () => {
+    mockApi.on("delete", "/eol/custom-products/acme-erp/cycles/c2", {});
+    const { user } = await renderGrid();
+    const menu = await openMenu(user, "c2");
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete cycle/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Delete cycle 2?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("The cycle will be deleted. This cannot be undone."),
+    ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Delete" }));
     await waitFor(() =>
       expect(mockApi.callsOf("delete").map((c) => c.path)).toEqual([
-        "/eol/custom-products/acme-erp/cycles/c1",
+        "/eol/custom-products/acme-erp/cycles/c2",
       ]),
     );
     const notice = await screen.findByRole("alert");

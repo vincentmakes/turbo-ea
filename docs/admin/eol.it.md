@@ -92,11 +92,11 @@ Supporto attivo e fine vita accettano ciascuno una **data**, oppure una delle du
 
 ### Gestire i cicli nella griglia
 
-La scheda Prodotti personalizzati mostra una riga per ciclo di rilascio, raggruppata per prodotto. Funziona come le altre griglie: bloccare e riordinare le colonne, mostrarle o nasconderle e filtrare per prodotto, stato o utilizzo dal pannello a sinistra. La colonna **Schede collegate** indica quante delle schede visibili utilizzano ciascun ciclo.
+La scheda Prodotti personalizzati mostra una riga per ciclo di rilascio, raggruppata per prodotto. Funziona come le altre griglie: bloccare e riordinare le colonne, mostrarle o nasconderle e filtrare per prodotto, stato o utilizzo dal pannello a sinistra. La colonna **Schede collegate** indica quante delle schede visibili utilizzano ciascun ciclo. Anche la **Descrizione** e il **Link** del prodotto sono disponibili come colonne; all'inizio sono nascoste, quindi attivatele dalla scheda **Colonne** del pannello.
 
 Fate clic su **Modifica nella griglia** per modificare direttamente le celle. Le date e le risposte di supporto aprono un piccolo editor ed è possibile trascinare il valore di una cella lungo una colonna (come in Excel) per copiarlo su più cicli. Il menu di riga (**⋮**) aggiunge un ciclo al prodotto, modifica nome, link e descrizione del prodotto oppure elimina un ciclo o il prodotto.
 
-Un prodotto non può essere eliminato finché vi sono schede collegate. Eliminare un ciclo utilizzato da schede lascia il loro stato di fine vita **sconosciuto** finché qualcuno non sceglie un altro ciclo. Rinominare un ciclo sposta con sé le schede collegate.
+Un prodotto o un ciclo non può essere eliminato finché vi sono schede collegate, comprese quelle che non potete vedere. Per ritirare un ciclo utilizzato da schede, rinominatelo (rinominando, le schede collegate si spostano con esso) oppure collegate prima quelle schede a un altro ciclo. Il link di un prodotto viene proposto sulle sue schede come link alle note di rilascio.
 
 È possibile aggiungere un ciclo mancante anche da una scheda: una volta selezionato un prodotto personalizzato nella sezione Fine vita della scheda, l'elenco dei cicli termina con **Aggiungi ciclo…**.
 
@@ -112,7 +112,7 @@ Turbo EA non invia mai nulla a GitHub da solo e non memorizza credenziali GitHub
 
 ### Passare a endoflife.date
 
-Quando endoflife.date inizia a monitorare un prodotto che avevate mantenuto come personalizzato, la griglia mostra accanto un suggerimento **Su endoflife.date**. Fate clic sul suggerimento oppure scegliete **Passa a un prodotto di endoflife.date…** dal menu di riga:
+Quando endoflife.date inizia a monitorare un prodotto che avevate mantenuto come personalizzato, la griglia mostra accanto un suggerimento **Su endoflife.date**. Il suggerimento compare solo per una corrispondenza stretta (lo stesso nome, oppure il nome del vostro prodotto contenuto in quello di endoflife.date), quindi un nome breve di endoflife.date che compare solo all'interno del vostro non lo attiva. Fate clic sul suggerimento oppure scegliete **Passa a un prodotto di endoflife.date…** dal menu di riga:
 
 1. Scegliete il prodotto di endoflife.date.
 2. Per ciascuno dei vostri cicli, scegliete il ciclo di endoflife.date a cui le sue schede devono passare (i cicli con lo stesso nome vengono abbinati automaticamente), oppure mantenetelo sul prodotto personalizzato.

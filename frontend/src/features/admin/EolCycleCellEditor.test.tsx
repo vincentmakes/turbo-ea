@@ -60,5 +60,13 @@ describe("EolCycleCellEditor", () => {
     expect(onValueChange).toHaveBeenLastCalledWith("2027-03-01");
     expect(screen.getByRole("combobox")).toHaveTextContent("Date");
   });
+
+  it("marks the milestone menu as part of the editor, so picking does not end the edit", async () => {
+    setup("eol");
+    await userEvent.click(screen.getByRole("combobox"));
+    const listbox = await screen.findByRole("listbox");
+    // AG Grid's isElementWithinCustomPopup walks up to this class.
+    expect(listbox.closest(".ag-custom-component-popup")).not.toBeNull();
+  });
 });
 

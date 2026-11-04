@@ -3,7 +3,9 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import CustomEolFilterSidebar, {
   CUSTOM_EOL_COLUMNS,
+  DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS,
   EMPTY_CUSTOM_EOL_FILTERS,
+  columnsDifferFromDefault,
   activeFilterCount,
   type CustomEolFilters,
 } from "./CustomEolFilterSidebar";
@@ -20,7 +22,7 @@ function setup(over: Partial<React.ComponentProps<typeof CustomEolFilterSidebar>
     onToggleCollapse: vi.fn(),
     width: 260,
     onWidthChange: vi.fn(),
-    visibleColumns: new Set(CUSTOM_EOL_COLUMNS.map((c) => c.id)),
+    visibleColumns: new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS),
     onVisibleColumnsChange: vi.fn(),
     frozenColumns: new Set<string>(),
     onToggleFrozen: vi.fn(),
@@ -31,6 +33,26 @@ function setup(over: Partial<React.ComponentProps<typeof CustomEolFilterSidebar>
   };
   const view = render(<CustomEolFilterSidebar {...props} />);
   return { ...props, ...view };
+}
+
+function propsWith(over: Partial<React.ComponentProps<typeof CustomEolFilterSidebar>>) {
+  return {
+    filters: EMPTY_CUSTOM_EOL_FILTERS,
+    onFiltersChange: vi.fn(),
+    products: [],
+    collapsed: false,
+    onToggleCollapse: vi.fn(),
+    width: 260,
+    onWidthChange: vi.fn(),
+    visibleColumns: new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS),
+    onVisibleColumnsChange: vi.fn(),
+    frozenColumns: new Set<string>(),
+    onToggleFrozen: vi.fn(),
+    columnOrderItems: [],
+    columnOrder: [],
+    onColumnOrderChange: vi.fn(),
+    ...over,
+  };
 }
 
 /** A section header reads chevron, icon, label, then its count chip if any. */
@@ -101,7 +123,7 @@ describe("CustomEolFilterSidebar", () => {
     await userEvent.click(within(list).getByText("Latest version"));
     const hidden = p.onVisibleColumnsChange.mock.calls[0][0] as Set<string>;
     expect(hidden.has("latest")).toBe(false);
-    expect(hidden.size).toBe(CUSTOM_EOL_COLUMNS.length - 1);
+    expect(hidden.size).toBe(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS.length - 1);
     // "Product" is locked: its row is disabled.
     const productRow = screen.getAllByText("Product").at(-1)!.closest("[role=button]");
     expect(productRow).toHaveAttribute("aria-disabled", "true");
@@ -154,6 +176,15 @@ describe("CustomEolFilterSidebar", () => {
     expect(header("Usage")).toBe("expand_morelinkUsage");
     await userEvent.click(screen.getByText("Search", { selector: "p" }));
     expect(header("Search")).toBe("expand_moresearchSearch");
+  });
+
+  it("clears the search from its close button, shown only once there is text", async () => {
+    const { onFiltersChange, rerender } = setup();
+    expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
+    const filters = { ...EMPTY_CUSTOM_EOL_FILTERS, search: "acme", statuses: ["eol"] };
+    rerender(<CustomEolFilterSidebar {...propsWith({ filters, onFiltersChange })} />);
+    await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(onFiltersChange).toHaveBeenLastCalledWith({ ...filters, search: "" });
   });
 
   it("passes the raw search text on", async () => {
@@ -223,18 +254,35 @@ describe("the Columns tab", () => {
     return { p, selectAll, box };
   }
 
-  it("with every column shown: all checked, no reset, no change dot", async () => {
-    const { selectAll, box } = await openColumns(ALL_COLUMNS());
+  it("with the default columns: no reset, no change dot, description and link left off", async () => {
+    const { selectAll, box } = await openColumns(new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS));
     expect(screen.getByText("11 columns shown")).toBeInTheDocument();
     expect(header("Visible columns")).toBe("expand_moregrid_viewVisible columns11");
+    expect(selectAll).not.toHaveAttribute("aria-disabled");
+    expect(box.checked).toBe(false);
+    expect(box).toHaveAttribute("data-indeterminate", "true");
+    expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull();
+    expect(screen.queryAllByTestId("change-dot")).toHaveLength(0);
+    expect(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS).not.toContain("description");
+    expect(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS).not.toContain("link");
+  });
+
+  it("with every column shown: all checked, and Reset returns to the default", async () => {
+    const { p, selectAll, box } = await openColumns(ALL_COLUMNS());
+    expect(screen.getByText("13 columns shown")).toBeInTheDocument();
     expect(selectAll).toHaveAttribute("aria-disabled", "true");
     expect(box.checked).toBe(true);
     expect(box).toHaveAttribute("data-indeterminate", "false");
-    expect(screen.queryByRole("button", { name: /Reset/ })).toBeNull();
-    expect(screen.queryAllByTestId("change-dot")).toHaveLength(0);
+    expect(screen.getByRole("tab", { name: /Columns/ })).toContainElement(
+      screen.getByTestId("change-dot"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Reset/ }));
+    expect(p.onVisibleColumnsChange).toHaveBeenLastCalledWith(
+      new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS),
+    );
   });
 
-  it("with some hidden: indeterminate, and Select all or Reset brings them all back", async () => {
+  it("with some hidden: indeterminate; Select all shows all, Reset the default", async () => {
     const visible = new Set([...LOCKED_ONLY(), "status"]);
     const { p, selectAll, box } = await openColumns(visible);
     expect(screen.getByText("4 columns shown")).toBeInTheDocument();
@@ -248,7 +296,18 @@ describe("the Columns tab", () => {
     expect(p.onVisibleColumnsChange).toHaveBeenLastCalledWith(ALL_COLUMNS());
     await userEvent.click(screen.getByRole("button", { name: /Reset/ }));
     expect(p.onVisibleColumnsChange).toHaveBeenCalledTimes(2);
-    expect(p.onVisibleColumnsChange).toHaveBeenLastCalledWith(ALL_COLUMNS());
+    expect(p.onVisibleColumnsChange).toHaveBeenLastCalledWith(
+      new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS),
+    );
+  });
+
+  it("tells the default column set from any other of the same size", () => {
+    const swapped = new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS);
+    swapped.delete("updated");
+    swapped.add("link");
+    expect(columnsDifferFromDefault(new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS))).toBe(false);
+    expect(columnsDifferFromDefault(swapped)).toBe(true);
+    expect(columnsDifferFromDefault(ALL_COLUMNS())).toBe(true);
   });
 
   it("with only the locked columns: neither checked nor indeterminate", async () => {

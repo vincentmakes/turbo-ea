@@ -75,11 +75,27 @@ describe("when endoflife.date has no match", () => {
   it("still offers it when endoflife.date has only weak look-alikes", async () => {
     mockApi.on("get", FUZZY_URL, [
       { name: "clear-linux", score: 0.69 },
-      { name: "custom:other", title: "Other", custom: true, score: 0.95 },
+      { name: "custom:other", title: "Other", custom: true, score: 0.6 },
     ]);
     renderSection(UNLINKED);
     expect(await screen.findByText("clear-linux")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create custom product" })).toBeInTheDocument();
+  });
+
+  it("does not offer it when a custom product already matches strongly", async () => {
+    mockApi.on("get", FUZZY_URL, [
+      { name: "custom:ubuntu-lts", title: "Ubuntu LTS", custom: true, score: 0.7 },
+    ]);
+    renderSection(UNLINKED);
+    expect(await screen.findByText("Ubuntu LTS", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
+  });
+
+  it("does not offer it when the search for the card's name failed", async () => {
+    mockApi.fail("get", FUZZY_URL, 502);
+    renderSection(UNLINKED);
+    expect(await screen.findByText(/No EOL matches found/)).toBeInTheDocument();
+    expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
   });
 
   it("does not offer it while endoflife.date has a strong match", async () => {
@@ -292,6 +308,16 @@ describe("the create offer follows what was typed", () => {
     expect(await screen.findByText(/Define "Gizmo 9" as a custom product/)).toBeInTheDocument();
   });
 
+  it("makes no offer when the search for the typed name failed", async () => {
+    mockApi.fail("get", "/eol/products?search=zz", 502);
+    renderSection(UNLINKED);
+    await screen.findByRole("button", { name: "Create custom product" });
+    await userEvent.type(screen.getAllByRole("combobox")[0], "zz");
+    await waitFor(() => expect(mockApi.callsOf("get", "/eol/products?search=zz")).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
+  });
+
   it("closes the create dialog on Cancel", async () => {
     renderSection(UNLINKED);
     await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
@@ -317,6 +343,44 @@ describe("suggested matches", () => {
     await userEvent.click(chip("Acme ERP"));
     expect(screen.getAllByRole("combobox")[0]).toHaveValue("Acme ERP");
     await waitFor(() => expect(mockApi.callsOf("get", ACME_CYCLES_URL)).toHaveLength(1));
+  });
+});
+
+describe("cycles of the product picked last", () => {
+  it("ignore a slower reply for the product picked before", async () => {
+    let releaseSlow: (v: unknown) => void = () => {};
+    mockApi.on("get", FUZZY_URL, [{ name: "slowdb", score: 0.6 }]);
+    mockApi.on("get", "/eol/products/slowdb", () => new Promise((r) => (releaseSlow = r)));
+    mockApi.on("get", "/eol/products?search=acme", [
+      { name: "custom:acme-erp", title: "Acme ERP", custom: true },
+    ]);
+    renderSection(UNLINKED);
+    await userEvent.click(await screen.findByText("slowdb"));
+    await waitFor(() => expect(mockApi.callsOf("get", "/eol/products/slowdb")).toHaveLength(1));
+    const search = screen.getAllByRole("combobox")[0];
+    await userEvent.clear(search);
+    await userEvent.type(search, "acme");
+    await userEvent.click(await screen.findByRole("option", { name: /Acme ERP/ }));
+    await waitFor(() => expect(mockApi.callsOf("get", ACME_CYCLES_URL)).toHaveLength(1));
+    const select = await cycleSelect();
+    releaseSlow([{ cycle: "99", eol: false }]);
+    await new Promise((r) => setTimeout(r, 50));
+    await userEvent.click(select);
+    expect(screen.getByRole("option", { name: /^2/ })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /^99/ })).toBeNull();
+  });
+});
+
+describe("the link prompt", () => {
+  it("speaks of a card for a type other than Application or IT Component", async () => {
+    withMetamodel([
+      makeCardType({ key: "Gadget", label: "Gadget", section_config: { eol: { hidden: false } } }),
+    ]);
+    mockApi.on("get", "/eol/products/fuzzy?search=Gizmo%209&limit=5", []);
+    renderSection(makeCard({ type: "Gadget", name: "Gizmo 9" }));
+    expect(
+      await screen.findByText(/^Link this card to a product on endoflife.date/),
+    ).toBeInTheDocument();
   });
 });
 
