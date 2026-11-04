@@ -136,6 +136,22 @@ describe("buildEolProductFile", () => {
     expect(file.split("\n")[quote + 1]).toBe("");
   });
 
+  it("escapes a backslash, so user text cannot cancel the escape after it", () => {
+    const file = buildEolProductFile(
+      {
+        key: "x",
+        title: "Acme\\",
+        description: "ends with \\](javascript:alert(1))",
+        link: "https://acme.example/a\\b",
+        cycles: [cycle({ cycle: "1", eol: "2030-01-01" })],
+      },
+      OPTIONS,
+    );
+    expect(file).toContain(
+      "> [Acme\\\\](https://acme.example/a%5Cb) ends with \\\\\\]\\(javascript:alert\\(1\\)\\)",
+    );
+  });
+
   it("uses today when no date is given", () => {
     const { today: _today, ...rest } = OPTIONS;
     expect(buildEolProductFile(PRODUCT, rest)).toMatch(/addedAt: \d{4}-\d{2}-\d{2}\n/);

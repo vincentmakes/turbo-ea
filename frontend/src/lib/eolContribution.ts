@@ -123,17 +123,23 @@ export function buildEolProductFile(
 }
 
 /** One line of Markdown prose: whitespace collapsed (a newline would end the
- * blockquote) and link syntax escaped, so user text cannot become a link. */
+ * blockquote) and link syntax escaped, backslash first so user text can never
+ * cancel an escape and become a link. */
 function markdownText(text: string): string {
   return text
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/([[\]()])/g, "\\$1");
+    .replace(/([\\[\]()])/g, "\\$1");
 }
 
 /** A link target that cannot end the `(...)` early or break on a space. */
 function markdownUrl(url: string): string {
-  return url.trim().replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\s/g, "%20");
+  return url
+    .trim()
+    .replace(/\\/g, "%5C")
+    .replace(/\(/g, "%28")
+    .replace(/\)/g, "%29")
+    .replace(/\s/g, "%20");
 }
 
 /**
