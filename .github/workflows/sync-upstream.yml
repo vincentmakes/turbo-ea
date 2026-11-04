@@ -1,0 +1,73 @@
+# Daily sync of this fork's main with the upstream default branch
+# (vincentmakes/turbo-ea main).
+#
+# Merge, not reset: the fork's main carries its own commits on top of
+# upstream, so `git merge` fast-forwards when possible and only creates a
+# merge commit when the histories have actually diverged. A hard reset
+# would silently drop every local commit.
+#
+# Token: the push to main runs with a GitHub App installation token minted
+# from the APP_ID / APP_PRIVATE_KEY repo secrets. The App must be installed
+# on this repository with repository permission "Contents: read/write"
+# (and must be allowed by any branch protection rule on main). The default
+# GITHUB_TOKEN stays read-only; the upstream fetch authenticates with the
+# same App token through a one-shot http extraheader, so the token is never
+# persisted in .git/config and never lands in a remote URL.
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # 03:00 UTC every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check App secrets are configured
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "::error::The APP_ID / APP_PRIVATE_KEY repo secrets are not set." \
+              "Install the GitHub App on this repository with Contents: read/write" \
+              "and save its App ID and private key as the APP_ID and" \
+              "APP_PRIVATE_KEY repository secrets — see the header of this workflow."
+            exit 1
+          fi
+
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Fetch upstream
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git remote add upstream https://github.com/vincentmakes/turbo-ea.git
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" fetch upstream
+
+      - name: Merge upstream/main into main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-edit upstream/main
+
+      - name: Push main
+        run: git push origin main
