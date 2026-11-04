@@ -46,6 +46,7 @@ from app.services.card_read_scope import (
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_value import cost_value
+from app.services.eol_custom_service import is_custom_product, load_custom_cycles
 from app.services.eol_service import (
     eol_status,
     fetch_cycles_for_products,
@@ -2313,7 +2314,8 @@ async def eol_report(
     (IT Component → related Applications).
 
     Each item includes a ``source`` field: ``"api"`` for items linked
-    to endoflife.date, ``"manual"`` for items with only a hand-entered
+    to endoflife.date, ``"custom"`` for items linked to one of the
+    organisation's own custom EOL products, ``"manual"`` for items with only a hand-entered
     ``endOfLife`` lifecycle date, and ``"none"`` for cards carrying neither.
 
     Those last ones (``status: "missing"``) are the answer to "which of my
@@ -2363,10 +2365,12 @@ async def eol_report(
             },
         }
 
-    # 2. Batch-fetch unique products from endoflife.date (for API-linked items)
-    product_cycles = await fetch_cycles_for_products(
-        {(card.attributes or {})["eol_product"] for card in api_sheets}
-    )
+    # 2. Batch-fetch unique products from endoflife.date (for API-linked
+    #    items). Links to a custom EOL product resolve from the database
+    #    instead and are never sent upstream.
+    linked_products = {(card.attributes or {})["eol_product"] for card in api_sheets}
+    custom_cycles = await load_custom_cycles(db, linked_products)
+    product_cycles = await fetch_cycles_for_products(linked_products)
 
     # 3. Get relations between ITComponent and Application for impact mapping.
     #    Uncovered components are included: "what would this hit if it went
@@ -2423,7 +2427,9 @@ async def eol_report(
         cycle_key = str(attrs["eol_cycle"])
 
         # Match cycle data
-        cycle_data = find_cycle(product_cycles.get(product, []), cycle_key)
+        is_custom = is_custom_product(product)
+        cycles = (custom_cycles if is_custom else product_cycles).get(product, [])
+        cycle_data = find_cycle(cycles, cycle_key)
 
         status = "unknown"
         if cycle_data:
@@ -2450,7 +2456,7 @@ async def eol_report(
                 "eol_product": product,
                 "eol_cycle": cycle_key,
                 "status": status,
-                "source": "api",
+                "source": "custom" if is_custom else "api",
                 "cycle_data": cycle_data,
                 "lifecycle": card.lifecycle,
                 "affected_apps": affected_apps,

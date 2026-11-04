@@ -2044,6 +2044,74 @@ async def seed_default_categories_for_test(db):
     await db.flush()
 
 
+async def test_custom_eol_products_round_trip(db):
+    """Custom EOL products and their cycles travel by natural key: a product
+    by its slug, a cycle by (slug, cycle). ``eol`` / ``support`` keep their
+    exact JSON value — a date string, ``true`` or ``false`` — and a version
+    string like "1.10" is not read back as a number."""
+    from app.models.eol_custom_cycle import EolCustomCycle
+    from app.models.eol_custom_product import EolCustomProduct
+
+    await create_role(db, key="admin", label="Admin", permissions={"*": True})
+    user = await create_user(db, email="eol-ws@test.com", role="admin")
+    db.add(
+        EolCustomProduct(
+            key="acme-erp",
+            title="Acme ERP",
+            description="In-house ERP",
+            link="https://acme.example/erp",
+            created_by=user.id,
+        )
+    )
+    await db.flush()
+    db.add_all(
+        [
+            EolCustomCycle(
+                product_key="acme-erp",
+                cycle="1.10",
+                release_date="2020-01-01",
+                support=True,
+                eol="2024-06-30",
+                latest="1.10.4",
+            ),
+            EolCustomCycle(product_key="acme-erp", cycle="2", eol=False, support=None),
+        ]
+    )
+    await db.flush()
+
+    raw = await build_bundle(db)
+    cycle_rows = parse_bundle(raw).rows(schema.SHEET_EOL_CUSTOM_CYCLES)
+    assert {r["cycle"] for r in cycle_rows} == {"1.10", "2"}
+
+    await db.execute(delete(EolCustomCycle))
+    await db.execute(delete(EolCustomProduct))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    product = (await db.execute(select(EolCustomProduct))).scalar_one()
+    assert (product.key, product.title, product.link) == (
+        "acme-erp",
+        "Acme ERP",
+        "https://acme.example/erp",
+    )
+    cycles = {c.cycle: c for c in (await db.execute(select(EolCustomCycle))).scalars().all()}
+    assert set(cycles) == {"1.10", "2"}
+    old = cycles["1.10"]
+    assert (old.release_date, old.support, old.eol, old.latest) == (
+        "2020-01-01",
+        True,
+        "2024-06-30",
+        "1.10.4",
+    )
+    assert (cycles["2"].eol, cycles["2"].support) == (False, None)
+
+    again = await apply_bundle(db, parse_bundle(raw), user)
+    for sheet in (schema.SHEET_EOL_CUSTOM_PRODUCTS, schema.SHEET_EOL_CUSTOM_CYCLES):
+        section = next(s for s in again.sections if s.sheet == sheet)
+        assert (section.created, section.updated) == (0, 0), sheet
+
+
 async def test_principles_roundtrip_and_are_numbered_by_the_target(db):
     """Principles travel by title; each instance numbers its own (``P-NNN``).
 

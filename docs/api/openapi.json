@@ -6133,7 +6133,7 @@
             "title": "Latest"
           },
           "source": {
-            "description": "api (endoflife.date link) | manual (lifecycle date)",
+            "description": "api (endoflife.date link) | custom (custom EOL product) | manual (lifecycle date)",
             "title": "Source",
             "type": "string"
           },
@@ -6176,6 +6176,498 @@
           "items"
         ],
         "title": "EolCardStatusResponse",
+        "type": "object"
+      },
+      "EolCustomCycleCreate": {
+        "properties": {
+          "cycle": {
+            "title": "Cycle",
+            "type": "string"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          }
+        },
+        "required": [
+          "cycle"
+        ],
+        "title": "EolCustomCycleCreate",
+        "type": "object"
+      },
+      "EolCustomCycleOut": {
+        "properties": {
+          "cycle": {
+            "title": "Cycle",
+            "type": "string"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "linked_cards": {
+            "default": 0,
+            "title": "Linked Cards",
+            "type": "integer"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "cycle"
+        ],
+        "title": "EolCustomCycleOut",
+        "type": "object"
+      },
+      "EolCustomCycleUpdate": {
+        "description": "Partial update; a field left out of the body is left alone.",
+        "properties": {
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle"
+          },
+          "eol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol"
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest"
+          },
+          "latestReleaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latestreleasedate"
+          },
+          "releaseDate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Releasedate"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          }
+        },
+        "title": "EolCustomCycleUpdate",
+        "type": "object"
+      },
+      "EolCustomProductCreate": {
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/EolCustomCycleCreate"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "EolCustomProductCreate",
+        "type": "object"
+      },
+      "EolCustomProductOut": {
+        "properties": {
+          "cycles": {
+            "items": {
+              "$ref": "#/components/schemas/EolCustomCycleOut"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "linked_cards": {
+            "default": 0,
+            "title": "Linked Cards",
+            "type": "integer"
+          },
+          "product": {
+            "description": "The value a card stores: \"custom:<key>\"",
+            "title": "Product",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "product",
+          "title"
+        ],
+        "title": "EolCustomProductOut",
+        "type": "object"
+      },
+      "EolCustomProductUpdate": {
+        "description": "Title, description and link. The key is immutable: cards store it.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "link": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "title": "EolCustomProductUpdate",
+        "type": "object"
+      },
+      "EolCustomSwitchRequest": {
+        "description": "Move a custom product's card links onto an endoflife.date product.",
+        "properties": {
+          "cycle_map": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Cycle Map",
+            "type": "object"
+          },
+          "delete_when_unused": {
+            "default": false,
+            "title": "Delete When Unused",
+            "type": "boolean"
+          },
+          "target_product": {
+            "title": "Target Product",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_product"
+        ],
+        "title": "EolCustomSwitchRequest",
+        "type": "object"
+      },
+      "EolCustomSwitchResult": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "kept": {
+            "title": "Kept",
+            "type": "integer"
+          },
+          "relinked": {
+            "title": "Relinked",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "relinked",
+          "kept",
+          "deleted"
+        ],
+        "title": "EolCustomSwitchResult",
         "type": "object"
       },
       "EolCycle": {
@@ -6304,11 +6796,27 @@
         "type": "object"
       },
       "EolProduct": {
-        "description": "A product identifier returned from the product list.",
+        "description": "A product identifier returned from the product list.\n\n``custom`` products are the organisation's own (``name`` is then\n``custom:<key>`` and ``title`` its display name).",
         "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -6319,6 +6827,40 @@
       },
       "EolProductMatch": {
         "description": "A product with a fuzzy match score.",
+        "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "name",
+          "score"
+        ],
+        "title": "EolProductMatch",
+        "type": "object"
+      },
+      "EolUpstreamMatch": {
         "properties": {
           "name": {
             "title": "Name",
@@ -6333,7 +6875,7 @@
           "name",
           "score"
         ],
-        "title": "EolProductMatch",
+        "title": "EolUpstreamMatch",
         "type": "object"
       },
       "ExtensionInstallOut": {
@@ -7635,6 +8177,11 @@
             "title": "Card Type",
             "type": "string"
           },
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "eol_product": {
             "title": "Eol Product",
             "type": "string"
@@ -7642,6 +8189,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -28719,6 +29277,401 @@
         ]
       }
     },
+    "/api/v1/eol/custom-products": {
+      "get": {
+        "description": "Every custom product with its cycles and how many cards link to each.\n\nThe counts cover the cards the caller may read, never naming one.",
+        "operationId": "list_custom_products_api_v1_eol_custom_products_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EolCustomProductOut"
+                  },
+                  "title": "Response List Custom Products Api V1 Eol Custom Products Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Custom Products",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "post": {
+        "description": "Create a custom product, optionally with its first cycles.\n\nOne request, so a user who found nothing on endoflife.date from a card\ncan define the product and link the card without leaving it.",
+        "operationId": "create_custom_product_api_v1_eol_custom_products_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomProductCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/upstream-matches": {
+      "get": {
+        "description": "Custom products that now look covered by endoflife.date.\n\n``{key: {name, score}}`` for each custom product whose title or key\nclosely matches an upstream product \u2014 the cue to switch its cards over.\nAn unreachable endoflife.date yields an empty map, not an error: this is\na hint, and the grid must still load without it.",
+        "operationId": "custom_product_upstream_matches_api_v1_eol_custom_products_upstream_matches_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EolUpstreamMatch"
+                  },
+                  "title": "Response Custom Product Upstream Matches Api V1 Eol Custom Products Upstream Matches Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Custom Product Upstream Matches",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}": {
+      "delete": {
+        "description": "Delete a product no card links to (409 ``cards_linked`` otherwise).",
+        "operationId": "delete_custom_product_api_v1_eol_custom_products__key__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "patch": {
+        "description": "Edit a product's title, description or link. The key never changes.",
+        "operationId": "update_custom_product_api_v1_eol_custom_products__key__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomProductUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomProductOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/cycles": {
+      "post": {
+        "description": "Add a release cycle to a custom product.",
+        "operationId": "create_custom_cycle_api_v1_eol_custom_products__key__cycles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomCycleCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomCycleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/cycles/{cycle_id}": {
+      "delete": {
+        "description": "Delete one cycle; reports how many visible cards were linked to it.",
+        "operationId": "delete_custom_cycle_api_v1_eol_custom_products__key__cycles__cycle_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cycle_id",
+            "required": true,
+            "schema": {
+              "title": "Cycle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      },
+      "patch": {
+        "description": "Patch one cycle: the admin grid's per-cell and drag-fill write.",
+        "operationId": "update_custom_cycle_api_v1_eol_custom_products__key__cycles__cycle_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cycle_id",
+            "required": true,
+            "schema": {
+              "title": "Cycle Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomCycleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomCycleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Custom Cycle",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/custom-products/{key}/switch": {
+      "post": {
+        "description": "Move a custom product's card links onto an endoflife.date product.\n\nOnce endoflife.date tracks a product (perhaps after someone proposed it),\nthe custom copy should give way. The target's cycles are fetched first,\nwith no connection held, then the cards the caller can read are relinked\ncycle by cycle as ``cycle_map`` says; a cycle mapped to null keeps its\ncards. Lifecycle dates are never touched, as with mass-link.",
+        "operationId": "switch_custom_product_api_v1_eol_custom_products__key__switch_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EolCustomSwitchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EolCustomSwitchResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Switch Custom Product",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
     "/api/v1/eol/mass-link": {
       "post": {
         "description": "Bulk-link cards to EOL products/cycles.\n\nExpects a list of: [{card_id, eol_product, eol_cycle}].\nOnly the EOL product/cycle association is recorded \u2014 lifecycle phase dates\n(including End of Life, the decommission date) are manually owned and are\nnever auto-filled from vendor EOL data.",
@@ -28929,7 +29882,7 @@
     },
     "/api/v1/eol/products/{product}": {
       "get": {
-        "description": "Return all release cycles for a given product.",
+        "description": "Return all release cycles for a given product.\n\nA ``custom:<key>`` product is served from the database and never reaches\nthe upstream proxy below.",
         "operationId": "get_product_cycles_api_v1_eol_products__product__get",
         "parameters": [
           {
@@ -35856,7 +36809,7 @@
     },
     "/api/v1/reports/eol": {
       "get": {
-        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
+        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"custom\"`` for items linked to one of the\norganisation's own custom EOL products, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
         "operationId": "eol_report_api_v1_reports_eol_get",
         "responses": {
           "200": {

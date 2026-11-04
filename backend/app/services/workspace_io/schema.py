@@ -27,6 +27,8 @@ from app.models.card_type_category import CardTypeCategory
 from app.models.compliance_regulation import ComplianceRegulation
 from app.models.dashboard import Dashboard
 from app.models.ea_principle import EAPrinciple
+from app.models.eol_custom_cycle import EolCustomCycle
+from app.models.eol_custom_product import EolCustomProduct
 from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
@@ -60,6 +62,8 @@ SHEET_COMPLIANCE_REGS = "ComplianceRegs"
 SHEET_RESOURCE_TYPES = "ResourceTypes"
 SHEET_CARD_TYPE_CATEGORIES = "CardTypeCategories"
 SHEET_DASHBOARDS = "Dashboards"
+SHEET_EOL_CUSTOM_PRODUCTS = "EolCustomProducts"
+SHEET_EOL_CUSTOM_CYCLES = "EolCustomCycles"
 SHEET_SETTINGS = "Settings"
 SHEET_USERS = "Users"
 SHEET_CARDS = "Cards"
@@ -323,5 +327,33 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "widgets",
         ),
         json_columns=frozenset({"translations", "allowed_roles", "widgets"}),
+    ),
+    # Custom EOL products and their cycles: the organisation's own end-of-life
+    # data for products endoflife.date does not track. Both upsert by natural
+    # key — a cycle points at its product by the product's immutable slug, not
+    # its id — so the product sheet must come first. ``created_by`` is
+    # instance-local and stays behind.
+    ConfigSection(
+        sheet=SHEET_EOL_CUSTOM_PRODUCTS,
+        model=EolCustomProduct,
+        natural_key=("key",),
+        columns=("key", "title", "description", "link"),
+        skip_columns=frozenset({"created_by"}),
+    ),
+    ConfigSection(
+        sheet=SHEET_EOL_CUSTOM_CYCLES,
+        model=EolCustomCycle,
+        natural_key=("product_key", "cycle"),
+        columns=(
+            "product_key",
+            "cycle",
+            "release_date",
+            "support",
+            "eol",
+            "latest",
+            "latest_release_date",
+            "sort_order",
+        ),
+        json_columns=frozenset({"support", "eol"}),
     ),
 )

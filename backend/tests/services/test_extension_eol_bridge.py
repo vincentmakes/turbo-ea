@@ -189,7 +189,7 @@ async def test_fetches_outside_the_session(env, db, monkeypatch):
         finally:
             state["open"] -= 1
 
-    async def fake_resolve(cards):
+    async def fake_resolve(cards, custom_cycles=None):
         state["open_during_fetch"] = state["open"]
         return {}
 
