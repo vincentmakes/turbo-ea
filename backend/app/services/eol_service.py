@@ -206,6 +206,8 @@ async def resolve_eol_statuses(
             "status": eol_status(cycle.get("eol"), cycle.get("support")) if cycle else "unknown",
             "source": "custom" if custom else "api",
             "eol_product": product,
+            # A custom product is named by its title; its cycles carry it.
+            "eol_product_title": cycles[0].get("title") if custom and cycles else None,
             "eol_cycle": cycle_key,
             # `eol` is a date string, `true`/`false`, or absent upstream. Only
             # a real date is worth showing in a date column; the rest is
@@ -223,6 +225,7 @@ async def resolve_eol_statuses(
             "status": manual_eol_status(lifecycle),
             "source": "manual",
             "eol_product": None,
+            "eol_product_title": None,
             "eol_cycle": None,
             "eol_date": lifecycle.get("endOfLife"),
             "support_date": lifecycle.get("phaseOut"),

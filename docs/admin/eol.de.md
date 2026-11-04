@@ -49,9 +49,12 @@ Eine Statistikzusammenfassung zeigt: gescannte Karten insgesamt, bereits verknü
 
 Einmal verknüpft, zeigt die Kartendetailseite einen **EOL-Abschnitt** mit:
 
-- **Produktname und Version**
-- **Supportstatus** — Farbcodiert: Unterstützt (grün), EOL nähert sich (orange), Lebensende (rot)
-- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, Ende des Sicherheitssupports, EOL-Datum
+- **Produktname und Version** — ein eigenes Produkt ist als **Eigenes** gekennzeichnet
+- **Supportstatus** — Farbcodiert, nach derselben Regel wie im EOL-Bericht: Unterstützt (grün), EOL nähert sich (orange, innerhalb von sechs Monaten vor dem EOL-Datum oder sobald der aktive Support beendet ist), Lebensende (rot)
+- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, EOL-Datum, die neueste Version und ihr Veröffentlichungsdatum
+- **Versionshinweise** — ein Link zur Produktseite auf endoflife.date oder die **Herstellerseite** eines eigenen Produkts
+
+Nur Benutzer, die die Karte bearbeiten dürfen, sehen **Verknüpfen**, **Ändern** und **Verknüpfung aufheben**; alle anderen sehen nur die Details. Ein EOL-Manager erhält zudem eine Verknüpfung zu **Eigene Produkte verwalten**, wenn ein eigenes Produkt verknüpft ist.
 
 ## Lebensende bei anderen Kartentypen
 
@@ -83,12 +86,11 @@ Es gibt zwei Wege:
 
 Jedes Produkt hat:
 
-- **Produktname** – so wird es überall angezeigt.
-- **Schlüssel** – ein kurzer Bezeichner in Kleinbuchstaben (Buchstaben, Ziffern, Punkte, Bindestriche, Unterstriche), der aus dem Namen vorgeschlagen wird. Kartenverknüpfungen speichern ihn, daher kann er nach dem Erstellen **nicht geändert** werden.
-- **Link zum Hersteller oder zur Release-Richtlinie** und **Beschreibung** – optional.
+- **Produktname** – so wird es überall angezeigt. Turbo EA leitet daraus einen Bezeichner für Kartenverknüpfungen ab (zwei Produkte mit demselben Namen erhalten nummerierte Bezeichner); Sie geben ihn nie ein, und er erscheint nur als Dateiname, wenn Sie das Produkt bei endoflife.date vorschlagen.
+- **Link zum Hersteller oder zur Release-Richtlinie** und **Beschreibung** – optional. Sind [KI-Vorschläge](ai.md) aktiviert, verfasst **Mit KI vorschlagen** die Beschreibung aus dem Produktnamen und dem Herstellerlink, damit Sie sie vor dem Übernehmen bearbeiten können.
 - **Release-Zyklen** – jeweils mit einem Namen (zum Beispiel `2.4`), einem **Veröffentlichungsdatum**, einem Ende des **aktiven Supports**, einem **End of Life** und optional der **Neuesten Version** samt Veröffentlichungsdatum.
 
-Aktiver Support und End of Life nehmen jeweils ein **Datum** oder eine von zwei Angaben, wenn kein Datum bekannt ist: *Noch unterstützt* / *Aktiver Support beendet* sowie *Kein End of Life angekündigt* / *Bereits End of Life*. Der Status (Unterstützt, EOL nähert sich, End of Life) wird daraus nach derselben Regel wie bei Produkten von endoflife.date berechnet.
+Aktiver Support und End of Life nehmen jeweils ein Datum (**An einem Datum …**) oder eine von zwei Angaben, wenn kein Datum bekannt ist: *Noch unterstützt* / *Support bereits beendet* sowie *Kein End of Life angekündigt* / *Bereits beendet*; *Unbekannt* speichert nichts. Der Status (Unterstützt, EOL nähert sich, End of Life) wird daraus nach derselben Regel wie bei Produkten von endoflife.date berechnet. Ein Problem bei einem Zyklus – kein Name, ein Ende vor dem Veröffentlichungsdatum – wird am betroffenen Feld angezeigt, und das Produkt kann erst gespeichert werden, wenn es behoben ist.
 
 ### Zyklen im Raster verwalten
 
@@ -105,7 +107,7 @@ Einen fehlenden Zyklus können Sie auch an einer Karte hinzufügen: Sobald im Ab
 Ist ein eigenes Produkt ein öffentliches Herstellerprodukt, sollten Sie erwägen, es bei endoflife.date vorzuschlagen, damit alle profitieren. Wählen Sie im Zeilenmenü **Bei endoflife.date vorschlagen**:
 
 1. Lesen Sie die Warnung: Das Vorschlagen veröffentlicht den Produktnamen und seine Daten. Schlagen Sie niemals hauseigene oder vertrauliche Produkte vor.
-2. Wählen Sie die **Kategorie** bei endoflife.date. Der Dialog zeigt die Produktdatei im Format von endoflife.date (`products/<key>.md`) als Vorschau.
+2. Wählen Sie die **Kategorie** bei endoflife.date. Der Dialog zeigt die Produktdatei im Format von endoflife.date (`products/<identifier>.md`) als Vorschau.
 3. Klicken Sie auf **Auf GitHub öffnen**. GitHub öffnet eine neue Datei im endoflife.date-Repository mit ausgefülltem Inhalt (es bietet an, das Repository zu forken, falls Sie dort nicht schreiben dürfen). Vervollständigen Sie die Beschreibung und die Zusammenfassung der Release-Richtlinie und öffnen Sie dann den Pull Request von Ihrem eigenen GitHub-Konto aus. Bei langen Dateien verwenden Sie stattdessen **Datei kopieren** und fügen sie in eine neue Datei ein.
 
 Turbo EA sendet selbst nie etwas an GitHub und speichert keine GitHub-Zugangsdaten. endoflife.date prüft jeden Vorschlag anhand seines [Beitragsleitfadens](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).

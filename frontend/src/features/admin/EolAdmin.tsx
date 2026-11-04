@@ -208,18 +208,37 @@ function CyclePickerDialog({
 
 // ── Main Admin Page ──────────────────────────────────────────────
 
+/** The sub-tab named in the page's URL, if any. */
+function eolTabFromLocation(): string | null {
+  return new URLSearchParams(window.location.search).get("eolTab");
+}
+
+/** Write the sub-tab into the URL without a navigation (no Router needed). */
+function rememberEolTab(value: string | null) {
+  const url = new URL(window.location.href);
+  if (value) url.searchParams.set("eolTab", value);
+  else url.searchParams.delete("eolTab");
+  window.history.replaceState(window.history.state, "", url);
+}
+
 /**
  * Settings → EOL: link cards to endoflife.date in bulk, and keep the
  * organisation's own custom EOL products for what endoflife.date lacks.
  */
 export default function EolAdmin() {
   const { t } = useTranslation("admin");
-  const [tab, setTab] = useState(0);
+  // `?eolTab=custom` opens the custom products: a card's End of Life section
+  // links here, and a refresh stays on the tab.
+  const [tab, setTab] = useState(() => (eolTabFromLocation() === "custom" ? 1 : 0));
+  const changeTab = (v: number) => {
+    setTab(v);
+    rememberEolTab(v === 1 ? "custom" : null);
+  };
   return (
     <Box>
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={(_, v) => changeTab(v)}
         sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}
       >
         <Tab
@@ -532,7 +551,8 @@ function EolMassLink() {
                     <Box sx={{ mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
                       <MaterialSymbol icon="check_circle" size={14} color={STATUS_COLORS.success} />
                       <Typography variant="caption" color="success.main">
-                        {eolProductLabel(r.current_eol_product ?? "")} {r.current_eol_cycle}
+                        {eolProductLabel(r.current_eol_product ?? "", r.current_title)}{" "}
+                        {r.current_eol_cycle}
                       </Typography>
                     </Box>
                   )}

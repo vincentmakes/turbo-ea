@@ -154,7 +154,6 @@ class TestValidators:
             ("-acme", False),
             ("Acme", False),
             ("custom:acme", False),
-            ("", False),
         ],
     )
     def test_product_key(self, key, ok):
@@ -163,6 +162,31 @@ class TestValidators:
         else:
             with pytest.raises(ValidationError):
                 EolCustomProductCreate(key=key, title="T")
+
+    def test_an_absent_key_is_generated_later(self):
+        # No key, an empty one or blanks: the service derives it from the title.
+        for given in (None, "", "  "):
+            assert EolCustomProductCreate(key=given, title="T").key is None
+        assert EolCustomProductCreate(title="T").key is None
+
+    @pytest.mark.parametrize(
+        ("title", "key"),
+        [
+            ("Acme ERP 2", "acme-erp-2"),
+            ("  Éclair  Café ", "eclair-cafe"),
+            ("SAP S/4HANA", "sap-s-4hana"),
+            ("--Weird__name..", "weird__name"),
+            ("🚀", ""),
+            ("x" * 150, "x" * 100),
+            ("a" * 99 + "-b", "a" * 99),
+        ],
+    )
+    def test_product_key_from_title(self, title, key):
+        from app.schemas.eol_custom import PRODUCT_KEY_RE, product_key_from_title
+
+        out = product_key_from_title(title)
+        assert out == key
+        assert out == "" or PRODUCT_KEY_RE.match(out)
 
     def test_too_many_cycles(self):
         cycles = [{"cycle": str(i)} for i in range(201)]
@@ -201,6 +225,7 @@ class TestResolver:
             "status": "eol",
             "source": "custom",
             "eol_product": "custom:acme",
+            "eol_product_title": None,
             "eol_cycle": "1",
             "eol_date": PAST,
             "support_date": PAST,
@@ -213,6 +238,15 @@ class TestResolver:
         )
         assert (out["c"]["status"], out["c"]["source"]) == ("unknown", "custom")
         assert (out["d"]["status"], out["d"]["source"]) == ("supported", "api")
+
+    async def test_the_custom_product_title_rides_on_the_status(self):
+        custom = {"custom:acme": [{"cycle": "1", "eol": False, "title": "Acme ERP"}]}
+        out = await eol_service.resolve_eol_statuses(
+            [_card("a", "custom:acme", "1"), _card("b", "custom:acme", "9")], custom
+        )
+        assert out["a"]["eol_product_title"] == "Acme ERP"
+        # Even on a cycle the product no longer has, the product is still named.
+        assert (out["b"]["status"], out["b"]["eol_product_title"]) == ("unknown", "Acme ERP")
 
     async def test_without_custom_cycles_a_custom_link_is_unknown(self):
         out = await eol_service.resolve_eol_statuses([_card("a", "custom:acme", "1")])
@@ -244,6 +278,8 @@ class TestLoadCustomCycles:
         assert list(out) == ["custom:acme"]
         assert [c["cycle"] for c in out["custom:acme"]] == ["2", "1"]
         assert out["custom:acme"][1]["eol"] is True
+        # Every cycle names its product: the resolver copies it to the status.
+        assert {c["title"] for c in out["custom:acme"]} == {"Acme"}
 
     async def test_nothing_custom_means_no_query(self, db):
         assert await svc.load_custom_cycles(db, [None, "python", 7]) == {}

@@ -14,10 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - "Propose to endoflife.date" drafts a custom product's file in endoflife.date's format and opens it on GitHub, so you can contribute the product from your own account.
 - "Switch to endoflife.date product…" moves a custom product's cards onto endoflife.date once it tracks the product, cycle by cycle; the grid points out custom products that endoflife.date now appears to cover.
 - The EOL report's Source filter and badges distinguish custom products from endoflife.date and from dates entered by hand.
+- A custom EOL product's description can be suggested by AI, like a card's, when AI suggestions are enabled.
 - End of Life can be tracked on any card type, custom ones included: turn on the End of Life section in the type's card layout and the type joins the card section, the EOL report, coverage figures, dashboards, the inventory column, bulk linking and the extension SDK's EOL status. It stays on by default for Applications and IT Components only.
 
 ### Changed
 - The data quality and dashboard end-of-life coverage label "Linked to endoflife.date" now reads "Linked to an EOL product", since a link to a custom product counts too.
+- A card's End of Life status chip follows the same rule as the EOL report, the inventory column and the dashboards: Supported, Approaching EOL (within six months of the EOL date, or once active support has ended) or End of Life. The card no longer shows a "Security fixes only" status of its own.
+- The card's End of Life section only offers Link, Change and Unlink to users who may edit the card.
 
 ### Fixed
 - The card layout's End of Life switch showed the section as visible on card types where it never appeared; it now shows the section's real state.

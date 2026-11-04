@@ -163,11 +163,12 @@ La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
 Mostrata per impostazione predefinita su Application e IT Component, e su qualsiasi altro tipo di card per cui l'amministratore l'ha [attivata](../admin/eol.md#fine-vita-su-altri-tipi-di-card). Se la card è collegata a un prodotto [endoflife.date](https://endoflife.date/) (tramite [Amministrazione EOL](../admin/eol.md)):
 
-- **Nome del prodotto e versione**
-- **Stato del supporto** — Con codice colore: Supportato, In avvicinamento a EOL, End of Life
-- **Date chiave** — Data di rilascio, fine supporto attivo, fine supporto di sicurezza, data EOL
+- **Nome del prodotto e versione** — un prodotto personalizzato è denominato con il suo titolo e contrassegnato come **Personalizzato**
+- **Stato del supporto** — Con codice colore, con la stessa regola del report EOL: Supportato, In avvicinamento a EOL (entro sei mesi dalla data EOL o una volta terminato il supporto attivo), End of Life
+- **Date chiave** — Data di rilascio, fine supporto attivo, data EOL, l'ultima versione e la sua data di rilascio
+- **Note di rilascio** — un link alla pagina del prodotto su endoflife.date, oppure la **Pagina del fornitore** di un prodotto personalizzato
 
-Quando endoflife.date non ha corrispondenze per il prodotto, gli utenti con il permesso **Gestire EOL** possono creare un [prodotto EOL personalizzato](../admin/eol.md) direttamente da questa sezione e collegarvi la scheda. I prodotti personalizzati sono contrassegnati come **Personalizzato** e altrove si comportano come i prodotti di endoflife.date.
+**Collega**, **Cambia** e **Scollega** compaiono solo se potete modificare la scheda. Quando endoflife.date non ha corrispondenze per il prodotto, gli utenti con il permesso **Gestire EOL** possono creare un [prodotto EOL personalizzato](../admin/eol.md) direttamente da questa sezione e collegarvi la scheda; dispongono inoltre di una scorciatoia a **Gestisci i prodotti personalizzati** nelle impostazioni e possono aggiungere un ciclo di rilascio mancante dall'elenco dei cicli. I prodotti personalizzati altrove si comportano come i prodotti di endoflife.date.
 
 ## Scheda Commenti
 

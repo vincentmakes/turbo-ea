@@ -43,7 +43,7 @@ function renderSection(card: Card, user: User | null = MANAGER) {
 
 /** The product Autocomplete is the first combobox, the cycle Select the second. */
 async function cycleSelect(): Promise<HTMLElement> {
-  await screen.findAllByText("Version / Cycle");
+  await screen.findAllByText("Release cycle");
   return screen.getAllByRole("combobox")[1];
 }
 
@@ -140,8 +140,7 @@ describe("when endoflife.date has no match", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText(/Product name/)).toHaveValue("Ubuntu LTS");
-    expect(within(dialog).getByLabelText(/^Key/)).toHaveValue("ubuntu-lts");
-    await userEvent.type(within(dialog).getByLabelText(/Version \/ Cycle/), "22.04");
+    await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -210,7 +209,7 @@ describe("searching", () => {
       { cycle: "3", eol: false },
       { cycle: "2", eol: false },
     ]);
-    await userEvent.type(within(dialog).getByLabelText(/Version \/ Cycle/), "3");
+    await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "3");
     await userEvent.click(within(dialog).getByRole("button", { name: "Add cycle" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -398,7 +397,7 @@ describe("a picked custom product", () => {
     await pickAcme();
     await cycleSelect();
     await userEvent.type(screen.getAllByRole("combobox")[0], "x");
-    await waitFor(() => expect(screen.queryByText("Version / Cycle")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Release cycle")).toBeNull());
   });
 
   it("with no cycles: an EOL manager can add the first one, and cancel", async () => {
@@ -440,7 +439,7 @@ describe("after creating a product here", () => {
     renderSection(UNLINKED);
     await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
     const dialog = await screen.findByRole("dialog");
-    await userEvent.type(within(dialog).getByLabelText(/Version \/ Cycle/), "22.04");
+    await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   }

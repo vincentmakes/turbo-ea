@@ -1486,6 +1486,8 @@ export interface EolCycle {
   discontinued?: string | boolean | null;
   codename?: string | null;
   link?: string | null;
+  /** A custom product's title; endoflife.date cycles carry none. */
+  title?: string | null;
 }
 
 /**
@@ -1498,6 +1500,8 @@ export interface EolCardStatus {
   /** `custom` — linked to one of the organisation's custom EOL products. */
   source: "api" | "custom" | "manual";
   eol_product?: string | null;
+  /** A custom product's title; null for endoflife.date links. */
+  eol_product_title?: string | null;
   eol_cycle?: string | null;
   /** ISO date, or null when upstream reports only a boolean. */
   eol_date?: string | null;
@@ -1573,6 +1577,8 @@ export interface MassEolResult {
   card_name: string;
   card_type: string;
   current_eol_product?: string | null;
+  /** The current link's title when it is a custom product. */
+  current_title?: string | null;
   current_eol_cycle?: string | null;
   candidates: MassEolCandidate[];
 }

@@ -497,6 +497,34 @@
         "title": "ADRUpdate",
         "type": "object"
       },
+      "AiEolProductSuggestRequest": {
+        "description": "A custom EOL product to describe: its name and, if known, its vendor page.",
+        "properties": {
+          "link": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AiEolProductSuggestRequest",
+        "type": "object"
+      },
       "AiFieldSuggestion": {
         "properties": {
           "confidence": {
@@ -6121,6 +6149,18 @@
             ],
             "title": "Eol Product"
           },
+          "eol_product_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A custom product's title; null for endoflife.date links",
+            "title": "Eol Product Title"
+          },
           "latest": {
             "anyOf": [
               {
@@ -6474,8 +6514,15 @@
             "title": "Description"
           },
           "key": {
-            "title": "Key",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
           },
           "link": {
             "anyOf": [
@@ -6494,7 +6541,6 @@
           }
         },
         "required": [
-          "key",
           "title"
         ],
         "title": "EolCustomProductCreate",
@@ -6787,6 +6833,17 @@
               }
             ],
             "title": "Support"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           }
         },
         "required": [
@@ -8255,6 +8312,17 @@
               }
             ],
             "title": "Current Eol Product"
+          },
+          "current_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Title"
           }
         },
         "required": [
@@ -21381,6 +21449,48 @@
           }
         },
         "summary": "Suggest",
+        "tags": [
+          "AI Suggestions"
+        ]
+      }
+    },
+    "/api/v1/ai/suggest-eol-product": {
+      "post": {
+        "description": "Suggest a description for a custom EOL product (Settings \u2192 EOL, or a\ncard's End of Life section).\n\nThe same pipeline as ``/suggest`` with a product-lifecycle search context.\nA product is not a card type, so the per-type enablement does not apply:\nthe switch and the provider configuration are what gate it.",
+        "operationId": "suggest_eol_product_api_v1_ai_suggest_eol_product_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiEolProductSuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiSuggestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggest Eol Product",
         "tags": [
           "AI Suggestions"
         ]

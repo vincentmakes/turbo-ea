@@ -199,6 +199,10 @@ Disse felter foreslås kun, når AI'en finder klart bevis — de spekuleres ikke
 !!! note
     Bortset fra Application-specifikke felter genererer AI-forslag primært **beskrivelsesfeltet**. Brugerdefinerede felter for andre korttyper er endnu ikke dækket.
 
+### Brugerdefinerede EOL-produkter
+
+Den samme knap vises i dialogerne **Opret et brugerdefineret EOL-produkt** og **Rediger brugerdefineret EOL-produkt** ([EOL-administration](eol.md)), når produktet har et navn. Forslaget udarbejdes ud fra produktnavnet og dets leverandørlink, med en søgning efter produktets supportlivscyklus. Et brugerdefineret produkt er ikke en korttype, så kontakten pr. type ovenfor gælder ikke: Funktionen kræver blot, at AI-forslag er aktiveret og konfigureret, samt tilladelsen `ai.suggest`.
+
 ---
 
 ## Porteføljeindsigt

@@ -43,6 +43,7 @@ from app.schemas.eol_custom import (
     EolCustomCycleUpdate,
     EolCustomProductCreate,
     EolCustomProductUpdate,
+    product_key_from_title,
 )
 from app.services import audit_log
 from app.services.card_flags import EOL_CYCLE_KEY, EOL_PRODUCT_KEY
@@ -111,17 +112,19 @@ async def load_custom_cycles(db: AsyncSession, products: Iterable[object]) -> di
         .all()
     )
     out: dict[str, list[dict]] = {product_ref(k): [] for k in keys}
-    # The product's own link (a vendor policy or release page) stands in for
-    # endoflife.date's per-cycle `link`, so the card offers it the same way.
+    # The product's title names it wherever a card does (endoflife.date
+    # products are named by their slug), and its link (a vendor policy or
+    # release page) stands in for endoflife.date's per-cycle `link`.
     product_rows = await db.execute(
-        select(EolCustomProduct.key, EolCustomProduct.link).where(EolCustomProduct.key.in_(keys))
-    )
-    links: dict[str, str | None] = {key: link for key, link in product_rows.all()}
-    for c in sorted_cycles(rows):
-        out[product_ref(c.product_key)].append(
-            {**cycle_to_dict(c), "link": links.get(c.product_key)}
+        select(EolCustomProduct.key, EolCustomProduct.title, EolCustomProduct.link).where(
+            EolCustomProduct.key.in_(keys)
         )
-    return {ref: cycles for ref, cycles in out.items() if key_of(ref) in links}
+    )
+    products_by_key = {key: (title, link) for key, title, link in product_rows.all()}
+    for c in sorted_cycles(rows):
+        title, link = products_by_key.get(c.product_key, (None, None))
+        out[product_ref(c.product_key)].append({**cycle_to_dict(c), "title": title, "link": link})
+    return {ref: cycles for ref, cycles in out.items() if key_of(ref) in products_by_key}
 
 
 async def linked_counts(
@@ -231,7 +234,7 @@ async def product_cycles(db: AsyncSession, key: str) -> list[dict]:
     """A product's cycles in endoflife.date's shape (404 when unknown)."""
     product = await get_product(db, key)
     return [
-        {**cycle_to_dict(c), "link": product.link}
+        {**cycle_to_dict(c), "title": product.title, "link": product.link}
         for c in sorted_cycles(await _product_cycles(db, key))
     ]
 
@@ -256,14 +259,24 @@ def _target(product: EolCustomProduct) -> tuple[str, str, str]:
 async def create_product(
     db: AsyncSession, user: User, body: EolCustomProductCreate
 ) -> EolCustomProduct:
-    """Create a product and its initial cycles in one step (409 on a taken key)."""
-    taken = (
-        await db.execute(select(EolCustomProduct.id).where(EolCustomProduct.key == body.key))
-    ).scalar_one_or_none()
-    if taken is not None:
-        raise HTTPException(409, "A custom EOL product with this key already exists")
+    """Create a product and its initial cycles in one step.
+
+    The key is generated from the title unless the caller (the API, a
+    workspace import) gives one: nobody types it, and two products may share
+    a title, so a generated key that exists gets ``-2``, ``-3``, … An explicit
+    key that exists is a 409.
+    """
+    if body.key is None:
+        key = await _free_key(db, product_key_from_title(body.title) or "product")
+    else:
+        key = body.key
+        taken = (
+            await db.execute(select(EolCustomProduct.id).where(EolCustomProduct.key == key))
+        ).scalar_one_or_none()
+        if taken is not None:
+            raise HTTPException(409, "A custom EOL product with this key already exists")
     product = EolCustomProduct(
-        key=body.key,
+        key=key,
         title=body.title,
         description=body.description,
         link=body.link,
@@ -272,7 +285,7 @@ async def create_product(
     db.add(product)
     await db.flush()
     for c in body.cycles:
-        db.add(_new_cycle(body.key, c, 0))
+        db.add(_new_cycle(key, c, 0))
     await db.flush()
     await audit_log.record(
         db,
@@ -283,6 +296,28 @@ async def create_product(
         context={"key": product.key, "cycles": [c.cycle for c in body.cycles]},
     )
     return product
+
+
+async def _free_key(db: AsyncSession, base: str) -> str:
+    """``base``, or the first of ``base-2``, ``base-3``, … no product has."""
+    taken = set(
+        (
+            await db.execute(
+                select(EolCustomProduct.key).where(EolCustomProduct.key.like(f"{base}%"))
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if base not in taken:
+        return base
+    n = 2
+    while True:
+        suffix = f"-{n}"
+        candidate = f"{base[: 100 - len(suffix)]}{suffix}"
+        if candidate not in taken:
+            return candidate
+        n += 1
 
 
 async def update_product(

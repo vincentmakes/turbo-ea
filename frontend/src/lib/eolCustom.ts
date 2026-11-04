@@ -38,31 +38,6 @@ export function eolProductLabel(product: string, title?: string | null): string 
   return customEolKey(product);
 }
 
-/** Mirrors `PRODUCT_KEY_RE` in `backend/app/schemas/eol_custom.py`. */
-export const CUSTOM_EOL_KEY_RE = /^[a-z0-9][a-z0-9._-]{0,99}$/;
-
-export function isValidCustomEolKey(key: string): boolean {
-  return CUSTOM_EOL_KEY_RE.test(key);
-}
-
-/**
- * A key suggested from a title: "Acme ERP 2" → "acme-erp-2". Accents are
- * folded, anything outside the key alphabet becomes one hyphen, and leading
- * or trailing separators are dropped, so the result always validates (or is
- * empty when the title holds nothing usable).
- */
-export function suggestCustomEolKey(title: string): string {
-  return title
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-{2,}/g, "-")
-    .replace(/^[^a-z0-9]+/, "")
-    .replace(/[-._]+$/, "")
-    .slice(0, 100)
-    .replace(/[-._]+$/, "");
-}
 
 /** An `<input type=url>`-free check matching the backend's `check_link`. */
 export function isValidEolLink(link: string): boolean {
@@ -113,7 +88,7 @@ function addDays(iso: string, days: number): string {
  * A cycle's status — the same rule as `eol_status` on the backend, so the
  * admin grid and the card agree. Compared as ISO strings in local time.
  */
-export function customCycleStatus(
+export function cycleStatus(
   eol: EolMilestone | undefined,
   support: EolMilestone | undefined,
   today: string = todayIsoDate(),

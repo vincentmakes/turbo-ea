@@ -165,11 +165,12 @@ Die **Ressourcen**-Registerkarte bündelt alle unterstützenden Materialien eine
 
 Standardmäßig bei Anwendungen und IT-Komponenten angezeigt, außerdem bei jedem anderen Kartentyp, bei dem der Administrator ihn [aktiviert hat](../admin/eol.md#lebensende-bei-anderen-kartentypen). Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verknüpft ist (über die [EOL-Administration](../admin/eol.md)):
 
-- **Produktname und Version**
-- **Supportstatus** — Farbcodiert: Unterstützt, EOL nähert sich, Lebensende
-- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, Ende des Sicherheitssupports, EOL-Datum
+- **Produktname und Version** — ein eigenes Produkt wird mit seinem Titel benannt und als **Eigenes** gekennzeichnet
+- **Supportstatus** — Farbcodiert, nach derselben Regel wie im EOL-Bericht: Unterstützt, EOL nähert sich (innerhalb von sechs Monaten vor dem EOL-Datum oder sobald der aktive Support beendet ist), Lebensende
+- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, EOL-Datum, die neueste Version und ihr Veröffentlichungsdatum
+- **Versionshinweise** — ein Link zur Produktseite auf endoflife.date oder die **Herstellerseite** eines eigenen Produkts
 
-Hat endoflife.date keinen Treffer für das Produkt, können Benutzer mit der Berechtigung **EOL verwalten** direkt in diesem Abschnitt ein [eigenes EOL-Produkt](../admin/eol.md) erstellen und die Karte damit verknüpfen. Eigene Produkte sind mit **Eigenes** gekennzeichnet und verhalten sich sonst überall wie Produkte von endoflife.date.
+**Verknüpfen**, **Ändern** und **Verknüpfung aufheben** erscheinen nur, wenn Sie die Karte bearbeiten dürfen. Hat endoflife.date keinen Treffer für das Produkt, können Benutzer mit der Berechtigung **EOL verwalten** direkt in diesem Abschnitt ein [eigenes EOL-Produkt](../admin/eol.md) erstellen und die Karte damit verknüpfen; sie erhalten außerdem eine Verknüpfung zu **Eigene Produkte verwalten** in den Einstellungen und können in der Zyklenliste einen fehlenden Release-Zyklus hinzufügen. Eigene Produkte verhalten sich sonst überall wie Produkte von endoflife.date.
 
 ## Kommentare-Tab
 

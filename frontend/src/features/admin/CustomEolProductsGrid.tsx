@@ -330,7 +330,9 @@ export default function CustomEolProductsGrid() {
     setNotice(
       res.deleted
         ? t("eol.custom.switch.doneDeleted", { count: res.relinked })
-        : t("eol.custom.switch.done", { count: res.relinked, kept: res.kept }),
+        : res.kept === 0
+          ? t("eol.custom.switch.doneAllMoved", { count: res.relinked })
+          : t("eol.custom.switch.done", { count: res.relinked, kept: res.kept }),
     );
     load();
   };
@@ -352,11 +354,16 @@ export default function CustomEolProductsGrid() {
   );
 
   const columnDefs = useMemo<ColDef<Row>[]>(() => {
-    const dateEditor = {
+    const dateEditor = (label: string) => ({
       cellEditor: EolCycleCellEditor,
       cellEditorPopup: true,
-      cellEditorParams: { mode: "date" },
-    };
+      cellEditorParams: { mode: "date", label },
+    });
+    // Column filters match what the cell shows, not the stored value.
+    const formattedDate = (p: { value?: unknown }) =>
+      p.value ? formatDate(p.value as string) : "";
+    const milestone = (kind: MilestoneKind) => (p: { value?: unknown }) =>
+      milestoneText(p.value as EolMilestone, kind);
     return [
       {
         colId: "product",
@@ -370,28 +377,30 @@ export default function CustomEolProductsGrid() {
           const match = matches[r.productKey];
           return (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, height: "100%", minWidth: 0 }}>
-              <Box sx={{ minWidth: 0, lineHeight: 1.2 }}>
-                <Typography variant="body2" fontWeight={600} noWrap>
-                  {r.productTitle}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" noWrap component="div">
-                  {r.productKey}
-                </Typography>
-              </Box>
+              <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0 }}>
+                {r.productTitle}
+              </Typography>
               {match && (
-                <Tooltip title={t("eol.custom.upstreamMatchHint", { name: match.name })}>
+                <Tooltip
+                  title={t(
+                    canManage
+                      ? "eol.custom.upstreamMatchHint"
+                      : "eol.custom.upstreamMatchHintReadOnly",
+                    { name: match.name },
+                  )}
+                >
                   <Chip
                     size="small"
                     color="info"
                     variant="outlined"
                     icon={<MaterialSymbol icon="swap_horiz" size={14} />}
-                    label={t("eol.custom.upstreamMatch", { name: match.name })}
+                    label={t("eol.custom.upstreamMatch")}
                     onClick={
                       canManage
                         ? () => setSwitchFor({ product: r.product, target: match.name })
                         : undefined
                     }
-                    sx={{ height: 20, fontSize: 11 }}
+                    sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
                   />
                 </Tooltip>
               )}
@@ -420,8 +429,9 @@ export default function CustomEolProductsGrid() {
         field: "releaseDate",
         width: 140,
         editable,
-        ...dateEditor,
-        valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
+        ...dateEditor(t("eol.custom.columns.releaseDate")),
+        valueFormatter: formattedDate,
+        filterValueGetter: (p) => formattedDate({ value: p.data?.releaseDate }),
       },
       {
         colId: "support",
@@ -432,7 +442,8 @@ export default function CustomEolProductsGrid() {
         cellEditor: EolCycleCellEditor,
         cellEditorPopup: true,
         cellEditorParams: { mode: "support" },
-        valueFormatter: (p) => milestoneText(p.value as EolMilestone, "support"),
+        valueFormatter: milestone("support"),
+        filterValueGetter: (p) => milestone("support")({ value: p.data?.support }),
       },
       {
         colId: "eol",
@@ -443,7 +454,8 @@ export default function CustomEolProductsGrid() {
         cellEditor: EolCycleCellEditor,
         cellEditorPopup: true,
         cellEditorParams: { mode: "eol" },
-        valueFormatter: (p) => milestoneText(p.value as EolMilestone, "eol"),
+        valueFormatter: milestone("eol"),
+        filterValueGetter: (p) => milestone("eol")({ value: p.data?.eol }),
       },
       {
         colId: "latest",
@@ -458,8 +470,9 @@ export default function CustomEolProductsGrid() {
         field: "latestReleaseDate",
         width: 150,
         editable,
-        ...dateEditor,
-        valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
+        ...dateEditor(t("eol.custom.columns.latestReleaseDate")),
+        valueFormatter: formattedDate,
+        filterValueGetter: (p) => formattedDate({ value: p.data?.latestReleaseDate }),
       },
       {
         colId: "status",
@@ -467,6 +480,7 @@ export default function CustomEolProductsGrid() {
         field: "status",
         width: 150,
         valueFormatter: (p) => statusLabel(p.value as string),
+        filterValueGetter: (p) => (p.data?.cycleId ? statusLabel(p.data.status) : ""),
         cellRenderer: (p: { data?: Row }) =>
           p.data?.cycleId ? (
             <Chip
@@ -493,7 +507,8 @@ export default function CustomEolProductsGrid() {
         headerName: t("eol.custom.columns.updated"),
         field: "updated",
         width: 140,
-        valueFormatter: (p) => (p.value ? formatDate(p.value as string) : ""),
+        valueFormatter: formattedDate,
+        filterValueGetter: (p) => formattedDate({ value: p.data?.updated }),
       },
       {
         colId: "description",
@@ -517,7 +532,7 @@ export default function CustomEolProductsGrid() {
       },
       {
         colId: "actions",
-        headerName: "",
+        headerName: t("eol.custom.columns.actions"),
         width: 64,
         sortable: false,
         filter: false,
@@ -681,7 +696,7 @@ export default function CustomEolProductsGrid() {
             onDragStopped={handleDragStopped}
             onModelUpdated={grouping.handleModelUpdated}
             onFilterChanged={grouping.handleFilterChanged}
-            overlayNoRowsTemplate={`<span>${t("eol.custom.empty")}</span>`}
+            overlayNoRowsTemplate={`<span>${t(canManage ? "eol.custom.empty" : "eol.custom.emptyReadOnly")}</span>`}
             {...grouping.gridProps}
             {...dragFill.gridProps}
             getRowId={(p) => grouping.groupRowId(p.data)}
@@ -775,7 +790,7 @@ export default function CustomEolProductsGrid() {
             sx={{ color: "error.main" }}
           >
             <ListItemIcon>
-              <MaterialSymbol icon="delete_forever" size={18} color="error" />
+              <MaterialSymbol icon="delete_forever" size={18} />
             </ListItemIcon>
             <ListItemText>{t("eol.custom.deleteProduct")}</ListItemText>
           </MenuItem>,

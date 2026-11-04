@@ -163,11 +163,12 @@ The **Resources** tab consolidates all supporting materials for a card:
 
 Shown on Applications and IT Components by default, and on any other card type whose administrator [turned it on](../admin/eol.md#end-of-life-on-other-card-types). If the card is linked to an [endoflife.date](https://endoflife.date/) product (via [EOL Administration](../admin/eol.md)):
 
-- **Product name and version**
-- **Support status** — Color-coded: Supported, Approaching EOL, End of Life
-- **Key dates** — Release date, active support end, security support end, EOL date
+- **Product name and version** — a custom product is named by its title and marked **Custom**
+- **Support status** — Color-coded, by the same rule as the EOL report: Supported, Approaching EOL (within six months of the EOL date, or once active support has ended), End of Life
+- **Key dates** — Release date, active support end, EOL date, the latest version and its release date
+- **Release notes** — the product's page on endoflife.date, or the **Vendor page** of a custom product
 
-When endoflife.date has no match for the product, users with the **Manage EOL** permission can create a [custom EOL product](../admin/eol.md#custom-eol-products) right from this section and link the card to it. Custom products are marked **Custom** and behave like endoflife.date products everywhere else.
+**Link**, **Change** and **Unlink** appear only if you may edit the card. When endoflife.date has no match for the product, users with the **Manage EOL** permission can create a [custom EOL product](../admin/eol.md#custom-eol-products) right from this section and link the card to it; they also get a shortcut to **Manage custom products** in Settings, and can add a missing release cycle from the cycle list. Custom products behave like endoflife.date products everywhere else.
 
 ## Comments Tab
 

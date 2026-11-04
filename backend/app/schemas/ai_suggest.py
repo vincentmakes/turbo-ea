@@ -14,6 +14,13 @@ class AiSuggestRequest(BaseModel):
     context: str | None = Field(None, max_length=500)
 
 
+class AiEolProductSuggestRequest(BaseModel):
+    """A custom EOL product to describe: its name and, if known, its vendor page."""
+
+    name: str = Field(..., min_length=1, max_length=200)
+    link: str | None = Field(None, max_length=500)
+
+
 class AiFieldSuggestion(BaseModel):
     value: str | float | bool | None = None
     confidence: float = Field(0.0, ge=0.0, le=1.0)

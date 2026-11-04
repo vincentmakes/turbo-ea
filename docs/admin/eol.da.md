@@ -49,9 +49,12 @@ En statistikoversigt viser: total scannede kort, allerede tilknyttede, ikke-tilk
 
 Når det er tilknyttet, viser kortets detaljeside en **EOL-sektion** med:
 
-- **Produktnavn og version**
-- **Supportstatus** — Farvekodet: Supporteret (grøn), Nærmer sig EOL (orange), End of Life (rød)
-- **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, sikkerhedssupportafslutning, EOL-dato
+- **Produktnavn og version** – et brugerdefineret produkt er markeret **Brugerdefineret**
+- **Supportstatus** — Farvekodet efter samme regel som EOL-rapporten: Supporteret (grøn), Nærmer sig EOL (orange, inden for seks måneder før EOL-datoen eller når den aktive support er ophørt), End of Life (rød)
+- **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, EOL-dato, den seneste version og dens udgivelsesdato
+- **Udgivelsesnoter** — et link til produktets side på endoflife.date eller **Leverandørside** for et brugerdefineret produkt
+
+Kun brugere, der må redigere kortet, ser **Tilknyt**, **Skift** og **Fjern tilknytning**; alle andre ser kun detaljerne. En EOL-administrator får desuden en genvej til **Administrer brugerdefinerede produkter**, når et brugerdefineret produkt er tilknyttet.
 
 ## End of life på andre korttyper
 
@@ -83,12 +86,11 @@ Der er to måder at oprette et på:
 
 Hvert produkt har:
 
-- **Produktnavn** – sådan vises det overalt.
-- **Nøgle** – en kort identifikator med små bogstaver (bogstaver, cifre, punktummer, bindestreger, understreger), foreslået ud fra navnet. Korttilknytninger gemmer den, så den **ikke kan ændres** efter oprettelsen.
-- **Link til leverandør eller udgivelsespolitik** og **Beskrivelse** – valgfrit.
+- **Produktnavn** – sådan vises det overalt. Turbo EA udleder en identifikator ud fra det til korttilknytninger (to produkter med samme navn får nummererede identifikatorer); du indtaster den aldrig, og den vises kun som filnavn, når du foreslår produktet til endoflife.date.
+- **Link til leverandør eller udgivelsespolitik** og **Beskrivelse** – valgfrit. Når [AI-forslag](ai.md) er aktiveret, udarbejder **Foreslå med AI** beskrivelsen ud fra produktnavnet og leverandørlinket, så du kan redigere den, før du anvender den.
 - **Udgivelsescyklusser** – hver med et navn (for eksempel `2.4`), en **Udgivelsesdato**, et ophør af **Aktiv support**, et **Udløb** og eventuelt den **Seneste version** og dens udgivelsesdato.
 
-Aktiv support og udløb tager hver en **dato** eller et af to svar, når ingen dato er kendt: *Understøttes stadig* / *Aktiv support er ophørt* og *Intet udløb annonceret* / *Allerede udløbet*. Statussen (Understøttet, Nærmer sig EOL, Udløbet) udledes af dem efter samme regel som for endoflife.date-produkter.
+Aktiv support og udløb tager hver en dato (**På en dato…**) eller et af to svar, når ingen dato er kendt: *Understøttes stadig* / *Support allerede udløbet* og *Intet udløb annonceret* / *Allerede udløbet*; *Ukendt* registrerer intet. Statussen (Understøttet, Nærmer sig EOL, Udløbet) udledes af dem efter samme regel som for endoflife.date-produkter. Et problem med en cyklus – intet navn, et slut før udgivelsesdatoen – vises på det berørte felt, og produktet kan ikke gemmes, før det er rettet.
 
 ### Administration af cyklusser i gitteret
 
@@ -105,7 +107,7 @@ Du kan også tilføje en manglende cyklus fra et kort: Når et brugerdefineret p
 Hvis et brugerdefineret produkt er et offentligt leverandørprodukt, så overvej at foreslå det til endoflife.date, så alle får gavn af det. Vælg **Foreslå til endoflife.date** i rækkemenuen:
 
 1. Læs advarslen: Et forslag offentliggør produktnavnet og dets datoer. Foreslå aldrig interne eller fortrolige produkter.
-2. Vælg endoflife.date-**kategorien**. Dialogen viser en forhåndsvisning af produktfilen i endoflife.dates format (`products/<key>.md`).
+2. Vælg endoflife.date-**kategorien**. Dialogen viser en forhåndsvisning af produktfilen i endoflife.dates format (`products/<identifier>.md`).
 3. Klik på **Åbn på GitHub**. GitHub åbner en ny fil i endoflife.date-repositoriet med indholdet udfyldt (det tilbyder at forke repositoriet, hvis du ikke kan skrive til det). Færdiggør beskrivelsen og resuméet af udgivelsespolitikken, og opret derefter pull requesten fra din egen GitHub-konto. Ved lange filer kan du i stedet bruge **Kopiér fil** og indsætte den i en ny fil.
 
 Turbo EA sender aldrig selv noget til GitHub og gemmer ingen GitHub-legitimationsoplysninger. endoflife.date gennemgår hvert forslag ud fra sin [bidragsvejledning](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).

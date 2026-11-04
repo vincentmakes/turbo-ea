@@ -66,6 +66,8 @@ interface EolItem {
   type: string;
   subtype?: string;
   eol_product: string | null;
+  /** A custom product\'s title; null for endoflife.date links. */
+  eol_product_title?: string | null;
   eol_cycle: string | null;
   status: "eol" | "approaching" | "supported" | "unknown" | "missing";
   /** `"none"` — nothing recorded at all, neither a link nor a manual date. */
@@ -135,8 +137,12 @@ function fmtDate(
 }
 
 /** "product cycle", or as much of it as is known ("" for a card with no EOL link). */
-function productName(item: { eol_product: string | null; eol_cycle: string | null }): string {
-  return [item.eol_product && eolProductLabel(item.eol_product), item.eol_cycle]
+function productName(item: {
+  eol_product: string | null;
+  eol_product_title?: string | null;
+  eol_cycle: string | null;
+}): string {
+  return [item.eol_product && eolProductLabel(item.eol_product, item.eol_product_title), item.eol_cycle]
     .filter(Boolean)
     .join(" ");
 }
@@ -1076,7 +1082,9 @@ export default function EolReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {item.eol_product ? eolProductLabel(item.eol_product) : "\u2014"}
+                        {item.eol_product
+                          ? eolProductLabel(item.eol_product, item.eol_product_title)
+                          : "\u2014"}
                       </Typography>
                     </TableCell>
                     <TableCell>

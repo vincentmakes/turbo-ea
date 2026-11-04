@@ -32,6 +32,7 @@ Optional feature that uses a local LLM (via Ollama or any Ollama-compatible prov
 ### Architecture
 - **Two-step pipeline**: Web search (DuckDuckGo/Google/SearXNG) → LLM description generation
 - **Description-only**: Suggestions are limited to the `description` field — not arbitrary metadata fields
+- **Two surfaces, one pipeline**: `POST /ai/suggest` describes a card (gated per card type by `enabledTypes`); `POST /ai/suggest-eol-product` describes a custom EOL product (Settings → EOL, or a card's End of Life section) with the `EOL_PRODUCT_CONTEXT_KEY` search context — a product is not a card type, so only the switch, the provider configuration and `ai.suggest` gate it. Both share `_require_ai_ready` / `_suggest_or_502` in `ai_suggest.py`
 - **Type-aware prompting**: Search queries and LLM system prompts are customized per card type (e.g., "Application" → "software application", "ITComponent" → "technology product")
 - **Confidence scoring**: Each suggestion includes a 0–100% confidence score for user transparency
 - **Source attribution**: Web search sources are displayed as clickable links alongside suggestions
@@ -43,7 +44,7 @@ Optional feature that uses a local LLM (via Ollama or any Ollama-compatible prov
 - **Settings stored in**: `app_settings.general_settings.ai` (JSONB) — provider URL, model, search provider, enabled types
 
 ### Frontend Components
-- **`AiSuggestPanel.tsx`**: Reusable UI showing suggestion with confidence badge, editable description, source links, and apply/dismiss buttons. Used in both `CardDetail` and `CreateCardDialog`
+- **`AiSuggestPanel.tsx`**: Reusable UI showing suggestion with confidence badge, editable description, source links, and apply/dismiss buttons. Used in `CardDetail`, `CreateCardDialog`, `CardDetailSidePanel` and `CustomEolProductDialog`
 - **`AiAdmin.tsx`**: Admin settings page — toggle, provider URL, model selector, search provider, per-type enablement
 
 ### Search Providers

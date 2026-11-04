@@ -112,6 +112,31 @@ class TestCreate:
         ).scalar_one()
         assert audit.target_label == "Acme ERP"
 
+    async def test_key_is_generated_from_the_title(self, client, admin):
+        """Nobody types the key: it comes from the title, and a second product
+        with the same title gets a numbered one."""
+        first = await client.post(BASE, json={"title": " Macos X "}, headers=auth_headers(admin))
+        assert first.status_code == 201, first.text
+        assert (first.json()["key"], first.json()["title"]) == ("macos-x", "Macos X")
+        second = await client.post(BASE, json={"title": "Macos X"}, headers=auth_headers(admin))
+        assert second.status_code == 201
+        assert second.json()["key"] == "macos-x-2"
+        third = await client.post(BASE, json={"title": "macos x"}, headers=auth_headers(admin))
+        assert third.json()["key"] == "macos-x-3"
+        # A title with nothing usable still gets a key.
+        bare = await client.post(BASE, json={"title": "🚀"}, headers=auth_headers(admin))
+        assert bare.status_code == 201
+        assert bare.json()["key"] == "product"
+        # An explicit key (the API, a workspace import) is kept, and refused when taken.
+        given = await client.post(
+            BASE, json={"key": "given", "title": "Macos X"}, headers=auth_headers(admin)
+        )
+        assert given.json()["key"] == "given"
+        dup = await client.post(
+            BASE, json={"key": "given", "title": "Other"}, headers=auth_headers(admin)
+        )
+        assert dup.status_code == 409
+
     async def test_viewer_cannot_create_but_can_list(self, client, viewer, admin, acme):
         resp = await client.post(
             BASE, json={"key": "x", "title": "X"}, headers=auth_headers(viewer)
@@ -480,8 +505,10 @@ class TestCustomCycles:
         assert [c["cycle"] for c in resp.json()] == ["2", "1"]
         assert resp.json()[1]["eol"] == PAST
         assert resp.json()[1]["releaseDate"] == LONG_AGO
-        # The product's link stands in for endoflife.date's per-cycle link.
+        # The product's link stands in for endoflife.date's per-cycle link,
+        # and its title names it on the card.
         assert {c["link"] for c in resp.json()} == {"https://acme.example/erp"}
+        assert {c["title"] for c in resp.json()} == {"Acme ERP"}
 
     async def test_unknown_custom_product_is_404(self, client, admin):
         with _no_upstream():
@@ -505,12 +532,14 @@ class TestCardStatus:
         items = resp.json()["items"]
         assert items[str(ended.id)]["status"] == "eol"
         assert items[str(ended.id)]["source"] == "custom"
+        assert items[str(ended.id)]["eol_product_title"] == "Acme ERP"
         assert items[str(ended.id)]["eol_date"] == PAST
         assert items[str(ended.id)]["latest"] == "1.4"
         assert items[str(current.id)]["status"] == "supported"
         assert items[str(current.id)]["support_date"] == FUTURE
         assert items[str(gone.id)]["status"] == "unknown"
         assert items[str(gone.id)]["source"] == "custom"
+        assert items[str(gone.id)]["eol_product_title"] is None
 
 
 class TestMassLink:
@@ -555,6 +584,22 @@ class TestMassLink:
             "Acme ERP",
         )
 
+    @patch("app.api.v1.eol._products_cache", UPSTREAM)
+    @patch("app.api.v1.eol._products_cache_time", 9999999999.0)
+    async def test_mass_search_names_the_current_custom_link(
+        self, client, admin, acme, db, itc_type
+    ):
+        await _link(db, "ERP host", "custom:acme-erp", "1")
+        await _link(db, "Py host", "python", "3.12")
+        resp = await client.post(
+            "/api/v1/eol/mass-search?type_key=ITComponent", headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        by_name = {r["card_name"]: r for r in resp.json()}
+        assert by_name["ERP host"]["current_eol_product"] == "custom:acme-erp"
+        assert by_name["ERP host"]["current_title"] == "Acme ERP"
+        assert by_name["Py host"]["current_title"] is None
+
 
 class TestEolReport:
     async def test_custom_items_carry_their_cycle(self, client, admin, acme, db, itc_type):
@@ -567,6 +612,7 @@ class TestEolReport:
         assert resp.status_code == 200
         item = next(i for i in resp.json()["items"] if i["id"] == str(card.id))
         assert (item["source"], item["status"]) == ("custom", "eol")
+        assert item["eol_product_title"] == "Acme ERP"
         assert item["cycle_data"]["eol"] == PAST
         assert item["cycle_data"]["releaseDate"] == LONG_AGO
         assert resp.json()["summary"]["eol"] == 1

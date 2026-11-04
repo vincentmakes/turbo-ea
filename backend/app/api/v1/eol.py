@@ -82,6 +82,8 @@ class EolCycle(BaseModel):
     discontinued: str | bool | None = None
     codename: str | None = None
     link: str | None = None
+    #: A custom product's title (endoflife.date cycles carry none).
+    title: str | None = None
 
 
 class EolProductMatch(BaseModel):
@@ -112,6 +114,8 @@ class MassEolResult(BaseModel):
     card_name: str
     card_type: str
     current_eol_product: str | None = None
+    #: The current link's title when it is a custom product.
+    current_title: str | None = None
     current_eol_cycle: str | None = None
     candidates: list[MassEolCandidate]
 
@@ -375,6 +379,9 @@ class EolCardStatus(BaseModel):
         "manual (lifecycle date)"
     )
     eol_product: str | None = None
+    eol_product_title: str | None = Field(
+        None, description="A custom product's title; null for endoflife.date links"
+    )
     eol_cycle: str | None = None
     eol_date: str | None = None
     support_date: str | None = None
@@ -466,6 +473,7 @@ async def mass_eol_search(
         return []
 
     custom_products = await custom.product_titles(db)
+    custom_titles = {custom.product_ref(k): t for k, t in custom_products}
     await db.commit()
     # Fetch EOL product list
     products = await _get_all_products()
@@ -509,6 +517,7 @@ async def mass_eol_search(
                 card_name=card.name,
                 card_type=card.type,
                 current_eol_product=current_product,
+                current_title=custom_titles.get(current_product) if current_product else None,
                 current_eol_cycle=current_cycle,
                 candidates=candidates,
             )
@@ -664,9 +673,9 @@ async def create_custom_product(
     can define the product and link the card without leaving it.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
-    await custom.create_product(db, user, body)
+    product = await custom.create_product(db, user, body)
     await db.commit()
-    return await _product_out(db, user, body.key)
+    return await _product_out(db, user, product.key)
 
 
 @router.patch("/custom-products/{key}", response_model=EolCustomProductOut)

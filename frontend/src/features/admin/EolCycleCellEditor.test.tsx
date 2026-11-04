@@ -24,7 +24,7 @@ describe("EolCycleCellEditor", () => {
   it("edits a milestone and commits on Apply", async () => {
     const { onValueChange, stopEditing } = setup("support", "2026-01-01");
     await userEvent.click(screen.getByRole("combobox"));
-    await userEvent.click(await screen.findByRole("option", { name: "Active support ended" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Support already ended" }));
     expect(onValueChange).toHaveBeenLastCalledWith(false);
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(stopEditing).toHaveBeenCalled();
@@ -32,7 +32,7 @@ describe("EolCycleCellEditor", () => {
 
   it("edits a plain date", () => {
     const { onValueChange } = setup("date", "2024-01-01");
-    const input = screen.getByLabelText("Date");
+    const input = screen.getByLabelText("Release date");
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "2024-02-02" } });
     fireEvent.blur(input);
@@ -51,14 +51,14 @@ describe("EolCycleCellEditor", () => {
 
   it("gives a date to a milestone that had none (regression: Date led nowhere)", async () => {
     const { onValueChange } = setup("eol", true);
-    expect(screen.queryByLabelText("Date")).toBeNull();
+    expect(screen.queryByLabelText("End of life on")).toBeNull();
     await userEvent.click(screen.getByRole("combobox"));
-    await userEvent.click(await screen.findByRole("option", { name: "Date" }));
+    await userEvent.click(await screen.findByRole("option", { name: "On a date…" }));
     expect(onValueChange).toHaveBeenLastCalledWith(null);
-    const input = screen.getByLabelText("Date");
+    const input = screen.getByLabelText("End of life on");
     fireEvent.change(input, { target: { value: "2027-03-01" } });
     expect(onValueChange).toHaveBeenLastCalledWith("2027-03-01");
-    expect(screen.getByRole("combobox")).toHaveTextContent("Date");
+    expect(screen.getByRole("combobox")).toHaveTextContent("On a date…");
   });
 
   it("marks the milestone menu as part of the editor, so picking does not end the edit", async () => {
@@ -68,5 +68,12 @@ describe("EolCycleCellEditor", () => {
     // AG Grid's isElementWithinCustomPopup walks up to this class.
     expect(listbox.closest(".ag-custom-component-popup")).not.toBeNull();
   });
-});
 
+  it("labels a plain date after its column", () => {
+    const api = { stopEditing: vi.fn() } as unknown as GridApi;
+    render(
+      <EolCycleCellEditor mode="date" label="Latest release date" value={null} api={api} onValueChange={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("Latest release date")).toBeInTheDocument();
+  });
+});

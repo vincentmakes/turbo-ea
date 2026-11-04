@@ -49,9 +49,12 @@ A statistics summary shows: total cards scanned, already linked, unlinked, and m
 
 Once linked, the card's detail page shows an **EOL section** with:
 
-- **Product name and version**
-- **Support status** — Color-coded: Supported (green), Approaching EOL (orange), End of Life (red)
-- **Key dates** — Release date, active support end, security support end, EOL date
+- **Product name and version** — a custom product is marked **Custom**
+- **Support status** — Color-coded, with the same rule as the EOL report: Supported (green), Approaching EOL (orange, within six months of the EOL date or once active support has ended), End of Life (red)
+- **Key dates** — Release date, active support end, EOL date, the latest version and its release date
+- **Release notes** — a link to the product's page on endoflife.date, or the **Vendor page** of a custom product
+
+Only users who may edit the card see **Link**, **Change** and **Unlink**; everyone else sees the details alone. An EOL manager also gets a shortcut to **Manage custom products** when a custom product is linked.
 
 ## End of Life on other card types
 
@@ -83,12 +86,11 @@ There are two ways to create one:
 
 Each product has:
 
-- **Product name** — how it is shown everywhere.
-- **Key** — a short lower-case identifier (letters, digits, dots, hyphens, underscores) suggested from the name. Card links store it, so it **cannot be changed** after creation.
-- **Vendor or release policy link** and **Description** — optional.
+- **Product name** — how it is shown everywhere. Turbo EA derives an identifier from it for card links (two products with the same name get numbered ones); you never type it, and it shows only as the file name when you propose the product to endoflife.date.
+- **Vendor or release policy link** and **Description** — optional. When [AI suggestions](ai.md) are enabled, **Suggest with AI** drafts the description from the product name and the vendor link, for you to edit before applying.
 - **Release cycles** — each with a name (for example `2.4`), a **Release date**, an **Active support** end, an **End of life**, and optionally the **Latest version** and its release date.
 
-Active support and End of life each take a **date**, or one of two answers for when no date is known: *Still supported* / *Active support ended*, and *No end of life announced* / *Already end of life*. The status (Supported, Approaching EOL, End of Life) is worked out from them with the same rule as endoflife.date products.
+Active support and End of life each take a date (**On a date…**), or one of two answers for when no date is known: *Still supported* / *Support already ended*, and *No end of life announced* / *Already ended*; *Unknown* records nothing. The status (Supported, Approaching EOL, End of Life) is worked out from them with the same rule as endoflife.date products. A problem with a cycle — no name, an end before its release date — is shown on the field concerned, and the product cannot be saved until it is fixed.
 
 ### Managing cycles in the grid
 
@@ -105,7 +107,7 @@ You can also add a missing cycle from a card: once a custom product is selected 
 If a custom product is a public vendor product, consider proposing it to endoflife.date so everyone benefits. Choose **Propose to endoflife.date** from the row menu:
 
 1. Read the warning: proposing publishes the product name and its dates. Never propose in-house or confidential products.
-2. Pick the endoflife.date **category**. The dialog previews the product file in endoflife.date's format (`products/<key>.md`).
+2. Pick the endoflife.date **category**. The dialog previews the product file in endoflife.date's format (`products/<identifier>.md`).
 3. Click **Open on GitHub**. GitHub opens a new file in the endoflife.date repository with the content filled in (it offers to fork the repository if you cannot write to it). Complete the description and release-policy summary, then open the pull request from your own GitHub account. For long files, use **Copy file** and paste it into a new file instead.
 
 Turbo EA never sends anything to GitHub itself and stores no GitHub credentials. endoflife.date reviews every proposal against its [contribution guide](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).

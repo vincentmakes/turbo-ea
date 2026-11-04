@@ -199,6 +199,10 @@ These fields are only suggested when the AI finds clear evidence — they are no
 !!! note
     Apart from Application-specific fields, AI suggestions primarily generate the **description** field. Custom fields for other card types are not yet covered.
 
+### Custom EOL Products
+
+The same button appears in the **Create a custom EOL product** and **Edit custom EOL product** dialogs ([EOL Administration](eol.md#custom-eol-products)), once the product has a name. The suggestion is drafted from the product name and its vendor link, with a search for the product's support lifecycle. A custom product is not a card type, so the per-type switch above does not apply: the feature only needs AI suggestions to be enabled and configured, plus the `ai.suggest` permission.
+
 ---
 
 ## Portfolio Insights

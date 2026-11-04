@@ -2473,6 +2473,7 @@ async def eol_report(
                 "type": card.type,
                 "subtype": card.subtype,
                 "eol_product": product,
+                "eol_product_title": cycles[0].get("title") if is_custom and cycles else None,
                 "eol_cycle": cycle_key,
                 "status": status,
                 "source": "custom" if is_custom else "api",

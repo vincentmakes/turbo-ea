@@ -28,9 +28,9 @@ import { useAbortableEffect, useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
 import { toLocalDate } from "@/lib/dates";
-import { typeKeyTracksEol } from "@/lib/eol";
+import { EOL_STATUS_COLORS, typeKeyTracksEol } from "@/lib/eol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { customEolKey, eolProductLabel, isCustomEolProduct } from "@/lib/eolCustom";
+import { cycleStatus, customEolKey, eolProductLabel, isCustomEolProduct } from "@/lib/eolCustom";
 import { hasPermission } from "@/components/RequirePermission";
 import CustomEolProductDialog, { CustomEolCycleDialog } from "@/components/CustomEolProductDialog";
 import { useOptionalAuthUser } from "@/hooks/AuthContext";
@@ -67,49 +67,33 @@ function formatSupportField(
   return formatEolField(val, t);
 }
 
-/** Compute overall status from cycle data. */
+/**
+ * The card's status chip, by the one rule every other EOL surface uses
+ * (`cycleStatus`, mirroring the backend): a card and the EOL report must
+ * never disagree about the same cycle.
+ */
 function computeEolStatus(
   cycle: EolCycle,
   t: (key: string) => string,
-): {
-  label: string;
-  color: string;
-  icon: string;
-} {
-  const eol = cycle.eol;
-  if (eol === true)
-    return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
-  const eolDate = typeof eol === "string" ? toLocalDate(eol) : null;
-  if (eolDate) {
-    // Parsed locally: `new Date("2026-08-27")` is UTC midnight, which is
-    // 17:00 the previous day in the Americas, so the chip flipped to
-    // "End of life" a day early there (#1016).
-    const now = new Date();
-    if (eolDate <= now)
-      return { label: t("eol.status.endOfLife"), color: STATUS_COLORS.error, icon: "cancel" };
-    // Warn if within 6 months
-    const sixMonths = new Date();
-    sixMonths.setMonth(sixMonths.getMonth() + 6);
-    if (eolDate <= sixMonths)
+): { label: string; color: string; icon: string } {
+  switch (cycleStatus(cycle.eol, cycle.support)) {
+    case "eol":
+      return { label: t("eol.status.endOfLife"), color: EOL_STATUS_COLORS.eol, icon: "cancel" };
+    case "approaching":
       return {
         label: t("eol.status.approachingEol"),
-        color: STATUS_COLORS.warning,
+        color: EOL_STATUS_COLORS.approaching,
         icon: "warning",
       };
-  }
-  // Check active support
-  const support = cycle.support;
-  if (support === true || support === false || typeof support === "string") {
-    const supportEnds = typeof support === "string" ? toLocalDate(support) : null;
-    if (support === false || (supportEnds && supportEnds <= new Date())) {
+    case "supported":
       return {
-        label: t("eol.status.securityOnly"),
-        color: STATUS_COLORS.warning,
-        icon: "shield",
+        label: t("eol.status.supported"),
+        color: EOL_STATUS_COLORS.supported,
+        icon: "check_circle",
       };
-    }
+    default:
+      return { label: t("eol.status.unknown"), color: EOL_STATUS_COLORS.unknown, icon: "help" };
   }
-  return { label: t("eol.status.supported"), color: STATUS_COLORS.success, icon: "check_circle" };
 }
 
 // ── Inline EOL Picker (used in both Dialog and Detail page) ─────
@@ -118,6 +102,8 @@ interface EolPickerProps {
   onSelect: (product: string, cycle: string) => void;
   onCancel: () => void;
   initialProduct?: string;
+  /** The linked custom product's title, so the search opens on its name. */
+  initialTitle?: string | null;
   resetKey?: number;
   cardName?: string;
 }
@@ -131,6 +117,9 @@ const STRONG_MATCH = 0.7;
 
 /** A Select value that is not a cycle: opens the add-cycle dialog. */
 const ADD_CYCLE = "__add_cycle__";
+
+/** Settings → EOL → Custom products, for an EOL manager. */
+const CUSTOM_PRODUCTS_SETTINGS_PATH = "/admin/settings?tab=eol&eolTab=custom";
 
 /** "Custom" marker beside a custom EOL product's name. */
 function CustomChip() {
@@ -146,14 +135,21 @@ function CustomChip() {
   );
 }
 
-function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: EolPickerProps) {
+function EolPicker({
+  onSelect,
+  onCancel,
+  initialProduct,
+  initialTitle,
+  resetKey,
+  cardName,
+}: EolPickerProps) {
   const { t } = useTranslation(["cards", "common"]);
   const user = useOptionalAuthUser();
   // Defining a product the whole landscape can link to is EOL management,
   // not card editing — the same grant the admin catalogue requires.
   const canManage = hasPermission(user?.permissions, "eol.manage");
   const [productSearch, setProductSearch] = useState(
-    initialProduct ? eolProductLabel(initialProduct) : "",
+    initialProduct ? eolProductLabel(initialProduct, initialTitle) : "",
   );
   const [productOptions, setProductOptions] = useState<EolProduct[]>([]);
   const [productLoading, setProductLoading] = useState(false);
@@ -179,7 +175,9 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   // product or cycle is created here, so the user lands on what they made.
   const pendingCycleRef = useRef<string | null>(null);
   // Custom products are named by their title, which only the search knows.
-  const [knownTitles, setKnownTitles] = useState<Record<string, string>>({});
+  const [knownTitles, setKnownTitles] = useState<Record<string, string>>(
+    initialProduct && initialTitle ? { [initialProduct]: initialTitle } : {},
+  );
   const labelOf = useCallback(
     (name: string) => eolProductLabel(name, knownTitles[name]),
     [knownTitles],
@@ -200,7 +198,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
 
   // Reset all fields when resetKey changes
   useEffect(() => {
-    setProductSearch(initialProduct ? eolProductLabel(initialProduct) : "");
+    setProductSearch(initialProduct ? eolProductLabel(initialProduct, initialTitle) : "");
     setSelectedProduct(initialProduct || null);
     setProductOptions([]);
     setCycles([]);
@@ -546,6 +544,11 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
               {t("eol.custom.addCycleOption")}
             </Button>
           )}
+          {selectedIsCustom && !canManage && (
+            <Typography variant="caption" color="text.secondary">
+              {t("eol.custom.askManagerCycle")}
+            </Typography>
+          )}
         </Box>
       )}
 
@@ -726,10 +729,19 @@ interface EolLinkSectionProps {
   card: Card;
   onSave: (updates: Record<string, unknown>) => Promise<void>;
   initialExpanded?: boolean;
+  /** Whether the viewer may change the link; read-only shows the details alone. */
+  canEdit?: boolean;
 }
 
-export default function EolLinkSection({ card, onSave, initialExpanded }: EolLinkSectionProps) {
+export default function EolLinkSection({
+  card,
+  onSave,
+  initialExpanded,
+  canEdit = true,
+}: EolLinkSectionProps) {
   const theme = useTheme();
+  const user = useOptionalAuthUser();
+  const canManage = hasPermission(user?.permissions, "eol.manage");
   // Whether this type tracks End of Life is its own End of Life section
   // toggle (Card Layout editor), read from the metamodel.
   const { types } = useMetamodel();
@@ -774,7 +786,13 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
           const match = cycles.find((c) => String(c.cycle) === String(eolCycle));
           setCycleData(match || null);
           if (!match)
-            setError({ key: "eol.errors.cycleNotFound", params: { cycle: eolCycle, product: eolProduct } });
+            setError({
+              key: "eol.errors.cycleNotFound",
+              params: {
+                cycle: eolCycle,
+                product: eolProductLabel(eolProduct, cycles[0]?.title),
+              },
+            });
         } catch (e) {
           if (!isCurrent()) return;
           setError(e instanceof Error ? e.message : { key: "eol.errors.fetchFailed" });
@@ -882,12 +900,23 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
               </Typography>
               <Chip
                 size="small"
-                label={`${eolProductLabel(eolProduct)} ${eolCycle}`}
+                label={`${eolProductLabel(eolProduct, cycleData?.title)} ${eolCycle}`}
                 variant="outlined"
                 sx={{ fontWeight: 600 }}
               />
               {isCustomEolProduct(eolProduct) && <CustomChip />}
               <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
+                {isCustomEolProduct(eolProduct) && canManage && (
+                  <IconButton
+                    size="small"
+                    component="a"
+                    href={CUSTOM_PRODUCTS_SETTINGS_PATH}
+                    title={t("eol.custom.manageLink")}
+                    aria-label={t("eol.custom.manageLink")}
+                  >
+                    <MaterialSymbol icon="settings" size={16} />
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={fetchCycleData}
@@ -895,20 +924,24 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                 >
                   <MaterialSymbol icon="refresh" size={16} />
                 </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => setLinking(true)}
-                  title={t("eol.changeTooltip")}
-                >
-                  <MaterialSymbol icon="edit" size={16} />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={handleUnlink}
-                  title={t("eol.unlinkTooltip")}
-                >
-                  <MaterialSymbol icon="link_off" size={16} color={STATUS_COLORS.error} />
-                </IconButton>
+                {canEdit && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setLinking(true)}
+                    title={t("eol.changeTooltip")}
+                  >
+                    <MaterialSymbol icon="edit" size={16} />
+                  </IconButton>
+                )}
+                {canEdit && (
+                  <IconButton
+                    size="small"
+                    onClick={handleUnlink}
+                    title={t("eol.unlinkTooltip")}
+                  >
+                    <MaterialSymbol icon="link_off" size={16} color={STATUS_COLORS.error} />
+                  </IconButton>
+                )}
               </Box>
             </Box>
 
@@ -925,11 +958,17 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                   rel="noopener noreferrer"
                   startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
                 >
-                  {t("eol.releaseNotes")}
+                  {isCustomEolProduct(eolProduct)
+                    ? t("eol.custom.vendorPage")
+                    : t("eol.releaseNotes")}
                 </Button>
               </Box>
             )}
           </Box>
+        ) : !canEdit ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("eol.custom.nothingLinked")}
+          </Typography>
         ) : linking || !isLinked ? (
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -947,6 +986,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
                 setPickerResetKey((k) => k + 1);
               }}
               initialProduct={eolProduct}
+              initialTitle={cycleData?.title}
               resetKey={pickerResetKey}
               cardName={card.name}
             />

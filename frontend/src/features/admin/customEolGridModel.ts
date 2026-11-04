@@ -4,7 +4,7 @@
  * filters, the field → API mapping the per-row write uses, and the persisted
  * preferences. Kept out of the component so it is testable without AG Grid.
  */
-import { customCycleStatus } from "@/lib/eolCustom";
+import { cycleStatus } from "@/lib/eolCustom";
 import type { EolStatusKey } from "@/lib/eol";
 import type { EolCustomProduct, EolMilestone } from "@/types";
 import {
@@ -69,7 +69,7 @@ export function buildRows(products: EolCustomProduct[], today?: string): EolGrid
         eol: c.eol,
         latest: c.latest,
         latestReleaseDate: c.latestReleaseDate,
-        status: customCycleStatus(c.eol, c.support, today),
+        status: cycleStatus(c.eol, c.support, today),
         linked: c.linked_cards,
         updated: c.updated_at,
       });

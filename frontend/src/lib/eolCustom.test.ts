@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   APPROACHING_DAYS,
-  customCycleStatus,
+  cycleStatus,
   customEolKey,
   customEolRef,
   eolProductLabel,
   isCustomEolProduct,
-  isValidCustomEolKey,
   isValidEolLink,
   milestoneMode,
   milestoneValue,
-  suggestCustomEolKey,
 } from "./eolCustom";
 
 describe("custom EOL link vocabulary", () => {
@@ -37,37 +35,7 @@ describe("custom EOL link vocabulary", () => {
   });
 });
 
-describe("keys and links", () => {
-  it.each([
-    ["Acme ERP", "acme-erp"],
-    ["  Acme   ERP 2 ", "acme-erp-2"],
-    ["Café Système", "cafe-systeme"],
-    ["--Weird__Name..", "weird__name"],
-    ["SAP S/4HANA", "sap-s-4hana"],
-    ["!!!", ""],
-  ])("suggests %j → %j", (title, key) => {
-    expect(suggestCustomEolKey(title)).toBe(key);
-    if (key) expect(isValidCustomEolKey(key)).toBe(true);
-  });
-
-  it("caps a suggested key at 100 characters without a trailing separator", () => {
-    const key = suggestCustomEolKey(`${"a".repeat(99)} b`);
-    expect(key.length).toBeLessThanOrEqual(100);
-    expect(key.endsWith("-")).toBe(false);
-  });
-
-  it.each([
-    ["acme", true],
-    ["a.b_c-1", true],
-    ["Acme", false],
-    ["-acme", false],
-    ["custom:acme", false],
-    ["", false],
-    ["a".repeat(101), false],
-  ])("validates key %j as %s", (key, ok) => {
-    expect(isValidCustomEolKey(key)).toBe(ok);
-  });
-
+describe("links", () => {
   it("accepts only http(s) links", () => {
     expect(isValidEolLink("https://acme.example/erp")).toBe(true);
     expect(isValidEolLink(" HTTP://acme.example ")).toBe(true);
@@ -113,7 +81,7 @@ describe("milestones", () => {
   });
 });
 
-describe("customCycleStatus mirrors eol_status on the backend", () => {
+describe("cycleStatus mirrors eol_status on the backend", () => {
   const today = "2026-06-15";
   it.each([
     [true, null, "eol"],
@@ -131,12 +99,12 @@ describe("customCycleStatus mirrors eol_status on the backend", () => {
     ["", null, "unknown"],
     [null, "2020-01-01", "approaching"],
   ] as const)("eol=%j support=%j → %s", (eol, support, status) => {
-    expect(customCycleStatus(eol, support, today)).toBe(status);
+    expect(cycleStatus(eol, support, today)).toBe(status);
   });
 
   it("approaches exactly APPROACHING_DAYS ahead", () => {
     expect(APPROACHING_DAYS).toBe(182);
-    expect(customCycleStatus("2026-12-14", null, today)).toBe("approaching");
-    expect(customCycleStatus("2026-12-15", null, today)).toBe("supported");
+    expect(cycleStatus("2026-12-14", null, today)).toBe("approaching");
+    expect(cycleStatus("2026-12-15", null, today)).toBe("supported");
   });
 });

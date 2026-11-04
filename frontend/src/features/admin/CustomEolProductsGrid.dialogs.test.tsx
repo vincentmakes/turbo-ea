@@ -184,7 +184,7 @@ describe("switching to endoflife.date", () => {
 
     const cell = gridStub.colDef("product").cellRenderer as (p: { data: unknown }) => React.ReactElement;
     const rendered = render(cell({ data: row("c1") }));
-    await user.click(within(rendered.container).getByText("On endoflife.date: acme"));
+    await user.click(within(rendered.container).getByText("On endoflife.date"));
     expect(screen.getByTestId("switch-dialog")).toHaveTextContent("acme-erp|acme");
   });
 
@@ -192,7 +192,7 @@ describe("switching to endoflife.date", () => {
     const { user } = await renderGrid(userWith("eol.view"));
     const cell = gridStub.colDef("product").cellRenderer as (p: { data: unknown }) => React.ReactElement;
     const rendered = render(cell({ data: row("c1") }));
-    await user.click(within(rendered.container).getByText("On endoflife.date: acme"));
+    await user.click(within(rendered.container).getByText("On endoflife.date"));
     expect(screen.queryByTestId("switch-dialog")).toBeNull();
   });
 

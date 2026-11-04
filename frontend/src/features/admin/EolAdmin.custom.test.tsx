@@ -49,6 +49,8 @@ const RESULTS: MassEolResult[] = [
 ];
 
 beforeEach(() => {
+  // The page remembers its sub-tab in the URL; start each test on a bare one.
+  window.history.replaceState(null, "", "/admin/settings?tab=eol");
   mockApi.reset();
   hookState.reset();
   mockApi.on("post", SEARCH_ITC, RESULTS);
@@ -57,6 +59,19 @@ beforeEach(() => {
 });
 
 describe("EolAdmin tabs", () => {
+  it("opens on the custom products when the URL names them, and remembers a switch", async () => {
+    window.history.replaceState(null, "", "/admin/settings?tab=eol&eolTab=custom");
+    render(<EolAdmin />);
+    expect(screen.getByRole("tab", { name: /Custom products/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("tab", { name: /Link cards to endoflife.date/ }));
+    expect(window.location.search).toBe("?tab=eol");
+    await userEvent.click(screen.getByRole("tab", { name: /Custom products/ }));
+    expect(window.location.search).toBe("?tab=eol&eolTab=custom");
+  });
+
   it("opens on bulk linking and switches to the custom products grid", async () => {
     render(<EolAdmin />);
     expect(screen.getByRole("tab", { name: /Link cards to endoflife.date/ })).toHaveAttribute(

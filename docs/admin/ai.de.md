@@ -195,6 +195,10 @@ Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — 
 !!! note
     Abgesehen von anwendungsspezifischen Feldern generieren KI-Vorschläge hauptsächlich das **Beschreibungs**-Feld. Benutzerdefinierte Felder für andere Kartentypen werden noch nicht abgedeckt.
 
+### Eigene EOL-Produkte
+
+Dieselbe Schaltfläche erscheint in den Dialogen **Eigenes EOL-Produkt erstellen** und **Eigenes EOL-Produkt bearbeiten** ([EOL-Administration](eol.md)), sobald das Produkt einen Namen hat. Der Vorschlag wird aus dem Produktnamen und seinem Herstellerlink verfasst, mit einer Suche nach dem Support-Lebenszyklus des Produkts. Ein eigenes Produkt ist kein Kartentyp, daher gilt der obige Schalter pro Typ nicht: Die Funktion erfordert nur, dass KI-Vorschläge aktiviert und konfiguriert sind, sowie die Berechtigung `ai.suggest`.
+
 ---
 
 ## Portfolio-Erkenntnisse

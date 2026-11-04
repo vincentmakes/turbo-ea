@@ -331,7 +331,7 @@ describe("the Columns tab", () => {
       new Set([...LOCKED_ONLY(), "status"]),
     );
     // The locked row is disabled; even a click that reaches it changes nothing.
-    fireEvent.click(within(list).getByText("Cycle"));
+    fireEvent.click(within(list).getByText("Release cycle"));
     expect(p.onVisibleColumnsChange).toHaveBeenCalledTimes(1);
   });
 });

@@ -22,6 +22,8 @@ interface Params {
   value: EolMilestone | undefined;
   /** `date` for a release date; a milestone kind for EOL / end of support. */
   mode: "date" | MilestoneKind;
+  /** The column's own label for a plain date ("Release date", …). */
+  label?: string;
   onValueChange: (value: EolMilestone) => void;
   stopEditing?: (suppressNavigateAfterEdit?: boolean) => void;
   api: GridApi;
@@ -52,7 +54,7 @@ export default function EolCycleCellEditor(props: Params) {
           size="small"
           fullWidth
           autoFocus
-          label={t("eol.custom.date")}
+          label={props.label ?? t("eol.releaseDate")}
           value={typeof value === "string" ? value : ""}
           onChange={(v) => change(v || null)}
         />
@@ -63,6 +65,7 @@ export default function EolCycleCellEditor(props: Params) {
         // an option does not commit the previous value.
         <MilestoneField
           kind={props.mode}
+          size="small"
           value={value}
           onChange={change}
           menuProps={{ className: "ag-custom-component-popup" }}

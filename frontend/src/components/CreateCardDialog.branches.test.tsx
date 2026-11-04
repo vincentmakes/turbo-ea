@@ -257,7 +257,7 @@ describe("CreateCardDialog — required fields of every type", () => {
     await user.click(await screen.findByRole("option", { name: "Yes" }));
     expect(select(/^Shared/)).toHaveTextContent("Yes");
     await user.click(select(/^Shared/));
-    await user.click(await screen.findByRole("option", { name: "Not set" }));
+    await user.click(await screen.findByRole("option", { name: "Unknown" }));
     expect(select(/^Shared/)).not.toHaveTextContent("Yes");
     await user.type(nameBox(), "Gadget");
     await user.click(screen.getByRole("button", { name: /^create$/i }));

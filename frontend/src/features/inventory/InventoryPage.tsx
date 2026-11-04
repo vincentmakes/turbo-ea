@@ -3285,7 +3285,7 @@ export default function InventoryPage() {
                 const title = [
                   entry.source === "manual"
                     ? t("filter.eolManual")
-                    : `${eolProductLabel(entry.eol_product ?? "")} ${entry.eol_cycle}`,
+                    : `${eolProductLabel(entry.eol_product ?? "", entry.eol_product_title)} ${entry.eol_cycle}`,
                   entry.support_date ? `${t("columns.eolSupport")}: ${formatDate(entry.support_date)}` : null,
                 ]
                   .filter(Boolean)

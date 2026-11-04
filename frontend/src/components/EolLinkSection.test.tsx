@@ -52,7 +52,7 @@ const CYCLES: EolCycle[] = [
  *  outlined variant prints the label twice — the label and the border notch). */
 async function cycleSelect(scope: HTMLElement | typeof screen = screen): Promise<HTMLElement> {
   const q = scope === screen ? screen : within(scope as HTMLElement);
-  await q.findAllByText("Version / Cycle");
+  await q.findAllByText("Release cycle");
   return q.getAllByRole("combobox")[1];
 }
 
@@ -97,13 +97,13 @@ describe("EolLinkSection — linked card", () => {
     await screen.findByText("postgresql 12");
     // Title, header chip, status badge and the row label. The last three come
     // from the cycles request, which lands after the product the card holds.
-    await waitFor(() => expect(screen.getAllByText("End of Life")).toHaveLength(4));
+    await waitFor(() => expect(screen.getAllByText("End of Life")).toHaveLength(3));
     expect(screen.getByText("Yes (EOL)")).toBeInTheDocument();
     // support=false: active support has ended.
-    expect(screen.getByText("Active Support").nextElementSibling).toHaveTextContent(/^No$/);
+    expect(screen.getByText("Active support").nextElementSibling).toHaveTextContent(/^No$/);
   });
 
-  it("warns when the eol date is within six months, and when only security fixes remain", async () => {
+  it("warns within six months of the EOL date; a bare support flag of false is still supported", async () => {
     mockApi.on("get", "/eol/products/postgresql", [
       { cycle: "16", eol: future(3), support: future(1) },
     ]);
@@ -115,7 +115,9 @@ describe("EolLinkSection — linked card", () => {
     // Same product/cycle → no refetch; click Refresh to pull the new data.
     const user = userEvent.setup();
     await user.click(screen.getByTitle("Refresh EOL data"));
-    expect(await screen.findAllByText("Security fixes only")).toHaveLength(2);
+    // The shared rule (backend `eol_status`): only a support *date* in the
+    // past is "approaching"; `support: false` with a far EOL date is supported.
+    expect(await screen.findAllByText("Supported")).toHaveLength(2);
   });
 
   it("warns when the stored cycle is unknown to the product", async () => {

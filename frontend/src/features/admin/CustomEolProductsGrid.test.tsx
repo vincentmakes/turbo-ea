@@ -249,7 +249,10 @@ describe("toolbar and row menu", () => {
     await renderGrid();
     const cell = gridStub.colDef("product").cellRenderer as (p: { data: unknown }) => React.ReactElement;
     const rendered = render(cell({ data: row("c2") }));
-    expect(within(rendered.container).getByText("On endoflife.date: acme")).toBeInTheDocument();
+    // A compact chip; the matched name sits in its tooltip, not beside the title.
+    expect(within(rendered.container).getByText("On endoflife.date")).toBeInTheDocument();
+    expect(rendered.container).not.toHaveTextContent("acme-erp");
+    expect(rendered.container).toHaveTextContent("Acme ERP");
   });
 });
 
@@ -261,16 +264,21 @@ describe("columns", () => {
       return [d.headerName, d.field, d.cellEditorPopup ?? null, d.cellEditorParams ?? null];
     };
     expect(shape("product")).toEqual(["Product", "productTitle", null, null]);
-    expect(shape("cycle")).toEqual(["Cycle", "cycle", null, null]);
-    expect(shape("releaseDate")).toEqual(["Release date", "releaseDate", true, { mode: "date" }]);
+    expect(shape("cycle")).toEqual(["Release cycle", "cycle", null, null]);
+    expect(shape("releaseDate")).toEqual([
+      "Release date",
+      "releaseDate",
+      true,
+      { mode: "date", label: "Release date" },
+    ]);
     expect(shape("support")).toEqual(["Active support", "support", true, { mode: "support" }]);
     expect(shape("eol")).toEqual(["End of life", "eol", true, { mode: "eol" }]);
     expect(shape("latest")).toEqual(["Latest version", "latest", null, null]);
     expect(shape("latestReleaseDate")).toEqual([
-      "Latest release",
+      "Latest release date",
       "latestReleaseDate",
       true,
-      { mode: "date" },
+      { mode: "date", label: "Latest release date" },
     ]);
     expect(shape("status")).toEqual(["Status", "status", null, null]);
     expect(shape("linked")).toEqual(["Linked cards", "linked", null, null]);
@@ -283,7 +291,7 @@ describe("columns", () => {
       actions.filter,
       actions.resizable,
       actions.suppressHeaderMenuButton,
-    ]).toEqual(["", false, false, false, true]);
+    ]).toEqual(["Actions", false, false, false, true]);
     const d = gridStub.lastProps().defaultColDef;
     expect([d.sortable, d.resizable, d.filter, d.filterParams]).toEqual([
       true,
@@ -368,7 +376,7 @@ describe("columns", () => {
       expect(mockApi.callsOf("get", "/eol/custom-products/upstream-matches")).toHaveLength(2),
     );
     await new Promise((r) => setTimeout(r, 0));
-    expect(productCell()).toHaveTextContent("On endoflife.date: acme");
+    expect(productCell()).toHaveTextContent("On endoflife.date");
   });
 
   it("hides the columns the stored preference leaves out", async () => {

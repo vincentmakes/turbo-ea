@@ -160,11 +160,12 @@ Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af 
 
 Vises som standard på Applications og IT Components og på enhver anden korttype, hvor administratoren har [slået den til](../admin/eol.md#end-of-life-pa-andre-korttyper). Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
 
-- **Produktnavn og version**
-- **Support-status** — Farvekodet: Supported, Approaching EOL, End of Life
-- **Nøgle-datoer** — Udgivelsesdato, aktiv support slut, sikkerheds-support slut, EOL-dato
+- **Produktnavn og version** – et brugerdefineret produkt navngives med sin titel og er markeret **Brugerdefineret**
+- **Supportstatus** — Farvekodet efter samme regel som EOL-rapporten: Supporteret, Nærmer sig EOL (inden for seks måneder før EOL-datoen eller når den aktive support er ophørt), End of Life
+- **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, EOL-dato, den seneste version og dens udgivelsesdato
+- **Udgivelsesnoter** — et link til produktets side på endoflife.date eller **Leverandørside** for et brugerdefineret produkt
 
-Når endoflife.date ikke har noget match for produktet, kan brugere med tilladelsen **Administrer EOL** oprette et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion og tilknytte kortet til det. Brugerdefinerede produkter er markeret **Brugerdefineret** og opfører sig som endoflife.date-produkter alle andre steder.
+**Tilknyt**, **Skift** og **Fjern tilknytning** vises kun, hvis du må redigere kortet. Når endoflife.date ikke har noget match for produktet, kan brugere med tilladelsen **Administrer EOL** oprette et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion og tilknytte kortet til det; de får også en genvej til **Administrer brugerdefinerede produkter** i indstillingerne og kan tilføje en manglende udgivelsescyklus fra cykluslisten. Brugerdefinerede produkter opfører sig som endoflife.date-produkter alle andre steder.
 
 ## Kommentarer-fane
 

@@ -464,6 +464,7 @@ export default function CardDetailContent({
             card={card}
             onSave={handleUpdate}
             initialExpanded={secRaw("eol")}
+            canEdit={perms.can_edit}
           />
         </ErrorBoundary>
       );

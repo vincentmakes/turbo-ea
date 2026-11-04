@@ -49,9 +49,12 @@ Un riepilogo delle statistiche mostra: card totali analizzate, già collegate, n
 
 Una volta collegata, la pagina di dettaglio della card mostra una **sezione EOL** con:
 
-- **Nome del prodotto e versione**
-- **Stato del supporto** — Con codice colore: Supportato (verde), In avvicinamento a EOL (arancione), End of Life (rosso)
-- **Date chiave** — Data di rilascio, fine supporto attivo, fine supporto di sicurezza, data EOL
+- **Nome del prodotto e versione** — un prodotto personalizzato è contrassegnato come **Personalizzato**
+- **Stato del supporto** — Con codice colore, con la stessa regola del report EOL: Supportato (verde), In avvicinamento a EOL (arancione, entro sei mesi dalla data EOL o una volta terminato il supporto attivo), End of Life (rosso)
+- **Date chiave** — Data di rilascio, fine supporto attivo, data EOL, l'ultima versione e la sua data di rilascio
+- **Note di rilascio** — un link alla pagina del prodotto su endoflife.date, oppure la **Pagina del fornitore** di un prodotto personalizzato
+
+Solo gli utenti che possono modificare la scheda vedono **Collega**, **Cambia** e **Scollega**; gli altri vedono soltanto i dettagli. Un gestore EOL dispone inoltre di una scorciatoia a **Gestisci i prodotti personalizzati** quando è collegato un prodotto personalizzato.
 
 ## Fine vita su altri tipi di card
 
@@ -83,12 +86,11 @@ Ci sono due modi per crearne uno:
 
 Ogni prodotto ha:
 
-- **Nome del prodotto** — come viene mostrato ovunque.
-- **Chiave** — un breve identificatore in minuscolo (lettere, cifre, punti, trattini, trattini bassi) suggerito dal nome. I collegamenti delle schede la memorizzano, quindi **non può essere modificata** dopo la creazione.
-- **Link del fornitore o della politica di rilascio** e **Descrizione** — facoltativi.
+- **Nome del prodotto** — come viene mostrato ovunque. Turbo EA ne ricava un identificatore per i collegamenti delle schede (due prodotti con lo stesso nome ricevono identificatori numerati); non lo digitate mai e compare solo come nome del file quando proponete il prodotto a endoflife.date.
+- **Link del fornitore o della politica di rilascio** e **Descrizione** — facoltativi. Quando i [suggerimenti IA](ai.md) sono abilitati, **Suggerisci con IA** redige la descrizione a partire dal nome del prodotto e dal link del fornitore, così potete modificarla prima di applicarla.
 - **Cicli di rilascio** — ciascuno con un nome (ad esempio `2.4`), una **Data di rilascio**, una fine del **Supporto attivo**, una **Fine vita** e, facoltativamente, l'**Ultima versione** e la sua data di rilascio.
 
-Supporto attivo e fine vita accettano ciascuno una **data**, oppure una delle due risposte quando non si conosce alcuna data: *Ancora supportato* / *Supporto attivo terminato* e *Nessuna fine vita annunciata* / *Già a fine vita*. Lo stato (Supportato, In avvicinamento a EOL, Fine vita) viene calcolato da questi valori con la stessa regola dei prodotti di endoflife.date.
+Supporto attivo e fine vita accettano ciascuno una data (**In una data…**), oppure una delle due risposte quando non si conosce alcuna data: *Ancora supportato* / *Supporto già terminato* e *Nessuna fine vita annunciata* / *Già terminato*; *Sconosciuto* non registra nulla. Lo stato (Supportato, In avvicinamento a EOL, Fine vita) viene calcolato da questi valori con la stessa regola dei prodotti di endoflife.date. Un problema in un ciclo — nessun nome, una fine precedente alla data di rilascio — viene mostrato sul campo interessato e il prodotto non può essere salvato finché non è risolto.
 
 ### Gestire i cicli nella griglia
 
@@ -105,7 +107,7 @@ Un prodotto o un ciclo non può essere eliminato finché vi sono schede collegat
 Se un prodotto personalizzato è un prodotto pubblico di un fornitore, valutate di proporlo a endoflife.date, così che tutti ne traggano vantaggio. Scegliete **Proponi a endoflife.date** dal menu di riga:
 
 1. Leggete l'avviso: la proposta pubblica il nome del prodotto e le sue date. Non proponete mai prodotti interni o riservati.
-2. Scegliete la **categoria** di endoflife.date. La finestra mostra l'anteprima del file del prodotto nel formato di endoflife.date (`products/<key>.md`).
+2. Scegliete la **categoria** di endoflife.date. La finestra mostra l'anteprima del file del prodotto nel formato di endoflife.date (`products/<identifier>.md`).
 3. Fate clic su **Apri su GitHub**. GitHub apre un nuovo file nel repository di endoflife.date con il contenuto compilato (offre di creare un fork del repository se non potete scrivervi). Completate la descrizione e il riepilogo della politica di rilascio, poi aprite la pull request dal vostro account GitHub. Per i file lunghi, usate invece **Copia file** e incollatelo in un nuovo file.
 
 Turbo EA non invia mai nulla a GitHub da solo e non memorizza credenziali GitHub. endoflife.date esamina ogni proposta in base alla propria [guida al contributo](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).

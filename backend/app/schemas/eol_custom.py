@@ -10,6 +10,7 @@ input too (``populate_by_name``).
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from typing import Any
 
@@ -137,8 +138,26 @@ class EolCustomCycleUpdate(_CycleFields):
         return text
 
 
+def product_key_from_title(title: str) -> str:
+    """The key a product gets from its title: "Acme ERP 2" -> "acme-erp-2".
+
+    Accents are folded, anything outside the key alphabet becomes one hyphen
+    and leading or trailing separators go, so the result always matches
+    ``PRODUCT_KEY_RE`` — or is empty when the title holds nothing usable.
+    """
+    folded = "".join(
+        ch for ch in unicodedata.normalize("NFKD", title) if not unicodedata.combining(ch)
+    )
+    key = re.sub(r"[^a-z0-9._-]+", "-", folded.lower())
+    key = re.sub(r"-{2,}", "-", key)
+    key = re.sub(r"^[^a-z0-9]+", "", key)
+    key = re.sub(r"[-._]+$", "", key)[:100]
+    return re.sub(r"[-._]+$", "", key)
+
+
 class EolCustomProductCreate(BaseModel):
-    key: str
+    #: Generated from the title when absent (see ``product_key_from_title``).
+    key: str | None = None
     title: str
     description: str | None = None
     link: str | None = None
@@ -146,8 +165,10 @@ class EolCustomProductCreate(BaseModel):
 
     @field_validator("key", mode="before")
     @classmethod
-    def _check_key(cls, v: Any) -> str:
+    def _check_key(cls, v: Any) -> str | None:
         text = str(v or "").strip()
+        if not text:
+            return None
         if not PRODUCT_KEY_RE.match(text):
             raise ValueError(
                 "must be 1-100 lower-case letters, digits, dots, hyphens or underscores"

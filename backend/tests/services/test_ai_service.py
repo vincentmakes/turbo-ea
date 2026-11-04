@@ -65,6 +65,18 @@ class TestTypeAwareContext:
         desc = _get_llm_item_description("CustomWidget", "Custom Widget")
         assert "custom widget" in desc
 
+    def test_eol_product_context(self):
+        from app.services.ai_service import EOL_PRODUCT_CONTEXT_KEY, _get_extra_fields
+
+        suffix = _get_search_suffix(EOL_PRODUCT_CONTEXT_KEY, None)
+        assert "end of life" in suffix and "support" in suffix
+        desc = _get_llm_item_description(EOL_PRODUCT_CONTEXT_KEY, "Product")
+        assert "support lifecycle" in desc
+        # Description only: no card-type field is asked for.
+        assert _get_extra_fields(EOL_PRODUCT_CONTEXT_KEY, None) == []
+        # Reserved: never a card type key.
+        assert EOL_PRODUCT_CONTEXT_KEY.startswith("__")
+
 
 # ---------------------------------------------------------------------------
 # validate_suggestions (description-only)
