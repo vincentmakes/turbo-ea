@@ -708,7 +708,7 @@ describe("sorting", () => {
   });
 
   it("keeps rows with no value to sort on in their planned order", () => {
-    for (const key of ["completion", "assignee"] as const) {
+    for (const key of ["completion", "assignee", "start", "end"] as const) {
       const sorted = sortGanttRows(rows, new Map(), { key, dir: "asc" }, "en");
       expect(sorted.map((r) => r.id)).toEqual(rows.map((r) => r.id));
     }
