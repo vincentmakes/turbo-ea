@@ -73,9 +73,9 @@ export function exportAdrsToXlsx(adrs: ArchitectureDecision[], now: Date = new D
 
 /** Read a workbook into import rows (the "Decisions" sheet, else the first). */
 export function parseAdrWorkbook(buffer: ArrayBuffer): AdrImportItem[] {
-  return readSheetRows(buffer, ADR_SHEET).map((row, index) => {
+  return readSheetRows(buffer, ADR_SHEET).map(({ sheetRow, cells: row }) => {
     const item: AdrImportItem = {
-      row_index: index,
+      row_index: sheetRow,
       title: row.title ?? "",
       card_names: listCell(row.cards),
       related_references: listCell(row.related_decisions),

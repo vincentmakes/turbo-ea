@@ -9,8 +9,16 @@
  * — which is how an importer tells "no such column" from "blank cell".
  */
 import * as XLSX from "xlsx";
+import { readWorkbookSheets } from "@/lib/spreadsheet";
 
 export type SheetRow = Record<string, string>;
+
+/** A non-blank row: its cells by normalised header, and where it sits in the sheet. */
+export interface ParsedSheetRow {
+  /** 0-based position in the sheet (the header is row 0), i.e. Excel's row number minus one. */
+  sheetRow: number;
+  cells: SheetRow;
+}
 
 /** Normalise a header cell to a lookup key: trimmed, lower-cased, spaces → `_`. */
 export function headerKey(header: string): string {
@@ -30,21 +38,24 @@ export function cellText(value: unknown): string {
 /**
  * The rows of the sheet named `preferredSheet` (case-insensitive), or of the
  * first sheet when there is none. Every header the sheet has is a key on
- * every row; fully blank rows are dropped.
+ * every row; fully blank rows are dropped, but each row keeps its position in
+ * the sheet so a message can name the row the person sees in Excel.
  */
-export function readSheetRows(buffer: ArrayBuffer, preferredSheet: string): SheetRow[] {
-  const wb = XLSX.read(buffer, { type: "array", cellDates: true });
+export function readSheetRows(buffer: ArrayBuffer, preferredSheet: string): ParsedSheetRow[] {
+  const sheets = readWorkbookSheets(buffer);
   const wanted = preferredSheet.trim().toLowerCase();
-  const name = wb.SheetNames.find((n) => n.trim().toLowerCase() === wanted) ?? wb.SheetNames[0];
-  const ws = name ? wb.Sheets[name] : undefined;
-  if (!ws) return [];
-  const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
-  const rows: SheetRow[] = [];
-  for (const rawRow of raw) {
-    const row: SheetRow = {};
-    for (const [k, v] of Object.entries(rawRow)) row[headerKey(k)] = cellText(v);
-    if (Object.values(row).some((v) => v !== "")) rows.push(row);
-  }
+  const sheet = sheets.find((s) => s.name.trim().toLowerCase() === wanted) ?? sheets[0];
+  if (!sheet) return [];
+  const rows: ParsedSheetRow[] = [];
+  sheet.rows.forEach((rawRow, index) => {
+    const cells: SheetRow = {};
+    for (const [k, v] of Object.entries(rawRow)) cells[headerKey(k)] = cellText(v);
+    if (!Object.values(cells).some((v) => v !== "")) return;
+    // SheetJS stamps each parsed row with its 0-based sheet position
+    // (non-enumerable, so the loop above never sees it).
+    const sheetRow = (rawRow as { __rowNum__?: number }).__rowNum__ ?? index + 1;
+    rows.push({ sheetRow, cells });
+  });
   return rows;
 }
 

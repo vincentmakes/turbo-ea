@@ -34,8 +34,8 @@ const OPTIONAL_COLUMNS = [
 
 /** Read a workbook into import rows (the "Principles" sheet, else the first). */
 export function parsePrincipleWorkbook(buffer: ArrayBuffer): PrincipleImportItem[] {
-  return readSheetRows(buffer, PRINCIPLE_SHEET).map((row, index) => {
-    const item: PrincipleImportItem = { row_index: index, title: row.title ?? "" };
+  return readSheetRows(buffer, PRINCIPLE_SHEET).map(({ sheetRow, cells: row }) => {
+    const item: PrincipleImportItem = { row_index: sheetRow, title: row.title ?? "" };
     for (const column of OPTIONAL_COLUMNS) {
       if (column in row) item[column] = row[column];
     }

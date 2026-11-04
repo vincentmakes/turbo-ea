@@ -299,9 +299,10 @@ Every principle carries a **reference number** (`P-001`, `P-002`, …), assigned
 
 **Import** loads principles in bulk from an `.xlsx` file. Click **Download template** for a starter workbook, fill in one principle per row, and upload it. Each row is matched to an existing principle by its `reference_number` first, then by its title (ignoring case):
 
-- A matched principle is **updated** with the values that differ; if nothing differs, the row is **skipped**.
+- A matched principle is **updated** with the values that differ; if nothing differs, the row is **skipped**. The preview lists each updated row with the fields it changes.
 - Any other row **creates** a new principle with the next free reference. A reference that does not exist on this instance is not reused; the preview warns about it.
-- A column missing from the sheet leaves that field unchanged, while an empty cell clears it. `title` is the only required column.
+- A row without a reference whose title belongs to two principles is refused as ambiguous: add the reference to say which one you mean.
+- A column missing from the sheet leaves that field unchanged. An empty `description`, `rationale` or `implications` cell clears that text; an empty `is_active` or `sort_order` cell leaves the value as it is. `title` is the only required column.
 - `is_active` accepts `true` / `false` (also `yes` / `no`, `1` / `0`); `sort_order` must be a whole number. New principles without a `sort_order` are added at the end of the list.
 - A title or reference that appears twice in the file, or a rename onto another principle's title, fails that row.
 

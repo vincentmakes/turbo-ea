@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} warnings",
   "spreadsheetImport.errorsBlock": "Some rows have errors and will not be imported. Fix them and upload the file again, or import the valid rows only.",
   "spreadsheetImport.warningsBlock": "Some values could not be matched. These rows will still be imported without them.",
+  "spreadsheetImport.updatedBlock": "These rows match an existing entry and will be updated in the fields listed.",
   "spreadsheetImport.apply_one": "Import {{count}} row",
   "spreadsheetImport.apply_other": "Import {{count}} rows",
   "spreadsheetImport.doneCreated_one": "{{count}} created",

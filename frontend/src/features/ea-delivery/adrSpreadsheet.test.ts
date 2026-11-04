@@ -117,7 +117,7 @@ describe("exportAdrsToXlsx", () => {
 
     expect(parseAdrWorkbook(bytes(wb))).toEqual([
       {
-        row_index: 0,
+        row_index: 1,
         reference_number: "ADR-007",
         title: "Adopt Kafka",
         status: "signed",
@@ -142,7 +142,7 @@ describe("parseAdrWorkbook", () => {
       ),
     ).toEqual([
       {
-        row_index: 0,
+        row_index: 1,
         title: "Use Postgres",
         decision: "<p>Line one<br>line two</p>",
         card_names: [],
@@ -153,7 +153,7 @@ describe("parseAdrWorkbook", () => {
 
   it("keeps a row without a title so the server can report it", () => {
     const [item] = parseAdrWorkbook(sheetBuffer([["title", "cards"], ["", "Billing"]], "Any"));
-    expect(item).toEqual({ row_index: 0, title: "", card_names: ["Billing"], related_references: [] });
+    expect(item).toEqual({ row_index: 1, title: "", card_names: ["Billing"], related_references: [] });
   });
 });
 

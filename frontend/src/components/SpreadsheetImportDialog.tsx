@@ -194,6 +194,13 @@ export default function SpreadsheetImportDialog<TItem>({
   const failures = results
     .filter((r) => r.status === "failed")
     .map((r) => ({ key: String(r.row_index), row: r.row_index, text: r.error ?? "" }));
+  const updates = results
+    .filter((r) => r.status === "updated")
+    .map((r) => ({
+      key: String(r.row_index),
+      row: r.row_index,
+      text: [r.reference_number, (r.changed_fields ?? []).join(", ")].filter(Boolean).join(": "),
+    }));
   const skipped = results
     .filter((r) => r.status === "skipped")
     .map((r) => ({ key: String(r.row_index), row: r.row_index, text: skippedText(r) }));
@@ -309,6 +316,13 @@ export default function SpreadsheetImportDialog<TItem>({
                 {t("spreadsheetImport.warningsBlock")}
                 <ToggleLink open={!!expanded.warnings} onToggle={() => toggle("warnings")} />
                 <RowList open={!!expanded.warnings} rows={warnings} />
+              </Alert>
+            )}
+            {updates.length > 0 && (
+              <Alert severity="info">
+                {t("spreadsheetImport.updatedBlock")}
+                <ToggleLink open={!!expanded.updates} onToggle={() => toggle("updates")} />
+                <RowList open={!!expanded.updates} rows={updates} />
               </Alert>
             )}
             {skipped.length > 0 && (

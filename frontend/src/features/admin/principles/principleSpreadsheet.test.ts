@@ -81,7 +81,7 @@ describe("exportPrinciples", () => {
     const items = parsePrincipleWorkbook(bytes(wb));
     expect(items).toEqual([
       {
-        row_index: 0,
+        row_index: 1,
         reference_number: "P-001",
         title: "Reuse first",
         description: "Prefer reuse",
@@ -91,7 +91,7 @@ describe("exportPrinciples", () => {
         sort_order: "10",
       },
       {
-        row_index: 1,
+        row_index: 2,
         reference_number: "",
         title: "Cloud",
         description: "",
@@ -112,20 +112,20 @@ describe("parsePrincipleWorkbook", () => {
         ["Only these", "two columns"],
       ]),
     );
-    expect(items).toEqual([{ row_index: 0, title: "Only these", description: "two columns" }]);
+    expect(items).toEqual([{ row_index: 1, title: "Only these", description: "two columns" }]);
     expect("rationale" in items[0]).toBe(false);
     expect("is_active" in items[0]).toBe(false);
   });
 
   it("keeps a row without a title so the server can report it", () => {
     expect(parsePrincipleWorkbook(sheetBuffer([["title", "description"], ["", "orphan"]]))).toEqual(
-      [{ row_index: 0, title: "", description: "orphan" }],
+      [{ row_index: 1, title: "", description: "orphan" }],
     );
   });
 
   it("reads the first sheet when none is named Principles", () => {
     expect(parsePrincipleWorkbook(sheetBuffer([["TITLE"], ["X"]], "Sheet1"))).toEqual([
-      { row_index: 0, title: "X" },
+      { row_index: 1, title: "X" },
     ]);
   });
 });
@@ -137,7 +137,7 @@ describe("downloadPrincipleTemplate", () => {
     expect(filename).toBe("principles-import-template.xlsx");
     const [example] = parsePrincipleWorkbook(bytes(wb));
     expect(example).toMatchObject({
-      row_index: 0,
+      row_index: 1,
       reference_number: "",
       title: "Reuse before buy before build",
       is_active: "true",

@@ -51,15 +51,16 @@ describe("readSheetRows", () => {
         ["B", ""],
       ],
     });
+    // Blank rows are dropped, but every row keeps its place in the sheet.
     expect(readSheetRows(buffer, "Principles")).toEqual([
-      { title: "A", is_active: "true" },
-      { title: "B", is_active: "" },
+      { sheetRow: 1, cells: { title: "A", is_active: "true" } },
+      { sheetRow: 3, cells: { title: "B", is_active: "" } },
     ]);
   });
 
   it("falls back to the first sheet", () => {
     const buffer = workbook({ Data: [["title"], ["Only"]] });
-    expect(readSheetRows(buffer, "Principles")).toEqual([{ title: "Only" }]);
+    expect(readSheetRows(buffer, "Principles")).toEqual([{ sheetRow: 1, cells: { title: "Only" } }]);
   });
 
   it("returns nothing for a header-only sheet", () => {

@@ -117,9 +117,10 @@ describe("SpreadsheetImportDialog", () => {
     expect(dryRun.body).toEqual({
       dry_run: true,
       items: [
-        { row_index: 0, reference_number: "P-001", title: "Reuse first" },
-        { row_index: 1, reference_number: "", title: "Cloud first" },
-        { row_index: 2, reference_number: "P-002", title: "Same" },
+        // row_index is the sheet position (header = 0); the blank line is skipped.
+        { row_index: 1, reference_number: "P-001", title: "Reuse first" },
+        { row_index: 2, reference_number: "", title: "Cloud first" },
+        { row_index: 4, reference_number: "P-002", title: "Same" },
       ],
     });
 
@@ -136,6 +137,11 @@ describe("SpreadsheetImportDialog", () => {
     expect(
       within(warnings).getByText("Reference P-001 not found; matched P-009 by title"),
     ).toBeInTheDocument();
+
+    const updates = alerts.find((a) => a.textContent?.includes("will be updated"))!;
+    await user.click(within(updates).getByRole("button", { name: "Show more" }));
+    expect(within(updates).getByText("Row 1")).toBeInTheDocument();
+    expect(within(updates).getByText("P-001: title")).toBeInTheDocument();
 
     const skipped = alerts.find((a) => a.textContent?.includes("These change nothing."))!;
     await user.click(within(skipped).getByRole("button", { name: "Show more" }));
@@ -173,6 +179,7 @@ describe("SpreadsheetImportDialog", () => {
     await user.upload(fileInput(), workbookFile(ROWS));
     expect(await screen.findByRole("button", { name: /Import 0 rows/ })).toBeDisabled();
     expect(screen.queryByText(/to update/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/will be updated/)).not.toBeInTheDocument();
     expect(screen.queryByText(/with errors/)).not.toBeInTheDocument();
     expect(screen.queryByText(/warning/)).not.toBeInTheDocument();
   });
