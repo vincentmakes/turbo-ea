@@ -491,8 +491,13 @@ export function loadGanttSort(
   storage: () => Pick<Storage, "getItem"> = () => localStorage,
 ): GanttSort | null {
   try {
-    const [key, dir] = String(storage().getItem(SORT_KEY)).split(":");
-    if (GANTT_SORT_KEYS.includes(key as GanttSortKey) && (dir === "asc" || dir === "desc")) {
+    const parts = String(storage().getItem(SORT_KEY)).split(":");
+    const [key, dir] = parts;
+    if (
+      parts.length === 2 &&
+      GANTT_SORT_KEYS.includes(key as GanttSortKey) &&
+      (dir === "asc" || dir === "desc")
+    ) {
       return { key: key as GanttSortKey, dir };
     }
   } catch {
@@ -524,7 +529,8 @@ function sortValue(
     case "title":
       return row.name;
     case "completion":
-      return meta.get(row.id)?.completion ?? null;
+      // The chip shows a whole percentage, so two rows that read the same are a tie.
+      return meta.has(row.id) ? Math.round(meta.get(row.id)!.completion) : null;
     case "assignee":
       return meta.get(row.id)?.assigneeName || null;
     case "start":

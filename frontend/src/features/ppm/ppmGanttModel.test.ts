@@ -780,17 +780,18 @@ describe("sorting", () => {
     }
   });
 
-  it("compares completions as numbers, fractions included", () => {
+  it("sorts completions by the whole percentage the chip shows, a shared one being a tie", () => {
     const shares = [
       wbs("third", { completion: 33.3 }),
       wbs("quarter", { completion: 33.25 }),
+      wbs("most", { completion: 33.6 }),
       wbs("five", { completion: 5 }),
     ];
     expect(sortFlat(shares, { key: "completion", dir: "asc" })).toEqual([
-      "wbs-five", "wbs-quarter", "wbs-third", EMPTY_ROW_ID,
+      "wbs-five", "wbs-third", "wbs-quarter", "wbs-most", EMPTY_ROW_ID,
     ]);
     expect(sortFlat(shares, { key: "completion", dir: "desc" })).toEqual([
-      "wbs-third", "wbs-quarter", "wbs-five", EMPTY_ROW_ID,
+      "wbs-most", "wbs-third", "wbs-quarter", "wbs-five", EMPTY_ROW_ID,
     ]);
   });
 
@@ -824,6 +825,7 @@ describe("sorting", () => {
     expect(loadGanttSort(stored("owner:asc"))).toBeNull();
     expect(loadGanttSort(stored("start:up"))).toBeNull();
     expect(loadGanttSort(stored("start"))).toBeNull();
+    expect(loadGanttSort(stored("title:asc:junk"))).toBeNull();
     expect(
       loadGanttSort(() => {
         throw new Error("blocked");
