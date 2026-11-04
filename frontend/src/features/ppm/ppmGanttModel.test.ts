@@ -10,6 +10,9 @@ import type { PpmDependency, PpmTask, PpmWbs } from "@/types";
 import { PPM_GANTT_COLORS } from "@/theme/tokens";
 import {
   EMPTY_ROW_ID,
+  GANTT_SORT_KEYS,
+  NARROW_SORT_KEYS,
+  SORT_KEY,
   TASK_STATUS_BAR_COLORS,
   VIEW_CENTER_KEY_PREFIX,
   VIEW_MODE_KEY,
@@ -32,12 +35,17 @@ import {
   geometryFor,
   getParentIds,
   leftEdgeFor,
+  loadGanttSort,
   loadInitialViewMode,
+  nextGanttSort,
   parseDate,
   parseGanttId,
   roundToDay,
+  saveGanttSort,
+  sortGanttRows,
   zoomBounds,
 } from "./ppmGanttModel";
+import type { GanttSort } from "./ppmGanttModel";
 
 const day = (y: number, m: number, d: number, h = 0, min = 0) => new Date(y, m - 1, d, h, min);
 
@@ -578,5 +586,178 @@ describe("rows", () => {
       ["wbs-w2", { completion: 0, assigneeName: null, hasChildren: false }],
       ["task-t1", { completion: 100, assigneeName: "Bo", hasChildren: false }],
     ]);
+  });
+});
+
+describe("sorting", () => {
+  const range = { start: day(2026, 1, 1), end: day(2026, 12, 31) };
+  /** A tree: two work packages, a child package and tasks under each. */
+  const wbsList = [
+    wbs("a", { title: "WP 10", start_date: "2026-03-01", end_date: "2026-03-20", completion: 40, assignee_name: "Zoe" }),
+    wbs("b", { title: "WP 2", start_date: "2026-01-05", end_date: "2026-06-30", completion: 75 }),
+    wbs("a1", { parent_id: "a", title: "wp 1", start_date: "2026-03-10", end_date: "2026-03-12", completion: 20, assignee_name: "adam" }),
+  ];
+  const tasks = [
+    task("t1", { wbs_id: "a", title: "Build", start_date: "2026-03-02", due_date: "2026-03-30", status: "done", assignee_name: "Bea" }),
+    task("t2", { wbs_id: "b", title: "Analyse", start_date: "2026-02-01", due_date: "2026-02-03", status: "in_progress" }),
+  ];
+  const rows = buildGanttRows({
+    wbsList,
+    tasks,
+    dependencies: new Map(),
+    collapsed: new Set(),
+    range,
+    projectStyles: {},
+  });
+  const meta = buildRowMeta(wbsList, tasks, getParentIds(wbsList, tasks));
+  const order = (sort: GanttSort | null) =>
+    sortGanttRows(rows, meta, sort, "en").map((r) => r.id);
+  /** Each parent's children, in the order the chart will list them. */
+  const siblings = (sort: GanttSort, parent: string | undefined) =>
+    sortGanttRows(rows, meta, sort, "en")
+      .filter((r) => r.type !== "empty" && r.parent === parent)
+      .map((r) => r.id);
+
+  it("leaves the planned order alone without a sort", () => {
+    expect(sortGanttRows(rows, meta, null, "en")).toBe(rows);
+  });
+
+  it("sorts titles naturally, ignoring case, either way", () => {
+    expect(order({ key: "title", dir: "asc" })).toEqual([
+      "task-t2", "task-t1", "wbs-a1", "wbs-b", "wbs-a", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "title", dir: "desc" })).toEqual([
+      "wbs-a", "wbs-b", "wbs-a1", "task-t1", "task-t2", EMPTY_ROW_ID,
+    ]);
+  });
+
+  it("sorts by completion, a task's following its status", () => {
+    expect(order({ key: "completion", dir: "asc" })).toEqual([
+      "wbs-a1", "wbs-a", "task-t2", "wbs-b", "task-t1", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "completion", dir: "desc" })).toEqual([
+      "task-t1", "wbs-b", "task-t2", "wbs-a", "wbs-a1", EMPTY_ROW_ID,
+    ]);
+  });
+
+  it("sorts by responsible, the unassigned last either way and in planned order", () => {
+    expect(order({ key: "assignee", dir: "asc" })).toEqual([
+      "wbs-a1", "task-t1", "wbs-a", "wbs-b", "task-t2", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "assignee", dir: "desc" })).toEqual([
+      "wbs-a", "task-t1", "wbs-a1", "wbs-b", "task-t2", EMPTY_ROW_ID,
+    ]);
+  });
+
+  it("sorts by the start and end dates the bars are drawn on", () => {
+    expect(order({ key: "start", dir: "asc" })).toEqual([
+      "wbs-b", "task-t2", "wbs-a", "task-t1", "wbs-a1", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "start", dir: "desc" })).toEqual([
+      "wbs-a1", "task-t1", "wbs-a", "task-t2", "wbs-b", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "end", dir: "asc" })).toEqual([
+      "task-t2", "wbs-a1", "wbs-a", "task-t1", "wbs-b", EMPTY_ROW_ID,
+    ]);
+    expect(order({ key: "end", dir: "desc" })).toEqual([
+      "wbs-b", "task-t1", "wbs-a", "wbs-a1", "task-t2", EMPTY_ROW_ID,
+    ]);
+  });
+
+  it("orders every parent's children among themselves, each kept under its parent", () => {
+    const byStart: GanttSort = { key: "start", dir: "asc" };
+    expect(siblings(byStart, undefined)).toEqual(["wbs-b", "wbs-a"]);
+    expect(siblings(byStart, "wbs-a")).toEqual(["task-t1", "wbs-a1"]);
+    expect(siblings({ key: "start", dir: "desc" }, "wbs-a")).toEqual(["wbs-a1", "task-t1"]);
+    expect(siblings(byStart, "wbs-b")).toEqual(["task-t2"]);
+  });
+
+  it("keeps the planned order between equal values", () => {
+    const same = [wbs("x", { title: "Same" }), wbs("y", { title: "same" }), wbs("z", { title: "Same" })];
+    const sameRows = buildGanttRows({
+      wbsList: same,
+      tasks: [],
+      dependencies: new Map(),
+      collapsed: new Set(),
+      range,
+      projectStyles: {},
+    });
+    const sameMeta = buildRowMeta(same, [], new Set());
+    for (const dir of ["asc", "desc"] as const) {
+      expect(sortGanttRows(sameRows, sameMeta, { key: "title", dir }, "en").map((r) => r.id)).toEqual([
+        "wbs-x", "wbs-y", "wbs-z", EMPTY_ROW_ID,
+      ]);
+    }
+  });
+
+  it("keeps rows with no value to sort on in their planned order", () => {
+    const sorted = sortGanttRows(rows, new Map(), { key: "completion", dir: "asc" }, "en");
+    expect(sorted.map((r) => r.id)).toEqual(rows.map((r) => r.id));
+  });
+
+  it("returns a new list and leaves its input as it was", () => {
+    const before = rows.map((r) => r.id);
+    const sorted = sortGanttRows(rows, meta, { key: "title", dir: "asc" }, "en");
+    expect(sorted).not.toBe(rows);
+    expect(rows.map((r) => r.id)).toEqual(before);
+  });
+
+  it("cycles a header click through ascending, descending and off", () => {
+    expect(nextGanttSort(null, "start")).toEqual({ key: "start", dir: "asc" });
+    expect(nextGanttSort({ key: "start", dir: "asc" }, "start")).toEqual({ key: "start", dir: "desc" });
+    expect(nextGanttSort({ key: "start", dir: "desc" }, "start")).toBeNull();
+    expect(nextGanttSort({ key: "start", dir: "desc" }, "end")).toEqual({ key: "end", dir: "asc" });
+  });
+
+  it("names the sortable columns, and the two a phone keeps", () => {
+    expect(GANTT_SORT_KEYS).toEqual(["title", "completion", "assignee", "start", "end"]);
+    expect(NARROW_SORT_KEYS).toEqual(["title", "completion"]);
+    expect(SORT_KEY).toBe("ppm.gantt.sort");
+  });
+
+  it("reads back a remembered sort, and nothing it does not recognise", () => {
+    const stored = (value: string | null) => () => ({ getItem: vi.fn(() => value) });
+    for (const key of GANTT_SORT_KEYS) {
+      expect(loadGanttSort(stored(`${key}:desc`))).toEqual({ key, dir: "desc" });
+    }
+    expect(loadGanttSort(stored("end:asc"))).toEqual({ key: "end", dir: "asc" });
+    expect(loadGanttSort(stored(null))).toBeNull();
+    expect(loadGanttSort(stored("owner:asc"))).toBeNull();
+    expect(loadGanttSort(stored("start:up"))).toBeNull();
+    expect(loadGanttSort(stored("start"))).toBeNull();
+    expect(
+      loadGanttSort(() => {
+        throw new Error("blocked");
+      }),
+    ).toBeNull();
+  });
+
+  it("reads localStorage by default", () => {
+    localStorage.setItem(SORT_KEY, "assignee:asc");
+    expect(loadGanttSort()).toEqual({ key: "assignee", dir: "asc" });
+    localStorage.removeItem(SORT_KEY);
+    expect(loadGanttSort()).toBeNull();
+  });
+
+  it("remembers a sort and forgets it when the list is back in its planned order", () => {
+    const storage = { setItem: vi.fn(), removeItem: vi.fn() };
+    saveGanttSort({ key: "end", dir: "desc" }, () => storage);
+    expect(storage.setItem).toHaveBeenCalledWith("ppm.gantt.sort", "end:desc");
+    expect(storage.removeItem).not.toHaveBeenCalled();
+    saveGanttSort(null, () => storage);
+    expect(storage.removeItem).toHaveBeenCalledWith("ppm.gantt.sort");
+    expect(storage.setItem).toHaveBeenCalledTimes(1);
+    expect(() =>
+      saveGanttSort(null, () => {
+        throw new Error("blocked");
+      }),
+    ).not.toThrow();
+  });
+
+  it("writes to localStorage by default", () => {
+    saveGanttSort({ key: "title", dir: "asc" });
+    expect(localStorage.getItem(SORT_KEY)).toBe("title:asc");
+    saveGanttSort(null);
+    expect(localStorage.getItem(SORT_KEY)).toBeNull();
   });
 });
