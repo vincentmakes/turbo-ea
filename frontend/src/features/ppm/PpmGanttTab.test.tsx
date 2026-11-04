@@ -376,6 +376,7 @@ describe("PpmGanttTab — sorting the task list", () => {
     const user = await renderTab();
     expect(columnTitles()).toEqual(["Title", "%", "Responsible", "Start Date", "End Date"]);
     expect(ids()).toEqual(["wbs-w1", "wbs-w2", "task-t1", "__empty__"]);
+    expect(localStorage.getItem("ppm.gantt.sort")).toBeNull();
     const columns = gantt.props!.columns;
 
     await user.click(header("Start Date"));

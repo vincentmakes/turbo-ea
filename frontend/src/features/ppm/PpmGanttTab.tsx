@@ -211,8 +211,6 @@ function SortableHeader({ label, sortKey }: { label: string; sortKey: GanttSortK
       active={active}
       direction={active ? sort.dir : "asc"}
       onClick={() => onSort(sortKey)}
-      // The header also starts a column resize on mousedown; a sort click must not.
-      onMouseDown={(e) => e.stopPropagation()}
       sx={{ fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}
     >
       {label}
@@ -241,14 +239,12 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   /** The task list's sort, chosen from a column header and remembered in the browser. */
   const [sort, setSort] = useState<GanttSort | null>(() => loadGanttSort());
   const toggleSort = useCallback(
-    (key: GanttSortKey) =>
-      setSort((prev) => {
-        const next = nextGanttSort(prev, key);
-        saveGanttSort(next);
-        return next;
-      }),
+    (key: GanttSortKey) => setSort((prev) => nextGanttSort(prev, key)),
     [],
   );
+  useEffect(() => {
+    saveGanttSort(sort);
+  }, [sort]);
   // The phone layout drops the Responsible and date columns, so a sort on one
   // of them would order the rows by something the user cannot see.
   const effectiveSort = sort && (!isNarrow || NARROW_SORT_KEYS.includes(sort.key)) ? sort : null;

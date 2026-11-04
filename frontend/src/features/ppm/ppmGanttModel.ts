@@ -414,11 +414,15 @@ export function buildGanttRows({
   return rows;
 }
 
-/** Extra per-row data for the custom columns (completion, assignee, whether it rolls up). */
+/** Extra per-row data for the custom columns (completion, assignee, whether it
+ *  rolls up) and for sorting: whether the item carries its own dates, since an
+ *  undated bar is drawn on the range's ends and must not sort as if it started there. */
 export interface GanttRowMeta {
   completion: number;
   assigneeName: string | null;
   hasChildren: boolean;
+  hasStart: boolean;
+  hasEnd: boolean;
 }
 
 /** The custom columns' data for every row, keyed by Gantt row id. */
@@ -433,6 +437,9 @@ export function buildRowMeta(
       completion: w.completion,
       assigneeName: w.assignee_name,
       hasChildren: parentIds.has(w.id),
+      hasStart: !!w.start_date,
+      // A milestone ends on the day it starts.
+      hasEnd: !!(w.is_milestone ? w.start_date : w.end_date),
     });
   }
   for (const tk of tasks) {
@@ -440,6 +447,8 @@ export function buildRowMeta(
       completion: percentFromStatus(tk.status),
       assigneeName: tk.assignee_name,
       hasChildren: false,
+      hasStart: !!tk.start_date,
+      hasEnd: !!tk.due_date,
     });
   }
   return map;
@@ -505,7 +514,7 @@ export function saveGanttSort(
   }
 }
 
-/** The value a row sorts on: what its cell shows. `null` (no responsible) sorts last. */
+/** The value a row sorts on. `null` (no responsible, no date of its own) sorts last. */
 function sortValue(
   row: Exclude<TaskOrEmpty, { type: "empty" }>,
   key: GanttSortKey,
@@ -519,18 +528,19 @@ function sortValue(
     case "assignee":
       return meta.get(row.id)?.assigneeName || null;
     case "start":
-      return row.start.getTime();
+      return meta.get(row.id)?.hasStart ? row.start.getTime() : null;
     case "end":
-      return row.end.getTime();
+      return meta.get(row.id)?.hasEnd ? row.end.getTime() : null;
   }
 }
 
 /**
  * The rows in the chosen order, or as given without one. The chart library
- * keeps its input order among the children of each parent, so one sort over
- * the whole list orders every sibling group and nothing leaves its parent.
- * Ties keep their planned order, rows with no value come last either way, and
- * the empty row to create from stays at the bottom.
+ * orders rows by `displayOrder` and then keeps that order among the children
+ * of each parent, so one sort over the whole list, numbered in its result,
+ * orders every sibling group and nothing leaves its parent. Ties keep their
+ * planned order, rows with no value come last either way, and the empty row
+ * to create from stays at the bottom.
  */
 export function sortGanttRows(
   rows: TaskOrEmpty[],
@@ -559,5 +569,5 @@ export function sortGanttRows(
     ...valued.map((k) => k.row),
     ...keyed.filter((k) => k.value === null).map((k) => k.row),
     ...rows.filter((row) => row.type === "empty"),
-  ];
+  ].map((row, i) => ({ ...row, displayOrder: i + 1 }));
 }

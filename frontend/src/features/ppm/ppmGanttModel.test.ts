@@ -577,14 +577,31 @@ describe("rows", () => {
 
   it("gives every row its column data", () => {
     const meta = buildRowMeta(
-      [wbs("w1", { completion: 30, assignee_name: "Ada" }), wbs("w2")],
-      [task("t1", { status: "done", assignee_name: "Bo" })],
+      [
+        wbs("w1", { completion: 30, assignee_name: "Ada", start_date: "2026-03-01", end_date: "2026-03-31" }),
+        wbs("w2"),
+        wbs("w3", { start_date: "2026-04-01" }),
+        wbs("m", { is_milestone: true, start_date: "2026-05-01" }),
+        wbs("m0", { is_milestone: true }),
+      ],
+      [
+        task("t1", { status: "done", assignee_name: "Bo", start_date: "2026-03-02", due_date: "2026-03-06" }),
+        task("t2", { due_date: "2026-03-06" }),
+        task("t3", { start_date: "2026-03-02" }),
+      ],
       new Set(["w1"]),
     );
+    const dated = { hasStart: true, hasEnd: true };
+    const undated = { hasStart: false, hasEnd: false };
     expect([...meta]).toEqual([
-      ["wbs-w1", { completion: 30, assigneeName: "Ada", hasChildren: true }],
-      ["wbs-w2", { completion: 0, assigneeName: null, hasChildren: false }],
-      ["task-t1", { completion: 100, assigneeName: "Bo", hasChildren: false }],
+      ["wbs-w1", { completion: 30, assigneeName: "Ada", hasChildren: true, ...dated }],
+      ["wbs-w2", { completion: 0, assigneeName: null, hasChildren: false, ...undated }],
+      ["wbs-w3", { completion: 0, assigneeName: null, hasChildren: false, hasStart: true, hasEnd: false }],
+      ["wbs-m", { completion: 0, assigneeName: null, hasChildren: false, ...dated }],
+      ["wbs-m0", { completion: 0, assigneeName: null, hasChildren: false, ...undated }],
+      ["task-t1", { completion: 100, assigneeName: "Bo", hasChildren: false, ...dated }],
+      ["task-t2", { completion: 0, assigneeName: null, hasChildren: false, hasStart: false, hasEnd: true }],
+      ["task-t3", { completion: 0, assigneeName: null, hasChildren: false, hasStart: true, hasEnd: false }],
     ]);
   });
 });
@@ -712,6 +729,35 @@ describe("sorting", () => {
       sort,
       "en",
     ).map((r) => r.id);
+
+  it("sets undated items aside when sorting by a date, either way", () => {
+    const items = [
+      wbs("none"),
+      wbs("late", { start_date: "2026-06-01", end_date: "2026-06-30" }),
+      wbs("open", { start_date: "2026-02-01" }),
+      wbs("early", { start_date: "2026-01-01", end_date: "2026-09-30" }),
+      wbs("day", { is_milestone: true, start_date: "2026-04-01" }),
+    ];
+    expect(sortFlat(items, { key: "start", dir: "asc" })).toEqual([
+      "wbs-early", "wbs-open", "wbs-day", "wbs-late", "wbs-none", EMPTY_ROW_ID,
+    ]);
+    expect(sortFlat(items, { key: "start", dir: "desc" })).toEqual([
+      "wbs-late", "wbs-day", "wbs-open", "wbs-early", "wbs-none", EMPTY_ROW_ID,
+    ]);
+    expect(sortFlat(items, { key: "end", dir: "asc" })).toEqual([
+      "wbs-day", "wbs-late", "wbs-early", "wbs-none", "wbs-open", EMPTY_ROW_ID,
+    ]);
+    expect(sortFlat(items, { key: "end", dir: "desc" })).toEqual([
+      "wbs-early", "wbs-late", "wbs-day", "wbs-none", "wbs-open", EMPTY_ROW_ID,
+    ]);
+  });
+
+  it("numbers the sorted rows for the chart, and leaves unsorted ones unnumbered", () => {
+    const sorted = sortGanttRows(rows, meta, { key: "title", dir: "asc" }, "en");
+    expect(sorted.map((r) => r.displayOrder)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(sorted.at(-1)).toMatchObject({ id: EMPTY_ROW_ID, displayOrder: 6 });
+    expect(rows.map((r) => r.displayOrder)).toEqual(Array(6).fill(undefined));
+  });
 
   it("puts the unassigned after every named row, whatever the input order", () => {
     const people = [
