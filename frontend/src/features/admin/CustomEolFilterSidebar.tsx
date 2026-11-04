@@ -27,6 +27,7 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import type { SxProps, Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
 import ColumnOrderSection, { type ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
@@ -86,6 +87,91 @@ const USAGE_OPTIONS: { id: UsageFilter; labelKey: string; color: string }[] = [
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 480;
 
+// Stryker disable all: layout, spacing and colour are presentation; jsdom lays nothing out
+const SX = {
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 0.75,
+    py: 0.5,
+    px: 0.5,
+    cursor: "pointer",
+    borderRadius: 1,
+    userSelect: "none",
+    "&:hover": { bgcolor: "action.hover" },
+  },
+  sectionLabel: { flex: 1 },
+  countChip: { height: 18, fontSize: 11 },
+  changeDot: { width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 },
+  rail: {
+    width: 44,
+    minWidth: 44,
+    border: 1,
+    borderColor: "divider",
+    borderRadius: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    pt: 1,
+    bgcolor: "action.hover",
+  },
+  railChip: { mt: 1, fontSize: 11, height: 20, minWidth: 20 },
+  root: { display: "flex", height: "100%" },
+  panel: {
+    border: 1,
+    borderColor: "divider",
+    borderRadius: 1,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    bgcolor: "action.hover",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    px: 1.5,
+    py: 0.5,
+    borderBottom: 1,
+    borderColor: "divider",
+  },
+  tabs: {
+    minHeight: 36,
+    "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14, minWidth: 0 },
+  },
+  tabLabel: { display: "flex", alignItems: "center", gap: 0.5 },
+  body: { flex: 1, overflowY: "auto", px: 1.5, py: 1 },
+  clearButton: { mb: 1, textTransform: "none", fontSize: 12 },
+  searchField: { my: 0.5 },
+  divider: { my: 1 },
+  productList: { mb: 1, maxHeight: 240, overflowY: "auto" },
+  row: { py: 0.25, px: 1, borderRadius: 1 },
+  lockedRow: { py: 0.25, px: 1, borderRadius: 1, "&.Mui-disabled": { opacity: 0.7 } },
+  checkboxCell: { minWidth: 28 },
+  iconCell: { minWidth: 24 },
+  checkbox: { p: 0 },
+  chipRow: { display: "flex", flexWrap: "wrap", gap: 0.5, my: 0.5, px: 0.5 },
+  columnsCaption: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    mb: 1,
+    px: 0.5,
+  },
+  resetButton: { textTransform: "none", fontSize: 12, minWidth: 0, px: 1 },
+  columnList: { mb: 1 },
+  columnRow: { display: "flex", alignItems: "center" },
+  columnRowMain: { flex: 1, minWidth: 0 },
+  resizeHandle: {
+    width: 4,
+    cursor: "col-resize",
+    "&:hover": { bgcolor: "primary.main", opacity: 0.3 },
+  },
+} satisfies Record<string, SxProps<Theme>>;
+const PRODUCT_TEXT_PROPS = { fontSize: 13, ml: 0.75, noWrap: true };
+const COLUMN_TEXT_PROPS = { fontSize: 13, noWrap: true };
+// Stryker restore all
+
 export function activeFilterCount(f: CustomEolFilters): number {
   return (
     (f.search.trim() ? 1 : 0) +
@@ -109,38 +195,21 @@ function SectionHeader({
   count?: number;
 }) {
   return (
-    <Box
-      onClick={onToggle}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 0.75,
-        py: 0.5,
-        px: 0.5,
-        cursor: "pointer",
-        borderRadius: 1,
-        userSelect: "none",
-        "&:hover": { bgcolor: "action.hover" },
-      }}
-    >
+    <Box onClick={onToggle} sx={SX.sectionHeader}>
       <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
       <MaterialSymbol icon={icon} size={16} />
-      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
+      <Typography variant="body2" fontWeight={600} fontSize={13} sx={SX.sectionLabel}>
         {label}
       </Typography>
       {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
+        <Chip label={count} size="small" color="primary" sx={SX.countChip} />
       )}
     </Box>
   );
 }
 
 function ChangeDot() {
-  return (
-    <Box
-      sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 }}
-    />
-  );
+  return <Box data-testid="change-dot" sx={SX.changeDot} />;
 }
 
 export interface ProductOption {
@@ -228,20 +297,7 @@ export default function CustomEolFilterSidebar({
 
   if (collapsed) {
     return (
-      <Box
-        sx={{
-          width: 44,
-          minWidth: 44,
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          pt: 1,
-          bgcolor: "action.hover",
-        }}
-      >
+      <Box sx={SX.rail}>
         <Tooltip title={t("eol.custom.filters.expand")} placement="right">
           <IconButton size="small" onClick={onToggleCollapse}>
             <MaterialSymbol icon="chevron_right" size={20} />
@@ -252,7 +308,7 @@ export default function CustomEolFilterSidebar({
             label={activeCount}
             size="small"
             color="primary"
-            sx={{ mt: 1, fontSize: 11, height: 20, minWidth: 20 }}
+            sx={SX.railChip}
           />
         )}
       </Box>
@@ -260,47 +316,17 @@ export default function CustomEolFilterSidebar({
   }
 
   return (
-    <Box sx={{ display: "flex", height: "100%" }}>
-      <Box
-        sx={{
-          width,
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          bgcolor: "action.hover",
-        }}
-      >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            px: 1.5,
-            py: 0.5,
-            borderBottom: 1,
-            borderColor: "divider",
-          }}
-        >
+    <Box sx={SX.root}>
+      <Box sx={[SX.panel, { width }]}>
+        <Box sx={SX.header}>
           <Tabs
             value={tab}
             onChange={(_, v) => setTab(v as 0 | 1)}
-            sx={{
-              minHeight: 36,
-              "& .MuiTab-root": {
-                minHeight: 36,
-                py: 0,
-                textTransform: "none",
-                fontSize: 14,
-                minWidth: 0,
-              },
-            }}
+            sx={SX.tabs}
           >
             <Tab
               label={
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Box sx={SX.tabLabel}>
                   {t("eol.custom.filters.tabFilters")}
                   {activeCount > 0 && <ChangeDot />}
                 </Box>
@@ -308,7 +334,7 @@ export default function CustomEolFilterSidebar({
             />
             <Tab
               label={
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Box sx={SX.tabLabel}>
                   {t("eol.custom.filters.tabColumns")}
                   {columnsChanged && <ChangeDot />}
                 </Box>
@@ -324,7 +350,7 @@ export default function CustomEolFilterSidebar({
           </IconButton>
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: "auto", px: 1.5, py: 1 }}>
+        <Box sx={SX.body}>
           {tab === 0 ? (
             <>
               {activeCount > 0 && (
@@ -332,7 +358,7 @@ export default function CustomEolFilterSidebar({
                   size="small"
                   onClick={() => onFiltersChange({ ...EMPTY_CUSTOM_EOL_FILTERS })}
                   startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
-                  sx={{ mb: 1, textTransform: "none", fontSize: 12 }}
+                  sx={SX.clearButton}
                 >
                   {t("eol.custom.filters.clear")}
                 </Button>
@@ -352,7 +378,7 @@ export default function CustomEolFilterSidebar({
                   placeholder={t("eol.custom.filters.searchPlaceholder")}
                   value={filters.search}
                   onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-                  sx={{ my: 0.5 }}
+                  sx={SX.searchField}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -363,7 +389,7 @@ export default function CustomEolFilterSidebar({
                 />
               </Collapse>
 
-              <Divider sx={{ my: 1 }} />
+              <Divider sx={SX.divider} />
 
               <SectionHeader
                 label={t("eol.custom.filters.sectionProduct")}
@@ -373,34 +399,34 @@ export default function CustomEolFilterSidebar({
                 count={filters.products.length}
               />
               <Collapse in={expanded.product}>
-                <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflowY: "auto" }}>
+                <List dense disablePadding sx={SX.productList}>
                   {products.map((p) => (
                     <ListItemButton
                       key={p.key}
                       dense
                       onClick={() => toggleIn("products", p.key)}
-                      sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                      sx={SX.row}
                     >
-                      <ListItemIcon sx={{ minWidth: 28 }}>
+                      <ListItemIcon sx={SX.checkboxCell}>
                         <Checkbox
                           size="small"
                           checked={filters.products.includes(p.key)}
                           tabIndex={-1}
                           disableRipple
-                          sx={{ p: 0 }}
+                          sx={SX.checkbox}
                         />
                       </ListItemIcon>
                       <MaterialSymbol icon="inventory_2" size={16} />
                       <ListItemText
                         primary={p.title}
-                        primaryTypographyProps={{ fontSize: 13, ml: 0.75, noWrap: true }}
+                        primaryTypographyProps={PRODUCT_TEXT_PROPS}
                       />
                     </ListItemButton>
                   ))}
                 </List>
               </Collapse>
 
-              <Divider sx={{ my: 1 }} />
+              <Divider sx={SX.divider} />
 
               <SectionHeader
                 label={t("eol.custom.filters.sectionStatus")}
@@ -410,7 +436,7 @@ export default function CustomEolFilterSidebar({
                 count={filters.statuses.length}
               />
               <Collapse in={expanded.status}>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, my: 0.5, px: 0.5 }}>
+                <Box sx={SX.chipRow}>
                   {EOL_STATUSES.map((s) => {
                     const selected = filters.statuses.includes(s);
                     const color = EOL_STATUS_COLORS[s];
@@ -432,7 +458,7 @@ export default function CustomEolFilterSidebar({
                 </Box>
               </Collapse>
 
-              <Divider sx={{ my: 1 }} />
+              <Divider sx={SX.divider} />
 
               <SectionHeader
                 label={t("eol.custom.filters.sectionUsage")}
@@ -442,7 +468,7 @@ export default function CustomEolFilterSidebar({
                 count={filters.usage !== "any" ? 1 : 0}
               />
               <Collapse in={expanded.usage}>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, my: 0.5, px: 0.5 }}>
+                <Box sx={SX.chipRow}>
                   {USAGE_OPTIONS.map((o) => {
                     const selected = filters.usage === o.id;
                     return (
@@ -473,15 +499,7 @@ export default function CustomEolFilterSidebar({
                 onReorder={onColumnOrderChange}
                 onReset={onResetColumnOrder}
               />
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 1,
-                  px: 0.5,
-                }}
-              >
+              <Box sx={SX.columnsCaption}>
                 <Typography variant="caption" color="text.secondary">
                   {t("eol.custom.filters.selectedCount", { count: visibleColumns.size })}
                 </Typography>
@@ -490,7 +508,7 @@ export default function CustomEolFilterSidebar({
                     size="small"
                     onClick={() => onVisibleColumnsChange(new Set(allColumnIds))}
                     startIcon={<MaterialSymbol icon="restart_alt" size={14} />}
-                    sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
+                    sx={SX.resetButton}
                   >
                     {t("eol.custom.filters.reset")}
                   </Button>
@@ -503,14 +521,14 @@ export default function CustomEolFilterSidebar({
                 onToggle={() => {}}
                 count={visibleColumns.size}
               />
-              <List dense disablePadding sx={{ mb: 1 }}>
+              <List dense disablePadding sx={SX.columnList}>
                 <ListItemButton
                   dense
                   onClick={() => onVisibleColumnsChange(new Set(allColumnIds))}
                   disabled={visibleColumns.size === CUSTOM_EOL_COLUMNS.length}
-                  sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                  sx={SX.row}
                 >
-                  <ListItemIcon sx={{ minWidth: 28 }}>
+                  <ListItemIcon sx={SX.checkboxCell}>
                     <Checkbox
                       size="small"
                       checked={visibleColumns.size === CUSTOM_EOL_COLUMNS.length}
@@ -519,7 +537,7 @@ export default function CustomEolFilterSidebar({
                         visibleColumns.size < CUSTOM_EOL_COLUMNS.length
                       }
                       disableRipple
-                      sx={{ p: 0 }}
+                      sx={SX.checkbox}
                     />
                   </ListItemIcon>
                   <ListItemText
@@ -542,36 +560,31 @@ export default function CustomEolFilterSidebar({
                       dense
                       disabled={locked}
                       onClick={() => toggleColumn(c.id)}
-                      sx={{
-                        py: 0.25,
-                        px: 1,
-                        borderRadius: 1,
-                        ...(locked ? { "&.Mui-disabled": { opacity: 0.7 } } : {}),
-                      }}
+                      sx={locked ? SX.lockedRow : SX.row}
                     >
-                      <ListItemIcon sx={{ minWidth: 28 }}>
+                      <ListItemIcon sx={SX.checkboxCell}>
                         <Checkbox
                           size="small"
                           checked={visibleColumns.has(c.id)}
                           disabled={locked}
                           disableRipple
-                          sx={{ p: 0 }}
+                          sx={SX.checkbox}
                         />
                       </ListItemIcon>
-                      <ListItemIcon sx={{ minWidth: 24 }}>
+                      <ListItemIcon sx={SX.iconCell}>
                         <MaterialSymbol icon={c.icon} size={16} />
                       </ListItemIcon>
                       <ListItemText
                         primary={t(c.labelKey)}
-                        primaryTypographyProps={{ fontSize: 13, noWrap: true }}
+                        primaryTypographyProps={COLUMN_TEXT_PROPS}
                       />
                     </ListItemButton>
                   );
                   // The pin is a sibling of the row button: a locked row's
                   // disabled button would swallow its click.
                   return (
-                    <Box key={c.id} sx={{ display: "flex", alignItems: "center" }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box key={c.id} sx={SX.columnRow}>
+                      <Box sx={SX.columnRowMain}>
                         {locked ? (
                           <Tooltip title={t("eol.custom.filters.alwaysVisible")} placement="right">
                             <span>{row}</span>
@@ -592,14 +605,7 @@ export default function CustomEolFilterSidebar({
           )}
         </Box>
       </Box>
-      <Box
-        onMouseDown={handleResizeMouseDown}
-        sx={{
-          width: 4,
-          cursor: "col-resize",
-          "&:hover": { bgcolor: "primary.main", opacity: 0.3 },
-        }}
-      />
+      <Box data-testid="resize-handle" onMouseDown={handleResizeMouseDown} sx={SX.resizeHandle} />
     </Box>
   );
 }

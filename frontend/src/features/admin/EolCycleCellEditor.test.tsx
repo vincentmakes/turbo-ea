@@ -48,4 +48,17 @@ describe("EolCycleCellEditor", () => {
     expect(api.stopEditing).toHaveBeenCalledTimes(2);
     expect(stopEditing).not.toHaveBeenCalled();
   });
+
+  it("gives a date to a milestone that had none (regression: Date led nowhere)", async () => {
+    const { onValueChange } = setup("eol", true);
+    expect(screen.queryByLabelText("Date")).toBeNull();
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByRole("option", { name: "Date" }));
+    expect(onValueChange).toHaveBeenLastCalledWith(null);
+    const input = screen.getByLabelText("Date");
+    fireEvent.change(input, { target: { value: "2027-03-01" } });
+    expect(onValueChange).toHaveBeenLastCalledWith("2027-03-01");
+    expect(screen.getByRole("combobox")).toHaveTextContent("Date");
+  });
 });
+

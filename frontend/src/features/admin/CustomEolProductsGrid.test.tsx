@@ -240,3 +240,172 @@ describe("toolbar and row menu", () => {
     expect(within(rendered.container).getByText("On endoflife.date: acme")).toBeInTheDocument();
   });
 });
+
+describe("columns", () => {
+  it("names, binds and edits each column as the grid expects", async () => {
+    await renderGrid();
+    const shape = (id: string) => {
+      const d = gridStub.colDef(id);
+      return [d.headerName, d.field, d.cellEditorPopup ?? null, d.cellEditorParams ?? null];
+    };
+    expect(shape("product")).toEqual(["Product", "productTitle", null, null]);
+    expect(shape("cycle")).toEqual(["Cycle", "cycle", null, null]);
+    expect(shape("releaseDate")).toEqual(["Release date", "releaseDate", true, { mode: "date" }]);
+    expect(shape("support")).toEqual(["Active support", "support", true, { mode: "support" }]);
+    expect(shape("eol")).toEqual(["End of life", "eol", true, { mode: "eol" }]);
+    expect(shape("latest")).toEqual(["Latest version", "latest", null, null]);
+    expect(shape("latestReleaseDate")).toEqual([
+      "Latest release",
+      "latestReleaseDate",
+      true,
+      { mode: "date" },
+    ]);
+    expect(shape("status")).toEqual(["Status", "status", null, null]);
+    expect(shape("linked")).toEqual(["Linked cards", "linked", null, null]);
+    expect(gridStub.colDef("linked").type).toBe("rightAligned");
+    expect(shape("updated")).toEqual(["Last modified", "updated", null, null]);
+    const actions = gridStub.colDef("actions");
+    expect([
+      actions.headerName,
+      actions.sortable,
+      actions.filter,
+      actions.resizable,
+      actions.suppressHeaderMenuButton,
+    ]).toEqual(["", false, false, false, true]);
+    const d = gridStub.lastProps().defaultColDef;
+    expect([d.sortable, d.resizable, d.filter, d.filterParams]).toEqual([
+      true,
+      true,
+      true,
+      { buttons: ["reset"] },
+    ]);
+  });
+
+  it("formats dates, milestones and blanks", async () => {
+    mockApi.on("get", "/eol/custom-products", [
+      {
+        ...ACME,
+        updated_at: "2024-06-01T10:00:00Z",
+        cycles: [
+          { ...ACME.cycles[0], latestReleaseDate: "2024-05-05", updated_at: "2024-06-02" },
+          { ...ACME.cycles[1], support: null, releaseDate: null },
+        ],
+      },
+    ]);
+    await renderGrid();
+    const f = (col: string, id: string) => gridStub.cellValue(col, row(id), { formatted: true });
+    expect(f("releaseDate", "c2")).toBe("2024-01-01");
+    expect(f("releaseDate", "c1")).toBe("");
+    expect(f("latestReleaseDate", "c2")).toBe("2024-05-05");
+    expect(f("latestReleaseDate", "c1")).toBe("");
+    expect(f("eol", "c1")).toBe("2021-01-01");
+    expect(f("support", "c1")).toBe("");
+    expect(f("updated", "c2")).toMatch(/^2024-06-0\d$/);
+  });
+
+  it("marks a product without cycles in the cycle cell, and gives it no status chip", async () => {
+    await renderGrid();
+    const cycleCell = gridStub.colDef("cycle").cellRenderer as (p: unknown) => React.ReactNode;
+    const placeholder = render(<>{cycleCell({ data: row("product:bare"), value: "" })}</>);
+    expect(placeholder.container).toHaveTextContent("No cycle yet");
+    const real = render(<>{cycleCell({ data: row("c2"), value: "2" })}</>);
+    expect(real.container.textContent).toBe("2");
+    const statusCell = gridStub.colDef("status").cellRenderer as (p: unknown) => React.ReactNode;
+    expect(render(<>{statusCell({ data: row("product:bare") })}</>).container).toBeEmptyDOMElement();
+    expect(render(<>{statusCell({ data: row("c1") })}</>).container).toHaveTextContent("End of Life");
+  });
+
+  it("hides the columns the stored preference leaves out", async () => {
+    localStorage.setItem(
+      PREFS_STORAGE_KEY,
+      JSON.stringify({ visibleColumns: ["product", "cycle", "status", "actions"] }),
+    );
+    await renderGrid();
+    expect(gridStub.colDef("status").hide).toBe(false);
+    expect(gridStub.colDef("latest").hide).toBe(true);
+  });
+
+  it("does not edit a cell for a reader, even in edit mode's absence of controls", async () => {
+    await renderGrid(userWith("eol.view"));
+    const editable = gridStub.colDef("eol").editable as (p: { data?: unknown }) => boolean;
+    expect(editable({ data: row("c2") })).toBe(false);
+    expect(editable({})).toBe(false);
+  });
+});
+
+describe("toolbar and notices", () => {
+  it("toggles edit mode on the toolbar button", async () => {
+    const { user } = await renderGrid();
+    const button = screen.getByRole("button", { name: /Edit in grid/ });
+    expect(button).toHaveClass("MuiButton-outlined");
+    expect(button).toHaveTextContent("edit");
+    await user.click(button);
+    const done = screen.getByRole("button", { name: /Done editing/ });
+    expect(done).toHaveClass("MuiButton-contained");
+    expect(done).toHaveTextContent("check");
+    await user.click(done);
+    expect(screen.getByRole("button", { name: /Edit in grid/ })).toBeInTheDocument();
+  });
+
+  it("shows a load failure and lets it be dismissed", async () => {
+    mockApi.fail("get", "/eol/custom-products", 500);
+    const { user } = renderWithProviders(<CustomEolProductsGrid />, { user: adminUser() });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("GET /eol/custom-products failed");
+    await user.click(within(alert).getByRole("button", { name: /close/i }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  async function openMenu(user: Awaited<ReturnType<typeof renderGrid>>["user"], id: string) {
+    const cell = gridStub.colDef("actions").cellRenderer as (p: { data: unknown }) => React.ReactElement;
+    const actions = render(cell({ data: row(id) }));
+    await user.click(within(actions.container).getByRole("button"));
+    return screen.findByRole("menu");
+  }
+
+  it("deletes a cycle after confirming, reports it, and lets the notice go", async () => {
+    mockApi.on("delete", "/eol/custom-products/acme-erp/cycles/c1", {});
+    const { user } = await renderGrid();
+    const menu = await openMenu(user, "c1");
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete cycle/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Delete cycle 1?")).toBeInTheDocument();
+    expect(within(dialog).getByText(/^2 cards link this cycle/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(mockApi.callsOf("delete").map((c) => c.path)).toEqual([
+        "/eol/custom-products/acme-erp/cycles/c1",
+      ]),
+    );
+    const notice = await screen.findByRole("alert");
+    expect(notice).toHaveTextContent("Deleted.");
+    await waitFor(() => expect(mockApi.callsOf("get", "/eol/custom-products")).toHaveLength(2));
+    await user.click(within(notice).getByRole("button", { name: /close/i }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("warns plainly before deleting an unlinked product, and cancel deletes nothing", async () => {
+    const { user } = await renderGrid();
+    const menu = await openMenu(user, "product:bare");
+    // A placeholder row has no cycle to delete.
+    expect(within(menu).queryByRole("menuitem", { name: /Delete cycle/ })).toBeNull();
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete product/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Delete Bare?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("The product and all its cycles will be deleted. This cannot be undone."),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(mockApi.callsOf("delete")).toHaveLength(0);
+  });
+
+  it("shows a plain error when a delete fails for another reason", async () => {
+    mockApi.fail("delete", "/eol/custom-products/bare", 500);
+    const { user } = await renderGrid();
+    const menu = await openMenu(user, "product:bare");
+    await user.click(within(menu).getByRole("menuitem", { name: /Delete product/ }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Delete" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("DELETE /eol/custom-products/bare failed");
+  });
+});

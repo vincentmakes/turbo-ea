@@ -56,7 +56,12 @@ interface MilestoneFieldProps {
  */
 export function MilestoneField({ kind, value, onChange, size = "small" }: MilestoneFieldProps) {
   const { t } = useTranslation("cards");
-  const mode = milestoneMode(value, kind);
+  // Choosing "Date" stores nothing until a date is picked, so the stored
+  // value alone would read "Not set" and never show the date field: the
+  // choice is remembered here until a date or another answer replaces it.
+  const [datePicked, setDatePicked] = useState(false);
+  const stored = milestoneMode(value, kind);
+  const mode: MilestoneMode = stored === "unset" && datePicked ? "date" : stored;
   const label = t(kind === "eol" ? "eol.endOfLife" : "eol.activeSupport");
   return (
     <Stack direction="row" spacing={1} sx={{ minWidth: 0 }}>
@@ -65,15 +70,11 @@ export function MilestoneField({ kind, value, onChange, size = "small" }: Milest
         <Select
           label={label}
           value={mode}
-          onChange={(e) =>
-            onChange(
-              milestoneValue(
-                e.target.value as MilestoneMode,
-                kind,
-                typeof value === "string" ? value : "",
-              ),
-            )
-          }
+          onChange={(e) => {
+            const next = e.target.value as MilestoneMode;
+            setDatePicked(next === "date");
+            onChange(milestoneValue(next, kind, typeof value === "string" ? value : ""));
+          }}
           inputProps={{ "aria-label": label }}
         >
           {MODES.map((m) => (
