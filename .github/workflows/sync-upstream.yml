@@ -58,6 +58,7 @@ jobs:
           ref: main
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: false
+          fetch-depth: 0 # full history: the merge below needs the merge base
 
       - name: Fetch upstream
         run: |
@@ -73,4 +74,5 @@ jobs:
       - name: Push main
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" push origin main
+        run: |
+          git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" push origin main
