@@ -406,7 +406,7 @@
   "dashboard.query.flag.stale": "Veraltet (lange nicht aktualisiert)",
   "dashboard.query.flag.with_stakeholders": "Mit Stakeholdern",
   "dashboard.query.flag.without_stakeholders": "Ohne Stakeholder",
-  "dashboard.query.flag.eol_linked": "Lebensende mit endoflife.date verknüpft",
+  "dashboard.query.flag.eol_linked": "Lebensende mit einem EOL-Produkt verknüpft",
   "dashboard.query.flag.eol_manual": "Lebensende-Datum manuell erfasst",
   "dashboard.query.flag.eol_missing": "Keine Daten zum Lebensende",
   "dashboard.query.flag.related": "Hat eine Beziehung: {{relation}}",

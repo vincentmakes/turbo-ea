@@ -406,7 +406,7 @@
   "dashboard.query.flag.stale": "陈旧（近期未更新）",
   "dashboard.query.flag.with_stakeholders": "有利益相关者",
   "dashboard.query.flag.without_stakeholders": "无利益相关者",
-  "dashboard.query.flag.eol_linked": "生命终止已关联到 endoflife.date",
+  "dashboard.query.flag.eol_linked": "生命终止已关联到 EOL 产品",
   "dashboard.query.flag.eol_manual": "手动录入的生命终止日期",
   "dashboard.query.flag.eol_missing": "无生命终止数据",
   "dashboard.query.flag.related": "存在关系：{{relation}}",

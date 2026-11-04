@@ -250,7 +250,7 @@
   "dashboard.query.flag.stale": "قديمة (لم تُحدَّث مؤخرًا)",
   "dashboard.query.flag.with_stakeholders": "مع أصحاب مصلحة",
   "dashboard.query.flag.without_stakeholders": "بلا أصحاب مصلحة",
-  "dashboard.query.flag.eol_linked": "نهاية العمر مرتبطة بـ endoflife.date",
+  "dashboard.query.flag.eol_linked": "نهاية العمر مرتبطة بمنتج EOL",
   "dashboard.query.flag.eol_manual": "تاريخ نهاية العمر مُدخل يدويًا",
   "dashboard.query.flag.eol_missing": "لا توجد بيانات نهاية العمر",
   "dashboard.query.flag.related": "لديها علاقة: {{relation}}",

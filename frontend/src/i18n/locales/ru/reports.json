@@ -567,6 +567,6 @@
   "eol.noEolDataKpi": "Нет данных об окончании поддержки",
   "dataQuality.eolCoverage": "Покрытие данными об окончании поддержки",
   "dataQuality.eolCoverageHint": "Приложения и ИТ-компоненты — с разбивкой по тому, заполнено ли окончание поддержки. Щёлкните сегмент, чтобы увидеть карточки за ним.",
-  "dataQuality.eolLinked": "Связано с endoflife.date",
+  "dataQuality.eolLinked": "Связано с продуктом EOL",
   "dataQuality.eolManual": "Дата заполнена вручную"
 }

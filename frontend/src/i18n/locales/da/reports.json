@@ -521,6 +521,6 @@
   "eol.noEolDataKpi": "Ingen EOL-data",
   "dataQuality.eolCoverage": "End-of-life-dækning",
   "dataQuality.eolCoverageHint": "Applikationer og it-komponenter, opdelt efter om der er registreret en end of life. Klik på et segment for at se kortene bag det.",
-  "dataQuality.eolLinked": "Knyttet til endoflife.date",
+  "dataQuality.eolLinked": "Knyttet til et EOL-produkt",
   "dataQuality.eolManual": "Dato indtastet manuelt"
 }

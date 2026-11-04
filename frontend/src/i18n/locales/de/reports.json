@@ -521,6 +521,6 @@
   "eol.noEolDataKpi": "Keine EOL-Daten",
   "dataQuality.eolCoverage": "End-of-Life-Abdeckung",
   "dataQuality.eolCoverageHint": "Anwendungen und IT-Komponenten, danach aufgeschlüsselt, ob ein Lebensende erfasst ist. Klicken Sie auf ein Segment, um die dahinterliegenden Karten aufzulisten.",
-  "dataQuality.eolLinked": "Mit endoflife.date verknüpft",
+  "dataQuality.eolLinked": "Mit einem EOL-Produkt verknüpft",
   "dataQuality.eolManual": "Datum von Hand erfasst"
 }

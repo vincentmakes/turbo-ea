@@ -521,6 +521,6 @@
   "eol.noEolDataKpi": "Aucune donnée de fin de vie",
   "dataQuality.eolCoverage": "Couverture de fin de vie",
   "dataQuality.eolCoverageHint": "Applications et composants informatiques, selon qu'une fin de vie a été renseignée ou non. Cliquez sur un segment pour lister les fiches correspondantes.",
-  "dataQuality.eolLinked": "Lié à endoflife.date",
+  "dataQuality.eolLinked": "Lié à un produit EOL",
   "dataQuality.eolManual": "Date saisie à la main"
 }

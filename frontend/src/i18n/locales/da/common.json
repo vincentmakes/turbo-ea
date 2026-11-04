@@ -214,7 +214,7 @@
   "dashboard.query.flag.stale": "Forældet (ikke opdateret for nylig)",
   "dashboard.query.flag.with_stakeholders": "Med interessenter",
   "dashboard.query.flag.without_stakeholders": "Uden interessenter",
-  "dashboard.query.flag.eol_linked": "End-of-life knyttet til endoflife.date",
+  "dashboard.query.flag.eol_linked": "End-of-life knyttet til et EOL-produkt",
   "dashboard.query.flag.eol_manual": "End-of-life-dato indtastet manuelt",
   "dashboard.query.flag.eol_missing": "Ingen data om end-of-life",
   "dashboard.query.flag.related": "Har en relation: {{relation}}",
