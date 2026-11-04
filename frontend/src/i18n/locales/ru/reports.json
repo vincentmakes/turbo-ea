@@ -371,6 +371,8 @@
   "eol.manuallyMaintained": "Ведётся вручную",
   "eol.manual": "Вручную",
   "eol.manualTooltip": "Дата окончания жизненного цикла была указана вручную в разделе «Жизненный цикл», а не получена из API endoflife.date",
+  "eol.custom": "Собственный продукт",
+  "eol.customTooltip": "Привязан к одному из собственных продуктов EOL вашей организации (Настройки → EOL → Собственные продукты), а не к endoflife.date",
   "eol.api": "API",
   "eol.today": "Сегодня",
   "eol.product": "Продукт",

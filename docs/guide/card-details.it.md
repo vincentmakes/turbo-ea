@@ -167,6 +167,8 @@ Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazion
 - **Stato del supporto** — Con codice colore: Supportato, In avvicinamento a EOL, End of Life
 - **Date chiave** — Data di rilascio, fine supporto attivo, fine supporto di sicurezza, data EOL
 
+Quando endoflife.date non ha corrispondenze per il prodotto, gli utenti con il permesso **Gestire EOL** possono creare un [prodotto EOL personalizzato](../admin/eol.md) direttamente da questa sezione e collegarvi la scheda. I prodotti personalizzati sono contrassegnati come **Personalizzato** e altrove si comportano come i prodotti di endoflife.date.
+
 ## Scheda Commenti
 
 ![Sezione commenti della card](../assets/img/it/05_scheda_commenti.png)

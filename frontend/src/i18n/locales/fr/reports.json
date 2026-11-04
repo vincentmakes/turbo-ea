@@ -355,6 +355,8 @@
   "eol.manuallyMaintained": "Maintenu manuellement",
   "eol.manual": "Manuel",
   "eol.manualTooltip": "La date de fin de vie a été maintenue manuellement dans la section Cycle de vie, pas depuis l’API endoflife.date",
+  "eol.custom": "Produit personnalisé",
+  "eol.customTooltip": "Lié à l'un des produits EOL personnalisés de votre organisation (Paramètres → EOL → Produits personnalisés), et non à endoflife.date",
   "eol.api": "API",
   "eol.today": "Aujourd’hui",
   "eol.product": "Produit",

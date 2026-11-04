@@ -164,6 +164,8 @@ Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (
 - **Support-status** — Farvekodet: Supported, Approaching EOL, End of Life
 - **Nøgle-datoer** — Udgivelsesdato, aktiv support slut, sikkerheds-support slut, EOL-dato
 
+Når endoflife.date ikke har noget match for produktet, kan brugere med tilladelsen **Administrer EOL** oprette et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion og tilknytte kortet til det. Brugerdefinerede produkter er markeret **Brugerdefineret** og opfører sig som endoflife.date-produkter alle andre steder.
+
 ## Kommentarer-fane
 
 ![Kortets kommentar­sektion](../assets/img/da/05_card_comments.png)

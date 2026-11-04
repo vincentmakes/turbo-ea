@@ -53,6 +53,60 @@ Una vez vinculada, la página de detalle de la ficha muestra una **sección EOL*
 - **Estado de soporte** — Codificado por colores: Con soporte (verde), Próximo a EOL (naranja), Fin de Vida (rojo)
 - **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fin de soporte de seguridad, fecha EOL
 
+## Productos EOL personalizados
+
+endoflife.date rastrea el software más popular, pero no todo lo que usted ejecuta: una plataforma propia, una herramienta especializada de un proveedor o un equipo con licencia a menudo no tienen entrada allí. Para ellos, defina un **producto EOL personalizado** (su propio producto con sus propios ciclos de lanzamiento) y vincule fichas a él exactamente como lo haría con un producto de endoflife.date. Los productos personalizados alimentan el mismo estado de la ficha, la columna **Fin de vida** del inventario, el [Informe EOL](../guide/reports.es.md) y las cifras de calidad de datos.
+
+Los productos personalizados se listan en la pestaña **Productos personalizados** de **Admin > Configuración > EOL**. Crearlos y editarlos requiere el permiso **Gestionar EOL** (`eol.manage`); cualquiera que pueda ver los datos EOL puede verlos.
+
+![Productos EOL personalizados](../assets/img/es/29b_admin_config_eol_personalizados.png)
+
+### Crear un producto personalizado
+
+Hay dos formas de crearlo:
+
+- **Desde una ficha**: en la sección **Fin de vida** de la ficha, busque el producto. Cuando endoflife.date no tiene coincidencia, la sección ofrece **Crear producto personalizado**, rellenado con lo que escribió (o con el nombre de la ficha). Introduzca el nombre del producto y sus primeros ciclos y guarde: la ficha queda vinculada al nuevo producto y ciclo de una sola vez.
+- **Desde la pestaña Productos personalizados**: haga clic en **Añadir producto**.
+
+Cada producto tiene:
+
+- **Nombre del producto**: cómo se muestra en todas partes.
+- **Clave**: un identificador corto en minúsculas (letras, dígitos, puntos, guiones, guiones bajos) sugerido a partir del nombre. Los vínculos de las fichas la almacenan, por lo que **no se puede cambiar** después de la creación.
+- **Enlace del proveedor o de la política de lanzamientos** y **Descripción**: opcionales.
+- **Ciclos de lanzamiento**: cada uno con un nombre (por ejemplo `2.4`), una **Fecha de lanzamiento**, un fin de **Soporte activo**, un **Fin de vida** y, opcionalmente, la **Última versión** y su fecha de lanzamiento.
+
+El soporte activo y el fin de vida admiten cada uno una **fecha**, o una de dos respuestas cuando no se conoce ninguna fecha: *Aún con soporte* / *Soporte activo finalizado*, y *Sin fin de vida anunciado* / *Ya en fin de vida*. El estado (Con soporte, Próximo a EOL, Fin de Vida) se calcula a partir de ellos con la misma regla que los productos de endoflife.date.
+
+### Gestionar ciclos en la cuadrícula
+
+La pestaña Productos personalizados muestra una fila por ciclo de lanzamiento, agrupada por producto. Funciona como las demás cuadrículas: fije y reordene columnas, muéstrelas u ocúltelas y filtre por producto, estado o uso desde el panel izquierdo. La columna **Fichas vinculadas** indica cuántas de las fichas que puede ver usan cada ciclo.
+
+Haga clic en **Editar en la cuadrícula** para cambiar las celdas directamente. Las fechas y las respuestas de soporte abren un pequeño editor, y puede arrastrar el valor de una celda hacia abajo por una columna (como en Excel) para copiarlo a varios ciclos. El menú de fila (**⋮**) añade un ciclo al producto, edita el nombre, el enlace y la descripción del producto, o elimina un ciclo o el producto.
+
+Un producto no se puede eliminar mientras haya fichas vinculadas a él. Eliminar un ciclo que usan fichas deja su estado de fin de vida **desconocido** hasta que alguien elija otro ciclo. Renombrar un ciclo mueve con él las fichas vinculadas.
+
+También puede añadir un ciclo que falte desde una ficha: una vez seleccionado un producto personalizado en la sección Fin de vida de la ficha, la lista de ciclos termina con **Añadir ciclo…**.
+
+### Aportar un producto personalizado a endoflife.date
+
+Si un producto personalizado es un producto público de un proveedor, considere proponerlo a endoflife.date para que todos se beneficien. Elija **Proponer a endoflife.date** en el menú de fila:
+
+1. Lea la advertencia: proponer publica el nombre del producto y sus fechas. No proponga nunca productos internos o confidenciales.
+2. Elija la **categoría** de endoflife.date. El cuadro de diálogo muestra una vista previa del archivo del producto en el formato de endoflife.date (`products/<key>.md`).
+3. Haga clic en **Abrir en GitHub**. GitHub abre un archivo nuevo en el repositorio de endoflife.date con el contenido rellenado (ofrece hacer un fork del repositorio si usted no puede escribir en él). Complete la descripción y el resumen de la política de lanzamientos y abra después la pull request desde su propia cuenta de GitHub. Para archivos largos, use **Copiar archivo** y péguelo en un archivo nuevo.
+
+Turbo EA nunca envía nada a GitHub por sí mismo y no almacena credenciales de GitHub. endoflife.date revisa cada propuesta según su [guía de contribución](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).
+
+### Cambiar a endoflife.date
+
+Cuando endoflife.date empieza a rastrear un producto que usted mantenía como personalizado, la cuadrícula muestra junto a él una indicación **En endoflife.date**. Haga clic en la indicación, o elija **Cambiar a un producto de endoflife.date…** en el menú de fila:
+
+1. Elija el producto de endoflife.date.
+2. Para cada uno de sus ciclos, elija el ciclo de endoflife.date al que deben pasar sus fichas (los ciclos con el mismo nombre se emparejan automáticamente), o manténgalo en el producto personalizado.
+3. Opcionalmente, elimine el producto personalizado cuando ya no lo vincule ninguna ficha.
+
+Solo se mueven las fichas que usted puede ver. Las fechas de ciclo de vida de las fichas nunca se modifican.
+
 ## Informe EOL
 
 Los datos EOL vinculados alimentan el [Informe EOL](../guide/reports.es.md), que proporciona una vista de panel de control del estado de soporte de su panorama tecnológico a través de todas las fichas vinculadas.

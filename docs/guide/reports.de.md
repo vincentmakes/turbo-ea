@@ -296,7 +296,8 @@ Der **EOL-Bericht** zeigt den Supportstatus von Technologieprodukten, die über 
 - **Statusverteilung** — Wie viele Produkte Unterstützt, EOL nähert sich oder Lebensende sind
 - **Zeitleiste** — Wann Produkte den Support verlieren werden
 - **Risikopriorisierung** — Fokus auf geschäftskritische Komponenten, die sich dem EOL nähern
-- **Keine EOL-Daten** — Anwendungen und IT-Komponenten, die weder mit endoflife.date verknüpft sind noch ein eigenes Lebensende-Datum haben. Sie erscheinen mit dem Status **Keine EOL-Daten**; ein Klick auf die gleichnamige Kachel zeigt nur diese, ein zweiter Klick blendet die übrigen wieder ein. Ein von Hand im Lebenszyklus gepflegtes Datum zählt als erfasst, sodass eine bereits bewertete Komponente hier nicht erneut auftaucht.
+- **Quelle** — Jeder Eintrag stammt von endoflife.date, aus einem Ihrer [eigenen EOL-Produkte](../admin/eol.md) (gekennzeichnet als **Eigenes Produkt**) oder aus einem von Hand eingetragenen End-of-Life-Datum (gekennzeichnet als **Manuell**). Der Filter **Quelle** schränkt den Bericht auf eine davon ein.
+- **Keine EOL-Daten** — Anwendungen und IT-Komponenten, die weder mit endoflife.date (oder einem eigenen EOL-Produkt) verknüpft sind noch ein eigenes Lebensende-Datum haben. Sie erscheinen mit dem Status **Keine EOL-Daten**; ein Klick auf die gleichnamige Kachel zeigt nur diese, ein zweiter Klick blendet die übrigen wieder ein. Ein von Hand im Lebenszyklus gepflegtes Datum zählt als erfasst, sodass eine bereits bewertete Komponente hier nicht erneut auftaucht.
 
 ## Gespeicherte Berichte
 

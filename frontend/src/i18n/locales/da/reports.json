@@ -355,6 +355,8 @@
   "eol.manuallyMaintained": "Manuelt vedligeholdt",
   "eol.manual": "Manuel",
   "eol.manualTooltip": "Udløbsdato blev manuelt vedligeholdt i livscyklusafsnittet, ikke fra endoflife.date-API'en",
+  "eol.custom": "Brugerdefineret produkt",
+  "eol.customTooltip": "Tilknyttet et af din organisations brugerdefinerede EOL-produkter (Indstillinger → EOL → Brugerdefinerede produkter), ikke til endoflife.date",
   "eol.api": "API",
   "eol.today": "I dag",
   "eol.product": "Produkt",

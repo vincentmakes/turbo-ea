@@ -169,6 +169,8 @@ Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verkn
 - **Supportstatus** — Farbcodiert: Unterstützt, EOL nähert sich, Lebensende
 - **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, Ende des Sicherheitssupports, EOL-Datum
 
+Hat endoflife.date keinen Treffer für das Produkt, können Benutzer mit der Berechtigung **EOL verwalten** direkt in diesem Abschnitt ein [eigenes EOL-Produkt](../admin/eol.md) erstellen und die Karte damit verknüpfen. Eigene Produkte sind mit **Eigenes** gekennzeichnet und verhalten sich sonst überall wie Produkte von endoflife.date.
+
 ## Kommentare-Tab
 
 ![Kartenkommentarbereich](../assets/img/de/05_karten_kommentare.png)

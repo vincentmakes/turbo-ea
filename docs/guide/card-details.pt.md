@@ -166,6 +166,8 @@ Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.d
 - **Status de suporte** — Com código de cores: Suportado, Aproximando-se do EOL, Fim de Vida
 - **Datas importantes** — Data de lançamento, fim do suporte ativo, fim do suporte de segurança, data de EOL
 
+Quando o endoflife.date não tem correspondência para o produto, os utilizadores com a permissão **Gerir EOL** podem criar um [produto EOL personalizado](../admin/eol.md) diretamente a partir desta secção e vincular a ficha a ele. Os produtos personalizados são marcados como **Personalizado** e comportam-se como os produtos do endoflife.date em todos os outros locais.
+
 ## Aba de Comentários
 
 ![Seção de Comentários do Card](../assets/img/pt/05_ficha_comentarios.png)

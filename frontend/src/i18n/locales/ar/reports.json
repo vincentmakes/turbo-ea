@@ -387,6 +387,8 @@
   "eol.manuallyMaintained": "مُحدّث يدويًا",
   "eol.manual": "يدوي",
   "eol.manualTooltip": "تم تحديث تاريخ نهاية العمر الافتراضي يدويًا في قسم دورة الحياة، وليس من واجهة endoflife.date API",
+  "eol.custom": "منتج مخصّص",
+  "eol.customTooltip": "مرتبط بأحد منتجات EOL المخصّصة لمؤسستك (الإعدادات ← EOL ← المنتجات المخصّصة)، وليس بـ endoflife.date",
   "eol.api": "API",
   "eol.today": "اليوم",
   "eol.product": "المنتج",

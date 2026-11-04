@@ -167,6 +167,8 @@ Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](
 - **Statut de support** -- Code couleur : Supporté, Approchant la fin de vie, Fin de vie
 - **Dates clés** -- Date de sortie, fin du support actif, fin du support sécurité, date de fin de vie
 
+Lorsque endoflife.date n'a aucune correspondance pour le produit, les utilisateurs disposant de la permission **Gérer l'EOL** peuvent créer un [produit EOL personnalisé](../admin/eol.md) directement depuis cette section et y lier la fiche. Les produits personnalisés sont marqués **Personnalisé** et se comportent partout ailleurs comme les produits endoflife.date.
+
 ## Onglet Commentaires
 
 ![Section commentaires de la fiche](../assets/img/fr/05_fiche_commentaires.png)

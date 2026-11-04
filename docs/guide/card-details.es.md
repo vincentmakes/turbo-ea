@@ -169,6 +169,8 @@ Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.
 - **Estado de soporte** — Codificado por colores: Con Soporte, Próximo a EOL, Fin de Vida
 - **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fin de soporte de seguridad, fecha EOL
 
+Cuando endoflife.date no tiene coincidencia para el producto, los usuarios con el permiso **Gestionar EOL** pueden crear un [producto EOL personalizado](../admin/eol.es.md) directamente desde esta sección y vincular la ficha a él. Los productos personalizados se marcan como **Personalizado** y se comportan como los productos de endoflife.date en el resto de lugares.
+
 ## Pestaña de Comentarios
 
 ![Sección de Comentarios de una Ficha](../assets/img/es/05_ficha_comentarios.png)
