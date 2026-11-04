@@ -1,0 +1,85 @@
+name: Guard Ratchet
+
+# Fails a pull request that lowers a bar the test suite holds: a coverage or
+# mutation floor, a guard's anti-rot MIN_*, the measured/mutated scope, a
+# guard-test or security-scanner allowlist, a guard test itself, or a new
+# skip / no-cover marker (a new no-mutate is listed as a notice, never blocks). Each of those can be right, so the gate
+# is a human's: a maintainer reads the findings in the job summary and applies
+# the `guard-change-approved` label, which re-runs this job (hence the
+# `labeled` / `unlabeled` triggers) and turns it green with the findings kept
+# in the summary. The label only counts when a MAINTAINERS login applied it
+# (checked against the PR's event log): the PR-author allowlist includes the
+# Claude bots, so a label an agent applies to its own PR is ignored. It also
+# only counts for the commits the maintainer saw: a label applied before the
+# head commit was committed is ignored, so a push after approval (a rebase or
+# an "Update branch" included) needs the label removed and re-applied. Rule and rationale:
+# .claude/rules/testing-ci.md; the check is scripts/guard_ratchet.py, tested by
+# backend/tests/core/test_guard_ratchet.py in Backend Unit Tests.
+#
+# Its own workflow rather than a job in ci.yml: ci.yml does not run on label
+# events, and re-running every suite to read a label would be waste. Never
+# path-filtered — a bar can be lowered from any file it watches, and the job
+# is seconds of stdlib Python.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: read # the PR's event log: who applied the approval label
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ratchet:
+    name: Guard Ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the script compares with the merge base of the base branch
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Who applied the approval label
+        id: approval
+        if: contains(github.event.pull_request.labels.*.name, 'guard-change-approved')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MAINTAINERS: "vincentmakes"
+        run: |
+          set -euo pipefail
+          # The last application of the label: "<login> <created_at>".
+          last=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/events" --paginate \
+            --jq '.[] | select(.event == "labeled" and .label.name == "guard-change-approved") | "\(.actor.login) \(.created_at)"' \
+            | tail -n 1)
+          actor=${last% *}
+          applied_at=$(date -u -d "${last#* }" +%s)
+          committed_at=$(git log -1 --format=%ct "$HEAD_SHA")
+          for m in $MAINTAINERS; do
+            if [ "$actor" = "$m" ]; then
+              if [ "$applied_at" -le "$committed_at" ]; then
+                echo "::warning::guard-change-approved was applied by $actor before the head commit $HEAD_SHA was committed; the new push needs the label removed and re-applied. Ignored."
+                exit 0
+              fi
+              echo "guard-change-approved applied by maintainer $actor after the head commit."
+              echo "approved=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "::warning::guard-change-approved was applied by '$actor', who is not in MAINTAINERS; ignored."
+      - name: Compare guards with the base branch
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          APPROVED: ${{ steps.approval.outputs.approved == 'true' }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          args=(--base "origin/$BASE_REF" --summary "$GITHUB_STEP_SUMMARY")
+          if [ "$APPROVED" = "true" ]; then args+=(--approved); fi
+          python scripts/guard_ratchet.py "${args[@]}"
