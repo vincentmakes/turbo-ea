@@ -2830,5 +2830,9 @@
   "metamodel.typeDrawer.optionalRelations": "Relações não obrigatórias para este subtipo",
   "metamodel.typeDrawer.optionalRelationsHelp": "Marque uma relação obrigatória para torná-la opcional nos cartões deste subtipo: ela deixa de bloquear a aprovação e de reduzir a qualidade de dados.",
   "metamodel.typeDrawer.noMandatoryRelations": "Este tipo de cartão não tem relações obrigatórias.",
-  "securityLog.fields.optional_relations": "Relações não obrigatórias"
+  "securityLog.fields.optional_relations": "Relações não obrigatórias",
+  "metamodel.principles.reference": "Referência",
+  "metamodel.principles.import.title": "Importar princípios de AE",
+  "metamodel.principles.import.intro": "Carregue um ficheiro .xlsx para criar ou atualizar princípios em massa. Cada linha é associada a um princípio existente primeiro pela referência (P-001) e depois pelo título; um princípio associado é atualizado com os valores que diferem e qualquer outra linha cria um novo princípio. Uma coluna ausente da folha deixa o campo inalterado, e uma célula de texto vazia limpa-o, enquanto uma célula is_active ou sort_order vazia deixa esse valor como está.",
+  "metamodel.principles.import.skippedHint": "Estas linhas correspondem a um princípio existente e não alteram nada."
 }

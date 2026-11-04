@@ -2830,5 +2830,9 @@
   "metamodel.typeDrawer.optionalRelations": "此子类型无需的关系",
   "metamodel.typeDrawer.optionalRelationsHelp": "勾选一条必填关系，使其对此子类型的卡片变为可选：它将不再阻止审批，也不会降低数据质量。",
   "metamodel.typeDrawer.noMandatoryRelations": "此卡片类型没有必填关系。",
-  "securityLog.fields.optional_relations": "无需的关系"
+  "securityLog.fields.optional_relations": "无需的关系",
+  "metamodel.principles.reference": "编号",
+  "metamodel.principles.import.title": "导入 EA 原则",
+  "metamodel.principles.import.intro": "上传 .xlsx 文件以批量创建或更新原则。每一行先按编号（P-001）、再按标题匹配现有原则；匹配到的原则会用不同的值进行更新，其他行则创建新原则。工作表中缺少的列会保持该字段不变，文本类的空单元格会清空该字段，而 is_active 或 sort_order 的空单元格则保持该值不变。",
+  "metamodel.principles.import.skippedHint": "这些行与现有原则匹配，不会产生任何更改。"
 }

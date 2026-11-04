@@ -62,6 +62,20 @@ La barra lateral persistente a la izquierda tiene dos pestañas:
 
 Use la barra de **filtro rápido** para búsqueda de texto completo. Haga clic derecho en cualquier fila para un menú contextual (**Editar**, **Vista previa**, **Duplicar**, **Eliminar**).
 
+#### Exportar e importar decisiones {: #decisions-import }
+
+**Exportar** (junto a **+ Nueva decisión**) descarga las decisiones que muestra actualmente la barra lateral de filtros como un archivo `.xlsx`, una fila por decisión: referencia, título, estado, revisión, las cuatro secciones (Contexto, Decisión, Consecuencias, Alternativas consideradas) como texto sin formato, fichas vinculadas y decisiones relacionadas (separadas por punto y coma), autor, firmantes y las fechas de creación, modificación y firma. El formato, como las negritas o los enlaces, no se traslada a la hoja de cálculo. Para compartir decisiones con todo su formato, seleccione filas en la cuadrícula y use el botón **Export** de la propia cuadrícula, que genera un documento de Word.
+
+**Importar** crea decisiones de forma masiva desde un archivo `.xlsx`. Haga clic en **Descargar plantilla** para obtener un libro de partida, rellene una decisión por fila y súbalo:
+
+- Cada fila se convierte en una nueva decisión en **borrador** con la siguiente referencia `ADR-NNN`. El estado y las firmas nunca se importan — una decisión se firma mediante el **flujo de firma** — y la vista previa advierte de una fila cuyo `status` no sea borrador (draft).
+- Una fila cuya `reference_number` ya pertenece a una decisión se **omite**: la importación nunca modifica una decisión existente, por lo que reimportar una exportación no cambia nada.
+- `title` es obligatorio. En las cuatro columnas de sección, una línea en blanco inicia un nuevo párrafo, las líneas que empiezan por `- ` se convierten en una lista con viñetas y las que empiezan por `1. ` en una lista numerada.
+- `cards` vincula fichas por su nombre exacto, entre las fichas que usted puede ver; una ficha que no se encuentra, o cuyo nombre comparten varias fichas, se omite con una advertencia y la decisión se importa igualmente.
+- `related_decisions` lista referencias, ya sea de decisiones existentes o de otras filas del mismo archivo (incluso filas posteriores).
+
+La vista previa muestra cuántas filas se crearán, omitirán y fallarán, con cada error y advertencia listados por fila; no se escribe nada hasta que confirme. La importación requiere el permiso `adr.manage`.
+
 #### Crear un ADR
 
 Los ADR se pueden crear desde tres lugares — todos abren el mismo editor y alimentan el mismo registro:

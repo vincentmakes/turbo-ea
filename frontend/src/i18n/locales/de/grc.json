@@ -20,7 +20,13 @@
     },
     "decisions": {
       "title": "Architekturentscheidungen",
-      "create": "Neue Entscheidung"
+      "create": "Neue Entscheidung",
+      "exportError": "Export fehlgeschlagen",
+      "import": {
+        "title": "Architekturentscheidungen importieren",
+        "intro": "Laden Sie eine .xlsx-Datei hoch, um Entscheidungsdokumente gesammelt anzulegen. Jede Zeile wird zu einer neuen Entscheidung im Entwurf mit eigener ADR-Referenz; Zeilen, deren Referenz bereits zu einer Entscheidung gehört, werden übersprungen, sodass ein erneuter Import eines Exports nichts ändert. Karten werden über den exakten Namen verknüpft, verwandte Entscheidungen über die Referenz. Status und Unterschriften werden nicht importiert.",
+        "skippedHint": "Diese Zeilen entsprechen anhand der Referenz einer vorhandenen Entscheidung und werden übersprungen; der Import ändert nie eine vorhandene Entscheidung."
+      }
     }
   },
   "compliance": {

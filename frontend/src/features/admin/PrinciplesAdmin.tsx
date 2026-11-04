@@ -19,10 +19,16 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import SpreadsheetImportDialog from "@/components/SpreadsheetImportDialog";
 import { api } from "@/api/client";
 import type { EAPrinciple } from "@/types";
 import { useTheme } from "@mui/material/styles";
 import { brand } from "@/theme/tokens";
+import {
+  downloadPrincipleTemplate,
+  exportPrinciples,
+  parsePrincipleWorkbook,
+} from "./principles/principleSpreadsheet";
 
 interface PrincipleForm {
   title: string;
@@ -53,6 +59,7 @@ export default function PrinciplesAdmin() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PrincipleForm>(EMPTY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<EAPrinciple | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const fetchPrinciples = useCallback(async () => {
     setLoading(true);
@@ -159,13 +166,34 @@ export default function PrinciplesAdmin() {
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 600 }}>
           {t("metamodel.principles.description")}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={openCreate}
-        >
-          {t("metamodel.principles.add")}
-        </Button>
+        <Box sx={{ display: "flex", gap: 1, flexShrink: 0 }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="download" size={18} />}
+            onClick={() => exportPrinciples(principles)}
+            disabled={principles.length === 0}
+            sx={{ textTransform: "none" }}
+          >
+            {t("common:actions.export")}
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="upload" size={18} />}
+            onClick={() => setImportOpen(true)}
+            sx={{ textTransform: "none" }}
+          >
+            {t("common:actions.import")}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={openCreate}
+          >
+            {t("metamodel.principles.add")}
+          </Button>
+        </Box>
       </Box>
 
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
@@ -228,6 +256,15 @@ export default function PrinciplesAdmin() {
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                    {p.reference_number && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={p.reference_number}
+                        aria-label={`${t("metamodel.principles.reference")} ${p.reference_number}`}
+                        sx={{ height: 20, fontSize: 11, fontFamily: "monospace" }}
+                      />
+                    )}
                     <Typography variant="subtitle2" fontWeight={600}>
                       {p.title}
                     </Typography>
@@ -377,6 +414,18 @@ export default function PrinciplesAdmin() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <SpreadsheetImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onComplete={() => void fetchPrinciples()}
+        title={t("metamodel.principles.import.title")}
+        intro={t("metamodel.principles.import.intro")}
+        skippedHint={t("metamodel.principles.import.skippedHint")}
+        endpoint="/metamodel/principles/bulk-import"
+        parse={parsePrincipleWorkbook}
+        downloadTemplate={downloadPrincipleTemplate}
+      />
 
       {/* Delete Confirmation */}
       <Dialog

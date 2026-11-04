@@ -29,6 +29,11 @@ from app.models.resource_type import ResourceType
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
+from app.schemas.principle import (
+    PrincipleImportRequest,
+    PrincipleImportResponse,
+    PrincipleImportResult,
+)
 from app.services import (
     audit_changes,
     audit_labels,
@@ -36,6 +41,7 @@ from app.services import (
     card_reference,
     card_type_categories,
     card_type_delete,
+    principle_service,
 )
 from app.services.extensions.registry import extension_registry
 from app.services.hierarchy import (
@@ -2044,6 +2050,7 @@ class PrincipleUpdate(BaseModel):
 def _serialize_principle(p: EAPrinciple) -> dict:
     return {
         "id": str(p.id),
+        "reference_number": p.reference_number,
         "title": p.title,
         "description": p.description,
         "rationale": p.rationale,
@@ -2077,6 +2084,7 @@ async def create_principle(
     await PermissionService.require_permission(db, user, "admin.metamodel")
     p = EAPrinciple(
         id=uuid.uuid4(),
+        reference_number=await principle_service.next_principle_reference(db),
         title=body.title,
         description=body.description,
         rationale=body.rationale,
@@ -2096,6 +2104,63 @@ async def create_principle(
     await db.commit()
     await db.refresh(p)
     return _serialize_principle(p)
+
+
+@router.post("/principles/bulk-import", response_model=PrincipleImportResponse)
+async def bulk_import_principles(
+    body: PrincipleImportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> PrincipleImportResponse:
+    """Spreadsheet importer for EA principles (admin only).
+
+    Each row is matched on ``reference_number``, then on title
+    (case-insensitive). A matched principle is updated when a value differs
+    and skipped when nothing does; any other row creates a principle with a
+    fresh ``P-NNN`` reference. A column missing from the sheet leaves that
+    field untouched. ``dry_run=True`` validates and matches every row, then
+    rolls back, so the dialog can preview exactly what applying will do.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    # Our own savepoint, so the discard at the end of a dry run only undoes
+    # this import and never reaches a wrapping transaction.
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+
+    outcomes = await principle_service.import_principle_rows(
+        db,
+        [principle_service.PrincipleImportRow(**item.model_dump()) for item in body.items],
+    )
+    counts = {
+        status: sum(1 for o in outcomes if o.status == status)
+        for status in ("created", "updated", "skipped", "failed")
+    }
+
+    if dry_run_savepoint is not None:
+        await dry_run_savepoint.rollback()
+    elif counts["created"] or counts["updated"]:
+        await audit_log.record(
+            db,
+            action="admin.principle.imported",
+            category="admin",
+            actor=user,
+            target=("principles", None, "Spreadsheet import"),
+            context={
+                "source": "Spreadsheet",
+                "created": counts["created"],
+                "updated": counts["updated"],
+                "skipped": counts["skipped"],
+                "failed": counts["failed"],
+            },
+        )
+        await db.commit()
+    else:
+        await db.rollback()
+
+    return PrincipleImportResponse(
+        results=[PrincipleImportResult(**vars(o)) for o in outcomes],
+        dry_run=body.dry_run,
+        **counts,
+    )
 
 
 @router.patch("/principles/{principle_id}")

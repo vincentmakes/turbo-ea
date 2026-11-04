@@ -66,6 +66,20 @@ Det vedvarende sidepanel til venstre har to faner:
 
 Brug **quick filter**-søgelinjen til fuldtekstsøgning på tværs af alle ADR'er. Højreklik på enhver række for en kontekstmenu (**Edit**, **Preview**, **Duplicate**, **Delete**).
 
+#### Eksport og import af beslutninger {: #decisions-import }
+
+**Eksportér** (ved siden af **+ Ny beslutning**) downloader de beslutninger, som filtersidepanelet aktuelt viser, som en `.xlsx`-fil, én række pr. beslutning: reference, titel, status, revision, de fire sektioner (Kontekst, Beslutning, Konsekvenser, Overvejede alternativer) som ren tekst, tilknyttede kort og relaterede beslutninger (adskilt af semikolon), forfatter, underskrivere samt datoerne for oprettelse, ændring og underskrift. Formatering som fed skrift eller links overføres ikke til regnearket. Hvis du vil dele fuldt formaterede beslutninger, skal du markere rækker i gitteret og bruge gitterets egen **Export**-knap, som skriver et Word-dokument.
+
+**Importér** opretter beslutninger samlet fra en `.xlsx`-fil. Klik på **Download skabelon** for at få en startprojektmappe, udfyld én beslutning pr. række, og upload den:
+
+- Hver række bliver til en ny **kladde**-beslutning med den næste `ADR-NNN`-reference. Status og underskrifter importeres aldrig — en beslutning underskrives via **underskriftsarbejdsprocessen** — og forhåndsvisningen advarer om en række, hvis `status` er andet end kladde (draft).
+- En række, hvis `reference_number` allerede tilhører en beslutning, **springes over**: importen ændrer aldrig en eksisterende beslutning, så en genimport af en eksport ændrer ingenting.
+- `title` er obligatorisk. I de fire sektionskolonner starter en tom linje et nyt afsnit, linjer, der begynder med `- `, bliver til en punktliste, og linjer, der begynder med `1. `, til en nummereret liste.
+- `cards` kobler kort via det præcise navn blandt de kort, du kan se; et kort, der ikke kan findes, eller hvis navn deles af flere kort, springes over med en advarsel, og beslutningen importeres alligevel.
+- `related_decisions` angiver referencer, enten til eksisterende beslutninger eller til andre rækker i samme fil (også senere rækker).
+
+Forhåndsvisningen viser, hvor mange rækker der bliver oprettet, sprunget over og fejler, med hver fejl og advarsel listet pr. række; intet skrives, før du bekræfter. Import kræver tilladelsen `adr.manage`.
+
 #### Oprettelse af en ADR
 
 ADR'er kan oprettes fra tre steder — alle åbner den samme editor og fodrer det samme register:

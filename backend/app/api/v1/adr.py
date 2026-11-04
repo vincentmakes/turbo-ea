@@ -18,12 +18,15 @@ from app.models.user import User
 from app.schemas.adr import (
     ADRCardLink,
     ADRCreate,
+    ADRImportRequest,
+    ADRImportResponse,
+    ADRImportResult,
     ADRRejectRequest,
     ADRSignatureRequest,
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import adr_service, notification_service
+from app.services import adr_import_service, adr_service, notification_service
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -169,6 +172,11 @@ async def list_adrs(
     modified_to: str | None = Query(None),
     signed_from: str | None = Query(None),
     signed_to: str | None = Query(None),
+    include_content: bool = Query(
+        False,
+        description="Also return every section's text and related decision references "
+        "(the spreadsheet export)",
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -290,7 +298,7 @@ async def list_adrs(
         for uid, dname in users_result.all():
             creator_names[uid] = dname
 
-    return [
+    summaries = [
         _adr_to_summary(
             adr,
             cards_map.get(adr.id),
@@ -298,6 +306,14 @@ async def list_adrs(
         )
         for adr in rows
     ]
+    if include_content:
+        related = await adr_import_service.related_reference_labels(db, rows)
+        for adr, summary in zip(rows, summaries, strict=True):
+            summary["context"] = adr.context
+            summary["consequences"] = adr.consequences
+            summary["alternatives_considered"] = adr.alternatives_considered
+            summary["related_references"] = related.get(adr.id, [])
+    return summaries
 
 
 @router.post("", status_code=201)
@@ -324,6 +340,52 @@ async def create_adr(
     await db.commit()
     await db.refresh(adr)
     return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+
+
+@router.post("/bulk-import", response_model=ADRImportResponse)
+async def bulk_import_adrs(
+    body: ADRImportRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ADRImportResponse:
+    """Spreadsheet importer for decision records — create-only.
+
+    A row whose ``reference_number`` already exists is skipped, so
+    re-importing an exported register is a no-op; every other row creates a
+    **draft** with a fresh ``ADR-NNN`` reference (status and signatories are
+    never imported). Cards are linked by exact name among those the caller
+    may read; related decisions resolve against existing references and the
+    file's own rows. ``dry_run=True`` runs everything, publishes nothing and
+    rolls back, so the dialog previews exactly what applying will do.
+    """
+    await PermissionService.require_permission(db, user, "adr.manage")
+    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    dry_run_savepoint = await db.begin_nested() if body.dry_run else None
+
+    outcomes = await adr_import_service.import_decision_rows(
+        db,
+        [adr_import_service.DecisionImportRow(**item.model_dump()) for item in body.items],
+        created_by=user.id,
+        readable_cards=readable,
+        publish=not body.dry_run,
+    )
+    counts = {
+        status: sum(1 for o in outcomes if o.status == status)
+        for status in ("created", "skipped", "failed")
+    }
+
+    if dry_run_savepoint is not None:
+        await dry_run_savepoint.rollback()
+    elif counts["created"]:
+        await db.commit()
+    else:
+        await db.rollback()
+
+    return ADRImportResponse(
+        results=[ADRImportResult(**vars(o)) for o in outcomes],
+        dry_run=body.dry_run,
+        **counts,
+    )
 
 
 @router.get("/{adr_id}")

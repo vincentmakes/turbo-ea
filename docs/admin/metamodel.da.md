@@ -289,6 +289,23 @@ Hvert princip har fire felter:
 
 Principper kan **aktiveres** eller **deaktiveres** individuelt ved hjælp af omskifteren på hvert kort.
 
+Hvert princip har et **referencenummer** (`P-001`, `P-002`, …), som tildeles ved oprettelsen og vises ved siden af titlen. Referencer nummereres pr. instans: et princip, der bringes ind via [workspace-overførsel](workspace-transfer.md), får det næste ledige nummer på målet.
+
+### Eksport og import af principper {: #principles-import }
+
+**Eksportér** (ved siden af **Nyt princip**) downloader alle principper som en `.xlsx`-fil med kolonnerne `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` og `sort_order`. Eksporten er en gyldig importfil, så du kan redigere principper i Excel og indlæse dem igen.
+
+**Importér** indlæser principper samlet fra en `.xlsx`-fil. Klik på **Download skabelon** for at få en startprojektmappe, udfyld ét princip pr. række, og upload den. Hver række matches med et eksisterende princip først via `reference_number`, derefter via titlen (uden forskel på store og små bogstaver):
+
+- Et matchet princip **opdateres** med de værdier, der afviger; hvis intet afviger, **springes** rækken **over**. Forhåndsvisningen viser hver opdateret række med de felter, den ændrer.
+- Enhver anden række **opretter** et nyt princip med den næste ledige reference. En reference, der ikke findes på denne instans, genbruges ikke; forhåndsvisningen advarer om det.
+- En række uden reference, hvis titel tilhører to principper, afvises som flertydig: tilføj referencen for at angive, hvilket du mener.
+- En kolonne, der mangler i arket, lader feltet være uændret. En tom celle i `description`, `rationale` eller `implications` rydder den tekst; en tom celle i `is_active` eller `sort_order` lader værdien stå uændret. `title` er den eneste obligatoriske kolonne.
+- `is_active` accepterer `true` / `false` (også `yes` / `no`, `1` / `0`); `sort_order` skal være et heltal. Nye principper uden `sort_order` tilføjes sidst på listen.
+- En titel eller reference, der forekommer to gange i filen, eller en omdøbning til et andet princips titel, får rækken til at fejle.
+
+Før der skrives noget, får du en forhåndsvisning af, hvor mange rækker der bliver oprettet, opdateret, sprunget over og fejler, med hver fejl og advarsel listet pr. række; intet ændres, før du bekræfter. Import kræver tilladelsen `admin.metamodel` og registreres i [sikkerheds- og administrationsloggen](audit-log.md).
+
 ### Import fra Principkataloget
 
 Turbo EA leveres med et **kurateret referencekatalog med 10 industristandard EA-principper**, så du ikke skal starte fra en blank side. Åbn avatarmenuen i øverste højre hjørne og vælg **Referencekataloger → Principkatalog**. Derfra kan du:

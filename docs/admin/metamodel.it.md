@@ -290,6 +290,23 @@ Ogni principio ha quattro campi:
 
 I principi possono essere **attivati** o **disattivati** individualmente tramite l'interruttore su ciascuna scheda.
 
+Ogni principio ha un **numero di riferimento** (`P-001`, `P-002`, …), assegnato alla creazione e mostrato accanto al titolo. I riferimenti sono numerati per istanza: un principio portato tramite il [trasferimento dell'area di lavoro](workspace-transfer.md) riceve il primo numero libero sulla destinazione.
+
+### Esportare e importare i principi {: #principles-import }
+
+**Esporta** (accanto a **Nuovo principio**) scarica tutti i principi come file `.xlsx` con le colonne `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` e `sort_order`. L'esportazione è un file di importazione valido, quindi puoi modificare i principi in Excel e ricaricarli.
+
+**Importa** carica i principi in blocco da un file `.xlsx`. Fai clic su **Scarica il modello** per ottenere una cartella di lavoro di partenza, compila un principio per riga e caricala. Ogni riga viene associata a un principio esistente prima tramite `reference_number`, poi tramite il titolo (senza distinguere maiuscole e minuscole):
+
+- Un principio associato viene **aggiornato** con i valori che differiscono; se nulla differisce, la riga viene **saltata**. L'anteprima elenca ogni riga aggiornata con i campi che modifica.
+- Ogni altra riga **crea** un nuovo principio con il primo riferimento libero. Un riferimento che non esiste su questa istanza non viene riutilizzato; l'anteprima lo segnala.
+- Una riga senza riferimento il cui titolo corrisponde a due principi viene rifiutata perché ambigua: aggiungi il riferimento per indicare quale intendi.
+- Una colonna assente dal foglio lascia il campo invariato. Una cella vuota in `description`, `rationale` o `implications` cancella quel testo; una cella vuota in `is_active` o `sort_order` lascia il valore com'è. `title` è l'unica colonna obbligatoria.
+- `is_active` accetta `true` / `false` (anche `yes` / `no`, `1` / `0`); `sort_order` deve essere un numero intero. I nuovi principi senza `sort_order` vengono aggiunti in fondo all'elenco.
+- Un titolo o un riferimento che compare due volte nel file, o una rinomina sul titolo di un altro principio, fa fallire quella riga.
+
+Prima che venga scritto qualcosa, ottieni un'anteprima di quante righe verranno create, aggiornate, saltate e quante falliranno, con ogni errore e avviso elencato per riga; nulla cambia finché non confermi. L'importazione richiede il permesso `admin.metamodel` ed è registrata nel [registro di sicurezza e amministrazione](audit-log.md).
+
 ### Importare dal Catalogo dei principi
 
 Turbo EA include un **catalogo di riferimento curato con 10 principi EA standard del settore** in modo da non dover partire da una pagina vuota. Apri il menu dell'avatar in alto a destra e seleziona **Cataloghi di riferimento → Catalogo dei principi**. Da qui puoi:

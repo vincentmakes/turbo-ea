@@ -18,12 +18,13 @@ load-bearing; the ``updated_at`` invariant does not apply to decisions.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Sequence
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
@@ -31,16 +32,24 @@ from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
 from app.services.event_bus import event_bus
 
+_REFERENCE_RE = re.compile(r"^ADR-(\d+)$", re.IGNORECASE)
+
 
 async def next_reference_number(db: AsyncSession) -> str:
-    """The next ``ADR-NNN`` reference (``ADR-001`` on an empty table)."""
-    result = await db.execute(select(func.max(ArchitectureDecision.reference_number)))
-    max_ref = result.scalar_one_or_none()
-    if max_ref:
-        num = int(max_ref.replace("ADR-", "")) + 1
-    else:
-        num = 1
-    return f"ADR-{num:03d}"
+    """The next ``ADR-NNN`` reference (``ADR-001`` on an empty table).
+
+    The highest number is found numerically — a string ``max()`` answers
+    ``ADR-999`` forever once ``ADR-1000`` exists, and every create after that
+    collides on the unique constraint. A reference in another format is
+    ignored.
+    """
+    result = await db.execute(select(ArchitectureDecision.reference_number))
+    highest = 0
+    for reference in result.scalars().all():
+        match = _REFERENCE_RE.match(reference or "")
+        if match:
+            highest = max(highest, int(match.group(1)))
+    return f"ADR-{highest + 1:03d}"
 
 
 async def resolve_card_ids(db: AsyncSession, card_ids: Sequence[str]) -> list[uuid.UUID]:
@@ -77,13 +86,16 @@ async def create_decision(
     attributes: dict[str, Any] | None = None,
     linked_card_ids: Sequence[uuid.UUID] = (),
     created_by: uuid.UUID | None = None,
+    publish: bool = True,
 ) -> ArchitectureDecision:
     """Insert a draft decision and its card links; flush, never commit.
 
     ``status`` is not a parameter on purpose — a new decision is always a
     draft; signing and status transitions have their own routes. Linked
     card ids are expected to be resolved already (``resolve_card_ids`` or
-    the caller's own check); duplicates link once.
+    the caller's own check); duplicates link once. ``publish=False`` skips
+    the ``adr.created`` event — for a dry-run preview that will be rolled
+    back, whose event would otherwise still reach every open SSE stream.
     """
     adr = ArchitectureDecision(
         reference_number=await next_reference_number(db),
@@ -105,6 +117,8 @@ async def create_decision(
         seen.add(cid)
         db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.flush()
+    if not publish:
+        return adr
     await event_bus.publish(
         "adr.created",
         {

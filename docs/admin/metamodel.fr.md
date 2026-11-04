@@ -290,6 +290,23 @@ Chaque principe comporte quatre champs :
 
 Les principes peuvent être **activés** ou **désactivés** individuellement via l'interrupteur sur chaque fiche.
 
+Chaque principe porte un **numéro de référence** (`P-001`, `P-002`, …), attribué à sa création et affiché à côté de son titre. Les références sont numérotées par instance : un principe amené par le [transfert d'espace de travail](workspace-transfer.md) reçoit le prochain numéro libre sur la cible.
+
+### Exporter et importer des principes {: #principles-import }
+
+**Exporter** (à côté de **Nouveau principe**) télécharge tous les principes dans un fichier `.xlsx` avec les colonnes `reference_number`, `title`, `description`, `rationale`, `implications`, `is_active` et `sort_order`. L'export est un fichier d'import valide : vous pouvez donc modifier les principes dans Excel et les recharger.
+
+**Importer** charge des principes en masse depuis un fichier `.xlsx`. Cliquez sur **Télécharger le modèle** pour obtenir un classeur de départ, renseignez un principe par ligne, puis importez-le. Chaque ligne est rapprochée d'un principe existant d'abord par sa `reference_number`, puis par son titre (sans tenir compte de la casse) :
+
+- Un principe rapproché est **mis à jour** avec les valeurs qui diffèrent ; si rien ne diffère, la ligne est **ignorée**. L'aperçu liste chaque ligne mise à jour avec les champs qu'elle modifie.
+- Toute autre ligne **crée** un nouveau principe avec la prochaine référence libre. Une référence qui n'existe pas sur cette instance n'est pas réutilisée ; l'aperçu vous en avertit.
+- Une ligne sans référence dont le titre correspond à deux principes est refusée comme ambiguë : ajoutez la référence pour indiquer lequel vous visez.
+- Une colonne absente de la feuille laisse le champ inchangé. Une cellule vide dans `description`, `rationale` ou `implications` efface ce texte ; une cellule vide dans `is_active` ou `sort_order` laisse la valeur telle quelle. `title` est la seule colonne obligatoire.
+- `is_active` accepte `true` / `false` (ainsi que `yes` / `no`, `1` / `0`) ; `sort_order` doit être un nombre entier. Les nouveaux principes sans `sort_order` sont ajoutés à la fin de la liste.
+- Un titre ou une référence présent deux fois dans le fichier, ou un renommage vers le titre d'un autre principe, fait échouer la ligne.
+
+Avant toute écriture, vous obtenez un aperçu du nombre de lignes qui seront créées, mises à jour, ignorées et en échec, avec chaque erreur et avertissement listés par ligne ; rien ne change tant que vous n'avez pas confirmé. L'import requiert la permission `admin.metamodel` et est consigné dans le [journal de sécurité et d'administration](audit-log.md).
+
 ### Importer depuis le catalogue de principes
 
 Turbo EA est livré avec un **catalogue de référence comprenant 10 principes EA standards de l'industrie** afin que vous n'ayez pas à partir d'une page blanche. Ouvrez le menu avatar en haut à droite et choisissez **Catalogues de référence → Catalogue de principes**. Vous pouvez alors :

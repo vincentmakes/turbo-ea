@@ -66,6 +66,20 @@ The persistent sidebar on the left has two tabs:
 
 Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row for a context menu (**Edit**, **Preview**, **Duplicate**, **Delete**).
 
+#### Exporting and importing decisions {: #decisions-import }
+
+**Export** (next to **+ New ADR**) downloads the decisions the filter sidebar currently shows as an `.xlsx` file, one row per decision: reference, title, status, revision, the four sections (Context, Decision, Consequences, Alternatives Considered) as plain text, linked cards and related decisions (semicolon-separated), author, signatories and the created, modified and signed dates. Formatting such as bold or links is not carried into the spreadsheet. To share fully formatted decisions instead, select rows in the grid and use the grid's own **Export** button, which writes a Word document.
+
+**Import** creates decisions in bulk from an `.xlsx` file. Click **Download template** for a starter workbook, fill in one decision per row and upload it:
+
+- Every row becomes a new **draft** decision with the next `ADR-NNN` reference. Status and signatures are never imported — a decision is signed through the [sign-off workflow](#sign-off-workflow) — and the preview warns about a row whose `status` is anything other than draft.
+- A row whose `reference_number` already belongs to a decision is **skipped**: the importer never changes an existing decision, so re-importing an export changes nothing.
+- `title` is required. In the four section columns, a blank line starts a new paragraph, lines starting with `- ` become a bulleted list and lines starting with `1. ` a numbered list.
+- `cards` links cards by exact name, among the cards you can see; a card that cannot be found, or whose name is shared by several cards, is skipped with a warning and the decision still imports.
+- `related_decisions` lists references, either of existing decisions or of other rows in the same file (even later rows).
+
+The preview shows how many rows will be created, skipped and failed, with each error and warning listed by row; nothing is written until you confirm. Importing requires the `adr.manage` permission.
+
 #### Creating an ADR
 
 ADRs can be created from three places — all open the same editor and feed the same registry:

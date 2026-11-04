@@ -18,6 +18,41 @@ import type { ArchitectureDecision } from "@/types";
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/features/ea-delivery/adrExport", () => ({ exportAdrsToDocx: vi.fn(async () => {}) }));
+// Mocked by its alias path so the mutation harness's copies see the same mock.
+vi.mock("@/features/ea-delivery/adrSpreadsheet", async () => {
+  const actual = await vi.importActual<typeof import("@/features/ea-delivery/adrSpreadsheet")>(
+    "@/features/ea-delivery/adrSpreadsheet",
+  );
+  return { ...actual, exportAdrsToXlsx: vi.fn() };
+});
+// The dialog has its own test; the panel's job is what it hands it.
+vi.mock("@/components/SpreadsheetImportDialog", () => ({
+  default: (props: {
+    open: boolean;
+    onClose: () => void;
+    onComplete: () => void;
+    title: string;
+    intro: string;
+    skippedHint: string;
+    endpoint: string;
+    parse: unknown;
+    downloadTemplate: unknown;
+  }) =>
+    props.open ? (
+      <div
+        data-testid="import-dialog"
+        data-title={props.title}
+        data-endpoint={props.endpoint}
+        data-intro={props.intro}
+        data-skipped={props.skippedHint}
+        data-has-parse={String(typeof props.parse === "function")}
+        data-has-template={String(typeof props.downloadTemplate === "function")}
+      >
+        <button type="button" data-testid="import-complete" onClick={props.onComplete} />
+        <button type="button" data-testid="import-close" onClick={props.onClose} />
+      </div>
+    ) : null,
+}));
 
 vi.mock("@/features/ea-delivery/AdrGrid", () => ({
   default: ({
@@ -169,6 +204,7 @@ import i18n from "@/i18n";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import { ADR_GRID_LS_KEY } from "@/features/ea-delivery/adrGridPrefs";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
+import { exportAdrsToXlsx } from "@/features/ea-delivery/adrSpreadsheet";
 import DecisionsPanel from "./DecisionsPanel";
 
 // A type the metamodel does not know is drawn in the theme's secondary text grey.
@@ -260,6 +296,7 @@ beforeEach(() => {
   resetExtensionHost();
   localStorage.clear();
   vi.mocked(exportAdrsToDocx).mockClear();
+  vi.mocked(exportAdrsToXlsx).mockClear();
   confirmSpy = installConfirm(true);
   mockApi.on("get", "/adr", ADRS);
 });
@@ -773,5 +810,92 @@ describe("DecisionsPanel — failures that are not API errors", () => {
         await i18n.changeLanguage("en");
       });
     }
+  });
+});
+
+describe("DecisionsPanel — spreadsheet export and import", () => {
+  const FULL = "/adr?include_content=true";
+
+  it("exports the rows the filters show, with their content, in on-screen order", async () => {
+    mockApi.on(
+      "get",
+      FULL,
+      [...ADRS].reverse().map((a) => ({ ...a, context: `<p>${a.id}</p>`, related_references: [] })),
+    );
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await applyFilters(user, { statuses: ["signed", "in_review"] });
+    expect(gridIds()).toBe("a1,a3");
+
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+
+    await waitFor(() => expect(exportAdrsToXlsx).toHaveBeenCalledTimes(1));
+    const exported = vi.mocked(exportAdrsToXlsx).mock.calls[0][0];
+    expect(exported.map((a) => [a.id, a.context])).toEqual([
+      ["a1", "<p>a1</p>"],
+      ["a3", "<p>a3</p>"],
+    ]);
+    expect(mockApi.callsOf("get", FULL)).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /^download Export$/ })).toBeEnabled();
+  });
+
+  it("keeps a row the content fetch no longer returns rather than dropping it", async () => {
+    mockApi.on("get", FULL, [{ ...ADRS[0], context: "<p>full</p>" }]);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+    await waitFor(() => expect(exportAdrsToXlsx).toHaveBeenCalledTimes(1));
+    const exported = vi.mocked(exportAdrsToXlsx).mock.calls[0][0];
+    expect(exported.map((a) => [a.id, a.context])).toEqual([
+      ["a1", "<p>full</p>"],
+      ["a2", null],
+      ["a3", null],
+    ]);
+  });
+
+  it("shows the error when the content cannot be fetched", async () => {
+    mockApi.fail("get", FULL, 500);
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    await user.click(screen.getByRole("button", { name: /^download Export$/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(`GET ${FULL} failed`);
+    expect(exportAdrsToXlsx).not.toHaveBeenCalled();
+  });
+
+  it("disables Export when the filters show nothing", async () => {
+    mockApi.on("get", "/adr", []);
+    renderPanel();
+    await waitFor(() => expect(gridIds()).toBe(""));
+    expect(screen.getByRole("button", { name: /^download Export$/ })).toBeDisabled();
+  });
+
+  it("offers Export to a reader but Import only to a user holding adr.manage", async () => {
+    renderPanel(userWith("adr.view"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(screen.getByRole("button", { name: /^download Export$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^upload Import$/ })).not.toBeInTheDocument();
+  });
+
+  it("opens the importer on the decisions endpoint and reloads the list when it completes", async () => {
+    const { user } = renderPanel(userWith("adr.view", "adr.manage"));
+    await waitFor(() => expect(gridIds()).toBe("a1,a2,a3"));
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^upload Import$/ }));
+    const dialog = screen.getByTestId("import-dialog");
+    expect(dialog).toHaveAttribute("data-endpoint", "/adr/bulk-import");
+    expect(dialog).toHaveAttribute("data-title", "Import architecture decisions");
+    expect(dialog.getAttribute("data-intro")).toMatch(/^Upload an \.xlsx file to create decision records/);
+    expect(dialog.getAttribute("data-skipped")).toMatch(/never changes an existing decision/);
+    expect(dialog).toHaveAttribute("data-has-parse", "true");
+    expect(dialog).toHaveAttribute("data-has-template", "true");
+
+    mockApi.on("get", "/adr", [ADRS[0]]);
+    await user.click(screen.getByTestId("import-complete"));
+    await waitFor(() => expect(gridIds()).toBe("a1"));
+    expect(mockApi.callsOf("get", "/adr")).toHaveLength(2);
+
+    await user.click(screen.getByTestId("import-close"));
+    expect(screen.queryByTestId("import-dialog")).not.toBeInTheDocument();
   });
 });

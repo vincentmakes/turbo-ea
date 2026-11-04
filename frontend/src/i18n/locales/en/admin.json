@@ -2830,5 +2830,9 @@
   "metamodel.typeDrawer.optionalRelations": "Relations not required for this subtype",
   "metamodel.typeDrawer.optionalRelationsHelp": "Tick a mandatory relation to make it optional for cards of this subtype: it no longer blocks approval or lowers data quality.",
   "metamodel.typeDrawer.noMandatoryRelations": "This card type has no mandatory relations.",
-  "securityLog.fields.optional_relations": "Relations not required"
+  "securityLog.fields.optional_relations": "Relations not required",
+  "metamodel.principles.reference": "Reference",
+  "metamodel.principles.import.title": "Import EA principles",
+  "metamodel.principles.import.intro": "Upload an .xlsx file to create or update principles in bulk. Each row is matched to an existing principle by its reference (P-001), then by title; a matched principle is updated with the values that differ, and every other row creates a new principle. A column left out of the sheet leaves that field unchanged; an empty text cell clears it, while an empty is_active or sort_order cell leaves that value as it is.",
+  "metamodel.principles.import.skippedHint": "These rows match an existing principle and change nothing."
 }

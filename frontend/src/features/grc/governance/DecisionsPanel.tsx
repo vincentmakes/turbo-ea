@@ -10,12 +10,18 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import SpreadsheetImportDialog from "@/components/SpreadsheetImportDialog";
 import AdrGrid from "@/features/ea-delivery/AdrGrid";
 import AdrFilterSidebar, {
   type AdrFilters,
   EMPTY_ADR_FILTERS,
 } from "@/features/ea-delivery/AdrFilterSidebar";
 import { exportAdrsToDocx } from "@/features/ea-delivery/adrExport";
+import {
+  downloadAdrTemplate,
+  exportAdrsToXlsx,
+  parseAdrWorkbook,
+} from "@/features/ea-delivery/adrSpreadsheet";
 import {
   loadAdrGridPrefs,
   updateAdrGridPrefs,
@@ -63,6 +69,8 @@ export default function DecisionsPanel() {
   const [adrSidebarCollapsed, setAdrSidebarCollapsed] = useState(false);
   const [adrSidebarWidth, setAdrSidebarWidth] = useState(280);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Grid column visibility (sidebar Columns tab), persisted alongside the
@@ -180,6 +188,25 @@ export default function DecisionsPanel() {
     [t],
   );
 
+  // Spreadsheet export of what the filters show. The list rows are summaries,
+  // so fetch them again with every section in one request, keep the ones on
+  // screen and keep the on-screen order.
+  const handleSheetExport = useCallback(
+    async (visible: ArchitectureDecision[]) => {
+      setExporting(true);
+      try {
+        const full = await api.get<ArchitectureDecision[]>("/adr?include_content=true");
+        const byId = new Map(full.map((a) => [a.id, a]));
+        exportAdrsToXlsx(visible.map((a) => byId.get(a.id) ?? a));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("grc:governance.decisions.exportError"));
+      } finally {
+        setExporting(false);
+      }
+    },
+    [t],
+  );
+
   // ── ADR filter helpers ───────────────────────────────────────────
 
   const filteredAdrs = useMemo(() => {
@@ -281,16 +308,41 @@ export default function DecisionsPanel() {
         <Typography variant="h6" fontWeight={600}>
           {t("grc:governance.decisions.title")}
         </Typography>
-        {canManage && (
+        <Stack direction="row" spacing={1}>
           <Button
-            variant="contained"
+            variant="outlined"
+            color="inherit"
             size="small"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setCreateOpen(true)}
+            startIcon={<MaterialSymbol icon="download" size={18} />}
+            onClick={() => void handleSheetExport(filteredAdrs)}
+            disabled={exporting || filteredAdrs.length === 0}
+            sx={{ textTransform: "none" }}
           >
-            {t("grc:governance.decisions.create")}
+            {t("common:actions.export")}
           </Button>
-        )}
+          {canManage && (
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              startIcon={<MaterialSymbol icon="upload" size={18} />}
+              onClick={() => setImportOpen(true)}
+              sx={{ textTransform: "none" }}
+            >
+              {t("common:actions.import")}
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<MaterialSymbol icon="add" size={18} />}
+              onClick={() => setCreateOpen(true)}
+            >
+              {t("grc:governance.decisions.create")}
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       {error && (
@@ -359,6 +411,18 @@ export default function DecisionsPanel() {
           </Box>
         </Box>
       )}
+
+      <SpreadsheetImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onComplete={() => void load()}
+        title={t("grc:governance.decisions.import.title")}
+        intro={t("grc:governance.decisions.import.intro")}
+        skippedHint={t("grc:governance.decisions.import.skippedHint")}
+        endpoint="/adr/bulk-import"
+        parse={parseAdrWorkbook}
+        downloadTemplate={downloadAdrTemplate}
+      />
 
       <CreateAdrDialog
         open={createOpen}

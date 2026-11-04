@@ -62,6 +62,20 @@ La barra laterale persistente a sinistra ha due schede:
 
 Usate la barra del **filtro rapido** per la ricerca full-text. Fate clic destro su una riga per un menu contestuale (**Modifica**, **Anteprima**, **Duplica**, **Elimina**).
 
+#### Esportare e importare le decisioni {: #decisions-import }
+
+**Esporta** (accanto a **+ Nuova decisione**) scarica come file `.xlsx` le decisioni attualmente mostrate dalla barra laterale dei filtri, una riga per decisione: riferimento, titolo, stato, revisione, le quattro sezioni (Contesto, Decisione, Conseguenze, Alternative considerate) come testo semplice, schede collegate e decisioni correlate (separate da punto e virgola), autore, firmatari e le date di creazione, modifica e firma. La formattazione, come il grassetto o i collegamenti, non viene riportata nel foglio di calcolo. Per condividere decisioni con tutta la formattazione, seleziona le righe nella griglia e usa il pulsante **Export** della griglia, che genera un documento Word.
+
+**Importa** crea decisioni in blocco da un file `.xlsx`. Fai clic su **Scarica il modello** per ottenere una cartella di lavoro di partenza, compila una decisione per riga e caricala:
+
+- Ogni riga diventa una nuova decisione in **bozza** con il successivo riferimento `ADR-NNN`. Stato e firme non vengono mai importati — una decisione viene firmata tramite il **workflow di firma** — e l'anteprima segnala una riga il cui `status` non sia bozza (draft).
+- Una riga il cui `reference_number` appartiene già a una decisione viene **saltata**: l'importazione non modifica mai una decisione esistente, quindi reimportare un'esportazione non cambia nulla.
+- `title` è obbligatorio. Nelle quattro colonne delle sezioni, una riga vuota inizia un nuovo paragrafo, le righe che iniziano con `- ` diventano un elenco puntato e quelle che iniziano con `1. ` un elenco numerato.
+- `cards` collega le schede tramite il nome esatto, tra quelle che puoi vedere; una scheda non trovata, o il cui nome è condiviso da più schede, viene saltata con un avviso e la decisione viene comunque importata.
+- `related_decisions` elenca riferimenti, sia di decisioni esistenti sia di altre righe dello stesso file (anche righe successive).
+
+L'anteprima mostra quante righe verranno create, saltate e quante falliranno, con ogni errore e avviso elencato per riga; nulla viene scritto finché non confermi. L'importazione richiede il permesso `adr.manage`.
+
 #### Creare un ADR
 
 Gli ADR possono essere creati da tre punti — tutti aprono lo stesso editor e alimentano lo stesso registro:

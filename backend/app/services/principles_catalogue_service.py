@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ea_principle import EAPrinciple
+from app.services.principle_service import ensure_principle_references
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,7 @@ async def import_principles(
         created.append({"catalogue_id": cat_id, "principle_id": str(principle.id)})
         next_sort += 10
 
+    await ensure_principle_references(db)
     await db.commit()
 
     return {

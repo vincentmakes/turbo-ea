@@ -17,6 +17,7 @@
  * template below carries the writable columns instead.
  */
 import * as XLSX from "xlsx";
+import { autoFitColumns, cellText, headerKey } from "@/lib/sheetRows";
 import type { RiskImportItem } from "@/types";
 
 // Canonical import columns, in template order. Header matching on parse is
@@ -34,20 +35,6 @@ export const RISK_IMPORT_COLUMNS = [
   "target_resolution_date",
   "cards",
 ] as const;
-
-function str(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  if (v instanceof Date) {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${v.getFullYear()}-${pad(v.getMonth() + 1)}-${pad(v.getDate())}`;
-  }
-  return String(v).trim();
-}
-
-/** Normalise a header cell to a lookup key: lower-cased, spaces→underscores. */
-function headerKey(h: string): string {
-  return h.trim().toLowerCase().replace(/\s+/g, "_");
-}
 
 /**
  * Parse the first sheet (or a sheet literally named "Risks") into import rows.
@@ -68,7 +55,7 @@ export function parseRiskWorkbook(buffer: ArrayBuffer): RiskImportItem[] {
     // "initial_probability", and "INITIAL_PROBABILITY" all land the same.
     const row: Record<string, string> = {};
     for (const [k, v] of Object.entries(rawRow)) {
-      row[headerKey(k)] = str(v);
+      row[headerKey(k)] = cellText(v);
     }
 
     const title = row.title ?? "";
@@ -103,16 +90,6 @@ export function parseRiskWorkbook(buffer: ArrayBuffer): RiskImportItem[] {
     });
   }
   return items;
-}
-
-function autoFitColumns(rows: string[][]): XLSX.ColInfo[] {
-  const widths: number[] = [];
-  for (const row of rows) {
-    row.forEach((cell, i) => {
-      widths[i] = Math.max(widths[i] ?? 8, String(cell).length + 2);
-    });
-  }
-  return widths.map((w) => ({ wch: Math.min(w, 60) }));
 }
 
 /** Build + download a starter workbook with one illustrative example row. */
