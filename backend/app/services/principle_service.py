@@ -159,25 +159,41 @@ def changed_fields(principle: EAPrinciple, values: dict[str, object]) -> list[st
     return [name for name, value in values.items() if getattr(principle, name) != value]
 
 
+def _reference_list(principles: list[EAPrinciple]) -> str:
+    return " and ".join(sorted(p.reference_number or "?" for p in principles))
+
+
 async def import_principle_rows(
     db: AsyncSession, rows: list[PrincipleImportRow]
 ) -> list[PrincipleImportOutcome]:
     """Apply spreadsheet rows to the principles table (see the module doc)."""
     existing = list((await db.execute(select(EAPrinciple))).scalars().all())
     by_reference = {p.reference_number.upper(): p for p in existing if p.reference_number}
-    by_title = {p.title.strip().casefold(): p for p in existing}
+    # Titles are not unique in the table, so a title maps to every holder: a
+    # title-only row that matches two principles is ambiguous, not last-wins.
+    by_title: dict[str, list[EAPrinciple]] = {}
+    for principle in existing:
+        by_title.setdefault(principle.title.strip().casefold(), []).append(principle)
 
     max_sort = (await db.execute(select(func.max(EAPrinciple.sort_order)))).scalar_one() or 0
     next_sort = max_sort + 10
     next_seq = await highest_reference_sequence(db)
 
-    # Titles and references already used by an earlier row of the file. A
-    # later row repeating one fails, which is also why the indexes above are
-    # never updated with what this import creates or renames: no later row
-    # can reach that entry.
-    seen_titles: set[str] = set()
+    # What earlier rows of the file already used: a reference, a principle
+    # (by whichever match), and a title a row renamed to or created with. A
+    # later row repeating one fails, which is also why ``by_title`` is never
+    # given what this import creates: no later row can reach it.
     seen_references: set[str] = set()
+    seen_targets: set[object] = set()
+    claimed_titles: set[str] = set()
     outcomes: list[PrincipleImportOutcome] = []
+
+    def fail(row: PrincipleImportRow, error: str, reference: str | None = None) -> None:
+        outcomes.append(
+            PrincipleImportOutcome(
+                row_index=row.row_index, status="failed", reference_number=reference, error=error
+            )
+        )
 
     for row in rows:
         warnings: list[str] = []
@@ -192,42 +208,61 @@ async def import_principle_rows(
                 raise ValueError(f"Title is longer than {TITLE_MAX_LENGTH} characters")
             if reference and reference in seen_references:
                 raise ValueError(f"Reference {reference} appears more than once in the file")
-            if title_key in seen_titles:
-                raise ValueError(f"Title {title!r} appears more than once in the file")
             values = _desired_values(row)
         except ValueError as exc:
-            outcomes.append(
-                PrincipleImportOutcome(row_index=row.row_index, status="failed", error=str(exc))
-            )
+            fail(row, str(exc))
             continue
         if reference:
             seen_references.add(reference)
-        seen_titles.add(title_key)
 
         target = by_reference.get(reference)
         if target is None:
-            target = by_title.get(title_key)
+            candidates = by_title.get(title_key, [])
+            if len(candidates) > 1:
+                fail(
+                    row,
+                    f"Title {title!r} matches {_reference_list(candidates)}; add the reference "
+                    "to say which one",
+                )
+                continue
+            target = candidates[0] if candidates else None
             if reference and target is not None:
                 warnings.append(
                     f"Reference {reference} not found; matched {target.reference_number} by title"
                 )
-        else:
-            # Matched by reference: a rename must not take a title another
-            # principle already holds.
-            holder = by_title.get(title_key)
-            if holder is not None and holder is not target:
-                outcomes.append(
-                    PrincipleImportOutcome(
-                        row_index=row.row_index,
-                        status="failed",
-                        reference_number=target.reference_number,
-                        error=f"Another principle ({holder.reference_number}) already has "
-                        f"the title {title!r}",
-                    )
+        if target is not None and target.id in seen_targets:
+            fail(
+                row,
+                f"{target.reference_number} appears more than once in the file",
+                target.reference_number,
+            )
+            continue
+
+        # A title is only contested when the row would write it: a rename, or
+        # a new principle. An unchanged title never conflicts, so an untouched
+        # export re-imports as skipped even where two principles share one.
+        old_title_key = target.title.strip().casefold() if target is not None else None
+        if old_title_key != title_key:
+            holders = [p for p in by_title.get(title_key, []) if p is not target]
+            if holders:
+                fail(
+                    row,
+                    f"Another principle ({_reference_list(holders)}) already has the title "
+                    f"{title!r}",
+                    target.reference_number if target is not None else None,
                 )
                 continue
+            if title_key in claimed_titles:
+                fail(
+                    row,
+                    f"Title {title!r} appears more than once in the file",
+                    target.reference_number if target is not None else None,
+                )
+                continue
+            claimed_titles.add(title_key)
 
         if target is not None:
+            seen_targets.add(target.id)
             changes = changed_fields(target, values)
             if not changes:
                 outcomes.append(
@@ -240,15 +275,15 @@ async def import_principle_rows(
                     )
                 )
                 continue
-            old_title_key = target.title.strip().casefold()
             for name in changes:
                 setattr(target, name, values[name])
             await db.flush()
-            # A rename frees the old title for a later row, but only when the
-            # index holds this principle under it: two stored principles can
-            # share a title that differs only in case.
-            if old_title_key != title_key and by_title.get(old_title_key) is target:
-                del by_title[old_title_key]
+            if old_title_key != title_key:
+                # The old title is free for a later row — but only this
+                # principle's entry goes; a case twin keeps its own.
+                by_title[old_title_key or ""] = [
+                    p for p in by_title.get(old_title_key or "", []) if p is not target
+                ]
             outcomes.append(
                 PrincipleImportOutcome(
                     row_index=row.row_index,

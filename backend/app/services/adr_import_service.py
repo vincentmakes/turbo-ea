@@ -8,8 +8,9 @@ the one writer, so imported decisions take the same ``ADR-NNN`` sequence as
 every other path. Status and signatories are never imported: signing is a
 human act with its own workflow.
 
-Cards are linked best-effort by exact name among the cards the importer may
-read; a missing, ambiguous or hidden card is a warning, never a failure.
+Cards are linked best-effort by exact name among the ACTIVE cards the importer
+may read, looked up once for the whole file; a missing, ambiguous, archived or
+hidden card is a warning, never a failure.
 Related decisions are resolved in a second pass, once every row exists, so a
 row may name a decision that appears later in the same file. Nothing here
 commits — the route owns the transaction and the dry-run rollback.
@@ -75,15 +76,33 @@ def _unique(values: Iterable[str]) -> list[str]:
     return list(dict.fromkeys(v.strip() for v in values if v.strip()))
 
 
-async def _resolve_cards(
-    db: AsyncSession, names: Sequence[str], readable: Sequence[ColumnElement[bool]]
+async def _cards_by_name(
+    db: AsyncSession, names: set[str], readable: Sequence[ColumnElement[bool]]
+) -> dict[str, list[uuid.UUID]]:
+    """Every ACTIVE, readable card for each name, in one query.
+
+    ``ACTIVE`` matches what the card picker offers when a decision is linked by
+    hand: an archived namesake neither makes the live card ambiguous nor gets
+    linked in its place.
+    """
+    if not names:
+        return {}
+    rows = await db.execute(
+        select(Card.name, Card.id).where(Card.name.in_(names), Card.status == "ACTIVE", *readable)
+    )
+    found: dict[str, list[uuid.UUID]] = {}
+    for name, card_id in rows.all():
+        found.setdefault(name, []).append(card_id)
+    return found
+
+
+def _resolve_cards(
+    names: Sequence[str], cards: dict[str, list[uuid.UUID]]
 ) -> tuple[list[uuid.UUID], list[str]]:
     ids: list[uuid.UUID] = []
     warnings: list[str] = []
     for name in _unique(names):
-        matches = (
-            (await db.execute(select(Card.id).where(Card.name == name, *readable))).scalars().all()
-        )
+        matches = cards.get(name, [])
         if len(matches) == 1:
             ids.append(matches[0])
         elif not matches:
@@ -108,6 +127,10 @@ async def import_decision_rows(
             await db.execute(select(ArchitectureDecision.id, ArchitectureDecision.reference_number))
         ).all()
     }
+
+    cards = await _cards_by_name(
+        db, {name for row in rows for name in _unique(row.card_names)}, readable_cards
+    )
 
     outcomes: list[DecisionImportOutcome] = []
     created: list[tuple[DecisionImportOutcome, ArchitectureDecision, DecisionImportRow]] = []
@@ -143,7 +166,7 @@ async def import_decision_rows(
             )
             continue
 
-        card_ids, warnings = await _resolve_cards(db, row.card_names, readable_cards)
+        card_ids, warnings = _resolve_cards(row.card_names, cards)
         status = (row.status or "").strip()
         if status and status.lower() != "draft":
             warnings.append(f"Status {status!r} is not imported; created as a draft")

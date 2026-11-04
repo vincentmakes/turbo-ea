@@ -34,6 +34,18 @@ class TestReferenceNumbers:
         await db.flush()
         assert await adr_service.next_reference_number(db) == "ADR-008"
 
+    async def test_counts_numerically_past_three_digits(self, db):
+        """``"ADR-999" > "ADR-1000"`` as strings; the sequence must still move on."""
+        db.add_all(
+            [
+                ArchitectureDecision(reference_number="ADR-999", title="Last three-digit"),
+                ArchitectureDecision(reference_number="ADR-1000", title="First four-digit"),
+                ArchitectureDecision(reference_number="DEC-5000", title="Foreign format"),
+            ]
+        )
+        await db.flush()
+        assert await adr_service.next_reference_number(db) == "ADR-1001"
+
 
 class TestCreateDecision:
     async def test_flushes_row_and_links_without_commit(self, db, cards):

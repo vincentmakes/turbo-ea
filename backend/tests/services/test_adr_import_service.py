@@ -185,3 +185,44 @@ async def test_related_labels_resolve_ids_and_references_and_drop_the_rest(db):
 async def test_related_labels_of_nothing_is_empty_per_decision(db):
     adr = await adr_service.create_decision(db, title="Plain", publish=False)
     assert await svc.related_reference_labels(db, [adr]) == {adr.id: []}
+
+
+async def test_an_archived_namesake_is_neither_ambiguous_nor_linked(db):
+    await create_card_type(db, key="Application", label="Application")
+    live = await create_card(db, card_type="Application", name="Portal")
+    await create_card(db, card_type="Application", name="Portal", status="ARCHIVED")
+    await create_card(db, card_type="Application", name="Retired", status="ARCHIVED")
+
+    [outcome] = await svc.import_decision_rows(
+        db,
+        [Row(row_index=0, title="Links", card_names=["Portal", "Retired"])],
+        created_by=None,
+    )
+
+    assert outcome.warnings == ["Card not found: Retired"]
+    adr = (await _decisions(db))[outcome.reference_number]
+    links = (
+        (
+            await db.execute(
+                select(ArchitectureDecisionCard.card_id).where(
+                    ArchitectureDecisionCard.architecture_decision_id == adr.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert links == [live.id]
+
+
+async def test_two_live_cards_with_one_name_are_ambiguous(db):
+    await create_card_type(db, key="Application", label="Application")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    await create_card(db, card_type="Application", name="Portal")
+    await create_card(db, card_type="Initiative", name="Portal")
+
+    [outcome] = await svc.import_decision_rows(
+        db, [Row(row_index=0, title="Links", card_names=["Portal"])], created_by=None
+    )
+
+    assert outcome.warnings == ["Card name is ambiguous: Portal"]

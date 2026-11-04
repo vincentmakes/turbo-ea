@@ -491,3 +491,78 @@ async def test_rows_without_a_sort_order_are_appended_ten_apart(db):
     rows = await _by_title(db)
     assert [rows[t].sort_order for t in ("First", "Pinned", "Second")] == [60, 5, 70]
     assert all(rows[t].is_active is True for t in ("First", "Pinned", "Second"))
+
+
+async def test_an_untouched_export_re_imports_as_skipped_even_with_shared_titles(db):
+    """Titles are not unique in the table; a row that keeps its own title must
+    never be refused because another principle holds the same one."""
+    db.add_all(
+        [
+            _principle("Security first", ref="P-001", description="a"),
+            _principle("Security first", ref="P-002", description="b"),
+        ]
+    )
+    await db.flush()
+
+    outcomes = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, reference_number="P-001", title="Security first", description="a"),
+            Row(row_index=1, reference_number="P-002", title="Security first", description="b"),
+        ],
+    )
+
+    assert [(o.status, o.reference_number) for o in outcomes] == [
+        ("skipped", "P-001"),
+        ("skipped", "P-002"),
+    ]
+
+
+async def test_a_title_only_row_matching_two_principles_is_ambiguous(db):
+    db.add_all([_principle("Shared", ref="P-002"), _principle("shared", ref="P-001")])
+    await db.flush()
+
+    [outcome] = await svc.import_principle_rows(
+        db, [Row(row_index=0, title="SHARED", description="x")]
+    )
+
+    assert outcome.status == "failed"
+    assert outcome.error == (
+        "Title 'SHARED' matches P-001 and P-002; add the reference to say which one"
+    )
+    assert all(p.description is None for p in (await _by_title(db)).values())
+
+
+async def test_the_same_principle_addressed_twice_fails_the_later_row(db):
+    db.add(_principle("Alpha", ref="P-001"))
+    await db.flush()
+
+    by_reference, by_title = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, reference_number="P-001", title="Alpha", description="first"),
+            Row(row_index=1, title="alpha", description="second"),
+        ],
+    )
+
+    assert by_reference.status == "updated"
+    assert (by_title.status, by_title.reference_number) == ("failed", "P-001")
+    assert by_title.error == "P-001 appears more than once in the file"
+    assert (await _by_title(db))["Alpha"].description == "first"
+
+
+async def test_a_rename_onto_a_title_the_file_just_created_fails(db):
+    db.add(_principle("Old", ref="P-001"))
+    await db.flush()
+
+    created, renamed = await svc.import_principle_rows(
+        db,
+        [
+            Row(row_index=0, title="Fresh"),
+            Row(row_index=1, reference_number="P-001", title="fresh"),
+        ],
+    )
+
+    assert created.status == "created"
+    assert (renamed.status, renamed.reference_number) == ("failed", "P-001")
+    assert renamed.error == "Title 'fresh' appears more than once in the file"

@@ -236,6 +236,10 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
         sheet=SHEET_PRINCIPLES,
         model=EAPrinciple,
         natural_key=("title",),
+        # ``reference_number`` is deliberately absent: each instance numbers
+        # its own principles (``P-001``), and with the title as the natural key
+        # the source's numbers could collide with the target's. The applier
+        # numbers the rows it creates.
         columns=(
             "title",
             "description",
@@ -245,10 +249,6 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
             "sort_order",
             "catalogue_id",
         ),
-        # Each instance numbers its own principles (``P-001``): the natural key
-        # is the title, so carrying the source's numbers could collide with the
-        # target's. The applier numbers the rows it creates.
-        skip_columns=frozenset({"reference_number"}),
     ),
     ConfigSection(
         sheet=SHEET_COMPLIANCE_REGS,
