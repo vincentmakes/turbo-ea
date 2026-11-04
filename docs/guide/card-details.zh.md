@@ -148,7 +148,7 @@ Jira 的应用程序卡片就会显示该产品自身的标识。易于识别的
 
 ### EOL 分区
 
-如果卡片已链接到 [endoflife.date](https://endoflife.date/) 产品（通过 [EOL 管理](../admin/eol.md)）：
+默认显示在应用程序和 IT 组件上，也显示在管理员已[启用](../admin/eol.md)它的任何其他卡片类型上。如果卡片已链接到 [endoflife.date](https://endoflife.date/) 产品（通过 [EOL 管理](../admin/eol.md)）：
 
 - **产品名称和版本**
 - **支持状态** —— 颜色编码：受支持、即将到期、已到期

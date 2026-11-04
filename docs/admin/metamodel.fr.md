@@ -360,7 +360,7 @@ Le scanner de conformité et le flux de promotion en risque fonctionnent **même
 Pour chaque type de fiche, la section **Mise en page** dans le tiroir du type contrôle la structure de la page de détail des fiches :
 
 - **Ordre des sections** -- Glissez les sections (Description, EOL, Cycle de vie, Hiérarchie, Étiquettes, Relations et sections personnalisées) pour les réorganiser
-- **Visibilité** -- Masquez les sections non pertinentes pour un type
+- **Visibilité** -- Masquez les sections non pertinentes pour un type. La section **Fin de vie** fait exception à la règle « affichée sauf si masquée » : elle est affichée par défaut uniquement sur les Applications et les Composants IT, et masquée sur tous les autres types, personnalisés compris, tant que vous ne l'activez pas. Son interrupteur décide aussi si le type participe au suivi de la fin de vie -- voir [Fin de vie sur d'autres types de fiches](eol.md#fin-de-vie-sur-dautres-types-de-fiches)
 - **Développement par défaut** -- Choisissez si chaque section commence développée ou repliée
 - **Disposition en colonnes** -- Définissez 1 ou 2 colonnes par section personnalisée
 - **Déplacer des champs entre sections** — Utiliser l'action **déplacer** d'un champ (à côté de ses boutons modifier et supprimer) pour le replacer dans une autre section, en conservant sa configuration

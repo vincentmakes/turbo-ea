@@ -1191,6 +1191,7 @@
   "cardLayout.dragSections": "Træk afsnit for at omarrangere...",
   "cardLayout.collapsedByDefault": "Skjult som standard",
   "cardLayout.hiddenFromDetail": "Skjult fra kortdetalje",
+  "cardLayout.eolNote": "Når du viser denne sektion, indgår typen også i End of Life-rapporteringen: EOL-rapporten, dækningstal, inventarkolonnen og massetilknytning. Den vises som standard kun på Applications og IT Components.",
   "cardLayout.deleteSection": "Slet afsnit",
   "cardLayout.addSection": "Tilføj afsnit",
   "cardLayout.sectionName": "Afsnitsnavn",

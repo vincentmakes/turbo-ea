@@ -14,12 +14,12 @@ Savoir quand les produits technologiques atteignent la fin de vie ou la fin de s
 
 ## Recherche en masse
 
-La fonctionnalité de recherche en masse analyse vos fiches **Application** et **Composant IT** et trouve automatiquement les produits correspondants dans la base de données endoflife.date.
+La fonctionnalité de recherche en masse analyse les fiches d'un type qui suit la fin de vie (**Application** et **Composant IT** par défaut, voir [Fin de vie sur d'autres types de fiches](#fin-de-vie-sur-dautres-types-de-fiches)) et trouve automatiquement les produits correspondants dans la base de données endoflife.date.
 
 ### Lancer une recherche en masse
 
 1. Naviguez vers **Admin > Paramètres > EOL**
-2. Sélectionnez le type de fiche à analyser (Application ou Composant IT)
+2. Sélectionnez le type de fiche à analyser (tout type qui suit la fin de vie)
 3. Cliquez sur **Rechercher**
 4. Le système effectue une **correspondance approximative** avec le catalogue de produits endoflife.date
 
@@ -52,6 +52,19 @@ Une fois liée, la page de détail de la fiche affiche une **section EOL** avec 
 - **Nom du produit et version**
 - **Statut de support** -- Code couleur : Supporté (vert), Approchant la fin de vie (orange), Fin de vie (rouge)
 - **Dates clés** -- Date de sortie, fin du support actif, fin du support sécurité, date de fin de vie
+
+## Fin de vie sur d'autres types de fiches
+
+La fin de vie est suivie par défaut sur les **Applications** et les **Composants IT**. Tout autre type de fiche, natif ou personnalisé, peut aussi la suivre : ouvrez **Admin > Métamodèle**, choisissez le type et, dans sa **Mise en page de la fiche**, désactivez **Masqué du détail de la fiche** sur la section **Fin de vie**. Ce même interrupteur masque la fin de vie sur les Applications ou les Composants IT si vous ne la suivez pas pour eux.
+
+Cet unique interrupteur détermine tout ce qui touche à la fin de vie pour le type :
+
+- la section **Fin de vie** sur ses fiches (et l'option de liaison à la création d'une fiche),
+- la place du type dans le [Rapport EOL](../guide/reports.md), dans le graphique **Couverture de fin de vie** du rapport Qualité des données ainsi que dans les filtres et regroupements de fin de vie des tableaux de bord,
+- la colonne et le filtre **Fin de vie** de l'[Inventaire](../guide/inventory.md),
+- le sélecteur de type de la **Recherche en masse** de cette page.
+
+Masquer la section ne supprime jamais rien : les fiches conservent leurs liens et leurs dates de cycle de vie, et réapparaissent dans tous les rapports dès que la section est de nouveau affichée.
 
 ## Produits EOL personnalisés
 

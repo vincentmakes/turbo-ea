@@ -161,7 +161,7 @@ The **Resources** tab consolidates all supporting materials for a card:
 
 ### EOL Section
 
-If the card is linked to an [endoflife.date](https://endoflife.date/) product (via [EOL Administration](../admin/eol.md)):
+Shown on Applications and IT Components by default, and on any other card type whose administrator [turned it on](../admin/eol.md#end-of-life-on-other-card-types). If the card is linked to an [endoflife.date](https://endoflife.date/) product (via [EOL Administration](../admin/eol.md)):
 
 - **Product name and version**
 - **Support status** — Color-coded: Supported, Approaching EOL, End of Life

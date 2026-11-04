@@ -14,12 +14,12 @@ Saber quando produtos tecnológicos atingem o fim de vida ou fim de suporte é e
 
 ## Busca em Massa
 
-O recurso de busca em massa escaneia seus cards de **Aplicação** e **Componente de TI** e encontra automaticamente produtos correspondentes no banco de dados do endoflife.date.
+O recurso de busca em massa escaneia os cards de um tipo que rastreia o fim de vida (**Aplicação** e **Componente de TI** por padrão, veja [Fim de vida em outros tipos de card](#fim-de-vida-em-outros-tipos-de-card)) e encontra automaticamente produtos correspondentes no banco de dados do endoflife.date.
 
 ### Executando uma Busca em Massa
 
 1. Navegue até **Admin > Configurações > EOL**
-2. Selecione o tipo de card a escanear (Aplicação ou Componente de TI)
+2. Selecione o tipo de card a escanear (qualquer tipo que rastreie o fim de vida)
 3. Clique em **Buscar**
 4. O sistema realiza **correspondência aproximada** contra o catálogo de produtos do endoflife.date
 
@@ -52,6 +52,19 @@ Uma vez vinculado, a página de detalhe do card mostra uma **seção EOL** com:
 - **Nome do produto e versão**
 - **Status de suporte** — Com código de cores: Suportado (verde), Aproximando-se do EOL (laranja), Fim de Vida (vermelho)
 - **Datas importantes** — Data de lançamento, fim do suporte ativo, fim do suporte de segurança, data de EOL
+
+## Fim de vida em outros tipos de card
+
+O fim de vida é rastreado por padrão em **Aplicações** e **Componentes de TI**. Qualquer outro tipo de card, nativo ou personalizado, também pode rastreá-lo: abra **Admin > Metamodelo**, escolha o tipo e, no seu **Layout da ficha**, desative **Oculta do detalhe da ficha** na seção **Fim de vida**. O mesmo interruptor oculta o fim de vida em Aplicações ou Componentes de TI se você não o rastreia ali.
+
+Esse único interruptor decide tudo sobre o fim de vida do tipo:
+
+- a seção **Fim de vida** nos seus cards (e a opção de vincular ao criar um card),
+- o lugar do tipo no [Relatório de EOL](../guide/reports.md), no gráfico **Cobertura de fim de vida** do relatório de Qualidade dos dados e nos filtros e agrupamentos de fim de vida dos painéis,
+- a coluna e o filtro **Fim de vida** no [Inventário](../guide/inventory.md),
+- o seletor de tipo da **Busca em massa** desta página.
+
+Ocultar a seção nunca exclui nada: os cards mantêm seus vínculos e suas datas de ciclo de vida, e voltam a aparecer em todos os relatórios quando a seção é exibida novamente.
 
 ## Produtos EOL personalizados
 

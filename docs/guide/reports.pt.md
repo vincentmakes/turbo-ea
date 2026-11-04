@@ -297,7 +297,7 @@ O **Relatório de EOL** mostra o status de suporte de produtos tecnológicos vin
 - **Linha do tempo** — Quando os produtos perderão suporte
 - **Priorização de risco** — Foque em componentes de missão crítica que se aproximam do EOL
 - **Fonte** — Cada item provém do endoflife.date, de um dos seus [produtos EOL personalizados](../admin/eol.md) (com o distintivo **Produto personalizado**) ou de uma data de fim de vida introduzida à mão (com o distintivo **Manual**). O filtro **Fonte** limita o relatório a uma delas.
-- **Sem dados de fim de vida** — Aplicações e componentes de TI sem ligação ao endoflife.date (nem a um produto EOL personalizado) nem data de fim de vida própria. São listados com o estado **Sem dados de fim de vida**; carregue no bloco com o mesmo nome para mostrar apenas esses e carregue novamente para trazer os restantes de volta. Uma data mantida à mão no ciclo de vida conta como registada, pelo que um componente já avaliado não reaparece aqui.
+- **Sem dados de fim de vida** — Cartões de um tipo que rastreia o fim de vida (Aplicações e Componentes de TI, salvo se um administrador o [alterou](../admin/eol.md#fim-de-vida-em-outros-tipos-de-card)) sem ligação ao endoflife.date (nem a um produto EOL personalizado) nem data de fim de vida própria. São listados com o estado **Sem dados de fim de vida**; carregue no bloco com o mesmo nome para mostrar apenas esses e carregue novamente para trazer os restantes de volta. Uma data mantida à mão no ciclo de vida conta como registada, pelo que um componente já avaliado não reaparece aqui.
 
 ## Relatórios Salvos
 

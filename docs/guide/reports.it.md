@@ -297,7 +297,7 @@ Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati
 - **Timeline** — Quando i prodotti perderanno il supporto
 - **Prioritizzazione del rischio** — Concentratevi sui componenti mission-critical in avvicinamento a EOL
 - **Fonte** — Ogni elemento proviene da endoflife.date, da uno dei vostri [prodotti EOL personalizzati](../admin/eol.md) (con badge **Prodotto personalizzato**) o da una data di fine vita inserita a mano (con badge **Manuale**). Il filtro **Fonte** limita il report a una di esse.
-- **Nessun dato di fine vita** — Applicazioni e componenti IT senza collegamento a endoflife.date (o a un prodotto EOL personalizzato) né una data di fine vita propria. Sono elencati con lo stato **Nessun dato di fine vita**; premi il riquadro con lo stesso nome per mostrare solo quelli e premilo di nuovo per riportare gli altri. Una data mantenuta a mano nel ciclo di vita vale come registrata, così un componente già valutato non ricompare qui.
+- **Nessun dato di fine vita** — Schede di un tipo che traccia il fine vita (Applicazioni e componenti IT, salvo [modifica](../admin/eol.md#fine-vita-su-altri-tipi-di-card) da parte di un amministratore) senza collegamento a endoflife.date (o a un prodotto EOL personalizzato) né una data di fine vita propria. Sono elencati con lo stato **Nessun dato di fine vita**; premi il riquadro con lo stesso nome per mostrare solo quelli e premilo di nuovo per riportare gli altri. Una data mantenuta a mano nel ciclo di vita vale come registrata, così un componente già valutato non ricompare qui.
 
 ## Report salvati
 

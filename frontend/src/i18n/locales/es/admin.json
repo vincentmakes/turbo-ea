@@ -1191,6 +1191,7 @@
   "cardLayout.dragSections": "Arrastre las secciones para reordenar...",
   "cardLayout.collapsedByDefault": "Contraída de forma predeterminada",
   "cardLayout.hiddenFromDetail": "Oculta del detalle de ficha",
+  "cardLayout.eolNote": "Mostrar esta sección también incluye el tipo en los informes de fin de vida: informe EOL, cifras de cobertura, columna del inventario y vinculación masiva. Por defecto solo se muestra en Aplicaciones y Componentes de TI.",
   "cardLayout.deleteSection": "Eliminar sección",
   "cardLayout.addSection": "Agregar sección",
   "cardLayout.sectionName": "Nombre de la sección",

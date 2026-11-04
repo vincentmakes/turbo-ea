@@ -14,12 +14,12 @@ Knowing when technology products reach end-of-life or end-of-support is critical
 
 ## Mass Search
 
-The mass search feature scans your **Application** and **IT Component** cards and automatically finds matching products in the endoflife.date database.
+The mass search feature scans the cards of a type that tracks End of Life (**Application** and **IT Component** by default, see [End of Life on other card types](#end-of-life-on-other-card-types)) and automatically finds matching products in the endoflife.date database.
 
 ### Running a Mass Search
 
 1. Navigate to **Admin > Settings > EOL**
-2. Select the card type to scan (Application or IT Component)
+2. Select the card type to scan (any type that tracks End of Life)
 3. Click **Search**
 4. The system performs **fuzzy matching** against the endoflife.date product catalog
 
@@ -52,6 +52,19 @@ Once linked, the card's detail page shows an **EOL section** with:
 - **Product name and version**
 - **Support status** — Color-coded: Supported (green), Approaching EOL (orange), End of Life (red)
 - **Key dates** — Release date, active support end, security support end, EOL date
+
+## End of Life on other card types
+
+End of Life is tracked on **Applications** and **IT Components** by default. Any other card type, built-in or custom, can track it too: open **Admin > Metamodel**, pick the type, and in its **Card Layout** turn off **Hidden from card detail** on the **End of Life** section. The same switch hides End of Life on Applications or IT Components if you do not track it there.
+
+That one switch decides everything about End of Life for the type:
+
+- the **End of Life** section on its cards (and the link option when creating a card),
+- the type's place in the [EOL Report](../guide/reports.md), the Data Quality report's **End-of-life coverage** chart and the dashboards' End of Life filters and grouping,
+- the **End of life** column and filter in the [Inventory](../guide/inventory.md),
+- the type picker of **Mass Search** on this page.
+
+Hiding the section never deletes anything: the cards keep their links and their lifecycle dates, and they come back in every report when the section is shown again.
 
 ## Custom EOL Products
 

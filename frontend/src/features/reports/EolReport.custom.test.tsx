@@ -144,4 +144,21 @@ describe("EolReport — custom EOL products", () => {
     await userEvent.click(screen.getByRole("combobox", { name: /Source/ }));
     expect(await screen.findByRole("option", { name: /Custom product/ })).toBeInTheDocument();
   });
+
+  it("offers in its type filter exactly the types the report holds", async () => {
+    withMetamodel([
+      ...TYPES,
+      makeCardType({ key: "Gadget", label: "Gadget", section_config: { eol: { hidden: false } } }),
+    ]);
+    mockApi.on("get", "/reports/eol", {
+      items: [...ITEMS, item({ id: "g1", name: "Gizmo 9", type: "Gadget", status: "missing", source: "none" })],
+      summary: SUMMARY,
+    });
+    saved.config = { view: "table" };
+    renderReport();
+    await screen.findByRole("table");
+    await userEvent.click(screen.getByRole("combobox", { name: /^Type/ }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual(["All Types", "Application", "Gadget", "IT Component"]);
+  });
 });

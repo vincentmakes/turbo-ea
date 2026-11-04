@@ -14,12 +14,12 @@ Saber cuándo los productos tecnológicos alcanzan el fin de vida o el fin de so
 
 ## Búsqueda Masiva
 
-La función de búsqueda masiva analiza sus fichas de **Aplicación** y **Componente TI** y encuentra automáticamente productos coincidentes en la base de datos endoflife.date.
+La función de búsqueda masiva analiza las fichas de un tipo que realiza el seguimiento del fin de vida (**Aplicación** y **Componente TI** por defecto, véase [Fin de vida en otros tipos de ficha](#fin-de-vida-en-otros-tipos-de-ficha)) y encuentra automáticamente productos coincidentes en la base de datos endoflife.date.
 
 ### Ejecución de una Búsqueda Masiva
 
 1. Navegue a **Administrador > Configuración > EOL**
-2. Seleccione el tipo de ficha a analizar (Aplicación o Componente TI)
+2. Seleccione el tipo de ficha a analizar (cualquier tipo que realice el seguimiento del fin de vida)
 3. Haga clic en **Buscar**
 4. El sistema realiza una **coincidencia difusa** contra el catálogo de productos de endoflife.date
 
@@ -52,6 +52,19 @@ Una vez vinculada, la página de detalle de la ficha muestra una **sección EOL*
 - **Nombre del producto y versión**
 - **Estado de soporte** — Codificado por colores: Con soporte (verde), Próximo a EOL (naranja), Fin de Vida (rojo)
 - **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fin de soporte de seguridad, fecha EOL
+
+## Fin de vida en otros tipos de ficha
+
+El fin de vida se sigue por defecto en las **Aplicaciones** y los **Componentes TI**. Cualquier otro tipo de ficha, integrado o personalizado, también puede seguirlo: abra **Administrador > Metamodelo**, elija el tipo y, en su **Diseño de ficha**, desactive **Oculta del detalle de ficha** en la sección **Fin de vida**. Ese mismo interruptor oculta el fin de vida en Aplicaciones o Componentes TI si no lo sigue allí.
+
+Ese único interruptor decide todo lo relativo al fin de vida del tipo:
+
+- la sección **Fin de vida** de sus fichas (y la opción de vinculación al crear una ficha),
+- el lugar del tipo en el [Informe EOL](../guide/reports.md), en el gráfico **Cobertura de fin de vida** del informe de Calidad de datos y en los filtros y agrupaciones de fin de vida de los paneles,
+- la columna y el filtro **Fin de vida** del [Inventario](../guide/inventory.md),
+- el selector de tipo de la **Búsqueda masiva** de esta página.
+
+Ocultar la sección nunca elimina nada: las fichas conservan sus vínculos y sus fechas de ciclo de vida, y vuelven a aparecer en todos los informes cuando la sección se muestra de nuevo.
 
 ## Productos EOL personalizados
 

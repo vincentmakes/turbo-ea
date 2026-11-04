@@ -163,7 +163,7 @@ La pestaña de **Recursos** consolida todos los materiales de apoyo de una ficha
 
 ### Sección EOL
 
-Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
+Se muestra por defecto en Aplicaciones y Componentes TI, y en cualquier otro tipo de ficha cuyo administrador la [haya activado](../admin/eol.md#fin-de-vida-en-otros-tipos-de-ficha). Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
 
 - **Nombre del producto y versión**
 - **Estado de soporte** — Codificado por colores: Con Soporte, Próximo a EOL, Fin de Vida

@@ -60,6 +60,7 @@ import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/i18n";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FIELD_TYPE_COLORS, brand, STATUS_COLORS } from "@/theme/tokens";
+import { EOL_SECTION_KEY, typeTracksEol } from "@/lib/eol";
 import { useTheme } from "@mui/material/styles";
 
 // ── Constants ────────────────────────────────────────────────────
@@ -1152,7 +1153,7 @@ function DescriptionFieldsPanel({
 
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
-  onToggleCollapsed, onToggleHidden, onDelete, children, dqWeight,
+  onToggleCollapsed, onToggleHidden, onDelete, children, dqWeight, note,
 }: {
   id: string; sectionKey: string;
   info: { label: string; icon: string; isCustom: boolean; labelKey?: string; section?: SectionDef | null };
@@ -1163,6 +1164,8 @@ function SortableSectionItem({
   onDelete?: () => void;
   children?: React.ReactNode;
   dqWeight?: number;
+  /** A line under the header saying what the section's switches reach. */
+  note?: string;
 }) {
   const theme = useTheme();
   const { t } = useTranslation(["admin"]);
@@ -1209,6 +1212,16 @@ function SortableSectionItem({
           </IconButton>
         )}
       </Box>
+      {note && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          component="div"
+          sx={{ px: 1.5, pb: 0.75, mt: -0.25 }}
+        >
+          {note}
+        </Typography>
+      )}
       {expanded && !cfg.hidden && children}
     </Box>
   );
@@ -1384,9 +1397,16 @@ export default function CardLayoutEditor({
               {sectionOrder.map((key) => {
                 const info = getSectionInfo(key, customSections, cardType);
                 if (!info) return null;
-                const cfgForSection = key.startsWith("custom:")
+                const storedCfg = key.startsWith("custom:")
                   ? (secCfg[key] || secCfg[info.label] || {})
                   : (secCfg[key] || {});
+                // End of Life is on by default for Application and IT Component
+                // only, so its switch shows the effective state — the rule the
+                // card and every EOL report read — not the bare stored flag.
+                const cfgForSection =
+                  key === EOL_SECTION_KEY
+                    ? { ...(typeof storedCfg === "object" ? storedCfg : {}), hidden: !typeTracksEol(cardType) }
+                    : storedCfg;
                 const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
 
                 return (
@@ -1401,6 +1421,7 @@ export default function CardLayoutEditor({
                     onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
                     onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
                     dqWeight={DQ_SECTION_KEYS.has(key) ? (dqConfig[key] ?? 1) : undefined}
+                    note={key === EOL_SECTION_KEY ? t("cardLayout.eolNote") : undefined}
                   >
                     {info.isCustom && info.section && schemaIdx >= 0 && (
                       <VisualFieldLayout

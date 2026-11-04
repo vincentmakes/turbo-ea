@@ -377,7 +377,7 @@ A built-in **Contract** link type ships enabled by default. Both lists are inclu
 For each card type, the **Layout** section in the type drawer controls how the card detail page is structured:
 
 - **Section order** — Drag sections (Description, EOL, Lifecycle, Hierarchy, Tags, Relations, and custom sections) to reorder them
-- **Visibility** — Hide sections that are not relevant for a type
+- **Visibility** — Hide sections that are not relevant for a type. The **End of Life** section is the exception to "shown unless hidden": it is shown by default on Applications and IT Components only, and hidden on every other type, custom ones included, until you turn it on. Its switch also decides whether the type takes part in End of Life reporting — see [End of Life on other card types](eol.md#end-of-life-on-other-card-types)
 - **Default expansion** — Choose whether each section starts expanded or collapsed
 - **Column layout** — Set 1 or 2 columns per custom section
 - **Move fields between sections** — Use a field's **move** action (next to its edit and delete buttons) to relocate it to another section, keeping its configuration

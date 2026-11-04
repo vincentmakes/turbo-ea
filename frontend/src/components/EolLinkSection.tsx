@@ -28,7 +28,8 @@ import { useAbortableEffect, useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
 import { toLocalDate } from "@/lib/dates";
-import { isEolType } from "@/lib/eol";
+import { typeKeyTracksEol } from "@/lib/eol";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { customEolKey, eolProductLabel, isCustomEolProduct } from "@/lib/eolCustom";
 import { hasPermission } from "@/components/RequirePermission";
 import CustomEolProductDialog, { CustomEolCycleDialog } from "@/components/CustomEolProductDialog";
@@ -36,7 +37,6 @@ import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 import { useTheme } from "@mui/material/styles";
 
-const isEolEligible = isEolType;
 
 /** Parse an EOL date-or-boolean field into a label key (or date string) + color. */
 function formatEolField(
@@ -701,6 +701,9 @@ interface EolLinkSectionProps {
 
 export default function EolLinkSection({ card, onSave, initialExpanded }: EolLinkSectionProps) {
   const theme = useTheme();
+  // Whether this type tracks End of Life is its own End of Life section
+  // toggle (Card Layout editor), read from the metamodel.
+  const { types } = useMetamodel();
   const { t } = useTranslation(["cards", "common"]);
   const eolProduct = (card.attributes?.eol_product as string) || "";
   const eolCycle = (card.attributes?.eol_cycle as string) || "";
@@ -762,7 +765,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
     fetchCycleData();
   }, [fetchCycleData]);
 
-  if (!isEolEligible(card.type)) return null;
+  if (!typeKeyTracksEol(card.type, types)) return null;
 
   const handleLink = async (product: string, cycle: string) => {
     // Record the EOL product/cycle association only. Lifecycle phase dates

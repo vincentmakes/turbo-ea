@@ -161,7 +161,7 @@ L'onglet **Ressources** regroupe tous les documents de support d'une fiche :
 
 ### Section EOL
 
-Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](../admin/eol.md)) :
+Affichée par défaut sur les Applications et les Composants IT, et sur tout autre type de fiche pour lequel l'administrateur l'a [activée](../admin/eol.md#fin-de-vie-sur-dautres-types-de-fiches). Si la fiche est liée à un produit [endoflife.date](https://endoflife.date/) (via [Administration EOL](../admin/eol.md)) :
 
 - **Nom du produit et version**
 - **Statut de support** -- Code couleur : Supporté, Approchant la fin de vie, Fin de vie

@@ -14,12 +14,12 @@ Zu wissen, wann Technologieprodukte das Lebensende oder den Support-Ablauf errei
 
 ## Massensuche
 
-Die Massensuchfunktion durchsucht Ihre **Anwendungs**- und **IT-Komponenten**-Karten und findet automatisch passende Produkte in der endoflife.date-Datenbank.
+Die Massensuchfunktion durchsucht die Karten eines Typs, der das Lebensende verfolgt (standardmäßig **Anwendung** und **IT-Komponente**, siehe [Lebensende bei anderen Kartentypen](#lebensende-bei-anderen-kartentypen)), und findet automatisch passende Produkte in der endoflife.date-Datenbank.
 
 ### Eine Massensuche ausführen
 
 1. Navigieren Sie zu **Admin > Einstellungen > EOL**
-2. Wählen Sie den zu durchsuchenden Kartentyp (Anwendung oder IT-Komponente)
+2. Wählen Sie den zu durchsuchenden Kartentyp (jeder Typ, der das Lebensende verfolgt)
 3. Klicken Sie auf **Suchen**
 4. Das System führt einen **Fuzzy-Abgleich** mit dem endoflife.date-Produktkatalog durch
 
@@ -52,6 +52,19 @@ Einmal verknüpft, zeigt die Kartendetailseite einen **EOL-Abschnitt** mit:
 - **Produktname und Version**
 - **Supportstatus** — Farbcodiert: Unterstützt (grün), EOL nähert sich (orange), Lebensende (rot)
 - **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, Ende des Sicherheitssupports, EOL-Datum
+
+## Lebensende bei anderen Kartentypen
+
+Das Lebensende wird standardmäßig bei **Anwendungen** und **IT-Komponenten** verfolgt. Jeder andere Kartentyp, ob vordefiniert oder benutzerdefiniert, kann es ebenfalls verfolgen: Öffnen Sie **Admin > Metamodell**, wählen Sie den Typ und deaktivieren Sie in seinem **Kartenlayout** beim Abschnitt **Lebensende** die Option **Im Kartendetail ausgeblendet**. Derselbe Schalter blendet das Lebensende bei Anwendungen oder IT-Komponenten aus, wenn Sie es dort nicht verfolgen.
+
+Dieser eine Schalter entscheidet über alles, was das Lebensende des Typs betrifft:
+
+- den Abschnitt **Lebensende** auf seinen Karten (und die Verknüpfungsoption beim Erstellen einer Karte),
+- den Platz des Typs im [EOL-Bericht](../guide/reports.md), im Diagramm **End-of-Life-Abdeckung** des Datenqualitätsberichts sowie in den Lebensende-Filtern und -Gruppierungen der Dashboards,
+- die Spalte und den Filter **Lebensende** im [Inventar](../guide/inventory.md),
+- die Typauswahl der **Massensuche** auf dieser Seite.
+
+Das Ausblenden des Abschnitts löscht nie etwas: Die Karten behalten ihre Verknüpfungen und Lebenszyklusdaten und erscheinen wieder in allen Berichten, sobald der Abschnitt erneut angezeigt wird.
 
 ## Eigene EOL-Produkte
 

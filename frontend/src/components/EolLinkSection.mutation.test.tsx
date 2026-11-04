@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi, type RouteMatcher } from "@/test/apiMock";
 import { CARD_IDS, cardById, makeCard } from "@/test/fixtures/metamodel";

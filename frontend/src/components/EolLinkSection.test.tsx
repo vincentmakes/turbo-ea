@@ -13,6 +13,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi } from "@/test/apiMock";
 import { CARD_IDS, cardById, makeCard } from "@/test/fixtures/metamodel";

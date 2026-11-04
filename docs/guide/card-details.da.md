@@ -158,7 +158,7 @@ Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af 
 
 ### EOL-sektion
 
-Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
+Vises som standard på Applications og IT Components og på enhver anden korttype, hvor administratoren har [slået den til](../admin/eol.md#end-of-life-pa-andre-korttyper). Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
 
 - **Produktnavn og version**
 - **Support-status** — Farvekodet: Supported, Approaching EOL, End of Life

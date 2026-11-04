@@ -14,12 +14,12 @@ At vide, hvornår teknologiprodukter når udløb eller end-of-support, er kritis
 
 ## Massesøgning
 
-Massesøgningsfunktionen scanner dine **Application**- og **IT Component**-kort og finder automatisk matchende produkter i endoflife.date-databasen.
+Massesøgningsfunktionen scanner kortene af en type, der sporer End of Life (som standard **Application** og **IT Component**, se [End of life på andre korttyper](#end-of-life-pa-andre-korttyper)), og finder automatisk matchende produkter i endoflife.date-databasen.
 
 ### Kørsel af en massesøgning
 
 1. Naviger til **Admin > Indstillinger > EOL**
-2. Vælg den korttype, der skal scannes (Application eller IT Component)
+2. Vælg den korttype, der skal scannes (enhver type, der sporer End of Life)
 3. Klik på **Søg**
 4. Systemet udfører **fuzzy matching** mod endoflife.date-produktkataloget
 
@@ -52,6 +52,19 @@ Når det er tilknyttet, viser kortets detaljeside en **EOL-sektion** med:
 - **Produktnavn og version**
 - **Supportstatus** — Farvekodet: Supporteret (grøn), Nærmer sig EOL (orange), End of Life (rød)
 - **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, sikkerhedssupportafslutning, EOL-dato
+
+## End of life på andre korttyper
+
+End of Life spores som standard på **Applications** og **IT Components**. Enhver anden korttype, indbygget eller brugerdefineret, kan også spore det: åbn **Admin > Metamodel**, vælg typen, og slå **Skjult fra kortdetalje** fra på sektionen **End of Life** i dens **Kortlayout**. Den samme kontakt skjuler End of Life på Applications eller IT Components, hvis du ikke sporer det dér.
+
+Den ene kontakt afgør alt om End of Life for typen:
+
+- sektionen **End of Life** på dens kort (og tilknytningsvalget, når du opretter et kort),
+- typens plads i [EOL-rapporten](../guide/reports.md), i diagrammet **End-of-life-dækning** i Datakvalitetsrapporten og i dashboards' End of Life-filtre og -grupperinger,
+- kolonnen og filteret **End of life** i [Inventaret](../guide/inventory.md),
+- typevælgeren i **Massesøgning** på denne side.
+
+At skjule sektionen sletter aldrig noget: kortene beholder deres links og livscyklusdatoer, og de vender tilbage i alle rapporter, når sektionen vises igen.
 
 ## Brugerdefinerede EOL-produkter
 

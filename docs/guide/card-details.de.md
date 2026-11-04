@@ -163,7 +163,7 @@ Die **Ressourcen**-Registerkarte bündelt alle unterstützenden Materialien eine
 
 ### EOL-Abschnitt
 
-Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verknüpft ist (über die [EOL-Administration](../admin/eol.md)):
+Standardmäßig bei Anwendungen und IT-Komponenten angezeigt, außerdem bei jedem anderen Kartentyp, bei dem der Administrator ihn [aktiviert hat](../admin/eol.md#lebensende-bei-anderen-kartentypen). Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verknüpft ist (über die [EOL-Administration](../admin/eol.md)):
 
 - **Produktname und Version**
 - **Supportstatus** — Farbcodiert: Unterstützt, EOL nähert sich, Lebensende

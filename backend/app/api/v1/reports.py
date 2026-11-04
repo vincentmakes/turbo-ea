@@ -28,8 +28,8 @@ from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.services.card_flags import (
     EOL_BUCKETS,
-    EOL_TYPES,
     eol_bucket_condition,
+    eol_type_keys,
     has_eol_coverage,
     has_eol_link,
     has_manual_eol,
@@ -2131,15 +2131,17 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     cutoff = stale_cutoff()
     stale = sum(1 for card in sheets if card.updated_at and card.updated_at < cutoff)
 
-    # EOL coverage, per card type. Only Applications and IT Components can
-    # carry an end of life, so this counts that population rather than every
-    # card — a share of the whole inventory would read as a rounding error.
+    # EOL coverage, per card type. Only the types that track End of Life (the
+    # type's own End of Life section toggle — Applications and IT Components
+    # unless an admin says otherwise) can carry one, so this counts that
+    # population rather than every card — a share of the whole inventory
+    # would read as a rounding error.
     # Split by where the information came from, because the two are not
     # interchangeable: a vendor link keeps itself current, a hand-entered date
     # is only as good as the last person to review it. Same predicates as the
     # EOL report (`card_flags`), so the chart and the report agree.
     eol_coverage = []
-    for type_key in EOL_TYPES:
+    for type_key in await eol_type_keys(db):
         of_type = [card for card in sheets if card.type == type_key]
         if not of_type:
             continue
@@ -2262,7 +2264,9 @@ async def data_quality_cards(
     elif scope == "orphaned":
         conditions.append(orphaned_condition())
     elif scope in eol_scopes:
-        conditions.append(eol_bucket_condition(eol_scopes[scope]))
+        conditions.append(
+            eol_bucket_condition(eol_scopes[scope], eol_types=await eol_type_keys(db))
+        )
 
     total_result = await db.execute(select(func.count()).select_from(Card).where(*conditions))
     total = total_result.scalar_one()
@@ -2308,7 +2312,8 @@ async def eol_report(
 ):
     """End-of-Life risk & impact report.
 
-    Returns all Applications and IT Components with linked EOL data
+    Returns every card of a type that tracks End of Life (Applications and IT
+    Components by default; see ``card_flags.type_tracks_eol``) with linked EOL data
     (from endoflife.date API) *or* manually maintained lifecycle dates,
     enriched with live cycle information and impact mapping
     (IT Component → related Applications).
@@ -2326,11 +2331,13 @@ async def eol_report(
     """
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     read_scope = await CardReadScope.load(db, user)
-    # 1. Fetch all active Applications and ITComponents the reader may see
+    # 1. Fetch every active card the reader may see of a type that tracks End
+    #    of Life (`card_flags.type_tracks_eol`)
+    eol_types = await eol_type_keys(db)
     result = await db.execute(
         select(Card).where(
             Card.status == "ACTIVE",
-            Card.type.in_(EOL_TYPES),
+            Card.type.in_(eol_types),
             *read_scope.where(Card, mode="module"),
         )
     )
@@ -2378,6 +2385,18 @@ async def eol_report(
     all_eol_sheets = api_sheets + manual_sheets + missing_sheets
     it_ids = [card.id for card in all_eol_sheets if card.type == "ITComponent"]
     app_map = {str(card.id): card for card in all_sheets if card.type == "Application"}
+    if it_ids and "Application" not in eol_types:
+        # Applications are the impact, whether or not they track End of Life
+        # themselves: an admin who turned EOL off for them still needs to see
+        # which of them a component going end of life would hit.
+        apps = await db.execute(
+            select(Card).where(
+                Card.status == "ACTIVE",
+                Card.type == "Application",
+                *read_scope.where(Card, mode="module"),
+            )
+        )
+        app_map = {str(card.id): card for card in apps.scalars().all()}
     it_to_apps: dict[str, list[dict]] = {}
 
     if it_ids:

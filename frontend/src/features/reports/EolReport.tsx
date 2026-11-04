@@ -296,6 +296,13 @@ export default function EolReport() {
     // Stryker disable next-line ArrayDeclaration: fetched once, on mount, by design
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fetched once, on mount
 
+  // The type filter offers the types the report actually holds — whichever
+  // types track End of Life (each type's End of Life section toggle).
+  const reportTypes = useMemo(
+    () => Array.from(new Set((data?.items ?? []).map((i) => i.type))).sort(),
+    [data],
+  );
+
   // Filter items
   const filteredItems = useMemo(() => {
     if (!data) return [];
@@ -463,8 +470,11 @@ export default function EolReport() {
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">{t("eol.allTypes")}</MenuItem>
-            <MenuItem value="Application">{typeLabel(getType("Application")) || "Application"}</MenuItem>
-            <MenuItem value="ITComponent">{typeLabel(getType("ITComponent")) || "ITComponent"}</MenuItem>
+            {reportTypes.map((key) => (
+              <MenuItem key={key} value={key}>
+                {typeLabel(getType(key)) || key}
+              </MenuItem>
+            ))}
           </TextField>
           <TextField
             select

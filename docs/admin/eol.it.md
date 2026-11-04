@@ -14,12 +14,12 @@ Sapere quando i prodotti tecnologici raggiungono l'end-of-life o la fine del sup
 
 ## Ricerca massiva
 
-La funzionalità di ricerca massiva analizza le vostre card **Application** e **IT Component** e trova automaticamente i prodotti corrispondenti nel database endoflife.date.
+La funzionalità di ricerca massiva analizza le card di un tipo che traccia il fine vita (**Application** e **IT Component** per impostazione predefinita, vedere [Fine vita su altri tipi di card](#fine-vita-su-altri-tipi-di-card)) e trova automaticamente i prodotti corrispondenti nel database endoflife.date.
 
 ### Eseguire una ricerca massiva
 
 1. Navigate su **Admin > Impostazioni > EOL**
-2. Selezionate il tipo di card da analizzare (Application o IT Component)
+2. Selezionate il tipo di card da analizzare (qualsiasi tipo che traccia il fine vita)
 3. Cliccate su **Cerca**
 4. Il sistema esegue una **corrispondenza fuzzy** contro il catalogo prodotti endoflife.date
 
@@ -52,6 +52,19 @@ Una volta collegata, la pagina di dettaglio della card mostra una **sezione EOL*
 - **Nome del prodotto e versione**
 - **Stato del supporto** — Con codice colore: Supportato (verde), In avvicinamento a EOL (arancione), End of Life (rosso)
 - **Date chiave** — Data di rilascio, fine supporto attivo, fine supporto di sicurezza, data EOL
+
+## Fine vita su altri tipi di card
+
+Il fine vita è tracciato per impostazione predefinita su **Application** e **IT Component**. Anche qualsiasi altro tipo di card, predefinito o personalizzato, può tracciarlo: aprite **Admin > Metamodello**, scegliete il tipo e, nel suo **Layout scheda**, disattivate **Nascosta dal dettaglio scheda** nella sezione **Fine vita**. Lo stesso interruttore nasconde il fine vita su Application o IT Component se non lo tracciate lì.
+
+Questo unico interruttore decide tutto ciò che riguarda il fine vita del tipo:
+
+- la sezione **Fine vita** sulle sue card (e l'opzione di collegamento alla creazione di una card),
+- il posto del tipo nel [Report EOL](../guide/reports.md), nel grafico **Copertura di fine vita** del report Qualità dei dati e nei filtri e raggruppamenti di fine vita delle dashboard,
+- la colonna e il filtro **Fine vita** nell'[Inventario](../guide/inventory.md),
+- il selettore del tipo della **Ricerca massiva** in questa pagina.
+
+Nascondere la sezione non elimina mai nulla: le card mantengono i loro collegamenti e le date del ciclo di vita, e ricompaiono in tutti i report quando la sezione viene mostrata di nuovo.
 
 ## Prodotti EOL personalizzati
 

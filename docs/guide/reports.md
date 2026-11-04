@@ -297,7 +297,7 @@ The **EOL Report** shows the support status of technology products linked via th
 - **Timeline** — When products will lose support
 - **Risk prioritization** — Focus on mission-critical components approaching EOL
 - **Source** — Each item comes from endoflife.date, from one of your [custom EOL products](../admin/eol.md#custom-eol-products) (badged **Custom product**), or from an End of Life date entered by hand (badged **Manual**). The **Source** filter narrows the report to one of them.
-- **No EOL data** — Applications and IT components with neither a link to endoflife.date (or a custom EOL product) nor an End of Life date of their own. They are listed with a **No EOL data** status; press the KPI tile of the same name to show only those, and press it again to bring the rest back. A date you maintain by hand in the Lifecycle section counts as coverage, so a component you have already assessed does not reappear here.
+- **No EOL data** — Cards of a type that tracks End of Life (Applications and IT Components unless an administrator [changed it](../admin/eol.md#end-of-life-on-other-card-types)) with neither a link to endoflife.date (or a custom EOL product) nor an End of Life date of their own. They are listed with a **No EOL data** status; press the KPI tile of the same name to show only those, and press it again to bring the rest back. A date you maintain by hand in the Lifecycle section counts as coverage, so a component you have already assessed does not reappear here.
 
 ## Saved Reports
 

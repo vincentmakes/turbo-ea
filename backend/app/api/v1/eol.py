@@ -32,7 +32,7 @@ from app.schemas.eol_custom import (
     EolUpstreamMatch,
 )
 from app.services import eol_custom_service as custom
-from app.services.card_flags import EOL_TYPES
+from app.services.card_flags import eol_type_keys
 from app.services.card_read_scope import CardReadScope
 from app.services.eol_service import fetch_product_cycles, resolve_eol_statuses
 from app.services.event_bus import event_bus
@@ -345,6 +345,21 @@ async def get_product_cycles(
     return resp.json()
 
 
+@router.get("/types", response_model=list[str])
+async def eol_types(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The card types that track End of Life.
+
+    A type tracks it when its End of Life section is shown in the Card Layout
+    editor — Applications and IT Components unless an admin hid it there,
+    any other type once an admin shows it (``card_flags.type_tracks_eol``).
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+    return list(await eol_type_keys(db))
+
+
 class EolCardStatus(BaseModel):
     """The resolved end-of-life picture for one card."""
 
@@ -368,7 +383,7 @@ class EolCardStatusResponse(BaseModel):
 
 @router.get("/card-status", response_model=EolCardStatusResponse)
 async def eol_card_status(
-    type_key: str = Query(..., alias="type", description="Application or ITComponent"),
+    type_key: str = Query(..., alias="type", description="A card type that tracks End of Life"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -382,10 +397,10 @@ async def eol_card_status(
     """
     await PermissionService.require_permission(db, user, "eol.view")
 
-    if type_key not in EOL_TYPES:
+    if type_key not in await eol_type_keys(db):
         raise HTTPException(
             status_code=400,
-            detail="Only Application and ITComponent types carry EOL information",
+            detail="This card type does not track End of Life",
         )
 
     read_scope = await CardReadScope.load(db, user)
@@ -413,7 +428,7 @@ async def eol_card_status(
 
 @router.post("/mass-search", response_model=list[MassEolResult])
 async def mass_eol_search(
-    type_key: str = Query(..., description="Card type to search (Application or ITComponent)"),
+    type_key: str = Query(..., description="Card type to search (one that tracks End of Life)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -424,10 +439,10 @@ async def mass_eol_search(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    if type_key not in EOL_TYPES:
+    if type_key not in await eol_type_keys(db):
         raise HTTPException(
             status_code=400,
-            detail="Only Application and ITComponent types support EOL linking",
+            detail="This card type does not track End of Life",
         )
 
     # Fetch all active cards of the given type

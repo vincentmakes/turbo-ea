@@ -1191,6 +1191,7 @@
   "cardLayout.dragSections": "Abschnitte zum Umsortieren ziehen...",
   "cardLayout.collapsedByDefault": "Standardmäßig eingeklappt",
   "cardLayout.hiddenFromDetail": "Im Kartendetail ausgeblendet",
+  "cardLayout.eolNote": "Wenn Sie diesen Abschnitt anzeigen, nimmt der Typ auch an der Lebensende-Berichterstattung teil: EOL-Bericht, Abdeckungskennzahlen, Inventarspalte und Massenverknüpfung. Standardmäßig wird er nur bei Anwendungen und IT-Komponenten angezeigt.",
   "cardLayout.deleteSection": "Abschnitt löschen",
   "cardLayout.addSection": "Abschnitt hinzufügen",
   "cardLayout.sectionName": "Abschnittsname",

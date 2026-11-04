@@ -297,7 +297,7 @@ El **Informe de EOL** muestra el estado de soporte de los productos tecnológico
 - **Línea temporal** — Cuándo los productos perderán soporte
 - **Priorización de riesgos** — Enfóquese en componentes de misión crítica que se acercan a EOL
 - **Origen** — Cada elemento procede de endoflife.date, de uno de sus [productos EOL personalizados](../admin/eol.es.md) (con la insignia **Producto personalizado**) o de una fecha de fin de vida introducida a mano (con la insignia **Manual**). El filtro **Origen** limita el informe a uno de ellos.
-- **Sin datos de fin de vida** — Aplicaciones y componentes de TI sin enlace a endoflife.date (ni a un producto EOL personalizado) ni fecha de fin de vida propia. Aparecen con el estado **Sin datos de fin de vida**; pulse el mosaico del mismo nombre para ver solo esos, y púlselo de nuevo para recuperar el resto. Una fecha mantenida a mano en el ciclo de vida cuenta como registrada, así que un componente ya evaluado no vuelve a aparecer aquí.
+- **Sin datos de fin de vida** — Fichas de un tipo que realiza el seguimiento del fin de vida (Aplicaciones y Componentes de TI, salvo que un administrador lo [haya cambiado](../admin/eol.md#fin-de-vida-en-otros-tipos-de-ficha)) sin enlace a endoflife.date (ni a un producto EOL personalizado) ni fecha de fin de vida propia. Aparecen con el estado **Sin datos de fin de vida**; pulse el mosaico del mismo nombre para ver solo esos, y púlselo de nuevo para recuperar el resto. Una fecha mantenida a mano en el ciclo de vida cuenta como registrada, así que un componente ya evaluado no vuelve a aparecer aquí.
 
 ## Informes Guardados
 

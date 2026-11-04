@@ -1191,6 +1191,7 @@
   "cardLayout.dragSections": "Glissez les sections pour les réorganiser…",
   "cardLayout.collapsedByDefault": "Réduit par défaut",
   "cardLayout.hiddenFromDetail": "Masqué du détail de la fiche",
+  "cardLayout.eolNote": "Afficher cette section fait aussi entrer le type dans le suivi de la fin de vie : rapport EOL, indicateurs de couverture, colonne de l'inventaire et liaison en masse. Elle n'est affichée par défaut que sur les applications et les composants informatiques.",
   "cardLayout.deleteSection": "Supprimer la section",
   "cardLayout.addSection": "Ajouter une section",
   "cardLayout.sectionName": "Nom de la section",

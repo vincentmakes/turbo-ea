@@ -218,7 +218,7 @@ class TestMassEolSearch:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 400
-        assert "Application" in resp.json()["detail"] or "ITComponent" in resp.json()["detail"]
+        assert resp.json()["detail"] == "This card type does not track End of Life"
 
     @patch("app.api.v1.eol._products_cache", PRODUCTS_CACHE)
     @patch("app.api.v1.eol._products_cache_time", 9999999999.0)
@@ -428,3 +428,67 @@ class TestEolPermissions:
         """EOL endpoints require authentication."""
         resp = await client.get("/api/v1/eol/products")
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------
+# Which types track End of Life: the type's own End of Life section toggle
+# ---------------------------------------------------------------
+
+
+class TestEolTypesFollowTheSectionToggle:
+    async def _types(self, db):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(
+            db, key="ITComponent", label="IT Component", section_config={"eol": {"hidden": True}}
+        )
+        await create_card_type(
+            db, key="Platform", label="Platform", section_config={"eol": {"hidden": False}}
+        )
+        await create_card_type(db, key="Gizmo", label="Gizmo")
+
+    async def test_lists_the_types_that_track_eol(self, client, db):
+        await self._types(db)
+        await create_role(db, key="viewer", label="Viewer", permissions={"eol.view": True})
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        resp = await client.get("/api/v1/eol/types", headers=auth_headers(viewer))
+        assert resp.status_code == 200
+        assert resp.json() == ["Application", "Platform"]
+
+    async def test_needs_eol_view(self, client, db):
+        await create_role(db, key="nobody", label="Nobody", permissions={})
+        user = await create_user(db, email="nobody@test.com", role="nobody")
+        resp = await client.get("/api/v1/eol/types", headers=auth_headers(user))
+        assert resp.status_code == 403
+
+    async def test_card_status_and_mass_search_follow_the_toggle(self, client, db):
+        await self._types(db)
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        card = await create_card(
+            db,
+            card_type="Platform",
+            name="Platform A",
+            attributes={"eol_product": "custom:x", "eol_cycle": "1"},
+        )
+        with (
+            patch("app.api.v1.eol._products_cache", PRODUCTS_CACHE),
+            patch("app.api.v1.eol._products_cache_time", 9999999999.0),
+        ):
+            ok = await client.get(
+                "/api/v1/eol/card-status?type=Platform", headers=auth_headers(admin)
+            )
+            searched = await client.post(
+                "/api/v1/eol/mass-search?type_key=Platform", headers=auth_headers(admin)
+            )
+            hidden = await client.get(
+                "/api/v1/eol/card-status?type=ITComponent", headers=auth_headers(admin)
+            )
+            hidden_search = await client.post(
+                "/api/v1/eol/mass-search?type_key=Gizmo", headers=auth_headers(admin)
+            )
+        assert ok.status_code == 200
+        assert ok.json()["items"][str(card.id)]["source"] == "custom"
+        assert searched.status_code == 200
+        assert [r["card_name"] for r in searched.json()] == ["Platform A"]
+        assert hidden.status_code == 400
+        assert hidden_search.status_code == 400

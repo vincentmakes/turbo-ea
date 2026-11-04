@@ -70,7 +70,7 @@ import {
   EOL_STATUSES,
   EOL_STATUS_COLORS,
   EOL_STATUS_LABEL_KEYS,
-  isEolType,
+  typeKeyTracksEol,
 } from "@/lib/eol";
 
 /* ------------------------------------------------------------------ */
@@ -2441,8 +2441,10 @@ export function hierarchyLabelColumnApplies(
  * to prevent. The whole-inventory question ("what has no EOL at all?") is the
  * Missing EOL scope instead, which is server-evaluated across both types.
  */
-export function eolColumnApplies(selectedTypeKeys: string[]): boolean {
-  return selectedTypeKeys.length === 1 && isEolType(selectedTypeKeys[0]);
+export function eolColumnApplies(types: CardType[], selectedTypeKeys: string[]): boolean {
+  return (
+    selectedTypeKeys.length === 1 && typeKeyTracksEol(selectedTypeKeys[0], types)
+  );
 }
 
 /**
@@ -2607,7 +2609,7 @@ function ColumnsTab({
     if (c.key === LOGO_COLUMN_KEY && !logoAvailable) return false;
     // Same rule the grid uses to build it — offering a column the grid will
     // not render is a checkbox that does nothing.
-    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(filters.types)) return false;
+    if (c.key === EOL_COLUMN_KEY && !eolColumnApplies(types, filters.types)) return false;
     if (
       c.key === HIERARCHY_LABEL_COLUMN_KEY &&
       !hierarchyLabelColumnApplies(types, filters.types)

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -23,6 +23,9 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { eolProductLabel, isCustomEolProduct } from "@/lib/eolCustom";
+import { DEFAULT_EOL_TYPES, eolTypeKeys } from "@/lib/eol";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CustomEolProductsGrid from "./CustomEolProductsGrid";
 import { api } from "@/api/client";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
@@ -240,7 +243,18 @@ export default function EolAdmin() {
 function EolMassLink() {
   const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
-  const [typeKey, setTypeKey] = useState<"Application" | "ITComponent">("ITComponent");
+  const { types } = useMetamodel();
+  const typeLabel = useTypeLabel();
+  // The types bulk linking offers: those whose End of Life section is shown
+  // (the type's Card Layout toggle). The shipped two until the metamodel
+  // arrives, so the page never opens on an empty picker.
+  const eolTypes = useMemo(() => {
+    const keys = eolTypeKeys(types);
+    return keys.length > 0 || types.length > 0 ? keys : [...DEFAULT_EOL_TYPES];
+  }, [types]);
+  const [pickedType, setTypeKey] = useState<string>("ITComponent");
+  // A type that stopped tracking End of Life falls back to the first that does.
+  const typeKey = eolTypes.includes(pickedType) ? pickedType : (eolTypes[0] ?? "");
   const [results, setResults] = useState<MassEolResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -357,22 +371,28 @@ function EolMassLink() {
               <Select
                 value={typeKey}
                 label={t("common:labels.type")}
-                onChange={(e) =>
-                  setTypeKey(e.target.value as "Application" | "ITComponent")
-                }
+                onChange={(e) => setTypeKey(e.target.value)}
               >
-                <MenuItem value="ITComponent">
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon="memory" size={18} color={CARD_TYPE_COLORS.ITComponent} />
-                    {t("eol.itComponent")}
-                  </Box>
-                </MenuItem>
-                <MenuItem value="Application">
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon="apps" size={18} color={CARD_TYPE_COLORS.Application} />
-                    {t("eol.application")}
-                  </Box>
-                </MenuItem>
+                {eolTypes.map((key) => {
+                  const type = types.find((ct) => ct.key === key);
+                  const fallback = key === "ITComponent" ? "memory" : "apps";
+                  return (
+                    <MenuItem key={key} value={key}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <MaterialSymbol
+                          icon={type?.icon || fallback}
+                          size={18}
+                          color={type?.color || CARD_TYPE_COLORS[key as keyof typeof CARD_TYPE_COLORS]}
+                        />
+                        {type
+                          ? typeLabel(type)
+                          : key === "ITComponent"
+                            ? t("eol.itComponent")
+                            : t("eol.application")}
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
             <Button
@@ -603,7 +623,12 @@ function EolMassLink() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="search" size={48} color={theme.palette.action.disabled} />
             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              {t("eol.emptyState", { type: typeKey === "ITComponent" ? t("eol.emptyStateType.ITComponent") : t("eol.emptyStateType.Application") })}
+              {t("eol.emptyState", {
+                type:
+                  typeKey === "ITComponent" || typeKey === "Application"
+                    ? t(`eol.emptyStateType.${typeKey}`)
+                    : typeLabel(types.find((ct) => ct.key === typeKey)) || typeKey,
+              })}
             </Typography>
           </CardContent>
         </Card>

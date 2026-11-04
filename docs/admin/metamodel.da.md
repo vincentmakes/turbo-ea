@@ -359,7 +359,7 @@ Compliance-scanneren og risiko-forfremmelsesflowet fungerer, **selv når ingen A
 For hver korttype styrer afsnittet **Layout** i typepanelet, hvordan kortdetaljesiden er struktureret:
 
 - **Sektionsrækkefølge** — Træk sektioner (Beskrivelse, EOL, Livscyklus, Hierarki, Tags, Relationer og brugerdefinerede sektioner) for at omarrangere dem
-- **Synlighed** — Skjul sektioner, der ikke er relevante for en type
+- **Synlighed** — Skjul sektioner, der ikke er relevante for en type. Sektionen **End of Life** er undtagelsen fra «vist, medmindre skjult»: Den vises som standard kun på Applications og IT Components og er skjult på alle andre typer, også brugerdefinerede, indtil du slår den til. Dens kontakt afgør også, om typen indgår i End of Life-rapporteringen — se [End of life på andre korttyper](eol.md#end-of-life-pa-andre-korttyper)
 - **Standardudvidelse** — Vælg, om hver sektion starter udvidet eller sammenklappet
 - **Kolonnelayout** — Indstil 1 eller 2 kolonner pr. brugerdefineret sektion
 - **Flyt felter mellem afsnit** — Brug et felts **flyt**-handling (ved siden af knapperne rediger og slet) til at flytte det til et andet afsnit, mens dets konfiguration bevares

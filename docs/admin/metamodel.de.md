@@ -359,7 +359,7 @@ Der Compliance-Scanner und der Risk-Promotion-Flow funktionieren **auch ohne kon
 Für jeden Kartentyp steuert der **Layout**-Bereich in der Typ-Schublade, wie die Kartendetailseite aufgebaut ist:
 
 - **Abschnittsreihenfolge** — Abschnitte (Beschreibung, EOL, Lebenszyklus, Hierarchie, Tags, Beziehungen und benutzerdefinierte Abschnitte) per Drag & Drop neu anordnen
-- **Sichtbarkeit** — Abschnitte ausblenden, die für einen Typ nicht relevant sind
+- **Sichtbarkeit** — Abschnitte ausblenden, die für einen Typ nicht relevant sind. Der Abschnitt **Lebensende** ist die Ausnahme von „angezeigt, solange nicht ausgeblendet“: Er wird standardmäßig nur bei Anwendungen und IT-Komponenten angezeigt und bei jedem anderen Typ, auch bei benutzerdefinierten, ausgeblendet, bis Sie ihn aktivieren. Sein Schalter entscheidet auch, ob der Typ an der Lebensende-Berichterstattung teilnimmt – siehe [Lebensende bei anderen Kartentypen](eol.md#lebensende-bei-anderen-kartentypen)
 - **Standarderweiterung** — Wählen, ob jeder Abschnitt standardmäßig erweitert oder eingeklappt startet
 - **Spaltenlayout** — 1 oder 2 Spalten pro benutzerdefiniertem Abschnitt festlegen
 - **Felder zwischen Abschnitten verschieben** – Über die **Verschieben**-Aktion eines Feldes (neben den Schaltflächen Bearbeiten und Löschen) es in einen anderen Abschnitt verschieben, wobei seine Konfiguration erhalten bleibt

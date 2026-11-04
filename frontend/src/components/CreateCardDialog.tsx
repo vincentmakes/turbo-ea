@@ -44,7 +44,7 @@ import { useAbortableEffect, useLatestRequest } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError } from "@/api/client";
 import { readableTextColor } from "@/lib/color";
-import { isEolType } from "@/lib/eol";
+import { typeKeyTracksEol } from "@/lib/eol";
 import type {
   FieldDef,
   EolProductMatch,
@@ -200,7 +200,7 @@ export default function CreateCardDialog({
 
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const hasHierarchy = !!typeConfig?.has_hierarchy;
-  const isEolEligible = isEolType(selectedType);
+  const isEolEligible = typeKeyTracksEol(selectedType, typeConfig ? [typeConfig] : []);
 
   // Determine hidden fields for the selected subtype
   const hiddenFieldKeys = useMemo(() => {

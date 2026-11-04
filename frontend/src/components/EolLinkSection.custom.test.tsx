@@ -9,9 +9,17 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi } from "@/test/apiMock";
-import { CARD_IDS, cardById, makeCard, makeUserRef } from "@/test/fixtures/metamodel";
+import { hookState, withMetamodel } from "@/test/hooks";
+import {
+  CARD_IDS,
+  cardById,
+  makeCard,
+  makeCardType,
+  makeUserRef,
+} from "@/test/fixtures/metamodel";
 import { AuthProvider } from "@/hooks/AuthContext";
 import type { Card, EolCustomProduct, User } from "@/types";
 import EolLinkSection from "./EolLinkSection";
@@ -41,6 +49,7 @@ async function cycleSelect(): Promise<HTMLElement> {
 
 beforeEach(() => {
   mockApi.reset();
+  hookState.reset();
   mockApi.on("get", FUZZY_URL, []);
   mockApi.on("get", ACME_CYCLES_URL, [
     { cycle: "2", releaseDate: "2024-01-01", eol: false },
@@ -205,5 +214,43 @@ describe("a card linked to a custom product", () => {
     );
     expect(await screen.findByText("acme-erp 1")).toBeInTheDocument();
     expect(screen.getByText("Custom")).toBeInTheDocument();
+  });
+});
+
+describe("which types show the section — the type's End of Life toggle", () => {
+  it("shows it on a custom type whose layout turns it on", async () => {
+    withMetamodel([
+      makeCardType({ key: "Gadget", label: "Gadget", section_config: { eol: { hidden: false } } }),
+    ]);
+    mockApi.on("get", "/eol/products/fuzzy?search=Gizmo%209&limit=5", []);
+    renderSection(makeCard({ type: "Gadget", name: "Gizmo 9" }));
+    expect(screen.getByText("End of Life")).toBeInTheDocument();
+  });
+
+  it("hides it on a custom type that never turned it on", () => {
+    withMetamodel([makeCardType({ key: "Gadget", label: "Gadget" })]);
+    const { container } = render(
+      <AuthProvider user={MANAGER} refreshUser={async () => {}}>
+        <EolLinkSection card={makeCard({ type: "Gadget", name: "Gizmo 9" })} onSave={vi.fn()} />
+      </AuthProvider>,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("hides it on IT Component once its layout turns it off", () => {
+    withMetamodel([
+      makeCardType({
+        key: "ITComponent",
+        label: "IT Component",
+        section_config: { eol: { hidden: true } },
+      }),
+    ]);
+    const { container } = render(
+      <AuthProvider user={MANAGER} refreshUser={async () => {}}>
+        <EolLinkSection card={UNLINKED} onSave={vi.fn()} />
+      </AuthProvider>,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(mockApi.calls).toHaveLength(0);
   });
 });

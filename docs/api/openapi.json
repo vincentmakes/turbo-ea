@@ -29238,12 +29238,12 @@
         "operationId": "eol_card_status_api_v1_eol_card_status_get",
         "parameters": [
           {
-            "description": "Application or ITComponent",
+            "description": "A card type that tracks End of Life",
             "in": "query",
             "name": "type",
             "required": true,
             "schema": {
-              "description": "Application or ITComponent",
+              "description": "A card type that tracks End of Life",
               "title": "Type",
               "type": "string"
             }
@@ -29723,12 +29723,12 @@
         "operationId": "mass_eol_search_api_v1_eol_mass_search_post",
         "parameters": [
           {
-            "description": "Card type to search (Application or ITComponent)",
+            "description": "Card type to search (one that tracks End of Life)",
             "in": "query",
             "name": "type_key",
             "required": true,
             "schema": {
-              "description": "Card type to search (Application or ITComponent)",
+              "description": "Card type to search (one that tracks End of Life)",
               "title": "Type Key",
               "type": "string"
             }
@@ -29922,6 +29922,32 @@
           }
         },
         "summary": "Get Product Cycles",
+        "tags": [
+          "End of Life"
+        ]
+      }
+    },
+    "/api/v1/eol/types": {
+      "get": {
+        "description": "The card types that track End of Life.\n\nA type tracks it when its End of Life section is shown in the Card Layout\neditor \u2014 Applications and IT Components unless an admin hid it there,\nany other type once an admin shows it (``card_flags.type_tracks_eol``).",
+        "operationId": "eol_types_api_v1_eol_types_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Eol Types Api V1 Eol Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Eol Types",
         "tags": [
           "End of Life"
         ]
@@ -36809,7 +36835,7 @@
     },
     "/api/v1/reports/eol": {
       "get": {
-        "description": "End-of-Life risk & impact report.\n\nReturns all Applications and IT Components with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"custom\"`` for items linked to one of the\norganisation's own custom EOL products, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
+        "description": "End-of-Life risk & impact report.\n\nReturns every card of a type that tracks End of Life (Applications and IT\nComponents by default; see ``card_flags.type_tracks_eol``) with linked EOL data\n(from endoflife.date API) *or* manually maintained lifecycle dates,\nenriched with live cycle information and impact mapping\n(IT Component \u2192 related Applications).\n\nEach item includes a ``source`` field: ``\"api\"`` for items linked\nto endoflife.date, ``\"custom\"`` for items linked to one of the\norganisation's own custom EOL products, ``\"manual\"`` for items with only a hand-entered\n``endOfLife`` lifecycle date, and ``\"none\"`` for cards carrying neither.\n\nThose last ones (``status: \"missing\"``) are the answer to \"which of my\nhundreds of IT Components has nobody recorded an end of life for?\"\n([#1065](https://github.com/vincentmakes/turbo-ea/discussions/1065)). The\nreport used to drop them silently, which made the one question the report\nis best placed to answer the one it could not.",
         "operationId": "eol_report_api_v1_reports_eol_get",
         "responses": {
           "200": {

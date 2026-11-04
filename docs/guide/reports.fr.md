@@ -297,7 +297,7 @@ Le **Rapport EOL** affiche le statut de support des produits technologiques lié
 - **Chronologie** -- Quand les produits perdront leur support
 - **Priorisation des risques** -- Se concentrer sur les composants critiques approchant la fin de vie
 - **Source** — Chaque élément provient d'endoflife.date, de l'un de vos [produits EOL personnalisés](../admin/eol.md) (badge **Produit personnalisé**) ou d'une date de fin de vie saisie à la main (badge **Manuel**). Le filtre **Source** restreint le rapport à l'une d'elles.
-- **Aucune donnée de fin de vie** — Applications et composants informatiques sans lien vers endoflife.date (ni vers un produit EOL personnalisé) ni date de fin de vie propre. Ils sont listés avec le statut **Aucune donnée de fin de vie** ; cliquez sur la tuile du même nom pour n'afficher qu'eux, et de nouveau pour rétablir le reste. Une date saisie à la main dans le cycle de vie compte comme renseignée, donc un composant déjà évalué ne réapparaît pas ici.
+- **Aucune donnée de fin de vie** — Fiches d'un type qui suit la fin de vie (applications et composants informatiques, sauf modification par un [administrateur](../admin/eol.md#fin-de-vie-sur-dautres-types-de-fiches)) sans lien vers endoflife.date (ni vers un produit EOL personnalisé) ni date de fin de vie propre. Ils sont listés avec le statut **Aucune donnée de fin de vie** ; cliquez sur la tuile du même nom pour n'afficher qu'eux, et de nouveau pour rétablir le reste. Une date saisie à la main dans le cycle de vie compte comme renseignée, donc un composant déjà évalué ne réapparaît pas ici.
 
 ## Rapports sauvegardés
 

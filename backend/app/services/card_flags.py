@@ -15,11 +15,14 @@ just a caller-supplied length.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
 from app.services.recurrence import add_months
@@ -129,11 +132,49 @@ def stakeholder_condition(has: bool, card=Card):
     return card.id.in_(assigned) if has else card.id.not_in(assigned)
 
 
-#: The card types that can carry End-of-Life information. Mirrors the
-#: hard-coded lists the EOL surfaces have always used (``/eol/mass-search``,
-#: the card-detail EOL section, the create dialog) — EOL is not a metamodel
-#: concept, so there is no data-driven way to derive it.
-EOL_TYPES = ("Application", "ITComponent")
+#: The card types that track End of Life when their metamodel says nothing.
+#: Which types track EOL is the type's own ``eol`` section toggle in the Card
+#: Layout editor (:func:`type_tracks_eol`); these two are the shipped default,
+#: the only types EOL was ever offered on before the toggle took effect. Every
+#: other type — built-in or custom — starts with the section hidden.
+DEFAULT_EOL_TYPES = ("Application", "ITComponent")
+
+#: The ``section_config`` key of the card-detail End of Life section.
+EOL_SECTION_KEY = "eol"
+
+
+def type_tracks_eol(type_key: str, section_config: dict | None) -> bool:
+    """Whether cards of a type carry End-of-Life information.
+
+    One switch decides it: the ``hidden`` flag of the type's ``eol`` section
+    (Card Layout editor). Hiding the section takes the type out of every EOL
+    surface — the card section, the EOL report, coverage, the inventory
+    column, bulk linking, the dashboards — and showing it brings the type in.
+    An explicit boolean always wins; when the type has never stored one, the
+    shipped default applies (:data:`DEFAULT_EOL_TYPES`). A legacy bare boolean
+    under ``eol`` (the old "expanded" flag) or a config with no ``hidden``
+    says nothing about visibility and reads as absent.
+
+    Mirrored by ``typeTracksEol`` in ``frontend/src/lib/eol.ts``.
+    """
+    cfg = (section_config or {}).get(EOL_SECTION_KEY)
+    hidden = cfg.get("hidden") if isinstance(cfg, dict) else None
+    if isinstance(hidden, bool):
+        return not hidden
+    return type_key in DEFAULT_EOL_TYPES
+
+
+async def eol_type_keys(db: AsyncSession) -> tuple[str, ...]:
+    """The keys of every visible card type that tracks End of Life.
+
+    One query over the metamodel; callers load it once per request, before
+    any outbound call. Sorted so a report lists its types in a stable order.
+    """
+    rows = await db.execute(
+        select(CardType.key, CardType.section_config).where(CardType.is_hidden.is_(False))
+    )
+    return tuple(sorted(key for key, cfg in rows.all() if type_tracks_eol(key, cfg)))
+
 
 #: Where the two halves of an endoflife.date link live on a card. They are
 #: free-form attribute keys, not ``fields_schema`` fields.
@@ -199,13 +240,14 @@ def _jsonb_absent(col):
 EOL_BUCKETS = ("linked", "manual", "missing")
 
 
-def eol_bucket_condition(bucket: str, card=Card):
+def eol_bucket_condition(bucket: str, *, eol_types: Sequence[str], card=Card):
     """SQLAlchemy condition selecting one EOL coverage bucket.
 
     Mirrors :func:`has_eol_link` / :func:`has_manual_eol` /
     :func:`has_eol_coverage` exactly, so a bucket's row count matches the bar
-    the user clicked. Always narrowed to :data:`EOL_TYPES`: a Business
-    Capability has no end of life to record and must not appear in any bucket.
+    the user clicked. Always narrowed to ``eol_types`` (:func:`eol_type_keys`):
+    a type that does not track End of Life has none to record and must not
+    appear in any bucket.
 
     One divergence is known and deliberate: Python reads ``0`` / ``False`` /
     ``""`` as absent, while ``.astext`` renders JSON ``false`` as the non-empty
@@ -233,4 +275,4 @@ def eol_bucket_condition(bucket: str, card=Card):
     else:
         rule = and_(not_linked, _jsonb_absent(end_of_life))
 
-    return and_(card.type.in_(EOL_TYPES), rule)
+    return and_(card.type.in_(list(eol_types)), rule)

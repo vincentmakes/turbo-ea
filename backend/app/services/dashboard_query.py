@@ -69,13 +69,13 @@ from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.services.card_flags import (
     EOL_BUCKETS,
-    EOL_TYPES,
     eol_bucket_condition,
     has_eol_link,
     has_manual_eol,
     orphaned_condition,
     stakeholder_condition,
     stale_condition,
+    type_tracks_eol,
 )
 from app.services.card_read_scope import CardReadScope
 from app.services.cost_value import cost_value, is_numeric_text
@@ -450,6 +450,10 @@ class ResolvedQuery:
     metric_is_cost: bool = False
     relation: RelationType | None = None
     hidden_types: frozenset[str] = field(default_factory=frozenset)
+    # The card types that track End of Life (``card_flags.type_tracks_eol``),
+    # read from the same metamodel load — what the EOL flags, the EOL
+    # coverage dimension and its SQL twin narrow to.
+    eol_types: tuple[str, ...] = ()
     # Relation spec (``rel`` / ``rel__out``) → the side it names.
     sides: dict[str, RelationSide] = field(default_factory=dict)
 
@@ -475,7 +479,12 @@ async def resolve_query(db: AsyncSession, query: DashboardQuery) -> ResolvedQuer
         raise DashboardQueryError(problem)
     types = {t.key: t for t in (await db.execute(select(CardType))).scalars().all()}
     hidden = frozenset(k for k, t in types.items() if t.is_hidden)
-    resolved = ResolvedQuery(query=query, hidden_types=hidden)
+    eol_types = tuple(
+        sorted(
+            k for k, t in types.items() if not t.is_hidden and type_tracks_eol(k, t.section_config)
+        )
+    )
+    resolved = ResolvedQuery(query=query, hidden_types=hidden, eol_types=eol_types)
 
     if query.relation_type is not None:
         rel = (
@@ -571,15 +580,15 @@ def phase_month_key(lifecycle: Any, phase: str, window: Sequence[str]) -> str | 
     return key if key in window else None
 
 
-def eol_coverage_key(raw: Any) -> str | None:
+def eol_coverage_key(raw: Any, eol_types: Sequence[str]) -> str | None:
     """A card's EOL coverage bucket from ``[type, attributes, lifecycle]`` —
     the Python twin of the ``eol_bucket_condition`` ``case`` the fast path
     groups by; ``None`` (the card is dropped) for a type outside
-    ``EOL_TYPES``."""
+    ``eol_types``, the types that track End of Life."""
     if not isinstance(raw, (list, tuple)) or len(raw) != 3:
         return None
     card_type, attributes, lifecycle = raw
-    if card_type not in EOL_TYPES:
+    if card_type not in eol_types:
         return None
     if has_eol_link(attributes if isinstance(attributes, dict) else None):
         return "linked"
@@ -637,7 +646,12 @@ def month_key(value: Any) -> str | None:
 
 
 def dimension_key(
-    dimension: str, raw: Any, months: Sequence[str], phase_window: Sequence[str] = ()
+    dimension: str,
+    raw: Any,
+    months: Sequence[str],
+    phase_window: Sequence[str] = (),
+    *,
+    eol_types: Sequence[str],
 ) -> str | None:
     """The row key ``raw`` (the dimension's column for one card) falls under.
     ``None`` drops the card: created before the 12-month window, a phase date
@@ -650,7 +664,7 @@ def dimension_key(
         key = month_key(raw)
         return key if key in months else None
     if dimension == "eol_coverage":
-        return eol_coverage_key(raw)
+        return eol_coverage_key(raw, eol_types)
     phase = phase_month_phase(dimension)
     if phase is not None:
         return phase_month_key(raw, phase, phase_window)
@@ -965,7 +979,9 @@ def flag_conditions(card: Any, resolved: ResolvedQuery, read_scope: CardReadScop
         elif flag in STAKEHOLDER_FLAGS:
             clauses.append(stakeholder_condition(flag == "with_stakeholders", card=card))
         elif flag in EOL_FLAGS:
-            clauses.append(eol_bucket_condition(EOL_FLAGS[flag], card=card))
+            clauses.append(
+                eol_bucket_condition(EOL_FLAGS[flag], card=card, eol_types=resolved.eol_types)
+            )
         else:
             present, spec = relation_flag(flag)  # type: ignore[misc]
             condition = _related_exists(card, resolved.sides[spec], resolved, read_scope)
@@ -1015,7 +1031,7 @@ def fast_path_applies(resolved: ResolvedQuery) -> bool:
     )
 
 
-def _sql_dimension(dimension: str, card: Any) -> Any:
+def _sql_dimension(dimension: str, card: Any, eol_types: Sequence[str]) -> Any:
     """The dimension as a groupable SQL expression. The quality buckets, the
     month, the EOL buckets and the stakeholder split mirror
     ``data_quality_bucket``, ``month_key``, ``eol_coverage_key`` and the
@@ -1031,7 +1047,10 @@ def _sql_dimension(dimension: str, card: Any) -> Any:
     if dimension == "created_month":
         return func.to_char(func.timezone("UTC", card.created_at), "YYYY-MM")
     if dimension == "eol_coverage":
-        return case(*((eol_bucket_condition(b, card=card), b) for b in EOL_BUCKETS), else_=None)
+        return case(
+            *((eol_bucket_condition(b, card=card, eol_types=eol_types), b) for b in EOL_BUCKETS),
+            else_=None,
+        )
     if dimension == "stakeholders":
         return case((stakeholder_condition(True, card=card), "true"), else_="false")
     if dimension.startswith(FIELD_PREFIX):
@@ -1054,7 +1073,7 @@ def grouped_statement(resolved: ResolvedQuery, read_scope: CardReadScope) -> Any
     """``SELECT dim…, COUNT(cards.id) … GROUP BY dim…`` for the fast path."""
     q = resolved.query
     dims = [
-        _sql_dimension(d, Card).label(f"dim_{i}")
+        _sql_dimension(d, Card, resolved.eol_types).label(f"dim_{i}")
         for i, d in enumerate((q.group_by, q.group_by_2))
         if d is not None
     ]
@@ -1136,8 +1155,20 @@ async def _sankey_records(
         # A lifecycle filter holds for both ends of the pair.
         if phase and (lifecycle_key(lc_src) != phase or lifecycle_key(lc_tgt) != phase):
             continue
-        key_1 = dimension_key(dim_1, raw_1, window.months, window.phase_window)  # type: ignore[arg-type]
-        key_2 = dimension_key(dim_2, raw_2, window.months, window.phase_window)  # type: ignore[arg-type]
+        key_1 = dimension_key(
+            dim_1,  # type: ignore[arg-type]
+            raw_1,
+            window.months,
+            window.phase_window,
+            eol_types=resolved.eol_types,
+        )
+        key_2 = dimension_key(
+            dim_2,  # type: ignore[arg-type]
+            raw_2,
+            window.months,
+            window.phase_window,
+            eol_types=resolved.eol_types,
+        )
         if key_1 is None or key_2 is None:
             continue
         out.records.append((key_1, key_2, None))
@@ -1256,7 +1287,13 @@ async def _card_records(
         keys: list[str | None] = []
         for dimension, raw in zip(dims, (raw_1, raw_2)):
             keys.append(
-                dimension_key(dimension, raw, window.months, window.phase_window)
+                dimension_key(
+                    dimension,
+                    raw,
+                    window.months,
+                    window.phase_window,
+                    eol_types=resolved.eol_types,
+                )
                 if dimension
                 else None
             )

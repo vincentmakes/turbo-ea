@@ -1191,6 +1191,7 @@
   "cardLayout.dragSections": "拖拽分区以重新排序...",
   "cardLayout.collapsedByDefault": "默认折叠",
   "cardLayout.hiddenFromDetail": "从卡片详情中隐藏",
+  "cardLayout.eolNote": "显示此分区也会将该类型纳入生命周期终止报告：EOL 报告、覆盖率数据、清单列和批量链接。默认仅在应用程序和 IT 组件上显示。",
   "cardLayout.deleteSection": "删除分区",
   "cardLayout.addSection": "添加分区",
   "cardLayout.sectionName": "分区名称",

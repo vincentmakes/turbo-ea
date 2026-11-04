@@ -254,7 +254,7 @@ def test_an_unknown_eol_bucket_names_itself():
     from app.services.card_flags import eol_bucket_condition
 
     with pytest.raises(ValueError) as exc:
-        eol_bucket_condition("nope")
+        eol_bucket_condition("nope", eol_types=("Application",))
     assert str(exc.value) == "Unknown EOL bucket: nope"
 
 

@@ -160,7 +160,7 @@ A aba de **Recursos** consolida todos os materiais de apoio de um card:
 
 ### Seção EOL
 
-Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.date/) (via [Administração de EOL](../admin/eol.md)):
+Exibida por padrão em Aplicações e Componentes de TI, e em qualquer outro tipo de card cujo administrador a tenha [ativado](../admin/eol.md#fim-de-vida-em-outros-tipos-de-card). Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.date/) (via [Administração de EOL](../admin/eol.md)):
 
 - **Nome do produto e versão**
 - **Status de suporte** — Com código de cores: Suportado, Aproximando-se do EOL, Fim de Vida

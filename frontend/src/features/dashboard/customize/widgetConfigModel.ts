@@ -6,7 +6,7 @@
  * `dashboard_service.py`) — every code listed in `queryProblems.ts` — so
  * Save is only offered for a config the server accepts.
  */
-import { isEolType } from "@/lib/eol";
+import { typeTracksEol } from "@/lib/eol";
 import type {
   CardType,
   DashboardChartKind,
@@ -228,8 +228,8 @@ export function dimensionOptions(type: CardType | undefined, relationTypes: Rela
   out.push("created_month", ...PHASE_MONTH_DIMENSIONS);
   for (const field of dimensionFields(type)) out.push(`field:${field.key}`);
   for (const side of sideKeysFor(type, relationTypes)) out.push(`related:${side}`);
-  // EOL data exists only on the EOL types (`lib/eol.ts`).
-  if (type && isEolType(type.key)) out.push("eol_coverage");
+  // EOL data exists only on the types that track it (`lib/eol.ts`).
+  if (type && typeTracksEol(type)) out.push("eol_coverage");
   return out;
 }
 
@@ -298,7 +298,7 @@ export function gaugeMeasureOptions(
 
 /** Whether an EOL flag can mean something for a card type (EOL data exists only on the EOL types). */
 function eolApplies(flag: string, type: CardType | undefined): boolean {
-  return !EOL_FLAGS.has(flag) || !type || isEolType(type.key);
+  return !EOL_FLAGS.has(flag) || !type || typeTracksEol(type);
 }
 
 /** The flags on offer for a card type: EOL flags only where EOL data can exist. */

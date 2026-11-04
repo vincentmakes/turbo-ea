@@ -161,7 +161,7 @@ La scheda **Risorse** consolida tutti i materiali di supporto per una card:
 
 ### Sezione EOL
 
-Se la card è collegata a un prodotto [endoflife.date]( (tramite [Amministrazione EOL](../admin/eol.md)):
+Mostrata per impostazione predefinita su Application e IT Component, e su qualsiasi altro tipo di card per cui l'amministratore l'ha [attivata](../admin/eol.md#fine-vita-su-altri-tipi-di-card). Se la card è collegata a un prodotto [endoflife.date](https://endoflife.date/) (tramite [Amministrazione EOL](../admin/eol.md)):
 
 - **Nome del prodotto e versione**
 - **Stato del supporto** — Con codice colore: Supportato, In avvicinamento a EOL, End of Life

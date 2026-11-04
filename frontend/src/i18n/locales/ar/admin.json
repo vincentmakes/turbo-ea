@@ -1367,6 +1367,7 @@
   "cardLayout.dragSections": "اسحب الأقسام لإعادة الترتيب...",
   "cardLayout.collapsedByDefault": "مطوي افتراضيًا",
   "cardLayout.hiddenFromDetail": "مخفي عن تفاصيل البطاقة",
+  "cardLayout.eolNote": "يؤدي إظهار هذا القسم إلى إدخال النوع أيضًا في تقارير نهاية العمر: تقرير EOL وأرقام التغطية وعمود المخزون والربط الجماعي. يظهر افتراضيًا في التطبيقات والمكوّنات التقنية فقط.",
   "cardLayout.deleteSection": "حذف القسم",
   "cardLayout.addSection": "إضافة قسم",
   "cardLayout.sectionName": "اسم القسم",

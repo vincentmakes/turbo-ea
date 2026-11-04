@@ -450,6 +450,50 @@ describe("CardLayoutEditor — section switches", () => {
   });
 });
 
+describe("CardLayoutEditor — End of Life follows the type's real state", () => {
+  const typeWith = (key: string, section_config: Record<string, unknown> = {}) =>
+    makeCardType({
+      key,
+      label: key,
+      fields_schema: [DESCRIPTION_SECTION],
+      section_config: section_config as Record<string, SectionConfig>,
+    });
+
+  it("reads hidden on a custom type that never stored a value, and shows it on request", async () => {
+    const custom = typeWith("Gadget");
+    mockApi.on("patch", "/metamodel/types/Gadget", (_p, body) => ({ ...custom, ...(body as object) }));
+    const { user, onRefresh } = setup({ cardType: custom });
+    const eol = sectionRoot("End of Life");
+    const hidden = within(eol).getByRole("checkbox", { name: "Hidden from card detail" });
+    expect(hidden).toBeChecked();
+    expect(within(eol).getByText(/also brings the type into End of Life reporting/)).toBeInTheDocument();
+    await user.click(hidden);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().section_config?.eol).toEqual({ hidden: false });
+  });
+
+  it("reads visible on IT Component by default, and hides it explicitly", async () => {
+    const itc = typeWith("ITComponent", { eol: { defaultExpanded: false } });
+    mockApi.on("patch", "/metamodel/types/ITComponent", (_p, body) => ({ ...itc, ...(body as object) }));
+    const { user, onRefresh } = setup({ cardType: itc });
+    const hidden = within(sectionRoot("End of Life")).getByRole("checkbox", {
+      name: "Hidden from card detail",
+    });
+    expect(hidden).not.toBeChecked();
+    await user.click(hidden);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().section_config?.eol).toEqual({ defaultExpanded: false, hidden: true });
+  });
+
+  it("puts the reporting note on the End of Life row only", () => {
+    setup({ cardType: typeWith("Gadget") });
+    expect(screen.getAllByText(/also brings the type into End of Life reporting/)).toHaveLength(1);
+    expect(
+      within(sectionRoot("Lifecycle")).queryByText(/End of Life reporting/),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("CardLayoutEditor — expand and collapse", () => {
   it("custom sections start expanded and toggle through the chevron and the header", async () => {
     const { user } = setup();
