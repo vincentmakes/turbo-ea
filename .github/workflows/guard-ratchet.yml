@@ -9,7 +9,10 @@ name: Guard Ratchet
 # `labeled` / `unlabeled` triggers) and turns it green with the findings kept
 # in the summary. The label only counts when a MAINTAINERS login applied it
 # (checked against the PR's event log): the PR-author allowlist includes the
-# Claude bots, so a label an agent applies to its own PR is ignored. Rule and rationale:
+# Claude bots, so a label an agent applies to its own PR is ignored. It also
+# only counts for the commits the maintainer saw: a label applied before the
+# head commit was committed is ignored, so a push after approval (a rebase or
+# an "Update branch" included) needs the label removed and re-applied. Rule and rationale:
 # .claude/rules/testing-ci.md; the check is scripts/guard_ratchet.py, tested by
 # backend/tests/core/test_guard_ratchet.py in Backend Unit Tests.
 #
@@ -48,15 +51,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           MAINTAINERS: "vincentmakes"
         run: |
           set -euo pipefail
-          actor=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/events" --paginate \
-            --jq '.[] | select(.event == "labeled" and .label.name == "guard-change-approved") | .actor.login' \
+          # The last application of the label: "<login> <created_at>".
+          last=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/events" --paginate \
+            --jq '.[] | select(.event == "labeled" and .label.name == "guard-change-approved") | "\(.actor.login) \(.created_at)"' \
             | tail -n 1)
+          actor=${last% *}
+          applied_at=$(date -u -d "${last#* }" +%s)
+          committed_at=$(git log -1 --format=%ct "$HEAD_SHA")
           for m in $MAINTAINERS; do
             if [ "$actor" = "$m" ]; then
-              echo "guard-change-approved applied by maintainer $actor."
+              if [ "$applied_at" -le "$committed_at" ]; then
+                echo "::warning::guard-change-approved was applied by $actor before the head commit $HEAD_SHA was committed; the new push needs the label removed and re-applied. Ignored."
+                exit 0
+              fi
+              echo "guard-change-approved applied by maintainer $actor after the head commit."
               echo "approved=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi

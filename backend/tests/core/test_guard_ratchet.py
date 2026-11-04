@@ -206,6 +206,26 @@ class TestRules:
         (r.root / "backend/app/x.py").unlink()
         assert r.findings(base) == []
 
+    def test_removing_an_informational_zero_floor_passes(self, repo):
+        """A ``--fail-under=0`` report is not a bar; dropping it lowers nothing."""
+        r, base = repo
+        r.write(
+            ".github/workflows/ci.yml",
+            "jobs:\n  test:\n    run: report --fail-under=0\n"
+            "    run: diff-cover x --fail-under=80\n",
+        )
+        base = r.commit()
+        r.edit(".github/workflows/ci.yml", "    run: report --fail-under=0\n", "")
+        assert r.findings(base) == []
+        r.edit(".github/workflows/ci.yml", "--fail-under=80", "--fail-under=0")
+        assert r.findings(base) == [
+            "[floor] .github/workflows/ci.yml: test --fail-under #1 80 -> 0"
+        ]
+        r.write(".github/workflows/ci.yml", "jobs:\n  test:\n    run: nothing\n")
+        assert r.findings(base) == [
+            "[floor] .github/workflows/ci.yml: test --fail-under #1 removed (was 80)"
+        ]
+
     def test_allowlist_growth_is_flagged_and_narrowing_is_not(self, repo):
         r, base = repo
         r.edit(GUARD, '{"a.py": "why"}', '{"b.py": "a plausible reason"}')

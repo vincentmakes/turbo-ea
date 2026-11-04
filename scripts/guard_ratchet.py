@@ -382,6 +382,8 @@ def compare_floors(
     for key, old in sorted(base.items()):
         new = head.get(key)
         if new is None:
+            if old == 0:
+                continue  # a floor of 0 is a report, not a bar: removing it lowers nothing
             module = re.fullmatch(r"\[modules\] (.+)", key)
             if module and head_tree.read(module.group(1)) is None:
                 continue  # the module itself is gone; so is its floor
@@ -841,10 +843,12 @@ def blocking(findings: list[Finding]) -> list[Finding]:
     return [f for f in findings if f.kind != NOTICE]
 
 
+def _cell(text: str) -> str:
+    return text.replace("|", "\\|")  # outside the f-string: 3.11 allows no backslash inside
+
+
 def _table(findings: list[Finding]) -> str:
-    rows = "\n".join(
-        f"| {f.kind} | `{f.where}` | {f.detail.replace('|', '\\|')} |" for f in findings
-    )
+    rows = "\n".join(f"| {f.kind} | `{f.where}` | {_cell(f.detail)} |" for f in findings)
     return f"| Kind | Where | Change |\n|---|---|---|\n{rows}\n"
 
 
