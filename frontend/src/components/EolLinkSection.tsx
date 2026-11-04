@@ -122,6 +122,13 @@ interface EolPickerProps {
   cardName?: string;
 }
 
+/**
+ * A fuzzy suggestion this close is a real match — highlighted in the list,
+ * and enough to hold back the offer to create a custom product. Fuzzy search
+ * always returns *something*, so "no suggestions" alone would never fire.
+ */
+const STRONG_MATCH = 0.7;
+
 /** A Select value that is not a cycle: opens the add-cycle dialog. */
 const ADD_CYCLE = "__add_cycle__";
 
@@ -291,7 +298,10 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   const noUpstreamForTyped =
     typed.length >= 2 && searchSettled && !productOptions.some((p) => !p.custom);
   const noUpstreamForCard =
-    !typed && eolAutoSearchDone && !eolSearching && !eolSuggestions.some((s) => !s.custom);
+    !typed &&
+    eolAutoSearchDone &&
+    !eolSearching &&
+    !eolSuggestions.some((s) => !s.custom && s.score >= STRONG_MATCH);
   const offerCreate = !selectedProduct && (noUpstreamForTyped || noUpstreamForCard);
   const createFrom = typed || (cardName || "").trim();
 
@@ -386,8 +396,8 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
                 icon={<MaterialSymbol icon={s.custom ? "edit_note" : "link"} size={14} />}
                 sx={{
                   cursor: "pointer",
-                  borderColor: s.score >= 0.7 ? "success.main" : "divider",
-                  fontWeight: s.score >= 0.7 ? 600 : 400,
+                  borderColor: s.score >= STRONG_MATCH ? "success.main" : "divider",
+                  fontWeight: s.score >= STRONG_MATCH ? 600 : 400,
                   "&:hover": { bgcolor: "action.hover" },
                 }}
               />

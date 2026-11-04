@@ -97,6 +97,11 @@ describe("rows", () => {
     expect(gridStub.cellValue("eol", row("c2"), { formatted: true })).toBe("No end of life announced");
   });
 
+  it("turns off AG Grid's type inference so a boolean milestone never becomes a checkbox", async () => {
+    await renderGrid();
+    expect(gridStub.lastProps().defaultColDef.cellDataType).toBe(false);
+  });
+
   it("freezes product and cycle by default, and honours a stored choice", async () => {
     const first = await renderGrid();
     expect(gridStub.colDef("product").pinned).toBeTruthy();

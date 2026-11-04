@@ -421,7 +421,7 @@ export default function CustomEolProductsGrid() {
         colId: "support",
         headerName: t("eol.custom.columns.support"),
         field: "support",
-        width: 170,
+        width: 200,
         editable,
         cellEditor: EolCycleCellEditor,
         cellEditorPopup: true,
@@ -432,7 +432,7 @@ export default function CustomEolProductsGrid() {
         colId: "eol",
         headerName: t("eol.custom.columns.eol"),
         field: "eol",
-        width: 170,
+        width: 200,
         editable,
         cellEditor: EolCycleCellEditor,
         cellEditorPopup: true,
@@ -542,6 +542,10 @@ export default function CustomEolProductsGrid() {
       filter: true,
       filterParams: { buttons: ["reset"] },
       headerComponentParams: columnFreeze.headerComponentParams,
+      // No type inference: a milestone column holds a date, `true` or `false`,
+      // and AG Grid would read the first row's boolean as a checkbox column
+      // and drop the formatter — a support date then shows as an empty box.
+      cellDataType: false,
     }),
     [columnFreeze.headerComponentParams],
   );

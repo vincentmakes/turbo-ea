@@ -63,8 +63,18 @@ describe("when endoflife.date has no match", () => {
     expect(screen.queryByRole("button", { name: "Create custom product" })).toBeNull();
   });
 
-  it("does not offer it while endoflife.date has a match", async () => {
-    mockApi.on("get", FUZZY_URL, [{ name: "ubuntu", score: 0.9 }]);
+  it("still offers it when endoflife.date has only weak look-alikes", async () => {
+    mockApi.on("get", FUZZY_URL, [
+      { name: "clear-linux", score: 0.69 },
+      { name: "custom:other", title: "Other", custom: true, score: 0.95 },
+    ]);
+    renderSection(UNLINKED);
+    expect(await screen.findByText("clear-linux")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create custom product" })).toBeInTheDocument();
+  });
+
+  it("does not offer it while endoflife.date has a strong match", async () => {
+    mockApi.on("get", FUZZY_URL, [{ name: "ubuntu", score: 0.7 }]);
     renderSection(UNLINKED);
     expect(await screen.findByText("ubuntu")).toBeInTheDocument();
     expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
