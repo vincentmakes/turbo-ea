@@ -113,6 +113,10 @@ COPY frontend/package.json frontend/package-lock.json frontend/xlsx-0.20.3.tgz .
 RUN npm ci
 COPY VERSION ./VERSION
 COPY frontend/ ./
+# Der Vite/TS-Build des Frontends braucht mehr Heap als Nodes Standardlimit —
+# auf Hosts mit wenig RAM stirbt `npm run build` sonst mit
+# "JavaScript heap out of memory" (so geschehen beim Update auf 2.186.x).
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN npm run build
 
 
