@@ -119,7 +119,7 @@ describe("printDocument fragment builders", () => {
     const html = documentHeader("Architecture Decision Record", "ADR-0001 — Adopt <bus>");
     expect(html).toBe(
       '<h1 style="text-align:center;border:none;">Architecture Decision Record</h1>' +
-        '<p style="text-align:center;font-size:14pt;color:#555;">ADR-0001 — Adopt &lt;bus&gt;</p>',
+        `<p style="text-align:center;font-size:14pt;color:${PRINT_COLORS.inkSecondary};">ADR-0001 — Adopt &lt;bus&gt;</p>`,
     );
   });
 

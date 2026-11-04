@@ -101,6 +101,7 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import DependencyReport from "./DependencyReport";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Fixtures and helpers
@@ -280,7 +281,7 @@ const COLLAPSED_LINES = [
   ["M 276 280 C 321 280, 321 260, 366 260", "#00aa00"], // Zeta
   ["M 276 280 C 321 280, 321 344, 366 344", "#0000aa"], // Server
   // Types the metamodel does not know sort last, in the order they arrived.
-  ["M 276 280 C 321 280, 321 428, 366 428", "#999"], // Thing (no colour anywhere)
+  ["M 276 280 C 321 280, 321 428, 366 428", STATUS_COLORS.neutral], // Thing (no colour anywhere)
   ["M 276 280 C 321 280, 321 512, 366 512", "#02afa4"], // Gateway (built-in fallback)
 ];
 

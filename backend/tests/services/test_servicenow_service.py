@@ -6,13 +6,18 @@ WITHOUT requiring a database or external ServiceNow instance.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from cryptography.fernet import Fernet
 
+from app.config import settings
+from app.core.encryption import decrypt_value, encrypt_value, is_encrypted
 from app.services.servicenow_service import (
     INSTANCE_URL_PATTERN,
     FieldTransformer,
@@ -34,19 +39,54 @@ class TestCredentialEncryption:
         """encrypt then decrypt returns original credentials."""
         creds = {"username": "admin", "password": "s3cret"}
         encrypted = encrypt_credentials(creds)
-        assert "_enc" in encrypted
-        assert encrypted["_enc"] != json.dumps(creds)
+        assert set(encrypted) == {"_enc"}
+        assert "s3cret" not in encrypted["_enc"]
         decrypted = decrypt_credentials(encrypted)
         assert decrypted == creds
+
+    def test_new_row_is_enc_prefixed(self):
+        """A new row goes through encrypt_value, so the generic scrubbers see it."""
+        encrypted = encrypt_credentials({"username": "admin", "password": "s3cret"})
+        assert encrypted["_enc"].startswith("enc:")
+        assert is_encrypted(encrypted["_enc"])
+        assert json.loads(decrypt_value(encrypted["_enc"])) == {
+            "username": "admin",
+            "password": "s3cret",
+        }
+
+    def test_row_written_by_the_old_helper_still_decrypts(self):
+        """The pre-helper format: a bare Fernet token under the same derived key."""
+        key = base64.urlsafe_b64encode(hashlib.sha256(settings.SECRET_KEY.encode()).digest())
+        creds = {"username": "admin", "password": "old"}
+        bare = Fernet(key).encrypt(json.dumps(creds).encode()).decode()
+        assert not bare.startswith("enc:")
+        assert decrypt_credentials({"_enc": bare}) == creds
+
+    def test_old_row_under_a_different_key_is_empty(self):
+        other = Fernet(Fernet.generate_key()).encrypt(b'{"username": "x"}').decode()
+        assert decrypt_credentials({"_enc": other}) == {}
 
     def test_decrypt_empty_no_enc_key(self):
         """Decrypting a dict without _enc returns it unchanged (legacy path)."""
         legacy = {"username": "admin", "password": "plain"}
         assert decrypt_credentials(legacy) == legacy
+        assert decrypt_credentials({}) == {}
+        assert decrypt_credentials({"_enc": ""}) == {"_enc": ""}
 
     def test_decrypt_invalid_token(self):
-        """Corrupted _enc returns empty dict."""
+        """Corrupted _enc returns empty dict, prefixed or not."""
         assert decrypt_credentials({"_enc": "not-valid-fernet-token"}) == {}
+        assert decrypt_credentials({"_enc": "enc:not-valid-fernet-token"}) == {}
+
+    def test_decrypt_non_json_payload(self):
+        """A token that decrypts to something other than a JSON object yields {}."""
+        assert decrypt_credentials({"_enc": encrypt_value("not json")}) == {}
+        assert decrypt_credentials({"_enc": encrypt_value('["a", "b"]')}) == {}
+
+    def test_rotated_secret_key_yields_empty(self, monkeypatch):
+        encrypted = encrypt_credentials({"username": "admin"})
+        monkeypatch.setattr(settings, "SECRET_KEY", settings.SECRET_KEY + "-rotated")
+        assert decrypt_credentials(encrypted) == {}
 
 
 # ---------------------------------------------------------------------------

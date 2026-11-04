@@ -60,6 +60,8 @@ Le righe con contatore = 0 sono in grigio, e i vicini / figli già presenti sull
 
 Una scheda espansa mostra un'icona `−` per comprimerla di nuovo. La compressione rimuove le schede espanse dalla tela, quindi Turbo EA chiede conferma se ne hai spostata o riformattata qualcuna; espandendo di nuovo tornano esattamente dove le avevi lasciate.
 
+Una scheda o una relazione che rimuovi dalla tela mentre una scheda è espansa resta nascosta quando espandi di nuovo quella scheda, fino a quando non ricarichi la pagina. Una scheda che omette qualcosa in questo modo mostra un `!` arancione nell'angolo in alto a sinistra: fai clic per dimenticare ciò che hai rimosso, e la successiva espansione riporterà tutto.
+
 ### La gerarchia sulla tela
 
 I contenitori corrispondono al `parent_id` di una scheda:

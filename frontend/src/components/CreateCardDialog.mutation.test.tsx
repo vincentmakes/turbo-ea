@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { alpha, createTheme, ThemeProvider } from "@mui/material/styles";
 import { useLocation } from "react-router";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -116,6 +116,7 @@ import {
 } from "@/test/fixtures/metamodel";
 import { makeUser, wrapWithProviders } from "@/test/render";
 import type { User } from "@/types";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Metamodel
@@ -1149,6 +1150,10 @@ describe("CreateCardDialog — end-of-life auto-search", () => {
     fireEvent.click(screen.getByText("eol-link"));
     expect(screen.getByText(/Linked to/)).toHaveTextContent("Linked to nodejs 22");
     expect(eolProps()).toHaveAttribute("data-open", "false");
+    // The dashed EOL box turns green-tinted once a product is linked.
+    let box: HTMLElement | null = screen.getByText(/Linked to/);
+    while (box && getComputedStyle(box).borderTopStyle !== "dashed") box = box.parentElement;
+    expect(box).toHaveStyle({ backgroundColor: alpha(STATUS_COLORS.success, 0.04) });
 
     typeName("Node");
     await debounce();

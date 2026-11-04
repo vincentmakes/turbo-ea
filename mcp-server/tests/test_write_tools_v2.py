@@ -179,9 +179,7 @@ class TestArchiveCards:
             }
         )
         with patch.object(server.TurboEAClient, "post", AsyncMock(side_effect=post)):
-            out = await server.archive_cards(
-                card_ids=["c1", "c2"], dry_run=False, reason="test"
-            )
+            out = await server.archive_cards(card_ids=["c1", "c2"], dry_run=False, reason="test")
         data = _parse(out)
         assert data["batch_id"] == "B-001"
         assert "archived_card_ids" in data
@@ -355,9 +353,7 @@ class TestAdrTools:
     async def test_update_adr_rejects_unknown_status(self, fake_token):
         patch_mock = AsyncMock()
         with patch.object(server.TurboEAClient, "patch", patch_mock):
-            out = await server.update_adr(
-                adr_id="A-1", status="accepted", dry_run=False
-            )
+            out = await server.update_adr(adr_id="A-1", status="accepted", dry_run=False)
         patch_mock.assert_not_called()
         data = _parse(out)
         assert data["error"] == "unknown_status"
@@ -448,9 +444,7 @@ class TestTransitionLifecycle:
                 AsyncMock(side_effect=_route_writes_through_batch()[0]),
             ),
         ):
-            await server.transition_card_lifecycle(
-                card_id="c1", target="active", dry_run=False
-            )
+            await server.transition_card_lifecycle(card_id="c1", target="active", dry_run=False)
         body = patch_mock.call_args[1]["json"]
         # ISO date, not a phase marker
         assert len(body["lifecycle"]["active"]) == 10
@@ -478,9 +472,7 @@ class TestTransitionLifecycle:
 
     @pytest.mark.asyncio
     async def test_phase_dry_run_shows_before_and_after(self, fake_token):
-        get_mock = AsyncMock(
-            return_value={"id": "c1", "lifecycle": {"plan": "2025-01-01"}}
-        )
+        get_mock = AsyncMock(return_value={"id": "c1", "lifecycle": {"plan": "2025-01-01"}})
         patch_mock = AsyncMock()
         with (
             patch.object(server.TurboEAClient, "get", get_mock),
@@ -578,14 +570,10 @@ class TestAnalyzeImpact:
             }
         )
         with patch.object(server.TurboEAClient, "get", get_mock):
-            out = await server.analyze_impact(
-                card_id="centre", include_types=["Application"]
-            )
+            out = await server.analyze_impact(card_id="centre", include_types=["Application"])
         data = _parse(out)
         # ITComponent node should be dropped along with the edge that touches it
-        all_node_ids = {
-            n["id"] for nodes in data["nodes_by_depth"].values() for n in nodes
-        }
+        all_node_ids = {n["id"] for nodes in data["nodes_by_depth"].values() for n in nodes}
         assert "n1" not in all_node_ids
 
 
@@ -733,8 +721,8 @@ class TestCreateSoaw:
 
 _IGNORED_DRY_RUN_MESSAGE = (
     "The Turbo EA backend did not honour dry_run (it is older "
-            "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
-            "upgrade the backend before using diagram previews."
+    "than 2.180.0), so this call WAS PERSISTED. Tell the user; "
+    "upgrade the backend before using diagram previews."
 )
 
 
@@ -960,9 +948,7 @@ class TestCreateRisks:
     async def test_numeric_probability_rejected(self, fake_token):
         post_mock = AsyncMock()
         with patch.object(server.TurboEAClient, "post", post_mock):
-            out = await server.create_risks(
-                risks=[{"title": "t", "probability": 3}], dry_run=False
-            )
+            out = await server.create_risks(risks=[{"title": "t", "probability": 3}], dry_run=False)
         post_mock.assert_not_called()
         data = _parse(out)
         assert data["error"] == "invalid_value"

@@ -80,6 +80,16 @@ import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import CapabilityMapReport from "./CapabilityMapReport";
+import { alpha, createTheme } from "@mui/material/styles";
+import { SCREEN_INK, STATUS_COLORS } from "@/theme/tokens";
+import { HEAT_EMPTY, heatShade, type HeatScale } from "./heatScale";
+
+/** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
+const shade = (scale: HeatScale, ratio: number): string => {
+  const n = parseInt(heatShade(scale, ratio).slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -88,7 +98,7 @@ import CapabilityMapReport from "./CapabilityMapReport";
 /** Application gets a colour distinct from the CARD_TYPE_COLORS fallback. */
 const APP_HEX = "#123456";
 const APP_COLOR = "rgb(18, 52, 86)"; // APP_HEX, as computed
-const UNSET = "rgba(128, 128, 128, 0.2)";
+const UNSET = alpha(STATUS_COLORS.neutral, 0.2);
 
 const TYPES = [
   makeCardType({ key: "BusinessCapability", label: "Business Capability", color: "#003399" }),
@@ -291,9 +301,9 @@ describe("heat colours", () => {
     serve(HEAT);
     renderMap();
     await loaded("Two Apps");
-    expect(bg(header("Two Apps"))).toBe("rgb(25, 90, 202)");
-    expect(bg(header("One App"))).toBe("rgb(126, 166, 228)");
-    expect(bg(header("No Apps"))).toBe("rgb(227, 242, 253)");
+    expect(bg(header("Two Apps"))).toBe(shade("amount", 1));
+    expect(bg(header("One App"))).toBe(shade("amount", 0.5));
+    expect(bg(header("No Apps"))).toBe(shade("amount", 0));
   });
 
   it("shades the EOL risk metric on a white-to-red scale", async () => {
@@ -301,17 +311,17 @@ describe("heat colours", () => {
     ctl.config = { metric: "risk_count" };
     renderMap();
     await loaded("Two Apps");
-    await waitFor(() => expect(bg(header("Two Apps"))).toBe("rgb(200, 48, 40)"));
-    expect(bg(header("One App"))).toBe("rgb(228, 152, 148)");
-    expect(bg(header("No Apps"))).toBe("rgb(255, 255, 255)");
+    await waitFor(() => expect(bg(header("Two Apps"))).toBe(shade("risk", 1)));
+    expect(bg(header("One App"))).toBe(shade("risk", 0.5));
+    expect(bg(header("No Apps"))).toBe(shade("risk", 0));
   });
 
   it("greys every capability out when nothing has a value", async () => {
     serve(payload([cap("a", "Empty A", null), cap("b", "Empty B", null)]));
     renderMap();
     await loaded("Empty A");
-    expect(bg(header("Empty A"))).toBe("rgba(128, 128, 128, 0.1)");
-    expect(bg(header("Empty B"))).toBe("rgba(128, 128, 128, 0.1)");
+    expect(bg(header("Empty A"))).toBe(HEAT_EMPTY);
+    expect(bg(header("Empty B"))).toBe(HEAT_EMPTY);
   });
 
   it("shades a branch header by its rolled-up value", async () => {
@@ -325,8 +335,8 @@ describe("heat colours", () => {
     renderMap();
     await loaded("Parent");
     // The branch rolls up two apps — the maximum — the children one each.
-    expect(bg(header("Parent"))).toBe("rgb(25, 90, 202)");
-    expect(bg(header("Child One"))).toBe("rgb(126, 166, 228)");
+    expect(bg(header("Parent"))).toBe(shade("amount", 1));
+    expect(bg(header("Child One"))).toBe(shade("amount", 0.5));
   });
 });
 
@@ -1096,5 +1106,33 @@ describe("yes/no and multi-select fields", () => {
     renderMap();
     await loaded("Pool");
     expect(chipNames(["Yes App", "No App", "None App"])).toEqual(["None App"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Chip text and wash colours
+// ---------------------------------------------------------------------------
+
+describe("chip colours", () => {
+  const WHITE = createTheme().palette.common.white;
+  const WASH = alpha(WHITE, 0.7);
+
+  it("writes white on a dark application fill and dark text on a light one", async () => {
+    serve(payload([cap("pool", "Pool", null, [ALPHA, app("lo", "Lo", { attributes: { criticality: "low" } })])]));
+    ctl.config = { showApps: true, colorBy: "criticality" };
+    renderMap();
+    await loaded("Pool");
+    expect(within(chart()).getByLabelText("Alpha — High Crit")).toHaveStyle({ color: WHITE });
+    expect(within(chart()).getByLabelText("Lo — Low Crit")).toHaveStyle({ color: SCREEN_INK.onLightFill });
+  });
+
+  it("washes the value chip of a leaf and the app-count chip of a branch white", async () => {
+    serve(payload([cap("p", "Parent", null), cap("c1", "Child One", "p", [app("x", "X")])]));
+    renderMap();
+    await loaded("Child One");
+    for (const name of ["Parent", "Child One"]) {
+      const chip = header(name).querySelector(".MuiChip-root");
+      expect(chip).toHaveStyle({ backgroundColor: WASH, fontSize: "0.7rem" });
+    }
   });
 });

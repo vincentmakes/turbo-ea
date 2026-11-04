@@ -7,6 +7,7 @@ import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 /**
  * The collapsible "Filters" row in a report toolbar.
@@ -93,8 +94,8 @@ export default function ReportFilterSection({
             },
           }}
         >
-          <MaterialSymbol icon={collapsed ? "chevron_right" : "expand_more"} size={16} color="#999" />
-          <MaterialSymbol icon={icon} size={16} color="#999" />
+          <MaterialSymbol icon={collapsed ? "chevron_right" : "expand_more"} size={16} color={STATUS_COLORS.neutral} />
+          <MaterialSymbol icon={icon} size={16} color={STATUS_COLORS.neutral} />
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
             {label}
           </Typography>

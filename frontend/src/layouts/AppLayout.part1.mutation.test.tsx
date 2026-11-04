@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
+import { alpha, createTheme, darken } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -72,6 +73,7 @@ import {
   type ExtensionRouteContribution,
 } from "@/lib/extensionHost";
 import type { User } from "@/types";
+import { NAVBAR_DEFAULTS, STATUS_COLORS } from "@/theme/tokens";
 
 type LayoutUser = Parameters<typeof AppLayout>[0]["user"];
 
@@ -563,6 +565,25 @@ describe("AppLayout — reference catalogues follow their route permissions", ()
 
 describe("AppLayout — stopping an impersonation", () => {
   const impersonating: LayoutUser = { ...adminUser, impersonated_role: "viewer" };
+
+  it("draws the banner in the warning colour over a hairline, with a navbar-coloured Stop that darkens on hover", () => {
+    render(<Layout user={impersonating} />);
+    const banner = screen.getByRole("status");
+    const black = createTheme().palette.common.black;
+    expect(banner).toHaveStyle({
+      backgroundColor: STATUS_COLORS.warning,
+      color: NAVBAR_DEFAULTS.bg,
+      borderBottom: `1px solid ${alpha(black, 0.12)}`,
+    });
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toHaveStyle({ backgroundColor: NAVBAR_DEFAULTS.bg, color: NAVBAR_DEFAULTS.fg });
+    const css = Array.from(document.querySelectorAll("style"), (el) => el.textContent).join("");
+    const hover = Array.from(stop.classList)
+      .flatMap((cls) => Array.from(css.matchAll(new RegExp(`\\.${cls}:hover\\{([^}]*)\\}`, "g")), (m) => m[1]))
+      .join(";")
+      .replace(/\s/g, "");
+    expect(hover).toContain(`background-color:${darken(NAVBAR_DEFAULTS.bg, 0.5).replace(/\s/g, "")}`);
+  });
 
   it("disables Stop while the request is in flight", async () => {
     let release: (v: { access_token: string }) => void = () => {};

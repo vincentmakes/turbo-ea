@@ -100,5 +100,3 @@ function BreakdownDrawer({
     </Drawer>
   );
 }
-
-export default DataQualityBreakdownHost;

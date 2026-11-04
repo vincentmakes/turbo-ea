@@ -68,6 +68,8 @@ import { makeCardType } from "@/test/fixtures/metamodel";
 import { toIsoDate } from "@/lib/dates";
 import i18n from "@/i18n";
 import EolReport from "./EolReport";
+import { createTheme } from "@mui/material/styles";
+import { LIFECYCLE_PHASE_COLORS, RAG_COLORS } from "@/theme/tokens";
 
 const DAY = 86400000;
 const inDays = (n: number) => toIsoDate(new Date(Date.now() + n * DAY));
@@ -800,5 +802,47 @@ describe("EolReport — fixes", () => {
     expect(await screen.findByText("GET /reports/eol failed")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByText("Today")).not.toBeInTheDocument();
+  });
+});
+
+describe("EolReport — colours", () => {
+  const WHITE = createTheme().palette.common.white;
+
+  it("draws today as a dashed red line under a white-on-red label", async () => {
+    renderReport();
+    const label = await screen.findByText("Today");
+    expect(label).toHaveStyle({ backgroundColor: RAG_COLORS.red, color: WHITE });
+    expect(label.previousElementSibling).toHaveStyle({ borderLeft: `2px dashed ${RAG_COLORS.red}` });
+  });
+
+  it("writes a status chip and its icon in white", async () => {
+    saved.config = { view: "table" };
+    renderReport();
+    await screen.findByRole("table");
+    const chip = within(screen.getByText("Nginx LB").closest("tr")!).getByText("End of Life").closest(".MuiChip-root")!;
+    expect(chip).toHaveStyle({ color: WHITE });
+    expect(chip.querySelector(".MuiChip-icon")).toHaveStyle({ color: WHITE });
+  });
+
+  it("colours a countdown red from today, orange to six months, green beyond", async () => {
+    // Midday, so a date n days ahead is exactly n days away once rounded up.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 5, 15, 12) });
+    try {
+      saved.config = { view: "table" };
+      serve([
+        item({ id: "d0", name: "Due today", cycle_data: { eol: inDays(0) } }),
+        item({ id: "d182", name: "Due 182", cycle_data: { eol: inDays(182) } }),
+        item({ id: "d183", name: "Due 183", cycle_data: { eol: inDays(183) } }),
+      ]);
+      renderReport();
+      await screen.findByRole("table");
+      const countdown = (name: string) =>
+        within(screen.getByText(name).closest("tr")!).getByText(/^\(/);
+      expect(countdown("Due today")).toHaveStyle({ color: LIFECYCLE_PHASE_COLORS.endOfLife });
+      expect(countdown("Due 182")).toHaveStyle({ color: LIFECYCLE_PHASE_COLORS.phaseOut });
+      expect(countdown("Due 183")).toHaveStyle({ color: LIFECYCLE_PHASE_COLORS.active });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

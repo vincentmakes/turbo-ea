@@ -8,9 +8,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { STATUS_COLORS } from "@/theme/tokens";
+
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
 vi.mock("@/hooks/useMetamodel", () => ({
-  useMetamodel: () => ({ getType: (key: string) => ({ key, label: key, color: "#123456" }) }),
+  useMetamodel: () => ({
+    getType: (key: string) => (key === "Ghost" ? undefined : { key, label: key, color: "#123456" }),
+  }),
 }));
 
 import { api } from "@/api/client";
@@ -61,5 +65,18 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
     expect(vi.mocked(api.get).mock.calls[0][0]).toContain("search=work");
+  });
+
+  it("tints each result's icon with its type colour, neutral grey for a type the metamodel lacks", async () => {
+    vi.mocked(api.get).mockResolvedValue({
+      items: [
+        { id: "1", name: "Workday", type: "Application" },
+        { id: "2", name: "Mystery", type: "Ghost" },
+      ],
+    } as never);
+    await userEvent.type(open(), "w");
+    const icon = async (name: string) => (await screen.findByText(name)).parentElement!.previousElementSibling;
+    expect(await icon("Workday")).toHaveStyle({ color: "#123456" });
+    expect(await icon("Mystery")).toHaveStyle({ color: STATUS_COLORS.neutral });
   });
 });

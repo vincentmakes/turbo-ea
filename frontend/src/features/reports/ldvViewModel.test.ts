@@ -41,6 +41,13 @@ import {
   truncateEdgeLabel,
   typeIconPlacement,
 } from "./ldvViewModel";
+import {
+  LIFECYCLE_PHASE_COLORS,
+  SCREEN_INK,
+  STATUS_COLORS,
+  brand,
+  surface,
+} from "@/theme/tokens";
 
 describe("card colour", () => {
   it("keeps a #rrggbb type colour and greys anything else", () => {
@@ -55,24 +62,19 @@ describe("card colour", () => {
   });
 
   it("washes 12 % in light mode, 22 % in dark, 6 % on a proposed card", () => {
-    expect(cardTint("#0f7eb5", false, false)).toBe("rgba(15,126,181,0.12)");
-    expect(cardTint("#0f7eb5", true, false)).toBe("rgba(15,126,181,0.22)");
-    expect(cardTint("#0f7eb5", true, true)).toBe("rgba(15,126,181,0.06)");
-    expect(cardTint("#0f7eb5", false, true)).toBe("rgba(15,126,181,0.06)");
+    expect(cardTint("#0f7eb5", false, false)).toBe("rgba(15, 126, 181, 0.12)");
+    expect(cardTint("#0f7eb5", true, false)).toBe("rgba(15, 126, 181, 0.22)");
+    expect(cardTint("#0f7eb5", true, true)).toBe("rgba(15, 126, 181, 0.06)");
+    expect(cardTint("#0f7eb5", false, true)).toBe("rgba(15, 126, 181, 0.06)");
   });
 });
 
 describe("lifecycle dot", () => {
-  it("colours each phase like the lifecycle badge", () => {
-    expect(PHASE_DOT).toEqual({
-      plan: "#9e9e9e",
-      phaseIn: "#1976d2",
-      active: "#2e7d32",
-      phaseOut: "#ed6c02",
-      endOfLife: "#d32f2f",
-    });
-    expect(phaseDotColor("active")).toBe("#2e7d32");
-    expect(phaseDotColor("phaseOut")).toBe("#ed6c02");
+  it("colours each phase with the app-wide lifecycle palette", () => {
+    expect(PHASE_DOT).toEqual(LIFECYCLE_PHASE_COLORS);
+    expect(phaseDotColor("active")).toBe(LIFECYCLE_PHASE_COLORS.active);
+    expect(phaseDotColor("phaseOut")).toBe(LIFECYCLE_PHASE_COLORS.phaseOut);
+    expect(phaseDotColor("endOfLife")).toBe(LIFECYCLE_PHASE_COLORS.endOfLife);
   });
 
   it("greys an unknown phase and draws no dot without one", () => {
@@ -236,28 +238,28 @@ describe("line state", () => {
 
   it("colours an idle and a lit line per theme", () => {
     expect(edgeColors(false, false, false)).toEqual({
-      stroke: "#777",
-      label: "#666",
-      labelBorder: "#ccc",
-      labelBackground: "#ffffff",
+      stroke: SCREEN_INK.secondary,
+      label: SCREEN_INK.secondary,
+      labelBorder: SCREEN_INK.rule,
+      labelBackground: SCREEN_INK.paper,
     });
     expect(edgeColors(true, false, false)).toEqual({
-      stroke: "#1976d2",
-      label: "#1976d2",
-      labelBorder: "#1976d2",
-      labelBackground: "#ffffff",
+      stroke: brand.primary,
+      label: brand.primary,
+      labelBorder: brand.primary,
+      labelBackground: SCREEN_INK.paper,
     });
     expect(edgeColors(false, false, true)).toEqual({
-      stroke: "#aaa",
-      label: "#aaa",
-      labelBorder: "#444",
-      labelBackground: "#121212",
+      stroke: STATUS_COLORS.neutral,
+      label: STATUS_COLORS.neutral,
+      labelBorder: SCREEN_INK.ruleDark,
+      labelBackground: surface.dark.default,
     });
     expect(edgeColors(true, false, true)).toEqual({
-      stroke: "#4fc3f7",
-      label: "#4fc3f7",
-      labelBorder: "#4fc3f7",
-      labelBackground: "#121212",
+      stroke: brand.primaryLight,
+      label: brand.primaryLight,
+      labelBorder: brand.primaryLight,
+      labelBackground: surface.dark.default,
     });
   });
 

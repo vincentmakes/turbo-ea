@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 
 import { api } from "@/api/client";
+import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 import i18n from "@/i18n";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType, StakeholderRoleOption } from "@/types";
@@ -57,8 +58,9 @@ import { escapeListItem, LIST_SEPARATOR, WORKBOOK_FORMAT_VERSION } from "./listC
 const FORMAT_VERSION = WORKBOOK_FORMAT_VERSION;
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const MAX_PATH_DEPTH = 8;
-// Card ids per `GET /relations?card_ids=` / `GET /cards?ids=` request. Keeps
-// URLs reasonable and stays under the endpoint's 500-id cap.
+// Card ids per `GET /relations?card_ids=` request. Keeps URLs reasonable and
+// stays under the endpoint's 500-id cap. (Cards by id go through
+// `fetchCardsByIdsLenient`, which chunks on its own.)
 const RELATION_ID_CHUNK = 200;
 const META_SHEET_NAME = "_Meta";
 const RELATIONS_SHEET_NAME = "Relations";
@@ -216,10 +218,10 @@ async function fetchRelationsForCards(cardIds: Set<string>): Promise<Relation[]>
 
 /**
  * Top up `byId` with cards we know we'll need to render relation refs but
- * that aren't part of the export's filtered slice. Uses `GET /cards?ids=`
- * (existing endpoint, batched up to ~200 ids per request to keep URLs
- * reasonable) so single-type exports still resolve cross-type endpoints to
- * proper `parent_path/name` refs.
+ * that aren't part of the export's filtered slice. Uses
+ * `fetchCardsByIdsLenient` (chunked so no URL hits a proxy limit; a failed
+ * chunk is skipped) so single-type exports still resolve cross-type endpoints
+ * to proper `parent_path/name` refs.
  *
  * Fed BOTH endpoints of every relation, not just targets: a `Relations` row
  * writes a `source_ref` as well, and for a relation pointing *at* an exported
@@ -233,40 +235,28 @@ async function enrichMissingCards(
   byId: Map<string, Card>,
   cardIds: Iterable<string>,
 ): Promise<void> {
-  const queue: string[] = [];
+  let level: string[] = [];
   const queued = new Set<string>();
   for (const cid of cardIds) {
     if (byId.has(cid) || queued.has(cid)) continue;
     queued.add(cid);
-    queue.push(cid);
+    level.push(cid);
   }
-  const CHUNK = 200;
-  for (let depth = 0; depth < MAX_PATH_DEPTH && queue.length > 0; depth++) {
+  for (let depth = 0; depth < MAX_PATH_DEPTH && level.length > 0; depth++) {
     const nextLevel: string[] = [];
-    for (let i = 0; i < queue.length; i += CHUNK) {
-      const chunk = queue.slice(i, i + CHUNK);
-      let resp: { items: Card[] };
-      try {
-        resp = await api.get<{ items: Card[] }>(
-          `/cards?ids=${chunk.join(",")}&page_size=${CHUNK}`,
-        );
-      } catch {
-        // Permission-denied or transient error: skip this chunk. The
-        // exporter will fall back to bare names for any endpoint whose
-        // full card we couldn't fetch.
-        continue;
-      }
-      for (const card of resp.items) {
-        if (!byId.has(card.id)) byId.set(card.id, card);
-        const parentId = card.parent_id;
-        if (parentId && !byId.has(parentId) && !queued.has(parentId)) {
-          queued.add(parentId);
-          nextLevel.push(parentId);
-        }
+    // Lenient: a permission-denied or transient chunk is skipped, and the
+    // exporter falls back to bare names for any endpoint whose full card we
+    // couldn't fetch.
+    const { cards } = await fetchCardsByIdsLenient(level);
+    for (const card of cards) {
+      if (!byId.has(card.id)) byId.set(card.id, card);
+      const parentId = card.parent_id;
+      if (parentId && !byId.has(parentId) && !queued.has(parentId)) {
+        queued.add(parentId);
+        nextLevel.push(parentId);
       }
     }
-    queue.length = 0;
-    queue.push(...nextLevel);
+    level = nextLevel;
   }
 }
 

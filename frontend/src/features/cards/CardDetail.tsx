@@ -18,7 +18,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardLogoMenu from "@/components/CardLogoMenu";
@@ -60,6 +60,7 @@ import type {
   CardEffectivePermissions,
   AiSuggestResponse,
 } from "@/types";
+import { brand, FAVORITE_COLOR, SEVERITY_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 // ── Default permissions (allow everything until loaded) ─────────
 const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
@@ -589,8 +590,8 @@ export default function CardDetail() {
                       position: "absolute",
                       inset: 0,
                       borderRadius: 2,
-                      bgcolor: "rgba(0,0,0,0.45)",
-                      color: "#fff",
+                      bgcolor: alpha(theme.palette.common.black, 0.45),
+                      color: "common.white",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -598,7 +599,7 @@ export default function CardDetail() {
                       transition: "opacity 120ms",
                     }}
                   >
-                    <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color="#fff" />
+                    <MaterialSymbol icon="photo_camera" size={isMobile ? 16 : 20} color={theme.palette.common.white} />
                   </Box>
                 )}
               </Box>
@@ -865,7 +866,7 @@ export default function CardDetail() {
                   <MaterialSymbol
                     icon="cards_star"
                     size={20}
-                    color={isFavorite ? "#f5a623" : "#ccc"}
+                    color={isFavorite ? FAVORITE_COLOR : theme.palette.grey[400]}
                   />
                 </ListItemIcon>
                 <ListItemText>
@@ -886,7 +887,7 @@ export default function CardDetail() {
                     <MaterialSymbol
                       icon={isObserver ? "visibility" : "visibility_off"}
                       size={20}
-                      color={isObserver ? "#1976d2" : "#ccc"}
+                      color={isObserver ? brand.primary : theme.palette.grey[400]}
                     />
                   </ListItemIcon>
                   <ListItemText>
@@ -899,7 +900,7 @@ export default function CardDetail() {
               {!isArchived && perms.can_archive && (
                 <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
                   <ListItemIcon>
-                    <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
+                    <MaterialSymbol icon="archive" size={20} color={WARNING_STRONG_COLOR} />
                   </ListItemIcon>
                   <ListItemText>{t("common:actions.archive")}</ListItemText>
                 </MenuItem>
@@ -907,7 +908,7 @@ export default function CardDetail() {
               {!isArchived && perms.can_delete && (
                 <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
                   <ListItemIcon>
-                    <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
+                    <MaterialSymbol icon="delete_forever" size={20} color={SEVERITY_COLORS.critical} />
                   </ListItemIcon>
                   <ListItemText>{t("common:actions.delete")}</ListItemText>
                 </MenuItem>

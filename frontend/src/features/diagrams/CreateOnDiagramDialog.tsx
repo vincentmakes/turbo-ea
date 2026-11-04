@@ -9,6 +9,7 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { hasTypePermission } from "@/components/RequirePermission";
@@ -37,6 +38,7 @@ export default function CreateOnDiagramDialog({
   onCreate,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
+  const theme = useTheme();
   const typeLabel = useTypeLabel();
   const { user } = useAuthContext();
   const [selectedType, setSelectedType] = useState("");
@@ -79,7 +81,7 @@ export default function CreateOnDiagramDialog({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <MaterialSymbol icon="note_add" size={22} color="#6a1b9a" />
+        <MaterialSymbol icon="note_add" size={22} color={theme.palette.secondary.dark} />
         {t("createOnDiagram.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>

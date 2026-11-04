@@ -5,6 +5,54 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.6] - 2026-11-02
+
+### Changed
+- The dashboard's to-do, active-user and data-quality tiles use the same green as every other success indicator; it was a near-identical shade of its own.
+- A few near-identical shades were merged into the palette colour they stood next to: the matrix report's diagonal highlight in light mode, the extension-update notification orange, the timeline's reset mark, the ink, rules and secondary text of printed reports, the approved-signature fill, and the BPMN properties panel's dark surface. None of them differs by more than a barely perceptible step.
+
+## [2.186.5] - 2026-11-02
+
+### Fixed
+- Expanding a card's relations again on a diagram no longer brings back the related cards or relation lines you had removed from the canvas while the group was expanded; an orange `!` on the card restores them when you want them back.
+- Collapsing and re-expanding a card's relations on a diagram puts the related cards back where you had arranged them, as the collapse confirmation always said it would.
+
+### Security
+- Extension licence files are now stored encrypted at rest. Existing licences are encrypted on upgrade. **Upgrade note:** rotating `SECRET_KEY`, or restoring a database onto a host with a different one, now disables paid extensions until each licence file is pasted again under Admin → Extensions; nothing else is affected.
+- ServiceNow connection credentials are stored through the same encryption helper as every other secret, so they are redacted wherever other secrets are.
+
+## [2.186.4] - 2026-11-02
+
+### Changed
+- Lifecycle phase colours are the same on every screen: the Lifecycle report, the inventory's phase filter chips and group headers, the web portal's lifecycle bar and the Layered Dependency View now use the card page's set (grey plan, blue phase-in, green active, orange phase-out, red end of life).
+- Risk levels use one severity scale everywhere: the risk matrix and a card's history tab show "low" in the same green as the risk badges.
+- The capability, process and value-stream catalogues highlight the selected item in the brand blue rather than magenta.
+- Secondary and disabled icon greys follow the theme, so they dim correctly in dark mode instead of staying a fixed light-mode grey.
+- In dark mode, a hovered edge in the TurboLens architecture diagram uses the same light-blue highlight as the Layered Dependency View.
+
+### Security
+- Updated the frontend build's transitive development dependency `minimatch` to 11.0.4 to clear the open Dependabot advisory (GHSA-g3hv-75wg-m249, pattern amplification in glob matching); it does not ship in the application images.
+
+## [2.186.3] - 2026-11-02
+
+### Security
+- Confirmation dialogs (restore, archive and delete a card; archive a role; delete a field, section or stakeholder role) now escape the names they quote, so a card or label named with HTML can no longer inject markup into the page.
+
+### Fixed
+- The stakeholder-roles list endpoint now requires a signed-in user instead of answering anonymous requests.
+
+## [2.186.2] - 2026-11-01
+
+### Changed
+- Upgraded the bundled DrawIO editor from v31.5.3 to v32.6.9.
+- Upgraded `bpmn-js` from 18.31.0 to 18.31.1.
+
+## [2.186.1] - 2026-10-31
+
+### Fixed
+- The Description, Lifecycle and attribute section headers on a card, and the permission group headers in role management, are no longer a button nested in a button, which browsers flagged and screen readers announced twice.
+- Saving a report thumbnail or exporting a report no longer logs three font-stylesheet errors in the browser console.
+
 ## [2.186.0] - 2026-10-31
 
 ### Changed

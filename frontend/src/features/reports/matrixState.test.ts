@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RelationType } from "@/types";
+import { HEATMAP_RAMP } from "@/theme/tokens";
 import { DIR_FORWARD, DIR_REVERSE, type CellDatum } from "./matrixCells";
 import type { MatrixValue, MatrixValueIndex } from "./matrixDimensions";
 import { buildTree, type MatrixItem, type TreeNode } from "./matrixHierarchy";
@@ -103,16 +104,18 @@ describe("heatColor", () => {
   it("shades a count across ten steps, light and dark", () => {
     expect(HEAT_COLORS_LIGHT).toHaveLength(10);
     expect(HEAT_COLORS_DARK).toHaveLength(10);
-    expect(heatColor(1, 10, "p", false)).toBe("#e3f2fd");
-    expect(heatColor(4, 10, "p", false)).toBe("#64b5f6"); // 3.6 → step 3
-    expect(heatColor(5, 10, "p", false)).toBe("#42a5f5"); // 4.5 → step 4
-    expect(heatColor(10, 10, "p", false)).toBe("#0d47a1");
-    expect(heatColor(10, 10, "p", true)).toBe("#42a5f5");
-    expect(heatColor(1, 10, "p", true)).toBe("#0d2137");
+    expect(HEAT_COLORS_LIGHT).toEqual(HEATMAP_RAMP.light);
+    expect(HEAT_COLORS_DARK).toEqual(HEATMAP_RAMP.dark);
+    expect(heatColor(1, 10, "p", false)).toBe(HEATMAP_RAMP.light[0]);
+    expect(heatColor(4, 10, "p", false)).toBe(HEATMAP_RAMP.light[3]); // 3.6 → step 3
+    expect(heatColor(5, 10, "p", false)).toBe(HEATMAP_RAMP.light[4]); // 4.5 → step 4
+    expect(heatColor(10, 10, "p", false)).toBe(HEATMAP_RAMP.light[9]);
+    expect(heatColor(10, 10, "p", true)).toBe(HEATMAP_RAMP.dark[9]);
+    expect(heatColor(1, 10, "p", true)).toBe(HEATMAP_RAMP.dark[0]);
   });
 
   it("caps a count above the maximum at the darkest step", () => {
-    expect(heatColor(30, 10, "p", false)).toBe("#0d47a1");
+    expect(heatColor(30, 10, "p", false)).toBe(HEATMAP_RAMP.light[9]);
   });
 });
 

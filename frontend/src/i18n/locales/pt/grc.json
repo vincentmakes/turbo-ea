@@ -1,7 +1,6 @@
 {
   "page": {
-    "title": "GRC",
-    "subtitle": "Governança, Risco e Conformidade"
+    "title": "GRC"
   },
   "tabs": {
     "governance": "Governança",
@@ -21,19 +20,12 @@
     },
     "decisions": {
       "title": "Decisões de arquitetura",
-      "empty": "Ainda não há decisões de arquitetura registradas.",
-      "status": "Status",
-      "open": "Abrir",
       "create": "Nova decisão"
     }
   },
   "compliance": {
     "aiRequired": {
-      "title": "O provedor de IA não está configurado",
-      "body": "A análise de conformidade é conduzida por um LLM — cada regulamento é avaliado chamando o provedor de IA configurado contra o seu cenário. Sem um provedor, as varreduras terminam instantaneamente, mas cada achado recai em «IA não configurada»; por isso ocultamos o scanner até que possa produzir resultados úteis.",
-      "regulations": "Regulamentos cobertos: Lei de IA da UE · LGPD/GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
-      "configureCta": "Configurar provedor de IA",
-      "contactAdmin": "Peça a um administrador para configurar um provedor de IA em Admin › Configurações › IA para habilitar a análise de conformidade."
+      "configureCta": "Configurar provedor de IA"
     }
   },
   "soaw": {
@@ -62,14 +54,9 @@
   "risks.openRisk": "Abrir risco {{reference}}",
   "risks.createRisk": "Criar risco",
   "risks.createRiskFromFinding": "Criar risco a partir do resultado",
-  "risks.viewSource": "Ver resultado de origem",
   "risks.backToRegister": "Voltar ao registo",
   "risks.deleteRisk": "Eliminar risco",
   "risks.confirmDelete": "Eliminar o risco {{reference}}? Esta ação não pode ser anulada.",
-  "risks.emptyState": "Ainda não há riscos. Crie um manualmente ou promova um resultado de conformidade do TurboLens.",
-  "risks.toastCreated": "Risco {{reference}} criado.",
-  "risks.toastUpdated": "Risco {{reference}} atualizado.",
-  "risks.toastDeleted": "Risco {{reference}} eliminado.",
   "risks.kpi.total": "Total de riscos",
   "risks.kpi.critical": "Críticos",
   "risks.kpi.overdue": "Em atraso",
@@ -92,7 +79,6 @@
   "risks.filter.category": "Categoria",
   "risks.filter.level": "Nível",
   "risks.filter.owner": "Responsável",
-  "risks.filter.all": "Todos",
   "risks.filter.overdueOnly": "Mostrar apenas em atraso",
   "risks.matrix.initial": "Inicial",
   "risks.matrix.residual": "Residual",
@@ -147,13 +133,10 @@
   "risks.field.targetDate": "Data-alvo de resolução",
   "risks.field.createdBy": "Criado por",
   "risks.field.updatedAt": "Última atualização",
-  "risks.field.acceptedBy": "Aceite por",
   "risks.field.acceptedAt": "Aceite em",
   "risks.field.acceptanceRationale": "Justificativa da aceitação",
   "risks.cards.none": "Nenhuma ficha associada. Adicione as aplicações, componentes de TI ou sistemas afetados por este risco.",
   "risks.cards.linkPlaceholder": "Pesquisar fichas para associar…",
-  "risks.cards.link": "Associar ficha",
-  "risks.cards.unlink": "Remover associação",
   "risks.cards.countLabel_one": "{{count}} ficha afetada",
   "risks.cards.countLabel_other": "{{count}} fichas afetadas",
   "risks.action.accept": "Aceitar risco",
@@ -165,10 +148,8 @@
   "risks.action.close": "Fechar",
   "risks.residual.lockedUntilMitigation": "A avaliação residual torna-se editável assim que a mitigação for planeada.",
   "risks.residual.noneYet": "Ainda não avaliado",
-  "risks.overdueTooltip": "A data-alvo {{date}} já passou.",
   "risks.cardTab.title": "Riscos",
   "risks.cardTab.empty": "Nenhum risco associado a esta ficha.",
-  "risks.cardTab.linkExisting": "Associar risco existente",
   "risks.cardTab.createNew": "Criar novo risco",
   "risks.action.moveTo": "Mover para:",
   "risks.action.analyse": "Iniciar análise",
@@ -183,11 +164,8 @@
   "risks.action.resume_mitigation": "Retomar mitigação",
   "risks.action.close_now": "Fechar sem monitorização",
   "risks.filter.clearAll": "Limpar filtros",
-  "risks.filter.quickSearch": "Pesquisa rápida",
   "risks.filter.activeCount_one": "{{count}} filtro",
   "risks.filter.activeCount_other": "{{count}} filtros",
-  "risks.grid.empty": "Nenhum risco corresponde aos filtros atuais.",
-  "risks.grid.rowsPerPage": "Linhas por página",
   "risks.filter.panelTitle": "Filtros",
   "risks.filter.searchPlaceholder": "Referência, título, descrição…",
   "risks.filter.ownerSearchPlaceholder": "Pesquisar utilizadores…",
@@ -271,13 +249,10 @@
   "risks.tasks.skip.confirm": "Saltar ciclo",
   "risks.tasks.history.empty": "Sem ocorrências ainda.",
   "risks.tasks.history.cycleLabel": "Ciclo #{{sequence}}",
-  "risks.tasks.history.dueOn": "vence {{date}}",
   "risks.tasks.history.assignedTo": "Atribuída a {{name}}",
   "risks.tasks.history.unassigned": "Não atribuída",
-  "risks.tasks.history.closedAt": "Fechada em {{timestamp}}",
   "risks.tasks.history.completedBy": "Por {{name}} · responsável no momento: {{owner}}",
   "risks.tasks.history.byShort": "por {{name}}",
-  "risks.tasks.field.reference": "ID da tarefa",
   "risks.tasks.actions.exportHistory": "Exportar histórico (Excel)",
   "risks.tasks.history.targetLabel": "Alvo",
   "risks.tasks.history.completedLabel": "Concluída",
@@ -285,8 +260,6 @@
   "risks.tasks.history.showOlder_one": "Mostrar {{count}} ciclo anterior",
   "risks.tasks.history.showOlder_other": "Mostrar {{count}} ciclos anteriores",
   "risks.tasks.history.collapse": "Recolher histórico",
-  "risks.export.sheetRisks": "Riscos",
-  "risks.export.sheetTasks": "Tarefas de mitigação",
   "risks.export.documentTitle": "Risco",
   "risks.import.title": "Importar riscos",
   "risks.import.intro": "Carregue um ficheiro .xlsx para criar riscos em massa. Cada linha torna-se um novo risco; as linhas cuja referência já corresponde a um risco existente são ignoradas. Os responsáveis são associados por e-mail e as fichas por nome exato — tudo o que não puder ser associado é ignorado com um aviso.",

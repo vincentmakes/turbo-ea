@@ -4,7 +4,7 @@
  * "Show matching", then assert on BOTH the grid's filter model and the
  * page's facet state — and on what a subsequent panel edit does to them.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent, within, act } from "@testing-library/react";
 import { useMemo, useRef, useState } from "react";
 import { AgGridReact } from "ag-grid-react";

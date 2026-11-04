@@ -31,8 +31,15 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
+// The real fetcher, wrapped so a test can see the exporter goes through it.
+vi.mock("@/api/cardsByIds", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/cardsByIds")>();
+  return { ...actual, fetchCardsByIdsLenient: vi.fn(actual.fetchCardsByIdsLenient) };
+});
+
 // Late import so the mocks above are in place.
 import { api } from "@/api/client";
+import { fetchCardsByIdsLenient } from "@/api/cardsByIds";
 import {
   parseWorkbookSheets,
   validateMultiSheet,
@@ -978,6 +985,229 @@ describe("buildExportWorkbook", () => {
     );
     const rows = rowsOf(wb, APP_TYPE.label);
     expect(rows[0]["rel:depends_on"]).toBe("DB");
+  });
+
+  it("falls back to the embedded ref name when the card lookup fails outright", async () => {
+    // A rejected lookup chunk is skipped, not fatal: the export still ships,
+    // with the bare name from the relation payload.
+    vi.mocked(fetchCardsByIdsLenient).mockClear();
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+    const targetId = "22222222-2222-2222-2222-222222222222";
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations?")) {
+        return [
+          {
+            id: "rel1",
+            type: "depends_on",
+            source_id: app.id,
+            target_id: targetId,
+            source: { id: app.id, type: app.type, name: app.name },
+            target: { id: targetId, type: "ITComponent", name: "DB" },
+          },
+        ];
+      }
+      if (url.startsWith("/cards?")) throw new Error("HTTP 403");
+      return [];
+    });
+
+    const wb = await buildExportWorkbook(
+      [app],
+      APP_TYPE,
+      [APP_TYPE, ITC_TYPE],
+      [DEPENDS_ON_TYPE],
+    );
+    expect(rowsOf(wb, APP_TYPE.label)[0]["rel:depends_on"]).toBe("DB");
+    // Off-sheet cards are looked up through the shared, chunking fetcher.
+    expect(vi.mocked(fetchCardsByIdsLenient)).toHaveBeenCalledWith([targetId]);
+  });
+
+  /**
+   * Mock an export of `app` whose `depends_on` relations point at `targets`,
+   * with `GET /cards?ids=` answering from `pool` — only the cards it asks for,
+   * in pool order — so the ancestor walk sees one level per request.
+   */
+  function mockOffSheetGraph(app: Card, targets: Card[], pool: Card[]): void {
+    getMock.mockImplementation(async (url: string): Promise<unknown> => {
+      if (url.startsWith("/relations?")) {
+        return targets.map((tgt, i) => ({
+          id: `r${i}`,
+          type: "depends_on",
+          source_id: app.id,
+          target_id: tgt.id,
+          source: { id: app.id, type: app.type, name: app.name },
+          target: { id: tgt.id, type: tgt.type, name: tgt.name },
+        }));
+      }
+      if (url.startsWith("/cards?ids=")) {
+        const ids = decodeURIComponent(url.slice("/cards?ids=".length)).split(",");
+        return { items: pool.filter((c) => ids.includes(c.id)) };
+      }
+      return [];
+    });
+  }
+
+  describe("walking an off-sheet target's ancestors", () => {
+    const app: Card = makeCard({
+      id: "11111111-1111-1111-1111-111111111111",
+      type: "Application",
+      name: "ERP",
+    });
+
+    it("fetches a missing parent in a second round so the ref carries its path", async () => {
+      // Two IT Components named "DB" make the name ambiguous, so the one with
+      // a parent must be written as `Cluster / DB` — which needs the parent,
+      // itself off-sheet, fetched by a second lookup.
+      const lenient = vi.mocked(fetchCardsByIdsLenient);
+      lenient.mockClear();
+      const parent: Card = makeCard({
+        id: "99999999-9999-9999-9999-999999999999",
+        type: "ITComponent",
+        name: "Cluster",
+      });
+      const child: Card = makeCard({
+        id: "22222222-2222-2222-2222-222222222222",
+        type: "ITComponent",
+        name: "DB",
+        parent_id: parent.id,
+      });
+      const orphan: Card = makeCard({
+        id: "33333333-3333-3333-3333-333333333333",
+        type: "ITComponent",
+        name: "DB",
+      });
+      mockOffSheetGraph(app, [child, orphan], [child, orphan, parent]);
+
+      const wb = await buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [
+        DEPENDS_ON_TYPE,
+      ]);
+
+      expect(lenient).toHaveBeenCalledTimes(2);
+      expect(lenient.mock.calls[0][0]).toEqual([child.id, orphan.id]);
+      // Only the parent, once — never the parentless card's missing parent.
+      expect(lenient.mock.calls[1][0]).toEqual([parent.id]);
+      expect(rowsOf(wb, APP_TYPE.label)[0]["rel:depends_on"]).toBe("Cluster / DB; DB");
+    });
+
+    it("stops after MAX_PATH_DEPTH lookups however deep the chain goes", async () => {
+      // A ten-ancestor chain: target -> A1 -> ... -> A10. The walk is bounded
+      // so a corrupt cycle can't spin forever.
+      const lenient = vi.mocked(fetchCardsByIdsLenient);
+      lenient.mockClear();
+      const ancestors: Card[] = Array.from({ length: 10 }, (_, i) =>
+        makeCard({
+          id: `a${i + 1}`,
+          type: "ITComponent",
+          name: `A${i + 1}`,
+          parent_id: i < 9 ? `a${i + 2}` : undefined,
+        }),
+      );
+      const target: Card = makeCard({
+        id: "22222222-2222-2222-2222-222222222222",
+        type: "ITComponent",
+        name: "DB",
+        parent_id: ancestors[0].id,
+      });
+      mockOffSheetGraph(app, [target], [target, ...ancestors]);
+
+      await buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+      // 8 === MAX_PATH_DEPTH in excelExport.ts: one lookup per level.
+      expect(lenient).toHaveBeenCalledTimes(8);
+      expect(lenient.mock.calls[7][0]).toEqual(["a7"]);
+    });
+
+    it("asks for a parent shared by two targets only once", async () => {
+      const lenient = vi.mocked(fetchCardsByIdsLenient);
+      lenient.mockClear();
+      const parent: Card = makeCard({
+        id: "99999999-9999-9999-9999-999999999999",
+        type: "ITComponent",
+        name: "Cluster",
+      });
+      const t1: Card = makeCard({
+        id: "22222222-2222-2222-2222-222222222222",
+        type: "ITComponent",
+        name: "DB",
+        parent_id: parent.id,
+      });
+      const t2: Card = makeCard({
+        id: "33333333-3333-3333-3333-333333333333",
+        type: "ITComponent",
+        name: "Cache",
+        parent_id: parent.id,
+      });
+      mockOffSheetGraph(app, [t1, t2], [t1, t2, parent]);
+
+      await buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+      expect(lenient).toHaveBeenCalledTimes(2);
+      expect(lenient.mock.calls[1][0]).toEqual([parent.id]);
+    });
+
+    it("does not look up a parent that is already in the export", async () => {
+      const lenient = vi.mocked(fetchCardsByIdsLenient);
+      lenient.mockClear();
+      const target: Card = makeCard({
+        id: "22222222-2222-2222-2222-222222222222",
+        type: "ITComponent",
+        name: "DB",
+        parent_id: app.id,
+      });
+      mockOffSheetGraph(app, [target], [target, app]);
+
+      await buildExportWorkbook([app], APP_TYPE, [APP_TYPE, ITC_TYPE], [DEPENDS_ON_TYPE]);
+
+      expect(lenient).toHaveBeenCalledTimes(1);
+      expect(lenient.mock.calls[0][0]).toEqual([target.id]);
+    });
+
+    it("keeps the exported card when a lookup returns a card with the same id", async () => {
+      // The slice is authoritative: a fetched copy of a card already in the
+      // export (stale, or another view of it) must not replace it.
+      const lenient = vi.mocked(fetchCardsByIdsLenient);
+      lenient.mockClear();
+      const APP_TO_APP: RelationType = { ...DEPENDS_ON_TYPE, target_type_key: "Application" };
+      const other: Card = makeCard({
+        id: "44444444-4444-4444-4444-444444444444",
+        type: "Application",
+        name: "CRM",
+      });
+      const offSheet: Card = makeCard({
+        id: "55555555-5555-5555-5555-555555555555",
+        type: "Application",
+        name: "Portal",
+      });
+      const impostor: Card = { ...other, name: "IMPOSTOR" };
+      getMock.mockImplementation(async (url: string): Promise<unknown> => {
+        if (url.startsWith("/relations?")) {
+          return [other, offSheet].map((tgt, i) => ({
+            id: `r${i}`,
+            type: "depends_on",
+            source_id: app.id,
+            target_id: tgt.id,
+            source: { id: app.id, type: app.type, name: app.name },
+            target: { id: tgt.id, type: tgt.type, name: tgt.name },
+          }));
+        }
+        // Asked only for the off-sheet card, but answers with a copy of an
+        // exported one too.
+        if (url.startsWith("/cards?ids=")) return { items: [offSheet, impostor] };
+        return [];
+      });
+
+      const wb = await buildExportWorkbook([app, other], APP_TYPE, [APP_TYPE, ITC_TYPE], [
+        APP_TO_APP,
+      ]);
+
+      expect(lenient).toHaveBeenCalledTimes(1);
+      const rows = rowsOf(wb, APP_TYPE.label);
+      expect(rows.map((r) => r.name)).toEqual(["ERP", "CRM"]);
+      expect(rows[0]["rel:depends_on"]).toBe("CRM; Portal");
+    });
   });
 
   it("scopes the relations request to the exported cards instead of fetching every relation", async () => {

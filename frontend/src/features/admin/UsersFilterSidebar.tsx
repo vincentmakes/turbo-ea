@@ -24,6 +24,7 @@ import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
 import type { AppRole } from "@/types";
+import { STATUS_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 export type UserStatusFilter = "active" | "invited" | "inactive";
 
@@ -75,8 +76,6 @@ export const USER_COLUMNS = [
   },
 ];
 
-export const USER_COLUMN_KEYS = USER_COLUMNS.map((c) => c.key);
-
 export const DEFAULT_USER_COLUMNS = new Set<string>([
   "name",
   "email",
@@ -92,14 +91,14 @@ const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
 
 const STATUS_OPTIONS: { key: UserStatusFilter; tKey: string; color: string }[] = [
-  { key: "active", tKey: "users.status.active", color: "#4caf50" },
-  { key: "invited", tKey: "users.status.invited", color: "#ed6c02" },
-  { key: "inactive", tKey: "users.status.disabled", color: "#9e9e9e" },
+  { key: "active", tKey: "users.status.active", color: STATUS_COLORS.success },
+  { key: "invited", tKey: "users.status.invited", color: WARNING_STRONG_COLOR },
+  { key: "inactive", tKey: "users.status.disabled", color: STATUS_COLORS.neutral },
 ];
 
 const AUTH_OPTIONS: { key: "local" | "sso"; tKey: string; color: string }[] = [
-  { key: "local", tKey: "users.auth.local", color: "#607d8b" },
-  { key: "sso", tKey: "users.auth.sso", color: "#1976d2" },
+  { key: "local", tKey: "users.auth.local", color: "grey.600" },
+  { key: "sso", tKey: "users.auth.sso", color: brand.primary },
 ];
 
 interface Props {
@@ -450,7 +449,7 @@ export default function UsersFilterSidebar({
                       variant={filters.statuses.includes(s.key) ? "filled" : "outlined"}
                       sx={
                         filters.statuses.includes(s.key)
-                          ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
+                          ? { bgcolor: s.color, color: "common.white", borderColor: s.color }
                           : { borderColor: s.color, color: s.color }
                       }
                     />
@@ -477,7 +476,7 @@ export default function UsersFilterSidebar({
                       variant={filters.authMethods.includes(a.key) ? "filled" : "outlined"}
                       sx={
                         filters.authMethods.includes(a.key)
-                          ? { bgcolor: a.color, color: "#fff", borderColor: a.color }
+                          ? { bgcolor: a.color, color: "common.white", borderColor: a.color }
                           : { borderColor: a.color, color: a.color }
                       }
                     />

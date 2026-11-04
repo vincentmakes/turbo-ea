@@ -5,6 +5,7 @@ import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import CataloguePage from "@/features/reference-catalogue/CataloguePage";
+import { CARD_TYPE_COLORS, brand } from "@/theme/tokens";
 import type {
   CatalogueKindConfig,
   CatalogueNode,
@@ -95,8 +96,8 @@ const config: CatalogueKindConfig = {
   i18nNamespace: "valueStreamCatalogue",
   inventoryCardType: "BusinessContext",
   // Matches the BusinessContext card-type colour in the metamodel seed.
-  accentColor: "#fe6690",
-  selectionColor: "#D63384",
+  accentColor: CARD_TYPE_COLORS.BusinessContext,
+  selectionColor: brand.primary,
   levelLabel: (level) => (level === 1 ? "Stream" : "Stage"),
   heroIcon: "alt_route",
   renderDetailExtras: (node) => <ValueStreamDetailExtras node={node} />,

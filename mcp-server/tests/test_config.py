@@ -59,9 +59,7 @@ class TestReadVersion:
         monkeypatch.chdir(tmp_path)
         assert config._read_version() == "1.2.3"
 
-    def test_the_package_file_wins_over_the_working_directory(
-        self, tmp_path, monkeypatch
-    ):
+    def test_the_package_file_wins_over_the_working_directory(self, tmp_path, monkeypatch):
         package = tmp_path / "mcp-server" / "turbo_ea_mcp"
         package.mkdir(parents=True)
         (tmp_path / "mcp-server" / "VERSION").write_text("2.0.0\n")

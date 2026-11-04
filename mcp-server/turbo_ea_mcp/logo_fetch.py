@@ -96,16 +96,12 @@ def _check_url(url: str) -> str:
             "bytes would be modifiable in transit.",
         )
     if parts.username or parts.password:
-        raise LogoFetchError(
-            "image_url_invalid", "A URL carrying credentials is refused."
-        )
+        raise LogoFetchError("image_url_invalid", "A URL carrying credentials is refused.")
     host = (parts.hostname or "").lower()
     if not host:
         raise LogoFetchError("image_url_invalid", "The URL has no host.")
     if parts.port not in (None, 443):
-        raise LogoFetchError(
-            "image_url_invalid", f"Only port 443 is fetched, not {parts.port}."
-        )
+        raise LogoFetchError("image_url_invalid", f"Only port 443 is fetched, not {parts.port}.")
     if host not in allowed_hosts():
         raise LogoFetchError(
             "image_url_not_allowed",
@@ -131,9 +127,7 @@ def _check_addresses(host: str) -> None:
     try:
         infos = socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)
     except OSError as exc:
-        raise LogoFetchError(
-            "image_url_unreachable", f"Could not resolve '{host}': {exc}"
-        ) from exc
+        raise LogoFetchError("image_url_unreachable", f"Could not resolve '{host}': {exc}") from exc
     for info in infos:
         addr = info[4][0]
         try:
@@ -189,10 +183,7 @@ async def fetch_logo(url: str, sniff: SniffFn) -> tuple[bytes, str]:
             "image_url_disabled",
             "Fetching logos by URL is switched off on this instance "
             "(MCP_LOGO_FETCH_ENABLED=false).",
-            remedy=(
-                "Send the image as image_base64, or use an icon_slug from the "
-                "bundled packs."
-            ),
+            remedy=("Send the image as image_base64, or use an icon_slug from the bundled packs."),
         )
 
     current = url

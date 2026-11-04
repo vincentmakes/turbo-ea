@@ -26,8 +26,9 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { FAVORITE_COLOR, STATUS_COLORS, brand } from "@/theme/tokens";
 import OriginChip from "@/components/OriginChip";
 import ShareDiagramDialog from "./ShareDiagramDialog";
 import { useAuthContext } from "@/hooks/AuthContext";
@@ -47,7 +48,6 @@ import DiagramsFilterSidebar, {
 
 type SortKey = "updated_at" | "created_at" | "name";
 
-const FAVORITE_COLOR = "#f5b400";
 const DIAGRAM_ICON = "schema";
 
 export default function DiagramsPage() {
@@ -286,13 +286,13 @@ export default function DiagramsPage() {
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           ) : (
-            <MaterialSymbol icon={DIAGRAM_ICON} size={36} color="#bbb" />
+            <MaterialSymbol icon={DIAGRAM_ICON} size={36} color={theme.palette.action.disabled} />
           )}
         </Box>
 
         <CardContent sx={{ p: 1.25, "&:last-child": { pb: 1.25 } }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.25 }}>
-            <MaterialSymbol icon={DIAGRAM_ICON} size={18} color="#1976d2" />
+            <MaterialSymbol icon={DIAGRAM_ICON} size={18} color={brand.primary} />
             <Typography variant="body2" fontWeight={600} noWrap sx={{ flex: 1 }}>
               {d.name}
             </Typography>
@@ -333,14 +333,14 @@ export default function DiagramsPage() {
             position: "absolute",
             top: 2,
             left: 2,
-            bgcolor: "rgba(255,255,255,0.85)",
-            "&:hover": { bgcolor: "rgba(255,255,255,0.95)" },
+            bgcolor: alpha(theme.palette.common.white, 0.85),
+            "&:hover": { bgcolor: alpha(theme.palette.common.white, 0.95) },
           }}
         >
           <MaterialSymbol
             icon="star"
             size={16}
-            color={d.is_favorite ? FAVORITE_COLOR : "#999"}
+            color={d.is_favorite ? FAVORITE_COLOR : STATUS_COLORS.neutral}
             style={d.is_favorite ? { fontVariationSettings: "'FILL' 1" } : undefined}
           />
         </IconButton>
@@ -353,8 +353,8 @@ export default function DiagramsPage() {
           position: "absolute",
           top: 2,
           right: 2,
-          bgcolor: "rgba(255,255,255,0.85)",
-          "&:hover": { bgcolor: "rgba(255,255,255,0.95)" },
+          bgcolor: alpha(theme.palette.common.white, 0.85),
+          "&:hover": { bgcolor: alpha(theme.palette.common.white, 0.95) },
         }}
         onClick={(e) => openMenu(e, d)}
       >
@@ -593,7 +593,7 @@ export default function DiagramsPage() {
           sx={{ color: "error.main" }}
         >
           <ListItemIcon>
-            <MaterialSymbol icon="delete" size={18} color="#d32f2f" />
+            <MaterialSymbol icon="delete" size={18} color={theme.palette.error.main} />
           </ListItemIcon>
           <ListItemText>{t("common:actions.delete")}</ListItemText>
         </MenuItem>

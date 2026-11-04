@@ -8,6 +8,8 @@ import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { EOL_COVERAGE_COLORS } from "@/theme";
 import { EOL_COVERAGE_BUCKETS } from "@/lib/eol";
 import { setViewportWidth } from "@/test/matchMedia";
+import { createTheme } from "@mui/material/styles";
+import { STATUS_CHIP_COLORS } from "@/theme/tokens";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -487,5 +489,41 @@ describe("DataQualityReport charts", () => {
     await screen.findByRole("img", { name: COMPLETENESS });
     expect(screen.queryByText("End-of-life coverage")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("echart")).toHaveLength(1);
+  });
+});
+
+describe("DataQualityReport colours", () => {
+  const theme = createTheme();
+
+  const WARN = STATUS_CHIP_COLORS.warning.text;
+  const QUIET = theme.palette.text.secondary;
+
+  it.each([
+    { orphaned: 6, stale: 5, orphanedIcon: WARN, staleIcon: QUIET },
+    { orphaned: 5, stale: 6, orphanedIcon: QUIET, staleIcon: WARN },
+  ])("warns on a KPI icon only above five (orphaned $orphaned, stale $stale)", async (c) => {
+    vi.mocked(api.get).mockResolvedValue({ ...MOCK_DQ, orphaned: c.orphaned, stale: c.stale });
+    renderReport();
+    expect(await screen.findByText("link_off")).toHaveStyle({ color: c.orphanedIcon });
+    expect(screen.getByText("update_disabled")).toHaveStyle({ color: c.staleIcon });
+  });
+
+  it("writes the table's quality chips in white", async () => {
+    vi.mocked(useSavedReport).mockReturnValue({
+      ...vi.mocked(useSavedReport)(""),
+      consumeConfig: vi.fn().mockReturnValue({ view: "table" }),
+    });
+    vi.mocked(api.get).mockResolvedValue({
+      ...MOCK_DQ,
+      worst_items: [{ id: "w1", name: "Bad Card", type: "Application", data_quality: 20, updated_at: null }],
+    });
+    renderReport();
+    const worst = (await screen.findByText("Bad Card")).closest("tr")!;
+    const chips = [
+      ...screen.getAllByText("62%").map((e) => e.closest(".MuiChip-root")).filter(Boolean),
+      worst.querySelectorAll(".MuiChip-root")[1],
+    ];
+    expect(chips).toHaveLength(2);
+    for (const chip of chips) expect(chip).toHaveStyle({ color: theme.palette.common.white });
   });
 });

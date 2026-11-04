@@ -19,6 +19,8 @@ Dos comprobaciones independientes protegen su instancia:
 1. **Procedencia (firma).** Cada paquete lleva una firma Ed25519 de la clave del proveedor. Turbo EA la verifica al subirlo *y de nuevo en cada arranque del backend*. Los paquetes sin firma, manipulados o de terceros se rechazan — una extensión instalada es exactamente lo que el proveedor construyó.
 2. **Activación (licencia).** Un archivo de licencia firmado enumera sus derechos — uno por extensión, cada uno con su propia caducidad. Una extensión instalada solo funciona mientras exista un derecho utilizable. Las licencias están **vinculadas al ID de su instancia** — una licencia emitida para otra instancia se rechaza.
 
+   El archivo de licencia pegado se almacena cifrado con el `SECRET_KEY` de su instancia. Si rota `SECRET_KEY`, o restaura una copia de seguridad de la base de datos en un host configurado con otra distinta, cada extensión de pago muestra *No se pudo descifrar la licencia almacenada* y se pausa hasta que vuelva a pegar su archivo de licencia; no se modifica ningún dato de las extensiones.
+
 ## Extensiones gratuitas
 
 Algunas extensiones son **gratuitas** y no requieren ninguna licencia. Se instalan y se ejecutan de inmediato: no hay paso de compra ni archivo de licencia que pegar. Las extensiones gratuitas se marcan con una insignia **Gratis** en las pestañas Tienda e Instaladas, y las acciones **Comprar** y **Renovar** quedan ocultas para ellas. La comprobación de firma se sigue aplicando igual que en las extensiones de pago (una extensión gratuita también está firmada por el proveedor), por lo que la procedencia está garantizada en cualquier caso. Como no necesitan ninguna licencia, las extensiones gratuitas nunca caducan ni entran en un periodo de gracia.

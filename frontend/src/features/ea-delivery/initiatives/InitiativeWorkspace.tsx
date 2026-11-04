@@ -9,7 +9,7 @@ import LinkifiedText from "@/components/LinkifiedText";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
-import { CARD_TYPE_COLORS } from "@/theme/tokens";
+import { CARD_TYPE_COLORS, FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import { selectOnKey } from "./selectOnKey";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
 import DeliverableSection, {
@@ -74,7 +74,7 @@ export default function InitiativeWorkspace({
     return (
       <Box sx={{ p: 2 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
-          <MaterialSymbol icon="folder_open" size={28} color="#999" />
+          <MaterialSymbol icon="folder_open" size={28} color={STATUS_COLORS.neutral} />
           <Typography variant="h5" fontWeight={600}>
             {t("sidebar.unlinked")}
           </Typography>
@@ -147,7 +147,7 @@ function InitiativeView({
         <MaterialSymbol
           icon="rocket_launch"
           size={32}
-          color={isArchived ? "#999" : CARD_TYPE_COLORS.Initiative}
+          color={isArchived ? STATUS_COLORS.neutral : CARD_TYPE_COLORS.Initiative}
         />
         <Typography variant="h5" fontWeight={600} sx={{ flex: 1, minWidth: 0 }} noWrap>
           {initiative.name}
@@ -159,7 +159,7 @@ function InitiativeView({
             <MaterialSymbol
               icon="cards_star"
               size={22}
-              color={fav ? "#f5a623" : "currentColor"}
+              color={fav ? FAVORITE_COLOR : "currentColor"}
             />
           </IconButton>
         </Tooltip>

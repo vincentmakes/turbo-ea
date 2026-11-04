@@ -36,6 +36,7 @@ import { useResourceTypes } from "@/hooks/useResourceTypes";
 import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import { brand } from "@/theme/tokens";
 import type { ResourceType, ResourceTypeKind, TranslationMap } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 interface FormState {
   key: string;
@@ -66,6 +67,7 @@ function cleanTranslations(map: TranslationMap): TranslationMap {
 const KINDS: ResourceTypeKind[] = ["link_type", "file_category"];
 
 export default function ResourceTypesAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { refresh } = useResourceTypes();
 
@@ -196,7 +198,7 @@ export default function ResourceTypesAdmin() {
           <MaterialSymbol
             icon={r.kind === "link_type" ? r.icon || "link" : "label"}
             size={20}
-            color={r.is_enabled ? brand.primary : "#bbb"}
+            color={r.is_enabled ? brand.primary : theme.palette.action.disabled}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box

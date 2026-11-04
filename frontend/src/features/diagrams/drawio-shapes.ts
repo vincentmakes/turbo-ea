@@ -1485,8 +1485,8 @@ export interface ExpandChildRelation {
  *
  * Collapse removes the child cells outright, so without this the user's manual
  * positioning and formatting is destroyed the moment they click the `−` overlay.
- * Call it immediately BEFORE `collapseCardGroup` and merge the result into the
- * expand cache.
+ * Call it immediately BEFORE `collapseCardGroup` and record the result in the
+ * group's memory (`recordCollapse` in `groupMemory.ts`).
  */
 export function captureGroupChildLayout(
   iframe: HTMLIFrameElement,
@@ -1555,10 +1555,6 @@ export function addExpandOverlay(
   return true;
 }
 
-/**
- * Insert child vertices + edges around a parent card cell.
- * Children are laid out in a column to the right, grouped by type.
- */
 /** Edge metadata threaded back from expansion helpers so the editor can
  *  populate its cellId → relation-meta side-table. */
 export interface ExpandedEdgeInfo {
@@ -1749,108 +1745,6 @@ function insertRelationEdges(
     });
   });
   return out;
-}
-
-export function expandCardGroup(
-  iframe: HTMLIFrameElement,
-  parentCellId: string,
-  children: ExpandChildData[],
-  hideLabels = false,
-): ExpandedEdgeInfo[] {
-  const ctx = getMxGraph(iframe);
-  if (!ctx) return [];
-  const { win, graph } = ctx;
-
-  const model = graph.getModel();
-  const root = graph.getDefaultParent();
-  const parentCell = model.getCell(parentCellId);
-  if (!parentCell) return [];
-
-  const geo = graph.getCellGeometry(parentCell);
-  if (!geo) return [];
-
-  // Compute total height with gaps between type groups
-  let totalH = 0;
-  for (let i = 0; i < children.length; i++) {
-    if (i > 0) {
-      totalH += children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
-    }
-    totalH += CHILD_CARD_H;
-  }
-
-  const startX = geo.x + geo.width + CHILD_GAP_X;
-  const startY = geo.y + geo.height / 2 - totalH / 2;
-
-  const inserted: ExpandedEdgeInfo[] = [];
-  model.beginUpdate();
-  try {
-    let yOff = 0;
-    for (let i = 0; i < children.length; i++) {
-      if (i > 0) {
-        yOff += children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
-      }
-      const ch = children[i];
-      const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${i}`;
-      const edgeCellId = `fse-${cid}`;
-      const stroke = darken(ch.color);
-      const style = [
-        "rounded=1", "whiteSpace=wrap", "html=1",
-        `fillColor=${ch.color}`, `fontColor=${readableTextColor(ch.color)}`,
-        `strokeColor=${stroke}`, "fontSize=11",
-        "fontStyle=1", "arcSize=12",
-        ...iconStyleParts(ch.icon),
-      ].join(";");
-
-      const xmlDoc = win.mxUtils.createXmlDocument();
-      const obj = xmlDoc.createElement("object");
-      setCardLabel(obj, ch.name, ch.layout?.detail ?? []);
-      obj.setAttribute("cardId", ch.id);
-      obj.setAttribute("cardType", ch.type);
-      obj.setAttribute("parentGroupCell", parentCellId);
-
-      // Restore the user's own placement/styling when we have one (see
-      // captureGroupChildLayout); fall back to the computed stack otherwise.
-      const vertex = graph.insertVertex(
-        root, cid, obj,
-        ch.layout?.x ?? startX,
-        ch.layout?.y ?? startY + yOff,
-        ch.layout?.width ?? CHILD_CARD_W,
-        ch.layout?.height ?? CHILD_CARD_H,
-        ch.layout?.style || style,
-      );
-
-      // Every relation to this child, each stamped with its own relation id so
-      // canvas-side deletions can fire DELETE /relations/{id}. The editor also
-      // maintains a cellId → relation-meta side-table as the authoritative
-      // source for in-session deletes, since DrawIO sometimes drops user-object
-      // attributes on edges created inside an open transaction — which is why
-      // every edge here is reported back, not just the first.
-      const edgeInfos = insertRelationEdges(
-        win, graph, root, parentCell, vertex, edgeCellId, ch, hideLabels,
-      );
-
-      inserted.push({
-        cellId: cid,
-        cardId: ch.id,
-        edgeCellId: edgeInfos[0].edgeCellId,
-        relationId: edgeInfos[0].relationId,
-        relationType: edgeInfos[0].relationType,
-        relationLabel: edgeInfos[0].relationLabel,
-        ...(edgeInfos.length > 1 ? { extraEdges: edgeInfos.slice(1) } : {}),
-      });
-      yOff += CHILD_CARD_H;
-    }
-
-    const pv = parentCell.value;
-    if (pv?.setAttribute) {
-      pv.setAttribute("expanded", "1");
-      pv.setAttribute("childCellIds", inserted.map((c) => c.cellId).join(","));
-    }
-  } finally {
-    model.endUpdate();
-  }
-
-  return inserted;
 }
 
 /**
@@ -2060,9 +1954,26 @@ export function getGroupChildRelationIds(
 }
 
 /**
- * Add a resync overlay (orange "!" icon) at the top-left of a card cell.
- * Indicates the cell's expanded children are out of sync with inventory.
- * Must be called AFTER addExpandOverlay (which clears all overlays first).
+ * Is this card cell's group expanded on the canvas right now? Read the way
+ * {@link refreshCardOverlays} reads it: marked expanded AND at least one child
+ * still drawn — a group whose children were all deleted counts as collapsed.
+ */
+export function isGroupExpanded(iframe: HTMLIFrameElement, cellId: string): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const model = ctx.graph.getModel();
+  if (model.getCell(cellId)?.value?.getAttribute?.("expanded") !== "1") return false;
+  const cells = model.cells || {};
+  return Object.keys(cells).some(
+    (k) => cells[k]?.value?.getAttribute?.("parentGroupCell") === cellId,
+  );
+}
+
+/**
+ * Add the orange "!" overlay at the top-left of a card cell. It marks a group
+ * whose expansion leaves out cards or relations the user removed from it
+ * (see `groupMemory.ts`); clicking it forgets them. Must be called AFTER
+ * addExpandOverlay / addChevronOverlay (which clear all overlays first).
  */
 export function addResyncOverlay(
   iframe: HTMLIFrameElement,
@@ -2078,7 +1989,7 @@ export function addResyncOverlay(
 
   const overlay = new win.mxCellOverlay(
     new win.mxImage(RESYNC_OVERLAY, 18, 18),
-    "Restore removed relations (click to resync)",
+    "Restore removed relations",
     win.mxConstants.ALIGN_LEFT,
     win.mxConstants.ALIGN_TOP,
     new win.mxPoint(0, 0),
@@ -2116,11 +2027,6 @@ export interface RemovedRelationTombstone {
   /** Actual visible text on the edge before deletion. */
   edgeLabel?: string;
 }
-
-/** Backwards-compat alias kept so consumers don't need to be edited
- *  in lock-step. New code should reference RemovedRelationTombstone
- *  directly. */
-export type RemovedTombstone = RemovedRelationTombstone;
 
 export interface ResolvedRelationMeta {
   relationId: string;
@@ -2250,7 +2156,7 @@ export function attachCellLifecycleListeners(
         knownEdgeCells.delete(cell.id);
       }
     }
-    // eslint-disable-next-line no-console
+     
     console.debug("[turbo-ea] CELLS_REMOVED", {
       count: cells.length,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2403,10 +2309,10 @@ export function attachCellLifecycleListeners(
           dangling.push(c);
         }
       }
-      // eslint-disable-next-line no-console
+       
       console.debug("[turbo-ea] post-pass dangling-edge scan", {
         removedVertexCellIds: Array.from(removedVertexCellIds),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         dangling: dangling.map((d) => ({ id: d.id, src: d.source?.id, tgt: d.target?.id })),
       });
       if (dangling.length > 0) {
@@ -2421,14 +2327,14 @@ export function attachCellLifecycleListeners(
         setTimeout(() => {
           // Defensive: filter to only edges still in the model. The
           // user might have manually removed some in the meantime.
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+           
           const stillThere = dangling.filter(
             (d) => model.getCell(d.id) === d,
           );
-          // eslint-disable-next-line no-console
+           
           console.debug("[turbo-ea] cascade-removing edges", {
             count: stillThere.length,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             ids: stillThere.map((s) => s.id),
           });
           if (stillThere.length === 0) return;
@@ -2442,7 +2348,7 @@ export function attachCellLifecycleListeners(
             } catch {
               // Fall through to direct model.remove below.
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             for (const e of stillThere) {
               if (model.getCell(e.id) === e) {
                 try {
@@ -2518,7 +2424,7 @@ export function attachCellLifecycleListeners(
       }
       return;
     }
-    // eslint-disable-next-line no-console
+     
     console.debug("[turbo-ea] diff-detected removals", {
       vertices: goneVertices.map((v) => ({
         id: v?.id,
@@ -3441,7 +3347,7 @@ export function attachParentChangeListener(
     return true;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const listener = () => {
     const cells = model.cells || {};
     for (const k of Object.keys(cells)) {
@@ -3514,7 +3420,7 @@ export function attachParentChangeListener(
   // skip the model's CHANGE event for some gestures (esp. when the
   // graph's `cellsMoved` is overridden). The redundant triggers are
   // cheap and cover those cases.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const moveCellsListener = () => listener();
   try {
     graph.addListener(win.mxEvent.MOVE_CELLS, moveCellsListener);
@@ -3543,7 +3449,7 @@ export function attachParentChangeListener(
       const defaultParent = graph.getDefaultParent();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const toDetach: any[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const toDetachOffsets: Array<{ x: number; y: number }> = [];
       for (const k of Object.keys(cells)) {
         const cell = cells[k];
@@ -3759,9 +3665,9 @@ export function addChevronOverlay(
 export type ExpandPlacement = "right" | "below" | "above";
 
 /**
- * Insert child cells around a parent. Variant of expandCardGroup that
- * accepts a placement direction so the same helper backs Show Dependency
- * (right), Drill-Down (below) and Roll-Up (above).
+ * Insert child cells around a parent card cell. The placement direction lets
+ * the same helper back Show Dependency (right: a column grouped by type),
+ * Drill-Down (below) and Roll-Up (above).
  */
 export function expandCardGroupAt(
   iframe: HTMLIFrameElement,
@@ -3786,8 +3692,7 @@ export function expandCardGroupAt(
   model.beginUpdate();
   try {
     if (placement === "right") {
-      // Stack children vertically to the right (matches the original
-      // expandCardGroup behaviour).
+      // Stack children vertically to the right, a wider gap between types.
       let totalH = 0;
       for (let i = 0; i < children.length; i++) {
         if (i > 0) {
@@ -4953,7 +4858,7 @@ export function applyCardLabels(
  * height disagree (a diagram generated by the Layered Dependency View before
  * card cells could grow carries every row in a fixed 72px box).
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function resizeForDetailRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   win: any,

@@ -20,13 +20,13 @@ import ListItemButton from "@mui/material/ListItemButton";
 import Collapse from "@mui/material/Collapse";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { alpha } from "@mui/material/styles";
+import { alpha, darken } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
 import SponsorshipDialog from "@/components/SponsorshipDialog";
-import { brand } from "@/theme";
+import { NAVBAR_DEFAULTS, STATUS_COLORS, brand } from "@/theme";
 import { api, auth, setToken } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import ImpersonateRoleDialog from "@/features/admin/ImpersonateRoleDialog";
@@ -937,7 +937,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   }}
                   sx={{
                     background: `linear-gradient(135deg, ${brand.sponsorFrom}, ${brand.sponsorTo})`,
-                    color: "#fff",
+                    color: "common.white",
                     textTransform: "none",
                     px: 1.25,
                     py: 0.25,
@@ -1196,14 +1196,14 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               position: "sticky",
               top: 64,
               zIndex: 1099,
-              bgcolor: "#ffb300",
-              color: "#1a1a2e",
+              bgcolor: STATUS_COLORS.warning,
+              color: NAVBAR_DEFAULTS.bg,
               px: 2,
               py: 1,
               display: "flex",
               alignItems: "center",
               gap: 1.5,
-              borderBottom: "1px solid rgba(0,0,0,0.12)",
+              borderBottom: (theme) => `1px solid ${alpha(theme.palette.common.black, 0.12)}`,
               boxShadow: 1,
             }}
             role="status"
@@ -1222,9 +1222,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               onClick={handleStopImpersonating}
               disabled={stopImpersonatingBusy}
               sx={{
-                bgcolor: "#1a1a2e",
-                color: "#fff",
-                "&:hover": { bgcolor: "#000018" },
+                bgcolor: NAVBAR_DEFAULTS.bg,
+                color: NAVBAR_DEFAULTS.fg,
+                "&:hover": { bgcolor: darken(NAVBAR_DEFAULTS.bg, 0.5) },
                 textTransform: "none",
                 fontWeight: 600,
               }}

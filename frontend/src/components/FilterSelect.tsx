@@ -60,7 +60,7 @@ export default function FilterSelect({
               key={key}
               sx={{
                 bgcolor: isEmpty ? "action.selected" : (opt?.color ?? undefined),
-                color: opt?.color ? "#fff" : undefined,
+                color: opt?.color ? "common.white" : undefined,
                 fontWeight: 500,
                 fontStyle: isEmpty ? "italic" : undefined,
                 fontSize: "0.7rem",

@@ -8,6 +8,7 @@
  * Modeled after CapabilityMapReport.
  */
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -43,7 +44,15 @@ import { readableTextColor } from "@/lib/color";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCardSubtypeLabel } from "@/hooks/useCardSubtypeLabel";
 import { useProcessTypeOptions } from "@/features/bpm/useProcessTypeOptions";
-import { CARD_TYPE_COLORS } from "@/theme";
+import {
+  CARD_TYPE_COLORS,
+  CATEGORICAL_COLORS,
+  RAG_COLORS,
+  SCREEN_INK,
+  SEVERITY_COLORS,
+  STATUS_COLORS,
+} from "@/theme";
+import { HEAT_EMPTY, heatShade } from "./heatScale";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { applyScope, useCardScope } from "@/hooks/useCardScope";
@@ -106,24 +115,24 @@ const METRIC_OPTIONS: { key: Metric; tKey: string; icon: string }[] = [
 ];
 
 const MATURITY_MAP: Record<string, { order: number; tKey: string; color: string }> = {
-  initial: { order: 1, tKey: "processMap.maturityInitial", color: "#d32f2f" },
-  managed: { order: 2, tKey: "processMap.maturityManaged", color: "#f57c00" },
-  defined: { order: 3, tKey: "processMap.maturityDefined", color: "#fbc02d" },
-  measured: { order: 4, tKey: "processMap.maturityMeasured", color: "#66bb6a" },
-  optimized: { order: 5, tKey: "processMap.maturityOptimized", color: "#2e7d32" },
+  initial: { order: 1, tKey: "processMap.maturityInitial", color: SEVERITY_COLORS.critical },
+  managed: { order: 2, tKey: "processMap.maturityManaged", color: SEVERITY_COLORS.high },
+  defined: { order: 3, tKey: "processMap.maturityDefined", color: SEVERITY_COLORS.medium },
+  measured: { order: 4, tKey: "processMap.maturityMeasured", color: SEVERITY_COLORS.low },
+  optimized: { order: 5, tKey: "processMap.maturityOptimized", color: RAG_COLORS.green },
 };
 
 const AUTOMATION_MAP: Record<string, { order: number; tKey: string; color: string }> = {
-  manual: { order: 1, tKey: "processMap.automationManual", color: "#d32f2f" },
-  partially: { order: 2, tKey: "processMap.automationPartially", color: "#f57c00" },
-  fully: { order: 3, tKey: "processMap.automationFully", color: "#2e7d32" },
+  manual: { order: 1, tKey: "processMap.automationManual", color: SEVERITY_COLORS.critical },
+  partially: { order: 2, tKey: "processMap.automationPartially", color: SEVERITY_COLORS.high },
+  fully: { order: 3, tKey: "processMap.automationFully", color: RAG_COLORS.green },
 };
 
 const RISK_MAP: Record<string, { order: number; tKey: string; color: string }> = {
-  low: { order: 1, tKey: "processMap.riskLow", color: "#66bb6a" },
-  medium: { order: 2, tKey: "processMap.riskMedium", color: "#fbc02d" },
-  high: { order: 3, tKey: "processMap.riskHigh", color: "#f57c00" },
-  critical: { order: 4, tKey: "processMap.riskCritical", color: "#d32f2f" },
+  low: { order: 1, tKey: "processMap.riskLow", color: SEVERITY_COLORS.low },
+  medium: { order: 2, tKey: "processMap.riskMedium", color: SEVERITY_COLORS.medium },
+  high: { order: 3, tKey: "processMap.riskHigh", color: SEVERITY_COLORS.high },
+  critical: { order: 4, tKey: "processMap.riskCritical", color: SEVERITY_COLORS.critical },
 };
 
 const SUBTYPE_TKEYS: Record<string, string> = {
@@ -147,28 +156,13 @@ function metricValue(attrs: Record<string, unknown>, metric: Metric, appCount: n
 }
 
 function heatColor(value: number, max: number, metric: Metric): string {
-  if (max === 0 || value === 0) return "rgba(128, 128, 128, 0.1)";
+  if (max === 0 || value === 0) return HEAT_EMPTY;
   const ratio = Math.min(value / max, 1);
-
-  // Risk: white → red
-  if (metric === "risk") {
-    const r = Math.round(255 - ratio * 55);
-    const g = Math.round(255 - ratio * 207);
-    const b = Math.round(255 - ratio * 215);
-    return `rgb(${r},${g},${b})`;
-  }
-  // Maturity/automation: white → green (higher is better)
-  if (metric === "maturity" || metric === "automation") {
-    const r = Math.round(255 - ratio * 213);
-    const g = Math.round(255 - ratio * 130);
-    const b = Math.round(255 - ratio * 210);
-    return `rgb(${r},${g},${b})`;
-  }
-  // App count / cost: white → blue
-  const r = Math.round(227 - ratio * 202);
-  const g = Math.round(242 - ratio * 152);
-  const b = Math.round(253 - ratio * 51);
-  return `rgb(${r},${g},${b})`;
+  // Risk: white → red. Maturity / automation: white → green (higher is better).
+  // App count / cost: pale → deep blue.
+  if (metric === "risk") return heatShade("risk", ratio);
+  if (metric === "maturity" || metric === "automation") return heatShade("better", ratio);
+  return heatShade("amount", ratio);
 }
 
 function metricLabel(attrs: Record<string, unknown>, metric: Metric, appCount: number, fmtCost: (v: number) => string, totalCost: number, tr: (key: string) => string): string {
@@ -436,21 +430,21 @@ function ProcessCard({
               fontWeight: 700,
               flex: 1,
               minWidth: CARD_TITLE_MIN_WIDTH,
-              color: isHighContrast ? "#fff" : "#333",
+              color: isHighContrast ? "common.white" : SCREEN_INK.onLightFill,
             }}
             noWrap
           >
             {node.name}
           </Typography>
           {subtypeTKey && (
-            <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+            <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: (th) => alpha(th.palette.common.white, 0.6) }} />
           )}
           {processType && (
             <Chip size="small" label={processType.label}
               sx={{ height: 18, fontSize: "0.65rem", bgcolor: processType.color, color: readableTextColor(processType.color) }} />
           )}
           <Chip size="small" label={label}
-            sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }} />
+            sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7) }} />
         </Box>
 
         {relatedChips.length > 0 && (
@@ -505,17 +499,17 @@ function ProcessCard({
             fontWeight: 700,
             flex: 1,
             minWidth: CARD_TITLE_MIN_WIDTH,
-            color: isHighContrast ? "#fff" : "#333",
+            color: isHighContrast ? "common.white" : SCREEN_INK.onLightFill,
           }}
           noWrap
         >
           {node.name}
         </Typography>
         {subtypeTKey && (
-          <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+          <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: (th) => alpha(th.palette.common.white, 0.6) }} />
         )}
         <Chip size="small" label={tr("processMap.apps", { count: node.deepAppCount })}
-          sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }} />
+          sx={{ height: 20, fontSize: "0.7rem", bgcolor: (th) => alpha(th.palette.common.white, 0.7) }} />
       </Box>
 
       {relatedChips.length > 0 && (
@@ -865,7 +859,7 @@ export default function ProcessMapReport() {
     <ReportShell
       title={t("processMap.title")}
       icon="account_tree"
-      iconColor="#e65100"
+      iconColor={CATEGORICAL_COLORS[3]}
       hasTableToggle={false}
       onReset={handleReset}
       printParams={printParams}
@@ -940,7 +934,7 @@ export default function ProcessMapReport() {
               pt: 0.5,
             }}
           >
-            <MaterialSymbol icon="filter_alt" size={18} color="#999" />
+            <MaterialSymbol icon="filter_alt" size={18} color={STATUS_COLORS.neutral} />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
               {t("processMap.scope")}
             </Typography>
@@ -1043,7 +1037,7 @@ export default function ProcessMapReport() {
 
       {displayTree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
-          <MaterialSymbol icon="route" size={48} color="#999" />
+          <MaterialSymbol icon="route" size={48} color={STATUS_COLORS.neutral} />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {hasActiveFilters
               ? t("processMap.noProcessesFiltered")
@@ -1097,7 +1091,7 @@ export default function ProcessMapReport() {
                   label={t(MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].tKey)}
                   sx={{
                     bgcolor: MATURITY_MAP[(drawer.attributes?.maturity as string) || ""].color,
-                    color: "#fff",
+                    color: "common.white",
                   }}
                 />
               )}
@@ -1106,7 +1100,7 @@ export default function ProcessMapReport() {
                   label={t("processMap.risk", { level: t(RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].tKey) })}
                   sx={{
                     bgcolor: RISK_MAP[(drawer.attributes?.riskLevel as string) || ""].color,
-                    color: "#fff",
+                    color: "common.white",
                   }}
                 />
               )}

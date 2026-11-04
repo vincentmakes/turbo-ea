@@ -7,6 +7,9 @@
  * toolbar's facets, the legend and the shell wiring.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { alpha } from "@mui/material/styles";
+import { STATUS_COLORS } from "@/theme/tokens";
+import { heatShade, type HeatScale } from "./heatScale";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createRef } from "react";
@@ -82,6 +85,13 @@ import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import CapabilityMapReport from "./CapabilityMapReport";
+
+/** A heat-scale shade as jsdom reports a computed colour, `rgb(r, g, b)`. */
+const shade = (scale: HeatScale, ratio: number): string => {
+  const n = parseInt(heatShade(scale, ratio).slice(1), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -339,7 +349,7 @@ describe("CapabilityMapReport timeline pills", () => {
     await loaded();
     expect(pills()).toEqual([
       ["Alpha", "#d32f2f"],
-      ["Beta", "rgba(128, 128, 128, 0.2)"],
+      ["Beta", alpha(STATUS_COLORS.neutral, 0.2)],
     ]);
   });
 
@@ -479,7 +489,7 @@ describe("CapabilityMapReport detail drawer", () => {
     ]);
     expect([dot("Alpha"), dot("Beta"), dot("Delta")]).toEqual([
       "rgb(211, 47, 47)",
-      "rgba(128, 128, 128, 0.2)",
+      alpha(STATUS_COLORS.neutral, 0.2),
       "rgb(56, 142, 60)",
     ]);
   });
@@ -667,11 +677,11 @@ describe("CapabilityMapReport legend", () => {
     expect(within(legend()).getByText("High")).toBeInTheDocument();
     expect(within(legend()).getByText("Max: 3")).toBeInTheDocument();
     expect(swatches()).toEqual([
-      "rgb(227, 242, 253)",
-      "rgb(177, 204, 240)",
-      "rgb(126, 166, 228)",
-      "rgb(76, 128, 215)",
-      "rgb(25, 90, 202)",
+      shade("amount", 0),
+      shade("amount", 0.25),
+      shade("amount", 0.5),
+      shade("amount", 0.75),
+      shade("amount", 1),
     ]);
   });
 

@@ -28,6 +28,7 @@ import type {
   SubtypeDef,
   StakeholderRoleDefinitionFull,
 } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 /** A field's help text is translatable once it has one in any language. */
 function hasFieldHelp(f: FieldDef): boolean {
@@ -63,6 +64,7 @@ export default function TranslationDialog({
   onClose,
   onSave,
 }: TranslationDialogProps) {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { enabledLocales } = useEnabledLocales();
   // Memoised: the completion counts below key on it.
@@ -446,7 +448,7 @@ export default function TranslationDialog({
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <MaterialSymbol icon="translate" size={22} color="#666" />
+          <MaterialSymbol icon="translate" size={22} color={theme.palette.text.secondary} />
           <span>
             {t("metamodel.translationDialog.title", { label: cardType.key })}
           </span>

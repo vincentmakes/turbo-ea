@@ -33,6 +33,7 @@ import {
   makeSubtype,
 } from "@/test/fixtures/metamodel";
 import type { ArchitectureDecision, Card, DiagramSummary, SoAW } from "@/types";
+import { FAVORITE_COLOR } from "@/theme/tokens";
 import InitiativeWorkspace from "./InitiativeWorkspace";
 import type { InitiativeTreeNode } from "./useInitiativeData";
 
@@ -203,6 +204,16 @@ describe("InitiativeWorkspace", () => {
     expect(screen.queryByText("Description")).not.toBeInTheDocument();
     const favorite = screen.getByRole("button", { name: "Add to favorites" });
     expect(within(favorite).getByText("cards_star")).toBeInTheDocument();
+  });
+
+  it("paints the header star in the favourites colour only for a favourite", () => {
+    const star = (name: string) => within(screen.getByRole("button", { name })).getByText("cards_star");
+    const first = renderWorkspace({ kind: "initiative", node: node(PROGRAM) });
+    expect(star("Add to favorites").style.color).toBe("currentcolor");
+    first.unmount();
+
+    renderWorkspace({ kind: "initiative", node: node(PROGRAM) }, { isFavorite: () => true });
+    expect(star("Remove from favorites")).toHaveStyle({ color: FAVORITE_COLOR });
   });
 
   it("shows the subtype label as a header chip and a Subtype detail row", () => {

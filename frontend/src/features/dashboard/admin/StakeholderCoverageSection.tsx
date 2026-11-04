@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 export interface CoverageRow {
   type: string;
@@ -35,7 +36,7 @@ export default function StakeholderCoverageSection({ rows, loading }: Props) {
   return (
     <SectionPaper
       icon="person_off"
-      iconColor="#ef6c00"
+      iconColor={DASHBOARD_KPI_COLORS.noStakeholders}
       title={t("dashboard.admin.stakeholderCoverage")}
     >
       {loading ? (
@@ -78,7 +79,12 @@ export default function StakeholderCoverageSection({ rows, loading }: Props) {
                     sx={{
                       width: `${pct}%`,
                       height: "100%",
-                      bgcolor: pct < 50 ? "#ef6c00" : pct < 80 ? "#f5a623" : "#43a047",
+                      bgcolor:
+                        pct < 50
+                          ? DASHBOARD_KPI_COLORS.noStakeholders
+                          : pct < 80
+                            ? DASHBOARD_KPI_COLORS.qualityFair
+                            : DASHBOARD_KPI_COLORS.qualityGood,
                     }}
                   />
                 </Box>

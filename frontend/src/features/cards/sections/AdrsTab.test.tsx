@@ -30,6 +30,8 @@ vi.mock("@/features/ea-delivery/CreateAdrDialog", () => ({
 }));
 
 import { api } from "@/api/client";
+import { createTheme } from "@mui/material/styles";
+import { STATUS_COLORS } from "@/theme/tokens";
 import AdrsTab from "./AdrsTab";
 
 const CARD_ID = "card-123";
@@ -86,6 +88,17 @@ describe("AdrsTab", () => {
     expect(screen.getByText("Adopt Cloud-First Strategy")).toBeInTheDocument();
     expect(screen.getByText("Signed")).toBeInTheDocument();
     expect(screen.getByText("NexaCore ERP")).toBeInTheDocument();
+  });
+
+  it("colours each linked-card chip by its type, grey for an unknown type, in white text", async () => {
+    const other = { id: "c-2", name: "Mystery Box", type: "Unknown" };
+    const adr = { ...mockAdrs[0], linked_cards: [...mockAdrs[0].linked_cards, other] };
+    vi.mocked(api.get).mockResolvedValue([adr]);
+    renderTab();
+    const white = createTheme().palette.common.white;
+    const chip = async (name: string) => (await screen.findByText(name)).closest(".MuiChip-root");
+    expect(await chip("NexaCore ERP")).toHaveStyle({ backgroundColor: "#0f7eb5", color: white });
+    expect(await chip("Mystery Box")).toHaveStyle({ backgroundColor: STATUS_COLORS.neutral, color: white });
   });
 
   it("navigates to the ADR editor on row click", async () => {

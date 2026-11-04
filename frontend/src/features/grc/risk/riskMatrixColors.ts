@@ -8,6 +8,10 @@
  * matrix is 5×5 with an extra "unknown" row/column — those cells fall
  * through to a neutral grey.
  */
+import { grey } from "@mui/material/colors";
+import { alpha } from "@mui/material/styles";
+
+import { SEVERITY_COLORS } from "@/theme/tokens";
 import type { RiskImpact, RiskLevel, RiskProbability } from "@/types";
 
 const LEVEL_MATRIX: Record<RiskProbability, Record<RiskImpact, RiskLevel>> = {
@@ -52,15 +56,15 @@ export function deriveLevelFromPair(
 export function riskLevelBackground(level: RiskLevel | null): string {
   switch (level) {
     case "critical":
-      return "rgba(211, 47, 47, 0.28)";
+      return alpha(SEVERITY_COLORS.critical, 0.28);
     case "high":
-      return "rgba(245, 124, 0, 0.24)";
+      return alpha(SEVERITY_COLORS.high, 0.24);
     case "medium":
-      return "rgba(251, 192, 45, 0.22)";
+      return alpha(SEVERITY_COLORS.medium, 0.22);
     case "low":
-      return "rgba(56, 142, 60, 0.18)";
+      return alpha(SEVERITY_COLORS.low, 0.18);
     default:
-      return "rgba(117, 117, 117, 0.12)";
+      return alpha(grey[600], 0.12);
   }
 }
 
@@ -68,12 +72,12 @@ export function riskLevelBackground(level: RiskLevel | null): string {
 export function riskLevelSwatch(level: RiskLevel): string {
   switch (level) {
     case "critical":
-      return "rgba(211, 47, 47, 0.7)";
+      return alpha(SEVERITY_COLORS.critical, 0.7);
     case "high":
-      return "rgba(245, 124, 0, 0.7)";
+      return alpha(SEVERITY_COLORS.high, 0.7);
     case "medium":
-      return "rgba(251, 192, 45, 0.75)";
+      return alpha(SEVERITY_COLORS.medium, 0.75);
     case "low":
-      return "rgba(56, 142, 60, 0.6)";
+      return alpha(SEVERITY_COLORS.low, 0.6);
   }
 }

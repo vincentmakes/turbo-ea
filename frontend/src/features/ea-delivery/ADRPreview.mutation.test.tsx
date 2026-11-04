@@ -32,6 +32,8 @@ import { api } from "@/api/client";
 import ADRPreview from "./ADRPreview";
 import { installClipboard } from "@/test/dom";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
+import { setViewportWidth } from "@/test/matchMedia";
+import { RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 const BASE: ArchitectureDecision = {
   id: "adr-1",
@@ -200,6 +202,17 @@ describe("ADRPreview — content", () => {
     expect(screen.queryByText("Signatures")).not.toBeInTheDocument();
   });
 
+  it("shows the gavel glyph in the brand colour on a wide screen only", async () => {
+    const first = renderPreview();
+    expect(await screen.findByText("gavel")).toHaveStyle({ color: brand.primary });
+    first.unmount();
+
+    setViewportWidth(500);
+    renderPreview();
+    expect(await screen.findByRole("heading", { name: "ADR-0001", level: 4 })).toBeInTheDocument();
+    expect(screen.queryByText("gavel")).not.toBeInTheDocument();
+  });
+
   it("shows no snackbar once loaded", async () => {
     renderPreview();
     expect(await screen.findByRole("heading", { name: "ADR-0001", level: 4 })).toBeInTheDocument();
@@ -214,7 +227,7 @@ describe("ADRPreview — signature block", () => {
     const heading = await screen.findByRole("heading", { name: "Signatures" });
     const icon = heading.previousElementSibling as HTMLElement;
     expect(icon).toHaveTextContent("draw");
-    expect(icon).toHaveStyle({ color: "#ed6c02" });
+    expect(icon).toHaveStyle({ color: WARNING_STRONG_COLOR });
     expect(screen.queryByText("verified")).not.toBeInTheDocument();
   });
 
@@ -224,7 +237,7 @@ describe("ADRPreview — signature block", () => {
     const heading = await screen.findByRole("heading", { name: "Signatures" });
     const icon = heading.previousElementSibling as HTMLElement;
     expect(icon).toHaveTextContent("verified");
-    expect(icon).toHaveStyle({ color: "#2e7d32" });
+    expect(icon).toHaveStyle({ color: RAG_COLORS.green });
     expect(screen.queryByText("draw")).not.toBeInTheDocument();
   });
 

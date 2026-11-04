@@ -60,6 +60,8 @@ Rækker med tæller = 0 er nedtonede, og naboer / børn, der allerede er på læ
 
 Et udfoldet kort viser et `−`-ikon, som klapper det sammen igen. Sammenklapning fjerner de udfoldede kort fra lærredet, så Turbo EA spørger først, hvis du har flyttet eller omformateret nogen af dem; udfolder du igen, står de præcis, hvor du forlod dem.
 
+Et kort eller en relation, som du fjerner fra lærredet, mens et kort er udfoldet, forbliver skjult, når du udfolder det kort igen — indtil du genindlæser siden. Et kort, der udelader noget på denne måde, viser et orange `!` i øverste venstre hjørne: klik på det for at glemme det, du fjernede, så bringer næste udfoldning alt tilbage.
+
 ### Hierarki på lærredet
 
 Containere svarer til et korts `parent_id`:

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 import i18n from "@/i18n";
 import {
@@ -157,11 +158,11 @@ describe("architecture result helpers", () => {
   });
 
   it.each([
-    ["high", "error", "#d32f2f"],
-    ["medium", "warning", "#ed6c02"],
-    ["low", "check_circle", "#2e7d32"],
-    [undefined, "check_circle", "#2e7d32"],
-    ["critical", "check_circle", "#2e7d32"],
+    ["high", "error", RAG_COLORS.red],
+    ["medium", "warning", WARNING_STRONG_COLOR],
+    ["low", "check_circle", RAG_COLORS.green],
+    [undefined, "check_circle", RAG_COLORS.green],
+    ["critical", "check_circle", RAG_COLORS.green],
   ])("severity %s renders icon %s in colour %s", (severity, icon, colour) => {
     // Icon and colour are two views of the same three-way split, so a severity
     // can never pair the error glyph with the success tone.

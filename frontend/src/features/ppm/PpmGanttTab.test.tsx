@@ -51,6 +51,7 @@ import { mockApi } from "@/test/apiMock";
 import { installResizeObserver } from "@/test/dom";
 import type { PpmDependency, PpmTask, PpmWbs } from "@/types";
 import PpmGanttTab from "./PpmGanttTab";
+import { ThemeProvider, alpha, createTheme } from "@mui/material/styles";
 
 const INIT = "init-1";
 const base = `/ppm/initiatives/${INIT}`;
@@ -339,5 +340,38 @@ describe("PpmGanttTab", () => {
     expect(row("wbs-w1")).toMatchObject({ hideChildren: true });
     act(() => gantt.props!.onChangeExpandState(row("wbs-w1")));
     expect(row("wbs-w1")).toMatchObject({ hideChildren: false });
+  });
+});
+
+describe("PpmGanttTab — chart colours", () => {
+  // The chart is a third-party SVG styled through class-name selectors, so
+  // the rules themselves are what the theme decides: read the emotion rules
+  // scoped to the chart box's own class.
+  const rulesOf = (el: HTMLElement) => {
+    const cls = Array.from(el.classList).find((c) => c.startsWith("css-"));
+    return Array.from(document.querySelectorAll("style"))
+      .map((s) => s.textContent ?? "")
+      .join("")
+      .split("}")
+      .filter((r) => r.startsWith(`.${cls} `))
+      .join("}\n");
+  };
+
+  it.each(["light", "dark"] as const)("paints the %s theme's bands and labels", async (mode) => {
+    const theme = createTheme({ palette: { mode } });
+    const { palette } = theme;
+    serve([], []);
+    render(
+      <ThemeProvider theme={theme}>
+        <PpmGanttTab initiativeId={INIT} />
+      </ThemeProvider>,
+    );
+    const rules = rulesOf((await screen.findByTestId("gantt")).parentElement!);
+    expect(rules).toContain(`[class*='barLabel_']{fill:${palette.common.white}!important;`);
+    const band = mode === "dark" ? palette.background.paper : palette.grey[100];
+    expect(rules).toContain(`transparent 40px, ${band} 40px)`);
+    const thumb = `::-webkit-scrollbar-thumb{background:${alpha(palette.common.white, 0.2)}!important;`;
+    if (mode === "dark") expect(rules).toContain(thumb);
+    else expect(rules).not.toContain("scrollbar-thumb");
   });
 });

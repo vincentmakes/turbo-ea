@@ -637,7 +637,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       });
       setDirty(false);
       setSnack({ msg: t("modeler.draftSaved"), severity: "success" });
-    } catch (err) {
+    } catch {
       setSnack({ msg: t("modeler.saveFailed"), severity: "error" });
     } finally {
       setSaving(false);

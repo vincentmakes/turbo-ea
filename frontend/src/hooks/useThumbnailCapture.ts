@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from "react";
+import { surface } from "@/theme/tokens";
 
 /**
  * Hook for capturing a DOM element as a thumbnail preview image.
@@ -21,7 +22,7 @@ export function useThumbnailCapture(openDialog: () => void) {
           cacheBust: true,
           pixelRatio: 1,
           quality: 0.8,
-          backgroundColor: "#ffffff",
+          backgroundColor: surface.light.paper,
         });
         setThumbnail(dataUrl);
       } catch {

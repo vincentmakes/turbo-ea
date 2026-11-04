@@ -1,4 +1,5 @@
 import Chip from "@mui/material/Chip";
+import { useTheme } from "@mui/material/styles";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
 import { readableTextColor } from "@/lib/color";
@@ -13,10 +14,11 @@ interface Props {
  * type isn't in the metamodel cache (e.g. soft-deleted types).
  */
 export default function CardTypePill({ typeKey }: Props) {
+  const theme = useTheme();
   const { getType } = useMetamodel();
   const typeLabel = useTypeLabel();
   const type = getType(typeKey);
-  const color = type?.color ?? "#757575";
+  const color = type?.color ?? theme.palette.grey[600];
   const label = type ? typeLabel(type) : typeKey;
 
   return (

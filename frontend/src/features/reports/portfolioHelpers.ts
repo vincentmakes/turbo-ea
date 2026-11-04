@@ -7,6 +7,7 @@
 /* ------------------------------------------------------------------ */
 
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import { CARD_TYPE_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import {
   MULTIPLE_COLOR,
   MULTIPLE_KEY,
@@ -149,8 +150,8 @@ export interface FilterState {
 /*  Constants                                                         */
 /* ------------------------------------------------------------------ */
 
-export const UNSET_COLOR = "#9e9e9e";
-export const DEFAULT_APP_COLOR = "#0f7eb5";
+export const UNSET_COLOR = STATUS_COLORS.neutral;
+export const DEFAULT_APP_COLOR = CARD_TYPE_COLORS.Application;
 /** Neutral colour for a card whose matching relations carry differing
  * subtype values (the "Multiple" bucket). Owned by the shared facet helper. */
 export { MULTIPLE_COLOR };

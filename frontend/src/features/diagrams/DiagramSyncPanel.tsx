@@ -8,7 +8,9 @@ import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { STATUS_CHIP_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
 import type {
   PendingParentChange,
   RemovedRelationTombstone,
@@ -119,7 +121,7 @@ export default function DiagramSyncPanel({
           borderColor: "divider",
         }}
       >
-        <MaterialSymbol icon="sync" size={22} color="#1976d2" />
+        <MaterialSymbol icon="sync" size={22} color={brand.primary} />
         <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
           {t("sync.title")}
         </Typography>
@@ -175,7 +177,7 @@ export default function DiagramSyncPanel({
                 </Tooltip>
                 <Tooltip title={t("sync.removeFromDiagram")}>
                   <IconButton size="small" onClick={() => onRemoveFS(card.cellId)} disabled={syncing}>
-                    <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                    <MaterialSymbol icon="delete_outline" size={16} color={STATUS_CHIP_COLORS.error.text} />
                   </IconButton>
                 </Tooltip>
               </ItemRow>
@@ -205,7 +207,7 @@ export default function DiagramSyncPanel({
                 </Tooltip>
                 <Tooltip title={t("sync.removeFromDiagram")}>
                   <IconButton size="small" onClick={() => onRemoveRel(rel.edgeCellId)} disabled={syncing}>
-                    <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                    <MaterialSymbol icon="delete_outline" size={16} color={STATUS_CHIP_COLORS.error.text} />
                   </IconButton>
                 </Tooltip>
               </ItemRow>
@@ -337,7 +339,7 @@ export default function DiagramSyncPanel({
                     </Box>
                     <Tooltip title={t("sync.removeEdgeFromDiagram")}>
                       <IconButton size="small" onClick={() => onRemoveStaleEdge(item.cellId)}>
-                        <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                        <MaterialSymbol icon="delete_outline" size={16} color={STATUS_CHIP_COLORS.error.text} />
                       </IconButton>
                     </Tooltip>
                   </ItemRow>
@@ -360,7 +362,7 @@ export default function DiagramSyncPanel({
                     </Box>
                     <Tooltip title={t("sync.acceptUpdate")}>
                       <IconButton size="small" onClick={() => onAcceptStaleFlow(item.cellId)}>
-                        <MaterialSymbol icon="check" size={16} color="#2e7d32" />
+                        <MaterialSymbol icon="check" size={16} color={STATUS_CHIP_COLORS.success.text} />
                       </IconButton>
                     </Tooltip>
                   </ItemRow>
@@ -384,7 +386,7 @@ export default function DiagramSyncPanel({
                     </Box>
                     <Tooltip title={t("sync.removeFromDiagram")}>
                       <IconButton size="small" onClick={() => onRemoveStaleCard(item.cellId)}>
-                        <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
+                        <MaterialSymbol icon="delete_outline" size={16} color={STATUS_CHIP_COLORS.error.text} />
                       </IconButton>
                     </Tooltip>
                   </ItemRow>
@@ -403,7 +405,7 @@ export default function DiagramSyncPanel({
                   </Box>
                   <Tooltip title={t("sync.acceptUpdate")}>
                     <IconButton size="small" onClick={() => onAcceptStale(item.cellId)}>
-                      <MaterialSymbol icon="check" size={16} color="#2e7d32" />
+                      <MaterialSymbol icon="check" size={16} color={STATUS_CHIP_COLORS.success.text} />
                     </IconButton>
                   </Tooltip>
                 </ItemRow>
@@ -416,7 +418,7 @@ export default function DiagramSyncPanel({
         {totalPending === 0 &&
           staleItems.length === 0 && (
           <Box sx={{ textAlign: "center", py: 4 }}>
-            <MaterialSymbol icon="check_circle" size={36} color="#66bb6a" />
+            <MaterialSymbol icon="check_circle" size={36} color={STATUS_COLORS.success} />
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
               {t("sync.allInSync")}
             </Typography>
@@ -430,11 +432,12 @@ export default function DiagramSyncPanel({
 /* ---- Small helpers ---- */
 
 function SectionTitle({ icon, label, count }: { icon: string; label: string; count: number }) {
+  const theme = useTheme();
   return (
     <>
       <Divider sx={{ my: 1.5 }} />
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1 }}>
-        <MaterialSymbol icon={icon} size={16} color="#666" />
+        <MaterialSymbol icon={icon} size={16} color={theme.palette.text.secondary} />
         <Typography variant="subtitle2" fontWeight={700}>
           {label}
         </Typography>

@@ -1,6 +1,11 @@
 import type { TFunction } from "i18next";
 import type { EventEntry } from "@/types";
-import { BPM_CALLED_PROCESS_COLOR, STATUS_COLORS, SEVERITY_COLORS } from "@/theme/tokens";
+import {
+  BPM_CALLED_PROCESS_COLOR,
+  CARD_TYPE_COLORS,
+  STATUS_COLORS,
+  SEVERITY_COLORS,
+} from "@/theme/tokens";
 import { formatDateWith, getCachedDateFormat } from "@/hooks/useDateFormat";
 import { toIsoDate } from "@/lib/dates";
 
@@ -72,16 +77,16 @@ const CATEGORY_COLORS: Record<ActivityCategory, string> = {
   archive: STATUS_COLORS.neutral,
   restore: STATUS_COLORS.success,
   delete: SEVERITY_COLORS.critical,
-  relation: "#774fcc",
-  stakeholder: "#2889ff",
+  relation: CARD_TYPE_COLORS.DataObject,
+  stakeholder: CARD_TYPE_COLORS.Organization,
   risk: STATUS_COLORS.warning,
-  document: "#0f7eb5",
-  comment: "#0f7eb5",
-  tag: "#a6566d",
-  diagram: "#02afa4",
+  document: CARD_TYPE_COLORS.Application,
+  comment: CARD_TYPE_COLORS.Application,
+  tag: CARD_TYPE_COLORS.TechCategory,
+  diagram: CARD_TYPE_COLORS.Interface,
   process: BPM_CALLED_PROCESS_COLOR,
-  adr: "#c7527d",
-  soaw: "#2889ff",
+  adr: CARD_TYPE_COLORS.Objective,
+  soaw: CARD_TYPE_COLORS.Organization,
   notification: STATUS_COLORS.info,
   other: STATUS_COLORS.neutral,
 };

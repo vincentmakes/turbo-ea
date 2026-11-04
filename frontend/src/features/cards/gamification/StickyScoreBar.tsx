@@ -312,5 +312,3 @@ function StickyScoreBarContent({
   </Box>
   );
 }
-
-export default StickyScoreBar;

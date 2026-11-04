@@ -2,9 +2,8 @@
  * Mount smoke test for the SoAW / ADR rich-text editor.
  *
  * Every toolbar button drives TipTap through a command that **StarterKit**
- * supplies — `toggleUnderline` included, which comes from StarterKit and not
- * from the `@tiptap/extension-underline` package `package.json` also declares
- * but never imports. That makes the toolbar a hostage to whatever StarterKit
+ * supplies — `toggleUnderline` included, which comes from StarterKit's own
+ * bundled underline extension (`package.json` does not declare it). That makes the toolbar a hostage to whatever StarterKit
  * happens to bundle: when an upgrade drops or renames a command,
  * `editor.chain().focus().toggleX` is `undefined` and the button throws the
  * moment somebody clicks it. Nothing else in the suite mounts this component,

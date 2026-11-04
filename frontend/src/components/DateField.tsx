@@ -122,5 +122,3 @@ function NativeDateField({
     />
   );
 }
-
-export default DateField;

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ViewMode } from "@wamra/gantt-task-react";
 
 import type { PpmDependency, PpmTask, PpmWbs } from "@/types";
+import { PPM_GANTT_COLORS } from "@/theme/tokens";
 import {
   EMPTY_ROW_ID,
   TASK_STATUS_BAR_COLORS,
@@ -502,40 +503,26 @@ describe("rows", () => {
       dependencies: undefined,
       isDisabled: false,
       styles: {
-        barBackgroundColor: "#90caf9",
-        barProgressColor: "#1976d2",
-        barBackgroundSelectedColor: "#1565c0",
-        barProgressSelectedColor: "#1976d2",
+        barBackgroundColor: PPM_GANTT_COLORS.in_progress.bar,
+        barProgressColor: PPM_GANTT_COLORS.in_progress.progress,
+        barBackgroundSelectedColor: PPM_GANTT_COLORS.in_progress.barSelected,
+        barProgressSelectedColor: PPM_GANTT_COLORS.in_progress.progressSelected,
       },
     });
   });
 
-  it("colours a bar by task status, with the standard board palette", () => {
+  it("colours a bar by task status, each shade from the Gantt palette", () => {
+    const styles = (c: (typeof PPM_GANTT_COLORS)[keyof typeof PPM_GANTT_COLORS]) => ({
+      barBackgroundColor: c.bar,
+      barProgressColor: c.progress,
+      barBackgroundSelectedColor: c.barSelected,
+      barProgressSelectedColor: c.progressSelected,
+    });
     expect(TASK_STATUS_BAR_COLORS).toEqual({
-      todo: {
-        barBackgroundColor: "#9e9e9e",
-        barProgressColor: "#757575",
-        barBackgroundSelectedColor: "#757575",
-        barProgressSelectedColor: "#616161",
-      },
-      in_progress: {
-        barBackgroundColor: "#90caf9",
-        barProgressColor: "#1976d2",
-        barBackgroundSelectedColor: "#1565c0",
-        barProgressSelectedColor: "#1976d2",
-      },
-      done: {
-        barBackgroundColor: "#a5d6a7",
-        barProgressColor: "#2e7d32",
-        barBackgroundSelectedColor: "#1b5e20",
-        barProgressSelectedColor: "#2e7d32",
-      },
-      blocked: {
-        barBackgroundColor: "#d32f2f",
-        barProgressColor: "#c62828",
-        barBackgroundSelectedColor: "#b71c1c",
-        barProgressSelectedColor: "#c62828",
-      },
+      todo: styles(PPM_GANTT_COLORS.todo),
+      in_progress: styles(PPM_GANTT_COLORS.in_progress),
+      done: styles(PPM_GANTT_COLORS.done),
+      blocked: styles(PPM_GANTT_COLORS.blocked),
     });
   });
 
@@ -564,7 +551,10 @@ describe("rows", () => {
   it("colours a task of an unknown status as to-do", () => {
     const [row] = rows([], [task("t1", { status: "weird" as never })]);
     expect(row).toMatchObject({
-      styles: { barBackgroundColor: "#9e9e9e", barProgressColor: "#757575" },
+      styles: {
+        barBackgroundColor: PPM_GANTT_COLORS.todo.bar,
+        barProgressColor: PPM_GANTT_COLORS.todo.progress,
+      },
       progress: 0,
     });
   });

@@ -98,5 +98,3 @@ export function OptionChip({
     />
   );
 }
-
-export default OptionChip;

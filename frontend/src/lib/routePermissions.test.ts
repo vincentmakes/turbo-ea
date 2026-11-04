@@ -14,6 +14,14 @@ import {
 } from "./routePermissions";
 
 /**
+ * A `<Route>`'s `path`, wherever it sits among the tag's attributes and on
+ * whichever line — `<Route path="/x"`, `<Route\n  path="/x"`, or
+ * `<Route index\n  path="/x"`. `[^>]` keeps a match inside one tag; a `path`
+ * written after an `element={<X />}` is still missed, so keep `path` first.
+ */
+const ROUTE_PATH = /<Route\s[^>]*?\bpath="([^"]+)"/g;
+
+/**
  * Mirrors the app-level keys in `backend/app/core/permissions.py`. Hand-kept,
  * exactly like the pinned locale list in `i18n.test.ts` — a typo in the table
  * would otherwise be silently fail-closed and lock everyone out of a page.
@@ -145,6 +153,22 @@ describe("canAccessPath", () => {
 
 });
 
+describe("ROUTE_PATH", () => {
+  it("finds a path on the tag's line, on a later line, or after another attribute", () => {
+    const src = [
+      '<Route path="/a" element={<A />} />',
+      "<Route",
+      '  path="/b"',
+      "  element={<B />}",
+      "/>",
+      '<Route caseSensitive\n  path="/c" element={<C />} />',
+      '<Route index element={<D />} />',
+      '<RouteGuard path="/e" />',
+    ].join("\n");
+    expect([...src.matchAll(ROUTE_PATH)].map((m) => m[1])).toEqual(["/a", "/b", "/c"]);
+  });
+});
+
 describe("parity", () => {
   /**
    * Every route declared in the authenticated table has to be either gated or
@@ -161,7 +185,7 @@ describe("parity", () => {
     const start = source.indexOf("<AppLayout");
     expect(start).toBeGreaterThan(-1);
     const declared = [
-      ...source.slice(start).matchAll(/<Route\s+path="([^"]+)"/g),
+      ...source.slice(start).matchAll(ROUTE_PATH),
     ].map((m) => m[1]);
 
     expect(declared.length).toBeGreaterThan(40);
@@ -180,7 +204,7 @@ describe("parity", () => {
       "utf-8",
     );
     const declared = new Set(
-      [...source.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]),
+      [...source.matchAll(ROUTE_PATH)].map((m) => m[1]),
     );
     const stale = ROUTE_PERMISSIONS.map((r) => r.path).filter(
       (p) => !declared.has(p),

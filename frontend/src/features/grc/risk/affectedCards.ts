@@ -13,6 +13,7 @@
 import type { SxProps } from "@mui/material/styles";
 import { typeLabel } from "@/hooks/useResolveLabel";
 import { isHexColor, readableTextColor } from "@/lib/color";
+import { STATUS_COLORS } from "@/theme/tokens";
 import type { CardType, RiskCardLink } from "@/types";
 
 export interface AffectedCardGroup {
@@ -37,7 +38,7 @@ export interface AffectedCardGroup {
  * same neutral grey AdrGrid uses.
  */
 export function cardChipSx(color?: string): SxProps {
-  const bg = isHexColor(color) ? color : "#9e9e9e";
+  const bg = isHexColor(color) ? color : STATUS_COLORS.neutral;
   const fg = readableTextColor(bg);
   return {
     bgcolor: bg,

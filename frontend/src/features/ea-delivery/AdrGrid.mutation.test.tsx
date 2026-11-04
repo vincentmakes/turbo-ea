@@ -59,6 +59,7 @@ vi.mock("@/hooks/useThemeMode", () => import("@/test/hooks").then((m) => m.useTh
 vi.mock("@/hooks/useDateFormat", () => import("@/test/hooks").then((m) => m.useDateFormatModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
 
+import { createTheme } from "@mui/material/styles";
 import AdrGrid from "./AdrGrid";
 import { ADR_GRID_LS_KEY, loadAdrGridPrefs } from "./adrGridPrefs";
 import { gridStub } from "@/test/agGridStub";
@@ -377,6 +378,14 @@ describe("AdrGrid cell renderers", () => {
     });
     expect(screen.getByText("Billing").closest(".MuiChip-root")).toHaveStyle({
       backgroundColor: "#9e9e9e",
+    });
+  });
+
+  it("writes linked-card chip labels in white", () => {
+    renderGrid({ metamodelTypes: TYPES });
+    renderCell("linkedCards", SIGNED);
+    expect(screen.getByText("SAP S/4HANA").closest(".MuiChip-root")).toHaveStyle({
+      color: createTheme().palette.common.white,
     });
   });
 });

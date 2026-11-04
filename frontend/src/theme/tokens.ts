@@ -53,6 +53,59 @@ export const NAVBAR_PRESETS = [
 
 export type NavbarPresetKey = (typeof NAVBAR_PRESETS)[number]["key"];
 
+// ── Admin pickers (built-in presets) ─────────────────────────────────────
+
+/** The swatches the role editor (`RolesAdmin`) offers for a role's colour, in
+ *  display order; the first is the colour a new role starts with. A role stores
+ *  the colour it was given, so this list is a design choice, not data — editing
+ *  it never repaints an existing role. Twelve Material 700 hues, far enough apart
+ *  to tell twelve role chips apart. */
+export const ROLE_COLOR_PRESETS = [
+  "#1976d2", // blue 700
+  "#388e3c", // green 700
+  "#d32f2f", // red 700
+  "#f57c00", // orange 700
+  "#7b1fa2", // purple 700
+  "#0097a7", // cyan 700
+  "#c2185b", // pink 700
+  "#5d4037", // brown 700
+  "#455a64", // blue grey 700
+  "#303f9f", // indigo 700
+  "#00796b", // teal 700
+  "#afb42b", // lime 700
+] as const;
+
+/** The type chip on a field in the metamodel's card-layout editor
+ *  (`CardLayoutEditor`): one hue per built-in field type, so a glance down a
+ *  section tells text from numbers from selects. A categorical key, not a
+ *  status scale. `other` is any type without its own hue — `multiline_text`
+ *  and every extension-contributed custom type. */
+export const FIELD_TYPE_COLORS = {
+  text: "#1976d2", // blue 700
+  number: "#7b1fa2", // purple 700
+  cost: "#e65100", // orange 900
+  boolean: "#2e7d32", // green 800
+  date: "#c2185b", // pink 700
+  url: "#0277bd", // light blue 800
+  single_select: "#00838f", // cyan 800
+  multiple_select: "#4527a0", // deep purple 800
+  percentage: "#00695c", // teal 800
+  other: "#616161", // grey 700
+} as const;
+
+export type FieldTypeColorKey = keyof typeof FIELD_TYPE_COLORS;
+
+/** Icon accents in the reports area that take a field-type hue: the Data
+ *  Quality report's tile, the Cost report's top-cost-driver KPI and a private
+ *  saved report's lock. A role alias, so those screens say what they mean
+ *  rather than borrowing the card-layout editor's chip palette; the values are
+ *  `FIELD_TYPE_COLORS`' teal 800, orange 900 and grey. */
+export const REPORT_ICON_COLORS = {
+  dataQuality: FIELD_TYPE_COLORS.percentage,
+  costDriver: FIELD_TYPE_COLORS.cost,
+  privateReport: FIELD_TYPE_COLORS.other,
+} as const;
+
 // ── Status (matches MUI default success/warning/error/info hues) ─────────
 
 export const STATUS_COLORS = {
@@ -62,6 +115,16 @@ export const STATUS_COLORS = {
   info: "#2196f3",
   neutral: "#9e9e9e",
 } as const;
+
+/** The warning orange's darker step — orange 800, MUI's *default*
+ *  `palette.warning.main`. The app theme wires the lighter
+ *  `STATUS_COLORS.warning` (#ff9800, 2.2:1 on white) into the palette, which is
+ *  too faint for a small glyph or a dot, so a warning drawn as an icon next to
+ *  `RAG_COLORS.green` / `.red` (MUI's default success and error) takes this one
+ *  (3.1:1): a pending signature, an invited user, an at-risk project, a medium
+ *  TurboLens finding, the diagram editor's "out of sync" pulse. Not
+ *  `RAG_COLORS.amber` (#f57c00, orange 700), the status-report amber. */
+export const WARNING_STRONG_COLOR = "#ed6c02";
 
 // ── Field facets (reports colour-by) ────────────────────────────────────
 
@@ -88,6 +151,19 @@ export const APPROVAL_STATUS_COLORS = {
   BROKEN: STATUS_COLORS.warning,
   REJECTED: STATUS_COLORS.error,
 } as const;
+
+/** A status shown as a soft chip: a pale fill with dark text of the same hue
+ *  (Material 50 fill, 800–900 text). Used where a verdict sits inside
+ *  dense content and a saturated chip would shout — the web portal's approval
+ *  and data-quality chips. The text hues are the darker steps of the status
+ *  family, not `STATUS_COLORS`, which are too light to read as text on a tint. */
+export const STATUS_CHIP_COLORS = {
+  success: { fill: "#e8f5e9", text: "#2e7d32" }, // green 50 / green 800
+  warning: { fill: "#fff3e0", text: "#e65100" }, // orange 50 / orange 900
+  error: { fill: "#ffebee", text: "#c62828" }, // red 50 / red 800
+} as const;
+
+export type StatusChipKey = keyof typeof STATUS_CHIP_COLORS;
 
 // ── Severity / priority (4-step scale) ───────────────────────────────────
 // Used by PPM tasks, TurboLens findings, risk levels.
@@ -132,6 +208,36 @@ export const RAG_COLORS = {
  *  shares the value today. */
 export const EOL_WARNING_COLOR = "#e65100";
 
+// ── Lifecycle phases ────────────────────────────────────────────────────
+
+/** One colour per lifecycle phase, wherever a phase is drawn as a colour — the
+ *  card's Lifecycle section, the Layered Dependency View's phase dot, the
+ *  Lifecycle report, the inventory's phase filter, a web portal's lifecycle
+ *  bar. Keys are `PHASES` (`lib/lifecyclePhases.ts`).
+ *
+ *  These five surfaces used to carry five palettes that disagreed on every
+ *  phase but "plan" (phase in alone was #1976d2, #2196f3, #42a5f5 and #66bb6a).
+ *  The canonical set is the card detail page's (the Lifecycle section, where
+ *  people read a lifecycle most): plan grey, phase in brand blue, active green
+ *  800, phase out orange 800 — Material's darker status steps, because a phase
+ *  is told apart by colour alone on a dot or a bar segment and these clear 3:1
+ *  against both white and the dark paper, which the lighter `STATUS_COLORS`
+ *  hues do not (#4caf50 2.8:1, #ff9800 2.2:1 on white). End of life is red 700
+ *  rather than the section's former red 800 (#c62828): red 800 falls under 3:1
+ *  on the dark paper (2.97:1), red 700 clears both (5.0:1 / 3.4:1). Plan stays
+ *  neutral grey: it is "not started yet", nothing to call attention to.
+ *  Literals, not references to `STATUS_COLORS` / `brand`, so re-tuning those
+ *  never repaints a lifecycle. */
+export const LIFECYCLE_PHASE_COLORS = {
+  plan: "#9e9e9e", // grey 500
+  phaseIn: "#1976d2", // blue 700
+  active: "#2e7d32", // green 800
+  phaseOut: "#ed6c02", // orange 800
+  endOfLife: "#d32f2f", // red 700
+} as const;
+
+export type LifecyclePhaseColorKey = keyof typeof LIFECYCLE_PHASE_COLORS;
+
 // ── Print pages (a bare browser window outside the MUI theme) ────────────
 
 /** Inks of every print page the app opens in a new window (`lib/printDocument.ts`,
@@ -139,23 +245,45 @@ export const EOL_WARNING_COLOR = "#e65100";
 export const PRINT_COLORS = {
   text: "#333333",
   muted: "#888888",
-  rule: "#dddddd",
+  rule: "#e0e0e0", // grey 300, MUI's divider on white — the same rule as `ruleLight`
   panel: "#f5f5f5",
   control: "#cccccc", // border of the secondary (Close) button, table rules
   paper: "#ffffff", // also the text on a filled (fully-signed) badge
   // The document print (`DOCUMENT_PRINT_CSS`): headings, body ink, the
   // signature block's rule, cards and badges.
   heading: "#1a1a2e", // h1 title
-  ink: "#222222", // body text
+  ink: "#212121", // body text — grey 900, the charcoal navbar preset
   subheading: "#444444", // h3
-  inkSecondary: "#666666", // a signature's detail line
+  inkSecondary: "#616161", // a signature's detail line — grey 700
   ruleLight: "#e0e0e0", // the rule above the signatures
-  panelLight: "#fafafa", // a pending signature card
+  panelLight: "#fafbfc", // a pending signature card — the light page background
   success: "#2e7d32", // signed: badge text, fully-signed fill, approved status
   successLight: "#66bb6a", // an approved signature card's border
-  successPale: "#f1f8e9", // an approved signature card's fill
+  successPale: "#e8f5e9", // an approved signature card's fill — green 50, as `successTint`
   successTint: "#e8f5e9", // the "signed" badge's fill
   warning: "#ed6c02", // a pending signature's status
+} as const;
+
+/** Fixed inks drawn ON SCREEN whose colour is decided by what they sit on (a
+ *  light card-type fill, a heat step, a diagram line), not by the theme's text
+ *  colours. They share the print inks' values; this alias names the on-screen
+ *  role so the report screens do not borrow the print palette.
+ *  - `onLightFill`: dark text on a light fill in either mode (capability map,
+ *    portfolio, process map, the matrix's low counts in light mode).
+ *  - `onDark`: light text on a dark cell (the matrix's low counts in dark mode).
+ *  - `secondary`: a quiet line or label (the matrix diagonal's count, the
+ *    Layered Dependency View's resting line and label in light mode).
+ *  - `muted`: the Layered Dependency View's arrowhead.
+ *  - `rule` / `ruleDark`: a Layered Dependency View label's border, light / dark.
+ *  - `paper`: a Layered Dependency View label's background in light mode. */
+export const SCREEN_INK = {
+  onLightFill: PRINT_COLORS.text,
+  onDark: PRINT_COLORS.control,
+  secondary: PRINT_COLORS.inkSecondary,
+  muted: PRINT_COLORS.muted,
+  rule: PRINT_COLORS.control,
+  ruleDark: PRINT_COLORS.subheading,
+  paper: PRINT_COLORS.paper,
 } as const;
 
 // ── Notification-type accents (NotificationBell) ─────────────────────────
@@ -176,7 +304,7 @@ export const NOTIFICATION_TYPE_COLORS = {
   app_update_available: "#00796b", // teal 700
   app_updated: "#5e35b1", // deep purple 600
   extension_available: "#00838f", // cyan 800
-  extension_update_available: "#ef6c00", // orange 800
+  extension_update_available: "#ed6c02", // orange 800 (MUI's default warning)
   extension_updated: "#2e7d32", // green 800 — it landed, unlike the amber "available"
   extension_notice: "#00695c", // teal 800 — a message an installed extension sent
   // Documents and approvals reuse their family's hue so a glance at the bell
@@ -288,7 +416,7 @@ export const VENDOR_ACCENT = {
 export const TIMELINE_COLORS = {
   past: "#e68a00",
   future: "#7c4dff",
-  reset: "#ef6c00",
+  reset: "#ed6c02",
   /** Go-live accent — a card becoming active on the timeline. Deliberately
    *  more saturated than `brand.primary`: transition marks are 3px wide, and
    *  at that size the darker brand blue reads as grey next to the red
@@ -318,7 +446,7 @@ export const CATEGORICAL_COLORS = [
   "#1976d2",
   "#7b1fa2",
   "#00897b",
-  "#ef6c00",
+  "#ed6c02",
   "#c2185b",
   "#3949ab",
   "#00838f",
@@ -376,6 +504,48 @@ export const CHART_SEQUENTIAL = {
   dark: ["#1e3a5f", brand.primaryLight],
 } as const;
 
+/** A discrete ten-step heat scale (low → high count) per mode, for a grid of
+ *  counts read cell by cell — the Matrix report. Not `CHART_SEQUENTIAL`: that
+ *  is a two-stop continuous ramp ending at the brand blue, while this one has
+ *  ten fixed Material Blue steps running past it to blue 900 in light mode, so
+ *  the busiest cells stand out from the merely busy; its stops are neither the
+ *  same nor a subset (dark mode ends at blue 400, not blue 200). Index by
+ *  `floor(value / max × 9)`. */
+export const HEATMAP_RAMP = {
+  light: [
+    "#e3f2fd",
+    "#bbdefb",
+    "#90caf9",
+    "#64b5f6",
+    "#42a5f5",
+    "#2196f3",
+    "#1e88e5",
+    "#1976d2",
+    "#1565c0",
+    "#0d47a1",
+  ],
+  dark: [
+    "#0d2137",
+    "#0d3054",
+    "#0a3d6e",
+    "#0d4a88",
+    "#10579e",
+    "#1565c0",
+    "#1976d2",
+    "#1e88e5",
+    "#2196f3",
+    "#42a5f5",
+  ],
+} as const;
+
+/** The hue of the Matrix report's hovered diagonal (a card type against itself,
+ *  where a row and a column are the same card), drawn as a wash: 10 % alpha on
+ *  the light paper, 18 % on the dark one. Deep purple 800, the value of
+ *  `FIELD_TYPE_COLORS.multiple_select`, named here for this role: no other
+ *  token is a "self cell" highlight, and it must stay apart from the blue of a
+ *  related, hovered cell (`HEATMAP_RAMP`). */
+export const MATRIX_DIAGONAL_COLOR = FIELD_TYPE_COLORS.multiple_select;
+
 /** Accent colours of the homepage KPI tiles — the values the Overview,
  *  My Workspace and Admin tiles have always used, named once here. */
 export const DASHBOARD_KPI_COLORS = {
@@ -385,17 +555,24 @@ export const DASHBOARD_KPI_COLORS = {
   broken: RAG_COLORS.amber,
   favorites: "#f5a623",
   stakeholders: brand.primary,
-  todos: "#43a047",
+  todos: STATUS_COLORS.success,
   surveys: "#7b1fa2",
-  activeUsers: "#43a047",
-  noStakeholders: "#ef6c00",
+  activeUsers: STATUS_COLORS.success,
+  noStakeholders: "#ed6c02",
   overdue: RAG_COLORS.red,
   stuck: "#7b1fa2",
+  // Activity feeds (system activity, recent activity on my cards).
+  activity: "#5e35b1",
   /** Overall data quality: ≥ 75 %, ≥ 50 %, below. */
-  qualityGood: "#43a047",
+  qualityGood: STATUS_COLORS.success,
   qualityFair: "#f5a623",
   qualityPoor: RAG_COLORS.red,
 } as const;
+
+/** A favourite: the star on a card, an initiative or a diagram, the
+ *  favourites-only filter and the My Favourites section. The amber of the
+ *  homepage's Favourites KPI tile, named for every screen that marks one. */
+export const FAVORITE_COLOR = DASHBOARD_KPI_COLORS.favorites;
 
 /** The BPM process-assessment trend: one categorical hue per scored
  *  dimension, keyed by the assessment field it plots — not a status scale. */
@@ -406,6 +583,24 @@ export const BPM_ASSESSMENT_COLORS = {
   compliance: "#9c27b0",
   automation: "#00bcd4",
 } as const;
+
+// ── PPM ─────────────────────────────────────────────────────────────────
+
+/** The PPM Gantt's task bars, one set per task status (`PpmTaskStatus`). Each
+ *  status has four shades: `bar` is the bar's remaining (not yet done) part,
+ *  `progress` the filled part up to the task's percent complete, and the two
+ *  `…Selected` shades the same parts while the bar is selected — darker, so a
+ *  selection reads on every status. To do is grey (not started), in progress
+ *  blue, done green, blocked red: the same reading as the task board's status
+ *  colours, stepped so a bar's two parts stay distinct. */
+export const PPM_GANTT_COLORS = {
+  todo: { bar: "#9e9e9e", progress: "#757575", barSelected: "#757575", progressSelected: "#616161" },
+  in_progress: { bar: "#90caf9", progress: "#1976d2", barSelected: "#1565c0", progressSelected: "#1976d2" },
+  done: { bar: "#a5d6a7", progress: "#2e7d32", barSelected: "#1b5e20", progressSelected: "#2e7d32" },
+  blocked: { bar: "#d32f2f", progress: "#c62828", barSelected: "#b71c1c", progressSelected: "#c62828" },
+} as const;
+
+export type PpmGanttStatusKey = keyof typeof PPM_GANTT_COLORS;
 
 // ── BPM ─────────────────────────────────────────────────────────────────
 // The BPM screens' own hues, kept at the values they have always rendered.
@@ -435,6 +630,12 @@ export const BPMN_ELEMENT_COLORS = {
 
 /** A Process Navigator card with no value for the chosen colour overlay, or a value no option knows. */
 export const BPM_UNSET_COLOR = "#bdbdbd";
+
+/** A value the data does not carry, on any screen that colours by a value: a
+ *  diagram card with no value for its colour-by field, a PPM project with no
+ *  status-report RAG yet, a Lifecycle report bar in no bucket. The Process
+ *  Navigator's grey (`BPM_UNSET_COLOR`), named for everywhere else. */
+export const UNSET_VALUE_COLOR = BPM_UNSET_COLOR;
 
 /** The BusinessProcess type colour as seeded (`seed.py`, pinned by `tokens.test.ts`): the
  *  called-process badge, its link dot and the navigator header fallback, which also render
@@ -473,7 +674,7 @@ export const BPM_PROCESS_TYPE_COLORS = {
 export const BPMN_DARK_THEME = {
   "--bio-surface": surface.dark.paper, // #1e1e1e
   "--bio-surface-overlay": surface.dark.paper, // #1e1e1e
-  "--bio-surface-subtle": "#232323",
+  "--bio-surface-subtle": "#212121", // grey 900, between the paper and the medium step
   "--bio-surface-medium": "#2a2a2a",
   "--bio-surface-strong": "#333333",
   "--bio-surface-inverted": "#e0e0e0",
@@ -494,6 +695,55 @@ export const BPMN_DARK_THEME = {
   "--bio-shadow-subtle": "hsla(0, 0%, 0%, 35%)",
 } as const;
 
+// ── Third-party brands ──────────────────────────────────────────────────
+
+/** The logo colours of the single-sign-on providers the login page draws on
+ *  its "Sign in with …" button (Microsoft's four squares, Google's "G", Okta's
+ *  ring). Like `ROLE_COLOR_PRESETS`, the colour IS the data: each is the
+ *  provider's published brand colour, reproduced so the mark is recognisable,
+ *  and never re-tuned to the app's palette or reused for anything else. */
+export const THIRD_PARTY_BRAND = {
+  microsoft: { red: "#f25022", green: "#7fba00", blue: "#00a4ef", yellow: "#ffb900" },
+  google: { blue: "#4285f4", green: "#34a853", yellow: "#fbbc05", red: "#ea4335" },
+  okta: { blue: "#007dc1" },
+} as const;
+
+export type ThirdPartyBrandKey = keyof typeof THIRD_PARTY_BRAND;
+
+// ── EA Delivery deliverables ────────────────────────────────────────────
+
+/** One accent per deliverable kind in EA Delivery — the icon on an
+ *  initiative's deliverable section, the "New artefact" split button's menu,
+ *  and the SoAW editor / preview header. A categorical key, so a glance tells a
+ *  Statement of Architecture Work from an ADR from a diagram. Role aliases of
+ *  existing palette values: the SoAW orange is orange 900 (`EOL_WARNING_COLOR`'s
+ *  value, a different meaning), the ADR blue the info hue, the diagram blue the
+ *  Application card-type fallback. */
+export const DELIVERABLE_COLORS = {
+  soaw: "#e65100", // orange 900
+  adr: STATUS_COLORS.info, // #2196f3
+  diagram: CARD_TYPE_COLORS.Application, // #0f7eb5
+} as const;
+
+export type DeliverableKey = keyof typeof DELIVERABLE_COLORS;
+
+// ── Ranks ───────────────────────────────────────────────────────────────
+
+/** Gold / silver / bronze for a ranking tier in TurboLens: the top three
+ *  products of an assessment's gap analysis (Architect wizard and the saved
+ *  assessment viewer) and the Dashboard's quality tiers. Like a brand mark, the
+ *  colours are the convention — a podium reads as gold, silver, bronze — so they
+ *  are never re-tuned to the app palette or reused for a status. `fill` is the
+ *  medal itself (a border, a bar, an icon); `text` the darker step of the same
+ *  metal, legible as a label on the light paper. */
+export const MEDAL_COLORS = {
+  gold: { fill: "#ffd700", text: "#b8860b" }, // gold / dark goldenrod
+  silver: { fill: "#bdbdbd", text: "#757575" }, // grey 400 / grey 600
+  bronze: { fill: "#cd7f32", text: "#8b4513" }, // bronze / saddle brown
+} as const;
+
+export type MedalKey = keyof typeof MEDAL_COLORS;
+
 // ── Non-color tokens ────────────────────────────────────────────────────
 
 /** Border radius scale (px). MUI's `borderRadius` `sx` prop also accepts numbers from the spacing scale. */
@@ -510,6 +760,14 @@ export const radius = { sm: 4, md: 8, lg: 12 } as const;
 export const CARD_SHADOW = {
   soft: "0 8px 24px rgba(0, 0, 0, 0.06)",
   lifted: "0 16px 40px rgba(0, 0, 0, 0.14)",
+} as const;
+
+/** Shadows outside the arrange mode. `sticky` is the hairline under a bar that
+ *  stays pinned while content scrolls beneath it (a web portal's filter bar);
+ *  `hover` lifts a clickable card under the pointer (a web portal's card tile). */
+export const SURFACE_SHADOW = {
+  sticky: "0 1px 3px rgba(0, 0, 0, 0.06)",
+  hover: "0 4px 20px rgba(0, 0, 0, 0.1)",
 } as const;
 
 /** Spacing aliases for the MUI scale (1 unit = 8px by default). */

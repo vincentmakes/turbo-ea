@@ -5,6 +5,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import SectionPaper, { EmptyState, ViewAllLink } from "../workspace/SectionPaper";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 export interface IdleUserRow {
   user_id: string;
@@ -28,7 +29,7 @@ export default function IdleUsersSection({ rows, pendingSsoInvitations, loading 
   return (
     <SectionPaper
       icon="bedtime"
-      iconColor="#9e9e9e"
+      iconColor={STATUS_COLORS.neutral}
       title={t("dashboard.admin.idleUsers")}
       action={<ViewAllLink to="/admin/users" label={t("dashboard.workspace.viewAll")} />}
     >

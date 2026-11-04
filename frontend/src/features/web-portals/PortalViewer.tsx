@@ -30,7 +30,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import CardLogoAvatar from "@/components/CardLogoAvatar";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import {
   useResolveLabel,
   useTypeLabel,
@@ -41,6 +41,15 @@ import {
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { bandColor, bandOf, type DataQualityBand } from "@/lib/dataQualityBands";
+import {
+  LIFECYCLE_PHASE_COLORS,
+  NAVBAR_DEFAULTS,
+  STATUS_CHIP_COLORS,
+  STATUS_COLORS,
+  SURFACE_SHADOW,
+  brand,
+  type StatusChipKey,
+} from "@/theme/tokens";
 import { PercentBar } from "@/components/PercentBar";
 import { OptionChip } from "@/components/OptionChip";
 import { booleanOption } from "@/lib/fieldFacets";
@@ -79,19 +88,24 @@ import type {
 // enters the bundle a card-portal visitor downloads.
 const PortalProcessNavigator = lazy(() => import("./PortalProcessNavigator"));
 
-const TOOLBAR_COLOR = "#1a1a2e";
+/** A portal's header and sign-in gate wear the app's navbar in its default
+ *  colours: a portal page sits outside the app shell. */
+const TOOLBAR = NAVBAR_DEFAULTS;
 
-/** Tinted variants of the data-quality band palette, for the detail chip. */
-const QUALITY_CHIP_BG: Record<DataQualityBand, string> = {
-  complete: "#e8f5e9",
-  partial: "#fff3e0",
-  minimal: "#ffebee",
+/** The soft status chip a data-quality band reads as on the detail dialog. */
+const QUALITY_CHIP: Record<DataQualityBand, StatusChipKey> = {
+  complete: "success",
+  partial: "warning",
+  minimal: "error",
 };
-const QUALITY_CHIP_FG: Record<DataQualityBand, string> = {
-  complete: "#2e7d32",
-  partial: "#e65100",
-  minimal: "#c62828",
-};
+
+/** The soft status chip an approval status reads as: approved green, rejected
+ *  red, anything else (broken, a value this build does not know) amber. */
+function approvalChip(status: string): (typeof STATUS_CHIP_COLORS)[StatusChipKey] {
+  if (status === "APPROVED") return STATUS_CHIP_COLORS.success;
+  if (status === "REJECTED") return STATUS_CHIP_COLORS.error;
+  return STATUS_CHIP_COLORS.warning;
+}
 
 // Send the browser to the IdP to authenticate a portal visitor. A portal is
 // always a top-level page on this origin (it is never framed by another site),
@@ -151,11 +165,11 @@ function initials(name: string): string {
 function LifecycleBar({ lifecycle, t }: { lifecycle?: Record<string, string>; t: (key: string) => string }) {
   if (!lifecycle) return null;
   const phases = [
-    { key: "plan", label: t("lifecycle.plan"), color: "#90caf9" },
-    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: "#66bb6a" },
-    { key: "active", label: t("lifecycle.active"), color: "#4caf50" },
-    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: "#ff9800" },
-    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: "#f44336" },
+    { key: "plan", label: t("lifecycle.plan"), color: LIFECYCLE_PHASE_COLORS.plan },
+    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: LIFECYCLE_PHASE_COLORS.phaseIn },
+    { key: "active", label: t("lifecycle.active"), color: LIFECYCLE_PHASE_COLORS.active },
+    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: LIFECYCLE_PHASE_COLORS.phaseOut },
+    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: LIFECYCLE_PHASE_COLORS.endOfLife },
   ];
   const filled = phases.filter((p) => lifecycle[p.key]);
   if (filled.length === 0) return null;
@@ -184,7 +198,7 @@ function LifecycleBar({ lifecycle, t }: { lifecycle?: Record<string, string>; t:
                   ? isCurrent
                     ? p.color
                     : `${p.color}40`
-                  : "#e0e0e0",
+                  : "grey.300",
               }}
             />
           </Tooltip>
@@ -546,13 +560,13 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
             width: 64,
             height: 64,
             borderRadius: 2,
-            bgcolor: TOOLBAR_COLOR,
+            bgcolor: TOOLBAR.bg,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Icon name="lock" size={32} color="#fff" />
+          <Icon name="lock" size={32} color={TOOLBAR.fg} />
         </Box>
         <Typography variant="h5" fontWeight={700}>
           {gate.name}
@@ -565,7 +579,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
             variant="contained"
             size="large"
             onClick={handlePortalSsoLogin}
-            startIcon={<Icon name="login" size={20} color="#fff" />}
+            startIcon={<Icon name="login" size={20} color="inherit" />}
             sx={{ mt: 1, textTransform: "none" }}
           >
             {t("portal.signInButton", { provider: providerName })}
@@ -592,7 +606,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           gap: 2,
         }}
       >
-        <Icon name="error_outline" size={64} color="#bbb" />
+        <Icon name="error_outline" size={64} color={theme.palette.action.disabled} />
         <Typography variant="h5" color="text.secondary">
           {error || t("portal.notFound")}
         </Typography>
@@ -603,7 +617,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
     );
   }
 
-  const typeColor = portal.type_info?.color || "#1976d2";
+  const typeColor = portal.type_info?.color || brand.primary;
   // A board portal keeps the shared header and gate chrome but replaces the card
   // grid, filter bar and detail dialog with the board itself.
   const view = (portal.view || "cards") as PortalView;
@@ -621,8 +635,8 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
       {/* Header */}
       <Box
         sx={{
-          bgcolor: TOOLBAR_COLOR,
-          color: "#fff",
+          bgcolor: TOOLBAR.bg,
+          color: TOOLBAR.fg,
           // The portfolio board is a dense grid with no description or item
           // count under the title, so the card portal's hero proportions leave
           // a mostly-empty band above it. Its gutter matches the board's, which
@@ -650,7 +664,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                     width: isBoard ? 32 : 40,
                     height: isBoard ? 32 : 40,
                     borderRadius: 1.5,
-                    bgcolor: "rgba(255,255,255,0.12)",
+                    bgcolor: alpha(TOOLBAR.fg, 0.12),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -660,7 +674,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                   <Icon
                     name={portal.type_info?.icon || "language"}
                     size={isBoard ? 20 : 24}
-                    color="#fff"
+                    color={TOOLBAR.fg}
                   />
                 </Box>
                 <Typography
@@ -721,7 +735,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
             bgcolor: "background.paper",
             borderBottom: 1,
             borderColor: "divider",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+            boxShadow: SURFACE_SHADOW.sticky,
             px: { xs: 2, md: 4 },
             py: 1.5,
           }}
@@ -745,7 +759,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Icon name="search" size={20} color="#999" />
+                    <Icon name="search" size={20} color={theme.palette.text.disabled} />
                   </InputAdornment>
                 ),
               }}
@@ -920,7 +934,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
           )}
           {cards.length === 0 && !fsLoading && !cardsError && (
             <Box sx={{ textAlign: "center", py: 8 }}>
-              <Icon name="search_off" size={48} color="#ccc" />
+              <Icon name="search_off" size={48} color={theme.palette.action.disabled} />
               <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
                 {t("portal.noResults")}
               </Typography>
@@ -951,7 +965,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                   bgcolor: "background.paper",
                   transition: "box-shadow 0.2s, transform 0.15s",
                   "&:hover": {
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                    boxShadow: SURFACE_SHADOW.hover,
                     transform: "translateY(-2px)",
                   },
                 }}
@@ -1106,18 +1120,8 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                           fontSize: "0.73rem",
                           fontWeight: 600,
                           px: 0.5,
-                          bgcolor:
-                            card.approval_status === "APPROVED"
-                              ? "#e8f5e9"
-                              : card.approval_status === "REJECTED"
-                                ? "#ffebee"
-                                : "#fff3e0",
-                          color:
-                            card.approval_status === "APPROVED"
-                              ? "#2e7d32"
-                              : card.approval_status === "REJECTED"
-                                ? "#c62828"
-                                : "#e65100",
+                          bgcolor: approvalChip(card.approval_status).fill,
+                          color: approvalChip(card.approval_status).text,
                         }}
                       />
                     )}
@@ -1227,7 +1231,8 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                                 height: 24,
                                 fontSize: "0.6rem",
                                 fontWeight: 600,
-                                border: "2px solid #fff",
+                                border: 2,
+                                borderColor: "background.paper",
                               },
                             }}
                           >
@@ -1238,7 +1243,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                                   bgcolor:
                                     s.role === "responsible"
                                       ? typeColor
-                                      : "#9e9e9e",
+                                      : STATUS_COLORS.neutral,
                                 }}
                               >
                                 {initials(s.display_name)}
@@ -1396,8 +1401,8 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                         // Tinted rather than the solid band colour, but bucketed
                         // by the same bands so it can't disagree with the bar
                         // above it.
-                        bgcolor: QUALITY_CHIP_BG[bandOf(selectedFs.data_quality)],
-                        color: QUALITY_CHIP_FG[bandOf(selectedFs.data_quality)],
+                        bgcolor: STATUS_CHIP_COLORS[QUALITY_CHIP[bandOf(selectedFs.data_quality)]].fill,
+                        color: STATUS_CHIP_COLORS[QUALITY_CHIP[bandOf(selectedFs.data_quality)]].text,
                         fontWeight: 600,
                       }}
                     />
@@ -1413,18 +1418,8 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                         fontSize: "0.8rem",
                         px: 0.75,
                         fontWeight: 600,
-                        bgcolor:
-                          selectedFs.approval_status === "APPROVED"
-                            ? "#e8f5e9"
-                            : selectedFs.approval_status === "REJECTED"
-                              ? "#ffebee"
-                              : "#fff3e0",
-                        color:
-                          selectedFs.approval_status === "APPROVED"
-                            ? "#2e7d32"
-                            : selectedFs.approval_status === "REJECTED"
-                              ? "#c62828"
-                              : "#e65100",
+                        bgcolor: approvalChip(selectedFs.approval_status).fill,
+                        color: approvalChip(selectedFs.approval_status).text,
                       }}
                     />
                     )}
@@ -1595,7 +1590,7 @@ function PortalViewerForSlug({ slug }: { slug: string | undefined }) {
                                 bgcolor:
                                   sub.role === "responsible"
                                     ? typeColor
-                                    : "#9e9e9e",
+                                    : STATUS_COLORS.neutral,
                               }}
                             >
                               {initials(sub.display_name)}

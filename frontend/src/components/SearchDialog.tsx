@@ -14,6 +14,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useTypeLabel } from "@/hooks/useResolveLabel";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 interface SearchResult {
   id: string;
@@ -202,7 +203,7 @@ export default function SearchDialog({ open, onClose }: Props) {
             <Box sx={{ maxHeight: "calc(70vh - 100px)", overflow: "auto" }}>
               {results.length === 0 && searched && (
                 <Box sx={{ px: 2.5, py: 3, textAlign: "center" }}>
-                  <MaterialSymbol icon="search_off" size={40} color="#999" />
+                  <MaterialSymbol icon="search_off" size={40} color={STATUS_COLORS.neutral} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     {t("search.noResults")}
                   </Typography>
@@ -231,7 +232,7 @@ export default function SearchDialog({ open, onClose }: Props) {
                     <MaterialSymbol
                       icon={typeConfig?.icon || "description"}
                       size={20}
-                      color={typeConfig?.color || "#999"}
+                      color={typeConfig?.color || STATUS_COLORS.neutral}
                     />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: "break-word" }}>

@@ -14,9 +14,11 @@ from sqlalchemy import select
 
 from app.api.v1 import extensions as ext_api
 from app.config import settings
+from app.core.encryption import decrypt_value, is_encrypted
 from app.models.card_type import CardType
-from app.models.extension import Extension, ExtensionInstall
+from app.models.extension import Extension, ExtensionInstall, ExtensionLicense
 from app.services.extensions import installer as ext_installer
+from app.services.extensions.license import LICENSE_UNDECRYPTABLE_MESSAGE
 from app.services.extensions.registry import extension_registry
 from tests.conftest import auth_headers, create_role, create_user
 from tests.teax_helpers import build_teax, make_keypair, trust_test_key
@@ -2162,3 +2164,142 @@ class TestExtensionAudit:
             "context": {"version": "1.0.0", "file_size": len(raw), "reference": res.json()["id"]}
         }
         _never_leaks([refreshed, installed], RENEWAL_KEY)
+
+
+class TestLicenseTextAtRest:
+    """``extension_licenses.raw_text`` is encrypted at rest (migration 162).
+
+    The signature covers the envelope's exact bytes, so the whole text is
+    encrypted rather than a column of it.
+    """
+
+    RENEWAL_KEY = "rk_0123456789abcdef"
+
+    async def _stored_rows(self, db) -> list[ExtensionLicense]:
+        return list(
+            (await db.execute(select(ExtensionLicense).order_by(ExtensionLicense.created_at)))
+            .scalars()
+            .all()
+        )
+
+    async def test_pasted_license_is_stored_encrypted(self, client, db, vendor):
+        admin = await make_admin(db)
+        text = make_license_text(vendor, renewal_key=self.RENEWAL_KEY)
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": text},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["store_managed"] is True
+
+        (row,) = await self._stored_rows(db)
+        assert is_encrypted(row.raw_text)
+        assert self.RENEWAL_KEY not in row.raw_text
+        assert json.loads(text)["payload"] not in row.raw_text
+        assert decrypt_value(row.raw_text) == text  # byte-exact
+
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 200
+        assert res.json()["problem"] is None
+        assert res.json()["store_managed"] is True
+        assert self.RENEWAL_KEY not in res.text
+        assert extension_registry.entitlement("sample-ext").usable
+
+    async def test_superseded_rows_stay_encrypted(self, client, db, vendor):
+        admin = await make_admin(db)
+        for key in ("sample-ext", "other-ext"):
+            res = await client.put(
+                "/api/v1/admin/extensions/license",
+                json={
+                    "text": make_license_text(
+                        vendor, extension_key=key, renewal_key=self.RENEWAL_KEY
+                    ),
+                    "confirm": True,
+                },
+                headers=auth_headers(admin),
+            )
+            assert res.status_code == 200, res.text
+        rows = await self._stored_rows(db)
+        assert [r.is_active for r in rows] == [False, True]
+        assert all(is_encrypted(r.raw_text) for r in rows)
+        assert all(self.RENEWAL_KEY not in r.raw_text for r in rows)
+
+    async def test_legacy_plaintext_row_still_verifies(self, client, db, vendor):
+        admin = await make_admin(db)
+        text = make_license_text(vendor, renewal_key=self.RENEWAL_KEY)
+        db.add(
+            ExtensionLicense(
+                raw_text=text,
+                licensee="ACME Corp",
+                customer_id="cus_1",
+                grace_days=30,
+                entitlements=[{"extension_key": "sample-ext", "expires_at": EXPIRES}],
+                is_active=True,
+            )
+        )
+        await db.flush()
+        await extension_registry.refresh_from_db(db)
+
+        assert extension_registry.license_problem is None
+        assert extension_registry.entitlement("sample-ext").usable
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 200
+        assert res.json()["problem"] is None
+        assert res.json()["store_managed"] is True
+
+    async def test_rotated_secret_key_soft_disables_and_repaste_recovers(
+        self, client, db, vendor, monkeypatch
+    ):
+        admin = await make_admin(db)
+        text = make_license_text(vendor, renewal_key=self.RENEWAL_KEY)
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": text},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
+        (row,) = await self._stored_rows(db)
+        sealed = row.raw_text
+
+        monkeypatch.setattr(settings, "SECRET_KEY", settings.SECRET_KEY + "-rotated")
+        await extension_registry.refresh_from_db(db)
+
+        assert extension_registry.license is None
+        assert extension_registry.license_problem == LICENSE_UNDECRYPTABLE_MESSAGE
+        assert extension_registry.entitlement("sample-ext").state == "unlicensed"
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(admin))
+        assert res.status_code == 200
+        assert res.json()["problem"] == LICENSE_UNDECRYPTABLE_MESSAGE
+        assert res.json()["licensee"] == "ACME Corp"
+
+        # No renewal is attempted with a credential the instance cannot read.
+        extended = make_license_text(vendor, renewal_key=self.RENEWAL_KEY)
+        mock_store(monkeypatch, catalog=catalog_payload(), renew={"license": extended})
+        res = await client.post(
+            "/api/v1/admin/extensions/store/refresh-license", headers=auth_headers(admin)
+        )
+        assert res.status_code == 200
+        assert res.json() == {"refreshed": False}
+
+        # Nothing was deleted or rewritten.
+        (still,) = await self._stored_rows(db)
+        assert still.raw_text == sealed and still.is_active
+
+        # Re-pasting the file restores it under the new key.
+        res = await client.put(
+            "/api/v1/admin/extensions/license",
+            json={"text": text},
+            headers=auth_headers(admin),
+        )
+        assert res.status_code == 200, res.text
+        assert extension_registry.license_problem is None
+        assert extension_registry.entitlement("sample-ext").usable
+        rows = await self._stored_rows(db)
+        assert [r.is_active for r in rows] == [False, True]
+        assert decrypt_value(rows[-1].raw_text) == text
+
+    async def test_member_cannot_read_the_license(self, client, db, vendor):
+        member = await make_member(db)
+        res = await client.get("/api/v1/admin/extensions/license", headers=auth_headers(member))
+        assert res.status_code == 403

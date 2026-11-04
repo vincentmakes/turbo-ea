@@ -223,3 +223,32 @@ class TestFieldsLeftAlone:
             [{"section": "Empty"}],
         )
         assert await _attrs(db, card) == {}
+
+
+class TestCleanupLeavesCardsUndated:
+    """Removing a value the metamodel no longer defines is not an edit to the
+    card: none of the three clean-up UPDATEs may re-stamp ``updated_at``."""
+
+    async def test_no_cleanup_update_bumps_updated_at(self, db, types, card_update_sql):
+        a = await create_card(db, name="A", attributes={"cost": 1, "risk": "low", "tags": ["a"]})
+        card_update_sql.clear()
+
+        await cleanup(
+            db,
+            "Application",
+            _schema(
+                {"key": "cost", "type": "number"},
+                _select("risk", "low", "high"),
+                _select("tags", "a", "b", multiple=True),
+            ),
+            _schema(_select("risk", "high"), _select("tags", "b", multiple=True)),
+        )
+
+        assert await _attrs(db, a) == {"tags": []}
+        statements = [" ".join(s.lower().split()) for s in card_update_sql.statements]
+        assert len(statements) == 3, statements
+        assert not card_update_sql.bumped()
+        # Both stamps are set to themselves, so neither ``onupdate`` fires.
+        for sql in statements:
+            assert "updated_at=cards.updated_at" in sql, sql
+            assert "updated_via=cards.updated_via" in sql, sql

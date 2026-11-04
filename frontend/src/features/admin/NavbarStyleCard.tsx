@@ -6,7 +6,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import { api } from "@/api/client";
@@ -28,6 +28,7 @@ interface Props {
 /** Admin → Settings → Appearance card: instance-wide navbar colors.
  *  Curated presets + full-custom mode with a live mock-navbar preview. */
 export default function NavbarStyleCard({ onSaved, onError }: Props) {
+  const theme = useTheme();
   const { t } = useTranslation("admin");
   const appTitle = useAppTitle();
   const [bg, setBg] = useState<string>(NAVBAR_DEFAULTS.bg);
@@ -89,7 +90,7 @@ export default function NavbarStyleCard({ onSaved, onError }: Props) {
   return (
     <Paper sx={{ p: 3, mb: 3 }}>
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-        <MaterialSymbol icon="palette" size={22} color="#555" />
+        <MaterialSymbol icon="palette" size={22} color={theme.palette.text.secondary} />
         <Typography variant="h6" fontWeight={600}>
           {t("settings.navbarStyle.title")}
         </Typography>

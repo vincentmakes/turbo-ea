@@ -10,7 +10,7 @@
  */
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 vi.mock("@/components/grid/ColumnOrderSection", () => ({
@@ -22,6 +22,9 @@ vi.mock("@/components/grid/ColumnOrderSection", () => ({
 }));
 
 import type { AppRole } from "@/types";
+import { createTheme } from "@mui/material/styles";
+import { brand } from "@/theme";
+import { STATUS_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 import UsersFilterSidebar, {
   DEFAULT_USER_COLUMNS,
   EMPTY_USER_FILTERS,
@@ -366,6 +369,13 @@ describe("UsersFilterSidebar sections", () => {
     expect(chip("SSO")).toHaveClass("MuiChip-filled");
     expect(chip("Active")).toHaveClass("MuiChip-outlined");
     expect(chip("Local")).toHaveClass("MuiChip-outlined");
+    // Selected: white on the option's colour; the rest keep the colour on the outline.
+    act(() => (chip("SSO") as HTMLElement).blur()); // a focus-visible chip shows MUI's focus shade instead
+    const white = createTheme().palette.common.white;
+    expect(chip("Invited")).toHaveStyle({ backgroundColor: WARNING_STRONG_COLOR, color: white });
+    expect(chip("SSO")).toHaveStyle({ backgroundColor: brand.primary, color: white });
+    expect(chip("Active")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(chip("Local")).toHaveStyle({ color: createTheme().palette.grey[600] });
   });
 });
 

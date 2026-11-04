@@ -17,11 +17,13 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OriginChip from "@/components/OriginChip";
 import CreateSoAWDialog from "@/features/ea-delivery/CreateSoAWDialog";
 import type { SoAW } from "@/types";
+import { brand } from "@/theme/tokens";
 
 const STATUS_COLOR: Record<SoAW["status"], "default" | "warning" | "info" | "success"> = {
   draft: "default",
@@ -38,6 +40,7 @@ interface Props {
 
 export default function SoAWTab({ initiativeId, canManage }: Props) {
   const { t } = useTranslation(["grc", "common"]);
+  const theme = useTheme();
   const navigate = useNavigate();
   const [soaws, setSoaws] = useState<SoAW[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +85,7 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
       >
         <Box>
           <Stack direction="row" alignItems="center" spacing={1}>
-            <MaterialSymbol icon="article" size={22} color="#1976d2" />
+            <MaterialSymbol icon="article" size={22} color={brand.primary} />
             <Typography variant="h6" fontWeight={600}>
               {t("soaw.title")}
             </Typography>
@@ -114,7 +117,7 @@ export default function SoAWTab({ initiativeId, canManage }: Props) {
         </Box>
       ) : soaws.length === 0 ? (
         <Paper variant="outlined" sx={{ py: 6, textAlign: "center" }}>
-          <MaterialSymbol icon="article" size={40} color="#bbb" />
+          <MaterialSymbol icon="article" size={40} color={theme.palette.grey[400]} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, px: 2 }}>
             {t("soaw.empty")}
           </Typography>

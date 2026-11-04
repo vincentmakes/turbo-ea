@@ -442,6 +442,46 @@ class TestFieldUsage:
         assert response.status_code == 200
         assert response.json()["card_count"] == 1
 
+    async def test_option_usage_multiple_select(self, client, db, metamodel_env):
+        """Counts active cards of the type whose array holds the option."""
+        admin = metamodel_env["admin"]
+        tags_field = {
+            "key": "tags",
+            "type": "multiple_select",
+            "options": [{"key": "a", "label": "A"}, {"key": "b", "label": "B"}],
+        }
+        schema = [{"section": "General", "fields": [tags_field]}]
+        await create_card_type(db, key="Application", label="Application", fields_schema=schema)
+        await create_card_type(db, key="ITComponent", label="IT Component", fields_schema=schema)
+        for name, tags, kwargs in (
+            ("Both", ["a", "b"], {}),
+            ("Only A", ["a"], {}),
+            ("Only B", ["b"], {}),
+            ("Archived A", ["a"], {"status": "ARCHIVED"}),
+        ):
+            await create_card(
+                db, card_type="Application", name=name, attributes={"tags": tags}, **kwargs
+            )
+        await create_card(db, card_type="ITComponent", name="Other", attributes={"tags": ["a"]})
+        await create_card(db, card_type="Application", name="Bare", attributes={})
+
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/option-usage",
+            params={"field_key": "tags", "option_key": "a"},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json() == {"field_key": "tags", "option_key": "a", "card_count": 2}
+
+    async def test_option_usage_requires_admin_metamodel(self, client, db, metamodel_env):
+        await create_card_type(db, key="Application", label="Application")
+        response = await client.get(
+            "/api/v1/metamodel/types/Application/option-usage",
+            params={"field_key": "tags", "option_key": "a"},
+            headers=auth_headers(metamodel_env["viewer"]),
+        )
+        assert response.status_code == 403
+
 
 # ---------------------------------------------------------------------------
 # Relation types — CRUD

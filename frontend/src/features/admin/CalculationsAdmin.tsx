@@ -56,6 +56,7 @@ import type {
   FieldDef,
   RelationType,
 } from "@/types";
+import { useTheme } from "@mui/material/styles";
 
 // ── Suggestion types ───────────────────────────────────────────────
 
@@ -1141,7 +1142,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
             loading={searchLoading || searchDebouncePending}
             noOptionsText={searchInput.length < 2 ? t("calculations.typeToSearch") : t("calculations.noCardsFound")}
-            renderOption={({ key, ...optProps }, option) => (
+            renderOption={({ key: _key, ...optProps }, option) => (
               <li key={option.id} {...optProps}>
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
                   <Typography variant="body2">{option.name}</Typography>
@@ -1327,6 +1328,7 @@ function RecalcResultDialog({ open, report, typeName, onClose }: RecalcResultDia
 // ── Main Component ─────────────────────────────────────────────────
 
 export default function CalculationsAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const { formatDateTime } = useDateFormat();
   const { types, relationTypes } = useMetamodel();
@@ -1535,7 +1537,7 @@ export default function CalculationsAdmin() {
       ) : filteredCalcs.length === 0 ? (
         <Card>
           <CardContent sx={{ textAlign: "center", py: 6 }}>
-            <MaterialSymbol icon="calculate" size={48} color="#ccc" />
+            <MaterialSymbol icon="calculate" size={48} color={theme.palette.action.disabled} />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
               {t("calculations.noCalculations")}
             </Typography>

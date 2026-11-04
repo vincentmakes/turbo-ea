@@ -9,7 +9,6 @@ import {
   resolveVocabColor,
   type GroupAxis,
   type GroupedRow,
-  type GroupInfo,
 } from "./rowGrouping";
 
 interface Row {

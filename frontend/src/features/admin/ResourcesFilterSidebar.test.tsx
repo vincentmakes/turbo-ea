@@ -8,7 +8,9 @@
  */
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { createTheme } from "@mui/material/styles";
+import { STATUS_COLORS } from "@/theme/tokens";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/components/CardPicker", () => ({
@@ -270,6 +272,13 @@ describe("ResourcesFilterSidebar filters", () => {
     expect(lastFilters().archived).toBe("archived");
     await user.click(screen.getByText("Active"));
     expect(lastFilters().archived).toBe("active");
+    const chip = (label: string) => screen.getByText(label).closest(".MuiChip-root") as HTMLElement;
+    act(() => chip("Active").blur()); // a focus-visible chip shows MUI's focus shade instead
+    expect(chip("Active")).toHaveStyle({
+      backgroundColor: STATUS_COLORS.success,
+      color: createTheme().palette.common.white,
+    });
+    expect(chip("Archived")).toHaveStyle({ color: STATUS_COLORS.neutral });
 
     await openSection(user, "Date added");
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-01-01" } });

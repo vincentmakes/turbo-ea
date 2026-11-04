@@ -16,6 +16,8 @@ import { renderWithProviders } from "@/test/render";
 
 import CatalogueBrowser from "./CatalogueBrowser";
 import type { CatalogueKindConfig, CatalogueNode } from "./types";
+import { brand } from "@/theme/tokens";
+import { ThemeProvider, alpha, createTheme } from "@mui/material/styles";
 
 /* ------------------------------------------------------------------------- */
 /*  Fixtures                                                                  */
@@ -29,7 +31,7 @@ const CONFIG: CatalogueKindConfig = {
   i18nNamespace: "catalogue",
   inventoryCardType: "BusinessCapability",
   accentColor: "#003399",
-  selectionColor: "#D63384",
+  selectionColor: brand.primary,
   levelLabel: (level) => (level === 0 ? "Macro" : `L${level}`),
   heroIcon: "account_tree",
 };
@@ -417,5 +419,29 @@ describe("CatalogueBrowser — selection", () => {
     expect(selectBox("BC-2", "Sales")).toBeChecked();
     await user.type(screen.getByPlaceholderText(t("searchPlaceholder")), "finance");
     expect(actionBar()).toContain(`1 ${t("selectedLabel")}`);
+  });
+});
+
+describe("CatalogueBrowser — colour mode", () => {
+  it.each([
+    ["light", false, 0.08],
+    ["dark", true, 0.45],
+  ] as const)("styles the %s theme's root and sticky bar shadow", (mode, dark, shadow) => {
+    renderWithProviders(
+      <ThemeProvider theme={createTheme({ palette: { mode } })}>
+        <Harness />
+      </ThemeProvider>,
+    );
+    const root = document.querySelector(".tcc-root") as HTMLElement;
+    expect(root.classList.contains("tcc-root--dark")).toBe(dark);
+    const bar = root.firstElementChild as HTMLElement;
+    const cls = Array.from(bar.classList).find((c) => c.startsWith("css-"));
+    const rules = Array.from(document.querySelectorAll("style"))
+      .map((el) => el.textContent ?? "")
+      .join("");
+    const black = createTheme().palette.common.black;
+    // The shadow is the `sm` breakpoint's, inside its media query.
+    const shadowRule = new RegExp(`@media \\(min-width:600px\\)\\{\\.${cls}\\{[^}]*box-shadow:([^;]*);`);
+    expect(rules.match(shadowRule)?.[1]).toBe(`0 2px 6px -1px ${alpha(black, shadow)}`);
   });
 });

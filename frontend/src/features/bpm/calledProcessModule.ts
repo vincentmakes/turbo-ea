@@ -51,7 +51,7 @@ import type { ModuleDeclaration } from "didi";
 import CalledProcessEntry from "./CalledProcessEntry";
 import CardLinkEntry from "./CardLinkEntry";
 import { CALLED_PROCESS_COLOR, elementIdOf, linkKindsFor, processRefOf } from "./calledProcess";
-import type { CardLinkKind, ElementLinks, LinkKind } from "./calledProcess";
+import type { ElementLinks, LinkKind } from "./calledProcess";
 
 /** The strings one link row needs. */
 export interface LinkKindLabels {
@@ -295,8 +295,3 @@ export function createCalledProcessModule(bridge: LinkBridge): ModuleDeclaration
     calledProcessCreatePrompt: ["type", CalledProcessCreatePrompt],
   } as ModuleDeclaration;
 }
-
-/** @deprecated the bridge now covers every link kind. */
-export type CalledProcessBridge = LinkBridge;
-/** @deprecated kept so a stale import fails loudly at the type level. */
-export type { CardLinkKind };

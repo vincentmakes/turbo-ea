@@ -53,6 +53,9 @@ describe("useThumbnailCapture", () => {
       cacheBust: true,
       pixelRatio: 1,
     }));
+    // Web fonts stay embedded (see reportExport.test.ts): skipping them drops
+    // the icon glyphs from the thumbnail.
+    expect(vi.mocked(toPng).mock.calls[0][1]).not.toHaveProperty("skipFonts");
     expect(result.current.thumbnail).toBe("data:image/png;base64,abc123");
     expect(openDialog).toHaveBeenCalledOnce();
   });

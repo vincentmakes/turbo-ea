@@ -20,6 +20,7 @@ import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
+import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
@@ -133,7 +134,7 @@ export default function SoAWPreview() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        {!compact && <MaterialSymbol icon="description" size={26} color="#e65100" />}
+        {!compact && <MaterialSymbol icon="description" size={26} color={DELIVERABLE_COLORS.soaw} />}
         <Typography
           variant={compact ? "subtitle1" : "h5"}
           sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
@@ -210,7 +211,7 @@ export default function SoAWPreview() {
             <MaterialSymbol
               icon={soaw.status === "signed" ? "verified" : "draw"}
               size={24}
-              color={soaw.status === "signed" ? "#2e7d32" : "#ed6c02"}
+              color={soaw.status === "signed" ? RAG_COLORS.green : WARNING_STRONG_COLOR}
             />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t("editor.signatures")}
@@ -251,7 +252,7 @@ export default function SoAWPreview() {
                         mb: 1,
                       }}
                     >
-                      <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
+                      <MaterialSymbol icon="verified" size={20} color={RAG_COLORS.green} />
                       <Typography
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "success.dark" }}
@@ -287,7 +288,7 @@ export default function SoAWPreview() {
                         mb: 1,
                       }}
                     >
-                      <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
+                      <MaterialSymbol icon="pending" size={20} color={WARNING_STRONG_COLOR} />
                       <Typography
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "warning.dark" }}

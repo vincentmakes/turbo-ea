@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
+import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
@@ -351,6 +352,8 @@ describe("AppLayout — user menu", () => {
     await waitFor(() => expect(screen.queryByText("Logout")).not.toBeInTheDocument());
 
     await openUserMenu(user);
+    // White on the sponsor gradient, never the text button's primary blue.
+    expect(screen.getByRole("button", { name: /Sponsor/ })).toHaveStyle({ color: createTheme().palette.common.white });
     await user.click(screen.getByRole("button", { name: /Sponsor/ }));
     expect(await screen.findByTestId("sponsor-dialog")).toBeInTheDocument();
     await user.click(screen.getByText("close-sponsor"));

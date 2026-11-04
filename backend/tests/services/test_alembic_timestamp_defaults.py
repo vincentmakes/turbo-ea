@@ -25,7 +25,9 @@ import pytest
 
 _VERSIONS = Path(__file__).resolve().parents[2] / "alembic" / "versions"
 
-_COLUMN_START = re.compile(r'sa\.Column\(\s*"(created_at|updated_at)"')
+# Either quote style: ruff format normalises to double quotes, but a migration
+# pasted from elsewhere may not have been formatted yet.
+_COLUMN_START = re.compile(r"""sa\.Column\(\s*(["'])(?P<name>created_at|updated_at)\1""")
 
 
 def _column_calls(source: str):
@@ -43,7 +45,7 @@ def _column_calls(source: str):
                 if depth == 0:
                     break
             i += 1
-        yield match.group(1), source[start : i + 1]
+        yield match.group("name"), source[start : i + 1]
 
 
 def _migration_files() -> list[Path]:
@@ -66,6 +68,13 @@ class TestEveryMigrationDeclaresTimestampDefaults:
         )
         found = [(name, "server_default" in call) for name, call in _column_calls(offending)]
         assert found == [("created_at", False), ("updated_at", False)]
+
+    def test_scanner_reads_single_quoted_names(self):
+        offending = "sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),\n"
+        found = [(name, "server_default" in call) for name, call in _column_calls(offending)]
+        assert found == [("created_at", False)]
+        # Mismatched quotes are not a column name.
+        assert list(_column_calls("sa.Column('created_at\", sa.DateTime())")) == []
 
     def test_scanner_accepts_a_default_in_either_layout(self):
         ok = (

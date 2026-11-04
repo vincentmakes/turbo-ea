@@ -5,6 +5,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import SectionPaper, { EmptyState } from "../workspace/SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 export interface OverdueTodoRow {
   id: string;
@@ -29,7 +30,7 @@ export default function UnassignedTodosSection({ rows, unassignedCount, loading 
   return (
     <SectionPaper
       icon="assignment_late"
-      iconColor="#d32f2f"
+      iconColor={DASHBOARD_KPI_COLORS.overdue}
       title={t("dashboard.admin.overdueTodos")}
     >
       {loading ? (
@@ -72,7 +73,7 @@ export default function UnassignedTodosSection({ rows, unassignedCount, loading 
                 {r.due_date && (
                   <Typography
                     variant="caption"
-                    sx={{ flexShrink: 0, color: "#d32f2f", fontWeight: 600 }}
+                    sx={{ flexShrink: 0, color: DASHBOARD_KPI_COLORS.overdue, fontWeight: 600 }}
                   >
                     {formatDate(r.due_date)}
                   </Typography>

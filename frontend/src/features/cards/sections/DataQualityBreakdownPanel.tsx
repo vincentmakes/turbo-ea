@@ -107,5 +107,3 @@ export function DataQualityBreakdownPanel({
     </Box>
   );
 }
-
-export default DataQualityBreakdownPanel;

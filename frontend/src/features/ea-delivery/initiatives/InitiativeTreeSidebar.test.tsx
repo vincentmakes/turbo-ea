@@ -15,6 +15,8 @@ import {
   makeSubtype,
 } from "@/test/fixtures/metamodel";
 import type { Card, DiagramSummary, SoAW } from "@/types";
+import { createTheme } from "@mui/material/styles";
+import { FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import InitiativeTreeSidebar, { UNLINKED_KEY } from "./InitiativeTreeSidebar";
 import type { InitiativeTreeNode } from "./useInitiativeData";
 
@@ -435,6 +437,37 @@ describe("InitiativeTreeSidebar", () => {
       ".MuiInputBase-root",
     ) as HTMLElement;
     expect(within(field).getByText("search")).toBeInTheDocument();
+  });
+});
+
+describe("InitiativeTreeSidebar — colours", () => {
+  const FILTER = { search: "", status: "ACTIVE", subtype: "", artefacts: "", favoritesOnly: false };
+  const favouritesOnly = () => screen.getByRole("button", { name: "Favorites only" });
+
+  it("greys the favourites-only toggle when off and frames it in the favourites colour when on", () => {
+    const first = renderSidebar();
+    expect(favouritesOnly()).toHaveStyle({ color: createTheme().palette.text.secondary });
+    first.unmount();
+
+    renderSidebar({ filter: { ...FILTER, favoritesOnly: true } });
+    expect(favouritesOnly()).toHaveStyle({
+      color: FAVORITE_COLOR,
+      border: `1px solid ${FAVORITE_COLOR}`,
+    });
+  });
+
+  it("paints a favourite's star in the favourites colour and leaves the others in currentColor", () => {
+    renderSidebar();
+    const star = (name: string) => within(screen.getByRole("button", { name })).getByText("cards_star");
+    expect(star("Remove Lift and shift from favorites")).toHaveStyle({ color: FAVORITE_COLOR });
+    expect(star("Mark Cloud Migration as favorite").style.color).toBe("currentcolor");
+  });
+
+  it("edges the selected Unlinked row in grey", () => {
+    renderSidebar({ selectedId: UNLINKED_KEY, unlinkedCount: 2 });
+    expect(screen.getByRole("treeitem", { name: "Unlinked artefacts" })).toHaveStyle({
+      borderLeft: `3px solid ${STATUS_COLORS.neutral}`,
+    });
   });
 });
 

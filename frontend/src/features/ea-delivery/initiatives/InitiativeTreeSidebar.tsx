@@ -11,7 +11,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSubtypeLabel } from "@/hooks/useResolveLabel";
-import { CARD_TYPE_COLORS } from "@/theme/tokens";
+import { CARD_TYPE_COLORS, FAVORITE_COLOR, STATUS_COLORS } from "@/theme/tokens";
 import { treeKeyAction, visibleTreeRows } from "./treeKeys";
 import { useInitiativeStatusColor, useInitiativeStatusLabel } from "./useInitiativeStatus";
 import { flattenTree, type InitiativeTreeNode } from "./useInitiativeData";
@@ -220,9 +220,9 @@ export default function InitiativeTreeSidebar({
                 filterSetters.setFavoritesOnly(!filter.favoritesOnly)
               }
               sx={{
-                color: filter.favoritesOnly ? "#f5a623" : "text.secondary",
+                color: filter.favoritesOnly ? FAVORITE_COLOR : "text.secondary",
                 border: filter.favoritesOnly
-                  ? "1px solid #f5a623"
+                  ? `1px solid ${FAVORITE_COLOR}`
                   : "1px solid transparent",
                 borderRadius: 1,
               }}
@@ -401,7 +401,7 @@ function TreeBranch({
         <MaterialSymbol
           icon="rocket_launch"
           size={18}
-          color={isArchived ? "#999" : CARD_TYPE_COLORS.Initiative}
+          color={isArchived ? STATUS_COLORS.neutral : CARD_TYPE_COLORS.Initiative}
         />
 
         <Typography
@@ -459,7 +459,7 @@ function TreeBranch({
           <MaterialSymbol
             icon="cards_star"
             size={16}
-            color={isFavorite ? "#f5a623" : "currentColor"}
+            color={isFavorite ? FAVORITE_COLOR : "currentColor"}
           />
         </IconButton>
       </Box>
@@ -519,13 +519,13 @@ function UnlinkedRow({
         cursor: "pointer",
         bgcolor: selected ? "action.selected" : "transparent",
         borderLeft: selected
-          ? "3px solid #999"
+          ? `3px solid ${STATUS_COLORS.neutral}`
           : "3px solid transparent",
         "&:hover": { bgcolor: selected ? "action.selected" : "action.hover" },
         mb: 0.5,
       }}
     >
-      <MaterialSymbol icon="folder_open" size={18} color="#999" />
+      <MaterialSymbol icon="folder_open" size={18} color={STATUS_COLORS.neutral} />
       <Typography
         sx={{
           fontSize: "0.875rem",

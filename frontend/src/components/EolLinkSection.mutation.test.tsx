@@ -10,6 +10,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -132,6 +133,15 @@ describe("EOL status and details", () => {
     // support=false means active support has ended: "No", in the ended colour.
     expect(rowChip("Active Support")).toHaveTextContent(/^No$/);
     expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.error });
+  });
+
+  it("paints the header and badge chips white on the status colour", async () => {
+    await renderLinkedWith({ eol: true, support: false });
+    const chips = screen.getAllByText("End of Life").map((el) => el.closest(".MuiChip-root")).filter(Boolean);
+    expect(chips).toHaveLength(2); // the accordion header's chip and the status badge
+    for (const chip of chips) {
+      expect(chip).toHaveStyle({ color: createTheme().palette.common.white, backgroundColor: STATUS_COLORS.error });
+    }
   });
 
   it("treats an eol flag of false as supported", async () => {
@@ -336,6 +346,20 @@ describe("EolLinkSection — fetching the linked cycle", () => {
       }),
     );
     expect(await screen.findByText("Linked to")).toBeInTheDocument();
+  });
+
+  it("paints each cycle's status chip in the picker white on its status colour", async () => {
+    const user = userEvent.setup();
+    await renderLinkedWith({ eol: future(48) });
+    mockApi.on("get", "/eol/products/postgresql", [{ cycle: "12", eol: true }]);
+    await user.click(screen.getByTitle("Change linked product"));
+    await screen.findAllByText("Version / Cycle");
+    await user.click(screen.getAllByRole("combobox")[1]);
+    const option = await screen.findByRole("option", { name: /^12/ });
+    expect(within(option).getByText("End of Life").closest(".MuiChip-root")).toHaveStyle({
+      color: createTheme().palette.common.white,
+      backgroundColor: STATUS_COLORS.error,
+    });
   });
 
   it("clears the shown details after unlinking", async () => {

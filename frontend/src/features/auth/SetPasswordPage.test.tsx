@@ -14,6 +14,7 @@ vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientMo
 
 import { mockApi } from "@/test/apiMock";
 import { renderWithProviders } from "@/test/render";
+import { brand } from "@/theme/tokens";
 import SetPasswordPage from "./SetPasswordPage";
 
 const TOKEN = "tok/abc+123";
@@ -78,7 +79,7 @@ beforeEach(() => {
 describe("SetPasswordPage — token validation", () => {
   it("shows a spinner while the token is checked, then greets the invitee by name", async () => {
     renderPage();
-    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveStyle({ color: brand.primaryLight });
     expect(await screen.findByText("Set Your Password")).toBeInTheDocument();
     expect(screen.getByText("Welcome, Ada! Set a password for ada@example.com.")).toBeInTheDocument();
     expect(mockApi.callsOf("get")).toEqual([{ method: "get", path: VALIDATE, body: undefined }]);

@@ -13,6 +13,7 @@ import InventoryPage from "./InventoryPage";
 import { logoColumnApplies } from "./InventoryFilterSidebar";
 import { INVENTORY_LOGO_ROW_HEIGHT } from "./LogoCell";
 import type { CardType } from "@/types";
+import { alpha, createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => ({
   api: {
@@ -203,6 +204,12 @@ describe("Inventory — Logo column", () => {
     expect(logoCells[0].style.display).toBe("flex");
     expect(logoCells[0].style.alignItems).toBe("center");
     expect(logoCells[0].style.justifyContent).toBe("center");
+    // An editor gets a dimmed hover veil with a white camera over the tile.
+    const { common } = createTheme().palette;
+    expect(logoCells[0].querySelector(".inventory-logo-edit")).toHaveStyle({
+      backgroundColor: alpha(common.black, 0.45),
+      color: common.white,
+    });
   });
 
   it("falls back to the type icon for a logo-bearing card that has none", async () => {

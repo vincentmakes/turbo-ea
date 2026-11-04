@@ -35,6 +35,7 @@ import { dateColumnFilterDef } from "@/lib/dateColumnFilter";
 import { loadAdrGridPrefs, updateAdrGridPrefs } from "./adrGridPrefs";
 import type { ArchitectureDecision, CardType } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 /** Extract plain text from HTML using the browser's DOM parser */
 function stripHtml(html: string | null | undefined): string {
@@ -110,9 +111,9 @@ const STATUS_CHIP_PROPS: Record<string, { label_key: string; color: "default" | 
 };
 
 const STATUS_DOT_COLOR: Record<string, string> = {
-  draft: "#9e9e9e",
-  in_review: "#ff9800",
-  signed: "#4caf50",
+  draft: STATUS_COLORS.neutral,
+  in_review: STATUS_COLORS.warning,
+  signed: STATUS_COLORS.success,
 };
 
 export default function AdrGrid({
@@ -253,7 +254,7 @@ export default function AdrGrid({
         cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
           if (!params.data) return null;
           const status = params.data.status;
-          const dotColor = STATUS_DOT_COLOR[status] || "#9e9e9e";
+          const dotColor = STATUS_DOT_COLOR[status] || STATUS_COLORS.neutral;
           const cfg = STATUS_CHIP_PROPS[status];
           const label = cfg ? t(cfg.label_key) : status;
           return (
@@ -363,8 +364,8 @@ export default function AdrGrid({
                     label={c.name}
                     size="small"
                     sx={{
-                      bgcolor: typeColorMap[c.type] || "#9e9e9e",
-                      color: "#fff",
+                      bgcolor: typeColorMap[c.type] || STATUS_COLORS.neutral,
+                      color: "common.white",
                       fontWeight: 500,
                       fontSize: 11,
                       height: 20,

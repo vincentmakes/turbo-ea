@@ -20,7 +20,8 @@ vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMe
 import { mockApi } from "@/test/apiMock";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { installWindowOpen } from "@/test/dom";
-import { CARD_TYPES, RELATION_TYPES } from "@/test/fixtures/metamodel";
+import { CARD_TYPES, RELATION_TYPES, makeCardType } from "@/test/fixtures/metamodel";
+import { CARD_TYPE_COLORS } from "@/theme/tokens";
 import type { ArchSolutionOption, CapabilityMappingResult, TurboLensAnalysisRun } from "@/types";
 import CommitInitiativeDialog from "./CommitInitiativeDialog";
 
@@ -900,5 +901,20 @@ describe("CommitInitiativeDialog — card type chips", () => {
     expect(within(rowOf("Okta")).getByText("IT Component")).toBeInTheDocument();
     expect(within(rowOf("Okta")).queryByText("ITComponent")).toBeNull();
     expect(within(rowOf("Oddball")).getByText("NoSuchType")).toBeInTheDocument();
+  });
+});
+
+describe("CommitInitiativeDialog — objective flags", () => {
+  const flags = () => within(screen.getByText("Linked Objectives (2)").parentElement!).getAllByText("flag");
+
+  it("colours each objective's flag with the Objective type's metamodel colour", () => {
+    withMetamodel([...CARD_TYPES, makeCardType({ key: "Objective", color: "#123456" })], RELATION_TYPES);
+    renderDialog();
+    for (const flag of flags()) expect(flag).toHaveStyle({ color: "#123456" });
+  });
+
+  it("falls back to the bundled Objective colour when the metamodel has no Objective type", () => {
+    renderDialog();
+    for (const flag of flags()) expect(flag).toHaveStyle({ color: CARD_TYPE_COLORS.Objective });
   });
 });

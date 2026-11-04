@@ -150,7 +150,6 @@ export function useFacetColumnSync<TData = unknown>(
         dropColumnModel(api, colId);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options.facetState, gridRef, dropColumnModel]);
 
   const canMirror = useCallback((ctx: CellMenuContext<TData>): boolean => {

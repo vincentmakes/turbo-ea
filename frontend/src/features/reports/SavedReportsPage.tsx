@@ -23,6 +23,8 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { alpha } from "@mui/material/styles";
+import { RAG_COLORS, brand } from "@/theme/tokens";
 import EditReportDialog from "./EditReportDialog";
 import { api } from "@/api/client";
 import { getExtensionRoutes, useExtensionUI } from "@/lib/extensionHost";
@@ -32,6 +34,8 @@ import {
   VISIBILITY_STYLE,
   getReportTypeLabels,
   getVisibilityLabels,
+  EXTENSION_REPORT_COLOR,
+  UNKNOWN_REPORT_COLOR,
 } from "./savedReportStyles";
 
 export default function SavedReportsPage() {
@@ -105,7 +109,7 @@ export default function SavedReportsPage() {
     <Box sx={{ maxWidth: 1200, mx: "auto" }}>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-        <MaterialSymbol icon="bookmarks" size={26} color="#1976d2" />
+        <MaterialSymbol icon="bookmarks" size={26} color={brand.primary} />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {t("saved.title")}
         </Typography>
@@ -152,8 +156,8 @@ export default function SavedReportsPage() {
             const extRoute = extRouteFor(report.report_type);
             const style = REPORT_TYPE_STYLE[report.report_type] ||
               (extRoute
-                ? { icon: extRoute.icon, color: "#607d8b", path: extRoute.path }
-                : { icon: "analytics", color: "#90a4ae", path: "#" });
+                ? { icon: extRoute.icon, color: EXTENSION_REPORT_COLOR, path: extRoute.path }
+                : { icon: "analytics", color: UNKNOWN_REPORT_COLOR, path: "#" });
             const metaLabel =
               REPORT_TYPE_LABELS[report.report_type] || extRoute?.label || report.report_type;
             const visStyle = VISIBILITY_STYLE[report.visibility] || VISIBILITY_STYLE.private;
@@ -235,7 +239,7 @@ export default function SavedReportsPage() {
                       e.stopPropagation();
                       setMenuAnchor({ el: e.currentTarget, report });
                     }}
-                    sx={{ position: "absolute", top: 8, right: 8, bgcolor: "rgba(255,255,255,0.85)", "&:hover": { bgcolor: "rgba(255,255,255,0.95)" } }}
+                    sx={{ position: "absolute", top: 8, right: 8, bgcolor: (th) => alpha(th.palette.common.white, 0.85), "&:hover": { bgcolor: (th) => alpha(th.palette.common.white, 0.95) } }}
                   >
                     <MaterialSymbol icon="more_vert" size={18} />
                   </IconButton>
@@ -268,7 +272,7 @@ export default function SavedReportsPage() {
           }}
           sx={{ color: "error.main" }}
         >
-          <ListItemIcon><MaterialSymbol icon="delete" size={18} color="#d32f2f" /></ListItemIcon>
+          <ListItemIcon><MaterialSymbol icon="delete" size={18} color={RAG_COLORS.red} /></ListItemIcon>
           <ListItemText>{t("common:actions.delete")}</ListItemText>
         </MenuItem>
       </Menu>

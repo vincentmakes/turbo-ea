@@ -13,6 +13,7 @@ import i18n from "@/i18n";
 import { hookState, withMetamodel } from "@/test/hooks";
 import { makeCardType } from "@/test/fixtures/metamodel";
 import { renderWithProviders } from "@/test/render";
+import { DASHBOARD_KPI_COLORS as KPI } from "@/theme/tokens";
 import StakeholderCoverageSection, { type CoverageRow } from "./StakeholderCoverageSection";
 
 const APP = makeCardType({
@@ -106,12 +107,12 @@ describe("StakeholderCoverageSection", () => {
       row("Edge", 10, 8), // exactly 80 %: good
       row("Half", 2, 1), // exactly 50 %: middling
     ]);
-    expect(barOf("Application")).toHaveStyle({ width: "40%", backgroundColor: "#ef6c00" });
-    expect(barOf("Organization")).toHaveStyle({ width: "60%", backgroundColor: "#f5a623" });
-    expect(barOf("Good")).toHaveStyle({ width: "95%", backgroundColor: "#43a047" });
-    expect(barOf("Empty")).toHaveStyle({ width: "0%", backgroundColor: "#ef6c00" });
-    expect(barOf("Edge")).toHaveStyle({ width: "80%", backgroundColor: "#43a047" });
-    expect(barOf("Half")).toHaveStyle({ width: "50%", backgroundColor: "#f5a623" });
+    expect(barOf("Application")).toHaveStyle({ width: "40%", backgroundColor: KPI.noStakeholders });
+    expect(barOf("Organization")).toHaveStyle({ width: "60%", backgroundColor: KPI.qualityFair });
+    expect(barOf("Good")).toHaveStyle({ width: "95%", backgroundColor: KPI.qualityGood });
+    expect(barOf("Empty")).toHaveStyle({ width: "0%", backgroundColor: KPI.noStakeholders });
+    expect(barOf("Edge")).toHaveStyle({ width: "80%", backgroundColor: KPI.qualityGood });
+    expect(barOf("Half")).toHaveStyle({ width: "50%", backgroundColor: KPI.qualityFair });
   });
 
   it("rounds the covered share to a whole percent", () => {

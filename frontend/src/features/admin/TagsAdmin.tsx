@@ -27,6 +27,7 @@ import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import type { CardType, Tag, TagGroup } from "@/types";
 import { readableTextColor } from "@/lib/color";
+import { brand } from "@/theme/tokens";
 
 type DeleteTarget =
   | { kind: "group"; id: string; name: string }
@@ -47,7 +48,7 @@ export default function TagsAdmin() {
   const [addTagGroupId, setAddTagGroupId] = useState<string | null>(null);
   const [tagName, setTagName] = useState("");
   const [tagDescription, setTagDescription] = useState("");
-  const [tagColor, setTagColor] = useState("#1976d2");
+  const [tagColor, setTagColor] = useState<string>(brand.primary);
 
   const [editGroup, setEditGroup] = useState<TagGroup | null>(null);
   const [editGroupDraft, setEditGroupDraft] = useState<{
@@ -64,7 +65,7 @@ export default function TagsAdmin() {
     restrict_to_types: [],
   });
   const [editTag, setEditTag] = useState<Tag | null>(null);
-  const [editTagDraft, setEditTagDraft] = useState({ name: "", description: "", color: "#1976d2" });
+  const [editTagDraft, setEditTagDraft] = useState({ name: "", description: "", color: brand.primary as string });
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   // The failure of the open dialog's request (only one dialog is open at a
   // time), and of the list load ("" when it carried no message).
@@ -159,7 +160,7 @@ export default function TagsAdmin() {
     setEditTagDraft({
       name: tag.name,
       description: tag.description ?? "",
-      color: tag.color ?? "#1976d2",
+      color: tag.color ?? brand.primary,
     });
   };
 

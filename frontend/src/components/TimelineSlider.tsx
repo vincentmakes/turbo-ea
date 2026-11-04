@@ -526,7 +526,7 @@ export default function TimelineSlider({
                   width: 18,
                   height: 18,
                   bgcolor: accent,
-                  border: "2px solid #fff",
+                  border: `2px solid ${theme.palette.common.white}`,
                   boxShadow: `0 0 0 1px ${accent}40`,
                   transition: "background-color 0.3s, box-shadow 0.3s",
                   "&:hover, &.Mui-focusVisible": {

@@ -44,6 +44,7 @@ import {
   phaseToStepIndex,
 } from "./utils";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
+import { CARD_TYPE_COLORS, MEDAL_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 // --- Option card component ---
 
@@ -248,7 +249,7 @@ function OptionCard({
                 <Typography
                   variant="caption"
                   fontWeight={600}
-                  sx={{ display: "block", mb: 0.3, color: "#0f7eb5" }}
+                  sx={{ display: "block", mb: 0.3, color: CARD_TYPE_COLORS.Application }}
                 >
                   {t("turbolens_architect_new_integrations")}
                 </Typography>
@@ -261,7 +262,7 @@ function OptionCard({
                     sx={{ ml: 1, mb: 0.3 }}
                   >
                     <Typography variant="caption">{intg.from}</Typography>
-                    <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
+                    <MaterialSymbol icon="arrow_forward" size={12} color={STATUS_COLORS.neutral} />
                     <Typography variant="caption">{intg.to}</Typography>
                     {intg.protocol && (
                       <Chip
@@ -447,10 +448,10 @@ function GapsView({
                         borderTop: 3,
                         borderColor:
                           ri === 0
-                            ? "#FFD700"
+                            ? MEDAL_COLORS.gold.fill
                             : ri === 1
-                              ? "#C0C0C0"
-                              : "#CD7F32",
+                              ? MEDAL_COLORS.silver.fill
+                              : MEDAL_COLORS.bronze.fill,
                         cursor: selectable ? "pointer" : undefined,
                         outline: isSelected ? "2px solid" : undefined,
                         outlineColor: isSelected ? "primary.main" : undefined,
@@ -477,10 +478,10 @@ function GapsView({
                           sx={{
                             color:
                               ri === 0
-                                ? "#B8860B"
+                                ? MEDAL_COLORS.gold.text
                                 : ri === 1
-                                  ? "#808080"
-                                  : "#8B4513",
+                                  ? MEDAL_COLORS.silver.text
+                                  : MEDAL_COLORS.bronze.text,
                           }}
                         >
                           #{ri + 1}
@@ -1789,7 +1790,7 @@ export default function TurboLensArchitect() {
                             height: 28,
                             borderRadius: "50%",
                             bgcolor: "primary.main",
-                            color: "#fff",
+                            color: "common.white",
                             fontSize: 13,
                             fontWeight: 700,
                             display: "flex",
@@ -2661,7 +2662,7 @@ export default function TurboLensArchitect() {
                             <MaterialSymbol
                               icon="arrow_forward"
                               size={12}
-                              color="#999"
+                              color={STATUS_COLORS.neutral}
                             />
                             <Typography variant="caption">
                               {tgtName}

@@ -28,6 +28,7 @@ import type {
 import type { GNode, GEdge } from "@/features/reports/layeredDependencyLayout";
 import LayeredDependencyView from "@/features/reports/LayeredDependencyView";
 import { approachColor, effortColor, effortLabel, urgencyColor } from "./utils";
+import { MEDAL_COLORS, STATUS_COLORS } from "@/theme/tokens";
 
 interface MergedGraph {
   nodes: GNode[];
@@ -446,13 +447,13 @@ export default function AssessmentViewer() {
                                   height: "100%",
                                   bgcolor: isSelected ? "action.selected" : undefined,
                                   borderTop: 3,
-                                  borderColor: ri === 0 ? "#FFD700" : ri === 1 ? "#C0C0C0" : "#CD7F32",
+                                  borderColor: ri === 0 ? MEDAL_COLORS.gold.fill : ri === 1 ? MEDAL_COLORS.silver.fill : MEDAL_COLORS.bronze.fill,
                                   outline: isSelected ? "2px solid" : undefined,
                                   outlineColor: isSelected ? "primary.main" : undefined,
                                 }}
                               >
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                  <Typography variant="caption" fontWeight={700} sx={{ color: ri === 0 ? "#B8860B" : ri === 1 ? "#808080" : "#8B4513" }}>
+                                  <Typography variant="caption" fontWeight={700} sx={{ color: ri === 0 ? MEDAL_COLORS.gold.text : ri === 1 ? MEDAL_COLORS.silver.text : MEDAL_COLORS.bronze.text }}>
                                     #{ri + 1}
                                   </Typography>
                                   <Typography variant="body2" fontWeight={600}>{rec.name}</Typography>
@@ -676,7 +677,7 @@ export default function AssessmentViewer() {
                         data-testid="proposed-relation"
                       >
                         <Typography variant="caption">{srcName}</Typography>
-                        <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
+                        <MaterialSymbol icon="arrow_forward" size={12} color={STATUS_COLORS.neutral} />
                         <Typography variant="caption">{tgtName}</Typography>
                         {rel.label && (
                           <Chip

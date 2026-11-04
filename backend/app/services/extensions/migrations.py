@@ -15,9 +15,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import text
+from sqlalchemy import insert, select
 
 from app.database import engine
+from app.models.extension import ExtensionSchemaVersion
 from app.services.extensions.loader import LoadReport
 from app.services.extensions.sdk import ExtensionMigration
 
@@ -27,9 +28,9 @@ logger = logging.getLogger(__name__)
 async def _applied_versions(key: str) -> set[int]:
     async with engine.connect() as conn:
         rows = await conn.execute(
-            text(
-                "SELECT version FROM extension_schema_versions WHERE extension_key = :key"
-            ).bindparams(key=key)
+            select(ExtensionSchemaVersion.version).where(
+                ExtensionSchemaVersion.extension_key == key
+            )
         )
         return {int(v) for (v,) in rows}
 
@@ -38,11 +39,8 @@ async def _run_one(key: str, migration: ExtensionMigration) -> None:
     async with engine.begin() as conn:
         await migration.upgrade(conn)
         await conn.execute(
-            text(
-                "INSERT INTO extension_schema_versions (extension_key, version, name, applied_at) "
-                "VALUES (:key, :version, :name, :applied_at)"
-            ).bindparams(
-                key=key,
+            insert(ExtensionSchemaVersion).values(
+                extension_key=key,
                 version=migration.version,
                 name=migration.name[:255],
                 applied_at=datetime.now(timezone.utc),

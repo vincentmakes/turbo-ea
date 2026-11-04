@@ -32,7 +32,12 @@ import {
 import TimelineSlider from "@/components/TimelineSlider";
 import { expandSides, parseSideKey, sideKey } from "@/lib/relationSort";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { EOL_WARNING_COLOR } from "@/theme";
+import {
+  CHART_LABEL_ON_DARK,
+  EOL_WARNING_COLOR,
+  SCREEN_INK,
+  STATUS_COLORS,
+} from "@/theme";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import ColumnCountPicker from "@/components/ColumnCountPicker";
@@ -88,6 +93,7 @@ import {
   attributeLabel,
   buildColorLegend,
   buildColorSegments,
+  DEFAULT_APP_COLOR,
   getAppColor,
   getAppColorLabel,
   isAppAliveAtDate,
@@ -277,7 +283,8 @@ function AppChip({
 }) {
   const color = getAppColor(app, colorRes, colorLabels, colorMemberId);
   const colorLabel = getAppColorLabel(app, colorRes, colorLabels, colorMemberId);
-  const light = readableTextColor(color) === "#000000";
+  // `readableTextColor` answers white for a dark fill, so anything else is a light one.
+  const light = readableTextColor(color) !== CHART_LABEL_ON_DARK;
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (
@@ -291,7 +298,7 @@ function AppChip({
         }}
         sx={{
           bgcolor: color,
-          color: light ? "#333" : "#fff",
+          color: light ? SCREEN_INK.onLightFill : "common.white",
           fontWeight: 500,
           fontSize: "0.72rem",
           maxWidth: 180,
@@ -1449,7 +1456,7 @@ export default function PortfolioReport({
     [currentType, subtypeDefLabel],
   );
   const typeIcon = currentType?.icon || "dashboard";
-  const typeColor = currentType?.color || "#0f7eb5";
+  const typeColor = currentType?.color || DEFAULT_APP_COLOR;
 
   // Title falls back to the legacy hardcoded "Application Portfolio" string
   // when the type is Application so existing screenshots/tests stay valid.
@@ -1606,7 +1613,7 @@ export default function PortfolioReport({
                   }
                 }}
                 disabled={aiLoading || filteredApps.length === 0}
-                sx={{ color: aiOpen ? "primary.main" : "#1976d2" }}
+                sx={{ color: "primary.main" }}
               >
                 {aiLoading ? (
                   <CircularProgress size={18} />
@@ -1770,7 +1777,7 @@ export default function PortfolioReport({
                   <MaterialSymbol
                     icon="search"
                     size={18}
-                    color="#999"
+                    color={STATUS_COLORS.neutral}
                   />
                 ),
               },
@@ -2080,7 +2087,7 @@ export default function PortfolioReport({
                     <MaterialSymbol
                       icon="help_outline"
                       size={18}
-                      color="#999"
+                      color={STATUS_COLORS.neutral}
                     />
                     <Typography
                       variant="subtitle2"

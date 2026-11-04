@@ -25,6 +25,7 @@ vi.mock("@/lib/publicSso", async (importOriginal) => ({
 
 import PublicDiagramPage from "./PublicDiagramPage";
 import { parseState, PUBLIC_SSO_MESSAGE_TYPE } from "@/lib/publicSso";
+import { createTheme } from "@mui/material/styles";
 
 const SLUG = "abc123";
 const GATE = {
@@ -313,6 +314,10 @@ describe("PublicDiagramPage — public", () => {
     renderPage();
     expect(await screen.findByTitle("Landscape")).toBeInTheDocument();
     expect(window.open).not.toHaveBeenCalled();
+    // The canvas sits on white, whatever the app's theme.
+    expect(screen.getByTitle("Landscape").parentElement).toHaveStyle({
+      backgroundColor: createTheme().palette.common.white,
+    });
   });
 });
 

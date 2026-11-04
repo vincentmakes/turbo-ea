@@ -27,6 +27,7 @@ import { api } from "@/api/client";
 import { LOCALE_LABELS } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
+import { brand } from "@/theme/tokens";
 
 /** What blocks deleting or re-keying a role, from `.../stakeholder-roles/{key}/usage`. */
 interface RoleUsage {
@@ -110,7 +111,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     key: "",
     label: "",
     description: "",
-    color: "#1976d2",
+    color: brand.primary as string,
     countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
@@ -125,7 +126,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     key: "",
     label: "",
     description: "",
-    color: "#1976d2",
+    color: brand.primary as string,
     countsForQuality: true,
     permissions: {} as Record<string, boolean>,
     translations: {} as MetamodelTranslations,
@@ -214,7 +215,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         key: "",
         label: "",
         description: "",
-        color: "#1976d2",
+        color: brand.primary,
         countsForQuality: true,
         permissions: {},
         translations: {},
@@ -793,7 +794,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         key: "",
         label: "",
         description: "",
-        color: "#1976d2",
+        color: brand.primary,
         countsForQuality: true,
         permissions: {},
         translations: {},
@@ -853,7 +854,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                     confirm.action === "delete"
                       ? "metamodel.stakeholderPanel.deleteRoleConfirm"
                       : "metamodel.stakeholderPanel.archiveRoleConfirm",
-                    { label: confirm.role.label, key: confirm.role.key },
+                    {
+                      label: confirm.role.label,
+                      key: confirm.role.key,
+                      interpolation: { escapeValue: true },
+                    },
                   ),
                 }}
               />
@@ -868,6 +873,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                       dangerouslySetInnerHTML={{
                         __html: t("metamodel.stakeholderPanel.archiveRevokes", {
                           count: confirm.usage.stakeholder_count,
+                          interpolation: { escapeValue: true },
                         }),
                       }}
                     />
@@ -890,12 +896,16 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                         ? t("metamodel.stakeholderPanel.roleUsedByCards", {
                             count: confirm.usage.stakeholder_count,
                             cards: confirm.usage.card_count,
+                            interpolation: { escapeValue: true },
                           })
                         : confirm.usage.survey_count
                           ? t("metamodel.stakeholderPanel.roleUsedBySurveys", {
                               count: confirm.usage.survey_count,
+                              interpolation: { escapeValue: true },
                             })
-                          : t("metamodel.stakeholderPanel.roleIsLastActive"),
+                          : t("metamodel.stakeholderPanel.roleIsLastActive", {
+                              interpolation: { escapeValue: true },
+                            }),
                     }}
                   />
                 </Alert>

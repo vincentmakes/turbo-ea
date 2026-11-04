@@ -36,6 +36,7 @@ import { hasPermission } from "@/components/RequirePermission";
 import { ExtensionBoundary, ExtensionSlot, useExtensionAdrPanels } from "@/lib/extensionHost";
 import { printAdr } from "./adrPrint";
 import type { Card, ArchitectureDecision, SoAWSignatory } from "@/types";
+import { STATUS_COLORS as STATUS_HUES } from "@/theme/tokens";
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
   draft: "default",
@@ -845,7 +846,7 @@ export default function ADREditor() {
                         : "radio_button_unchecked"
                     }
                     size={20}
-                    color={sig.status === "signed" ? "#4caf50" : "#ff9800"}
+                    color={sig.status === "signed" ? STATUS_HUES.success : STATUS_HUES.warning}
                   />
                 </ListItemIcon>
                 <ListItemText

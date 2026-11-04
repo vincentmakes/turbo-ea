@@ -83,7 +83,7 @@ export default function SponsorshipDialog({ open, onClose }: Props) {
             rel="noopener noreferrer"
             variant="contained"
             startIcon={<MaterialSymbol icon="favorite" size={18} />}
-            sx={{ background: sponsorGradient, color: "#fff", "&:hover": { background: sponsorGradient, filter: "brightness(0.95)" } }}
+            sx={{ background: sponsorGradient, color: "common.white", "&:hover": { background: sponsorGradient, filter: "brightness(0.95)" } }}
           >
             {t("sponsorship.oneTime")}
           </Button>
@@ -93,7 +93,7 @@ export default function SponsorshipDialog({ open, onClose }: Props) {
             rel="noopener noreferrer"
             variant="contained"
             startIcon={<MaterialSymbol icon="autorenew" size={18} />}
-            sx={{ background: sponsorGradient, color: "#fff", "&:hover": { background: sponsorGradient, filter: "brightness(0.95)" } }}
+            sx={{ background: sponsorGradient, color: "common.white", "&:hover": { background: sponsorGradient, filter: "brightness(0.95)" } }}
           >
             {t("sponsorship.monthly")}
           </Button>

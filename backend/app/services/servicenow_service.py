@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import base64
-import hashlib
+import json
 import logging
 import re
 import uuid
@@ -12,11 +11,10 @@ from difflib import SequenceMatcher
 from typing import Any
 
 import httpx
-from cryptography.fernet import Fernet, InvalidToken
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.encryption import decrypt_value, encrypt_value
 from app.models.card import Card
 from app.models.servicenow import (
     SnowFieldMapping,
@@ -34,39 +32,48 @@ logger = logging.getLogger(__name__)
 # Credential encryption helpers
 # ---------------------------------------------------------------------------
 
-_fernet: Fernet | None = None
-
-
-def _get_fernet() -> Fernet:
-    """Derive a Fernet key from SECRET_KEY (deterministic)."""
-    global _fernet
-    if _fernet is None:
-        key_bytes = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
-        _fernet = Fernet(base64.urlsafe_b64encode(key_bytes))
-    return _fernet
+_ENC_PREFIX = "enc:"
 
 
 def encrypt_credentials(creds: dict) -> dict:
-    """Encrypt sensitive credential values."""
-    import json
+    """Encrypt a ServiceNow credential dict for the ``credentials`` JSONB column.
 
-    f = _get_fernet()
-    return {"_enc": f.encrypt(json.dumps(creds).encode()).decode()}
+    The whole dict is JSON-encoded and encrypted with the shared
+    ``encrypt_value`` helper, inside the ``{"_enc": …}`` envelope the column
+    has always carried. The value is ``enc:``-prefixed like every other secret
+    at rest, so the generic scrubbers (``workspace_io.secrets._scrub_encrypted``,
+    the audit-log redaction and any ``is_encrypted`` check) recognise it as one.
+    """
+    return {"_enc": encrypt_value(json.dumps(creds))}
 
 
 def decrypt_credentials(stored: dict) -> dict:
-    """Decrypt stored credentials."""
-    import json
+    """Decrypt a ServiceNow ``credentials`` value written by any version.
 
+    * ``{"_enc": "enc:…"}`` — the current shape, decrypted by ``decrypt_value``.
+    * ``{"_enc": "<bare Fernet token>"}`` — written before the helper moved onto
+      ``encrypt_value``. It was produced with the same key (sha256 of
+      ``SECRET_KEY``), so it decrypts once the prefix is prepended.
+    * a dict without ``_enc`` — legacy plaintext (or empty), returned as is.
+
+    An undecryptable token (``SECRET_KEY`` changed, corrupted data) or a
+    payload that is not a JSON object yields ``{}``, which forces re-entry.
+    """
     enc = stored.get("_enc")
     if not enc:
         return stored  # Legacy unencrypted or empty
-    f = _get_fernet()
-    try:
-        return json.loads(f.decrypt(enc.encode()).decode())
-    except InvalidToken:
+    if not enc.startswith(_ENC_PREFIX):
+        enc = _ENC_PREFIX + enc
+    plaintext = decrypt_value(enc)
+    if not plaintext:
         logger.error("Failed to decrypt ServiceNow credentials — key may have changed")
         return {}
+    try:
+        creds = json.loads(plaintext)
+    except ValueError:
+        logger.error("Decrypted ServiceNow credentials are not valid JSON")
+        return {}
+    return creds if isinstance(creds, dict) else {}
 
 
 # ---------------------------------------------------------------------------

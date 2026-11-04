@@ -39,11 +39,43 @@ dev = [
     "pytest-cov>=5.0.0",
     # Mutation testing; pinned exactly for the reason given in backend/pyproject.toml.
     "mutmut==3.8.0",
+    # Lint and format ([tool.ruff] below); the same floor as backend/pyproject.toml.
+    "ruff>=0.8.0",
+    # Dead-code scan ([tool.vulture] below). Pinned exactly, and to the same
+    # version as backend/pyproject.toml: MCP Server Tests in
+    # .github/workflows/ci.yml installs it through these extras, so this line is
+    # the only place to bump it on this side.
+    "vulture==2.16",
 ]
+
+# Explicit, because flat-layout auto-discovery refuses a second top-level
+# module (vulture_whitelist.py) and the mcp-server image runs `pip install .`
+# over the whole folder. Only the package ships.
+[tool.setuptools.packages.find]
+include = ["turbo_ea_mcp*"]
 
 [tool.pytest.ini_options]
 # Never collect the copy of the suite mutmut keeps under mutants/.
 testpaths = ["tests"]
+
+# Mirrors backend/pyproject.toml. MCP Server Tests runs `ruff format --check .`
+# and `ruff check .` from mcp-server/.
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.vulture]
+# Run from mcp-server/ as plain `vulture`. Findings below 80% confidence are the
+# structural false positives of a FastMCP + Pydantic server (tool functions
+# reached through the @mcp.tool decorator, model fields read by the framework)
+# and stay out of the gate. A real false positive at 80%+ goes into
+# vulture_whitelist.py with a reason.
+min_confidence = 80
+exclude = ["tests/"]
+paths = ["turbo_ea_mcp", "vulture_whitelist.py"]
 
 [tool.coverage.run]
 source = ["turbo_ea_mcp"]

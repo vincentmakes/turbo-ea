@@ -29,6 +29,7 @@ import { api, isAbortError } from "@/api/client";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import type { Card, Relation } from "@/types";
 import { findSuccessorRelationType } from "@/lib/successorRelation";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 function SuccessorsSection({
   card,
@@ -256,7 +257,7 @@ function SuccessorsSection({
                             <MaterialSymbol
                               icon="link_off"
                               size={16}
-                              color="#f44336"
+                              color={STATUS_COLORS.error}
                             />
                           </IconButton>
                         ) : undefined
@@ -327,7 +328,7 @@ function SuccessorsSection({
                             <MaterialSymbol
                               icon="link_off"
                               size={16}
-                              color="#f44336"
+                              color={STATUS_COLORS.error}
                             />
                           </IconButton>
                         ) : undefined

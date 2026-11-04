@@ -60,7 +60,12 @@ import type {
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 import { ORIGIN_META } from "@/components/originMeta";
-import { CATEGORICAL_COLORS } from "@/theme/tokens";
+import {
+  APPROVAL_STATUS_COLORS,
+  CATEGORICAL_COLORS,
+  LIFECYCLE_PHASE_COLORS,
+  brand,
+} from "@/theme/tokens";
 import {
   EOL_STATUSES,
   EOL_STATUS_COLORS,
@@ -183,10 +188,10 @@ interface Props {
 }
 
 export const APPROVAL_STATUS_OPTIONS = [
-  { key: "DRAFT", tKey: "common:status.draft" as const, color: "#9e9e9e" },
-  { key: "APPROVED", tKey: "common:status.approved" as const, color: "#4caf50" },
-  { key: "BROKEN", tKey: "common:status.broken" as const, color: "#ff9800" },
-  { key: "REJECTED", tKey: "common:status.rejected" as const, color: "#f44336" },
+  { key: "DRAFT", tKey: "common:status.draft" as const, color: APPROVAL_STATUS_COLORS.DRAFT },
+  { key: "APPROVED", tKey: "common:status.approved" as const, color: APPROVAL_STATUS_COLORS.APPROVED },
+  { key: "BROKEN", tKey: "common:status.broken" as const, color: APPROVAL_STATUS_COLORS.BROKEN },
+  { key: "REJECTED", tKey: "common:status.rejected" as const, color: APPROVAL_STATUS_COLORS.REJECTED },
 ];
 
 /** The Origin facet's options: every channel a card can be created through,
@@ -201,11 +206,11 @@ export const ORIGIN_OPTIONS: { key: string; icon: string; color: string }[] = [
 ];
 
 export const LIFECYCLE_PHASES = [
-  { key: "plan", tKey: "common:lifecycle.plan" as const, color: "#90a4ae" },
-  { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: "#42a5f5" },
-  { key: "active", tKey: "common:lifecycle.active" as const, color: "#66bb6a" },
-  { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: "#ffa726" },
-  { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: "#ef5350" },
+  { key: "plan", tKey: "common:lifecycle.plan" as const, color: LIFECYCLE_PHASE_COLORS.plan },
+  { key: "phaseIn", tKey: "common:lifecycle.phaseIn" as const, color: LIFECYCLE_PHASE_COLORS.phaseIn },
+  { key: "active", tKey: "common:lifecycle.active" as const, color: LIFECYCLE_PHASE_COLORS.active },
+  { key: "phaseOut", tKey: "common:lifecycle.phaseOut" as const, color: LIFECYCLE_PHASE_COLORS.phaseOut },
+  { key: "endOfLife", tKey: "common:lifecycle.endOfLife" as const, color: LIFECYCLE_PHASE_COLORS.endOfLife },
 ];
 
 const MIN_WIDTH = 220;
@@ -1160,7 +1165,7 @@ export default function InventoryFilterSidebar({
                       variant={filters.approvalStatuses.includes(s.key) ? "filled" : "outlined"}
                       sx={
                         filters.approvalStatuses.includes(s.key)
-                          ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
+                          ? { bgcolor: s.color, color: "common.white", borderColor: s.color }
                           : { borderColor: s.color, color: s.color }
                       }
                     />
@@ -1219,7 +1224,7 @@ export default function InventoryFilterSidebar({
                       variant={filters.lifecyclePhases.includes(p.key) ? "filled" : "outlined"}
                       sx={
                         filters.lifecyclePhases.includes(p.key)
-                          ? { bgcolor: p.color, color: "#fff", borderColor: p.color }
+                          ? { bgcolor: p.color, color: "common.white", borderColor: p.color }
                           : { borderColor: p.color, color: p.color }
                       }
                     />
@@ -1260,7 +1265,7 @@ export default function InventoryFilterSidebar({
                             variant={selected ? "filled" : "outlined"}
                             sx={
                               selected
-                                ? { bgcolor: color, color: "#fff", borderColor: color }
+                                ? { bgcolor: color, color: "common.white", borderColor: color }
                                 : { borderColor: color, color }
                             }
                           />
@@ -1304,7 +1309,7 @@ export default function InventoryFilterSidebar({
                             sx={
                               color
                                 ? selected
-                                  ? { bgcolor: color, color: "#fff", borderColor: color }
+                                  ? { bgcolor: color, color: "common.white", borderColor: color }
                                   : { borderColor: color, color }
                                 : undefined
                             }
@@ -1349,7 +1354,7 @@ export default function InventoryFilterSidebar({
                         variant={selected ? "filled" : "outlined"}
                         sx={
                           selected
-                            ? { bgcolor: dq.color, color: "#fff", borderColor: dq.color }
+                            ? { bgcolor: dq.color, color: "common.white", borderColor: dq.color }
                             : { borderColor: dq.color, color: dq.color }
                         }
                       />
@@ -2019,7 +2024,7 @@ export default function InventoryFilterSidebar({
         fullWidth
       >
         <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <MaterialSymbol icon={editingBookmark ? "edit" : "bookmark_add"} size={22} color="#1976d2" />
+          <MaterialSymbol icon={editingBookmark ? "edit" : "bookmark_add"} size={22} color={brand.primary} />
           {editingBookmark ? t("views.editView") : t("views.saveCurrentView")}
         </DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
@@ -2316,7 +2321,7 @@ function BookmarkListItem({
               {bm.name}
             </Typography>
             {visIcon && <MaterialSymbol icon={visIcon} size={13} />}
-            {bm.odata_enabled && <MaterialSymbol icon="cloud" size={13} color="#1976d2" />}
+            {bm.odata_enabled && <MaterialSymbol icon="cloud" size={13} color={brand.primary} />}
           </Box>
         }
         secondary={

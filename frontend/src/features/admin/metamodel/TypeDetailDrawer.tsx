@@ -44,9 +44,10 @@ import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
 import RelationsTabContent from "./RelationsTabContent";
 import DeleteTypeDialog from "./DeleteTypeDialog";
-import { STATUS_COLORS } from "@/theme/tokens";
+import { STATUS_COLORS, brand, RAG_COLORS } from "@/theme/tokens";
 import CategoryCombobox from "./CategoryCombobox";
 import { categoryErrorCode, categoryErrorMessage } from "./categoryErrors";
+import { useTheme } from "@mui/material/styles";
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -86,6 +87,7 @@ export default function TypeDetailDrawer({
   onRefresh,
   onDeleted = onRefresh,
 }: TypeDrawerProps) {
+  const theme = useTheme();
   const { t, i18n } = useTranslation(["admin", "common"]);
   const locale = i18n.language;
   const stLabel = useSubtypeLabel();
@@ -97,7 +99,7 @@ export default function TypeDetailDrawer({
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
-  const [color, setColor] = useState("#1976d2");
+  const [color, setColor] = useState<string>(brand.primary);
   const [icon, setIcon] = useState("category");
   const [hasHierarchy, setHasHierarchy] = useState(false);
   const [hasSuccessors, setHasSuccessors] = useState(false);
@@ -641,7 +643,7 @@ export default function TypeDetailDrawer({
               flexShrink: 0,
             }}
           >
-            <MaterialSymbol icon={icon} size={22} color="#fff" />
+            <MaterialSymbol icon={icon} size={22} color={theme.palette.common.white} />
           </Box>
           <Box>
             <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
@@ -673,7 +675,7 @@ export default function TypeDetailDrawer({
                 <MaterialSymbol
                   icon={cardTypeKey.is_hidden ? "visibility_off" : "visibility"}
                   size={20}
-                  color={cardTypeKey.is_hidden ? "#f57c00" : "#999"}
+                  color={cardTypeKey.is_hidden ? RAG_COLORS.amber : STATUS_COLORS.neutral}
                 />
               </IconButton>
             </span>
@@ -697,7 +699,7 @@ export default function TypeDetailDrawer({
                 <MaterialSymbol
                   icon="delete"
                   size={20}
-                  color={cardTypeKey.built_in ? "#bbb" : STATUS_COLORS.error}
+                  color={cardTypeKey.built_in ? theme.palette.action.disabled : STATUS_COLORS.error}
                 />
               </IconButton>
             </span>
@@ -1160,14 +1162,14 @@ export default function TypeDetailDrawer({
           )}
           {deleteFieldConfirm && (
             <>
-              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.deleteFieldConfirm", { label: deleteFieldConfirm.fieldLabel, key: deleteFieldConfirm.fieldKey }) }} />
+              <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.deleteFieldConfirm", { label: deleteFieldConfirm.fieldLabel, key: deleteFieldConfirm.fieldKey, interpolation: { escapeValue: true } }) }} />
               {deleteFieldConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
                   {t("metamodel.typeDrawer.checkingFieldUsage")}
                 </Alert>
               ) : deleteFieldConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.fieldUsedByCards", { count: deleteFieldConfirm.cardCount }) }} />
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.fieldUsedByCards", { count: deleteFieldConfirm.cardCount, interpolation: { escapeValue: true } }) }} />
                 </Alert>
               ) : (
                 <Alert severity="info">{t("metamodel.typeDrawer.fieldSafeToDelete")}</Alert>
@@ -1210,8 +1212,8 @@ export default function TypeDetailDrawer({
           {deleteSectionConfirm && (
             <>
               <Typography variant="body2" sx={{ mb: 2 }} dangerouslySetInnerHTML={{ __html: deleteSectionConfirm.fieldCount > 0
-                  ? t("metamodel.typeDrawer.deleteSectionWithFields", { name: deleteSectionConfirm.sectionName, count: deleteSectionConfirm.fieldCount })
-                  : t("metamodel.typeDrawer.deleteSectionConfirm", { name: deleteSectionConfirm.sectionName })
+                  ? t("metamodel.typeDrawer.deleteSectionWithFields", { name: deleteSectionConfirm.sectionName, count: deleteSectionConfirm.fieldCount, interpolation: { escapeValue: true } })
+                  : t("metamodel.typeDrawer.deleteSectionConfirm", { name: deleteSectionConfirm.sectionName, interpolation: { escapeValue: true } })
               }} />
               {deleteSectionConfirm.cardCount === null ? (
                 <Alert severity="info" icon={<CircularProgress size={18} />}>
@@ -1221,7 +1223,7 @@ export default function TypeDetailDrawer({
                 <Alert severity="info">{t("metamodel.typeDrawer.sectionNoFields")}</Alert>
               ) : deleteSectionConfirm.cardCount > 0 ? (
                 <Alert severity="warning">
-                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.sectionUsedByCards", { count: deleteSectionConfirm.cardCount }) }} />
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.typeDrawer.sectionUsedByCards", { count: deleteSectionConfirm.cardCount, interpolation: { escapeValue: true } }) }} />
                 </Alert>
               ) : (
                 <Alert severity="info">{t("metamodel.typeDrawer.sectionSafeToDelete")}</Alert>

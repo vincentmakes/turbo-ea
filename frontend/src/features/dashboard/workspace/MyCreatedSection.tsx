@@ -9,6 +9,7 @@ import { api } from "@/api/client";
 import type { Card as CardType } from "@/types";
 import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
+import { CATEGORICAL_COLORS } from "@/theme/tokens";
 
 interface Props {
   createdCount: number;
@@ -67,7 +68,7 @@ export default function MyCreatedSection({ createdCount }: Props) {
   return (
     <SectionPaper
       icon="edit_note"
-      iconColor="#00897b"
+      iconColor={CATEGORICAL_COLORS[2]}
       title={t("dashboard.workspace.myCreated")}
       action={
         total > 0 ? (

@@ -19,6 +19,8 @@ Two independent checks protect your instance:
 1. **Provenance (signature).** Every bundle carries an Ed25519 signature by the vendor's signing key. Turbo EA verifies it on upload *and again at every backend start*. Unsigned, tampered, or third-party bundles are rejected — an extension that installs is guaranteed to be exactly what the vendor built.
 2. **Activation (license).** A signed license file lists your entitlements — one per extension, each with its own expiry. An installed extension only runs while a usable entitlement exists. Licenses are **bound to your instance ID** — a license issued for a different instance is refused.
 
+   The pasted license file is stored encrypted with your instance's `SECRET_KEY`. If you rotate `SECRET_KEY`, or restore a database backup onto a host configured with a different one, each paid extension shows *The stored license could not be decrypted* and pauses until you paste its license file again; no extension data is touched.
+
 ## Free extensions
 
 Some extensions are **free** and require no license at all. They install and run straight away — there is no purchase step and no license file to paste. Free extensions are marked with a **Free** badge on the Store and Installed tabs, and the **Buy** and **Renew** actions are hidden for them. The signature check still applies exactly as for paid extensions (a free extension is still vendor-signed), so provenance is guaranteed either way. Because they need no entitlement, free extensions never lapse or enter a grace window.

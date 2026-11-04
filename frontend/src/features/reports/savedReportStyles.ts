@@ -1,25 +1,41 @@
 import type { TFunction } from "i18next";
+import {
+  CARD_TYPE_COLORS,
+  CATEGORICAL_COLORS,
+  EOL_WARNING_COLOR,
+  LIFECYCLE_PHASE_COLORS,
+  MULTIPLE_VALUE_COLOR,
+  RAG_COLORS,
+  REPORT_ICON_COLORS,
+  STATUS_COLORS,
+  brand,
+} from "@/theme/tokens";
 
 export const REPORT_TYPE_STYLE: Record<string, { icon: string; color: string; path: string }> = {
-  portfolio: { icon: "dashboard", color: "#1976d2", path: "/reports/portfolio" },
+  portfolio: { icon: "dashboard", color: brand.primary, path: "/reports/portfolio" },
   "flexible-portfolio": {
     icon: "dashboard_customize",
-    color: "#1976d2",
+    color: brand.primary,
     path: "/reports/flexible-portfolio",
   },
-  "capability-map": { icon: "grid_view", color: "#003399", path: "/reports/capability-map" },
-  lifecycle: { icon: "timeline", color: "#2e7d32", path: "/reports/lifecycle" },
-  dependencies: { icon: "hub", color: "#e65100", path: "/reports/dependencies" },
-  cost: { icon: "payments", color: "#6a1b9a", path: "/reports/cost" },
-  matrix: { icon: "table_chart", color: "#6a1b9a", path: "/reports/matrix" },
-  "data-quality": { icon: "verified", color: "#00695c", path: "/reports/data-quality" },
-  eol: { icon: "update", color: "#bf360c", path: "/reports/eol" },
+  "capability-map": { icon: "grid_view", color: CARD_TYPE_COLORS.BusinessCapability, path: "/reports/capability-map" },
+  lifecycle: { icon: "timeline", color: LIFECYCLE_PHASE_COLORS.active, path: "/reports/lifecycle" },
+  dependencies: { icon: "hub", color: CATEGORICAL_COLORS[3], path: "/reports/dependencies" },
+  cost: { icon: "payments", color: CATEGORICAL_COLORS[1], path: "/reports/cost" },
+  matrix: { icon: "table_chart", color: CATEGORICAL_COLORS[1], path: "/reports/matrix" },
+  "data-quality": { icon: "verified", color: REPORT_ICON_COLORS.dataQuality, path: "/reports/data-quality" },
+  eol: { icon: "update", color: EOL_WARNING_COLOR, path: "/reports/eol" },
 };
 
+/** The tile colour of a saved report an installed extension contributes. */
+export const EXTENSION_REPORT_COLOR = MULTIPLE_VALUE_COLOR;
+/** The tile colour of a saved report whose type this build does not know. */
+export const UNKNOWN_REPORT_COLOR = STATUS_COLORS.neutral;
+
 export const VISIBILITY_STYLE: Record<string, { icon: string; color: string }> = {
-  private: { icon: "lock", color: "#757575" },
-  public: { icon: "public", color: "#2e7d32" },
-  shared: { icon: "group", color: "#1565c0" },
+  private: { icon: "lock", color: REPORT_ICON_COLORS.privateReport },
+  public: { icon: "public", color: RAG_COLORS.green },
+  shared: { icon: "group", color: brand.primary },
 };
 
 export function getReportTypeLabels(t: TFunction): Record<string, string> {

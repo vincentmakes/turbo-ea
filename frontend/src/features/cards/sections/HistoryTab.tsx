@@ -29,6 +29,7 @@ import {
   parseChanges,
   type EventDetail,
 } from "@/features/cards/sections/historyChanges";
+import { STATUS_COLORS } from "@/theme/tokens";
 
 // ── Tab: History ────────────────────────────────────────────────
 function getFieldLabels(t: (key: string) => string): Record<string, string> {
@@ -74,7 +75,7 @@ function EventDetailView({ detail, typeIconFor, t }: EventDetailViewProps) {
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mt: 0.25 }}>
         <Typography variant="body2" color="text.secondary">{detail.label}</Typography>
-        <MaterialSymbol icon={detail.outgoing ? "arrow_forward" : "arrow_back"} size={14} color="#9e9e9e" />
+        <MaterialSymbol icon={detail.outgoing ? "arrow_forward" : "arrow_back"} size={14} color={STATUS_COLORS.neutral} />
         {peerIcon && (
           <Box sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: "50%", bgcolor: peerIcon.color + "22" }}>
             <MaterialSymbol icon={peerIcon.icon} size={12} color={peerIcon.color} />
@@ -183,7 +184,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
     if (!typeKey) return null;
     const ct = getType(typeKey);
     if (!ct) return null;
-    return { icon: ct.icon || "category", color: ct.color || "#9e9e9e" };
+    return { icon: ct.icon || "category", color: ct.color || STATUS_COLORS.neutral };
   };
   // Only decides whether the survey chip links; the results page gates itself.
   const perms = routePermissionsFor(useOptionalAuthUser());
@@ -288,7 +289,7 @@ function HistoryTab({ fsId, cardType }: { fsId: string; cardType?: string }) {
                             {row.oldVal}
                           </Typography>
                         )}
-                        <MaterialSymbol icon="arrow_right_alt" size={16} color="#9e9e9e" />
+                        <MaterialSymbol icon="arrow_right_alt" size={16} color={STATUS_COLORS.neutral} />
                         <Typography
                           variant="caption"
                           sx={{

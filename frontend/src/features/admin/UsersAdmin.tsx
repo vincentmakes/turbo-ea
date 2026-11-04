@@ -62,6 +62,7 @@ import {
   excludeSelfFromBulkDeactivate,
 } from "./users/userSelfGuards";
 import { isLocked } from "./users/userLockout";
+import { WARNING_STRONG_COLOR } from "@/theme/tokens";
 
 interface CreateUserFormState {
   email: string;
@@ -895,7 +896,7 @@ export default function UsersAdmin() {
                 {roleMap.get(u.role)?.is_archived && (
                   <Tooltip title={t("users.archivedRoleWarning")}>
                     <span style={{ display: "inline-flex", alignItems: "center" }}>
-                      <MaterialSymbol icon="warning" size={18} color="#ed6c02" />
+                      <MaterialSymbol icon="warning" size={18} color={WARNING_STRONG_COLOR} />
                     </span>
                   </Tooltip>
                 )}
@@ -1008,7 +1009,7 @@ export default function UsersAdmin() {
         sortable: true,
         cellRenderer: (p: { value: boolean }) =>
           p.value ? (
-            <MaterialSymbol icon="hourglass_top" size={18} color="#ed6c02" />
+            <MaterialSymbol icon="hourglass_top" size={18} color={WARNING_STRONG_COLOR} />
           ) : (
             <Typography variant="body2" color="text.disabled">
               —

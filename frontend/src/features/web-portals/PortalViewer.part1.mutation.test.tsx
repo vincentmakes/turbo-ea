@@ -62,7 +62,8 @@ vi.mock("@/components/TagPicker", () => ({
 import PortalViewer from "./PortalViewer";
 import { todayIsoDate } from "@/lib/dates";
 import type { PortalCard, PortalGate, PublicPortal } from "@/types";
-import { BOOLEAN_COLORS } from "@/theme/tokens";
+import { BOOLEAN_COLORS, LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
+import { ThemeProvider, alpha, createTheme, hexToRgb } from "@mui/material/styles";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -1089,6 +1090,24 @@ describe("PortalViewer field values", () => {
   });
 });
 
+describe("PortalViewer stakeholder avatars", () => {
+  it("rings each avatar in the paper colour, not the page background", async () => {
+    // Paper and page background differ here, so a ring that fell back to
+    // AvatarGroup's own background-coloured border would show.
+    const theme = createTheme({ palette: { background: { default: "#000000", paper: "#fafafa" } } });
+    serve(SLUG, {
+      cards: {
+        items: [card({ stakeholders: [{ role: "responsible", display_name: "Ada Lovelace" }] })],
+        total: 1,
+      } as CardPage,
+    });
+    render(<ThemeProvider theme={theme}>{tree(`/portal/${SLUG}`)}</ThemeProvider>);
+    await screen.findByText("SAP S/4HANA");
+    const avatar = tileOf("SAP S/4HANA").getByText("AL").closest(".MuiAvatar-root");
+    expect(avatar).toHaveStyle({ borderTopColor: theme.palette.background.paper });
+  });
+});
+
 describe("PortalViewer lifecycle bar", () => {
   const segment = (tile: HTMLElement, label: string) =>
     tile.querySelector(`[aria-label='${label}']`) as HTMLElement;
@@ -1109,10 +1128,10 @@ describe("PortalViewer lifecycle bar", () => {
     await renderLoaded();
     const tile = screen.getByText("SAP S/4HANA").closest(".MuiCard-root") as HTMLElement;
     // Active started today, so it is the current phase.
-    expect(bg(segment(tile, `Active: ${today}`))).toBe("rgb(76, 175, 80)");
+    expect(bg(segment(tile, `Active: ${today}`))).toBe(hexToRgb(LIFECYCLE_PHASE_COLORS.active));
     // Dated phases that are not current are tinted.
-    expect(bg(segment(tile, "Plan: 2020-01-01"))).toBe("rgba(144, 202, 249, 0.25)");
-    expect(bg(segment(tile, "Phase Out: 2099-01-01"))).toBe("rgba(255, 152, 0, 0.25)");
+    expect(bg(segment(tile, "Plan: 2020-01-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.plan, 0.25));
+    expect(bg(segment(tile, "Phase Out: 2099-01-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.phaseOut, 0.25));
     // Undated phases are grey.
     expect(bg(segment(tile, "Phase In"))).toBe("rgb(224, 224, 224)");
     expect(bg(segment(tile, "End of Life"))).toBe("rgb(224, 224, 224)");
@@ -1137,10 +1156,10 @@ describe("PortalViewer lifecycle bar", () => {
     });
     await renderLoaded();
     const tile = screen.getByText("SAP S/4HANA").closest(".MuiCard-root") as HTMLElement;
-    expect(bg(segment(tile, "Phase In: 2019-06-01"))).toBe("rgba(102, 187, 106, 0.25)");
+    expect(bg(segment(tile, "Phase In: 2019-06-01"))).toBe(alpha(LIFECYCLE_PHASE_COLORS.phaseIn, 0.25));
     expect(segment(tile, "Active: 2020-01-01")).not.toBeNull();
     expect(segment(tile, "Phase Out: 2021-01-01")).not.toBeNull();
     // Every date is past, so End of Life is the current phase.
-    expect(bg(segment(tile, "End of Life: 2022-01-01"))).toBe("rgb(244, 67, 54)");
+    expect(bg(segment(tile, "End of Life: 2022-01-01"))).toBe(hexToRgb(LIFECYCLE_PHASE_COLORS.endOfLife));
   });
 });

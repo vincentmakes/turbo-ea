@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import type { SxProps, Theme } from "@mui/material/styles";
+import { useTheme, type SxProps, type Theme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -63,6 +63,13 @@ import {
 } from "@/hooks/useResolveLabel";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api } from "@/api/client";
+import {
+  EOL_WARNING_COLOR,
+  LIFECYCLE_PHASE_COLORS,
+  STATUS_CHIP_COLORS,
+  STATUS_COLORS,
+  UNSET_VALUE_COLOR,
+} from "@/theme/tokens";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import {
   defaultColorField,
@@ -105,14 +112,14 @@ function asMatchable(item: RoadmapItem): AppData {
 /* ------------------------------------------------------------------ */
 
 const PHASES = [
-  { key: "plan", labelKey: "lifecycle.phasePlan", color: "#9e9e9e" },
-  { key: "phaseIn", labelKey: "lifecycle.phasePhaseIn", color: "#2196f3" },
-  { key: "active", labelKey: "lifecycle.phaseActive", color: "#4caf50" },
-  { key: "phaseOut", labelKey: "lifecycle.phasePhaseOut", color: "#ff9800" },
-  { key: "endOfLife", labelKey: "lifecycle.phaseEndOfLife", color: "#f44336" },
+  { key: "plan", labelKey: "lifecycle.phasePlan", color: LIFECYCLE_PHASE_COLORS.plan },
+  { key: "phaseIn", labelKey: "lifecycle.phasePhaseIn", color: LIFECYCLE_PHASE_COLORS.phaseIn },
+  { key: "active", labelKey: "lifecycle.phaseActive", color: LIFECYCLE_PHASE_COLORS.active },
+  { key: "phaseOut", labelKey: "lifecycle.phasePhaseOut", color: LIFECYCLE_PHASE_COLORS.phaseOut },
+  { key: "endOfLife", labelKey: "lifecycle.phaseEndOfLife", color: LIFECYCLE_PHASE_COLORS.endOfLife },
 ];
 
-const UNSET_BAR_COLOR = "#bdbdbd";
+const UNSET_BAR_COLOR = UNSET_VALUE_COLOR;
 
 interface FieldOption {
   key: string;
@@ -146,6 +153,7 @@ const phaseChipSx =
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
+  const theme = useTheme();
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
   // Report type pickers offer only the types the user may see.
@@ -586,7 +594,7 @@ export default function LifecycleReport() {
     <ReportShell
       title={t("lifecycle.title")}
       icon="timeline"
-      iconColor="#e65100"
+      iconColor={EOL_WARNING_COLOR}
       paginateRowSelector="[data-export-row]"
       view={view}
       onViewChange={setView}
@@ -729,7 +737,7 @@ export default function LifecycleReport() {
             <>
               <ReportLegend items={PHASES.map((p) => ({ label: t(p.labelKey), color: p.color }))} />
               {PHASES.map((p) => (
-                <Chip key={p.key} size="small" label={`${phaseCounts[p.key]}`} sx={{ bgcolor: p.color, color: "#fff", fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
+                <Chip key={p.key} size="small" label={`${phaseCounts[p.key]}`} sx={{ bgcolor: p.color, color: "common.white", fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
               ))}
             </>
           )}
@@ -761,7 +769,7 @@ export default function LifecycleReport() {
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                       onClick={() => setSidePanelCardId(item.id)}
                     >
-                      {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
+                      {isEol && <MaterialSymbol icon="warning" size={14} color={STATUS_COLORS.error} />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
                         {item.name}
                       </Typography>
@@ -868,8 +876,8 @@ export default function LifecycleReport() {
                             <Tooltip title={`${t("lifecycle.phaseEndOfLife")}: ${fmtDate(item.lifecycle.endOfLife)}`}>
                               <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
                                 <svg width="20" height="20" viewBox="0 0 20 20">
-                                  <circle cx="10" cy="10" r="9" fill="#f44336" stroke="#b71c1c" strokeWidth="1" />
-                                  <rect x="4" y="8" width="12" height="4" rx="1" fill="#fff" />
+                                  <circle cx="10" cy="10" r="9" fill={STATUS_COLORS.error} stroke={STATUS_CHIP_COLORS.error.text} strokeWidth="1" />
+                                  <rect x="4" y="8" width="12" height="4" rx="1" fill={theme.palette.common.white} />
                                 </svg>
                               </Box>
                             </Tooltip>
@@ -887,7 +895,7 @@ export default function LifecycleReport() {
                       top: 0,
                       bottom: 0,
                       width: 0,
-                      borderLeft: "2px dashed #f44336",
+                      borderLeft: `2px dashed ${STATUS_COLORS.error}`,
                       pointerEvents: "none",
                       zIndex: 1,
                     }}
@@ -938,7 +946,7 @@ export default function LifecycleReport() {
                       <TableCell>{fmtDate(d.attributes?.[endDateKey] as string)}</TableCell>
                       <TableCell>
                         {hasColor ? (
-                          <Chip size="small" label={colorLabel} sx={{ bgcolor: barColor, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
+                          <Chip size="small" label={colorLabel} sx={{ bgcolor: barColor, color: "common.white", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
                         ) : (
                           <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>
                         )}

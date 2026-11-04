@@ -95,5 +95,3 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string): void {
     };
   }, [dirty, message]);
 }
-
-export default useUnsavedChangesGuard;

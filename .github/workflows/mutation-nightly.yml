@@ -108,7 +108,7 @@ jobs:
       SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -169,7 +169,7 @@ jobs:
       - name: Checkpoint the shard's state
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/backend/backend
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: nightly-state-backend-${{ matrix.shard }}
@@ -177,7 +177,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           overwrite: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-backend-${{ matrix.shard }}
@@ -200,7 +200,7 @@ jobs:
       - name: Keep the shard's state
         if: always()
         run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/backend/backend
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: nightly-state-backend-${{ matrix.shard }}
@@ -215,7 +215,7 @@ jobs:
         with:
           path: .mutation/backend/backend
           key: mutmut-backend-shard${{ matrix.shard }}-${{ github.run_id }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-records-backend-${{ matrix.shard }}
@@ -225,7 +225,7 @@ jobs:
           overwrite: true
       # The tests the clean test failed on, if any (see harness.py); the
       # report job names them at the top of its summary and of the issue.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-harness-backend-${{ matrix.shard }}
@@ -242,7 +242,7 @@ jobs:
       actions: read # the last run's state artifact
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
           cache: pip
@@ -277,7 +277,7 @@ jobs:
       - name: Keep the shard's state
         if: always()
         run: python3 scripts/mutation/nightly_state.py pack --dir .mutation/mcp-server/mcp-server
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: nightly-state-mcp-1
@@ -291,14 +291,14 @@ jobs:
         with:
           path: .mutation/mcp-server/mcp-server
           key: mutmut-mcp-shard1-${{ github.run_id }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-records-mcp-1
           path: mutation-records-mcp-1.json
           if-no-files-found: warn
           retention-days: 3
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-harness-mcp-1
@@ -335,7 +335,7 @@ jobs:
       STATE: frontend/reports/nightly
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -396,7 +396,7 @@ jobs:
       - name: Checkpoint the shard's state
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         run: python3 scripts/mutation/nightly_state.py pack --dir "$STATE"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: nightly-state-frontend-${{ matrix.shard }}
@@ -404,7 +404,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           overwrite: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.first-half.outcome != 'skipped' }}
         with:
           name: mutation-records-frontend-${{ matrix.shard }}
@@ -431,7 +431,7 @@ jobs:
       - name: Keep the shard's state
         if: always()
         run: python3 scripts/mutation/nightly_state.py pack --dir "$STATE"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: nightly-state-frontend-${{ matrix.shard }}
@@ -439,7 +439,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           overwrite: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-records-frontend-${{ matrix.shard }}
@@ -447,7 +447,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
           overwrite: true
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-harness-frontend-${{ matrix.shard }}
@@ -472,13 +472,13 @@ jobs:
       LEGACY_ISSUE_TITLE: Mutation survivors (nightly)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: mutation-records-*
           merge-multiple: true
           path: records
       # Uploaded only by a shard where a test failed on unmutated code.
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: mutation-harness-*
           merge-multiple: true
@@ -534,13 +534,13 @@ jobs:
           # The issue step reads the verdict from a file: a step output
           # interpolated into a script is what the workflow tests forbid.
           echo "$failed" > floors-breached
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-baseline
           path: records/
           retention-days: 30
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: mutation-survivors

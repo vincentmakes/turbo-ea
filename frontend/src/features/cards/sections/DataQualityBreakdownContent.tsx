@@ -157,5 +157,3 @@ export function DataQualityBreakdownContent({
     </>
   );
 }
-
-export default DataQualityBreakdownContent;

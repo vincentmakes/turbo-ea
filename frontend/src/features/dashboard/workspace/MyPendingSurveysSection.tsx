@@ -7,6 +7,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
+import { DASHBOARD_KPI_COLORS } from "@/theme/tokens";
 
 interface MySurveyItem {
   survey_id: string;
@@ -35,7 +36,7 @@ export default function MyPendingSurveysSection() {
   return (
     <SectionPaper
       icon="poll"
-      iconColor="#7b1fa2"
+      iconColor={DASHBOARD_KPI_COLORS.surveys}
       title={t("dashboard.workspace.myPendingSurveys")}
       action={<ViewAllLink to="/todos?tab=surveys" label={t("dashboard.workspace.viewAll")} />}
     >

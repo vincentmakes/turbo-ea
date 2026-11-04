@@ -46,6 +46,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
+from app.core.encryption import decrypt_value, encrypt_value, is_encrypted
 from app.core.extension_signing import trusted_public_keys, verify_with_trusted
 
 LICENSE_SCHEMA = "turboea-license/1"
@@ -73,6 +74,47 @@ EntitlementState = Literal["active", "grace", "expired"]
 
 class LicenseError(Exception):
     """Raised when a license envelope is malformed or its signature is invalid."""
+
+
+# Shown verbatim on the admin page (``LicenseOut.problem``), like every other
+# license problem the registry surfaces.
+LICENSE_UNDECRYPTABLE_MESSAGE = (
+    "The stored license could not be decrypted: SECRET_KEY changed. "
+    "Re-paste the license file to restore it (no extension data was touched)."
+)
+
+
+class LicenseUndecryptableError(LicenseError):
+    """The stored license is encrypted under a ``SECRET_KEY`` this instance no longer has."""
+
+    def __init__(self) -> None:
+        super().__init__(LICENSE_UNDECRYPTABLE_MESSAGE)
+
+
+def seal_license_text(text: str) -> str:
+    """The value written to ``extension_licenses.raw_text``: the envelope, encrypted.
+
+    The signature covers the payload's exact bytes, so the envelope is stored
+    whole, encrypted at rest (``enc:`` prefix, key derived from
+    ``SECRET_KEY``); ``open_stored_license_text`` gives back the byte-exact
+    text for re-verification.
+    """
+    return encrypt_value(text)
+
+
+def open_stored_license_text(stored: str) -> str:
+    """The envelope text behind a stored ``raw_text`` value.
+
+    A value without the ``enc:`` prefix is a row written before encryption at
+    rest (or not yet migrated) and is returned as is, so it keeps verifying.
+    An encrypted value that no longer decrypts — ``SECRET_KEY`` was rotated —
+    raises :class:`LicenseUndecryptableError`, which the readers treat like any
+    other license that does not verify: soft-disable, data untouched.
+    """
+    text = decrypt_value(stored)
+    if is_encrypted(stored) and not text:
+        raise LicenseUndecryptableError()
+    return text
 
 
 @dataclass(frozen=True)

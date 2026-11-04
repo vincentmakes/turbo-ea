@@ -6,17 +6,21 @@ Run: python -m turbo_ea_mcp.server --host 0.0.0.0 --port 8001
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import binascii
 import hashlib
 import json
 import logging
+import os
 import re
 import textwrap
+import threading
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.lowlevel.server import request_ctx as _mcp_request_ctx
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import ValidationError
@@ -71,9 +75,7 @@ _WRITE_ADDITIVE_ANNOT = ToolAnnotations(
     openWorldHint=False,
 )
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger("turbo_ea_mcp")
 
 # ── MCP Server ──────────────────────────────────────────────────────────────
@@ -1062,8 +1064,7 @@ def _translate_risk_row(
                     "value": value,
                     "allowed_values": literals,
                     "message": (
-                        f"{field} takes one of {literals} (numeric scales "
-                        "are not accepted)."
+                        f"{field} takes one of {literals} (numeric scales are not accepted)."
                     ),
                 }
         payload[field] = value
@@ -1327,11 +1328,7 @@ async def analyze_impact(
         keep = set(include_types)
         nodes = [n for n in nodes if n.get("type") in keep]
         keep_ids = {n.get("id") for n in nodes}
-        edges = [
-            e
-            for e in edges
-            if e.get("source") in keep_ids and e.get("target") in keep_ids
-        ]
+        edges = [e for e in edges if e.get("source") in keep_ids and e.get("target") in keep_ids]
     if relation_types:
         keep_rel = set(relation_types)
         edges = [e for e in edges if e.get("type") in keep_rel]
@@ -1445,8 +1442,7 @@ def _soaw_status_error(status: str) -> dict | None:
             "error": "invalid_status",
             "status": status,
             "message": (
-                "in_review is entered by requesting signatures via the UI, "
-                "not set directly."
+                "in_review is entered by requesting signatures via the UI, not set directly."
             ),
         }
     if status == "approved":
@@ -1454,8 +1450,7 @@ def _soaw_status_error(status: str) -> dict | None:
             "error": "invalid_status",
             "status": status,
             "message": (
-                "approved is reached through review in the UI. "
-                'New SoAWs always land in "draft".'
+                'approved is reached through review in the UI. New SoAWs always land in "draft".'
             ),
         }
     return {
@@ -2056,7 +2051,9 @@ def _logo_validation_problem(index: int, item: object, exc: ValidationError) -> 
     }
 
 
-async def _check_logo_types(token: str, prepared: list[dict]) -> tuple[dict, list[dict], list[dict]]:
+async def _check_logo_types(
+    token: str, prepared: list[dict]
+) -> tuple[dict, list[dict], list[dict]]:
     """Settle the per-type 'custom logos' switch during the preview.
 
     Batched requests for the whole call, never one per row — the card lookup
@@ -2232,9 +2229,7 @@ async def _resolve_logo_urls(prepared: list[dict]) -> tuple[list[dict], list[dic
                 }
             )
             continue
-        kept.append(
-            {**p, "raw": raw, "mime": mime, "sha256": hashlib.sha256(raw).hexdigest()}
-        )
+        kept.append({**p, "raw": raw, "mime": mime, "sha256": hashlib.sha256(raw).hexdigest()})
     return kept, problems
 
 
@@ -2894,9 +2889,7 @@ async def clear_card_logos(
                 msg = str(exc)
                 # A 404 here means "this card had no logo", which is the
                 # desired end state, not a failure to explain.
-                fields = (
-                    {"status": "no_logo"} if "404" in msg else _logo_failure_fields(exc)
-                )
+                fields = {"status": "no_logo"} if "404" in msg else _logo_failure_fields(exc)
                 results.append({"card_id": cid, **fields, "error": msg})
         batch.summary = {"rows": len(card_ids), "cleared": cleared}
         return _fmt(
@@ -3066,9 +3059,7 @@ def _translate_adr_sections(sections: list[dict]) -> tuple[dict, dict | None]:
                 "heading": heading,
                 "message": "Each section needs a string body.",
             }
-        normalized = " ".join(
-            heading.replace("-", " ").replace("_", " ").lower().split()
-        )
+        normalized = " ".join(heading.replace("-", " ").replace("_", " ").lower().split())
         field = _ADR_SECTION_FIELDS.get(normalized)
         if field is None:
             return {}, {
@@ -3111,11 +3102,7 @@ def _adr_status_error(status: str, *, create: bool) -> dict | None:
         "status": status,
         "message": (
             'ADR statuses are "draft", "in_review", and "signed". '
-            + (
-                'New ADRs always land in "draft".'
-                if create
-                else 'Only "draft" can be set here.'
-            )
+            + ('New ADRs always land in "draft".' if create else 'Only "draft" can be set here.')
         ),
     }
 
@@ -3545,9 +3532,7 @@ async def upsert_relations_bulk(
             }
         )
     if not MCP_ALLOW_RELATION_DELETE:
-        delete_rows = [
-            op.get("row_index") for op in operations if op.get("action") == "delete"
-        ]
+        delete_rows = [op.get("row_index") for op in operations if op.get("action") == "delete"]
         if delete_rows:
             return _fmt(
                 {
@@ -3738,11 +3723,7 @@ async def import_bpmn(
         },
     )
     candidates = search.get("items", []) if isinstance(search, dict) else []
-    exact = [
-        c
-        for c in candidates
-        if c.get("name", "").strip() == business_process_name.strip()
-    ]
+    exact = [c for c in candidates if c.get("name", "").strip() == business_process_name.strip()]
     if len(exact) > 1:
         # Multi-match: refuse to write. The agent must qualify.
         return _fmt(
@@ -3913,9 +3894,7 @@ async def import_bpmn(
                 # Reads what the editor reads — null until status=published.
                 "flow_published": f"/api/v1/bpm/processes/{process_id}/flow/published",
                 # GET this for the draft view (always available post-create).
-                "flow_draft": (
-                    f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"
-                ),
+                "flow_draft": (f"/api/v1/bpm/processes/{process_id}/flow/versions/{draft_id}"),
                 # Open in browser — Process Flow tab.
                 "card_detail": f"/cards/{process_id}",
             },
@@ -4021,12 +4000,6 @@ def explore_dependencies(card_name: str) -> str:
 
 # ── Token context ──────────────────────────────────────────────────────────
 
-import asyncio
-import os
-import threading
-
-from mcp.server.lowlevel.server import request_ctx as _mcp_request_ctx
-
 # In stdio mode a single user is logged in — store their token here.
 _stdio_token: str | None = None
 
@@ -4117,16 +4090,21 @@ class RequireBearerForMcp:
                 ),
             },
         )
-        await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
+        await response(scope, receive, send)  # pragma: no mutate, JSON never reads the body
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             path = scope.get("path", "")  # pragma: no mutate, no default can read as /mcp
             if path == "/mcp" or path.startswith("/mcp/"):
                 headers = dict(scope.get("headers", []))
-                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, any default reads as unauthenticated
+                # Not mutated: any default header value reads as unauthenticated.
+                auth = headers.get(b"authorization", b"").decode()  # pragma: no mutate, see above
                 if not auth.lower().startswith("bearer "):
-                    await self._challenge(scope, receive, send, *_TOKEN_REQUIRED)  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body. A trailing
+                    # pragma would push the line past 100 columns, so it is fenced instead.
+                    # pragma: no mutate start, a JSON response never reads the request body
+                    await self._challenge(scope, receive, send, *_TOKEN_REQUIRED)
+                    # pragma: no mutate end
                     return
                 try:
                     resolved = await self.resolve(auth[7:])
@@ -4145,10 +4123,15 @@ class RequireBearerForMcp:
                         status_code=503,
                         headers={oauth.RETRY_AFTER: "5"},
                     )
-                    await response(scope, receive, send)  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body.
+                    await response(scope, receive, send)  # pragma: no mutate, see above
                     return
                 if resolved is None:
-                    await self._challenge(scope, receive, send, *_TOKEN_INVALID)  # pragma: no mutate, a JSON response never reads the body
+                    # Not mutated: a JSON response never reads the request body. A trailing
+                    # pragma would push the line past 100 columns, so it is fenced instead.
+                    # pragma: no mutate start, a JSON response never reads the request body
+                    await self._challenge(scope, receive, send, *_TOKEN_INVALID)
+                    # pragma: no mutate end
                     return
         await self.app(scope, receive, send)
 
@@ -4189,9 +4172,7 @@ def create_app() -> Starlette:
         )
     app = mcp.streamable_http_app()
     app.router.routes.extend(oauth_routes)
-    resource_metadata_url = (
-        f"{MCP_PUBLIC_URL.rstrip('/')}/.well-known/oauth-protected-resource"
-    )
+    resource_metadata_url = f"{MCP_PUBLIC_URL.rstrip('/')}/.well-known/oauth-protected-resource"
     app.add_middleware(RequireBearerForMcp, resource_metadata_url=resource_metadata_url)
 
     return app

@@ -8,7 +8,15 @@
  */
 
 import type { CSSProperties } from "react";
-import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import { alpha } from "@mui/material/styles";
+import {
+  LIFECYCLE_PHASE_COLORS,
+  SCREEN_INK,
+  STATUS_COLORS,
+  TIMELINE_COLORS,
+  brand,
+  surface,
+} from "@/theme/tokens";
 import type { ObstacleBounds } from "./ldvObstacles";
 import type { LdvBackgroundStyle } from "./ldvDisplaySettings";
 import type { TimelineChange } from "./timelineRange";
@@ -18,7 +26,7 @@ import type { TimelineChange } from "./timelineRange";
 /* ------------------------------------------------------------------ */
 
 /** The grey a card falls back to when its type colour is not `#rrggbb`. */
-export const FALLBACK_TYPE_COLOR = "#9e9e9e";
+export const FALLBACK_TYPE_COLOR = STATUS_COLORS.neutral;
 
 /** A type colour the tint maths can use: `#rrggbb`, else neutral grey. */
 export function safeTypeColor(color: string): string {
@@ -30,21 +38,11 @@ export function safeTypeColor(color: string): string {
  * mode, 22 % in dark, and a faint 6 % on a proposed (not yet real) card.
  */
 export function cardTint(color: string, isDark: boolean, proposed: boolean): string {
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  const alpha = proposed ? 0.06 : isDark ? 0.22 : 0.12;
-  return `rgba(${r},${g},${b},${alpha})`;
+  return alpha(color, proposed ? 0.06 : isDark ? 0.22 : 0.12);
 }
 
-/** Lifecycle-phase → dot colour (hex, theme-independent). Mirrors LifecycleBadge. */
-export const PHASE_DOT: Record<string, string> = {
-  plan: "#9e9e9e",
-  phaseIn: "#1976d2",
-  active: "#2e7d32",
-  phaseOut: "#ed6c02",
-  endOfLife: "#d32f2f",
-};
+/** Lifecycle-phase → dot colour (hex, theme-independent), the app-wide phase palette. */
+export const PHASE_DOT: Record<string, string> = LIFECYCLE_PHASE_COLORS;
 
 /** The lifecycle dot's colour, or null when the card shows no phase. */
 export function phaseDotColor(phase: string | null): string | null {
@@ -194,14 +192,14 @@ export function edgeColors(
   severed: boolean,
   isDark: boolean,
 ): { stroke: string; label: string; labelBorder: string; labelBackground: string } {
-  const lit = isDark ? "#4fc3f7" : "#1976d2";
-  const base = severed ? STATUS_COLORS.error : isDark ? "#aaa" : "#777";
+  const lit = isDark ? brand.primaryLight : brand.primary;
+  const base = severed ? STATUS_COLORS.error : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary;
   const hover = severed ? STATUS_COLORS.error : lit;
   return {
     stroke: active ? hover : base,
-    label: active ? lit : isDark ? "#aaa" : "#666",
-    labelBorder: active ? lit : isDark ? "#444" : "#ccc",
-    labelBackground: isDark ? "#121212" : "#ffffff",
+    label: active ? lit : isDark ? STATUS_COLORS.neutral : SCREEN_INK.secondary,
+    labelBorder: active ? lit : isDark ? SCREEN_INK.ruleDark : SCREEN_INK.rule,
+    labelBackground: isDark ? surface.dark.default : SCREEN_INK.paper,
   };
 }
 

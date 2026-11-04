@@ -11,6 +11,7 @@ vi.mock("@/hooks/useDateFormat", () => ({
 
 import i18n from "@/i18n";
 import type { Card } from "@/types";
+import { LIFECYCLE_PHASE_COLORS } from "@/theme/tokens";
 import LifecycleSection from "./LifecycleSection";
 
 const cardWith = (lifecycle: Record<string, string>) =>
@@ -131,5 +132,35 @@ describe("LifecycleSection — a jump opens it in edit mode", () => {
     fireEvent.click(screen.getByRole("button", { name: i18n.t("common:actions.cancel") }));
     rerender(<LifecycleSection card={cardWith({})} onSave={async () => {}} editOn={jump} />);
     expect(save()).not.toBeInTheDocument();
+  });
+});
+
+describe("LifecycleSection — the header is not a button inside a button", () => {
+  it("renders its summary as a div[role=button] around the edit button", () => {
+    const { container } = render(<LifecycleSection card={cardWith({})} onSave={async () => {}} />);
+    const summary = container.querySelector(".MuiAccordionSummary-root")!;
+    expect(summary.tagName).toBe("DIV");
+    expect(summary).toHaveAttribute("role", "button");
+    expect(summary.querySelectorAll("button")).toHaveLength(1);
+    expect(container.querySelectorAll("button button")).toHaveLength(0);
+
+    expect(summary).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(summary);
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("LifecycleSection — progress fill", () => {
+  it("walks the fill's gradient through every reached phase colour", () => {
+    const { container } = render(
+      <LifecycleSection card={cardWith({ plan: "2020-01-01", phaseIn: "2021-01-01" })} onSave={async () => {}} />,
+    );
+    // jsdom drops a gradient from computed style, so read the Emotion rule of
+    // each rendered element's own class instead.
+    const css = [...document.querySelectorAll("style")].map((el) => el.textContent).join("\n");
+    const ruleOf = (el: Element) =>
+      [...el.classList].map((c) => css.match(new RegExp(`\\.${c}\\{([^}]*)\\}`))?.[1] ?? "").join(";");
+    const gradient = `linear-gradient(90deg, ${LIFECYCLE_PHASE_COLORS.plan} 0.00%, ${LIFECYCLE_PHASE_COLORS.phaseIn} 100.00%)`;
+    expect([...container.querySelectorAll("div")].some((el) => ruleOf(el).includes(gradient))).toBe(true);
   });
 });

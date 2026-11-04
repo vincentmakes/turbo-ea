@@ -183,9 +183,7 @@ class TestUnauthenticatedTools:
 class TestGrcTools:
     @pytest.mark.asyncio
     async def test_list_risks_strips_empty_filters(self, fake_token):
-        patcher, mock = _patched_get(
-            {"items": [], "total": 0, "page": 1, "page_size": 50}
-        )
+        patcher, mock = _patched_get({"items": [], "total": 0, "page": 1, "page_size": 50})
         with patcher:
             out = await server.list_risks(status="identified", page=1, page_size=10)
         _assert_called_with(
@@ -238,9 +236,7 @@ class TestGrcTools:
 
     @pytest.mark.asyncio
     async def test_get_risk_metrics(self, fake_token):
-        patcher, mock = _patched_get(
-            {"by_status": {}, "matrix_initial": [], "matrix_residual": []}
-        )
+        patcher, mock = _patched_get({"by_status": {}, "matrix_initial": [], "matrix_residual": []})
         with patcher:
             out = await server.get_risk_metrics()
         _assert_called_with(mock, "/risks/metrics")
@@ -257,9 +253,7 @@ class TestGrcTools:
     async def test_list_compliance_findings(self, fake_token):
         patcher, mock = _patched_get([])
         with patcher:
-            await server.list_compliance_findings(
-                regulation="gdpr", include_auto_resolved=True
-            )
+            await server.list_compliance_findings(regulation="gdpr", include_auto_resolved=True)
         _assert_called_with(
             mock,
             "/compliance/compliance",

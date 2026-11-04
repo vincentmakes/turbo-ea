@@ -7,15 +7,22 @@
  */
 
 import { toLocalDate } from "@/lib/dates";
+import {
+  RAG_COLORS,
+  STATUS_CHIP_COLORS,
+  UNSET_VALUE_COLOR,
+  WARNING_STRONG_COLOR,
+  brand,
+} from "@/theme/tokens";
 
 export const RAG: Record<string, string> = {
-  onTrack: "#2e7d32",
-  atRisk: "#ed6c02",
-  offTrack: "#d32f2f",
+  onTrack: RAG_COLORS.green,
+  atRisk: WARNING_STRONG_COLOR,
+  offTrack: RAG_COLORS.red,
 };
 
 /** A health dot with no report behind it, or a value the board does not know. */
-export const RAG_NONE = "#bdbdbd";
+export const RAG_NONE = UNSET_VALUE_COLOR;
 
 export const RAG_LABEL: Record<string, string> = {
   onTrack: "health_onTrack",
@@ -128,6 +135,6 @@ export function compactAmount(
 export const BOARD_MAX_WIDTH = 1800;
 export const BOARD_GUTTER = { xs: 1.5, sm: 3 } as const;
 
-// Use MUI default primary and error colors — these match the app theme
-export const COST_BAR_COLOR = "#1976d2";
-export const COST_BAR_OVER = "#c62828";
+// The brand blue for spend within budget, the error hue's dark step (red 800) for an overrun.
+export const COST_BAR_COLOR = brand.primary;
+export const COST_BAR_OVER = STATUS_CHIP_COLORS.error.text;

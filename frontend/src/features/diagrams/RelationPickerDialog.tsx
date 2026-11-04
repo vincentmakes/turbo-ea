@@ -12,7 +12,9 @@ import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { brand } from "@/theme/tokens";
 import { useRelationLabel } from "@/hooks/useResolveLabel";
 import RelationAttributesEditor, {
   hasEditableRelationAttributes,
@@ -60,6 +62,7 @@ export default function RelationPickerDialog({
   onSelect,
 }: Props) {
   const { t } = useTranslation(["diagrams", "cards", "common"]);
+  const theme = useTheme();
   const relLabel = useRelationLabel();
   const [picked, setPicked] = useState<{
     rt: RelationType;
@@ -105,7 +108,7 @@ export default function RelationPickerDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-        <MaterialSymbol icon="link" size={22} color="#1976d2" />
+        <MaterialSymbol icon="link" size={22} color={brand.primary} />
         {picked
           ? relLabel(picked.rt)
           : t("relationPicker.title")}
@@ -118,7 +121,7 @@ export default function RelationPickerDialog({
             label={endpoints.sourceName}
             sx={{ bgcolor: endpoints.sourceColor + "22", fontWeight: 600, maxWidth: 140 }}
           />
-          <MaterialSymbol icon="arrow_forward" size={16} color="#999" />
+          <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.text.disabled} />
           <Chip
             size="small"
             label={endpoints.targetName}

@@ -59,11 +59,11 @@ def _raise_for_status_with_detail(resp: httpx.Response) -> None:
         ) from None
 
 
-
-class RefreshUnavailable(Exception):
+class RefreshUnavailableError(Exception):
     """The backend could not be asked to refresh a JWT (unreachable, or a 5xx).
 
     Distinct from a refusal: the session behind the token is still good."""
+
 
 class TurboEAClient:
     """Thin wrapper around httpx for authenticated Turbo EA API calls."""
@@ -174,9 +174,7 @@ class TurboEAClient:
         field: str = "file",
     ) -> dict | list:
         """POST a single file as multipart/form-data."""
-        return await self.post_multipart(
-            path, file=(filename, content, mime), field=field
-        )
+        return await self.post_multipart(path, file=(filename, content, mime), field=field)
 
     async def get_bytes(self, path: str, params: dict | None = None) -> tuple[bytes, str]:
         """GET a binary artefact, returning ``(content, content_type)``.
@@ -233,7 +231,7 @@ class TurboEAClient:
         """Call POST /auth/refresh to get a new JWT. Returns the new token
         or None if the current token is expired/invalid.
 
-        Raises ``RefreshUnavailable`` when the backend could not answer — it
+        Raises ``RefreshUnavailableError`` when the backend could not answer — it
         is unreachable or replied 5xx — because that says nothing about the
         token, and a caller that treated it as a rejection would end a
         session over a restarting backend."""
@@ -244,9 +242,9 @@ class TurboEAClient:
                     headers=self._headers(),
                 )
             except httpx.HTTPError as exc:
-                raise RefreshUnavailable(str(exc)) from exc
+                raise RefreshUnavailableError(str(exc)) from exc
             if resp.status_code >= 500:
-                raise RefreshUnavailable(f"backend answered {resp.status_code}")
+                raise RefreshUnavailableError(f"backend answered {resp.status_code}")
             if resp.status_code == 200:
                 data = resp.json()
                 new_token = data.get("access_token")
@@ -281,9 +279,7 @@ async def login(email: str, password: str) -> str:
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 401:
             raise ValueError("Login failed: invalid email or password.") from exc
-        raise ValueError(
-            f"Login failed: HTTP {exc.response.status_code} from {url}"
-        ) from exc
+        raise ValueError(f"Login failed: HTTP {exc.response.status_code} from {url}") from exc
 
 
 async def get_sso_config() -> dict:

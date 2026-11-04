@@ -14,11 +14,11 @@ import { buildTheme } from "@/theme";
 import { ltrCache, rtlCache } from "@/theme/emotionCache";
 import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
-import SsoCallback from "@/features/auth/SsoCallback";
-import SetPasswordPage from "@/features/auth/SetPasswordPage";
 import ModuleGate from "@/components/ModuleGate";
 import RouteGuard from "@/components/RouteGuard";
 
+const SsoCallback = lazy(() => import("@/features/auth/SsoCallback"));
+const SetPasswordPage = lazy(() => import("@/features/auth/SetPasswordPage"));
 const ForgotPasswordPage = lazy(() => import("@/features/auth/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("@/features/auth/ResetPasswordPage"));
 
@@ -124,9 +124,15 @@ function AppRoutes() {
         <Route path="/portal/:slug" element={<Suspense fallback={<PageLoader />}><PortalViewer /></Suspense>} />
         <Route path="/embed/diagram/:slug" element={<Suspense fallback={<PageLoader />}><PublicDiagramPage /></Suspense>} />
         {/* SSO callback route — shared by user login and SSO-gated portals */}
-        <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
+        <Route
+          path="/auth/callback"
+          element={<Suspense fallback={<PageLoader />}><SsoCallback onSsoCallback={ssoCallback} /></Suspense>}
+        />
         {/* Password setup route (for invited users) */}
-        <Route path="/auth/set-password" element={<SetPasswordPage onSetPassword={setPassword} />} />
+        <Route
+          path="/auth/set-password"
+          element={<Suspense fallback={<PageLoader />}><SetPasswordPage onSetPassword={setPassword} /></Suspense>}
+        />
         {/* Forgot / reset password routes */}
         <Route
           path="/auth/forgot-password"
@@ -154,7 +160,10 @@ function AppRoutes() {
         <Route path="/embed/diagram/:slug" element={<Suspense fallback={<PageLoader />}><PublicDiagramPage /></Suspense>} />
       {/* SSO callback — reachable while logged in too, so an admin previewing an
           SSO portal completes the portal sign-in on the same shared route. */}
-      <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
+      <Route
+        path="/auth/callback"
+        element={<Suspense fallback={<PageLoader />}><SsoCallback onSsoCallback={ssoCallback} /></Suspense>}
+      />
       {/* Authenticated routes */}
       <Route
         path="*"

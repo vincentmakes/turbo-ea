@@ -37,6 +37,7 @@ import { cleanTranslations, deriveRelationKey } from "./helpers";
 import { CARDINALITY_OPTIONS } from "./constants";
 import { successorRelationKeys } from "@/lib/successorRelation";
 import { expandSides, sideFlags, sideKey } from "@/lib/relationSort";
+import { useTheme } from "@mui/material/styles";
 
 /**
  * English is the base language: it lives in the `label` / `reverse_label`
@@ -112,6 +113,7 @@ export default function RelationTypesPanel({
   scopeTypeKey,
   loading = false,
 }: RelationTypesPanelProps) {
+  const theme = useTheme();
   const { t, i18n } = useTranslation(["admin", "common"]);
   const fieldLabel = useFieldLabel();
   const relationLabel = useRelationLabel();
@@ -451,18 +453,18 @@ export default function RelationTypesPanel({
                     <MaterialSymbol
                       icon={isSource ? "arrow_forward" : "arrow_back"}
                       size={16}
-                      color="#bbb"
+                      color={theme.palette.grey[400]}
                     />
                     {renderEndpoint(isSource ? rt.target_type_key : rt.source_type_key)}
                   </>
                 ) : (
                   <>
                     {renderEndpoint(rt.source_type_key)}
-                    <MaterialSymbol icon="arrow_forward" size={16} color="#bbb" />
+                    <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.grey[400]} />
                     <Typography variant="body2" fontWeight={600} color="primary.main">
                       {relationLabel(rt)}
                     </Typography>
-                    <MaterialSymbol icon="arrow_forward" size={16} color="#bbb" />
+                    <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.grey[400]} />
                     {renderEndpoint(rt.target_type_key)}
                   </>
                 )}
@@ -741,7 +743,7 @@ export default function RelationTypesPanel({
                 <Typography variant="body2" color="text.secondary">
                   {typeLabel(resolveType(editRel.source_type_key)) || editRel.source_type_key}
                 </Typography>
-                <MaterialSymbol icon="arrow_forward" size={16} color="#bbb" />
+                <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.grey[400]} />
                 <Typography variant="body2" color="text.secondary">
                   {typeLabel(resolveType(editRel.target_type_key)) || editRel.target_type_key}
                 </Typography>
@@ -841,6 +843,7 @@ export default function RelationTypesPanel({
                     dangerouslySetInnerHTML={{
                       __html: t("metamodel.deleteRelHasInstances", {
                         count: deleteRelConfirm.instanceCount,
+                        interpolation: { escapeValue: true },
                       }),
                     }}
                   />

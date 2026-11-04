@@ -30,7 +30,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme, darken, lighten, type Theme } from "@mui/material/styles";
+import { alpha, useTheme, darken, lighten, type Theme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import OriginChip from "@/components/OriginChip";
 import LifecycleBadge, { getCurrentPhase } from "@/components/LifecycleBadge";
@@ -139,7 +139,7 @@ import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
 import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
-import OptionChip from "@/components/OptionChip";
+import { OptionChip } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
 import { orderByOptions } from "@/lib/optionOrder";
@@ -161,7 +161,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { sideKey } from "@/lib/relationSort";
 import { buildRelationIndex } from "./relationIndex";
-import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
+import { APPROVAL_STATUS_COLORS, STATUS_CHIP_COLORS, STATUS_COLORS } from "@/theme/tokens";
 import TagPicker from "@/components/TagPicker";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
@@ -470,7 +470,7 @@ function ChipListCell({ items }: { items: { key: string; label: string; color?: 
           key={it.key}
           label={it.label}
           size="small"
-          sx={{ ...chipSx, ...(it.color ? { bgcolor: it.color, color: "#fff" } : {}) }}
+          sx={{ ...chipSx, ...(it.color ? { bgcolor: it.color, color: "common.white" } : {}) }}
         />
       ))}
       {overflow > 0 && <Chip label={`+${overflow}`} size="small" variant="outlined" sx={chipSx} />}
@@ -3325,7 +3325,7 @@ export default function InventoryPage() {
             <Chip
               size="small"
               label={approvalText(p.value)}
-              sx={{ bgcolor: color, color: "#fff", fontWeight: 500 }}
+              sx={{ bgcolor: color, color: "common.white", fontWeight: 500 }}
             />
           );
         },
@@ -3392,7 +3392,7 @@ export default function InventoryPage() {
         cellRenderer: (p: { value: string }) => {
           if (p.value === "ARCHIVED") {
             return (
-              <Chip size="small" label={t("common:status.archived")} sx={{ bgcolor: "#9e9e9e", color: "#fff", fontWeight: 500 }} />
+              <Chip size="small" label={t("common:status.archived")} sx={{ bgcolor: STATUS_COLORS.neutral, color: "common.white", fontWeight: 500 }} />
             );
           }
           return <Chip size="small" label={t("common:status.active")} variant="outlined" sx={{ fontWeight: 500 }} />;
@@ -3442,7 +3442,7 @@ export default function InventoryPage() {
                         label={optLabel(opt)}
                         sx={
                           opt.color
-                            ? { bgcolor: opt.color, color: "#fff" }
+                            ? { bgcolor: opt.color, color: "common.white" }
                             : {}
                         }
                       />
@@ -3522,7 +3522,7 @@ export default function InventoryPage() {
                     <Chip
                       size="small"
                       label={optLabel(opt)}
-                      sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+                      sx={opt.color ? { bgcolor: opt.color, color: "common.white" } : {}}
                     />
                   ) : (
                     p.value || ""
@@ -4413,7 +4413,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#e65100", ...SELECTION_BAR_BUTTON_SX }}
+                sx={{ color: STATUS_CHIP_COLORS.warning.text, ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
@@ -4425,7 +4425,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#2e7d32", ...SELECTION_BAR_BUTTON_SX }}
+                sx={{ color: STATUS_CHIP_COLORS.success.text, ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="restore" size={16} />}
                 onClick={() => setMassRestoreOpen(true)}
               >
@@ -4437,7 +4437,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#c62828", ...SELECTION_BAR_BUTTON_SX }}
+                sx={{ color: STATUS_CHIP_COLORS.error.text, ...SELECTION_BAR_BUTTON_SX }}
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >
@@ -4449,7 +4449,7 @@ export default function InventoryPage() {
               variant="outlined"
               color="inherit"
               sx={{
-                borderColor: "rgba(255,255,255,0.5)",
+                borderColor: alpha(theme.palette.common.white, 0.5),
                 textTransform: "none",
                 whiteSpace: "nowrap",
               }}

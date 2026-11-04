@@ -11,6 +11,7 @@ import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 import type { MySurveyItem } from "@/types";
 
 export default function MySurveys() {
@@ -45,7 +46,7 @@ export default function MySurveys() {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
-        <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
+        <MaterialSymbol icon="assignment" size={28} color={brand.primary} />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700 }}>
           {t("surveys.my.title")}
         </Typography>
@@ -67,7 +68,7 @@ export default function MySurveys() {
         <Card key={s.survey_id} sx={{ mb: 2 }}>
           <Box sx={{ p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-              <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
+              <MaterialSymbol icon="assignment" size={22} color={brand.primary} />
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.survey_name}</Typography>
               <Chip
                 label={t("surveys.my.pending", { count: s.pending_count })}
@@ -90,7 +91,7 @@ export default function MySurveys() {
                   onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.card_id}`)}
                   sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
                 >
-                  <MaterialSymbol icon="edit_note" size={20} color="#ed6c02" />
+                  <MaterialSymbol icon="edit_note" size={20} color={WARNING_STRONG_COLOR} />
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
                     {item.card_name}
                   </Typography>

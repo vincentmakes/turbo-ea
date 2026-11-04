@@ -178,5 +178,3 @@ export function ScoreGainBurst({
     </Box>
   );
 }
-
-export default ScoreGainBurst;

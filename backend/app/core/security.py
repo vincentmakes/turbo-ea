@@ -19,9 +19,10 @@ PORTAL_AUD = "turbo-ea-portal"
 
 
 def _sign(payload: dict) -> str:
-    return jwt.encode(
-        payload, settings.SECRET_KEY, algorithm=ALGORITHM
-    )  # pragma: no mutate, HS256 is PyJWT's default too
+    # Fenced rather than a trailing pragma: the reason would push the line past 100 columns.
+    # pragma: no mutate start, HS256 is PyJWT's default too, so dropping the algorithm is equivalent
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
+    # pragma: no mutate end
 
 
 def create_access_token(

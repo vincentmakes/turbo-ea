@@ -20,6 +20,8 @@ import { hookState } from "@/test/hooks";
 import { setViewportWidth } from "@/test/matchMedia";
 import { renderWithProviders } from "@/test/render";
 
+import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR } from "@/theme/tokens";
+
 import { exportToPdf } from "./soawExport";
 import SoAWPreview from "./SoAWPreview";
 
@@ -308,5 +310,34 @@ describe("SoAWPreview — actions", () => {
 
     await user.click(screen.getByRole("button", { name: tc("actions.edit") }));
     await waitFor(() => expect(screen.getByText("editor page")).toBeInTheDocument());
+  });
+});
+
+describe("SoAWPreview — colours", () => {
+  /** The Material Symbols glyph spelled `icon`, if one is rendered. */
+  const glyph = (icon: string) =>
+    [...document.querySelectorAll(".material-symbols-outlined")].find((el) => el.textContent === icon);
+
+  it("shows the document glyph in the SoAW colour on a wide screen only", async () => {
+    const first = renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(glyph("description")).toHaveStyle({ color: DELIVERABLE_COLORS.soaw });
+    first.unmount();
+
+    setViewportWidth(500);
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    expect(glyph("description")).toBeUndefined();
+  });
+
+  it.each([
+    ["signed", SIGNED_SIGNATORY, "verified", RAG_COLORS.green],
+    ["in_review", PENDING_SIGNATORY, "draw", WARNING_STRONG_COLOR],
+  ] as const)("colours the signature heading's glyph of a %s document", async (status, signatory, icon, color) => {
+    mockApi.on("get", "/soaw/s1", { ...SOAW, status, signatories: [signatory] });
+    renderPreview();
+    await screen.findByRole("heading", { name: SOAW.name });
+    // The heading glyph comes first; a signed signatory repeats "verified" below it.
+    expect(within(signatureBlock()).getAllByText(icon)[0]).toHaveStyle({ color });
   });
 });

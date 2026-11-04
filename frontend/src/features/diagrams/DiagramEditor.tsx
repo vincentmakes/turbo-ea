@@ -19,6 +19,8 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { alpha } from "@mui/material/styles";
+import { DEFAULT_LAYER_COLOR, WARNING_STRONG_COLOR } from "@/theme/tokens";
 import { api } from "@/api/client";
 import { fetchCardsByIds } from "@/api/cardsByIds";
 import InsertCardsDialog from "./InsertCardsDialog";
@@ -39,13 +41,13 @@ import {
   addExpandOverlay,
   addResyncOverlay,
   addChevronOverlay,
-  expandCardGroup,
   expandCardGroupAt,
   collapseCardGroup,
   captureGroupChildLayout,
   detailRowsHeight,
   getGroupChildCardIds,
   getGroupChildRelationIds,
+  isGroupExpanded,
   refreshCardOverlays,
   insertPendingCard,
   stampEdgeAsRelation,
@@ -110,7 +112,9 @@ import type {
   RelationFlowDirection,
   RemovedRelationTombstone,
 } from "./drawio-shapes";
-import { edgeIncoming, groupRelationsByOtherCard, pruneDeletedRelations } from "./expandChildren";
+import { edgeIncoming, groupRelationsByOtherCard } from "./expandChildren";
+import { applyMemory, hasDeletions, recordCollapse, recordExpansion } from "./groupMemory";
+import type { GroupMemory } from "./groupMemory";
 import { relationCreatePayload } from "./relationSync";
 import { cardCreatePayload } from "./cardSync";
 import ExpandMenu from "./ExpandMenu";
@@ -603,7 +607,7 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
               const tgtStyle = model.getStyle(tgt) || "";
               const pick = (s: string) => {
                 const m = /fillColor=([^;]+)/.exec(s);
-                return m ? m[1] : "#999";
+                return m ? m[1] : DEFAULT_LAYER_COLOR;
               };
 
               win.parent.postMessage(
@@ -696,14 +700,11 @@ export default function DiagramEditor() {
   const exitAfterSaveRef = useRef(false);
   const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Expand/collapse caches — survive collapse/expand cycles so locally
-  // deleted children don't reappear.
-  const expandCacheRef = useRef<Map<string, ExpandChildData[]>>(new Map());
-  // Relations the user deleted from an expanded group, per parent cell. Tracked
-  // by RELATION id rather than card id: a child can carry several edges, so
-  // "is the card still connected?" no longer answers "was this relation removed?".
-  const deletedRelationsRef = useRef<Map<string, Set<string>>>(new Map());
-  const deletedChildrenRef = useRef<Map<string, Set<string>>>(new Map());
+  // What each expanded group remembers between one expansion and the next:
+  // the children the user removed (so they stay removed) and where they put
+  // each one (so it comes back there). See `groupMemory.ts`. A ref, so it does
+  // not survive a reload.
+  const groupMemoryRef = useRef<Map<string, GroupMemory>>(new Map());
   // Layout each group's children had immediately after we expanded them.
   // Compared against the live layout at collapse time to tell "the user
   // arranged this" apart from "nothing has been touched", so the confirmation
@@ -969,123 +970,29 @@ export default function DiagramEditor() {
 
   /* ---------- Expand / collapse ---------- */
 
-  /** Expand children into the graph and wire up overlays. */
-  const doExpand = useCallback(
-    (
-      frame: HTMLIFrameElement,
-      cellId: string,
-      cardId: string,
-      children: ExpandChildData[],
-    ) => {
-      const deleted = deletedChildrenRef.current.get(cellId);
-      const byCard = deleted?.size
-        ? children.filter((c) => !deleted.has(c.id))
-        : children;
-      // Then drop the individual relations the user removed, so a child that
-      // kept one of its edges comes back with only that one.
-      const deletedRels = deletedRelationsRef.current.get(cellId);
-      const visible = deletedRels?.size
-        ? pruneDeletedRelations(byCard, deletedRels)
-        : byCard;
-
-      if (visible.length === 0) {
-        setSnackMsg(t("editor.noRelatedCards"));
-        return;
-      }
-
-      const inserted = expandCardGroup(
-        frame,
-        cellId,
-        visible,
-        hideRelationLabelsRef.current,
-      );
-      // Baseline for the "has the user arranged these?" check on collapse.
-      pristineChildLayoutRef.current.set(
-        cellId,
-        captureGroupChildLayout(frame, cellId),
-      );
-      addExpandOverlay(frame, cellId, true, () =>
-        requestCollapseGroup(cellId, cardId),
-      );
-      // If some children were locally removed, show resync icon
-      if (deleted?.size) {
-        addResyncOverlay(frame, cellId, () => handleResync(cellId, cardId));
-      }
-      // Each newly-inserted child gets its own chevron so the user can
-      // recursively explore the dependency graph from any node.
-      for (const child of inserted) {
-        addChevronOverlay(frame, child.cellId, (anchor) =>
-          openExpandMenu(child.cellId, child.cardId, anchor),
-        );
-      }
-      // Expansion is handed card *stubs* (`{id, name, type}` off the relation),
-      // never full records, so it cannot label or colour the children itself.
-      // Re-run the display pass, which fetches them and does both.
-      applyViewRef.current();
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
   /** Collapse an expanded card group; called from the minus overlay.
    *
    *  Collapse REMOVES the child cells, so anything the user did to them by hand
    *  is on the line. Two protections (discussion #905): the child geometry +
-   *  style is snapshotted into the expand cache so re-expanding restores their
-   *  arrangement, and `requestCollapseGroup` asks first when there is arranged
-   *  work to lose. */
+   *  style is snapshotted into the group's memory so re-expanding restores
+   *  their arrangement, and `requestCollapseGroup` asks first when there is
+   *  arranged work to lose. The memory is written here, not in
+   *  `requestCollapseGroup`, because both the direct path and the confirm
+   *  dialog end up here. */
   const handleCollapseGroup = useCallback(
     (cellId: string, cardId: string) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
-      // Before collapsing, detect children the user removed while expanded.
-      const cached = expandCacheRef.current.get(cellId);
-      if (cached) {
-        const stillPresent = getGroupChildCardIds(frame, cellId);
-        const nowDeleted = cached
-          .filter((c) => !stillPresent.has(c.id))
-          .map((c) => c.id);
-        if (nowDeleted.length > 0) {
-          const existing =
-            deletedChildrenRef.current.get(cellId) ?? new Set<string>();
-          nowDeleted.forEach((id) => existing.add(id));
-          deletedChildrenRef.current.set(cellId, existing);
-        }
-
-        // Same diff one level down: which RELATIONS were removed. A child kept
-        // one of its two edges, so it never shows up in `nowDeleted` — without
-        // this the deleted relation returns on the next expand.
-        const liveRelIds = getGroupChildRelationIds(frame, cellId);
-        const removedRelIds = new Set<string>();
-        for (const c of cached) {
-          for (const rel of [
-            { relationId: c.relationId },
-            ...(c.extraRelations ?? []),
-          ]) {
-            if (rel.relationId && !liveRelIds.has(rel.relationId)) {
-              removedRelIds.add(rel.relationId);
-            }
-          }
-        }
-        if (removedRelIds.size > 0) {
-          const existing = deletedRelationsRef.current.get(cellId) ?? new Set<string>();
-          removedRelIds.forEach((id) => existing.add(id));
-          deletedRelationsRef.current.set(cellId, existing);
-        }
-
-        // Snapshot where the user put each child (and how they styled it) so
-        // the next expand puts it back rather than re-running the auto-layout.
-        const layouts = captureGroupChildLayout(frame, cellId);
-        if (layouts.size > 0) {
-          expandCacheRef.current.set(
-            cellId,
-            cached.map((c) =>
-              layouts.has(c.id) ? { ...c, layout: layouts.get(c.id) } : c,
-            ),
-          );
-        }
-      }
+      // Before the children go, write down what the user did to them: which
+      // cards and relations they removed (so the next expand leaves them out)
+      // and where they put each one (so it comes back there).
+      const memory = recordCollapse(groupMemoryRef.current.get(cellId), {
+        cardIds: getGroupChildCardIds(frame, cellId),
+        relationIds: getGroupChildRelationIds(frame, cellId),
+        layouts: captureGroupChildLayout(frame, cellId),
+      });
+      groupMemoryRef.current.set(cellId, memory);
 
       const { removedCellIds } = collapseCardGroup(frame, cellId);
       // Scrub the side-table for every cellId we just intentionally
@@ -1101,8 +1008,8 @@ export default function DiagramEditor() {
       addChevronOverlay(frame, cellId, (anchor) =>
         openExpandMenu(cellId, cardId, anchor),
       );
-      if (deletedChildrenRef.current.get(cellId)?.size) {
-        addResyncOverlay(frame, cellId, () => handleResync(cellId, cardId));
+      if (hasDeletions(memory)) {
+        addResyncOverlay(frame, cellId, () => handleForgetGroupMemory(cellId, cardId));
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1186,74 +1093,6 @@ export default function DiagramEditor() {
     [i18n.language],
   );
 
-  /** Backwards-compatible signature still passed around as `handleToggleGroup`
-   *  so callers that ask "expand from a fresh state" keep working. New code
-   *  should use the chevron overlay route which opens the ExpandMenu. */
-  const handleToggleGroup = useCallback(
-    (cellId: string, cardId: string, currentlyExpanded: boolean) => {
-      if (currentlyExpanded) {
-        requestCollapseGroup(cellId, cardId);
-        return;
-      }
-      // Default expand falls back to "all relations" — used by the
-      // resync path. Newly-inserted cells get the chevron instead so the
-      // user always sees the per-relation-type picker first.
-      const frame = iframeRef.current;
-      if (!frame) return;
-      const cached = expandCacheRef.current.get(cellId);
-      if (cached) {
-        doExpand(frame, cellId, cardId, cached);
-        return;
-      }
-      api
-        .get<Relation[]>(`/relations?card_id=${cardId}`)
-        .then((rels) => {
-          if (!iframeRef.current) return;
-          // One child (vertex) per related CARD; a card reached through several
-          // relation types keeps the rest as extra edges on that same vertex.
-          const children: ExpandChildData[] = groupRelationsByOtherCard(rels, cardId).map(
-            ({ other, primary, extras }) => {
-              const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-              return {
-                id: other.id,
-                name: other.name,
-                type: other.type,
-                color: ct?.color || "#999",
-                icon: ct?.icon,
-                relationType: primary.type,
-                relationId: primary.id,
-                ...relationEdgeMeta(primary, cardId),
-                extraRelations: extras.map((r) => ({
-                  relationType: r.type,
-                  relationId: r.id,
-                  ...relationEdgeMeta(r, cardId),
-                })),
-              };
-            },
-          );
-          if (children.length === 0) {
-            setSnackMsg(t("editor.noRelatedCards"));
-            return;
-          }
-          children.sort((a, b) => {
-            const sa =
-              fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ??
-              99;
-            const sb =
-              fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ??
-              99;
-            if (sa !== sb) return sa - sb;
-            return a.name.localeCompare(b.name);
-          });
-          expandCacheRef.current.set(cellId, children);
-          doExpand(iframeRef.current!, cellId, cardId, children);
-        })
-        .catch(() => setSnackMsg(t("editor.errors.loadRelationsFailed")));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doExpand, requestCollapseGroup],
-  );
-
   /** Open the per-relation-type ExpandMenu for a card. Snapshots the
    *  set of cards already nested as visual children of this cell so the
    *  Drill-Down section can mark them as "already in container" — that
@@ -1279,7 +1118,7 @@ export default function DiagramEditor() {
   /** Map a hierarchy reference to the metamodel-derived colour we use for
    *  drill-down / roll-up child cells. */
   const colorForType = useCallback((typeKey: string): string => {
-    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || "#999";
+    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || DEFAULT_LAYER_COLOR;
   }, []);
 
   /** Card-type icon name for drill-down / roll-up child cells. */
@@ -1374,7 +1213,10 @@ export default function DiagramEditor() {
               ...relationEdgeMeta(r, target.cardId),
             })),
           }));
-          if (children.length === 0) {
+          // Leave out what the user removed from this group last time, and put
+          // back each child they arranged.
+          const visible = applyMemory(children, groupMemoryRef.current.get(target.cellId));
+          if (visible.length === 0) {
             setSnackMsg(
               skippedAlreadyPresent > 0
                 ? t("editor.allNeighboursAlreadyOnCanvas")
@@ -1382,11 +1224,11 @@ export default function DiagramEditor() {
             );
             return;
           }
-          children.sort((a, b) => a.name.localeCompare(b.name));
+          visible.sort((a, b) => a.name.localeCompare(b.name));
           const inserted = expandCardGroupAt(
             frame,
             target.cellId,
-            children,
+            visible,
             "right",
             hideRelationLabelsRef.current,
           );
@@ -1394,9 +1236,17 @@ export default function DiagramEditor() {
             target.cellId,
             captureGroupChildLayout(frame, target.cellId),
           );
+          const memory = recordExpansion(groupMemoryRef.current.get(target.cellId), visible);
+          groupMemoryRef.current.set(target.cellId, memory);
           addExpandOverlay(frame, target.cellId, true, () =>
             requestCollapseGroup(target.cellId, target.cardId),
           );
+          // Something is left out on purpose: the `!` brings it back.
+          if (hasDeletions(memory)) {
+            addResyncOverlay(frame, target.cellId, () =>
+              handleForgetGroupMemory(target.cellId, target.cardId),
+            );
+          }
           // Seed the side-table immediately — DrawIO sometimes drops the
           // edge's user-object attributes after the open transaction
           // closes, so this is the authoritative source for the
@@ -1404,7 +1254,7 @@ export default function DiagramEditor() {
           const sourceName = getCellLabel(frame, target.cellId);
           // Build a cardId → display name map for the children we just
           // inserted so we don't have to walk the graph again on delete.
-          const childNameById = new Map(children.map((c) => [c.id, c.name]));
+          const childNameById = new Map(visible.map((c) => [c.id, c.name]));
           for (const child of inserted) {
             registerCellId(child.cellId);
             // Register EVERY edge to this child, not just the first: a card
@@ -1450,7 +1300,8 @@ export default function DiagramEditor() {
               }),
             );
           }
-          // Same as `doExpand`: label + colour the freshly-inserted children.
+          // Expansion is handed card *stubs* (`{id, name, type}` off the relation),
+          // never full records, so the display pass labels and colours them.
           applyViewRef.current();
         } catch {
           setSnackMsg(t("editor.errors.loadRelationsFailed"));
@@ -1507,7 +1358,7 @@ export default function DiagramEditor() {
             openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
-        // Same as `doExpand`: label + colour the freshly-inserted children.
+        // Label + colour the freshly-inserted children (see the Show branch).
         applyViewRef.current();
         return;
       }
@@ -1602,84 +1453,31 @@ export default function DiagramEditor() {
             openExpandMenu(child.cellId, child.cardId, anchor),
           );
         }
-        // Same as `doExpand`: label + colour the freshly-inserted children.
+        // Label + colour the freshly-inserted children (see the Show branch).
         applyViewRef.current();
       }
     },
     [t, requestCollapseGroup, colorForType, registerCellId],
   );
 
-  /** Clear local caches and re-fetch relations from inventory. */
-  const handleResync = useCallback(
+  /** The orange `!` on a group that leaves something out: forget what the user
+   *  removed (and where they put things), so the next expansion draws every
+   *  relation the inventory has. Nothing is fetched — the next expand does
+   *  that. The `!` goes; the cell keeps its `−` or its chevron. */
+  const handleForgetGroupMemory = useCallback(
     (cellId: string, cardId: string) => {
       const frame = iframeRef.current;
       if (!frame) return;
-
-      // Clear caches
-      expandCacheRef.current.delete(cellId);
-      deletedChildrenRef.current.delete(cellId);
-
-      // Collapse first if currently expanded — also scrub the side-
-      // table so the diff scan doesn't tombstone the edges we just
-      // intentionally removed.
-      const { removedCellIds } = collapseCardGroup(frame, cellId);
-      for (const id of removedCellIds) {
-        edgeRelationMapRef.current.delete(id);
-        registeredCellIdsRef.current.delete(id);
+      groupMemoryRef.current.delete(cellId);
+      if (isGroupExpanded(frame, cellId)) {
+        addExpandOverlay(frame, cellId, true, () => requestCollapseGroup(cellId, cardId));
+      } else {
+        addChevronOverlay(frame, cellId, (anchor) => openExpandMenu(cellId, cardId, anchor));
       }
-
-      // Re-fetch and expand
-      api
-        .get<Relation[]>(`/relations?card_id=${cardId}`)
-        .then((rels) => {
-          if (!iframeRef.current) return;
-          // One child (vertex) per related CARD; a card reached through several
-          // relation types keeps the rest as extra edges on that same vertex.
-          const children: ExpandChildData[] = groupRelationsByOtherCard(rels, cardId).map(
-            ({ other, primary, extras }) => {
-              const ct = fsTypesRef.current.find((tp) => tp.key === other.type);
-              return {
-                id: other.id,
-                name: other.name,
-                type: other.type,
-                color: ct?.color || "#999",
-                icon: ct?.icon,
-                relationType: primary.type,
-                relationId: primary.id,
-                ...relationEdgeMeta(primary, cardId),
-                extraRelations: extras.map((r) => ({
-                  relationType: r.type,
-                  relationId: r.id,
-                  ...relationEdgeMeta(r, cardId),
-                })),
-              };
-            },
-          );
-          if (children.length === 0) {
-            addExpandOverlay(iframeRef.current!, cellId, false, () =>
-              handleToggleGroup(cellId, cardId, false),
-            );
-            setSnackMsg(t("editor.noRelatedCards"));
-            return;
-          }
-          children.sort((a, b) => {
-            const sa =
-              fsTypesRef.current.find((tp) => tp.key === a.type)?.sort_order ??
-              99;
-            const sb =
-              fsTypesRef.current.find((tp) => tp.key === b.type)?.sort_order ??
-              99;
-            if (sa !== sb) return sa - sb;
-            return a.name.localeCompare(b.name);
-          });
-          expandCacheRef.current.set(cellId, children);
-          doExpand(iframeRef.current!, cellId, cardId, children);
-          setSnackMsg(t("editor.relationsRestored"));
-        })
-        .catch(() => setSnackMsg(t("editor.errors.resyncFailed")));
+      setSnackMsg(t("editor.relationsRestored"));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [doExpand],
+    [],
   );
 
   /* ---------- Cell lifecycle (dedup paste + tombstone deletes) ---------- */
@@ -2161,7 +1959,7 @@ export default function DiagramEditor() {
         setSnackMsg(t("editor.insertedMany", { count: insertedCount }));
       }
     },
-    [handleToggleGroup, relinkTargetCellId],
+    [relinkTargetCellId],
   );
 
   /* ---------- Unlink / Convert handlers (Phase 2) ---------- */
@@ -2297,7 +2095,7 @@ export default function DiagramEditor() {
           cellId: p.cellId,
           type: p.type,
           typeLabel: typeLabel(typeInfo) || p.type,
-          typeColor: typeInfo?.color || "#999",
+          typeColor: typeInfo?.color || DEFAULT_LAYER_COLOR,
           name: p.name,
           description: p.description,
         };
@@ -2315,8 +2113,8 @@ export default function DiagramEditor() {
           relationLabel: p.relationLabel,
           sourceName: p.sourceName,
           targetName: p.targetName,
-          sourceColor: srcType?.color || "#999",
-          targetColor: "#999",
+          sourceColor: srcType?.color || DEFAULT_LAYER_COLOR,
+          targetColor: DEFAULT_LAYER_COLOR,
           sourceCardId: p.sourceCardId,
           targetCardId: p.targetCardId,
         };
@@ -2331,7 +2129,7 @@ export default function DiagramEditor() {
       if (!frame) return;
 
       const typeInfo = fsTypesRef.current.find((t) => t.key === data.type);
-      const color = typeInfo?.color || "#999";
+      const color = typeInfo?.color || DEFAULT_LAYER_COLOR;
       const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
       // Convert mode: replace an existing plain shape rather than create a
@@ -2488,7 +2286,7 @@ export default function DiagramEditor() {
         setSyncing(false);
       }
     },
-    [pendingCards, handleToggleGroup, refreshSyncPanel],
+    [pendingCards, refreshSyncPanel],
   );
 
   const handleSyncRel = useCallback(
@@ -2565,7 +2363,7 @@ export default function DiagramEditor() {
         const typeInfo = fsTypesRef.current.find((t) => t.key === p.type);
         try {
           const resp = await api.post<Card>("/cards", cardCreatePayload(p));
-          markCellSynced(frame, p.cellId, resp.id, typeInfo?.color || "#999");
+          markCellSynced(frame, p.cellId, resp.id, typeInfo?.color || DEFAULT_LAYER_COLOR);
           const insertedCellId = p.cellId;
           const insertedCardId = resp.id;
           addChevronOverlay(frame, insertedCellId, (anchor) =>
@@ -2656,7 +2454,6 @@ export default function DiagramEditor() {
       setSyncing(false);
     }
   }, [
-    handleToggleGroup,
     refreshSyncPanel,
     pendingRelRemovals,
     pendingParentChanges,
@@ -2778,7 +2575,7 @@ export default function DiagramEditor() {
             inventory,
             (typeKey) =>
               fsTypesRef.current.find((tp) => tp.key === typeKey)?.color ||
-              "#999",
+              DEFAULT_LAYER_COLOR,
             (edge) => humanRelationLabel(edge.relationType) || edge.edgeLabel,
             (relationTypeKey, attributes) =>
               relationFlowFor(
@@ -3031,8 +2828,8 @@ export default function DiagramEditor() {
               targetType: msg.targetType,
               sourceName: msg.sourceName || "?",
               targetName: msg.targetName || "?",
-              sourceColor: msg.sourceColor || "#999",
-              targetColor: msg.targetColor || "#999",
+              sourceColor: msg.sourceColor || DEFAULT_LAYER_COLOR,
+              targetColor: msg.targetColor || DEFAULT_LAYER_COLOR,
             };
             setRelPickerOpen(true);
           }
@@ -3074,7 +2871,6 @@ export default function DiagramEditor() {
     postToDrawIO,
     saveDiagram,
     navigate,
-    handleToggleGroup,
     handleUnlinkRequest,
     handleRelinkRequest,
     handleConvertRequest,
@@ -3320,7 +3116,7 @@ export default function DiagramEditor() {
             const image = await composeCardLogoImage(
               cardLogoUrl(c.id, c.logo_updated_at as string),
               iconByType.get(c.type),
-              colorByType.get(c.type) ?? "#999999",
+              colorByType.get(c.type) ?? DEFAULT_LAYER_COLOR,
               b.w,
               b.h,
             );
@@ -3391,7 +3187,7 @@ export default function DiagramEditor() {
     const colorByType = new Map(
       fsTypesRef.current.map((tp) => [tp.key, tp.color] as const),
     );
-    const restore = { colorByType, fallback: "#999" };
+    const restore = { colorByType, fallback: DEFAULT_LAYER_COLOR };
 
     if (view.kind === "card_type") {
       // Nothing to fetch: hand every view-managed cell back to its base colour.
@@ -3802,8 +3598,8 @@ export default function DiagramEditor() {
                     ? "turboea-pulse 1.6s ease-in-out infinite"
                     : "none",
                 "@keyframes turboea-pulse": {
-                  "0%,100%": { boxShadow: "0 0 0 0 rgba(237,108,2,0.5)" },
-                  "50%": { boxShadow: "0 0 0 6px rgba(237,108,2,0)" },
+                  "0%,100%": { boxShadow: `0 0 0 0 ${alpha(WARNING_STRONG_COLOR, 0.5)}` },
+                  "50%": { boxShadow: `0 0 0 6px ${alpha(WARNING_STRONG_COLOR, 0)}` },
                 },
               }}
             >

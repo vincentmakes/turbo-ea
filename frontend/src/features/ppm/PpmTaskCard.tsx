@@ -4,11 +4,12 @@ import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { PRIORITY_COLORS } from "@/theme/tokens";
+import { PRIORITY_COLORS, STATUS_CHIP_COLORS } from "@/theme/tokens";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { todayIsoDate } from "@/lib/dates";
 import type { PpmTask } from "@/types";
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDragOverlay }: Props) {
+  const theme = useTheme();
   const { t } = useTranslation("ppm");
   const { formatDate } = useDateFormat();
   const {
@@ -67,7 +69,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
         mb: 1,
         cursor: "grab",
         borderLeft: `3px solid ${
-          PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] || "#bdbdbd"
+          PRIORITY_COLORS[task.priority as keyof typeof PRIORITY_COLORS] || theme.palette.grey[400]
         }`,
         "&:hover": { elevation: 3, bgcolor: "action.hover" },
         userSelect: "none",
@@ -88,7 +90,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
               <MaterialSymbol
                 icon={isDone ? "check_circle" : "circle"}
                 size={18}
-                style={{ color: isDone ? "#2e7d32" : "#bdbdbd" }}
+                style={{ color: isDone ? STATUS_CHIP_COLORS.success.text : theme.palette.action.disabled }}
               />
             </IconButton>
           </Tooltip>
@@ -114,7 +116,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
             fontSize: "0.65rem",
           }}
         >
-          <MaterialSymbol icon="account_tree" size={12} style={{ color: "#9e9e9e" }} />
+          <MaterialSymbol icon="account_tree" size={12} style={{ color: theme.palette.text.disabled }} />
           {wbsName}
         </Typography>
       )}
@@ -131,7 +133,7 @@ export default function PpmTaskCard({ task, wbsName, onClick, onMarkDone, isDrag
           )}
           {task.comment_count > 0 && (
             <Box display="flex" alignItems="center" gap={0.25} ml={0.5}>
-              <MaterialSymbol icon="comment" size={14} style={{ color: "#9e9e9e" }} />
+              <MaterialSymbol icon="comment" size={14} style={{ color: theme.palette.text.disabled }} />
               <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
                 {task.comment_count}
               </Typography>

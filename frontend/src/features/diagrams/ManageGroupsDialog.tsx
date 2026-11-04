@@ -13,11 +13,12 @@ import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import ColorPicker from "@/components/ColorPicker";
+import ColorPicker, { PRESET_COLORS } from "@/components/ColorPicker";
 import { api } from "@/api/client";
 import type { DiagramGroup } from "@/types";
 
-const DEFAULT_COLOR = "#60a5fa";
+/** A new group starts on the picker's first-row blue (#60a5fa), one of its own swatches. */
+const DEFAULT_COLOR = PRESET_COLORS[6];
 
 interface Props {
   open: boolean;

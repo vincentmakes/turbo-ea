@@ -1290,12 +1290,6 @@ export interface ResourceBulkDeleteResult {
 // Surveys
 // ---------------------------------------------------------------------------
 
-/** A card reference linked through a survey relation field. */
-export interface SurveyRelationRef {
-  id: string;
-  name: string;
-}
-
 /** A person listed by a survey stakeholder-role field. */
 export interface SurveyPersonRef {
   id: string;
@@ -1743,16 +1737,6 @@ export interface PortalCardListResponse {
 // ---------------------------------------------------------------------------
 // BPM — BPMN 2.0 Diagrams, Process Elements, Assessments
 // ---------------------------------------------------------------------------
-
-export interface ProcessDiagramData {
-  id: string;
-  process_id: string;
-  bpmn_xml: string;
-  svg_thumbnail?: string;
-  version: number;
-  created_by?: string;
-  created_at?: string;
-}
 
 export interface ProcessElement {
   id: string;
@@ -2404,18 +2388,6 @@ export type ComplianceStatus =
  */
 export type RegulationKey = string;
 
-/** The 6 historical built-in regulation keys, used only as a fallback
- *  when the dynamic list isn't loaded yet (e.g. on initial paint before
- *  bootstrap arrives). */
-export const BUILTIN_REGULATION_KEYS = [
-  "eu_ai_act",
-  "gdpr",
-  "nis2",
-  "dora",
-  "soc2",
-  "iso27001",
-] as const;
-
 export interface ComplianceRegulation {
   id: string;
   key: string;
@@ -2853,11 +2825,6 @@ export interface ArchSolutionOption {
   impactPreview: ArchOptionImpact;
 }
 
-export interface ArchOptionsResult {
-  summary?: string;
-  options: ArchSolutionOption[];
-}
-
 // --- Capability mapping (Phase 3a dependency-aware) ---
 
 export interface CapabilityMapping {
@@ -2985,18 +2952,6 @@ export interface CardArchiveDeleteRequest {
   cascade_all_related?: boolean;
 }
 
-export interface CardArchiveResponse {
-  primary: Card;
-  affected_children_ids: string[];
-  affected_related_card_ids: string[];
-}
-
-export interface CardDeleteResponse {
-  deleted_card_ids: string[];
-  affected_children_ids: string[];
-  affected_related_card_ids: string[];
-}
-
 export interface RestoreImpactPassenger {
   id: string;
   name: string;
@@ -3007,10 +2962,6 @@ export interface RestoreImpactPassenger {
 
 export interface RestoreImpact {
   passengers: RestoreImpactPassenger[];
-}
-
-export interface CardRestoreRequest {
-  also_restore_card_ids?: string[];
 }
 
 export interface CardRestoreResponse {

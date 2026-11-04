@@ -99,5 +99,3 @@ export function PercentBar({
   );
   return tooltip ? <Tooltip title={tooltip}>{bar}</Tooltip> : bar;
 }
-
-export default PercentBar;

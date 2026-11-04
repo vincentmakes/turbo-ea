@@ -44,6 +44,7 @@ import { useSubmitOnce } from "@/hooks/useSubmitOnce";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
+import { DELIVERABLE_COLORS, RAG_COLORS, WARNING_STRONG_COLOR, brand } from "@/theme/tokens";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -518,7 +519,7 @@ export default function SoAWEditor() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        {!compact && <MaterialSymbol icon="description" size={26} color="#e65100" />}
+        {!compact && <MaterialSymbol icon="description" size={26} color={DELIVERABLE_COLORS.soaw} />}
         <Typography
           variant={compact ? "subtitle1" : "h5"}
           sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
@@ -879,7 +880,7 @@ export default function SoAWEditor() {
         if (entry.kind === "custom") {
           const { cs } = entry;
           return (
-            <Paper key={cs.id} sx={{ p: 3, mb: 2, borderLeft: "4px solid #1976d2" }}>
+            <Paper key={cs.id} sx={{ p: 3, mb: 2, borderLeft: `4px solid ${brand.primary}` }}>
               <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
                 <Chip label={t("editor.customLabel")} size="small" color="primary" sx={{ mr: 1 }} />
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>
@@ -1117,7 +1118,7 @@ export default function SoAWEditor() {
             <MaterialSymbol
               icon={isSigned ? "verified" : "draw"}
               size={24}
-              color={isSigned ? "#2e7d32" : "#ed6c02"}
+              color={isSigned ? RAG_COLORS.green : WARNING_STRONG_COLOR}
             />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t("editor.signatures")}
@@ -1145,7 +1146,7 @@ export default function SoAWEditor() {
                 {sig.status === "signed" ? (
                   <>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                      <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
+                      <MaterialSymbol icon="verified" size={20} color={RAG_COLORS.green} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "success.dark" }}>
                         {t("editor.sigApproved")}
                       </Typography>
@@ -1165,7 +1166,7 @@ export default function SoAWEditor() {
                 ) : (
                   <>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                      <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
+                      <MaterialSymbol icon="pending" size={20} color={WARNING_STRONG_COLOR} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "warning.dark" }}>
                         {t("editor.sigPending")}
                       </Typography>

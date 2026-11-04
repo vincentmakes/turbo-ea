@@ -28,7 +28,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import LayeredDependencyView, { readableTypeColor } from "./LayeredDependencyView";
 import { resolveRevealIds } from "./layeredDependencyLayout";
 import { buildAdjacency } from "./dependencyAdjacency";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useReadableCardTypes } from "@/hooks/useReadableCardTypes";
@@ -51,7 +51,12 @@ import LinkChangeIcon from "./LinkChangeIcon";
 import { TIMELINE_PULSE_KEYFRAMES, useMilestoneSpotlight } from "./useMilestoneSpotlight";
 import type { TimelineChange } from "./timelineRange";
 import type { GNode, GEdge } from "./layeredDependencyLayout";
-import { STATUS_COLORS, TIMELINE_COLORS } from "@/theme/tokens";
+import {
+  CARD_TYPE_COLORS,
+  CATEGORICAL_COLORS,
+  STATUS_COLORS,
+  TIMELINE_COLORS,
+} from "@/theme/tokens";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useTypeLabel, typeLabel as resolveTypeLabel } from "@/hooks/useResolveLabel";
@@ -133,13 +138,13 @@ const HEADER_H = 26;
 const PADDING = 28;
 
 const FALLBACK_COLORS: Record<string, string> = {
-  Application: "#0f7eb5",
-  Interface: "#02afa4",
-  ITComponent: "#d29270",
-  DataObject: "#774fcc",
-  BusinessCapability: "#003399",
-  Organization: "#2889ff",
-  Initiative: "#33cc58",
+  Application: CARD_TYPE_COLORS.Application,
+  Interface: CARD_TYPE_COLORS.Interface,
+  ITComponent: CARD_TYPE_COLORS.ITComponent,
+  DataObject: CARD_TYPE_COLORS.DataObject,
+  BusinessCapability: CARD_TYPE_COLORS.BusinessCapability,
+  Organization: CARD_TYPE_COLORS.Organization,
+  Initiative: CARD_TYPE_COLORS.Initiative,
 };
 
 /* ------------------------------------------------------------------ */
@@ -147,7 +152,7 @@ const FALLBACK_COLORS: Record<string, string> = {
 /* ------------------------------------------------------------------ */
 
 function tc(key: string, types: CardType[]): string {
-  return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
+  return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || STATUS_COLORS.neutral;
 }
 
 /**
@@ -1177,7 +1182,7 @@ export default function DependencyReport() {
     <ReportShell
       title={t("dependency.title")}
       icon="hub"
-      iconColor="#6a1b9a"
+      iconColor={CATEGORICAL_COLORS[1]}
       view={view}
       onViewChange={setView}
       chartRef={chartRef}
@@ -1661,7 +1666,7 @@ export default function DependencyReport() {
                         borderLeft: `3.5px solid ${color}`,
                         borderRadius: "8px",
                         bgcolor: card.isExpanded
-                          ? "rgba(0,0,0,0.025)"
+                          ? alpha(theme.palette.common.black, 0.025)
                           : "background.paper",
                         opacity: dimmed ? 0.4 : 1,
                         transition:
@@ -1791,7 +1796,7 @@ export default function DependencyReport() {
                       {card.isDuplicate && !card.isRoot && (
                         <Tooltip title={t("dependency.alsoAppears")} arrow>
                           <Box sx={{ display: "flex" }}>
-                            <MaterialSymbol icon="link" size={14} color="#bbb" />
+                            <MaterialSymbol icon="link" size={14} color={theme.palette.action.disabled} />
                           </Box>
                         </Tooltip>
                       )}
@@ -1806,7 +1811,7 @@ export default function DependencyReport() {
                           sx={{ p: 0.25, ml: "auto" }}
                           onClick={(e) => { e.stopPropagation(); window.open(`/cards/${card.id}`, "_blank"); }}
                         >
-                          <MaterialSymbol icon="open_in_new" size={14} color="#999" />
+                          <MaterialSymbol icon="open_in_new" size={14} color={STATUS_COLORS.neutral} />
                         </IconButton>
                       </Tooltip>
 
@@ -1820,7 +1825,7 @@ export default function DependencyReport() {
                               fontSize: "0.6rem",
                               height: 16,
                               minWidth: 16,
-                              bgcolor: "rgba(0,0,0,0.08)",
+                              bgcolor: alpha(theme.palette.common.black, 0.08),
                               color: "text.secondary",
                             },
                           }}
@@ -1832,7 +1837,7 @@ export default function DependencyReport() {
                                 : "chevron_right"
                             }
                             size={18}
-                            color="#999"
+                            color={STATUS_COLORS.neutral}
                           />
                         </Badge>
                       )}
@@ -1867,7 +1872,7 @@ export default function DependencyReport() {
             {/* Picker header */}
             <Box sx={{ p: 2.5, pb: 0 }}>
               <Box sx={{ textAlign: "center", mb: 2 }}>
-                <MaterialSymbol icon="account_tree" size={44} color="#bbb" />
+                <MaterialSymbol icon="account_tree" size={44} color={theme.palette.action.disabled} />
                 <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
                   {t("dependency.selectCard")}
                 </Typography>
@@ -1886,7 +1891,7 @@ export default function DependencyReport() {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <MaterialSymbol icon="search" size={20} color="#999" />
+                      <MaterialSymbol icon="search" size={20} color={STATUS_COLORS.neutral} />
                     </InputAdornment>
                   ),
                   ...(pickerSearch && {
@@ -2093,7 +2098,7 @@ export default function DependencyReport() {
                             <MaterialSymbol
                               icon="chevron_right"
                               size={16}
-                              color="#ccc"
+                              color={theme.palette.action.disabled}
                             />
                           </Box>
                         );

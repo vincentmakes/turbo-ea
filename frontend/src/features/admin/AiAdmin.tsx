@@ -18,6 +18,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { AI_PROVIDER_TYPES, providerUi } from "./aiProviderUi";
+import { useTheme } from "@mui/material/styles";
 
 interface AiSettings {
   enabled: boolean;
@@ -35,6 +36,7 @@ interface AiSettings {
 const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
 export default function AiAdmin() {
+  const theme = useTheme();
   const { t } = useTranslation(["admin", "common"]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -225,7 +227,7 @@ export default function AiAdmin() {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="dns" size={22} color="#555" />
+          <MaterialSymbol icon="dns" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.ai.providerTitle")}
           </Typography>
@@ -380,7 +382,7 @@ export default function AiAdmin() {
       {/* AI Description Suggestions */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
+          <MaterialSymbol icon="auto_awesome" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.ai.title")}
           </Typography>
@@ -447,7 +449,7 @@ export default function AiAdmin() {
       {/* AI Portfolio Insights */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="insights" size={22} color="#555" />
+          <MaterialSymbol icon="insights" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.ai.portfolioInsightsTitle")}
           </Typography>
@@ -503,7 +505,7 @@ export default function AiAdmin() {
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="smart_toy" size={22} color="#555" />
+          <MaterialSymbol icon="smart_toy" size={22} color={theme.palette.text.secondary} />
           <Typography variant="h6" fontWeight={600}>
             {t("settings.mcp.title")}
           </Typography>

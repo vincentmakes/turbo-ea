@@ -10,6 +10,8 @@
  * is dropped here, silently — this is the only reader.
  */
 
+import { SEVERITY_COLORS, STATUS_COLORS, brand } from "@/theme/tokens";
+
 /** What an empty value reads as. */
 export const NO_VALUE = "—";
 
@@ -21,116 +23,116 @@ export interface EventMeta {
 }
 
 export const EVENT_META: Record<string, EventMeta> = {
-  "card.created": { labelKey: "history.events.created", icon: "add_circle", color: "#4caf50" },
-  "card.updated": { labelKey: "history.events.updated", icon: "edit", color: "#1976d2" },
-  "card.archived": { labelKey: "history.events.archived", icon: "archive", color: "#ff9800" },
-  "card.restored": { labelKey: "history.events.restored", icon: "restore", color: "#4caf50" },
-  "card.deleted": { labelKey: "history.events.deleted", icon: "delete", color: "#f44336" },
+  "card.created": { labelKey: "history.events.created", icon: "add_circle", color: STATUS_COLORS.success },
+  "card.updated": { labelKey: "history.events.updated", icon: "edit", color: brand.primary },
+  "card.archived": { labelKey: "history.events.archived", icon: "archive", color: STATUS_COLORS.warning },
+  "card.restored": { labelKey: "history.events.restored", icon: "restore", color: STATUS_COLORS.success },
+  "card.deleted": { labelKey: "history.events.deleted", icon: "delete", color: STATUS_COLORS.error },
   "card.approval_status.approve": {
     labelKey: "history.events.approved",
     icon: "verified",
-    color: "#4caf50",
+    color: STATUS_COLORS.success,
   },
   "card.approval_status.reject": {
     labelKey: "history.events.rejected",
     icon: "cancel",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
   "card.approval_status.reset": {
     labelKey: "history.events.resetToDraft",
     icon: "restart_alt",
-    color: "#9e9e9e",
+    color: STATUS_COLORS.neutral,
   },
   "stakeholder.added": {
     labelKey: "history.events.stakeholderAdded",
     icon: "person_add",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "stakeholder.role_changed": {
     labelKey: "history.events.stakeholderRoleChanged",
     icon: "manage_accounts",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "stakeholder.removed": {
     labelKey: "history.events.stakeholderRemoved",
     icon: "person_remove",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
-  "relation.created": { labelKey: "history.events.relationCreated", icon: "link", color: "#1976d2" },
+  "relation.created": { labelKey: "history.events.relationCreated", icon: "link", color: brand.primary },
   "relation.updated": {
     labelKey: "history.events.relationUpdated",
     icon: "sync_alt",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "relation.deleted": {
     labelKey: "history.events.relationDeleted",
     icon: "link_off",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
-  "risk.added": { labelKey: "history.events.riskAdded", icon: "report", color: "#ff9800" },
-  "risk.updated": { labelKey: "history.events.riskUpdated", icon: "edit_note", color: "#ff9800" },
-  "risk.removed": { labelKey: "history.events.riskRemoved", icon: "report_off", color: "#9e9e9e" },
-  "document.added": { labelKey: "history.events.documentAdded", icon: "link", color: "#1976d2" },
+  "risk.added": { labelKey: "history.events.riskAdded", icon: "report", color: STATUS_COLORS.warning },
+  "risk.updated": { labelKey: "history.events.riskUpdated", icon: "edit_note", color: STATUS_COLORS.warning },
+  "risk.removed": { labelKey: "history.events.riskRemoved", icon: "report_off", color: STATUS_COLORS.neutral },
+  "document.added": { labelKey: "history.events.documentAdded", icon: "link", color: brand.primary },
   "document.updated": {
     labelKey: "history.events.documentUpdated",
     icon: "edit_note",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "document.removed": {
     labelKey: "history.events.documentRemoved",
     icon: "link_off",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
   "file.uploaded": {
     labelKey: "history.events.fileUploaded",
     icon: "upload_file",
-    color: "#1976d2",
+    color: brand.primary,
   },
-  "file.replaced": { labelKey: "history.events.fileReplaced", icon: "sync", color: "#1976d2" },
-  "file.updated": { labelKey: "history.events.fileUpdated", icon: "edit_note", color: "#1976d2" },
-  "file.deleted": { labelKey: "history.events.fileDeleted", icon: "delete", color: "#f44336" },
+  "file.replaced": { labelKey: "history.events.fileReplaced", icon: "sync", color: brand.primary },
+  "file.updated": { labelKey: "history.events.fileUpdated", icon: "edit_note", color: brand.primary },
+  "file.deleted": { labelKey: "history.events.fileDeleted", icon: "delete", color: STATUS_COLORS.error },
   "card_logo.updated": {
     labelKey: "history.events.cardLogoUpdated",
     icon: "image",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "card_logo.deleted": {
     labelKey: "history.events.cardLogoDeleted",
     icon: "hide_image",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
-  "comment.created": { labelKey: "history.events.commentCreated", icon: "chat", color: "#1976d2" },
+  "comment.created": { labelKey: "history.events.commentCreated", icon: "chat", color: brand.primary },
   // Tagging rescores the card, which moves its Modified date — so it belongs
   // on the timeline like any other edit (#995).
-  "tag.added": { labelKey: "history.events.tagAdded", icon: "label", color: "#1976d2" },
-  "tag.removed": { labelKey: "history.events.tagRemoved", icon: "label_off", color: "#f44336" },
+  "tag.added": { labelKey: "history.events.tagAdded", icon: "label", color: brand.primary },
+  "tag.removed": { labelKey: "history.events.tagRemoved", icon: "label_off", color: STATUS_COLORS.error },
   // BPM process-flow approval trail. Without these the events render as their
   // raw dotted event_type, which makes the approval history of a process
   // unreadable on the card — and an unreadable trail is not an audit trail.
   "process_flow.submitted": {
     labelKey: "history.events.processFlowSubmitted",
     icon: "send",
-    color: "#1976d2",
+    color: brand.primary,
   },
   "process_flow.approved": {
     labelKey: "history.events.processFlowApproved",
     icon: "verified",
-    color: "#4caf50",
+    color: STATUS_COLORS.success,
   },
   "process_flow.rejected": {
     labelKey: "history.events.processFlowRejected",
     icon: "cancel",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
   "process_flow.withdrawn": {
     labelKey: "history.events.processFlowWithdrawn",
     icon: "unpublished",
-    color: "#f44336",
+    color: STATUS_COLORS.error,
   },
   "survey.sent": {
     labelKey: "history.events.surveySent",
     icon: "assignment",
-    color: "#1976d2",
+    color: brand.primary,
   },
 };
 
@@ -167,7 +169,7 @@ export function eventMeta(
   t: (key: string) => string,
 ): { label: string; icon: string; color: string } {
   const meta = EVENT_META[eventType];
-  if (!meta) return { label: eventType, icon: "info", color: "#9e9e9e" };
+  if (!meta) return { label: eventType, icon: "info", color: STATUS_COLORS.neutral };
   return { label: t(meta.labelKey), icon: meta.icon, color: meta.color };
 }
 
@@ -283,12 +285,8 @@ export function fieldLabelsFor(
   return fieldLabels;
 }
 
-export const RISK_LEVEL_COLOR: Record<string, string> = {
-  critical: "#d32f2f",
-  high: "#f57c00",
-  medium: "#fbc02d",
-  low: "#388e3c",
-};
+/** A risk's level colour — the shared severity scale. */
+export const RISK_LEVEL_COLOR: Record<string, string> = SEVERITY_COLORS;
 
 export type EventDetail =
   | {

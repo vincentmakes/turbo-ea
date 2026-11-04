@@ -54,6 +54,8 @@ import { AuthProvider } from "@/hooks/AuthContext";
 import { CARD_IDS_CHUNK } from "@/api/cardsByIds";
 import type { User } from "@/types";
 import DiagramViewer from "./DiagramViewer";
+import { composeCardLogoImage } from "./cardLogoImage";
+import { DEFAULT_LAYER_COLOR } from "@/theme/tokens";
 
 const mockGet = vi.mocked(api.get);
 
@@ -172,6 +174,32 @@ describe("DiagramViewer", () => {
     const src = decodeURIComponent(iframe()!.getAttribute("src")!.split("#R")[1]);
     expect(src).toContain("data:image/png;base64,AAA");
     expect(src).not.toBe(d.data.xml);
+  });
+
+  it("composes each logo on its type's colour, the default layer colour for an unknown type", async () => {
+    vi.mocked(composeCardLogoImage).mockClear();
+    mockGet.mockImplementation(async (path: string) => {
+      if (path === "/diagrams/d1") return diagram(["card-1", "card-2"]);
+      if (path.startsWith("/cards?ids=")) {
+        return {
+          items: [
+            { id: "card-1", name: "A", type: "Application", logo_updated_at: "2026-01-01" },
+            { id: "card-2", name: "B", type: "Mystery", logo_updated_at: "2026-01-01" },
+          ],
+        };
+      }
+      throw new Error(`unexpected path ${path}`);
+    });
+    renderViewer();
+    await waitFor(() => expect(iframe()).not.toBeNull());
+    const calls = vi.mocked(composeCardLogoImage).mock.calls.map((c) => c.slice(1));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        ["apps", "#0f7eb5", 180, 50],
+        [undefined, DEFAULT_LAYER_COLOR, 180, 50],
+      ]),
+    );
+    expect(calls).toHaveLength(2);
   });
 
   describe("colour legend", () => {

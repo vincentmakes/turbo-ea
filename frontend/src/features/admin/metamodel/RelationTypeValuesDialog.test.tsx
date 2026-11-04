@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, within, waitFor, fireEvent } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
+import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 vi.mock("@/components/ColorPicker", () => ({
@@ -609,5 +610,14 @@ describe("RelationTypeValuesDialog lifecycle and saving", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent(
       "Failed to save relation values",
     );
+  });
+});
+
+describe("RelationTypeValuesDialog colours", () => {
+  it("fills a built-in value's swatch with its colour, grey when it has none", () => {
+    const { dialog } = renderDialog();
+    // The row is lock glyph, swatch, label…
+    expect(valueRow(dialog, "Owner").children[1]).toHaveStyle({ backgroundColor: "#111111" });
+    expect(valueRow(dialog, "User").children[1]).toHaveStyle({ backgroundColor: createTheme().palette.grey[400] });
   });
 });

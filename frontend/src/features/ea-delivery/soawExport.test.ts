@@ -5,6 +5,7 @@ import { saveAs } from "file-saver";
 import i18n from "@/i18n";
 import { printDocument } from "@/lib/printDocument";
 import type { SoAWDocumentInfo, SoAWSectionData, SoAWSignatory, SoAWVersionEntry } from "@/types";
+import { PRINT_COLORS } from "@/theme/tokens";
 import { getTemplateSections, getTogafPhases } from "./soawTemplate";
 import { buildPreviewBody, exportToDocx, exportToPdf, PREVIEW_CSS } from "./soawExport";
 
@@ -191,7 +192,7 @@ describe("buildPreviewBody — title block", () => {
   it("opens with the document-type heading and the escaped name as subtitle", () => {
     const html = body({}, [], { name: `Cloud <Migration> & "Co"` });
     expect(html.startsWith(`<h1 style="text-align:center;border:none;">${t("soawTitle")}</h1>`)).toBe(true);
-    expect(html).toContain(`<p style="text-align:center;font-size:14pt;color:#555;">Cloud &lt;Migration&gt; &amp; &quot;Co&quot;</p>`);
+    expect(html).toContain(`<p style="text-align:center;font-size:14pt;color:${PRINT_COLORS.inkSecondary};">Cloud &lt;Migration&gt; &amp; &quot;Co&quot;</p>`);
     expect(html).not.toContain("<Migration>");
   });
 
@@ -432,7 +433,7 @@ describe("exportToPdf", () => {
   it("falls back to 'SoAW' as the window title when the document has no name", () => {
     exportToPdf("", EMPTY_INFO, [], sections, [], undefined, undefined, undefined);
     expect(mockPrintDocument.mock.calls[0][0].title).toBe("SoAW");
-    expect(mockPrintDocument.mock.calls[0][0].bodyHtml).toContain(`color:#555;"></p>`);
+    expect(mockPrintDocument.mock.calls[0][0].bodyHtml).toContain(`color:${PRINT_COLORS.inkSecondary};"></p>`);
   });
 
   it("a signed document's footer names the first approver, the approval date and the print date", () => {

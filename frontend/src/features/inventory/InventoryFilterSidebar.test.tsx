@@ -14,7 +14,9 @@ import { useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, within, act, waitFor } from "@testing-library/react";
 import InventoryFilterSidebar, {
+  APPROVAL_STATUS_OPTIONS,
   EMPTY_VALUE,
+  LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   tagEmptyToken,
   type Filters,
@@ -47,6 +49,9 @@ import {
   makeTagGroup,
 } from "@/test/fixtures/metamodel";
 import type { Bookmark, RelatedCardRef } from "@/types";
+import { createTheme } from "@mui/material/styles";
+import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
+import { EOL_STATUS_COLORS } from "@/lib/eol";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -1838,5 +1843,53 @@ describe("InventoryFilterSidebar — resize", () => {
     const calls = onWidthChange.mock.calls.length;
     fireEvent.mouseMove(document, { clientX: 120 });
     expect(onWidthChange.mock.calls).toHaveLength(calls);
+  });
+});
+
+/* ========================================================================= */
+/*  Selected chips and view icons paint their colours                         */
+/* ========================================================================= */
+
+describe("InventoryFilterSidebar — colours", () => {
+  const WHITE = createTheme().palette.common.white;
+  const filled = (bg: string) => ({ backgroundColor: bg, color: WHITE, borderColor: bg });
+
+  it.each([
+    ["Approval Status", "Approved", { approvalStatuses: ["APPROVED"] }, APPROVAL_STATUS_OPTIONS[1].color],
+    ["Lifecycle", "Active", { lifecyclePhases: ["active"] }, LIFECYCLE_PHASES[2].color],
+    ["Data Quality", "Complete (≥80%)", { dataQualityBands: ["complete"] }, DATA_QUALITY_BANDS[0].color],
+  ] as const)("fills a selected %s chip with its colour and white text", async (section, label, f, bg) => {
+    await renderSidebar({ initialFilters: f as Partial<Filters> });
+    expandSection(section);
+    expect(chip(label)).toHaveStyle(filled(bg));
+  });
+
+  it("fills a selected EOL status and link type with their colours", async () => {
+    await renderSidebar({
+      types: [...CARD_TYPES, SITE_TYPE],
+      initialFilters: { types: ["Site"], eolStatuses: ["approaching"], linkTypes: ["primary"] },
+      showEolFacet: true,
+      showLinkTypeFacet: true,
+    });
+    expandSection("End of life");
+    expandSection("Link type");
+    expect(chip("Approaching EOL")).toHaveStyle(filled(EOL_STATUS_COLORS.approaching));
+    expect(chip("Primary")).toHaveStyle(filled(SITE_TYPE.hierarchy_labels![0].color!));
+  });
+
+  it("marks an OData view with a cloud and titles the dialog by its mode", async () => {
+    mockApi.on("get", "/bookmarks", [MY_VIEW, MY_SHARED]);
+    await renderSidebar({ canShareBookmarks: true, canOdataBookmarks: true, currentUserId: ADMIN_USER.id });
+    openTab("Views");
+    const titleIcon = () => within(screen.getByRole("dialog")).getByRole("heading").querySelector(".material-symbols-outlined");
+    expect(screen.getByRole("button", { name: /Shared by me/ })).toHaveTextContent("cloud");
+    expect(screen.getByRole("button", { name: /My App View/ })).not.toHaveTextContent("cloud");
+    fireEvent.click(within(screen.getByRole("button", { name: /Shared by me/ })).getByRole("button", { name: "edit" }));
+    expect(titleIcon()).toHaveTextContent(/^edit$/);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    openTab("Filters");
+    fireEvent.click(screen.getByRole("button", { name: /Save view/ }));
+    expect(titleIcon()).toHaveTextContent(/^bookmark_add$/);
   });
 });

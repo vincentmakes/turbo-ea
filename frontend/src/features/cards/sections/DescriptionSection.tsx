@@ -32,6 +32,7 @@ import {
 } from "@/features/cards/dataQualityJump";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
+import { brand } from "@/theme/tokens";
 
 // ── Section: Description ────────────────────────────────────────
 function DescriptionSection({
@@ -173,7 +174,13 @@ function DescriptionSection({
       disableGutters
       sx={{ scrollMarginTop: SECTION_SCROLL_MARGIN }}
     >
-      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+      <AccordionSummary
+        // A div, not the default <button>: the summary holds icon buttons
+        // (edit, AI suggest), and a button may not contain a button.
+        // ButtonBase keeps role="button", tabindex and Enter/Space.
+        component="div"
+        expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+      >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} />
           <Typography fontWeight={600}>{t("description.title")}</Typography>
@@ -189,7 +196,7 @@ function DescriptionSection({
                   e.stopPropagation();
                   onAiSuggest();
                 }}
-                sx={{ color: "#1976d2" }}
+                sx={{ color: brand.primary }}
               >
                 <MaterialSymbol icon="auto_awesome" size={20} />
               </IconButton>
