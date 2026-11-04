@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -29,6 +29,10 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { STATUS_COLORS } from "@/theme/tokens";
 import { toLocalDate } from "@/lib/dates";
 import { isEolType } from "@/lib/eol";
+import { customEolKey, eolProductLabel, isCustomEolProduct } from "@/lib/eolCustom";
+import { hasPermission } from "@/components/RequirePermission";
+import CustomEolProductDialog, { CustomEolCycleDialog } from "@/components/CustomEolProductDialog";
+import { useOptionalAuthUser } from "@/hooks/AuthContext";
 import type { Card, EolProduct, EolCycle, EolProductMatch } from "@/types";
 import { useTheme } from "@mui/material/styles";
 
@@ -118,9 +122,32 @@ interface EolPickerProps {
   cardName?: string;
 }
 
+/** A Select value that is not a cycle: opens the add-cycle dialog. */
+const ADD_CYCLE = "__add_cycle__";
+
+/** "Custom" marker beside a custom EOL product's name. */
+function CustomChip() {
+  const { t } = useTranslation("cards");
+  return (
+    <Chip
+      size="small"
+      variant="outlined"
+      label={t("eol.custom.badge")}
+      icon={<MaterialSymbol icon="edit_note" size={14} />}
+      sx={{ height: 20, fontSize: "0.65rem" }}
+    />
+  );
+}
+
 function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: EolPickerProps) {
   const { t } = useTranslation(["cards", "common"]);
-  const [productSearch, setProductSearch] = useState(initialProduct || "");
+  const user = useOptionalAuthUser();
+  // Defining a product the whole landscape can link to is EOL management,
+  // not card editing — the same grant the admin catalogue requires.
+  const canManage = hasPermission(user?.permissions, "eol.manage");
+  const [productSearch, setProductSearch] = useState(
+    initialProduct ? eolProductLabel(initialProduct) : "",
+  );
   const [productOptions, setProductOptions] = useState<EolProduct[]>([]);
   const [productLoading, setProductLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(
@@ -133,10 +160,36 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
   const [eolSuggestions, setEolSuggestions] = useState<EolProductMatch[]>([]);
   const [eolSearching, setEolSearching] = useState(false);
   const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [addCycleOpen, setAddCycleOpen] = useState(false);
+  const [cyclesRev, setCyclesRev] = useState(0);
+  // The cycle to select once the product's cycles arrive — set after a
+  // product or cycle is created here, so the user lands on what they made.
+  const pendingCycleRef = useRef<string | null>(null);
+  // Custom products are named by their title, which only the search knows.
+  const [knownTitles, setKnownTitles] = useState<Record<string, string>>({});
+  const labelOf = useCallback(
+    (name: string) => eolProductLabel(name, knownTitles[name]),
+    [knownTitles],
+  );
+  const rememberTitles = useCallback((items: { name: string; title?: string | null }[]) => {
+    const titled = items.filter((p) => p.title);
+    if (titled.length === 0) return;
+    setKnownTitles((prev) => {
+      const next = { ...prev };
+      for (const p of titled) next[p.name] = p.title as string;
+      return next;
+    });
+  }, []);
+  const customNames = useMemo(
+    () => new Set(productOptions.filter((p) => p.custom).map((p) => p.name)),
+    [productOptions],
+  );
 
   // Reset all fields when resetKey changes
   useEffect(() => {
-    setProductSearch(initialProduct || "");
+    setProductSearch(initialProduct ? eolProductLabel(initialProduct) : "");
     setSelectedProduct(initialProduct || null);
     setProductOptions([]);
     setCycles([]);
@@ -166,6 +219,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         );
         if (!isCurrent()) return;
         setEolSuggestions(res);
+        rememberTitles(res);
         setEolAutoSearchDone(true);
       } catch {
         if (!isCurrent()) return;
@@ -196,6 +250,7 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         );
         if (!isCurrent()) return;
         setProductOptions(res);
+        rememberTitles(res);
       } catch {
         if (!isCurrent()) return;
         setProductOptions([]);
@@ -219,11 +274,26 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
       .get<EolCycle[]>(`/eol/products/${encodeURIComponent(selectedProduct)}`)
       .then((res) => {
         setCycles(res);
-        setSelectedCycle("");
+        const pending = pendingCycleRef.current;
+        pendingCycleRef.current = null;
+        setSelectedCycle(pending && res.some((c) => c.cycle === pending) ? pending : "");
       })
       .catch((e) => setError(e.message))
       .finally(() => setCyclesLoading(false));
-  }, [selectedProduct]);
+  }, [selectedProduct, cyclesRev]);
+
+  const selectedIsCustom = isCustomEolProduct(selectedProduct);
+  // Nothing on endoflife.date for what was typed (or, before anything was
+  // typed, for the card's own name): offer to define the product here. Only
+  // once the search has settled, so the offer never flashes mid-typing.
+  const typed = productSearch.trim();
+  const searchSettled = debouncedProductSearch === productSearch && !productLoading;
+  const noUpstreamForTyped =
+    typed.length >= 2 && searchSettled && !productOptions.some((p) => !p.custom);
+  const noUpstreamForCard =
+    !typed && eolAutoSearchDone && !eolSearching && !eolSuggestions.some((s) => !s.custom);
+  const offerCreate = !selectedProduct && (noUpstreamForTyped || noUpstreamForCard);
+  const createFrom = typed || (cardName || "").trim();
 
   return (
     <Box>
@@ -235,11 +305,27 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
       <Autocomplete
         freeSolo
         options={productOptions.map((p) => p.name)}
+        getOptionLabel={(name) => labelOf(name)}
+        renderOption={(props, name) => {
+          const { key, ...rest } = props as typeof props & { key: string };
+          return (
+            <li key={key} {...rest}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
+                <span>{labelOf(name)}</span>
+                {customNames.has(name) && (
+                  <Box sx={{ ml: "auto" }}>
+                    <CustomChip />
+                  </Box>
+                )}
+              </Box>
+            </li>
+          );
+        }}
         loading={productLoading}
         inputValue={productSearch}
         onInputChange={(_, val) => {
           setProductSearch(val);
-          if (selectedProduct && val !== selectedProduct) {
+          if (selectedProduct && val !== labelOf(selectedProduct)) {
             setSelectedProduct(null);
           }
         }}
@@ -290,14 +376,14 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
             {eolSuggestions.map((s) => (
               <Chip
                 key={s.name}
-                label={s.name}
+                label={labelOf(s.name)}
                 size="small"
                 variant="outlined"
                 onClick={() => {
-                  setProductSearch(s.name);
+                  setProductSearch(labelOf(s.name));
                   setSelectedProduct(s.name);
                 }}
-                icon={<MaterialSymbol icon="link" size={14} />}
+                icon={<MaterialSymbol icon={s.custom ? "edit_note" : "link"} size={14} />}
                 sx={{
                   cursor: "pointer",
                   borderColor: s.score >= 0.7 ? "success.main" : "divider",
@@ -320,6 +406,32 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
         </Typography>
       )}
 
+      {offerCreate && createFrom && (
+        <Alert
+          severity="info"
+          icon={<MaterialSymbol icon="edit_note" size={20} />}
+          sx={{ mb: 2 }}
+          action={
+            canManage ? (
+              <Button
+                size="small"
+                color="inherit"
+                onClick={() => {
+                  setCreateTitle(createFrom);
+                  setCreateOpen(true);
+                }}
+              >
+                {t("eol.custom.createAction")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {canManage
+            ? t("eol.custom.notOnEolDate", { name: createFrom })
+            : t("eol.custom.askManager", { name: createFrom })}
+        </Alert>
+      )}
+
       {selectedProduct && cyclesLoading && <LinearProgress sx={{ mb: 2 }} />}
 
       {selectedProduct && cycles.length > 0 && (
@@ -328,7 +440,10 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
           <Select
             value={selectedCycle}
             label={t("eol.versionCycle")}
-            onChange={(e) => setSelectedCycle(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === ADD_CYCLE) setAddCycleOpen(true);
+              else setSelectedCycle(e.target.value);
+            }}
           >
             {cycles.map((c) => {
               const status = computeEolStatus(c, t);
@@ -366,14 +481,64 @@ function EolPicker({ onSelect, onCancel, initialProduct, resetKey, cardName }: E
                 </MenuItem>
               );
             })}
+            {selectedIsCustom && canManage && (
+              <MenuItem value={ADD_CYCLE}>
+                <MaterialSymbol icon="add" size={16} />
+                <Typography variant="body2" sx={{ ml: 1 }}>
+                  {t("eol.custom.addCycleOption")}
+                </Typography>
+              </MenuItem>
+            )}
           </Select>
         </FormControl>
       )}
 
       {selectedProduct && !cyclesLoading && cycles.length === 0 && !error && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t("eol.noCycles", { product: selectedProduct })}
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t("eol.noCycles", { product: labelOf(selectedProduct) })}
+          </Typography>
+          {selectedIsCustom && canManage && (
+            <Button
+              size="small"
+              startIcon={<MaterialSymbol icon="add" size={16} />}
+              onClick={() => setAddCycleOpen(true)}
+            >
+              {t("eol.custom.addCycleOption")}
+            </Button>
+          )}
+        </Box>
+      )}
+
+      <CustomEolProductDialog
+        open={createOpen}
+        initialTitle={createTitle}
+        onClose={() => setCreateOpen(false)}
+        onSaved={(product) => {
+          setCreateOpen(false);
+          rememberTitles([{ name: product.product, title: product.title }]);
+          setProductOptions((prev) => [
+            { name: product.product, title: product.title, custom: true },
+            ...prev.filter((p) => p.name !== product.product),
+          ]);
+          // Land on the cycle the user just described (the newest first).
+          pendingCycleRef.current = product.cycles[0]?.cycle ?? null;
+          setProductSearch(product.title);
+          setSelectedProduct(product.product);
+        }}
+      />
+      {selectedProduct && selectedIsCustom && (
+        <CustomEolCycleDialog
+          open={addCycleOpen}
+          productKey={customEolKey(selectedProduct)}
+          productLabel={labelOf(selectedProduct)}
+          onClose={() => setAddCycleOpen(false)}
+          onSaved={(cycle) => {
+            setAddCycleOpen(false);
+            pendingCycleRef.current = cycle.cycle;
+            setCyclesRev((r) => r + 1);
+          }}
+        />
       )}
 
       <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
@@ -675,10 +840,11 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
               </Typography>
               <Chip
                 size="small"
-                label={`${eolProduct} ${eolCycle}`}
+                label={`${eolProductLabel(eolProduct)} ${eolCycle}`}
                 variant="outlined"
                 sx={{ fontWeight: 600 }}
               />
+              {isCustomEolProduct(eolProduct) && <CustomChip />}
               <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
                 <IconButton
                   size="small"

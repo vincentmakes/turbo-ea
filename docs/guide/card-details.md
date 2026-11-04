@@ -167,6 +167,8 @@ If the card is linked to an [endoflife.date](https://endoflife.date/) product (v
 - **Support status** — Color-coded: Supported, Approaching EOL, End of Life
 - **Key dates** — Release date, active support end, security support end, EOL date
 
+When endoflife.date has no match for the product, users with the **Manage EOL** permission can create a [custom EOL product](../admin/eol.md#custom-eol-products) right from this section and link the card to it. Custom products are marked **Custom** and behave like endoflife.date products everywhere else.
+
 ## Comments Tab
 
 ![Card Comments Section](../assets/img/en/05_card_comments.png)

@@ -1,0 +1,605 @@
+/**
+ * Left-hand filter panel of the custom EOL products grid (Settings → EOL).
+ * Same anatomy as `ResourcesFilterSidebar` / the Inventory sidebar
+ * (`frontend/UI_GUIDELINES.md` § 3.11): a 44px rail when collapsed with an
+ * active-filter count, tabbed Filters / Columns with a change dot,
+ * collapsible sections each with an icon and a count, a resize handle.
+ *
+ * Every filter narrows rows the client already holds, so nothing here is
+ * debounced. Fully controlled: the grid owns the state and its persistence.
+ */
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import InputAdornment from "@mui/material/InputAdornment";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import MaterialSymbol from "@/components/MaterialSymbol";
+import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import ColumnOrderSection, { type ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
+import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, EOL_STATUSES } from "@/lib/eol";
+import { STATUS_COLORS } from "@/theme/tokens";
+
+export type UsageFilter = "any" | "linked" | "unused";
+
+export interface CustomEolFilters {
+  search: string;
+  products: string[];
+  statuses: string[];
+  usage: UsageFilter;
+}
+
+export const EMPTY_CUSTOM_EOL_FILTERS: CustomEolFilters = {
+  search: "",
+  products: [],
+  statuses: [],
+  usage: "any",
+};
+
+export interface CustomEolColumn {
+  id: string;
+  labelKey: string;
+  icon: string;
+}
+
+/** Every column of the grid, in default order. Labels are in `admin`. */
+export const CUSTOM_EOL_COLUMNS: CustomEolColumn[] = [
+  { id: "product", labelKey: "eol.custom.columns.product", icon: "inventory_2" },
+  { id: "cycle", labelKey: "eol.custom.columns.cycle", icon: "tag" },
+  { id: "releaseDate", labelKey: "eol.custom.columns.releaseDate", icon: "rocket_launch" },
+  { id: "support", labelKey: "eol.custom.columns.support", icon: "support_agent" },
+  { id: "eol", labelKey: "eol.custom.columns.eol", icon: "event_busy" },
+  { id: "latest", labelKey: "eol.custom.columns.latest", icon: "new_releases" },
+  {
+    id: "latestReleaseDate",
+    labelKey: "eol.custom.columns.latestReleaseDate",
+    icon: "event",
+  },
+  { id: "status", labelKey: "eol.custom.columns.status", icon: "traffic" },
+  { id: "linked", labelKey: "eol.custom.columns.linked", icon: "link" },
+  { id: "updated", labelKey: "eol.custom.columns.updated", icon: "schedule" },
+  { id: "actions", labelKey: "eol.custom.columns.actions", icon: "more_horiz" },
+];
+
+/** Columns that anchor each row and cannot be hidden. */
+export const LOCKED_CUSTOM_EOL_COLUMNS = new Set(["product", "cycle", "actions"]);
+
+const USAGE_OPTIONS: { id: UsageFilter; labelKey: string; color: string }[] = [
+  { id: "any", labelKey: "eol.custom.filters.usageAny", color: STATUS_COLORS.info },
+  { id: "linked", labelKey: "eol.custom.filters.usageLinked", color: STATUS_COLORS.success },
+  { id: "unused", labelKey: "eol.custom.filters.usageUnused", color: STATUS_COLORS.neutral },
+];
+
+const MIN_WIDTH = 220;
+const MAX_WIDTH = 480;
+
+export function activeFilterCount(f: CustomEolFilters): number {
+  return (
+    (f.search.trim() ? 1 : 0) +
+    f.products.length +
+    f.statuses.length +
+    (f.usage !== "any" ? 1 : 0)
+  );
+}
+
+function SectionHeader({
+  label,
+  icon,
+  expanded,
+  onToggle,
+  count,
+}: {
+  label: string;
+  icon: string;
+  expanded: boolean;
+  onToggle: () => void;
+  count?: number;
+}) {
+  return (
+    <Box
+      onClick={onToggle}
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.75,
+        py: 0.5,
+        px: 0.5,
+        cursor: "pointer",
+        borderRadius: 1,
+        userSelect: "none",
+        "&:hover": { bgcolor: "action.hover" },
+      }}
+    >
+      <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={16} />
+      <MaterialSymbol icon={icon} size={16} />
+      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
+        {label}
+      </Typography>
+      {count != null && count > 0 && (
+        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
+      )}
+    </Box>
+  );
+}
+
+function ChangeDot() {
+  return (
+    <Box
+      sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "primary.main", flexShrink: 0 }}
+    />
+  );
+}
+
+export interface ProductOption {
+  key: string;
+  title: string;
+}
+
+interface Props {
+  filters: CustomEolFilters;
+  onFiltersChange: (f: CustomEolFilters) => void;
+  products: ProductOption[];
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  width: number;
+  onWidthChange: (w: number) => void;
+  visibleColumns: Set<string>;
+  onVisibleColumnsChange: (next: Set<string>) => void;
+  frozenColumns: Set<string>;
+  onToggleFrozen: (colId: string) => void;
+  columnOrderItems: ColumnOrderItem[];
+  columnOrder: string[];
+  onColumnOrderChange: (next: string[]) => void;
+  onResetColumnOrder?: () => void;
+}
+
+export default function CustomEolFilterSidebar({
+  filters,
+  onFiltersChange,
+  products,
+  collapsed,
+  onToggleCollapse,
+  width,
+  onWidthChange,
+  visibleColumns,
+  onVisibleColumnsChange,
+  frozenColumns,
+  onToggleFrozen,
+  columnOrderItems,
+  columnOrder,
+  onColumnOrderChange,
+  onResetColumnOrder,
+}: Props) {
+  const { t } = useTranslation(["admin", "reports"]);
+  const [tab, setTab] = useState<0 | 1>(0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    search: true,
+    product: true,
+    status: true,
+    usage: false,
+  });
+  const toggleSection = (key: string) => setExpanded((p) => ({ ...p, [key]: !p[key] }));
+  const activeCount = useMemo(() => activeFilterCount(filters), [filters]);
+  const allColumnIds = useMemo(() => CUSTOM_EOL_COLUMNS.map((c) => c.id), []);
+  const columnsChanged = visibleColumns.size < CUSTOM_EOL_COLUMNS.length;
+
+  const toggleIn = (key: "products" | "statuses", value: string) => {
+    const current = filters[key];
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    onFiltersChange({ ...filters, [key]: next });
+  };
+
+  const toggleColumn = (id: string) => {
+    if (LOCKED_CUSTOM_EOL_COLUMNS.has(id)) return;
+    const next = new Set(visibleColumns);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onVisibleColumnsChange(next);
+  };
+
+  const handleResizeMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    const onMove = (ev: MouseEvent) =>
+      onWidthChange(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startW + (ev.clientX - startX))));
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  if (collapsed) {
+    return (
+      <Box
+        sx={{
+          width: 44,
+          minWidth: 44,
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          pt: 1,
+          bgcolor: "action.hover",
+        }}
+      >
+        <Tooltip title={t("eol.custom.filters.expand")} placement="right">
+          <IconButton size="small" onClick={onToggleCollapse}>
+            <MaterialSymbol icon="chevron_right" size={20} />
+          </IconButton>
+        </Tooltip>
+        {activeCount > 0 && (
+          <Chip
+            label={activeCount}
+            size="small"
+            color="primary"
+            sx={{ mt: 1, fontSize: 11, height: 20, minWidth: 20 }}
+          />
+        )}
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: "flex", height: "100%" }}>
+      <Box
+        sx={{
+          width,
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          bgcolor: "action.hover",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            px: 1.5,
+            py: 0.5,
+            borderBottom: 1,
+            borderColor: "divider",
+          }}
+        >
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v as 0 | 1)}
+            sx={{
+              minHeight: 36,
+              "& .MuiTab-root": {
+                minHeight: 36,
+                py: 0,
+                textTransform: "none",
+                fontSize: 14,
+                minWidth: 0,
+              },
+            }}
+          >
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("eol.custom.filters.tabFilters")}
+                  {activeCount > 0 && <ChangeDot />}
+                </Box>
+              }
+            />
+            <Tab
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {t("eol.custom.filters.tabColumns")}
+                  {columnsChanged && <ChangeDot />}
+                </Box>
+              }
+            />
+          </Tabs>
+          <IconButton
+            size="small"
+            onClick={onToggleCollapse}
+            aria-label={t("eol.custom.filters.collapse")}
+          >
+            <MaterialSymbol icon="chevron_left" size={20} />
+          </IconButton>
+        </Box>
+
+        <Box sx={{ flex: 1, overflowY: "auto", px: 1.5, py: 1 }}>
+          {tab === 0 ? (
+            <>
+              {activeCount > 0 && (
+                <Button
+                  size="small"
+                  onClick={() => onFiltersChange({ ...EMPTY_CUSTOM_EOL_FILTERS })}
+                  startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
+                  sx={{ mb: 1, textTransform: "none", fontSize: 12 }}
+                >
+                  {t("eol.custom.filters.clear")}
+                </Button>
+              )}
+
+              <SectionHeader
+                label={t("eol.custom.filters.sectionSearch")}
+                icon="search"
+                expanded={expanded.search}
+                onToggle={() => toggleSection("search")}
+                count={filters.search.trim() ? 1 : 0}
+              />
+              <Collapse in={expanded.search}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder={t("eol.custom.filters.searchPlaceholder")}
+                  value={filters.search}
+                  onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                  sx={{ my: 0.5 }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MaterialSymbol icon="search" size={16} />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Collapse>
+
+              <Divider sx={{ my: 1 }} />
+
+              <SectionHeader
+                label={t("eol.custom.filters.sectionProduct")}
+                icon="inventory_2"
+                expanded={expanded.product}
+                onToggle={() => toggleSection("product")}
+                count={filters.products.length}
+              />
+              <Collapse in={expanded.product}>
+                <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflowY: "auto" }}>
+                  {products.map((p) => (
+                    <ListItemButton
+                      key={p.key}
+                      dense
+                      onClick={() => toggleIn("products", p.key)}
+                      sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 28 }}>
+                        <Checkbox
+                          size="small"
+                          checked={filters.products.includes(p.key)}
+                          tabIndex={-1}
+                          disableRipple
+                          sx={{ p: 0 }}
+                        />
+                      </ListItemIcon>
+                      <MaterialSymbol icon="inventory_2" size={16} />
+                      <ListItemText
+                        primary={p.title}
+                        primaryTypographyProps={{ fontSize: 13, ml: 0.75, noWrap: true }}
+                      />
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Collapse>
+
+              <Divider sx={{ my: 1 }} />
+
+              <SectionHeader
+                label={t("eol.custom.filters.sectionStatus")}
+                icon="traffic"
+                expanded={expanded.status}
+                onToggle={() => toggleSection("status")}
+                count={filters.statuses.length}
+              />
+              <Collapse in={expanded.status}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, my: 0.5, px: 0.5 }}>
+                  {EOL_STATUSES.map((s) => {
+                    const selected = filters.statuses.includes(s);
+                    const color = EOL_STATUS_COLORS[s];
+                    return (
+                      <Chip
+                        key={s}
+                        size="small"
+                        label={t(`reports:${EOL_STATUS_LABEL_KEYS[s]}`)}
+                        variant={selected ? "filled" : "outlined"}
+                        onClick={() => toggleIn("statuses", s)}
+                        sx={
+                          selected
+                            ? { bgcolor: color, color: "common.white", borderColor: color }
+                            : { borderColor: color, color }
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              </Collapse>
+
+              <Divider sx={{ my: 1 }} />
+
+              <SectionHeader
+                label={t("eol.custom.filters.sectionUsage")}
+                icon="link"
+                expanded={expanded.usage}
+                onToggle={() => toggleSection("usage")}
+                count={filters.usage !== "any" ? 1 : 0}
+              />
+              <Collapse in={expanded.usage}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, my: 0.5, px: 0.5 }}>
+                  {USAGE_OPTIONS.map((o) => {
+                    const selected = filters.usage === o.id;
+                    return (
+                      <Chip
+                        key={o.id}
+                        size="small"
+                        label={t(o.labelKey)}
+                        variant={selected ? "filled" : "outlined"}
+                        onClick={() => onFiltersChange({ ...filters, usage: o.id })}
+                        sx={
+                          selected
+                            ? { bgcolor: o.color, color: "common.white", borderColor: o.color }
+                            : { borderColor: o.color, color: o.color }
+                        }
+                      />
+                    );
+                  })}
+                </Box>
+              </Collapse>
+            </>
+          ) : (
+            <Box>
+              <ColumnOrderSection
+                items={columnOrderItems}
+                order={columnOrder}
+                frozen={frozenColumns}
+                onToggleFrozen={onToggleFrozen}
+                onReorder={onColumnOrderChange}
+                onReset={onResetColumnOrder}
+              />
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  mb: 1,
+                  px: 0.5,
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">
+                  {t("eol.custom.filters.selectedCount", { count: visibleColumns.size })}
+                </Typography>
+                {columnsChanged && (
+                  <Button
+                    size="small"
+                    onClick={() => onVisibleColumnsChange(new Set(allColumnIds))}
+                    startIcon={<MaterialSymbol icon="restart_alt" size={14} />}
+                    sx={{ textTransform: "none", fontSize: 12, minWidth: 0, px: 1 }}
+                  >
+                    {t("eol.custom.filters.reset")}
+                  </Button>
+                )}
+              </Box>
+              <SectionHeader
+                label={t("eol.custom.filters.columnsHint")}
+                icon="grid_view"
+                expanded
+                onToggle={() => {}}
+                count={visibleColumns.size}
+              />
+              <List dense disablePadding sx={{ mb: 1 }}>
+                <ListItemButton
+                  dense
+                  onClick={() => onVisibleColumnsChange(new Set(allColumnIds))}
+                  disabled={visibleColumns.size === CUSTOM_EOL_COLUMNS.length}
+                  sx={{ py: 0.25, px: 1, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 28 }}>
+                    <Checkbox
+                      size="small"
+                      checked={visibleColumns.size === CUSTOM_EOL_COLUMNS.length}
+                      indeterminate={
+                        visibleColumns.size > LOCKED_CUSTOM_EOL_COLUMNS.size &&
+                        visibleColumns.size < CUSTOM_EOL_COLUMNS.length
+                      }
+                      disableRipple
+                      sx={{ p: 0 }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography
+                        variant="body2"
+                        fontSize={13}
+                        fontWeight={500}
+                        fontStyle="italic"
+                      >
+                        {t("eol.custom.filters.selectAll")}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+                {CUSTOM_EOL_COLUMNS.map((c) => {
+                  const locked = LOCKED_CUSTOM_EOL_COLUMNS.has(c.id);
+                  const row = (
+                    <ListItemButton
+                      dense
+                      disabled={locked}
+                      onClick={() => toggleColumn(c.id)}
+                      sx={{
+                        py: 0.25,
+                        px: 1,
+                        borderRadius: 1,
+                        ...(locked ? { "&.Mui-disabled": { opacity: 0.7 } } : {}),
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 28 }}>
+                        <Checkbox
+                          size="small"
+                          checked={visibleColumns.has(c.id)}
+                          disabled={locked}
+                          disableRipple
+                          sx={{ p: 0 }}
+                        />
+                      </ListItemIcon>
+                      <ListItemIcon sx={{ minWidth: 24 }}>
+                        <MaterialSymbol icon={c.icon} size={16} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={t(c.labelKey)}
+                        primaryTypographyProps={{ fontSize: 13, noWrap: true }}
+                      />
+                    </ListItemButton>
+                  );
+                  // The pin is a sibling of the row button: a locked row's
+                  // disabled button would swallow its click.
+                  return (
+                    <Box key={c.id} sx={{ display: "flex", alignItems: "center" }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        {locked ? (
+                          <Tooltip title={t("eol.custom.filters.alwaysVisible")} placement="right">
+                            <span>{row}</span>
+                          </Tooltip>
+                        ) : (
+                          row
+                        )}
+                      </Box>
+                      <ColumnFreezeToggle
+                        frozen={frozenColumns.has(c.id)}
+                        onToggle={() => onToggleFrozen(c.id)}
+                      />
+                    </Box>
+                  );
+                })}
+              </List>
+            </Box>
+          )}
+        </Box>
+      </Box>
+      <Box
+        onMouseDown={handleResizeMouseDown}
+        sx={{
+          width: 4,
+          cursor: "col-resize",
+          "&:hover": { bgcolor: "primary.main", opacity: 0.3 },
+        }}
+      />
+    </Box>
+  );
+}

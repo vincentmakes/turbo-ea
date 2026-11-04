@@ -247,7 +247,7 @@ describe("DataQualityReport drill-down", () => {
     expect(await screen.findByText("End-of-life coverage")).toBeInTheDocument();
     const option = echartState.byName(EOL).option;
     expect(option.yAxis.data).toEqual(["Application"]);
-    expect(option.legend.data).toEqual(["Linked to endoflife.date", "Date entered by hand", "Not recorded"]);
+    expect(option.legend.data).toEqual(["Linked to an EOL product", "Date entered by hand", "Not recorded"]);
     expect(option.series.map((x: any) => x.itemStyle.color)).toEqual([
       EOL_COVERAGE_COLORS.linked,
       EOL_COVERAGE_COLORS.manual,

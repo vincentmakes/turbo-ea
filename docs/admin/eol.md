@@ -53,6 +53,60 @@ Once linked, the card's detail page shows an **EOL section** with:
 - **Support status** — Color-coded: Supported (green), Approaching EOL (orange), End of Life (red)
 - **Key dates** — Release date, active support end, security support end, EOL date
 
+## Custom EOL Products
+
+endoflife.date tracks popular software, but not everything you run: an in-house platform, a niche vendor tool or a licensed appliance will often have no entry there. For those, define a **custom EOL product** — your own product with its own release cycles — and link cards to it exactly as you would link an endoflife.date product. Custom products feed the same card status, Inventory **End of life** column, [EOL Report](../guide/reports.md) and data quality figures.
+
+Custom products are listed on the **Custom products** tab of **Admin > Settings > EOL**. Creating and editing them requires the **Manage EOL** permission (`eol.manage`); anyone who can view EOL data can see them.
+
+![Custom EOL products](../assets/img/en/29b_admin_settings_eol_custom.png)
+
+### Creating a custom product
+
+There are two ways to create one:
+
+- **From a card** — in the card's **End of Life** section, search for the product. When endoflife.date has no match, the section offers **Create custom product**, pre-filled with what you typed (or the card's name). Enter the product name, its first cycles, and save: the card is then linked to the new product and cycle in one go.
+- **From the Custom products tab** — click **Add product**.
+
+Each product has:
+
+- **Product name** — how it is shown everywhere.
+- **Key** — a short lower-case identifier (letters, digits, dots, hyphens, underscores) suggested from the name. Card links store it, so it **cannot be changed** after creation.
+- **Vendor or release policy link** and **Description** — optional.
+- **Release cycles** — each with a name (for example `2.4`), a **Release date**, an **Active support** end, an **End of life**, and optionally the **Latest version** and its release date.
+
+Active support and End of life each take a **date**, or one of two answers for when no date is known: *Still supported* / *Active support ended*, and *No end of life announced* / *Already end of life*. The status (Supported, Approaching EOL, End of Life) is worked out from them with the same rule as endoflife.date products.
+
+### Managing cycles in the grid
+
+The Custom products tab shows one row per release cycle, grouped by product. It works like the other grids: freeze and reorder columns, show or hide them and filter by product, status or usage from the left-hand panel. The **Linked cards** column shows how many of the cards you can see use each cycle.
+
+Click **Edit in grid** to change cells in place. Dates and support answers open a small editor, and you can drag a cell's value down a column (Excel-style) to copy it to several cycles. The row menu (**⋮**) adds a cycle to the product, edits the product's name, link and description, or deletes a cycle or the product.
+
+A product cannot be deleted while cards still link to it. Deleting a cycle that cards use leaves their End of Life status **unknown** until someone picks another cycle. Renaming a cycle moves the cards linked to it along with it.
+
+You can also add a missing cycle from a card: once a custom product is selected in the card's End of Life section, the cycle list ends with **Add cycle…**.
+
+### Contributing a custom product to endoflife.date
+
+If a custom product is a public vendor product, consider proposing it to endoflife.date so everyone benefits. Choose **Propose to endoflife.date** from the row menu:
+
+1. Read the warning: proposing publishes the product name and its dates. Never propose in-house or confidential products.
+2. Pick the endoflife.date **category**. The dialog previews the product file in endoflife.date's format (`products/<key>.md`).
+3. Click **Open on GitHub**. GitHub opens a new file in the endoflife.date repository with the content filled in (it offers to fork the repository if you cannot write to it). Complete the description and release-policy summary, then open the pull request from your own GitHub account. For long files, use **Copy file** and paste it into a new file instead.
+
+Turbo EA never sends anything to GitHub itself and stores no GitHub credentials. endoflife.date reviews every proposal against its [contribution guide](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).
+
+### Switching to endoflife.date
+
+When endoflife.date starts tracking a product you kept as a custom one, the grid shows an **On endoflife.date** hint next to it. Click the hint, or choose **Switch to endoflife.date product…** from the row menu:
+
+1. Pick the endoflife.date product.
+2. For each of your cycles, choose the endoflife.date cycle its cards should move to (cycles with the same name are matched for you), or keep it on the custom product.
+3. Optionally delete the custom product once no card links it any more.
+
+Only the cards you can see are moved. Lifecycle dates on the cards are never changed.
+
 ## EOL Report
 
 Linked EOL data feeds into the [EOL Report](../guide/reports.md), which provides a dashboard view of your technology landscape's support status across all linked cards.

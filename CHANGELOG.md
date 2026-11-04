@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.188.0] - 2026-11-04
+
+### Added
+- Custom EOL products: when endoflife.date has no entry for a product, define it yourself with its release cycles and link cards to it like any endoflife.date product. Its status shows on the card, in the inventory's End of life column, in the EOL report and in the data quality figures.
+- Create a custom EOL product straight from a card's End of Life section when the search finds nothing on endoflife.date, and add a missing cycle from the cycle list.
+- Settings → EOL → Custom products: a grid of every custom product's cycles, grouped by product, with filters, column freeze, in-place editing and drag-fill.
+- "Propose to endoflife.date" drafts a custom product's file in endoflife.date's format and opens it on GitHub, so you can contribute the product from your own account.
+- "Switch to endoflife.date product…" moves a custom product's cards onto endoflife.date once it tracks the product, cycle by cycle; the grid points out custom products that endoflife.date now appears to cover.
+- The EOL report's Source filter and badges distinguish custom products from endoflife.date and from dates entered by hand.
+
+### Changed
+- The data quality and dashboard end-of-life coverage label "Linked to endoflife.date" now reads "Linked to an EOL product", since a link to a custom product counts too.
+
 ## [2.187.0] - 2026-11-04
 
 ### Added

@@ -1,0 +1,134 @@
+/**
+ * Turn a custom EOL product into a draft contribution to endoflife.date.
+ *
+ * endoflife.date keeps one Markdown file per product under `products/`, its
+ * data in YAML front matter (see their CONTRIBUTING guide). This module only
+ * *writes that file*: the user reviews it and opens the pull request from
+ * their own GitHub account, through GitHub's "new file" page (which forks the
+ * repository for anyone without write access). Turbo EA holds no GitHub
+ * credential and posts nothing on anyone's behalf.
+ *
+ * Field names differ from the API Turbo EA reads: the file's `eoas` (end of
+ * active support) is what the API serves as `support`.
+ */
+
+import type { EolCustomCycle, EolCustomProduct, EolMilestone } from "@/types";
+import { todayIsoDate } from "@/lib/dates";
+import { milestoneMode, type MilestoneKind } from "@/lib/eolCustom";
+
+/** endoflife.date's product categories (their `category` field). */
+export const EOL_DATE_CATEGORIES = [
+  "app",
+  "database",
+  "device",
+  "framework",
+  "lang",
+  "os",
+  "server-app",
+  "service",
+  "standard",
+] as const;
+export type EolDateCategory = (typeof EOL_DATE_CATEGORIES)[number];
+
+export const EOL_DATE_REPO = "https://github.com/endoflife-date/endoflife.date";
+export const EOL_DATE_CONTRIBUTING = `${EOL_DATE_REPO}/blob/master/CONTRIBUTING.md`;
+
+/**
+ * Past this length the GitHub URL is not offered: browsers and proxies cut
+ * long query strings, and a truncated file would be worse than none. The
+ * user copies the file instead.
+ */
+export const MAX_GITHUB_URL_LENGTH = 7000;
+
+/** endoflife.date permalinks are lower-case and hyphenated. */
+export function eolDateSlug(key: string): string {
+  return key.replace(/[._]+/g, "-").replace(/-{2,}/g, "-").replace(/^-|-$/g, "");
+}
+
+/** A YAML double-quoted scalar (JSON string syntax is valid YAML). */
+function quoted(text: string): string {
+  return JSON.stringify(text);
+}
+
+/**
+ * A milestone in endoflife.date's file format, where `true` always means
+ * "has ended". That matches the stored `eol`, but the stored `support`
+ * follows the API, where `true` means *still* supported — so `eoas` takes
+ * the opposite boolean.
+ */
+function milestone(value: EolMilestone, kind: MilestoneKind): string | null {
+  const mode = milestoneMode(value, kind);
+  if (mode === "ended") return "true";
+  if (mode === "ongoing") return "false";
+  return mode === "date" ? (value as string) : null;
+}
+
+function releaseLines(c: EolCustomCycle): string[] {
+  const lines = [`  - releaseCycle: ${quoted(c.cycle)}`];
+  if (c.releaseDate) lines.push(`    releaseDate: ${c.releaseDate}`);
+  const eoas = milestone(c.support, "support");
+  if (eoas !== null) lines.push(`    eoas: ${eoas}`);
+  const eol = milestone(c.eol, "eol");
+  if (eol !== null) lines.push(`    eol: ${eol}`);
+  if (c.latest) lines.push(`    latest: ${quoted(c.latest)}`);
+  if (c.latestReleaseDate) lines.push(`    latestReleaseDate: ${c.latestReleaseDate}`);
+  return lines;
+}
+
+/** Newest release first, undated cycles last — endoflife.date's order. */
+function byNewestRelease(a: EolCustomCycle, b: EolCustomCycle): number {
+  if (!a.releaseDate && !b.releaseDate) return 0;
+  if (!a.releaseDate) return 1;
+  if (!b.releaseDate) return -1;
+  return b.releaseDate.localeCompare(a.releaseDate);
+}
+
+export interface ContributionOptions {
+  category: EolDateCategory;
+  /** The day the file is written; defaults to today. */
+  today?: string;
+  /** Placeholder for the release-policy paragraph endoflife.date requires. */
+  policyPlaceholder: string;
+  /** Placeholder for the one-line description when the product has none. */
+  descriptionPlaceholder: string;
+}
+
+/** The `products/<slug>.md` file for a custom product, ready to review. */
+export function buildEolProductFile(
+  product: Pick<EolCustomProduct, "key" | "title" | "description" | "link" | "cycles">,
+  options: ContributionOptions,
+): string {
+  const slug = eolDateSlug(product.key);
+  const cycles = [...product.cycles].sort(byNewestRelease);
+  const front = [
+    "---",
+    `title: ${quoted(product.title)}`,
+    `addedAt: ${options.today ?? todayIsoDate()}`,
+    `category: ${options.category}`,
+    `permalink: /${slug}`,
+  ];
+  if (product.link) front.push(`releasePolicyLink: ${quoted(product.link)}`);
+  // Only show the columns the data fills: an always-empty "Active support"
+  // or "Latest" column is what the maintainers ask contributors to hide.
+  if (cycles.some((c) => milestone(c.support, "support") !== null)) front.push("eoasColumn: true");
+  if (!cycles.some((c) => c.latest)) front.push("latestColumn: false");
+  front.push("", "releases:");
+  for (const c of cycles) front.push(...releaseLines(c));
+  front.push("", "---");
+
+  const name = product.link ? `[${product.title}](${product.link})` : product.title;
+  const description = product.description?.trim() || options.descriptionPlaceholder;
+  return [...front, "", `> ${name} ${description}`, "", options.policyPlaceholder, ""].join("\n");
+}
+
+/**
+ * GitHub's "create a new file" page for endoflife.date, pre-filled with the
+ * file. `null` when the result would be too long to survive as a URL.
+ */
+export function githubNewFileUrl(key: string, fileText: string): string | null {
+  const filename = `${eolDateSlug(key)}.md`;
+  const url =
+    `${EOL_DATE_REPO}/new/master/products` +
+    `?filename=${encodeURIComponent(filename)}&value=${encodeURIComponent(fileText)}`;
+  return url.length > MAX_GITHUB_URL_LENGTH ? null : url;
+}

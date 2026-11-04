@@ -214,7 +214,7 @@
   "dashboard.query.flag.stale": "Stale (not updated recently)",
   "dashboard.query.flag.with_stakeholders": "With stakeholders",
   "dashboard.query.flag.without_stakeholders": "Without stakeholders",
-  "dashboard.query.flag.eol_linked": "End of life linked to endoflife.date",
+  "dashboard.query.flag.eol_linked": "End of life linked to an EOL product",
   "dashboard.query.flag.eol_manual": "End-of-life date entered by hand",
   "dashboard.query.flag.eol_missing": "No end-of-life data",
   "dashboard.query.flag.related": "Has a relation: {{relation}}",

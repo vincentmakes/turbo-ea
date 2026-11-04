@@ -197,6 +197,7 @@ const TAB_BPM_DASHBOARD = tabSelector(...i18nLabels("bpm:tabs.dashboard"));
 const TAB_METAMODEL_GRAPH = tabSelector(...i18nLabels("admin:metamodel.tabs.graph"));
 const MANAGE_CATEGORIES_BUTTON = buttonSelector(...i18nLabels("admin:metamodel.categories.manage"));
 const TAB_ROLES = tabSelector(...i18nLabels("admin:users.tabs.roles"));
+const TAB_EOL_CUSTOM = tabSelector(...i18nLabels("admin:eol.tabs.customProducts"));
 const TAB_RESOURCES = tabSelector(
   ...i18nLabels(
     "cards:tabs.resources",
@@ -1052,6 +1053,26 @@ export const DOC_PAGES: PageDef[] = [
       pt: "29_admin_config_eol",
       zh: "29_admin_settings_eol",
       ru: "29_admin_nastroyki_eol",
+    },
+  },
+  {
+    id: "29b_admin_settings_eol_custom",
+    route: "/admin/settings?tab=eol",
+    waitFor: "[role='tablist']",
+    actions: [
+      { type: "wait", ms: 600 },
+      { type: "click", selector: TAB_EOL_CUSTOM },
+      { type: "wait", ms: 1000 },
+    ],
+    filenames: {
+      en: "29b_admin_settings_eol_custom",
+      de: "29b_admin_einstellungen_eol_eigene",
+      fr: "29b_admin_parametres_eol_personnalises",
+      es: "29b_admin_config_eol_personalizados",
+      it: "29b_admin_impostazioni_eol_personalizzati",
+      pt: "29b_admin_config_eol_personalizados",
+      zh: "29b_admin_settings_eol_custom",
+      ru: "29b_admin_nastroyki_eol_sobstvennye",
     },
   },
 

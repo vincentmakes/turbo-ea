@@ -157,6 +157,7 @@ import RelationAttributesEditor, {
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
 import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, isEolType } from "@/lib/eol";
+import { eolProductLabel } from "@/lib/eolCustom";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { sideKey } from "@/lib/relationSort";
@@ -3283,9 +3284,9 @@ export default function InventoryPage() {
                 const color = EOL_STATUS_COLORS[entry.status];
                 const label = tReports(EOL_STATUS_LABEL_KEYS[entry.status]);
                 const title = [
-                  entry.source === "api"
-                    ? `${entry.eol_product} ${entry.eol_cycle}`
-                    : t("filter.eolManual"),
+                  entry.source === "manual"
+                    ? t("filter.eolManual")
+                    : `${eolProductLabel(entry.eol_product ?? "")} ${entry.eol_cycle}`,
                   entry.support_date ? `${t("columns.eolSupport")}: ${formatDate(entry.support_date)}` : null,
                 ]
                   .filter(Boolean)
