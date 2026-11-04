@@ -13,8 +13,9 @@
 # GITHUB_TOKEN stays read-only. The upstream fetch is anonymous (upstream is
 # a public repo and the App token has no access there); checkout credentials
 # are not persisted, so no duplicate Authorization header is sent. The token
-# is attached only to the final push via a one-shot http extraheader, so it is
-# never persisted in .git/config and never lands in a remote URL.
+# is attached only to the final push via a one-shot http extraheader (basic
+# auth, the scheme actions/checkout itself persists), so it is never
+# persisted in .git/config and never lands in a remote URL.
 name: Upstream sync
 
 on:
@@ -75,4 +76,5 @@ jobs:
         env:
           APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" push origin main
+          CREDENTIALS=$(printf 'x-access-token:%s' "$APP_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $CREDENTIALS" push origin main
