@@ -10,9 +10,11 @@
 # from the APP_ID / APP_PRIVATE_KEY repo secrets. The App must be installed
 # on this repository with repository permission "Contents: read/write"
 # (and must be allowed by any branch protection rule on main). The default
-# GITHUB_TOKEN stays read-only; the upstream fetch authenticates with the
-# same App token through a one-shot http extraheader, so the token is never
-# persisted in .git/config and never lands in a remote URL.
+# GITHUB_TOKEN stays read-only. The upstream fetch is anonymous (upstream is
+# a public repo and the App token has no access there); checkout credentials
+# are not persisted, so no duplicate Authorization header is sent. The token
+# is attached only to the final push via a one-shot http extraheader, so it is
+# never persisted in .git/config and never lands in a remote URL.
 name: Upstream sync
 
 on:
@@ -55,13 +57,12 @@ jobs:
         with:
           ref: main
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Fetch upstream
-        env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git remote add upstream https://github.com/vincentmakes/turbo-ea.git
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" fetch upstream
+          git fetch upstream
 
       - name: Merge upstream/main into main
         run: |
@@ -70,4 +71,6 @@ jobs:
           git merge --no-edit upstream/main
 
       - name: Push main
-        run: git push origin main
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: git -c http.https://github.com/.extraheader="AUTHORIZATION: bearer $APP_TOKEN" push origin main
