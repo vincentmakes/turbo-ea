@@ -574,6 +574,45 @@ async def _call_openai_compatible(
     return _parse_llm_content(content)
 
 
+def _anthropic_refused_temperature(resp: httpx.Response) -> bool:
+    """Whether ``resp`` is Anthropic refusing the ``temperature`` parameter.
+
+    Newer Claude models answer a custom temperature with a 400
+    ``invalid_request_error`` ("`temperature` is deprecated for this model.",
+    #1358). Unlike OpenAI, the error names no ``param``, so the message is
+    what identifies it.
+    """
+    if resp.status_code != 400:
+        return False
+    return "temperature" in openai_chat.error_detail(resp).lower()
+
+
+async def _post_anthropic(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict[str, str],
+    payload: dict[str, Any],
+    timeout: float | None = None,
+) -> httpx.Response:
+    """POST a Messages request, once more without ``temperature`` if refused.
+
+    The low temperature is a request, not a requirement — the same rule
+    ``openai_chat.post_chat`` applies (#1319): a model that still accepts it
+    keeps it, one that refuses it is asked again without it. Returns the last
+    response whatever its status.
+    """
+    kwargs: dict[str, Any] = {"json": payload, "headers": headers}
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    resp = await client.post(url, **kwargs)
+    if "temperature" in payload and _anthropic_refused_temperature(resp):
+        logger.info("Anthropic refused 'temperature' for model %s; retrying", payload.get("model"))
+        kwargs["json"] = {k: v for k, v in payload.items() if k != "temperature"}
+        resp = await client.post(url, **kwargs)
+    return resp
+
+
 async def _call_anthropic(
     provider_url: str,
     api_key: str,
@@ -583,6 +622,7 @@ async def _call_anthropic(
     """Call the Anthropic /v1/messages endpoint.
 
     Anthropic requires system messages as a top-level parameter, not in the messages array.
+    The low temperature is dropped for a model that refuses it (``_post_anthropic``).
     """
     client = await _get_llm_client()
     url = f"{provider_url.rstrip('/')}/v1/messages"
@@ -611,8 +651,16 @@ async def _call_anthropic(
         payload["system"] = system_text
 
     try:
-        resp = await client.post(url, json=payload, headers=headers)
+        resp = await _post_anthropic(client, url, headers=headers, payload=payload)
         resp.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "Anthropic API call failed: %s %s — %s",
+            type(exc).__name__,
+            exc.response.status_code,
+            openai_chat.error_detail(exc.response),
+        )
+        raise
     except httpx.HTTPError as exc:
         logger.warning("Anthropic API call failed: %s", type(exc).__name__)
         raise
@@ -802,22 +850,29 @@ async def check_provider_connection(
         # Reuses the ``dict[str, Any]`` `payload` annotation from the Azure
         # block above — mypy treats the two assignments as the same name in
         # the enclosing function scope, so heterogeneous values type-check.
+        # Carries the same temperature as a real call, so a model that refuses
+        # it fails (or recovers) here exactly as it would there (#1358).
+        test_model = model or "claude-haiku-4-5-20251001"
         payload = {
-            "model": model or "claude-haiku-4-5-20251001",
+            "model": test_model,
             "max_tokens": 1,
             "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": 0.1,
         }
         try:
-            resp = await client.post(url, json=payload, headers=headers, timeout=10.0)
-            resp.raise_for_status()
-            return {"ok": True, "available_models": [], "model_found": True}
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 401:
-                raise httpx.HTTPError("Invalid API key") from exc
-            # Other errors (e.g. invalid model) still mean connectivity works
-            raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
+            resp = await _post_anthropic(
+                client, url, headers=headers, payload=payload, timeout=10.0
+            )
         except httpx.HTTPError as exc:
             raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
+        if resp.status_code == 401:
+            raise httpx.HTTPError("Invalid API key")
+        if not resp.is_success:
+            raise httpx.HTTPError(
+                f"Model '{test_model}' refused the test request "
+                f"({resp.status_code}): {openai_chat.error_detail(resp)}"
+            )
+        return {"ok": True, "available_models": [], "model_found": True}
 
     # Default: Ollama
     url = f"{provider_url.rstrip('/')}/api/tags"

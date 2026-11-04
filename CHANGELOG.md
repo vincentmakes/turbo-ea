@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.186.7] - 2026-11-04
+
+### Fixed
+- AI suggestions and portfolio insights work again with Anthropic Claude models that no longer accept a custom temperature, and Test Connection now fails or passes the same way a real suggestion does.
+- When the AI provider refuses a request, the error now says so and gives the provider's reason instead of reporting the provider as unreachable.
+
 ## [2.186.6] - 2026-11-02
 
 ### Changed

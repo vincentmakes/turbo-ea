@@ -871,6 +871,22 @@ class TestCallOpenAICompatible:
 # ---------------------------------------------------------------------------
 
 
+_TEMPERATURE_REFUSED = {
+    "type": "error",
+    "error": {
+        "type": "invalid_request_error",
+        "message": "`temperature` is deprecated for this model.",
+    },
+}
+_ANTHROPIC_OK = {"content": [{"type": "text", "text": '{"description": {"value": "A tool"}}'}]}
+
+
+def _anthropic_response(code: int, body: dict) -> httpx.Response:
+    return httpx.Response(
+        code, json=body, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    )
+
+
 class TestCallAnthropic:
     @pytest.mark.asyncio
     async def test_successful_response(self):
@@ -942,6 +958,103 @@ class TestCallAnthropic:
             headers = call_args[1]["headers"]
             assert headers["x-api-key"] == "sk-ant-key"
             assert headers["anthropic-version"] == "2023-06-01"
+
+    @pytest.mark.asyncio
+    async def test_a_model_that_accepts_temperature_keeps_it(self):
+        """Older models (Sonnet 4.6) are asked once, with the low temperature."""
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=_anthropic_response(200, _ANTHROPIC_OK))
+
+            result = await _call_anthropic(
+                "https://api.anthropic.com",
+                "sk-ant-test",
+                "claude-sonnet-4-6",
+                [{"role": "user", "content": "test"}],
+            )
+
+        assert result == {"description": {"value": "A tool"}}
+        mock_client.post.assert_awaited_once()
+        assert mock_client.post.call_args.kwargs["json"]["temperature"] == 0.1
+
+    @pytest.mark.asyncio
+    async def test_a_refused_temperature_is_dropped(self):
+        """#1358: newer Claude models refuse a custom temperature with a 400."""
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(
+                side_effect=[
+                    _anthropic_response(400, _TEMPERATURE_REFUSED),
+                    _anthropic_response(200, _ANTHROPIC_OK),
+                ]
+            )
+
+            result = await _call_anthropic(
+                "https://api.anthropic.com",
+                "sk-ant-test",
+                "claude-haiku-5-5",
+                [{"role": "system", "content": "sys"}, {"role": "user", "content": "test"}],
+            )
+
+        assert result == {"description": {"value": "A tool"}}
+        first, second = mock_client.post.call_args_list
+        assert first.kwargs["json"]["temperature"] == 0.1
+        retried = second.kwargs["json"]
+        assert "temperature" not in retried
+        assert retried["model"] == "claude-haiku-5-5"
+        assert retried["system"] == "sys"
+        assert retried["max_tokens"] == 4096
+        assert second.args[0] == "https://api.anthropic.com/v1/messages"
+        assert second.kwargs["headers"]["x-api-key"] == "sk-ant-test"
+
+    @pytest.mark.asyncio
+    async def test_another_400_is_not_retried_and_logs_the_reason(self, caplog):
+        refused = _anthropic_response(
+            400,
+            {"type": "error", "error": {"type": "invalid_request_error", "message": "bad model"}},
+        )
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(return_value=refused)
+
+            with (
+                caplog.at_level("WARNING", logger="turboea.ai"),
+                pytest.raises(httpx.HTTPStatusError),
+            ):
+                await _call_anthropic(
+                    "https://api.anthropic.com",
+                    "sk-ant-test",
+                    "nope",
+                    [{"role": "user", "content": "test"}],
+                )
+
+        mock_client.post.assert_awaited_once()
+        assert "HTTPStatusError 400 — bad model" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_a_refusal_after_the_retry_is_raised(self):
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(
+                side_effect=[
+                    _anthropic_response(400, _TEMPERATURE_REFUSED),
+                    _anthropic_response(400, _TEMPERATURE_REFUSED),
+                ]
+            )
+
+            with pytest.raises(httpx.HTTPStatusError):
+                await _call_anthropic(
+                    "https://api.anthropic.com",
+                    "sk-ant-test",
+                    "claude-haiku-5-5",
+                    [{"role": "user", "content": "test"}],
+                )
+
+        assert mock_client.post.await_count == 2
 
     @pytest.mark.asyncio
     async def test_http_error_raises(self):
@@ -1283,6 +1396,35 @@ class TestProviderConnection:
             assert "/v1/messages" in call_args[0][0]
             headers = call_args[1]["headers"]
             assert headers["x-api-key"] == "sk-ant-test"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_probe_sends_what_a_real_call_sends(self):
+        """#1358: the probe carried no temperature, so it passed while every
+        real call was refused. It now sends it, and recovers the same way."""
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.post = AsyncMock(
+                side_effect=[
+                    _anthropic_response(400, _TEMPERATURE_REFUSED),
+                    _anthropic_response(200, _ANTHROPIC_OK),
+                ]
+            )
+
+            result = await check_provider_connection(
+                "https://api.anthropic.com",
+                provider_type="anthropic",
+                api_key="sk-ant-test",
+                model="claude-haiku-5-5",
+            )
+
+        assert result == {"ok": True, "available_models": [], "model_found": True}
+        first, second = mock_client.post.call_args_list
+        assert first.kwargs["json"]["temperature"] == 0.1
+        assert first.kwargs["timeout"] == 10.0
+        assert "temperature" not in second.kwargs["json"]
+        assert second.kwargs["json"]["max_tokens"] == 1
+        assert second.kwargs["timeout"] == 10.0
 
 
 # ---------------------------------------------------------------------------
