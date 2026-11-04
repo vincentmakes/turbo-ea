@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} 条警告",
   "spreadsheetImport.errorsBlock": "部分行存在错误，将不会被导入。请修正后重新上传文件，或仅导入有效行。",
   "spreadsheetImport.warningsBlock": "部分值无法匹配。这些行仍会被导入，但不包含这些值。",
+  "spreadsheetImport.updatedBlock": "这些行与现有条目匹配，将在所列字段中更新。",
   "spreadsheetImport.apply_one": "导入 {{count}} 行",
   "spreadsheetImport.apply_other": "导入 {{count}} 行",
   "spreadsheetImport.doneCreated_one": "已创建 {{count}} 项",

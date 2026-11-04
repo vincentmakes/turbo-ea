@@ -2833,6 +2833,6 @@
   "securityLog.fields.optional_relations": "Nicht erforderliche Beziehungen",
   "metamodel.principles.reference": "Referenz",
   "metamodel.principles.import.title": "EA-Prinzipien importieren",
-  "metamodel.principles.import.intro": "Laden Sie eine .xlsx-Datei hoch, um Prinzipien gesammelt anzulegen oder zu aktualisieren. Jede Zeile wird zuerst anhand ihrer Referenz (P-001), dann anhand des Titels einem vorhandenen Prinzip zugeordnet; ein zugeordnetes Prinzip wird mit den abweichenden Werten aktualisiert, jede andere Zeile legt ein neues Prinzip an. Eine in der Tabelle fehlende Spalte lässt das Feld unverändert, eine leere Zelle leert es.",
+  "metamodel.principles.import.intro": "Laden Sie eine .xlsx-Datei hoch, um Prinzipien gesammelt anzulegen oder zu aktualisieren. Jede Zeile wird zuerst anhand ihrer Referenz (P-001), dann anhand des Titels einem vorhandenen Prinzip zugeordnet; ein zugeordnetes Prinzip wird mit den abweichenden Werten aktualisiert, jede andere Zeile legt ein neues Prinzip an. Eine in der Tabelle fehlende Spalte lässt das Feld unverändert, eine leere Textzelle leert es, eine leere is_active- oder sort_order-Zelle lässt diesen Wert dagegen unverändert.",
   "metamodel.principles.import.skippedHint": "Diese Zeilen entsprechen einem vorhandenen Prinzip und ändern nichts."
 }

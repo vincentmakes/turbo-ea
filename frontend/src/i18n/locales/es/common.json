@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} advertencias",
   "spreadsheetImport.errorsBlock": "Algunas filas tienen errores y no se importarán. Corríjalas y suba el archivo de nuevo, o importe solo las filas válidas.",
   "spreadsheetImport.warningsBlock": "Algunos valores no se pudieron asociar. Estas filas se importarán igualmente sin ellos.",
+  "spreadsheetImport.updatedBlock": "Estas filas coinciden con una entrada existente y se actualizarán en los campos indicados.",
   "spreadsheetImport.apply_one": "Importar {{count}} fila",
   "spreadsheetImport.apply_other": "Importar {{count}} filas",
   "spreadsheetImport.doneCreated_one": "{{count}} creada",

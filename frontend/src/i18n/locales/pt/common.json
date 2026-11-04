@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} avisos",
   "spreadsheetImport.errorsBlock": "Algumas linhas têm erros e não serão importadas. Corrija-as e carregue o ficheiro novamente, ou importe apenas as linhas válidas.",
   "spreadsheetImport.warningsBlock": "Alguns valores não puderam ser associados. Estas linhas serão importadas na mesma, sem eles.",
+  "spreadsheetImport.updatedBlock": "Estas linhas correspondem a uma entrada existente e serão atualizadas nos campos indicados.",
   "spreadsheetImport.apply_one": "Importar {{count}} linha",
   "spreadsheetImport.apply_other": "Importar {{count}} linhas",
   "spreadsheetImport.doneCreated_one": "{{count}} criada",

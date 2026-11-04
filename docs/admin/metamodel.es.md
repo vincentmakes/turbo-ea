@@ -298,9 +298,10 @@ Cada principio tiene un **número de referencia** (`P-001`, `P-002`, …), asign
 
 **Importar** carga principios de forma masiva desde un archivo `.xlsx`. Haga clic en **Descargar plantilla** para obtener un libro de partida, rellene un principio por fila y súbalo. Cada fila se asocia a un principio existente primero por su `reference_number` y después por su título (sin distinguir mayúsculas de minúsculas):
 
-- Un principio asociado se **actualiza** con los valores que difieren; si nada difiere, la fila se **omite**.
+- Un principio asociado se **actualiza** con los valores que difieren; si nada difiere, la fila se **omite**. La vista previa lista cada fila actualizada con los campos que modifica.
 - Cualquier otra fila **crea** un principio nuevo con la siguiente referencia libre. Una referencia que no existe en esta instancia no se reutiliza; la vista previa lo advierte.
-- Una columna ausente de la hoja deja el campo sin cambios, mientras que una celda vacía lo borra. `title` es la única columna obligatoria.
+- Una fila sin referencia cuyo título corresponde a dos principios se rechaza por ambigua: añada la referencia para indicar cuál se quiere decir.
+- Una columna ausente de la hoja deja el campo sin cambios. Una celda vacía en `description`, `rationale` o `implications` borra ese texto; una celda vacía en `is_active` o `sort_order` deja el valor como está. `title` es la única columna obligatoria.
 - `is_active` acepta `true` / `false` (también `yes` / `no`, `1` / `0`); `sort_order` debe ser un número entero. Los principios nuevos sin `sort_order` se añaden al final de la lista.
 - Un título o una referencia que aparece dos veces en el archivo, o un cambio de nombre al título de otro principio, hace fallar esa fila.
 

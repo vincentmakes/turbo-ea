@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} Warnungen",
   "spreadsheetImport.errorsBlock": "Einige Zeilen enthalten Fehler und werden nicht importiert. Beheben Sie diese und laden Sie die Datei erneut hoch, oder importieren Sie nur die gültigen Zeilen.",
   "spreadsheetImport.warningsBlock": "Einige Werte konnten nicht zugeordnet werden. Diese Zeilen werden trotzdem ohne sie importiert.",
+  "spreadsheetImport.updatedBlock": "Diese Zeilen entsprechen einem vorhandenen Eintrag und werden in den aufgeführten Feldern aktualisiert.",
   "spreadsheetImport.apply_one": "{{count}} Zeile importieren",
   "spreadsheetImport.apply_other": "{{count}} Zeilen importieren",
   "spreadsheetImport.doneCreated_one": "{{count}} erstellt",

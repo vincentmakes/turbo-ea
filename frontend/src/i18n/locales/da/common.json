@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} advarsler",
   "spreadsheetImport.errorsBlock": "Nogle rækker har fejl og bliver ikke importeret. Ret dem, og upload filen igen, eller importér kun de gyldige rækker.",
   "spreadsheetImport.warningsBlock": "Nogle værdier kunne ikke matches. Disse rækker bliver stadig importeret uden dem.",
+  "spreadsheetImport.updatedBlock": "Disse rækker svarer til en eksisterende post og opdateres i de angivne felter.",
   "spreadsheetImport.apply_one": "Importér {{count}} række",
   "spreadsheetImport.apply_other": "Importér {{count}} rækker",
   "spreadsheetImport.doneCreated_one": "{{count}} oprettet",

@@ -298,9 +298,10 @@ Cada princípio tem um **número de referência** (`P-001`, `P-002`, …), atrib
 
 **Importar** carrega princípios em massa a partir de um ficheiro `.xlsx`. Clique em **Transferir modelo** para obter um livro inicial, preencha um princípio por linha e carregue-o. Cada linha é associada a um princípio existente primeiro pela sua `reference_number` e depois pelo título (sem distinguir maiúsculas de minúsculas):
 
-- Um princípio associado é **atualizado** com os valores que diferem; se nada diferir, a linha é **ignorada**.
+- Um princípio associado é **atualizado** com os valores que diferem; se nada diferir, a linha é **ignorada**. A pré-visualização lista cada linha atualizada com os campos que altera.
 - Qualquer outra linha **cria** um novo princípio com a próxima referência livre. Uma referência que não existe nesta instância não é reutilizada; a pré-visualização avisa sobre isso.
-- Uma coluna ausente da folha deixa o campo inalterado, enquanto uma célula vazia o limpa. `title` é a única coluna obrigatória.
+- Uma linha sem referência cujo título corresponde a dois princípios é recusada por ser ambígua: adicione a referência para indicar qual pretende.
+- Uma coluna ausente da folha deixa o campo inalterado. Uma célula vazia em `description`, `rationale` ou `implications` limpa esse texto; uma célula vazia em `is_active` ou `sort_order` deixa o valor como está. `title` é a única coluna obrigatória.
 - `is_active` aceita `true` / `false` (também `yes` / `no`, `1` / `0`); `sort_order` tem de ser um número inteiro. Os novos princípios sem `sort_order` são adicionados no fim da lista.
 - Um título ou uma referência que apareça duas vezes no ficheiro, ou uma mudança de nome para o título de outro princípio, faz essa linha falhar.
 

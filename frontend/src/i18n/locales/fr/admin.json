@@ -2833,6 +2833,6 @@
   "securityLog.fields.optional_relations": "Relations non requises",
   "metamodel.principles.reference": "Référence",
   "metamodel.principles.import.title": "Importer des principes d'architecture d'entreprise",
-  "metamodel.principles.import.intro": "Importez un fichier .xlsx pour créer ou mettre à jour des principes en masse. Chaque ligne est rapprochée d'un principe existant par sa référence (P-001), puis par son titre ; un principe rapproché est mis à jour avec les valeurs qui diffèrent, et toute autre ligne crée un nouveau principe. Une colonne absente de la feuille laisse le champ inchangé, et une cellule vide l'efface.",
+  "metamodel.principles.import.intro": "Importez un fichier .xlsx pour créer ou mettre à jour des principes en masse. Chaque ligne est rapprochée d'un principe existant par sa référence (P-001), puis par son titre ; un principe rapproché est mis à jour avec les valeurs qui diffèrent, et toute autre ligne crée un nouveau principe. Une colonne absente de la feuille laisse le champ inchangé, et une cellule de texte vide l'efface, tandis qu'une cellule is_active ou sort_order vide laisse cette valeur telle quelle.",
   "metamodel.principles.import.skippedHint": "Ces lignes correspondent à un principe existant et ne modifient rien."
 }

@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} avertissements",
   "spreadsheetImport.errorsBlock": "Certaines lignes contiennent des erreurs et ne seront pas importées. Corrigez-les puis réimportez le fichier, ou importez uniquement les lignes valides.",
   "spreadsheetImport.warningsBlock": "Certaines valeurs n'ont pas pu être rapprochées. Ces lignes seront tout de même importées sans elles.",
+  "spreadsheetImport.updatedBlock": "Ces lignes correspondent à une entrée existante et seront mises à jour dans les champs listés.",
   "spreadsheetImport.apply_one": "Importer {{count}} ligne",
   "spreadsheetImport.apply_other": "Importer {{count}} lignes",
   "spreadsheetImport.doneCreated_one": "{{count}} créée",

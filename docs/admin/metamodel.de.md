@@ -297,9 +297,10 @@ Jedes Prinzip hat eine **Referenznummer** (`P-001`, `P-002`, …), die bei der E
 
 **Importieren** lädt Prinzipien gesammelt aus einer `.xlsx`-Datei. Klicken Sie auf **Vorlage herunterladen**, um eine Beispielarbeitsmappe zu erhalten, füllen Sie pro Zeile ein Prinzip aus und laden Sie die Datei hoch. Jede Zeile wird zuerst über ihre `reference_number`, dann über ihren Titel (ohne Beachtung der Groß-/Kleinschreibung) einem vorhandenen Prinzip zugeordnet:
 
-- Ein zugeordnetes Prinzip wird mit den abweichenden Werten **aktualisiert**; weicht nichts ab, wird die Zeile **übersprungen**.
+- Ein zugeordnetes Prinzip wird mit den abweichenden Werten **aktualisiert**; weicht nichts ab, wird die Zeile **übersprungen**. Die Vorschau listet jede aktualisierte Zeile mit den Feldern auf, die sie ändert.
 - Jede andere Zeile **legt** ein neues Prinzip mit der nächsten freien Referenz **an**. Eine Referenz, die es auf dieser Instanz nicht gibt, wird nicht wiederverwendet; die Vorschau warnt davor.
-- Eine in der Tabelle fehlende Spalte lässt das Feld unverändert, eine leere Zelle leert es. `title` ist die einzige Pflichtspalte.
+- Eine Zeile ohne Referenz, deren Titel zu zwei Prinzipien gehört, wird als mehrdeutig abgelehnt: Ergänzen Sie die Referenz, um anzugeben, welches gemeint ist.
+- Eine in der Tabelle fehlende Spalte lässt das Feld unverändert. Eine leere Zelle in `description`, `rationale` oder `implications` leert diesen Text; eine leere Zelle in `is_active` oder `sort_order` lässt den Wert unverändert. `title` ist die einzige Pflichtspalte.
 - `is_active` akzeptiert `true` / `false` (auch `yes` / `no`, `1` / `0`); `sort_order` muss eine ganze Zahl sein. Neue Prinzipien ohne `sort_order` werden am Ende der Liste hinzugefügt.
 - Ein Titel oder eine Referenz, die in der Datei doppelt vorkommt, oder eine Umbenennung auf den Titel eines anderen Prinzips lässt diese Zeile fehlschlagen.
 

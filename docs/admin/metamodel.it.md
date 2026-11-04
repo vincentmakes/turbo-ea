@@ -298,9 +298,10 @@ Ogni principio ha un **numero di riferimento** (`P-001`, `P-002`, …), assegnat
 
 **Importa** carica i principi in blocco da un file `.xlsx`. Fai clic su **Scarica il modello** per ottenere una cartella di lavoro di partenza, compila un principio per riga e caricala. Ogni riga viene associata a un principio esistente prima tramite `reference_number`, poi tramite il titolo (senza distinguere maiuscole e minuscole):
 
-- Un principio associato viene **aggiornato** con i valori che differiscono; se nulla differisce, la riga viene **saltata**.
+- Un principio associato viene **aggiornato** con i valori che differiscono; se nulla differisce, la riga viene **saltata**. L'anteprima elenca ogni riga aggiornata con i campi che modifica.
 - Ogni altra riga **crea** un nuovo principio con il primo riferimento libero. Un riferimento che non esiste su questa istanza non viene riutilizzato; l'anteprima lo segnala.
-- Una colonna assente dal foglio lascia il campo invariato, mentre una cella vuota lo cancella. `title` è l'unica colonna obbligatoria.
+- Una riga senza riferimento il cui titolo corrisponde a due principi viene rifiutata perché ambigua: aggiungi il riferimento per indicare quale intendi.
+- Una colonna assente dal foglio lascia il campo invariato. Una cella vuota in `description`, `rationale` o `implications` cancella quel testo; una cella vuota in `is_active` o `sort_order` lascia il valore com'è. `title` è l'unica colonna obbligatoria.
 - `is_active` accetta `true` / `false` (anche `yes` / `no`, `1` / `0`); `sort_order` deve essere un numero intero. I nuovi principi senza `sort_order` vengono aggiunti in fondo all'elenco.
 - Un titolo o un riferimento che compare due volte nel file, o una rinomina sul titolo di un altro principio, fa fallire quella riga.
 

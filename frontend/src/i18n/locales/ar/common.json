@@ -950,6 +950,7 @@
   "spreadsheetImport.warningCount_other": "التحذيرات: {{count}}",
   "spreadsheetImport.errorsBlock": "تحتوي بعض الصفوف على أخطاء ولن يتم استيرادها. صحّحها وأعد رفع الملف، أو استورد الصفوف الصالحة فقط.",
   "spreadsheetImport.warningsBlock": "تعذّرت مطابقة بعض القيم. ستُستورد هذه الصفوف مع ذلك بدونها.",
+  "spreadsheetImport.updatedBlock": "تطابق هذه الصفوف إدخالاً موجوداً وسيتم تحديثها في الحقول المدرجة.",
   "spreadsheetImport.apply_zero": "استيراد الصفوف: {{count}}",
   "spreadsheetImport.apply_one": "استيراد الصفوف: {{count}}",
   "spreadsheetImport.apply_two": "استيراد الصفوف: {{count}}",

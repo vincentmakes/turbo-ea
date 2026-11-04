@@ -766,6 +766,7 @@
   "spreadsheetImport.warningCount_other": "{{count}} avvisi",
   "spreadsheetImport.errorsBlock": "Alcune righe contengono errori e non verranno importate. Correggile e carica di nuovo il file, oppure importa solo le righe valide.",
   "spreadsheetImport.warningsBlock": "Alcuni valori non sono stati associati. Queste righe verranno comunque importate senza di essi.",
+  "spreadsheetImport.updatedBlock": "Queste righe corrispondono a una voce esistente e verranno aggiornate nei campi elencati.",
   "spreadsheetImport.apply_one": "Importa {{count}} riga",
   "spreadsheetImport.apply_other": "Importa {{count}} righe",
   "spreadsheetImport.doneCreated_one": "{{count}} creata",

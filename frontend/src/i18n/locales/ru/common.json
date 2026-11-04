@@ -858,6 +858,7 @@
   "spreadsheetImport.warningCount_other": "Предупреждений: {{count}}",
   "spreadsheetImport.errorsBlock": "В некоторых строках есть ошибки, и они не будут импортированы. Исправьте их и загрузите файл снова либо импортируйте только корректные строки.",
   "spreadsheetImport.warningsBlock": "Некоторые значения не удалось сопоставить. Эти строки всё равно будут импортированы без них.",
+  "spreadsheetImport.updatedBlock": "Эти строки совпадают с существующей записью и будут обновлены в перечисленных полях.",
   "spreadsheetImport.apply_one": "Импортировать строк: {{count}}",
   "spreadsheetImport.apply_few": "Импортировать строк: {{count}}",
   "spreadsheetImport.apply_many": "Импортировать строк: {{count}}",

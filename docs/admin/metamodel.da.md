@@ -297,9 +297,10 @@ Hvert princip har et **referencenummer** (`P-001`, `P-002`, …), som tildeles v
 
 **Importér** indlæser principper samlet fra en `.xlsx`-fil. Klik på **Download skabelon** for at få en startprojektmappe, udfyld ét princip pr. række, og upload den. Hver række matches med et eksisterende princip først via `reference_number`, derefter via titlen (uden forskel på store og små bogstaver):
 
-- Et matchet princip **opdateres** med de værdier, der afviger; hvis intet afviger, **springes** rækken **over**.
+- Et matchet princip **opdateres** med de værdier, der afviger; hvis intet afviger, **springes** rækken **over**. Forhåndsvisningen viser hver opdateret række med de felter, den ændrer.
 - Enhver anden række **opretter** et nyt princip med den næste ledige reference. En reference, der ikke findes på denne instans, genbruges ikke; forhåndsvisningen advarer om det.
-- En kolonne, der mangler i arket, lader feltet være uændret, mens en tom celle rydder det. `title` er den eneste obligatoriske kolonne.
+- En række uden reference, hvis titel tilhører to principper, afvises som flertydig: tilføj referencen for at angive, hvilket du mener.
+- En kolonne, der mangler i arket, lader feltet være uændret. En tom celle i `description`, `rationale` eller `implications` rydder den tekst; en tom celle i `is_active` eller `sort_order` lader værdien stå uændret. `title` er den eneste obligatoriske kolonne.
 - `is_active` accepterer `true` / `false` (også `yes` / `no`, `1` / `0`); `sort_order` skal være et heltal. Nye principper uden `sort_order` tilføjes sidst på listen.
 - En titel eller reference, der forekommer to gange i filen, eller en omdøbning til et andet princips titel, får rækken til at fejle.
 
