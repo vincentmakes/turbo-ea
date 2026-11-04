@@ -130,6 +130,8 @@ export interface StakeholderRoleDef {
   allowed_types: string[] | null;
   /** Absent on the JSONB fallback and the hardcoded default roles. */
   color?: string | null;
+  /** What the role means; translated under `translations.description`. */
+  description?: string | null;
   translations?: MetamodelTranslations;
 }
 
@@ -141,11 +143,18 @@ export interface StakeholderRoleDef {
 export interface StakeholderRoleOption {
   key: string;
   label: string;
+  description?: string | null;
   translations?: MetamodelTranslations;
 }
 
 /** Locale-keyed translations for a single property (e.g., label). */
 export type TranslationMap = Record<string, string>;
+
+/**
+ * Admin-written help per lifecycle phase: `{phase: {locale: text}}`
+ * (`/settings/lifecycle-phase-help`, carried by `/settings/bootstrap`).
+ */
+export type LifecyclePhaseHelp = Record<string, TranslationMap>;
 
 /** Top-level translations stored in the `translations` JSONB column. */
 export interface MetamodelTranslations {

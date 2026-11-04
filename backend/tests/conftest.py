@@ -611,6 +611,8 @@ async def create_stakeholder_role_def(
         sort_order=kwargs.get("sort_order", 0),
         is_archived=kwargs.get("is_archived", False),
         counts_for_quality=kwargs.get("counts_for_quality", True),
+        description=kwargs.get("description"),
+        translations=kwargs.get("translations", {}),
     )
     db.add(srd)
     await db.flush()

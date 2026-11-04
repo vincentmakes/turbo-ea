@@ -196,8 +196,38 @@ class TestMyStakeholderCards:
         body = resp.json()
         roles = body["roles_by_card_id"][str(card.id)]
         assert roles == [
-            {"key": "legacy_role", "label": "legacy_role", "color": "#757575", "translations": {}}
+            {
+                "key": "legacy_role",
+                "label": "legacy_role",
+                "color": "#757575",
+                "description": None,
+                "translations": {},
+            }
         ]
+
+    async def test_descriptors_carry_the_role_description(self, client, db, env):
+        """My roles shows what a role means beside its name (#1351)."""
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="contractOwner",
+            label="Contract Owner",
+            description="Signs and renews the vendor contract.",
+            translations={"description": {"de": "Unterschreibt den Vertrag."}},
+        )
+        card = await create_card(db, card_type="Application", name="Desc", user_id=env["admin"].id)
+        db.add(Stakeholder(card_id=card.id, user_id=env["alice"].id, role="contractOwner"))
+        db.add(Stakeholder(card_id=card.id, user_id=env["alice"].id, role="observer"))
+        await db.flush()
+
+        resp = await client.get("/api/v1/cards/my-stakeholder", headers=auth_headers(env["alice"]))
+        assert resp.status_code == 200
+        roles = {r["key"]: r for r in resp.json()["roles_by_card_id"][str(card.id)]}
+        assert roles["contractOwner"]["description"] == "Signs and renews the vendor contract."
+        assert roles["contractOwner"]["translations"]["description"] == {
+            "de": "Unterschreibt den Vertrag."
+        }
+        assert roles["observer"]["description"] is None
 
     async def test_excludes_hidden_card_types(self, client, db, env):
         visible = await create_card(

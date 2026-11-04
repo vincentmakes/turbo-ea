@@ -97,6 +97,8 @@ Cada fase tem um **seletor de data** para que você possa registrar quando o com
 
 Se uma fase tiver uma data posterior à de uma fase que deveria vir depois dela — por exemplo, **Desativação** após **Fim de Vida** —, um ícone de aviso aparece ao lado dessa data, e o mesmo aviso é exibido abaixo do campo durante a edição. É apenas uma indicação: as datas ainda podem ser salvas como foram inseridas.
 
+Quando o seu administrador registrou o que uma fase significa na sua organização, um ícone de informação aparece ao lado dessa fase na linha do tempo – passe o cursor sobre ele para ler a definição. Durante a edição, o mesmo texto é uma nota recolhível de **Ajuda** sob a data da fase. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+
 ### Seções de Atributos Personalizados
 
 Dependendo do tipo de card, você verá seções adicionais com **campos personalizados** configurados no metamodelo. Os tipos de campo incluem:
@@ -110,6 +112,8 @@ Dependendo do tipo de card, você verá seções adicionais com **campos persona
 - **URL** — Link clicável (validado para http/https/mailto)
 - **Seleção única** — Menu suspenso com opções predefinidas
 - **Seleção múltipla** — Multi-seleção com exibição de chips
+
+Onde o seu administrador escreveu um **texto de ajuda** para um campo, um ícone de informação aparece ao lado do seu rótulo: passe o cursor sobre ele (ou chegue até ele com a tecla Tab) para ler o que o campo significa. Enquanto você edita a seção, o mesmo texto é uma nota recolhível de **Ajuda** sob o campo. No Inventário, passar o cursor sobre o cabeçalho da coluna do campo também o mostra.
 
 Campos marcados como **calculados** mostram um badge e não podem ser editados manualmente — seus valores são computados por [fórmulas definidas pelo administrador](../admin/calculations.md).
 
@@ -201,6 +205,8 @@ Partes interessadas são pessoas com um **papel** específico neste card. Os pap
 Atribuições de partes interessadas afetam **permissões**: as permissões efetivas de um usuário em um card são a combinação do seu papel em nível de aplicação e quaisquer papéis de parte interessada que ele possua naquele card.
 
 Quando um papel tem uma **cor** definida no metamodelo, o seu grupo é marcado com ela, permitindo distinguir um proprietário de um observador num relance.
+
+Onde um papel tem uma **descrição**, um ícone de informação aparece ao lado do seu nome: passe o cursor sobre ele para ler o que o papel significa. A descrição também aparece sob o nome do papel no seletor de papéis ao adicionar uma parte interessada.
 
 ### Pesquisar e convidar
 

@@ -570,6 +570,7 @@ async def list_my_stakeholder_cards(
                     "key": role_key,
                     "label": srd.label if srd else role_key,
                     "color": srd.color if srd else "#757575",
+                    "description": srd.description if srd else None,
                     "translations": srd.translations if srd else {},
                 }
             )

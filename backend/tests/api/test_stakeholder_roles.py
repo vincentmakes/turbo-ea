@@ -235,6 +235,54 @@ class TestUpdateStakeholderRole:
         )
         assert stored.scalar_one() == {}
 
+    async def test_description_translations_round_trip(self, client, db):
+        """A role's description is translated under ``translations.description``
+        beside ``translations.label``, and every end-user read carries both."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+        translations = {
+            "label": {"de": "Verantwortlich"},
+            "description": {"de": "Pflegt die Karte.", "fr": "Tient la fiche à jour."},
+        }
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            json={"description": "Keeps the card current.", "translations": translations},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        assert response.json()["translations"] == translations
+
+        for params in ({"type_key": "Application"}, {}):
+            listed = await client.get(
+                "/api/v1/stakeholder-roles", params=params, headers=auth_headers(admin)
+            )
+            assert listed.status_code == 200
+            [role] = [r for r in listed.json() if r["key"] == "responsible"]
+            assert role["description"] == "Keeps the card current.", params
+            assert role["translations"] == translations, params
+
+    async def test_viewer_cannot_update_description(self, client, db):
+        from app.core.permissions import VIEWER_PERMISSIONS
+
+        await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
+        viewer = await create_user(db, email="viewer@test.com", role="viewer")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db, card_type_key="Application", key="responsible", label="Responsible"
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/types/Application/stakeholder-roles/responsible",
+            json={"description": "Nope", "translations": {"description": {"de": "Nein"}}},
+            headers=auth_headers(viewer),
+        )
+        assert response.status_code == 403
+
     async def test_cannot_update_archived(self, client, db):
         await create_role(db, key="admin", label="Admin", permissions={"*": True})
         admin = await create_user(db, email="admin@test.com", role="admin")

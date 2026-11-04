@@ -763,6 +763,7 @@ async def stakeholder_directory(
                 "role_label": role_key,
                 "role_color": "#757575",
                 "role_translations": {},
+                "role_description": None,
                 "users": {},
             },
         )
@@ -803,6 +804,7 @@ async def stakeholder_directory(
                 role_node["role_label"] = srd.label
                 role_node["role_color"] = srd.color or "#757575"
                 role_node["role_translations"] = srd.translations or {}
+                role_node["role_description"] = srd.description
             # Convert users dict → list, ordered by card_count desc, then name.
             users_list = list(role_node["users"].values())
             users_list.sort(key=lambda u: (-u["card_count"], (u["display_name"] or "").lower()))

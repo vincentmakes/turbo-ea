@@ -398,22 +398,40 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
         >
           {t("metamodel.stakeholderPanel.translations")}
         </Typography>
-        {nonEnLocales.map((locale) => (
-          <TextField
-            key={locale}
-            size="small"
-            label={LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale}
-            value={trans?.label?.[locale] || ""}
-            onChange={(e) =>
-              onChange({
-                ...trans,
-                label: { ...trans?.label, [locale]: e.target.value },
-              })
-            }
-            fullWidth
-            sx={{ mb: 1 }}
-          />
-        ))}
+        {nonEnLocales.map((locale) => {
+          const language = LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale;
+          return (
+            <Box key={locale} sx={{ mb: 1.5 }}>
+              <TextField
+                size="small"
+                label={language}
+                value={trans?.label?.[locale] || ""}
+                onChange={(e) =>
+                  onChange({
+                    ...trans,
+                    label: { ...trans?.label, [locale]: e.target.value },
+                  })
+                }
+                fullWidth
+                sx={{ mb: 1 }}
+              />
+              <TextField
+                size="small"
+                label={t("metamodel.stakeholderPanel.descriptionTranslation", { language })}
+                value={trans?.description?.[locale] || ""}
+                onChange={(e) =>
+                  onChange({
+                    ...trans,
+                    description: { ...trans?.description, [locale]: e.target.value },
+                  })
+                }
+                fullWidth
+                multiline
+                minRows={2}
+              />
+            </Box>
+          );
+        })}
       </Box>
     ) : null;
 

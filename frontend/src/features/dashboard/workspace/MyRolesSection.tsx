@@ -12,8 +12,9 @@ import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
-import type { Card as CardType, TranslationMap, User } from "@/types";
+import HelpTip from "@/components/HelpTip";
+import { useTypeDescription, useTypeLabel } from "@/hooks/useResolveLabel";
+import type { Card as CardType, MetamodelTranslations, User } from "@/types";
 import CardTypePill from "./CardTypePill";
 import SectionPaper, { EmptyState } from "./SectionPaper";
 import { brand } from "@/theme/tokens";
@@ -22,7 +23,9 @@ interface RoleDescriptor {
   key: string;
   label: string;
   color: string;
-  translations: TranslationMap;
+  description?: string | null;
+  /** `{label: {locale: …}, description: {locale: …}}` — the role def's JSONB. */
+  translations: MetamodelTranslations;
 }
 
 interface MyStakeholderResponse {
@@ -40,7 +43,8 @@ const MAX_CARDS_PER_ROLE = 5;
 export default function MyRolesSection() {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
-  const rl = useResolveLabel();
+  const roleLabel = useTypeLabel();
+  const roleDescription = useTypeDescription();
   const { user: currentUser } = useAuthContext();
   const { can } = usePermissions(currentUser);
   const canViewOthers = can("stakeholders.view");
@@ -195,7 +199,7 @@ export default function MyRolesSection() {
           {groups.map(({ role, cards }) => {
             const visible = cards.slice(0, MAX_CARDS_PER_ROLE);
             const overflow = cards.length - visible.length;
-            const localizedRoleLabel = rl(role.label, role.translations);
+            const localizedRoleLabel = roleLabel(role);
             return (
               <Box key={role.key} sx={{ mb: 2, "&:last-of-type": { mb: 0 } }}>
                 <Box
@@ -227,6 +231,7 @@ export default function MyRolesSection() {
                   >
                     {localizedRoleLabel}
                   </Typography>
+                  <HelpTip text={roleDescription(role)} size={12} />
                   <Typography variant="caption" color="text.secondary">
                     ({cards.length})
                   </Typography>

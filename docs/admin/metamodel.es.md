@@ -65,7 +65,7 @@ Los campos definen los atributos personalizados disponibles en fichas de este ti
 | **Etiqueta** | Nombre para mostrar |
 | **Tipo** | texto, texto_multilínea, número, costo, porcentaje, booleano, fecha, url, selección_única o selección_múltiple. Un porcentaje es un número de 0 a 100, mostrado como una barra de progreso y editado con un control deslizante o escrito con exactitud. Un booleano se elige en una lista Sí / No, con **Ninguno** para borrarlo, y se muestra como una etiqueta verde *Sí* o azul *No*, o como — si no está definido, lo que encuentra el filtro **(vacío)** del inventario |
 | **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales. Reordénelas con las flechas arriba y abajo junto a cada opción: los menús y los filtros muestran las opciones en ese orden, y los chips de un valor de selección múltiple lo siguen en cada ficha. |
-| **Texto de ayuda** | Orientación opcional que se muestra como una nota plegable bajo el campo mientras se edita una ficha. Se redacta por idioma y cualquier administrador del metamodelo puede definirla; en un campo aportado por una extensión es de solo lectura |
+| **Texto de ayuda** | Orientación opcional para el campo. Mientras se lee una ficha, aparece como un icono de información junto a la etiqueta del campo (pase el cursor o enfoque el icono para leer el texto) y como información emergente en el encabezado de columna del campo en el Inventario; mientras se edita una ficha, es una nota plegable bajo el campo. Se redacta por idioma y cualquier administrador del metamodelo puede definirla; en un campo aportado por una extensión es de solo lectura |
 | **Requerido** | Si el campo es obligatorio — consulta las reglas de aplicación más abajo |
 | **Calidad de datos** | La contribución de cada campo a la puntuación se gestiona en el panel **Calidad de datos** (ver más abajo) |
 | **Solo lectura** | Impide la edición manual (útil para campos calculados) |
@@ -147,6 +147,8 @@ Defina roles personalizados para este tipo (ej., «Propietario de Aplicación»,
 
 Cada rol tiene una **clave** (el identificador almacenado en las tarjetas, utilizado por las columnas de importación/exportación `stakeholder:<clave_del_rol>`) y una **etiqueta** (lo que ven los usuarios). La clave sigue la misma convención que cualquier otra clave del metamodelo: solo letras y dígitos, empezando por una letra, de 3 a 50 caracteres, por convención en camelCase como `businessArchitect`. Se rellena automáticamente a partir de la etiqueta, por lo que rara vez tendrá que escribirla.
 
+Asigne una **descripción** a un rol para explicar qué significa en su organización: qué firma un *Responsable del contrato*, de qué responde un *Responsable técnico*. Los usuarios la ven como un icono de información junto al rol en la pestaña **Partes interesadas** de una ficha, bajo el nombre del rol en el selector de roles, como información emergente en el encabezado de columna del rol en el Inventario, en **Mis roles** en el panel y en el directorio de partes interesadas. La descripción se traduce por idioma igual que la etiqueta: cada idioma habilitado tiene su propio campo de descripción en **Traducciones** dentro del editor de roles, y el **diálogo de traducción** del tipo también la lista. Un idioma que se deja vacío recurre a la descripción en inglés.
+
 Cada rol lleva además un interruptor **Cuenta para la calidad de datos**. La puntuación de calidad tiene una única casilla de partes interesadas, que se cumple en cuanto se asigna a alguien a la tarjeta en un rol con este interruptor activo. Desactívelo para roles puramente pasivos: el **Observador** integrado se entrega desactivado, de modo que observar una tarjeta nunca equivalga a ser responsable de ella. Un tipo cuyos roles estén todos desactivados no aporta casilla alguna. Cambiar el interruptor vuelve a puntuar de inmediato todas las tarjetas del tipo.
 
 Los roles pueden retirarse de dos formas:
@@ -208,7 +210,7 @@ Haga clic en el botón **Traducir** en la barra de herramientas del cajón de ti
 - **Secciones** — Encabezados de sección en la página de detalle de la ficha
 - **Campos** — Etiquetas de campos y etiquetas de opciones de selección
 - **Texto de ayuda** — El texto de ayuda de un campo, que aparece bajo el campo una vez introducido en el editor de campos. Editarlo en inglés también actualiza el texto de ayuda predeterminado del campo
-- **Roles de Parte Interesada** — Nombres de roles mostrados en la interfaz de asignación de stakeholders
+- **Roles de Parte Interesada** — Nombres y descripciones de los roles. La descripción de un rol aparece bajo su nombre en cuanto el rol tiene una descripción en algún idioma; editarla en inglés también actualiza la descripción predeterminada del rol
 
 Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tiempo de renderizado según el idioma seleccionado por el usuario. Las etiquetas sin traducir recurren al valor predeterminado en inglés.
 
@@ -354,6 +356,14 @@ Para cada fila puede:
 - **Eliminar** una regulación personalizada — las regulaciones integradas no pueden eliminarse, solo deshabilitarse.
 
 El escáner de cumplimiento y el flujo de promoción a Riesgo funcionan **incluso sin un proveedor de IA configurado** — la entrada manual de hallazgos, las transiciones de estado y la ruta de promoción a Riesgo siguen disponibles. La IA solo es necesaria cuando realmente dispara un nuevo análisis.
+
+## Fases del ciclo de vida {: #lifecycle-phases }
+
+La sección **Ciclo de vida** de cada ficha recorre cinco fases fijas: Planificación, Introducción, Activo, Retiro y Fin de vida. Lo que significa cada fase difiere entre organizaciones: por ejemplo, si *Retiro* todavía admite nuevos usuarios, o cuándo se considera que un componente está en *Fin de vida*. La pestaña **Fases del ciclo de vida** le permite dejarlo escrito una sola vez para todo el espacio de trabajo.
+
+La pestaña muestra un campo de texto por fase y una fila de pestañas de idioma (primero el inglés y después cada idioma habilitado). Escriba la explicación en inglés y, si lo desea, en los demás idiomas; un idioma que se deja vacío muestra el texto en inglés. Deje una fase vacía para no mostrar ayuda en ella. Haga clic en **Guardar** para aplicar los textos.
+
+Los usuarios ven la ayuda de una fase como un icono de información junto a la fase en la línea de tiempo del ciclo de vida de cada ficha, y como una nota plegable de **Ayuda** bajo la fecha de la fase mientras se edita el ciclo de vida. Los textos se aplican a todos los tipos de ficha. Al guardar se deja constancia en el **Registro de seguridad y administración**.
 
 ## Editor de Disposición de Fichas
 

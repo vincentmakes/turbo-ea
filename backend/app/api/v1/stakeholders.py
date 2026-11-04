@@ -50,6 +50,8 @@ async def list_roles(
                 # Optional: the JSONB fallback and the hardcoded defaults below
                 # `_roles_for_type` carry no colour, so callers must cope with None.
                 "color": r.get("color"),
+                # The legacy JSONB list and the defaults carry no description.
+                "description": r.get("description"),
                 "translations": r.get("translations", {}),
             }
             for r in roles
@@ -62,6 +64,7 @@ async def list_roles(
             StakeholderRoleDefinition.label,
             StakeholderRoleDefinition.color,
             StakeholderRoleDefinition.translations,
+            StakeholderRoleDefinition.description,
         )
         .where(StakeholderRoleDefinition.is_archived == False)  # noqa: E712
         .distinct(StakeholderRoleDefinition.key)
@@ -72,6 +75,7 @@ async def list_roles(
             "key": row[0],
             "label": row[1],
             "color": row[2],
+            "description": row[4],
             "translations": row[3] or {},
         }
         for row in result.all()

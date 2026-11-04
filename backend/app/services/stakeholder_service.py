@@ -35,6 +35,7 @@ async def roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
                 "key": s.key,
                 "label": s.label,
                 "color": s.color,
+                "description": s.description,
                 "translations": s.translations or {},
             }
             for s in srds

@@ -32,6 +32,7 @@ import { api } from "@/api/client";
 import type { CardType as FSType, RelationType as RType } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
 import RelationsTabContent from "./metamodel/RelationsTabContent";
+import LifecyclePhaseHelpPanel from "./metamodel/LifecyclePhaseHelpPanel";
 import CategoryCombobox from "./metamodel/CategoryCombobox";
 import ManageCategoriesDialog from "./metamodel/ManageCategoriesDialog";
 import { categoryErrorMessage } from "./metamodel/categoryErrors";
@@ -182,6 +183,8 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.principles")} />
         <Tab label={t("metamodel.tabs.regulations")} />
         <Tab label={t("metamodel.tabs.resources")} />
+        {/* Appended last so existing tab indices keep their meaning. */}
+        <Tab label={t("metamodel.tabs.lifecycle")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -436,6 +439,11 @@ export default function MetamodelAdmin() {
       {/*  TAB 7 -- Resource Types (link types & file categories)      */}
       {/* ============================================================ */}
       {tab === 7 && <ResourceTypesAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 8 -- Lifecycle phase help                                */}
+      {/* ============================================================ */}
+      {tab === 8 && <LifecyclePhaseHelpPanel />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}

@@ -16,7 +16,9 @@ import CardContent from "@mui/material/CardContent";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import StakeholderHoverCard from "@/components/StakeholderHoverCard";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import HelpTip from "@/components/HelpTip";
+import LinkifiedText from "@/components/LinkifiedText";
+import { useTypeDescription, useTypeLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { focusFirstControl, useEditRequest, type EditRequest } from "@/hooks/useEditRequest";
 import { api } from "@/api/client";
@@ -43,7 +45,8 @@ function StakeholdersTab({
   addOn?: EditRequest;
 }) {
   const { t } = useTranslation(["cards", "common"]);
-  const rl = useResolveLabel();
+  const roleLabel = useTypeLabel();
+  const roleDescription = useTypeDescription();
   const { user: currentUser } = useAuth();
 
   const [subs, setSubs] = useState<StakeholderRef[]>([]);
@@ -230,13 +233,14 @@ function StakeholdersTab({
                 />
               )}
               <Typography variant="subtitle2" fontWeight={600}>
-                {rl(role.label, role.translations?.label)}
+                {roleLabel(role)}
+                <HelpTip text={roleDescription(role)} />
               </Typography>
             </Box>
             {items.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
                 {t("stakeholders.noneAssigned", {
-                  role: rl(role.label, role.translations?.label).toLowerCase(),
+                  role: roleLabel(role).toLowerCase(),
                 })}
               </Typography>
             ) : (
@@ -306,8 +310,27 @@ function StakeholdersTab({
                   setInviteEmail("");
                   setInviteFeedback(null);
                 }}
-                getOptionLabel={(o) => rl(o.label, o.translations?.label)}
+                getOptionLabel={(o) => roleLabel(o)}
                 isOptionEqualToValue={(a, b) => a.key === b.key}
+                renderOption={(props, option) => {
+                  const description = roleDescription(option);
+                  return (
+                    <li {...props} key={option.key}>
+                      <Box sx={{ display: "flex", flexDirection: "column", py: 0.25 }}>
+                        <Typography variant="body2">{roleLabel(option)}</Typography>
+                        {description && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ whiteSpace: "pre-wrap" }}
+                          >
+                            <LinkifiedText text={description} />
+                          </Typography>
+                        )}
+                      </Box>
+                    </li>
+                  );
+                }}
                 renderInput={(params) => (
                   <TextField {...params} label={t("stakeholders.role")} />
                 )}

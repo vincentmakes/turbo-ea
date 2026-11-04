@@ -65,7 +65,7 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 | **Rótulo** | Nome de exibição |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Uma porcentagem é um número de 0 a 100, exibida como uma barra de progresso e editada com um controle deslizante ou digitada com exatidão. Um booleano é escolhido numa lista Sim / Não, com **Nenhum** para o limpar, e é exibido como etiqueta verde *Sim* ou azul *Não*, ou como — quando não definido, o que o filtro **(vazio)** do inventário encontra |
 | **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais. Reordene-as com as setas para cima e para baixo ao lado de cada opção: os menus e os filtros listam as opções nessa ordem, e os chips de um valor de seleção múltipla a seguem em todos os cards. |
-| **Texto de ajuda** | Orientação opcional mostrada como uma nota recolhível sob o campo enquanto um card é editado. É escrito por idioma e pode ser definido por qualquer administrador do metamodelo; em um campo fornecido por uma extensão, é somente leitura |
+| **Texto de ajuda** | Orientação opcional para o campo. Enquanto um card é lido, aparece como um ícone de informação ao lado do rótulo do campo (passe o cursor ou foque nele para ler o texto) e como dica na linha de cabeçalho da coluna do campo no Inventário; enquanto um card é editado, é uma nota recolhível sob o campo. É escrito por idioma e pode ser definido por qualquer administrador do metamodelo; em um campo fornecido por uma extensão, é somente leitura |
 | **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
 | **Somente leitura** | Impede edição manual (útil para campos calculados) |
@@ -147,6 +147,8 @@ Defina papéis personalizados para este tipo (ex.: "Proprietário da Aplicação
 
 Cada papel tem uma **chave** (o identificador armazenado nos cartões, usado pelas colunas de importação/exportação `stakeholder:<chave_do_papel>`) e um **rótulo** (o que os utilizadores veem). A chave segue a mesma convenção de qualquer outra chave do metamodelo: apenas letras e dígitos, começando por uma letra, de 3 a 50 caracteres, por convenção em camelCase como `businessArchitect`. É preenchida automaticamente a partir do rótulo, pelo que raramente precisará de a escrever.
 
+Dê a um papel uma **descrição** para dizer o que ele significa na sua organização – o que assina um *Responsável pelo contrato*, do que responde um *Responsável técnico*. Os usuários a veem como um ícone de informação ao lado do papel na aba **Partes interessadas** de um card, sob o nome do papel no seletor de papéis, como dica no cabeçalho da coluna do papel no Inventário, em **Meus papéis** no painel e no diretório de partes interessadas. A descrição é traduzida por idioma como o rótulo: cada idioma habilitado tem o seu próprio campo de descrição em **Traduções** no editor de papéis, e a **caixa de diálogo de tradução** do tipo também a lista. Um idioma deixado vazio recorre à descrição em inglês.
+
 Cada papel tem também um interruptor **Conta para a qualidade dos dados**. A pontuação de qualidade tem uma única posição para partes interessadas, satisfeita assim que alguém é atribuído ao card num papel com este interruptor ativo. Desative-o para papéis puramente passivos — o **Observador** integrado vem desativado, para que observar um card nunca equivalha a ser responsável por ele. Um tipo cujos papéis estejam todos desativados não contribui com posição alguma. Alterar o interruptor volta a pontuar de imediato todos os cards do tipo.
 
 Os papéis podem ser removidos de duas formas:
@@ -208,7 +210,7 @@ Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abr
 - **Seções** — Cabeçalhos de seção na página de detalhe do card
 - **Campos** — Rótulos de campos e rótulos de opções de seleção
 - **Texto de ajuda** — O texto de ajuda de um campo, listado sob o campo depois de ter sido inserido no editor de campos. Editá-lo em inglês também atualiza o texto de ajuda padrão do campo
-- **Papéis de stakeholder** — Nomes de papéis exibidos na interface de atribuição de stakeholders
+- **Papéis de stakeholder** — Nomes e descrições dos papéis. A descrição de um papel é listada sob o seu nome assim que o papel tem uma descrição em algum idioma; editá-la em inglês também atualiza a descrição padrão do papel
 
 As traduções são armazenadas junto com cada tipo de card e são resolvidas no momento da renderização de acordo com o idioma selecionado pelo usuário. Rótulos não traduzidos recorrem ao padrão em inglês.
 
@@ -354,6 +356,14 @@ Em cada linha você pode:
 - **Excluir** uma regulação personalizada — as regulações integradas não podem ser excluídas, apenas desabilitadas.
 
 O scanner de conformidade e o fluxo de promoção para Risco funcionam **mesmo sem um provedor de IA configurado** — a entrada manual de achados, transições de status e o caminho de promoção para Risco continuam disponíveis. A IA só é necessária quando você efetivamente dispara uma nova varredura.
+
+## Fases do ciclo de vida {: #lifecycle-phases }
+
+A seção **Ciclo de vida** de cada card percorre cinco fases fixas: Planejamento, Entrada, Ativo, Saída e Fim de vida. O que cada fase significa difere entre organizações – por exemplo, se a *Saída* ainda admite novos usuários, ou quando um componente conta como *Fim de vida*. A aba **Fases do ciclo de vida** permite registrar isso uma vez para todo o espaço de trabalho.
+
+A aba mostra um campo de texto por fase e uma linha de abas de idioma (primeiro o inglês, depois cada idioma habilitado). Escreva a explicação em inglês e, se quiser, nos outros idiomas; um idioma deixado vazio mostra o texto em inglês. Deixe uma fase vazia para não mostrar ajuda nela. Clique em **Salvar** para aplicar os textos.
+
+Os usuários veem a ajuda de uma fase como um ícone de informação ao lado da fase na linha do tempo do ciclo de vida de cada card e, enquanto o ciclo de vida é editado, como uma nota recolhível de **Ajuda** sob a data da fase. Os textos valem para todos os tipos de card. O salvamento é registrado no **Registo de segurança e administração**.
 
 ## Editor de Layout de Card
 

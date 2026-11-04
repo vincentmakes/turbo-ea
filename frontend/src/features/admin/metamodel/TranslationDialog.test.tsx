@@ -567,3 +567,120 @@ describe("TranslationDialog — field help text", () => {
     expect(de).toHaveTextContent("4/12");
   });
 });
+
+describe("TranslationDialog — stakeholder role descriptions", () => {
+  const PLAIN_TYPE = { ...CARD_TYPE, subtypes: [], fields_schema: [] } as unknown as CardType;
+  const ROLES = [
+    {
+      key: "owner",
+      label: "Owner",
+      description: "Accountable for the card.",
+      translations: { label: { de: "Eigentümer" } },
+    },
+    { key: "steward", label: "Steward" },
+    // A description only in a translation still gets its row.
+    {
+      key: "auditor",
+      label: "Auditor",
+      translations: { description: { de: "Prüft die Karte." } },
+    },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/metamodel/types/Application/stakeholder-roles" ? ROLES : [],
+    );
+    vi.mocked(api.patch).mockResolvedValue({});
+  });
+
+  function rolePatch(key: string) {
+    const call = vi
+      .mocked(api.patch)
+      .mock.calls.find(([path]) => String(path).endsWith(`/stakeholder-roles/${key}`))!;
+    return JSON.parse(JSON.stringify(call[1])) as Record<string, unknown>;
+  }
+
+  it("adds a description row only under roles that have a description", async () => {
+    renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    await waitFor(() => expect(screen.getAllByText("Description")).toHaveLength(2));
+    const ref = screen.getByPlaceholderText("Accountable for the card.");
+    expect(ref.tagName).toBe("TEXTAREA");
+  });
+
+  it("counts each role description towards the locale's completeness", async () => {
+    renderDialog({ cardType: PLAIN_TYPE });
+    // 6 strings: the type label, 3 role labels, 2 role descriptions.
+    // English has the type label; German the type label, one role label and
+    // one description.
+    const en = await screen.findByRole("tab", { name: /English/ });
+    const de = screen.getByRole("tab", { name: /Deutsch/ });
+    await waitFor(() => expect(en).toHaveTextContent("1/6"));
+    expect(de).toHaveTextContent("3/6");
+  });
+
+  it("writes a German description into translations.description and leaves the column alone", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    await user.click(screen.getByRole("tab", { name: /Deutsch/ }));
+    await user.type(
+      await screen.findByPlaceholderText("Accountable for the card."),
+      "Verantwortlich für die Karte.",
+    );
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(rolePatch("owner")).toEqual({
+      translations: {
+        label: { de: "Eigentümer" },
+        description: { de: "Verantwortlich für die Karte." },
+      },
+    });
+    expect(rolePatch("auditor")).toEqual({
+      translations: { description: { de: "Prüft die Karte." } },
+    });
+  });
+
+  it("carries an English description edit into the description column", async () => {
+    const user = userEvent.setup();
+    const { onSave } = renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    await user.type(
+      await screen.findByPlaceholderText("Accountable for the card."),
+      "Answers for the card.",
+    );
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const body = rolePatch("owner");
+    expect(body.description).toBe("Answers for the card.");
+    expect(body.translations).toEqual({
+      label: { de: "Eigentümer" },
+      description: { en: "Answers for the card." },
+    });
+    // Untouched roles send no description.
+    expect(rolePatch("steward")).not.toHaveProperty("description");
+  });
+
+  it("does not resend an English description equal to the column", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/metamodel/types/Application/stakeholder-roles"
+        ? [
+            {
+              key: "owner",
+              label: "Owner",
+              description: "Same",
+              translations: { description: { en: "Same" } },
+            },
+          ]
+        : [],
+    );
+    const user = userEvent.setup();
+    const { onSave } = renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    expect(rolePatch("owner")).not.toHaveProperty("description");
+  });
+});

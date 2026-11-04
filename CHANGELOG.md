@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.190.0] - 2026-11-05
+
+### Added
+- A field's help text is now shown while a card is read, as an info icon beside the field's label, and as a tooltip on the field's column header in the Inventory.
+- Stakeholder role descriptions are shown to users: as an info icon beside the role on a card's Stakeholders tab, under the role's name in the role picker, on the role's Inventory column header, in My roles and in the stakeholder directory; descriptions can be translated per language ([#1351](https://github.com/vincentmakes/turbo-ea/discussions/1351)).
+- Admin → Metamodel → Lifecycle phases lets administrators explain what each lifecycle phase means in their organisation, per language; the text appears as an info icon beside the phase on every card's Lifecycle section ([#1351](https://github.com/vincentmakes/turbo-ea/discussions/1351)).
+
+### Fixed
+- Role names in My roles, the stakeholder hover card and the stakeholder directory now follow the user's language.
+
 ## [2.189.0] - 2026-11-05
 
 ### Added

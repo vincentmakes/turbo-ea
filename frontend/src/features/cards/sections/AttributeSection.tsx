@@ -20,7 +20,9 @@ import {
   getUrlErrorMsg,
   isEmptyAttrValue,
   isEnforcedRequiredField,
+  useFieldHelp,
 } from "@/features/cards/sections/cardDetailUtils";
+import HelpTip from "@/components/HelpTip";
 import Tooltip from "@mui/material/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useResolveLabel, useFieldLabel } from "@/hooks/useResolveLabel";
@@ -76,6 +78,7 @@ function AttributeSection({
   const { fmt, symbol } = useCurrency();
   const rl = useResolveLabel();
   const fieldLabel = useFieldLabel();
+  const fieldHelp = useFieldHelp();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
@@ -281,6 +284,7 @@ function AttributeSection({
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
             {fieldLabel(field)}
+            <HelpTip text={fieldHelp(field)} />
             {isEnforcedRequiredField(field) && (
               <Tooltip title={t("common:labels.required")}>
                 <Box component="span" sx={{ color: "error.main", ml: 0.25 }} aria-hidden={false}>
@@ -322,7 +326,10 @@ function AttributeSection({
       {fields.map((field) =>
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{fieldLabel(field)}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
+              {fieldLabel(field)}
+              <HelpTip text={fieldHelp(field)} />
+            </Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} canViewCosts={canViewCosts} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
             {field.badge ? (

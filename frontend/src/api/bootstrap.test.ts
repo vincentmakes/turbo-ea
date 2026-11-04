@@ -194,3 +194,44 @@ describe("primeBootstrap — gamified data quality", () => {
     expect(api.get).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("primeBootstrap — lifecycle phase help", () => {
+  it("primes the phase help so the hook does not fetch", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({
+      ...BASE,
+      lifecycle_phase_help: { phaseOut: { en: "Being replaced." } },
+    });
+    await boot.primeBootstrap();
+    const { renderHook } = await import("@testing-library/react");
+    const { useLifecyclePhaseHelp } = await import("@/hooks/useLifecyclePhaseHelp");
+    const { result } = renderHook(() => useLifecyclePhaseHelp());
+    expect(result.current.help).toEqual({ phaseOut: { en: "Being replaced." } });
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the hook to fetch when an older backend sends no phase help", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE });
+    await boot.primeBootstrap();
+    vi.mocked(api.get).mockResolvedValueOnce({ phases: { plan: { en: "An idea." } } });
+    const { renderHook, waitFor } = await import("@testing-library/react");
+    const { useLifecyclePhaseHelp } = await import("@/hooks/useLifecyclePhaseHelp");
+    const { result } = renderHook(() => useLifecyclePhaseHelp());
+    await waitFor(() => expect(result.current.help).toEqual({ plan: { en: "An idea." } }));
+    expect(api.get).toHaveBeenLastCalledWith("/settings/lifecycle-phase-help");
+  });
+
+  it("does not prime from a malformed value", async () => {
+    const { boot } = await fresh();
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE, lifecycle_phase_help: ["plan"] });
+    await boot.primeBootstrap();
+    vi.mocked(api.get).mockResolvedValueOnce({ phases: {} });
+    const { renderHook, waitFor } = await import("@testing-library/react");
+    const { useLifecyclePhaseHelp } = await import("@/hooks/useLifecyclePhaseHelp");
+    renderHook(() => useLifecyclePhaseHelp());
+    await waitFor(() =>
+      expect(api.get).toHaveBeenLastCalledWith("/settings/lifecycle-phase-help"),
+    );
+  });
+});

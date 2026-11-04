@@ -22,7 +22,13 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.relation_type import RelationType
 from app.models.resource_type import ResourceType
 from app.models.user import User
-from app.services import audit_changes, audit_labels, audit_log, card_type_categories
+from app.services import (
+    audit_changes,
+    audit_labels,
+    audit_log,
+    card_type_categories,
+    lifecycle_phase_help,
+)
 from app.services.ai_service import DEFAULT_AZURE_API_VERSION
 from app.services.app_identity import DEFAULT_APP_TITLE
 from app.services.bedrock import is_valid_region
@@ -385,6 +391,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
+        "lifecycle_phase_help": lifecycle_phase_help.read_phase_help(general),
         "archive_retention_days": general.get(
             "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
         ),
@@ -1404,6 +1411,66 @@ async def update_fiscal_year_start(
     await db.commit()
 
     return {"month": body.month}
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle phase help
+# ---------------------------------------------------------------------------
+
+
+class LifecyclePhaseHelpPayload(BaseModel):
+    # {phase: {locale: text}} — phases are the five fixed lifecycle keys.
+    phases: dict[str, dict[str, str]]
+
+
+@router.get("/lifecycle-phase-help")
+async def get_lifecycle_phase_help(
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+):
+    """The admin-written help text of each lifecycle phase.
+
+    Signed-in only: nothing before sign-in shows a lifecycle. ``/bootstrap``
+    carries the same map, so this is the refresh path after an admin edit.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"phases": lifecycle_phase_help.read_phase_help(general)}
+
+
+@router.patch("/lifecycle-phase-help")
+async def update_lifecycle_phase_help(
+    body: LifecyclePhaseHelpPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — replace the lifecycle phase help texts.
+
+    Gated on ``admin.metamodel``: what a phase means is metamodel
+    configuration, edited under Admin → Metamodel.
+    """
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    try:
+        phases = lifecycle_phase_help.normalize_phase_help(body.phases, SUPPORTED_LOCALES)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    old = lifecycle_phase_help.read_phase_help(general)
+    general[lifecycle_phase_help.SETTING_KEY] = phases
+    row.general_settings = general
+    await _audit_setting(
+        db,
+        user,
+        "lifecycle-phase-help",
+        lifecycle_phase_help.audit_view(old),
+        lifecycle_phase_help.audit_view(phases),
+    )
+    await db.commit()
+
+    return {"phases": phases}
 
 
 class ArchiveRetentionPayload(BaseModel):

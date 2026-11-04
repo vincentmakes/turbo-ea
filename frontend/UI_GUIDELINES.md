@@ -867,6 +867,30 @@ types). A field is focused through its edit wrapper's `data-field-key`
 
 ---
 
+### 3.17 Help Text: Read Mode and Edit Mode
+
+Admin-written help (a field's help text, a stakeholder role's description, a
+lifecycle phase's help) is shown in two shapes, one per mode:
+
+- **Read mode — `HelpTip`** (`src/components/HelpTip.tsx`): a small `help` icon
+  beside the label that shows the text in a tooltip on hover, keyboard focus or
+  tap. It renders nothing for empty text, so pass whatever the resolver returns.
+- **Edit mode — `FieldHelp`** (`features/cards/sections/cardDetailUtils.tsx`): a
+  collapsible "Help" link under the control, so the guidance does not cover
+  the field being typed into.
+- **Grids** use AG Grid's native `headerTooltip` on the column with the same text.
+
+✅ Do
+- Resolve the text with its localizing resolver (`useFieldHelp`,
+  `useTypeDescription`, `useLifecyclePhaseHelp`) — never show the English
+  column directly.
+- Put the icon inside the label's `Typography`, after the label text.
+
+❌ Don't
+- Don't hand-roll a `Tooltip` + icon for help text, and don't show both shapes at once.
+
+---
+
 ## 8. Related Files
 
 - [`src/theme/tokens.ts`](./src/theme/tokens.ts) — design tokens

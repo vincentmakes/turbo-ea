@@ -98,6 +98,8 @@ Chaque phase dispose d'un **sélecteur de date** pour enregistrer quand le compo
 
 Si une phase est datée après une phase qui devrait la suivre — par exemple **Retrait progressif** après **Fin de vie** —, une icône d'avertissement apparaît à côté de cette date, et le même avertissement s'affiche sous le champ pendant la modification. Ce n'est qu'une indication : les dates peuvent tout de même être enregistrées telles quelles.
 
+Lorsque votre administrateur a consigné ce que signifie une phase dans votre organisation, une icône d'information apparaît à côté de cette phase dans la chronologie – survolez-la pour lire la définition. Pendant la modification, le même texte est une note repliable **Aide** sous la date de la phase. Les textes se définissent sous **Admin → Métamodèle → Phases du cycle de vie** (voir [Phases du cycle de vie](../admin/metamodel.md#lifecycle-phases)).
+
 ### Sections d'attributs personnalisés
 
 Selon le type de fiche, vous verrez des sections supplémentaires avec des **champs personnalisés** configurés dans le métamodèle. Les types de champs incluent :
@@ -111,6 +113,8 @@ Selon le type de fiche, vous verrez des sections supplémentaires avec des **cha
 - **URL** -- Lien cliquable (validé pour http/https/mailto)
 - **Sélection unique** -- Liste déroulante avec options prédéfinies
 - **Sélection multiple** -- Multi-sélection avec affichage en puces
+
+Lorsque votre administrateur a rédigé un **texte d'aide** pour un champ, une icône d'information apparaît à côté de son libellé : survolez-la (ou atteignez-la au clavier avec la touche Tab) pour lire ce que signifie le champ. Pendant la modification de la section, le même texte est une note repliable **Aide** sous le champ. Dans l'Inventaire, survoler l'en-tête de colonne du champ l'affiche également.
 
 Les champs marqués comme **calculés** affichent un badge et ne peuvent pas être modifiés manuellement -- leurs valeurs sont calculées par des [formules définies par l'administrateur](../admin/calculations.md).
 
@@ -202,6 +206,8 @@ Les parties prenantes sont des personnes ayant un **rôle** spécifique sur cett
 Les affectations de parties prenantes affectent les **permissions** : les permissions effectives d'un utilisateur sur une fiche sont la combinaison de son rôle au niveau de l'application et de tous les rôles de parties prenantes qu'il détient sur cette fiche.
 
 Lorsqu'une **couleur** est définie pour un rôle dans le métamodèle, son groupe en est marqué, ce qui permet de distinguer un propriétaire d'un observateur d'un coup d'œil.
+
+Lorsqu'un rôle possède une **description**, une icône d'information apparaît à côté de son nom : survolez-la pour lire ce que signifie le rôle. La description s'affiche aussi sous le nom du rôle dans le sélecteur de rôle lorsque vous ajoutez une partie prenante.
 
 ### Recherche et invitation
 

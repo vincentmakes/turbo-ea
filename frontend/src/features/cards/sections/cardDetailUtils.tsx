@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
@@ -138,8 +138,11 @@ export function shouldGroupBySubtype(
 export function useFieldHelp(): (field: FieldDef) => string {
   const { i18n } = useTranslation();
   const locale = i18n.language;
-  return (field: FieldDef) =>
-    (field.helpTranslations?.[locale] as string) || field.help || "";
+  // Stable per locale, so a column memo can list it as a dependency.
+  return useCallback(
+    (field: FieldDef) => (field.helpTranslations?.[locale] as string) || field.help || "",
+    [locale],
+  );
 }
 
 /** Collapsible guidance rendered under a field during data entry. */

@@ -18,8 +18,9 @@ const apiMock = vi.hoisted(() => ({
 }));
 vi.mock("@/api/client", () => ({ api: apiMock }));
 
+const localesMock = vi.hoisted(() => ({ enabled: ["en"] as string[] }));
 vi.mock("@/hooks/useEnabledLocales", () => ({
-  useEnabledLocales: () => ({ enabledLocales: ["en"] }),
+  useEnabledLocales: () => ({ enabledLocales: localesMock.enabled }),
 }));
 
 const ROLES = [
@@ -91,6 +92,7 @@ function mockApi({ usage = UNUSED }: { usage?: typeof UNUSED } = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localesMock.enabled = ["en"];
 });
 
 describe("StakeholderRolePanel — key entry", () => {
@@ -429,5 +431,45 @@ describe("StakeholderRolePanel — confirmation escapes the role label", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog.querySelector("strong")).toHaveTextContent(label);
     expect(document.body.querySelector("[data-xss]")).toBeNull();
+  });
+});
+
+describe("StakeholderRolePanel — description translations", () => {
+  it("saves a per-language description beside the translated label", async () => {
+    localesMock.enabled = ["en", "de"];
+    mockApi();
+    apiMock.patch.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+
+    await user.type(await screen.findByLabelText("Deutsch"), "Verantwortlich");
+    await user.type(
+      screen.getByLabelText("Deutsch — description"),
+      "Pflegt die Karte.",
+    );
+
+    const save = screen.getByRole("button", { name: /^save$/i });
+    await waitFor(() => expect(save).toBeEnabled());
+    await user.click(save);
+
+    await waitFor(() => expect(apiMock.patch).toHaveBeenCalled());
+    const [, body] = apiMock.patch.mock.calls[0];
+    expect(body.translations).toEqual({
+      label: { de: "Verantwortlich" },
+      description: { de: "Pflegt die Karte." },
+    });
+  });
+
+  it("offers no translation inputs when English is the only language", async () => {
+    mockApi();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+    await screen.findByDisplayValue("Responsible");
+    expect(screen.queryByLabelText(/— description$/)).not.toBeInTheDocument();
   });
 });

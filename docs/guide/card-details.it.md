@@ -98,6 +98,8 @@ Ogni fase ha un **selettore di data** per registrare quando il componente è ent
 
 Se una fase ha una data successiva a quella di una fase che dovrebbe seguirla — ad esempio **Phase Out** dopo **End of Life** — accanto a quella data compare un'icona di avviso, e lo stesso avviso è mostrato sotto il campo durante la modifica. È solo un'indicazione: le date possono comunque essere salvate così come sono state inserite.
 
+Quando l'amministratore ha messo per iscritto che cosa significa una fase nella tua organizzazione, accanto a quella fase nella timeline compare un'icona informativa: passaci sopra il cursore per leggere la definizione. Durante la modifica, lo stesso testo è una nota comprimibile **Aiuto** sotto la data della fase. I testi si impostano in **Amministrazione → Metamodello → Fasi del ciclo di vita** (vedi [Fasi del ciclo di vita](../admin/metamodel.md#lifecycle-phases)).
+
 ### Sezioni attributi personalizzati
 
 A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzati** configurati nel metamodello. I tipi di campo includono:
@@ -111,6 +113,8 @@ A seconda del tipo di card, vedrete sezioni aggiuntive con **campi personalizzat
 - **URL** — Link cliccabile (validato per http/https/mailto)
 - **Selezione singola** — Menu a tendina con opzioni predefinite
 - **Selezione multipla** — Selezione multipla con visualizzazione a chip
+
+Dove l'amministratore ha scritto un **testo di aiuto** per un campo, accanto alla sua etichetta compare un'icona informativa: passaci sopra il cursore (o raggiungila con la tastiera tramite il tasto Tab) per leggere che cosa significa il campo. Durante la modifica della sezione, lo stesso testo è una nota comprimibile **Aiuto** sotto il campo. Nell'Inventario, anche passare il cursore sull'intestazione di colonna del campo lo mostra.
 
 I campi contrassegnati come **calcolati** mostrano un badge e non possono essere modificati manualmente — i loro valori sono calcolati da [formule definite dall'amministratore](../admin/calculations.md).
 
@@ -202,6 +206,8 @@ Gli stakeholder sono persone con un **ruolo** specifico su questa card. I ruoli 
 Le assegnazioni degli stakeholder influenzano i **permessi**: i permessi effettivi di un utente su una card sono la combinazione del suo ruolo a livello di applicazione e di qualsiasi ruolo di stakeholder che detiene su quella card.
 
 Quando un ruolo ha un **colore** impostato nel metamodello, il suo gruppo ne viene contrassegnato, così da distinguere a colpo d'occhio un proprietario da un osservatore.
+
+Dove un ruolo ha una **descrizione**, accanto al suo nome compare un'icona informativa: passaci sopra il cursore per leggere che cosa significa il ruolo. La descrizione compare anche sotto il nome del ruolo nel selettore dei ruoli quando aggiungi uno stakeholder.
 
 ### Ricerca e invito
 
