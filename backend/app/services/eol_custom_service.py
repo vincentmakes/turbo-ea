@@ -91,15 +91,17 @@ def sorted_cycles(cycles: Iterable[EolCustomCycle]) -> list[EolCustomCycle]:
     return sorted(by_date, key=lambda c: (c.sort_order, c.release_date is None))
 
 
-async def load_custom_cycles(db: AsyncSession, products: Iterable[str]) -> dict[str, list[dict]]:
+async def load_custom_cycles(db: AsyncSession, products: Iterable[object]) -> dict[str, list[dict]]:
     """``{"custom:<key>": [cycle, ...]}`` for every custom link in ``products``.
 
-    One query whatever the number of products. Links to an upstream product
-    are ignored, and a custom product that no longer exists is simply absent —
+    ``products`` are raw ``attributes.eol_product`` values, so anything goes:
+    ``None``, a non-string, an upstream slug. One query whatever the number of
+    products. Links to an upstream product are ignored, and a custom product
+    that no longer exists is simply absent —
     the caller then classifies its cards as ``unknown``, the same as an
     upstream cycle that disappeared.
     """
-    keys = {key_of(p) for p in products if is_custom_product(p)}
+    keys = {key_of(p) for p in products if isinstance(p, str) and is_custom_product(p)}
     if not keys:
         return {}
     rows = (

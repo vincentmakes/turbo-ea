@@ -735,7 +735,8 @@ async def delete_custom_cycle(
 
 
 def _cycle_out(product: dict, cycle_id: str) -> dict:
-    for c in product["cycles"]:
+    cycles: list[dict] = product["cycles"]
+    for c in cycles:
         if c["id"] == cycle_id:
             return c
     raise HTTPException(404, "Cycle not found")

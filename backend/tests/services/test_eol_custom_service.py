@@ -224,3 +224,26 @@ class TestResolver:
         with patch.object(eol_service, "fetch_product_cycles", fetch):
             assert await eol_service.fetch_cycles_for_products({"custom:a", "custom:b"}) == {}
         fetch.assert_not_awaited()
+
+
+class TestLoadCustomCycles:
+    """Callers hand in raw ``attributes.eol_product`` values — ``None``, a
+    non-string, an upstream slug — and only ``custom:`` links are looked up."""
+
+    async def test_reads_only_existing_custom_products(self, db):
+        from app.models.eol_custom_product import EolCustomProduct
+
+        db.add(EolCustomProduct(key="acme", title="Acme"))
+        await db.flush()
+        db.add_all([_cycle("2", "2024-01-01"), _cycle("1", "2020-01-01", eol=True)])
+        await db.flush()
+
+        out = await svc.load_custom_cycles(
+            db, [None, 3, {"x": 1}, "python", "custom:acme", "custom:gone", "custom:acme"]
+        )
+        assert list(out) == ["custom:acme"]
+        assert [c["cycle"] for c in out["custom:acme"]] == ["2", "1"]
+        assert out["custom:acme"][1]["eol"] is True
+
+    async def test_nothing_custom_means_no_query(self, db):
+        assert await svc.load_custom_cycles(db, [None, "python", 7]) == {}
