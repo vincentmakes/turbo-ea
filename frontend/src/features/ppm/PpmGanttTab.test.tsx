@@ -4,18 +4,20 @@
  * hands the chart (rows, scale, column width) and what each of the chart's
  * callbacks does — the dates a drag writes, the progress a drag sets, the
  * dependency a handle-to-handle drag creates and the "Align start" that
- * follows it. Bar geometry and arrows need a real layout and are covered by
- * the browser suite.
+ * follows it — and what a click on a column header does to the rows' order.
+ * Bar geometry and arrows need a real layout and are covered by the browser
+ * suite.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Task, TaskOrEmpty } from "@wamra/gantt-task-react";
+import type { Column, ColumnProps, Task, TaskOrEmpty } from "@wamra/gantt-task-react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
 interface GanttProps {
   tasks: TaskOrEmpty[];
+  columns: Column[];
   viewMode: string;
   distances: { columnWidth: number };
   onDateChange: (task: TaskOrEmpty) => Promise<void>;
@@ -39,7 +41,18 @@ vi.mock("@wamra/gantt-task-react", async (importOriginal) => {
     ...actual,
     Gantt: (props: GanttProps) => {
       gantt.props = props;
-      return <div data-testid="gantt">{props.tasks.map((t) => t.name).join("|")}</div>;
+      return (
+        <>
+          <div role="row">
+            {props.columns.map((c) => (
+              <div key={c.id} role="columnheader">
+                {c.title}
+              </div>
+            ))}
+          </div>
+          <div data-testid="gantt">{props.tasks.map((t) => t.name).join("|")}</div>
+        </>
+      );
     },
   };
 });
@@ -49,6 +62,7 @@ vi.mock("./GanttAddItemMenu", () => ({ default: () => null }));
 
 import { mockApi } from "@/test/apiMock";
 import { installResizeObserver } from "@/test/dom";
+import { setViewportWidth } from "@/test/matchMedia";
 import type { PpmDependency, PpmTask, PpmWbs } from "@/types";
 import PpmGanttTab from "./PpmGanttTab";
 import { ThemeProvider, alpha, createTheme } from "@mui/material/styles";
@@ -340,6 +354,141 @@ describe("PpmGanttTab", () => {
     expect(row("wbs-w1")).toMatchObject({ hideChildren: true });
     act(() => gantt.props!.onChangeExpandState(row("wbs-w1")));
     expect(row("wbs-w1")).toMatchObject({ hideChildren: false });
+  });
+});
+
+describe("PpmGanttTab — sorting the task list", () => {
+  /** Two work packages and a task under the first, each starting on its own day. */
+  const plan = () =>
+    serve(
+      [
+        wbs("w1", { title: "Design", start_date: "2026-03-10", assignee_name: "Zoe" }),
+        wbs("w2", { title: "Build", start_date: "2026-03-01", assignee_name: "Al" }),
+      ],
+      [task("t1", { wbs_id: "w1", title: "Sketch", start_date: "2026-03-20" })],
+    );
+  const ids = () => gantt.props!.tasks.map((t) => t.id);
+  const header = (name: string) => screen.getByRole("button", { name });
+  const columnTitles = () => screen.getAllByRole("columnheader").map((h) => h.textContent);
+
+  it("sorts by a header ascending, then descending, then back to the planned order", async () => {
+    plan();
+    const user = await renderTab();
+    expect(columnTitles()).toEqual(["Title", "%", "Responsible", "Start Date", "End Date"]);
+    expect(ids()).toEqual(["wbs-w1", "wbs-w2", "task-t1", "__empty__"]);
+    expect(localStorage.getItem("ppm.gantt.sort")).toBeNull();
+    const columns = gantt.props!.columns;
+
+    await user.click(header("Start Date"));
+    expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
+    expect(header("Start Date")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
+    expect(header("Title")).not.toHaveClass("Mui-active");
+    expect(localStorage.getItem("ppm.gantt.sort")).toBe("start:asc");
+    // A sort click must not hand the chart new columns: it would reset their widths.
+    expect(gantt.props!.columns).toBe(columns);
+
+    await user.click(header("Start Date"));
+    expect(ids()).toEqual(["task-t1", "wbs-w1", "wbs-w2", "__empty__"]);
+    expect(header("Start Date")).toHaveClass("Mui-active", "MuiTableSortLabel-directionDesc");
+    expect(header("Title")).toHaveClass("MuiTableSortLabel-directionAsc");
+    expect(localStorage.getItem("ppm.gantt.sort")).toBe("start:desc");
+
+    await user.click(header("Start Date"));
+    expect(ids()).toEqual(["wbs-w1", "wbs-w2", "task-t1", "__empty__"]);
+    expect(header("Start Date")).not.toHaveClass("Mui-active");
+    expect(localStorage.getItem("ppm.gantt.sort")).toBeNull();
+  });
+
+  it("sorts by another column from ascending", async () => {
+    plan();
+    const user = await renderTab();
+    await user.click(header("Start Date"));
+    await user.click(header("Responsible"));
+    expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
+    expect(header("Responsible")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
+    expect(header("Start Date")).not.toHaveClass("Mui-active");
+    await user.click(header("Title"));
+    expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
+    await user.click(header("Title"));
+    expect(ids()).toEqual(["task-t1", "wbs-w1", "wbs-w2", "__empty__"]);
+  });
+
+  it("hands the chart its columns, the resizable ones marked, fewer on a phone", async () => {
+    plan();
+    const layout = () => gantt.props!.columns.map(({ id, width, canResize }) => [id, width, canResize]);
+    await renderTab();
+    expect(layout()).toEqual([
+      ["title", 200, true],
+      ["completion", 64, false],
+      ["assignee", 110, true],
+      ["start", 100, true],
+      ["end", 100, true],
+    ]);
+    act(() => setViewportWidth(600));
+    await waitFor(() =>
+      expect(layout()).toEqual([
+        ["title", 150, true],
+        ["completion", 56, false],
+      ]),
+    );
+  });
+
+  it("opens on the sort the user last chose", async () => {
+    localStorage.setItem("ppm.gantt.sort", "title:asc");
+    plan();
+    await renderTab();
+    expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
+    expect(header("Title")).toHaveClass("Mui-active", "MuiTableSortLabel-directionAsc");
+  });
+
+  it("ignores a remembered sort on a column a phone does not show", async () => {
+    setViewportWidth(600);
+    localStorage.setItem("ppm.gantt.sort", "start:asc");
+    plan();
+    const user = await renderTab();
+    expect(columnTitles()).toEqual(["Title", "%"]);
+    expect(ids()).toEqual(["wbs-w1", "wbs-w2", "task-t1", "__empty__"]);
+    await user.click(header("Title"));
+    expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
+    expect(localStorage.getItem("ppm.gantt.sort")).toBe("title:asc");
+  });
+});
+
+describe("PpmGanttTab — the title cell's expander", () => {
+  /** The library hands each cell far more than the title cell reads; only its inputs are real. */
+  const cellData = (over: Partial<ColumnProps["data"]>): ColumnProps["data"] =>
+    ({
+      depth: 0,
+      hasChildren: false,
+      isClosed: false,
+      onExpanderClick: vi.fn(),
+      distances: { expandIconWidth: 20, nestedTaskNameOffset: 20 },
+      ...over,
+    }) as unknown as ColumnProps["data"];
+
+  it("draws a Material symbol, never the text triangle iOS shows as an emoji", async () => {
+    serve([wbs("w1"), wbs("w2", { parent_id: "w1" })], []);
+    const user = await renderTab();
+    const Cell = gantt.props!.columns[0].Cell;
+    const task = row("wbs-w1");
+    const onExpanderClick = vi.fn();
+
+    const view = render(
+      <Cell data={cellData({ task, hasChildren: true, isClosed: true, onExpanderClick })} />,
+    );
+    expect(view.container).toHaveTextContent("arrow_right");
+    expect(view.container.querySelector(".material-symbols-outlined")).not.toBeNull();
+    expect(document.body.textContent).not.toMatch(/[▶▼]/);
+    await user.click(view.container.querySelector(".material-symbols-outlined")!);
+    expect(onExpanderClick).toHaveBeenCalledWith(task);
+
+    view.rerender(<Cell data={cellData({ task, hasChildren: true, isClosed: false })} />);
+    expect(view.container).toHaveTextContent("arrow_drop_down");
+    expect(view.container).not.toHaveTextContent("arrow_right");
+
+    view.rerender(<Cell data={cellData({ task, hasChildren: false, isClosed: true })} />);
+    expect(view.container.querySelector(".material-symbols-outlined")).toBeNull();
+    expect(view.container).toHaveTextContent("WBS w1");
   });
 });
 

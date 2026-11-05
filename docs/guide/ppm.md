@@ -174,6 +174,7 @@ The Gantt chart visualizes the project timeline with:
 
 Interact with the Gantt chart using:
 
+- **Click a column header** (Title, %, Responsible, Start Date or End Date) to sort the list by it: ascending on the first click, descending on the second, and back to the planned order on the third. An arrow next to the header shows the active sort. Items are sorted among their siblings, so a nested work package or task stays under its parent. Items with no responsible person, or no date of their own, come last either way, and the **+** row stays at the bottom. The choice is remembered in your browser. On a phone, where only Title and % are shown, only those two can be sorted
 - **Drag** bars to reschedule items
 - **Resize** bar edges to change duration (1-day granularity)
 - **Right-click** for context menu (edit, add task, mark done, delete)

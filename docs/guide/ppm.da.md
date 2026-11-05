@@ -174,6 +174,7 @@ Gantt-diagrammet visualiserer projekttidslinjen med:
 
 Interager med Gantt-diagrammet ved hjælp af:
 
+- **Klik på en kolonneoverskrift** (Titel, %, Ansvarlig, Startdato eller Slutdato) for at sortere listen efter den: stigende ved første klik, faldende ved andet og tilbage til den planlagte rækkefølge ved tredje. En pil ved siden af overskriften viser den aktive sortering. Elementer sorteres blandt deres søskende, så en indlejret arbejdspakke eller opgave bliver under sin overordnede. Elementer uden ansvarlig eller uden egen dato kommer sidst i begge retninger, og **+**-rækken forbliver nederst. Valget huskes i din browser. På en telefon, hvor kun Titel og % vises, kan kun disse to sorteres
 - **Træk** bjælker for at om-planlægge elementer
 - **Skift størrelse** af bjælkeenderne for at ændre varighed (1-dags granularitet)
 - **Højreklik** for kontekstmenu (rediger, tilføj opgave, markér udført, slet)

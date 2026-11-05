@@ -168,6 +168,7 @@ Das Gantt-Diagramm visualisiert den Projektzeitplan mit:
 
 Interaktion mit dem Gantt-Diagramm:
 
+- **Auf eine Spaltenüberschrift klicken** (Titel, %, Verantwortlich, Startdatum oder Enddatum), um die Liste danach zu sortieren: beim ersten Klick aufsteigend, beim zweiten absteigend und beim dritten zurück zur geplanten Reihenfolge. Ein Pfeil neben der Überschrift zeigt die aktive Sortierung. Die Elemente werden innerhalb ihrer Geschwister sortiert, sodass ein verschachteltes Arbeitspaket oder eine Aufgabe unter ihrem übergeordneten Element bleibt. Elemente ohne verantwortliche Person oder ohne eigenes Datum stehen in beiden Richtungen am Ende, und die **+**-Zeile bleibt ganz unten. Die Auswahl wird im Browser gespeichert. Auf einem Smartphone, wo nur Titel und % angezeigt werden, lassen sich nur diese beiden sortieren
 - **Skalenauswahl** — Tag, Woche, Monat, Quartal oder Jahr; die Auswahl wird im Browser gespeichert
 - **Zoom-Schaltflächen (+/−)** — Schrittweises Vergrößern bzw. Verkleinern entlang derselben fünf Skalen
 - **Punkte an den Balkenenden** — Vom rechten Punkt eines Balkens auf den linken Punkt eines anderen ziehen, um eine Finish-to-Start-Abhängigkeit zu erstellen. Funktioniert zwischen Arbeitspaketen und Aufgaben in jeder Kombination. Zyklen werden automatisch zurückgewiesen. **Pfeil doppelklicken**, um ihn zu entfernen.

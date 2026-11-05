@@ -2,7 +2,8 @@
  * The PPM Gantt's model, as plain functions: how WBS items, tasks and
  * finish-to-start dependencies become the library's rows, the timeline range
  * and date arithmetic the bars and the "Align start" action use, the zoom
- * scale and its pixel geometry, and which way round a dragged dependency runs.
+ * scale and its pixel geometry, which way round a dragged dependency runs, and
+ * the order a header click sorts the task list in.
  *
  * `PpmGanttTab.tsx` renders and measures the DOM; this decides. Nothing here
  * touches React or the API, so each rule is unit-tested on its own
@@ -413,11 +414,15 @@ export function buildGanttRows({
   return rows;
 }
 
-/** Extra per-row data for the custom columns (completion, assignee, whether it rolls up). */
+/** Extra per-row data for the custom columns (completion, assignee, whether it
+ *  rolls up) and for sorting: whether the item carries its own dates, since an
+ *  undated bar is drawn on the range's ends and must not sort as if it started there. */
 export interface GanttRowMeta {
   completion: number;
   assigneeName: string | null;
   hasChildren: boolean;
+  hasStart: boolean;
+  hasEnd: boolean;
 }
 
 /** The custom columns' data for every row, keyed by Gantt row id. */
@@ -432,6 +437,9 @@ export function buildRowMeta(
       completion: w.completion,
       assigneeName: w.assignee_name,
       hasChildren: parentIds.has(w.id),
+      hasStart: !!w.start_date,
+      // A milestone ends on the day it starts.
+      hasEnd: !!(w.is_milestone ? w.start_date : w.end_date),
     });
   }
   for (const tk of tasks) {
@@ -439,7 +447,133 @@ export function buildRowMeta(
       completion: percentFromStatus(tk.status),
       assigneeName: tk.assignee_name,
       hasChildren: false,
+      hasStart: !!tk.start_date,
+      hasEnd: !!tk.due_date,
     });
   }
   return map;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sorting                                                            */
+/* ------------------------------------------------------------------ */
+
+/** The task-list columns a header click sorts by. */
+export type GanttSortKey = "title" | "completion" | "assignee" | "start" | "end";
+
+export interface GanttSort {
+  key: GanttSortKey;
+  dir: "asc" | "desc";
+}
+
+export const GANTT_SORT_KEYS: readonly GanttSortKey[] = [
+  "title",
+  "completion",
+  "assignee",
+  "start",
+  "end",
+];
+
+/** The columns the phone-width layout keeps, so the only ones it can sort by. */
+export const NARROW_SORT_KEYS: readonly GanttSortKey[] = ["title", "completion"];
+
+/** Where the chosen sort is remembered, as `"<key>:<dir>"`, for every initiative. */
+export const SORT_KEY = "ppm.gantt.sort";
+
+/** A header click: a new column starts ascending, then descending, then back to the planned order. */
+export function nextGanttSort(current: GanttSort | null, key: GanttSortKey): GanttSort | null {
+  if (current?.key !== key) return { key, dir: "asc" };
+  return current.dir === "asc" ? { key, dir: "desc" } : null;
+}
+
+/** The remembered sort, or none when nothing usable is stored or storage is blocked. */
+export function loadGanttSort(
+  storage: () => Pick<Storage, "getItem"> = () => localStorage,
+): GanttSort | null {
+  try {
+    const parts = String(storage().getItem(SORT_KEY)).split(":");
+    const [key, dir] = parts;
+    if (
+      parts.length === 2 &&
+      GANTT_SORT_KEYS.includes(key as GanttSortKey) &&
+      (dir === "asc" || dir === "desc")
+    ) {
+      return { key: key as GanttSortKey, dir };
+    }
+  } catch {
+    /* localStorage unavailable */
+  }
+  return null;
+}
+
+/** Remember a sort, or forget it when the list is back in its planned order. */
+export function saveGanttSort(
+  sort: GanttSort | null,
+  storage: () => Pick<Storage, "setItem" | "removeItem"> = () => localStorage,
+): void {
+  try {
+    if (sort) storage().setItem(SORT_KEY, `${sort.key}:${sort.dir}`);
+    else storage().removeItem(SORT_KEY);
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
+/** The value a row sorts on. `null` (no responsible, no date of its own) sorts last. */
+function sortValue(
+  row: Exclude<TaskOrEmpty, { type: "empty" }>,
+  key: GanttSortKey,
+  meta: Map<string, GanttRowMeta>,
+): string | number | null {
+  switch (key) {
+    case "title":
+      return row.name;
+    case "completion":
+      // The chip shows a whole percentage, so two rows that read the same are a tie.
+      return meta.has(row.id) ? Math.round(meta.get(row.id)!.completion) : null;
+    case "assignee":
+      return meta.get(row.id)?.assigneeName || null;
+    case "start":
+      return meta.get(row.id)?.hasStart ? row.start.getTime() : null;
+    case "end":
+      return meta.get(row.id)?.hasEnd ? row.end.getTime() : null;
+  }
+}
+
+/**
+ * The rows in the chosen order, or as given without one. The chart library
+ * orders rows by `displayOrder` and then keeps that order among the children
+ * of each parent, so one sort over the whole list, numbered in its result,
+ * orders every sibling group and nothing leaves its parent. Ties keep their
+ * planned order, rows with no value come last either way, and the empty row
+ * to create from stays at the bottom.
+ */
+export function sortGanttRows(
+  rows: TaskOrEmpty[],
+  meta: Map<string, GanttRowMeta>,
+  sort: GanttSort | null,
+  locale: string,
+): TaskOrEmpty[] {
+  if (!sort) return rows;
+  const collator = new Intl.Collator(locale, { numeric: true, sensitivity: "base" });
+  const keyed = rows.flatMap((row) =>
+    row.type === "empty" ? [] : [{ row, value: sortValue(row, sort.key, meta) }],
+  );
+  // Rows with nothing to sort on are set aside rather than ranked, so they
+  // follow the sorted ones in their planned order whichever way the sort runs.
+  const valued = keyed.filter(
+    (k): k is { row: (typeof keyed)[number]["row"]; value: string | number } => k.value !== null,
+  );
+  valued.sort((a, b) => {
+    const cmp =
+      typeof a.value === "string"
+        ? collator.compare(a.value, String(b.value))
+        : a.value - Number(b.value);
+    return sort.dir === "asc" ? cmp : -cmp;
+  });
+  return [
+    ...valued.map((k) => k.row),
+    ...keyed.filter((k) => k.value === null).map((k) => k.row),
+    ...rows.filter((row) => row.type === "empty"),
+  ].map((row, i) => ({ ...row, displayOrder: i + 1 }));
 }

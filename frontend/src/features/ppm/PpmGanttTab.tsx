@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useState,
   useEffect,
   useLayoutEffect,
@@ -39,6 +41,7 @@ import Chip from "@mui/material/Chip";
 import Popover from "@mui/material/Popover";
 import Slider from "@mui/material/Slider";
 import Snackbar from "@mui/material/Snackbar";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
@@ -52,6 +55,7 @@ import { toIsoDate } from "@/lib/dates";
 import { buildGanttArrowPath } from "./ganttArrowPath";
 import {
   EMPTY_ROW_ID,
+  NARROW_SORT_KEYS,
   VIEW_CENTER_KEY_PREFIX,
   VIEW_MODE_KEY,
   VIEW_SCALE,
@@ -71,11 +75,16 @@ import {
   geometryFor,
   getParentIds,
   leftEdgeFor,
+  loadGanttSort,
   loadInitialViewMode,
+  nextGanttSort,
   parseDate,
   roundToDay,
+  saveGanttSort,
+  sortGanttRows,
   zoomBounds,
 } from "./ppmGanttModel";
+import type { GanttSort, GanttSortKey } from "./ppmGanttModel";
 
 /** Geometry passed from parent to the dependency overlay.
  *  Coordinates are already in the overlay's local SVG coordinate system
@@ -184,13 +193,38 @@ function DependencyArrowOverlay({
   );
 }
 
+/** The task list's sort, read by the column headers. It reaches them through
+ *  context rather than the `columns` prop: the chart library resets every
+ *  column width the user dragged whenever that prop changes, so a sort click
+ *  must not rebuild it. */
+const GanttSortContext = createContext<{
+  sort: GanttSort | null;
+  onSort: (key: GanttSortKey) => void;
+}>({ sort: null, onSort: () => {} });
+
+/** A task-list column header that sorts the list: ascending, descending, then off. */
+function SortableHeader({ label, sortKey }: { label: string; sortKey: GanttSortKey }) {
+  const { sort, onSort } = useContext(GanttSortContext);
+  const active = sort?.key === sortKey;
+  return (
+    <TableSortLabel
+      active={active}
+      direction={active ? sort.dir : "asc"}
+      onClick={() => onSort(sortKey)}
+      sx={{ fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}
+    >
+      {label}
+    </TableSortLabel>
+  );
+}
+
 interface Props {
   initiativeId: string;
   card?: { attributes?: Record<string, unknown> };
 }
 
 export default function PpmGanttTab({ initiativeId, card }: Props) {
-  const { t } = useTranslation("ppm");
+  const { t, i18n } = useTranslation("ppm");
   const theme = useTheme();
   const isNarrow = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -202,6 +236,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     loadInitialViewMode(window.innerWidth),
   );
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** The task list's sort, chosen from a column header and remembered in the browser. */
+  const [sort, setSort] = useState<GanttSort | null>(() => loadGanttSort());
+  const toggleSort = useCallback(
+    (key: GanttSortKey) => setSort((prev) => nextGanttSort(prev, key)),
+    [],
+  );
+  useEffect(() => {
+    saveGanttSort(sort);
+  }, [sort]);
+  // The phone layout drops the Responsible and date columns, so a sort on one
+  // of them would order the rows by something the user cannot see.
+  const effectiveSort = sort && (!isNarrow || NARROW_SORT_KEYS.includes(sort.key)) ? sort : null;
+  const sortContext = useMemo(
+    () => ({ sort: effectiveSort, onSort: toggleSort }),
+    [effectiveSort, toggleSort],
+  );
   const [snack, setSnack] = useState<string>("");
   /** Optional action button shown next to the snackbar message (e.g.
    *  "Align start" after creating a dependency with a date mismatch). */
@@ -425,29 +475,45 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
    *  for finish-to-start. */
   const depsBySuccessor = useMemo(() => dependenciesBySuccessor(dependencies), [dependencies]);
 
-  /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
-  const ganttTasks: TaskOrEmpty[] = useMemo(
-    () =>
-      buildGanttRows({
-        wbsList,
-        tasks,
-        dependencies: depsBySuccessor,
-        collapsed,
-        range: timelineRange,
-        projectStyles: {
-          projectBackgroundColor: theme.palette.primary.light,
-          projectProgressColor: theme.palette.primary.main,
-          projectBackgroundSelectedColor: theme.palette.primary.dark,
-          projectProgressSelectedColor: theme.palette.primary.main,
-        },
-      }),
-    [wbsList, tasks, collapsed, theme, timelineRange, depsBySuccessor],
-  );
-
   /** Metadata map for custom Gantt columns (completion, assignee). */
   const rowMeta = useMemo(
     () => buildRowMeta(wbsList, tasks, parentIds),
     [wbsList, tasks, parentIds],
+  );
+
+  /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row, in the
+   *  order the task list is sorted by. */
+  const ganttTasks: TaskOrEmpty[] = useMemo(
+    () =>
+      sortGanttRows(
+        buildGanttRows({
+          wbsList,
+          tasks,
+          dependencies: depsBySuccessor,
+          collapsed,
+          range: timelineRange,
+          projectStyles: {
+            projectBackgroundColor: theme.palette.primary.light,
+            projectProgressColor: theme.palette.primary.main,
+            projectBackgroundSelectedColor: theme.palette.primary.dark,
+            projectProgressSelectedColor: theme.palette.primary.main,
+          },
+        }),
+        rowMeta,
+        effectiveSort,
+        i18n.language,
+      ),
+    [
+      wbsList,
+      tasks,
+      collapsed,
+      theme,
+      timelineRange,
+      depsBySuccessor,
+      rowMeta,
+      effectiveSort,
+      i18n.language,
+    ],
   );
 
   const handleDateChange: OnDateChange = useCallback(
@@ -790,7 +856,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             }}
             onClick={handleExpand}
           >
-            {hasChildren ? (isClosed ? "▶" : "▼") : ""}
+            {/* A Material symbol, not a text triangle: iOS draws "▶" as the
+                play-button emoji. */}
+            {hasChildren && (
+              <MaterialSymbol icon={isClosed ? "arrow_right" : "arrow_drop_down"} size={20} />
+            )}
           </div>
           <div
             style={{
@@ -885,68 +955,69 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return Cell;
   }, [rowMeta]);
 
-  const ganttColumns: Column[] = useMemo(
-    () =>
-      // The full set is 200+56+100+90+90 = 536px of task list before the chart
-      // even starts, so a phone would render no timeline at all. Keep the two
-      // columns that identify a row and drop the rest; the dates and assignee
-      // are still on the bar tooltip and in the task dialog.
-      isNarrow
-        ? [
-            {
-              id: "title",
-              Cell: NameCell,
-              width: 150,
-              title: t("wbsTitle"),
-              canResize: true,
-            },
-            {
-              id: "completion",
-              Cell: CompletionCell,
-              width: 48,
-              title: "%",
-              canResize: false,
-            },
-          ]
-        : [
-            {
-              id: "title",
-              Cell: NameCell,
-              width: 200,
-              title: t("wbsTitle"),
-              canResize: true,
-            },
-            {
-              id: "completion",
-              Cell: CompletionCell,
-              width: 56,
-              title: "%",
-              canResize: false,
-            },
-            {
-              id: "assignee",
-              Cell: AssigneeCell,
-              width: 100,
-              title: t("wbsAssignee"),
-              canResize: true,
-            },
-            {
-              id: "start",
-              Cell: DateStartColumn,
-              width: 90,
-              title: t("startDate"),
-              canResize: true,
-            },
-            {
-              id: "end",
-              Cell: DateEndColumn,
-              width: 90,
-              title: t("endDate"),
-              canResize: true,
-            },
-          ],
-    [t, NameCell, CompletionCell, AssigneeCell, isNarrow],
-  );
+  const ganttColumns: Column[] = useMemo(() => {
+    const header = (sortKey: GanttSortKey, label: string) => (
+      <SortableHeader label={label} sortKey={sortKey} />
+    );
+    // The full set is 200+64+110+100+100 = 574px of task list before the chart
+    // even starts, so a phone would render no timeline at all. Keep the two
+    // columns that identify a row and drop the rest; the dates and assignee
+    // are still on the bar tooltip and in the task dialog.
+    return isNarrow
+      ? [
+          {
+            id: "title",
+            Cell: NameCell,
+            width: 150,
+            title: header("title", t("wbsTitle")),
+            canResize: true,
+          },
+          {
+            id: "completion",
+            Cell: CompletionCell,
+            width: 56,
+            title: header("completion", "%"),
+            canResize: false,
+          },
+        ]
+      : [
+          {
+            id: "title",
+            Cell: NameCell,
+            width: 200,
+            title: header("title", t("wbsTitle")),
+            canResize: true,
+          },
+          {
+            id: "completion",
+            Cell: CompletionCell,
+            width: 64,
+            title: header("completion", "%"),
+            canResize: false,
+          },
+          {
+            id: "assignee",
+            Cell: AssigneeCell,
+            width: 110,
+            title: header("assignee", t("wbsAssignee")),
+            canResize: true,
+          },
+          {
+            id: "start",
+            Cell: DateStartColumn,
+            width: 100,
+            title: header("start", t("startDate")),
+            canResize: true,
+          },
+          {
+            id: "end",
+            Cell: DateEndColumn,
+            width: 100,
+            title: header("end", t("endDate")),
+            canResize: true,
+          },
+        ];
+  }, [t, NameCell, CompletionCell, AssigneeCell, isNarrow]);
 
   // The same width findCenterAnchorDate and leftEdgeFor measure with.
   const columnWidth = geometryFor(viewMode).colWidth;
@@ -1659,74 +1730,76 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }),
         }}
       >
-        <Gantt
-          tasks={ganttTasks}
-          viewMode={viewMode}
-          viewDate={viewDate}
-          columns={ganttColumns}
-          canResizeColumns
-          onDoubleClick={handleDoubleClick}
-          onDateChange={handleDateChange}
-          onProgressChange={handleProgressChange}
-          onChangeExpandState={handleExpanderClick}
-          onRelationChange={handleRelationChange}
-          contextMenuOptions={contextMenuOptions}
-          enableTableListContextMenu={2}
-          roundDate={roundToDay}
-          dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
-          checkIsHoliday={checkIsWeekend}
-          preStepsCount={2}
-          colors={{
-            /* Row backgrounds — applied as inline styles by the library,
-               so CSS overrides can't reach them. Must be set here. */
-            evenTaskBackgroundColor:
-              theme.palette.mode === "dark"
-                ? theme.palette.background.paper
-                : theme.palette.grey[100],
-            oddTaskBackgroundColor: theme.palette.background.default,
-            /* Opaque selection colors — semi-transparent values cause white
-               flash on some rows because the library's internal MUI theme is
-               always "light", which paints white focus/hover overlays. */
-            selectedTaskBackgroundColor:
-              CHART_SEQUENTIAL[theme.palette.mode][0],
-            todayColor:
-              theme.palette.mode === "dark"
-                ? alpha(theme.palette.primary.main, 0.15)
-                : alpha(theme.palette.primary.main, 0.08),
-            holidayBackgroundColor:
-              theme.palette.mode === "dark"
-                ? alpha(theme.palette.common.white, 0.03)
-                : alpha(theme.palette.common.black, 0.04),
-            /* Text — barLabelColor defaults to #000, applied as inline
-               style on the wrapper div and inherited by table text. */
-            barLabelColor: theme.palette.text.primary,
-            barLabelWhenOutsideColor: theme.palette.text.primary,
-            /* Context menu */
-            contextMenuBgColor: theme.palette.background.paper,
-            contextMenuTextColor: theme.palette.text.primary,
-            contextMenuBoxShadow: theme.shadows[8],
-          }}
-          dateFormats={{
-            dateColumnFormat: "dd MMM ''yy",
-            dayBottomHeaderFormat: "d",
-            dayTopHeaderFormat: "LLLL yyyy",
-            // Bottom row of the Month scale ("Jan" / "Feb" / …). The library
-            // renders Year + QuarterYear headers natively (year + "Qn yyyy")
-            // and ignores this format for those scales.
-            monthBottomHeaderFormat: "LLL",
-            monthTopHeaderFormat: "LLLL",
-          }}
-          distances={{
-            columnWidth,
-            // COUPLED: the row stripes and dividers are drawn by hardcoded
-            // 40px/39px stops in the backgroundImage gradients above (search
-            // "ganttTaskContent_"). Changing rowHeight without updating all
-            // four of those literals desyncs the stripes from the rows.
-            rowHeight: 40,
-            headerHeight: 50,
-            barCornerRadius: 4,
-          }}
-        />
+        <GanttSortContext.Provider value={sortContext}>
+          <Gantt
+            tasks={ganttTasks}
+            viewMode={viewMode}
+            viewDate={viewDate}
+            columns={ganttColumns}
+            canResizeColumns
+            onDoubleClick={handleDoubleClick}
+            onDateChange={handleDateChange}
+            onProgressChange={handleProgressChange}
+            onChangeExpandState={handleExpanderClick}
+            onRelationChange={handleRelationChange}
+            contextMenuOptions={contextMenuOptions}
+            enableTableListContextMenu={2}
+            roundDate={roundToDay}
+            dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
+            checkIsHoliday={checkIsWeekend}
+            preStepsCount={2}
+            colors={{
+              /* Row backgrounds — applied as inline styles by the library,
+                 so CSS overrides can't reach them. Must be set here. */
+              evenTaskBackgroundColor:
+                theme.palette.mode === "dark"
+                  ? theme.palette.background.paper
+                  : theme.palette.grey[100],
+              oddTaskBackgroundColor: theme.palette.background.default,
+              /* Opaque selection colors — semi-transparent values cause white
+                 flash on some rows because the library's internal MUI theme is
+                 always "light", which paints white focus/hover overlays. */
+              selectedTaskBackgroundColor:
+                CHART_SEQUENTIAL[theme.palette.mode][0],
+              todayColor:
+                theme.palette.mode === "dark"
+                  ? alpha(theme.palette.primary.main, 0.15)
+                  : alpha(theme.palette.primary.main, 0.08),
+              holidayBackgroundColor:
+                theme.palette.mode === "dark"
+                  ? alpha(theme.palette.common.white, 0.03)
+                  : alpha(theme.palette.common.black, 0.04),
+              /* Text — barLabelColor defaults to #000, applied as inline
+                 style on the wrapper div and inherited by table text. */
+              barLabelColor: theme.palette.text.primary,
+              barLabelWhenOutsideColor: theme.palette.text.primary,
+              /* Context menu */
+              contextMenuBgColor: theme.palette.background.paper,
+              contextMenuTextColor: theme.palette.text.primary,
+              contextMenuBoxShadow: theme.shadows[8],
+            }}
+            dateFormats={{
+              dateColumnFormat: "dd MMM ''yy",
+              dayBottomHeaderFormat: "d",
+              dayTopHeaderFormat: "LLLL yyyy",
+              // Bottom row of the Month scale ("Jan" / "Feb" / …). The library
+              // renders Year + QuarterYear headers natively (year + "Qn yyyy")
+              // and ignores this format for those scales.
+              monthBottomHeaderFormat: "LLL",
+              monthTopHeaderFormat: "LLLL",
+            }}
+            distances={{
+              columnWidth,
+              // COUPLED: the row stripes and dividers are drawn by hardcoded
+              // 40px/39px stops in the backgroundImage gradients above (search
+              // "ganttTaskContent_"). Changing rowHeight without updating all
+              // four of those literals desyncs the stripes from the rows.
+              rowHeight: 40,
+              headerHeight: 50,
+              barCornerRadius: 4,
+            }}
+          />
+        </GanttSortContext.Provider>
         {portalTarget &&
           createPortal(
             <DependencyArrowOverlay

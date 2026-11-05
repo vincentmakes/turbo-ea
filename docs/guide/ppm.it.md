@@ -168,6 +168,7 @@ Il diagramma di Gantt visualizza la tempistica del progetto con:
 
 Interagisci con il diagramma di Gantt:
 
+- **Fai clic sull'intestazione di una colonna** (Titolo, %, Responsabile, Data di inizio o Data di fine) per ordinare l'elenco in base ad essa: crescente al primo clic, decrescente al secondo e di nuovo all'ordine pianificato al terzo. Una freccia accanto all'intestazione indica l'ordinamento attivo. Gli elementi sono ordinati tra i propri fratelli, così un pacchetto di lavoro o un'attività annidati restano sotto il loro genitore. Gli elementi senza responsabile o senza una data propria vanno in fondo in entrambe le direzioni, e la riga **+** resta in fondo. La scelta viene memorizzata nel browser. Su un telefono, dove sono mostrati solo Titolo e %, si possono ordinare solo queste due colonne
 - **Selettore della scala** — Scegli tra Giorno, Settimana, Mese, Trimestre e Anno; la scelta viene memorizzata nel browser
 - **Pulsanti di zoom +/−** — Naviga di un livello alla volta lungo le stesse cinque scale
 - **Punti alle estremità delle barre** — Trascina dal punto destro di una barra al punto sinistro di un'altra per creare una dipendenza finish-to-start. Funziona tra pacchetti di lavoro e attività in qualsiasi combinazione. I cicli vengono rifiutati automaticamente. **Fai doppio clic su una freccia** per rimuoverla.

@@ -168,6 +168,7 @@ Le diagramme de Gantt visualise le calendrier du projet avec :
 
 Interagir avec le diagramme de Gantt :
 
+- **Cliquez sur un en-tête de colonne** (Titre, %, Responsable, Date de début ou Date de fin) pour trier la liste selon cette colonne : croissant au premier clic, décroissant au deuxième, puis retour à l'ordre prévu au troisième. Une flèche à côté de l'en-tête indique le tri actif. Les éléments sont triés parmi leurs frères et sœurs, de sorte qu'un lot de travaux ou une tâche imbriqué reste sous son parent. Les éléments sans responsable ou sans date propre passent en dernier dans les deux sens, et la ligne **+** reste en bas. Le choix est mémorisé dans votre navigateur. Sur téléphone, où seuls Titre et % sont affichés, seules ces deux colonnes sont triables
 - **Sélecteur d'échelle** — Choisissez entre Jour, Semaine, Mois, Trimestre et Année ; le choix est mémorisé dans votre navigateur
 - **Boutons +/− de zoom** — Naviguez d'un cran à la fois dans la même série de cinq échelles
 - **Points aux extrémités des barres** — Glissez du point droit d'une barre vers le point gauche d'une autre pour créer une dépendance « finish-to-start ». Fonctionne entre lots de travaux et tâches dans toutes les combinaisons. Les cycles sont rejetés automatiquement. **Double-cliquez sur une flèche** pour la supprimer.

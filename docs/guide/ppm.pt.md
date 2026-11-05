@@ -168,6 +168,7 @@ O diagrama de Gantt visualiza o cronograma do projeto com:
 
 Interaja com o diagrama de Gantt:
 
+- **Clique no cabeçalho de uma coluna** (Título, %, Responsável, Data de início ou Data de término) para ordenar a lista por ela: crescente no primeiro clique, decrescente no segundo e de volta à ordem planejada no terceiro. Uma seta ao lado do cabeçalho indica a ordenação ativa. Os itens são ordenados entre seus irmãos, de modo que um pacote de trabalho ou uma tarefa aninhados permanecem sob o seu pai. Os itens sem responsável ou sem data própria ficam por último nos dois sentidos, e a linha **+** permanece no fim. A escolha é lembrada no seu navegador. Em um celular, onde apenas Título e % são exibidos, somente essas duas colunas podem ser ordenadas
 - **Seletor de escala** — Escolha entre Dia, Semana, Mês, Trimestre e Ano; a escolha é lembrada no seu navegador
 - **Botões de zoom +/−** — Avance um nível por vez nas mesmas cinco escalas
 - **Pontos nas extremidades das barras** — Arraste do ponto direito de uma barra até o ponto esquerdo de outra para criar uma dependência «finish-to-start». Funciona entre pacotes de trabalho e tarefas em qualquer combinação. Os ciclos são rejeitados automaticamente. **Dê um clique duplo em uma seta** para removê-la.
