@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Column, Task, TaskOrEmpty } from "@wamra/gantt-task-react";
+import type { Column, ColumnProps, Task, TaskOrEmpty } from "@wamra/gantt-task-react";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -451,6 +451,44 @@ describe("PpmGanttTab — sorting the task list", () => {
     await user.click(header("Title"));
     expect(ids()).toEqual(["wbs-w2", "wbs-w1", "task-t1", "__empty__"]);
     expect(localStorage.getItem("ppm.gantt.sort")).toBe("title:asc");
+  });
+});
+
+describe("PpmGanttTab — the title cell's expander", () => {
+  /** The library hands each cell far more than the title cell reads; only its inputs are real. */
+  const cellData = (over: Partial<ColumnProps["data"]>): ColumnProps["data"] =>
+    ({
+      depth: 0,
+      hasChildren: false,
+      isClosed: false,
+      onExpanderClick: vi.fn(),
+      distances: { expandIconWidth: 20, nestedTaskNameOffset: 20 },
+      ...over,
+    }) as unknown as ColumnProps["data"];
+
+  it("draws a Material symbol, never the text triangle iOS shows as an emoji", async () => {
+    serve([wbs("w1"), wbs("w2", { parent_id: "w1" })], []);
+    const user = await renderTab();
+    const Cell = gantt.props!.columns[0].Cell;
+    const task = row("wbs-w1");
+    const onExpanderClick = vi.fn();
+
+    const view = render(
+      <Cell data={cellData({ task, hasChildren: true, isClosed: true, onExpanderClick })} />,
+    );
+    expect(view.container).toHaveTextContent("arrow_right");
+    expect(view.container.querySelector(".material-symbols-outlined")).not.toBeNull();
+    expect(document.body.textContent).not.toMatch(/[▶▼]/);
+    await user.click(view.container.querySelector(".material-symbols-outlined")!);
+    expect(onExpanderClick).toHaveBeenCalledWith(task);
+
+    view.rerender(<Cell data={cellData({ task, hasChildren: true, isClosed: false })} />);
+    expect(view.container).toHaveTextContent("arrow_drop_down");
+    expect(view.container).not.toHaveTextContent("arrow_right");
+
+    view.rerender(<Cell data={cellData({ task, hasChildren: false, isClosed: true })} />);
+    expect(view.container.querySelector(".material-symbols-outlined")).toBeNull();
+    expect(view.container).toHaveTextContent("WBS w1");
   });
 });
 

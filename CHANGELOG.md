@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - The task list in an initiative's Gantt tab can be sorted by title, completion, responsible, start date or end date by clicking a column header; nested work packages and tasks stay under their parent.
 
+### Fixed
+- The expand/collapse arrow in the Gantt task list no longer shows as an emoji play button on iOS Safari.
+
 ## [2.188.0] - 2026-11-04
 
 ### Added

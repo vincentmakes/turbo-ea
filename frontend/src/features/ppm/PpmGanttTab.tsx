@@ -856,7 +856,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             }}
             onClick={handleExpand}
           >
-            {hasChildren ? (isClosed ? "▶" : "▼") : ""}
+            {/* A Material symbol, not a text triangle: iOS draws "▶" as the
+                play-button emoji. */}
+            {hasChildren && (
+              <MaterialSymbol icon={isClosed ? "arrow_right" : "arrow_drop_down"} size={20} />
+            )}
           </div>
           <div
             style={{
