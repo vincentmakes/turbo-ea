@@ -95,7 +95,7 @@ Hver fase har en **datovælger**, så du kan registrere, hvornår komponenten er
 
 Hvis en fase er dateret efter en fase, der burde komme efter den — for eksempel **Phase Out** efter **End of Life** — vises et advarselsikon ved siden af datoen, og den samme advarsel vises under feltet under redigering. Det er kun et hint: datoerne kan stadig gemmes, som de er indtastet.
 
-Et infoikon ved siden af hver fase på tidslinjen forklarer, hvad fasen betyder – hold musen over det for at læse definitionen. Det viser en standardforklaring, medmindre din administrator har ændret den, så den beskriver, hvordan din organisation bruger fasen, eller har fjernet den. Under redigering er den samme tekst en sammenklappelig **Hjælp**-note under fasens dato. Teksterne angives under **Administration → Metamodel → Livscyklusfaser** (se [Livscyklusfaser](../admin/metamodel.md#lifecycle-phases)).
+Et infoikon ved siden af hver fase på tidslinjen forklarer, hvad fasen betyder – hold musen over det for at læse definitionen. Det viser en standardforklaring, medmindre din administrator har ændret den, så den beskriver, hvordan din organisation bruger fasen, eller har fjernet den. Tidslinjen med dens ikoner forbliver synlig, mens du redigerer datoerne. Teksterne angives under **Administration → Metamodel → Livscyklusfaser** (se [Livscyklusfaser](../admin/metamodel.md#lifecycle-phases)).
 
 ### Brugerdefinerede egenskabs-sektioner
 
@@ -111,7 +111,7 @@ Afhængigt af korttypen vil du se yderligere sektioner med **brugerdefinerede fe
 - **Single select** — Dropdown med foruddefinerede muligheder
 - **Multiple select** — Multi-valg med chip-visning
 
-Hvor din administrator har skrevet en **hjælpetekst** til et felt, vises et infoikon ved siden af dets etiket: hold musen over det (eller tab til det med tastaturet) for at læse, hvad feltet betyder. Mens du redigerer sektionen, er den samme tekst en sammenklappelig **Hjælp**-note under feltet. I Lageret vises den også, når du holder musen over feltets kolonneoverskrift.
+Hvor din administrator har skrevet en **hjælpetekst** til et felt, vises et infoikon ved siden af dets etiket: hold musen over det (eller tab til det med tastaturet) for at læse, hvad feltet betyder. Mens du redigerer sektionen, sidder det samme ikon ved siden af feltet. I Lageret vises den også, når du holder musen over feltets kolonneoverskrift.
 
 Felter markeret som **calculated** viser et badge og kan ikke redigeres manuelt — deres værdier beregnes af [admin-definerede formler](../admin/calculations.md).
 

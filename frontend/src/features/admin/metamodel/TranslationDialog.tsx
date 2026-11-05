@@ -297,6 +297,7 @@ export default function TranslationDialog({
         ),
       );
     },
+    // Stryker disable next-line ArrayDeclaration: the updater reads only its arguments and a stable state setter, so any dependency list yields an equivalent callback
     [],
   );
 
@@ -353,10 +354,10 @@ export default function TranslationDialog({
       // Stakeholder roles
       stakeholderRoles.forEach((r) => {
         total++;
-        if (r.translations?.label?.[locale]?.trim()) filled++;
+        if (r.translations.label?.[locale]?.trim()) filled++;
         if (r.hasDescription) {
           total++;
-          if (r.translations?.description?.[locale]?.trim()) filled++;
+          if (r.translations.description?.[locale]?.trim()) filled++;
         }
       });
 
@@ -622,7 +623,7 @@ export default function TranslationDialog({
                 <Box key={r.key}>
                   <TranslationRow
                     reference={r.label}
-                    value={r.translations?.label?.[activeLocale] || ""}
+                    value={r.translations.label?.[activeLocale] || ""}
                     onChange={(v) =>
                       updateStakeholderRoleTranslation(idx, activeLocale, v)
                     }
@@ -632,8 +633,8 @@ export default function TranslationDialog({
                       <TranslationRow
                         multiline
                         caption={t("metamodel.translationDialog.roleDescription")}
-                        reference={r.translations?.description?.en || r.description}
-                        value={r.translations?.description?.[activeLocale] || ""}
+                        reference={r.translations.description?.en || r.description}
+                        value={r.translations.description?.[activeLocale] || ""}
                         onChange={(v) =>
                           updateStakeholderRoleDescriptionTranslation(idx, activeLocale, v)
                         }

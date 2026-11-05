@@ -97,7 +97,7 @@ Cada fase tem um **seletor de data** para que você possa registrar quando o com
 
 Se uma fase tiver uma data posterior à de uma fase que deveria vir depois dela — por exemplo, **Desativação** após **Fim de Vida** —, um ícone de aviso aparece ao lado dessa data, e o mesmo aviso é exibido abaixo do campo durante a edição. É apenas uma indicação: as datas ainda podem ser salvas como foram inseridas.
 
-Um ícone de informação ao lado de cada fase na linha do tempo explica o que a fase significa – passe o cursor sobre ele para ler a definição. Mostra uma explicação padrão, a menos que o seu administrador a tenha alterado para descrever como a sua organização usa a fase, ou a tenha removido. Durante a edição, o mesmo texto é uma nota recolhível de **Ajuda** sob a data da fase. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+Um ícone de informação ao lado de cada fase na linha do tempo explica o que a fase significa – passe o cursor sobre ele para ler a definição. Mostra uma explicação padrão, a menos que o seu administrador a tenha alterado para descrever como a sua organização usa a fase, ou a tenha removido. A linha do tempo, com os seus ícones, continua visível enquanto você edita as datas. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
 
 ### Seções de Atributos Personalizados
 
@@ -113,7 +113,7 @@ Dependendo do tipo de card, você verá seções adicionais com **campos persona
 - **Seleção única** — Menu suspenso com opções predefinidas
 - **Seleção múltipla** — Multi-seleção com exibição de chips
 
-Onde o seu administrador escreveu um **texto de ajuda** para um campo, um ícone de informação aparece ao lado do seu rótulo: passe o cursor sobre ele (ou chegue até ele com a tecla Tab) para ler o que o campo significa. Enquanto você edita a seção, o mesmo texto é uma nota recolhível de **Ajuda** sob o campo. No Inventário, passar o cursor sobre o cabeçalho da coluna do campo também o mostra.
+Onde o seu administrador escreveu um **texto de ajuda** para um campo, um ícone de informação aparece ao lado do seu rótulo: passe o cursor sobre ele (ou chegue até ele com a tecla Tab) para ler o que o campo significa. Enquanto você edita a seção, o mesmo ícone fica ao lado do campo. No Inventário, passar o cursor sobre o cabeçalho da coluna do campo também o mostra.
 
 Campos marcados como **calculados** mostram um badge e não podem ser editados manualmente — seus valores são computados por [fórmulas definidas pelo administrador](../admin/calculations.md).
 

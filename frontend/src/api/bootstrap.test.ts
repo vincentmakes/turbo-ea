@@ -235,3 +235,38 @@ describe("primeBootstrap — lifecycle phase help", () => {
     );
   });
 });
+
+describe("primeBootstrap — lifecycle phase help guard", () => {
+  // The hook normalises whatever it is handed, so these tests mock it and
+  // assert the guard itself: only a plain object reaches the invalidator.
+  async function primeWith(extra: Record<string, unknown>) {
+    vi.resetModules();
+    const invalidate = vi.fn();
+    vi.doMock("@/hooks/useLifecyclePhaseHelp", () => ({
+      invalidateLifecyclePhaseHelp: invalidate,
+    }));
+    const boot = await import("./bootstrap");
+    vi.mocked(api.get).mockResolvedValueOnce({ ...BASE, ...extra });
+    await boot.primeBootstrap();
+    vi.doUnmock("@/hooks/useLifecyclePhaseHelp");
+    return invalidate;
+  }
+
+  it.each([
+    ["null", { lifecycle_phase_help: null }],
+    ["an array", { lifecycle_phase_help: ["plan"] }],
+    ["absent", {}],
+    ["a string", { lifecycle_phase_help: "plan" }],
+  ])("does not call the invalidator when the value is %s", async (_label, extra) => {
+    const invalidate = await primeWith(extra);
+    expect(api.get).toHaveBeenCalledWith("/settings/bootstrap");
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it("calls the invalidator with a plain object", async () => {
+    const help = { plan: { en: "An idea." } };
+    const invalidate = await primeWith({ lifecycle_phase_help: help });
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledWith(help);
+  });
+});

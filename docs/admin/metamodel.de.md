@@ -64,7 +64,7 @@ Felder definieren die benutzerdefinierten Attribute, die auf Karten dieses Typs 
 | **Bezeichnung** | Anzeigename |
 | **Typ** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select oder multiple_select. Ein Prozentsatz ist eine Zahl von 0 bis 100, die als Fortschrittsbalken dargestellt und mit einem Schieberegler oder durch exakte Eingabe bearbeitet wird. Ein Boolean wird aus einer Ja/Nein-Liste gewählt, **Keine** leert ihn; er erscheint als grüne *Ja*- oder blaue *Nein*-Marke bzw. als —, wenn nicht gesetzt, was der Inventarfilter **(leer)** erfasst |
 | **Optionen** | Für Auswahlfelder: die verfügbaren Auswahlmöglichkeiten mit Bezeichnungen und optionalen Farben. Ordnen Sie sie mit den Pfeilen nach oben und unten neben jeder Option um: Menüs und Filter listen die Optionen in dieser Reihenfolge, und die Chips eines Mehrfachauswahlwerts folgen ihr auf jeder Karte. |
-| **Hilfetext** | Optionale Hinweise zum Feld. Beim Lesen einer Karte erscheint er als Info-Symbol neben der Feldbezeichnung (zum Lesen des Texts darüberfahren oder fokussieren) und als Tooltip an der Spaltenüberschrift des Felds im Inventar; beim Bearbeiten einer Karte ist er eine einklappbare Notiz unter dem Feld. Er wird pro Sprache verfasst und kann von jedem Metamodell-Administrator gesetzt werden; bei einem von einer Erweiterung beigesteuerten Feld ist er schreibgeschützt |
+| **Hilfetext** | Optionale Hinweise zum Feld. Beim Lesen einer Karte erscheint er als Info-Symbol neben der Feldbezeichnung (zum Lesen des Texts darüberfahren oder fokussieren) und als Tooltip an der Spaltenüberschrift des Felds im Inventar; beim Bearbeiten einer Karte steht dasselbe Symbol neben dem Feld. Er wird pro Sprache verfasst und kann von jedem Metamodell-Administrator gesetzt werden; bei einem von einer Erweiterung beigesteuerten Feld ist er schreibgeschützt |
 | **Pflichtfeld** | Ob das Feld verpflichtend ist — siehe die Durchsetzungsregeln unten |
 | **Datenqualität** | Der Beitrag jedes Felds zum Wert wird im Bereich **Datenqualität** verwaltet (siehe unten) |
 | **Nur lesen** | Verhindert manuelle Bearbeitung (nützlich für berechnete Felder) |
@@ -362,7 +362,7 @@ Der Abschnitt **Lebenszyklus** jeder Karte durchläuft fünf feste Phasen: Planu
 
 Der Tab zeigt ein Textfeld pro Phase und eine Reihe von Sprach-Tabs (zuerst Englisch, dann jede aktivierte Sprache). In einem neuen Arbeitsbereich sind die Felder in jeder Sprache mit einer Standarderklärung jeder Phase vorbefüllt, sodass die Hilfe von Anfang an vorhanden ist; passen Sie jeden Text an die Arbeitsweise Ihrer Organisation an. Eine leer gelassene Sprache zeigt den englischen Text. Lassen Sie eine Phase leer, um dafür keine Hilfe anzuzeigen – wenn Sie alle fünf Phasen leeren und speichern, wird die Hilfe ganz entfernt. Klicken Sie auf **Speichern**, um die Texte zu übernehmen.
 
-Benutzer sehen die Hilfe zu einer Phase als Info-Symbol neben der Phase in der Lebenszyklus-Zeitleiste jeder Karte und, während der Lebenszyklus bearbeitet wird, als einklappbare **Hilfe**-Notiz unter dem Datum der Phase. Die Texte gelten für alle Kartentypen. Das Speichern wird im **Sicherheits- und Verwaltungsprotokoll** festgehalten.
+Benutzer sehen die Hilfe zu einer Phase als Info-Symbol neben der Phase in der Lebenszyklus-Zeitleiste jeder Karte; es bleibt auch beim Bearbeiten des Lebenszyklus sichtbar. Die Texte gelten für alle Kartentypen. Das Speichern wird im **Sicherheits- und Verwaltungsprotokoll** festgehalten.
 
 ## Karten-Layout-Editor
 

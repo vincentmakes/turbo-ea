@@ -191,7 +191,7 @@ describe("LifecycleSection — phase help", () => {
     expect(screen.queryByTestId("help-tip")).toBeNull();
   });
 
-  it("offers the help as a collapsible under the date while editing", () => {
+  it("keeps the timeline's icon while editing and adds none to the date row", () => {
     phaseHelpMock.help = { plan: "An idea not yet approved." };
     const { container } = render(
       <LifecycleSection card={cardWith({})} onSave={async () => {}} />,
@@ -200,12 +200,12 @@ describe("LifecycleSection — phase help", () => {
     fireEvent.click(buttons[buttons.length - 1]);
 
     const planField = container.querySelector('[data-phase="plan"]') as HTMLElement;
-    const toggle = within(planField).getByRole("button", {
-      name: new RegExp(i18n.t("cards:utils.fieldHelp")),
-    });
-    fireEvent.click(toggle);
-    expect(within(planField).getByText("An idea not yet approved.")).toBeInTheDocument();
-    const activeField = container.querySelector('[data-phase="active"]') as HTMLElement;
-    expect(within(activeField).queryByRole("button")).toBeNull();
+    expect(planField).not.toBeNull();
+    expect(within(planField).queryByTestId("help-tip")).toBeNull();
+    expect(within(planField).queryByText("An idea not yet approved.")).toBeNull();
+    // One icon per phase with help in all: the timeline's, still on screen.
+    const icons = screen.getAllByTestId("help-tip");
+    expect(icons).toHaveLength(1);
+    expect(icons[0]).toHaveAccessibleName("An idea not yet approved.");
   });
 });

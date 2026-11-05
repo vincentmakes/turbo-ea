@@ -405,11 +405,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               <TextField
                 size="small"
                 label={language}
-                value={trans?.label?.[locale] || ""}
+                value={trans.label?.[locale] || ""}
                 onChange={(e) =>
                   onChange({
                     ...trans,
-                    label: { ...trans?.label, [locale]: e.target.value },
+                    label: { ...trans.label, [locale]: e.target.value },
                   })
                 }
                 fullWidth
@@ -418,11 +418,11 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               <TextField
                 size="small"
                 label={t("metamodel.stakeholderPanel.descriptionTranslation", { language })}
-                value={trans?.description?.[locale] || ""}
+                value={trans.description?.[locale] || ""}
                 onChange={(e) =>
                   onChange({
                     ...trans,
-                    description: { ...trans?.description, [locale]: e.target.value },
+                    description: { ...trans.description, [locale]: e.target.value },
                   })
                 }
                 fullWidth

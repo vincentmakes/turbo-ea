@@ -52,13 +52,17 @@ export function invalidateLifecyclePhaseHelp(help: unknown) {
 }
 
 function _fetchOnce(): Promise<void> {
+  // The hook's effect only calls this while the cache is empty; the guard is
+  // the singleton pattern's contract (frontend-patterns rule), not a branch a
+  // test can reach.
+  // Stryker disable next-line ConditionalExpression: only ever called with an empty cache, so the guard cannot be observed from a test
   if (_cache !== null) return Promise.resolve();
   if (_inflight) return _inflight;
   // Started inside a promise so a client that throws synchronously (or a test
   // double that returns nothing) lands in `.catch`, not in the caller's render.
   _inflight = Promise.resolve()
     .then(() => api.get<{ phases: LifecyclePhaseHelp }>("/settings/lifecycle-phase-help"))
-    .then((r) => invalidateLifecyclePhaseHelp(r?.phases))
+    .then((r) => invalidateLifecyclePhaseHelp(r.phases))
     .catch(() => {
       /* no help is a fine default */
     })
@@ -86,6 +90,7 @@ export function useLifecyclePhaseHelp() {
     return () => {
       _listeners.delete(setHelp);
     };
+    // Stryker disable next-line ArrayDeclaration: a constant dependency never changes between renders, so `[]` and `["…"]` both run the effect exactly once.
   }, []);
 
   const phaseHelp = useCallback(
@@ -94,6 +99,11 @@ export function useLifecyclePhaseHelp() {
   );
 
   return { help, phaseHelp };
+}
+
+/** How many mounted hooks listen for a refresh (tests only). */
+export function lifecyclePhaseHelpListenerCount(): number {
+  return _listeners.size;
 }
 
 /** Reset for tests. */

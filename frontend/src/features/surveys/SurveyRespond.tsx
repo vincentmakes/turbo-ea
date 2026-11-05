@@ -30,6 +30,7 @@ import {
 } from "@/hooks/useResolveLabel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSurveyFieldLabel } from "@/lib/surveyFieldLabel";
+import HelpTip from "@/components/HelpTip";
 import UserMultiSelect from "@/components/UserMultiSelect";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -42,7 +43,6 @@ import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
-import { FieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import type { SurveyRespondForm, SurveyField, SurveyPersonRef } from "@/types";
 
 type OptionLabelResolver = (key: string, translations?: Record<string, string>) => string;
@@ -681,6 +681,11 @@ export default function SurveyRespond() {
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: field.kind === "relation" ? 0.5 : 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>
                 {surveyFieldLabel(field)}
+                {(field.kind === undefined || field.kind === "attribute") && (
+                  <HelpTip
+                    text={(field.helpTranslations?.[i18n.language] as string) || field.help || ""}
+                  />
+                )}
               </Typography>
               <Chip
                 label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
@@ -714,12 +719,6 @@ export default function SurveyRespond() {
                   { card: form.card.name, role: surveyFieldLabel(field) },
                 )}
               </Typography>
-            )}
-
-            {(field.kind === undefined || field.kind === "attribute") && (
-              <FieldHelp
-                text={(field.helpTranslations?.[i18n.language] as string) || field.help || ""}
-              />
             )}
 
             {field.kind === "relation" && (

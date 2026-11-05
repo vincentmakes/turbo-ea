@@ -64,7 +64,7 @@ Fields define the custom attributes available on cards of this type. Each field 
 | **Label** | Display name |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select, or multiple_select. A percentage is a number from 0 to 100, shown as a progress bar and edited with a slider or typed exactly. A boolean is chosen from a Yes / No list, with **None** to clear it, and shows as a green *Yes* or blue *No* pill, or as — when unset, which the Inventory's **(empty)** filter matches |
 | **Options** | For select fields: the available choices with labels and optional colors. Reorder them with the up and down arrows beside each option: menus and filters list the options in that order, and the chips of a multi-select value follow it on every card. |
-| **Help text** | Optional guidance for the field. While a card is read it appears as an info icon beside the field's label (hover or focus it to read the text) and as a tooltip on the field's column header in the Inventory; while a card is edited it is a collapsible note under the field. It is written per language and can be set by any metamodel admin; on a field contributed by an extension it is read-only |
+| **Help text** | Optional guidance for the field. While a card is read it appears as an info icon beside the field's label (hover or focus it to read the text) and as a tooltip on the field's column header in the Inventory; while a card is edited the same icon sits beside the field. It is written per language and can be set by any metamodel admin; on a field contributed by an extension it is read-only |
 | **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |
 | **Read-only** | Prevents manual editing (useful for calculated fields) |
@@ -380,7 +380,7 @@ Every card's **Lifecycle** section walks through five fixed phases: Plan, Phase 
 
 The tab shows one text field per phase, and a row of language tabs (English first, then each enabled language). On a new workspace the fields come prefilled with a default explanation of each phase in every language, so the help is there from the start; edit any text to match how your organisation works. A language left empty shows the English text. Leave a phase empty to show no help for it — clearing all five phases and saving removes the help altogether. Click **Save** to apply the texts.
 
-Users see a phase's help as an info icon beside the phase on every card's Lifecycle timeline, and as a collapsible **Help** note under the phase's date while the lifecycle is edited. The texts apply to every card type. Saving is recorded in the **Security & admin log**.
+Users see a phase's help as an info icon beside the phase on every card's Lifecycle timeline, which stays on screen while the lifecycle is edited. The texts apply to every card type. Saving is recorded in the **Security & admin log**.
 
 ## Card Layout Editor
 

@@ -867,27 +867,30 @@ types). A field is focused through its edit wrapper's `data-field-key`
 
 ---
 
-### 3.17 Help Text: Read Mode and Edit Mode
+### 3.17 Help Text: One Shape
 
 Admin-written help (a field's help text, a stakeholder role's description, a
-lifecycle phase's help) is shown in two shapes, one per mode:
+lifecycle phase's help) has one shape, **`HelpTip`** (`src/components/HelpTip.tsx`):
+a small `help` icon that shows the text in a tooltip on hover, keyboard focus
+or tap. It renders nothing for empty text, so pass whatever the resolver returns.
 
-- **Read mode — `HelpTip`** (`src/components/HelpTip.tsx`): a small `help` icon
-  beside the label that shows the text in a tooltip on hover, keyboard focus or
-  tap. It renders nothing for empty text, so pass whatever the resolver returns.
-- **Edit mode — `FieldHelp`** (`features/cards/sections/cardDetailUtils.tsx`): a
-  collapsible "Help" link under the control, so the guidance does not cover
-  the field being typed into.
+- **Read mode**: the icon sits beside the label, inside the label's `Typography`.
+- **Edit mode**: the icon sits beside the control. `FieldEditor`
+  (`features/cards/sections/cardDetailUtils.tsx`) places it for every control
+  type, top-aligned with the input's first line, so a form built on
+  `FieldEditor` needs nothing more. Where a read-mode icon stays on screen while
+  editing (the Lifecycle timeline above its date fields), the edit row gets none.
 - **Grids** use AG Grid's native `headerTooltip` on the column with the same text.
 
 ✅ Do
 - Resolve the text with its localizing resolver (`useFieldHelp`,
   `useTypeDescription`, `useLifecyclePhaseHelp`) — never show the English
   column directly.
-- Put the icon inside the label's `Typography`, after the label text.
+- Put the icon after the label text in read mode, beside the control in edit mode.
 
 ❌ Don't
-- Don't hand-roll a `Tooltip` + icon for help text, and don't show both shapes at once.
+- Don't hand-roll a `Tooltip` + icon for help text, don't add a second shape
+  (a collapsible, an always-visible caption), and don't show the same help twice.
 
 ---
 

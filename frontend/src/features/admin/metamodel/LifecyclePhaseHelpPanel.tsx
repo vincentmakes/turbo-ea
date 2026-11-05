@@ -31,7 +31,7 @@ import type { LifecyclePhaseHelp } from "@/types";
 type PhaseHelpResponse = { phases: LifecyclePhaseHelp };
 
 export default function LifecyclePhaseHelpPanel() {
-  const { t } = useTranslation(["admin", "common"]);
+  const { t } = useTranslation("admin");
   const { enabledLocales } = useEnabledLocales();
   // English first, then the other enabled languages in the app's order.
   const locales = useMemo(

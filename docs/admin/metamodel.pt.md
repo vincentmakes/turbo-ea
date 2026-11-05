@@ -65,7 +65,7 @@ Campos definem os atributos personalizados disponíveis nos cards deste tipo. Ca
 | **Rótulo** | Nome de exibição |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Uma porcentagem é um número de 0 a 100, exibida como uma barra de progresso e editada com um controle deslizante ou digitada com exatidão. Um booleano é escolhido numa lista Sim / Não, com **Nenhum** para o limpar, e é exibido como etiqueta verde *Sim* ou azul *Não*, ou como — quando não definido, o que o filtro **(vazio)** do inventário encontra |
 | **Opções** | Para campos de seleção: as escolhas disponíveis com rótulos e cores opcionais. Reordene-as com as setas para cima e para baixo ao lado de cada opção: os menus e os filtros listam as opções nessa ordem, e os chips de um valor de seleção múltipla a seguem em todos os cards. |
-| **Texto de ajuda** | Orientação opcional para o campo. Enquanto um card é lido, aparece como um ícone de informação ao lado do rótulo do campo (passe o cursor ou foque nele para ler o texto) e como dica na linha de cabeçalho da coluna do campo no Inventário; enquanto um card é editado, é uma nota recolhível sob o campo. É escrito por idioma e pode ser definido por qualquer administrador do metamodelo; em um campo fornecido por uma extensão, é somente leitura |
+| **Texto de ajuda** | Orientação opcional para o campo. Enquanto um card é lido, aparece como um ícone de informação ao lado do rótulo do campo (passe o cursor ou foque nele para ler o texto) e como dica na linha de cabeçalho da coluna do campo no Inventário; enquanto um card é editado, o mesmo ícone fica ao lado do campo. É escrito por idioma e pode ser definido por qualquer administrador do metamodelo; em um campo fornecido por uma extensão, é somente leitura |
 | **Obrigatório** | Se o campo é obrigatório — veja as regras de aplicação abaixo |
 | **Qualidade dos dados** | A contribuição de cada campo para a pontuação é gerida no painel **Qualidade dos dados** (ver abaixo) |
 | **Somente leitura** | Impede edição manual (útil para campos calculados) |
@@ -363,7 +363,7 @@ A seção **Ciclo de vida** de cada card percorre cinco fases fixas: Planejament
 
 A aba mostra um campo de texto por fase e uma linha de abas de idioma (primeiro o inglês, depois cada idioma habilitado). Em um espaço de trabalho novo, os campos vêm preenchidos com uma explicação padrão de cada fase em todos os idiomas, de modo que a ajuda existe desde o início; edite qualquer texto para refletir como a sua organização trabalha. Um idioma deixado vazio mostra o texto em inglês. Deixe uma fase vazia para não mostrar ajuda nela – esvaziar as cinco fases e salvar remove a ajuda por completo. Clique em **Salvar** para aplicar os textos.
 
-Os usuários veem a ajuda de uma fase como um ícone de informação ao lado da fase na linha do tempo do ciclo de vida de cada card e, enquanto o ciclo de vida é editado, como uma nota recolhível de **Ajuda** sob a data da fase. Os textos valem para todos os tipos de card. O salvamento é registrado no **Registo de segurança e administração**.
+Os usuários veem a ajuda de uma fase como um ícone de informação ao lado da fase na linha do tempo do ciclo de vida de cada card, que continua visível enquanto o ciclo de vida é editado. Os textos valem para todos os tipos de card. O salvamento é registrado no **Registo de segurança e administração**.
 
 ## Editor de Layout de Card
 

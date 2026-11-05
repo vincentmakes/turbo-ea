@@ -305,11 +305,16 @@ describe("SurveyRespond — current values", () => {
     expect(within(fieldCard("Business Criticality")).getByText(t("surveys.respond.confirmLabel"))).toBeInTheDocument();
     expect(within(fieldCard("Business Criticality")).getByText("Business Information")).toBeInTheDocument();
 
-    // Help is mounted inside a Collapse that stays shut until asked for.
-    const collapse = screen.getByText("The short name people use in meetings.").closest(".MuiCollapse-root");
-    expect(collapse).toHaveClass("MuiCollapse-hidden");
-    await user.click(within(alias).getByRole("button", { name: /help/i }));
-    await waitFor(() => expect(collapse).toHaveClass("MuiCollapse-entered"));
+    // Help is an info icon beside the field's name in its header row, the
+    // same shape as on a card; there is no collapsible Help button.
+    const header = within(alias).getByText("Alias");
+    const icon = within(header).getByTestId("help-tip");
+    expect(icon).toHaveAccessibleName("The short name people use in meetings.");
+    expect(within(alias).queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
+    await user.hover(icon);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "The short name people use in meetings.",
+    );
   });
 });
 

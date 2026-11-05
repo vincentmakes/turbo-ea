@@ -12,7 +12,6 @@ import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import HelpTip from "@/components/HelpTip";
-import { FieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import { useLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePhases";
@@ -368,7 +367,6 @@ function LifecycleSection({
                           : null),
                       }}
                     />
-                    <FieldHelp text={phaseHelp(phase)} />
                     {annotation?.note}
                   </Box>
                 );

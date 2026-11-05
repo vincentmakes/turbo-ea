@@ -98,7 +98,7 @@ Chaque phase dispose d'un **sélecteur de date** pour enregistrer quand le compo
 
 Si une phase est datée après une phase qui devrait la suivre — par exemple **Retrait progressif** après **Fin de vie** —, une icône d'avertissement apparaît à côté de cette date, et le même avertissement s'affiche sous le champ pendant la modification. Ce n'est qu'une indication : les dates peuvent tout de même être enregistrées telles quelles.
 
-Une icône d'information à côté de chaque phase dans la chronologie explique ce que la phase signifie – survolez-la pour lire la définition. Elle affiche une explication par défaut, sauf si votre administrateur l'a modifiée pour décrire l'usage de la phase dans votre organisation, ou l'a supprimée. Pendant la modification, le même texte est une note repliable **Aide** sous la date de la phase. Les textes se définissent sous **Admin → Métamodèle → Phases du cycle de vie** (voir [Phases du cycle de vie](../admin/metamodel.md#lifecycle-phases)).
+Une icône d'information à côté de chaque phase dans la chronologie explique ce que la phase signifie – survolez-la pour lire la définition. Elle affiche une explication par défaut, sauf si votre administrateur l'a modifiée pour décrire l'usage de la phase dans votre organisation, ou l'a supprimée. La chronologie, avec ses icônes, reste affichée pendant la modification des dates. Les textes se définissent sous **Admin → Métamodèle → Phases du cycle de vie** (voir [Phases du cycle de vie](../admin/metamodel.md#lifecycle-phases)).
 
 ### Sections d'attributs personnalisés
 
@@ -114,7 +114,7 @@ Selon le type de fiche, vous verrez des sections supplémentaires avec des **cha
 - **Sélection unique** -- Liste déroulante avec options prédéfinies
 - **Sélection multiple** -- Multi-sélection avec affichage en puces
 
-Lorsque votre administrateur a rédigé un **texte d'aide** pour un champ, une icône d'information apparaît à côté de son libellé : survolez-la (ou atteignez-la au clavier avec la touche Tab) pour lire ce que signifie le champ. Pendant la modification de la section, le même texte est une note repliable **Aide** sous le champ. Dans l'Inventaire, survoler l'en-tête de colonne du champ l'affiche également.
+Lorsque votre administrateur a rédigé un **texte d'aide** pour un champ, une icône d'information apparaît à côté de son libellé : survolez-la (ou atteignez-la au clavier avec la touche Tab) pour lire ce que signifie le champ. Pendant la modification de la section, la même icône se trouve à côté du champ. Dans l'Inventaire, survoler l'en-tête de colonne du champ l'affiche également.
 
 Les champs marqués comme **calculés** affichent un badge et ne peuvent pas être modifiés manuellement -- leurs valeurs sont calculées par des [formules définies par l'administrateur](../admin/calculations.md).
 

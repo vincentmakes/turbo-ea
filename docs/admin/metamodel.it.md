@@ -65,7 +65,7 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select o multiple_select. Una percentuale è un numero da 0 a 100, mostrato come barra di avanzamento e modificato con un cursore o digitato con precisione. Un booleano si sceglie da un elenco Sì / No, con **Nessuno** per svuotarlo, ed è mostrato come etichetta verde *Sì* o blu *No*, oppure come — se non impostato, ciò che il filtro **(vuoto)** dell'inventario trova |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali. Riordinatele con le frecce su e giù accanto a ogni opzione: menu e filtri elencano le opzioni in quell'ordine, e i chip di un valore a scelta multipla lo seguono su ogni card. |
-| **Testo di aiuto** | Indicazioni facoltative per il campo. Durante la lettura di una card compare come icona informativa accanto all'etichetta del campo (passaci sopra il cursore o dagli il focus per leggere il testo) e come tooltip sull'intestazione di colonna del campo nell'Inventario; durante la modifica di una card è una nota comprimibile sotto il campo. Viene scritto per lingua e può essere impostato da qualsiasi amministratore del metamodello; su un campo fornito da un'estensione è di sola lettura |
+| **Testo di aiuto** | Indicazioni facoltative per il campo. Durante la lettura di una card compare come icona informativa accanto all'etichetta del campo (passaci sopra il cursore o dagli il focus per leggere il testo) e come tooltip sull'intestazione di colonna del campo nell'Inventario; durante la modifica di una card la stessa icona è accanto al campo. Viene scritto per lingua e può essere impostato da qualsiasi amministratore del metamodello; su un campo fornito da un'estensione è di sola lettura |
 | **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
@@ -363,7 +363,7 @@ La sezione **Ciclo di vita** di ogni card attraversa cinque fasi fisse: Pianific
 
 La scheda mostra un campo di testo per fase e una riga di schede lingua (prima l'inglese, poi ogni lingua abilitata). In un nuovo spazio di lavoro i campi sono precompilati con una spiegazione predefinita di ogni fase in tutte le lingue, così la guida è disponibile fin dall'inizio; modifica qualsiasi testo in base al funzionamento della tua organizzazione. Una lingua lasciata vuota mostra il testo inglese. Lascia vuota una fase per non mostrare alcuna guida per essa: svuotando tutte e cinque le fasi e salvando, la guida viene rimossa del tutto. Fai clic su **Salva** per applicare i testi.
 
-Gli utenti vedono la guida di una fase come icona informativa accanto alla fase nella timeline del ciclo di vita di ogni card e, durante la modifica del ciclo di vita, come nota comprimibile **Aiuto** sotto la data della fase. I testi valgono per tutti i tipi di card. Il salvataggio viene registrato nel **Registro di sicurezza e amministrazione**.
+Gli utenti vedono la guida di una fase come icona informativa accanto alla fase nella timeline del ciclo di vita di ogni card, che resta visibile durante la modifica del ciclo di vita. I testi valgono per tutti i tipi di card. Il salvataggio viene registrato nel **Registro di sicurezza e amministrazione**.
 
 ## Editor layout card
 

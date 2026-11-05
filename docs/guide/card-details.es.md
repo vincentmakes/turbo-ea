@@ -100,7 +100,7 @@ Cada fase tiene un **selector de fecha** para registrar cuándo el componente en
 
 Si una fase tiene una fecha posterior a la de una fase que debería seguirla —por ejemplo, **Fase de Salida** después de **Fin de Vida**—, aparece un icono de advertencia junto a esa fecha, y la misma advertencia se muestra bajo el campo durante la edición. Es solo un aviso: las fechas se pueden guardar igualmente tal como se introdujeron.
 
-Un icono de información junto a cada fase en la línea de tiempo explica qué significa la fase: pase el cursor sobre él para leer la definición. Muestra una explicación predeterminada, salvo que su administrador la haya cambiado para describir cómo su organización usa la fase, o la haya eliminado. Al editar, el mismo texto es una nota plegable de **Ayuda** bajo la fecha de la fase. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+Un icono de información junto a cada fase en la línea de tiempo explica qué significa la fase: pase el cursor sobre él para leer la definición. Muestra una explicación predeterminada, salvo que su administrador la haya cambiado para describir cómo su organización usa la fase, o la haya eliminado. La línea de tiempo, con sus iconos, sigue visible mientras edita las fechas. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
 
 ### Secciones de Atributos Personalizados
 
@@ -116,7 +116,7 @@ Dependiendo del tipo de ficha, verá secciones adicionales con **campos personal
 - **Selección única** — Desplegable con opciones predefinidas
 - **Selección múltiple** — Selección múltiple con visualización de chips
 
-Cuando su administrador ha redactado un **texto de ayuda** para un campo, aparece un icono de información junto a su etiqueta: pase el cursor sobre él (o llegue a él con el teclado mediante la tecla Tab) para leer qué significa el campo. Mientras edita la sección, el mismo texto es una nota plegable de **Ayuda** bajo el campo. En el Inventario, al pasar el cursor sobre el encabezado de columna del campo también se muestra.
+Cuando su administrador ha redactado un **texto de ayuda** para un campo, aparece un icono de información junto a su etiqueta: pase el cursor sobre él (o llegue a él con el teclado mediante la tecla Tab) para leer qué significa el campo. Mientras edita la sección, el mismo icono está junto al campo. En el Inventario, al pasar el cursor sobre el encabezado de columna del campo también se muestra.
 
 Los campos marcados como **calculados** muestran una insignia y no pueden editarse manualmente — sus valores son calculados por [fórmulas definidas por el administrador](../admin/calculations.es.md).
 

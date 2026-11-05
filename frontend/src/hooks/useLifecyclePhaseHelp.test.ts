@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 
 vi.mock("@/api/client", () => ({ api: { get: vi.fn() } }));
@@ -7,6 +8,7 @@ import { api } from "@/api/client";
 import i18n from "@/i18n";
 import {
   invalidateLifecyclePhaseHelp,
+  lifecyclePhaseHelpListenerCount,
   phaseHelpText,
   resetLifecyclePhaseHelp,
   useLifecyclePhaseHelp,
@@ -129,5 +131,35 @@ describe("useLifecyclePhaseHelp", () => {
     const again = renderHook(() => useLifecyclePhaseHelp());
     await waitFor(() => expect(again.result.current.phaseHelp("phaseOut")).toBe("Being replaced."));
     expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("picks up a value primed between the first render and its effect", () => {
+    // The earlier effect runs before the hook's own: the cache is filled after
+    // the hook read it for its initial state but before it subscribed.
+    const { result } = renderHook(() => {
+      useEffect(() => {
+        invalidateLifecyclePhaseHelp(HELP);
+      }, []);
+      return useLifecyclePhaseHelp();
+    });
+    expect(result.current.help).toEqual(HELP);
+    expect(api.get).not.toHaveBeenCalled();
+  });
+
+  it("stops listening once unmounted", () => {
+    invalidateLifecyclePhaseHelp({});
+    const before = lifecyclePhaseHelpListenerCount();
+    const { unmount } = renderHook(() => useLifecyclePhaseHelp());
+    expect(lifecyclePhaseHelpListenerCount()).toBe(before + 1);
+    unmount();
+    expect(lifecyclePhaseHelpListenerCount()).toBe(before);
+  });
+
+  it("survives a client that resolves with nothing", async () => {
+    vi.mocked(api.get).mockResolvedValueOnce(undefined);
+    const { result } = renderHook(() => useLifecyclePhaseHelp());
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(result.current.help).toEqual({});
   });
 });

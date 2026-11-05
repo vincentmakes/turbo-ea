@@ -371,4 +371,22 @@ describe("StakeholdersTab — role descriptions", () => {
       await i18n.changeLanguage("en");
     }
   });
+
+  it("names an empty role group in lower case", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    expect(await screen.findByText("No responsible assigned")).toBeInTheDocument();
+    expect(screen.getByText("No contract owner assigned")).toBeInTheDocument();
+  });
+
+  it("shows the picked role's label in the picker and only the label for a role without description", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: /add stakeholder/i }));
+    const roleInput = screen.getByLabelText(/^role$/i);
+    await userEvent.click(roleInput);
+    expect(await screen.findByRole("option", { name: /^observer$/i })).toHaveTextContent(
+      /^Observer$/,
+    );
+    await userEvent.click(screen.getByRole("option", { name: /contract owner/i }));
+    expect(roleInput).toHaveValue("Contract Owner");
+  });
 });

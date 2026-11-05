@@ -106,4 +106,16 @@ describe("useTypeDescription", () => {
     const { result: en } = renderHook(() => useTypeDescription());
     expect(en.current(ROLE)).toBe("Signs the vendor contract.");
   });
+
+  it("re-binds a mounted hook when the language changes", async () => {
+    const { result } = renderHook(() => useTypeDescription());
+    expect(result.current(ROLE)).toBe("Signs the vendor contract.");
+    await act(async () => {
+      await i18n.changeLanguage("de");
+    });
+    expect(result.current(ROLE)).toBe("Unterschreibt den Vertrag.");
+    await act(async () => {
+      await i18n.changeLanguage("en");
+    });
+  });
 });

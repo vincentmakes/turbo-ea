@@ -683,4 +683,53 @@ describe("TranslationDialog — stakeholder role descriptions", () => {
     await waitFor(() => expect(onSave).toHaveBeenCalled());
     expect(rolePatch("owner")).not.toHaveProperty("description");
   });
+
+  it("gives a blank, whitespace-only or null description no row", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/metamodel/types/Application/stakeholder-roles"
+        ? [
+            { key: "blank", label: "Blank", description: "   " },
+            { key: "spaces", label: "Spaces", translations: { description: { de: "  " } } },
+            { key: "nulled", label: "Nulled", translations: { description: { de: null } } },
+          ]
+        : [],
+    );
+    renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    for (const label of ["Blank", "Spaces", "Nulled"]) {
+      expect(await screen.findByText(label)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Description")).not.toBeInTheDocument();
+    // 4 strings: the type label and three role labels — no description rows.
+    expect(screen.getByRole("tab", { name: /Deutsch/ })).toHaveTextContent("1/4");
+  });
+
+  it("shows an empty reference for a description that exists only in a translation", async () => {
+    renderDialog({ cardType: PLAIN_TYPE });
+    await screen.findByText("Stakeholder Roles");
+    await waitFor(() => expect(screen.getAllByText("Description")).toHaveLength(2));
+    const placeholders = Array.from(
+      document.querySelectorAll<HTMLTextAreaElement>("textarea:not([aria-hidden])"),
+    ).map((el) => el.getAttribute("placeholder"));
+    expect(placeholders).toEqual(["Accountable for the card.", ""]);
+  });
+
+  it("does not count a whitespace-only description translation as filled", async () => {
+    vi.mocked(api.get).mockImplementation(async (path: string) =>
+      path === "/metamodel/types/Application/stakeholder-roles"
+        ? [
+            {
+              key: "owner",
+              label: "Owner",
+              description: "Accountable.",
+              translations: { description: { de: "   " } },
+            },
+          ]
+        : [],
+    );
+    renderDialog({ cardType: PLAIN_TYPE });
+    // 3 strings: the type label, the role label and its description.
+    const de = await screen.findByRole("tab", { name: /Deutsch/ });
+    await waitFor(() => expect(de).toHaveTextContent("1/3"));
+  });
 });

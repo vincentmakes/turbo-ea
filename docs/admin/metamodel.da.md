@@ -64,7 +64,7 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 | **Etiket** | Visningsnavn |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist. En boolean vælges fra en Ja/Nej-liste med **Ingen** til at rydde den og vises som en grøn *Ja*- eller blå *Nej*-mærkat, eller som — når den ikke er angivet, hvilket inventarets filter **(tom)** finder |
 | **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver. Ændr rækkefølgen med pilene op og ned ud for hver valgmulighed: menuer og filtre viser valgmulighederne i den rækkefølge, og chips for en flervalgsværdi følger den på alle kort. |
-| **Hjælpetekst** | Valgfri vejledning til feltet. Mens et kort læses, vises den som et infoikon ved siden af feltets etiket (hold musen over eller sæt fokus på det for at læse teksten) og som et værktøjstip på feltets kolonneoverskrift i Lageret; mens et kort redigeres, er den en sammenklappelig note under feltet. Den skrives pr. sprog og kan angives af enhver metamodel-administrator; på et felt, som en udvidelse har bidraget med, er den skrivebeskyttet |
+| **Hjælpetekst** | Valgfri vejledning til feltet. Mens et kort læses, vises den som et infoikon ved siden af feltets etiket (hold musen over eller sæt fokus på det for at læse teksten) og som et værktøjstip på feltets kolonneoverskrift i Lageret; mens et kort redigeres, sidder det samme ikon ved siden af feltet. Den skrives pr. sprog og kan angives af enhver metamodel-administrator; på et felt, som en udvidelse har bidraget med, er den skrivebeskyttet |
 | **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
 | **Skrivebeskyttet** | Forhindrer manuel redigering (nyttigt for beregnede felter) |
@@ -362,7 +362,7 @@ Sektionen **Livscyklus** på hvert kort gennemløber fem faste faser: Planlagt, 
 
 Fanen viser ét tekstfelt pr. fase og en række sprogfaner (engelsk først, derefter hvert aktiveret sprog). I et nyt arbejdsområde er felterne forudfyldt med en standardforklaring af hver fase på alle sprog, så hjælpen er der fra start; ret en hvilken som helst tekst til, så den passer til, hvordan din organisation arbejder. Et sprog, der står tomt, viser den engelske tekst. Lad en fase stå tom for ikke at vise hjælp til den – hvis du tømmer alle fem faser og gemmer, fjernes hjælpen helt. Klik på **Gem** for at anvende teksterne.
 
-Brugerne ser en fases hjælp som et infoikon ved siden af fasen på livscyklustidslinjen på hvert kort og som en sammenklappelig **Hjælp**-note under fasens dato, mens livscyklussen redigeres. Teksterne gælder for alle korttyper. Gemningen registreres i **Sikkerheds- og administrationsloggen**.
+Brugerne ser en fases hjælp som et infoikon ved siden af fasen på livscyklustidslinjen på hvert kort, som forbliver synligt, mens livscyklussen redigeres. Teksterne gælder for alle korttyper. Gemningen registreres i **Sikkerheds- og administrationsloggen**.
 
 ## Kortlayout-editor
 

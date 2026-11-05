@@ -1,10 +1,10 @@
 /**
- * Read-mode help: a small info icon beside a label that shows the help text
- * on hover, focus or touch.
+ * Admin-written help: a small info icon that shows the help text on hover,
+ * focus or touch. It is the one shape help takes, beside a label while a card
+ * is read and beside the control while it is edited (`FieldEditor`).
  *
- * The edit-mode counterpart is `FieldHelp` (a collapsible under the control,
- * `features/cards/sections/cardDetailUtils.tsx`). Renders nothing when the
- * text is empty, so a call site can pass whatever its resolver returns.
+ * Renders nothing when the text is empty, so a call site can pass whatever
+ * its resolver returns.
  * The text is free text an admin typed, so it goes through `LinkifiedText`;
  * the tooltip is interactive, so a link inside it can be clicked.
  */

@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import LinkifiedText from "@/components/LinkifiedText";
 import Chip from "@mui/material/Chip";
-import Collapse from "@mui/material/Collapse";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Checkbox from "@mui/material/Checkbox";
@@ -23,6 +22,7 @@ import type { CurrencyFormatter } from "@/hooks/useCurrency";
 import { readableTextColor, readableTypeColor } from "@/lib/color";
 import { OptionChip, chipWidthForField } from "@/components/OptionChip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import HelpTip from "@/components/HelpTip";
 import { useFieldLabel, useOptionLabel } from "@/hooks/useResolveLabel";
 import { ExtensionBoundary, useExtensionFieldTypes } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
@@ -142,51 +142,6 @@ export function useFieldHelp(): (field: FieldDef) => string {
   return useCallback(
     (field: FieldDef) => (field.helpTranslations?.[locale] as string) || field.help || "",
     [locale],
-  );
-}
-
-/** Collapsible guidance rendered under a field during data entry. */
-export function FieldHelp({ text }: { text: string }) {
-  const { t } = useTranslation(["cards", "common"]);
-  const [open, setOpen] = useState(false);
-  if (!text) return null;
-  return (
-    <Box sx={{ mt: 0.25 }}>
-      <Box
-        component="button"
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        sx={{
-          all: "unset",
-          cursor: "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.25,
-          color: "primary.main",
-        }}
-      >
-        <MaterialSymbol icon="help" size={14} />
-        {/* The hover underline belongs to the caption alone: set on the button
-            it ran under the question mark and the chevron too. */}
-        <Typography
-          variant="caption"
-          component="span"
-          sx={{ "button:hover > &": { textDecoration: "underline" } }}
-        >
-          {t("cards:utils.fieldHelp")}
-        </Typography>
-        <MaterialSymbol icon={open ? "expand_less" : "expand_more"} size={14} />
-      </Box>
-      <Collapse in={open}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: "block", mt: 0.25, whiteSpace: "pre-wrap" }}
-        >
-          <LinkifiedText text={text} />
-        </Typography>
-      </Collapse>
-    </Box>
   );
 }
 
@@ -762,10 +717,19 @@ export function FieldEditor({
     }
   })();
 
+  // The help icon sits beside the control, the same shape as in read mode.
+  // The control keeps the column wrapper it always had, so it still stretches
+  // to the row's width; the icon's top padding centres the 14 px icon on the
+  // first line of a 40 px `size="small"` input ((40 - 14) / 2 = 13 px), which
+  // also lines it up with the first line of a multiline field or chip box.
   return (
-    <Box sx={{ display: "flex", flexDirection: "column" }}>
-      {control}
-      <FieldHelp text={help} />
+    <Box sx={{ display: "flex", alignItems: "flex-start" }}>
+      <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>{control}</Box>
+      {help && (
+        <Box sx={{ pt: "13px", flexShrink: 0, lineHeight: 0 }}>
+          <HelpTip text={help} />
+        </Box>
+      )}
     </Box>
   );
 }

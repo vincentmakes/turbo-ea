@@ -67,10 +67,21 @@ describe("custom field type rendering", () => {
   });
 });
 
-describe("collapsible field help", () => {
+describe("field help icon beside an editable control", () => {
   beforeEach(() => resetExtensionHost());
 
-  it("renders help toggle and guidance under an editable field", () => {
+  // The control sits in its own column wrapper; the icon is that wrapper's
+  // sibling, so it renders beside the control, not under it.
+  function iconBesideControl(control: HTMLElement): HTMLElement {
+    const icon = screen.getByTestId("help-tip");
+    const row = icon.parentElement!.parentElement!;
+    const controlWrapper = row.firstElementChild as HTMLElement;
+    expect(controlWrapper).toContainElement(control);
+    expect(controlWrapper).not.toContainElement(icon);
+    return icon;
+  }
+
+  it("renders the icon beside a text field, named by the help text", () => {
     render(
       <FieldEditor
         field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
@@ -78,13 +89,12 @@ describe("collapsible field help", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByText("Help")).toBeInTheDocument();
-    // Toggling does not throw and the guidance is present in the DOM.
-    fireEvent.click(screen.getByText("Help"));
-    expect(screen.getByText("Enter the legal name.")).toBeInTheDocument();
+    const icon = iconBesideControl(screen.getByRole("textbox"));
+    expect(icon).toHaveAccessibleName("Enter the legal name.");
+    expect(screen.queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
   });
 
-  it("opens and closes the guidance from the toggle", () => {
+  it("shows the help in a tooltip on hover", async () => {
     // fireEvent, not userEvent.setup(): setup() replaces navigator.clipboard
     // with a getter-only stub, which breaks the CardIdPill copy test below.
     render(
@@ -94,57 +104,59 @@ describe("collapsible field help", () => {
         onChange={() => {}}
       />,
     );
-    const toggle = screen.getByRole("button", { name: /Help/ });
-    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
-    fireEvent.click(toggle);
-    expect(within(toggle).getByText("expand_less")).toBeInTheDocument();
-    expect(screen.getByText("Enter the legal name.")).toBeVisible();
-    fireEvent.click(toggle);
-    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
+    fireEvent.mouseOver(screen.getByTestId("help-tip"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Enter the legal name.");
   });
 
-  it("underlines only the caption on hover, never the icons", () => {
+  it("prefers the localised help over the base text", () => {
     render(
       <FieldEditor
-        field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
+        field={{
+          key: "name",
+          label: "Name",
+          type: "text",
+          help: "Base help.",
+          helpTranslations: { en: "Localised help." },
+        }}
         value=""
         onChange={() => {}}
       />,
     );
-    const toggle = screen.getByRole("button", { name: /Help/ });
-    const caption = within(toggle).getByText("Help");
-    const icons = [within(toggle).getByText("help"), within(toggle).getByText("expand_more")];
-    // The caption is its own element, a direct child of the button, which is
-    // what the `button:hover > &` rule needs; the icons are its siblings.
-    expect(caption.parentElement).toBe(toggle);
-    for (const icon of icons) expect(icon.parentElement).toBe(toggle);
-
-    // Emotion injects each rule as text; read them back.
-    const css = Array.from(document.querySelectorAll("style"))
-      .map((el) => el.textContent ?? "")
-      .join("\n");
-    const rulesFor = (el: Element) =>
-      Array.from(el.classList)
-        .filter((c) => c.startsWith("css-"))
-        .flatMap((c) => css.split("}").filter((rule) => rule.includes(`.${c}`)));
-    const captionRules = rulesFor(caption);
-    expect(
-      captionRules.some((r) => /button:hover\s*>\s*\.css-/.test(r) && /text-decoration:\s*underline/.test(r)),
-    ).toBe(true);
-    // The button itself carries no underline any more, so nothing under the
-    // icons can inherit one.
-    expect(rulesFor(toggle).some((r) => /underline/.test(r))).toBe(false);
-    for (const icon of icons) {
-      expect(rulesFor(icon).some((r) => /underline/.test(r))).toBe(false);
-      expect((icon as HTMLElement).style.textDecoration).toBe("");
-    }
+    expect(screen.getByTestId("help-tip")).toHaveAccessibleName("Localised help.");
   });
 
-  it("shows no help affordance when the field has none", () => {
+  it("renders the icon beside a select and a boolean control too", () => {
+    const { unmount } = render(
+      <FieldEditor
+        field={{
+          key: "tier",
+          label: "Tier",
+          type: "single_select",
+          options: [{ key: "gold", label: "Gold" }],
+          help: "Service tier.",
+        }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    expect(iconBesideControl(screen.getByRole("combobox"))).toHaveAccessibleName("Service tier.");
+    unmount();
+
+    render(
+      <FieldEditor
+        field={{ key: "sox", label: "SOX", type: "boolean", help: "In SOX scope." }}
+        value={null}
+        onChange={() => {}}
+      />,
+    );
+    expect(iconBesideControl(screen.getByRole("combobox"))).toHaveAccessibleName("In SOX scope.");
+  });
+
+  it("shows no icon when the field has no help", () => {
     render(
       <FieldEditor field={{ key: "name", label: "Name", type: "text" }} value="" onChange={() => {}} />,
     );
-    expect(screen.queryByText("Help")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
   });
 });
 

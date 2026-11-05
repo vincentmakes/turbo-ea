@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Admin → Metamodel → Lifecycle phases lets administrators explain what each lifecycle phase means in their organisation, per language; the text appears as an info icon beside the phase on every card's Lifecycle section ([#1351](https://github.com/vincentmakes/turbo-ea/discussions/1351)).
 - Each lifecycle phase comes with a default explanation in every language; administrators can edit or clear it under Admin → Metamodel → Lifecycle phases.
 
+### Changed
+- The collapsible **Help** note under a field while editing a card or answering a survey is replaced by the same info icon shown beside the field when reading, so help looks and works the same in both modes.
+
 ### Fixed
 - Role names in My roles, the stakeholder hover card and the stakeholder directory now follow the user's language.
 

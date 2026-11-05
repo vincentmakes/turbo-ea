@@ -2484,6 +2484,31 @@ describe("InventoryPage header help", () => {
     expect(tooltip("stakeholder_observer")).toBeUndefined();
   });
 
+  it("puts a common field's help in the header tooltip when several types are selected", async () => {
+    // Two types sharing the same fields: the grid shows their common fields.
+    const both = [
+      HELP_TYPES[0],
+      { ...MOCK_TYPES[1], fields_schema: HELP_TYPES[0].fields_schema },
+    ];
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: both,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => both.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application", "Objective"] } }),
+    );
+    renderInventory();
+    await waitFor(() => expect(col("attr_hosting")).toBeDefined());
+    expect(tooltip("attr_hosting")).toBe("Where the application runs");
+    expect(col("attr_vendor")).toBeDefined();
+    expect(tooltip("attr_vendor")).toBeUndefined();
+  });
+
   it("uses the field's localized help", async () => {
     await i18n.changeLanguage("de");
     try {
