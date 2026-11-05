@@ -68,21 +68,105 @@ describe("custom field type rendering", () => {
   });
 });
 
-describe("field help icon beside an editable control", () => {
+describe("field help icon in an editable control's label", () => {
   beforeEach(() => resetExtensionHost());
 
-  // The control sits in its own column wrapper; the icon is that wrapper's
-  // sibling, so it renders beside the control, not under it.
-  function iconBesideControl(control: HTMLElement): HTMLElement {
+  // MUI renders an outlined control's label twice: the visible <label> and a
+  // copy in the border's <legend> that only sizes the gap. The icon belongs in
+  // the first and must not be in the second (an invisible tab stop).
+  function iconInLabel(container: HTMLElement): HTMLElement {
     const icon = screen.getByTestId("help-tip");
-    const row = icon.parentElement!.parentElement!;
-    const controlWrapper = row.firstElementChild as HTMLElement;
-    expect(controlWrapper).toContainElement(control);
-    expect(controlWrapper).not.toContainElement(icon);
+    expect(icon.closest("label")).not.toBeNull();
+    expect(icon.closest("legend")).toBeNull();
+    const legend = container.querySelector("legend");
+    expect(legend).not.toBeNull();
+    expect(within(legend as HTMLElement).queryByTestId("help-tip")).toBeNull();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
     return icon;
   }
 
-  it("renders the icon beside a text field, named by the help text", () => {
+  const options = [{ key: "gold", label: "Gold" }];
+  const cases: { name: string; field: FieldDef; value: unknown; labelText: string }[] = [
+    { name: "text", field: { key: "f", label: "Name", type: "text" }, value: "", labelText: "Name" },
+    {
+      name: "multiline text",
+      field: { key: "f", label: "Notes", type: "multiline_text" },
+      value: "",
+      labelText: "Notes",
+    },
+    { name: "number", field: { key: "f", label: "Users", type: "number" }, value: 3, labelText: "Users" },
+    { name: "cost", field: { key: "f", label: "Budget", type: "cost" }, value: 10, labelText: "Budget" },
+    { name: "url", field: { key: "f", label: "Site", type: "url" }, value: "", labelText: "Site" },
+    { name: "date", field: { key: "f", label: "Go-live", type: "date" }, value: "", labelText: "Go-live" },
+    {
+      name: "single select",
+      field: { key: "f", label: "Tier", type: "single_select", options },
+      value: "",
+      labelText: "Tier",
+    },
+    {
+      name: "multiple select",
+      field: { key: "f", label: "Regions", type: "multiple_select", options },
+      value: [],
+      labelText: "Regions",
+    },
+    { name: "boolean", field: { key: "f", label: "SOX", type: "boolean" }, value: null, labelText: "SOX" },
+    {
+      name: "percentage",
+      field: { key: "f", label: "Coverage", type: "percentage" },
+      value: 40,
+      labelText: "Coverage",
+    },
+  ];
+
+  it.each(cases)("puts the icon in the $name field's label, not its notch", ({ field, value, labelText }) => {
+    const { container } = render(
+      <FieldEditor field={{ ...field, help: "Admin help." }} value={value} onChange={() => {}} />,
+    );
+    const icon = iconInLabel(container);
+    expect(icon).toHaveAccessibleName("Admin help.");
+    expect(icon.closest("label")).toHaveTextContent(labelText);
+    // The notch still carries the label text, plus a spacer for the icon.
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent(labelText);
+    expect(legend.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    // Sized for a scaled floating label, not the read-mode 14 px.
+    expect(icon.querySelector(".material-symbols-outlined")).toHaveStyle({ fontSize: "18px" });
+  });
+
+  it.each(cases)("shows no icon and no spacer on a $name field without help", ({ field, value, labelText }) => {
+    const { container } = render(<FieldEditor field={field} value={value} onChange={() => {}} />);
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent(labelText);
+    expect(legend.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("puts the icon in the restricted cost field's label too", () => {
+    const { container } = render(
+      <FieldEditor
+        field={{ key: "f", label: "Budget", type: "cost", help: "Admin help." }}
+        value={10}
+        onChange={() => {}}
+        canViewCosts={false}
+      />,
+    );
+    expect(iconInLabel(container)).toHaveAccessibleName("Admin help.");
+  });
+
+  it("keeps the cost field's currency adornment beside the notch label", () => {
+    render(
+      <FieldEditor
+        field={{ key: "f", label: "Budget", type: "cost", help: "Admin help." }}
+        value={10}
+        onChange={() => {}}
+        currencySymbol="€"
+      />,
+    );
+    expect(screen.getByText("€")).toBeInTheDocument();
+  });
+
+  it("names the icon by the help text and adds no help button", () => {
     render(
       <FieldEditor
         field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
@@ -90,8 +174,8 @@ describe("field help icon beside an editable control", () => {
         onChange={() => {}}
       />,
     );
-    const icon = iconBesideControl(screen.getByRole("textbox"));
-    expect(icon).toHaveAccessibleName("Enter the legal name.");
+    expect(screen.getByTestId("help-tip")).toHaveAccessibleName("Enter the legal name.");
+    expect(screen.getByRole("textbox")).toHaveAccessibleName(/Name/);
     expect(screen.queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
   });
 
@@ -153,38 +237,40 @@ describe("field help icon beside an editable control", () => {
     }
   });
 
-  it("renders the icon beside a select and a boolean control too", () => {
-    const { unmount } = render(
+  it("keeps the icon beside an extension's own editor, at the default size", () => {
+    registerRating();
+    render(
+      <FieldEditor field={{ ...ratingField, help: "Rate it." }} value={3} onChange={() => {}} />,
+    );
+    const icon = screen.getByTestId("help-tip");
+    expect(icon).toHaveAccessibleName("Rate it.");
+    expect(icon.closest("label")).toBeNull();
+    // The editor sits in its own column wrapper; the icon is that wrapper's
+    // sibling, so it renders beside the editor.
+    const row = icon.parentElement!.parentElement!;
+    const editorWrapper = row.firstElementChild as HTMLElement;
+    expect(editorWrapper).toContainElement(screen.getByText("editor-3"));
+    expect(editorWrapper).not.toContainElement(icon);
+    expect(icon.querySelector(".material-symbols-outlined")).toHaveStyle({ fontSize: "14px" });
+  });
+
+  it("shows no icon beside an extension's editor without help", () => {
+    registerRating();
+    render(<FieldEditor field={ratingField} value={3} onChange={() => {}} />);
+    expect(screen.getByText("editor-3")).toBeInTheDocument();
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
+  });
+
+  it("orders a required field's label as text, icon, asterisk", () => {
+    render(
       <FieldEditor
-        field={{
-          key: "tier",
-          label: "Tier",
-          type: "single_select",
-          options: [{ key: "gold", label: "Gold" }],
-          help: "Service tier.",
-        }}
+        field={{ key: "name", label: "Name", type: "text", required: true, help: "Admin help." }}
         value=""
         onChange={() => {}}
       />,
     );
-    expect(iconBesideControl(screen.getByRole("combobox"))).toHaveAccessibleName("Service tier.");
-    unmount();
-
-    render(
-      <FieldEditor
-        field={{ key: "sox", label: "SOX", type: "boolean", help: "In SOX scope." }}
-        value={null}
-        onChange={() => {}}
-      />,
-    );
-    expect(iconBesideControl(screen.getByRole("combobox"))).toHaveAccessibleName("In SOX scope.");
-  });
-
-  it("shows no icon when the field has no help", () => {
-    render(
-      <FieldEditor field={{ key: "name", label: "Name", type: "text" }} value="" onChange={() => {}} />,
-    );
-    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
+    const label = screen.getByTestId("help-tip").closest("label") as HTMLElement;
+    expect(label.textContent).toMatch(/^Name.*help.*\*$/);
   });
 });
 

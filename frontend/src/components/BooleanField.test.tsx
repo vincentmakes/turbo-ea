@@ -146,4 +146,34 @@ describe("BooleanField", () => {
     renderField(true, { disabled: true });
     expect(screen.getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
   });
+
+  it("renders a label adornment in the label, with a spacer in the notch instead", () => {
+    const { container } = renderField(null, {
+      labelAdornment: <span data-testid="adornment" tabIndex={0} />,
+    });
+    const adornment = screen.getByTestId("adornment");
+    expect(inputLabel(container)).toContainElement(adornment);
+    expect(inputLabel(container)).toHaveTextContent("Commercial");
+    expect(screen.getAllByTestId("adornment")).toHaveLength(1);
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent("Commercial");
+    expect(legend.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(within(legend).queryByTestId("adornment")).toBeNull();
+  });
+
+  it("keeps the plain label and notch without an adornment", () => {
+    const { container } = renderField(null);
+    expect(inputLabel(container).textContent).toBe("Commercial");
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend.textContent).toBe("Commercial");
+    expect(legend.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("renders no label or notch text when unlabelled, even with an adornment", () => {
+    const { container } = render(
+      <BooleanField value={null} onChange={() => {}} labelAdornment={<span data-testid="adornment" />} />,
+    );
+    expect(container.querySelector("label")).toBeNull();
+    expect(screen.queryByTestId("adornment")).toBeNull();
+  });
 });

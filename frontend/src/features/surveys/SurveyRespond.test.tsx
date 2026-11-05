@@ -336,7 +336,10 @@ describe("SurveyRespond — current values", () => {
       help: "Base help.",
       helpTranslations: { en: "Translated help" },
     };
-    mockApi.on("get", RESPOND_PATH, formWith([ALIAS, lifecycleWithHelp, translated]));
+    // GO_LIVE is an attribute field with neither help nor helpTranslations.
+    expect(GO_LIVE.help).toBeUndefined();
+    expect(GO_LIVE.helpTranslations).toBeUndefined();
+    mockApi.on("get", RESPOND_PATH, formWith([ALIAS, lifecycleWithHelp, translated, GO_LIVE]));
     renderPage();
     await screen.findByText("Q3 Application Review");
 
@@ -355,6 +358,8 @@ describe("SurveyRespond — current values", () => {
       "Translated help",
     );
     expect(screen.queryByLabelText("Lifecycle help that must not show.")).not.toBeInTheDocument();
+    // An attribute field with no help at all shows no icon.
+    expect(within(fieldCard("Go-Live Date")).queryByTestId("help-tip")).not.toBeInTheDocument();
   });
 });
 

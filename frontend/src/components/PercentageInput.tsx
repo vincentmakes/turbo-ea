@@ -18,20 +18,29 @@
  * not propagated: the box shows the error state and the last good value
  * stands, mirroring the server-side 422.
  *
- * Leaf module (MUI only) so it can be re-exported on the extension UI SDK.
+ * Leaf module (MUI and the leaf `HelpTip` only) so it can be re-exported on
+ * the extension UI SDK.
  * The theme owns label placement (UI_GUIDELINES §3.5); nothing is pinned here.
+ *
+ * `labelAdornment` (the field's help icon in card detail) renders after the
+ * label text in the box's visible label only; the notch label in the border's
+ * `<legend>` gets a spacer of the icon's width instead (UI_GUIDELINES §3.17).
+ * The slider keeps the plain `label` string as its accessible name.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import InputAdornment from "@mui/material/InputAdornment";
 import Slider from "@mui/material/Slider";
 import TextField from "@mui/material/TextField";
+import { HelpTipNotchSpacer } from "@/components/HelpTip";
 
 export interface PercentageInputProps {
   value: unknown;
   onChange: (value: number | undefined) => void;
   label?: string;
+  /** Rendered after the label text in the box's visible label (not in the notch). */
+  labelAdornment?: ReactNode;
   required?: boolean;
   error?: string;
   disabled?: boolean;
@@ -73,6 +82,7 @@ export function PercentageInput({
   value,
   onChange,
   label,
+  labelAdornment,
   required,
   error,
   disabled,
@@ -127,7 +137,16 @@ export function PercentageInput({
         name={name}
         size={size}
         type="number"
-        label={label}
+        label={
+          labelAdornment ? (
+            <>
+              {label}
+              {labelAdornment}
+            </>
+          ) : (
+            label
+          )
+        }
         required={required}
         disabled={disabled}
         value={text}
@@ -136,7 +155,20 @@ export function PercentageInput({
         helperText={error}
         slotProps={{
           htmlInput: { min: 0, max: 100, step: "any", inputMode: "decimal" },
-          input: { endAdornment: <InputAdornment position="end">%</InputAdornment> },
+          input: {
+            endAdornment: <InputAdornment position="end">%</InputAdornment>,
+            // The notch copy of the label gets a spacer, never the icon.
+            ...(labelAdornment
+              ? {
+                  label: (
+                    <>
+                      {label}
+                      <HelpTipNotchSpacer />
+                    </>
+                  ),
+                }
+              : {}),
+          },
         }}
         sx={{ width: 120, flexShrink: 0 }}
       />
