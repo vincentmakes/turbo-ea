@@ -82,16 +82,19 @@ export function useLifecyclePhaseHelp() {
   const locale = i18n.language;
   const [help, setHelp] = useState<LifecyclePhaseHelp>(_cache ?? EMPTY);
 
-  useEffect(() => {
-    _listeners.add(setHelp);
-    // A value primed between the first render and this effect.
-    if (_cache !== null) setHelp(_cache);
-    else void _fetchOnce();
-    return () => {
-      _listeners.delete(setHelp);
-    };
+  useEffect(
+    () => {
+      _listeners.add(setHelp);
+      // A value primed between the first render and this effect.
+      if (_cache !== null) setHelp(_cache);
+      else void _fetchOnce();
+      return () => {
+        _listeners.delete(setHelp);
+      };
+    },
     // Stryker disable next-line ArrayDeclaration: a constant dependency never changes between renders, so `[]` and `["…"]` both run the effect exactly once.
-  }, []);
+    [],
+  );
 
   const phaseHelp = useCallback(
     (phase: string) => phaseHelpText(help, phase, locale),

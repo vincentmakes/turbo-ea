@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ vi.mock("@/api/client", () => ({
   ApiError: class extends Error {},
 }));
 
+import i18n from "@/i18n";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
 import { BOOLEAN_COLORS, STATUS_COLORS } from "@/theme/tokens";
@@ -123,6 +124,33 @@ describe("field help icon beside an editable control", () => {
       />,
     );
     expect(screen.getByTestId("help-tip")).toHaveAccessibleName("Localised help.");
+  });
+
+  it("follows a language change while mounted", async () => {
+    render(
+      <FieldEditor
+        field={{
+          key: "name",
+          label: "Name",
+          type: "text",
+          help: "English help",
+          helpTranslations: { en: "English help", de: "Deutsche Hilfe" },
+        }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    try {
+      expect(screen.getByTestId("help-tip")).toHaveAttribute("aria-label", "English help");
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      expect(screen.getByTestId("help-tip")).toHaveAttribute("aria-label", "Deutsche Hilfe");
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
+    }
   });
 
   it("renders the icon beside a select and a boolean control too", () => {

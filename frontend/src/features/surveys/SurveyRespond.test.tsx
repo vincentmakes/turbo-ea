@@ -310,11 +310,51 @@ describe("SurveyRespond — current values", () => {
     const header = within(alias).getByText("Alias");
     const icon = within(header).getByTestId("help-tip");
     expect(icon).toHaveAccessibleName("The short name people use in meetings.");
+    expect(icon).toHaveAttribute("aria-label", ALIAS.help);
     expect(within(alias).queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
     await user.hover(icon);
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "The short name people use in meetings.",
     );
+  });
+
+  it("offers help on attribute fields only, in the active language", async () => {
+    const lifecycleWithHelp: FormField = {
+      key: "lifecycle:active",
+      section: "",
+      label: "stored label",
+      type: "date",
+      kind: "lifecycle",
+      phase: "active",
+      action: "maintain",
+      current_value: null,
+      help: "Lifecycle help that must not show.",
+    };
+    const translated: FormField = {
+      ...CLOUD,
+      kind: "attribute",
+      help: "Base help.",
+      helpTranslations: { en: "Translated help" },
+    };
+    mockApi.on("get", RESPOND_PATH, formWith([ALIAS, lifecycleWithHelp, translated]));
+    renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    // Only the two attribute fields carry an icon; the lifecycle field does not.
+    const icons = screen.getAllByTestId("help-tip");
+    expect(icons.map((el) => el.getAttribute("aria-label"))).toEqual([
+      ALIAS.help,
+      "Translated help",
+    ]);
+    expect(within(fieldCard("Alias")).getByTestId("help-tip")).toHaveAttribute(
+      "aria-label",
+      ALIAS.help,
+    );
+    expect(within(fieldCard("Cloud Hosted")).getByTestId("help-tip")).toHaveAttribute(
+      "aria-label",
+      "Translated help",
+    );
+    expect(screen.queryByLabelText("Lifecycle help that must not show.")).not.toBeInTheDocument();
   });
 });
 
