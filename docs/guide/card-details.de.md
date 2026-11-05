@@ -100,7 +100,7 @@ Jede Phase verfügt über eine **Datumsauswahl**, damit Sie festhalten können, 
 
 Liegt das Datum einer Phase nach dem einer folgenden Phase — zum Beispiel **Auslauf** nach **Lebensende** —, erscheint neben diesem Datum ein Warnsymbol, und beim Bearbeiten steht derselbe Hinweis unter dem Feld. Es ist nur ein Hinweis: Die Daten lassen sich trotzdem wie eingegeben speichern.
 
-Wenn Ihr Administrator festgehalten hat, was eine Phase in Ihrer Organisation bedeutet, erscheint auf der Zeitleiste ein Info-Symbol neben dieser Phase – fahren Sie darüber, um die Definition zu lesen. Beim Bearbeiten ist derselbe Text eine einklappbare **Hilfe**-Notiz unter dem Datum der Phase. Die Texte werden unter **Admin → Metamodell → Lebenszyklusphasen** festgelegt (siehe [Lebenszyklusphasen](../admin/metamodel.md#lifecycle-phases)).
+Ein Info-Symbol neben jeder Phase auf der Zeitleiste erklärt, was die Phase bedeutet – fahren Sie darüber, um die Definition zu lesen. Es zeigt eine Standarderklärung, sofern Ihr Administrator sie nicht geändert hat, um die Nutzung der Phase in Ihrer Organisation zu beschreiben, oder entfernt hat. Beim Bearbeiten ist derselbe Text eine einklappbare **Hilfe**-Notiz unter dem Datum der Phase. Die Texte werden unter **Admin → Metamodell → Lebenszyklusphasen** festgelegt (siehe [Lebenszyklusphasen](../admin/metamodel.md#lifecycle-phases)).
 
 ### Benutzerdefinierte Attributabschnitte
 

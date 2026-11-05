@@ -5,6 +5,12 @@ organisation means by *Phase out* is not metamodel data: it is a small app
 setting, stored under ``general_settings["lifecyclePhaseHelp"]`` as
 ``{phase: {locale: text}}`` and served by ``/settings/bootstrap``.
 
+Until an admin saves the setting — the key is absent from the blob — every
+phase is explained by its built-in default, ``LIFECYCLE_PHASE_HELP`` in
+``services/seed.py`` (translated there like the other seed labels). Once the
+key is present, whatever was saved wins, an empty map included: that is how an
+admin clears the help.
+
 Plain functions so the route stays thin and the rules are unit-tested.
 """
 
@@ -19,14 +25,46 @@ SETTING_KEY = "lifecyclePhaseHelp"
 MAX_LEN = 2000
 
 
-def read_phase_help(general: Mapping[str, Any] | None) -> dict[str, dict[str, str]]:
-    """The stored phase help, keeping only known phases and non-empty strings.
+def default_phase_help() -> dict[str, dict[str, str]]:
+    """The built-in explanation of each phase, ``{phase: {locale: text}}``.
 
-    ``{}`` when the setting was never written. Whatever else the blob holds
-    (an older shape, a phase that no longer exists) is ignored rather than
-    served to every client.
+    Built from ``seed.LIFECYCLE_PHASE_HELP``: ``label`` is the English text,
+    each non-empty ``translations`` entry another locale. An entry naming an
+    unknown phase is skipped.
     """
-    stored = (general or {}).get(SETTING_KEY)
+    # Imported here, as ``seed_dashboards`` imports ``DASHBOARD_NAMES``: seed.py
+    # pulls in half the services layer, which must not load it at import time.
+    from app.services.seed import LIFECYCLE_PHASE_HELP
+
+    out: dict[str, dict[str, str]] = {}
+    for entry in LIFECYCLE_PHASE_HELP:
+        phase = entry.get("key")
+        if phase not in PHASE_CHRONOLOGICAL:
+            continue
+        texts: dict[str, str] = {}
+        label = entry.get("label")
+        if isinstance(label, str) and label:
+            texts["en"] = label
+        for locale, text in (entry.get("translations") or {}).items():
+            if isinstance(text, str) and text:
+                texts[str(locale)] = text
+        if texts:
+            out[phase] = texts
+    return out
+
+
+def read_phase_help(general: Mapping[str, Any] | None) -> dict[str, dict[str, str]]:
+    """The phase help to serve, keeping only known phases and non-empty strings.
+
+    The built-in defaults (``default_phase_help``) when the setting key is
+    absent; once present, the stored value, so a saved ``{}`` serves no help at
+    all. Whatever else the blob holds (an older shape, a phase that no longer
+    exists) is ignored rather than served to every client.
+    """
+    general = general or {}
+    if SETTING_KEY not in general:
+        return default_phase_help()
+    stored = general.get(SETTING_KEY)
     if not isinstance(stored, Mapping):
         return {}
     out: dict[str, dict[str, str]] = {}

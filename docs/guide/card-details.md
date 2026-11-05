@@ -98,7 +98,7 @@ Each phase has a **date picker** so you can record when the component entered or
 
 If a phase is dated after a phase that should follow it — for example **Phase Out** after **End of Life** — a warning icon appears next to that date, and the same warning shows under the field while editing. It is only a hint: the dates can still be saved as entered.
 
-When your administrator has written down what a phase means in your organisation, an info icon appears beside that phase on the timeline — hover over it to read the definition. While editing, the same text is a collapsible **Help** note under the phase's date. The texts are set under **Admin → Metamodel → Lifecycle phases** (see [Lifecycle phases](../admin/metamodel.md#lifecycle-phases)).
+An info icon beside each phase on the timeline explains what the phase means — hover over it to read the definition. It shows a default explanation unless your administrator changed it to describe how your organisation uses the phase, or removed it. While editing, the same text is a collapsible **Help** note under the phase's date. The texts are set under **Admin → Metamodel → Lifecycle phases** (see [Lifecycle phases](../admin/metamodel.md#lifecycle-phases)).
 
 ### Custom Attribute Sections
 

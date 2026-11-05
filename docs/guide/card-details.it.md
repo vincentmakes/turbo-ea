@@ -98,7 +98,7 @@ Ogni fase ha un **selettore di data** per registrare quando il componente è ent
 
 Se una fase ha una data successiva a quella di una fase che dovrebbe seguirla — ad esempio **Phase Out** dopo **End of Life** — accanto a quella data compare un'icona di avviso, e lo stesso avviso è mostrato sotto il campo durante la modifica. È solo un'indicazione: le date possono comunque essere salvate così come sono state inserite.
 
-Quando l'amministratore ha messo per iscritto che cosa significa una fase nella tua organizzazione, accanto a quella fase nella timeline compare un'icona informativa: passaci sopra il cursore per leggere la definizione. Durante la modifica, lo stesso testo è una nota comprimibile **Aiuto** sotto la data della fase. I testi si impostano in **Amministrazione → Metamodello → Fasi del ciclo di vita** (vedi [Fasi del ciclo di vita](../admin/metamodel.md#lifecycle-phases)).
+Un'icona informativa accanto a ogni fase nella timeline spiega che cosa significa la fase: passaci sopra il cursore per leggere la definizione. Mostra una spiegazione predefinita, a meno che l'amministratore non l'abbia modificata per descrivere come la tua organizzazione usa la fase, o non l'abbia rimossa. Durante la modifica, lo stesso testo è una nota comprimibile **Aiuto** sotto la data della fase. I testi si impostano in **Amministrazione → Metamodello → Fasi del ciclo di vita** (vedi [Fasi del ciclo di vita](../admin/metamodel.md#lifecycle-phases)).
 
 ### Sezioni attributi personalizzati
 

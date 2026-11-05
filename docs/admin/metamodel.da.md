@@ -360,7 +360,7 @@ Compliance-scanneren og risiko-forfremmelsesflowet fungerer, **selv når ingen A
 
 Sektionen **Livscyklus** på hvert kort gennemløber fem faste faser: Planlagt, Indfasning, Aktiv, Udfasning og Udløb. Hvad hver fase betyder, varierer mellem organisationer – for eksempel om *Udfasning* stadig tillader nye brugere, eller hvornår en komponent regnes for *Udløb*. Fanen **Livscyklusfaser** lader dig skrive det ned én gang for hele arbejdsområdet.
 
-Fanen viser ét tekstfelt pr. fase og en række sprogfaner (engelsk først, derefter hvert aktiveret sprog). Skriv forklaringen på engelsk og, hvis du vil, på de andre sprog; et sprog, der står tomt, viser den engelske tekst. Lad en fase stå tom for ikke at vise hjælp til den. Klik på **Gem** for at anvende teksterne.
+Fanen viser ét tekstfelt pr. fase og en række sprogfaner (engelsk først, derefter hvert aktiveret sprog). I et nyt arbejdsområde er felterne forudfyldt med en standardforklaring af hver fase på alle sprog, så hjælpen er der fra start; ret en hvilken som helst tekst til, så den passer til, hvordan din organisation arbejder. Et sprog, der står tomt, viser den engelske tekst. Lad en fase stå tom for ikke at vise hjælp til den – hvis du tømmer alle fem faser og gemmer, fjernes hjælpen helt. Klik på **Gem** for at anvende teksterne.
 
 Brugerne ser en fases hjælp som et infoikon ved siden af fasen på livscyklustidslinjen på hvert kort og som en sammenklappelig **Hjælp**-note under fasens dato, mens livscyklussen redigeres. Teksterne gælder for alle korttyper. Gemningen registreres i **Sikkerheds- og administrationsloggen**.
 

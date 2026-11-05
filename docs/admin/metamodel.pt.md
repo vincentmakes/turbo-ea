@@ -361,7 +361,7 @@ O scanner de conformidade e o fluxo de promoção para Risco funcionam **mesmo s
 
 A seção **Ciclo de vida** de cada card percorre cinco fases fixas: Planejamento, Entrada, Ativo, Saída e Fim de vida. O que cada fase significa difere entre organizações – por exemplo, se a *Saída* ainda admite novos usuários, ou quando um componente conta como *Fim de vida*. A aba **Fases do ciclo de vida** permite registrar isso uma vez para todo o espaço de trabalho.
 
-A aba mostra um campo de texto por fase e uma linha de abas de idioma (primeiro o inglês, depois cada idioma habilitado). Escreva a explicação em inglês e, se quiser, nos outros idiomas; um idioma deixado vazio mostra o texto em inglês. Deixe uma fase vazia para não mostrar ajuda nela. Clique em **Salvar** para aplicar os textos.
+A aba mostra um campo de texto por fase e uma linha de abas de idioma (primeiro o inglês, depois cada idioma habilitado). Em um espaço de trabalho novo, os campos vêm preenchidos com uma explicação padrão de cada fase em todos os idiomas, de modo que a ajuda existe desde o início; edite qualquer texto para refletir como a sua organização trabalha. Um idioma deixado vazio mostra o texto em inglês. Deixe uma fase vazia para não mostrar ajuda nela – esvaziar as cinco fases e salvar remove a ajuda por completo. Clique em **Salvar** para aplicar os textos.
 
 Os usuários veem a ajuda de uma fase como um ícone de informação ao lado da fase na linha do tempo do ciclo de vida de cada card e, enquanto o ciclo de vida é editado, como uma nota recolhível de **Ajuda** sob a data da fase. Os textos valem para todos os tipos de card. O salvamento é registrado no **Registo de segurança e administração**.
 

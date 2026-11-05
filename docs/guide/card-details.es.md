@@ -100,7 +100,7 @@ Cada fase tiene un **selector de fecha** para registrar cuándo el componente en
 
 Si una fase tiene una fecha posterior a la de una fase que debería seguirla —por ejemplo, **Fase de Salida** después de **Fin de Vida**—, aparece un icono de advertencia junto a esa fecha, y la misma advertencia se muestra bajo el campo durante la edición. Es solo un aviso: las fechas se pueden guardar igualmente tal como se introdujeron.
 
-Cuando su administrador ha dejado escrito qué significa una fase en su organización, aparece un icono de información junto a esa fase en la línea de tiempo: pase el cursor sobre él para leer la definición. Al editar, el mismo texto es una nota plegable de **Ayuda** bajo la fecha de la fase. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+Un icono de información junto a cada fase en la línea de tiempo explica qué significa la fase: pase el cursor sobre él para leer la definición. Muestra una explicación predeterminada, salvo que su administrador la haya cambiado para describir cómo su organización usa la fase, o la haya eliminado. Al editar, el mismo texto es una nota plegable de **Ayuda** bajo la fecha de la fase. Los textos se definen en **Administración → Metamodelo → Fases del ciclo de vida** (véase [Fases del ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
 
 ### Secciones de Atributos Personalizados
 

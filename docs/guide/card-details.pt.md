@@ -97,7 +97,7 @@ Cada fase tem um **seletor de data** para que você possa registrar quando o com
 
 Se uma fase tiver uma data posterior à de uma fase que deveria vir depois dela — por exemplo, **Desativação** após **Fim de Vida** —, um ícone de aviso aparece ao lado dessa data, e o mesmo aviso é exibido abaixo do campo durante a edição. É apenas uma indicação: as datas ainda podem ser salvas como foram inseridas.
 
-Quando o seu administrador registrou o que uma fase significa na sua organização, um ícone de informação aparece ao lado dessa fase na linha do tempo – passe o cursor sobre ele para ler a definição. Durante a edição, o mesmo texto é uma nota recolhível de **Ajuda** sob a data da fase. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
+Um ícone de informação ao lado de cada fase na linha do tempo explica o que a fase significa – passe o cursor sobre ele para ler a definição. Mostra uma explicação padrão, a menos que o seu administrador a tenha alterado para descrever como a sua organização usa a fase, ou a tenha removido. Durante a edição, o mesmo texto é uma nota recolhível de **Ajuda** sob a data da fase. Os textos são definidos em **Admin → Metamodelo → Fases do ciclo de vida** (veja [Fases do ciclo de vida](../admin/metamodel.md#lifecycle-phases)).
 
 ### Seções de Atributos Personalizados
 

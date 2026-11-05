@@ -1302,6 +1302,107 @@ DASHBOARD_NAMES: list[dict[str, Any]] = [
     },
 ]
 
+# ── Lifecycle phase help ─────────────────────────────────────────────
+#
+# The default explanation of each lifecycle phase, served until an admin saves
+# their own (see ``services/lifecycle_phase_help.py``).
+
+LIFECYCLE_PHASE_HELP: list[dict[str, Any]] = [
+    {
+        "key": "plan",
+        "label": (
+            "Planned or under evaluation: the decision to introduce it has been "
+            "taken or is being prepared, but nothing is in use yet. The date is "
+            "when planning started."
+        ),
+        "translations": {
+            "de": "Geplant oder in Evaluierung: Die Entscheidung zur Einführung ist getroffen oder wird vorbereitet, aber noch nichts ist im Einsatz. Das Datum ist der Planungsbeginn.",
+            "fr": "Planifié ou en cours d'évaluation : la décision de l'introduire a été prise ou est en préparation, mais rien n'est encore utilisé. La date correspond au début de la planification.",
+            "es": "Planificado o en evaluación: la decisión de introducirlo se ha tomado o se está preparando, pero aún no se usa nada. La fecha es el inicio de la planificación.",
+            "it": "Pianificato o in valutazione: la decisione di introdurlo è stata presa o è in preparazione, ma nulla è ancora in uso. La data è l'inizio della pianificazione.",
+            "pt": "Planeado ou em avaliação: a decisão de o introduzir foi tomada ou está em preparação, mas ainda nada está em uso. A data é o início do planeamento.",
+            "zh": "已规划或评估中：引入的决定已经做出或正在准备，但尚未投入使用。日期为规划开始的时间。",
+            "ru": "Запланировано или оценивается: решение о внедрении принято или готовится, но ничего пока не используется. Дата — начало планирования.",
+            "da": "Planlagt eller under evaluering: Beslutningen om at indføre det er truffet eller under forberedelse, men intet er i brug endnu. Datoen er, hvornår planlægningen startede.",
+            "ar": "مخطَّط له أو قيد التقييم: تم اتخاذ قرار إدخاله أو يجري إعداده، لكن لا شيء قيد الاستخدام بعد. التاريخ هو بداية التخطيط.",
+        },
+    },
+    {
+        "key": "phaseIn",
+        "label": (
+            "Being introduced: implementation, rollout or onboarding is under way "
+            "and the first users or dependent systems are moving onto it. The date "
+            "is when the rollout started."
+        ),
+        "translations": {
+            "de": "Wird eingeführt: Implementierung, Rollout oder Onboarding laufen, und die ersten Nutzer oder abhängigen Systeme wechseln darauf. Das Datum ist der Rollout-Beginn.",
+            "fr": "En cours d'introduction : la mise en œuvre, le déploiement ou l'intégration est en cours et les premiers utilisateurs ou systèmes dépendants basculent dessus. La date correspond au début du déploiement.",
+            "es": "En introducción: la implantación, el despliegue o la incorporación están en marcha y los primeros usuarios o sistemas dependientes se están pasando a él. La fecha es el inicio del despliegue.",
+            "it": "In fase di introduzione: implementazione, rollout o onboarding sono in corso e i primi utenti o sistemi dipendenti vi stanno passando. La data è l'inizio del rollout.",
+            "pt": "Em introdução: a implementação, o lançamento ou a integração estão em curso e os primeiros utilizadores ou sistemas dependentes estão a migrar para ele. A data é o início do lançamento.",
+            "zh": "引入中：实施、推广或上线接入正在进行，首批用户或依赖系统正在迁移到它。日期为推广开始的时间。",
+            "ru": "Внедряется: идут реализация, развёртывание или подключение, первые пользователи или зависимые системы переходят на него. Дата — начало развёртывания.",
+            "da": "Under indførelse: Implementering, udrulning eller onboarding er i gang, og de første brugere eller afhængige systemer flytter over på det. Datoen er, hvornår udrulningen startede.",
+            "ar": "قيد الإدخال: التنفيذ أو الطرح أو الإلحاق جارٍ، والمستخدمون الأوائل أو الأنظمة المعتمدة عليه تنتقل إليه. التاريخ هو بداية الطرح.",
+        },
+    },
+    {
+        "key": "active",
+        "label": (
+            "In productive use and fully supported. The date is the go-live; this "
+            "stays the current phase until the phase-out date is reached."
+        ),
+        "translations": {
+            "de": "Im produktiven Einsatz und voll unterstützt. Das Datum ist der Go-live; dies bleibt die aktuelle Phase, bis das Datum der Ausphasung erreicht ist.",
+            "fr": "En usage productif et pleinement pris en charge. La date correspond à la mise en service ; elle reste la phase courante jusqu'à la date de retrait progressif.",
+            "es": "En uso productivo y con soporte completo. La fecha es la puesta en producción; sigue siendo la fase actual hasta que se alcance la fecha de retirada progresiva.",
+            "it": "In uso produttivo e pienamente supportato. La data è il go-live; resta la fase corrente fino al raggiungimento della data di dismissione graduale.",
+            "pt": "Em utilização produtiva e totalmente suportado. A data é a entrada em produção; mantém-se como fase atual até ser atingida a data de descontinuação progressiva.",
+            "zh": "已投入生产使用并获得全面支持。日期为上线时间；在到达逐步退出日期之前，这一直是当前阶段。",
+            "ru": "Находится в промышленной эксплуатации и полностью поддерживается. Дата — запуск в эксплуатацию; этап остаётся текущим, пока не наступит дата вывода из эксплуатации.",
+            "da": "I produktiv brug og fuldt understøttet. Datoen er go-live; dette forbliver den aktuelle fase, indtil datoen for udfasning nås.",
+            "ar": "قيد الاستخدام الإنتاجي ومدعوم بالكامل. التاريخ هو موعد التشغيل الفعلي، وتبقى هذه المرحلة الحالية حتى بلوغ تاريخ الإيقاف التدريجي.",
+        },
+    },
+    {
+        "key": "phaseOut",
+        "label": (
+            "Being withdrawn: no new users or dependencies are added, existing ones"
+            " move to a successor and the item is wound down. The date is when the "
+            "withdrawal started."
+        ),
+        "translations": {
+            "de": "Wird ausgephast: Es kommen keine neuen Nutzer oder Abhängigkeiten hinzu, bestehende wechseln zu einem Nachfolger, und das Element wird zurückgebaut. Das Datum ist der Beginn der Ausphasung.",
+            "fr": "En cours de retrait : aucun nouvel utilisateur ni nouvelle dépendance n'est ajouté, les existants passent à un successeur et l'élément est progressivement arrêté. La date correspond au début du retrait.",
+            "es": "En retirada: no se añaden nuevos usuarios ni dependencias, los existentes pasan a un sucesor y el elemento se va desmantelando. La fecha es el inicio de la retirada.",
+            "it": "In dismissione: non vengono aggiunti nuovi utenti o dipendenze, quelli esistenti passano a un successore e l'elemento viene gradualmente spento. La data è l'inizio della dismissione.",
+            "pt": "Em descontinuação: não são adicionados novos utilizadores nem dependências, os existentes passam para um sucessor e o elemento é desativado gradualmente. A data é o início da descontinuação.",
+            "zh": "退出中：不再增加新用户或依赖，现有的迁移到后继者，该项逐步停用。日期为退出开始的时间。",
+            "ru": "Выводится из эксплуатации: новые пользователи и зависимости не добавляются, существующие переходят на преемника, элемент постепенно сворачивается. Дата — начало вывода.",
+            "da": "Under udfasning: Der tilføjes ingen nye brugere eller afhængigheder, eksisterende flyttes til en efterfølger, og elementet nedlægges gradvist. Datoen er, hvornår udfasningen startede.",
+            "ar": "قيد الإيقاف التدريجي: لا يُضاف مستخدمون أو اعتماديات جديدة، وينتقل الحاليون إلى بديل، ويجري إنهاء العنصر تدريجيًا. التاريخ هو بداية الإيقاف.",
+        },
+    },
+    {
+        "key": "endOfLife",
+        "label": (
+            "No longer in use or supported: retired, decommissioned or replaced. "
+            "The date is when it was, or will be, switched off."
+        ),
+        "translations": {
+            "de": "Nicht mehr im Einsatz oder unterstützt: stillgelegt, außer Betrieb genommen oder ersetzt. Das Datum ist der Zeitpunkt, an dem es abgeschaltet wurde oder wird.",
+            "fr": "N'est plus utilisé ni pris en charge : retiré, mis hors service ou remplacé. La date correspond au moment où il a été ou sera arrêté.",
+            "es": "Ya no se usa ni tiene soporte: retirado, dado de baja o sustituido. La fecha es cuando se apagó o se apagará.",
+            "it": "Non più in uso né supportato: ritirato, dismesso o sostituito. La data è il momento in cui è stato o sarà spento.",
+            "pt": "Já não está em uso nem suportado: retirado, desativado ou substituído. A data é o momento em que foi ou será desligado.",
+            "zh": "不再使用或不受支持：已退役、已停用或已被取代。日期为其被关闭或将被关闭的时间。",
+            "ru": "Больше не используется и не поддерживается: выведено из эксплуатации, остановлено или заменено. Дата — момент, когда оно было или будет отключено.",
+            "da": "Ikke længere i brug eller understøttet: udfaset, nedlagt eller erstattet. Datoen er, hvornår det blev eller bliver slukket.",
+            "ar": "لم يعد قيد الاستخدام أو مدعومًا: أُخرج من الخدمة أو أُوقف أو استُبدل. التاريخ هو موعد إيقاف تشغيله أو الموعد المقرر لذلك.",
+        },
+    },
+]
+
 
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 

@@ -378,7 +378,7 @@ A built-in **Contract** link type ships enabled by default. Both lists are inclu
 
 Every card's **Lifecycle** section walks through five fixed phases: Plan, Phase In, Active, Phase Out and End of Life. What each phase means differs between organisations — whether *Phase Out* still allows new users, say, or when a component counts as *End of Life*. The **Lifecycle phases** tab lets you write that down once for the whole workspace.
 
-The tab shows one text field per phase, and a row of language tabs (English first, then each enabled language). Write the explanation in English and, if you like, in the other languages; a language left empty shows the English text. Leave a phase empty to show no help for it. Click **Save** to apply the texts.
+The tab shows one text field per phase, and a row of language tabs (English first, then each enabled language). On a new workspace the fields come prefilled with a default explanation of each phase in every language, so the help is there from the start; edit any text to match how your organisation works. A language left empty shows the English text. Leave a phase empty to show no help for it — clearing all five phases and saving removes the help altogether. Click **Save** to apply the texts.
 
 Users see a phase's help as an info icon beside the phase on every card's Lifecycle timeline, and as a collapsible **Help** note under the phase's date while the lifecycle is edited. The texts apply to every card type. Saving is recorded in the **Security & admin log**.
 

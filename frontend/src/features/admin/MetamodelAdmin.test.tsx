@@ -395,6 +395,46 @@ describe("MetamodelAdmin", () => {
     });
   });
 
+  it("lists the Lifecycle phases tab directly before the Metamodel Graph", () => {
+    renderMetamodel();
+    const names = screen.getAllByRole("tab").map((tab) => tab.textContent);
+    expect(names).toEqual([
+      "Card Types",
+      "Relations",
+      "Calculations",
+      "Tags",
+      "Lifecycle phases",
+      "Metamodel Graph",
+      "EA Principles",
+      "Regulations",
+      "Resources",
+    ]);
+  });
+
+  it("switches to the Lifecycle phases tab and renders its panel", async () => {
+    const help = { phases: { active: { en: "In productive use and fully supported." } } };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/settings/lifecycle-phase-help")) return Promise.resolve(help);
+      if (path.includes("/metamodel/types")) return Promise.resolve(MOCK_TYPES);
+      if (path.includes("/metamodel/relation-types")) return Promise.resolve(MOCK_RELATION_TYPES);
+      return Promise.resolve({});
+    });
+    const user = userEvent.setup();
+    renderMetamodel();
+
+    await user.click(screen.getByRole("tab", { name: "Lifecycle phases" }));
+
+    expect(await screen.findByText("Lifecycle phase help")).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue("In productive use and fully supported."),
+    ).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(
+      "/settings/lifecycle-phase-help",
+      expect.anything(),
+    );
+    expect(screen.queryByTestId("metamodel-graph")).not.toBeInTheDocument();
+  });
+
   it("closes the type drawer and reloads the metamodel once a type was deleted", async () => {
     renderMetamodel();
     await waitFor(() => expect(screen.getByText("Application")).toBeInTheDocument());
