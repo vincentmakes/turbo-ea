@@ -181,7 +181,7 @@ describe("LifecycleSection — phase help", () => {
     phaseHelpMock.help = { phaseOut: "Being replaced; no new users." };
     render(<LifecycleSection card={cardWith({})} onSave={async () => {}} />);
     expect(
-      screen.getByRole("img", { name: "Being replaced; no new users." }),
+      screen.getByRole("button", { name: "Being replaced; no new users." }),
     ).toBeInTheDocument();
     expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
   });
@@ -196,7 +196,10 @@ describe("LifecycleSection — phase help", () => {
     const { container } = render(
       <LifecycleSection card={cardWith({})} onSave={async () => {}} />,
     );
-    const buttons = screen.getAllByRole("button");
+    // The timeline's help icons are buttons too; the edit button is the last other one.
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((b) => b.dataset.testid !== "help-tip");
     fireEvent.click(buttons[buttons.length - 1]);
 
     const planField = container.querySelector('[data-phase="plan"]') as HTMLElement;

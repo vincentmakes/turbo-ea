@@ -322,7 +322,7 @@ describe("StakeholdersTab — role descriptions", () => {
 
   it("puts an info icon beside a role that has a description, and none otherwise", async () => {
     render(<StakeholdersTab card={card} onRefresh={() => {}} />);
-    const icon = await screen.findByRole("img", { name: "Signs and renews the vendor contract." });
+    const icon = await screen.findByRole("button", { name: "Signs and renews the vendor contract." });
     expect(icon).toBeInTheDocument();
     expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
     expect(screen.getByText("Contract Owner")).toBeInTheDocument();
@@ -366,7 +366,7 @@ describe("StakeholdersTab — role descriptions", () => {
     try {
       render(<StakeholdersTab card={card} onRefresh={() => {}} />);
       expect(await screen.findByText("Vertragsverantwortlicher")).toBeInTheDocument();
-      expect(screen.getByRole("img", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
     }

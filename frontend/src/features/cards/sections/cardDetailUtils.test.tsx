@@ -193,6 +193,23 @@ describe("field help icon in an editable control's label", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Enter the legal name.");
   });
 
+  it("shows the help on a click in a text field's label, leaving the input unfocused", async () => {
+    render(
+      <FieldEditor
+        field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    const icon = screen.getByTestId("help-tip");
+    expect(icon.closest("label")).not.toBeNull();
+    // false = default prevented: the label does not activate, focus does not move.
+    expect(fireEvent.mouseDown(icon)).toBe(false);
+    expect(fireEvent.click(icon)).toBe(false);
+    expect(screen.getByRole("textbox")).not.toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Enter the legal name.");
+  });
+
   it("prefers the localised help over the base text", () => {
     render(
       <FieldEditor

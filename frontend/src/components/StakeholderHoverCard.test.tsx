@@ -176,7 +176,7 @@ describe("StakeholderHoverCard — role names and descriptions", () => {
     await openHover();
     expect(screen.getByText("Contract Owner")).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "Signs and renews the vendor contract." }),
+      screen.getByRole("button", { name: "Signs and renews the vendor contract." }),
     ).toBeInTheDocument();
   });
 
@@ -187,7 +187,7 @@ describe("StakeholderHoverCard — role names and descriptions", () => {
       renderHover();
       await openHover();
       expect(screen.getByText("Vertragsverantwortlicher")).toBeInTheDocument();
-      expect(screen.getByRole("img", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
     }

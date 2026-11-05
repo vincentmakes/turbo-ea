@@ -432,8 +432,8 @@ describe("AttributeSection read-mode help", () => {
     render(
       <AttributeSection section={helpSection} card={helpCard} onSave={async () => {}} canEdit={false} />,
     );
-    expect(screen.getByRole("img", { name: "What Alpha means" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Computed nightly" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What Alpha means" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Computed nightly" })).toBeInTheDocument();
     expect(screen.getAllByTestId("help-tip")).toHaveLength(2);
   });
 
@@ -442,8 +442,8 @@ describe("AttributeSection read-mode help", () => {
     render(
       <AttributeSection section={helpSection} card={helpCard} onSave={async () => {}} canEdit={false} />,
     );
-    expect(screen.getByRole("img", { name: "Was Alpha bedeutet" })).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: "What Alpha means" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Was Alpha bedeutet" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "What Alpha means" })).not.toBeInTheDocument();
   });
 
   it("keeps the icon on a readonly field while the section is edited", () => {
@@ -452,6 +452,6 @@ describe("AttributeSection read-mode help", () => {
     );
     fireEvent.click(screen.getByText("edit"));
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Computed nightly" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Computed nightly" })).toBeInTheDocument();
   });
 });

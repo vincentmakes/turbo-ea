@@ -873,6 +873,9 @@ Admin-written help (a field's help text, a stakeholder role's description, a
 lifecycle phase's help) has one shape, **`HelpTip`** (`src/components/HelpTip.tsx`):
 a small `help` icon that shows the text in a tooltip on hover, keyboard focus
 or tap. It renders nothing for empty text, so pass whatever the resolver returns.
+The icon opens on a tap or click as well as on hover and focus (a second tap, a
+tap elsewhere or Escape closes it), and its click is prevented, so inside a
+control's `<label>` it never activates or focuses the field.
 
 - **Read mode**: the icon sits beside the label, inside the label's `Typography`.
 - **Edit mode**: the icon sits inside the control's floating label, after the

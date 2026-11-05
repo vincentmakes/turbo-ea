@@ -34,8 +34,11 @@ function renderSection(props: { extraFields: FieldDef[]; calculatedFieldKeys?: s
 }
 
 function enterEdit() {
-  // The pencil is the last icon button in the summary row.
-  const buttons = screen.getAllByRole("button");
+  // The pencil is the last icon button in the summary row; the fields' help
+  // icons are buttons too, so they are left out.
+  const buttons = screen
+    .getAllByRole("button")
+    .filter((b) => b.dataset.testid !== "help-tip");
   fireEvent.click(buttons[buttons.length - 1]);
 }
 
@@ -238,8 +241,8 @@ describe("DescriptionSection — field help in read mode", () => {
         { key: "plain", label: "Plain", type: "text" },
       ],
     });
-    expect(screen.getByRole("img", { name: "Share of scope delivered" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Free notes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share of scope delivered" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Free notes" })).toBeInTheDocument();
     expect(screen.getAllByTestId("help-tip")).toHaveLength(2);
   });
 
@@ -250,6 +253,6 @@ describe("DescriptionSection — field help in read mode", () => {
     });
     enterEdit();
     expect(screen.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Share of scope delivered" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share of scope delivered" })).toBeInTheDocument();
   });
 });

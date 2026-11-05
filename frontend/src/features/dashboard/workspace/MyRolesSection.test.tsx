@@ -190,7 +190,7 @@ describe("MyRolesSection — role names and descriptions", () => {
     renderSection();
     expect(await screen.findByText("Contract Owner")).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "Signs and renews the vendor contract." }),
+      screen.getByRole("button", { name: "Signs and renews the vendor contract." }),
     ).toBeInTheDocument();
   });
 
@@ -199,7 +199,7 @@ describe("MyRolesSection — role names and descriptions", () => {
     try {
       renderSection();
       expect(await screen.findByText("Vertragsverantwortlicher")).toBeInTheDocument();
-      expect(screen.getByRole("img", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
     }

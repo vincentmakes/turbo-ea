@@ -1,8 +1,12 @@
 /**
- * Admin-written help: a small info icon that shows the help text on hover,
- * focus or touch. It is the one shape help takes, beside a label while a card
- * is read and inside the control's floating label while it is edited
- * (`FieldEditor`, through `labelWithHelp`).
+ * Admin-written help: a small info icon that shows the help text on hover or
+ * keyboard focus, and toggles it on a tap or click (Enter / Space from the
+ * keyboard); a second tap, a tap anywhere else or Escape closes it. It is the
+ * one shape help takes, beside a label while a card is read and inside the
+ * control's floating label while it is edited (`FieldEditor`, through
+ * `labelWithHelp`). Inside a `<label>` the icon's click is prevented, so it
+ * never reaches the field: it neither focuses nor opens the control, and a
+ * field already being edited keeps its focus.
  *
  * Renders nothing when the text is empty, so a call site can pass whatever
  * its resolver returns.
@@ -10,9 +14,11 @@
  * the tooltip is interactive, so a link inside it can be clicked.
  */
 import Box from "@mui/material/Box";
+import ClickAwayListener from "@mui/material/ClickAwayListener";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import type { MouseEvent, ReactNode } from "react";
+import { useId, useState } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode, SyntheticEvent } from "react";
 
 import LinkifiedText from "@/components/LinkifiedText";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -23,45 +29,99 @@ export interface HelpTipProps {
   size?: number;
 }
 
-// The icon often sits inside something clickable (a group header, a grid
-// header, a list row); hovering or tapping it must not also trigger that.
-function stop(e: MouseEvent) {
-  e.stopPropagation();
-}
-
 export default function HelpTip({ text, size = 14 }: HelpTipProps) {
+  // Two reasons to show the tooltip: hover / keyboard focus (MUI's own
+  // listeners) and an explicit tap or click. MUI's long-press touch listener is
+  // off: on a touch device a plain tap opens it. MUI still marks a touch start
+  // on the icon and then ignores the mouseover iOS emulates for the tap, so a
+  // tap never sets `hoverOpen` and a second tap closes it.
+  const [hoverOpen, setHoverOpen] = useState(false);
+  const [tapOpen, setTapOpen] = useState(false);
+  const tipId = useId();
   const trimmed = text?.trim();
   if (!trimmed) return null;
+  const open = hoverOpen || tapOpen;
+
+  const handleClose = (e: Event | SyntheticEvent) => {
+    setHoverOpen(false);
+    // MUI closes on Escape anywhere in the document; that closes a tap too,
+    // which matters because a tapped icon never takes focus.
+    if (e.type === "keydown") setTapOpen(false);
+  };
+
+  const handleClick = (e: MouseEvent) => {
+    // Inside a control's <label>, the click would otherwise activate the label
+    // and focus or open its field.
+    e.preventDefault();
+    // The icon often sits inside something clickable (a group header, a grid
+    // header, a list row); the click must not trigger that too.
+    e.stopPropagation();
+    setTapOpen((v) => !v);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.stopPropagation();
+      setTapOpen((v) => !v);
+    } else if (e.key === "Escape") {
+      setTapOpen(false);
+    }
+  };
+
+  const handleClickAway = (e: globalThis.MouseEvent | TouchEvent) => {
+    // The tooltip is portaled out of the icon's subtree; a tap on it (on a
+    // link in it, say) is not a tap elsewhere.
+    const popper = document.getElementById(tipId);
+    if (popper && e.target instanceof Node && popper.contains(e.target)) return;
+    setTapOpen(false);
+  };
+
   return (
-    <Tooltip
-      enterTouchDelay={50}
-      leaveTouchDelay={4000}
-      title={
-        <Typography variant="caption" component="span" sx={{ whiteSpace: "pre-wrap" }}>
-          <LinkifiedText text={trimmed} linkProps={{ color: "inherit" }} />
-        </Typography>
-      }
+    // Listens only while tap-opened, so a form full of help icons does not
+    // put a document listener pair on the page per icon.
+    <ClickAwayListener
+      mouseEvent={tapOpen ? "onClick" : false}
+      touchEvent={tapOpen ? "onTouchEnd" : false}
+      onClickAway={handleClickAway}
     >
-      <Box
-        component="span"
-        tabIndex={0}
-        role="img"
-        aria-label={trimmed}
-        data-testid="help-tip"
-        onClick={stop}
-        sx={{
-          display: "inline-flex",
-          verticalAlign: "middle",
-          ml: 0.5,
-          color: "text.secondary",
-          cursor: "help",
-          borderRadius: "50%",
-          "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineStyle: "solid" },
-        }}
+      <Tooltip
+        id={tipId}
+        open={open}
+        onOpen={() => setHoverOpen(true)}
+        onClose={handleClose}
+        disableTouchListener
+        title={
+          <Typography variant="caption" component="span" sx={{ whiteSpace: "pre-wrap" }}>
+            <LinkifiedText text={trimmed} linkProps={{ color: "inherit" }} />
+          </Typography>
+        }
       >
-        <MaterialSymbol icon="help" size={size} />
-      </Box>
-    </Tooltip>
+        <Box
+          component="span"
+          tabIndex={0}
+          role="button"
+          aria-label={trimmed}
+          aria-expanded={open}
+          data-testid="help-tip"
+          // Keeps focus on a field being edited instead of moving it here.
+          onMouseDown={(e: MouseEvent) => e.preventDefault()}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          sx={{
+            display: "inline-flex",
+            verticalAlign: "middle",
+            ml: 0.5,
+            color: "text.secondary",
+            cursor: "help",
+            borderRadius: "50%",
+            "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineStyle: "solid" },
+          }}
+        >
+          <MaterialSymbol icon="help" size={size} />
+        </Box>
+      </Tooltip>
+    </ClickAwayListener>
   );
 }
 

@@ -195,7 +195,7 @@ describe("StakeholderDirectorySection — role names and descriptions", () => {
     renderSection();
     expect(await screen.findByText("Application Owner")).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "Accountable for the application." }),
+      screen.getByRole("button", { name: "Accountable for the application." }),
     ).toBeInTheDocument();
   });
 
@@ -206,7 +206,7 @@ describe("StakeholderDirectorySection — role names and descriptions", () => {
       renderSection();
       expect(await screen.findByText("Anwendungsverantwortlicher")).toBeInTheDocument();
       expect(
-        screen.getByRole("img", { name: "Verantwortlich für die Anwendung." }),
+        screen.getByRole("button", { name: "Verantwortlich für die Anwendung." }),
       ).toBeInTheDocument();
     } finally {
       await i18n.changeLanguage("en");
