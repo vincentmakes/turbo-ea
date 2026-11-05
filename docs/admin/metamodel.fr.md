@@ -65,7 +65,7 @@ Les champs définissent les attributs personnalisés disponibles sur les fiches 
 | **Libellé** | Nom d'affichage |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select ou multiple_select. Un pourcentage est un nombre de 0 à 100, affiché sous forme de barre de progression et modifié avec un curseur ou saisi exactement. Un booléen se choisit dans une liste Oui / Non, **Aucun** l'efface ; il s'affiche sous forme de pastille verte *Oui* ou bleue *Non*, ou sous la forme — s'il n'est pas renseigné, ce que le filtre **(vide)** de l'inventaire retrouve |
 | **Options** | Pour les champs de sélection : les choix disponibles avec libellés et couleurs optionnelles. Réordonnez-les avec les flèches haut et bas à côté de chaque option : les menus et les filtres listent les options dans cet ordre, et les puces d'une valeur à choix multiple le suivent sur chaque fiche. |
-| **Texte d'aide** | Conseil facultatif affiché sous forme de note repliable sous le champ pendant l'édition d'une fiche. Il se rédige par langue et peut être défini par tout administrateur du métamodèle ; sur un champ apporté par une extension, il est en lecture seule |
+| **Texte d'aide** | Conseil facultatif pour le champ. Pendant la lecture d'une fiche, il apparaît sous forme d'icône d'information à côté du libellé du champ (survolez-la ou donnez-lui le focus pour lire le texte) et sous forme d'infobulle sur l'en-tête de colonne du champ dans l'Inventaire ; pendant l'édition d'une fiche, la même icône se trouve à côté du champ. Il se rédige par langue et peut être défini par tout administrateur du métamodèle ; sur un champ apporté par une extension, il est en lecture seule |
 | **Obligatoire** | Si le champ est obligatoire — voir les règles d'application ci-dessous |
 | **Qualité des données** | La contribution de chaque champ au score est gérée dans le panneau **Qualité des données** (voir ci-dessous) |
 | **Lecture seule** | Empêche la modification manuelle (utile pour les champs calculés) |
@@ -147,6 +147,8 @@ Définissez des rôles personnalisés pour ce type (par ex. « Responsable Appli
 
 Chaque rôle possède une **clé** (l'identifiant stocké sur les fiches, utilisé par les colonnes d'import/export `stakeholder:<clé_du_rôle>`) et un **libellé** (ce que voient les utilisateurs). La clé suit la même convention que toute autre clé du métamodèle — uniquement des lettres et des chiffres, commençant par une lettre, 3 à 50 caractères, par convention en camelCase comme `businessArchitect`. Elle est renseignée automatiquement à partir du libellé, vous avez donc rarement besoin d'en saisir une.
 
+Donnez à un rôle une **description** pour préciser ce qu'il signifie dans votre organisation – ce que signe un *Responsable du contrat*, de quoi répond un *Responsable technique*. Les utilisateurs la voient sous forme d'icône d'information à côté du rôle dans l'onglet **Parties prenantes** d'une fiche, sous le nom du rôle dans le sélecteur de rôle, sous forme d'infobulle sur l'en-tête de colonne du rôle dans l'Inventaire, dans **Mes rôles** sur le tableau de bord et dans l'annuaire des parties prenantes. La description se traduit par langue comme le libellé : chaque langue activée dispose de son propre champ de description sous **Traductions** dans l'éditeur de rôle, et la **boîte de dialogue de traduction** du type la liste aussi. Une langue laissée vide revient à la description anglaise.
+
 Chaque rôle porte également un interrupteur **Compte pour la qualité des données**. Le score de qualité comporte un seul emplacement « parties prenantes », satisfait dès qu'une personne est affectée à la fiche dans un rôle où cet interrupteur est actif. Désactivez-le pour les rôles purement passifs — l'**Observateur** intégré est livré désactivé, afin qu'observer une fiche ne vaille jamais responsabilité. Un type dont tous les rôles sont désactivés ne contribue à aucun emplacement. Basculer l'interrupteur recalcule immédiatement le score de toutes les fiches du type.
 
 Les rôles peuvent être retirés de deux façons :
@@ -208,7 +210,7 @@ Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour
 - **Sections** — En-têtes de section sur la page de détail de la fiche
 - **Champs** — Libellés des champs et des options de sélection
 - **Texte d'aide** — Le texte d'aide d'un champ, listé sous le champ dès qu'il a été saisi dans l'éditeur de champ. Le modifier en anglais met aussi à jour le texte d'aide par défaut du champ
-- **Rôles des parties prenantes** — Noms de rôles affichés dans l'interface d'attribution des parties prenantes
+- **Rôles des parties prenantes** — Noms et descriptions des rôles. La description d'un rôle est listée sous son nom dès que le rôle a une description dans une langue quelconque ; la modifier en anglais met aussi à jour la description par défaut du rôle
 
 Les traductions sont stockées avec chaque type de fiche et sont résolues au moment du rendu en fonction de la langue sélectionnée par l'utilisateur. Les libellés non traduits utilisent la valeur anglaise par défaut.
 
@@ -354,6 +356,14 @@ Pour chaque ligne, vous pouvez :
 - **Supprimer** une réglementation personnalisée — les réglementations intégrées ne peuvent être supprimées, seulement désactivées.
 
 Le scanner de conformité et le flux de promotion en risque fonctionnent **même sans fournisseur IA configuré** — la saisie manuelle de constats, les transitions de statut et le chemin de promotion en risque restent disponibles. L'IA n'est requise que lorsque vous lancez réellement un nouveau scan.
+
+## Phases du cycle de vie {: #lifecycle-phases }
+
+La section **Cycle de vie** de chaque fiche parcourt cinq phases fixes : Planification, Mise en service, Actif, Retrait progressif et Fin de vie. Le sens de chaque phase varie d'une organisation à l'autre – par exemple, si le *Retrait progressif* autorise encore de nouveaux utilisateurs, ou quand un composant est considéré en *Fin de vie*. L'onglet **Phases du cycle de vie** vous permet de le consigner une fois pour tout l'espace de travail.
+
+L'onglet affiche un champ de texte par phase et une rangée d'onglets de langue (l'anglais d'abord, puis chaque langue activée). Dans un nouvel espace de travail, les champs sont préremplis avec une explication par défaut de chaque phase dans toutes les langues, de sorte que l'aide est présente dès le départ ; modifiez chaque texte selon le fonctionnement de votre organisation. Une langue laissée vide affiche le texte anglais. Laissez une phase vide pour n'afficher aucune aide à son sujet – vider les cinq phases et enregistrer supprime entièrement l'aide. Cliquez sur **Enregistrer** pour appliquer les textes.
+
+Les utilisateurs voient l'aide d'une phase sous forme d'icône d'information à côté de la phase dans la chronologie du cycle de vie de chaque fiche, qui reste affichée pendant la modification du cycle de vie. Les textes s'appliquent à tous les types de fiches. L'enregistrement est consigné dans le **Journal de sécurité et d'administration**.
 
 ## Éditeur de mise en page des fiches
 

@@ -47,6 +47,24 @@ function helpReference(f: FieldDef): string {
   return f.helpTranslations?.en || f.help || "";
 }
 
+/** A stakeholder role as the dialog edits it. */
+interface RoleDraft {
+  key: string;
+  label: string;
+  description: string;
+  /** Whether the role had a description in any language when the dialog opened. */
+  hasDescription: boolean;
+  translations: MetamodelTranslations;
+}
+
+/** Whether a role has a description in any language. */
+function hasRoleDescription(r: StakeholderRoleDefinitionFull): boolean {
+  return (
+    !!r.description?.trim() ||
+    Object.values(r.translations?.description || {}).some((v) => !!v?.trim())
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  TranslationDialog                                                   */
 /* ------------------------------------------------------------------ */
@@ -84,9 +102,7 @@ export default function TranslationDialog({
   const [subtypes, setSubtypes] = useState<SubtypeDef[]>([]);
   const [hierarchyLabels, setHierarchyLabels] = useState<FieldOption[]>([]);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
-  const [stakeholderRoles, setStakeholderRoles] = useState<
-    { key: string; label: string; translations: MetamodelTranslations }[]
-  >([]);
+  const [stakeholderRoles, setStakeholderRoles] = useState<RoleDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,6 +125,10 @@ export default function TranslationDialog({
               .map((r) => ({
                 key: r.key,
                 label: r.label,
+                description: r.description || "",
+                // Decided as opened, like `helpFieldIds`, so clearing the last
+                // translation while typing does not make the row vanish.
+                hasDescription: hasRoleDescription(r),
                 translations: JSON.parse(JSON.stringify(r.translations || {})),
               })),
           ),
@@ -261,6 +281,26 @@ export default function TranslationDialog({
     [],
   );
 
+  const updateStakeholderRoleDescriptionTranslation = useCallback(
+    (idx: number, locale: string, value: string) => {
+      setStakeholderRoles((prev) =>
+        prev.map((r, i) =>
+          i === idx
+            ? {
+                ...r,
+                translations: {
+                  ...r.translations,
+                  description: { ...r.translations.description, [locale]: value },
+                },
+              }
+            : r,
+        ),
+      );
+    },
+    // Stryker disable next-line ArrayDeclaration: the updater reads only its arguments and a stable state setter, so any dependency list yields an equivalent callback
+    [],
+  );
+
   // --- Completion counts per locale ---
 
   const completionCounts = useMemo(() => {
@@ -314,7 +354,11 @@ export default function TranslationDialog({
       // Stakeholder roles
       stakeholderRoles.forEach((r) => {
         total++;
-        if (r.translations?.label?.[locale]?.trim()) filled++;
+        if (r.translations.label?.[locale]?.trim()) filled++;
+        if (r.hasDescription) {
+          total++;
+          if (r.translations.description?.[locale]?.trim()) filled++;
+        }
       });
 
       counts[locale] = { filled, total };
@@ -389,9 +433,15 @@ export default function TranslationDialog({
         stakeholderRoles.map((r) => {
           const roleCleaned = cleanTranslations(r.translations);
           const roleEnglish = roleCleaned?.label?.en;
+          // An English description typed here is the role's description, the
+          // same way an English label is its label.
+          const englishDescription = roleCleaned?.description?.en;
           return api.patch(`/metamodel/types/${cardType.key}/stakeholder-roles/${r.key}`, {
             translations: roleCleaned || {},
             ...(roleEnglish && roleEnglish !== r.label ? { label: roleEnglish } : {}),
+            ...(englishDescription && englishDescription !== r.description
+              ? { description: englishDescription }
+              : {}),
           });
         }),
       );
@@ -570,14 +620,28 @@ export default function TranslationDialog({
               count={stakeholderRoles.length}
             >
               {stakeholderRoles.map((r, idx) => (
-                <TranslationRow
-                  key={r.key}
-                  reference={r.label}
-                  value={r.translations?.label?.[activeLocale] || ""}
-                  onChange={(v) =>
-                    updateStakeholderRoleTranslation(idx, activeLocale, v)
-                  }
-                />
+                <Box key={r.key}>
+                  <TranslationRow
+                    reference={r.label}
+                    value={r.translations.label?.[activeLocale] || ""}
+                    onChange={(v) =>
+                      updateStakeholderRoleTranslation(idx, activeLocale, v)
+                    }
+                  />
+                  {r.hasDescription && (
+                    <Box sx={{ pl: 3, borderLeft: 2, borderColor: "divider", ml: 1, mb: 0.5 }}>
+                      <TranslationRow
+                        multiline
+                        caption={t("metamodel.translationDialog.roleDescription")}
+                        reference={r.translations.description?.en || r.description}
+                        value={r.translations.description?.[activeLocale] || ""}
+                        onChange={(v) =>
+                          updateStakeholderRoleDescriptionTranslation(idx, activeLocale, v)
+                        }
+                      />
+                    </Box>
+                  )}
+                </Box>
               ))}
             </TranslationGroup>
           </>

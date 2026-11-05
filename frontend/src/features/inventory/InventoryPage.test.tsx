@@ -152,6 +152,7 @@ import { AgGridReact } from "ag-grid-react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
 import { exportCurrentViewToExcel } from "./excelExport";
+import i18n from "@/i18n";
 
 /** Just the slice of a colDef the column tests assert on. */
 interface ColDefLike {
@@ -2423,5 +2424,100 @@ describe("InventoryPage origin facet and columns", () => {
     renderInventory();
     await waitFor(() => expect(col("meta_created_via")).toBeDefined());
     expect([col("meta_created_via")!.hide, col("meta_updated_via")!.hide]).toEqual([false, false]);
+  });
+});
+
+describe("InventoryPage header help", () => {
+  const HELP_TYPES = [
+    {
+      ...MOCK_TYPES[0],
+      fields_schema: [
+        {
+          section: "Details",
+          fields: [
+            {
+              key: "hosting",
+              label: "Hosting",
+              type: "text",
+              help: "Where the application runs",
+              helpTranslations: { de: "Wo die Anwendung läuft" },
+            },
+            { key: "vendor", label: "Vendor", type: "text" },
+          ],
+        },
+      ],
+    },
+  ];
+  const ROLES = [
+    { key: "owner", label: "Owner", description: "Accountable for the application" },
+    { key: "observer", label: "Observer" },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: HELP_TYPES,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => HELP_TYPES.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/stakeholder-roles")) return Promise.resolve(ROLES);
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  });
+
+  const tooltip = (id: string) =>
+    (col(id) as (ColDefLike & { headerTooltip?: string }) | undefined)?.headerTooltip;
+
+  it("puts a field's help and a role's description in the column header tooltip", async () => {
+    renderInventory();
+    await userEvent.click(screen.getByTestId("select-application"));
+    await waitFor(() => expect(col("stakeholder_owner")).toBeDefined());
+    expect(tooltip("attr_hosting")).toBe("Where the application runs");
+    expect(tooltip("attr_vendor")).toBeUndefined();
+    expect(tooltip("stakeholder_owner")).toBe("Accountable for the application");
+    expect(tooltip("stakeholder_observer")).toBeUndefined();
+  });
+
+  it("puts a common field's help in the header tooltip when several types are selected", async () => {
+    // Two types sharing the same fields: the grid shows their common fields.
+    const both = [
+      HELP_TYPES[0],
+      { ...MOCK_TYPES[1], fields_schema: HELP_TYPES[0].fields_schema },
+    ];
+    vi.mocked(useMetamodel).mockReturnValue({
+      types: both,
+      relationTypes: [],
+      loading: false,
+      getType: (key: string) => both.find((t) => t.key === key),
+      getRelationsForType: () => [],
+      invalidateCache: vi.fn(),
+    });
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application", "Objective"] } }),
+    );
+    renderInventory();
+    await waitFor(() => expect(col("attr_hosting")).toBeDefined());
+    expect(tooltip("attr_hosting")).toBe("Where the application runs");
+    expect(col("attr_vendor")).toBeDefined();
+    expect(tooltip("attr_vendor")).toBeUndefined();
+  });
+
+  it("uses the field's localized help", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      renderInventory();
+      await userEvent.click(screen.getByTestId("select-application"));
+      await waitFor(() => expect(col("attr_hosting")).toBeDefined());
+      expect(tooltip("attr_hosting")).toBe("Wo die Anwendung läuft");
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });

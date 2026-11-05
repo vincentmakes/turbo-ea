@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // ---------------------------------------------------------------------------
@@ -29,10 +29,7 @@ vi.mock("@/api/client", () => ({
   },
 }));
 
-vi.mock("@/hooks/useResolveLabel", () => ({
-  useResolveLabel: () => (label: string) => label,
-}));
-
+import i18n from "@/i18n";
 import { api } from "@/api/client";
 import StakeholdersTab from "./StakeholdersTab";
 import type { Card } from "@/types";
@@ -48,6 +45,16 @@ const ROLES = [
   // No colour: what the API sends for a role with no definition row (the
   // legacy card_types.stakeholder_roles mirror, or the hardcoded defaults).
   { key: "observer", label: "Observer", allowed_types: null },
+  {
+    key: "contractOwner",
+    label: "Contract Owner",
+    allowed_types: null,
+    description: "Signs and renews the vendor contract.",
+    translations: {
+      label: { de: "Vertragsverantwortlicher" },
+      description: { de: "Unterschreibt den Vertrag." },
+    },
+  },
 ];
 
 const USERS = [
@@ -305,5 +312,81 @@ describe("StakeholdersTab — a data-quality jump", () => {
     render(<StakeholdersTab card={card} onRefresh={() => {}} addOn={jump} />);
     await screen.findByTestId("stakeholder-role-color-responsible");
     expect(screen.queryByTestId("stakeholder-add-form")).not.toBeInTheDocument();
+  });
+});
+
+describe("StakeholdersTab — role descriptions", () => {
+  beforeEach(() => {
+    authRef.user = { id: "me", email: "me@test.com", permissions: {} };
+  });
+
+  it("puts an info icon beside a role that has a description, and none otherwise", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    const icon = await screen.findByRole("button", { name: "Signs and renews the vendor contract." });
+    expect(icon).toBeInTheDocument();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
+    expect(screen.getByText("Contract Owner")).toBeInTheDocument();
+  });
+
+  it("shows the description under the role in the picker", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: /add stakeholder/i }));
+    await userEvent.click(screen.getByLabelText(/^role$/i));
+    const option = await screen.findByRole("option", { name: /contract owner/i });
+    expect(option).toHaveTextContent("Signs and renews the vendor contract.");
+    expect(screen.getByRole("option", { name: /^observer$/i })).toBeInTheDocument();
+  });
+
+  it("renders a URL in a role's description as a link in the picker", async () => {
+    const get = api.get as unknown as ReturnType<typeof vi.fn>;
+    const base = get.getMockImplementation() as (path: string) => Promise<unknown>;
+    get.mockImplementation((path: string) =>
+      path.startsWith("/stakeholder-roles")
+        ? Promise.resolve([
+            {
+              key: "contractOwner",
+              label: "Contract Owner",
+              allowed_types: null,
+              description: "See https://example.com/x for the policy.",
+            },
+          ])
+        : base(path),
+    );
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: /add stakeholder/i }));
+    await userEvent.click(screen.getByLabelText(/^role$/i));
+    const option = await screen.findByRole("option", { name: /contract owner/i });
+    const link = within(option).getByRole("link", { name: "https://example.com/x" });
+    expect(link).toHaveAttribute("href", "https://example.com/x");
+    expect(option).toHaveTextContent("See https://example.com/x for the policy.");
+  });
+
+  it("resolves the role's label and description in the user's language", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+      expect(await screen.findByText("Vertragsverantwortlicher")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("names an empty role group in lower case", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    expect(await screen.findByText("No responsible assigned")).toBeInTheDocument();
+    expect(screen.getByText("No contract owner assigned")).toBeInTheDocument();
+  });
+
+  it("shows the picked role's label in the picker and only the label for a role without description", async () => {
+    render(<StakeholdersTab card={card} onRefresh={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: /add stakeholder/i }));
+    const roleInput = screen.getByLabelText(/^role$/i);
+    await userEvent.click(roleInput);
+    expect(await screen.findByRole("option", { name: /^observer$/i })).toHaveTextContent(
+      /^Observer$/,
+    );
+    await userEvent.click(screen.getByRole("option", { name: /contract owner/i }));
+    expect(roleInput).toHaveValue("Contract Owner");
   });
 });

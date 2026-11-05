@@ -305,11 +305,61 @@ describe("SurveyRespond — current values", () => {
     expect(within(fieldCard("Business Criticality")).getByText(t("surveys.respond.confirmLabel"))).toBeInTheDocument();
     expect(within(fieldCard("Business Criticality")).getByText("Business Information")).toBeInTheDocument();
 
-    // Help is mounted inside a Collapse that stays shut until asked for.
-    const collapse = screen.getByText("The short name people use in meetings.").closest(".MuiCollapse-root");
-    expect(collapse).toHaveClass("MuiCollapse-hidden");
-    await user.click(within(alias).getByRole("button", { name: /help/i }));
-    await waitFor(() => expect(collapse).toHaveClass("MuiCollapse-entered"));
+    // Help is an info icon beside the field's name in its header row, the
+    // same shape as on a card; there is no collapsible Help button.
+    const header = within(alias).getByText("Alias");
+    const icon = within(header).getByTestId("help-tip");
+    expect(icon).toHaveAccessibleName("The short name people use in meetings.");
+    expect(icon).toHaveAttribute("aria-label", ALIAS.help);
+    expect(within(alias).queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
+    await user.hover(icon);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "The short name people use in meetings.",
+    );
+  });
+
+  it("offers help on attribute fields only, in the active language", async () => {
+    const lifecycleWithHelp: FormField = {
+      key: "lifecycle:active",
+      section: "",
+      label: "stored label",
+      type: "date",
+      kind: "lifecycle",
+      phase: "active",
+      action: "maintain",
+      current_value: null,
+      help: "Lifecycle help that must not show.",
+    };
+    const translated: FormField = {
+      ...CLOUD,
+      kind: "attribute",
+      help: "Base help.",
+      helpTranslations: { en: "Translated help" },
+    };
+    // GO_LIVE is an attribute field with neither help nor helpTranslations.
+    expect(GO_LIVE.help).toBeUndefined();
+    expect(GO_LIVE.helpTranslations).toBeUndefined();
+    mockApi.on("get", RESPOND_PATH, formWith([ALIAS, lifecycleWithHelp, translated, GO_LIVE]));
+    renderPage();
+    await screen.findByText("Q3 Application Review");
+
+    // Only the two attribute fields carry an icon; the lifecycle field does not.
+    const icons = screen.getAllByTestId("help-tip");
+    expect(icons.map((el) => el.getAttribute("aria-label"))).toEqual([
+      ALIAS.help,
+      "Translated help",
+    ]);
+    expect(within(fieldCard("Alias")).getByTestId("help-tip")).toHaveAttribute(
+      "aria-label",
+      ALIAS.help,
+    );
+    expect(within(fieldCard("Cloud Hosted")).getByTestId("help-tip")).toHaveAttribute(
+      "aria-label",
+      "Translated help",
+    );
+    expect(screen.queryByLabelText("Lifecycle help that must not show.")).not.toBeInTheDocument();
+    // An attribute field with no help at all shows no icon.
+    expect(within(fieldCard("Go-Live Date")).queryByTestId("help-tip")).not.toBeInTheDocument();
   });
 });
 

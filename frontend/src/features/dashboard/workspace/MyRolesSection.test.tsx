@@ -12,16 +12,6 @@ vi.mock("@/hooks/AuthContext", () => ({
   useAuthContext: vi.fn(),
 }));
 
-vi.mock("@/hooks/useResolveLabel", () => ({
-  useResolveLabel: () => (label: string) => label,
-  useResolveMetaLabel: () => (label: string) => label,
-  useTypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-  useRelationLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-  useFieldLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-  useOptionLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-  useSubtypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-}));
-
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({
     types: [
@@ -35,6 +25,7 @@ vi.mock("@/hooks/useMetamodel", () => ({
   }),
 }));
 
+import i18n from "@/i18n";
 import { api } from "@/api/client";
 import { useAuthContext } from "@/hooks/AuthContext";
 import MyRolesSection from "./MyRolesSection";
@@ -167,5 +158,57 @@ describe("MyRolesSection", () => {
     });
     expect(await screen.findByText("Alice's Custom App")).toBeInTheDocument();
     expect(screen.getByText("Roles held by Alice")).toBeInTheDocument();
+  });
+});
+
+describe("MyRolesSection — role names and descriptions", () => {
+  const ROLE_RESPONSE = {
+    items: [{ id: "card-c", name: "Contracted App", type: "Application", status: "ACTIVE" }],
+    roles_by_card_id: {
+      "card-c": [
+        {
+          key: "contractOwner",
+          label: "Contract Owner",
+          color: "#1976d2",
+          description: "Signs and renews the vendor contract.",
+          // The role def's JSONB, keyed by property, then locale.
+          translations: {
+            label: { de: "Vertragsverantwortlicher" },
+            description: { de: "Unterschreibt den Vertrag." },
+          },
+        },
+      ],
+    },
+  };
+
+  beforeEach(() => {
+    vi.mocked(useAuthContext).mockReturnValue(viewerUser());
+    vi.mocked(api.get).mockResolvedValue(ROLE_RESPONSE);
+  });
+
+  it("shows an info icon with the role's description", async () => {
+    renderSection();
+    expect(await screen.findByText("Contract Owner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Signs and renews the vendor contract." }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the role name and description in the user's language", async () => {
+    await i18n.changeLanguage("de");
+    try {
+      renderSection();
+      expect(await screen.findByText("Vertragsverantwortlicher")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("shows no icon for a role without a description", async () => {
+    vi.mocked(api.get).mockResolvedValue(SELF_RESPONSE);
+    renderSection();
+    expect(await screen.findByText("NexaCore ERP")).toBeInTheDocument();
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
   });
 });

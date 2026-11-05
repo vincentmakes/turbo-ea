@@ -33,7 +33,7 @@ router = APIRouter(tags=["stakeholder-roles"])
 # Fields whose old/new an ``admin.stakeholder_role.updated`` row carries as
 # ``changes``; ``permissions`` become ``permission.granted`` / ``.revoked``
 # items (``audit_changes.permission_items``).
-SRD_AUDIT_FIELDS = ("label", "color", "sort_order", "counts_for_quality")
+SRD_AUDIT_FIELDS = ("label", "description", "color", "sort_order", "counts_for_quality")
 
 
 def _srd_target(

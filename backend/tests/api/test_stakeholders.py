@@ -136,6 +136,35 @@ class TestListStakeholderRoles:
                 assert "color" in role, params
             assert any(r["color"] for r in data), params
 
+    async def test_list_roles_carry_the_description(self, client, db, stakeholders_env):
+        """Both branches carry `description`, so the Stakeholders tab, the role
+        picker and the Inventory headers can explain a role (#1351)."""
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="contractOwner",
+            label="Contract Owner",
+            description="Signs and renews the vendor contract.",
+        )
+        headers = auth_headers(stakeholders_env["viewer"])
+        for params in ({}, {"type_key": "Application"}):
+            resp = await client.get("/api/v1/stakeholder-roles", params=params, headers=headers)
+            assert resp.status_code == 200
+            by_key = {r["key"]: r for r in resp.json()}
+            assert by_key["contractOwner"]["description"] == (
+                "Signs and renews the vendor contract."
+            ), params
+            assert by_key["responsible"]["description"] is None, params
+
+    async def test_default_roles_have_no_description(self, client, db):
+        await create_card_type(db, key="Application", label="Application")
+        headers = await _viewer_headers(db)
+        resp = await client.get(
+            "/api/v1/stakeholder-roles", params={"type_key": "Application"}, headers=headers
+        )
+        assert resp.status_code == 200
+        assert [r["description"] for r in resp.json()] == [None, None]
+
     async def test_default_roles_have_no_colour_but_still_carry_the_key(self, client, db):
         """The hardcoded fallback roles have no colour — the field must still be
         present (as null) so the frontend can skip the dot rather than crash."""

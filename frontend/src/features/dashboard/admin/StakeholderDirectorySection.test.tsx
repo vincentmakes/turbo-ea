@@ -7,16 +7,11 @@ vi.mock("@/api/client", () => ({
   api: { get: vi.fn() },
 }));
 
-vi.mock("@/hooks/useResolveLabel", () => ({
-  useResolveLabel: () => (label: string) => label,
-  useResolveMetaLabel: () => (label: string) => label,
-  useTypeLabel: () => (e?: { label?: string; key?: string } | null) => e?.label ?? e?.key ?? "",
-}));
-
 vi.mock("@/hooks/useMetamodel", () => ({
   useMetamodel: () => ({ getType: () => undefined }),
 }));
 
+import i18n from "@/i18n";
 import { api } from "@/api/client";
 import StakeholderDirectorySection from "./StakeholderDirectorySection";
 
@@ -173,5 +168,55 @@ describe("StakeholderDirectorySection", () => {
     expect(
       await screen.findByText("No stakeholders are assigned yet."),
     ).toBeInTheDocument();
+  });
+});
+
+describe("StakeholderDirectorySection — role names and descriptions", () => {
+  const DESCRIBED = {
+    card_types: [
+      {
+        ...DIRECTORY.card_types[0],
+        roles: [
+          {
+            ...DIRECTORY.card_types[0].roles[0],
+            role_description: "Accountable for the application.",
+            role_translations: {
+              label: { de: "Anwendungsverantwortlicher" },
+              description: { de: "Verantwortlich für die Anwendung." },
+            },
+          },
+        ],
+      },
+    ],
+  };
+
+  it("shows an info icon with the role's description", async () => {
+    vi.mocked(api.get).mockResolvedValue(DESCRIBED);
+    renderSection();
+    expect(await screen.findByText("Application Owner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Accountable for the application." }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the role name and description in the user's language", async () => {
+    vi.mocked(api.get).mockResolvedValue(DESCRIBED);
+    await i18n.changeLanguage("de");
+    try {
+      renderSection();
+      expect(await screen.findByText("Anwendungsverantwortlicher")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Verantwortlich für die Anwendung." }),
+      ).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("shows no icon for a role without a description", async () => {
+    vi.mocked(api.get).mockResolvedValue(DIRECTORY);
+    renderSection();
+    expect(await screen.findByText("Application Owner")).toBeInTheDocument();
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
   });
 });

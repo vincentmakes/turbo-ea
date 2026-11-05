@@ -34,8 +34,11 @@ function renderSection(props: { extraFields: FieldDef[]; calculatedFieldKeys?: s
 }
 
 function enterEdit() {
-  // The pencil is the last icon button in the summary row.
-  const buttons = screen.getAllByRole("button");
+  // The pencil is the last icon button in the summary row; the fields' help
+  // icons are buttons too, so they are left out.
+  const buttons = screen
+    .getAllByRole("button")
+    .filter((b) => b.dataset.testid !== "help-tip");
   fireEvent.click(buttons[buttons.length - 1]);
 }
 
@@ -226,5 +229,30 @@ describe("DescriptionSection — the header is not a button inside a button", ()
     expect(summary).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(summary);
     expect(summary).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("DescriptionSection — field help in read mode", () => {
+  it("shows an info icon beside a field with help, in both layouts", () => {
+    renderSection({
+      extraFields: [
+        { ...progress, help: "Share of scope delivered" },
+        { key: "notes", label: "Notes", type: "multiline_text", help: "Free notes" },
+        { key: "plain", label: "Plain", type: "text" },
+      ],
+    });
+    expect(screen.getByRole("button", { name: "Share of scope delivered" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Free notes" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(2);
+  });
+
+  it("keeps the icon on a locked field while editing", () => {
+    renderSection({
+      extraFields: [{ ...progress, help: "Share of scope delivered" }],
+      calculatedFieldKeys: ["progress"],
+    });
+    enterEdit();
+    expect(screen.getByRole("textbox", { name: "Description" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share of scope delivered" })).toBeInTheDocument();
   });
 });

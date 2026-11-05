@@ -95,6 +95,18 @@ vi.mock("@/features/admin/TagsAdmin", () => ({
   default: () => <div data-testid="tags-admin" />,
 }));
 
+vi.mock("@/features/admin/PrinciplesAdmin", () => ({
+  default: () => <div data-testid="principles-admin" />,
+}));
+
+vi.mock("@/features/admin/RegulationsAdmin", () => ({
+  default: () => <div data-testid="regulations-admin" />,
+}));
+
+vi.mock("@/features/admin/ResourceTypesAdmin", () => ({
+  default: () => <div data-testid="resource-types-admin" />,
+}));
+
 vi.mock("@/components/ColorPicker", () => ({
   default: () => <div data-testid="color-picker" />,
 }));
@@ -393,6 +405,85 @@ describe("MetamodelAdmin", () => {
     await waitFor(() => {
       expect(screen.getByTestId("metamodel-graph")).toBeInTheDocument();
     });
+  });
+
+  it("lists the Lifecycle phases tab directly before the Metamodel Graph", () => {
+    renderMetamodel();
+    const names = screen.getAllByRole("tab").map((tab) => tab.textContent);
+    expect(names).toEqual([
+      "Card Types",
+      "Relations",
+      "Calculations",
+      "Tags",
+      "Lifecycle phases",
+      "Metamodel Graph",
+      "EA Principles",
+      "Regulations",
+      "Resources",
+    ]);
+  });
+
+  it("switches to the Lifecycle phases tab and renders its panel", async () => {
+    const help = { phases: { active: { en: "In productive use and fully supported." } } };
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.includes("/settings/lifecycle-phase-help")) return Promise.resolve(help);
+      if (path.includes("/metamodel/types")) return Promise.resolve(MOCK_TYPES);
+      if (path.includes("/metamodel/relation-types")) return Promise.resolve(MOCK_RELATION_TYPES);
+      return Promise.resolve({});
+    });
+    const user = userEvent.setup();
+    renderMetamodel();
+
+    await user.click(screen.getByRole("tab", { name: "Lifecycle phases" }));
+
+    expect(await screen.findByText("Lifecycle phase help")).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue("In productive use and fully supported."),
+    ).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(
+      "/settings/lifecycle-phase-help",
+      expect.anything(),
+    );
+    expect(screen.queryByTestId("metamodel-graph")).not.toBeInTheDocument();
+  });
+
+  const TAB_CONTENT = [
+    "calculations-admin",
+    "tags-admin",
+    "metamodel-graph",
+    "principles-admin",
+    "regulations-admin",
+    "resource-types-admin",
+  ];
+
+  function expectOnlyTabContent(testId: string | null) {
+    for (const id of TAB_CONTENT) {
+      if (id === testId) expect(screen.getByTestId(id)).toBeInTheDocument();
+      else expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    }
+    // The Lifecycle phases panel belongs to its own tab only.
+    expect(screen.queryByText("Lifecycle phase help")).not.toBeInTheDocument();
+  }
+
+  it("renders no other tab's content on the Card Types tab", async () => {
+    renderMetamodel();
+    await waitFor(() => expect(screen.getByText("Application")).toBeInTheDocument());
+    expectOnlyTabContent(null);
+  });
+
+  it.each([
+    ["Metamodel Graph", "metamodel-graph"],
+    ["EA Principles", "principles-admin"],
+    ["Regulations", "regulations-admin"],
+    ["Resources", "resource-types-admin"],
+  ])("renders only the %s tab's content when it is selected", async (name, testId) => {
+    const user = userEvent.setup();
+    renderMetamodel();
+
+    await user.click(screen.getByRole("tab", { name }));
+
+    await waitFor(() => expect(screen.getByTestId(testId)).toBeInTheDocument());
+    expectOnlyTabContent(testId);
   });
 
   it("closes the type drawer and reloads the metamodel once a type was deleted", async () => {

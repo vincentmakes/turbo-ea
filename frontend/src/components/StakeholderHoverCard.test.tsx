@@ -13,11 +13,7 @@ vi.mock("@/api/client", async () => {
   };
 });
 
-vi.mock("@/hooks/useResolveLabel", () => ({
-  useResolveLabel: () => (label: string) => label,
-  useResolveMetaLabel: () => (label: string) => label,
-}));
-
+import i18n from "@/i18n";
 import { api } from "@/api/client";
 import StakeholderHoverCard, { _resetStakeholderHoverCache } from "./StakeholderHoverCard";
 
@@ -152,5 +148,48 @@ describe("StakeholderHoverCard", () => {
     });
 
     expect(api.get).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("StakeholderHoverCard — role names and descriptions", () => {
+  const DESCRIBED = {
+    items: [{ id: "card-1", name: "NexaCore ERP", type: "Application", status: "ACTIVE" }],
+    roles_by_card_id: {
+      "card-1": [
+        {
+          key: "contractOwner",
+          label: "Contract Owner",
+          color: "#1976d2",
+          description: "Signs and renews the vendor contract.",
+          translations: {
+            label: { de: "Vertragsverantwortlicher" },
+            description: { de: "Unterschreibt den Vertrag." },
+          },
+        },
+      ],
+    },
+  };
+
+  it("shows the role's description beside its name", async () => {
+    vi.mocked(api.get).mockResolvedValue(DESCRIBED);
+    renderHover();
+    await openHover();
+    expect(screen.getByText("Contract Owner")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Signs and renews the vendor contract." }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the role name in the user's language", async () => {
+    vi.mocked(api.get).mockResolvedValue(DESCRIBED);
+    await i18n.changeLanguage("de");
+    try {
+      renderHover();
+      await openHover();
+      expect(screen.getByText("Vertragsverantwortlicher")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Unterschreibt den Vertrag." })).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 });

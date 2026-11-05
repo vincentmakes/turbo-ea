@@ -1,9 +1,16 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), patch: vi.fn(), delete: vi.fn(), upload: vi.fn() },
   ApiError: class extends Error {},
+}));
+const phaseHelpMock = vi.hoisted(() => ({ help: {} as Record<string, string> }));
+vi.mock("@/hooks/useLifecyclePhaseHelp", () => ({
+  useLifecyclePhaseHelp: () => ({
+    help: {},
+    phaseHelp: (phase: string) => phaseHelpMock.help[phase] ?? "",
+  }),
 }));
 vi.mock("@/hooks/useDateFormat", () => ({
   useDateFormat: () => ({ formatDate: (v: string) => `d:${v}` }),
@@ -162,5 +169,46 @@ describe("LifecycleSection — progress fill", () => {
       [...el.classList].map((c) => css.match(new RegExp(`\\.${c}\\{([^}]*)\\}`))?.[1] ?? "").join(";");
     const gradient = `linear-gradient(90deg, ${LIFECYCLE_PHASE_COLORS.plan} 0.00%, ${LIFECYCLE_PHASE_COLORS.phaseIn} 100.00%)`;
     expect([...container.querySelectorAll("div")].some((el) => ruleOf(el).includes(gradient))).toBe(true);
+  });
+});
+
+describe("LifecycleSection — phase help", () => {
+  afterEach(() => {
+    phaseHelpMock.help = {};
+  });
+
+  it("puts an info icon beside a phase with help, and none otherwise", () => {
+    phaseHelpMock.help = { phaseOut: "Being replaced; no new users." };
+    render(<LifecycleSection card={cardWith({})} onSave={async () => {}} />);
+    expect(
+      screen.getByRole("button", { name: "Being replaced; no new users." }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
+  });
+
+  it("shows no icon when no phase has help", () => {
+    render(<LifecycleSection card={cardWith({})} onSave={async () => {}} />);
+    expect(screen.queryByTestId("help-tip")).toBeNull();
+  });
+
+  it("keeps the timeline's icon while editing and adds none to the date row", () => {
+    phaseHelpMock.help = { plan: "An idea not yet approved." };
+    const { container } = render(
+      <LifecycleSection card={cardWith({})} onSave={async () => {}} />,
+    );
+    // The timeline's help icons are buttons too; the edit button is the last other one.
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((b) => b.dataset.testid !== "help-tip");
+    fireEvent.click(buttons[buttons.length - 1]);
+
+    const planField = container.querySelector('[data-phase="plan"]') as HTMLElement;
+    expect(planField).not.toBeNull();
+    expect(within(planField).queryByTestId("help-tip")).toBeNull();
+    expect(within(planField).queryByText("An idea not yet approved.")).toBeNull();
+    // One icon per phase with help in all: the timeline's, still on screen.
+    const icons = screen.getAllByTestId("help-tip");
+    expect(icons).toHaveLength(1);
+    expect(icons[0]).toHaveAccessibleName("An idea not yet approved.");
   });
 });

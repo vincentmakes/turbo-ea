@@ -138,7 +138,8 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { readableCardTypes } from "@/hooks/useReadableCardTypes";
 import { canCreateAnyCardType, hasTypePermission } from "@/components/RequirePermission";
 import { useCardSearch } from "@/hooks/useCardSearch";
-import { useTypeLabel, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useTypeLabel, useTypeDescription, useRelationLabel, useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { useFieldHelp } from "@/features/cards/sections/cardDetailUtils";
 import { OptionChip } from "@/components/OptionChip";
 import { readableTextColor } from "@/lib/color";
 import { booleanOption, facetOptions, facetValues, isGroupableField } from "@/lib/fieldFacets";
@@ -786,6 +787,9 @@ export default function InventoryPage() {
   const typeLabel = useTypeLabel();
   const relLabel = useRelationLabel();
   const fieldLabel = useFieldLabel();
+  // Read-mode help reaches the grid as AG Grid's native header tooltip.
+  const fieldHelp = useFieldHelp();
+  const roleDescription = useTypeDescription();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
   const { user } = useAuth();
@@ -3413,6 +3417,7 @@ export default function InventoryPage() {
           cols.push({
             field: colKey,
             headerName: fieldLabel(field),
+            headerTooltip: fieldHelp(field) || undefined,
             width: 150,
             hide: !selectedColumns.has(colKey),
             editable: gridEditMode && !field.readonly && !calculatedKeys.has(field.key),
@@ -3508,6 +3513,7 @@ export default function InventoryPage() {
         cols.push({
           field: colKey,
           headerName: fieldLabel(field),
+          headerTooltip: fieldHelp(field) || undefined,
           width: 150,
           hide: !selectedColumns.has(colKey),
           valueGetter: (p: { data: Card }) =>
@@ -3670,6 +3676,7 @@ export default function InventoryPage() {
         colId: colKey,
         field: colKey,
         headerName: t("columns.stakeholderRole", { role: roleLabel }),
+        headerTooltip: roleDescription(role) || undefined,
         width: 180,
         hide: !selectedColumns.has(colKey),
         editable: gridEditMode && canManageStakeholders,
@@ -3798,7 +3805,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice

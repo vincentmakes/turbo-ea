@@ -11,6 +11,8 @@ import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { DateField } from "@/components/DateField";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import HelpTip from "@/components/HelpTip";
+import { useLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { PHASE_ICONS } from "@/components/LifecycleBadge";
 import { PHASES, getPhaseLabels, lifecycleOrderIssues } from "@/lib/lifecyclePhases";
 import { useDateFormat } from "@/hooks/useDateFormat";
@@ -65,6 +67,7 @@ function LifecycleSection({
   const theme = useTheme();
   const { formatDate } = useDateFormat();
   const phaseLabels = getPhaseLabels(t);
+  const { phaseHelp } = useLifecyclePhaseHelp();
   const [expanded, setExpanded] = useSyncedExpanded(initialExpanded, expandOn);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
@@ -301,6 +304,7 @@ function LifecycleSection({
                     }}
                   >
                     {phaseLabels[phase]}
+                    <HelpTip text={phaseHelp(phase)} size={12} />
                   </Typography>
                   <Typography
                     variant="caption"

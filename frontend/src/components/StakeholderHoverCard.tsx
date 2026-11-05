@@ -6,15 +6,18 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Popover from "@mui/material/Popover";
 import Typography from "@mui/material/Typography";
 import { api, ApiError } from "@/api/client";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import HelpTip from "@/components/HelpTip";
+import { useTypeDescription, useTypeLabel } from "@/hooks/useResolveLabel";
 import { isModifiedClick } from "@/lib/modifiedClick";
-import type { Card as CardType, TranslationMap } from "@/types";
+import type { Card as CardType, MetamodelTranslations } from "@/types";
 
 interface RoleDescriptor {
   key: string;
   label: string;
   color: string;
-  translations: TranslationMap;
+  description?: string | null;
+  /** `{label: {locale: …}, description: {locale: …}}` — the role def's JSONB. */
+  translations: MetamodelTranslations;
 }
 
 interface StakeholderResponse {
@@ -71,7 +74,8 @@ export default function StakeholderHoverCard({
   children,
 }: Props) {
   const { t } = useTranslation("common");
-  const rl = useResolveLabel();
+  const roleLabel = useTypeLabel();
+  const roleDescription = useTypeDescription();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [data, setData] = useState<StakeholderResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -182,8 +186,9 @@ export default function StakeholderHoverCard({
                         color: "text.secondary",
                       }}
                     >
-                      {rl(role.label, role.translations)}
+                      {roleLabel(role)}
                     </Typography>
+                    <HelpTip text={roleDescription(role)} size={12} />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
                       ({cards.length})
                     </Typography>

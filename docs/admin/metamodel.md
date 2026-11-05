@@ -64,7 +64,7 @@ Fields define the custom attributes available on cards of this type. Each field 
 | **Label** | Display name |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select, or multiple_select. A percentage is a number from 0 to 100, shown as a progress bar and edited with a slider or typed exactly. A boolean is chosen from a Yes / No list, with **None** to clear it, and shows as a green *Yes* or blue *No* pill, or as — when unset, which the Inventory's **(empty)** filter matches |
 | **Options** | For select fields: the available choices with labels and optional colors. Reorder them with the up and down arrows beside each option: menus and filters list the options in that order, and the chips of a multi-select value follow it on every card. |
-| **Help text** | Optional guidance shown as a collapsible note under the field while a card is edited. It is written per language and can be set by any metamodel admin; on a field contributed by an extension it is read-only |
+| **Help text** | Optional guidance for the field. While a card is read it appears as an info icon beside the field's label (hover or focus it to read the text) and as a tooltip on the field's column header in the Inventory; while a card is edited the same icon sits beside the field. It is written per language and can be set by any metamodel admin; on a field contributed by an extension it is read-only |
 | **Required** | Whether the field is mandatory — see the enforcement rules below |
 | **Data quality** | Each field's contribution to the score is managed in the **Data quality** panel — see [Data quality scoring](#data-quality-scoring) below |
 | **Read-only** | Prevents manual editing (useful for calculated fields) |
@@ -148,6 +148,8 @@ Define custom roles for this type (e.g., "Application Owner", "Technical Owner")
 
 Each role has a **key** (the identifier stored on cards, used by the `stakeholder:<role_key>` import/export columns) and a **label** (what users see). The key follows the same convention as every other metamodel key — letters and digits only, starting with a letter, 3–50 characters, conventionally camelCase such as `businessArchitect`. It is filled in automatically from the label, so you rarely need to type one.
 
+Give a role a **description** to say what it means in your organisation — what a *Contract Owner* signs, what a *Technical Owner* answers for. Users see it as an info icon beside the role on a card's **Stakeholders** tab, under the role's name in the role picker, as a tooltip on the role's column header in the Inventory, in **My roles** on the dashboard and in the stakeholder directory. The description is translated per language like the label: each enabled language has its own description field under **Translations** in the role editor, and the type's **Translation Dialog** lists it too. A language left empty falls back to the English description.
+
 Each role also carries a **Counts toward data quality** switch. The data-quality score has a single stakeholders slot, and it is filled as soon as anyone is assigned to the card in a role where this is on. Turn it off for purely passive roles — the built-in **Observer** ships with it off, so watching a card never stands in for owning it. A type whose roles all have it off contributes no stakeholders slot at all. Flipping the switch re-scores every card of the type straight away.
 
 Roles can be removed in two ways:
@@ -209,7 +211,7 @@ Click the **Translate** button in the type drawer toolbar to open the **Translat
 - **Sections** — Section headings on the card detail page
 - **Fields** — Field labels and select option labels
 - **Help text** — A field's help text, listed under the field once it has been entered in the field editor. Editing it in English also updates the field's default help
-- **Stakeholder Roles** — Role names displayed in the stakeholder assignment UI
+- **Stakeholder Roles** — Role names and descriptions. A role's description is listed under its name once the role has a description in some language; editing it in English also updates the role's default description
 
 Translations are stored alongside each card type and are resolved at render time using the user's selected locale. Untranslated labels fall back to the English default.
 
@@ -371,6 +373,14 @@ For each list you can:
 - **Delete** a custom entry — built-in entries cannot be deleted, only disabled.
 
 A built-in **Contract** link type ships enabled by default. Both lists are included in **Workspace Transfer**, so your customisations clone between instances.
+
+## Lifecycle phases
+
+Every card's **Lifecycle** section walks through five fixed phases: Plan, Phase In, Active, Phase Out and End of Life. What each phase means differs between organisations — whether *Phase Out* still allows new users, say, or when a component counts as *End of Life*. The **Lifecycle phases** tab lets you write that down once for the whole workspace.
+
+The tab shows one text field per phase, and a row of language tabs (English first, then each enabled language). On a new workspace the fields come prefilled with a default explanation of each phase in every language, so the help is there from the start; edit any text to match how your organisation works. A language left empty shows the English text. Leave a phase empty to show no help for it — clearing all five phases and saving removes the help altogether. Click **Save** to apply the texts.
+
+Users see a phase's help as an info icon beside the phase on every card's Lifecycle timeline, which stays on screen while the lifecycle is edited. The texts apply to every card type. Saving is recorded in the **Security & admin log**.
 
 ## Card Layout Editor
 

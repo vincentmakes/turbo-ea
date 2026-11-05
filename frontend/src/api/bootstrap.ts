@@ -33,12 +33,18 @@ import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
 import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { invalidateAuditLogRetentionDays } from "@/hooks/useAuditLogRetentionDays";
 import { invalidateFiscalYearStart } from "@/hooks/useFiscalYearStart";
+import { invalidateLifecyclePhaseHelp } from "@/hooks/useLifecyclePhaseHelp";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { invalidateNavbarStyle } from "@/hooks/useNavbarStyle";
 import { SUPPORTED_LOCALES, type SupportedLocale } from "@/i18n";
-import type { CardTypeCategory, ComplianceRegulation, ResourceType } from "@/types";
+import type {
+  CardTypeCategory,
+  ComplianceRegulation,
+  LifecyclePhaseHelp,
+  ResourceType,
+} from "@/types";
 
 type BootstrapResponse = {
   currency: string;
@@ -55,6 +61,8 @@ type BootstrapResponse = {
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
+  /** Absent on a backend older than editable lifecycle phase help. */
+  lifecycle_phase_help?: LifecyclePhaseHelp;
   archive_retention_days: number;
   audit_log_retention_days: number;
   mutation_batch_retention_days: number;
@@ -124,6 +132,16 @@ export function primeBootstrap(): Promise<void> {
 
       if (typeof r.fiscal_year_start === "number") {
         invalidateFiscalYearStart(r.fiscal_year_start);
+      }
+
+      // Only prime when the backend sent the map: an empty prime from an older
+      // backend would stop the hook fetching it.
+      if (
+        r.lifecycle_phase_help !== null &&
+        typeof r.lifecycle_phase_help === "object" &&
+        !Array.isArray(r.lifecycle_phase_help)
+      ) {
+        invalidateLifecyclePhaseHelp(r.lifecycle_phase_help);
       }
 
       const validLocales = r.enabled_locales.filter((l): l is SupportedLocale =>

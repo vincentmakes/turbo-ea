@@ -346,3 +346,34 @@ class TestStakeholderDirectory:
         # Card types ordered by holders_count desc — Application (2) before
         # BusinessProcess (1).
         assert type_keys == ["Application", "BusinessProcess"]
+
+    async def test_roles_carry_their_description(self, client, db, env):
+        """The directory shows what each role means beside its name (#1351)."""
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="contractOwner",
+            label="Contract Owner",
+            description="Signs and renews the vendor contract.",
+            sort_order=2,
+        )
+        a1 = await create_card(db, card_type="Application", name="A1", user_id=env["admin"].id)
+        db.add_all(
+            [
+                Stakeholder(card_id=a1.id, user_id=env["alice"].id, role="contractOwner"),
+                Stakeholder(card_id=a1.id, user_id=env["alice"].id, role="observer"),
+                Stakeholder(card_id=a1.id, user_id=env["alice"].id, role="ghost"),
+            ]
+        )
+        await db.flush()
+
+        resp = await client.get(
+            "/api/v1/reports/stakeholder-directory", headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 200
+        [app_node] = resp.json()["card_types"]
+        roles = {r["role_key"]: r for r in app_node["roles"]}
+        assert roles["contractOwner"]["role_description"] == "Signs and renews the vendor contract."
+        assert roles["observer"]["role_description"] is None
+        # A role with no definition left keeps the key and no description.
+        assert roles["ghost"]["role_description"] is None

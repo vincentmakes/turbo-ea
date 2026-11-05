@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ vi.mock("@/api/client", () => ({
   ApiError: class extends Error {},
 }));
 
+import i18n from "@/i18n";
 import { registerExtension, resetExtensionHost, UI_SDK_VERSION } from "@/lib/extensionHost";
 import type { FieldDef, Relation } from "@/types";
 import { BOOLEAN_COLORS, STATUS_COLORS } from "@/theme/tokens";
@@ -67,10 +68,105 @@ describe("custom field type rendering", () => {
   });
 });
 
-describe("collapsible field help", () => {
+describe("field help icon in an editable control's label", () => {
   beforeEach(() => resetExtensionHost());
 
-  it("renders help toggle and guidance under an editable field", () => {
+  // MUI renders an outlined control's label twice: the visible <label> and a
+  // copy in the border's <legend> that only sizes the gap. The icon belongs in
+  // the first and must not be in the second (an invisible tab stop).
+  function iconInLabel(container: HTMLElement): HTMLElement {
+    const icon = screen.getByTestId("help-tip");
+    expect(icon.closest("label")).not.toBeNull();
+    expect(icon.closest("legend")).toBeNull();
+    const legend = container.querySelector("legend");
+    expect(legend).not.toBeNull();
+    expect(within(legend as HTMLElement).queryByTestId("help-tip")).toBeNull();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(1);
+    return icon;
+  }
+
+  const options = [{ key: "gold", label: "Gold" }];
+  const cases: { name: string; field: FieldDef; value: unknown; labelText: string }[] = [
+    { name: "text", field: { key: "f", label: "Name", type: "text" }, value: "", labelText: "Name" },
+    {
+      name: "multiline text",
+      field: { key: "f", label: "Notes", type: "multiline_text" },
+      value: "",
+      labelText: "Notes",
+    },
+    { name: "number", field: { key: "f", label: "Users", type: "number" }, value: 3, labelText: "Users" },
+    { name: "cost", field: { key: "f", label: "Budget", type: "cost" }, value: 10, labelText: "Budget" },
+    { name: "url", field: { key: "f", label: "Site", type: "url" }, value: "", labelText: "Site" },
+    { name: "date", field: { key: "f", label: "Go-live", type: "date" }, value: "", labelText: "Go-live" },
+    {
+      name: "single select",
+      field: { key: "f", label: "Tier", type: "single_select", options },
+      value: "",
+      labelText: "Tier",
+    },
+    {
+      name: "multiple select",
+      field: { key: "f", label: "Regions", type: "multiple_select", options },
+      value: [],
+      labelText: "Regions",
+    },
+    { name: "boolean", field: { key: "f", label: "SOX", type: "boolean" }, value: null, labelText: "SOX" },
+    {
+      name: "percentage",
+      field: { key: "f", label: "Coverage", type: "percentage" },
+      value: 40,
+      labelText: "Coverage",
+    },
+  ];
+
+  it.each(cases)("puts the icon in the $name field's label, not its notch", ({ field, value, labelText }) => {
+    const { container } = render(
+      <FieldEditor field={{ ...field, help: "Admin help." }} value={value} onChange={() => {}} />,
+    );
+    const icon = iconInLabel(container);
+    expect(icon).toHaveAccessibleName("Admin help.");
+    expect(icon.closest("label")).toHaveTextContent(labelText);
+    // The notch still carries the label text, plus a spacer for the icon.
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent(labelText);
+    expect(legend.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    // Sized for a scaled floating label, not the read-mode 14 px.
+    expect(icon.querySelector(".material-symbols-outlined")).toHaveStyle({ fontSize: "18px" });
+  });
+
+  it.each(cases)("shows no icon and no spacer on a $name field without help", ({ field, value, labelText }) => {
+    const { container } = render(<FieldEditor field={field} value={value} onChange={() => {}} />);
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent(labelText);
+    expect(legend.querySelector('[aria-hidden="true"]')).toBeNull();
+  });
+
+  it("puts the icon in the restricted cost field's label too", () => {
+    const { container } = render(
+      <FieldEditor
+        field={{ key: "f", label: "Budget", type: "cost", help: "Admin help." }}
+        value={10}
+        onChange={() => {}}
+        canViewCosts={false}
+      />,
+    );
+    expect(iconInLabel(container)).toHaveAccessibleName("Admin help.");
+  });
+
+  it("keeps the cost field's currency adornment beside the notch label", () => {
+    render(
+      <FieldEditor
+        field={{ key: "f", label: "Budget", type: "cost", help: "Admin help." }}
+        value={10}
+        onChange={() => {}}
+        currencySymbol="€"
+      />,
+    );
+    expect(screen.getByText("€")).toBeInTheDocument();
+  });
+
+  it("names the icon by the help text and adds no help button", () => {
     render(
       <FieldEditor
         field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
@@ -78,13 +174,12 @@ describe("collapsible field help", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByText("Help")).toBeInTheDocument();
-    // Toggling does not throw and the guidance is present in the DOM.
-    fireEvent.click(screen.getByText("Help"));
-    expect(screen.getByText("Enter the legal name.")).toBeInTheDocument();
+    expect(screen.getByTestId("help-tip")).toHaveAccessibleName("Enter the legal name.");
+    expect(screen.getByRole("textbox")).toHaveAccessibleName(/Name/);
+    expect(screen.queryByRole("button", { name: /help/i })).not.toBeInTheDocument();
   });
 
-  it("opens and closes the guidance from the toggle", () => {
+  it("shows the help in a tooltip on hover", async () => {
     // fireEvent, not userEvent.setup(): setup() replaces navigator.clipboard
     // with a getter-only stub, which breaks the CardIdPill copy test below.
     render(
@@ -94,16 +189,11 @@ describe("collapsible field help", () => {
         onChange={() => {}}
       />,
     );
-    const toggle = screen.getByRole("button", { name: /Help/ });
-    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
-    fireEvent.click(toggle);
-    expect(within(toggle).getByText("expand_less")).toBeInTheDocument();
-    expect(screen.getByText("Enter the legal name.")).toBeVisible();
-    fireEvent.click(toggle);
-    expect(within(toggle).getByText("expand_more")).toBeInTheDocument();
+    fireEvent.mouseOver(screen.getByTestId("help-tip"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Enter the legal name.");
   });
 
-  it("underlines only the caption on hover, never the icons", () => {
+  it("shows the help on a click in a text field's label, leaving the input unfocused", async () => {
     render(
       <FieldEditor
         field={{ key: "name", label: "Name", type: "text", help: "Enter the legal name." }}
@@ -111,40 +201,93 @@ describe("collapsible field help", () => {
         onChange={() => {}}
       />,
     );
-    const toggle = screen.getByRole("button", { name: /Help/ });
-    const caption = within(toggle).getByText("Help");
-    const icons = [within(toggle).getByText("help"), within(toggle).getByText("expand_more")];
-    // The caption is its own element, a direct child of the button, which is
-    // what the `button:hover > &` rule needs; the icons are its siblings.
-    expect(caption.parentElement).toBe(toggle);
-    for (const icon of icons) expect(icon.parentElement).toBe(toggle);
+    const icon = screen.getByTestId("help-tip");
+    expect(icon.closest("label")).not.toBeNull();
+    // false = default prevented: the label does not activate, focus does not move.
+    expect(fireEvent.mouseDown(icon)).toBe(false);
+    expect(fireEvent.click(icon)).toBe(false);
+    expect(screen.getByRole("textbox")).not.toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Enter the legal name.");
+  });
 
-    // Emotion injects each rule as text; read them back.
-    const css = Array.from(document.querySelectorAll("style"))
-      .map((el) => el.textContent ?? "")
-      .join("\n");
-    const rulesFor = (el: Element) =>
-      Array.from(el.classList)
-        .filter((c) => c.startsWith("css-"))
-        .flatMap((c) => css.split("}").filter((rule) => rule.includes(`.${c}`)));
-    const captionRules = rulesFor(caption);
-    expect(
-      captionRules.some((r) => /button:hover\s*>\s*\.css-/.test(r) && /text-decoration:\s*underline/.test(r)),
-    ).toBe(true);
-    // The button itself carries no underline any more, so nothing under the
-    // icons can inherit one.
-    expect(rulesFor(toggle).some((r) => /underline/.test(r))).toBe(false);
-    for (const icon of icons) {
-      expect(rulesFor(icon).some((r) => /underline/.test(r))).toBe(false);
-      expect((icon as HTMLElement).style.textDecoration).toBe("");
+  it("prefers the localised help over the base text", () => {
+    render(
+      <FieldEditor
+        field={{
+          key: "name",
+          label: "Name",
+          type: "text",
+          help: "Base help.",
+          helpTranslations: { en: "Localised help." },
+        }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("help-tip")).toHaveAccessibleName("Localised help.");
+  });
+
+  it("follows a language change while mounted", async () => {
+    render(
+      <FieldEditor
+        field={{
+          key: "name",
+          label: "Name",
+          type: "text",
+          help: "English help",
+          helpTranslations: { en: "English help", de: "Deutsche Hilfe" },
+        }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    try {
+      expect(screen.getByTestId("help-tip")).toHaveAttribute("aria-label", "English help");
+      await act(async () => {
+        await i18n.changeLanguage("de");
+      });
+      expect(screen.getByTestId("help-tip")).toHaveAttribute("aria-label", "Deutsche Hilfe");
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage("en");
+      });
     }
   });
 
-  it("shows no help affordance when the field has none", () => {
+  it("keeps the icon beside an extension's own editor, at the default size", () => {
+    registerRating();
     render(
-      <FieldEditor field={{ key: "name", label: "Name", type: "text" }} value="" onChange={() => {}} />,
+      <FieldEditor field={{ ...ratingField, help: "Rate it." }} value={3} onChange={() => {}} />,
     );
-    expect(screen.queryByText("Help")).not.toBeInTheDocument();
+    const icon = screen.getByTestId("help-tip");
+    expect(icon).toHaveAccessibleName("Rate it.");
+    expect(icon.closest("label")).toBeNull();
+    // The editor sits in its own column wrapper; the icon is that wrapper's
+    // sibling, so it renders beside the editor.
+    const row = icon.parentElement!.parentElement!;
+    const editorWrapper = row.firstElementChild as HTMLElement;
+    expect(editorWrapper).toContainElement(screen.getByText("editor-3"));
+    expect(editorWrapper).not.toContainElement(icon);
+    expect(icon.querySelector(".material-symbols-outlined")).toHaveStyle({ fontSize: "14px" });
+  });
+
+  it("shows no icon beside an extension's editor without help", () => {
+    registerRating();
+    render(<FieldEditor field={ratingField} value={3} onChange={() => {}} />);
+    expect(screen.getByText("editor-3")).toBeInTheDocument();
+    expect(screen.queryByTestId("help-tip")).not.toBeInTheDocument();
+  });
+
+  it("orders a required field's label as text, icon, asterisk", () => {
+    render(
+      <FieldEditor
+        field={{ key: "name", label: "Name", type: "text", required: true, help: "Admin help." }}
+        value=""
+        onChange={() => {}}
+      />,
+    );
+    const label = screen.getByTestId("help-tip").closest("label") as HTMLElement;
+    expect(label.textContent).toMatch(/^Name.*help.*\*$/);
   });
 });
 

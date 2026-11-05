@@ -404,3 +404,54 @@ describe("AttributeSection — the header is not a button inside a button", () =
     expect(summary).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+describe("AttributeSection read-mode help", () => {
+  const helpSection: SectionDef & { columns?: 1 | 2 } = {
+    section: "Help",
+    columns: 1,
+    fields: [
+      {
+        key: "a",
+        label: "Alpha",
+        type: "text",
+        help: "What Alpha means",
+        helpTranslations: { de: "Was Alpha bedeutet" },
+      },
+      { key: "b", label: "Bravo", type: "text" },
+      { key: "calc", label: "Calc", type: "number", readonly: true, help: "Computed nightly" },
+    ],
+  };
+  const helpCard = {
+    id: "card-1",
+    type: "Application",
+    name: "Test",
+    attributes: { a: "x", b: "y", calc: 3 },
+  } as unknown as Card;
+
+  it("shows an info icon beside a field with help, and none otherwise", () => {
+    render(
+      <AttributeSection section={helpSection} card={helpCard} onSave={async () => {}} canEdit={false} />,
+    );
+    expect(screen.getByRole("button", { name: "What Alpha means" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Computed nightly" })).toBeInTheDocument();
+    expect(screen.getAllByTestId("help-tip")).toHaveLength(2);
+  });
+
+  it("prefers the localized help text", async () => {
+    await i18n.changeLanguage("de");
+    render(
+      <AttributeSection section={helpSection} card={helpCard} onSave={async () => {}} canEdit={false} />,
+    );
+    expect(screen.getByRole("button", { name: "Was Alpha bedeutet" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "What Alpha means" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the icon on a readonly field while the section is edited", () => {
+    render(
+      <AttributeSection section={helpSection} card={helpCard} onSave={async () => {}} canEdit />,
+    );
+    fireEvent.click(screen.getByText("edit"));
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Computed nightly" })).toBeInTheDocument();
+  });
+});

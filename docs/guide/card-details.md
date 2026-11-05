@@ -98,6 +98,8 @@ Each phase has a **date picker** so you can record when the component entered or
 
 If a phase is dated after a phase that should follow it — for example **Phase Out** after **End of Life** — a warning icon appears next to that date, and the same warning shows under the field while editing. It is only a hint: the dates can still be saved as entered.
 
+An info icon beside each phase on the timeline explains what the phase means — hover over it to read the definition. It shows a default explanation unless your administrator changed it to describe how your organisation uses the phase, or removed it. The timeline, with its icons, stays on screen while you edit the dates. The texts are set under **Admin → Metamodel → Lifecycle phases** (see [Lifecycle phases](../admin/metamodel.md#lifecycle-phases)).
+
 ### Custom Attribute Sections
 
 Depending on the card type, you will see additional sections with **custom fields** configured in the metamodel. Field types include:
@@ -111,6 +113,8 @@ Depending on the card type, you will see additional sections with **custom field
 - **URL** — Clickable link (validated for http/https/mailto)
 - **Single select** — Dropdown with predefined options
 - **Multiple select** — Multi-selection with chip display
+
+Where your administrator has written **help text** for a field, an info icon appears beside its label: hover over it (or tab to it with the keyboard) to read what the field means. While you edit the section, the same icon sits beside the field. In the Inventory, hovering the field's column header shows it too.
 
 Fields marked as **calculated** show a badge and cannot be edited manually — their values are computed by [admin-defined formulas](../admin/calculations.md).
 
@@ -202,6 +206,8 @@ Stakeholders are people with a specific **role** on this card. The available rol
 Stakeholder assignments affect **permissions**: a user's effective permissions on a card are the combination of their app-level role and any stakeholder roles they hold on that card.
 
 Where a role has a **colour** set in the metamodel, its group is marked with it, so you can pick out an owner from an observer at a glance.
+
+Where a role has a **description**, an info icon appears beside its name: hover over it to read what the role means. The description also shows under the role's name in the role picker when you add a stakeholder.
 
 ### Searching and inviting
 

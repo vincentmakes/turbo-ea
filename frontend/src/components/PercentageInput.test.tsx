@@ -86,4 +86,35 @@ describe("PercentageInput — one source of truth", () => {
     expect(container.querySelectorAll(".MuiSlider-mark")).toHaveLength(5);
     expect(screen.getByText("50%")).toBeInTheDocument();
   });
+
+  it("renders a label adornment in the box's label, with a spacer in the notch instead", () => {
+    const { container } = render(
+      <PercentageInput
+        label="Progress"
+        labelAdornment={<span data-testid="adornment" tabIndex={0} />}
+        value={10}
+        onChange={() => {}}
+      />,
+    );
+    const label = container.querySelector("label") as HTMLElement;
+    expect(label).toContainElement(screen.getByTestId("adornment"));
+    expect(label).toHaveTextContent("Progress");
+    expect(screen.getAllByTestId("adornment")).toHaveLength(1);
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend).toHaveTextContent("Progress");
+    expect(legend.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    // The % adornment survives the merged input slot props, and the slider
+    // keeps the plain text as its name.
+    expect(screen.getByText("%")).toBeInTheDocument();
+    expect(screen.getByRole("slider")).toHaveAccessibleName("Progress");
+  });
+
+  it("keeps the plain label and notch without an adornment", () => {
+    const { container } = render(<PercentageInput label="Progress" value={10} onChange={() => {}} />);
+    expect((container.querySelector("label") as HTMLElement).textContent).toBe("Progress");
+    const legend = container.querySelector("legend") as HTMLElement;
+    expect(legend.textContent).toBe("Progress");
+    expect(legend.querySelector('[aria-hidden="true"]')).toBeNull();
+    expect(screen.getByText("%")).toBeInTheDocument();
+  });
 });

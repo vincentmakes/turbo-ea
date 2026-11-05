@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.seed import CARD_TYPE_CATEGORIES, DASHBOARD_NAMES, RELATIONS, TYPES
+from app.services.seed import (
+    CARD_TYPE_CATEGORIES,
+    DASHBOARD_NAMES,
+    LIFECYCLE_PHASE_HELP,
+    RELATIONS,
+    TYPES,
+)
 
 SUPPORTED_LOCALES = ["de", "fr", "es", "it", "pt", "zh", "ru", "da", "ar"]
 
@@ -518,4 +524,17 @@ class TestDashboardNameTranslations:
             value = translations.get(locale)
             assert isinstance(value, str) and value.strip(), (
                 f"Dashboard '{entry['key']}' missing '{locale}' translation"
+            )
+
+
+class TestLifecyclePhaseHelpTranslations:
+    @pytest.mark.parametrize("entry", [pytest.param(p, id=p["key"]) for p in LIFECYCLE_PHASE_HELP])
+    def test_phase_help_translated_to_all_locales(self, entry):
+        """Every lifecycle phase's default explanation exists in every locale."""
+        assert isinstance(entry.get("label"), str) and entry["label"].strip()
+        translations = entry.get("translations", {})
+        for locale in SUPPORTED_LOCALES:
+            value = translations.get(locale)
+            assert isinstance(value, str) and value.strip(), (
+                f"Lifecycle phase help '{entry['key']}' missing '{locale}' translation"
             )

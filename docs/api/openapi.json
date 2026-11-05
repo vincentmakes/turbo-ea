@@ -7968,6 +7968,25 @@
         "title": "LicenseOut",
         "type": "object"
       },
+      "LifecyclePhaseHelpPayload": {
+        "properties": {
+          "phases": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Phases",
+            "type": "object"
+          }
+        },
+        "required": [
+          "phases"
+        ],
+        "title": "LifecyclePhaseHelpPayload",
+        "type": "object"
+      },
       "LoginBrandingPayload": {
         "properties": {
           "login_help_link": {
@@ -41663,6 +41682,64 @@
           }
         },
         "summary": "Update Grc Enabled",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/lifecycle-phase-help": {
+      "get": {
+        "description": "The admin-written help text of each lifecycle phase.\n\nSigned-in only: nothing before sign-in shows a lifecycle. ``/bootstrap``\ncarries the same map, so this is the refresh path after an admin edit.",
+        "operationId": "get_lifecycle_phase_help_api_v1_settings_lifecycle_phase_help_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Lifecycle Phase Help",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 replace the lifecycle phase help texts.\n\nGated on ``admin.metamodel``: what a phase means is metamodel\nconfiguration, edited under Admin \u2192 Metamodel.",
+        "operationId": "update_lifecycle_phase_help_api_v1_settings_lifecycle_phase_help_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LifecyclePhaseHelpPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Lifecycle Phase Help",
         "tags": [
           "settings"
         ]

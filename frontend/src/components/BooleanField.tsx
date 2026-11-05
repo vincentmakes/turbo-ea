@@ -21,9 +21,14 @@
  * field name above their controls and give their single-selects no label
  * either. The theme owns label placement (UI_GUIDELINES §3.5); nothing is
  * pinned here.
+ *
+ * `labelAdornment` (the field's help icon in card detail) renders after the
+ * label text in the visible label only; the notch label in the border's
+ * `<legend>` gets a spacer of the icon's width instead, so the border gap fits
+ * the icon without an invisible focusable copy of it (UI_GUIDELINES §3.17).
  */
 
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import Box from "@mui/material/Box";
 import FormControl from "@mui/material/FormControl";
 import FormHelperText from "@mui/material/FormHelperText";
@@ -31,12 +36,15 @@ import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import { useTranslation } from "react-i18next";
+import { HelpTipNotchSpacer } from "@/components/HelpTip";
 import { booleanValueOf, facetOptions } from "@/lib/fieldFacets";
 
 export interface BooleanFieldProps {
   value: unknown;
   onChange: (next: boolean | null) => void;
   label?: string;
+  /** Rendered after the label text in the visible label (not in the notch). */
+  labelAdornment?: ReactNode;
   fullWidth?: boolean;
   size?: "small" | "medium";
   required?: boolean;
@@ -65,6 +73,7 @@ export function BooleanField({
   value,
   onChange,
   label,
+  labelAdornment,
   fullWidth,
   size = "small",
   required,
@@ -77,6 +86,14 @@ export function BooleanField({
   const labelId = useId();
   const options = facetOptions({ type: "boolean" }, { yes: t("labels.yes"), no: t("labels.no") });
   const helper = helperText ?? (typeof error === "string" ? error : undefined);
+  const notch = labelAdornment ? (
+    <>
+      {label}
+      <HelpTipNotchSpacer />
+    </>
+  ) : (
+    label
+  );
 
   return (
     <FormControl
@@ -87,10 +104,15 @@ export function BooleanField({
       fullWidth={fullWidth}
       sx={{ ...(fullWidth ? {} : { minWidth: 200 }), ...sx }}
     >
-      {label && <InputLabel id={labelId}>{label}</InputLabel>}
+      {label && (
+        <InputLabel id={labelId}>
+          {label}
+          {labelAdornment}
+        </InputLabel>
+      )}
       <Select
         labelId={label ? labelId : undefined}
-        label={label}
+        label={label ? notch : undefined}
         value={selectValue(value)}
         onChange={(e) => onChange(pickedValue(e.target.value))}
       >

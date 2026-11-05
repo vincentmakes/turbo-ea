@@ -112,6 +112,22 @@ async def test_update_records_rekey_and_permission_diff(client, db, env):
     }
 
 
+async def test_update_records_the_description(client, db, env):
+    resp = await client.patch(
+        f"{BASE}/responsible",
+        json={"description": "Keeps the card current."},
+        headers=env["h"],
+    )
+    assert resp.status_code == 200
+
+    [row] = await _rows(db)
+    _target(row, "responsible", "Responsible")
+    assert row.details == {
+        "changes": {"description": {"old": None, "new": "Keeps the card current."}},
+        "context": {"card_type": "Business App"},
+    }
+
+
 async def test_no_op_update_records_nothing(client, db, env):
     resp = await client.patch(
         f"{BASE}/responsible",

@@ -16,6 +16,7 @@ import type { TranslationMap, MetamodelTranslations } from "@/types";
  *   const optLabel   = useOptionLabel();    optLabel(option)
  *   const stLabel    = useSubtypeLabel();   stLabel(subtype)
  *   const catLabel   = useCategoryLabel();  catLabel(category)
+ *   const typeDesc   = useTypeDescription(); typeDesc(stakeholderRole)
  *
  * Non-React contexts (excelExport/excelImport, plain helpers) use the pure
  * variants with an explicit locale:
@@ -100,6 +101,24 @@ export function resolveMetaLabel(
 export function typeLabel(entity: MetaEntityLike | null | undefined, locale?: string): string {
   if (!entity) return "";
   return resolveMetaLabel(entity.label || entity.key, entity.translations, "label", locale);
+}
+
+/** A top-level entity that also carries a description (card type, stakeholder role def). */
+export interface DescribedEntityLike extends MetaEntityLike {
+  description?: string | null;
+}
+
+/**
+ * Localized description of a card type or stakeholder role def —
+ * `translations.description[locale]`, then the entity's own description, then
+ * `""` (never the label or key: a missing description is shown as nothing).
+ */
+export function typeDescription(
+  entity: DescribedEntityLike | null | undefined,
+  locale?: string,
+): string {
+  if (!entity) return "";
+  return resolveMetaLabel(entity.description || "", entity.translations, "description", locale);
 }
 
 /**
@@ -191,6 +210,16 @@ export function useTypeLabel() {
   const locale = i18n.language;
   return useCallback(
     (entity: MetaEntityLike | null | undefined): string => typeLabel(entity, locale),
+    [locale],
+  );
+}
+
+/** Entity-aware: localized description of a card type / stakeholder role def. */
+export function useTypeDescription() {
+  const { i18n } = useTranslation();
+  const locale = i18n.language;
+  return useCallback(
+    (entity: DescribedEntityLike | null | undefined): string => typeDescription(entity, locale),
     [locale],
   );
 }

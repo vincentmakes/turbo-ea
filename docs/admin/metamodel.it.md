@@ -65,7 +65,7 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select o multiple_select. Una percentuale è un numero da 0 a 100, mostrato come barra di avanzamento e modificato con un cursore o digitato con precisione. Un booleano si sceglie da un elenco Sì / No, con **Nessuno** per svuotarlo, ed è mostrato come etichetta verde *Sì* o blu *No*, oppure come — se non impostato, ciò che il filtro **(vuoto)** dell'inventario trova |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali. Riordinatele con le frecce su e giù accanto a ogni opzione: menu e filtri elencano le opzioni in quell'ordine, e i chip di un valore a scelta multipla lo seguono su ogni card. |
-| **Testo di aiuto** | Indicazione facoltativa mostrata come nota comprimibile sotto il campo durante la modifica di una card. Si scrive per lingua e può essere impostato da qualsiasi amministratore del metamodello; su un campo fornito da un'estensione è di sola lettura |
+| **Testo di aiuto** | Indicazioni facoltative per il campo. Durante la lettura di una card compare come icona informativa accanto all'etichetta del campo (passaci sopra il cursore o dagli il focus per leggere il testo) e come tooltip sull'intestazione di colonna del campo nell'Inventario; durante la modifica di una card la stessa icona è accanto al campo. Viene scritto per lingua e può essere impostato da qualsiasi amministratore del metamodello; su un campo fornito da un'estensione è di sola lettura |
 | **Obbligatorio** | Se il campo è obbligatorio — vedi le regole di applicazione qui sotto |
 | **Qualità dei dati** | Il contributo di ciascun campo al punteggio è gestito nel pannello **Qualità dei dati** (vedi sotto) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
@@ -147,6 +147,8 @@ Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technic
 
 Ogni ruolo ha una **chiave** (l'identificatore memorizzato sulle schede, usato dalle colonne di importazione/esportazione `stakeholder:<chiave_ruolo>`) e un'**etichetta** (ciò che vedono gli utenti). La chiave segue la stessa convenzione di ogni altra chiave del metamodello: solo lettere e cifre, con iniziale alfabetica, da 3 a 50 caratteri, per convenzione in camelCase come `businessArchitect`. Viene compilata automaticamente dall'etichetta, quindi raramente dovrai digitarla.
 
+Assegna a un ruolo una **descrizione** per spiegare che cosa significa nella tua organizzazione: che cosa firma un *Responsabile del contratto*, di che cosa risponde un *Responsabile tecnico*. Gli utenti la vedono come icona informativa accanto al ruolo nella scheda **Stakeholder** di una card, sotto il nome del ruolo nel selettore dei ruoli, come tooltip sull'intestazione di colonna del ruolo nell'Inventario, in **I miei ruoli** nella dashboard e nella directory degli stakeholder. La descrizione viene tradotta per lingua come l'etichetta: ogni lingua abilitata ha un proprio campo descrizione in **Traduzioni** nell'editor dei ruoli, e anche la **finestra di traduzione** del tipo la elenca. Una lingua lasciata vuota usa la descrizione in inglese.
+
 Ogni ruolo porta inoltre un interruttore **Conta per la qualità dei dati**. Il punteggio di qualità ha un solo slot per gli stakeholder, soddisfatto non appena qualcuno viene assegnato alla scheda in un ruolo con questo interruttore attivo. Disattivalo per i ruoli puramente passivi: l'**Osservatore** integrato viene fornito disattivato, così osservare una scheda non vale mai come responsabilità. Un tipo in cui tutti i ruoli sono disattivati non contribuisce con alcuno slot. Cambiare l'interruttore ricalcola subito il punteggio di tutte le schede del tipo.
 
 I ruoli possono essere rimossi in due modi:
@@ -208,7 +210,7 @@ Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tip
 - **Sezioni** — Intestazioni delle sezioni nella pagina di dettaglio della card
 - **Campi** — Etichette dei campi e delle opzioni di selezione
 - **Testo di aiuto** — Il testo di aiuto di un campo, elencato sotto il campo una volta inserito nell'editor dei campi. Modificarlo in inglese aggiorna anche il testo di aiuto predefinito del campo
-- **Ruoli degli stakeholder** — Nomi dei ruoli visualizzati nell'interfaccia di assegnazione degli stakeholder
+- **Ruoli degli stakeholder** — Nomi e descrizioni dei ruoli. La descrizione di un ruolo è elencata sotto il suo nome non appena il ruolo ha una descrizione in una qualsiasi lingua; modificarla in inglese aggiorna anche la descrizione predefinita del ruolo
 
 Le traduzioni sono memorizzate insieme a ciascun tipo di card e vengono risolte al momento del rendering in base alla lingua selezionata dall'utente. Le etichette non tradotte utilizzano il valore predefinito in inglese.
 
@@ -354,6 +356,14 @@ Per ciascuna riga potete:
 - **Eliminare** un regolamento personalizzato — i regolamenti integrati non possono essere eliminati, solo disabilitati.
 
 Lo scanner di conformità e il flusso di promozione a Rischio funzionano **anche senza un provider AI configurato** — l'inserimento manuale dei riscontri, le transizioni di stato e il percorso di promozione a Rischio restano disponibili. L'AI è richiesta solo quando avviate effettivamente una nuova scansione.
+
+## Fasi del ciclo di vita {: #lifecycle-phases }
+
+La sezione **Ciclo di vita** di ogni card attraversa cinque fasi fisse: Pianificazione, Introduzione, Attivo, Dismissione e Fine vita. Il significato di ciascuna fase varia da un'organizzazione all'altra: per esempio, se la *Dismissione* ammette ancora nuovi utenti, o quando un componente è considerato in *Fine vita*. La scheda **Fasi del ciclo di vita** ti permette di metterlo per iscritto una volta per l'intero spazio di lavoro.
+
+La scheda mostra un campo di testo per fase e una riga di schede lingua (prima l'inglese, poi ogni lingua abilitata). In un nuovo spazio di lavoro i campi sono precompilati con una spiegazione predefinita di ogni fase in tutte le lingue, così la guida è disponibile fin dall'inizio; modifica qualsiasi testo in base al funzionamento della tua organizzazione. Una lingua lasciata vuota mostra il testo inglese. Lascia vuota una fase per non mostrare alcuna guida per essa: svuotando tutte e cinque le fasi e salvando, la guida viene rimossa del tutto. Fai clic su **Salva** per applicare i testi.
+
+Gli utenti vedono la guida di una fase come icona informativa accanto alla fase nella timeline del ciclo di vita di ogni card, che resta visibile durante la modifica del ciclo di vita. I testi valgono per tutti i tipi di card. Il salvataggio viene registrato nel **Registro di sicurezza e amministrazione**.
 
 ## Editor layout card
 

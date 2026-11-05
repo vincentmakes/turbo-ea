@@ -64,7 +64,7 @@ Felter definerer de brugerdefinerede egenskaber, der er tilgængelige på kort a
 | **Etiket** | Visningsnavn |
 | **Type** | text, multiline_text, number, cost, percentage, boolean, date, url, single_select eller multiple_select. En procent er et tal fra 0 til 100, der vises som en fremgangsbjælke og redigeres med en skyder eller indtastes præcist. En boolean vælges fra en Ja/Nej-liste med **Ingen** til at rydde den og vises som en grøn *Ja*- eller blå *Nej*-mærkat, eller som — når den ikke er angivet, hvilket inventarets filter **(tom)** finder |
 | **Indstillinger** | For udvælgelsesfelter: de tilgængelige valg med etiketter og valgfri farver. Ændr rækkefølgen med pilene op og ned ud for hver valgmulighed: menuer og filtre viser valgmulighederne i den rækkefølge, og chips for en flervalgsværdi følger den på alle kort. |
-| **Hjælpetekst** | Valgfri vejledning, der vises som en sammenklappelig note under feltet, mens et kort redigeres. Den skrives pr. sprog og kan angives af enhver metamodel-administrator; på et felt, som en udvidelse har bidraget med, er den skrivebeskyttet |
+| **Hjælpetekst** | Valgfri vejledning til feltet. Mens et kort læses, vises den som et infoikon ved siden af feltets etiket (hold musen over eller sæt fokus på det for at læse teksten) og som et værktøjstip på feltets kolonneoverskrift i Lageret; mens et kort redigeres, sidder det samme ikon ved siden af feltet. Den skrives pr. sprog og kan angives af enhver metamodel-administrator; på et felt, som en udvidelse har bidraget med, er den skrivebeskyttet |
 | **Påkrævet** | Hvorvidt feltet er obligatorisk — se håndhævelsesreglerne nedenfor |
 | **Datakvalitet** | Hvert felts bidrag til scoren håndteres i panelet **Datakvalitet** (se nedenfor) |
 | **Skrivebeskyttet** | Forhindrer manuel redigering (nyttigt for beregnede felter) |
@@ -146,6 +146,8 @@ Definer brugerdefinerede roller for denne type (f.eks. "Application Owner", "Tec
 
 Hver rolle har en **nøgle** (den identifikator der gemmes på kort, og som bruges af `stakeholder:<rollenøgle>`-import/eksportkolonnerne) og en **etiket** (det brugerne ser). Nøglen følger samme konvention som enhver anden metamodelnøgle — kun bogstaver og cifre, begyndende med et bogstav, 3–50 tegn, efter konvention camelCase som `businessArchitect`. Den udfyldes automatisk ud fra etiketten, så du sjældent selv skal skrive en.
 
+Giv en rolle en **beskrivelse** for at angive, hvad den betyder i din organisation – hvad en *Kontraktejer* underskriver, hvad en *Teknisk ejer* står til ansvar for. Brugerne ser den som et infoikon ved siden af rollen på et korts fane **Interessenter**, under rollens navn i rollevælgeren, som et værktøjstip på rollens kolonneoverskrift i Lageret, i **Mine roller** på dashboardet og i interessentoversigten. Beskrivelsen oversættes pr. sprog ligesom etiketten: hvert aktiveret sprog har sit eget beskrivelsesfelt under **Oversættelser** i rolleeditoren, og typens **oversættelsesdialog** viser den også. Et sprog, der står tomt, falder tilbage til den engelske beskrivelse.
+
 Hver rolle har desuden en **Tæller med i datakvaliteten**-kontakt. Datakvalitetsscoren har én enkelt interessentplads, og den er opfyldt, så snart nogen er tildelt kortet i en rolle, hvor kontakten er slået til. Slå den fra for rent passive roller — den indbyggede **Observatør** leveres med den slået fra, så det at følge et kort aldrig træder i stedet for at eje det. En type, hvor alle roller har den slået fra, bidrager slet ikke med en interessentplads. Skift af kontakten genberegner straks scoren for alle kort af typen.
 
 Roller kan fjernes på to måder:
@@ -207,7 +209,7 @@ Klik på knappen **Oversæt** i typepanelets værktøjslinje for at åbne **Over
 - **Sektioner** — Sektionsoverskrifter på kortdetaljesiden
 - **Felter** — Feltetiketter og udvælgelsesindstillingsetiketter
 - **Hjælpetekst** — Et felts hjælpetekst, vist under feltet, når den er indtastet i felteditoren. Redigeres den på engelsk, opdateres feltets standardhjælpetekst også
-- **Interessentroller** — Rollenavne vist i interessenttildelings-UI'et
+- **Interessentroller** — Rollenavne og -beskrivelser. En rolles beskrivelse vises under dens navn, så snart rollen har en beskrivelse på et eller andet sprog; redigeres den på engelsk, opdateres rollens standardbeskrivelse også
 
 Oversættelser gemmes sammen med hver korttype og opløses ved render-tid ved hjælp af brugerens valgte lokalitet. Uoversatte etiketter falder tilbage til den engelske standard.
 
@@ -353,6 +355,14 @@ For hver række kan du:
 - **Slette** en brugerdefineret regulering — indbyggede reguleringer kan ikke slettes, kun deaktiveres.
 
 Compliance-scanneren og risiko-forfremmelsesflowet fungerer, **selv når ingen AI-udbyder er konfigureret** — manuel fund-indtastning, statusovergange og forfremmelsesstien til Risiko forbliver alle tilgængelige. AI er kun påkrævet, når du faktisk udløser en ny scanning.
+
+## Livscyklusfaser {: #lifecycle-phases }
+
+Sektionen **Livscyklus** på hvert kort gennemløber fem faste faser: Planlagt, Indfasning, Aktiv, Udfasning og Udløb. Hvad hver fase betyder, varierer mellem organisationer – for eksempel om *Udfasning* stadig tillader nye brugere, eller hvornår en komponent regnes for *Udløb*. Fanen **Livscyklusfaser** lader dig skrive det ned én gang for hele arbejdsområdet.
+
+Fanen viser ét tekstfelt pr. fase og en række sprogfaner (engelsk først, derefter hvert aktiveret sprog). I et nyt arbejdsområde er felterne forudfyldt med en standardforklaring af hver fase på alle sprog, så hjælpen er der fra start; ret en hvilken som helst tekst til, så den passer til, hvordan din organisation arbejder. Et sprog, der står tomt, viser den engelske tekst. Lad en fase stå tom for ikke at vise hjælp til den – hvis du tømmer alle fem faser og gemmer, fjernes hjælpen helt. Klik på **Gem** for at anvende teksterne.
+
+Brugerne ser en fases hjælp som et infoikon ved siden af fasen på livscyklustidslinjen på hvert kort, som forbliver synligt, mens livscyklussen redigeres. Teksterne gælder for alle korttyper. Gemningen registreres i **Sikkerheds- og administrationsloggen**.
 
 ## Kortlayout-editor
 

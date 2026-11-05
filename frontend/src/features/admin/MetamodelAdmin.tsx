@@ -32,6 +32,7 @@ import { api } from "@/api/client";
 import type { CardType as FSType, RelationType as RType } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
 import RelationsTabContent from "./metamodel/RelationsTabContent";
+import LifecyclePhaseHelpPanel from "./metamodel/LifecyclePhaseHelpPanel";
 import CategoryCombobox from "./metamodel/CategoryCombobox";
 import ManageCategoriesDialog from "./metamodel/ManageCategoriesDialog";
 import { categoryErrorMessage } from "./metamodel/categoryErrors";
@@ -178,6 +179,8 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.relationTypes")} />
         <Tab label={t("metamodel.tabs.calculations")} />
         <Tab label={t("metamodel.tabs.tags")} />
+        {/* The tab order is the display order: nothing deep-links by index. */}
+        <Tab label={t("metamodel.tabs.lifecycle")} />
         <Tab label={t("metamodel.tabs.graph")} />
         <Tab label={t("metamodel.tabs.principles")} />
         <Tab label={t("metamodel.tabs.regulations")} />
@@ -412,9 +415,14 @@ export default function MetamodelAdmin() {
       {tab === 3 && <TagsAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 4 -- Metamodel Graph                                    */}
+      {/*  TAB 4 -- Lifecycle phase help                               */}
       {/* ============================================================ */}
-      {tab === 4 && (
+      {tab === 4 && <LifecyclePhaseHelpPanel />}
+
+      {/* ============================================================ */}
+      {/*  TAB 5 -- Metamodel Graph                                    */}
+      {/* ============================================================ */}
+      {tab === 5 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}
@@ -423,19 +431,19 @@ export default function MetamodelAdmin() {
       )}
 
       {/* ============================================================ */}
-      {/*  TAB 5 -- EA Principles                                      */}
+      {/*  TAB 6 -- EA Principles                                      */}
       {/* ============================================================ */}
-      {tab === 5 && <PrinciplesAdmin />}
+      {tab === 6 && <PrinciplesAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 6 -- Compliance Regulations                             */}
+      {/*  TAB 7 -- Compliance Regulations                             */}
       {/* ============================================================ */}
-      {tab === 6 && <RegulationsAdmin />}
+      {tab === 7 && <RegulationsAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 7 -- Resource Types (link types & file categories)      */}
+      {/*  TAB 8 -- Resource Types (link types & file categories)      */}
       {/* ============================================================ */}
-      {tab === 7 && <ResourceTypesAdmin />}
+      {tab === 8 && <ResourceTypesAdmin />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}
