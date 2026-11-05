@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -96,7 +96,24 @@ export interface StakeholderRolePanelProps {
   onError: (msg: string) => void;
 }
 
-export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
+/**
+ * What the type drawer reaches through a ref: its header Save commits a role
+ * form left open on the Stakeholder roles tab before saving the type itself,
+ * so a description typed there is not lost to the wrong Save button.
+ */
+export interface StakeholderRolePanelHandle {
+  /** An inline edit is open, or the create form is open with something typed. */
+  hasPendingForm(): boolean;
+  /**
+   * Save the pending form(s) through the form's own Save path. Resolves `true`
+   * when there was nothing to save or the save succeeded, `false` when the form
+   * is invalid or the request failed (the form stays open with its error).
+   */
+  savePendingForm(): Promise<boolean>;
+}
+
+const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderRolePanelProps>(
+  function StakeholderRolePanel({ typeKey, onError }, ref) {
   const { t } = useTranslation(["admin", "common"]);
   const { enabledLocales } = useEnabledLocales();
   const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
@@ -197,8 +214,13 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   const displayRoles = showArchived ? roles : roles.filter((r) => !r.is_archived);
 
   /* --- Create role --- */
-  const handleCreate = async () => {
-    if (!isValidRoleKey(createForm.key) || !createForm.label) return;
+  const createFormValid = isValidRoleKey(createForm.key) && !!createForm.label;
+  const createFormDirty =
+    createOpen &&
+    [createForm.key, createForm.label, createForm.description].some((v) => v.trim() !== "");
+
+  const handleCreate = async (): Promise<boolean> => {
+    if (!createFormValid) return false;
     setCreateSaving(true);
     try {
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles`, {
@@ -222,8 +244,10 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       });
       setCreateKeyTouched(false);
       setCreateOpen(false);
+      return true;
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToCreate"));
+      return false;
     } finally {
       setCreateSaving(false);
     }
@@ -260,8 +284,16 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     fetchUsage(role.key).then(setEditUsage);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editRoleKey) return;
+  const editFormValid =
+    !!editForm.label &&
+    // Only hold the key to the current grammar when it is actually being
+    // changed. A role created before keys were camelCase (via the API, an
+    // import, or an older release) keeps its key, and its label, colour and
+    // permissions must stay editable.
+    (editForm.key === editRoleKey || isValidRoleKey(editForm.key));
+
+  const handleSaveEdit = async (): Promise<boolean> => {
+    if (!editRoleKey || !editFormValid) return false;
     setEditSaving(true);
     setEditError(null);
     try {
@@ -269,7 +301,9 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await api.patch(`/metamodel/types/${typeKey}/stakeholder-roles/${editRoleKey}`, {
         key: keyChanged ? editForm.key : undefined,
         label: editForm.label,
-        description: editForm.description || undefined,
+        // Sent as null when emptied: leaving it out kept the stored text, so a
+        // description could be added but never cleared.
+        description: editForm.description.trim() || null,
         color: editForm.color,
         counts_for_quality: editForm.countsForQuality,
         permissions: editForm.permissions,
@@ -278,15 +312,42 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await fetchRoles();
       setEditRoleKey(null);
       if (keyChanged) setExpandedRole(editForm.key);
+      return true;
     } catch (e: unknown) {
       const message =
         e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate");
       setEditError(message);
       onError(message);
+      return false;
     } finally {
       setEditSaving(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    hasPendingForm: () => editRoleKey !== null || createFormDirty,
+    savePendingForm: async () => {
+      if (editRoleKey !== null) {
+        if (!editFormValid) {
+          // The form's own Save is disabled in this state; the header Save
+          // still has to say why nothing was saved.
+          const message = t("metamodel.stakeholderPanel.failedToUpdate");
+          setEditError(message);
+          onError(message);
+          return false;
+        }
+        if (!(await handleSaveEdit())) return false;
+      }
+      if (createFormDirty) {
+        if (!createFormValid) {
+          onError(t("metamodel.stakeholderPanel.failedToCreate"));
+          return false;
+        }
+        return handleCreate();
+      }
+      return true;
+    },
+  }));
 
   const cancelEdit = () => {
     setEditRoleKey(null);
@@ -657,16 +718,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           size="small"
                           variant="contained"
                           onClick={handleSaveEdit}
-                          disabled={
-                            editSaving ||
-                            !editForm.label ||
-                            // Only hold the key to the current grammar when it
-                            // is actually being changed. A role created before
-                            // keys were camelCase (via the API, an import, or an
-                            // older release) keeps its key, and its label,
-                            // colour and permissions must stay editable.
-                            (editForm.key !== editRoleKey && !isValidRoleKey(editForm.key))
-                          }
+                          disabled={editSaving || !editFormValid}
                         >
                           {editSaving ? t("metamodel.stakeholderPanel.saving") : t("common:actions.save")}
                         </Button>
@@ -825,7 +877,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   size="small"
                   variant="contained"
                   onClick={handleCreate}
-                  disabled={createSaving || !isValidRoleKey(createForm.key) || !createForm.label}
+                  disabled={createSaving || !createFormValid}
                 >
                   {createSaving ? t("metamodel.stakeholderPanel.creating") : t("common:actions.create")}
                 </Button>
@@ -965,4 +1017,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       </Dialog>
     </Box>
   );
-}
+  },
+);
+
+export default StakeholderRolePanel;

@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.191.0] - 2026-11-05
+
+### Added
+- The six built-in stakeholder roles now come with a default description in every language, filled in on existing workspaces wherever the role has none.
+
+### Fixed
+- The card type drawer's Save button now also saves a stakeholder role being edited on the Stakeholder roles tab.
+- Clearing a stakeholder role's description and saving now removes it, instead of keeping the old text.
+- A translation you entered for a built-in stakeholder role's name or description is no longer overwritten when the server restarts.
+
 ## [2.190.0] - 2026-11-05
 
 ### Added

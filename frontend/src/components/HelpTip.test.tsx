@@ -131,20 +131,60 @@ describe("HelpTip", () => {
         <button type="button">Other</button>
       </div>,
     );
-    fireEvent.click(screen.getByTestId("help-tip"));
+    const icon = screen.getByTestId("help-tip");
+    fireEvent.click(icon);
     const tooltip = await screen.findByRole("tooltip");
     // ClickAwayListener arms itself on the next tick after it starts listening.
     await new Promise((r) => setTimeout(r, 0));
+    // The tooltip is portaled outside the icon's subtree, so this click does
+    // reach the click-away handler; it must not count as a click elsewhere.
     fireEvent.click(within(tooltip).getByText("Away help"));
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
-    expect(screen.getByTestId("help-tip")).toHaveAttribute("aria-expanded", "true");
+    expect(icon).toHaveAttribute("aria-expanded", "true");
+    // `aria-expanded` is checked synchronously on purpose: nothing else (a
+    // hover timer) may be what closes it. The popper itself leaves after its
+    // exit transition.
     fireEvent.click(screen.getByRole("button", { name: "Other" }));
+    expect(icon).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
 
-    fireEvent.click(screen.getByTestId("help-tip"));
+    fireEvent.click(icon);
     await screen.findByRole("tooltip");
     await new Promise((r) => setTimeout(r, 0));
     fireEvent.click(document.body);
+    expect(icon).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("closes a tap-opened tooltip on a tap elsewhere", async () => {
+    render(
+      <div>
+        <HelpTip text="Touch away" />
+        <button type="button">Other</button>
+      </div>,
+    );
+    const icon = screen.getByTestId("help-tip");
+    fireEvent.click(icon);
+    await screen.findByRole("tooltip");
+    await new Promise((r) => setTimeout(r, 0));
+    // A touch end alone, no click after it: the touch listener must close it.
+    fireEvent.touchEnd(screen.getByRole("button", { name: "Other" }));
+    expect(icon).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("keeps a tap-opened tooltip open when the pointer leaves, until Escape", async () => {
+    render(<HelpTip text="Stay help" />);
+    const icon = screen.getByTestId("help-tip");
+    fireEvent.click(icon);
+    await screen.findByRole("tooltip");
+    fireEvent.mouseLeave(icon);
+    // Past MUI's leave timer, which calls onClose with the mouseleave.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(icon).toHaveAttribute("aria-expanded", "true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(icon).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
   });
 
@@ -169,6 +209,22 @@ describe("HelpTip", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Key help");
     expect(fireEvent.keyDown(icon, { key: " " })).toBe(false);
     await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("does not let Enter or Space reach a parent's key handler", () => {
+    const onParentKey = vi.fn();
+    render(
+      <div onKeyDown={(e) => onParentKey(e.key)}>
+        <HelpTip text="Key stop" />
+      </div>,
+    );
+    const icon = screen.getByTestId("help-tip");
+    fireEvent.keyDown(icon, { key: "Enter" });
+    fireEvent.keyDown(icon, { key: " " });
+    expect(onParentKey).not.toHaveBeenCalled();
+    // Any other key still bubbles, so the parent handler is really listening.
+    fireEvent.keyDown(icon, { key: "a" });
+    expect(onParentKey).toHaveBeenCalledWith("a");
   });
 
   it("reopens on Enter after Escape closed the focus tooltip", async () => {
