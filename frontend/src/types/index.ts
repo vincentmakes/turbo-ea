@@ -1548,6 +1548,18 @@ export interface EolCustomCycle {
   updated_at: string | null;
 }
 
+/** endoflife.date's product categories (the file's `category` field). */
+export type EolDateCategory =
+  | "app"
+  | "database"
+  | "device"
+  | "framework"
+  | "lang"
+  | "os"
+  | "server-app"
+  | "service"
+  | "standard";
+
 /** A product the organisation tracks end-of-life dates for itself. */
 export interface EolCustomProduct {
   id: string;
@@ -1557,6 +1569,9 @@ export interface EolCustomProduct {
   title: string;
   description: string | null;
   link: string | null;
+  /** What the endoflife.date proposal file needs beyond the cycles. */
+  eol_category: EolDateCategory | null;
+  release_policy_note: string | null;
   linked_cards: number;
   cycles: EolCustomCycle[];
   updated_at: string | null;
@@ -1567,7 +1582,8 @@ export interface EolCustomCycleInput {
   cycle: string;
   releaseDate?: string | null;
   support?: EolMilestone;
-  eol?: EolMilestone;
+  /** Required on endoflife.date: a date, `false` (none announced) or `true`. */
+  eol: EolMilestone;
   latest?: string | null;
   latestReleaseDate?: string | null;
 }

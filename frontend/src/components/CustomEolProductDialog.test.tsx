@@ -19,9 +19,12 @@ import CustomEolProductDialog, {
   CycleFields,
   EMPTY_CYCLE,
   MilestoneField,
+  ProductFields,
   cycleIssues,
   cyclePayload,
   cycleProblem,
+  productDraftIssues,
+  productPayload,
 } from "./CustomEolProductDialog";
 
 const SAVED: EolCustomProduct = {
@@ -31,10 +34,15 @@ const SAVED: EolCustomProduct = {
   title: "Acme ERP",
   description: null,
   link: null,
+  eol_category: null,
+  release_policy_note: null,
   linked_cards: 0,
   updated_at: null,
   cycles: [],
 };
+
+/** A cycle with the end of life endoflife.date requires already answered. */
+const ONGOING = { ...EMPTY_CYCLE, eol: false };
 
 beforeEach(() => {
   mockApi.reset();
@@ -51,13 +59,19 @@ const cycleInputs = () => screen.getAllByLabelText(/Release cycle/) as HTMLInput
 describe("cycle helpers", () => {
   it("reports the first problem with a cycle", () => {
     expect(cycleProblem(EMPTY_CYCLE)).toBe("eol.custom.errors.cycleRequired");
-    expect(cycleProblem({ ...EMPTY_CYCLE, cycle: " 1 " })).toBeNull();
+    // endoflife.date requires an end of life on every release.
+    expect(cycleProblem({ ...EMPTY_CYCLE, cycle: " 1 " })).toBe("eol.custom.errors.eolRequired");
+    expect(cycleProblem({ ...EMPTY_CYCLE, cycle: " 1 ", eol: "" })).toBe(
+      "eol.custom.errors.eolRequired",
+    );
+    expect(cycleProblem({ ...ONGOING, cycle: " 1 " })).toBeNull();
+    expect(cycleProblem({ ...EMPTY_CYCLE, cycle: "1", eol: true })).toBeNull();
     expect(
       cycleProblem({ ...EMPTY_CYCLE, cycle: "1", releaseDate: "2024-01-02", eol: "2024-01-01" }),
     ).toBe("eol.custom.errors.eolBeforeRelease");
     expect(
       cycleProblem({
-        ...EMPTY_CYCLE,
+        ...ONGOING,
         cycle: "1",
         releaseDate: "2024-01-02",
         support: "2024-01-01",
@@ -82,7 +96,27 @@ describe("cycle helpers", () => {
       eol: "eol.custom.errors.eolBeforeRelease",
       support: "eol.custom.errors.supportBeforeRelease",
     });
-    expect(cycleIssues({ ...EMPTY_CYCLE, cycle: "1" })).toEqual({});
+    expect(cycleIssues({ ...EMPTY_CYCLE, cycle: "1" })).toEqual({
+      eol: "eol.custom.errors.eolRequired",
+    });
+    expect(cycleIssues({ ...ONGOING, cycle: "1" })).toEqual({});
+  });
+
+  it("checks the product fields", () => {
+    expect(productDraftIssues({ title: " ", link: "", description: "" })).toEqual({
+      title: "eol.custom.errors.titleRequired",
+    });
+    expect(productDraftIssues({ title: "A", link: "ftp://x", description: "" })).toEqual({
+      link: "eol.custom.errors.linkInvalid",
+    });
+    expect(productDraftIssues({ title: "A", link: " https://x.example ", description: "" })).toEqual(
+      {},
+    );
+    expect(productPayload({ title: " A ", link: " ", description: "  " })).toEqual({
+      title: "A",
+      link: null,
+      description: null,
+    });
   });
 
   it("sends trimmed text and blanks as null", () => {
@@ -105,7 +139,7 @@ describe("cycle helpers", () => {
   });
 
   it("allows an end on the release day or after it", () => {
-    const dated = { ...EMPTY_CYCLE, cycle: "1", releaseDate: "2024-01-02" };
+    const dated = { ...ONGOING, cycle: "1", releaseDate: "2024-01-02" };
     expect(cycleProblem({ ...dated, eol: "2024-01-02" })).toBeNull();
     expect(cycleProblem({ ...dated, eol: "2025-01-01" })).toBeNull();
     expect(cycleProblem({ ...dated, support: "2024-01-02" })).toBeNull();
@@ -172,6 +206,57 @@ describe("MilestoneField", () => {
     );
     expect(screen.getByText("Too early")).toBeInTheDocument();
     expect(screen.getByLabelText("End of life on")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("required: offers no Unknown, opens on a placeholder, and shows a problem under the select", async () => {
+    const onChange = vi.fn();
+    render(<MilestoneField kind="eol" required value={null} onChange={onChange} error="Pick one" />);
+    const select = screen.getByRole("combobox");
+    expect(select).toHaveTextContent("Choose…");
+    expect(screen.getByText("Pick one")).toBeInTheDocument();
+    await userEvent.click(select);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "On a date…",
+      "No end of life announced",
+      "Already ended",
+    ]);
+    await userEvent.click(screen.getByRole("option", { name: "No end of life announced" }));
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
+
+  it("required: a problem about the date sits under the date, not the select", () => {
+    render(
+      <MilestoneField kind="eol" required value="2020-01-01" onChange={() => {}} error="Too early" />,
+    );
+    expect(screen.getByLabelText("End of life on")).toHaveAccessibleDescription("Too early");
+    expect(screen.getByRole("combobox")).toHaveTextContent("On a date…");
+  });
+});
+
+describe("ProductFields", () => {
+  it("renders the draft, reports changes, and flags a bad link", async () => {
+    const onChange = vi.fn();
+    render(
+      <ProductFields
+        value={{ title: "Acme", link: "ftp://x", description: "An ERP" }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByLabelText(/Product name/)).toHaveValue("Acme");
+    expect(screen.getByLabelText(/Description/)).toHaveValue("An ERP");
+    expect(screen.getByText(/starting with http/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/Product name/), "!");
+    expect(onChange).toHaveBeenLastCalledWith({ title: "Acme!", link: "ftp://x", description: "An ERP" });
+  });
+
+  it("disabled: every field is read-only and AI is not offered", () => {
+    ai.status = { enabled: true, configured: true, enabled_types: [], running_models: [] };
+    render(
+      <ProductFields value={{ title: "Acme", link: "", description: "" }} onChange={() => {}} disabled />,
+    );
+    expect(screen.getByLabelText(/Product name/)).toBeDisabled();
+    expect(screen.getByLabelText(/Vendor or release policy link/)).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Suggest with AI/ })).toBeNull();
   });
 });
 
@@ -321,6 +406,12 @@ describe("CustomEolProductDialog — create", () => {
     expect(create).toBeDisabled();
     expect(screen.queryByText("Every cycle needs a name.")).toBeNull();
     await userEvent.type(cycleInputs()[0], "1");
+    // An end of life is required too: the button waits for it.
+    expect(create).toBeDisabled();
+    expect(
+      screen.getByText("Choose an end of life: a date, none announced, or already ended."),
+    ).toBeInTheDocument();
+    await pick(screen.getAllByRole("combobox")[1], "No end of life announced");
     await userEvent.click(create);
 
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(SAVED));
@@ -333,7 +424,7 @@ describe("CustomEolProductDialog — create", () => {
           cycle: "1",
           releaseDate: null,
           support: null,
-          eol: null,
+          eol: false,
           latest: null,
           latestReleaseDate: null,
         },
@@ -354,6 +445,7 @@ describe("CustomEolProductDialog — create", () => {
       <CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={() => {}} />,
     );
     await userEvent.type(cycleInputs()[0], "1");
+    await pick(screen.getAllByRole("combobox")[1], "Already ended");
     const create = screen.getByRole("button", { name: "Create" });
     expect(create).toBeEnabled();
 
@@ -364,6 +456,7 @@ describe("CustomEolProductDialog — create", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Add another cycle/ }));
     await userEvent.type(cycleInputs()[1], "1");
+    await pick(screen.getAllByRole("combobox")[3], "Already ended");
     expect(screen.getByText("Two cycles have the same name.")).toBeInTheDocument();
     expect(create).toBeDisabled();
     const removes = screen.getAllByRole("button", { name: "Remove cycle" });
@@ -379,6 +472,7 @@ describe("CustomEolProductDialog — create", () => {
       <CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={onSaved} />,
     );
     await userEvent.type(cycleInputs()[0], "1");
+    await pick(screen.getAllByRole("combobox")[1], "Already ended");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     expect(await screen.findByText("POST /eol/custom-products failed")).toBeInTheDocument();
     expect(onSaved).not.toHaveBeenCalled();
@@ -433,6 +527,7 @@ describe("CustomEolProductDialog — details", () => {
   it("needs a name that is more than spaces, and ignores a blank link", async () => {
     render(<CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={() => {}} />);
     await userEvent.type(cycleInputs()[0], "1");
+    await pick(screen.getAllByRole("combobox")[1], "Already ended");
     await userEvent.type(screen.getByLabelText(/Vendor or release policy link/), "   ");
     expect(screen.queryByText(/starting with http/)).toBeNull();
     const create = screen.getByRole("button", { name: "Create" });
@@ -476,7 +571,7 @@ describe("CustomEolProductDialog — details", () => {
     expect(screen.getAllByLabelText("End of life on")).toHaveLength(1);
     await userEvent.click(screen.getAllByRole("button", { name: "Remove cycle" })[0]);
     expect(screen.queryByLabelText("End of life on")).toBeNull();
-    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Unknown");
+    expect(screen.getAllByRole("combobox")[1]).toHaveTextContent("Choose…");
   });
 
   it("edits only the cycle typed in, and removes the one asked for", async () => {
@@ -495,6 +590,7 @@ describe("CustomEolProductDialog — details", () => {
     mockApi.fail("post", "/eol/custom-products", 409, "taken");
     render(<CustomEolProductDialog open initialTitle=" Acme " onClose={() => {}} onSaved={() => {}} />);
     await userEvent.type(cycleInputs()[0], "1");
+    await pick(screen.getAllByRole("combobox")[1], "Already ended");
     await userEvent.type(screen.getByLabelText(/Vendor or release policy link/), " https://acme.example ");
     await userEvent.type(screen.getByLabelText(/Description/), " Our ERP ");
     const create = screen.getByRole("button", { name: "Create" });
@@ -518,6 +614,7 @@ describe("CustomEolProductDialog — details", () => {
     mockApi.fail("post", "/eol/custom-products", 409, "taken");
     render(<CustomEolProductDialog open initialTitle="Acme" onClose={() => {}} onSaved={() => {}} />);
     await userEvent.type(cycleInputs()[0], "1");
+    await pick(screen.getAllByRole("combobox")[1], "Already ended");
     await userEvent.click(screen.getByRole("button", { name: "Create" }));
     const alert = await screen.findByText("POST /eol/custom-products failed");
     await userEvent.click(within(alert.closest("[role=alert]") as HTMLElement).getByRole("button"));
@@ -640,6 +737,7 @@ describe("CustomEolCycleDialog", () => {
     const onClose = vi.fn();
     const dialog = renderCycleDialog(onClose);
     await userEvent.type(dialog.getByLabelText(/Release cycle/), "3");
+    await pick(dialog.getAllByRole("combobox")[1], "Already ended");
     const add = dialog.getByRole("button", { name: "Add cycle" });
     await userEvent.click(add);
     const alert = await dialog.findByRole("alert");
@@ -655,6 +753,7 @@ describe("CustomEolCycleDialog", () => {
     mockApi.fail("post", "/eol/custom-products/acme%20erp/cycles", 422, "bad");
     const dialog = renderCycleDialog();
     await userEvent.type(dialog.getByLabelText(/Release cycle/), "3");
+    await pick(dialog.getAllByRole("combobox")[1], "Already ended");
     const add = dialog.getByRole("button", { name: "Add cycle" });
     await userEvent.click(add);
     await dialog.findByRole("alert");

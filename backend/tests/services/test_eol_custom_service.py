@@ -15,7 +15,10 @@ from pydantic import ValidationError
 from app.models.eol_custom_cycle import EolCustomCycle
 from app.schemas.eol_custom import (
     EolCustomCycleCreate,
+    EolCustomCycleUpdate,
     EolCustomProductCreate,
+    EolCustomProductUpdate,
+    check_category,
     check_date,
     check_link,
     check_milestone,
@@ -142,7 +145,35 @@ class TestValidators:
         assert EolCustomCycleCreate(cycle="1", releaseDate="2020-01-02", eol=True).eol is True
 
     def test_cycle_name_is_trimmed(self):
-        assert EolCustomCycleCreate(cycle="  1.10 ").cycle == "1.10"
+        assert EolCustomCycleCreate(cycle="  1.10 ", eol=False).cycle == "1.10"
+
+    def test_an_end_of_life_is_required_on_create(self):
+        """endoflife.date requires `eol` on every release; `support` may stay unknown."""
+        for value in (False, True, "2030-01-01"):
+            assert EolCustomCycleCreate(cycle="1", eol=value).eol == value
+        assert EolCustomCycleCreate(cycle="1", eol=False, support=None).support is None
+        with pytest.raises(ValidationError):
+            EolCustomCycleCreate(cycle="1")
+        for blank in (None, ""):
+            with pytest.raises(ValidationError, match="end of life is required"):
+                EolCustomCycleCreate(cycle="1", eol=blank)
+
+    def test_an_update_may_leave_the_end_of_life_alone_but_not_clear_it(self):
+        assert EolCustomCycleUpdate(latest="2").eol is None
+        assert EolCustomCycleUpdate(eol=True).eol is True
+        for blank in (None, ""):
+            with pytest.raises(ValidationError, match="end of life is required"):
+                EolCustomCycleUpdate(eol=blank)
+
+    def test_category_must_be_one_of_endoflife_dates(self):
+        assert check_category(None) is None
+        assert check_category("  ") is None
+        assert check_category(" server-app ") == "server-app"
+        with pytest.raises(ValueError, match="must be one of"):
+            check_category("toaster")
+        assert EolCustomProductUpdate(eol_category="os").eol_category == "os"
+        with pytest.raises(ValidationError):
+            EolCustomProductUpdate(eol_category="Apps")
 
     @pytest.mark.parametrize(
         ("key", "ok"),
@@ -189,7 +220,7 @@ class TestValidators:
         assert out == "" or PRODUCT_KEY_RE.match(out)
 
     def test_too_many_cycles(self):
-        cycles = [{"cycle": str(i)} for i in range(201)]
+        cycles = [{"cycle": str(i), "eol": False} for i in range(201)]
         with pytest.raises(ValidationError):
             EolCustomProductCreate(key="a", title="A", cycles=cycles)
         assert len(EolCustomProductCreate(key="a", title="A", cycles=cycles[:200]).cycles) == 200
@@ -206,6 +237,7 @@ class TestResolver:
             "custom:acme": [
                 {"cycle": "1", "eol": PAST, "support": PAST, "latest": "1.4"},
                 {"cycle": "2", "eol": False, "support": FUTURE, "latest": None},
+                {"cycle": "3", "eol": False, "support": False, "latest": None},
             ]
         }
         fetch = AsyncMock(return_value=[{"cycle": "3.12", "eol": FUTURE}])
@@ -216,6 +248,7 @@ class TestResolver:
                     _card("b", "custom:acme", "2"),
                     _card("c", "custom:gone", "1"),
                     _card("d", "python", "3.12"),
+                    _card("e", "custom:acme", "3"),
                 ],
                 custom,
             )
@@ -238,6 +271,13 @@ class TestResolver:
         )
         assert (out["c"]["status"], out["c"]["source"]) == ("unknown", "custom")
         assert (out["d"]["status"], out["d"]["source"]) == ("supported", "api")
+        # "Support already ended" with no end of life announced: security
+        # fixes only, so a warning (the same as a past support date).
+        assert (out["e"]["status"], out["e"]["eol_date"], out["e"]["support_date"]) == (
+            "approaching",
+            None,
+            None,
+        )
 
     async def test_the_custom_product_title_rides_on_the_status(self):
         custom = {"custom:acme": [{"cycle": "1", "eol": False, "title": "Acme ERP"}]}

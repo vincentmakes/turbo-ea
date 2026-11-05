@@ -337,7 +337,7 @@ CONFIG_SECTIONS: tuple[ConfigSection, ...] = (
         sheet=SHEET_EOL_CUSTOM_PRODUCTS,
         model=EolCustomProduct,
         natural_key=("key",),
-        columns=("key", "title", "description", "link"),
+        columns=("key", "title", "description", "link", "eol_category", "release_policy_note"),
         skip_columns=frozenset({"created_by"}),
     ),
     ConfigSection(

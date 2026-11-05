@@ -2060,6 +2060,8 @@ async def test_custom_eol_products_round_trip(db):
             title="Acme ERP",
             description="In-house ERP",
             link="https://acme.example/erp",
+            eol_category="server-app",
+            release_policy_note="Two years per release.",
             created_by=user.id,
         )
     )
@@ -2094,6 +2096,10 @@ async def test_custom_eol_products_round_trip(db):
         "acme-erp",
         "Acme ERP",
         "https://acme.example/erp",
+    )
+    assert (product.eol_category, product.release_policy_note) == (
+        "server-app",
+        "Two years per release.",
     )
     cycles = {c.cycle: c for c in (await db.execute(select(EolCustomCycle))).scalars().all()}
     assert set(cycles) == {"1.10", "2"}

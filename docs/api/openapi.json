@@ -6231,11 +6231,9 @@
               },
               {
                 "type": "boolean"
-              },
-              {
-                "type": "null"
               }
             ],
+            "description": "A date, false (none announced) or true (ended)",
             "title": "Eol"
           },
           "latest": {
@@ -6298,6 +6296,7 @@
           }
         },
         "required": [
+          "eol",
           "cycle"
         ],
         "title": "EolCustomCycleCreate",
@@ -6513,6 +6512,17 @@
             ],
             "title": "Description"
           },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
           "key": {
             "anyOf": [
               {
@@ -6534,6 +6544,17 @@
               }
             ],
             "title": "Link"
+          },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
           },
           "title": {
             "title": "Title",
@@ -6566,6 +6587,17 @@
             ],
             "title": "Description"
           },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -6595,6 +6627,17 @@
             "title": "Product",
             "type": "string"
           },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -6621,7 +6664,7 @@
         "type": "object"
       },
       "EolCustomProductUpdate": {
-        "description": "Title, description and link. The key is immutable: cards store it.",
+        "description": "Title, description, link and the proposal fields. The key is\nimmutable: cards store it.",
         "properties": {
           "description": {
             "anyOf": [
@@ -6634,6 +6677,17 @@
             ],
             "title": "Description"
           },
+          "eol_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eol Category"
+          },
           "link": {
             "anyOf": [
               {
@@ -6644,6 +6698,17 @@
               }
             ],
             "title": "Link"
+          },
+          "release_policy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Policy Note"
           },
           "title": {
             "anyOf": [

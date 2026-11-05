@@ -5,6 +5,7 @@ import CustomEolFilterSidebar, {
   CUSTOM_EOL_COLUMNS,
   DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS,
   EMPTY_CUSTOM_EOL_FILTERS,
+  LOCKED_CUSTOM_EOL_COLUMNS,
   columnsDifferFromDefault,
   activeFilterCount,
   type CustomEolFilters,
@@ -14,10 +15,6 @@ function setup(over: Partial<React.ComponentProps<typeof CustomEolFilterSidebar>
   const props = {
     filters: EMPTY_CUSTOM_EOL_FILTERS,
     onFiltersChange: vi.fn(),
-    products: [
-      { key: "acme-erp", title: "Acme ERP" },
-      { key: "bare", title: "Bare" },
-    ],
     collapsed: false,
     onToggleCollapse: vi.fn(),
     width: 260,
@@ -39,7 +36,6 @@ function propsWith(over: Partial<React.ComponentProps<typeof CustomEolFilterSide
   return {
     filters: EMPTY_CUSTOM_EOL_FILTERS,
     onFiltersChange: vi.fn(),
-    products: [],
     collapsed: false,
     onToggleCollapse: vi.fn(),
     width: 260,
@@ -61,30 +57,31 @@ function header(label: string): string {
 }
 
 const ALL_COLUMNS = () => new Set(CUSTOM_EOL_COLUMNS.map((c) => c.id));
-const LOCKED_ONLY = () => new Set(["product", "cycle", "actions"]);
+const LOCKED_ONLY = () => new Set(["product"]);
 
 describe("activeFilterCount", () => {
   it("counts each active choice", () => {
     expect(activeFilterCount(EMPTY_CUSTOM_EOL_FILTERS)).toBe(0);
     const f: CustomEolFilters = {
       search: " x ",
-      products: ["a", "b"],
-      statuses: ["eol"],
+      statuses: ["eol", "unknown"],
       usage: "unused",
     };
-    expect(activeFilterCount(f)).toBe(5);
-    expect(activeFilterCount({ ...f, search: "  " })).toBe(4);
+    expect(activeFilterCount(f)).toBe(4);
+    expect(activeFilterCount({ ...f, search: "  " })).toBe(3);
+    expect(activeFilterCount({ ...f, usage: "any" })).toBe(3);
+    expect(activeFilterCount({ ...f, statuses: [] })).toBe(2);
   });
 });
 
 describe("CustomEolFilterSidebar", () => {
-  it("toggles a product, a status and the usage", async () => {
+  it("has no product section: one row is one product", () => {
+    setup();
+    expect(screen.queryByText("Product", { selector: "p" })).toBeNull();
+  });
+
+  it("toggles a status and the usage", async () => {
     const p = setup();
-    await userEvent.click(screen.getByText("Acme ERP"));
-    expect(p.onFiltersChange).toHaveBeenLastCalledWith({
-      ...EMPTY_CUSTOM_EOL_FILTERS,
-      products: ["acme-erp"],
-    });
     await userEvent.click(screen.getByRole("button", { name: "End of Life" }));
     expect(p.onFiltersChange).toHaveBeenLastCalledWith({
       ...EMPTY_CUSTOM_EOL_FILTERS,
@@ -98,11 +95,9 @@ describe("CustomEolFilterSidebar", () => {
     });
   });
 
-  it("removes a selected product and clears everything", async () => {
-    const filters = { ...EMPTY_CUSTOM_EOL_FILTERS, products: ["acme-erp"], search: "x" };
+  it("clears everything", async () => {
+    const filters = { ...EMPTY_CUSTOM_EOL_FILTERS, statuses: ["eol"], search: "x" };
     const p = setup({ filters });
-    await userEvent.click(screen.getByText("Acme ERP"));
-    expect(p.onFiltersChange).toHaveBeenLastCalledWith({ ...filters, products: [] });
     await userEvent.click(screen.getByRole("button", { name: /Clear filters/ }));
     expect(p.onFiltersChange).toHaveBeenLastCalledWith(EMPTY_CUSTOM_EOL_FILTERS);
   });
@@ -132,10 +127,9 @@ describe("CustomEolFilterSidebar", () => {
     expect(p.onToggleFrozen).toHaveBeenCalledWith("product");
   });
 
-  it("opens search, product and status, keeps usage shut, and shows no counts", () => {
+  it("opens search and status, keeps usage shut, and shows no counts", () => {
     setup();
     expect(header("Search")).toBe("expand_moresearchSearch");
-    expect(header("Product")).toBe("expand_moreinventory_2Product");
     expect(header("Status")).toBe("expand_moretrafficStatus");
     expect(header("Usage")).toBe("chevron_rightlinkUsage");
     expect(screen.queryByRole("button", { name: /Clear filters/ })).toBeNull();
@@ -144,10 +138,9 @@ describe("CustomEolFilterSidebar", () => {
 
   it("counts each section's active choices on its header", () => {
     setup({
-      filters: { search: "x", products: ["acme-erp"], statuses: ["eol", "unknown"], usage: "linked" },
+      filters: { search: "x", statuses: ["eol", "unknown"], usage: "linked" },
     });
     expect(header("Search")).toBe("expand_moresearchSearch1");
-    expect(header("Product")).toBe("expand_moreinventory_2Product1");
     expect(header("Status")).toBe("expand_moretrafficStatus2");
     expect(header("Usage")).toBe("chevron_rightlinkUsage1");
     // The Filters tab carries the change dot; the Columns tab does not.
@@ -166,7 +159,6 @@ describe("CustomEolFilterSidebar", () => {
     setup();
     for (const [label, icon] of [
       ["Search", "search"],
-      ["Product", "inventory_2"],
       ["Status", "traffic"],
     ]) {
       await userEvent.click(screen.getByText(label, { selector: "p" }));
@@ -189,19 +181,13 @@ describe("CustomEolFilterSidebar", () => {
 
   it("passes the raw search text on", async () => {
     const p = setup();
-    await userEvent.type(screen.getByPlaceholderText("Product, key, cycle or version"), "a");
+    await userEvent.type(screen.getByPlaceholderText("Product, cycle or version"), "a");
     expect(p.onFiltersChange).toHaveBeenLastCalledWith({ ...EMPTY_CUSTOM_EOL_FILTERS, search: "a" });
   });
 
-  it("shows which product, status and usage are chosen", async () => {
+  it("shows which status and usage are chosen", async () => {
     const statusChip = (name: string) => screen.getByRole("button", { name });
-    setup({ filters: { ...EMPTY_CUSTOM_EOL_FILTERS, products: ["bare"], statuses: ["eol"] } });
-    const checked = (title: string) =>
-      (within(screen.getByText(title).closest("[role=button]") as HTMLElement).getByRole(
-        "checkbox",
-      ) as HTMLInputElement).checked;
-    expect(checked("Bare")).toBe(true);
-    expect(checked("Acme ERP")).toBe(false);
+    setup({ filters: { ...EMPTY_CUSTOM_EOL_FILTERS, statuses: ["eol"] } });
     expect(statusChip("End of Life")).toHaveClass("MuiChip-filled");
     expect(statusChip("Supported")).toHaveClass("MuiChip-outlined");
     await userEvent.click(screen.getByText("Usage", { selector: "p" }));
@@ -245,6 +231,23 @@ describe("CustomEolFilterSidebar", () => {
   });
 });
 
+describe("the column list", () => {
+  it("lists one column per product summary, in order, with its glyph", () => {
+    expect(CUSTOM_EOL_COLUMNS.map((c) => [c.id, c.icon, c.labelKey])).toEqual([
+      ["product", "inventory_2", "eol.custom.columns.product"],
+      ["cycles", "tag", "eol.custom.columns.cycles"],
+      ["latestCycle", "new_releases", "eol.custom.columns.latestCycle"],
+      ["latest", "verified", "eol.custom.columns.latest"],
+      ["status", "traffic", "eol.custom.columns.status"],
+      ["linked", "link", "eol.custom.columns.linked"],
+      ["updated", "schedule", "eol.custom.columns.updated"],
+      ["description", "notes", "eol.custom.columns.description"],
+      ["link", "open_in_new", "eol.custom.columns.link"],
+    ]);
+    expect([...LOCKED_CUSTOM_EOL_COLUMNS]).toEqual(["product"]);
+  });
+});
+
 describe("the Columns tab", () => {
   async function openColumns(visibleColumns: Set<string>) {
     const p = setup({ visibleColumns });
@@ -256,8 +259,8 @@ describe("the Columns tab", () => {
 
   it("with the default columns: no reset, no change dot, description and link left off", async () => {
     const { selectAll, box } = await openColumns(new Set(DEFAULT_VISIBLE_CUSTOM_EOL_COLUMNS));
-    expect(screen.getByText("11 columns shown")).toBeInTheDocument();
-    expect(header("Visible columns")).toBe("expand_moregrid_viewVisible columns11");
+    expect(screen.getByText("7 columns shown")).toBeInTheDocument();
+    expect(header("Visible columns")).toBe("expand_moregrid_viewVisible columns7");
     expect(selectAll).not.toHaveAttribute("aria-disabled");
     expect(box.checked).toBe(false);
     expect(box).toHaveAttribute("data-indeterminate", "true");
@@ -269,7 +272,7 @@ describe("the Columns tab", () => {
 
   it("with every column shown: all checked, and Reset returns to the default", async () => {
     const { p, selectAll, box } = await openColumns(ALL_COLUMNS());
-    expect(screen.getByText("13 columns shown")).toBeInTheDocument();
+    expect(screen.getByText("9 columns shown")).toBeInTheDocument();
     expect(selectAll).toHaveAttribute("aria-disabled", "true");
     expect(box.checked).toBe(true);
     expect(box).toHaveAttribute("data-indeterminate", "false");
@@ -285,7 +288,7 @@ describe("the Columns tab", () => {
   it("with some hidden: indeterminate; Select all shows all, Reset the default", async () => {
     const visible = new Set([...LOCKED_ONLY(), "status"]);
     const { p, selectAll, box } = await openColumns(visible);
-    expect(screen.getByText("4 columns shown")).toBeInTheDocument();
+    expect(screen.getByText("2 columns shown")).toBeInTheDocument();
     expect(box.checked).toBe(false);
     expect(box).toHaveAttribute("data-indeterminate", "true");
     expect(selectAll).not.toHaveAttribute("aria-disabled");
@@ -331,7 +334,7 @@ describe("the Columns tab", () => {
       new Set([...LOCKED_ONLY(), "status"]),
     );
     // The locked row is disabled; even a click that reaches it changes nothing.
-    fireEvent.click(within(list).getByText("Release cycle"));
+    fireEvent.click(within(list).getByText("Product"));
     expect(p.onVisibleColumnsChange).toHaveBeenCalledTimes(1);
   });
 });

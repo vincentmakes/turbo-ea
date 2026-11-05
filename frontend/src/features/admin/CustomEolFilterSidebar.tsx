@@ -38,14 +38,13 @@ export type UsageFilter = "any" | "linked" | "unused";
 
 export interface CustomEolFilters {
   search: string;
-  products: string[];
+  /** Products whose worst cycle status (the row's chip) is one of these. */
   statuses: string[];
   usage: UsageFilter;
 }
 
 export const EMPTY_CUSTOM_EOL_FILTERS: CustomEolFilters = {
   search: "",
-  products: [],
   statuses: [],
   usage: "any",
 };
@@ -59,28 +58,20 @@ export interface CustomEolColumn {
 /** Every column of the grid, in default order. Labels are in `admin`. */
 export const CUSTOM_EOL_COLUMNS: CustomEolColumn[] = [
   { id: "product", labelKey: "eol.custom.columns.product", icon: "inventory_2" },
-  { id: "cycle", labelKey: "eol.custom.columns.cycle", icon: "tag" },
-  { id: "releaseDate", labelKey: "eol.custom.columns.releaseDate", icon: "rocket_launch" },
-  { id: "support", labelKey: "eol.custom.columns.support", icon: "support_agent" },
-  { id: "eol", labelKey: "eol.custom.columns.eol", icon: "event_busy" },
-  { id: "latest", labelKey: "eol.custom.columns.latest", icon: "new_releases" },
-  {
-    id: "latestReleaseDate",
-    labelKey: "eol.custom.columns.latestReleaseDate",
-    icon: "event",
-  },
+  { id: "cycles", labelKey: "eol.custom.columns.cycles", icon: "tag" },
+  { id: "latestCycle", labelKey: "eol.custom.columns.latestCycle", icon: "new_releases" },
+  { id: "latest", labelKey: "eol.custom.columns.latest", icon: "verified" },
   { id: "status", labelKey: "eol.custom.columns.status", icon: "traffic" },
   { id: "linked", labelKey: "eol.custom.columns.linked", icon: "link" },
   { id: "updated", labelKey: "eol.custom.columns.updated", icon: "schedule" },
   { id: "description", labelKey: "eol.custom.columns.description", icon: "notes" },
   { id: "link", labelKey: "eol.custom.columns.link", icon: "open_in_new" },
-  { id: "actions", labelKey: "eol.custom.columns.actions", icon: "more_horiz" },
 ];
 
-/** Columns that anchor each row and cannot be hidden. */
-export const LOCKED_CUSTOM_EOL_COLUMNS = new Set(["product", "cycle", "actions"]);
+/** The column that names the row cannot be hidden. */
+export const LOCKED_CUSTOM_EOL_COLUMNS = new Set(["product"]);
 
-/** Product-level detail, shown on request: it repeats on every cycle row. */
+/** Long text, shown on request; the panel has it in full. */
 const HIDDEN_BY_DEFAULT = new Set(["description", "link"]);
 
 /** The columns a first visit shows, and what Reset brings back. */
@@ -163,7 +154,6 @@ const SX = {
   clearButton: { mb: 1, textTransform: "none", fontSize: 12 },
   searchField: { my: 0.5 },
   divider: { my: 1 },
-  productList: { mb: 1, maxHeight: 240, overflowY: "auto" },
   row: { py: 0.25, px: 1, borderRadius: 1 },
   lockedRow: { py: 0.25, px: 1, borderRadius: 1, "&.Mui-disabled": { opacity: 0.7 } },
   checkboxCell: { minWidth: 28 },
@@ -187,17 +177,11 @@ const SX = {
     "&:hover": { bgcolor: "primary.main", opacity: 0.3 },
   },
 } satisfies Record<string, SxProps<Theme>>;
-const PRODUCT_TEXT_PROPS = { fontSize: 13, ml: 0.75, noWrap: true };
 const COLUMN_TEXT_PROPS = { fontSize: 13, noWrap: true };
 // Stryker restore all
 
 export function activeFilterCount(f: CustomEolFilters): number {
-  return (
-    (f.search.trim() ? 1 : 0) +
-    f.products.length +
-    f.statuses.length +
-    (f.usage !== "any" ? 1 : 0)
-  );
+  return (f.search.trim() ? 1 : 0) + f.statuses.length + (f.usage !== "any" ? 1 : 0);
 }
 
 function SectionHeader({
@@ -231,15 +215,9 @@ function ChangeDot() {
   return <Box data-testid="change-dot" sx={SX.changeDot} />;
 }
 
-export interface ProductOption {
-  key: string;
-  title: string;
-}
-
 interface Props {
   filters: CustomEolFilters;
   onFiltersChange: (f: CustomEolFilters) => void;
-  products: ProductOption[];
   collapsed: boolean;
   onToggleCollapse: () => void;
   width: number;
@@ -257,7 +235,6 @@ interface Props {
 export default function CustomEolFilterSidebar({
   filters,
   onFiltersChange,
-  products,
   collapsed,
   onToggleCollapse,
   width,
@@ -275,7 +252,6 @@ export default function CustomEolFilterSidebar({
   const [tab, setTab] = useState<0 | 1>(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     search: true,
-    product: true,
     status: true,
     usage: false,
   });
@@ -284,7 +260,7 @@ export default function CustomEolFilterSidebar({
   const allColumnIds = useMemo(() => CUSTOM_EOL_COLUMNS.map((c) => c.id), []);
   const columnsChanged = columnsDifferFromDefault(visibleColumns);
 
-  const toggleIn = (key: "products" | "statuses", value: string) => {
+  const toggleIn = (key: "statuses", value: string) => {
     const current = filters[key];
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
@@ -419,43 +395,6 @@ export default function CustomEolFilterSidebar({
                     ) : undefined,
                   }}
                 />
-              </Collapse>
-
-              <Divider sx={SX.divider} />
-
-              <SectionHeader
-                label={t("eol.custom.filters.sectionProduct")}
-                icon="inventory_2"
-                expanded={expanded.product}
-                onToggle={() => toggleSection("product")}
-                count={filters.products.length}
-              />
-              <Collapse in={expanded.product}>
-                <List dense disablePadding sx={SX.productList}>
-                  {products.map((p) => (
-                    <ListItemButton
-                      key={p.key}
-                      dense
-                      onClick={() => toggleIn("products", p.key)}
-                      sx={SX.row}
-                    >
-                      <ListItemIcon sx={SX.checkboxCell}>
-                        <Checkbox
-                          size="small"
-                          checked={filters.products.includes(p.key)}
-                          tabIndex={-1}
-                          disableRipple
-                          sx={SX.checkbox}
-                        />
-                      </ListItemIcon>
-                      <MaterialSymbol icon="inventory_2" size={16} />
-                      <ListItemText
-                        primary={p.title}
-                        primaryTypographyProps={PRODUCT_TEXT_PROPS}
-                      />
-                    </ListItemButton>
-                  ))}
-                </List>
               </Collapse>
 
               <Divider sx={SX.divider} />

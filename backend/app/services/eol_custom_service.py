@@ -186,6 +186,8 @@ def product_payload(
         "title": product.title,
         "description": product.description,
         "link": product.link,
+        "eol_category": product.eol_category,
+        "release_policy_note": product.release_policy_note,
         "linked_cards": linked,
         "cycles": out_cycles,
         "updated_at": _iso(product.updated_at),
@@ -280,6 +282,8 @@ async def create_product(
         title=body.title,
         description=body.description,
         link=body.link,
+        eol_category=body.eol_category,
+        release_policy_note=body.release_policy_note,
         created_by=user.id,
     )
     db.add(product)
@@ -325,7 +329,7 @@ async def update_product(
 ) -> EolCustomProduct:
     product = await get_product(db, key)
     changes: dict[str, dict[str, Any]] = {}
-    for field in ("title", "description", "link"):
+    for field in ("title", "description", "link", "eol_category", "release_policy_note"):
         if field not in body.model_fields_set:
             continue
         new = getattr(body, field)

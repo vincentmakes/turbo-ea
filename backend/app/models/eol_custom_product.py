@@ -29,6 +29,10 @@ class EolCustomProduct(Base, UUIDMixin, TimestampMixin):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     link: Mapped[str | None] = mapped_column(String(500))
+    #: Only what the endoflife.date proposal file needs beyond the cycles:
+    #: its category and the release-policy paragraph under the front matter.
+    eol_category: Mapped[str | None] = mapped_column(String(20))
+    release_policy_note: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

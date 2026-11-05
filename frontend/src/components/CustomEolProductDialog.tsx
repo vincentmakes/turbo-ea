@@ -19,6 +19,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
+import FormHelperText from "@mui/material/FormHelperText";
 import IconButton from "@mui/material/IconButton";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -52,6 +53,8 @@ import type {
 // ── Milestone (EOL / end of support) field ─────────────────────────────────
 
 const MODES: MilestoneMode[] = ["unset", "date", "ongoing", "ended"];
+/** endoflife.date requires an end of life: "unknown" is not an answer there. */
+const REQUIRED_MODES: MilestoneMode[] = ["date", "ongoing", "ended"];
 
 /** What a date input needs to show a full date with its calendar button. */
 const DATE_MIN_WIDTH = 170;
@@ -65,6 +68,8 @@ interface MilestoneFieldProps {
   error?: string;
   /** Passed to the select's menu (a grid cell editor marks it as its own). */
   menuProps?: Partial<MenuProps>;
+  /** No "Unknown" answer: the select opens on a placeholder until one is chosen. */
+  required?: boolean;
 }
 
 /**
@@ -82,6 +87,7 @@ export function MilestoneField({
   size = "medium",
   error,
   menuProps,
+  required = false,
 }: MilestoneFieldProps) {
   const { t } = useTranslation("cards");
   // Choosing "On a date" stores nothing until a date is picked, so the stored
@@ -94,13 +100,34 @@ export function MilestoneField({
   const mode: MilestoneMode = stored === "unset" && datePicked ? "date" : stored;
   const label = t(kind === "eol" ? "eol.endOfLife" : "eol.activeSupport");
   const dateLabel = t(kind === "eol" ? "eol.custom.eolOn" : "eol.custom.supportedUntil");
+  const modes = required ? REQUIRED_MODES : MODES;
+  // A problem that is not about the date (nothing chosen yet) sits under the select.
+  const selectError = error && mode !== "date" ? error : undefined;
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, minWidth: 0 }}>
-      <FormControl size={size} sx={{ flex: `1 1 ${DATE_MIN_WIDTH}px`, minWidth: DATE_MIN_WIDTH }}>
+      <FormControl
+        size={size}
+        required={required}
+        error={!!selectError}
+        sx={{ flex: `1 1 ${DATE_MIN_WIDTH}px`, minWidth: DATE_MIN_WIDTH }}
+      >
         <InputLabel>{label}</InputLabel>
         <Select
           label={label}
-          value={mode}
+          value={required && mode === "unset" ? "" : mode}
+          displayEmpty={required}
+          renderValue={
+            required
+              ? (v) =>
+                  v ? (
+                    t(`eol.custom.milestone.${kind}.${v}`)
+                  ) : (
+                    <Typography component="em" color="text.secondary" sx={{ fontSize: "inherit" }}>
+                      {t("eol.custom.milestone.choose")}
+                    </Typography>
+                  )
+              : undefined
+          }
           onChange={(e) => {
             const next = e.target.value as MilestoneMode;
             setDatePicked(next === "date");
@@ -109,12 +136,13 @@ export function MilestoneField({
           inputProps={{ "aria-label": label }}
           MenuProps={menuProps}
         >
-          {MODES.map((m) => (
+          {modes.map((m) => (
             <MenuItem key={m} value={m}>
               {t(`eol.custom.milestone.${kind}.${m}`)}
             </MenuItem>
           ))}
         </Select>
+        {selectError && <FormHelperText>{selectError}</FormHelperText>}
       </FormControl>
       {mode === "date" && (
         <DateField
@@ -151,6 +179,8 @@ export type CycleIssueField = "cycle" | "support" | "eol";
 export function cycleIssues(c: CycleDraft): Partial<Record<CycleIssueField, string>> {
   const issues: Partial<Record<CycleIssueField, string>> = {};
   if (!c.cycle.trim()) issues.cycle = "eol.custom.errors.cycleRequired";
+  // endoflife.date requires an end of life on every release.
+  if (c.eol === null || c.eol === "") issues.eol = "eol.custom.errors.eolRequired";
   const release = c.releaseDate;
   if (release) {
     if (typeof c.eol === "string" && c.eol < release) issues.eol = "eol.custom.errors.eolBeforeRelease";
@@ -227,6 +257,7 @@ export function CycleFields({ value, onChange, autoFocus, errors = {} }: CycleFi
       <Box sx={{ gridColumn: "1 / -1" }}>
         <MilestoneField
           kind="eol"
+          required
           value={value.eol}
           onChange={(v) => set("eol", v)}
           error={errors.eol}
@@ -248,6 +279,155 @@ export function CycleFields({ value, onChange, autoFocus, errors = {} }: CycleFi
   );
 }
 
+// ── Product fields (title, link, description + AI description) ─────────────
+
+export interface ProductDraft {
+  title: string;
+  link: string;
+  description: string;
+}
+
+export function productDraft(product?: Pick<EolCustomProduct, "title" | "link" | "description"> | null): ProductDraft {
+  return {
+    title: product?.title ?? "",
+    link: product?.link ?? "",
+    description: product?.description ?? "",
+  };
+}
+
+/** Each problem with the product fields, as an i18n key in `cards`. */
+export function productDraftIssues(d: ProductDraft): { title?: string; link?: string } {
+  const issues: { title?: string; link?: string } = {};
+  if (!d.title.trim()) issues.title = "eol.custom.errors.titleRequired";
+  if (d.link.trim() !== "" && !isValidEolLink(d.link)) issues.link = "eol.custom.errors.linkInvalid";
+  return issues;
+}
+
+/** The body the product fields are sent as — blank text becomes null. */
+export function productPayload(d: ProductDraft) {
+  return {
+    title: d.title.trim(),
+    link: d.link.trim() || null,
+    description: d.description.trim() || null,
+  };
+}
+
+interface ProductFieldsProps {
+  value: ProductDraft;
+  onChange: (next: ProductDraft) => void;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}
+
+/**
+ * The product's own fields, with an AI-suggested description when AI
+ * suggestions are on. Shared by the create dialog and the admin panel.
+ */
+export function ProductFields({ value, onChange, disabled, autoFocus }: ProductFieldsProps) {
+  const { t } = useTranslation(["cards", "common"]);
+  const issues = productDraftIssues(value);
+  const set = <K extends keyof ProductDraft>(key: K, v: ProductDraft[K]) =>
+    onChange({ ...value, [key]: v });
+
+  // ── AI description ──────────────────────────────────────────────────
+  const { aiStatus } = useAiStatus();
+  const aiRequest = useLatestRequest();
+  const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  // A product is not a card type: the switch and the provider are what gate
+  // it, and `enabled` already folds in the caller's own permission.
+  const aiAvailable = !disabled && aiStatus.enabled && aiStatus.configured;
+
+  const suggestDescription = () =>
+    aiRequest.run(async ({ isCurrent }) => {
+      setAiLoading(true);
+      setAiError("");
+      setAiResponse(null);
+      try {
+        const res = await api.post<AiSuggestResponse>("/ai/suggest-eol-product", {
+          name: value.title.trim(),
+          link: value.link.trim() || undefined,
+        });
+        if (!isCurrent()) return;
+        setAiResponse(res);
+      } catch (err) {
+        if (!isCurrent()) return;
+        setAiError(err instanceof Error ? err.message : t("common:errors.generic"));
+      } finally {
+        if (isCurrent()) setAiLoading(false);
+      }
+    });
+
+  const applySuggestion = (payload: AiApplyPayload) => {
+    if (payload.description) set("description", payload.description);
+    setAiResponse(null);
+  };
+
+  return (
+    <Stack spacing={2}>
+      <TextField
+        required
+        autoFocus={autoFocus}
+        disabled={disabled}
+        label={t("eol.custom.productTitle")}
+        value={value.title}
+        onChange={(e) => set("title", e.target.value)}
+        inputProps={{ maxLength: 200 }}
+      />
+      <TextField
+        disabled={disabled}
+        label={t("eol.custom.productLink")}
+        placeholder={t("eol.custom.linkPlaceholder")}
+        value={value.link}
+        onChange={(e) => set("link", e.target.value)}
+        error={!!issues.link}
+        helperText={issues.link ? t(issues.link) : undefined}
+        inputProps={{ maxLength: 500 }}
+      />
+      <TextField
+        multiline
+        minRows={2}
+        disabled={disabled}
+        label={t("eol.custom.productDescription")}
+        value={value.description}
+        onChange={(e) => set("description", e.target.value)}
+        inputProps={{ maxLength: 5000 }}
+      />
+      {aiAvailable && value.title.trim().length >= 2 && !aiResponse && !aiLoading && (
+        <Box>
+          {/* describeChild: the tooltip describes the button, and the
+              visible label stays its accessible name (WCAG 2.5.3). */}
+          <Tooltip title={t("eol.custom.aiTooltip")} describeChild>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={suggestDescription}
+              startIcon={<MaterialSymbol icon="auto_awesome" size={16} />}
+              sx={{ textTransform: "none" }}
+            >
+              {t("common:ai.suggestButton")}
+            </Button>
+          </Tooltip>
+        </Box>
+      )}
+      {(aiLoading || aiError || aiResponse) && (
+        <AiSuggestPanel
+          response={aiResponse}
+          loading={aiLoading}
+          error={aiError}
+          onApply={applySuggestion}
+          onDismiss={() => {
+            setAiResponse(null);
+            setAiError("");
+            setAiLoading(false);
+          }}
+        />
+      )}
+    </Stack>
+  );
+}
+
 // ── Product dialog ─────────────────────────────────────────────────────────
 
 interface ProductDialogProps {
@@ -264,9 +444,9 @@ interface ProductDialogProps {
 function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: ProductDialogProps) {
   const { t } = useTranslation(["cards", "common"]);
   const editing = !!product;
-  const [title, setTitle] = useState(product?.title ?? initialTitle.trim());
-  const [link, setLink] = useState(product?.link ?? "");
-  const [description, setDescription] = useState(product?.description ?? "");
+  const [draft, setDraft] = useState<ProductDraft>(() =>
+    product ? productDraft(product) : { ...productDraft(null), title: initialTitle.trim() },
+  );
   const [cycles, setCycles] = useState<CycleDraft[]>(editing ? [] : [{ ...EMPTY_CYCLE }]);
   // Rows are keyed by a stable id, never their index: a field's own state
   // (MilestoneField's pending date choice) must not slide onto the next row
@@ -279,58 +459,18 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const linkError = link.trim() !== "" && !isValidEolLink(link);
+  const productProblem = Object.keys(productDraftIssues(draft)).length > 0;
   const cycleNames = cycles.map((c) => c.cycle.trim()).filter(Boolean);
   const duplicateCycle = new Set(cycleNames).size !== cycleNames.length;
   const issuesByRow = cycles.map(cycleIssues);
   const anyCycleProblem = issuesByRow.some((issues) => Object.keys(issues).length > 0);
-  const canSave =
-    !saving && title.trim() !== "" && !linkError && !duplicateCycle && !anyCycleProblem;
-
-  // ── AI description ──────────────────────────────────────────────────
-  const { aiStatus } = useAiStatus();
-  const aiRequest = useLatestRequest();
-  const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
-  // A product is not a card type: the switch and the provider are what gate
-  // it, and `enabled` already folds in the caller's own permission.
-  const aiAvailable = aiStatus.enabled && aiStatus.configured;
-
-  const suggestDescription = () =>
-    aiRequest.run(async ({ isCurrent }) => {
-      setAiLoading(true);
-      setAiError("");
-      setAiResponse(null);
-      try {
-        const res = await api.post<AiSuggestResponse>("/ai/suggest-eol-product", {
-          name: title.trim(),
-          link: link.trim() || undefined,
-        });
-        if (!isCurrent()) return;
-        setAiResponse(res);
-      } catch (err) {
-        if (!isCurrent()) return;
-        setAiError(err instanceof Error ? err.message : t("common:errors.generic"));
-      } finally {
-        if (isCurrent()) setAiLoading(false);
-      }
-    });
-
-  const applySuggestion = (payload: AiApplyPayload) => {
-    if (payload.description) setDescription(payload.description);
-    setAiResponse(null);
-  };
+  const canSave = !saving && !productProblem && !duplicateCycle && !anyCycleProblem;
 
   const save = async () => {
     setSaving(true);
     setError("");
     try {
-      const body = {
-        title: title.trim(),
-        link: link.trim() || null,
-        description: description.trim() || null,
-      };
+      const body = productPayload(draft);
       const saved = editing
         ? await api.patch<EolCustomProduct>(
             `/eol/custom-products/${encodeURIComponent(product!.key)}`,
@@ -366,63 +506,9 @@ function ProductDialogBody({ onClose, onSaved, product, initialTitle = "" }: Pro
             {error}
           </Alert>
         )}
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            required
-            autoFocus
-            label={t("eol.custom.productTitle")}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            inputProps={{ maxLength: 200 }}
-          />
-          <TextField
-            label={t("eol.custom.productLink")}
-            placeholder={t("eol.custom.linkPlaceholder")}
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            error={linkError}
-            helperText={linkError ? t("eol.custom.errors.linkInvalid") : undefined}
-            inputProps={{ maxLength: 500 }}
-          />
-          <TextField
-            multiline
-            minRows={2}
-            label={t("eol.custom.productDescription")}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            inputProps={{ maxLength: 5000 }}
-          />
-          {aiAvailable && title.trim().length >= 2 && !aiResponse && !aiLoading && (
-            <Box>
-              {/* describeChild: the tooltip describes the button, and the
-                  visible label stays its accessible name (WCAG 2.5.3). */}
-              <Tooltip title={t("eol.custom.aiTooltip")} describeChild>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={suggestDescription}
-                  startIcon={<MaterialSymbol icon="auto_awesome" size={16} />}
-                  sx={{ textTransform: "none" }}
-                >
-                  {t("common:ai.suggestButton")}
-                </Button>
-              </Tooltip>
-            </Box>
-          )}
-          {(aiLoading || aiError || aiResponse) && (
-            <AiSuggestPanel
-              response={aiResponse}
-              loading={aiLoading}
-              error={aiError}
-              onApply={applySuggestion}
-              onDismiss={() => {
-                setAiResponse(null);
-                setAiError("");
-                setAiLoading(false);
-              }}
-            />
-          )}
-        </Stack>
+        <Box sx={{ mt: 1 }}>
+          <ProductFields value={draft} onChange={setDraft} autoFocus />
+        </Box>
 
         {!editing && (
           <>

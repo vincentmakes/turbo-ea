@@ -165,6 +165,8 @@ describe("defining a custom product from the section", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText(/Product name/)).toHaveValue("Ubuntu LTS");
     await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "No end of life announced" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -234,6 +236,8 @@ describe("searching", () => {
       { cycle: "2", eol: false },
     ]);
     await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "3");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "Already ended" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Add cycle" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -490,6 +494,8 @@ describe("after creating a product here", () => {
     await userEvent.click(await screen.findByRole("button", DEFINE));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
+    await userEvent.click(within(dialog).getAllByRole("combobox")[1]);
+    await userEvent.click(await screen.findByRole("option", { name: "No end of life announced" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   }

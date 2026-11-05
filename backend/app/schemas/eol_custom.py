@@ -22,6 +22,27 @@ PRODUCT_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,99}$")
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 MAX_CYCLES_PER_PRODUCT = 200
 
+#: endoflife.date requires ``eol`` on every release; ``support`` is optional.
+#: A cycle without it can only ever read "unknown", so it is refused here.
+EOL_REQUIRED_MESSAGE = (
+    "end of life is required: a date, false when none is announced, "
+    "or true when it has already ended"
+)
+
+#: endoflife.date's product categories — the twin of ``EOL_DATE_CATEGORIES``
+#: in ``frontend/src/lib/eolContribution.ts``; change both together.
+EOL_DATE_CATEGORIES = (
+    "app",
+    "database",
+    "device",
+    "framework",
+    "lang",
+    "os",
+    "server-app",
+    "service",
+    "standard",
+)
+
 
 def parse_iso_date(value: str) -> date | None:
     """``value`` as a date when it is a real ``YYYY-MM-DD`` day, else None."""
@@ -69,6 +90,16 @@ def check_link(value: Any) -> str | None:
     return text
 
 
+def check_category(value: Any) -> str | None:
+    """One of endoflife.date's categories, for the proposal file. Blank clears."""
+    text = _clean_text(value, 20)
+    if text is None:
+        return None
+    if text not in EOL_DATE_CATEGORIES:
+        raise ValueError("must be one of " + ", ".join(EOL_DATE_CATEGORIES))
+    return text
+
+
 class _CycleFields(BaseModel):
     model_config = {"populate_by_name": True}
 
@@ -105,6 +136,9 @@ def _check_order(release: str | None, end: Any, label: str) -> None:
 class EolCustomCycleCreate(_CycleFields):
     cycle: str
     sort_order: int | None = None
+    #: Required, as on endoflife.date: a date, ``false`` (none announced) or
+    #: ``true`` (already ended). ``support`` may stay unknown.
+    eol: str | bool = Field(..., description="A date, false (none announced) or true (ended)")
 
     @field_validator("cycle", mode="before")
     @classmethod
@@ -113,6 +147,15 @@ class EolCustomCycleCreate(_CycleFields):
         if not text:
             raise ValueError("cycle name is required")
         return text
+
+    # Runs beside the inherited milestone check: an explicit null or blank
+    # ``eol`` gets the clear message instead of pydantic's type error.
+    @field_validator("eol", mode="before")
+    @classmethod
+    def _require_eol(cls, v: Any) -> Any:
+        if v is None or v == "":
+            raise ValueError(EOL_REQUIRED_MESSAGE)
+        return v
 
     @model_validator(mode="after")
     def _check_dates_order(self) -> EolCustomCycleCreate:
@@ -136,6 +179,13 @@ class EolCustomCycleUpdate(_CycleFields):
         if not text:
             raise ValueError("cycle name must not be empty")
         return text
+
+    @model_validator(mode="after")
+    def _eol_cannot_be_cleared(self) -> EolCustomCycleUpdate:
+        """A field left out is left alone; ``eol`` set to null is refused."""
+        if "eol" in self.model_fields_set and self.eol is None:
+            raise ValueError(EOL_REQUIRED_MESSAGE)
+        return self
 
 
 def product_key_from_title(title: str) -> str:
@@ -161,6 +211,9 @@ class EolCustomProductCreate(BaseModel):
     title: str
     description: str | None = None
     link: str | None = None
+    #: What the endoflife.date proposal file needs beyond the cycles.
+    eol_category: str | None = None
+    release_policy_note: str | None = None
     cycles: list[EolCustomCycleCreate] = Field(default_factory=list)
 
     @field_validator("key", mode="before")
@@ -193,6 +246,16 @@ class EolCustomProductCreate(BaseModel):
     def _check_link(cls, v: Any) -> str | None:
         return check_link(v)
 
+    @field_validator("eol_category", mode="before")
+    @classmethod
+    def _check_category(cls, v: Any) -> str | None:
+        return check_category(v)
+
+    @field_validator("release_policy_note", mode="before")
+    @classmethod
+    def _check_policy_note(cls, v: Any) -> str | None:
+        return _clean_text(v, 5000)
+
     @model_validator(mode="after")
     def _check_cycles(self) -> EolCustomProductCreate:
         if len(self.cycles) > MAX_CYCLES_PER_PRODUCT:
@@ -204,11 +267,14 @@ class EolCustomProductCreate(BaseModel):
 
 
 class EolCustomProductUpdate(BaseModel):
-    """Title, description and link. The key is immutable: cards store it."""
+    """Title, description, link and the proposal fields. The key is
+    immutable: cards store it."""
 
     title: str | None = None
     description: str | None = None
     link: str | None = None
+    eol_category: str | None = None
+    release_policy_note: str | None = None
 
     @field_validator("title", mode="before")
     @classmethod
@@ -229,6 +295,16 @@ class EolCustomProductUpdate(BaseModel):
     @classmethod
     def _check_link(cls, v: Any) -> str | None:
         return check_link(v)
+
+    @field_validator("eol_category", mode="before")
+    @classmethod
+    def _check_category(cls, v: Any) -> str | None:
+        return check_category(v)
+
+    @field_validator("release_policy_note", mode="before")
+    @classmethod
+    def _check_policy_note(cls, v: Any) -> str | None:
+        return _clean_text(v, 5000)
 
 
 class EolCustomCycleOut(BaseModel):
@@ -253,6 +329,8 @@ class EolCustomProductOut(BaseModel):
     title: str
     description: str | None = None
     link: str | None = None
+    eol_category: str | None = None
+    release_policy_note: str | None = None
     linked_cards: int = 0
     cycles: list[EolCustomCycleOut] = Field(default_factory=list)
     updated_at: str | None = None

@@ -4,8 +4,10 @@ import {
   EOL_DATE_CATEGORIES,
   MAX_GITHUB_URL_LENGTH,
   buildEolProductFile,
+  contributionReadiness,
   eolDateSlug,
   githubNewFileUrl,
+  isContributionReady,
 } from "./eolContribution";
 
 function cycle(over: Partial<EolCustomCycle>): EolCustomCycle {
@@ -98,6 +100,17 @@ describe("buildEolProductFile", () => {
     expect(file).toContain("    eol: false");
   });
 
+  it("writes the release policy note under the summary, trimmed and never as front matter", () => {
+    const file = buildEolProductFile(PRODUCT, {
+      ...OPTIONS,
+      policyNote: "\r\n---\nEach release gets two years.\r\nThen security fixes only.  ",
+    });
+    expect(file.endsWith("\n\nEach release gets two years.\nThen security fixes only.\n")).toBe(true);
+    expect(file).not.toContain("POLICY");
+    expect(buildEolProductFile(PRODUCT, { ...OPTIONS, policyNote: "   " })).toContain("\nPOLICY\n");
+    expect(buildEolProductFile(PRODUCT, { ...OPTIONS, policyNote: null })).toContain("\nPOLICY\n");
+  });
+
   it("hides empty columns and falls back to placeholders", () => {
     const file = buildEolProductFile(
       {
@@ -180,6 +193,49 @@ describe("eolDateSlug", () => {
     ["a-.b", "a-b"],
   ])("%j → %j", (key, slug) => {
     expect(eolDateSlug(key)).toBe(slug);
+  });
+});
+
+describe("contributionReadiness", () => {
+  const ready = { category: "app" as const, policyNote: "" };
+  // PRODUCT's cycle "3" is deliberately undated for the file tests.
+  const COMPLETE = {
+    ...PRODUCT,
+    cycles: PRODUCT.cycles.map((c) => ({ ...c, releaseDate: c.releaseDate ?? "2025-01-01" })),
+  };
+  const okIds = (items: ReturnType<typeof contributionReadiness>) =>
+    items.filter((i) => i.ok).map((i) => i.id);
+
+  it("passes a complete product", () => {
+    const items = contributionReadiness(COMPLETE, ready);
+    expect(items.map((i) => i.id)).toEqual([
+      "cycles",
+      "eol",
+      "release",
+      "link",
+      "category",
+      "description",
+    ]);
+    expect(isContributionReady(items)).toBe(true);
+  });
+
+  it.each([
+    ["cycles", { cycles: [] }],
+    ["eol", { cycles: [cycle({ cycle: "1", releaseDate: "2020-01-01", eol: null })] }],
+    ["release", { cycles: [cycle({ cycle: "1", eol: false })] }],
+    ["link", { link: null }],
+    ["description", { description: "  " }],
+  ] as const)("fails only %s", (id, over) => {
+    const items = contributionReadiness({ ...COMPLETE, ...over }, ready);
+    const failed = items.filter((i) => !i.ok).map((i) => i.id);
+    expect(failed).toEqual([id]);
+    expect(isContributionReady(items)).toBe(false);
+  });
+
+  it("needs a category", () => {
+    const items = contributionReadiness(COMPLETE, { category: null, policyNote: "x" });
+    expect(okIds(items)).not.toContain("category");
+    expect(isContributionReady(items)).toBe(false);
   });
 });
 

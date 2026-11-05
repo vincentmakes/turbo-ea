@@ -73,7 +73,7 @@ At skjule sektionen sletter aldrig noget: kortene beholder deres links og livscy
 
 endoflife.date sporer populær software, men ikke alt, hvad du kører: en intern platform, et nicheværktøj fra en leverandør eller en licenseret appliance har ofte ingen post der. For dem kan du definere et **brugerdefineret EOL-produkt** – dit eget produkt med dine egne udgivelsescyklusser – og tilknytte kort til det på præcis samme måde som til et endoflife.date-produkt. Brugerdefinerede produkter indgår i den samme kortstatus, inventarets kolonne **Udløb**, [EOL-rapporten](../guide/reports.md) og datakvalitetstallene.
 
-Brugerdefinerede produkter vises på fanen **Brugerdefinerede produkter** under **Admin > Indstillinger > EOL**. Oprettelse og redigering kræver tilladelsen **Administrer EOL** (`eol.manage`); alle, der kan se EOL-data, kan se dem.
+Brugerdefinerede produkter vises på fanen **Brugerdefinerede produkter** under **Admin > Indstillinger > EOL**, én række pr. produkt. Klik på et produkt for at åbne dets panel, hvor dets detaljer og udgivelsescyklusser redigeres. Oprettelse og redigering kræver tilladelsen **Administrer EOL** (`eol.manage`); alle, der kan se EOL-data, kan se dem og deres panel.
 
 ![Brugerdefinerede EOL-produkter](../assets/img/da/29b_admin_settings_eol_custom.png)
 
@@ -90,31 +90,33 @@ Hvert produkt har:
 - **Link til leverandør eller udgivelsespolitik** og **Beskrivelse** – valgfrit. Når [AI-forslag](ai.md) er aktiveret, udarbejder **Foreslå med AI** beskrivelsen ud fra produktnavnet og leverandørlinket, så du kan redigere den, før du anvender den.
 - **Udgivelsescyklusser** – hver med et navn (for eksempel `2.4`), en **Udgivelsesdato**, et ophør af **Aktiv support**, et **Udløb** og eventuelt den **Seneste version** og dens udgivelsesdato.
 
-Aktiv support og udløb tager hver en dato (**På en dato…**) eller et af to svar, når ingen dato er kendt: *Understøttes stadig* / *Support allerede udløbet* og *Intet udløb annonceret* / *Allerede udløbet*; *Ukendt* registrerer intet. Statussen (Understøttet, Nærmer sig EOL, Udløbet) udledes af dem efter samme regel som for endoflife.date-produkter. Et problem med en cyklus – intet navn, et slut før udgivelsesdatoen – vises på det berørte felt, og produktet kan ikke gemmes, før det er rettet.
+Aktiv support og udløb tager hver en dato (**På en dato…**) eller et af to svar, når ingen dato er kendt: *Understøttes stadig* / *Support allerede udløbet* og *Intet udløb annonceret* / *Allerede udløbet*. Som på endoflife.date er **udløb påkrævet** for hver cyklus — en dato, *Intet udløb annonceret* eller *Allerede udløbet* — mens aktiv support gerne må forblive *Ukendt*. Statussen udledes af dem efter samme regel som for endoflife.date-produkter: **Udløbet**, når udløbsdatoen er nået eller cyklussen er markeret *Allerede udløbet*; **Nærmer sig EOL** inden for seks måneder før den dato eller når den aktive support er ophørt, enten på en dato eller via *Support allerede udløbet*; ellers **Understøttet**. Et problem med en cyklus – intet navn, intet udløb, et slut før udgivelsesdatoen – vises på det berørte felt, og produktet kan ikke gemmes, før det er rettet.
 
-### Administration af cyklusser i gitteret
+### Produktlisten og produktpanelet
 
-Fanen Brugerdefinerede produkter viser én række pr. udgivelsescyklus, grupperet efter produkt. Den fungerer som de andre gitre: frys og omarranger kolonner, vis eller skjul dem, og filtrer efter produkt, status eller anvendelse i panelet til venstre. Kolonnen **Tilknyttede kort** viser, hvor mange af de kort, du kan se, der bruger hver cyklus. Produktets **Beskrivelse** og **Link** er også tilgængelige som kolonner; de er skjult fra start, så slå dem til fra fanen **Kolonner** i panelet.
+Fanen Brugerdefinerede produkter viser én række pr. produkt: antallet af **Cyklusser**, den **Seneste cyklus** og **Seneste version**, dets **Status** — den dårligste på tværs af dets cyklusser, med fordelingen pr. cyklus i chippens værktøjstip — og de **Tilknyttede kort**, som du kan se på tværs af alle dets cyklusser. Den fungerer som de andre gitre: frys og omarranger kolonner, vis eller skjul dem, og filtrer i panelet til venstre efter status (produktets status), brug eller en søgning i produktnavne, cyklusnavne og versioner. Produktets **Beskrivelse** og **Link** er også tilgængelige som kolonner; de er skjult fra start, så slå dem til under fanen **Kolonner** i panelet.
 
-Klik på **Rediger i gitteret** for at ændre celler direkte. Datoer og supportsvar åbner en lille editor, og du kan trække en celles værdi ned gennem en kolonne (som i Excel) for at kopiere den til flere cyklusser. Rækkemenuen (**⋮**) tilføjer en cyklus til produktet, redigerer produktets navn, link og beskrivelse eller sletter en cyklus eller produktet.
+Klik på et produkt for at åbne dets panel til højre. Fanen **Detaljer** indeholder produktets navn, link og beskrivelse, som gemmes med **Gem**, og dets udgivelsescyklusser som rækker, hver med status, datoer og tilknyttede kort. **Rediger** åbner en cyklus' felter direkte i rækken; **Tilføj cyklus** tilføjer en; **Slet** fjerner en. En cyklus, der blev gemt, før udløb blev påkrævet, markeres i listen og skal have en værdi ved næste redigering. Nederst i panelet gælder **Skift til et endoflife.date-produkt …** og **Slet produkt** hele produktet. Uden tilladelsen Administrer EOL er panelet skrivebeskyttet.
 
-Et produkt eller en cyklus kan ikke slettes, så længe kort stadig er tilknyttet, heller ikke kort, du ikke kan se. For at udfase en cyklus, som kort bruger, skal du i stedet omdøbe den (omdøbning flytter de tilknyttede kort med) eller først tilknytte kortene til en anden cyklus. Et produkts link tilbydes på dets kort som link til udgivelsesnoter.
+![Panel for et brugerdefineret EOL-produkt](../assets/img/da/29c_admin_settings_eol_custom_panel.png)
+
+Et produkt eller en cyklus kan ikke slettes, så længe kort stadig er tilknyttet det – heller ikke kort, du ikke kan se. For at udfase en cyklus, som kort bruger, skal du i stedet omdøbe den (omdøbningen flytter de tilknyttede kort med) eller først tilknytte disse kort til en anden cyklus. Et produkts link tilbydes på dets kort som link til leverandørens side.
 
 Du kan også tilføje en manglende cyklus fra et kort: Når et brugerdefineret produkt er valgt i kortets sektion Udløb, slutter cykluslisten med **Tilføj cyklus …**.
 
 ### Bidrag med et brugerdefineret produkt til endoflife.date
 
-Hvis et brugerdefineret produkt er et offentligt leverandørprodukt, så overvej at foreslå det til endoflife.date, så alle får gavn af det. Vælg **Foreslå til endoflife.date** i rækkemenuen:
+Hvis et brugerdefineret produkt er et offentligt leverandørprodukt, så overvej at foreslå det til endoflife.date, så alle får gavn af det. Åbn produktets panel og dets fane **Bidrag til endoflife.date**:
 
 1. Læs advarslen: Et forslag offentliggør produktnavnet og dets datoer. Foreslå aldrig interne eller fortrolige produkter.
-2. Vælg endoflife.date-**kategorien**. Dialogen viser en forhåndsvisning af produktfilen i endoflife.dates format (`products/<identifier>.md`).
-3. Klik på **Åbn på GitHub**. GitHub åbner en ny fil i endoflife.date-repositoriet med indholdet udfyldt (det tilbyder at forke repositoriet, hvis du ikke kan skrive til det). Færdiggør beskrivelsen og resuméet af udgivelsespolitikken, og opret derefter pull requesten fra din egen GitHub-konto. Ved lange filer kan du i stedet bruge **Kopiér fil** og indsætte den i en ny fil.
+2. Gennemgå **parathedstjeklisten**: mindst én cyklus, et udløb og en udgivelsesdato på hver cyklus, et link til leverandøren eller udgivelsespolitikken, en endoflife.date-**kategori** og en beskrivelse på én linje. Hvert punkt, der ikke er opfyldt, siger, hvor det rettes. Kategorien og **resuméet af udgivelsespolitikken** (afsnittet under filens front matter) gemmes på produktet, så du kan vende tilbage til et udkast.
+3. Gennemgå filen i endoflife.dates format (`products/<identifier>.md`), og klik derefter på **Åbn på GitHub**. GitHub åbner en ny fil i endoflife.date-repositoryet med indholdet udfyldt (det opretter en fork af repositoryet på din konto, hvis du ikke kan skrive til det). Commit den til en branch, og åbn pull requesten fra din egen GitHub-konto. Ved lange filer skal du i stedet bruge **Kopiér fil** og indsætte den i en ny fil.
 
 Turbo EA sender aldrig selv noget til GitHub og gemmer ingen GitHub-legitimationsoplysninger. endoflife.date gennemgår hvert forslag ud fra sin [bidragsvejledning](https://github.com/endoflife-date/endoflife.date/blob/master/CONTRIBUTING.md).
 
 ### Skift til endoflife.date
 
-Når endoflife.date begynder at spore et produkt, du havde beholdt som brugerdefineret, viser gitteret et tip **På endoflife.date** ved siden af det. Tippet vises kun ved et tæt match (samme navn, eller dit produkts navn indeholdt i endoflife.date-navnet), så et kort endoflife.date-navn, der blot forekommer inde i dit, udløser det ikke. Klik på tippet, eller vælg **Skift til et endoflife.date-produkt …** i rækkemenuen:
+Når endoflife.date begynder at spore et produkt, du havde beholdt som brugerdefineret, viser gitteret et tip **På endoflife.date** ved siden af det. Tippet vises kun ved et tæt match (samme navn, eller dit produkts navn indeholdt i endoflife.date-navnet), så et kort endoflife.date-navn, der blot forekommer inde i dit, udløser det ikke. Klik på tippet i listen eller i produktets panel, eller vælg **Skift til et endoflife.date-produkt …** nederst i panelet:
 
 1. Vælg endoflife.date-produktet.
 2. Vælg for hver af dine cyklusser den endoflife.date-cyklus, som dens kort skal flyttes til (cyklusser med samme navn matches automatisk), eller behold den på det brugerdefinerede produkt.

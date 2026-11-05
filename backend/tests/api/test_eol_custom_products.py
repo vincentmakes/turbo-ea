@@ -161,11 +161,43 @@ class TestCreate:
                 "cycles": [{"cycle": "1", "releaseDate": "2024-01-01", "eol": "2023-01-01"}],
             },
             {"key": "acme", "title": "A", "cycles": [{"cycle": " "}]},
+            # endoflife.date requires an end of life on every release.
+            {"key": "acme", "title": "A", "cycles": [{"cycle": "1"}]},
+            {"key": "acme", "title": "A", "cycles": [{"cycle": "1", "eol": None}]},
+            {"key": "acme", "title": "A", "cycles": [{"cycle": "1", "eol": ""}]},
+            {"key": "acme", "title": "A", "eol_category": "toaster"},
+            {"key": "acme", "title": "A", "release_policy_note": "x" * 5001},
         ],
     )
     async def test_rejects_invalid_input(self, client, admin, body):
         resp = await client.post(BASE, json=body, headers=auth_headers(admin))
         assert resp.status_code == 422, body
+
+    async def test_a_cycle_without_an_end_of_life_is_told_why(self, client, admin):
+        resp = await client.post(
+            BASE,
+            json={"title": "A", "cycles": [{"cycle": "1", "eol": None}]},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+        assert "end of life is required" in str(resp.json()["detail"])
+
+    async def test_creates_product_with_the_proposal_fields(self, client, admin):
+        resp = await client.post(
+            BASE,
+            json={
+                "title": "Acme MES",
+                "eol_category": "server-app",
+                "release_policy_note": "  Each release is supported for two years.  ",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201, resp.text
+        body = resp.json()
+        assert (body["eol_category"], body["release_policy_note"]) == (
+            "server-app",
+            "Each release is supported for two years.",
+        )
 
     async def test_duplicate_key_is_409(self, client, admin, acme):
         resp = await client.post(
@@ -196,6 +228,32 @@ class TestUpdateProduct:
     async def test_unknown_product_is_404(self, client, admin):
         resp = await client.patch(f"{BASE}/nope", json={"title": "X"}, headers=auth_headers(admin))
         assert resp.status_code == 404
+
+    async def test_proposal_fields_round_trip_and_clear(self, client, admin, acme):
+        assert (acme["eol_category"], acme["release_policy_note"]) == (None, None)
+        resp = await client.patch(
+            f"{BASE}/acme-erp",
+            json={"eol_category": "app", "release_policy_note": "Two years per release."},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        assert (resp.json()["eol_category"], resp.json()["release_policy_note"]) == (
+            "app",
+            "Two years per release.",
+        )
+        listed = await client.get(BASE, headers=auth_headers(admin))
+        assert listed.json()[0]["eol_category"] == "app"
+        assert listed.json()[0]["release_policy_note"] == "Two years per release."
+        cleared = await client.patch(
+            f"{BASE}/acme-erp", json={"eol_category": None}, headers=auth_headers(admin)
+        )
+        assert cleared.status_code == 200
+        assert cleared.json()["eol_category"] is None
+        assert cleared.json()["release_policy_note"] == "Two years per release."
+        bad = await client.patch(
+            f"{BASE}/acme-erp", json={"eol_category": "toaster"}, headers=auth_headers(admin)
+        )
+        assert bad.status_code == 422
 
     async def test_viewer_cannot_edit(self, client, viewer, acme):
         resp = await client.patch(
@@ -252,6 +310,10 @@ class TestDeleteProduct:
 # ---------------------------------------------------------------------------
 
 
+def _cycle(product: dict, name: str) -> dict:
+    return next(c for c in product["cycles"] if c["cycle"] == name)
+
+
 def _cycle_id(product: dict, name: str) -> str:
     return next(c["id"] for c in product["cycles"] if c["cycle"] == name)
 
@@ -267,13 +329,25 @@ class TestCycles:
         assert resp.json()["cycle"] == "3"
         assert resp.json()["eol"] is True
         dup = await client.post(
-            f"{BASE}/acme-erp/cycles", json={"cycle": "3"}, headers=auth_headers(admin)
+            f"{BASE}/acme-erp/cycles",
+            json={"cycle": "3", "eol": False},
+            headers=auth_headers(admin),
         )
         assert dup.status_code == 409
 
+    async def test_a_cycle_needs_an_end_of_life(self, client, admin, acme):
+        for body in ({"cycle": "3"}, {"cycle": "3", "eol": None}, {"cycle": "3", "eol": ""}):
+            resp = await client.post(
+                f"{BASE}/acme-erp/cycles", json=body, headers=auth_headers(admin)
+            )
+            assert resp.status_code == 422, body
+        assert "end of life is required" in str(resp.json()["detail"])
+
     async def test_viewer_cannot_add_cycle(self, client, viewer, acme):
         resp = await client.post(
-            f"{BASE}/acme-erp/cycles", json={"cycle": "3"}, headers=auth_headers(viewer)
+            f"{BASE}/acme-erp/cycles",
+            json={"cycle": "3", "eol": False},
+            headers=auth_headers(viewer),
         )
         assert resp.status_code == 403
 
@@ -287,6 +361,37 @@ class TestCycles:
         assert resp.status_code == 200
         body = resp.json()
         assert (body["latest"], body["eol"], body["releaseDate"]) == ("1.5", PAST, LONG_AGO)
+
+    async def test_patch_cannot_clear_the_end_of_life(self, client, admin, acme):
+        cid = _cycle_id(acme, "1")
+        for body in ({"eol": None}, {"eol": ""}):
+            resp = await client.patch(
+                f"{BASE}/acme-erp/cycles/{cid}", json=body, headers=auth_headers(admin)
+            )
+            assert resp.status_code == 422, body
+            assert "end of life is required" in str(resp.json()["detail"])
+        kept = await client.get(BASE, headers=auth_headers(admin))
+        assert _cycle(kept.json()[0], "1")["eol"] == PAST
+
+    async def test_a_legacy_cycle_without_an_end_of_life_gets_one_on_edit(
+        self, client, admin, acme, db
+    ):
+        """A row from before the rule can still be edited — with an end of life."""
+        from app.models.eol_custom_cycle import EolCustomCycle
+
+        legacy = EolCustomCycle(product_key="acme-erp", cycle="0", eol=None)
+        db.add(legacy)
+        await db.flush()
+        await db.commit()
+        url = f"{BASE}/acme-erp/cycles/{legacy.id}"
+        refused = await client.patch(url, json={"latest": "0.9"}, headers=auth_headers(admin))
+        assert refused.status_code == 422
+        assert "end of life is required" in str(refused.json()["detail"])
+        fixed = await client.patch(
+            url, json={"latest": "0.9", "eol": False}, headers=auth_headers(admin)
+        )
+        assert fixed.status_code == 200, fixed.text
+        assert (fixed.json()["latest"], fixed.json()["eol"]) == ("0.9", False)
 
     async def test_patch_cannot_put_eol_before_release(self, client, admin, acme):
         cid = _cycle_id(acme, "1")

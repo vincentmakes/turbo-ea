@@ -7,6 +7,7 @@ import {
   eolProductLabel,
   isCustomEolProduct,
   isValidEolLink,
+  milestoneLabelKey,
   milestoneMode,
   milestoneValue,
 } from "./eolCustom";
@@ -81,6 +82,18 @@ describe("milestones", () => {
   });
 });
 
+describe("milestoneLabelKey", () => {
+  it("names a milestone without a date and leaves a date to the caller", () => {
+    expect(milestoneLabelKey(null, "eol")).toBe("eol.custom.milestone.eol.unset");
+    expect(milestoneLabelKey("", "support")).toBe("eol.custom.milestone.support.unset");
+    expect(milestoneLabelKey(true, "eol")).toBe("eol.custom.milestone.eol.ended");
+    expect(milestoneLabelKey(false, "eol")).toBe("eol.custom.milestone.eol.ongoing");
+    expect(milestoneLabelKey(false, "support")).toBe("eol.custom.milestone.support.ended");
+    expect(milestoneLabelKey(true, "support")).toBe("eol.custom.milestone.support.ongoing");
+    expect(milestoneLabelKey("2030-01-01", "eol")).toBeNull();
+  });
+});
+
 describe("cycleStatus mirrors eol_status on the backend", () => {
   const today = "2026-06-15";
   it.each([
@@ -94,6 +107,14 @@ describe("cycleStatus mirrors eol_status on the backend", () => {
     ["2027-06-15", "2026-06-16", "supported"],
     [false, null, "supported"],
     [false, "2026-01-01", "approaching"],
+    // `support: false` is endoflife.date's "active support is over".
+    [false, false, "approaching"],
+    ["2027-06-15", false, "approaching"],
+    [null, false, "approaching"],
+    [true, false, "eol"],
+    ["2026-06-14", false, "eol"],
+    ["2026-06-16", false, "approaching"],
+    [false, true, "supported"],
     [null, null, "unknown"],
     [null, true, "unknown"],
     ["", null, "unknown"],

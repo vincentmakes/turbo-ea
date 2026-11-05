@@ -12,12 +12,15 @@
  * active support) is what the API serves as `support`.
  */
 
-import type { EolCustomCycle, EolCustomProduct, EolMilestone } from "@/types";
+import type { EolCustomCycle, EolCustomProduct, EolDateCategory, EolMilestone } from "@/types";
 import { todayIsoDate } from "@/lib/dates";
 import { milestoneMode, type MilestoneKind } from "@/lib/eolCustom";
 
-/** endoflife.date's product categories (their `category` field). */
-export const EOL_DATE_CATEGORIES = [
+/**
+ * endoflife.date's product categories (their `category` field) — the twin of
+ * `EOL_DATE_CATEGORIES` in `backend/app/schemas/eol_custom.py`.
+ */
+export const EOL_DATE_CATEGORIES: readonly EolDateCategory[] = [
   "app",
   "database",
   "device",
@@ -27,8 +30,8 @@ export const EOL_DATE_CATEGORIES = [
   "server-app",
   "service",
   "standard",
-] as const;
-export type EolDateCategory = (typeof EOL_DATE_CATEGORIES)[number];
+];
+export type { EolDateCategory };
 
 export const EOL_DATE_REPO = "https://github.com/endoflife-date/endoflife.date";
 export const EOL_DATE_CONTRIBUTING = `${EOL_DATE_REPO}/blob/master/CONTRIBUTING.md`;
@@ -87,10 +90,21 @@ export interface ContributionOptions {
   category: EolDateCategory;
   /** The day the file is written; defaults to today. */
   today?: string;
-  /** Placeholder for the release-policy paragraph endoflife.date requires. */
+  /** The release-policy paragraph endoflife.date requires, when written. */
+  policyNote?: string | null;
+  /** Placeholder for that paragraph while it is still to be written. */
   policyPlaceholder: string;
   /** Placeholder for the one-line description when the product has none. */
   descriptionPlaceholder: string;
+}
+
+/** The paragraph as typed, trimmed; a leading front-matter fence is removed
+ * so the note can never be read as a second YAML block. */
+function policyParagraph(note: string | null | undefined): string {
+  return (note ?? "")
+    .replace(/\r\n?/g, "\n")
+    .trim()
+    .replace(/^-{3,}\s*/, "");
 }
 
 /** The `products/<slug>.md` file for a custom product, ready to review. */
@@ -119,7 +133,44 @@ export function buildEolProductFile(
   const title = markdownText(product.title);
   const name = product.link ? `[${title}](${markdownUrl(product.link)})` : title;
   const description = markdownText(product.description ?? "") || options.descriptionPlaceholder;
-  return [...front, "", `> ${name} ${description}`, "", options.policyPlaceholder, ""].join("\n");
+  const policy = policyParagraph(options.policyNote) || options.policyPlaceholder;
+  return [...front, "", `> ${name} ${description}`, "", policy, ""].join("\n");
+}
+
+/** What the file still lacks before it is worth proposing, in checklist order. */
+export type ReadinessItemId = "cycles" | "eol" | "release" | "link" | "category" | "description";
+
+export interface ReadinessItem {
+  id: ReadinessItemId;
+  ok: boolean;
+}
+
+export interface ContributionDraft {
+  category: EolDateCategory | null;
+  policyNote: string;
+}
+
+/**
+ * The readiness checklist: endoflife.date wants every release dated with an
+ * end of life, a release-policy link, a category and a one-line summary.
+ */
+export function contributionReadiness(
+  product: Pick<EolCustomProduct, "cycles" | "link" | "description">,
+  draft: ContributionDraft,
+): ReadinessItem[] {
+  const cycles = product.cycles;
+  return [
+    { id: "cycles", ok: cycles.length > 0 },
+    { id: "eol", ok: cycles.every((c) => milestoneMode(c.eol, "eol") !== "unset") },
+    { id: "release", ok: cycles.every((c) => !!c.releaseDate) },
+    { id: "link", ok: !!product.link },
+    { id: "category", ok: draft.category !== null },
+    { id: "description", ok: !!product.description?.trim() },
+  ];
+}
+
+export function isContributionReady(items: ReadinessItem[]): boolean {
+  return items.every((item) => item.ok);
 }
 
 /** One line of Markdown prose: whitespace collapsed (a newline would end the

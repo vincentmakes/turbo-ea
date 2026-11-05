@@ -2,56 +2,37 @@
  * Custom EOL products — Settings → EOL → Custom products.
  *
  * The organisation's own end-of-life data for products endoflife.date does
- * not track. One AG Grid row per release cycle, grouped by product, built to
- * the grid standard (`.claude/rules/frontend-grids.md`): column freeze and
- * reorder, a filter sidebar matching the Inventory's, and — in edit mode —
- * inline cell editing with Excel-style drag-fill, each write a per-cycle
- * `PATCH` (never a bulk endpoint), then one reload.
+ * not track. One AG Grid row per product, summarising its cycles (count,
+ * latest cycle and version, worst status, linked cards), built to the grid
+ * standard (`.claude/rules/frontend-grids.md`): column freeze and reorder and
+ * a filter sidebar matching the Inventory's.
  *
- * Every row also offers "Propose to endoflife.date" (draft the product's file
- * for a pull request) and "Switch to endoflife.date product…" (move the cards
- * over once endoflife.date tracks it).
+ * Nothing is edited in the grid. A row click opens the product panel, which
+ * holds the product's details, its cycles and the endoflife.date
+ * contribution; the grid only lists, adds a product and offers "Switch to
+ * endoflife.date" from the hint chip.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
-import type { CellValueChangedEvent, ColDef } from "ag-grid-community";
+import type { CellKeyDownEvent, ColDef, RowClassRules, RowClickedEvent } from "ag-grid-community";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogContentText from "@mui/material/DialogContentText";
-import DialogTitle from "@mui/material/DialogTitle";
-import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { ApiError, api } from "@/api/client";
-import CustomEolProductDialog, { CustomEolCycleDialog } from "@/components/CustomEolProductDialog";
+import type { SxProps, Theme } from "@mui/material/styles";
+import { api } from "@/api/client";
+import CustomEolProductDialog from "@/components/CustomEolProductDialog";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { hasPermission } from "@/components/RequirePermission";
 import { colIdOf, isOrderableColumn } from "@/components/grid/columnOrder";
 import type { ColumnOrderItem } from "@/components/grid/ColumnOrderSection";
-import { cloneFillValue, runWithConcurrency } from "@/components/grid/dragFill";
-import type { GroupAxis, GroupedRow } from "@/components/grid/rowGrouping";
 import { useColumnFreeze } from "@/components/grid/useColumnFreeze";
 import { useColumnOrder } from "@/components/grid/useColumnOrder";
-import {
-  useDragFill,
-  type FillFailure,
-  type FillOutcome,
-  type FillRequest,
-} from "@/components/grid/useDragFill";
-import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
 import { useAuthContext } from "@/hooks/AuthContext";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useIsRtl } from "@/hooks/useIsRtl";
@@ -59,35 +40,51 @@ import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 import { EOL_STATUSES, EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS } from "@/lib/eol";
-import { isValidEolLink, milestoneMode, type MilestoneKind } from "@/lib/eolCustom";
-import type { EolCustomProduct, EolMilestone } from "@/types";
+import { isValidEolLink } from "@/lib/eolCustom";
+import type { EolCustomProduct } from "@/types";
 import CustomEolFilterSidebar, {
   CUSTOM_EOL_COLUMNS,
   EMPTY_CUSTOM_EOL_FILTERS,
   type CustomEolFilters,
 } from "./CustomEolFilterSidebar";
-import EolCycleCellEditor from "./EolCycleCellEditor";
-import ProposeEolProductDialog from "./ProposeEolProductDialog";
+import CustomEolProductPanel from "./CustomEolProductPanel";
 import SwitchToUpstreamDialog, { type SwitchResult } from "./SwitchToUpstreamDialog";
 import {
-  FILLABLE_FIELDS,
   buildRows,
-  cyclePatch,
   filterRows,
   loadPrefs,
   savePrefs,
-  type EolGridRow,
+  type EolProductRow,
 } from "./customEolGridModel";
 
-type Row = GroupedRow<EolGridRow>;
+type Row = EolProductRow;
+type UpstreamMatch = { name: string; score: number };
 
-/** Writes in flight at once during a drag-fill. */
-const FILL_CONCURRENCY = 4;
+/** The row class marking the product the panel shows. */
+const OPEN_ROW_CLASS = "eol-product-open";
 
-type Confirm =
-  | { kind: "cycle"; row: EolGridRow }
-  | { kind: "product"; product: EolCustomProduct }
-  | null;
+/** A click on one of these inside a row is its own action, not "open the row" (§3.14). */
+const INTERACTIVE_TARGET = "a, button, [role='button']";
+
+// Stryker disable all: layout, spacing and colour are presentation; jsdom lays nothing out
+const SX = {
+  root: { display: "flex", flexDirection: "column" },
+  toolbar: { mb: 2, gap: 1, flexWrap: "wrap" },
+  intro: { maxWidth: 760 },
+  alert: { mb: 2 },
+  body: { display: "flex", height: "calc(100vh - 300px)", minHeight: 480, gap: 1.5 },
+  gridBox: {
+    flex: 1,
+    minWidth: 0,
+    "& .ag-row": { cursor: "pointer" },
+    [`& .ag-row.${OPEN_ROW_CLASS}`]: { bgcolor: "action.selected" },
+  },
+  productCell: { display: "flex", alignItems: "center", gap: 1, height: "100%", minWidth: 0 },
+  productTitle: { minWidth: 0 },
+  hintChip: { height: 20, fontSize: 11, flexShrink: 0 },
+  statusChip: { color: "common.white", height: 20, fontSize: 11 },
+} satisfies Record<string, SxProps<Theme>>;
+// Stryker restore all
 
 export default function CustomEolProductsGrid() {
   const { t } = useTranslation(["admin", "cards", "reports", "common"]);
@@ -100,19 +97,18 @@ export default function CustomEolProductsGrid() {
 
   const [initialPrefs] = useState(loadPrefs);
   const [products, setProducts] = useState<EolCustomProduct[]>([]);
-  const [matches, setMatches] = useState<Record<string, { name: string; score: number }>>({});
+  const [matches, setMatches] = useState<Record<string, UpstreamMatch>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [filters, setFilters] = useState<CustomEolFilters>(EMPTY_CUSTOM_EOL_FILTERS);
-  const [editMode, setEditMode] = useState(false);
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialPrefs.filtersCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(initialPrefs.sidebarWidth);
   const [visibleColumns, setVisibleColumns] = useState(new Set(initialPrefs.visibleColumns));
   const [frozenColumns, setFrozenColumns] = useState<string[]>(initialPrefs.frozenColumns);
   const [columnOrderIds, setColumnOrderIds] = useState<string[]>(initialPrefs.columnOrder);
-  const [groupBy, setGroupBy] = useState<string | null>(initialPrefs.groupBy);
 
   useEffect(() => {
     savePrefs({
@@ -121,9 +117,8 @@ export default function CustomEolProductsGrid() {
       visibleColumns: Array.from(visibleColumns),
       frozenColumns,
       columnOrder: columnOrderIds,
-      groupBy,
     });
-  }, [sidebarCollapsed, sidebarWidth, visibleColumns, frozenColumns, columnOrderIds, groupBy]);
+  }, [sidebarCollapsed, sidebarWidth, visibleColumns, frozenColumns, columnOrderIds]);
 
   // ── Data ─────────────────────────────────────────────────────────────
   const { run } = useLatestRequest();
@@ -140,10 +135,9 @@ export default function CustomEolProductsGrid() {
           // product just created or renamed gets its hint. A hint only: it
           // never blocks the grid, and a failure leaves the last hints up.
           api
-            .get<Record<string, { name: string; score: number }>>(
-              "/eol/custom-products/upstream-matches",
-              { signal },
-            )
+            .get<Record<string, UpstreamMatch>>("/eol/custom-products/upstream-matches", {
+              signal,
+            })
             .then((m) => {
               if (isCurrent()) setMatches(m);
             })
@@ -162,43 +156,10 @@ export default function CustomEolProductsGrid() {
 
   const rows = useMemo(() => buildRows(products), [products]);
   const visibleRows = useMemo(() => filterRows(rows, filters), [rows, filters]);
-  const productOptions = useMemo(
-    () => products.map((p) => ({ key: p.key, title: p.title })),
-    [products],
-  );
+  // Looked up afresh on every reload: one that drops the key closes the panel.
+  const openProduct = products.find((p) => p.key === openKey) ?? null;
 
-  // ── Grouping, freeze, order ──────────────────────────────────────────
-  const statusLabel = useCallback(
-    (s: string) => t(`reports:${EOL_STATUS_LABEL_KEYS[s] ?? EOL_STATUS_LABEL_KEYS.unknown}`),
-    [t],
-  );
-  const axes = useMemo<GroupAxis<EolGridRow>[]>(
-    () => [
-      {
-        key: "product",
-        label: t("eol.custom.columns.product"),
-        groupKeyOf: (r) => r.productKey,
-        vocab: products.map((p) => ({ key: p.key, label: p.title })),
-      },
-      {
-        key: "status",
-        label: t("eol.custom.columns.status"),
-        groupKeyOf: (r) => r.status,
-        vocab: EOL_STATUSES.map((s) => ({
-          key: s,
-          label: statusLabel(s),
-          color: EOL_STATUS_COLORS[s],
-        })),
-      },
-    ],
-    [t, products, statusLabel],
-  );
-  const grouping = useRowGrouping<EolGridRow>(gridRef, {
-    rows: visibleRows,
-    axes,
-    groupBy,
-    selectable: false,
-  });
+  // ── Freeze, order ────────────────────────────────────────────────────
   const columnFreeze = useColumnFreeze<Row>(gridRef, {
     frozen: frozenColumns,
     onFrozenChange: setFrozenColumns,
@@ -212,118 +173,33 @@ export default function CustomEolProductsGrid() {
     columnFreeze.syncFrozenFromGrid();
   }, [columnOrder, columnFreeze]);
 
-  // ── Writes ───────────────────────────────────────────────────────────
-  /** The one per-cycle write: a cell edit and every drag-filled row use it. */
-  const persistCycleField = useCallback(
-    (row: EolGridRow, field: string, value: unknown) =>
-      api.patch(
-        `/eol/custom-products/${encodeURIComponent(row.productKey)}/cycles/${row.cycleId}`,
-        cyclePatch(field, value),
-      ),
-    [],
+  // ── The open row ─────────────────────────────────────────────────────
+  const handleRowClicked = useCallback((e: RowClickedEvent<Row>) => {
+    // AG Grid's row click is a native listener: a link or a button inside
+    // the row has already done its own thing.
+    if ((e.event?.target as Element | null)?.closest?.(INTERACTIVE_TARGET)) return;
+    if (e.data) setOpenKey(e.data.key);
+  }, []);
+  // The keyboard's row click: Enter on a focused cell opens the product.
+  const handleCellKeyDown = useCallback((e: CellKeyDownEvent<Row>) => {
+    if ((e.event as KeyboardEvent | null)?.key === "Enter" && e.data) setOpenKey(e.data.key);
+  }, []);
+  const rowClassRules = useMemo<RowClassRules<Row>>(
+    () => ({ [OPEN_ROW_CLASS]: (p) => p.data?.key === openKey }),
+    [openKey],
   );
+  // Row classes are evaluated when a row renders; the previously open row
+  // and the new one need a redraw to move the highlight.
+  useEffect(() => {
+    gridRef.current?.api?.redrawRows();
+  }, [openKey]);
 
-  const handleCellValueChanged = useCallback(
-    async (e: CellValueChangedEvent<Row>) => {
-      const row = e.data;
-      const field = e.colDef.field;
-      if (!row?.cycleId || !field || e.oldValue === e.newValue) return;
-      try {
-        await persistCycleField(row, field, e.newValue);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : t("common:errors.generic"));
-      }
-      load();
-    },
-    [persistCycleField, load, t],
-  );
-
-  const handleFill = useCallback(
-    async (
-      request: FillRequest<Row>,
-      onProgress: (done: number, total: number) => void,
-    ): Promise<FillOutcome> => {
-      const field = request.field;
-      const targets = request.targets.filter((tg) => !tg.data.__group && tg.data.cycleId);
-      if (!field) return { succeeded: 0, failures: [] };
-      const results = await runWithConcurrency(
-        targets,
-        FILL_CONCURRENCY,
-        (target) => persistCycleField(target.data, field, cloneFillValue(request.value)),
-        onProgress,
-      );
-      const failures: FillFailure[] = [];
-      let succeeded = 0;
-      results.forEach((r, i) => {
-        if (r.status === "fulfilled") {
-          succeeded++;
-          return;
-        }
-        const data = targets[i].data;
-        failures.push({
-          rowId: targets[i].rowId,
-          label: `${data.productTitle} ${data.cycle}`,
-          message: r.reason instanceof Error ? r.reason.message : t("common:errors.generic"),
-        });
-      });
-      load();
-      return { succeeded, failures };
-    },
-    [persistCycleField, load, t],
-  );
-
-  const dragFill = useDragFill<Row>(gridRef, {
-    containerRef: columnFreeze.containerRef,
-    enabled: () => editMode,
-    suppressForRow: (d) => !!d?.__group || !d?.cycleId,
-    isFillable: (_colId, colDef) => !!colDef.field && FILLABLE_FIELDS.has(colDef.field),
-    onFill: handleFill,
-  });
-
-  // ── Dialogs and row menu ─────────────────────────────────────────────
-  const [productDialog, setProductDialog] = useState<{
-    open: boolean;
-    product: EolCustomProduct | null;
-  }>({ open: false, product: null });
-  const [cycleFor, setCycleFor] = useState<EolCustomProduct | null>(null);
-  const [proposeFor, setProposeFor] = useState<EolCustomProduct | null>(null);
+  // ── Dialogs ──────────────────────────────────────────────────────────
+  const [createOpen, setCreateOpen] = useState(false);
   const [switchFor, setSwitchFor] = useState<{
     product: EolCustomProduct;
     target: string | null;
   } | null>(null);
-  const [confirm, setConfirm] = useState<Confirm>(null);
-  const [menu, setMenu] = useState<{ anchor: HTMLElement; row: EolGridRow } | null>(null);
-
-  const runDelete = async () => {
-    if (!confirm) return;
-    const current = confirm;
-    setConfirm(null);
-    try {
-      if (current.kind === "cycle") {
-        await api.delete(
-          `/eol/custom-products/${encodeURIComponent(current.row.productKey)}/cycles/${current.row.cycleId}`,
-        );
-      } else {
-        await api.delete(`/eol/custom-products/${encodeURIComponent(current.product.key)}`);
-      }
-      setNotice(t("eol.custom.deleted"));
-    } catch (e) {
-      const detail = e instanceof ApiError ? (e.detail as { code?: string; count?: number }) : null;
-      setError(
-        detail?.code === "cards_linked"
-          ? t(
-              current.kind === "cycle"
-                ? "eol.custom.errors.cycleLinked"
-                : "eol.custom.errors.cardsLinked",
-              { count: detail.count ?? 0 },
-            )
-          : e instanceof Error
-            ? e.message
-            : t("common:errors.generic"),
-      );
-    }
-    load();
-  };
 
   const onSwitched = (res: SwitchResult) => {
     setSwitchFor(null);
@@ -338,47 +214,30 @@ export default function CustomEolProductsGrid() {
   };
 
   // ── Columns ──────────────────────────────────────────────────────────
-  const milestoneText = useCallback(
-    (value: EolMilestone | undefined, kind: MilestoneKind) => {
-      const m = milestoneMode(value, kind);
-      if (m === "date") return formatDate(value as string);
-      if (m === "unset") return "";
-      return t(`cards:eol.custom.milestone.${kind}.${m}`);
-    },
-    [formatDate, t],
-  );
-
-  const editable = useCallback(
-    (p: { data?: Row }) => editMode && canManage && !!p.data?.cycleId && !p.data?.__group,
-    [editMode, canManage],
+  const statusLabel = useCallback(
+    (s: string) => t(`reports:${EOL_STATUS_LABEL_KEYS[s] ?? EOL_STATUS_LABEL_KEYS.unknown}`),
+    [t],
   );
 
   const columnDefs = useMemo<ColDef<Row>[]>(() => {
-    const dateEditor = (label: string) => ({
-      cellEditor: EolCycleCellEditor,
-      cellEditorPopup: true,
-      cellEditorParams: { mode: "date", label },
-    });
     // Column filters match what the cell shows, not the stored value.
     const formattedDate = (p: { value?: unknown }) =>
       p.value ? formatDate(p.value as string) : "";
-    const milestone = (kind: MilestoneKind) => (p: { value?: unknown }) =>
-      milestoneText(p.value as EolMilestone, kind);
     return [
       {
         colId: "product",
         headerName: t("eol.custom.columns.product"),
-        field: "productTitle",
+        field: "title",
         minWidth: 200,
         flex: 1,
         cellRenderer: (p: { data?: Row }) => {
           const r = p.data;
           if (!r) return null;
-          const match = matches[r.productKey];
+          const match = matches[r.key];
           return (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, height: "100%", minWidth: 0 }}>
-              <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0 }}>
-                {r.productTitle}
+            <Box sx={SX.productCell}>
+              <Typography variant="body2" fontWeight={600} noWrap sx={SX.productTitle}>
+                {r.title}
               </Typography>
               {match && (
                 <Tooltip
@@ -400,7 +259,7 @@ export default function CustomEolProductsGrid() {
                         ? () => setSwitchFor({ product: r.product, target: match.name })
                         : undefined
                     }
-                    sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
+                    sx={SX.hintChip}
                   />
                 </Tooltip>
               )}
@@ -409,70 +268,23 @@ export default function CustomEolProductsGrid() {
         },
       },
       {
-        colId: "cycle",
-        headerName: t("eol.custom.columns.cycle"),
-        field: "cycle",
-        width: 120,
-        editable,
-        cellRenderer: (p: { data?: Row; value?: string }) =>
-          p.data && !p.data.cycleId ? (
-            <Typography variant="body2" color="text.secondary" fontStyle="italic">
-              {t("eol.custom.noCycles")}
-            </Typography>
-          ) : (
-            p.value
-          ),
+        colId: "cycles",
+        headerName: t("eol.custom.columns.cycles"),
+        field: "cycleCount",
+        width: 100,
+        type: "rightAligned",
       },
       {
-        colId: "releaseDate",
-        headerName: t("eol.custom.columns.releaseDate"),
-        field: "releaseDate",
-        width: 140,
-        editable,
-        ...dateEditor(t("eol.custom.columns.releaseDate")),
-        valueFormatter: formattedDate,
-        filterValueGetter: (p) => formattedDate({ value: p.data?.releaseDate }),
-      },
-      {
-        colId: "support",
-        headerName: t("eol.custom.columns.support"),
-        field: "support",
-        width: 200,
-        editable,
-        cellEditor: EolCycleCellEditor,
-        cellEditorPopup: true,
-        cellEditorParams: { mode: "support" },
-        valueFormatter: milestone("support"),
-        filterValueGetter: (p) => milestone("support")({ value: p.data?.support }),
-      },
-      {
-        colId: "eol",
-        headerName: t("eol.custom.columns.eol"),
-        field: "eol",
-        width: 200,
-        editable,
-        cellEditor: EolCycleCellEditor,
-        cellEditorPopup: true,
-        cellEditorParams: { mode: "eol" },
-        valueFormatter: milestone("eol"),
-        filterValueGetter: (p) => milestone("eol")({ value: p.data?.eol }),
+        colId: "latestCycle",
+        headerName: t("eol.custom.columns.latestCycle"),
+        field: "latestCycle",
+        width: 130,
       },
       {
         colId: "latest",
         headerName: t("eol.custom.columns.latest"),
-        field: "latest",
-        width: 130,
-        editable,
-      },
-      {
-        colId: "latestReleaseDate",
-        headerName: t("eol.custom.columns.latestReleaseDate"),
-        field: "latestReleaseDate",
-        width: 150,
-        editable,
-        ...dateEditor(t("eol.custom.columns.latestReleaseDate")),
-        valueFormatter: formattedDate,
-        filterValueGetter: (p) => formattedDate({ value: p.data?.latestReleaseDate }),
+        field: "latestVersion",
+        width: 140,
       },
       {
         colId: "status",
@@ -480,18 +292,20 @@ export default function CustomEolProductsGrid() {
         field: "status",
         width: 150,
         valueFormatter: (p) => statusLabel(p.value as string),
-        filterValueGetter: (p) => (p.data?.cycleId ? statusLabel(p.data.status) : ""),
+        filterValueGetter: (p) => (p.data ? statusLabel(p.data.status) : ""),
+        tooltipValueGetter: (p) => {
+          const counts = p.data?.statusCounts ?? {};
+          const parts = EOL_STATUSES.filter((s) => counts[s]).map((s) =>
+            t("eol.custom.statusCountItem", { status: statusLabel(s), count: counts[s] }),
+          );
+          return parts.length ? parts.join(" · ") : t("eol.custom.noCycles");
+        },
         cellRenderer: (p: { data?: Row }) =>
-          p.data?.cycleId ? (
+          p.data ? (
             <Chip
               size="small"
               label={statusLabel(p.data.status)}
-              sx={{
-                bgcolor: EOL_STATUS_COLORS[p.data.status],
-                color: "common.white",
-                height: 20,
-                fontSize: 11,
-              }}
+              sx={[SX.statusChip, { bgcolor: EOL_STATUS_COLORS[p.data.status] }]}
             />
           ) : null,
       },
@@ -515,14 +329,14 @@ export default function CustomEolProductsGrid() {
         headerName: t("eol.custom.columns.description"),
         width: 240,
         // Truncated, so plain text: a cut-off address is not a link (§3.14).
-        valueGetter: (p) => (p.data?.product ? (p.data.product.description ?? "") : ""),
+        valueGetter: (p) => p.data?.product.description ?? "",
         tooltipValueGetter: (p) => p.value || undefined,
       },
       {
         colId: "link",
         headerName: t("eol.custom.columns.link"),
         width: 220,
-        valueGetter: (p) => (p.data?.product ? (p.data.product.link ?? "") : ""),
+        valueGetter: (p) => p.data?.product.link ?? "",
         cellRenderer: (p: { value?: string }) =>
           p.value && isValidEolLink(p.value) ? (
             <Link href={p.value} target="_blank" rel="noopener noreferrer" underline="hover">
@@ -530,30 +344,8 @@ export default function CustomEolProductsGrid() {
             </Link>
           ) : null,
       },
-      {
-        colId: "actions",
-        headerName: t("eol.custom.columns.actions"),
-        width: 64,
-        sortable: false,
-        filter: false,
-        resizable: false,
-        suppressHeaderMenuButton: true,
-        cellRenderer: (p: { data?: Row }) =>
-          p.data ? (
-            <IconButton
-              size="small"
-              aria-label={t("eol.custom.rowActions", {
-                product: p.data.productTitle,
-                cycle: p.data.cycle,
-              })}
-              onClick={(e) => setMenu({ anchor: e.currentTarget, row: p.data as EolGridRow })}
-            >
-              <MaterialSymbol icon="more_vert" size={18} />
-            </IconButton>
-          ) : null,
-      },
     ];
-  }, [t, matches, canManage, editable, formatDate, milestoneText, statusLabel]);
+  }, [t, matches, canManage, formatDate, statusLabel]);
 
   const visibleColumnDefs = useMemo(
     () =>
@@ -583,79 +375,48 @@ export default function CustomEolProductsGrid() {
       filter: true,
       filterParams: { buttons: ["reset"] },
       headerComponentParams: columnFreeze.headerComponentParams,
-      // No type inference: a milestone column holds a date, `true` or `false`,
-      // and AG Grid would read the first row's boolean as a checkbox column
-      // and drop the formatter — a support date then shows as an empty box.
+      // No type inference: AG Grid would guess a column's type from the
+      // first row and drop the formatter on a mismatch.
       cellDataType: false,
     }),
     [columnFreeze.headerComponentParams],
   );
 
-  const menuRow = menu?.row;
-  // Cards the caller can see still linking what the dialog would delete: the
-  // server refuses that delete, so the dialog explains instead of offering it.
-  const confirmLinked =
-    confirm?.kind === "product"
-      ? confirm.product.linked_cards
-      : confirm?.kind === "cycle"
-        ? confirm.row.linked
-        : 0;
-  const closeMenu = () => setMenu(null);
-
   return (
-    <Box sx={{ display: "flex", flexDirection: "column" }}>
-      <Stack
-        direction="row"
-        alignItems="flex-start"
-        justifyContent="space-between"
-        sx={{ mb: 2, gap: 1, flexWrap: "wrap" }}
-      >
-        <Box sx={{ maxWidth: 760 }}>
+    <Box sx={SX.root}>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={SX.toolbar}>
+        <Box sx={SX.intro}>
           <Typography variant="body2" color="text.secondary">
             {t("eol.custom.description")}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <GroupByMenuButton axes={axes} groupBy={groupBy} onChange={setGroupBy} />
-          {canManage && (
-            <Button
-              size="small"
-              variant={editMode ? "contained" : "outlined"}
-              onClick={() => setEditMode((v) => !v)}
-              startIcon={<MaterialSymbol icon={editMode ? "check" : "edit"} size={16} />}
-            >
-              {editMode ? t("eol.custom.doneEditing") : t("eol.custom.editInGrid")}
-            </Button>
-          )}
-          {canManage && (
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => setProductDialog({ open: true, product: null })}
-              startIcon={<MaterialSymbol icon="add" size={16} />}
-            >
-              {t("eol.custom.addProduct")}
-            </Button>
-          )}
-        </Stack>
+        {canManage && (
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => setCreateOpen(true)}
+            startIcon={<MaterialSymbol icon="add" size={16} />}
+          >
+            {t("eol.custom.addProduct")}
+          </Button>
+        )}
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
+        <Alert severity="error" sx={SX.alert} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
       {notice && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice("")}>
+        <Alert severity="success" sx={SX.alert} onClose={() => setNotice("")}>
           {notice}
         </Alert>
       )}
 
-      <Box sx={{ display: "flex", height: "calc(100vh - 300px)", minHeight: 480, gap: 1.5 }}>
+      <Box sx={SX.body}>
         <CustomEolFilterSidebar
           filters={filters}
           onFiltersChange={setFilters}
-          products={productOptions}
           collapsed={sidebarCollapsed}
           onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
           width={sidebarWidth}
@@ -669,159 +430,55 @@ export default function CustomEolProductsGrid() {
           onColumnOrderChange={setColumnOrderIds}
           onResetColumnOrder={columnOrder.resetOrder}
         />
-        <Box
-          ref={columnFreeze.containerRef}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            ...columnFreeze.sx,
-            ...grouping.sx,
-            ...dragFill.sx,
-          }}
-        >
+        <Box ref={columnFreeze.containerRef} sx={{ ...SX.gridBox, ...columnFreeze.sx }}>
           <AgGridReact<Row>
             ref={gridRef}
             theme={mode === "dark" ? gridThemeDark : gridThemeLight}
             key={isRtl ? "rtl" : "ltr"}
             enableRtl={isRtl}
-            rowData={grouping.rowData}
+            rowData={visibleRows}
             columnDefs={visibleColumnDefs}
             defaultColDef={defaultColDef}
             loading={loading}
             rowHeight={44}
             headerHeight={44}
             animateRows={false}
-            stopEditingWhenCellsLoseFocus
-            onCellValueChanged={handleCellValueChanged}
+            getRowId={(p) => p.data.key}
+            rowClassRules={rowClassRules}
+            onRowClicked={handleRowClicked}
+            onCellKeyDown={handleCellKeyDown}
             onDragStopped={handleDragStopped}
-            onModelUpdated={grouping.handleModelUpdated}
-            onFilterChanged={grouping.handleFilterChanged}
             overlayNoRowsTemplate={`<span>${t(canManage ? "eol.custom.empty" : "eol.custom.emptyReadOnly")}</span>`}
-            {...grouping.gridProps}
-            {...dragFill.gridProps}
-            getRowId={(p) => grouping.groupRowId(p.data)}
           />
-          {grouping.stickyHeader}
-          {dragFill.overlay}
         </Box>
       </Box>
-      {dragFill.dialog}
 
-      <Menu anchorEl={menu?.anchor ?? null} open={!!menu} onClose={closeMenu}>
-        {menuRow && canManage && [
-          <MenuItem
-            key="edit"
-            onClick={() => {
-              closeMenu();
-              setProductDialog({ open: true, product: menuRow.product });
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="edit" size={18} />
-            </ListItemIcon>
-            <ListItemText>{t("eol.custom.editProduct")}</ListItemText>
-          </MenuItem>,
-          <MenuItem
-            key="add-cycle"
-            onClick={() => {
-              closeMenu();
-              setCycleFor(menuRow.product);
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="add" size={18} />
-            </ListItemIcon>
-            <ListItemText>{t("cards:eol.custom.addCycleOption")}</ListItemText>
-          </MenuItem>,
-          <Divider key="d1" />,
-        ]}
-        {menuRow && (
-          <MenuItem
-            onClick={() => {
-              closeMenu();
-              setProposeFor(menuRow.product);
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="ios_share" size={18} />
-            </ListItemIcon>
-            <ListItemText>{t("eol.custom.propose.action")}</ListItemText>
-          </MenuItem>
-        )}
-        {menuRow && canManage && [
-          <MenuItem
-            key="switch"
-            onClick={() => {
-              closeMenu();
-              setSwitchFor({
-                product: menuRow.product,
-                target: matches[menuRow.productKey]?.name ?? null,
-              });
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="swap_horiz" size={18} />
-            </ListItemIcon>
-            <ListItemText>{t("eol.custom.switch.action")}</ListItemText>
-          </MenuItem>,
-          <Divider key="d2" />,
-          ...(menuRow.cycleId
-            ? [
-                <MenuItem
-                  key="delete-cycle"
-                  onClick={() => {
-                    closeMenu();
-                    setConfirm({ kind: "cycle", row: menuRow });
-                  }}
-                >
-                  <ListItemIcon>
-                    <MaterialSymbol icon="delete" size={18} />
-                  </ListItemIcon>
-                  <ListItemText>{t("eol.custom.deleteCycle")}</ListItemText>
-                </MenuItem>,
-              ]
-            : []),
-          <MenuItem
-            key="delete-product"
-            onClick={() => {
-              closeMenu();
-              setConfirm({ kind: "product", product: menuRow.product });
-            }}
-            sx={{ color: "error.main" }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon="delete_forever" size={18} />
-            </ListItemIcon>
-            <ListItemText>{t("eol.custom.deleteProduct")}</ListItemText>
-          </MenuItem>,
-        ]}
-      </Menu>
-
-      <CustomEolProductDialog
-        open={productDialog.open}
-        product={productDialog.product}
-        onClose={() => setProductDialog({ open: false, product: null })}
-        onSaved={() => {
-          setProductDialog({ open: false, product: null });
+      <CustomEolProductPanel
+        product={openProduct}
+        canManage={canManage}
+        upstreamMatch={openKey ? matches[openKey] : undefined}
+        onClose={() => setOpenKey(null)}
+        onChanged={load}
+        onRequestSwitch={(target) => {
+          if (openProduct) setSwitchFor({ product: openProduct, target });
+        }}
+        onDeleted={() => {
+          setOpenKey(null);
+          setNotice(t("eol.custom.deleted"));
           load();
         }}
+        onError={setError}
       />
-      {cycleFor && (
-        <CustomEolCycleDialog
-          open
-          productKey={cycleFor.key}
-          productLabel={cycleFor.title}
-          onClose={() => setCycleFor(null)}
-          onSaved={() => {
-            setCycleFor(null);
-            load();
-          }}
-        />
-      )}
-      <ProposeEolProductDialog
-        open={!!proposeFor}
-        product={proposeFor}
-        onClose={() => setProposeFor(null)}
+
+      <CustomEolProductDialog
+        open={createOpen}
+        product={null}
+        onClose={() => setCreateOpen(false)}
+        onSaved={(saved) => {
+          setCreateOpen(false);
+          load();
+          setOpenKey(saved.key);
+        }}
       />
       <SwitchToUpstreamDialog
         open={!!switchFor}
@@ -830,41 +487,6 @@ export default function CustomEolProductsGrid() {
         onClose={() => setSwitchFor(null)}
         onSwitched={onSwitched}
       />
-
-      <Dialog open={!!confirm} onClose={() => setConfirm(null)}>
-        <DialogTitle>
-          {confirm?.kind === "product"
-            ? t("eol.custom.confirmDeleteProductTitle", { product: confirm.product.title })
-            : t("eol.custom.confirmDeleteCycleTitle", {
-                cycle: confirm?.kind === "cycle" ? confirm.row.cycle : "",
-              })}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {confirmLinked > 0
-              ? t(
-                  confirm?.kind === "product"
-                    ? "eol.custom.confirmDeleteProductBlocked"
-                    : "eol.custom.confirmDeleteCycleBlocked",
-                  { count: confirmLinked },
-                )
-              : confirm?.kind === "product"
-                ? t("eol.custom.confirmDeleteProduct")
-                : t("eol.custom.confirmDeleteCycle")}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirm(null)}>{t("common:actions.cancel")}</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={runDelete}
-            disabled={confirmLinked > 0}
-          >
-            {t("common:actions.delete")}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 }

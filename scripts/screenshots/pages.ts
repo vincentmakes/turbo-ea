@@ -1075,6 +1075,27 @@ export const DOC_PAGES: PageDef[] = [
       ru: "29b_admin_nastroyki_eol_sobstvennye",
     },
   },
+  {
+    id: "29c_admin_settings_eol_custom_panel",
+    route: "/admin/settings?tab=eol&eolTab=custom",
+    waitFor: ".ag-row",
+    actions: [
+      { type: "wait", ms: 800 },
+      { type: "click", selector: ".ag-center-cols-container .ag-row" },
+      { type: "waitFor", selector: ".MuiDrawer-paper" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "29c_admin_settings_eol_custom_panel",
+      de: "29c_admin_einstellungen_eol_eigene_panel",
+      fr: "29c_admin_parametres_eol_personnalises_panneau",
+      es: "29c_admin_config_eol_personalizados_panel",
+      it: "29c_admin_impostazioni_eol_personalizzati_pannello",
+      pt: "29c_admin_config_eol_personalizados_painel",
+      zh: "29c_admin_settings_eol_custom_panel",
+      ru: "29c_admin_nastroyki_eol_sobstvennye_panel",
+    },
+  },
 
   // ── Admin Settings: Web Portals ─────────────────────────────────────────
   {

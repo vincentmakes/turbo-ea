@@ -80,9 +80,10 @@ def eol_status(eol_val: Any, support_val: Any) -> str:
         if eol_date <= now + timedelta(days=APPROACHING_DAYS):
             return "approaching"
 
-    # If active support has ended
+    # Active support is over — a past date, or endoflife.date's `support:
+    # false` — so only security fixes remain: a warning until the EOL itself.
     sup_date = _parse(support_val)
-    if sup_date is not None and sup_date <= now:
+    if support_val is False or (sup_date is not None and sup_date <= now):
         return "approaching"
 
     if eol_val is False:

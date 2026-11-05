@@ -83,6 +83,24 @@ class TestApiStatus:
         """Security-only maintenance is a warning even with the EOL date far off."""
         assert eol_status(_iso(400), _iso(-10)) == "approaching"
 
+    def test_ended_support_flag_is_approaching(self):
+        """endoflife.date's `support: false` means active support is over —
+        the same warning as a past support date, whatever the EOL says."""
+        assert eol_status(_iso(400), False) == "approaching"
+        assert eol_status(False, False) == "approaching"
+        assert eol_status(None, False) == "approaching"
+
+    def test_ended_support_never_outranks_eol(self):
+        assert eol_status(True, False) == "eol"
+        assert eol_status(_iso(-1), False) == "eol"
+        assert eol_status(_iso(APPROACHING_DAYS - 5), False) == "approaching"
+
+    def test_still_supported_flag_changes_nothing(self):
+        assert eol_status(_iso(400), True) == "supported"
+        assert eol_status(False, True) == "supported"
+        assert eol_status(None, True) == "unknown"
+        assert eol_status(_iso(400), _iso(10)) == "supported"
+
     def test_absent_upstream_data_is_unknown(self):
         assert eol_status(None, None) == "unknown"
 

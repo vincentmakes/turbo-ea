@@ -103,7 +103,7 @@ describe("EolLinkSection — linked card", () => {
     expect(screen.getByText("Active support").nextElementSibling).toHaveTextContent(/^No$/);
   });
 
-  it("warns within six months of the EOL date; a bare support flag of false is still supported", async () => {
+  it("warns within six months of the EOL date, and once active support has ended", async () => {
     mockApi.on("get", "/eol/products/postgresql", [
       { cycle: "16", eol: future(3), support: future(1) },
     ]);
@@ -115,9 +115,9 @@ describe("EolLinkSection — linked card", () => {
     // Same product/cycle → no refetch; click Refresh to pull the new data.
     const user = userEvent.setup();
     await user.click(screen.getByTitle("Refresh EOL data"));
-    // The shared rule (backend `eol_status`): only a support *date* in the
-    // past is "approaching"; `support: false` with a far EOL date is supported.
-    expect(await screen.findAllByText("Supported")).toHaveLength(2);
+    // The shared rule (backend `eol_status`): `support: false` is endoflife.date's
+    // "active support is over", a warning even with the EOL date far off.
+    expect(await screen.findAllByText("Approaching EOL")).toHaveLength(2);
   });
 
   it("warns when the stored cycle is unknown to the product", async () => {

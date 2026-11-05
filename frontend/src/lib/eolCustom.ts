@@ -68,6 +68,16 @@ export function milestoneMode(value: EolMilestone | undefined, kind: MilestoneKi
   return "unset";
 }
 
+/**
+ * The i18n key (namespace `cards`) that names a milestone without a date —
+ * unknown, still going or already over — or null when it is a date the
+ * caller formats itself.
+ */
+export function milestoneLabelKey(value: EolMilestone | undefined, kind: MilestoneKind): string | null {
+  const mode = milestoneMode(value, kind);
+  return mode === "date" ? null : `eol.custom.milestone.${kind}.${mode}`;
+}
+
 /** The stored value for a mode (and the date, when the mode is `date`). */
 export function milestoneValue(mode: MilestoneMode, kind: MilestoneKind, date = ""): EolMilestone {
   if (mode === "ended") return ENDED_VALUE[kind];
@@ -98,7 +108,10 @@ export function cycleStatus(
     if (eol <= today) return "eol";
     if (eol <= addDays(today, APPROACHING_DAYS)) return "approaching";
   }
-  if (typeof support === "string" && support && support <= today) return "approaching";
+  // Active support is over — a past date, or endoflife.date's `support: false`
+  // — so only security fixes remain: a warning until the EOL itself.
+  if (support === false || (typeof support === "string" && support && support <= today))
+    return "approaching";
   // A known end — "none announced" or a date far enough away — is supported;
   // only a cycle with no EOL value at all is unknown.
   return eol === false || (typeof eol === "string" && eol !== "") ? "supported" : "unknown";
