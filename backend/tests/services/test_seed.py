@@ -15,7 +15,14 @@ from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.services.hierarchy import HIERARCHY_LEVEL_KEY
-from app.services.seed import RELATIONS, TYPES, seed_metamodel
+from app.services.seed import (
+    _APP_ROLES,
+    _DEFAULT_ROLES,
+    RELATIONS,
+    TYPES,
+    _nonblank_translations,
+    seed_metamodel,
+)
 
 # ---------------------------------------------------------------------------
 # Card types
@@ -148,6 +155,160 @@ class TestSeedStakeholderRoles:
         keys = {row[0] for row in result.all()}
         assert "technicalApplicationOwner" in keys
         assert "businessApplicationOwner" in keys
+
+
+# ---------------------------------------------------------------------------
+# Built-in role descriptions: filled where missing, never overwritten
+# ---------------------------------------------------------------------------
+
+
+def _seed_role(roles: list[dict], key: str) -> dict:
+    return next(r for r in roles if r["key"] == key)
+
+
+async def _srd(db, type_key: str, key: str) -> StakeholderRoleDefinition:
+    result = await db.execute(
+        select(StakeholderRoleDefinition).where(
+            StakeholderRoleDefinition.card_type_key == type_key,
+            StakeholderRoleDefinition.key == key,
+        )
+    )
+    return result.scalar_one()
+
+
+class TestSeedStakeholderRoleDescriptions:
+    async def test_a_fresh_install_gets_the_seeded_description(self, db):
+        await seed_metamodel(db)
+
+        for key in ("responsible", "observer", "technicalApplicationOwner"):
+            row = await _srd(db, "Application", key)
+            assert row.description == _seed_role(_APP_ROLES, key)["description"]
+        initiative_pm = await _srd(db, "Initiative", "itProjectManager")
+        assert initiative_pm.description and initiative_pm.description.startswith("Runs the")
+        process_owner = await _srd(db, "BusinessProcess", "processOwner")
+        assert process_owner.description and process_owner.description.startswith("Owns the")
+
+    async def test_a_blank_description_receives_the_seed_text_on_reseed(self, db):
+        await seed_metamodel(db)
+        for description in (None, "   "):
+            row = await _srd(db, "Application", "responsible")
+            row.description = description
+            await db.flush()
+
+            await seed_metamodel(db)
+
+            row = await _srd(db, "Application", "responsible")
+            assert row.description == _seed_role(_DEFAULT_ROLES, "responsible")["description"]
+
+    async def test_an_admin_description_is_kept_on_reseed(self, db):
+        await seed_metamodel(db)
+        row = await _srd(db, "Application", "businessApplicationOwner")
+        row.description = "Our own wording."
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        row = await _srd(db, "Application", "businessApplicationOwner")
+        assert row.description == "Our own wording."
+
+    async def test_a_missing_description_locale_is_filled(self, db):
+        await seed_metamodel(db)
+        row = await _srd(db, "Application", "observer")
+        row.translations = {
+            "label": dict(row.translations["label"]),
+            "description": {"fr": "Suit la fiche."},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        row = await _srd(db, "Application", "observer")
+        seed_desc = _seed_role(_DEFAULT_ROLES, "observer")["translations"]["description"]
+        assert set(row.translations["description"]) == set(seed_desc)
+        assert row.translations["description"]["de"] == seed_desc["de"]
+
+    async def test_a_present_locale_is_kept(self, db):
+        """Existing wins for description and label locales alike (it used to be
+        seed-wins for the label, which reverted an admin's translation)."""
+        await seed_metamodel(db)
+        row = await _srd(db, "Application", "observer")
+        row.translations = {
+            "label": {**row.translations["label"], "de": "Zuschauer"},
+            "description": {**row.translations.get("description", {}), "de": "Liest mit."},
+        }
+        await db.flush()
+
+        await seed_metamodel(db)
+
+        row = await _srd(db, "Application", "observer")
+        assert row.translations["description"]["de"] == "Liest mit."
+        assert row.translations["label"]["de"] == "Zuschauer"
+        # The other locales the row carried are untouched.
+        assert row.translations["label"]["fr"] == "Observateur"
+
+
+class TestNonblankSeedTranslations:
+    """A blank seed locale must never reach a row: the merge is existing-wins,
+    so a stored ``""`` would block the real text forever."""
+
+    def test_blank_locales_are_dropped_per_property(self):
+        trans = {
+            "label": {"de": "Beobachter", "fr": "", "es": "   ", "it": None},
+            "description": {"de": "", "fr": "Suit la fiche."},
+        }
+        assert _nonblank_translations(trans) == {
+            "label": {"de": "Beobachter"},
+            "description": {"fr": "Suit la fiche."},
+        }
+
+    def test_other_properties_are_untouched(self):
+        trans = {"label": {"de": "X"}, "note": "", "order": 3}
+        assert _nonblank_translations(trans) == {"label": {"de": "X"}, "note": "", "order": 3}
+
+    def test_input_is_not_mutated_and_empty_input_gives_empty_map(self):
+        trans = {"label": {"de": "", "fr": "Y"}}
+        _nonblank_translations(trans)
+        assert trans == {"label": {"de": "", "fr": "Y"}}
+        assert _nonblank_translations(None) == {}
+        assert _nonblank_translations({}) == {}
+
+    async def test_a_blank_seed_locale_is_not_inserted(self, db, monkeypatch):
+        role = _seed_role(_DEFAULT_ROLES, "observer")
+        trans = copy.deepcopy(role["translations"])
+        trans["label"]["de"] = ""
+        trans["description"]["fr"] = "  "
+        monkeypatch.setitem(role, "translations", trans)
+
+        await seed_metamodel(db)
+
+        row = await _srd(db, "Application", "observer")
+        assert "de" not in row.translations["label"]
+        assert "fr" not in row.translations["description"]
+        # Non-blank seed locales are inserted as usual.
+        assert row.translations["label"]["fr"] == trans["label"]["fr"]
+        assert row.translations["description"]["de"] == trans["description"]["de"]
+
+    async def test_a_blank_seed_locale_is_not_merged(self, db, monkeypatch):
+        await seed_metamodel(db)
+        row = await _srd(db, "Application", "observer")
+        row.translations = {"label": {"en": "Observer"}, "description": {}}
+        await db.flush()
+
+        role = _seed_role(_DEFAULT_ROLES, "observer")
+        trans = copy.deepcopy(role["translations"])
+        trans["label"]["de"] = ""
+        trans["description"]["fr"] = ""
+        monkeypatch.setitem(role, "translations", trans)
+
+        await seed_metamodel(db)
+
+        row = await _srd(db, "Application", "observer")
+        assert "de" not in row.translations["label"]
+        assert "fr" not in row.translations["description"]
+        # A non-blank seed locale fills the gap, and the row's own text stays.
+        assert row.translations["label"]["fr"] == trans["label"]["fr"]
+        assert row.translations["label"]["en"] == "Observer"
+        assert row.translations["description"]["de"] == trans["description"]["de"]
 
 
 # ---------------------------------------------------------------------------

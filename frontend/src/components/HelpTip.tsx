@@ -59,13 +59,13 @@ export default function HelpTip({ text, size = 14 }: HelpTipProps) {
     setTapOpen((v) => !v);
   };
 
+  // Escape needs no branch here: MUI's document Escape listener calls
+  // `handleClose` with the keydown, which clears a tap too.
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       e.stopPropagation();
       setTapOpen((v) => !v);
-    } else if (e.key === "Escape") {
-      setTapOpen(false);
     }
   };
 

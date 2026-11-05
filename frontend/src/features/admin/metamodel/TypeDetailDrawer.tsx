@@ -39,7 +39,7 @@ import { useRelationLabel, useSubtypeLabel, useTypeLabel } from "@/hooks/useReso
 import { expandSides, sideFlags, sideKey } from "@/lib/relationSort";
 import FieldEditorDialog from "./FieldEditorDialog";
 import DataQualityPanel from "./DataQualityPanel";
-import StakeholderRolePanel from "./StakeholderRolePanel";
+import StakeholderRolePanel, { type StakeholderRolePanelHandle } from "./StakeholderRolePanel";
 import CardTypePermissionsPanel from "./CardTypePermissionsPanel";
 import TranslationDialog from "./TranslationDialog";
 import RelationsTabContent from "./RelationsTabContent";
@@ -128,6 +128,10 @@ export default function TypeDetailDrawer({
   // state drives the UI.
   const [mutating, setMutating] = useState(false);
   const mutatingRef = useRef(false);
+  // Set only while the Stakeholder roles tab is shown. The header Save commits
+  // a role form left open there first: the role's own Save sits at the bottom
+  // of its expanded form, and a description typed there was otherwise lost.
+  const panelRef = useRef<StakeholderRolePanelHandle>(null);
 
   /* --- Subtype inline add --- */
   const [addSubOpen, setAddSubOpen] = useState(false);
@@ -277,6 +281,10 @@ export default function TypeDetailDrawer({
   const handleSaveHeader = async () => {
     setSaving(true);
     try {
+      // `false` means the role form is invalid or its save failed; its error is
+      // already on screen and the form stays open, so the type is not saved.
+      const rolesSaved = await panelRef.current?.savePendingForm();
+      if (rolesSaved === false) return;
       const mergedTranslations = {
         ...cardTypeKey.translations,
         label: { ...cardTypeKey.translations?.label, [locale]: label },
@@ -1105,6 +1113,7 @@ export default function TypeDetailDrawer({
         {/* -- Stakeholder Roles tab -- */}
         {tab === "stakeholders" && (
         <StakeholderRolePanel
+          ref={panelRef}
           typeKey={cardTypeKey.key}
           onError={(msg) => setError(msg)}
         />

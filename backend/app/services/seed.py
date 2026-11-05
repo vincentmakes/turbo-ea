@@ -2031,6 +2031,10 @@ TYPES = [
             {
                 "key": "responsible",
                 "label": "Responsible",
+                "description": (
+                    "Accountable for this card: keeps its information current "
+                    "and is the first person to ask about it."
+                ),
                 "translations": {
                     "label": {
                         "de": "Verantwortlicher",
@@ -2043,11 +2047,25 @@ TYPES = [
                         "da": "Ansvarlig",
                         "ar": "المسؤول",
                     },
+                    "description": {
+                        "de": "Verantwortlich für diese Karte: hält ihre Informationen aktuell und ist die erste Ansprechperson dazu.",
+                        "fr": "Responsable de cette fiche : tient ses informations à jour et est la première personne à solliciter à son sujet.",
+                        "es": "Responsable de esta ficha: mantiene su información al día y es la primera persona a quien consultar sobre ella.",
+                        "it": "Responsabile di questa scheda: ne mantiene aggiornate le informazioni ed è la prima persona a cui rivolgersi.",
+                        "pt": "Responsável por esta ficha: mantém as suas informações atualizadas e é a primeira pessoa a quem recorrer sobre ela.",
+                        "zh": "对此卡片负责：保持其信息最新，并且是咨询该卡片时的首位联系人。",
+                        "ru": "Отвечает за эту карточку: поддерживает её данные в актуальном состоянии и является первым, к кому следует обращаться.",
+                        "da": "Ansvarlig for dette kort: holder oplysningerne opdaterede og er den første, man spørger om det.",
+                        "ar": "المسؤول عن هذه البطاقة: يُبقي معلوماتها محدّثة وهو أول شخص يُرجع إليه بشأنها.",
+                    },
                 },
             },
             {
                 "key": "itProjectManager",
                 "label": "IT Project Manager",
+                "description": (
+                    "Runs the initiative day to day: plan, budget, delivery and status reporting."
+                ),
                 "translations": {
                     "label": {
                         "de": "IT-Projektleiter",
@@ -2060,11 +2078,26 @@ TYPES = [
                         "da": "IT-projektleder",
                         "ar": "مدير مشروع تقني",
                     },
+                    "description": {
+                        "de": "Leitet die Initiative im Tagesgeschäft: Planung, Budget, Umsetzung und Statusberichte.",
+                        "fr": "Pilote l'initiative au quotidien : planning, budget, livraison et reporting d'avancement.",
+                        "es": "Dirige la iniciativa en el día a día: planificación, presupuesto, entrega e informes de estado.",
+                        "it": "Gestisce l'iniziativa giorno per giorno: pianificazione, budget, consegna e reporting di stato.",
+                        "pt": "Dirige a iniciativa no dia a dia: planeamento, orçamento, entrega e relatórios de estado.",
+                        "zh": "负责日常管理该项目：计划、预算、交付和状态汇报。",
+                        "ru": "Руководит инициативой в повседневном режиме: план, бюджет, поставка результатов и отчётность о статусе.",
+                        "da": "Leder initiativet i det daglige: plan, budget, levering og statusrapportering.",
+                        "ar": "يدير المبادرة يوميًا: الخطة والميزانية والتسليم وإعداد تقارير الحالة.",
+                    },
                 },
             },
             {
                 "key": "observer",
                 "label": "Observer",
+                "description": (
+                    "Follows the card to stay informed. Observers hold no responsibility "
+                    "for it and do not count towards its data quality."
+                ),
                 "translations": {
                     "label": {
                         "de": "Beobachter",
@@ -2076,6 +2109,17 @@ TYPES = [
                         "ru": "Наблюдатель",
                         "da": "Observatør",
                         "ar": "مراقب",
+                    },
+                    "description": {
+                        "de": "Verfolgt die Karte, um informiert zu bleiben. Beobachter tragen dafür keine Verantwortung und zählen nicht zur Datenqualität.",
+                        "fr": "Suit la fiche pour rester informé. Les observateurs n'en portent aucune responsabilité et ne comptent pas dans sa qualité des données.",
+                        "es": "Sigue la ficha para mantenerse informado. Los observadores no tienen responsabilidad sobre ella y no cuentan para su calidad de datos.",
+                        "it": "Segue la scheda per restare informato. Gli osservatori non hanno alcuna responsabilità su di essa e non contano per la sua qualità dei dati.",
+                        "pt": "Segue a ficha para se manter informado. Os observadores não têm responsabilidade sobre ela e não contam para a sua qualidade dos dados.",
+                        "zh": "关注卡片以保持知情。观察者不对其承担责任，也不计入其数据质量。",
+                        "ru": "Следит за карточкой, чтобы быть в курсе. Наблюдатели не несут за неё ответственности и не учитываются в качестве данных.",
+                        "da": "Følger kortet for at holde sig orienteret. Observatører har intet ansvar for det og tæller ikke med i dets datakvalitet.",
+                        "ar": "يتابع البطاقة للبقاء على اطلاع. لا يتحمل المراقبون أي مسؤولية عنها ولا يُحتسبون ضمن جودة بياناتها.",
                     },
                 },
             },
@@ -3034,6 +3078,10 @@ TYPES = [
             {
                 "key": "responsible",
                 "label": "Responsible",
+                "description": (
+                    "Accountable for this card: keeps its information current "
+                    "and is the first person to ask about it."
+                ),
                 "translations": {
                     "label": {
                         "de": "Verantwortlicher",
@@ -3046,11 +3094,26 @@ TYPES = [
                         "da": "Ansvarlig",
                         "ar": "المسؤول",
                     },
+                    "description": {
+                        "de": "Verantwortlich für diese Karte: hält ihre Informationen aktuell und ist die erste Ansprechperson dazu.",
+                        "fr": "Responsable de cette fiche : tient ses informations à jour et est la première personne à solliciter à son sujet.",
+                        "es": "Responsable de esta ficha: mantiene su información al día y es la primera persona a quien consultar sobre ella.",
+                        "it": "Responsabile di questa scheda: ne mantiene aggiornate le informazioni ed è la prima persona a cui rivolgersi.",
+                        "pt": "Responsável por esta ficha: mantém as suas informações atualizadas e é a primeira pessoa a quem recorrer sobre ela.",
+                        "zh": "对此卡片负责：保持其信息最新，并且是咨询该卡片时的首位联系人。",
+                        "ru": "Отвечает за эту карточку: поддерживает её данные в актуальном состоянии и является первым, к кому следует обращаться.",
+                        "da": "Ansvarlig for dette kort: holder oplysningerne opdaterede og er den første, man spørger om det.",
+                        "ar": "المسؤول عن هذه البطاقة: يُبقي معلوماتها محدّثة وهو أول شخص يُرجع إليه بشأنها.",
+                    },
                 },
             },
             {
                 "key": "processOwner",
                 "label": "Process Owner",
+                "description": (
+                    "Owns the process end to end: its design, performance and "
+                    "improvement, and signs off changes to it."
+                ),
                 "translations": {
                     "label": {
                         "de": "Prozessverantwortlicher",
@@ -3063,11 +3126,26 @@ TYPES = [
                         "da": "Procesejer",
                         "ar": "مالك العملية",
                     },
+                    "description": {
+                        "de": "Verantwortet den Prozess durchgängig: Gestaltung, Leistung und Verbesserung, und genehmigt Änderungen daran.",
+                        "fr": "Est responsable du processus de bout en bout : sa conception, sa performance et son amélioration, et valide les changements.",
+                        "es": "Es responsable del proceso de principio a fin: su diseño, rendimiento y mejora, y aprueba los cambios en él.",
+                        "it": "È responsabile del processo end to end: progettazione, prestazioni e miglioramento, e approva le modifiche.",
+                        "pt": "É responsável pelo processo de ponta a ponta: conceção, desempenho e melhoria, e aprova as alterações ao mesmo.",
+                        "zh": "端到端负责该流程：其设计、绩效和改进，并批准对其的变更。",
+                        "ru": "Отвечает за процесс от начала до конца: его проектирование, эффективность и улучшение, и утверждает изменения в нём.",
+                        "da": "Ejer processen fra ende til anden: dets design, ydeevne og forbedring, og godkender ændringer af det.",
+                        "ar": "يملك العملية من البداية إلى النهاية: تصميمها وأداءها وتحسينها، ويعتمد التغييرات عليها.",
+                    },
                 },
             },
             {
                 "key": "observer",
                 "label": "Observer",
+                "description": (
+                    "Follows the card to stay informed. Observers hold no responsibility "
+                    "for it and do not count towards its data quality."
+                ),
                 "translations": {
                     "label": {
                         "de": "Beobachter",
@@ -3079,6 +3157,17 @@ TYPES = [
                         "ru": "Наблюдатель",
                         "da": "Observatør",
                         "ar": "مراقب",
+                    },
+                    "description": {
+                        "de": "Verfolgt die Karte, um informiert zu bleiben. Beobachter tragen dafür keine Verantwortung und zählen nicht zur Datenqualität.",
+                        "fr": "Suit la fiche pour rester informé. Les observateurs n'en portent aucune responsabilité et ne comptent pas dans sa qualité des données.",
+                        "es": "Sigue la ficha para mantenerse informado. Los observadores no tienen responsabilidad sobre ella y no cuentan para su calidad de datos.",
+                        "it": "Segue la scheda per restare informato. Gli osservatori non hanno alcuna responsabilità su di essa e non contano per la sua qualità dei dati.",
+                        "pt": "Segue a ficha para se manter informado. Os observadores não têm responsabilidade sobre ela e não contam para a sua qualidade dos dados.",
+                        "zh": "关注卡片以保持知情。观察者不对其承担责任，也不计入其数据质量。",
+                        "ru": "Следит за карточкой, чтобы быть в курсе. Наблюдатели не несут за неё ответственности и не учитываются в качестве данных.",
+                        "da": "Følger kortet for at holde sig orienteret. Observatører har intet ansvar for det og tæller ikke med i dets datakvalitet.",
+                        "ar": "يتابع البطاقة للبقاء على اطلاع. لا يتحمل المراقبون أي مسؤولية عنها ولا يُحتسبون ضمن جودة بياناتها.",
                     },
                 },
             },
@@ -5997,6 +6086,26 @@ def _fill_missing_meta_locales(existing: dict | None, seed: dict | None) -> dict
     return merged
 
 
+def _nonblank_translations(trans: dict | None) -> dict:
+    """Drop every blank locale from a seed ``MetamodelTranslations`` map.
+
+    Applied per property (``label``, ``description``, ...): a locale whose text
+    is not a non-blank string (empty, whitespace, ``None``) is removed, so it is never inserted into a row nor
+    merged into one. :func:`_fill_missing_locales` is existing-wins, so a ``""``
+    that once landed in a row would block the real seed text forever. Values
+    that are not locale maps are passed through untouched.
+    """
+    cleaned: dict = {}
+    for prop, locales in (trans or {}).items():
+        if isinstance(locales, dict):
+            cleaned[prop] = {
+                loc: text for loc, text in locales.items() if isinstance(text, str) and text.strip()
+            }
+        else:
+            cleaned[prop] = locales
+    return cleaned
+
+
 def _fill_builtin_attribute_translations(stored: object, seed: list[dict]) -> list | None:
     """Fill missing locales on a built-in relation type's attribute definitions.
 
@@ -6057,6 +6166,146 @@ def _inject_english_translations_relation(rel_def: dict) -> dict:
     return r
 
 
+# Stakeholder roles every built-in type gets unless it lists its own
+# ``stakeholder_roles`` (Initiative, BusinessProcess); Application adds its
+# two owner roles. Module-level so the i18n parity tests can walk them.
+_DEFAULT_ROLES: list[dict[str, Any]] = [
+    {
+        "key": "responsible",
+        "label": "Responsible",
+        "description": (
+            "Accountable for this card: keeps its information current "
+            "and is the first person to ask about it."
+        ),
+        "translations": {
+            "label": {
+                "de": "Verantwortlicher",
+                "fr": "Responsable",
+                "es": "Responsable",
+                "it": "Responsabile",
+                "pt": "Responsável",
+                "zh": "负责人",
+                "ru": "Ответственный",
+                "da": "Ansvarlig",
+                "ar": "المسؤول",
+            },
+            "description": {
+                "de": "Verantwortlich für diese Karte: hält ihre Informationen aktuell und ist die erste Ansprechperson dazu.",
+                "fr": "Responsable de cette fiche : tient ses informations à jour et est la première personne à solliciter à son sujet.",
+                "es": "Responsable de esta ficha: mantiene su información al día y es la primera persona a quien consultar sobre ella.",
+                "it": "Responsabile di questa scheda: ne mantiene aggiornate le informazioni ed è la prima persona a cui rivolgersi.",
+                "pt": "Responsável por esta ficha: mantém as suas informações atualizadas e é a primeira pessoa a quem recorrer sobre ela.",
+                "zh": "对此卡片负责：保持其信息最新，并且是咨询该卡片时的首位联系人。",
+                "ru": "Отвечает за эту карточку: поддерживает её данные в актуальном состоянии и является первым, к кому следует обращаться.",
+                "da": "Ansvarlig for dette kort: holder oplysningerne opdaterede og er den første, man spørger om det.",
+                "ar": "المسؤول عن هذه البطاقة: يُبقي معلوماتها محدّثة وهو أول شخص يُرجع إليه بشأنها.",
+            },
+        },
+    },
+    {
+        "key": "observer",
+        "label": "Observer",
+        "description": (
+            "Follows the card to stay informed. Observers hold no responsibility "
+            "for it and do not count towards its data quality."
+        ),
+        # Watching a card is passive — it must not fill the card's
+        # "stakeholders" data-quality slot on someone else's behalf.
+        "counts_for_quality": False,
+        "translations": {
+            "label": {
+                "de": "Beobachter",
+                "fr": "Observateur",
+                "es": "Observador",
+                "it": "Osservatore",
+                "pt": "Observador",
+                "zh": "观察者",
+                "ru": "Наблюдатель",
+                "da": "Observatør",
+                "ar": "مراقب",
+            },
+            "description": {
+                "de": "Verfolgt die Karte, um informiert zu bleiben. Beobachter tragen dafür keine Verantwortung und zählen nicht zur Datenqualität.",
+                "fr": "Suit la fiche pour rester informé. Les observateurs n'en portent aucune responsabilité et ne comptent pas dans sa qualité des données.",
+                "es": "Sigue la ficha para mantenerse informado. Los observadores no tienen responsabilidad sobre ella y no cuentan para su calidad de datos.",
+                "it": "Segue la scheda per restare informato. Gli osservatori non hanno alcuna responsabilità su di essa e non contano per la sua qualità dei dati.",
+                "pt": "Segue a ficha para se manter informado. Os observadores não têm responsabilidade sobre ela e não contam para a sua qualidade dos dados.",
+                "zh": "关注卡片以保持知情。观察者不对其承担责任，也不计入其数据质量。",
+                "ru": "Следит за карточкой, чтобы быть в курсе. Наблюдатели не несут за неё ответственности и не учитываются в качестве данных.",
+                "da": "Følger kortet for at holde sig orienteret. Observatører har intet ansvar for det og tæller ikke med i dets datakvalitet.",
+                "ar": "يتابع البطاقة للبقاء على اطلاع. لا يتحمل المراقبون أي مسؤولية عنها ولا يُحتسبون ضمن جودة بياناتها.",
+            },
+        },
+    },
+]
+_APP_ROLES: list[dict[str, Any]] = _DEFAULT_ROLES + [
+    {
+        "key": "technicalApplicationOwner",
+        "label": "Technical Application Owner",
+        "description": (
+            "Answers for the application's technical side: architecture, "
+            "hosting, integrations, operations and technical change."
+        ),
+        "translations": {
+            "label": {
+                "de": "Technischer Anwendungsverantwortlicher",
+                "fr": "Responsable technique de l'application",
+                "es": "Responsable técnico de la aplicación",
+                "it": "Responsabile tecnico dell'applicazione",
+                "pt": "Responsável técnico da aplicação",
+                "zh": "技术应用负责人",
+                "ru": "Технический владелец приложения",
+                "da": "Teknisk applikationsejer",
+                "ar": "المالك التقني للتطبيق",
+            },
+            "description": {
+                "de": "Verantwortet die technische Seite der Anwendung: Architektur, Hosting, Integrationen, Betrieb und technische Änderungen.",
+                "fr": "Répond du côté technique de l'application : architecture, hébergement, intégrations, exploitation et évolutions techniques.",
+                "es": "Responde del lado técnico de la aplicación: arquitectura, alojamiento, integraciones, operaciones y cambios técnicos.",
+                "it": "Risponde del lato tecnico dell'applicazione: architettura, hosting, integrazioni, operatività e modifiche tecniche.",
+                "pt": "Responde pelo lado técnico da aplicação: arquitetura, alojamento, integrações, operações e alterações técnicas.",
+                "zh": "负责应用的技术方面：架构、托管、集成、运维和技术变更。",
+                "ru": "Отвечает за техническую сторону приложения: архитектуру, хостинг, интеграции, эксплуатацию и технические изменения.",
+                "da": "Har ansvaret for applikationens tekniske side: arkitektur, hosting, integrationer, drift og tekniske ændringer.",
+                "ar": "يتحمل مسؤولية الجانب التقني للتطبيق: البنية والاستضافة والتكاملات والتشغيل والتغييرات التقنية.",
+            },
+        },
+    },
+    {
+        "key": "businessApplicationOwner",
+        "label": "Business Application Owner",
+        "description": (
+            "Answers for the application's business side: what it is used for, "
+            "who uses it, its value and its functional roadmap."
+        ),
+        "translations": {
+            "label": {
+                "de": "Fachlicher Anwendungsverantwortlicher",
+                "fr": "Responsable métier de l'application",
+                "es": "Responsable de negocio de la aplicación",
+                "it": "Responsabile aziendale dell'applicazione",
+                "pt": "Responsável de negócio da aplicação",
+                "zh": "业务应用负责人",
+                "ru": "Бизнес-владелец приложения",
+                "da": "Forretningsapplikationsejer",
+                "ar": "مالك تطبيق الأعمال",
+            },
+            "description": {
+                "de": "Verantwortet die fachliche Seite der Anwendung: wofür sie genutzt wird, wer sie nutzt, ihren Wert und ihre funktionale Roadmap.",
+                "fr": "Répond du côté métier de l'application : à quoi elle sert, qui l'utilise, sa valeur et sa feuille de route fonctionnelle.",
+                "es": "Responde del lado de negocio de la aplicación: para qué se usa, quién la usa, su valor y su hoja de ruta funcional.",
+                "it": "Risponde del lato aziendale dell'applicazione: a cosa serve, chi la usa, il suo valore e la sua roadmap funzionale.",
+                "pt": "Responde pelo lado de negócio da aplicação: para que é usada, quem a utiliza, o seu valor e o seu roteiro funcional.",
+                "zh": "负责应用的业务方面：用途、使用者、价值及功能路线图。",
+                "ru": "Отвечает за бизнес-сторону приложения: для чего оно используется, кто им пользуется, его ценность и функциональную дорожную карту.",
+                "da": "Har ansvaret for applikationens forretningsside: hvad den bruges til, hvem der bruger den, dens værdi og funktionelle køreplan.",
+                "ar": "يتحمل مسؤولية الجانب الأعمالي للتطبيق: الغرض من استخدامه ومستخدموه وقيمته وخارطة طريقه الوظيفية.",
+            },
+        },
+    },
+]
+
+
 async def seed_metamodel(db: AsyncSession) -> None:
     """Seed the default metamodel, adding any missing types and relations.
 
@@ -6065,82 +6314,6 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing built-in types get their fields_schema updated to pick up
     new sections (e.g. the BPM Assessment section on BusinessCapability).
     """
-    _default_roles = [
-        {
-            "key": "responsible",
-            "label": "Responsible",
-            "translations": {
-                "label": {
-                    "de": "Verantwortlicher",
-                    "fr": "Responsable",
-                    "es": "Responsable",
-                    "it": "Responsabile",
-                    "pt": "Responsável",
-                    "zh": "负责人",
-                    "ru": "Ответственный",
-                    "da": "Ansvarlig",
-                    "ar": "المسؤول",
-                },
-            },
-        },
-        {
-            "key": "observer",
-            "label": "Observer",
-            # Watching a card is passive — it must not fill the card's
-            # "stakeholders" data-quality slot on someone else's behalf.
-            "counts_for_quality": False,
-            "translations": {
-                "label": {
-                    "de": "Beobachter",
-                    "fr": "Observateur",
-                    "es": "Observador",
-                    "it": "Osservatore",
-                    "pt": "Observador",
-                    "zh": "观察者",
-                    "ru": "Наблюдатель",
-                    "da": "Observatør",
-                    "ar": "مراقب",
-                },
-            },
-        },
-    ]
-    _app_roles = _default_roles + [
-        {
-            "key": "technicalApplicationOwner",
-            "label": "Technical Application Owner",
-            "translations": {
-                "label": {
-                    "de": "Technischer Anwendungsverantwortlicher",
-                    "fr": "Responsable technique de l'application",
-                    "es": "Responsable técnico de la aplicación",
-                    "it": "Responsabile tecnico dell'applicazione",
-                    "pt": "Responsável técnico da aplicação",
-                    "zh": "技术应用负责人",
-                    "ru": "Технический владелец приложения",
-                    "da": "Teknisk applikationsejer",
-                    "ar": "المالك التقني للتطبيق",
-                },
-            },
-        },
-        {
-            "key": "businessApplicationOwner",
-            "label": "Business Application Owner",
-            "translations": {
-                "label": {
-                    "de": "Fachlicher Anwendungsverantwortlicher",
-                    "fr": "Responsable métier de l'application",
-                    "es": "Responsable de negocio de la aplicación",
-                    "it": "Responsabile aziendale dell'applicazione",
-                    "pt": "Responsável de negócio da aplicação",
-                    "zh": "业务应用负责人",
-                    "ru": "Бизнес-владелец приложения",
-                    "da": "Forretningsapplikationsejer",
-                    "ar": "مالك تطبيق الأعمال",
-                },
-            },
-        },
-    ]
-
     # Load existing keys so we can skip or update
     existing_types_result = await db.execute(select(CardType))
     existing_types = {t.key: t for t in existing_types_result.scalars().all()}
@@ -6264,7 +6437,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
                 existing.fields_schema = updated_schema
             continue
 
-        roles = _app_roles if key == "Application" else _default_roles
+        roles = _APP_ROLES if key == "Application" else _DEFAULT_ROLES
         fst = CardType(
             key=key,
             label=t["label"],
@@ -6392,21 +6565,26 @@ async def seed_metamodel(db: AsyncSession) -> None:
         if "stakeholder_roles" in t:
             roles_for_type = t["stakeholder_roles"]
         elif type_key == "Application":
-            roles_for_type = _app_roles
+            roles_for_type = _APP_ROLES
         else:
-            roles_for_type = _default_roles
+            roles_for_type = _DEFAULT_ROLES
 
         for idx, sr in enumerate(roles_for_type):
             sr_key = sr["key"]
             existing_srd = existing_srd_map.get((type_key, sr_key))
             if existing_srd:
-                # Merge translations into existing role definitions
-                seed_trans = sr.get("translations", {})
+                # Fill gaps only, existing wins: the seed runs on every start,
+                # so it may give a built-in role the description it lacks but
+                # must never overwrite one an admin wrote, nor any locale the
+                # row already carries (label or description).
+                seed_description = sr.get("description")
+                if seed_description and not (existing_srd.description or "").strip():
+                    existing_srd.description = seed_description
+                seed_trans = _nonblank_translations(sr.get("translations"))
                 if seed_trans:
-                    merged = dict(existing_srd.translations or {})
-                    for prop, locale_map in seed_trans.items():
-                        merged[prop] = {**merged.get(prop, {}), **locale_map}
-                    existing_srd.translations = merged
+                    merged = _fill_missing_meta_locales(existing_srd.translations, seed_trans)
+                    if merged != (existing_srd.translations or {}):
+                        existing_srd.translations = merged
                 continue
             permissions = DEFAULT_CARD_PERMISSIONS_BY_ROLE.get(sr_key, {})
             db.add(
@@ -6414,10 +6592,11 @@ async def seed_metamodel(db: AsyncSession) -> None:
                     card_type_key=type_key,
                     key=sr_key,
                     label=sr["label"],
+                    description=sr.get("description"),
                     permissions=permissions,
                     sort_order=idx,
                     counts_for_quality=sr.get("counts_for_quality", True),
-                    translations=sr.get("translations", {}),
+                    translations=_nonblank_translations(sr.get("translations")),
                 )
             )
 

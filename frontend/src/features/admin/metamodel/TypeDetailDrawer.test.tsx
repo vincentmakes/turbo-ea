@@ -31,6 +31,7 @@ import {
 
 import TypeDetailDrawer from "./TypeDetailDrawer";
 import { invalidateCardTypeCategories } from "@/hooks/useCardTypeCategories";
+import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
 
@@ -102,13 +103,29 @@ vi.mock("./DataQualityPanel", () => ({
   ),
 }));
 
-vi.mock("./StakeholderRolePanel", () => ({
-  default: ({ typeKey, onError }: { typeKey: string; onError: (m: string) => void }) => (
-    <div data-testid="stakeholder-panel" data-type={typeKey}>
-      <button onClick={() => onError("role boom")}>stub-role-error</button>
-    </div>
-  ),
-}));
+// The stub by default; `realRolePanel.on` swaps in the real panel (with the
+// ref the drawer hands it) for the tests of the header Save committing a role
+// being edited, which is wiring between the two components.
+const realRolePanel = vi.hoisted(() => ({ on: false }));
+vi.mock("./StakeholderRolePanel", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./StakeholderRolePanel")>();
+  const Real = actual.default;
+  return {
+    ...actual,
+    default: (props: {
+      typeKey: string;
+      onError: (m: string) => void;
+      ref?: React.Ref<import("./StakeholderRolePanel").StakeholderRolePanelHandle>;
+    }) =>
+      realRolePanel.on ? (
+        <Real {...props} />
+      ) : (
+        <div data-testid="stakeholder-panel" data-type={props.typeKey}>
+          <button onClick={() => props.onError("role boom")}>stub-role-error</button>
+        </div>
+      ),
+  };
+});
 
 vi.mock("./CardTypePermissionsPanel", () => ({
   default: ({ typeKey, onSaved }: { typeKey: string; onSaved: () => void }) => (
@@ -260,6 +277,7 @@ function lastPatchBody(): Record<string, unknown> {
 
 beforeEach(() => {
   mockApi.reset();
+  realRolePanel.on = false;
   mockApi.on("get", "/calculations/calculated-fields", { Application: ["vendorScore"] });
   mockApi.on("get", /\/metamodel\/types\/[^/]+\/reference-usage$/, { locked: false, missing: 3 });
   mockApi.on("patch", /^\/metamodel\/types\/[^/]+$/, {});
@@ -1075,6 +1093,97 @@ describe("TypeDetailDrawer — tabs", () => {
     expect(await screen.findByRole("heading", { name: "Provider" })).toBeInTheDocument();
     expect(screen.getByTestId("card-layout-editor")).toHaveAttribute("data-type", "Provider");
     expect(screen.queryByTestId("relations-tab")).not.toBeInTheDocument();
+  });
+});
+
+describe("TypeDetailDrawer — header Save commits a role being edited", () => {
+  const ROLE = {
+    id: "r1",
+    card_type_key: "Application",
+    key: "responsible",
+    label: "Responsible",
+    description: null,
+    color: "#1976d2",
+    counts_for_quality: true,
+    permissions: {},
+    is_archived: false,
+    sort_order: 0,
+    stakeholder_count: 0,
+  };
+  const ROLE_PATH = "/metamodel/types/Application/stakeholder-roles/responsible";
+
+  beforeEach(() => {
+    realRolePanel.on = true;
+    invalidateEnabledLocalesGlobal(["en"]);
+    mockApi.on("get", /\/stakeholder-roles\?include_archived=true$/, [ROLE]);
+    mockApi.on("get", "/stakeholder-roles/permissions-schema", {});
+    mockApi.on("get", /\/stakeholder-roles\/responsible\/usage$/, {
+      role_key: "responsible",
+      stakeholder_count: 0,
+      card_count: 0,
+      survey_count: 0,
+      is_last_active: false,
+      can_delete: true,
+      can_rekey: true,
+    });
+  });
+
+  async function openRoleEdit() {
+    const utils = renderDrawer("Application", [APP_WITH_EN]);
+    await screen.findByRole("dialog");
+    await utils.user.click(
+      screen.getByRole("tab", { name: ta("metamodel.stakeholderPanel.title") }),
+    );
+    await screen.findByText("Responsible");
+    await utils.user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+    await screen.findByDisplayValue("Responsible");
+    await utils.user.type(
+      screen.getByLabelText(new RegExp(`^${ta("metamodel.stakeholderPanel.descriptionLabel")}`)),
+      "Keeps it current.",
+    );
+    return utils;
+  }
+
+  /** The header Save is the first "Save" in the drawer; the role form's is below it. */
+  const headerSave = () => screen.getAllByRole("button", { name: tc("actions.save") })[0];
+
+  it("saves the role being edited before the type header", async () => {
+    mockApi.on("patch", ROLE_PATH, {});
+    const { user, onRefresh } = await openRoleEdit();
+
+    await user.click(headerSave());
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    const patches = mockApi.callsOf("patch");
+    expect(patches.map((c) => c.path)).toEqual([ROLE_PATH, "/metamodel/types/Application"]);
+    expect(patches[0].body).toMatchObject({ description: "Keeps it current." });
+  });
+
+  it("does not save the type when the role save fails, and shows the role's error", async () => {
+    mockApi.fail("patch", ROLE_PATH, 422, "Role refused");
+    const { user, onRefresh } = await openRoleEdit();
+
+    await user.click(headerSave());
+
+    await waitFor(() => expect(mockApi.callsOf("patch", ROLE_PATH)).toHaveLength(1));
+    // The role form stays open with the error, and the drawer alert shows it too.
+    await waitFor(() => expect(screen.getAllByText(`PATCH ${ROLE_PATH} failed`).length).toBeGreaterThan(0));
+    expect(screen.getByDisplayValue("Keeps it current.")).toBeInTheDocument();
+    expect(mockApi.callsOf("patch", "/metamodel/types/Application")).toHaveLength(0);
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(headerSave()).toBeEnabled();
+  });
+
+  it("saves only the type when no role form is open on the tab", async () => {
+    const { user, onRefresh } = renderDrawer("Application", [APP_WITH_EN]);
+    await screen.findByRole("dialog");
+    await user.click(screen.getByRole("tab", { name: ta("metamodel.stakeholderPanel.title") }));
+    await screen.findByText("Responsible");
+
+    await user.click(headerSave());
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    expect(mockApi.callsOf("patch").map((c) => c.path)).toEqual(["/metamodel/types/Application"]);
   });
 });
 

@@ -266,6 +266,38 @@ class TestUpdateStakeholderRole:
             assert role["description"] == "Keeps the card current.", params
             assert role["translations"] == translations, params
 
+    async def test_null_description_clears_it_and_omitting_it_keeps_it(self, client, db):
+        """The role form sends an emptied description as ``null``; that must clear
+        the stored text, while a PATCH that leaves the field out keeps it."""
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_stakeholder_role_def(
+            db,
+            card_type_key="Application",
+            key="responsible",
+            label="Responsible",
+            description="Keeps the card current.",
+        )
+        path = "/api/v1/metamodel/types/Application/stakeholder-roles/responsible"
+
+        kept = await client.patch(path, json={"label": "Owner"}, headers=auth_headers(admin))
+        assert kept.status_code == 200
+        assert kept.json()["description"] == "Keeps the card current."
+
+        cleared = await client.patch(path, json={"description": None}, headers=auth_headers(admin))
+        assert cleared.status_code == 200
+        assert cleared.json()["description"] is None
+        assert cleared.json()["label"] == "Owner"
+
+        listed = await client.get(
+            "/api/v1/stakeholder-roles",
+            params={"type_key": "Application"},
+            headers=auth_headers(admin),
+        )
+        [role] = [r for r in listed.json() if r["key"] == "responsible"]
+        assert role["description"] is None
+
     async def test_viewer_cannot_update_description(self, client, db):
         from app.core.permissions import VIEWER_PERMISSIONS
 
