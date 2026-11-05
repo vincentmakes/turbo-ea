@@ -219,8 +219,9 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
     createOpen &&
     [createForm.key, createForm.label, createForm.description].some((v) => v.trim() !== "");
 
+  // Callers gate on `createFormValid`: the Create button is disabled while it
+  // is false, and `savePendingForm` reports an invalid form before calling.
   const handleCreate = async (): Promise<boolean> => {
-    if (!createFormValid) return false;
     setCreateSaving(true);
     try {
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles`, {
@@ -292,8 +293,10 @@ const StakeholderRolePanel = forwardRef<StakeholderRolePanelHandle, StakeholderR
     // permissions must stay editable.
     (editForm.key === editRoleKey || isValidRoleKey(editForm.key));
 
+  // Callers gate on `editFormValid`: the edit Save button (rendered only while
+  // a role is being edited) is disabled while it is false, and
+  // `savePendingForm` reports an invalid form before calling.
   const handleSaveEdit = async (): Promise<boolean> => {
-    if (!editRoleKey || !editFormValid) return false;
     setEditSaving(true);
     setEditError(null);
     try {

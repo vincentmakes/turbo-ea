@@ -7,7 +7,7 @@
  */
 import { createRef } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import StakeholderRolePanel, { type StakeholderRolePanelHandle } from "./StakeholderRolePanel";
 
@@ -644,5 +644,192 @@ describe("StakeholderRolePanel — clearing a description", () => {
 
     await waitFor(() => expect(apiMock.patch).toHaveBeenCalled());
     expect(apiMock.patch.mock.calls[0][1].description).toBe("Owns it.");
+  });
+});
+
+describe("StakeholderRolePanel — pending-form validity (the drawer's header Save)", () => {
+  /** Run the drawer's header Save through the panel's handle. */
+  async function savePending(ref: React.RefObject<StakeholderRolePanelHandle | null>) {
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await ref.current!.savePendingForm();
+    });
+    return ok;
+  }
+
+  it("treats a create form holding only whitespace as nothing to save", async () => {
+    mockApi();
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    const label = (await screen.findByLabelText(/^Label/)) as HTMLInputElement;
+    await user.type(label, "   ");
+    await user.type(screen.getByLabelText(/^Description/), "  ");
+    expect(label.value).toBe("   ");
+
+    expect(ref.current!.hasPendingForm()).toBe(false);
+    expect(await savePending(ref)).toBe(true);
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("resolves false without a POST for a create form whose derived key is too short", async () => {
+    mockApi();
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    await user.type(await screen.findByLabelText(/^Label/), "Ab");
+    expect(screen.getByRole("button", { name: /^create$/i })).toBeDisabled();
+    expect(ref.current!.hasPendingForm()).toBe(true);
+
+    expect(await savePending(ref)).toBe(false);
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith("Failed to create role");
+  });
+
+  it("resolves false and reports the error when the create POST fails", async () => {
+    mockApi();
+    apiMock.post.mockRejectedValue(new Error("Role create refused"));
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getByRole("button", { name: /add role/i }));
+    await user.type(await screen.findByLabelText(/^Label/), "Data Steward");
+
+    expect(await savePending(ref)).toBe(false);
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("Role create refused");
+    // The form stays open with what the admin typed.
+    expect(screen.getByDisplayValue("Data Steward")).toBeInTheDocument();
+    expect(ref.current!.hasPendingForm()).toBe(true);
+  });
+
+  it("refuses an edit whose label was emptied, in the panel and through onError", async () => {
+    mockApi();
+    apiMock.patch.mockResolvedValue({});
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+    await user.clear(await screen.findByDisplayValue("Responsible"));
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    expect(ref.current!.hasPendingForm()).toBe(true);
+
+    expect(await savePending(ref)).toBe(false);
+    expect(apiMock.patch).not.toHaveBeenCalled();
+    expect(await screen.findByText("Failed to update role")).toBeInTheDocument();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith("Failed to update role");
+    expect(ref.current!.hasPendingForm()).toBe(true);
+  });
+
+  it("refuses an edit whose changed key is invalid, though the label is filled in", async () => {
+    mockApi();
+    apiMock.patch.mockResolvedValue({});
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Typo Role");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[1]);
+    const key = (await screen.findByDisplayValue("typoRole")) as HTMLInputElement;
+    await waitFor(() => expect(key).toBeEnabled());
+    await user.clear(key);
+    await user.type(key, "1bad");
+    expect(key.value).toBe("1bad");
+    expect(screen.getByDisplayValue("Typo Role")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+
+    expect(await savePending(ref)).toBe(false);
+    expect(apiMock.patch).not.toHaveBeenCalled();
+    expect(await screen.findByText("Failed to update role")).toBeInTheDocument();
+    expect(onError).toHaveBeenCalledWith("Failed to update role");
+  });
+
+  it("saves a role whose unchanged key predates camelCase through the header Save", async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path.includes("/usage")) return Promise.resolve({ ...UNUSED, role_key: "data_steward" });
+      if (path.includes("permissions-schema")) return Promise.resolve({});
+      return Promise.resolve([ROLES[0], { ...ROLES[1], key: "data_steward", label: "Data Steward" }]);
+    });
+    apiMock.patch.mockResolvedValue({});
+    const onError = vi.fn();
+    const ref = createRef<StakeholderRolePanelHandle>();
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel ref={ref} typeKey="Application" onError={onError} />);
+
+    await screen.findByText("Data Steward");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[1]);
+    await screen.findByDisplayValue("data_steward");
+
+    expect(await savePending(ref)).toBe(true);
+    expect(apiMock.patch).toHaveBeenCalledTimes(1);
+    const [path, body] = apiMock.patch.mock.calls[0];
+    expect(path).toBe("/metamodel/types/Application/stakeholder-roles/data_steward");
+    expect(body.key).toBeUndefined();
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
+describe("StakeholderRolePanel — the edit form's own Save button", () => {
+  it("is disabled with an empty label and enabled once a label is typed", async () => {
+    mockApi();
+    apiMock.patch.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+    const label = await screen.findByDisplayValue("Responsible");
+    const save = screen.getByRole("button", { name: /^save$/i });
+    expect(save).toBeEnabled();
+
+    await user.clear(label);
+    expect(save).toBeDisabled();
+    // A click on the disabled button sends nothing.
+    fireEvent.click(save);
+    expect(apiMock.patch).not.toHaveBeenCalled();
+
+    await user.type(label, "Owner");
+    expect(save).toBeEnabled();
+  });
+
+  it("is disabled while the PATCH is in flight", async () => {
+    mockApi();
+    let resolvePatch: (v: unknown) => void = () => {};
+    apiMock.patch.mockImplementation(() => new Promise((r) => (resolvePatch = r)));
+    const user = userEvent.setup();
+    render(<StakeholderRolePanel typeKey="Application" onError={() => {}} />);
+
+    await screen.findByText("Responsible");
+    await user.click(screen.getAllByRole("button", { name: /edit/i })[0]);
+    await screen.findByDisplayValue("Responsible");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    const saving = await screen.findByRole("button", { name: "Saving..." });
+    expect(saving).toBeDisabled();
+    expect(apiMock.patch).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePatch({});
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Saving..." })).not.toBeInTheDocument(),
+    );
   });
 });
