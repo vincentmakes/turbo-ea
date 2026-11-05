@@ -195,6 +195,10 @@ Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — il
 !!! note
     En dehors des champs spécifiques aux Applications, les suggestions IA génèrent principalement le champ **description**. Les champs personnalisés pour les autres types de fiches ne sont pas encore couverts.
 
+### Produits EOL personnalisés
+
+Le même bouton apparaît dans les boîtes de dialogue **Créer un produit EOL personnalisé** et **Modifier le produit EOL personnalisé** ([Administration EOL](eol.md)), dès que le produit a un nom. La suggestion est rédigée à partir du nom du produit et de son lien fournisseur, avec une recherche sur le cycle de vie du support du produit. Un produit personnalisé n'est pas un type de fiche : le commutateur par type ci-dessus ne s'applique donc pas. La fonctionnalité exige seulement que les suggestions IA soient activées et configurées, ainsi que la permission `ai.suggest`.
+
 ---
 
 ## Analyses du portefeuille

@@ -207,7 +207,18 @@ async def web_search(
 
 # Maps card type keys to search keywords and LLM context descriptions.
 # Types not listed here fall back to the generic type label.
+#: The search context of a custom EOL product (``POST /ai/suggest-eol-product``):
+#: not a card type, so the key can never collide with one.
+EOL_PRODUCT_CONTEXT_KEY = "__eol_product__"
+
 _TYPE_SEARCH_CONTEXT: dict[str, dict[str, Any]] = {
+    EOL_PRODUCT_CONTEXT_KEY: {
+        "search_suffix": "software product end of life support lifecycle",
+        "llm_context": (
+            "a software or hardware product whose vendor support lifecycle "
+            "(release cycles, end of support, end of life) an organisation tracks"
+        ),
+    },
     "Application": {
         "search_suffix": "software application",
         "llm_context": "a software application or digital product",

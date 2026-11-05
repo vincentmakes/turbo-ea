@@ -161,11 +161,14 @@ L'onglet **Ressources** regroupe tous les documents de support d'une fiche :
 
 ### Section EOL
 
-Si la fiche est liée à un produit [endoflife.date]( (via [Administration EOL](../admin/eol.md)) :
+Affichée par défaut sur les Applications et les Composants IT, et sur tout autre type de fiche pour lequel l'administrateur l'a [activée](../admin/eol.md#fin-de-vie-sur-dautres-types-de-fiches). Si la fiche est liée à un produit [endoflife.date](https://endoflife.date/) (via [Administration EOL](../admin/eol.md)) :
 
-- **Nom du produit et version**
-- **Statut de support** -- Code couleur : Supporté, Approchant la fin de vie, Fin de vie
-- **Dates clés** -- Date de sortie, fin du support actif, fin du support sécurité, date de fin de vie
+- **Nom du produit et version** -- un produit personnalisé porte son titre comme nom et est marqué **Personnalisé**
+- **Statut de support** -- Code couleur, selon la même règle que le rapport EOL : Supporté, Approchant la fin de vie (à moins de six mois de la date de fin de vie, ou une fois le support actif terminé), Fin de vie
+- **Dates clés** -- Date de sortie, fin du support actif, date de fin de vie, dernière version et sa date de publication
+- **Notes de version** -- un lien vers la page du produit sur endoflife.date, ou la **Page éditeur** d'un produit personnalisé
+
+**Lier**, **Modifier** et **Dissocier** n'apparaissent que si vous pouvez modifier la fiche. Les utilisateurs disposant de la permission **Gérer l'EOL** peuvent définir un [produit EOL personnalisé](../admin/eol.md) directement depuis cette section, via le lien **Le définir comme produit personnalisé…** sous la recherche de produit : le formulaire s'ouvre avec le nom de la fiche (ou ce que vous avez saisi) comme nom de produit, et la fiche est liée au nouveau produit à l'enregistrement. Ils disposent aussi d'un raccourci vers **Gérer les produits personnalisés** dans les paramètres et peuvent ajouter un cycle de version manquant depuis la liste des cycles. Les autres utilisateurs voient une invitation à solliciter un gestionnaire EOL lorsque endoflife.date n'a aucune correspondance. Les produits personnalisés se comportent partout ailleurs comme les produits endoflife.date.
 
 ## Onglet Commentaires
 

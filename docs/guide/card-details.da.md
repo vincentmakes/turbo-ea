@@ -158,11 +158,14 @@ Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af 
 
 ### EOL-sektion
 
-Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
+Vises som standard på Applications og IT Components og på enhver anden korttype, hvor administratoren har [slået den til](../admin/eol.md#end-of-life-pa-andre-korttyper). Hvis kortet er linket til et [endoflife.date](https://endoflife.date/)-produkt (via [EOL-administration](../admin/eol.md)):
 
-- **Produktnavn og version**
-- **Support-status** — Farvekodet: Supported, Approaching EOL, End of Life
-- **Nøgle-datoer** — Udgivelsesdato, aktiv support slut, sikkerheds-support slut, EOL-dato
+- **Produktnavn og version** – et brugerdefineret produkt navngives med sin titel og er markeret **Brugerdefineret**
+- **Supportstatus** — Farvekodet efter samme regel som EOL-rapporten: Supporteret, Nærmer sig EOL (inden for seks måneder før EOL-datoen eller når den aktive support er ophørt), End of Life
+- **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, EOL-dato, den seneste version og dens udgivelsesdato
+- **Udgivelsesnoter** — et link til produktets side på endoflife.date eller **Leverandørside** for et brugerdefineret produkt
+
+**Tilknyt**, **Skift** og **Fjern tilknytning** vises kun, hvis du må redigere kortet. Brugere med tilladelsen **Administrer EOL** kan definere et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion via linket **Definér det som et brugerdefineret produkt…** under produktsøgningen: Formularen åbner med kortets navn (eller det, du skrev) som produktnavn, og kortet tilknyttes det nye produkt ved gemning. De får også en genvej til **Administrer brugerdefinerede produkter** i indstillingerne og kan tilføje en manglende udgivelsescyklus fra cykluslisten. Alle andre ser et tip om at bede en EOL-manager, når endoflife.date ikke har noget match. Brugerdefinerede produkter opfører sig som endoflife.date-produkter alle andre steder.
 
 ## Kommentarer-fane
 

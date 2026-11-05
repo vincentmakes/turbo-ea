@@ -355,6 +355,8 @@
   "eol.manuallyMaintained": "手动维护",
   "eol.manual": "手动",
   "eol.manualTooltip": "生命终止日期是在生命周期部分手动维护的，不是来自 endoflife.date API",
+  "eol.custom": "自定义产品",
+  "eol.customTooltip": "已关联到贵组织的自定义 EOL 产品之一（设置 → EOL → 自定义产品），而非 endoflife.date",
   "eol.api": "API",
   "eol.today": "今天",
   "eol.product": "产品",
@@ -519,6 +521,6 @@
   "eol.noEolDataKpi": "无生命周期终止数据",
   "dataQuality.eolCoverage": "生命周期终止覆盖率",
   "dataQuality.eolCoverageHint": "按是否已记录生命周期终止信息划分的应用与 IT 组件。点击任一分段可列出其背后的卡片。",
-  "dataQuality.eolLinked": "已关联 endoflife.date",
+  "dataQuality.eolLinked": "已关联 EOL 产品",
   "dataQuality.eolManual": "手动填写日期"
 }

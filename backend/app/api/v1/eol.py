@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+import uuid
 from difflib import SequenceMatcher
 
 import httpx
@@ -20,9 +21,21 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
-from app.services.card_flags import EOL_TYPES
+from app.schemas.eol_custom import (
+    EolCustomCycleCreate,
+    EolCustomCycleOut,
+    EolCustomCycleUpdate,
+    EolCustomProductCreate,
+    EolCustomProductOut,
+    EolCustomProductUpdate,
+    EolCustomSwitchRequest,
+    EolCustomSwitchResult,
+    EolUpstreamMatch,
+)
+from app.services import eol_custom_service as custom
+from app.services.card_flags import eol_type_keys
 from app.services.card_read_scope import CardReadScope
-from app.services.eol_service import resolve_eol_statuses
+from app.services.eol_service import fetch_product_cycles, resolve_eol_statuses
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -32,15 +45,26 @@ router = APIRouter(prefix="/eol", tags=["End of Life"])
 
 EOL_BASE = "https://endoflife.date/api"
 
+#: The "now on endoflife.date?" hint needs more than ``_fuzzy_score``'s 0.85,
+#: which any upstream slug contained in a title scores — "go" inside "Pingo
+#: Analytics". From 0.9 only an exact match, or the title inside the slug, counts.
+UPSTREAM_MATCH_THRESHOLD = 0.9
+
 # ---------------------------------------------------------------------------
 # Response schemas
 # ---------------------------------------------------------------------------
 
 
 class EolProduct(BaseModel):
-    """A product identifier returned from the product list."""
+    """A product identifier returned from the product list.
+
+    ``custom`` products are the organisation's own (``name`` is then
+    ``custom:<key>`` and ``title`` its display name).
+    """
 
     name: str
+    title: str | None = None
+    custom: bool = False
 
 
 class EolCycle(BaseModel):
@@ -58,6 +82,8 @@ class EolCycle(BaseModel):
     discontinued: str | bool | None = None
     codename: str | None = None
     link: str | None = None
+    #: A custom product's title (endoflife.date cycles carry none).
+    title: str | None = None
 
 
 class EolProductMatch(BaseModel):
@@ -65,6 +91,8 @@ class EolProductMatch(BaseModel):
 
     name: str
     score: float
+    title: str | None = None
+    custom: bool = False
 
 
 class MassEolCandidate(BaseModel):
@@ -75,6 +103,8 @@ class MassEolCandidate(BaseModel):
     card_type: str
     eol_product: str
     score: float
+    title: str | None = None
+    custom: bool = False
 
 
 class MassEolResult(BaseModel):
@@ -84,6 +114,8 @@ class MassEolResult(BaseModel):
     card_name: str
     card_type: str
     current_eol_product: str | None = None
+    #: The current link's title when it is a custom product.
+    current_title: str | None = None
     current_eol_cycle: str | None = None
     candidates: list[MassEolCandidate]
 
@@ -203,6 +235,26 @@ def _fuzzy_search(
     return scored[:limit]
 
 
+def _custom_fuzzy(
+    query: str, products: list[tuple[str, str]], limit: int, threshold: float
+) -> list[tuple[str, str, float]]:
+    """Fuzzy-match custom products on title and key: ``[(key, title, score)]``."""
+    scored = []
+    for key, title in products:
+        score = max(_fuzzy_score(query, title), _fuzzy_score(query, key))
+        if score >= threshold:
+            scored.append((key, title, score))
+    scored.sort(key=lambda x: x[2], reverse=True)
+    return scored[:limit]
+
+
+def _custom_substring(query: str, products: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Custom products whose title or key contains ``query`` (all when empty)."""
+    q = query.lower()
+    hits = [(k, t) for k, t in products if not q or q in t.lower() or q in k.lower()]
+    return sorted(hits, key=lambda kt: kt[1].lower())
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -220,12 +272,22 @@ async def list_products(
     is purely static JSON and does not support server-side filtering).
     """
     await PermissionService.require_permission(db, user, "eol.view")
-    products = await _get_all_products()
+    customs = _custom_substring(search, await custom.product_titles(db))
+    # Release the connection before the (possibly uncached) upstream fetch.
+    await db.commit()
+    out = [EolProduct(name=custom.product_ref(k), title=t, custom=True) for k, t in customs]
+    try:
+        products = await _get_all_products()
+    except HTTPException:
+        # endoflife.date is down: the organisation's own products still answer.
+        if out:
+            return out[:100]
+        raise
     if search:
         q = search.lower()
         products = [p for p in products if q in p.lower()]
 
-    return [EolProduct(name=p) for p in products[:100]]
+    return (out + [EolProduct(name=p) for p in products])[:100]
 
 
 @router.get("/products/fuzzy", response_model=list[EolProductMatch])
@@ -241,9 +303,21 @@ async def fuzzy_search_products(
     mismatches like "SAP HANA" → "sap-hana", "Node.js" → "nodejs", etc.
     """
     await PermissionService.require_permission(db, user, "eol.view")
-    products = await _get_all_products()
+    customs = _custom_fuzzy(search, await custom.product_titles(db), limit, 0.3)
+    await db.commit()
+    out = [
+        EolProductMatch(name=custom.product_ref(k), title=t, score=round(sc, 3), custom=True)
+        for k, t, sc in customs
+    ]
+    try:
+        products = await _get_all_products()
+    except HTTPException:
+        if out:
+            return out
+        raise
     matches = _fuzzy_search(search, products, limit=limit)
-    return [EolProductMatch(name=name, score=round(score, 3)) for name, score in matches]
+    # The organisation's own products first: someone who made one meant it.
+    return (out + [EolProductMatch(name=n, score=round(sc, 3)) for n, sc in matches])[:limit]
 
 
 @router.get("/products/{product}", response_model=list[EolCycle])
@@ -252,8 +326,14 @@ async def get_product_cycles(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all release cycles for a given product."""
+    """Return all release cycles for a given product.
+
+    A ``custom:<key>`` product is served from the database and never reaches
+    the upstream proxy below.
+    """
     await PermissionService.require_permission(db, user, "eol.view")
+    if custom.is_custom_product(product):
+        return await custom.product_cycles(db, custom.key_of(product))
     # M6: SSRF prevention — only allow alphanumeric, hyphens, and dots
     if not re.match(r"^[a-zA-Z0-9._-]+$", product):
         raise HTTPException(status_code=400, detail="Invalid product name")
@@ -275,12 +355,33 @@ async def get_product_cycles(
     return resp.json()
 
 
+@router.get("/types", response_model=list[str])
+async def eol_types(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The card types that track End of Life.
+
+    A type tracks it when its End of Life section is shown in the Card Layout
+    editor — Applications and IT Components unless an admin hid it there,
+    any other type once an admin shows it (``card_flags.type_tracks_eol``).
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+    return list(await eol_type_keys(db))
+
+
 class EolCardStatus(BaseModel):
     """The resolved end-of-life picture for one card."""
 
     status: str = Field(description="eol | approaching | supported | unknown")
-    source: str = Field(description="api (endoflife.date link) | manual (lifecycle date)")
+    source: str = Field(
+        description="api (endoflife.date link) | custom (custom EOL product) | "
+        "manual (lifecycle date)"
+    )
     eol_product: str | None = None
+    eol_product_title: str | None = Field(
+        None, description="A custom product's title; null for endoflife.date links"
+    )
     eol_cycle: str | None = None
     eol_date: str | None = None
     support_date: str | None = None
@@ -295,7 +396,7 @@ class EolCardStatusResponse(BaseModel):
 
 @router.get("/card-status", response_model=EolCardStatusResponse)
 async def eol_card_status(
-    type_key: str = Query(..., alias="type", description="Application or ITComponent"),
+    type_key: str = Query(..., alias="type", description="A card type that tracks End of Life"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -309,10 +410,10 @@ async def eol_card_status(
     """
     await PermissionService.require_permission(db, user, "eol.view")
 
-    if type_key not in EOL_TYPES:
+    if type_key not in await eol_type_keys(db):
         raise HTTPException(
             status_code=400,
-            detail="Only Application and ITComponent types carry EOL information",
+            detail="This card type does not track End of Life",
         )
 
     read_scope = await CardReadScope.load(db, user)
@@ -323,19 +424,24 @@ async def eol_card_status(
         .where(*read_scope.where(Card, mode="module"))
     )
     cards = result.scalars().all()
-    # Hand the connection back BEFORE the outbound round-trip. `get_db` is a
-    # yield-dependency, so without this commit the read above would pin one of
-    # the pool's 30 connections for the whole endoflife.date fetch — and this
-    # endpoint is hit on every inventory type change, not once a day.
+    # Custom products live in the database: read them while the session is
+    # still open, then hand the connection back BEFORE the outbound
+    # round-trip. `get_db` is a yield-dependency, so without this commit the
+    # reads above would pin one of the pool's 30 connections for the whole
+    # endoflife.date fetch — and this endpoint is hit on every inventory type
+    # change, not once a day.
+    custom_cycles = await custom.load_custom_cycles(
+        db, {(c.attributes or {}).get("eol_product") for c in cards}
+    )
     await db.commit()
 
-    statuses = await resolve_eol_statuses(cards)
+    statuses = await resolve_eol_statuses(cards, custom_cycles)
     return {"items": statuses}
 
 
 @router.post("/mass-search", response_model=list[MassEolResult])
 async def mass_eol_search(
-    type_key: str = Query(..., description="Card type to search (Application or ITComponent)"),
+    type_key: str = Query(..., description="Card type to search (one that tracks End of Life)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -346,10 +452,10 @@ async def mass_eol_search(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
-    if type_key not in EOL_TYPES:
+    if type_key not in await eol_type_keys(db):
         raise HTTPException(
             status_code=400,
-            detail="Only Application and ITComponent types support EOL linking",
+            detail="This card type does not track End of Life",
         )
 
     # Fetch all active cards of the given type
@@ -366,6 +472,9 @@ async def mass_eol_search(
     if not cards:
         return []
 
+    custom_products = await custom.product_titles(db)
+    custom_titles = {custom.product_ref(k): t for k, t in custom_products}
+    await db.commit()
     # Fetch EOL product list
     products = await _get_all_products()
 
@@ -387,7 +496,20 @@ async def mass_eol_search(
                 score=round(score, 3),
             )
             for name, score in matches
+        ] + [
+            MassEolCandidate(
+                card_id=str(card.id),
+                card_name=card.name,
+                card_type=card.type,
+                eol_product=custom.product_ref(key),
+                title=title,
+                custom=True,
+                score=round(score, 3),
+            )
+            for key, title, score in _custom_fuzzy(card.name, custom_products, 5, 0.35)
         ]
+        candidates.sort(key=lambda c: c.score, reverse=True)
+        candidates = candidates[:5]
 
         results.append(
             MassEolResult(
@@ -395,6 +517,7 @@ async def mass_eol_search(
                 card_name=card.name,
                 card_type=card.type,
                 current_eol_product=current_product,
+                current_title=custom_titles.get(current_product) if current_product else None,
                 current_eol_cycle=current_cycle,
                 candidates=candidates,
             )
@@ -418,6 +541,20 @@ async def mass_eol_link(
     """
     await PermissionService.require_permission(db, user, "eol.manage")
     read_scope = await CardReadScope.load(db, user)
+
+    # A custom product is ours to check: refuse a link to one that does not
+    # exist, or to a cycle it does not have, rather than store a dead link.
+    custom_cycles = await custom.load_custom_cycles(db, {lk.get("eol_product") for lk in links})
+    for link in links:
+        product = link.get("eol_product")
+        if not custom.is_custom_product(product):
+            continue
+        if product not in custom_cycles:
+            raise HTTPException(422, f"Unknown custom EOL product '{product}'")
+        if link.get("eol_cycle") and not any(
+            str(c["cycle"]) == str(link["eol_cycle"]) for c in custom_cycles[product]
+        ):
+            raise HTTPException(422, f"Unknown cycle '{link['eol_cycle']}' of '{product}'")
 
     updated = []
 
@@ -462,3 +599,205 @@ async def mass_eol_link(
 
     await db.commit()
     return {"updated": updated, "count": len(updated)}
+
+
+# ---------------------------------------------------------------------------
+# Custom EOL products — the organisation's own end-of-life data for products
+# endoflife.date does not track. Logic lives in `eol_custom_service`; these
+# handlers check permission, own the transaction and shape the response.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/custom-products", response_model=list[EolCustomProductOut])
+async def list_custom_products(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Every custom product with its cycles and how many cards link to each.
+
+    The counts cover the cards the caller may read, never naming one.
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+    read_scope = await CardReadScope.load(db, user)
+    return await custom.list_products(db, read_scope)
+
+
+@router.get("/custom-products/upstream-matches", response_model=dict[str, EolUpstreamMatch])
+async def custom_product_upstream_matches(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Custom products that now look covered by endoflife.date.
+
+    ``{key: {name, score}}`` for each custom product whose title or key
+    closely matches an upstream product — the cue to switch its cards over.
+    An unreachable endoflife.date yields an empty map, not an error: this is
+    a hint, and the grid must still load without it.
+    """
+    await PermissionService.require_permission(db, user, "eol.view")
+    titles = await custom.product_titles(db)
+    await db.commit()  # no connection held across the upstream fetch
+    if not titles:
+        return {}
+    try:
+        products = await _get_all_products()
+    except HTTPException:
+        return {}
+    out: dict[str, EolUpstreamMatch] = {}
+    for key, title in titles:
+        best = _fuzzy_search(
+            title, products, limit=1, threshold=UPSTREAM_MATCH_THRESHOLD
+        ) or _fuzzy_search(key, products, limit=1, threshold=UPSTREAM_MATCH_THRESHOLD)
+        if best:
+            out[key] = EolUpstreamMatch(name=best[0][0], score=round(best[0][1], 3))
+    return out
+
+
+async def _product_out(db: AsyncSession, user: User, key: str) -> dict:
+    read_scope = await CardReadScope.load(db, user)
+    for p in await custom.list_products(db, read_scope):
+        if p["key"] == key:
+            return p
+    raise HTTPException(404, "Custom EOL product not found")
+
+
+@router.post("/custom-products", response_model=EolCustomProductOut, status_code=201)
+async def create_custom_product(
+    body: EolCustomProductCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a custom product, optionally with its first cycles.
+
+    One request, so a user who found nothing on endoflife.date from a card
+    can define the product and link the card without leaving it.
+    """
+    await PermissionService.require_permission(db, user, "eol.manage")
+    product = await custom.create_product(db, user, body)
+    await db.commit()
+    return await _product_out(db, user, product.key)
+
+
+@router.patch("/custom-products/{key}", response_model=EolCustomProductOut)
+async def update_custom_product(
+    key: str,
+    body: EolCustomProductUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Edit a product's title, description or link. The key never changes."""
+    await PermissionService.require_permission(db, user, "eol.manage")
+    await custom.update_product(db, user, key, body)
+    await db.commit()
+    return await _product_out(db, user, key)
+
+
+@router.delete("/custom-products/{key}", status_code=204)
+async def delete_custom_product(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a product no card links to (409 ``cards_linked`` otherwise)."""
+    await PermissionService.require_permission(db, user, "eol.manage")
+    read_scope = await CardReadScope.load(db, user)
+    await custom.delete_product(db, user, key, read_scope)
+    await db.commit()
+
+
+@router.post("/custom-products/{key}/cycles", response_model=EolCustomCycleOut, status_code=201)
+async def create_custom_cycle(
+    key: str,
+    body: EolCustomCycleCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Add a release cycle to a custom product."""
+    await PermissionService.require_permission(db, user, "eol.manage")
+    cycle = await custom.create_cycle(db, user, key, body)
+    await db.commit()
+    return _cycle_out(await _product_out(db, user, key), str(cycle.id))
+
+
+@router.patch("/custom-products/{key}/cycles/{cycle_id}", response_model=EolCustomCycleOut)
+async def update_custom_cycle(
+    key: str,
+    cycle_id: str,
+    body: EolCustomCycleUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Patch one cycle: the admin grid's per-cell and drag-fill write."""
+    await PermissionService.require_permission(db, user, "eol.manage")
+    await custom.update_cycle(db, user, key, cycle_id, body)
+    await db.commit()
+    return _cycle_out(await _product_out(db, user, key), cycle_id)
+
+
+@router.delete("/custom-products/{key}/cycles/{cycle_id}")
+async def delete_custom_cycle(
+    key: str,
+    cycle_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete a cycle no card links (409 ``cards_linked`` otherwise)."""
+    await PermissionService.require_permission(db, user, "eol.manage")
+    read_scope = await CardReadScope.load(db, user)
+    await custom.delete_cycle(db, user, key, cycle_id, read_scope)
+    await db.commit()
+    return {"ok": True}
+
+
+def _cycle_out(product: dict, cycle_id: str) -> dict:
+    try:
+        wanted = uuid.UUID(cycle_id)
+    except ValueError:
+        raise HTTPException(404, "Cycle not found") from None
+    cycles: list[dict] = product["cycles"]
+    for c in cycles:
+        if uuid.UUID(c["id"]) == wanted:
+            return c
+    raise HTTPException(404, "Cycle not found")
+
+
+@router.post("/custom-products/{key}/switch", response_model=EolCustomSwitchResult)
+async def switch_custom_product(
+    key: str,
+    body: EolCustomSwitchRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Move a custom product's card links onto an endoflife.date product.
+
+    Once endoflife.date tracks a product (perhaps after someone proposed it),
+    the custom copy should give way. The target's cycles are fetched first,
+    with no connection held, then the cards the caller can read are relinked
+    cycle by cycle as ``cycle_map`` says; a cycle mapped to null keeps its
+    cards. Lifecycle dates are never touched, as with mass-link.
+    """
+    await PermissionService.require_permission(db, user, "eol.manage")
+    await custom.get_product(db, key)
+    target = body.target_product
+    if custom.is_custom_product(target) or not re.match(r"^[a-zA-Z0-9._-]+$", target):
+        raise HTTPException(422, "The target must be an endoflife.date product")
+    await db.commit()  # release the connection across the outbound fetch
+
+    client = await _get_client()
+    upstream = await fetch_product_cycles(client, target)
+    if not upstream:
+        raise HTTPException(422, f"endoflife.date has no product '{target}'")
+
+    read_scope = await CardReadScope.load(db, user)
+    result = await custom.switch_to_upstream(
+        db,
+        user,
+        key,
+        target,
+        upstream,
+        body.cycle_map,
+        body.delete_when_unused,
+        read_scope,
+    )
+    await db.commit()
+    return result

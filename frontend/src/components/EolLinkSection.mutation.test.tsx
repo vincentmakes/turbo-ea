@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { createTheme } from "@mui/material/styles";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi, type RouteMatcher } from "@/test/apiMock";
 import { CARD_IDS, cardById, makeCard } from "@/test/fixtures/metamodel";
@@ -87,7 +88,7 @@ function renderSection(card: Card, props: Partial<{ initialExpanded: boolean }> 
 async function renderLinkedWith(cycle: Partial<EolCycle>) {
   mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", ...cycle }]);
   const utils = renderSection(LINKED);
-  await screen.findByText("Active Support");
+  await screen.findByText("Active support");
   return utils;
 }
 
@@ -113,26 +114,26 @@ afterEach(() => {
 describe("EOL status and details", () => {
   it("reports a past EOL date as End of Life and shows both dates", async () => {
     await renderLinkedWith({ eol: "2020-03-01", support: "2019-03-01", lts: null });
-    // Title, header chip, status badge and the "End of Life" row label.
-    expect(screen.getAllByText("End of Life")).toHaveLength(4);
+    // Title, header chip and status badge; the row label reads "End of life".
+    expect(screen.getAllByText("End of Life")).toHaveLength(3);
     expect(screen.getByText("cancel")).toBeInTheDocument();
     expect(screen.getByText("2020-03-01")).toBeInTheDocument();
     expect(screen.getByText("2019-03-01")).toBeInTheDocument();
     // Rows for data the cycle does not carry stay out (lts is explicitly null).
-    for (const label of ["Release Date", "Latest Version", "Latest Release", "LTS", "Codename"]) {
+    for (const label of ["Release date", "Latest version", "Latest release date", "LTS", "Codename"]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 
   it("marks a cycle whose eol flag is true as End of Life", async () => {
     await renderLinkedWith({ eol: true, support: false });
-    expect(screen.getAllByText("End of Life")).toHaveLength(4);
+    expect(screen.getAllByText("End of Life")).toHaveLength(3);
     expect(screen.getByText("cancel")).toBeInTheDocument();
-    expect(rowChip("End of Life")).toHaveTextContent("Yes (EOL)");
-    expect(rowChip("End of Life")).toHaveStyle({ color: STATUS_COLORS.error });
+    expect(rowChip("End of life")).toHaveTextContent("Yes (EOL)");
+    expect(rowChip("End of life")).toHaveStyle({ color: STATUS_COLORS.error });
     // support=false means active support has ended: "No", in the ended colour.
-    expect(rowChip("Active Support")).toHaveTextContent(/^No$/);
-    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.error });
+    expect(rowChip("Active support")).toHaveTextContent(/^No$/);
+    expect(rowChip("Active support")).toHaveStyle({ color: STATUS_COLORS.error });
   });
 
   it("paints the header and badge chips white on the status colour", async () => {
@@ -148,18 +149,18 @@ describe("EOL status and details", () => {
     await renderLinkedWith({ eol: false, support: true });
     expect(screen.getAllByText("Supported")).toHaveLength(2);
     expect(screen.getByText("check_circle")).toBeInTheDocument();
-    expect(rowChip("End of Life")).toHaveTextContent(/^No$/);
-    expect(rowChip("End of Life")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(rowChip("End of life")).toHaveTextContent(/^No$/);
+    expect(rowChip("End of life")).toHaveStyle({ color: STATUS_COLORS.success });
     // support=true means still supported — never read with EOL semantics.
-    expect(rowChip("Active Support")).toHaveTextContent(/^Yes$/);
-    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(rowChip("Active support")).toHaveTextContent(/^Yes$/);
+    expect(rowChip("Active support")).toHaveStyle({ color: STATUS_COLORS.success });
     expect(screen.queryByText("Yes (EOL)")).not.toBeInTheDocument();
-    expect(screen.queryByText("Security fixes only")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approaching EOL")).not.toBeInTheDocument();
   });
 
   it("colours the active-support date by whether support is still running", async () => {
     await renderLinkedWith({ eol: future(48), support: future(24) });
-    expect(rowChip("Active Support")).toHaveStyle({ color: STATUS_COLORS.success });
+    expect(rowChip("Active support")).toHaveStyle({ color: STATUS_COLORS.success });
   });
 
   it("renders every details row the cycle carries", async () => {
@@ -176,10 +177,10 @@ describe("EOL status and details", () => {
     });
     expect(screen.getAllByText("Supported")).toHaveLength(2);
     const rows: [string, string][] = [
-      ["Release Date", "2023-09-14"],
-      ["Latest Version", "16.4"],
-      ["Latest Release", "2024-08-08"],
-      ["Active Support", support],
+      ["Release date", "2023-09-14"],
+      ["Latest version", "16.4"],
+      ["Latest release date", "2024-08-08"],
+      ["Active support", support],
       ["LTS", "No"],
       ["Codename", "Sixteen"],
     ];
@@ -187,17 +188,15 @@ describe("EOL status and details", () => {
       const labelEl = screen.getByText(label);
       expect(labelEl.nextElementSibling).toHaveTextContent(value);
     }
-    // The "End of Life" row is the last of the title, chips and row label.
-    const eolTexts = screen.getAllByText("End of Life");
-    const eolLabel = eolTexts[eolTexts.length - 1];
-    expect(eolLabel.nextElementSibling).toHaveTextContent(eol);
+    expect(screen.getByText("End of life").nextElementSibling).toHaveTextContent(eol);
   });
 
   it("shows Unknown for missing dates and an LTS note verbatim", async () => {
     await renderLinkedWith({ lts: "until 2030" });
-    expect(screen.getAllByText("Unknown")).toHaveLength(2);
+    // No EOL value at all: the header chip and the badge say Unknown too.
+    expect(screen.getAllByText("Unknown")).toHaveLength(4);
     expect(screen.getByText("LTS").nextElementSibling).toHaveTextContent("until 2030");
-    expect(screen.getAllByText("Supported")).toHaveLength(2);
+    expect(screen.queryByText("Supported")).not.toBeInTheDocument();
   });
 
   it("omits the LTS row when lts is absent", async () => {
@@ -205,10 +204,10 @@ describe("EOL status and details", () => {
     expect(screen.queryByText("LTS")).not.toBeInTheDocument();
   });
 
-  it("flags a lapsed support date as security fixes only", async () => {
+  it("flags a lapsed support date as approaching, like every other EOL surface", async () => {
     await renderLinkedWith({ eol: future(48), support: "2020-01-01" });
-    expect(screen.getAllByText("Security fixes only")).toHaveLength(2);
-    expect(screen.getByText("shield")).toBeInTheDocument();
+    expect(screen.getAllByText("Approaching EOL")).toHaveLength(2);
+    expect(screen.getByText("warning")).toBeInTheDocument();
   });
 
   it("flags an EOL date within six months with a warning icon", async () => {
@@ -222,9 +221,9 @@ describe("EOL status and details", () => {
     const today = new Date(2026, 0, 15);
 
     it.each([
-      ["an EOL date of today is End of Life", { eol: "2026-01-15" }, "End of Life", 4],
+      ["an EOL date of today is End of Life", { eol: "2026-01-15" }, "End of Life", 3],
       ["an EOL date exactly six months out is approaching", { eol: "2026-07-15" }, "Approaching EOL", 2],
-      ["support ending today is security fixes only", { eol: "2028-01-15", support: "2026-01-15" }, "Security fixes only", 2],
+      ["support ending today is approaching", { eol: "2028-01-15", support: "2026-01-15" }, "Approaching EOL", 2],
     ])("%s", async (_name, cycle, label, count) => {
       vi.useFakeTimers({ toFake: ["Date"], now: today });
       await renderLinkedWith(cycle);
@@ -241,7 +240,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     await settle(held[0], [{ cycle: "16", eol: future(48) }]);
-    expect(await screen.findByText("Active Support")).toBeInTheDocument();
+    expect(await screen.findByText("Active support")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -258,7 +257,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
       initialExpanded: true,
     });
     // The picker opens on the stored product and loads its cycles itself.
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
     expect(screen.queryByText("Linked to")).not.toBeInTheDocument();
     expect(screen.getByText(/Link this IT component to a product/)).toBeInTheDocument();
     expect(searchBox()).toHaveValue("postgresql");
@@ -295,7 +294,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     expect(screen.getByText("redis 7")).toBeInTheDocument();
     // Nothing from postgresql 16 may sit under the redis 7 header.
     expect(screen.queryByText("Supported")).not.toBeInTheDocument();
-    expect(screen.queryByText("Active Support")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active support")).not.toBeInTheDocument();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
 
     await settle(held[0], [{ cycle: "7", eol: true, support: false }]);
@@ -309,23 +308,23 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     await user.click(screen.getByTitle("Refresh EOL data"));
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(screen.getAllByText("Supported")).toHaveLength(2);
-    await settle(held[0], [{ cycle: "16", eol: future(48), support: false }]);
-    expect(await screen.findAllByText("Security fixes only")).toHaveLength(2);
+    await settle(held[0], [{ cycle: "16", eol: future(48), support: "2020-01-01" }]);
+    expect(await screen.findAllByText("Approaching EOL")).toHaveLength(2);
   });
 
   it("forgets the cycle details once the card is unlinked", async () => {
     mockApi.on("get", FUZZY, []);
     const { rerender, onSave } = await renderLinkedWith({ eol: future(48) });
     rerender(<EolLinkSection card={{ ...LINKED, attributes: { version: "16" } }} onSave={onSave} />);
-    expect(screen.queryByText("Active Support")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active support")).not.toBeInTheDocument();
 
     // Re-linking shows nothing stale while the fresh cycle is still loading.
     const held = holdGets("/eol/products/postgresql");
     rerender(<EolLinkSection card={LINKED} onSave={onSave} />);
     expect(screen.queryByText("Supported")).not.toBeInTheDocument();
-    expect(screen.queryByText("Active Support")).not.toBeInTheDocument();
+    expect(screen.queryByText("Active support")).not.toBeInTheDocument();
     await settle(held[0], [{ cycle: "16", eol: future(48) }]);
-    expect(await screen.findByText("Active Support")).toBeInTheDocument();
+    expect(await screen.findByText("Active support")).toBeInTheDocument();
   });
 
   it("returns to the linked view after linking a new cycle through Change", async () => {
@@ -336,7 +335,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
       { cycle: "12", eol: true },
     ]);
     await user.click(screen.getByTitle("Change linked product"));
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
     await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: /^12/ }));
     await user.click(screen.getByRole("button", { name: "Link" }));
@@ -353,7 +352,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     await renderLinkedWith({ eol: future(48) });
     mockApi.on("get", "/eol/products/postgresql", [{ cycle: "12", eol: true }]);
     await user.click(screen.getByTitle("Change linked product"));
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
     await user.click(screen.getAllByRole("combobox")[1]);
     const option = await screen.findByRole("option", { name: /^12/ });
     expect(within(option).getByText("End of Life").closest(".MuiChip-root")).toHaveStyle({
@@ -367,7 +366,7 @@ describe("EolLinkSection — fetching the linked cycle", () => {
     const { onSave } = await renderLinkedWith({ eol: future(48) });
     await user.click(screen.getByTitle("Unlink EOL data"));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.queryByText("Active Support")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Active support")).not.toBeInTheDocument());
     expect(screen.queryByText("Supported")).not.toBeInTheDocument();
   });
 });
@@ -448,9 +447,9 @@ describe("EolLinkSection — superseded and failed requests", () => {
       throw new Error("PATCH /cards/x failed");
     });
     render(<EolLinkSection card={LINKED} onSave={onSave} />);
-    await screen.findByText("Active Support");
+    await screen.findByText("Active support");
     await user.click(screen.getByTitle("Change linked product"));
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
     await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: /^12/ }));
     await user.click(screen.getByRole("button", { name: "Link" }));
@@ -472,11 +471,11 @@ describe("EolLinkSection — superseded and failed requests", () => {
     mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", eol: future(48) }]);
     const onSave = vi.fn(() => Promise.reject("nope"));
     render(<EolLinkSection card={LINKED} onSave={onSave} />);
-    await screen.findByText("Active Support");
+    await screen.findByText("Active support");
     await user.click(screen.getByTitle("Unlink EOL data"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
-    expect(screen.getByText("Active Support")).toBeInTheDocument();
+    expect(screen.getByText("Active support")).toBeInTheDocument();
     expect(screen.getByText("Linked to")).toBeInTheDocument();
   });
 });
@@ -487,7 +486,7 @@ describe("EolLinkSection — the save error and the progress bar", () => {
   /** Change the linked card to cycle 12 through the picker and press Link. */
   async function relinkTo12(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByTitle("Change linked product"));
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
     await user.click(screen.getAllByRole("combobox")[1]);
     await user.click(await screen.findByRole("option", { name: /^12/ }));
     await user.click(screen.getByRole("button", { name: "Link" }));
@@ -501,7 +500,7 @@ describe("EolLinkSection — the save error and the progress bar", () => {
     const user = userEvent.setup();
     const onSave = vi.fn(() => Promise.reject("nope"));
     render(<EolLinkSection card={LINKED} onSave={onSave} />);
-    await screen.findByText("Active Support");
+    await screen.findByText("Active support");
     await relinkTo12(user);
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
 
@@ -517,7 +516,7 @@ describe("EolLinkSection — the save error and the progress bar", () => {
     mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", eol: future(48) }]);
     const onSave = vi.fn(() => Promise.reject(new Error("PATCH /cards/x failed")));
     render(<EolLinkSection card={LINKED} onSave={onSave} />);
-    await screen.findByText("Active Support");
+    await screen.findByText("Active support");
 
     await user.click(screen.getByTitle("Unlink EOL data"));
     const alert = await screen.findByRole("alert");
@@ -531,7 +530,7 @@ describe("EolLinkSection — the save error and the progress bar", () => {
     onSave.mockImplementation(() => Promise.resolve());
     await user.click(screen.getByTitle("Unlink EOL data"));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(3));
-    await waitFor(() => expect(screen.queryByText("Active Support")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Active support")).not.toBeInTheDocument());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -587,7 +586,7 @@ describe("EolLinkSection — the picker on an unlinked card", () => {
     await user.click(await screen.findByText("ubuntu"));
     expect(searchBox()).toHaveValue("ubuntu");
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
-    expect(screen.queryByText("Version / Cycle")).not.toBeInTheDocument();
+    expect(screen.queryByText("Release cycle")).not.toBeInTheDocument();
     expect(screen.queryByText(/No release cycles found/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
     // Picking a product ends the auto-search: neither its result nor its
@@ -597,7 +596,7 @@ describe("EolLinkSection — the picker on an unlinked card", () => {
     expect(screen.queryByText(/Searching endoflife\.date/)).not.toBeInTheDocument();
 
     await settle(held[0], [{ cycle: "24.04", eol: future(40) }]);
-    expect(await screen.findAllByText("Version / Cycle")).toHaveLength(2);
+    expect(await screen.findAllByText("Release cycle")).toHaveLength(2);
     expect(screen.queryByText(/No release cycles found/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
   });
@@ -785,12 +784,12 @@ describe("EolPicker — the manual product search", () => {
     expect(getOpts(/\?search=/, 0).signal).toBeInstanceOf(AbortSignal);
     // The search spinner plus the cycles bar.
     expect(screen.getAllByRole("progressbar")).toHaveLength(2);
-    expect(screen.queryByText("Version / Cycle")).not.toBeInTheDocument();
+    expect(screen.queryByText("Release cycle")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
 
     await settle(cycles[0], [{ cycle: "16", eol: future(48) }]);
     // The label and the outline's notch both carry the text.
-    expect(await screen.findAllByText("Version / Cycle")).toHaveLength(2);
+    expect(await screen.findAllByText("Release cycle")).toHaveLength(2);
     expect(screen.getAllByRole("progressbar")).toHaveLength(1);
     expect(screen.queryByText(/No release cycles found/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
@@ -800,18 +799,18 @@ describe("EolPicker — the manual product search", () => {
     mockApi.on("get", "/eol/products/redis", []);
     renderDialog({ initialProduct: "redis" });
     expect(await screen.findByText('No release cycles found for "redis".')).toBeInTheDocument();
-    expect(screen.queryByText("Version / Cycle")).not.toBeInTheDocument();
+    expect(screen.queryByText("Release cycle")).not.toBeInTheDocument();
   });
 
   it("drops the selected product as soon as the search text changes", async () => {
     mockApi.on("get", "/eol/products/postgresql", [{ cycle: "16", eol: future(48) }]);
     const user = userEvent.setup();
     renderDialog({ initialProduct: "postgresql" });
-    await screen.findAllByText("Version / Cycle");
+    await screen.findAllByText("Release cycle");
 
     await user.type(searchBox(), "x");
     expect(searchBox()).toHaveValue("postgresqlx");
-    await waitFor(() => expect(screen.queryByText("Version / Cycle")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Release cycle")).not.toBeInTheDocument());
     expect(screen.queryByText(/No release cycles found/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
   });

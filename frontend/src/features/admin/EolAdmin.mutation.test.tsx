@@ -9,6 +9,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
+vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 
 import { mockApi } from "@/test/apiMock";
 import type { EolCycle, MassEolResult } from "@/types";
@@ -226,7 +227,7 @@ describe("EolAdmin cycle picker", () => {
     cycles.resolve(UBUNTU_CYCLES);
     expect(await within(dialog).findByRole("combobox")).toBeInTheDocument();
     expect(within(dialog).queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(within(dialog).getAllByText("Version / Cycle")).toHaveLength(2);
+    expect(within(dialog).getAllByText("Release cycle")).toHaveLength(2);
     expect(within(dialog).queryByText(/No release cycles found/)).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));

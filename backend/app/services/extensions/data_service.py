@@ -67,8 +67,10 @@ from app.services import (
     stakeholder_service,
     tag_service,
 )
+from app.services.card_flags import eol_type_keys
 from app.services.card_search import card_search_filter, card_search_rank
 from app.services.card_write_service import WriteActor
+from app.services.eol_custom_service import load_custom_cycles
 from app.services.eol_service import resolve_eol_statuses
 from app.services.event_bus import request_batch_id, request_origin
 from app.services.extensions.registry import extension_registry
@@ -588,8 +590,9 @@ class ExtensionData:
         """Resolved end-of-life status per card (SDK 1.10), keyed by card id.
 
         Exactly what ``GET /eol/card-status`` computes for the EOL report:
-        the endoflife.date cycle when the card links a product, else the
-        manual ``lifecycle.endOfLife`` date. A card with neither is absent
+        the endoflife.date cycle when the card links a product (or the
+        organisation's own cycle for a ``custom:`` product, ``source``
+        ``"custom"``), else the manual ``lifecycle.endOfLife`` date. A card with neither is absent
         from the map. Hidden-type and archived cards are excluded like
         ``get_cards``; malformed ids and over-long lists are refused.
 
@@ -608,9 +611,17 @@ class ExtensionData:
             .where(Card.status == "ACTIVE")
         )
         async with async_session() as db:
+            # Only types whose End of Life section is on take part, like
+            # every other EOL surface (`card_flags.type_tracks_eol`).
+            q = q.where(Card.type.in_(await eol_type_keys(db)))
             rows = (await db.execute(q)).all()
+            # Custom EOL products are database rows: read them in this same
+            # short session, before the outbound endoflife.date fetch.
+            custom_cycles = await load_custom_cycles(
+                db, {(r.attributes or {}).get("eol_product") for r in rows}
+            )
         snapshots = [_EolCardSnapshot(r.id, r.attributes or {}, r.lifecycle or {}) for r in rows]
-        resolved = await resolve_eol_statuses(snapshots)
+        resolved = await resolve_eol_statuses(snapshots, custom_cycles)
         return {
             cid: ExtEolStatus(
                 card_id=cid,

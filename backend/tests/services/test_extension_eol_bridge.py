@@ -157,6 +157,27 @@ async def test_resolves_linked_and_manual_cards_and_omits_the_rest(env, _canned_
     assert _canned_cycles == [{"postgresql"}]
 
 
+async def test_skips_a_type_whose_end_of_life_section_is_off(db, _canned_cycles):
+    """The one toggle drives this bridge too: hiding End of Life on a type
+    drops its cards here as it does from the report and dashboards."""
+    await create_card_type(
+        db, key="ITComponent", label="IT Component", section_config={"eol": {"hidden": True}}
+    )
+    await create_card_type(
+        db, key="Gadget", label="Gadget", section_config={"eol": {"hidden": False}}
+    )
+    eol_date = (TODAY + timedelta(days=30)).isoformat()
+    off = await create_card(
+        db, card_type="ITComponent", name="Off", lifecycle={"endOfLife": eol_date}
+    )
+    on = await create_card(db, card_type="Gadget", name="On", lifecycle={"endOfLife": eol_date})
+    load_registry(grants=["core.cards.read"])
+
+    out = await ExtensionData(KEY).get_eol_status([str(off.id), str(on.id)])
+
+    assert set(out) == {str(on.id)}
+
+
 async def test_requires_the_inventory_read_grant(env):
     load_registry(grants=["core.todos.read"])
     data = ExtensionData(KEY)
@@ -189,7 +210,7 @@ async def test_fetches_outside_the_session(env, db, monkeypatch):
         finally:
             state["open"] -= 1
 
-    async def fake_resolve(cards):
+    async def fake_resolve(cards, custom_cycles=None):
         state["open_during_fetch"] = state["open"]
         return {}
 

@@ -6,6 +6,12 @@ date. The dates behind that link (release, active-support end, EOL) live
 upstream and are fetched live, so "is this component end-of-life?" is a
 question only this module answers.
 
+A link may also point at a *custom* product (``eol_product = "custom:<key>"``,
+see ``eol_custom_service``): the organisation's own cycles for a product
+endoflife.date lacks. Those live in the database, so the caller loads them
+(``load_custom_cycles``) before releasing its session and hands them in;
+they are never sent upstream.
+
 It started life inside the EOL report. The inventory grid now asks the same
 question of the same cards, and two implementations of "approaching" would be
 two different answers to a user comparing a grid column with a report row —
@@ -34,6 +40,7 @@ from app.services.card_flags import (
     has_eol_link,
     has_manual_eol,
 )
+from app.services.eol_custom_service import is_custom_product
 
 log = logging.getLogger("turboea.eol")
 
@@ -73,9 +80,10 @@ def eol_status(eol_val: Any, support_val: Any) -> str:
         if eol_date <= now + timedelta(days=APPROACHING_DAYS):
             return "approaching"
 
-    # If active support has ended
+    # Active support is over — a past date, or endoflife.date's `support:
+    # false` — so only security fixes remain: a warning until the EOL itself.
     sup_date = _parse(support_val)
-    if sup_date is not None and sup_date <= now:
+    if support_val is False or (sup_date is not None and sup_date <= now):
         return "approaching"
 
     if eol_val is False:
@@ -132,7 +140,9 @@ async def fetch_product_cycles(
 
 
 async def fetch_cycles_for_products(products: set[str]) -> dict[str, list[dict]]:
-    """Fetch every product's cycles in parallel, skipping failures."""
+    """Fetch every endoflife.date product's cycles in parallel, skipping
+    failures. A custom product (``custom:<key>``) is never sent upstream."""
+    products = {p for p in products if not is_custom_product(p)}
     if not products:
         return {}
     out: dict[str, list[dict]] = {}
@@ -153,7 +163,10 @@ def find_cycle(cycles: list[dict], cycle_key: str) -> dict | None:
     return None
 
 
-async def resolve_eol_statuses(cards: Sequence[Any]) -> dict[str, dict]:
+async def resolve_eol_statuses(
+    cards: Sequence[Any],
+    custom_cycles: dict[str, list[dict]] | None = None,
+) -> dict[str, dict]:
     """Resolve the EOL status of every covered card in one pass.
 
     Takes anything with ``id`` / ``attributes`` / ``lifecycle`` and returns
@@ -164,6 +177,9 @@ async def resolve_eol_statuses(cards: Sequence[Any]) -> dict[str, dict]:
 
     The caller must not hold a database session across this call: it is
     outbound HTTP, and the connection pool is 30 for the whole process.
+    Custom-product cycles are therefore loaded by the caller beforehand and
+    passed as ``custom_cycles`` (``{"custom:<key>": [cycle, ...]}``); a card
+    linked to a custom product missing from it resolves as ``unknown``.
     """
     linked = [c for c in cards if has_eol_link(getattr(c, "attributes", None))]
     manual = [
@@ -182,11 +198,17 @@ async def resolve_eol_statuses(cards: Sequence[Any]) -> dict[str, dict]:
         attrs = card.attributes or {}
         product = attrs[EOL_PRODUCT_KEY]
         cycle_key = str(attrs[EOL_CYCLE_KEY])
-        cycle = find_cycle(product_cycles.get(product, []), cycle_key)
+        custom = is_custom_product(product)
+        cycles = (
+            (custom_cycles or {}).get(product, []) if custom else product_cycles.get(product, [])
+        )
+        cycle = find_cycle(cycles, cycle_key)
         out[str(card.id)] = {
             "status": eol_status(cycle.get("eol"), cycle.get("support")) if cycle else "unknown",
-            "source": "api",
+            "source": "custom" if custom else "api",
             "eol_product": product,
+            # A custom product is named by its title; its cycles carry it.
+            "eol_product_title": cycles[0].get("title") if custom and cycles else None,
             "eol_cycle": cycle_key,
             # `eol` is a date string, `true`/`false`, or absent upstream. Only
             # a real date is worth showing in a date column; the rest is
@@ -204,6 +226,7 @@ async def resolve_eol_statuses(cards: Sequence[Any]) -> dict[str, dict]:
             "status": manual_eol_status(lifecycle),
             "source": "manual",
             "eol_product": None,
+            "eol_product_title": None,
             "eol_cycle": None,
             "eol_date": lifecycle.get("endOfLife"),
             "support_date": lifecycle.get("phaseOut"),

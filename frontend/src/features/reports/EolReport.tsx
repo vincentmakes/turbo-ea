@@ -35,6 +35,7 @@ import { useTypeLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { toLocalDate } from "@/lib/dates";
+import { eolProductLabel } from "@/lib/eolCustom";
 import { useDateFormat } from "@/hooks/useDateFormat";
 
 /* ------------------------------------------------------------------ */
@@ -65,10 +66,13 @@ interface EolItem {
   type: string;
   subtype?: string;
   eol_product: string | null;
+  /** A custom product\'s title; null for endoflife.date links. */
+  eol_product_title?: string | null;
   eol_cycle: string | null;
   status: "eol" | "approaching" | "supported" | "unknown" | "missing";
   /** `"none"` — nothing recorded at all, neither a link nor a manual date. */
-  source: "api" | "manual" | "none";
+  /** `"custom"` — linked to one of the organisation's custom EOL products. */
+  source: "api" | "custom" | "manual" | "none";
   cycle_data: CycleData | null;
   lifecycle?: Record<string, string>;
   affected_apps: AffectedApp[];
@@ -133,8 +137,14 @@ function fmtDate(
 }
 
 /** "product cycle", or as much of it as is known ("" for a card with no EOL link). */
-function productName(item: { eol_product: string | null; eol_cycle: string | null }): string {
-  return [item.eol_product, item.eol_cycle].filter(Boolean).join(" ");
+function productName(item: {
+  eol_product: string | null;
+  eol_product_title?: string | null;
+  eol_cycle: string | null;
+}): string {
+  return [item.eol_product && eolProductLabel(item.eol_product, item.eol_product_title), item.eol_cycle]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function daysUntil(dateStr: string | undefined | null): number | null {
@@ -152,19 +162,20 @@ function countdownLabel(days: number | null, t: TFunction): string {
   return t("eol.countdownYears", { count: Number((days / 365).toFixed(1)) });
 }
 
-/** Source badge for manual vs API items */
-function SourceBadge({ source }: { source: "api" | "manual" | "none" }) {
+/** Source badge for manual and custom-product items (API items carry none). */
+function SourceBadge({ source }: { source: "api" | "custom" | "manual" | "none" }) {
   const { t } = useTranslation(["reports"]);
   const theme = useTheme();
   // A missing row's status chip already says everything there is to say
   // about where its data came from: nowhere.
-  if (source !== "manual") return null;
+  if (source !== "manual" && source !== "custom") return null;
+  const custom = source === "custom";
   return (
-    <Tooltip title={t("eol.manualTooltip")}>
+    <Tooltip title={t(custom ? "eol.customTooltip" : "eol.manualTooltip")}>
       <Chip
         size="small"
-        label={t("eol.manual")}
-        icon={<MaterialSymbol icon="edit_note" size={14} />}
+        label={t(custom ? "eol.custom" : "eol.manual")}
+        icon={<MaterialSymbol icon={custom ? "inventory_2" : "edit_note"} size={14} />}
         sx={{
           height: 18,
           fontSize: "0.6rem",
@@ -291,6 +302,13 @@ export default function EolReport() {
     // Stryker disable next-line ArrayDeclaration: fetched once, on mount, by design
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fetched once, on mount
 
+  // The type filter offers the types the report actually holds — whichever
+  // types track End of Life (each type's End of Life section toggle).
+  const reportTypes = useMemo(
+    () => Array.from(new Set((data?.items ?? []).map((i) => i.type))).sort(),
+    [data],
+  );
+
   // Filter items
   const filteredItems = useMemo(() => {
     if (!data) return [];
@@ -317,7 +335,7 @@ export default function EolReport() {
       const d = sortD === "asc" ? 1 : -1;
       if (sortK === "name") return a.name.localeCompare(b.name) * d;
       if (sortK === "type") return a.type.localeCompare(b.type) * d;
-      if (sortK === "product") return (a.eol_product || "").localeCompare(b.eol_product || "") * d;
+      if (sortK === "product") return productName(a).localeCompare(productName(b)) * d;
       if (sortK === "source") return a.source.localeCompare(b.source) * d;
       if (sortK === "status") {
         return ((statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9)) * d;
@@ -458,8 +476,11 @@ export default function EolReport() {
             sx={{ minWidth: 160 }}
           >
             <MenuItem value="">{t("eol.allTypes")}</MenuItem>
-            <MenuItem value="Application">{typeLabel(getType("Application")) || "Application"}</MenuItem>
-            <MenuItem value="ITComponent">{typeLabel(getType("ITComponent")) || "ITComponent"}</MenuItem>
+            {reportTypes.map((key) => (
+              <MenuItem key={key} value={key}>
+                {typeLabel(getType(key)) || key}
+              </MenuItem>
+            ))}
           </TextField>
           <TextField
             select
@@ -474,6 +495,12 @@ export default function EolReport() {
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <MaterialSymbol icon="cloud" size={16} color={EOL_COVERAGE_COLORS.linked} />
                 endoflife.date
+              </Box>
+            </MenuItem>
+            <MenuItem value="custom">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="inventory_2" size={16} color={EOL_COVERAGE_COLORS.linked} />
+                {t("eol.custom")}
               </Box>
             </MenuItem>
             <MenuItem value="manual">
@@ -645,8 +672,8 @@ export default function EolReport() {
                             {item.name}
                           </Typography>
                         </Tooltip>
-                        {isManual && (
-                          <SourceBadge source="manual" />
+                        {(isManual || item.source === "custom") && (
+                          <SourceBadge source={item.source} />
                         )}
                         {item.affected_apps.length > 0 && (
                           <Tooltip title={t("eol.impacts", { count: item.affected_apps.length })}>
@@ -1055,7 +1082,9 @@ export default function EolReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {item.eol_product || "\u2014"}
+                        {item.eol_product
+                          ? eolProductLabel(item.eol_product, item.eol_product_title)
+                          : "\u2014"}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -1064,8 +1093,8 @@ export default function EolReport() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      {isManual ? (
-                        <SourceBadge source="manual" />
+                      {isManual || item.source === "custom" ? (
+                        <SourceBadge source={item.source} />
                       ) : (
                         <Chip
                           size="small"

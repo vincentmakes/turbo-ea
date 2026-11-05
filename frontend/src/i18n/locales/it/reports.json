@@ -355,6 +355,8 @@
   "eol.manuallyMaintained": "Gestito manualmente",
   "eol.manual": "Manuale",
   "eol.manualTooltip": "La data di fine vita è stata gestita manualmente nella sezione Ciclo di vita, non tramite l'API endoflife.date",
+  "eol.custom": "Prodotto personalizzato",
+  "eol.customTooltip": "Collegato a uno dei prodotti EOL personalizzati della Sua organizzazione (Impostazioni → EOL → Prodotti personalizzati), non a endoflife.date",
   "eol.api": "API",
   "eol.today": "Oggi",
   "eol.product": "Prodotto",
@@ -519,6 +521,6 @@
   "eol.noEolDataKpi": "Nessun dato di fine vita",
   "dataQuality.eolCoverage": "Copertura di fine vita",
   "dataQuality.eolCoverageHint": "Applicazioni e componenti IT, in base al fatto che sia stata registrata una fine vita. Fai clic su un segmento per elencare le schede che lo compongono.",
-  "dataQuality.eolLinked": "Collegato a endoflife.date",
+  "dataQuality.eolLinked": "Collegato a un prodotto EOL",
   "dataQuality.eolManual": "Data inserita a mano"
 }

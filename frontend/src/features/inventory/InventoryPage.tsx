@@ -156,7 +156,8 @@ import RelationAttributesEditor, {
 } from "@/features/cards/sections/RelationAttributesEditor";
 import { useLatestRequest } from "@/hooks/useLatestRequest";
 import { useApiQuery } from "@/hooks/useApiQuery";
-import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS, isEolType } from "@/lib/eol";
+import { EOL_STATUS_COLORS, EOL_STATUS_LABEL_KEYS } from "@/lib/eol";
+import { eolProductLabel } from "@/lib/eolCustom";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { api, ApiError, isAbortError } from "@/api/client";
 import { sideKey } from "@/lib/relationSort";
@@ -1285,8 +1286,7 @@ export default function InventoryPage() {
   // nothing. Through `useApiQuery` rather than a bare `api.get` in an effect,
   // so a slow response for the previous type cannot overwrite the current one
   // (#882).
-  const eolTypeKey =
-    filters.types.length === 1 && isEolType(filters.types[0]) ? filters.types[0] : null;
+  const eolTypeKey = eolColumnApplies(types, filters.types) ? filters.types[0] : null;
   const canViewEol = !!(user?.permissions?.["*"] || user?.permissions?.["eol.view"]);
   const { data: eolStatusData, loading: eolLoading } = useApiQuery<EolCardStatusResponse>(
     eolTypeKey && canViewEol ? `/eol/card-status?type=${encodeURIComponent(eolTypeKey)}` : null,
@@ -1298,7 +1298,7 @@ export default function InventoryPage() {
   );
   // Same rule the column picker and the facet use, so all three appear and
   // disappear together.
-  const eolColumnAvailable = canViewEol && eolColumnApplies(filters.types);
+  const eolColumnAvailable = canViewEol && eolColumnApplies(types, filters.types);
 
   // --- Hierarchy link labels (#1100) -----------------------------------------
   // The vocabulary a parent link is labelled from, and whether the column is
@@ -3283,9 +3283,9 @@ export default function InventoryPage() {
                 const color = EOL_STATUS_COLORS[entry.status];
                 const label = tReports(EOL_STATUS_LABEL_KEYS[entry.status]);
                 const title = [
-                  entry.source === "api"
-                    ? `${entry.eol_product} ${entry.eol_cycle}`
-                    : t("filter.eolManual"),
+                  entry.source === "manual"
+                    ? t("filter.eolManual")
+                    : `${eolProductLabel(entry.eol_product ?? "", entry.eol_product_title)} ${entry.eol_cycle}`,
                   entry.support_date ? `${t("columns.eolSupport")}: ${formatDate(entry.support_date)}` : null,
                 ]
                   .filter(Boolean)

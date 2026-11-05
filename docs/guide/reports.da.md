@@ -296,7 +296,8 @@ Rapporten slutter med diagrammet **End-of-life-dækning**: hvor mange applikatio
 - **Status-fordeling** — Hvor mange produkter er Supported, Approaching EOL eller End of Life
 - **Tidslinje** — Hvornår produkter mister support
 - **Risiko­prioritering** — Fokuser på missionskritiske komponenter, der nærmer sig EOL
-- **Ingen EOL-data** — Applikationer og it-komponenter uden hverken et link til endoflife.date eller en selvangivet End of Life-dato. De vises med statussen **Ingen EOL-data**; tryk på feltet med samme navn for kun at vise dem, og tryk igen for at hente resten frem. En dato, du selv vedligeholder i livscyklussen, tæller som registreret, så en komponent, du allerede har vurderet, dukker ikke op igen her.
+- **Kilde** — Hvert element kommer fra endoflife.date, fra et af dine [brugerdefinerede EOL-produkter](../admin/eol.md) (mærket **Brugerdefineret produkt**) eller fra en udløbsdato, der er indtastet manuelt (mærket **Manuel**). Filteret **Kilde** begrænser rapporten til én af dem.
+- **Ingen EOL-data** — Kort af en type, der sporer End of Life (Applications og IT Components, medmindre en administrator har [ændret det](../admin/eol.md#end-of-life-pa-andre-korttyper)), uden hverken et link til endoflife.date (eller et brugerdefineret EOL-produkt) eller en selvangivet End of Life-dato. De vises med statussen **Ingen EOL-data**; tryk på feltet med samme navn for kun at vise dem, og tryk igen for at hente resten frem. En dato, du selv vedligeholder i livscyklussen, tæller som registreret, så en komponent, du allerede har vurderet, dukker ikke op igen her.
 
 ## Gemte rapporter
 

@@ -18,6 +18,8 @@ from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
+from app.models.eol_custom_cycle import EolCustomCycle
+from app.models.eol_custom_product import EolCustomProduct
 from app.models.event import Event
 from app.models.extension import (
     Extension,
@@ -168,4 +170,6 @@ __all__ = [
     "DashboardKpiSnapshot",
     "OpsRequestNonce",
     "AuditLogEntry",
+    "EolCustomProduct",
+    "EolCustomCycle",
 ]

@@ -406,7 +406,7 @@
   "dashboard.query.flag.stale": "Obsoleta (no actualizada recientemente)",
   "dashboard.query.flag.with_stakeholders": "Con partes interesadas",
   "dashboard.query.flag.without_stakeholders": "Sin partes interesadas",
-  "dashboard.query.flag.eol_linked": "Fin de vida vinculado a endoflife.date",
+  "dashboard.query.flag.eol_linked": "Fin de vida vinculado a un producto EOL",
   "dashboard.query.flag.eol_manual": "Fecha de fin de vida introducida a mano",
   "dashboard.query.flag.eol_missing": "Sin datos de fin de vida",
   "dashboard.query.flag.related": "Tiene una relación: {{relation}}",

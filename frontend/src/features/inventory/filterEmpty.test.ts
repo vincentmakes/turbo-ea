@@ -280,14 +280,22 @@ describe("hierarchyLabelColumnApplies", () => {
 });
 
 describe("eolColumnApplies", () => {
-  it("offers the End of life column for exactly one selected EOL-eligible type", () => {
-    expect(eolColumnApplies(["Application"])).toBe(true);
-    expect(eolColumnApplies(["ITComponent"])).toBe(true);
+  const types = [
+    { key: "Application" },
+    { key: "ITComponent", section_config: { eol: { hidden: true } } },
+    { key: "Platform", section_config: { eol: { hidden: false } } },
+    { key: "BusinessCapability" },
+  ] as unknown as Parameters<typeof eolColumnApplies>[0];
+
+  it("offers the End of life column for exactly one selected type that tracks EOL", () => {
+    expect(eolColumnApplies(types, ["Application"])).toBe(true);
+    expect(eolColumnApplies(types, ["Platform"])).toBe(true);
   });
 
-  it("withholds it with no type filter, two types, or a type that cannot carry an EOL", () => {
-    expect(eolColumnApplies([])).toBe(false);
-    expect(eolColumnApplies(["Application", "ITComponent"])).toBe(false);
-    expect(eolColumnApplies(["BusinessCapability"])).toBe(false);
+  it("withholds it with no type filter, two types, or a type that does not track EOL", () => {
+    expect(eolColumnApplies(types, [])).toBe(false);
+    expect(eolColumnApplies(types, ["Application", "Platform"])).toBe(false);
+    expect(eolColumnApplies(types, ["BusinessCapability"])).toBe(false);
+    expect(eolColumnApplies(types, ["ITComponent"])).toBe(false);
   });
 });

@@ -294,7 +294,8 @@ describe("CardLayoutEditor — rendering", () => {
       } as unknown as Record<string, SectionConfig>,
     });
     setup({ cardType: stale });
-    expect(sectionHeaders()).toEqual(["Lifecycle", "Only", "Description", "Tags", "Relations"]);
+    // End of Life, absent from the stored order, is spliced in before Lifecycle.
+    expect(sectionHeaders()).toEqual(["End of Life", "Lifecycle", "Only", "Description", "Tags", "Relations"]);
   });
 
   it("appends lineage and tags when a saved order has no relations entry to anchor them on", () => {
@@ -305,7 +306,7 @@ describe("CardLayoutEditor — rendering", () => {
       section_config: { __order: ["custom:0", "description"] } as unknown as Record<string, SectionConfig>,
     });
     setup({ cardType: anchorless });
-    expect(sectionHeaders()).toEqual(["Only", "Description", "Lineage", "Tags"]);
+    expect(sectionHeaders()).toEqual(["Only", "Description", "End of Life", "Lineage", "Tags"]);
   });
 
   it("renders the Description section's protected built-ins plus its own fields", () => {
@@ -447,6 +448,50 @@ describe("CardLayoutEditor — section switches", () => {
     await user.click(hidden);
     await waitFor(() => expect(onRefresh).toHaveBeenCalled());
     expect(lastPatch().section_config?.eol).toEqual({ hidden: false });
+  });
+});
+
+describe("CardLayoutEditor — End of Life follows the type's real state", () => {
+  const typeWith = (key: string, section_config: Record<string, unknown> = {}) =>
+    makeCardType({
+      key,
+      label: key,
+      fields_schema: [DESCRIPTION_SECTION],
+      section_config: section_config as Record<string, SectionConfig>,
+    });
+
+  it("reads hidden on a custom type that never stored a value, and shows it on request", async () => {
+    const custom = typeWith("Gadget");
+    mockApi.on("patch", "/metamodel/types/Gadget", (_p, body) => ({ ...custom, ...(body as object) }));
+    const { user, onRefresh } = setup({ cardType: custom });
+    const eol = sectionRoot("End of Life");
+    const hidden = within(eol).getByRole("checkbox", { name: "Hidden from card detail" });
+    expect(hidden).toBeChecked();
+    expect(within(eol).getByText(/also brings the type into End of Life reporting/)).toBeInTheDocument();
+    await user.click(hidden);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().section_config?.eol).toEqual({ hidden: false });
+  });
+
+  it("reads visible on IT Component by default, and hides it explicitly", async () => {
+    const itc = typeWith("ITComponent", { eol: { defaultExpanded: false } });
+    mockApi.on("patch", "/metamodel/types/ITComponent", (_p, body) => ({ ...itc, ...(body as object) }));
+    const { user, onRefresh } = setup({ cardType: itc });
+    const hidden = within(sectionRoot("End of Life")).getByRole("checkbox", {
+      name: "Hidden from card detail",
+    });
+    expect(hidden).not.toBeChecked();
+    await user.click(hidden);
+    await waitFor(() => expect(onRefresh).toHaveBeenCalled());
+    expect(lastPatch().section_config?.eol).toEqual({ defaultExpanded: false, hidden: true });
+  });
+
+  it("puts the reporting note on the End of Life row only", () => {
+    setup({ cardType: typeWith("Gadget") });
+    expect(screen.getAllByText(/also brings the type into End of Life reporting/)).toHaveLength(1);
+    expect(
+      within(sectionRoot("Lifecycle")).queryByText(/End of Life reporting/),
+    ).not.toBeInTheDocument();
   });
 });
 

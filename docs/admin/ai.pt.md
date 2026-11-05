@@ -195,6 +195,10 @@ Esses campos só são sugeridos quando a IA encontra evidências claras — não
 !!! note
     Além dos campos específicos de Aplicação, as sugestões de IA geram principalmente o campo **descrição**. Campos personalizados para outros tipos de cards ainda não são cobertos.
 
+### Produtos EOL personalizados
+
+O mesmo botão aparece nas caixas de diálogo **Criar um produto EOL personalizado** e **Editar produto EOL personalizado** ([Administração de EOL](eol.md)), assim que o produto tem um nome. A sugestão é redigida a partir do nome do produto e da sua ligação do fornecedor, com uma pesquisa do ciclo de vida de suporte do produto. Um produto personalizado não é um tipo de ficha, pelo que o interruptor por tipo acima não se aplica: a funcionalidade só precisa de que as sugestões de IA estejam ativadas e configuradas, além da permissão `ai.suggest`.
+
 ---
 
 ## Análises do portfólio

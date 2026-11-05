@@ -355,6 +355,8 @@
   "eol.manuallyMaintained": "Manually Maintained",
   "eol.manual": "Manual",
   "eol.manualTooltip": "End-of-Life date was manually maintained in the Lifecycle section, not from endoflife.date API",
+  "eol.custom": "Custom product",
+  "eol.customTooltip": "Linked to one of your organisation's custom EOL products (Settings → EOL → Custom products), not to endoflife.date",
   "eol.api": "API",
   "eol.today": "Today",
   "eol.product": "Product",
@@ -519,6 +521,6 @@
   "eol.noEolDataKpi": "No EOL data",
   "dataQuality.eolCoverage": "End-of-life coverage",
   "dataQuality.eolCoverageHint": "Applications and IT components, by whether an end of life has been recorded for them. Click a segment to list the cards behind it.",
-  "dataQuality.eolLinked": "Linked to endoflife.date",
+  "dataQuality.eolLinked": "Linked to an EOL product",
   "dataQuality.eolManual": "Date entered by hand"
 }

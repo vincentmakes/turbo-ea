@@ -360,7 +360,7 @@ El escáner de cumplimiento y el flujo de promoción a Riesgo funcionan **inclus
 Para cada tipo de ficha, la sección **Diseño** en el panel del tipo controla cómo se estructura la página de detalle:
 
 - **Orden de secciones** — Arrastre secciones (Descripción, EOL, Ciclo de Vida, Jerarquía, Etiquetas, Relaciones y secciones personalizadas) para reordenarlas
-- **Visibilidad** — Oculte secciones que no sean relevantes para un tipo
+- **Visibilidad** — Oculte secciones que no sean relevantes para un tipo. La sección **Fin de vida** es la excepción a «se muestra salvo que se oculte»: por defecto se muestra solo en Aplicaciones y Componentes TI, y está oculta en todos los demás tipos, incluidos los personalizados, hasta que la active. Su interruptor decide también si el tipo participa en los informes de fin de vida — véase [Fin de vida en otros tipos de ficha](eol.md#fin-de-vida-en-otros-tipos-de-ficha)
 - **Expansión predeterminada** — Elija si cada sección comienza expandida o colapsada
 - **Diseño de columnas** — Configure 1 o 2 columnas por sección personalizada
 - **Mover campos entre secciones** — Usar la acción **mover** de un campo (junto a sus botones de editar y eliminar) para reubicarlo en otra sección, conservando su configuración

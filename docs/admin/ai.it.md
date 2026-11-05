@@ -195,6 +195,10 @@ Questi campi vengono suggeriti solo quando l'AI trova prove chiare — non vengo
 !!! note
     A parte i campi specifici per le Applicazioni, i suggerimenti AI generano principalmente il campo **descrizione**. I campi personalizzati per altri tipi di card non sono ancora coperti.
 
+### Prodotti EOL personalizzati
+
+Lo stesso pulsante compare nelle finestre **Crea un prodotto EOL personalizzato** e **Modifica prodotto EOL personalizzato** ([Amministrazione EOL](eol.md)), una volta che il prodotto ha un nome. Il suggerimento viene redatto a partire dal nome del prodotto e dal suo link del fornitore, con una ricerca del ciclo di vita del supporto del prodotto. Un prodotto personalizzato non è un tipo di scheda, quindi l'interruttore per tipo descritto sopra non si applica: la funzione richiede solo che i suggerimenti IA siano abilitati e configurati, oltre al permesso `ai.suggest`.
+
 ---
 
 ## Analisi del portafoglio

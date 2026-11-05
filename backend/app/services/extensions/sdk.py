@@ -544,7 +544,8 @@ class ExtStakeholder:
 class ExtEolStatus:
     """A card's resolved end-of-life status (SDK 1.10), exactly what the
     EOL report and the inventory's EOL column show. ``source`` is ``api``
-    when the card links an endoflife.date product + cycle and ``manual``
+    when the card links an endoflife.date product + cycle, ``custom`` when it
+    links one of the organisation's custom EOL products and ``manual``
     when only a hand-kept ``lifecycle.endOfLife`` date exists; ``status``
     is ``eol`` / ``approaching`` / ``supported`` / ``unknown``. Dates are
     ISO strings or ``None``."""

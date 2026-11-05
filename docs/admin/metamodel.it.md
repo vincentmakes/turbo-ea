@@ -360,7 +360,7 @@ Lo scanner di conformità e il flusso di promozione a Rischio funzionano **anche
 Per ogni tipo di card, la sezione **Layout** nel cassetto del tipo controlla come è strutturata la pagina di dettaglio della card:
 
 - **Ordine delle sezioni** — Trascinate le sezioni (Descrizione, EOL, Ciclo di vita, Gerarchia, Tag, Relazioni e sezioni personalizzate) per riordinarle
-- **Visibilità** — Nascondete le sezioni che non sono rilevanti per un tipo
+- **Visibilità** — Nascondete le sezioni che non sono rilevanti per un tipo. La sezione **Fine vita** fa eccezione a «mostrata se non nascosta»: per impostazione predefinita è mostrata solo su Application e IT Component e nascosta su ogni altro tipo, anche personalizzato, finché non la attivate. Il suo interruttore decide anche se il tipo partecipa ai report sul fine vita — vedere [Fine vita su altri tipi di card](eol.md#fine-vita-su-altri-tipi-di-card)
 - **Espansione predefinita** — Scegliete se ogni sezione inizia espansa o compressa
 - **Layout colonne** — Impostate 1 o 2 colonne per sezione personalizzata
 - **Spostare campi tra le sezioni** — Usare l'azione **sposta** di un campo (accanto ai pulsanti di modifica ed elimina) per ricollocarlo in un'altra sezione, mantenendone la configurazione

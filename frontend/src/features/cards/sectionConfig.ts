@@ -110,7 +110,11 @@ export const DEFAULT_SECTION_ORDER = [
  * Card Layout editor lists them in. One function for both, so the editor
  * cannot show an admin an order the card does not render.
  *
- * A stored `__order` wins. Custom sections it does not name go at its end;
+ * A stored `__order` wins. `eol` missing from it (an order imported or written
+ * by an extension) is spliced in before `lifecycle`, else after
+ * `description`, else before `relations`: every type can now turn End of Life
+ * on, and a section absent from the order could be neither shown nor toggled.
+ * Custom sections it does not name go at its end;
  * `successors` and `tags`, which postdate the orders of existing installs,
  * are spliced in just before `relations` (or appended when there is none);
  * `hierarchy` and `successors` drop out for a type that has no such section.
@@ -126,12 +130,19 @@ export function buildSectionOrder(
   if (Array.isArray(stored) && stored.length > 0) {
     const named = new Set<string>(stored);
     const order: string[] = [...stored];
-    for (const k of customKeys) if (!named.has(k)) order.push(k);
     const beforeRelations = (key: string) => {
       const at = order.indexOf("relations");
       if (at >= 0) order.splice(at, 0, key);
       else order.push(key);
     };
+    if (!named.has("eol")) {
+      const lifecycleAt = order.indexOf("lifecycle");
+      const descriptionAt = order.indexOf("description");
+      if (lifecycleAt >= 0) order.splice(lifecycleAt, 0, "eol");
+      else if (descriptionAt >= 0) order.splice(descriptionAt + 1, 0, "eol");
+      else beforeRelations("eol");
+    }
+    for (const k of customKeys) if (!named.has(k)) order.push(k);
     if (!named.has("successors") && has.successors) beforeRelations("successors");
     if (!named.has("tags")) beforeRelations("tags");
     return order.filter(

@@ -160,11 +160,14 @@ A aba de **Recursos** consolida todos os materiais de apoio de um card:
 
 ### Seção EOL
 
-Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.date/) (via [Administração de EOL](../admin/eol.md)):
+Exibida por padrão em Aplicações e Componentes de TI, e em qualquer outro tipo de card cujo administrador a tenha [ativado](../admin/eol.md#fim-de-vida-em-outros-tipos-de-card). Se o card estiver vinculado a um produto do [endoflife.date](https://endoflife.date/) (via [Administração de EOL](../admin/eol.md)):
 
-- **Nome do produto e versão**
-- **Status de suporte** — Com código de cores: Suportado, Aproximando-se do EOL, Fim de Vida
-- **Datas importantes** — Data de lançamento, fim do suporte ativo, fim do suporte de segurança, data de EOL
+- **Nome do produto e versão** — um produto personalizado é designado pelo seu título e marcado como **Personalizado**
+- **Status de suporte** — Com código de cores, com a mesma regra do relatório de EOL: Suportado, Aproximando-se do EOL (a menos de seis meses da data de EOL ou depois de terminado o suporte ativo), Fim de Vida
+- **Datas importantes** — Data de lançamento, fim do suporte ativo, data de EOL, a última versão e a sua data de lançamento
+- **Notas de lançamento** — uma ligação para a página do produto no endoflife.date, ou a **Página do fornecedor** de um produto personalizado
+
+**Vincular**, **Alterar** e **Desvincular** só aparecem se puder editar a ficha. Os utilizadores com a permissão **Gerir EOL** podem definir um [produto EOL personalizado](../admin/eol.md) diretamente a partir desta secção, através da ligação **Defini-lo como produto personalizado…** sob a pesquisa de produto: o formulário abre com o nome da ficha (ou o que escreveu) como nome do produto, e a ficha fica vinculada ao novo produto ao guardar. Dispõem também de um atalho para **Gerir produtos personalizados** nas definições e podem adicionar um ciclo de lançamento em falta a partir da lista de ciclos. Os restantes utilizadores veem uma sugestão para pedir a um gestor de EOL quando o endoflife.date não tem correspondência. Os produtos personalizados comportam-se como os produtos do endoflife.date em todos os outros locais.
 
 ## Aba de Comentários
 

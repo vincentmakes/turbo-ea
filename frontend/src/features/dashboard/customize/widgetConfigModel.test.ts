@@ -140,8 +140,21 @@ describe("metamodel helpers", () => {
       expect(dimensionOptions(APPLICATION_TYPE, RELATION_TYPES)).not.toContain(retired);
       expect(queryProblem({ group_by: retired })).toBeNull();
     }
-    // EOL coverage only where EOL data can exist.
+    // EOL coverage only where EOL data can exist: the type's End of Life
+    // section toggle, off by default outside Application / IT Component.
     expect(dimensionOptions(BUSINESS_CAPABILITY_TYPE)).not.toContain("eol_coverage");
+    const tracking = {
+      ...BUSINESS_CAPABILITY_TYPE,
+      section_config: { eol: { hidden: false } },
+    } as typeof BUSINESS_CAPABILITY_TYPE;
+    expect(dimensionOptions(tracking)).toContain("eol_coverage");
+    expect(flagOptions(tracking)).toContain("eol_missing");
+    const notTracking = {
+      ...APPLICATION_TYPE,
+      section_config: { eol: { hidden: true } },
+    } as typeof APPLICATION_TYPE;
+    expect(dimensionOptions(notTracking)).not.toContain("eol_coverage");
+    expect(flagOptions(notTracking)).not.toContain("eol_missing");
     expect(dimensionOptions(BUSINESS_CAPABILITY_TYPE, RELATION_TYPES)).toContain("related:relAppToBC");
     // A hidden relation type is not offered.
     expect(dimensionOptions(APPLICATION_TYPE, [{ ...REL_APP_TO_ITC, is_hidden: true }])).not.toContain(

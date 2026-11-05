@@ -157,3 +157,70 @@ class TestEolReportCoverage:
         assert item["source"] == "api"
         assert item["cycle_data"]["eol"] == "2020-01-01"
         assert data["summary"]["eol"] == 1
+
+
+class TestEolReportFollowsTheSectionToggle:
+    """A type is in the EOL report and the coverage chart exactly when its
+    End of Life section is shown (`card_flags.type_tracks_eol`)."""
+
+    async def test_an_enabled_custom_type_joins_and_a_hidden_one_leaves(self, client, db):
+        await create_role(db, key="admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(
+            db, key="ITComponent", label="IT Component", section_config={"eol": {"hidden": True}}
+        )
+        await create_card_type(
+            db, key="Platform", label="Platform", section_config={"eol": {"hidden": False}}
+        )
+        await create_card(db, card_type="Platform", name="Old Platform", user_id=admin.id)
+        await create_card(
+            db,
+            card_type="ITComponent",
+            name="Hidden Box",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+
+        data = await _report(client, admin)
+        names = {i["name"] for i in data["items"]}
+        assert "Old Platform" in names
+        assert "Hidden Box" not in names
+
+        dq = await client.get("/api/v1/reports/data-quality", headers=auth_headers(admin))
+        assert dq.status_code == 200
+        coverage = {row["type"]: row for row in dq.json()["eol_coverage"]}
+        assert set(coverage) == {"Platform"}
+        assert coverage["Platform"]["missing"] == 1
+
+        panel = await client.get(
+            "/api/v1/reports/data-quality/cards?type=Platform&scope=eol_missing",
+            headers=auth_headers(admin),
+        )
+        assert panel.status_code == 200
+        assert [c["name"] for c in panel.json()["items"]] == ["Old Platform"]
+
+    async def test_impact_still_names_applications_that_do_not_track_eol(self, client, db):
+        await create_role(db, key="admin", permissions={"*": True})
+        admin = await create_user(db, email="admin@test.com", role="admin")
+        await create_card_type(
+            db, key="Application", label="Application", section_config={"eol": {"hidden": True}}
+        )
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        await create_relation_type(
+            db, key="relAppToITC", source_type_key="Application", target_type_key="ITComponent"
+        )
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        itc = await create_card(
+            db,
+            card_type="ITComponent",
+            name="Nginx LB",
+            attributes={"eol_product": "nginx", "eol_cycle": "1.25"},
+            user_id=admin.id,
+        )
+        await create_relation(db, type_key="relAppToITC", source_id=app.id, target_id=itc.id)
+
+        data = await _report(client, admin)
+        assert "CRM" not in {i["name"] for i in data["items"]}
+        nginx = next(i for i in data["items"] if i["name"] == "Nginx LB")
+        assert [a["name"] for a in nginx["affected_apps"]] == ["CRM"]

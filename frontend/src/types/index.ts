@@ -1468,7 +1468,11 @@ export interface BadgeCounts {
 // ---------------------------------------------------------------------------
 
 export interface EolProduct {
+  /** endoflife.date slug, or `custom:<key>` for a custom EOL product. */
   name: string;
+  /** Display name of a custom product (endoflife.date products carry none). */
+  title?: string | null;
+  custom?: boolean;
 }
 
 export interface EolCycle {
@@ -1482,6 +1486,8 @@ export interface EolCycle {
   discontinued?: string | boolean | null;
   codename?: string | null;
   link?: string | null;
+  /** A custom product's title; endoflife.date cycles carry none. */
+  title?: string | null;
 }
 
 /**
@@ -1491,8 +1497,11 @@ export interface EolCycle {
  */
 export interface EolCardStatus {
   status: "eol" | "approaching" | "supported" | "unknown";
-  source: "api" | "manual";
+  /** `custom` — linked to one of the organisation's custom EOL products. */
+  source: "api" | "custom" | "manual";
   eol_product?: string | null;
+  /** A custom product's title; null for endoflife.date links. */
+  eol_product_title?: string | null;
   eol_cycle?: string | null;
   /** ISO date, or null when upstream reports only a boolean. */
   eol_date?: string | null;
@@ -1507,6 +1516,8 @@ export interface EolCardStatusResponse {
 export interface EolProductMatch {
   name: string;
   score: number;
+  title?: string | null;
+  custom?: boolean;
 }
 
 export interface MassEolCandidate {
@@ -1515,6 +1526,66 @@ export interface MassEolCandidate {
   card_type: string;
   eol_product: string;
   score: number;
+  title?: string | null;
+  custom?: boolean;
+}
+
+/** An EOL / end-of-support value: a date, `true` (ended), `false` (no end announced). */
+export type EolMilestone = string | boolean | null;
+
+/** One release cycle of a custom EOL product (`GET /eol/custom-products`). */
+export interface EolCustomCycle {
+  id: string;
+  cycle: string;
+  releaseDate: string | null;
+  support: EolMilestone;
+  eol: EolMilestone;
+  latest: string | null;
+  latestReleaseDate: string | null;
+  sort_order: number;
+  /** Cards the caller can see that link this cycle. */
+  linked_cards: number;
+  updated_at: string | null;
+}
+
+/** endoflife.date's product categories (the file's `category` field). */
+export type EolDateCategory =
+  | "app"
+  | "database"
+  | "device"
+  | "framework"
+  | "lang"
+  | "os"
+  | "server-app"
+  | "service"
+  | "standard";
+
+/** A product the organisation tracks end-of-life dates for itself. */
+export interface EolCustomProduct {
+  id: string;
+  key: string;
+  /** What a card stores in `attributes.eol_product`: `custom:<key>`. */
+  product: string;
+  title: string;
+  description: string | null;
+  link: string | null;
+  /** What the endoflife.date proposal file needs beyond the cycles. */
+  eol_category: EolDateCategory | null;
+  release_policy_note: string | null;
+  linked_cards: number;
+  cycles: EolCustomCycle[];
+  updated_at: string | null;
+}
+
+/** The writable fields of a cycle, as sent on create / patch. */
+export interface EolCustomCycleInput {
+  cycle: string;
+  releaseDate?: string | null;
+  support?: EolMilestone;
+  /** Required on endoflife.date: a date, `false` (none announced) or `true`. */
+  eol: EolMilestone;
+  latest?: string | null;
+  latestReleaseDate?: string | null;
 }
 
 export interface MassEolResult {
@@ -1522,6 +1593,8 @@ export interface MassEolResult {
   card_name: string;
   card_type: string;
   current_eol_product?: string | null;
+  /** The current link's title when it is a custom product. */
+  current_title?: string | null;
   current_eol_cycle?: string | null;
   candidates: MassEolCandidate[];
 }

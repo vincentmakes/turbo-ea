@@ -163,11 +163,14 @@ La pestaña de **Recursos** consolida todos los materiales de apoyo de una ficha
 
 ### Sección EOL
 
-Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
+Se muestra por defecto en Aplicaciones y Componentes TI, y en cualquier otro tipo de ficha cuyo administrador la [haya activado](../admin/eol.md#fin-de-vida-en-otros-tipos-de-ficha). Si la ficha está vinculada a un producto de [endoflife.date](https://endoflife.date/) (a través de la [Administración de EOL](../admin/eol.es.md)):
 
-- **Nombre del producto y versión**
-- **Estado de soporte** — Codificado por colores: Con Soporte, Próximo a EOL, Fin de Vida
-- **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fin de soporte de seguridad, fecha EOL
+- **Nombre del producto y versión** — un producto personalizado se nombra con su título y se marca como **Personalizado**
+- **Estado de soporte** — Codificado por colores, con la misma regla que el informe EOL: Con Soporte, Próximo a EOL (a menos de seis meses de la fecha EOL o una vez finalizado el soporte activo), Fin de Vida
+- **Fechas clave** — Fecha de lanzamiento, fin de soporte activo, fecha EOL, la última versión y su fecha de lanzamiento
+- **Notas de la versión** — un enlace a la página del producto en endoflife.date, o la **Página del proveedor** de un producto personalizado
+
+**Vincular**, **Cambiar** y **Desvincular** aparecen solo si puede editar la ficha. Los usuarios con el permiso **Gestionar EOL** pueden definir un [producto EOL personalizado](../admin/eol.es.md) directamente desde esta sección, mediante el enlace **Definirlo como producto personalizado…** bajo la búsqueda de producto: el formulario se abre con el nombre de la ficha (o lo que escribió) como nombre del producto, y la ficha queda vinculada al nuevo producto al guardar. También disponen de un acceso directo a **Gestionar productos personalizados** en la configuración y pueden añadir un ciclo de versión que falte desde la lista de ciclos. El resto de usuarios ve una sugerencia para pedírselo a un gestor de EOL cuando endoflife.date no tiene coincidencia. Los productos personalizados se comportan como los productos de endoflife.date en el resto de lugares.
 
 ## Pestaña de Comentarios
 

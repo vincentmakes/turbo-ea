@@ -17,12 +17,14 @@ from sqlalchemy.orm import aliased
 
 from app.models.card import Card
 from app.services.card_flags import (
+    DEFAULT_EOL_TYPES,
     EOL_BUCKETS,
-    EOL_TYPES,
     eol_bucket_condition,
+    eol_type_keys,
     has_eol_coverage,
     has_eol_link,
     has_manual_eol,
+    type_tracks_eol,
 )
 from app.services.eol_service import (
     APPROACHING_DAYS,
@@ -60,8 +62,8 @@ class TestCoveragePredicates:
         assert has_eol_coverage(None, {"endOfLife": "2027-01-01"}) is True
         assert has_eol_coverage({}, {"active": "2020-01-01"}) is False
 
-    def test_eligible_types(self):
-        assert set(EOL_TYPES) == {"Application", "ITComponent"}
+    def test_default_eligible_types(self):
+        assert set(DEFAULT_EOL_TYPES) == {"Application", "ITComponent"}
 
 
 class TestApiStatus:
@@ -80,6 +82,24 @@ class TestApiStatus:
     def test_ended_active_support_is_approaching(self):
         """Security-only maintenance is a warning even with the EOL date far off."""
         assert eol_status(_iso(400), _iso(-10)) == "approaching"
+
+    def test_ended_support_flag_is_approaching(self):
+        """endoflife.date's `support: false` means active support is over —
+        the same warning as a past support date, whatever the EOL says."""
+        assert eol_status(_iso(400), False) == "approaching"
+        assert eol_status(False, False) == "approaching"
+        assert eol_status(None, False) == "approaching"
+
+    def test_ended_support_never_outranks_eol(self):
+        assert eol_status(True, False) == "eol"
+        assert eol_status(_iso(-1), False) == "eol"
+        assert eol_status(_iso(APPROACHING_DAYS - 5), False) == "approaching"
+
+    def test_still_supported_flag_changes_nothing(self):
+        assert eol_status(_iso(400), True) == "supported"
+        assert eol_status(False, True) == "supported"
+        assert eol_status(None, True) == "unknown"
+        assert eol_status(_iso(400), _iso(10)) == "supported"
 
     def test_absent_upstream_data_is_unknown(self):
         assert eol_status(None, None) == "unknown"
@@ -183,31 +203,39 @@ class TestSqlMatchesPython:
 
     @pytest.mark.parametrize("bucket", EOL_BUCKETS)
     async def test_sql_bucket_matches_the_python_predicate(self, db, eol_shapes, bucket):
-        rows = await db.execute(select(Card.name).where(eol_bucket_condition(bucket)))
+        rows = await db.execute(
+            select(Card.name).where(eol_bucket_condition(bucket, eol_types=DEFAULT_EOL_TYPES))
+        )
         assert set(rows.scalars().all()) == {
             c.name for c in eol_shapes if _python_bucket(c) == bucket
         }
 
     async def test_half_a_link_is_missing_not_linked(self, db, eol_shapes):
         """The rows a `NOT (product AND cycle)` would silently discard."""
-        rows = await db.execute(select(Card.name).where(eol_bucket_condition("missing")))
+        rows = await db.execute(
+            select(Card.name).where(eol_bucket_condition("missing", eol_types=DEFAULT_EOL_TYPES))
+        )
         names = set(rows.scalars().all())
         for shape in ("ProductOnly", "CycleOnly", "EmptyStrings", "JsonNulls", "Bare", "NoAttrs"):
             assert shape in names, shape
 
     async def test_a_link_wins_over_a_manual_date(self, db, eol_shapes):
         """Same precedence as the dashboard's if/elif, so a card is counted once."""
-        rows = await db.execute(select(Card.name).where(eol_bucket_condition("linked")))
+        rows = await db.execute(
+            select(Card.name).where(eol_bucket_condition("linked", eol_types=DEFAULT_EOL_TYPES))
+        )
         assert "BothSources" in set(rows.scalars().all())
 
     async def test_buckets_are_exhaustive_and_disjoint(self, db, eol_shapes):
         total = await db.execute(
-            select(func.count()).select_from(Card).where(Card.type.in_(EOL_TYPES))
+            select(func.count()).select_from(Card).where(Card.type.in_(DEFAULT_EOL_TYPES))
         )
         seen: set[str] = set()
         counted = 0
         for bucket in EOL_BUCKETS:
-            rows = await db.execute(select(Card.name).where(eol_bucket_condition(bucket)))
+            rows = await db.execute(
+                select(Card.name).where(eol_bucket_condition(bucket, eol_types=DEFAULT_EOL_TYPES))
+            )
             names = set(rows.scalars().all())
             assert not (names & seen), f"{bucket} overlaps an earlier bucket"
             seen |= names
@@ -216,20 +244,26 @@ class TestSqlMatchesPython:
 
     async def test_a_type_with_no_end_of_life_is_in_no_bucket(self, db, eol_shapes):
         for bucket in EOL_BUCKETS:
-            rows = await db.execute(select(Card.name).where(eol_bucket_condition(bucket)))
+            rows = await db.execute(
+                select(Card.name).where(eol_bucket_condition(bucket, eol_types=DEFAULT_EOL_TYPES))
+            )
             assert "Payments" not in set(rows.scalars().all())
 
     def test_unknown_bucket_raises(self):
         with pytest.raises(ValueError):
-            eol_bucket_condition("bogus")
+            eol_bucket_condition("bogus", eol_types=DEFAULT_EOL_TYPES)
 
     @pytest.mark.parametrize("bucket", EOL_BUCKETS)
     async def test_an_alias_reads_the_same_bucket(self, db, eol_shapes, bucket):
         """A dashboard sankey filters both of its ends through an alias."""
         alias = aliased(Card)
-        default = await db.execute(select(Card.name).where(eol_bucket_condition(bucket)))
+        default = await db.execute(
+            select(Card.name).where(eol_bucket_condition(bucket, eol_types=DEFAULT_EOL_TYPES))
+        )
         over_alias = await db.execute(
-            select(alias.name).where(eol_bucket_condition(bucket, card=alias))
+            select(alias.name).where(
+                eol_bucket_condition(bucket, card=alias, eol_types=DEFAULT_EOL_TYPES)
+            )
         )
         assert set(over_alias.scalars().all()) == set(default.scalars().all())
 
@@ -251,7 +285,7 @@ class TestDashboardEolDimension:
             await db.execute(
                 select(
                     Card.name,
-                    _sql_dimension("eol_coverage", Card),
+                    _sql_dimension("eol_coverage", Card, DEFAULT_EOL_TYPES),
                     _dimension_column("eol_coverage", Card),
                 )
             )
@@ -259,8 +293,82 @@ class TestDashboardEolDimension:
         by_name = {c.name: _python_bucket(c) for c in eol_shapes}
         assert len(rows) == len(EOL_SHAPES) + 1
         for name, sql_bucket, raw in rows:
-            python_bucket = dimension_key("eol_coverage", raw, [])
+            python_bucket = dimension_key("eol_coverage", raw, [], eol_types=DEFAULT_EOL_TYPES)
             assert sql_bucket == python_bucket, name
-            assert python_bucket == eol_coverage_key(raw)
+            assert python_bucket == eol_coverage_key(raw, DEFAULT_EOL_TYPES)
             # The BusinessCapability is in no bucket at all.
             assert python_bucket == by_name.get(name), name
+
+
+class TestWhichTypesTrackEol:
+    """One switch decides it: the type's End of Life section toggle. An
+    explicit boolean always wins; absent, the shipped default applies."""
+
+    @pytest.mark.parametrize(
+        ("key", "section_config", "tracks"),
+        [
+            ("Application", None, True),
+            ("ITComponent", {}, True),
+            ("Platform", None, False),
+            ("MyCustomType", {}, False),
+            ("ITComponent", {"eol": {"hidden": True}}, False),
+            ("Platform", {"eol": {"hidden": False}}, True),
+            ("MyCustomType", {"eol": {"hidden": False, "defaultExpanded": True}}, True),
+            # No `hidden` in the section's config says nothing about visibility.
+            ("Application", {"eol": {"defaultExpanded": False}}, True),
+            ("Platform", {"eol": {"defaultExpanded": True}}, False),
+            # A legacy bare boolean is the old "expanded" flag, not visibility.
+            ("Platform", {"eol": True}, False),
+            ("ITComponent", {"eol": False}, True),
+            # Only a real boolean counts.
+            ("Platform", {"eol": {"hidden": "false"}}, False),
+            ("Platform", {"lifecycle": {"hidden": False}}, False),
+        ],
+    )
+    def test_type_tracks_eol(self, key, section_config, tracks):
+        assert type_tracks_eol(key, section_config) is tracks
+
+    async def test_eol_type_keys_reads_the_metamodel(self, db):
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(
+            db,
+            key="ITComponent",
+            label="IT Component",
+            section_config={"eol": {"hidden": True}},
+        )
+        await create_card_type(
+            db, key="Platform", label="Platform", section_config={"eol": {"hidden": False}}
+        )
+        await create_card_type(db, key="Gizmo", label="Gizmo")
+        await create_card_type(
+            db,
+            key="Retired",
+            label="Retired",
+            is_hidden=True,
+            section_config={"eol": {"hidden": False}},
+        )
+        assert await eol_type_keys(db) == ("Application", "Platform")
+
+    async def test_a_custom_type_that_tracks_eol_has_buckets(self, db):
+        await create_card_type(
+            db, key="Platform", label="Platform", section_config={"eol": {"hidden": False}}
+        )
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        admin = await create_user(db, email="platform@test.com", role="admin")
+        await create_card(
+            db,
+            card_type="Platform",
+            name="Linked platform",
+            user_id=admin.id,
+            attributes={"eol_product": "custom:p", "eol_cycle": "1"},
+        )
+        await db.flush()
+        types = await eol_type_keys(db)
+        rows = await db.execute(
+            select(Card.name).where(eol_bucket_condition("linked", eol_types=types))
+        )
+        assert "Linked platform" in set(rows.scalars().all())
+        rows = await db.execute(
+            select(Card.name).where(eol_bucket_condition("linked", eol_types=("ITComponent",)))
+        )
+        assert "Linked platform" not in set(rows.scalars().all())

@@ -395,12 +395,12 @@ class TestPureHelpers:
         months = ["2026-09", "2026-10"]
         stamp = datetime(2026, 10, 2, tzinfo=timezone.utc)
         old = datetime(2025, 1, 2, tzinfo=timezone.utc)
-        assert dimension_key("created_month", stamp, months) == "2026-10"
-        assert dimension_key("created_month", old, months) is None
-        assert dimension_key("data_quality_bucket", 80, months) == "75-100"
-        assert dimension_key("lifecycle_phase", {}, months) == "none"
-        assert dimension_key("type", "Application", months) == "Application"
-        assert dimension_key("field:x", None, months) == "none"
+        assert dimension_key("created_month", stamp, months, eol_types=()) == "2026-10"
+        assert dimension_key("created_month", old, months, eol_types=()) is None
+        assert dimension_key("data_quality_bucket", 80, months, eol_types=()) == "75-100"
+        assert dimension_key("lifecycle_phase", {}, months, eol_types=()) == "none"
+        assert dimension_key("type", "Application", months, eol_types=()) == "Application"
+        assert dimension_key("field:x", None, months, eol_types=()) == "none"
 
     def test_dimension_domain(self):
         months = ["2026-10"]
@@ -569,18 +569,30 @@ class TestNewPureHelpers:
 
     def test_eol_coverage_key(self):
         link = {"eol_product": "nginx", "eol_cycle": "1.25"}
-        assert eol_coverage_key(["Application", link, {}]) == "linked"
-        assert eol_coverage_key(["ITComponent", link, {"endOfLife": "2027-01-01"}]) == "linked"
+        types = ("Application", "ITComponent")
+        assert eol_coverage_key(["Application", link, {}], types) == "linked"
+        assert eol_coverage_key(["ITComponent", link, {"endOfLife": "2027-01-01"}], types) == (
+            "linked"
+        )
         assert (
-            eol_coverage_key(["ITComponent", {"eol_product": "x"}, {"endOfLife": "2027-01-01"}])
+            eol_coverage_key(
+                ["ITComponent", {"eol_product": "x"}, {"endOfLife": "2027-01-01"}], types
+            )
             == "manual"
         )
-        assert eol_coverage_key(["ITComponent", {}, {}]) == "missing"
-        assert eol_coverage_key(["ITComponent", None, None]) == "missing"
-        assert eol_coverage_key(["ITComponent", ["x"], ["y"]]) == "missing"
-        assert eol_coverage_key(["Organization", link, {}]) is None
-        assert eol_coverage_key(None) is None
-        assert eol_coverage_key(["ITComponent", {}]) is None
+        assert eol_coverage_key(["ITComponent", {}, {}], types) == "missing"
+        assert eol_coverage_key(["ITComponent", None, None], types) == "missing"
+        assert eol_coverage_key(["ITComponent", ["x"], ["y"]], types) == "missing"
+        assert eol_coverage_key(["Organization", link, {}], types) is None
+        assert eol_coverage_key(None, types) is None
+        assert eol_coverage_key(["ITComponent", {}], types) is None
+
+    def test_eol_coverage_key_follows_the_tracking_types(self):
+        """An admin who shows End of Life on a custom type brings it in; one
+        who hides it on IT Component takes that type out."""
+        link = {"eol_product": "custom:acme", "eol_cycle": "1"}
+        assert eol_coverage_key(["Platform", link, {}], ("Platform",)) == "linked"
+        assert eol_coverage_key(["ITComponent", link, {}], ("Platform",)) is None
 
     def test_age_days(self):
         today = date(2026, 10, 29)
@@ -602,16 +614,26 @@ class TestNewPureHelpers:
         assert measure_value(None, 3, today) is None
 
     def test_new_dimension_keys(self):
+        TYPES = ("Application", "ITComponent")  # noqa: N806
         window = phase_months(date(2026, 10, 29))
-        assert dimension_key("eol_coverage", ["ITComponent", {}, {}], [], window) == "missing"
-        assert dimension_key("eol_coverage", ["Organization", {}, {}], [], window) is None
-        assert dimension_key("stakeholders", True, []) == "true"
-        assert dimension_key("stakeholders", False, []) == "false"
-        assert dimension_key("card", "abc", []) == "abc"
-        assert dimension_key("related:r", None, []) == "none"
+        assert (
+            dimension_key("eol_coverage", ["ITComponent", {}, {}], [], window, eol_types=TYPES)
+            == "missing"
+        )
+        assert (
+            dimension_key("eol_coverage", ["Organization", {}, {}], [], window, eol_types=TYPES)
+            is None
+        )
+        assert dimension_key("stakeholders", True, [], eol_types=TYPES) == "true"
+        assert dimension_key("stakeholders", False, [], eol_types=TYPES) == "false"
+        assert dimension_key("card", "abc", [], eol_types=TYPES) == "abc"
+        assert dimension_key("related:r", None, [], eol_types=TYPES) == "none"
         lifecycle = {"phaseOut": "2027-02-14"}
-        assert dimension_key("phase_month:phaseOut", lifecycle, [], window) == "2027-02"
-        assert dimension_key("phase_month:phaseOut", lifecycle, []) is None
+        assert (
+            dimension_key("phase_month:phaseOut", lifecycle, [], window, eol_types=TYPES)
+            == "2027-02"
+        )
+        assert dimension_key("phase_month:phaseOut", lifecycle, [], eol_types=TYPES) is None
 
     def test_new_dimension_domains(self):
         window = ["2026-10", "2026-11"]
@@ -1487,6 +1509,29 @@ class TestFlagsAndShares:
             {"key": "Application", "value": 1}
         ]
         assert (await _run(db, flags="without_stakeholders"))["total"] == 4
+
+    async def test_eol_follows_each_types_section_toggle(self, db, landscape):
+        """The EOL flags and the coverage dimension read the type's End of
+        Life toggle, on the SQL fast path and the per-card path alike."""
+        await create_card_type(
+            db, key="Platform", label="Platform", section_config={"eol": {"hidden": False}}
+        )
+        await create_card(
+            db,
+            card_type="Platform",
+            name="Platform A",
+            attributes={"eol_product": "custom:p", "eol_cycle": "1"},
+        )
+        await db.flush()
+        everyone = CardReadScope.everything()
+        for force_python in (False, True):
+            flagged = await resolve_query(db, Q(card_type="Platform", flags="eol_linked"))
+            linked = await run_query(db, flagged, everyone, force_python=force_python)
+            assert linked["total"] == 1, force_python
+            by_coverage = await resolve_query(db, Q(card_type="Platform", group_by="eol_coverage"))
+            grouped = await run_query(db, by_coverage, everyone, force_python=force_python)
+            counts = {row["key"]: row["value"] for row in grouped["rows"]}
+            assert counts == {"linked": 1, "manual": 0, "missing": 0}, force_python
 
     async def test_a_keyed_share(self, db, landscape):
         result = await _run(

@@ -450,7 +450,7 @@
   "dashboard.query.flag.stale": "Устаревшие (давно не обновлялись)",
   "dashboard.query.flag.with_stakeholders": "С заинтересованными сторонами",
   "dashboard.query.flag.without_stakeholders": "Без заинтересованных сторон",
-  "dashboard.query.flag.eol_linked": "Окончание срока службы связано с endoflife.date",
+  "dashboard.query.flag.eol_linked": "Окончание срока службы связано с продуктом EOL",
   "dashboard.query.flag.eol_manual": "Дата окончания срока службы указана вручную",
   "dashboard.query.flag.eol_missing": "Нет данных об окончании срока службы",
   "dashboard.query.flag.related": "Есть связь: {{relation}}",

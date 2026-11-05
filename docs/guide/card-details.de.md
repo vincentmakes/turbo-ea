@@ -163,11 +163,14 @@ Die **Ressourcen**-Registerkarte bündelt alle unterstützenden Materialien eine
 
 ### EOL-Abschnitt
 
-Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verknüpft ist (über die [EOL-Administration](../admin/eol.md)):
+Standardmäßig bei Anwendungen und IT-Komponenten angezeigt, außerdem bei jedem anderen Kartentyp, bei dem der Administrator ihn [aktiviert hat](../admin/eol.md#lebensende-bei-anderen-kartentypen). Wenn die Karte mit einem [endoflife.date](https://endoflife.date/)-Produkt verknüpft ist (über die [EOL-Administration](../admin/eol.md)):
 
-- **Produktname und Version**
-- **Supportstatus** — Farbcodiert: Unterstützt, EOL nähert sich, Lebensende
-- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, Ende des Sicherheitssupports, EOL-Datum
+- **Produktname und Version** — ein eigenes Produkt wird mit seinem Titel benannt und als **Eigenes** gekennzeichnet
+- **Supportstatus** — Farbcodiert, nach derselben Regel wie im EOL-Bericht: Unterstützt, EOL nähert sich (innerhalb von sechs Monaten vor dem EOL-Datum oder sobald der aktive Support beendet ist), Lebensende
+- **Wichtige Daten** — Veröffentlichungsdatum, Ende des aktiven Supports, EOL-Datum, die neueste Version und ihr Veröffentlichungsdatum
+- **Versionshinweise** — ein Link zur Produktseite auf endoflife.date oder die **Herstellerseite** eines eigenen Produkts
+
+**Verknüpfen**, **Ändern** und **Verknüpfung aufheben** erscheinen nur, wenn Sie die Karte bearbeiten dürfen. Benutzer mit der Berechtigung **EOL verwalten** können direkt in diesem Abschnitt ein [eigenes EOL-Produkt](../admin/eol.md) definieren, über den Link **Als eigenes Produkt definieren …** unter der Produktsuche: Das Formular öffnet sich mit dem Namen der Karte (oder Ihrer Eingabe) als Produktname, und die Karte wird beim Speichern mit dem neuen Produkt verknüpft. Sie erhalten außerdem eine Verknüpfung zu **Eigene Produkte verwalten** in den Einstellungen und können in der Zyklenliste einen fehlenden Release-Zyklus hinzufügen. Alle anderen sehen einen Hinweis, einen EOL-Manager zu fragen, wenn endoflife.date keinen Treffer hat. Eigene Produkte verhalten sich sonst überall wie Produkte von endoflife.date.
 
 ## Kommentare-Tab
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +19,7 @@ from app.models.card_type import CardType
 from app.models.ea_principle import EAPrinciple
 from app.models.user import User
 from app.schemas.ai_suggest import (
+    AiEolProductSuggestRequest,
     AiSuggestRequest,
     AiSuggestResponse,
     PortfolioInsightsRequest,
@@ -26,6 +28,7 @@ from app.schemas.ai_suggest import (
 from app.services import openai_chat
 from app.services.ai_service import (
     DEFAULT_AZURE_API_VERSION,
+    EOL_PRODUCT_CONTEXT_KEY,
     fetch_running_models,
     generate_portfolio_insights,
     suggest_metadata,
@@ -97,24 +100,15 @@ def _get_ai_config(general: dict) -> dict:
     }
 
 
-@router.post("/suggest", response_model=AiSuggestResponse)
-async def suggest(
-    body: AiSuggestRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Generate AI-powered metadata suggestions for a card.
-
-    Uses a two-step pipeline: web search → local LLM extraction.
-    """
-    await PermissionService.require_permission(db, user, "ai.suggest")
-
-    # Load AI configuration
+async def _load_ai_config(db: AsyncSession) -> dict:
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
-    ai_cfg = _get_ai_config(general)
+    return _get_ai_config(general)
 
+
+def _require_ai_ready(ai_cfg: dict) -> None:
+    """400 unless suggestions are switched on and the provider is usable."""
     if not ai_cfg["enabled"]:
         raise HTTPException(
             status_code=400,
@@ -134,6 +128,36 @@ async def suggest(
             detail="API key is required for commercial LLM providers.",
         )
 
+
+async def _suggest_or_502(label: str, **kwargs: Any) -> dict:
+    """Run the suggestion pipeline, mapping provider trouble to a 502."""
+    try:
+        return await suggest_metadata(**kwargs)
+    except httpx.HTTPError as exc:
+        _log_provider_failure(f"AI suggestion for '{label}'", exc)
+        raise HTTPException(status_code=502, detail=provider_failure_detail(exc)) from exc
+    except Exception as exc:
+        logger.exception("AI suggestion failed for '%s'", label)
+        raise HTTPException(
+            status_code=502,
+            detail="AI suggestion failed. Check server logs for details.",
+        ) from exc
+
+
+@router.post("/suggest", response_model=AiSuggestResponse)
+async def suggest(
+    body: AiSuggestRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate AI-powered metadata suggestions for a card.
+
+    Uses a two-step pipeline: web search → local LLM extraction.
+    """
+    await PermissionService.require_permission(db, user, "ai.suggest")
+    ai_cfg = await _load_ai_config(db)
+    _require_ai_ready(ai_cfg)
+
     # Validate that the card type is enabled for AI suggestions
     if ai_cfg["enabled_types"] and body.type_key not in ai_cfg["enabled_types"]:
         raise HTTPException(
@@ -147,30 +171,55 @@ async def suggest(
     if not card_type:
         raise HTTPException(status_code=404, detail=f"Card type '{body.type_key}' not found")
 
-    try:
-        result_data = await suggest_metadata(
-            name=body.name,
-            type_key=body.type_key,
-            type_label=card_type.label,
-            subtype=body.subtype,
-            provider_url=ai_cfg["provider_url"],
-            model=ai_cfg["model"],
-            context=body.context,
-            provider_type=ai_cfg["provider_type"],
-            api_key=ai_cfg["api_key"],
-            api_version=ai_cfg["api_version"],
-            fields_schema=card_type.fields_schema or [],
-        )
-    except httpx.HTTPError as exc:
-        _log_provider_failure(f"AI suggestion for '{body.name}'", exc)
-        raise HTTPException(status_code=502, detail=provider_failure_detail(exc)) from exc
-    except Exception as exc:
-        logger.exception("AI suggestion failed for '%s'", body.name)
-        raise HTTPException(
-            status_code=502,
-            detail="AI suggestion failed. Check server logs for details.",
-        ) from exc
+    result_data = await _suggest_or_502(
+        body.name,
+        name=body.name,
+        type_key=body.type_key,
+        type_label=card_type.label,
+        subtype=body.subtype,
+        provider_url=ai_cfg["provider_url"],
+        model=ai_cfg["model"],
+        context=body.context,
+        provider_type=ai_cfg["provider_type"],
+        api_key=ai_cfg["api_key"],
+        api_version=ai_cfg["api_version"],
+        fields_schema=card_type.fields_schema or [],
+    )
 
+    return AiSuggestResponse(**result_data)
+
+
+@router.post("/suggest-eol-product", response_model=AiSuggestResponse)
+async def suggest_eol_product(
+    body: AiEolProductSuggestRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Suggest a description for a custom EOL product (Settings → EOL, or a
+    card's End of Life section).
+
+    The same pipeline as ``/suggest`` with a product-lifecycle search context.
+    A product is not a card type, so the per-type enablement does not apply:
+    the switch and the provider configuration are what gate it.
+    """
+    await PermissionService.require_permission(db, user, "ai.suggest")
+    ai_cfg = await _load_ai_config(db)
+    _require_ai_ready(ai_cfg)
+
+    result_data = await _suggest_or_502(
+        body.name,
+        name=body.name,
+        type_key=EOL_PRODUCT_CONTEXT_KEY,
+        type_label="Product",
+        subtype=None,
+        provider_url=ai_cfg["provider_url"],
+        model=ai_cfg["model"],
+        context=f"Vendor or release policy page: {body.link}" if body.link else None,
+        provider_type=ai_cfg["provider_type"],
+        api_key=ai_cfg["api_key"],
+        api_version=ai_cfg["api_version"],
+        fields_schema=None,
+    )
     return AiSuggestResponse(**result_data)
 
 
