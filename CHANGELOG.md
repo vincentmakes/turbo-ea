@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - Custom EOL products: when endoflife.date has no entry for a product, define it yourself with its release cycles and link cards to it like any endoflife.date product. Its status shows on the card, in the inventory's End of life column, in the EOL report and in the data quality figures.
-- Create a custom EOL product straight from a card's End of Life section when the search finds nothing on endoflife.date, and add a missing cycle from the cycle list.
+- Define a custom EOL product straight from a card's End of Life section, through a quiet link under the product search that opens the form with the card's name (or what you typed) filled in, and add a missing cycle from the cycle list.
 - Settings → EOL → Custom products: a grid of every custom product's cycles, grouped by product, with filters, column freeze, in-place editing and drag-fill. A product or a cycle that cards still link cannot be deleted; rename the cycle instead, and its cards move with it.
 - "Propose to endoflife.date" drafts a custom product's file in endoflife.date's format and opens it on GitHub, so you can contribute the product from your own account.
 - "Switch to endoflife.date product…" moves a custom product's cards onto endoflife.date once it tracks the product, cycle by cycle; the grid points out custom products that endoflife.date now appears to cover.

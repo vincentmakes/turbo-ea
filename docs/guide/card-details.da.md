@@ -165,7 +165,7 @@ Vises som standard på Applications og IT Components og på enhver anden korttyp
 - **Nøgledatoer** — Udgivelsesdato, aktiv supportafslutning, EOL-dato, den seneste version og dens udgivelsesdato
 - **Udgivelsesnoter** — et link til produktets side på endoflife.date eller **Leverandørside** for et brugerdefineret produkt
 
-**Tilknyt**, **Skift** og **Fjern tilknytning** vises kun, hvis du må redigere kortet. Når endoflife.date ikke har noget match for produktet, kan brugere med tilladelsen **Administrer EOL** oprette et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion og tilknytte kortet til det; de får også en genvej til **Administrer brugerdefinerede produkter** i indstillingerne og kan tilføje en manglende udgivelsescyklus fra cykluslisten. Brugerdefinerede produkter opfører sig som endoflife.date-produkter alle andre steder.
+**Tilknyt**, **Skift** og **Fjern tilknytning** vises kun, hvis du må redigere kortet. Brugere med tilladelsen **Administrer EOL** kan definere et [brugerdefineret EOL-produkt](../admin/eol.md) direkte fra denne sektion via linket **Definér det som et brugerdefineret produkt…** under produktsøgningen: Formularen åbner med kortets navn (eller det, du skrev) som produktnavn, og kortet tilknyttes det nye produkt ved gemning. De får også en genvej til **Administrer brugerdefinerede produkter** i indstillingerne og kan tilføje en manglende udgivelsescyklus fra cykluslisten. Alle andre ser et tip om at bede en EOL-manager, når endoflife.date ikke har noget match. Brugerdefinerede produkter opfører sig som endoflife.date-produkter alle andre steder.
 
 ## Kommentarer-fane
 

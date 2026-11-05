@@ -81,7 +81,7 @@ Los productos personalizados se listan en la pestaña **Productos personalizados
 
 Hay dos formas de crearlo:
 
-- **Desde una ficha**: en la sección **Fin de vida** de la ficha, busque el producto. Cuando endoflife.date no tiene coincidencia, la sección ofrece **Crear producto personalizado**, rellenado con lo que escribió (o con el nombre de la ficha). Introduzca el nombre del producto y sus primeros ciclos y guarde: la ficha queda vinculada al nuevo producto y ciclo de una sola vez.
+- **Desde una ficha**: en la sección **Fin de vida** de la ficha, una línea discreta bajo la búsqueda de producto dice *¿No está en endoflife.date?* con un enlace **Definirlo como producto personalizado…**, presente mientras no haya ningún producto seleccionado. El formulario se abre con el nombre del producto ya rellenado: lo que escribió en la búsqueda o, si no escribió nada, el nombre de la ficha. Añada sus primeros ciclos y guarde: la ficha queda vinculada al nuevo producto y ciclo de una sola vez.
 - **Desde la pestaña Productos personalizados**: haga clic en **Añadir producto**.
 
 Cada producto tiene:

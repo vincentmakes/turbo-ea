@@ -81,7 +81,7 @@ Custom products are listed on the **Custom products** tab of **Admin > Settings 
 
 There are two ways to create one:
 
-- **From a card** — in the card's **End of Life** section, search for the product. When endoflife.date has no match, the section offers **Create custom product**, pre-filled with what you typed (or the card's name). Enter the product name, its first cycles, and save: the card is then linked to the new product and cycle in one go.
+- **From a card** — in the card's **End of Life** section, a quiet line under the product search reads *Not on endoflife.date?* with a **Define it as a custom product…** link, there whenever no product is selected. The form opens with the product name already filled in: what you typed in the search, or the card's name if you typed nothing. Add its first cycles and save: the card is then linked to the new product and cycle in one go.
 - **From the Custom products tab** — click **Add product**.
 
 Each product has:

@@ -1,8 +1,9 @@
 /**
  * Custom EOL products inside the card's End of Life section: they appear in
- * the product search with a "Custom" chip, the section offers to create one
- * when endoflife.date has nothing, and a missing cycle can be added from the
- * cycle select — the last two only for `eol.manage`.
+ * the product search with a "Custom" chip, an EOL manager can define one from
+ * a quiet link under the search (named after what was typed, else the card),
+ * and a missing cycle can be added from the cycle select — the last two only
+ * for `eol.manage`; anyone else gets a hint once endoflife.date has no match.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -22,11 +23,15 @@ import {
 } from "@/test/fixtures/metamodel";
 import { AuthProvider } from "@/hooks/AuthContext";
 import type { Card, EolCustomProduct, User } from "@/types";
-import EolLinkSection from "./EolLinkSection";
+import EolLinkSection, { EolLinkDialog } from "./EolLinkSection";
 
 const UNLINKED = cardById(CARD_IDS.linux); // "Ubuntu LTS", no link
 const FUZZY_URL = "/eol/products/fuzzy?search=Ubuntu%20LTS&limit=5";
 const ACME_CYCLES_URL = "/eol/products/custom%3Aacme-erp";
+
+/** The manager's link under the search, and the hint everyone else gets. */
+const DEFINE = { name: "Define it as a custom product…" };
+const HINT = /Ask an EOL manager to add it as a custom product/;
 
 const MANAGER = makeUserRef({ email: "eol.manager@test.com", permissions: { "eol.manage": true } });
 const EDITOR = makeUserRef({ email: "editor@test.com", permissions: { "inventory.edit": true } });
@@ -57,50 +62,69 @@ beforeEach(() => {
   ]);
 });
 
-describe("when endoflife.date has no match", () => {
-  it("offers an EOL manager to create a custom product named after the card", async () => {
+describe("defining a custom product from the section", () => {
+  it("gives an EOL manager a quiet link under the search, whatever endoflife.date finds", async () => {
+    mockApi.on("get", FUZZY_URL, [{ name: "ubuntu", score: 0.7 }]);
     renderSection(UNLINKED);
-    expect(
-      await screen.findByText(/Not on endoflife.date\? Define "Ubuntu LTS" as a custom product/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create custom product" })).toBeInTheDocument();
+    // Before the search settles, and still once a strong match has landed.
+    expect(screen.getByText(/Not on endoflife.date\?/)).toBeInTheDocument();
+    expect(screen.getByRole("button", DEFINE)).toBeInTheDocument();
+    expect(await screen.findByText("ubuntu")).toBeInTheDocument();
+    expect(screen.getByRole("button", DEFINE)).toBeInTheDocument();
+    expect(screen.queryByText(HINT)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("tells anyone else to ask an EOL manager, with no create button", async () => {
+  it("drops the link once a product is picked and brings it back when the pick is cleared", async () => {
+    mockApi.on("get", FUZZY_URL, [{ name: "ubuntu", score: 0.7 }]);
+    mockApi.on("get", "/eol/products/ubuntu", [{ cycle: "24.04", eol: false }]);
+    renderSection(UNLINKED);
+    await userEvent.click(await screen.findByText("ubuntu"));
+    await cycleSelect();
+    expect(screen.queryByRole("button", DEFINE)).toBeNull();
+    expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
+    await userEvent.clear(screen.getAllByRole("combobox")[0]);
+    expect(await screen.findByRole("button", DEFINE)).toBeInTheDocument();
+  });
+
+  it("tells anyone else to ask an EOL manager, only once endoflife.date has no match", async () => {
     renderSection(UNLINKED, EDITOR);
-    expect(await screen.findByText(/Ask an EOL manager to add "Ubuntu LTS"/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create custom product" })).toBeNull();
+    expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
+    expect(screen.getByText(/Not on endoflife.date\?/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", DEFINE)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("still offers it when endoflife.date has only weak look-alikes", async () => {
+  it("still hints when endoflife.date has only weak look-alikes", async () => {
     mockApi.on("get", FUZZY_URL, [
       { name: "clear-linux", score: 0.69 },
       { name: "custom:other", title: "Other", custom: true, score: 0.6 },
     ]);
-    renderSection(UNLINKED);
+    renderSection(UNLINKED, EDITOR);
     expect(await screen.findByText("clear-linux")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create custom product" })).toBeInTheDocument();
+    expect(screen.getByText(HINT)).toBeInTheDocument();
   });
 
-  it("does not offer it when a custom product already matches strongly", async () => {
+  it("does not hint when a custom product already matches strongly", async () => {
     mockApi.on("get", FUZZY_URL, [
       { name: "custom:ubuntu-lts", title: "Ubuntu LTS", custom: true, score: 0.7 },
     ]);
-    renderSection(UNLINKED);
+    renderSection(UNLINKED, EDITOR);
     expect(await screen.findByText("Ubuntu LTS", { selector: ".MuiChip-label" })).toBeInTheDocument();
     expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
   });
 
-  it("does not offer it when the search for the card's name failed", async () => {
+  it("does not hint when the search for the card's name failed", async () => {
     mockApi.fail("get", FUZZY_URL, 502);
-    renderSection(UNLINKED);
+    renderSection(UNLINKED, EDITOR);
     expect(await screen.findByText(/No EOL matches found/)).toBeInTheDocument();
     expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
   });
 
-  it("does not offer it while endoflife.date has a strong match", async () => {
+  it("does not hint while endoflife.date has a strong match", async () => {
     mockApi.on("get", FUZZY_URL, [{ name: "ubuntu", score: 0.7 }]);
-    renderSection(UNLINKED);
+    renderSection(UNLINKED, EDITOR);
     expect(await screen.findByText("ubuntu")).toBeInTheDocument();
     expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
   });
@@ -137,7 +161,7 @@ describe("when endoflife.date has no match", () => {
     ]);
     const { onSave } = renderSection(UNLINKED);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
+    await userEvent.click(await screen.findByRole("button", DEFINE));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText(/Product name/)).toHaveValue("Ubuntu LTS");
     await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
@@ -270,47 +294,73 @@ describe("which types show the section — the type's End of Life toggle", () =>
   });
 });
 
-describe("the create offer follows what was typed", () => {
-  const offer = (name: string) =>
-    screen.queryByText(new RegExp(`Not on endoflife.date\\? Define "${name}" as a custom product`));
+describe("the create form's name follows what was typed", () => {
+  /** Opens the create dialog from the link and returns its Product name field. */
+  async function openCreate(): Promise<HTMLElement> {
+    await userEvent.click(screen.getByRole("button", DEFINE));
+    const dialog = await screen.findByRole("dialog");
+    return within(dialog).getByLabelText(/Product name/);
+  }
 
-  it("offers the trimmed text once two letters find nothing upstream", async () => {
+  it("opens with the trimmed text typed into the search", async () => {
     mockApi.on("get", /^\/eol\/products\?search=/, [
       { name: "custom:zz-tool", title: "ZZ Tool", custom: true },
     ]);
     renderSection(UNLINKED);
     await userEvent.type(screen.getAllByRole("combobox")[0], " zz");
-    await waitFor(() => expect(offer("zz")).toBeInTheDocument());
+    expect(await openCreate()).toHaveValue("zz");
   });
 
-  it("makes no offer for a single letter", async () => {
+  it("opens with the card's name, trimmed, when nothing was typed", async () => {
+    mockApi.on("get", "/eol/products/fuzzy?search=Gizmo%209&limit=5", []);
+    renderSection(makeCard({ type: "ITComponent", name: "  Gizmo 9  " }));
+    expect(await openCreate()).toHaveValue("Gizmo 9");
+  });
+
+  it("opens with the card's name again once the typed text is cleared", async () => {
     renderSection(UNLINKED);
-    expect(await screen.findByRole("button", { name: "Create custom product" })).toBeInTheDocument();
+    const search = screen.getAllByRole("combobox")[0];
+    await userEvent.type(search, "zz");
+    await userEvent.clear(search);
+    expect(await openCreate()).toHaveValue("Ubuntu LTS");
+  });
+
+  it("opens with the name typed so far in the Create-card dialog", async () => {
+    mockApi.on("get", "/eol/products/fuzzy?search=Gizmo%209&limit=5", []);
+    render(
+      <AuthProvider user={MANAGER} refreshUser={async () => {}}>
+        <EolLinkDialog open onClose={vi.fn()} onLink={vi.fn()} cardName="Gizmo 9" />
+      </AuthProvider>,
+    );
+    expect(await openCreate()).toHaveValue("Gizmo 9");
+  });
+
+  it("hints anyone else for a typed name only once two letters find nothing upstream", async () => {
+    mockApi.on("get", /^\/eol\/products\?search=/, [
+      { name: "custom:zz-tool", title: "ZZ Tool", custom: true },
+    ]);
+    renderSection(UNLINKED, EDITOR);
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
     await userEvent.type(screen.getAllByRole("combobox")[0], "z");
-    await waitFor(() => expect(screen.queryByText(/Not on endoflife.date/)).toBeNull());
-    expect(screen.queryByRole("button", { name: "Create custom product" })).toBeNull();
+    await waitFor(() => expect(screen.queryByText(HINT)).toBeNull());
+    await userEvent.type(screen.getAllByRole("combobox")[0], "z");
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
   });
 
-  it("makes no offer when endoflife.date knows the typed name, whatever the card's name found", async () => {
+  it("gives no hint when endoflife.date knows the typed name, whatever the card's name found", async () => {
     mockApi.on("get", "/eol/products?search=ub", [{ name: "ubuntu" }]);
-    renderSection(UNLINKED);
-    await screen.findByRole("button", { name: "Create custom product" });
+    renderSection(UNLINKED, EDITOR);
+    await screen.findByText(HINT);
     await userEvent.type(screen.getAllByRole("combobox")[0], "ub");
     expect(await screen.findByRole("option", { name: /ubuntu/ })).toBeInTheDocument();
     await waitFor(() => expect(mockApi.callsOf("get", "/eol/products?search=ub")).toHaveLength(1));
     expect(screen.queryByText(/Not on endoflife.date/)).toBeNull();
   });
 
-  it("names the offer after the card, trimmed, when nothing was typed", async () => {
-    mockApi.on("get", "/eol/products/fuzzy?search=Gizmo%209&limit=5", []);
-    renderSection(makeCard({ type: "ITComponent", name: "  Gizmo 9  " }));
-    expect(await screen.findByText(/Define "Gizmo 9" as a custom product/)).toBeInTheDocument();
-  });
-
-  it("makes no offer when the search for the typed name failed", async () => {
+  it("gives no hint when the search for the typed name failed", async () => {
     mockApi.fail("get", "/eol/products?search=zz", 502);
-    renderSection(UNLINKED);
-    await screen.findByRole("button", { name: "Create custom product" });
+    renderSection(UNLINKED, EDITOR);
+    await screen.findByText(HINT);
     await userEvent.type(screen.getAllByRole("combobox")[0], "zz");
     await waitFor(() => expect(mockApi.callsOf("get", "/eol/products?search=zz")).toHaveLength(1));
     await new Promise((r) => setTimeout(r, 50));
@@ -319,7 +369,7 @@ describe("the create offer follows what was typed", () => {
 
   it("closes the create dialog on Cancel", async () => {
     renderSection(UNLINKED);
-    await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
+    await userEvent.click(await screen.findByRole("button", DEFINE));
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -437,7 +487,7 @@ describe("after creating a product here", () => {
     mockApi.on("get", "/eol/products/custom%3Aubuntu-lts", cycles);
     mockApi.on("get", /^\/eol\/products\?search=/, []);
     renderSection(UNLINKED);
-    await userEvent.click(await screen.findByRole("button", { name: "Create custom product" }));
+    await userEvent.click(await screen.findByRole("button", DEFINE));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText(/Release cycle/), "22.04");
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));

@@ -12,6 +12,7 @@ import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
 import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
+import Link from "@mui/material/Link";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -168,7 +169,6 @@ function EolPicker({
   const [suggestFailed, setSuggestFailed] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [createTitle, setCreateTitle] = useState("");
   const [addCycleOpen, setAddCycleOpen] = useState(false);
   const [cyclesRev, setCyclesRev] = useState(0);
   // The cycle to select once the product's cycles arrive — set after a
@@ -313,8 +313,10 @@ function EolPicker({
 
   const selectedIsCustom = isCustomEolProduct(selectedProduct);
   // Nothing on endoflife.date for what was typed (or, before anything was
-  // typed, for the card's own name): offer to define the product here. Only
-  // once the search has settled, so the offer never flashes mid-typing.
+  // typed, for the card's own name) — only once the search has settled, so
+  // the hint never flashes mid-typing. It gates the hint for a user who
+  // cannot define products; an EOL manager's link is there whenever nothing
+  // is selected, because a strong but wrong upstream match must not hide it.
   const typed = productSearch.trim();
   const searchSettled = debouncedProductSearch === productSearch && !productLoading;
   const noUpstreamForTyped =
@@ -329,7 +331,8 @@ function EolPicker({
     !suggestFailed &&
     // Any strong match, custom included: a strong custom one already exists.
     !eolSuggestions.some((s) => s.score >= STRONG_MATCH);
-  const offerCreate = !selectedProduct && (noUpstreamForTyped || noUpstreamForCard);
+  const noUpstream = noUpstreamForTyped || noUpstreamForCard;
+  // The name the create form opens with: what was typed, else the card's.
   const createFrom = typed || (cardName || "").trim();
 
   return (
@@ -391,6 +394,28 @@ function EolPicker({
         sx={{ mb: 1 }}
       />
 
+      {!selectedProduct && (canManage || noUpstream) && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mb: 2 }}
+        >
+          {t("eol.custom.notOnEolDate")}{" "}
+          {canManage ? (
+            <Link
+              component="button"
+              type="button"
+              variant="caption"
+              onClick={() => setCreateOpen(true)}
+            >
+              {t("eol.custom.createAction")}
+            </Link>
+          ) : (
+            t("eol.custom.askManager")
+          )}
+        </Typography>
+      )}
+
       {eolSearching && (
         <Box sx={{ mb: 2 }}>
           <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />
@@ -441,32 +466,6 @@ function EolPicker({
         >
           {t("eol.noMatches")}
         </Typography>
-      )}
-
-      {offerCreate && createFrom && (
-        <Alert
-          severity="info"
-          icon={<MaterialSymbol icon="edit_note" size={20} />}
-          sx={{ mb: 2 }}
-          action={
-            canManage ? (
-              <Button
-                size="small"
-                color="inherit"
-                onClick={() => {
-                  setCreateTitle(createFrom);
-                  setCreateOpen(true);
-                }}
-              >
-                {t("eol.custom.createAction")}
-              </Button>
-            ) : undefined
-          }
-        >
-          {canManage
-            ? t("eol.custom.notOnEolDate", { name: createFrom })
-            : t("eol.custom.askManager", { name: createFrom })}
-        </Alert>
       )}
 
       {selectedProduct && cyclesLoading && <LinearProgress sx={{ mb: 2 }} />}
@@ -554,7 +553,7 @@ function EolPicker({
 
       <CustomEolProductDialog
         open={createOpen}
-        initialTitle={createTitle}
+        initialTitle={createFrom}
         onClose={() => setCreateOpen(false)}
         onSaved={(product) => {
           setCreateOpen(false);

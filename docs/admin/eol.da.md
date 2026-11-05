@@ -81,7 +81,7 @@ Brugerdefinerede produkter vises på fanen **Brugerdefinerede produkter** under 
 
 Der er to måder at oprette et på:
 
-- **Fra et kort** – søg efter produktet i kortets sektion **Udløb**. Når endoflife.date ikke har noget match, tilbyder sektionen **Opret brugerdefineret produkt**, forudfyldt med det, du skrev (eller kortets navn). Angiv produktnavnet og de første cyklusser, og gem: Kortet tilknyttes derefter det nye produkt og den nye cyklus i ét hug.
+- **Fra et kort** – under produktsøgningen i kortets sektion **Udløb** står en diskret linje *Ikke på endoflife.date?* med et link **Definér det som et brugerdefineret produkt…**, som vises, så længe intet produkt er valgt. Formularen åbner med produktnavnet allerede udfyldt: det, du skrev i søgningen, eller kortets navn, hvis du intet skrev. Tilføj de første cyklusser, og gem: Kortet tilknyttes derefter det nye produkt og den nye cyklus i ét hug.
 - **Fra fanen Brugerdefinerede produkter** – klik på **Tilføj produkt**.
 
 Hvert produkt har:

@@ -81,7 +81,7 @@ Les produits personnalisés sont listés dans l'onglet **Produits personnalisés
 
 Il y a deux façons d'en créer un :
 
-- **Depuis une fiche** — dans la section **Fin de vie** de la fiche, recherchez le produit. Lorsque endoflife.date n'a aucune correspondance, la section propose **Créer un produit personnalisé**, prérempli avec ce que vous avez saisi (ou le nom de la fiche). Saisissez le nom du produit et ses premiers cycles, puis enregistrez : la fiche est alors liée en une seule fois au nouveau produit et au nouveau cycle.
+- **Depuis une fiche** — dans la section **Fin de vie** de la fiche, une ligne discrète sous la recherche de produit indique *Absent d'endoflife.date ?* avec un lien **Le définir comme produit personnalisé…**, présent tant qu'aucun produit n'est sélectionné. Le formulaire s'ouvre avec le nom du produit déjà renseigné : ce que vous avez saisi dans la recherche, ou le nom de la fiche si vous n'avez rien saisi. Ajoutez ses premiers cycles et enregistrez : la fiche est alors liée en une seule fois au nouveau produit et cycle.
 - **Depuis l'onglet Produits personnalisés** — cliquez sur **Ajouter un produit**.
 
 Chaque produit comporte :

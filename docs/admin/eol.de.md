@@ -81,7 +81,7 @@ Eigene Produkte werden auf dem Tab **Eigene Produkte** unter **Admin > Einstellu
 
 Es gibt zwei Wege:
 
-- **Von einer Karte aus** – suchen Sie im Abschnitt **End of Life** der Karte nach dem Produkt. Hat endoflife.date keinen Treffer, bietet der Abschnitt **Eigenes Produkt erstellen** an, vorausgefüllt mit Ihrer Eingabe (oder dem Namen der Karte). Geben Sie den Produktnamen und die ersten Zyklen ein und speichern Sie: Die Karte wird dann in einem Schritt mit dem neuen Produkt und Zyklus verknüpft.
+- **Von einer Karte aus** – unter der Produktsuche im Abschnitt **End of Life** der Karte steht eine dezente Zeile *Nicht bei endoflife.date?* mit einem Link **Als eigenes Produkt definieren …**, sichtbar, solange kein Produkt ausgewählt ist. Das Formular öffnet sich mit bereits ausgefülltem Produktnamen: Ihrer Eingabe in der Suche oder, falls Sie nichts eingegeben haben, dem Namen der Karte. Fügen Sie die ersten Zyklen hinzu und speichern Sie: Die Karte wird dann in einem Schritt mit dem neuen Produkt und Zyklus verknüpft.
 - **Vom Tab Eigene Produkte aus** – klicken Sie auf **Produkt hinzufügen**.
 
 Jedes Produkt hat:

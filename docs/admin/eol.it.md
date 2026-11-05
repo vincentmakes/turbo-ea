@@ -81,7 +81,7 @@ I prodotti personalizzati sono elencati nella scheda **Prodotti personalizzati**
 
 Ci sono due modi per crearne uno:
 
-- **Da una scheda** — nella sezione **Fine vita** della scheda, cercate il prodotto. Quando endoflife.date non ha corrispondenze, la sezione propone **Crea prodotto personalizzato**, precompilato con quanto avete digitato (o con il nome della scheda). Inserite il nome del prodotto e i primi cicli, poi salvate: la scheda viene collegata in un solo passaggio al nuovo prodotto e ciclo.
+- **Da una scheda** — nella sezione **Fine vita** della scheda, una riga discreta sotto la ricerca del prodotto riporta *Non è su endoflife.date?* con un link **Lo definisca come prodotto personalizzato…**, presente finché nessun prodotto è selezionato. Il modulo si apre con il nome del prodotto già compilato: quanto avete digitato nella ricerca oppure, se non avete digitato nulla, il nome della scheda. Aggiungete i primi cicli e salvate: la scheda viene collegata in un solo passaggio al nuovo prodotto e ciclo.
 - **Dalla scheda Prodotti personalizzati** — fate clic su **Aggiungi prodotto**.
 
 Ogni prodotto ha:

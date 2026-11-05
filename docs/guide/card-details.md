@@ -168,7 +168,7 @@ Shown on Applications and IT Components by default, and on any other card type w
 - **Key dates** — Release date, active support end, EOL date, the latest version and its release date
 - **Release notes** — the product's page on endoflife.date, or the **Vendor page** of a custom product
 
-**Link**, **Change** and **Unlink** appear only if you may edit the card. When endoflife.date has no match for the product, users with the **Manage EOL** permission can create a [custom EOL product](../admin/eol.md#custom-eol-products) right from this section and link the card to it; they also get a shortcut to **Manage custom products** in Settings, and can add a missing release cycle from the cycle list. Custom products behave like endoflife.date products everywhere else.
+**Link**, **Change** and **Unlink** appear only if you may edit the card. Users with the **Manage EOL** permission can define a [custom EOL product](../admin/eol.md#custom-eol-products) right from this section, through the **Define it as a custom product…** link under the product search: the form opens with the card's name (or what you typed) as the product name, and the card is linked to the new product on save. They also get a shortcut to **Manage custom products** in Settings, and can add a missing release cycle from the cycle list. Everyone else sees a hint to ask an EOL manager when endoflife.date has no match. Custom products behave like endoflife.date products everywhere else.
 
 ## Comments Tab
 
