@@ -19,6 +19,7 @@ import InventoryFilterSidebar, {
   LIFECYCLE_PHASES,
   LOCKED_COLUMN_KEYS,
   tagEmptyToken,
+  treeGroupingApplies,
   type Filters,
 } from "./InventoryFilterSidebar";
 import { mockApi } from "@/test/apiMock";
@@ -1626,6 +1627,7 @@ describe("InventoryFilterSidebar — save dialog", () => {
         tagIds: ["t1"],
         mineScope: "stakeholder",
         groupBy: "lifecycle",
+        groupTree: false,
       },
       columns: ["core_type", "core_name", "attr_alias"],
       column_state: [{ colId: "core_name", width: 300 }],
@@ -1652,6 +1654,36 @@ describe("InventoryFilterSidebar — save dialog", () => {
     expect(body.column_state).toBeNull();
     expect(body.column_filter_model).toBeNull();
     expect((body.filters as Record<string, unknown>).groupBy).toBeNull();
+    expect((body.filters as Record<string, unknown>).groupTree).toBe(false);
+  });
+
+  it("saves the indent-children option beside the grouping", async () => {
+    mockApi.on("post", "/bookmarks", { id: "bm-new" });
+    await renderSidebar({ groupBy: null, groupTree: true });
+    fireEvent.click(screen.getByRole("button", { name: /Save view/ }));
+    const name = within(screen.getByRole("dialog")).getByLabelText("View name");
+    fireEvent.change(name, { target: { value: "Tree" } });
+    fireEvent.keyDown(name, { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as { filters: Record<string, unknown> };
+    expect(body.filters.groupTree).toBe(true);
+    expect(body.filters.groupBy).toBeNull();
+  });
+
+  it("restores the indent-children option from a view, off for views saved without it", async () => {
+    const treeView = makeBookmark({
+      id: "bm-tree",
+      name: "Tree View",
+      filters: { types: ["BusinessCapability"], groupBy: null, groupTree: true },
+    });
+    mockApi.on("get", "/bookmarks", [treeView, MY_VIEW]);
+    const onGroupTreeChange = vi.fn();
+    await renderSidebar({ onGroupTreeChange });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Tree View/ }));
+    expect(onGroupTreeChange).toHaveBeenLastCalledWith(true);
+    fireEvent.click(screen.getByRole("button", { name: /My App View/ }));
+    expect(onGroupTreeChange).toHaveBeenLastCalledWith(false);
   });
 
   it("closes on Escape without saving", async () => {
@@ -1891,5 +1923,23 @@ describe("InventoryFilterSidebar — colours", () => {
     openTab("Filters");
     fireEvent.click(screen.getByRole("button", { name: /Save view/ }));
     expect(titleIcon()).toHaveTextContent(/^bookmark_add$/);
+  });
+});
+
+describe("treeGroupingApplies", () => {
+  const hierarchical = CARD_TYPES.filter((ct) => ct.has_hierarchy);
+  const flat = CARD_TYPES.filter((ct) => !ct.has_hierarchy);
+
+  it("applies with no type filter when any type has a hierarchy", () => {
+    expect(hierarchical.length).toBeGreaterThan(0);
+    expect(flat.length).toBeGreaterThan(0);
+    expect(treeGroupingApplies(CARD_TYPES, [])).toBe(true);
+    expect(treeGroupingApplies(flat, [])).toBe(false);
+  });
+
+  it("follows the selected types", () => {
+    expect(treeGroupingApplies(CARD_TYPES, [flat[0].key])).toBe(false);
+    expect(treeGroupingApplies(CARD_TYPES, [hierarchical[0].key])).toBe(true);
+    expect(treeGroupingApplies(CARD_TYPES, [flat[0].key, hierarchical[0].key])).toBe(true);
   });
 });

@@ -3,12 +3,15 @@ import { CATEGORICAL_COLORS } from "@/theme/tokens";
 import {
   NOT_SET_KEY,
   buildGroupedRows,
+  buildTreeLayout,
+  forestOrder,
   collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
   resolveVocabColor,
   type GroupAxis,
   type GroupedRow,
+  type TreeAccess,
 } from "./rowGrouping";
 
 interface Row {
@@ -240,3 +243,297 @@ describe("resolveVocabColor", () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// Tree layer ("Indent children under parents")
+// ---------------------------------------------------------------------------
+
+interface TRow {
+  id: string;
+  name: string;
+  parent?: string | null;
+  criticality?: string;
+}
+
+const tr = (id: string, parent?: string | null, criticality?: string): TRow => ({
+  id,
+  name: id.toUpperCase(),
+  parent,
+  criticality,
+});
+
+/** Access over a fixed "loaded cards" table — lookups may reach cards that
+ * are not members of the group being laid out. */
+function accessOver(all: TRow[]): TreeAccess<TRow> {
+  const byId = new Map(all.map((r) => [r.id, r]));
+  return {
+    parentIdOf: (r) => r.parent,
+    lookup: (id) => {
+      const r = byId.get(id);
+      return r ? { name: r.name, parentId: r.parent } : undefined;
+    },
+  };
+}
+
+const ids = (rows: { id: string }[]) => rows.map((r) => r.id);
+
+describe("buildTreeLayout", () => {
+  it("nests same-group children under their parent in pre-order", () => {
+    const rows = [tr("c1", "p"), tr("q"), tr("p"), tr("g", "c1"), tr("c2", "p")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(ids(layout.emitted)).toEqual(["q", "p", "c1", "g", "c2"]);
+    expect(layout.info.get("p")).toEqual({
+      depth: 0,
+      crumbIds: [],
+      crumbTruncated: false,
+      hasChildren: true,
+      collapsed: false,
+      hiddenDescendants: 0,
+    });
+    expect(layout.info.get("c1")!.depth).toBe(1);
+    expect(layout.info.get("g")!.depth).toBe(2);
+    expect(layout.info.get("c2")!.depth).toBe(1);
+    expect(layout.info.get("q")!.hasChildren).toBe(false);
+    expect(layout.info.get("g")!.hasChildren).toBe(false);
+    expect(layout.hidden).toBe(0);
+  });
+
+  it("keeps sibling input order", () => {
+    const rows = [tr("p"), tr("b", "p"), tr("a", "p"), tr("c", "p")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(ids(layout.emitted)).toEqual(["p", "b", "a", "c"]);
+  });
+
+  it("roots a child whose parent is in another group and names the ancestors", () => {
+    const all = [tr("gp"), tr("p", "gp"), tr("c", "p")];
+    // Only `c` is in this group.
+    const layout = buildTreeLayout([all[2]], accessOver(all), null, new Set());
+    expect(ids(layout.emitted)).toEqual(["c"]);
+    expect(layout.info.get("c")).toMatchObject({
+      depth: 0,
+      crumbIds: ["gp", "p"],
+      crumbTruncated: false,
+    });
+  });
+
+  it("roots a child whose parent fails the grid filters, nests it when no filter", () => {
+    const rows = [tr("p"), tr("c", "p")];
+    const filtered = buildTreeLayout(rows, accessOver(rows), new Set(["c"]), new Set());
+    expect(filtered.info.get("c")).toMatchObject({ depth: 0, crumbIds: ["p"] });
+    expect(filtered.info.get("p")!.hasChildren).toBe(false);
+    const open = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(open.info.get("c")).toMatchObject({ depth: 1, crumbIds: [] });
+    // A visible parent still nests when a filter is active.
+    const both = buildTreeLayout(rows, accessOver(rows), new Set(["p", "c"]), new Set());
+    expect(both.info.get("c")!.depth).toBe(1);
+  });
+
+  it("marks the crumb truncated when an ancestor is not loaded", () => {
+    const loaded = [tr("p", "unloaded"), tr("c", "p")];
+    const layout = buildTreeLayout([loaded[1]], accessOver(loaded), null, new Set());
+    expect(layout.info.get("c")).toMatchObject({ crumbIds: ["p"], crumbTruncated: true });
+    // Directly missing parent: empty chain, still truncated.
+    const orphan = buildTreeLayout([tr("x", "gone")], accessOver([]), null, new Set());
+    expect(orphan.info.get("x")).toMatchObject({ crumbIds: [], crumbTruncated: true });
+  });
+
+  it("a root without a parent has no crumb", () => {
+    const layout = buildTreeLayout([tr("r", null)], accessOver([]), null, new Set());
+    expect(layout.info.get("r")).toMatchObject({ crumbIds: [], crumbTruncated: false });
+  });
+
+  it("terminates on a two-node cycle and emits each node once", () => {
+    const rows = [tr("a", "b"), tr("b", "a")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(ids(layout.emitted)).toEqual(["a", "b"]);
+    expect(layout.info.get("a")!.depth).toBe(0);
+    expect(layout.info.get("b")!.depth).toBe(1);
+  });
+
+  it("treats a self-parent as a root with no crumb", () => {
+    const rows = [tr("s", "s")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(ids(layout.emitted)).toEqual(["s"]);
+    expect(layout.info.get("s")).toMatchObject({
+      depth: 0,
+      crumbIds: [],
+      crumbTruncated: false,
+      hasChildren: false,
+    });
+  });
+
+  it("hides the subtree of a collapsed parent and counts it", () => {
+    const rows = [tr("p"), tr("c1", "p"), tr("g", "c1"), tr("c2", "p"), tr("q")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set(["p"]));
+    expect(ids(layout.emitted)).toEqual(["p", "q"]);
+    expect(layout.info.get("p")).toMatchObject({ collapsed: true, hiddenDescendants: 3 });
+    expect(layout.hidden).toBe(3);
+  });
+
+  it("counts only visible descendants under a collapsed parent", () => {
+    const rows = [tr("p"), tr("c1", "p"), tr("c2", "p")];
+    const layout = buildTreeLayout(rows, accessOver(rows), new Set(["p", "c1"]), new Set(["p"]));
+    expect(layout.info.get("p")).toMatchObject({ collapsed: true, hiddenDescendants: 1 });
+    expect(layout.hidden).toBe(1);
+    expect(ids(layout.emitted)).toEqual(["p"]);
+  });
+
+  it("a nested collapsed parent under a collapsed one is counted once", () => {
+    const rows = [tr("p"), tr("c", "p"), tr("g", "c")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set(["p", "c"]));
+    expect(ids(layout.emitted)).toEqual(["p"]);
+    expect(layout.hidden).toBe(2);
+    expect(layout.info.get("c")!.collapsed).toBe(false);
+  });
+
+  it("collapsing a leaf has no effect", () => {
+    const rows = [tr("p"), tr("c", "p")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set(["c"]));
+    expect(ids(layout.emitted)).toEqual(["p", "c"]);
+    expect(layout.info.get("c")).toMatchObject({ collapsed: false, hiddenDescendants: 0 });
+    expect(layout.hidden).toBe(0);
+  });
+});
+
+describe("buildGroupedRows with a tree layout", () => {
+  const TAXIS: GroupAxis<TRow> = {
+    key: "crit",
+    label: "Crit",
+    groupKeyOf: (r) => r.criticality,
+    vocab: [
+      { key: "high", label: "High" },
+      { key: "low", label: "Low" },
+    ],
+  };
+  const rows = [tr("c", "p", "high"), tr("p", null, "high"), tr("x", "p", "low")];
+  const access = accessOver(rows);
+
+  it("lays out each expanded group and reports what collapse hid", () => {
+    const calls: string[][] = [];
+    const out = buildGroupedRows(rows, TAXIS, new Set(), null, "Not set", (members) => {
+      calls.push(ids(members));
+      return buildTreeLayout(members, access, null, new Set(["p"]));
+    });
+    expect(out.map((r) => (r.__group ? `H:${r.__group.key}` : r.id))).toEqual([
+      "H:high",
+      "p",
+      "H:low",
+      "x",
+    ]);
+    const high = out[0].__group!;
+    // Header count and member ids stay all members.
+    expect(high.count).toBe(2);
+    expect(high.memberIds).toEqual(["c", "p"]);
+    expect(high.treeHidden).toBe(1);
+    expect(out[2].__group!.treeHidden).toBe(0);
+    expect(calls).toEqual([["c", "p"], ["x"]]);
+  });
+
+  it("never lays out a collapsed group", () => {
+    const calls: string[][] = [];
+    const out = buildGroupedRows(rows, TAXIS, new Set(["high"]), null, "Not set", (members) => {
+      calls.push(ids(members));
+      return { emitted: members, hidden: 0 };
+    });
+    expect(calls).toEqual([["x"]]);
+    expect(out[0].__group).toMatchObject({ key: "high", collapsed: true, treeHidden: 0 });
+  });
+
+  it("carries no treeHidden without a layout", () => {
+    const out = buildGroupedRows(rows, TAXIS, new Set(), null, "Not set");
+    expect("treeHidden" in out[0].__group!).toBe(false);
+  });
+});
+
+describe("forestOrder", () => {
+  const order = (leaves: TRow[]) =>
+    ids(
+      forestOrder(
+        leaves,
+        (l) => l.id,
+        (l) => l.parent,
+      ),
+    );
+
+  it("keeps a parent before its children and siblings in arrival order", () => {
+    // Arrival = a sort by name ascending: c1 < c2 < p1 < p2 < z.
+    expect(order([tr("c1", "p2"), tr("c2", "p1"), tr("p1"), tr("p2"), tr("z", "p1")])).toEqual([
+      "p1",
+      "c2",
+      "z",
+      "p2",
+      "c1",
+    ]);
+    // Descending arrival reverses roots and siblings, still parent-first.
+    expect(order([tr("z", "p1"), tr("p2"), tr("p1"), tr("c2", "p1"), tr("c1", "p2")])).toEqual([
+      "p2",
+      "c1",
+      "p1",
+      "z",
+      "c2",
+    ]);
+  });
+
+  it("a child whose parent is not among the leaves is a root in sort position", () => {
+    expect(order([tr("a"), tr("b", "missing"), tr("c")])).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps every node of a cycle exactly once", () => {
+    expect(order([tr("a", "b"), tr("b", "a"), tr("r")])).toEqual(["r", "a", "b"]);
+  });
+
+  it("handles a deep chain without recursion", () => {
+    const chain: TRow[] = [];
+    for (let i = 0; i < 20000; i++) chain.push(tr(`n${i}`, i === 0 ? null : `n${i - 1}`));
+    const out = order([...chain].reverse());
+    expect(out[0]).toBe("n0");
+    expect(out[19999]).toBe("n19999");
+  });
+});
+
+describe("glueGroups with a tree", () => {
+  const TAXIS: GroupAxis<TRow> = {
+    key: "crit",
+    label: "Crit",
+    groupKeyOf: (r) => r.criticality,
+    vocab: [
+      { key: "high", label: "High" },
+      { key: "low", label: "Low" },
+    ],
+  };
+  const node = (r: GroupedRow<TRow>) => ({ data: r });
+  const label = (ns: { data: GroupedRow<TRow> }[]) =>
+    ns.map((n) => (n.data.__group ? `H:${n.data.__group.key}` : n.data.id));
+
+  it("without an axis reorders leaves as a forest and adds no headers", () => {
+    const nodes = [tr("c1", "p1"), tr("p2"), tr("c2", "p2"), tr("p1")].map(node);
+    glueGroups(nodes, null, (r) => r.parent);
+    expect(label(nodes)).toEqual(["p2", "c2", "p1", "c1"]);
+  });
+
+  it("without an axis and without parentIdOf leaves the sort untouched", () => {
+    const nodes = [tr("c1", "p1"), tr("p1")].map(node);
+    glueGroups(nodes, null);
+    expect(label(nodes)).toEqual(["c1", "p1"]);
+  });
+
+  it("with an axis keeps each forest inside its group; cross-group parents do not nest", () => {
+    const grouped = buildGroupedRows(
+      [tr("p", null, "high"), tr("c", "p", "high"), tr("x", "p", "low"), tr("a", null, "high")],
+      TAXIS,
+      new Set(),
+      null,
+      "Not set",
+    );
+    // Sorted by id ascending (headers sort as their representative member).
+    const nodes = grouped.map(node).sort((l, r) => l.data.id.localeCompare(r.data.id));
+    glueGroups(nodes, TAXIS, (r) => r.parent);
+    expect(label(nodes)).toEqual(["H:high", "a", "p", "c", "H:low", "x"]);
+  });
+
+  it("keeps rows without data at the top", () => {
+    const nodes: { data?: GroupedRow<TRow> }[] = [node(tr("c", "p")), {}, node(tr("p"))];
+    glueGroups(nodes, null, (r) => r.parent);
+    expect(nodes.map((n) => n.data?.id ?? "-")).toEqual(["-", "p", "c"]);
+  });
+});

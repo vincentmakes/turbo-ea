@@ -2568,6 +2568,25 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
   {
+    id: "98c_inventory_group_by_parents",
+    // The demo seed gives parents to Business Processes (not to
+    // Applications); grouping by Process Type on top shows the two layers
+    // together, which is the point of the option.
+    route: "/inventory?type=BusinessProcess&group_by=attr_processType&group_tree=1",
+    waitFor: ".ag-root",
+    actions: [{ type: "wait", ms: 1500 }],
+    filenames: {
+      en: "98c_inventory_group_by_parents",
+      de: "98c_inventar_gruppierung_eltern",
+      fr: "98c_inventaire_regroupement_parents",
+      es: "98c_inventario_agrupacion_padres",
+      it: "98c_inventario_raggruppamento_genitori",
+      pt: "98c_inventario_agrupamento_pais",
+      zh: "98c_inventory_group_by_parents",
+      ru: "98c_inventarizatsiya_gruppirovka_roditeli",
+    },
+  },
+  {
     id: "98b_inventory_import",
     route: "/inventory?type=Application",
     waitFor: ".ag-root",

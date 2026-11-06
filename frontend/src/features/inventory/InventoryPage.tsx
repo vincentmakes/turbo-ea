@@ -50,6 +50,7 @@ import InventoryFilterSidebar, {
   eolColumnApplies,
   hierarchyLabelColumnApplies,
   logoColumnApplies,
+  treeGroupingApplies,
   normalizeRelationFilterKeys,
   normalizeSelectAttributeFilters,
   valueIsEmpty,
@@ -60,8 +61,17 @@ import CardLogoMenu from "@/components/CardLogoMenu";
 import LogoCell, {
   INVENTORY_LOGO_ROW_HEIGHT,
 } from "./LogoCell";
-import { type GroupAxis, type GroupedRow } from "@/components/grid/rowGrouping";
-import { GroupByMenuButton, useRowGrouping } from "@/components/grid/useRowGrouping";
+import {
+  type GroupAxis,
+  type GroupedRow,
+  type TreeAccess,
+  type TreeInfo,
+} from "@/components/grid/rowGrouping";
+import {
+  GroupByMenuButton,
+  useRowGrouping,
+  type GroupRowContext,
+} from "@/components/grid/useRowGrouping";
 import ImportDialog from "./ImportDialog";
 import {
   bandColor,
@@ -349,6 +359,98 @@ function buildDescendantIndex(items: Card[]): Map<string, string[]> {
 
 /** An inventory grid row: a card, or a member clone marked as group header. */
 type InventoryRow = GroupedRow<Card>;
+
+/** Indentation per tree level in the Name cell, and the chevron slot width. */
+const TREE_INDENT_PX = 20;
+
+/**
+ * The "Indent children under parents" frame around a Name cell: indentation,
+ * a chevron on parents (an empty slot on leaves so names align), and — on a
+ * root whose parent is shown elsewhere or not at all — the muted chain of its
+ * missing ancestors before its own name. Names are resolved here, at render
+ * time, from the ids the tree layout stored.
+ */
+function TreeNameFrame({
+  id,
+  name,
+  info,
+  nameOf,
+  onToggle,
+  children,
+}: {
+  id: string;
+  name: string;
+  info: TreeInfo;
+  nameOf: (id: string) => string | undefined;
+  onToggle?: (id: string) => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation("common");
+  const isRtl = useIsRtl();
+  const crumbParts = [
+    ...(info.crumbTruncated ? ["…"] : []),
+    ...info.crumbIds.map((cid) => nameOf(cid) ?? "…"),
+  ];
+  return (
+    <Box
+      // Inline, not `sx.pl`: inside AG Grid's own `direction: rtl` the RTL
+      // stylis plugin would flip a logical padding a second time.
+      style={{ paddingInlineStart: info.depth * TREE_INDENT_PX }}
+      sx={{ display: "flex", alignItems: "center", gap: 0.5, width: "100%", minWidth: 0 }}
+    >
+      <Box
+        sx={{
+          width: TREE_INDENT_PX,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {info.hasChildren && (
+          <IconButton
+            size="small"
+            data-tree-toggle="true"
+            aria-expanded={!info.collapsed}
+            aria-label={t(info.collapsed ? "groupBy.showChildren" : "groupBy.hideChildren", {
+              name,
+            })}
+            onClick={(e) => {
+              // The row's own click listener is native and fires first; it
+              // skips `[data-tree-toggle]` targets. These keep the click off
+              // the sibling link and any React ancestor.
+              e.stopPropagation();
+              e.preventDefault();
+              onToggle?.(id);
+            }}
+            sx={{ p: 0 }}
+          >
+            <MaterialSymbol
+              icon="expand_more"
+              size={18}
+              style={{
+                transform: info.collapsed ? `rotate(${isRtl ? 90 : -90}deg)` : undefined,
+                transition: "transform 0.15s",
+              }}
+            />
+          </IconButton>
+        )}
+      </Box>
+      {crumbParts.length > 0 && (
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          title={crumbParts.join(" / ")}
+          sx={{ maxWidth: "50%", flexShrink: 1, minWidth: 0 }}
+        >
+          {`${crumbParts.join(" / ")} / `}
+        </Typography>
+      )}
+      <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>{children}</Box>
+    </Box>
+  );
+}
 
 /** True when the URL carries filter state (a deep-link) — it then wins over
  * the persisted prefs for both the sidebar filters and the group-by axis. */
@@ -750,6 +852,8 @@ interface InventoryPrefs {
   // Active group-by axis in wire format ("subtype" | "lifecycle" |
   // "approval_status" | "attr_<fieldKey>"), or null for no grouping.
   groupBy?: string | null;
+  // "Indent children under parents" in the Group by menu.
+  groupTree?: boolean;
 }
 
 function loadPrefs(): InventoryPrefs | null {
@@ -935,6 +1039,15 @@ export default function InventoryPage() {
     const fromUrl = searchParams.get("group_by");
     if (fromUrl) return fromUrl;
     return urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.groupBy ?? null);
+  });
+  // "Indent children under parents" — same precedence as the axis: a URL that
+  // carries any grouping (`group_by` or `group_tree`) wins outright, else the
+  // saved preference unless the URL is a filtered deep-link.
+  const [groupTree, setGroupTree] = useState<boolean>(() => {
+    if (searchParams.has("group_by") || searchParams.has("group_tree")) {
+      return searchParams.get("group_tree") === "1";
+    }
+    return urlHasFilterParams(searchParams) ? false : !!savedPrefsRef.current?.groupTree;
   });
   // ?expand_group=<key> — the report group the user clicked. Consumed once by
   // the grouping hook: that group lands expanded, all others collapsed.
@@ -1579,6 +1692,7 @@ export default function InventoryPage() {
       sortModel,
       coreTagsMerged: true,
       groupBy,
+      groupTree,
     });
   }, [
     filters,
@@ -1589,6 +1703,7 @@ export default function InventoryPage() {
     frozenColumns,
     columnFilterModel,
     groupBy,
+    groupTree,
   ]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
@@ -1957,11 +2072,32 @@ export default function InventoryPage() {
   }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.origins, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
+  // "Indent children under parents" is only offered while a type in view has
+  // a hierarchy; the preference itself is kept while it is not offered.
+  const treeApplies = useMemo(
+    () => treeGroupingApplies(readableTypes, filters.types),
+    [readableTypes, filters.types],
+  );
+  const treeActive = groupTree && treeApplies;
+  // Lookups reach every loaded card — also those outside the group or hidden
+  // by a filter — so a re-rooted child can name its missing ancestors.
+  const treeAccess = useMemo<TreeAccess<Card> & { refreshColumns: string[] }>(
+    () => ({
+      parentIdOf: (c) => c.parent_id,
+      lookup: (id) => {
+        const c = cardsById.get(id);
+        return c ? { name: c.name, parentId: c.parent_id } : undefined;
+      },
+      refreshColumns: ["core_name"],
+    }),
+    [cardsById],
+  );
   const grouping = useRowGrouping<Card>(gridRef, {
     rows: filteredData,
     axes: groupAxes,
     groupBy,
     initialFocusGroup: initialFocusGroupRef.current,
+    tree: treeActive ? treeAccess : null,
   });
 
   // Sidebar-facet mirroring: "Show matching" on a facet-backed column also
@@ -2285,12 +2421,15 @@ export default function InventoryPage() {
         if (d.__group.collapsed) count += d.__group.count;
       } else {
         count++;
+        // A collapsed tree parent stands for its hidden branch too.
+        const ti = grouping.getTreeInfo(d.id);
+        if (ti?.collapsed) count += ti.hiddenDescendants;
       }
     });
     setDisplayedRowCount(count);
     // Finish an expand-then-select started by a collapsed group's checkbox.
     grouping.handleModelUpdated();
-  }, [grouping.handleModelUpdated]);
+  }, [grouping.handleModelUpdated, grouping.getTreeInfo]);
 
   // Export only what's on screen: the displayed columns, in their current
   // left-to-right order, with their displayed headers, and only the rows left
@@ -2379,6 +2518,10 @@ export default function InventoryPage() {
     // Collapse/expand is handled by the header renderer's own click handler.
     if ((e.data as InventoryRow | undefined)?.__group) return;
     if (gridEditMode || !e.data || e.event?.defaultPrevented) return;
+    // The tree chevron in the Name cell toggles its branch. AG Grid's row
+    // listener is native and runs before React's, so the button's own
+    // stopPropagation cannot keep this from navigating.
+    if ((e.event?.target as Element | null)?.closest?.("[data-tree-toggle]")) return;
     // A click that landed on a link inside a cell (a URL in the description)
     // is the link's. This is AG Grid's own row listener, native and fired
     // before React's, so a `stopPropagation` in the cell renderer never
@@ -2981,11 +3124,35 @@ export default function InventoryPage() {
           ? { fontWeight: 500 }
           : { cursor: "pointer", fontWeight: 500 },
         cellRenderer: gridEditMode
-          ? undefined
-          : (p: { data?: Card; value: string }) => {
+          ? // Edit mode keeps AG Grid's plain value — unless the tree is on,
+            // where the indentation and chevron still frame it (no link).
+            treeActive
+            ? (p: { data?: Card; value: string; context?: GroupRowContext }) => {
+                const ti = p.data ? p.context?.getTreeInfo?.(p.data.id) : undefined;
+                if (!p.data || !ti) return p.value ?? "";
+                return (
+                  <TreeNameFrame
+                    id={p.data.id}
+                    name={p.data.name}
+                    info={ti}
+                    nameOf={(cid) => cardsById.get(cid)?.name}
+                    onToggle={p.context?.toggleParentCollapse}
+                  >
+                    <Box
+                      component="span"
+                      sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      {p.value}
+                    </Box>
+                  </TreeNameFrame>
+                );
+              }
+            : undefined
+          : (p: { data?: Card; value: string; context?: GroupRowContext }) => {
               if (!p.data) return p.value ?? "";
               const id = p.data.id;
-              return (
+              const ti = p.context?.getTreeInfo?.(id);
+              const cell = (
                 <Box
                   sx={{
                     display: "flex",
@@ -3041,6 +3208,18 @@ export default function InventoryPage() {
                     {p.value}
                   </Box>
                 </Box>
+              );
+              if (!ti) return cell;
+              return (
+                <TreeNameFrame
+                  id={id}
+                  name={p.data.name}
+                  info={ti}
+                  nameOf={(cid) => cardsById.get(cid)?.name}
+                  onToggle={p.context?.toggleParentCollapse}
+                >
+                  {cell}
+                </TreeNameFrame>
               );
             },
       },
@@ -3805,7 +3984,7 @@ export default function InventoryPage() {
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
     return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys]);
+  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -4157,6 +4336,8 @@ export default function InventoryPage() {
             columnFilterModel={columnFilterModel}
             groupBy={groupBy}
             onGroupByChange={setGroupBy}
+            groupTree={groupTree}
+            onGroupTreeChange={setGroupTree}
           />
         </Drawer>
       ) : (
@@ -4195,6 +4376,8 @@ export default function InventoryPage() {
           columnFilterModel={columnFilterModel}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
+          groupTree={groupTree}
+          onGroupTreeChange={setGroupTree}
         />
       )}
 
@@ -4218,6 +4401,7 @@ export default function InventoryPage() {
             groupBy={groupBy}
             onChange={setGroupBy}
             compact={isMobile}
+            tree={treeApplies ? { enabled: groupTree, onChange: setGroupTree } : undefined}
           />
           <Box sx={{ flex: 1 }} />
           {isMobile ? (

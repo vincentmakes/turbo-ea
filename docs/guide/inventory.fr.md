@@ -170,6 +170,18 @@ Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'élém
 - La case à cocher de l'en-tête sélectionne toutes les fiches du groupe : pour reclasser un lot, dépliez **Non défini**, cochez l'en-tête, puis définissez la valeur via la [Modification en masse](#mass-edit). Il n'y a volontairement pas de glisser-déposer : sélectionner puis définir fonctionne de la même façon sur ordinateur, tablette et téléphone.
 - Le tri s'applique à l'intérieur de chaque groupe ; le regroupement est conservé après rechargement, enregistré dans les vues sauvegardées et partageable via le paramètre d'URL `group_by`.
 
+### Indenter les enfants sous leurs parents { #group-by-parents }
+
+Cochez **Indenter les enfants sous leurs parents** en bas du menu **Regrouper par** pour afficher les fiches sous forme d'arbre : chaque parent en premier, ses enfants indentés en dessous. L'option fonctionne seule (toute la grille devient un seul arbre) ou en plus d'un regroupement (chaque groupe devient son propre arbre). Le menu reste ouvert quand vous la cochez, ce qui permet de choisir un regroupement juste après.
+
+![Inventaire avec les enfants indentés sous leurs parents](../assets/img/fr/98c_inventaire_regroupement_parents.png)
+
+- Une fiche ne quitte jamais son groupe. Un enfant dont le parent se trouve dans un autre groupe, est masqué par un filtre de colonne ou n'est pas chargé démarre sa propre branche, avec ses ancêtres manquants affichés en gris avant son nom (par exemple *SAP S/4HANA / SAP FI /* devant le nom du module). Les décomptes des groupes, la case à cocher de l'en-tête et la modification en masse correspondent donc toujours au contenu du groupe.
+- Cliquez sur le chevron avant le nom d'un parent pour masquer ou afficher sa branche. Un parent réduit compte toujours ses fiches masquées dans le nombre d'éléments et dans l'en-tête du groupe. Les branches réduites ne sont pas mémorisées, et modifier un filtre de colonne les rouvre toutes.
+- Le tri s'applique entre frères et sœurs : les parents sont triés, et les enfants de chaque parent sont triés en dessous de lui.
+- L'option n'est proposée que si un type de fiche affiché possède une hiérarchie. Elle est mémorisée d'un rechargement à l'autre, enregistrée dans les vues sauvegardées et partageable via le paramètre d'URL `group_tree=1`.
+- L'**export** suit l'ordre de l'arbre et omet les fiches situées dans des branches réduites, comme il le fait pour les groupes réduits.
+
 ## Suggestions de description par IA { #ai-description-suggestions }
 
 Turbo EA peut utiliser l'**IA pour générer une description** pour n'importe quelle fiche. Cela fonctionne aussi bien dans la boîte de dialogue de création de fiche que sur les pages de détail des fiches existantes.

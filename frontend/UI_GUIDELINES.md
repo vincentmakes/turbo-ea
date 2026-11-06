@@ -380,10 +380,19 @@ rules the module exists to hold, each of which has a cheap way to get wrong:
   `stopPropagation()`s so the cell menu's long-press never even arms. Hooks stay
   clear of each other by construction, not by spread order.
 - **A hook never claims a `gridProps` key another hook already owns.**
-  `useRowGrouping` returns `onModelUpdated`; a second hook returning it would
-  silently win in a later spread and break grouping. `useDragFill` returns
-  `onCellFocused` alone and subscribes to everything else through
-  `api.addEventListener`, which is additive.
+  `useRowGrouping`'s `gridProps` own `postSortRows`, `isFullWidthRow`,
+  `fullWidthCellRenderer`, `isRowSelectable` and `context`, and its
+  `handleModelUpdated` / `handleFilterChanged` are chained by each page inside
+  its own `onModelUpdated` / `onFilterChanged`; a second hook returning one of
+  those keys would silently win in a later spread and break grouping.
+  `useDragFill` returns `onCellFocused` alone and subscribes to everything else
+  through `api.addEventListener`, which is additive.
+- **The grouping tree layer ("Indent children under parents") never clones a
+  leaf row.** Depth, ancestor crumb and collapse state live in a side map the
+  hook exposes as `context.getTreeInfo(id)`, and the hook forces
+  `refreshCells` on the tree's columns whenever that map changes, because AG
+  Grid does not re-render a row whose object is unchanged. A clone rebuilt
+  from `data` would revert a Name edit that mutated the row in place.
 - **The fill is write-then-reload, never optimistic.** It persists each row and
   re-reads once at the end — it must not call `node.setDataValue()`, which would
   re-fire `onCellValueChanged` and write every row twice, and it never touches a

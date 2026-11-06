@@ -170,6 +170,18 @@ Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de e
 - La casilla de la cabecera selecciona todas las tarjetas del grupo: para reclasificar un lote, despliegue **Sin definir**, marque la cabecera y establezca el valor con la [Edición masiva](#mass-edit). Deliberadamente no hay arrastrar y soltar: seleccionar y establecer funciona igual en escritorio, tableta y móvil.
 - La ordenación se aplica dentro de cada grupo; la agrupación se conserva al recargar, se guarda en las vistas guardadas y puede compartirse mediante el parámetro de URL `group_by`.
 
+### Sangrar los hijos bajo sus padres { #group-by-parents }
+
+Marque **Sangrar los hijos bajo sus padres** al final del menú **Agrupar por** para mostrar las fichas como un árbol: primero cada padre y debajo, sangrados, sus hijos. Funciona por sí sola (toda la cuadrícula se convierte en un único árbol) o sobre cualquier agrupación (cada grupo se convierte en su propio árbol). El menú permanece abierto al marcarla, de modo que puede elegir una agrupación justo después.
+
+![Inventario con los hijos sangrados bajo sus padres](../assets/img/es/98c_inventario_agrupacion_padres.png)
+
+- Una ficha nunca sale de su propio grupo. Un hijo cuyo padre está en otro grupo, oculto por un filtro de columna o sin cargar inicia su propia rama, con sus ancestros ausentes mostrados en gris antes de su nombre (por ejemplo, *SAP S/4HANA / SAP FI /* antes del nombre del módulo). Por ello, los recuentos de los grupos, la casilla del encabezado y la edición masiva siempre coinciden con lo que contiene el grupo.
+- Haga clic en el chevrón antes del nombre de un padre para ocultar o mostrar su rama. Un padre contraído sigue contando sus fichas ocultas en el número de elementos y en el encabezado del grupo. Las ramas contraídas no se recuerdan, y cambiar un filtro de columna las vuelve a abrir todas.
+- La ordenación se aplica entre hermanos: se ordenan los padres y, debajo de cada uno, sus hijos.
+- La opción solo se ofrece cuando un tipo de ficha en pantalla tiene jerarquía. Se recuerda entre recargas, se guarda en las vistas guardadas y se puede compartir con el parámetro de URL `group_tree=1`.
+- **Exportar** sigue el orden del árbol y omite las fichas de las ramas contraídas, igual que hace con los grupos contraídos.
+
 ## Sugerencias de Descripción con IA { #ai-description-suggestions }
 
 Turbo EA puede usar **IA para generar una descripción** para cualquier ficha. Esto funciona tanto en el diálogo de creación de fichas como en las páginas de detalle de fichas existentes.

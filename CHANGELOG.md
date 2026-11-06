@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.193.0] - 2026-11-06
+
+### Added
+- Inventory: **Indent children under parents** in the Group by menu shows cards as a tree, alone or within any grouping; a child whose parent is elsewhere shows its ancestors before its name.
+
 ## [2.192.0] - 2026-11-06
 
 ### Added

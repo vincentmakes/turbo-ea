@@ -170,6 +170,18 @@ Klicken Sie in der Symbolleiste auf **Gruppieren nach** (neben der Trefferanzahl
 - Das Kontrollkästchen in der Überschrift wählt alle Karten der Gruppe aus. Eine Neuklassifizierung im Stapel ist damit: **Nicht gesetzt** aufklappen, Überschrift anhaken, dann den Wert per [Massenbearbeitung](#mass-edit) setzen. Auf Drag-and-drop wurde bewusst verzichtet — Auswählen und Setzen funktioniert auf Desktop, Tablet und Smartphone gleich.
 - Die Sortierung wirkt innerhalb jeder Gruppe; die Gruppierung bleibt über Neuladen erhalten, wird in gespeicherten Ansichten abgelegt und lässt sich über den URL-Parameter `group_by` teilen.
 
+### Untergeordnete unter Übergeordneten einrücken { #group-by-parents }
+
+Aktivieren Sie unten im Menü **Gruppieren nach** das Kontrollkästchen **Untergeordnete unter Übergeordneten einrücken**, um die Karten als Baum anzuzeigen: zuerst jede übergeordnete Karte, darunter eingerückt ihre untergeordneten Karten. Die Option funktioniert allein (das ganze Raster wird zu einem Baum) oder zusätzlich zu jeder Gruppierung (jede Gruppe wird zu einem eigenen Baum). Das Menü bleibt beim Aktivieren geöffnet, sodass Sie direkt danach eine Gruppierung wählen können.
+
+![Inventar mit eingerückten Untergeordneten](../assets/img/de/98c_inventar_gruppierung_eltern.png)
+
+- Eine Karte verlässt nie ihre eigene Gruppe. Eine untergeordnete Karte, deren übergeordnete Karte in einer anderen Gruppe liegt, durch einen Spaltenfilter ausgeblendet oder nicht geladen ist, beginnt einen eigenen Zweig; ihre fehlenden Vorfahren erscheinen grau vor ihrem Namen (zum Beispiel *SAP S/4HANA / SAP FI /* vor dem Namen des Moduls). Gruppenanzahlen, Kontrollkästchen in der Überschrift und Massenbearbeitung stimmen deshalb immer mit dem Inhalt der Gruppe überein.
+- Klicken Sie auf den Pfeil vor dem Namen einer übergeordneten Karte, um ihren Zweig aus- oder einzublenden. Eine eingeklappte übergeordnete Karte zählt ihre ausgeblendeten Karten weiterhin in der Elementanzahl und in der Gruppenüberschrift mit. Eingeklappte Zweige werden nicht gespeichert, und eine Änderung des Spaltenfilters klappt sie wieder alle auf.
+- Die Sortierung wirkt unter Geschwistern: Die übergeordneten Karten werden sortiert, und darunter die untergeordneten Karten jeder übergeordneten Karte.
+- Die Option wird nur angeboten, wenn ein Kartentyp in der Ansicht eine Hierarchie hat. Sie bleibt über Neuladen erhalten, wird in gespeicherten Ansichten abgelegt und lässt sich über den URL-Parameter `group_tree=1` teilen.
+- Der **Export** folgt der Baumreihenfolge und lässt die Karten in eingeklappten Zweigen aus, wie er es auch bei eingeklappten Gruppen tut.
+
 ## KI-Beschreibungsvorschläge { #ai-description-suggestions }
 
 Turbo EA kann **KI verwenden, um eine Beschreibung** für jede Karte zu generieren. Dies funktioniert sowohl im Karte-erstellen-Dialog als auch auf bestehenden Kartendetailseiten.
