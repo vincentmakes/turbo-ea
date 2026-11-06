@@ -576,6 +576,7 @@ async def get_cost_treemap(
     type: str = "Application",
     cost_field: str = "costTotalAnnual",
     group_by: str = "",
+    attribution: str = "",
 ) -> str:
     """Treemap of annual card cost for the current fiscal year, grouped optionally.
 
@@ -589,7 +590,16 @@ async def get_cost_treemap(
         type: Card type to aggregate (default 'Application').
         cost_field: Cost field key on that type (default 'costTotalAnnual').
         group_by: Optional related card type key to group spend by
-            (e.g. 'BusinessCapability', 'Organization').
+            (e.g. 'BusinessCapability', 'Organization'). Each item then carries
+            `groups` (every group it links to) and `group` (the alphabetically
+            first of them).
+        attribution: How a related card's cost is attributed when the cost
+            comes from related cards. 'full' (the default when empty): a
+            related card's cost counts in full on every card it links to;
+            the response `total` still counts each related card once, items
+            carry `source_ids` and the response carries `source_costs`.
+            'split': the cost is divided equally among the live cards it
+            links to.
     """
     token = await _get_current_token()
     if not token:
@@ -602,6 +612,7 @@ async def get_cost_treemap(
                 "type": type,
                 "cost_field": cost_field,
                 "group_by": group_by,
+                "attribution": attribution,
             }
         ),
     )
@@ -609,11 +620,17 @@ async def get_cost_treemap(
 
 
 @mcp.tool(annotations=_READ_ANNOT)
-async def get_capability_heatmap(metric: str = "app_count") -> str:
+async def get_capability_heatmap(metric: str = "app_count", attribution: str = "") -> str:
     """Hierarchical business-capability heatmap.
 
     Args:
-        metric: What to colour by — 'app_count', 'cost', 'data_quality'.
+        metric: What to colour by — 'app_count' (linked applications),
+            'total_cost' (annual cost) or 'risk_count' (linked applications
+            that have an end-of-life date).
+        attribution: How a linked card's cost is attributed to capabilities.
+            'full' (the default when empty): a card's cost counts in full on
+            every capability it links to. 'split': the cost is divided
+            equally among the live capabilities it links to.
     """
     token = await _get_current_token()
     if not token:
@@ -621,7 +638,7 @@ async def get_capability_heatmap(metric: str = "app_count") -> str:
     client = TurboEAClient(token)
     data = await client.get(
         "/reports/capability-heatmap",
-        params=_compact({"metric": metric}),
+        params=_compact({"metric": metric, "attribution": attribution}),
     )
     return _fmt(data)
 

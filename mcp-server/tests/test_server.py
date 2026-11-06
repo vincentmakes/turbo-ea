@@ -337,14 +337,51 @@ class TestReportTools:
         )
 
     @pytest.mark.asyncio
-    async def test_get_capability_heatmap(self, fake_token):
+    async def test_get_cost_treemap_split_attribution(self, fake_token):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.get_cost_treemap(group_by="Organization", attribution="split")
+        _assert_called_with(
+            mock,
+            "/reports/cost-treemap",
+            params={
+                "type": "Application",
+                "cost_field": "costTotalAnnual",
+                "group_by": "Organization",
+                "attribution": "split",
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_cost_tools_default_attribution_sends_no_key(self, fake_token):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.get_cost_treemap()
+            await server.get_capability_heatmap(metric="total_cost")
+        assert mock.await_count == 2
+        for call in mock.await_args_list:
+            assert "attribution" not in call.kwargs["params"]
+
+    @pytest.mark.asyncio
+    async def test_get_capability_heatmap_split_attribution(self, fake_token):
         patcher, mock = _patched_get({"tree": []})
         with patcher:
-            await server.get_capability_heatmap(metric="cost")
+            await server.get_capability_heatmap(metric="total_cost", attribution="split")
         _assert_called_with(
             mock,
             "/reports/capability-heatmap",
-            params={"metric": "cost"},
+            params={"metric": "total_cost", "attribution": "split"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_capability_heatmap(self, fake_token):
+        patcher, mock = _patched_get({"tree": []})
+        with patcher:
+            await server.get_capability_heatmap(metric="total_cost")
+        _assert_called_with(
+            mock,
+            "/reports/capability-heatmap",
+            params={"metric": "total_cost"},
         )
 
     @pytest.mark.asyncio

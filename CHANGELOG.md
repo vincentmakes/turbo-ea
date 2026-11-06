@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.192.0] - 2026-11-06
+
+### Added
+- Cost Report and Capability Map: an **Attribution** choice (Full or Split equally) decides how a related card linked to several cards is counted; shared sources are marked, and the choice is saved with the report ([#1362](https://github.com/vincentmakes/turbo-ea/discussions/1362)).
+- The `get_cost_treemap` and `get_capability_heatmap` MCP tools take the same `attribution` option.
+
+### Fixed
+- The Cost Report's Total Cost no longer adds a related card once per card it links to; it counts each related card once.
+- Grouping the cost treemap by a related type lists a card under every group it links to, in a fixed order, instead of one arbitrary group.
+
 ## [2.191.0] - 2026-11-05
 
 ### Added

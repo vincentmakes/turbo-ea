@@ -80,6 +80,8 @@ O **Mapa de Capacidades** mostra um **mapa de calor** hierárquico das capacidad
 
 **Viagem no tempo** — O controle deslizante da linha do tempo traz os mesmos instrumentos de transição do [Relatório de Dependências](#relatorio-de-dependencias): marcas em cada data em que uma aplicação entra em produção (azul) ou é desativada (vermelho), pílulas que nomeiam as aplicações que mudam enquanto o controle está sobre uma marca, botões de seta que saltam de mudança em mudança e chips que resumem a transformação quando se olha para o futuro (também incluídos nos cabeçalhos de impressão e exportação). Clicar numa marca ou numa pílula destaca a mudança: com **Mostrar aplicações** ativo, os chips das aplicações que mudam pulsam enquanto o resto escurece, e uma aplicação já desaparecida na data selecionada é revelada apenas durante a pulsação; com ele desativado, o destaque recai sobre os blocos de capacidade que contêm as aplicações que mudam — azul onde elas apenas entram, vermelho onde apenas são desativadas, roxo onde acontecem as duas coisas.
 
+**Atribuição do custo total** — Com a métrica **Custo total**, uma aplicação que suporta várias capacidades conta na íntegra em cada uma delas (**Integral**) ou é dividida em partes iguais entre elas (**Em partes iguais**). As subcapacidades são agregadas nas capacidades-mãe sem contar uma aplicação duas vezes. O seletor **Atribuição** aparece ao lado da Métrica do mapa de calor apenas para Custo total e é guardado com o relatório.
+
 **Recolher os filtros** — A linha **Filtros de aplicação** pode ser fechada; clique no seu cabeçalho para recuperar o espaço. O estado é guardado com o relatório, a contagem de filtros ativos continua visível no cabeçalho recolhido e **Limpar tudo** permanece acessível sem ter de a expandir primeiro.
 
 ## Relatório de Ciclo de Vida
@@ -185,15 +187,21 @@ Quando o tipo de cartão selecionado tem pelo menos um tipo de relação que apo
 
 O seletor é de **seleção múltipla**, portanto uma única consolidação pode combinar vários tipos relacionados. Por exemplo, ao visualizar o **Fornecedor** *Microsoft*, marcar simultaneamente `Aplicação · Custo anual total` e `Componente de TI · Custo anual total` mostra a presença completa do fornecedor — Teams, M365, Azure e quaisquer outros componentes fornecidos pela Microsoft — como um único número.
 
-#### Porque nada é contabilizado duas vezes
+#### Atribuição: Integral ou Em partes iguais
 
-O seletor foi desenhado para tornar a dupla contagem impossível por construção:
+Dentro de um retângulo, nada é contabilizado duas vezes:
 
 - Cada entrada é um par único `(tipo destino, campo de custo)` — a lista oferece cada par exactamente uma vez, mesmo quando vários tipos de relação alcançam o mesmo tipo destino.
-- Dentro do mesmo par, dois cartões ligados por vários tipos de relação contribuem com o seu custo apenas uma vez.
-- Entre entradas diferentes, nenhum cartão pode contribuir duas vezes: um cartão tem exactamente um tipo e campos de custo distintos no mesmo cartão são valores independentes.
+- Dentro do mesmo par, um cartão ligado por vários tipos de relação contribui com o seu custo apenas uma vez.
 
-Um pequeno **ícone de ajuda (?)** ao lado do seletor reforça esta garantia ao passar o rato.
+Entre retângulos, um cartão relacionado pode estar ligado a vários dos cartões apresentados — uma iniciativa que melhora duas capacidades, um componente de TI que serve três aplicações. O seletor **Atribuição**, ao lado do seletor de Origem dos custos, decide como esse cartão é contabilizado:
+
+- **Integral** (predefinição) — o custo total do cartão relacionado conta em cada cartão apresentado a que está ligado. É uma vista de impacto: cada retângulo mostra quanto dinheiro depende desse cartão. O valor **Custo total** continua a contar cada cartão relacionado uma só vez, pelo que não é a soma dos retângulos; uma legenda por baixo indica-o. Um retângulo cujas origens são partilhadas com outros cartões indica quantas na sua dica, e a tabela assinala-o com um ícone de ligação.
+- **Em partes iguais** — o custo do cartão relacionado é dividido pelo número de cartões em funcionamento do tipo apresentado a que está ligado. Uma iniciativa de 50 000 que melhora duas capacidades acrescenta 25 000 a cada uma, pelo que os retângulos somam o total.
+
+A parcela é uma propriedade do panorama, não da vista: restringir o relatório a alguns cartões ou detalhar um retângulo não a altera. Os cartões que não tem permissão para ver nunca contam, nem como origem de custo nem no número pelo qual um custo é dividido. A escolha é guardada com o relatório.
+
+Um pequeno **ícone de ajuda (?)** ao lado do seletor explica as duas opções de atribuição ao passar o rato.
 
 A lista de opções é gerada a partir do seu metamodelo — os tipos de relação e os campos de custo são descobertos no momento de renderização, pelo que qualquer tipo de cartão ou relação personalizada que adicione passa a ser automaticamente uma Origem dos custos válida.
 
@@ -203,6 +211,8 @@ Sempre que pelo menos uma Origem de custos estiver ativa, os retângulos do mapa
 
 - **Uma única Origem de custos ativa** — o detalhamento mostra um mapa de árvore dos cartões relacionados (por exemplo, ao clicar em *NexaCore ERP* com `Componente de TI · Custo anual total` marcado são mostrados os Componentes de TI ligados ao NexaCore ERP, dimensionados pelo seu custo anual).
 - **Várias Origens de custos ativas** — o detalhamento mostra **um mapa de árvore por origem lado a lado** (1 coluna em ecrãs estreitos, 2 em ecrãs largos). Cada painel tem o seu próprio cabeçalho, o seu próprio total e a sua própria `% do total` na dica de ferramenta — assim os diferentes tipos de cartão mantêm a sua escala em vez de serem comprimidos num único gráfico.
+
+Com **Em partes iguais**, os cartões detalhados mostram a sua parcela no retângulo em que clicou, pelo que o total do painel é igual ao custo desse retângulo.
 
 A seleção de Origem de custos e os restantes filtros são preservados durante o detalhamento, e o nível de detalhamento faz parte da configuração do relatório guardado — guardar um relatório enquanto se está a detalhar reabre-o diretamente nesse nível. Sem uma Origem de custos ativa, um clique num retângulo abre antes o painel lateral do cartão (não há nada a decompor).
 

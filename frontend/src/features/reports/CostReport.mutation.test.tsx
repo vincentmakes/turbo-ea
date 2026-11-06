@@ -516,6 +516,7 @@ describe("CostReport print parameters", () => {
         ["Type", "Application"],
         ["Fiscal year", "FY 2026"],
         ["Cost Source", "Contract · Contract Value + IT Component · License Cost"],
+        ["Attribution", "Full"],
       ]),
     );
     // Summing related sources replaces the direct field, so its picker goes.
@@ -980,6 +981,7 @@ describe("CostReport saved configuration", () => {
         sortD: "desc",
         drillStack: [],
         scopeIds: [],
+        attribution: "full",
       }),
     );
   });
@@ -1311,7 +1313,7 @@ describe("CostReport toolbar", () => {
     await findChart();
     const help = screen.getByLabelText(/Sum costs from related cards/);
     fireEvent.mouseOver(help);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(/Each entry targets a unique/);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/choose an Attribution to decide how/);
   });
 
   it("lets several sources be ticked in one opening of the picker", async () => {

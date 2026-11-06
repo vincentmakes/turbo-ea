@@ -36628,7 +36628,7 @@
     },
     "/api/v1/reports/capability-heatmap": {
       "get": {
-        "description": "Business capability heatmap data with hierarchy.",
+        "description": "Business capability heatmap data with hierarchy.\n\n``total_cost`` per capability sums its applications' cost fields. With\n``attribution=\"full\"`` (the default) an application linked to several\ncapabilities counts in full on each; with ``\"split\"`` its cost is divided\nequally between the readable capabilities it links to. Each application\nlists those capabilities (``capability_ids``) so the page can roll a branch\nup without counting a shared application twice.",
         "operationId": "capability_heatmap_api_v1_reports_capability_heatmap_get",
         "parameters": [
           {
@@ -36638,6 +36638,16 @@
             "schema": {
               "default": "app_count",
               "title": "Metric",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attribution",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "title": "Attribution",
               "type": "string"
             }
           }
@@ -36712,7 +36722,7 @@
     },
     "/api/v1/reports/cost-treemap": {
       "get": {
-        "description": "Cost treemap: items with cost, optionally grouped by a related type.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.",
+        "description": "Cost treemap: items with cost, optionally grouped by a related type.\n\nCosts are annual and shown for the current fiscal year only: a card counts,\nat its full annual cost, when the current fiscal year falls between the one\nit goes ``active`` in and the one its ``endOfLife`` falls in, both included \u2014\nno pro-rating, so a card retired in an earlier fiscal year is left out. A\ncard carries one annual figure, so projecting it onto other years would\nonly restate today's number; that is why there is no year parameter. The\nrule applies to the primary cards and, in ``aggregate`` mode, to the related\ncards being summed, so a retired IT Component stops adding to its\nApplication's total. The response names the fiscal year (``fiscal_year``)\nand the workspace's start month (``fiscal_year_start``).\n\nWhen ``aggregate`` is non-empty, each entry is a ``\"<typeKey>:<costFieldKey>\"``\npair identifying a cost field on a related card type. The endpoint sums that\nfield across each primary card's related cards (relations resolved\nbidirectionally, parallel relations de-duped) and adds the per-pair totals.\nBecause every pair targets a different card type **or** a different cost field\non the same type, no related card contributes more than once to a given\nprimary card's roll-up. This lets a type that has no cost field of its own\n(e.g. Provider) display costs sourced from related Applications, IT\nComponents, etc., even all of them at once.\n\nWhen ``parent_card_id`` is set, the primary card set is restricted to cards\nthat have at least one relation (in either direction) to that parent. This\npowers the treemap drill-down \u2014 clicking a parent rectangle re-queries with\nthe related type as ``type`` and the parent's id as ``parent_card_id``.\n\n``attribution`` (``\"full\"``, the default, or ``\"split\"``) decides what a\nrelated card shared by several cards contributes to each (discussion #1362;\nthe arithmetic is ``app.services.cost_attribution``):\n\n* In ``aggregate`` mode each item lists the related cards it sums\n  (``source_ids``) and the response maps every one of them to its full cost\n  (``source_costs``). ``full`` puts a related card's whole cost on every\n  card it links to, and ``total`` counts each related card once, so it is\n  no longer the sum of the tiles when one is shared. ``split`` divides the\n  cost equally between the readable, active, live cards of ``type`` it\n  links to \u2014 counted before the ``parent_card_id`` restriction, so a drill\n  never changes a share, and never counting a card the reader cannot see \u2014\n  and ``total`` is the sum of the items.\n* Without ``aggregate`` but with ``parent_card_id``, ``split`` divides each\n  item's own cost by the number of readable live cards of the parent's\n  type it links to, so the drilled panel adds up to the parent's tile.\n  Without either, ``attribution`` changes nothing.\n* With ``group_by``, each item lists every group it links to (``groups``,\n  sorted) and is filed under the alphabetically first (``group``); a group's\n  ``cost`` counts an item in full in each of its groups (``full``) or\n  shares it equally between them (``split``).",
         "operationId": "cost_treemap_api_v1_reports_cost_treemap_get",
         "parameters": [
           {
@@ -36785,6 +36795,16 @@
                 }
               ],
               "title": "Parent Card Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attribution",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "title": "Attribution",
+              "type": "string"
             }
           }
         ],

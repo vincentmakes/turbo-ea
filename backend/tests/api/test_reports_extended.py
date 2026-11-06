@@ -1236,6 +1236,8 @@ class TestCostTreemap:
         standalone_item = next(i for i in data["items"] if i["name"] == "Standalone")
         assert ad_item["group"] == "Marketing"
         assert standalone_item["group"] == "Ungrouped"
+        assert ad_item["groups"] == ["Marketing"]
+        assert standalone_item["groups"] == []
 
     async def test_cost_treemap_invalid_cost_field_400(self, client, db, env):
         """Invalid cost_field format returns 400."""

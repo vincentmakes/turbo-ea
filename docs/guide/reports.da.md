@@ -80,6 +80,8 @@ Et klik på en kapabilitet åbner et sidepanel med alle applikationer i dens und
 
 **Tidsrejse** — Tidslinje-skyderen bærer de samme transformationsinstrumenter som [Afhængighedsrapporten](#afhngighedsrapport): markeringer ved hver dato, hvor en applikation går i drift (blå) eller udfases (rød), piller, der navngiver de applikationer, der ændrer sig, mens skyderen står på en markering, pileknapper, der springer fra ændring til ændring, og chips, der opsummerer transformationen, når du kigger fremad (de indgår også i print- og eksportoverskrifter). Et klik på en markering eller en pille sætter spot på ændringen: med **Vis applikationer** slået til pulserer de ændrede applikationers chips, mens resten nedtones, og en applikation, der allerede er væk på den valgte dato, vises kun under pulseringen; med den slået fra falder fremhævningen på de kompetenceblokke, der indeholder de applikationer, der ændrer sig — blå hvor de kun kommer til, røde hvor de kun udfases, lilla hvor begge dele sker.
 
+**Fordeling af samlede omkostninger** — Med metrikken **Samlede omkostninger** tæller en applikation, der understøtter flere kapabiliteter, fuldt ud på hver af dem (**Fuld**) eller fordeles ligeligt mellem dem (**Fordel ligeligt**). Underkapabiliteter rulles op i deres overordnede kapabiliteter uden at tælle en applikation to gange. Vælgeren **Fordeling** vises ved siden af Heatmap-metrik kun for Samlede omkostninger og gemmes sammen med rapporten.
+
 **Sammenfoldning af filtrene** — Rækken **Applikationsfiltre** kan foldes sammen; klik på dens overskrift for at få pladsen tilbage. Tilstanden gemmes sammen med rapporten, antallet af aktive filtre er stadig synligt på den sammenfoldede overskrift, og **Ryd alle** er stadig inden for rækkevidde uden først at folde ud.
 
 ## Livscyklusrapport
@@ -185,15 +187,21 @@ Når den valgte korttype har mindst én relations­type, der peger på en type, 
 
 Vælgeren er **multi-valg**, så en enkelt opsamling kan kombinere flere relaterede typer i én bevægelse. For eksempel, når du ser **Provider** for *Microsoft*, viser markering af både `Application · Total Annual Cost` og `IT Component · Total Annual Cost` leverandørens fulde fodaftryk — Teams, M365, Azure og enhver anden Microsoft-leveret komponent — som ét tal.
 
-#### Hvorfor intet bliver talt to gange
+#### Fordeling: Fuld eller Fordel ligeligt
 
-Vælgeren er bygget, så dobbelttælling er umulig ved konstruktion:
+Inden for ét rektangel bliver intet talt to gange:
 
 - Hver post er et unikt `(target type, cost field)`-par — dropdownen tilbyder hvert par præcis én gang, selv når flere relations­typer når den samme target-type.
-- Inden for et enkelt par bidrager to kort linket gennem flere relations­typer stadig kun med deres omkostning én gang.
-- På tværs af forskellige poster kan intet kort bidrage to gange: et kort har præcis én type, og forskellige omkostningsfelter på samme kort er uafhængige værdier.
+- Inden for et enkelt par bidrager et kort, der er linket gennem flere relationstyper, stadig kun med sin omkostning én gang.
 
-Et lille **hjælpe-ikon (?)** ved siden af vælgeren gentager denne garanti ved hover.
+På tværs af rektangler kan et relateret kort være linket til flere af de viste kort — ét initiativ, der forbedrer to kapabiliteter, én IT-komponent, der betjener tre applikationer. Vælgeren **Fordeling** ved siden af Cost Source-vælgeren afgør, hvordan et sådant kort tælles:
+
+- **Fuld** (standard) — det relaterede korts samlede omkostning tæller på hvert vist kort, det er linket til. Det er en effektvisning: hvert rektangel viser, hvor mange penge der afhænger af det kort. Tallet **Samlede omkostninger** tæller stadig hvert relateret kort én gang, så det er ikke summen af rektanglerne; en billedtekst under det gør opmærksom på det. Et rektangel, hvis kilder deles med andre kort, angiver hvor mange i sin tooltip, og tabellen markerer det med et link-ikon.
+- **Fordel ligeligt** — det relaterede korts omkostning divideres med antallet af aktive kort af den viste type, det er linket til. Et initiativ på 50.000, der forbedrer to kapabiliteter, lægger 25.000 til hver, så rektanglerne tilsammen giver totalen.
+
+Andelen er en egenskab ved landskabet, ikke ved visningen: at afgrænse rapporten til nogle få kort eller drille ned i et rektangel ændrer den ikke. Kort, du ikke har tilladelse til at se, tæller aldrig med — hverken som omkostningskilde eller i det antal, en omkostning deles med. Valget gemmes sammen med rapporten.
+
+Et lille **hjælpe-ikon (?)** ved siden af vælgeren forklarer de to fordelingsvalg ved hover.
 
 Listen over muligheder genereres fra din metamodel — relations­typer og omkostningsfelter opdages ved render-tid, så en hvilken som helst brugerdefineret korttype eller relation, du tilføjer, bliver automatisk en gyldig Cost Source.
 
@@ -203,6 +211,8 @@ Når mindst én Cost Source er aktiv, er treemap-rektanglerne **klikbare**. Klik
 
 - **Enkelt Cost Source aktiv** — drill gengiver én treemap over de relaterede kort (f.eks. ved klik på *NexaCore ERP* med `IT Component · Total Annual Cost` markeret vises de IT Components, der er linket til NexaCore ERP, størrelses-justeret efter deres årlige omkostning).
 - **Flere Cost Sources aktive** — drill gengiver **én treemap pr. kilde side om side** (1 kolonne på smalle viewports, 2 på brede). Hvert panel har sin egen overskrift, sit eget total og sit eget pr.-panel `% af total` i tooltip'en — så forskellige korttyper forbliver på deres egen skala i stedet for at blive presset ind i ét diagram.
+
+Med **Fordel ligeligt** viser de drillede kort deres andel af det rektangel, du klikkede på, så panelets total svarer til rektanglets omkostning.
 
 Cost Source-valget og andre filtre bevares, mens du driller, og det drillede niveau er en del af den gemte rapports konfiguration — at gemme en rapport, mens du har drillet ind, genåbner direkte på det niveau. Uden **nogen** Cost Source aktiv åbner klik på et rektangel kort-sidepanelet i stedet (der er intet at bryde ned).
 

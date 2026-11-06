@@ -104,6 +104,44 @@ describe("costTooltipHtml", () => {
   });
 });
 
+describe("shared sources", () => {
+  const sharedNote = (n: number) => `${n} shared`;
+
+  it("names how many sources a tile shares", () => {
+    expect(costTooltipHtml({ name: "Cap A", cost: 50, shared: 2 }, opts({ panelTotal: 100, sharedNote }))).toBe(
+      '<div style="font-weight:700">Cap A</div>' +
+        '<div style="font-size:12px">$50</div>' +
+        '<div style="font-size:12px;opacity:.7">50.0% of total</div>' +
+        '<div style="font-size:12px;opacity:.7">2 shared</div>',
+    );
+    // The datum carries the count to the tooltip.
+    const option = build([{ id: "a", name: "Cap A", cost: 50, index: 0, shared: 1 }], {
+      panelTotal: 100,
+      sharedNote,
+    });
+    const datum = seriesOf(option).data[0];
+    expect(datum.shared).toBe(1);
+    expect(option.tooltip.formatter({ data: datum })).toContain("1 shared");
+  });
+
+  it("says nothing about sharing for a tile with none", () => {
+    const note = vi.fn(sharedNote);
+    expect(costTooltipHtml({ name: "Cap C", cost: 10, shared: 0 }, opts({ panelTotal: 0, sharedNote: note }))).toBe(
+      '<div style="font-weight:700">Cap C</div><div style="font-size:12px">$10</div>',
+    );
+    expect(costTooltipHtml({ name: "Cap C", cost: 10 }, opts({ panelTotal: 0, sharedNote: note }))).toBe(
+      '<div style="font-weight:700">Cap C</div><div style="font-size:12px">$10</div>',
+    );
+    expect(note).not.toHaveBeenCalled();
+    // A shared count without a note function says nothing either.
+    expect(costTooltipHtml({ name: "Cap C", cost: 10, shared: 3 }, opts({ panelTotal: 0 }))).toBe(
+      '<div style="font-weight:700">Cap C</div><div style="font-size:12px">$10</div>',
+    );
+    const datum = seriesOf(build([{ id: "c", name: "Cap C", cost: 10, index: 0, shared: 0 }])).data[0];
+    expect("shared" in datum).toBe(false);
+  });
+});
+
 describe("buildCostTreemapOption", () => {
   it("keeps the chrome's root: transparent, aria on, a 300 ms animation, the theme font", () => {
     const option = build();
