@@ -42,17 +42,27 @@ import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { facetValues, pickGroupableFields, resolveFacetField } from "@/lib/fieldFacets";
 import { fiscalYearLabel } from "@/lib/fiscalYear";
 import type { CardType, FieldDef, RelationType } from "@/types";
+import {
+  distinctTotal,
+  isAttribution,
+  sharedSourceCounts,
+  type Attribution,
+} from "./costAttribution";
 
 interface CostItem {
   id: string;
   name: string;
   cost: number;
   attributes?: Record<string, unknown>;
+  /** Aggregate mode: the related cards whose costs make up `cost`. */
+  source_ids?: string[];
 }
 
 interface CostTreemapResponse {
   items: CostItem[];
   total: number;
+  /** Aggregate mode: the full cost of every related card an item names. */
+  source_costs?: Record<string, number>;
   /** The current fiscal year — the only one the report shows. */
   fiscal_year?: number;
   /** Month (1-12) the workspace's fiscal year starts in. */
@@ -149,8 +159,10 @@ function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
 interface CostTreemapPanelProps {
   /** The aggregate source this panel breaks down; absent for the root panel. */
   source?: SourceRef;
-  /** The panel's own total, each tile's share is read against. */
+  /** The panel's own total, as its header shows it (shared sources once). */
   total: number;
+  /** The sum of the panel's tiles, each tile's share is read against. */
+  tileTotal: number;
   /** The panel's cards that cost anything, largest first. */
   data: CostTreemapItem[];
   /** The chart's height in px. */
@@ -163,6 +175,8 @@ interface CostTreemapPanelProps {
   chrome: EChartsThemeValue;
   fmt: { format: (v: number) => string };
   onTileClick: (p: EChartClickParams) => void;
+  /** The tooltip line of a tile with shared sources. */
+  sharedNote?: (n: number) => string;
 }
 
 /**
@@ -174,6 +188,7 @@ interface CostTreemapPanelProps {
 function CostTreemapPanel({
   source,
   total,
+  tileTotal,
   data,
   panelHeight,
   showDrillHint,
@@ -181,6 +196,7 @@ function CostTreemapPanel({
   chrome,
   fmt,
   onTileClick,
+  sharedNote,
 }: CostTreemapPanelProps) {
   const { t } = useTranslation(["reports", "common"]);
   const chartRef = useRef<ECharts | null>(null);
@@ -201,12 +217,13 @@ function CostTreemapPanel({
         chrome,
         isRtl: chrome.isRtl,
         format: (v) => fmt.format(v),
-        panelTotal: total,
+        panelTotal: tileTotal,
         percentOfTotal: (pct) => t("cost.percentOfTotalValue", { pct }),
         clickable,
         tileRect,
+        sharedNote,
       }),
-    [data, chrome, fmt, total, t, clickable, tileRect],
+    [data, chrome, fmt, tileTotal, t, clickable, tileRect, sharedNote],
   );
 
   return (
@@ -276,6 +293,12 @@ export default function CostReport() {
   // so summing across entries cannot double-count by construction.
   const [costSources, setCostSources] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState("");
+  // How a related card's cost lands on the cards it links to (#1362): in full
+  // on each (the Total then counts it once), or split equally between them.
+  const [attribution, setAttribution] = useState<Attribution>("full");
+  // Root-level aggregate mode: the full cost of each related card, keyed by
+  // id — what the Total sums when it counts each related card once.
+  const [rawSourceCosts, setRawSourceCosts] = useState<Record<string, number> | null>(null);
   // Root-level (depth 0) data set: a single dataset of primary cards.
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
   // Drilled-level (depth ≥ 1) data: one panel per source so multi-source drill
@@ -347,6 +370,8 @@ export default function CostReport() {
         setCostSources([cfg.costSource]);
       }
       if (cfg.groupBy !== undefined) setGroupBy(cfg.groupBy as string);
+      // A config saved before the option existed reads as the old behaviour.
+      setAttribution(isAttribution(cfg.attribution) ? cfg.attribution : "full");
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
@@ -368,14 +393,14 @@ export default function CostReport() {
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({
-    cardTypeKey, costField, costSources, groupBy, view, sortK, sortD,
+    cardTypeKey, costField, costSources, groupBy, attribution, view, sortK, sortD,
     drillStack, scopeIds,
   });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, costSources, groupBy, view, sortK, sortD, drillStack, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, costSources, groupBy, attribution, view, sortK, sortD, drillStack, scopeIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -384,6 +409,7 @@ export default function CostReport() {
     setCostField("costTotalAnnual");
     setCostSources([]);
     setGroupBy("");
+    setAttribution("full");
     setView("chart");
     setSortK("cost");
     setSortD("desc");
@@ -490,28 +516,33 @@ export default function CostReport() {
               cost_field: s.fieldKey,
               parent_card_id: parentId,
             });
+            // Sent only when split: full is the server's default.
+            if (attribution === "split") p.set("attribution", "split");
             return api.get<CostTreemapResponse>(`/reports/cost-treemap?${p}`, { signal });
           }),
         );
         if (!isCurrent()) return;
         setDrillPanels(rs.map((r, i) => ({ source: sources[i], items: r.items })));
         setRawItems(null);
+        setRawSourceCosts(null);
         setFiscalYear((prev) => (rs.length > 0 ? fiscalYearOf(rs[0]) : null) ?? prev);
       } else {
         const p = new URLSearchParams({ type: cardTypeKey });
         if (activeAggregates.length > 0) {
           for (const a of activeAggregates) p.append("aggregate", a.value);
+          if (attribution === "split") p.set("attribution", "split");
         } else {
           p.set("cost_field", costField);
         }
         const r = await api.get<CostTreemapResponse>(`/reports/cost-treemap?${p}`, { signal });
         if (!isCurrent()) return;
         setRawItems(r.items);
+        setRawSourceCosts(r.source_costs ?? null);
         setDrillPanels(null);
         setFiscalYear((prev) => fiscalYearOf(r) ?? prev);
       }
     },
-    [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally],
+    [cardTypeKey, costField, activeAggregates, drillFrame, canViewCostsGlobally, attribution],
   );
 
   // Unify root and drilled data into a list of panels: depth-0 has one
@@ -527,18 +558,40 @@ export default function CostReport() {
   // Per-panel totals. The server already left out every card that is not live
   // in the current fiscal year — related cards an aggregate sums included — so
   // there is nothing to filter here.
+  //
+  // `tileTotal` adds the tiles up. In Full attribution a related card linked
+  // to several tiles sits on each, so `total` counts every related card once
+  // instead, and `shared` says, per item, how many of its sources other items
+  // carry too. In Split the shares already add up: `total` is the tile sum.
   const panelsWithTotals = useMemo(() => {
-    return panels.map((p) => ({
-      source: p.source,
-      items: p.items,
-      total: p.items.reduce((sum, item) => sum + item.cost, 0),
-    }));
-  }, [panels]);
+    return panels.map((p) => {
+      const tileTotal = p.items.reduce((sum, item) => sum + item.cost, 0);
+      const full = attribution === "full";
+      return {
+        source: p.source,
+        items: p.items,
+        tileTotal,
+        total: full ? distinctTotal(p.items, rawSourceCosts ?? undefined) : tileTotal,
+        shared: full ? sharedSourceCounts(p.items) : new Map<string, number>(),
+      };
+    });
+  }, [panels, attribution, rawSourceCosts]);
 
-  const { items, total } = useMemo(() => {
+  const { items, total, tileTotal, sharedById } = useMemo(() => {
     const flat = panelsWithTotals.flatMap((p) => p.items);
-    return { items: flat, total: panelsWithTotals.reduce((s, p) => s + p.total, 0) };
+    const merged = new Map<string, number>();
+    for (const p of panelsWithTotals) for (const [id, n] of p.shared) merged.set(id, n);
+    return {
+      items: flat,
+      total: panelsWithTotals.reduce((s, p) => s + p.total, 0),
+      tileTotal: panelsWithTotals.reduce((s, p) => s + p.tileTotal, 0),
+      sharedById: merged,
+    };
   }, [panelsWithTotals]);
+  // Full attribution with a shared source: the Total is less than the tiles
+  // add up to, and the KPI says why. Compared with a cent's tolerance, so two
+  // sums of the same figures in a different order never raise it.
+  const sharedCountedOnce = attribution === "full" && tileTotal - total > 0.005;
 
   const groupedField = useMemo(() => groupableFields.find((f) => f.key === groupBy), [groupableFields, groupBy]);
 
@@ -582,6 +635,12 @@ export default function CostReport() {
       const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
       params.push({ label: t("cost.costField"), value: cfLabel });
     }
+    if (activeAggregates.length > 0 || drillStack.length > 0) {
+      params.push({
+        label: t("cost.attribution"),
+        value: attribution === "split" ? t("cost.attributionSplit") : t("cost.attributionFull"),
+      });
+    }
     if (groupBy) {
       const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
       params.push({ label: t("cost.groupBy"), value: gLabel });
@@ -600,7 +659,7 @@ export default function CostReport() {
       });
     }
     return params;
-  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, effectiveScopeIds, fiscalYear, t, typeLabel]);
+  }, [cardTypeKey, types, costField, costFields, activeAggregates, groupBy, groupableFields, view, drillStack, effectiveScopeIds, fiscalYear, attribution, t, typeLabel]);
 
   // Drill is offered at depth 0 whenever at least one aggregate source is
   // active. With multiple sources, depth 1 renders one chart per source so
@@ -635,21 +694,49 @@ export default function CostReport() {
   // One treemap per panel: tiles sized by cost, sorted desc so the top driver
   // leads. Each panel reads its tiles' shares against its own total, so a
   // multi-source drill (Provider costs next to IT Component costs) compares
-  // every card with its own scale. `CostTreemapPanel` builds the option.
+  // every card with its own scale. Shares are read against the tile sum, so
+  // they add up to 100% in Full attribution too. `CostTreemapPanel` builds the option.
   const panelCharts = useMemo(() => panelsWithTotals.map((p) => {
     // A card that costs nothing has no tile, so a panel of them is empty,
     // not a blank chart.
     const data = p.items
       .filter((d) => d.cost > 0)
       .sort((a, b) => b.cost - a.cost)
-      .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i }));
-    return { source: p.source, total: p.total, data };
+      .map((d, i) => ({ name: d.name, cost: d.cost, id: d.id, index: i, shared: p.shared.get(d.id) ?? 0 }));
+    return { source: p.source, total: p.total, tileTotal: p.tileTotal, data };
   }), [panelsWithTotals]);
 
   const rootTypeLabel = useMemo(() => {
     const tp = types.find((tp) => tp.key === cardTypeKey);
     return typeLabel(tp) || cardTypeKey;
   }, [types, cardTypeKey, typeLabel]);
+
+  // Only the root level carries sources, so the other cards a source is
+  // shared with are of the root type.
+  const sharedNote = useCallback(
+    (count: number) => t("cost.sharedSourcesTooltip", { count, type: rootTypeLabel }),
+    [t, rootTypeLabel],
+  );
+
+  /** A table row's name, marked when some of its sources sit on other rows too. */
+  const nameWithShared = (d: CostItem) =>
+    sharedById.has(d.id) ? (
+      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+        {d.name}
+        <Tooltip title={t("cost.sharedSources")} arrow>
+          <Box
+            component="span"
+            aria-label={t("cost.sharedSources")}
+            data-testid="cost-shared-source"
+            sx={{ display: "inline-flex", color: "text.secondary" }}
+          >
+            <MaterialSymbol icon="link" size={16} />
+          </Box>
+        </Tooltip>
+      </Box>
+    ) : (
+      d.name
+    );
 
   if (!canViewCostsGlobally) {
     return (
@@ -672,7 +759,11 @@ export default function CostReport() {
 
   const sortedAllItems = [...items].sort((a, b) => b.cost - a.cost);
   const topDriver = sortedAllItems.length > 0 ? sortedAllItems[0] : null;
-  const avgCost = items.length > 0 ? total / items.length : 0;
+  // The average and every share are read against the tiles as displayed, so
+  // the percentages add up to 100 in both attributions; only the Total Cost
+  // KPI counts a shared source once.
+  const avgCost = items.length > 0 ? tileTotal / items.length : 0;
+  const pctOf = (cost: number) => (tileTotal > 0 ? `${((cost / tileTotal) * 100).toFixed(1)}%` : "\u2014");
 
   const sort = (k: string) => { setSortD(sortK === k && sortD === "asc" ? "desc" : "asc"); setSortK(k); };
   const sorted = [...items].sort((a, b) => {
@@ -763,6 +854,42 @@ export default function CostReport() {
               </Tooltip>
             </Box>
           )}
+          {/* Only an aggregate (or a drill into one) has related cards to
+              attribute. Changing it keeps the drill: the same cards, other
+              shares. */}
+          {(activeAggregates.length > 0 || drillFrame) && (
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+              <TextField
+                select
+                size="small"
+                label={t("cost.attribution")}
+                value={attribution}
+                onChange={(e) => {
+                  if (isAttribution(e.target.value)) setAttribution(e.target.value);
+                }}
+                data-testid="cost-attribution"
+                sx={{ minWidth: 150 }}
+              >
+                <MenuItem value="full">{t("cost.attributionFull")}</MenuItem>
+                <MenuItem value="split">{t("cost.attributionSplit")}</MenuItem>
+              </TextField>
+              <Tooltip title={t("cost.attributionHelp")} arrow placement="bottom">
+                <Box
+                  component="span"
+                  tabIndex={0}
+                  aria-label={t("cost.attributionHelp")}
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    color: "text.secondary",
+                    cursor: "help",
+                  }}
+                >
+                  <MaterialSymbol icon="help" size={18} />
+                </Box>
+              </Tooltip>
+            </Box>
+          )}
           {activeAggregates.length === 0 && costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => { setCostField(e.target.value); setDrillStack([]); }} sx={{ minWidth: 160 }}>
               {costFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
@@ -793,14 +920,21 @@ export default function CostReport() {
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label={t("cost.totalCost")} value={fmt.format(total)} icon="payments" iconColor={RAG_COLORS.green} color={RAG_COLORS.green} />
+        <MetricCard
+          label={t("cost.totalCost")}
+          value={fmt.format(total)}
+          subtitle={sharedCountedOnce ? t("cost.sharedCountedOnce") : undefined}
+          icon="payments"
+          iconColor={RAG_COLORS.green}
+          color={RAG_COLORS.green}
+        />
         <MetricCard label={t("cost.items")} value={items.length} icon="inventory_2" />
         <MetricCard label={t("cost.average")} value={fmt.format(avgCost)} icon="calculate" />
         {topDriver && (
           <MetricCard
             label={t("cost.topCostDriver")}
             value={topDriver.name}
-            subtitle={`${fmt.format(topDriver.cost)} (${total > 0 ? ((topDriver.cost / total) * 100).toFixed(0) : 0}%)`}
+            subtitle={`${fmt.format(topDriver.cost)} (${tileTotal > 0 ? ((topDriver.cost / tileTotal) * 100).toFixed(0) : 0}%)`}
             icon="trending_up"
             iconColor={REPORT_ICON_COLORS.costDriver}
           />
@@ -869,6 +1003,7 @@ export default function CostReport() {
                 key={panel.source ? panel.source.label : `root-${idx}`}
                 source={panel.source}
                 total={panel.total}
+                tileTotal={panel.tileTotal}
                 data={panel.data}
                 panelHeight={panelCharts.length > 1 ? 360 : 450}
                 showDrillHint={canDrill && drillStack.length === 0}
@@ -876,6 +1011,7 @@ export default function CostReport() {
                 chrome={chartTheme}
                 fmt={fmt}
                 onTileClick={handleTileClick}
+                sharedNote={sharedNote}
               />
             ))}
           </Box>
@@ -908,14 +1044,14 @@ export default function CostReport() {
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(g.cost)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600, color: "text.secondary" }}>
-                        {total > 0 ? `${((g.cost / total) * 100).toFixed(1)}%` : "\u2014"}
+                        {pctOf(g.cost)}
                       </TableCell>
                     </TableRow>,
                     ...groupSorted.map((d) => (
                       <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
-                        <TableCell sx={{ fontWeight: 500, pl: 4 }}>{d.name}</TableCell>
+                        <TableCell sx={{ fontWeight: 500, pl: 4 }}>{nameWithShared(d)}</TableCell>
                         <TableCell align="right">{fmt.format(d.cost)}</TableCell>
-                        <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
+                        <TableCell align="right">{pctOf(d.cost)}</TableCell>
                       </TableRow>
                     )),
                   ];
@@ -923,15 +1059,15 @@ export default function CostReport() {
               ) : (
                 sorted.map((d) => (
                   <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
-                    <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>{nameWithShared(d)}</TableCell>
                     <TableCell align="right">{fmt.format(d.cost)}</TableCell>
-                    <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
+                    <TableCell align="right">{pctOf(d.cost)}</TableCell>
                   </TableRow>
                 ))
               )}
               <TableRow sx={{ bgcolor: "action.selected" }}>
                 <TableCell sx={{ fontWeight: 700 }}>{t("cost.total")}</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(total)}</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(tileTotal)}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>100%</TableCell>
               </TableRow>
             </TableBody>

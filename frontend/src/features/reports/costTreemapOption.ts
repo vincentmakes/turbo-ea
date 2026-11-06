@@ -48,6 +48,8 @@ export interface CostTreemapItem {
   name: string;
   cost: number;
   index: number;
+  /** How many of its sources are shared with other tiles (Full attribution); absent or 0 for none. */
+  shared?: number;
 }
 
 export interface CostTreemapOptions {
@@ -67,6 +69,8 @@ export interface CostTreemapOptions {
    * while the chart cannot say, and then the tile prints its name and cost.
    */
   tileRect?: (dataIndex: number) => { width: number; height: number } | undefined;
+  /** The tooltip line for a tile with `n` (> 0) shared sources; absent, nothing is said. */
+  sharedNote?: (n: number) => string;
 }
 
 /**
@@ -161,13 +165,18 @@ export interface CostTreemapDatum {
   value: number;
   id?: string;
   index: number;
+  shared?: number;
   itemStyle: { color: string };
 }
 
-/** The hover tooltip of one tile: its name, its cost and, against a non-zero total, its share. */
+/**
+ * The hover tooltip of one tile: its name, its cost and, against a non-zero
+ * total, its share — then, for a tile whose sources are shared with other
+ * tiles, how many are.
+ */
 export function costTooltipHtml(
-  d: { name: string; cost: number },
-  o: Pick<CostTreemapOptions, "format" | "panelTotal" | "percentOfTotal">,
+  d: { name: string; cost: number; shared?: number },
+  o: Pick<CostTreemapOptions, "format" | "panelTotal" | "percentOfTotal" | "sharedNote">,
 ): string {
   let html =
     `<div style="font-weight:700">${escapeHtml(d.name)}</div>` +
@@ -175,6 +184,9 @@ export function costTooltipHtml(
   if (o.panelTotal > 0) {
     const pct = ((d.cost / o.panelTotal) * 100).toFixed(1);
     html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.percentOfTotal(pct))}</div>`;
+  }
+  if (o.sharedNote && d.shared && d.shared > 0) {
+    html += `<div style="font-size:12px;opacity:.7">${escapeHtml(o.sharedNote(d.shared))}</div>`;
   }
   return html;
 }
@@ -188,6 +200,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
     value: d.cost,
     id: d.id,
     index: d.index,
+    ...(d.shared ? { shared: d.shared } : {}),
     itemStyle: { color: treemapColor(d.index) },
   }));
   return {
@@ -196,7 +209,7 @@ export function buildCostTreemapOption(items: CostTreemapItem[], o: CostTreemapO
       trigger: "item",
       formatter: (p: { data?: CostTreemapDatum } | undefined) => {
         const d = p?.data;
-        return d ? costTooltipHtml({ name: d.name, cost: d.value }, o) : "";
+        return d ? costTooltipHtml({ name: d.name, cost: d.value, shared: d.shared }, o) : "";
       },
     }),
     series: [

@@ -80,6 +80,8 @@ La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle bu
 
 **Viaggio nel tempo** — Il cursore della linea temporale offre gli stessi strumenti di transizione del [Report Dipendenze](#report-dipendenze): segni su ogni data in cui un'applicazione entra in produzione (blu) o viene dismessa (rosso), pastiglie che nominano le applicazioni che cambiano finché il cursore resta su un segno, pulsanti freccia per passare da un cambiamento all'altro e chip che riassumono la trasformazione quando si guarda al futuro (inclusi anche nelle intestazioni di stampa ed esportazione). Un clic su un segno o su una pastiglia mette in evidenza il cambiamento: con **Mostra applicazioni** attivo, i chip delle applicazioni che cambiano pulsano mentre il resto si attenua, e un'applicazione già dismessa alla data selezionata viene mostrata solo per la durata della pulsazione; con l'opzione disattivata, l'evidenziazione ricade sui blocchi delle capacità che contengono le applicazioni che cambiano — blu dove queste soltanto arrivano, rosso dove vengono soltanto dismesse, viola dove accadono entrambe le cose.
 
+**Attribuzione del costo totale** — Con la metrica **Costo totale**, un'applicazione che supporta più capacità conta per intero su ciascuna di esse (**Intera**) oppure viene ripartita equamente tra di esse (**Ripartita equamente**). Le sotto-capacità confluiscono nelle capacità padre senza contare due volte un'applicazione. Il selettore **Attribuzione** compare accanto alla Metrica heatmap solo per il Costo totale e viene salvato con il report.
+
 **Comprimere i filtri** — La riga **Filtri applicazioni** si può richiudere; un clic sulla sua intestazione recupera lo spazio. Lo stato viene salvato con il report, il numero di filtri attivi resta visibile sull'intestazione richiusa e **Cancella tutto** rimane raggiungibile senza doverla riaprire.
 
 ## Report Ciclo di vita
@@ -185,15 +187,21 @@ Quando il tipo di scheda selezionato ha almeno un tipo di relazione che punta a 
 
 Il selettore è **a selezione multipla**, quindi un unico consolidamento può combinare più tipi correlati. Esempio: visualizzando il **Fornitore** *Microsoft*, selezionare insieme `Applicazione · Costo annuo totale` e `Componente IT · Costo annuo totale` mostra l'intera impronta del fornitore — Teams, M365, Azure e qualunque altro componente fornito da Microsoft — come un unico numero.
 
-#### Perché nulla viene contato due volte
+#### Attribuzione: Intera o Ripartita equamente
 
-Il selettore è costruito in modo da rendere il doppio conteggio impossibile per costruzione:
+All'interno di un rettangolo nulla viene contato due volte:
 
 - Ogni voce è una coppia unica `(tipo destinazione, campo di costo)`: l'elenco propone ogni coppia esattamente una volta, anche quando più tipi di relazione raggiungono lo stesso tipo destinazione.
-- All'interno di una stessa coppia, due schede collegate tramite più tipi di relazione contribuiscono con il loro costo una sola volta.
-- Tra voci diverse, nessuna scheda può contribuire due volte: una scheda ha esattamente un tipo, e campi di costo diversi sulla stessa scheda sono valori indipendenti.
+- All'interno di una stessa coppia, una scheda collegata tramite più tipi di relazione contribuisce con il suo costo una sola volta.
 
-Una piccola **icona di aiuto (?)** accanto al selettore ribadisce questa garanzia al passaggio del mouse.
+Tra rettangoli diversi, una scheda collegata può essere legata a più schede visualizzate — un'iniziativa che migliora due capacità, un componente IT che serve tre applicazioni. Il selettore **Attribuzione** accanto al selettore Origine dei costi decide come viene conteggiata una scheda di questo tipo:
+
+- **Intera** (predefinita) — l'intero costo della scheda collegata conta su ogni scheda visualizzata a cui è collegata. È una vista d'impatto: ogni rettangolo mostra quanto denaro dipende da quella scheda. Il valore **Costo totale** conta comunque ogni scheda collegata una sola volta, quindi non è la somma dei rettangoli; lo segnala una didascalia sottostante. Un rettangolo le cui origini sono condivise con altre schede ne indica il numero nel tooltip, e la tabella lo contrassegna con un'icona di collegamento.
+- **Ripartita equamente** — il costo della scheda collegata viene diviso per il numero di schede in esercizio del tipo visualizzato a cui è collegata. Un'iniziativa da 50.000 che migliora due capacità aggiunge 25.000 a ciascuna, così la somma dei rettangoli corrisponde al totale.
+
+La quota è una proprietà del panorama, non della vista: restringere il report a poche schede o fare drill-down in un rettangolo non la modifica. Le schede che non siete autorizzati a vedere non contano mai, né come origine di costo né nel numero per cui un costo viene diviso. La scelta viene salvata con il report.
+
+Una piccola **icona di aiuto (?)** accanto al selettore spiega le due opzioni di attribuzione al passaggio del mouse.
 
 L'elenco delle opzioni è generato dal vostro metamodello — i tipi di relazione e i campi di costo vengono individuati a runtime, quindi qualunque tipo di scheda o relazione personalizzata aggiunta diventa automaticamente un'Origine dei costi valida.
 
@@ -203,6 +211,8 @@ Quando almeno un'Origine costi è attiva, i rettangoli del treemap diventano **c
 
 - **Singola Origine costi attiva** — il drill-down mostra un treemap delle card collegate (ad esempio, cliccando su *NexaCore ERP* con `Componente IT · Costo annuale totale` selezionato vengono mostrati i componenti IT collegati a NexaCore ERP, dimensionati per il loro costo annuale).
 - **Più Origini costi attive** — il drill-down mostra **un treemap per origine affiancati** (1 colonna su schermi stretti, 2 su quelli ampi). Ogni pannello ha la propria intestazione, il proprio totale e la propria `% del totale` nel tooltip — così i diversi tipi di card mantengono la propria scala invece di essere compressi in un unico grafico.
+
+Con **Ripartita equamente**, le schede del drill-down mostrano la loro quota del rettangolo cliccato, così il totale del pannello è pari al costo di quel rettangolo.
 
 La selezione dell'Origine costi e gli altri filtri vengono mantenuti durante il drill-down, e il livello di drill-down fa parte della configurazione del report salvato: salvando un report mentre si è in drill-down lo si riapre direttamente a quel livello. Senza un'Origine costi attiva, un clic su un rettangolo apre invece il pannello laterale della card (non c'è nulla da scomporre).
 

@@ -80,6 +80,8 @@ El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capac
 
 **Viaje en el tiempo** — El control deslizante de la línea de tiempo lleva los mismos instrumentos de transformación que el [Informe de Dependencias](#informe-de-dependencias): marcas en cada fecha en la que una aplicación entra en producción (azul) o se retira (rojo), pastillas que nombran las aplicaciones que cambian mientras el control permanece sobre una marca, flechas que saltan de cambio en cambio, y chips que resumen la transformación al mirar hacia el futuro (incluidos también en las cabeceras de impresión y exportación). Al hacer clic en una marca o en una pastilla se destaca el cambio: con **Mostrar aplicaciones** activado, los chips de las aplicaciones que cambian parpadean mientras el resto se atenúa, y una aplicación ya desaparecida en la fecha seleccionada se muestra solo durante el parpadeo; con el interruptor desactivado, el foco recae sobre los bloques de capacidad que contienen las aplicaciones que cambian — azul donde solo se incorporan, rojo donde solo se retiran, morado donde ocurren ambas cosas.
 
+**Atribución del costo total** — Con la métrica **Costo total**, una aplicación que da soporte a varias capacidades cuenta íntegramente en cada una de ellas (**Completa**) o se reparte a partes iguales entre ellas (**A partes iguales**). Las subcapacidades se agregan en sus capacidades padre sin contar dos veces una aplicación. El selector **Atribución** aparece junto a la Métrica del mapa de calor solo para Costo total y se guarda con el informe.
+
 **Plegar los filtros** — La fila **Filtros de aplicaciones** se puede plegar; haga clic en su cabecera para recuperar el espacio. El estado se guarda con el informe, el recuento de filtros activos permanece visible en la cabecera plegada y **Limpiar todo** sigue accesible sin necesidad de desplegar primero.
 
 ## Informe de Ciclo de Vida
@@ -185,15 +187,21 @@ Cuando el tipo de tarjeta seleccionado tiene al menos un tipo de relación que a
 
 El selector es **de selección múltiple**, de modo que una misma consolidación puede combinar varios tipos relacionados. Por ejemplo, al consultar el **Proveedor** *Microsoft*, marcar a la vez `Aplicación · Coste anual total` y `Componente TI · Coste anual total` muestra la huella completa del proveedor —Teams, M365, Azure y cualquier otro componente suministrado por Microsoft— como una única cifra.
 
-#### Por qué nada se cuenta dos veces
+#### Atribución: Completa o A partes iguales
 
-El selector está diseñado para que la doble contabilización sea imposible por construcción:
+Dentro de un mismo rectángulo, nada se cuenta dos veces:
 
 - Cada entrada es un par único `(tipo destino, campo de coste)`; la lista ofrece cada par exactamente una vez, incluso cuando varios tipos de relación alcanzan el mismo tipo destino.
-- Dentro de un mismo par, dos tarjetas conectadas por varios tipos de relación contribuyen con su coste una sola vez.
-- Entre entradas distintas, ninguna tarjeta puede contribuir dos veces: una tarjeta tiene un único tipo, y los distintos campos de coste de una misma tarjeta son valores independientes.
+- Dentro de un mismo par, una tarjeta conectada por varios tipos de relación contribuye con su coste una sola vez.
 
-Un pequeño **icono de ayuda (?)** junto al selector recuerda esta garantía al pasar el ratón.
+Entre rectángulos, una tarjeta relacionada puede estar vinculada a varias de las tarjetas mostradas: una iniciativa que mejora dos capacidades, un componente TI que da servicio a tres aplicaciones. El selector **Atribución**, junto al selector de Origen de los costes, decide cómo se cuenta una tarjeta así:
+
+- **Completa** (predeterminada) — el coste total de la tarjeta relacionada cuenta en cada tarjeta mostrada con la que está vinculada. Es una vista de impacto: cada rectángulo muestra cuánto dinero depende de esa tarjeta. La cifra **Costo total** sigue contando cada tarjeta relacionada una sola vez, por lo que no es la suma de los rectángulos; una leyenda debajo lo indica. Un rectángulo cuyos orígenes se comparten con otras tarjetas indica cuántos en su información emergente, y la tabla lo marca con un icono de enlace.
+- **A partes iguales** — el coste de la tarjeta relacionada se divide entre el número de tarjetas en servicio del tipo mostrado con las que está vinculada. Una iniciativa de 50.000 que mejora dos capacidades suma 25.000 a cada una, de modo que los rectángulos suman el total.
+
+El reparto es una propiedad del panorama, no de la vista: limitar el informe a unas pocas tarjetas o profundizar en un rectángulo no lo cambia. Las tarjetas que usted no tiene permiso para ver nunca cuentan, ni como origen de coste ni en el número entre el que se divide un coste. La elección se guarda con el informe.
+
+Un pequeño **icono de ayuda (?)** junto al selector explica las dos opciones de atribución al pasar el ratón.
 
 La lista de opciones se genera a partir de su metamodelo —los tipos de relación y los campos de coste se descubren en tiempo de renderizado, de modo que cualquier tipo de tarjeta o relación personalizada que añada se convierte automáticamente en un Origen de los costes válido.
 
@@ -203,6 +211,8 @@ Siempre que haya al menos un Origen de los costes activo, los rectángulos del m
 
 - **Un único Origen de costes activo** — el desglose muestra un mapa de árbol de las tarjetas relacionadas (por ejemplo, al hacer clic en *NexaCore ERP* con `Componente TI · Coste anual total` marcado se muestran los Componentes TI vinculados a NexaCore ERP, dimensionados por su coste anual).
 - **Varios Orígenes de costes activos** — el desglose muestra **un mapa de árbol por origen, en paralelo** (1 columna en pantallas estrechas, 2 en pantallas amplias). Cada panel tiene su propio encabezado, su propio total y su propio `% del total` en la información sobre herramientas, de modo que los distintos tipos de tarjeta conservan su escala en lugar de mezclarse en un único gráfico.
+
+Con **A partes iguales**, las tarjetas del desglose muestran su parte en el rectángulo en el que hizo clic, de modo que el total del panel coincide con el coste de ese rectángulo.
 
 La selección de Origen de los costes y los demás filtros se conservan al profundizar, y el nivel de desglose forma parte de la configuración del informe guardado: guardar un informe mientras se está profundizando lo abre directamente en ese nivel. Sin un Origen de costes activo, hacer clic en un rectángulo abre en su lugar el panel lateral de la tarjeta (no hay nada que desglosar).
 

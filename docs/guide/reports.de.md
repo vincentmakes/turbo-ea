@@ -80,6 +80,8 @@ Die **Fähigkeitskarte** zeigt eine hierarchische **Heatmap** der Geschäftsfäh
 
 **Zeitreise** — Der Zeitleistenregler trägt dieselben Transformationsinstrumente wie der [Abhängigkeitsbericht](#abhangigkeitsbericht): Markierungen an jedem Datum, an dem eine Anwendung live geht (blau) oder ausscheidet (rot), Chips, die die sich ändernden Anwendungen benennen, solange der Regler auf einer Markierung steht, Pfeiltasten, die von Änderung zu Änderung springen, und Chips, die beim Blick nach vorn die Transformation zusammenfassen (auch in den Kopfzeilen von Druck und Export enthalten). Ein Klick auf eine Markierung oder einen Chip hebt die Änderung hervor: Bei eingeschaltetem **Anwendungen anzeigen** pulsieren die Chips der sich ändernden Anwendungen, während der Rest abgeblendet wird, und eine Anwendung, die zum gewählten Datum bereits verschwunden ist, wird nur für die Dauer des Pulsierens eingeblendet; ist der Schalter aus, fällt das Schlaglicht auf die Fähigkeitsblöcke, die die sich ändernden Anwendungen enthalten — blau, wo Anwendungen nur hinzukommen, rot, wo sie nur ausscheiden, violett, wo beides geschieht.
 
+**Zuordnung der Gesamtkosten** — Mit der Metrik **Gesamtkosten** zählt eine Anwendung, die mehrere Fähigkeiten unterstützt, bei jeder davon in voller Höhe (**Vollständig**) oder wird gleichmäßig auf sie aufgeteilt (**Gleichmäßig aufteilen**). Unterfähigkeiten werden in ihre übergeordneten Fähigkeiten aufgerollt, ohne eine Anwendung doppelt zu zählen. Das Auswahlfeld **Zuordnung** erscheint neben der Heatmap-Metrik nur für Gesamtkosten und wird mit dem Bericht gespeichert.
+
 **Filter einklappen** — Die Zeile **Anwendungsfilter** lässt sich einklappen; ein Klick auf ihre Kopfzeile gibt den Platz wieder frei. Der Zustand wird mit dem Bericht gespeichert, die Anzahl der aktiven Filter bleibt auf der eingeklappten Kopfzeile sichtbar, und **Alle löschen** bleibt erreichbar, ohne vorher aufklappen zu müssen.
 
 ## Lebenszyklus-Bericht
@@ -185,15 +187,21 @@ Sobald der gewählte Kartentyp mindestens eine Beziehung zu einem Typ besitzt, d
 
 Das Auswahlfeld ist eine **Mehrfachauswahl**, sodass eine einzige Auswertung mehrere verknüpfte Typen kombinieren kann. Beispiel: Beim Anbieter **Microsoft** zeigen `Anwendung · Jährliche Gesamtkosten` und `IT-Komponente · Jährliche Gesamtkosten` zusammen das Gesamtbild des Anbieters — Teams, M365, Azure und weitere von Microsoft bereitgestellte Komponenten — als eine einzige Zahl.
 
-#### Warum nichts doppelt gezählt wird
+#### Zuordnung: Vollständig oder Gleichmäßig aufteilen
 
-Die Auswahl ist so konstruiert, dass Doppelzählungen ausgeschlossen sind:
+Innerhalb eines Rechtecks wird nichts doppelt gezählt:
 
 - Jeder Eintrag ist ein eindeutiges Paar aus `(Zieltyp, Kostenfeld)` — die Liste bietet jedes Paar genau einmal an, auch wenn mehrere Beziehungstypen denselben Zieltyp erreichen.
-- Innerhalb eines Paares tragen zwei Karten, die über mehrere Beziehungstypen verknüpft sind, ihre Kosten dennoch nur einmal bei.
-- Über verschiedene Einträge hinweg kann keine Karte zweifach beitragen: Eine Karte besitzt genau einen Typ, und unterschiedliche Kostenfelder derselben Karte sind voneinander unabhängige Werte.
+- Innerhalb eines Paares trägt eine Karte, die über mehrere Beziehungstypen verknüpft ist, ihre Kosten dennoch nur einmal bei.
 
-Ein kleines **Hilfesymbol (?)** neben dem Auswahlfeld wiederholt diese Garantie beim Überfahren mit der Maus.
+Über Rechtecke hinweg kann eine verknüpfte Karte mit mehreren der angezeigten Karten verknüpft sein — eine Initiative, die zwei Fähigkeiten verbessert, eine IT-Komponente, die drei Anwendungen dient. Das Auswahlfeld **Zuordnung** neben der Kostenquellen-Auswahl legt fest, wie eine solche Karte gezählt wird:
+
+- **Vollständig** (Standard) — die gesamten Kosten der verknüpften Karte zählen bei jeder angezeigten Karte, mit der sie verknüpft ist. Das ist eine Wirkungsansicht: Jedes Rechteck zeigt, wie viel Geld an dieser Karte hängt. Die Kennzahl **Gesamtkosten** zählt dennoch jede verknüpfte Karte nur einmal und ist daher nicht die Summe der Rechtecke; eine Beschriftung darunter weist darauf hin. Ein Rechteck, dessen Quellen mit anderen Karten geteilt werden, nennt deren Anzahl in seinem Tooltip, und die Tabelle markiert es mit einem Link-Symbol.
+- **Gleichmäßig aufteilen** — die Kosten der verknüpften Karte werden durch die Anzahl der in Betrieb befindlichen Karten des angezeigten Typs geteilt, mit denen sie verknüpft ist. Eine Initiative über 50.000, die zwei Fähigkeiten verbessert, trägt zu jeder 25.000 bei, sodass die Rechtecke zusammen die Summe ergeben.
+
+Der Anteil ist eine Eigenschaft der Landschaft, nicht der Ansicht: Wenn Sie den Bericht auf wenige Karten eingrenzen oder in ein Rechteck hineinzoomen, ändert er sich nicht. Karten, die Sie nicht sehen dürfen, zählen nie mit — weder als Kostenquelle noch bei der Anzahl, durch die Kosten geteilt werden. Die Auswahl wird mit dem Bericht gespeichert.
+
+Ein kleines **Hilfesymbol (?)** neben dem Auswahlfeld erklärt beim Überfahren mit der Maus die beiden Zuordnungsoptionen.
 
 Die Optionsliste wird aus Ihrem Metamodell erzeugt — Beziehungstypen und Kostenfelder werden zur Laufzeit ermittelt, sodass jeder neu angelegte benutzerdefinierte Kartentyp oder jede neue Beziehung automatisch zu einer gültigen Kostenquelle wird.
 
@@ -203,6 +211,8 @@ Sobald mindestens eine Kostenquelle aktiv ist, sind die Treemap-Rechtecke **ankl
 
 - **Eine Kostenquelle aktiv** — der Drilldown zeigt eine Treemap der verknüpften Karten (z. B. zeigt ein Klick auf *NexaCore ERP* mit angehakter `IT-Komponente · Jährliche Gesamtkosten` die mit NexaCore ERP verknüpften IT-Komponenten, dimensioniert nach ihren Jahreskosten).
 - **Mehrere Kostenquellen aktiv** — der Drilldown zeigt **eine Treemap pro Quelle nebeneinander** (eine Spalte auf schmalen Anzeigen, zwei auf breiten). Jedes Panel hat seine eigene Überschrift, seinen eigenen Gesamtbetrag und seinen eigenen `% des Gesamtwerts` im Tooltip — so behalten unterschiedliche Kartentypen ihre eigene Skala, anstatt in ein einziges Diagramm gequetscht zu werden.
+
+Bei **Gleichmäßig aufteilen** zeigen die Karten im Drilldown ihren Anteil an dem Rechteck, auf das Sie geklickt haben, sodass die Panel-Summe den Kosten dieses Rechtecks entspricht.
 
 Die Kostenquellen-Auswahl und andere Filter bleiben beim Drilldown erhalten, und die Drilldown-Ebene ist Teil der gespeicherten Berichtskonfiguration — wer einen Bericht im hineingezoomten Zustand speichert, öffnet ihn direkt auf dieser Ebene wieder. Wenn **keine** Kostenquelle aktiv ist, öffnet ein Klick auf ein Rechteck stattdessen das Karten-Seitenpanel (es gibt nichts aufzuschlüsseln).
 

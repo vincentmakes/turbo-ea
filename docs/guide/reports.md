@@ -80,6 +80,8 @@ The **Capability Map** shows a hierarchical **heatmap** of the organization's bu
 
 **Time travel** — The timeline slider carries the same transition instruments as the [Dependencies Report](#dependencies-report): marks on every date an application goes live (blue) or retires (red), pills naming the changing applications while the slider stands on a mark, arrow buttons that step from change to change, and chips summarising the transformation while you look forward (also included in print and export headers). Clicking a mark or a pill spotlights the change: with **Show Applications** on, the changing application chips pulse while the rest dim, and an application already gone at the selected date is revealed just for the pulse; with it off, the spotlight falls on the capability boxes containing the changing applications — blue where they only arrive, red where they only retire, purple where both happen.
 
+**Total Cost attribution** — With the **Total Cost** metric, an application supporting several capabilities counts in full on each of them (**Full**) or is divided equally among them (**Split equally**). Sub-capabilities roll up into their parents without counting an application twice. The **Attribution** select appears beside the Heatmap Metric only for Total Cost and is saved with the report.
+
 **Collapsing the filters** — The **Application Filters** row folds away; click its header to reclaim the space. The state is saved with the report, the active-filter count stays visible on the collapsed header, and **Clear all** remains reachable without expanding first.
 
 ## Lifecycle Report
@@ -185,15 +187,21 @@ When the selected card type has at least one relation type pointing to a type th
 
 The picker is **multi-select**, so a single roll-up can combine several related types in one go. For example, when viewing **Provider** for *Microsoft*, ticking both `Application · Total Annual Cost` and `IT Component · Total Annual Cost` shows the vendor's full footprint — Teams, M365, Azure, and any other Microsoft-supplied components — as one number.
 
-#### Why nothing gets counted twice
+#### Attribution: Full or Split equally
 
-The picker is built so that double-counting is impossible by construction:
+Within one rectangle, nothing is counted twice:
 
 - Each entry is a unique `(target type, cost field)` pair — the dropdown offers each pair exactly once, even when several relation types reach the same target type.
-- Within a single pair, two cards linked through multiple relation types still contribute their cost only once.
-- Across different entries, no card can contribute twice: a card has exactly one type, and different cost fields on the same card are independent values.
+- Within a single pair, a card linked through several relation types still contributes its cost only once.
 
-A small **help icon (?)** next to the picker repeats this guarantee on hover.
+Across rectangles, a related card can be linked to several of the displayed cards — one initiative improving two capabilities, one IT component serving three applications. The **Attribution** select next to the Cost Source picker decides how such a card is counted:
+
+- **Full** (default) — the related card's whole cost counts on every displayed card it is linked to. This is an impact view: each rectangle shows how much money depends on that card. The **Total Cost** figure still counts every related card once, so it is not the sum of the rectangles; a caption under it says so. A rectangle whose sources are shared with other cards names how many in its tooltip, and the table marks it with a link icon.
+- **Split equally** — the related card's cost is divided by the number of live cards of the displayed type it is linked to. An initiative of 50,000 that improves two capabilities adds 25,000 to each, so the rectangles add up to the total.
+
+The share is a property of the landscape, not of the view: narrowing the report to a few cards or drilling into a rectangle does not change it. Cards you are not allowed to see never count, neither as a source of cost nor in the number a cost is split by. The choice is saved with the report.
+
+A small **help icon (?)** next to the picker explains the two attribution choices on hover.
 
 The option list is generated from your metamodel — relation types and cost fields are discovered at render time, so any custom card type or relation you add becomes a valid Cost Source automatically.
 
@@ -203,6 +211,8 @@ Whenever at least one Cost Source is active, the treemap rectangles are **clicka
 
 - **Single Cost Source active** — drill renders one treemap of the related cards (e.g. clicking *NexaCore ERP* with `IT Component · Total Annual Cost` ticked shows the IT Components linked to NexaCore ERP, sized by their annual cost).
 - **Multiple Cost Sources active** — drill renders **one treemap per source side-by-side** (1 column on narrow viewports, 2 on wide ones). Each panel has its own header, its own total, and its own per-panel `% of total` in the tooltip — so different card types stay on their own scale instead of being squashed into a single chart.
+
+With **Split equally**, the drilled cards show their share toward the rectangle you clicked, so the panel total equals that rectangle's cost.
 
 The Cost Source selection and other filters are preserved as you drill, and the drilled level is part of the saved-report config — saving a report while drilled in re-opens directly at that level. With **no** Cost Source active, clicking a rectangle opens the card side panel instead (there's nothing to break down).
 

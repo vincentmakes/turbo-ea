@@ -72,6 +72,7 @@ import {
   STATUS_COLORS,
 } from "@/theme";
 import { HEAT_EMPTY, heatShade } from "./heatScale";
+import { isAttribution, splitShare, type Attribution } from "./costAttribution";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -119,6 +120,9 @@ interface AppData {
    *  "used by" when several relation types reach one card type. */
   related_by_rel_type?: Record<string, string[]>;
   tag_ids?: string[];
+  /** Every readable capability this app links to, landscape-wide — the
+   *  denominator of a split cost share. */
+  capability_ids?: string[];
 }
 
 interface TagGroupDef {
@@ -350,6 +354,9 @@ function buildTree(
   revealedForPulse: Set<string>,
   relTypeKeys?: ReadonlySet<string>,
   fields: FieldDef[] = [],
+  /** "full": an app's whole cost counts on every branch it supports.
+   *  "split": only the share of its capabilities inside the branch. */
+  attribution: Attribution = "full",
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
@@ -405,12 +412,17 @@ function buildTree(
   setLevel(macroRoots, 0);
   setLevel(nonMacroRoots, 1);
 
-  // Propagate unique apps upward (bottom-up) and compute deep metrics.
-  function propagate(n: CapNode): Map<string, AppData> {
+  // Propagate unique apps upward (bottom-up) and compute deep metrics. Each
+  // call also returns the capability ids of its subtree (the node and every
+  // descendant), which a split cost share is measured against.
+  function propagate(n: CapNode): { apps: Map<string, AppData>; caps: Set<string> } {
     const map = new Map<string, AppData>();
+    const subtree = new Set<string>([n.id]);
     for (const a of n.filteredApps) map.set(a.id, a);
     for (const ch of n.children) {
-      for (const [id, a] of propagate(ch)) map.set(id, a);
+      const sub = propagate(ch);
+      for (const [id, a] of sub.apps) map.set(id, a);
+      for (const id of sub.caps) subtree.add(id);
     }
     n.deepUniqueApps = map;
     n.deepAppCount = map.size;
@@ -418,12 +430,18 @@ function buildTree(
     n.deepRiskCount = 0;
     for (const app of map.values()) {
       const attrs = app.attributes || {};
+      let cost = 0;
       for (const ck of costFieldKeys) {
-        n.deepCost += (attrs[ck] as number) || 0;
+        cost += (attrs[ck] as number) || 0;
       }
+      if (attribution === "split" && app.capability_ids) {
+        const caps = app.capability_ids;
+        cost = splitShare(cost, caps.filter((id) => subtree.has(id)).length, caps.length);
+      }
+      n.deepCost += cost;
       if (app.lifecycle?.endOfLife) n.deepRiskCount++;
     }
-    return map;
+    return { apps: map, caps: subtree };
   }
   for (const r of roots) propagate(r);
 
@@ -807,6 +825,8 @@ export default function CapabilityMapReport() {
 
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
+  // How the Total Cost metric credits an app linked to several capabilities.
+  const [attribution, setAttribution] = useState<Attribution>("full");
   const [displayLevel, setDisplayLevel] = useState(2);
   const [columns, setColumns] = useState<ColumnCount>(DEFAULT_COLUMNS);
   const [showApps, setShowApps] = useState(false);
@@ -836,6 +856,7 @@ export default function CapabilityMapReport() {
     tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (isMetric(cfg.metric)) setMetric(cfg.metric);
+      setAttribution(isAttribution(cfg.attribution) ? cfg.attribution : "full");
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (isColumnCount(cfg.columns)) setColumns(cfg.columns);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
@@ -861,17 +882,18 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
+  const getConfig = () => ({ metric, attribution, displayLevel, columns, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, attribution, displayLevel, columns, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds, scopeIds, filtersCollapsed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
     saved.resetAll();
     setMetric("app_count");
+    setAttribution("full");
     setDisplayLevel(2);
     setColumns(DEFAULT_COLUMNS);
     setShowApps(false);
@@ -946,6 +968,9 @@ export default function CapabilityMapReport() {
         tag_groups?: TagGroupDef[];
       };
       try {
+        // No `attribution` here: the split is computed client-side from each
+        // application's `capability_ids` (`buildTree`), so a toggle never
+        // re-fetches.
         r = await api.get(`/reports/capability-heatmap?metric=${metric}`, { signal });
       } catch (err) {
         if (isAbortError(err) || !isCurrent()) return;
@@ -1139,8 +1164,8 @@ export default function CapabilityMapReport() {
   }, [milestoneScope, tl.timelineDate, tl.todayMs]);
 
   const tree = useMemo(
-    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields) : []),
-    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields],
+    () => (scopedData ? buildTree(scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution) : []),
+    [scopedData, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys, revealedForPulse, allRelTypeKeys, selectFields, attribution],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -1272,6 +1297,12 @@ export default function CapabilityMapReport() {
     const mo = METRIC_OPTIONS.find((o) => o.key === metric);
     const metricLabel = mo ? t(mo.labelKey) : metric;
     params.push({ label: t("common.metric"), value: metricLabel });
+    if (metric === "total_cost") {
+      params.push({
+        label: t("cost.attribution"),
+        value: t(attribution === "split" ? "cost.attributionSplit" : "cost.attributionFull"),
+      });
+    }
     const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
     params.push({ label: t("common.depth"), value: depthLabel });
     params.push({ label: t("common:cardColumns.label"), value: String(columns) });
@@ -1294,7 +1325,7 @@ export default function CapabilityMapReport() {
       });
     if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [metric, displayLevel, columns, showApps, colorKey, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
+  }, [metric, attribution, displayLevel, columns, showApps, colorKey, colorByOptions, levelOptions, tl.printParam, timelineDelta, activeFilterCount, effectiveScopeIds, t]);
 
   if (data === null)
     return loadError ? (
@@ -1340,6 +1371,26 @@ export default function CapabilityMapReport() {
               </MenuItem>
             ))}
           </TextField>
+
+          {metric === "total_cost" && (
+            <Tooltip title={t("cost.attributionHelp")} placement="top">
+              <TextField
+                select
+                size="small"
+                label={t("cost.attribution")}
+                value={attribution}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (isAttribution(v)) setAttribution(v);
+                }}
+                sx={{ minWidth: 150 }}
+                data-testid="capability-attribution"
+              >
+                <MenuItem value="full">{t("cost.attributionFull")}</MenuItem>
+                <MenuItem value="split">{t("cost.attributionSplit")}</MenuItem>
+              </TextField>
+            </Tooltip>
+          )}
 
           <TextField
             select

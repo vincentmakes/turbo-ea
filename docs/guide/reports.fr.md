@@ -80,6 +80,8 @@ La **Carte de capacités** affiche une **carte thermique hiérarchique** des cap
 
 **Voyage dans le temps** — Le curseur de la frise chronologique porte les mêmes instruments de transformation que le [Rapport Dépendances](#rapport-dependances) : des repères à chaque date où une application entre en service (bleu) ou est retirée (rouge), des pastilles nommant les applications qui changent tant que le curseur se trouve sur un repère, des flèches qui passent de changement en changement, et des pastilles qui résument la transformation quand vous regardez vers l'avenir (reprises aussi dans les en-têtes d'impression et d'export). Cliquer sur un repère ou une pastille met le changement en lumière : avec **Afficher les applications** activé, les puces des applications qui changent pulsent pendant que le reste s'estompe, et une application déjà disparue à la date sélectionnée est révélée le temps de la pulsation ; avec l'option désactivée, la lumière tombe sur les blocs de capacité contenant les applications qui changent — bleu là où elles ne font qu'arriver, rouge là où elles ne font qu'être retirées, violet là où les deux se produisent.
 
+**Imputation du coût total** — Avec la métrique **Coût total**, une application qui soutient plusieurs capacités compte en totalité sur chacune d'elles (**Intégrale**) ou est répartie à parts égales entre elles (**À parts égales**). Les sous-capacités se cumulent dans leurs capacités parentes sans compter deux fois une application. Le sélecteur **Imputation** apparaît à côté de la Métrique de la carte de chaleur uniquement pour le Coût total et est enregistré avec le rapport.
+
 **Replier les filtres** — La ligne **Filtres d’application** se replie ; cliquez sur son en-tête pour récupérer l'espace. L'état est enregistré avec le rapport, le nombre de filtres actifs reste visible sur l'en-tête replié, et **Tout effacer** reste accessible sans avoir à déplier.
 
 ## Rapport Cycle de vie
@@ -185,15 +187,21 @@ Lorsque le type de fiche sélectionné possède au moins un type de relation poi
 
 Le sélecteur est **multi-sélection**, ce qui permet à une seule consolidation de combiner plusieurs types liés. Par exemple, en consultant le **Fournisseur** *Microsoft*, cocher à la fois `Application · Coût annuel total` et `Composant IT · Coût annuel total` montre l'empreinte complète de l'éditeur — Teams, M365, Azure et tout autre composant fourni par Microsoft — sous la forme d'un chiffre unique.
 
-#### Pourquoi rien n'est compté deux fois
+#### Imputation : Intégrale ou À parts égales
 
-Le sélecteur est conçu pour rendre toute double-comptabilisation impossible par construction :
+Au sein d'un même rectangle, rien n'est compté deux fois :
 
 - Chaque entrée est une paire `(type cible, champ de coût)` unique -- la liste propose chaque paire exactement une fois, même lorsque plusieurs types de relation atteignent le même type cible.
-- Au sein d'une même paire, deux fiches reliées par plusieurs types de relation ne contribuent leur coût qu'une seule fois.
-- Entre entrées différentes, aucune fiche ne peut contribuer deux fois : une fiche n'a qu'un seul type, et différents champs de coût sur une même fiche sont des valeurs indépendantes.
+- Au sein d'une même paire, une fiche reliée par plusieurs types de relation ne contribue son coût qu'une seule fois.
 
-Une petite **icône d'aide (?)** placée à côté du sélecteur rappelle cette garantie au survol.
+D'un rectangle à l'autre, une fiche liée peut être reliée à plusieurs des fiches affichées — une initiative qui améliore deux capacités, un composant IT qui sert trois applications. Le sélecteur **Imputation**, à côté du sélecteur de Source des coûts, détermine comment une telle fiche est comptée :
+
+- **Intégrale** (par défaut) -- le coût total de la fiche liée compte sur chaque fiche affichée à laquelle elle est liée. C'est une vue d'impact : chaque rectangle montre combien d'argent dépend de cette fiche. Le chiffre **Coût total** compte toujours chaque fiche liée une seule fois ; il n'est donc pas la somme des rectangles, ce que rappelle une légende placée en dessous. Un rectangle dont les sources sont partagées avec d'autres fiches en indique le nombre dans son infobulle, et le tableau le signale par une icône de lien.
+- **À parts égales** -- le coût de la fiche liée est divisé par le nombre de fiches en service du type affiché auxquelles elle est liée. Une initiative de 50 000 qui améliore deux capacités ajoute 25 000 à chacune, de sorte que la somme des rectangles égale le total.
+
+La part est une propriété du paysage, pas de la vue : restreindre le rapport à quelques fiches ou forer dans un rectangle ne la modifie pas. Les fiches que vous n'êtes pas autorisé à voir ne comptent jamais, ni comme source de coût ni dans le nombre par lequel un coût est divisé. Le choix est enregistré avec le rapport.
+
+Une petite **icône d'aide (?)** placée à côté du sélecteur explique au survol les deux choix d'imputation.
 
 La liste des options est générée à partir de votre métamodèle -- les types de relation et les champs de coût sont découverts au moment du rendu, donc tout nouveau type de fiche ou toute nouvelle relation devient automatiquement une source de coûts valide.
 
@@ -203,6 +211,8 @@ Dès qu'au moins une Source de coût est active, les rectangles du treemap devie
 
 - **Une seule Source de coût active** — le forage affiche un treemap des fiches liées (par exemple, cliquer sur *NexaCore ERP* avec `Composant SI · Coût annuel total` coché montre les composants SI liés à NexaCore ERP, dimensionnés par leur coût annuel).
 - **Plusieurs Sources de coût actives** — le forage affiche **un treemap par source côte à côte** (1 colonne sur écran étroit, 2 sur écran large). Chaque panneau possède son propre en-tête, son propre total et son propre `% du total` dans l'infobulle — ainsi les différents types de fiches conservent leur échelle au lieu d'être tassés dans un seul graphique.
+
+Avec **À parts égales**, les fiches du forage affichent leur part dans le rectangle sur lequel vous avez cliqué, de sorte que le total du panneau égale le coût de ce rectangle.
 
 La sélection de Source de coût et les autres filtres sont préservés pendant le forage, et le niveau de forage fait partie de la configuration du rapport sauvegardé — sauvegarder un rapport en cours de forage le rouvre directement à ce niveau. Sans Source de coût active, un clic sur un rectangle ouvre plutôt le panneau latéral de la fiche (il n'y a rien à décomposer).
 
