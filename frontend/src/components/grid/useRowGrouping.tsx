@@ -31,6 +31,7 @@ import {
   collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
+  sameIdSet,
   treeLevelOf,
   type GroupAxis,
   type GroupedRow,
@@ -518,14 +519,6 @@ export interface UseRowGroupingOptions<T extends { id: string }> {
    * toggles stay session-only on top of it.
    */
   tree?: (TreeAccess<T> & { refreshColumns?: string[]; level?: number | null }) | null;
-}
-
-/** Same members, regardless of order. */
-function sameIdSet(a: ReadonlySet<string> | null, b: ReadonlySet<string> | null): boolean {
-  if (a === b) return true;
-  if (!a || !b || a.size !== b.size) return false;
-  for (const id of a) if (!b.has(id)) return false;
-  return true;
 }
 
 export function useRowGrouping<T extends { id: string }>(

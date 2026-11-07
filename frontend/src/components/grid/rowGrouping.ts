@@ -459,3 +459,14 @@ export function normalizeTreeLevel(value: unknown): number | null {
         : NaN;
   return Number.isInteger(n) && n >= 1 ? n : null;
 }
+
+/** Same members, regardless of order; two nulls are the same, a null and a
+ * set are not. Used to skip a layout rebuild when a recomputed id set (the
+ * rows passing the grid filters, the parents a level collapses) did not
+ * actually change. */
+export function sameIdSet(a: ReadonlySet<string> | null, b: ReadonlySet<string> | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.size !== b.size) return false;
+  for (const id of a) if (!b.has(id)) return false;
+  return true;
+}

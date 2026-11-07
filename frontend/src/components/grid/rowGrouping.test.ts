@@ -11,6 +11,7 @@ import {
   groupKeyOn,
   normalizeTreeLevel,
   resolveVocabColor,
+  sameIdSet,
   treeLevelOf,
   type GroupAxis,
   type GroupedRow,
@@ -341,6 +342,20 @@ describe("buildTreeLayout", () => {
     expect(orphan.info.get("x")).toMatchObject({ crumbIds: [], crumbTruncated: true });
   });
 
+  it("stops an ancestor walk that cycles outside the group", () => {
+    // c's ancestors p and q point at each other; neither is a member.
+    const loaded = [tr("p", "q"), tr("q", "p"), tr("c", "p")];
+    const layout = buildTreeLayout([loaded[2]], accessOver(loaded), null, new Set());
+    expect(layout.info.get("c")).toMatchObject({ crumbIds: ["q", "p"], crumbTruncated: false });
+  });
+
+  it("a nested row carries no crumb and is never marked truncated", () => {
+    const rows = [tr("p", "unloaded"), tr("c", "p")];
+    const layout = buildTreeLayout(rows, accessOver(rows), null, new Set());
+    expect(layout.info.get("p")).toMatchObject({ depth: 0, crumbTruncated: true });
+    expect(layout.info.get("c")).toMatchObject({ depth: 1, crumbIds: [], crumbTruncated: false });
+  });
+
   it("a root without a parent has no crumb", () => {
     const layout = buildTreeLayout([tr("r", null)], accessOver([]), null, new Set());
     expect(layout.info.get("r")).toMatchObject({ crumbIds: [], crumbTruncated: false });
@@ -484,6 +499,10 @@ describe("forestOrder", () => {
 
   it("keeps every node of a cycle exactly once", () => {
     expect(order([tr("a", "b"), tr("b", "a"), tr("r")])).toEqual(["r", "a", "b"]);
+  });
+
+  it("a self-parented leaf and a leaf with no parent are roots in arrival order", () => {
+    expect(order([tr("s", "s"), tr("n", null), tr("c", "s")])).toEqual(["s", "c", "n"]);
   });
 
   it("handles a deep chain without recursion", () => {
@@ -648,11 +667,32 @@ describe("normalizeTreeLevel", () => {
     expect(normalizeTreeLevel(4)).toBe(4);
     expect(normalizeTreeLevel("2")).toBe(2);
     expect(normalizeTreeLevel(" 3 ")).toBe(3);
+    expect(normalizeTreeLevel("12")).toBe(12);
+    expect(normalizeTreeLevel(" 10")).toBe(10);
   });
 
   it("treats anything else as null", () => {
     for (const bad of [0, -1, 1.5, NaN, Infinity, "0", "abc", "1.5", "-2", "", null, undefined, true, {}]) {
       expect(normalizeTreeLevel(bad)).toBeNull();
     }
+  });
+});
+
+describe("sameIdSet", () => {
+  it("is true for the same instance and for two nulls", () => {
+    const a = new Set(["x"]);
+    expect(sameIdSet(a, a)).toBe(true);
+    expect(sameIdSet(null, null)).toBe(true);
+  });
+
+  it("is false between null and a set, either way round", () => {
+    expect(sameIdSet(null, new Set())).toBe(false);
+    expect(sameIdSet(new Set(), null)).toBe(false);
+  });
+
+  it("compares members regardless of order and instance", () => {
+    expect(sameIdSet(new Set(["a", "b"]), new Set(["b", "a"]))).toBe(true);
+    expect(sameIdSet(new Set(["a", "b"]), new Set(["a"]))).toBe(false);
+    expect(sameIdSet(new Set(["a", "b"]), new Set(["a", "c"]))).toBe(false);
   });
 });
