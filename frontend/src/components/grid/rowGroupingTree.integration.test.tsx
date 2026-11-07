@@ -1,6 +1,6 @@
 /**
  * Contract test against the *real* AG Grid for the grouping tree layer
- * ("Indent children under parents"): the sort keeps children under their
+ * ("Parent" in the Group by menu): the sort keeps children under their
  * parent, an axis keeps each forest under its group header, a column filter
  * that hides a parent re-roots its children AND repaints their cells (AG Grid
  * does not re-render a row whose object is unchanged, so the hook has to force

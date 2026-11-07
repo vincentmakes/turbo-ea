@@ -1,5 +1,5 @@
 /**
- * The hook's tree layer ("Indent children under parents") against a fake grid
+ * The hook's tree layer ("Parent" in the Group by menu) against a fake grid
  * api: row order, collapse, the forced cell refresh, filter interplay and
  * group selection. The real-grid timing is covered by
  * rowGroupingTree.integration.test.tsx.
@@ -312,5 +312,72 @@ describe("useRowGrouping — tree layer", () => {
     const flat = [r("c1", "p1"), r("p1")].map((d) => ({ data: d }));
     plain.hook.result.current.gridProps.postSortRows({ nodes: flat as unknown as IRowNode[] });
     expect(flat.map((n) => n.data.id)).toEqual(["c1", "p1"]);
+  });
+});
+
+describe("useRowGrouping — tree level", () => {
+  // p > c > g, p > c2, q: three levels.
+  const DEEP = [r("p"), r("c", "p"), r("g", "c"), r("c2", "p"), r("q")];
+  const withLevel = (rows: Row[], level: number | null) => ({ ...accessOver(rows), level });
+
+  it("treeLevel is null with the tree off", () => {
+    const { hook } = setup({ tree: null });
+    expect(hook.result.current.treeLevel).toBeNull();
+  });
+
+  it("treeLevel follows toggleParentCollapse", () => {
+    const tree = accessOver(DEEP);
+    const { hook } = setup({ tree, rows: DEEP });
+    expect(hook.result.current.treeLevel).toEqual({ current: 3, max: 3 });
+    act(() => hook.result.current.gridProps.context.toggleParentCollapse!("c"));
+    expect(hook.result.current.treeLevel).toEqual({ current: 2, max: 3 });
+    act(() => hook.result.current.gridProps.context.toggleParentCollapse!("p"));
+    expect(hook.result.current.treeLevel).toEqual({ current: 1, max: 3 });
+  });
+
+  it("level 1 hides every child; null restores all; a level change re-applies", () => {
+    const { hook } = setup({ tree: withLevel(DEEP, 1), rows: DEEP });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "q"]);
+    expect(hook.result.current.treeLevel).toEqual({ current: 1, max: 3 });
+    hook.rerender({ tree: withLevel(DEEP, 2), rows: DEEP });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "c2", "q"]);
+    expect(hook.result.current.treeLevel!.current).toBe(2);
+    hook.rerender({ tree: withLevel(DEEP, null), rows: DEEP });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "g", "c2", "q"]);
+    expect(hook.result.current.treeLevel!.current).toBe(3);
+  });
+
+  it("a new rows array re-applies the level, dropping a manual expansion", () => {
+    const tree = withLevel(DEEP, 1);
+    const { hook } = setup({ tree, rows: DEEP });
+    act(() => hook.result.current.gridProps.context.toggleParentCollapse!("p"));
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "c2", "q"]);
+    // Same rows identity: the manual expansion survives a re-render.
+    hook.rerender({ tree, rows: DEEP });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "c2", "q"]);
+    hook.rerender({ tree, rows: [...DEEP] });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "q"]);
+  });
+
+  it("an active filter keeps branches open; clearing it re-applies the level", () => {
+    const tree = withLevel(DEEP, 1);
+    const { hook, state, sync } = setup({ tree, rows: DEEP });
+    sync();
+    state.filter = () => true;
+    act(() => hook.result.current.handleFilterChanged());
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "g", "c2", "q"]);
+    // A reload under the filter does not collapse again.
+    hook.rerender({ tree, rows: [...DEEP] });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "g", "c2", "q"]);
+    state.filter = null;
+    act(() => hook.result.current.handleFilterChanged());
+    expect(order(hook.result.current.rowData)).toEqual(["p", "q"]);
+  });
+
+  it("switching the tree on applies the level", () => {
+    const { hook } = setup({ tree: null, rows: DEEP });
+    expect(hook.result.current.rowData).toHaveLength(5);
+    hook.rerender({ tree: withLevel(DEEP, 2), rows: DEEP });
+    expect(order(hook.result.current.rowData)).toEqual(["p", "c", "c2", "q"]);
   });
 });

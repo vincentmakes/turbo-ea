@@ -66,6 +66,7 @@ const holder = vi.hoisted(() => ({
   filters: {} as Record<string, unknown>,
   groupBy: null as string | null,
   groupTree: false,
+  groupTreeLevel: null as number | null,
   columnState: null as unknown,
   columnFilters: null as Record<string, unknown> | null,
   columns: null as Set<string> | null,
@@ -96,6 +97,7 @@ vi.mock("./InventoryFilterSidebar", async () => {
         data-collapsed={String(props.collapsed)}
         data-group-by={props.groupBy ?? ""}
         data-group-tree={String(props.groupTree)}
+        data-group-tree-level={props.groupTreeLevel ?? ""}
         data-tag-groups={props.tagGroups.length}
         data-stakeholder-roles={props.stakeholderRoles.length}
         data-rel-types={props.allRelevantRelTypes.map((rt: any) => rt.key).join(",")}
@@ -108,6 +110,10 @@ vi.mock("./InventoryFilterSidebar", async () => {
         <button
           data-testid="set-group-tree"
           onClick={() => props.onGroupTreeChange(holder.groupTree)}
+        />
+        <button
+          data-testid="set-group-tree-level"
+          onClick={() => props.onGroupTreeLevelChange(holder.groupTreeLevel)}
         />
         <button
           data-testid="apply-column-state"
@@ -433,6 +439,7 @@ beforeEach(() => {
   holder.filters = {};
   holder.groupBy = null;
   holder.groupTree = false;
+  holder.groupTreeLevel = null;
   holder.columnState = null;
   holder.columnFilters = null;
   holder.columns = null;
@@ -800,7 +807,7 @@ describe("InventoryPage indent children under parents", () => {
     await user.click(groupByButton());
     await user.click(
       within(await screen.findByRole("menu")).getByRole("menuitemcheckbox", {
-        name: "Indent children under parents",
+        name: "Parent",
       }),
     );
     await waitFor(() => expect(rowIds()).toEqual([ERP.id, HR.id, CRM.id]));
@@ -895,7 +902,7 @@ describe("InventoryPage indent children under parents", () => {
     await user.click(groupByButton());
     await user.click(
       within(await screen.findByRole("menu")).getByRole("menuitemcheckbox", {
-        name: "Indent children under parents",
+        name: "Parent",
       }),
     );
     await waitFor(() => expect(gridStub.colDef("core_name").cellRenderer).toBeDefined());
@@ -926,6 +933,97 @@ describe("InventoryPage indent children under parents", () => {
     expect(screen.queryByRole("link", { name: "ERP Core" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Hide children of ERP Core/ }));
     expect(toggle).toHaveBeenCalledWith(ERP.id);
+  });
+
+  const collapseBtn = () => screen.getByRole("button", { name: /^Collapse one level/ });
+  const expandBtn = () => screen.getByRole("button", { name: /^Expand one level/ });
+  const stepper = () => screen.queryByRole("group", { name: "Expand by level" });
+
+  it("shows the level stepper after Group by; − closes a level and is remembered", async () => {
+    const { user } = renderInventory("/inventory?type=Application&group_tree=1");
+    await waitFor(() => expect(rowIds()).toEqual([ERP.id, HR.id, CRM.id]));
+    expect(stepper()).not.toBeNull();
+    // Placed right after the Group by button.
+    expect(groupByButton().nextElementSibling).toBe(stepper());
+    expect(expandBtn()).toBeDisabled();
+    expect(expandBtn()).toHaveAccessibleName("Expand one level (2 of 2)");
+    expect(collapseBtn()).toBeEnabled();
+    await user.click(collapseBtn());
+    // HR (ERP's only child) leaves the grid; the pill still counts it.
+    await waitForRows(2);
+    expect(rowIds()).toEqual([ERP.id, CRM.id]);
+    act(() => {
+      gridStub.fire("modelUpdated");
+    });
+    expect(await screen.findByText("3 items")).toBeInTheDocument();
+    await waitFor(() => expect(prefs().groupTreeLevel).toBe(1));
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-group-tree-level", "1");
+    expect(collapseBtn()).toBeDisabled();
+    expect(expandBtn()).toHaveAccessibleName("Expand one level (1 of 2)");
+    await user.click(expandBtn());
+    await waitForRows(3);
+    await waitFor(() => expect(prefs().groupTreeLevel).toBe(2));
+  });
+
+  it("the stepper follows a chevron toggle without writing the preference", async () => {
+    renderInventory("/inventory?type=Application&group_tree=1");
+    await waitForRows(3);
+    act(() => ctx().toggleParentCollapse(ERP.id));
+    await waitForRows(2);
+    expect(expandBtn()).toHaveAccessibleName("Expand one level (1 of 2)");
+    expect(collapseBtn()).toBeDisabled();
+    expect(prefs().groupTreeLevel).toBeNull();
+  });
+
+  it("deep-links a level with group_tree_level", async () => {
+    renderInventory("/inventory?type=Application&group_tree=1&group_tree_level=1");
+    await waitForRows(2);
+    expect(rowIds()).toEqual([ERP.id, CRM.id]);
+    expect(ctx().getTreeInfo(ERP.id)).toMatchObject({ collapsed: true, hiddenDescendants: 1 });
+    await waitFor(() => expect(prefs().groupTreeLevel).toBe(1));
+  });
+
+  it("ignores an invalid group_tree_level", async () => {
+    renderInventory("/inventory?type=Application&group_tree=1&group_tree_level=abc");
+    await waitFor(() => expect(rowIds()).toEqual([ERP.id, HR.id, CRM.id]));
+    expect(ctx().getTreeInfo(ERP.id)!.collapsed).toBe(false);
+    await waitFor(() => expect(prefs()?.groupTreeLevel).toBeNull());
+  });
+
+  it("restores the level pref without URL params and ignores it with URL filters", async () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ groupTree: true, groupTreeLevel: 1 }));
+    const first = renderInventory("/inventory");
+    await waitFor(() => expect(ctx().getTreeInfo(ERP.id)?.collapsed).toBe(true));
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-group-tree-level", "1");
+    expect(collapseBtn()).toBeDisabled();
+    first.unmount();
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ groupTree: true, groupTreeLevel: 1 }));
+    renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-group-tree-level", "");
+    await waitFor(() => expect(prefs().groupTreeLevel).toBeNull());
+  });
+
+  it("a saved view's level is applied through the sidebar", async () => {
+    renderInventory("/inventory?type=Application&group_tree=1");
+    await waitForRows(3);
+    holder.groupTreeLevel = 1;
+    fireEvent.click(screen.getByTestId("set-group-tree-level"));
+    await waitForRows(2);
+    await waitFor(() => expect(prefs().groupTreeLevel).toBe(1));
+    holder.groupTreeLevel = null;
+    fireEvent.click(screen.getByTestId("set-group-tree-level"));
+    await waitForRows(3);
+  });
+
+  it("shows no stepper with the tree off or without a hierarchy in view", async () => {
+    const off = renderInventory("/inventory?type=Application");
+    await waitForRows(3);
+    expect(stepper()).toBeNull();
+    off.unmount();
+    renderInventory("/inventory?type=Provider&group_tree=1");
+    await waitFor(() => expect(gridStub.lastProps()).not.toBeNull());
+    expect(stepper()).toBeNull();
   });
 
   it("a row click on the chevron does not navigate", async () => {

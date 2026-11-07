@@ -34,6 +34,7 @@ import { expandSides, sideKey } from "@/lib/relationSort";
 import { groupCardTypesByCategory } from "@/lib/cardTypeOrder";
 import { useCardTypeCategories } from "@/hooks/useCardTypeCategories";
 import ColumnFreezeToggle from "@/components/grid/ColumnFreezeToggle";
+import { normalizeTreeLevel } from "@/components/grid/rowGrouping";
 import ColumnOrderSection, {
   type ColumnOrderItem,
 } from "@/components/grid/ColumnOrderSection";
@@ -185,10 +186,14 @@ interface Props {
   // and restored on apply, like the sidebar filters themselves.
   groupBy?: string | null;
   onGroupByChange?: (groupBy: string | null) => void;
-  // "Indent children under parents" — saved into a view beside `groupBy` and
+  // "Parent" (the tree layer) — saved into a view beside `groupBy` and
   // restored on apply (views saved before the option restore it off).
   groupTree?: boolean;
   onGroupTreeChange?: (enabled: boolean) => void;
+  // The tree level chosen with the level stepper (null = fully open) — saved
+  // beside `groupTree`; views saved before the stepper restore null.
+  groupTreeLevel?: number | null;
+  onGroupTreeLevelChange?: (level: number | null) => void;
 }
 
 export const APPROVAL_STATUS_OPTIONS = [
@@ -440,6 +445,8 @@ export default function InventoryFilterSidebar({
   onGroupByChange,
   groupTree = false,
   onGroupTreeChange,
+  groupTreeLevel = null,
+  onGroupTreeLevelChange,
 }: Props) {
   const { t, i18n } = useTranslation(["inventory", "common"]);
   // EOL status labels live in the reports namespace — the EOL report owns
@@ -740,6 +747,7 @@ export default function InventoryFilterSidebar({
         // saved view restores its grouping (older views simply restore null).
         groupBy,
         groupTree: !!groupTree,
+        groupTreeLevel: groupTreeLevel ?? null,
       },
       columns: Array.from(selectedColumns),
       column_state: columnState ?? null,
@@ -789,6 +797,9 @@ export default function InventoryFilterSidebar({
         null,
     );
     onGroupTreeChange?.(!!(f as { groupTree?: boolean } | undefined)?.groupTree);
+    onGroupTreeLevelChange?.(
+      normalizeTreeLevel((f as { groupTreeLevel?: unknown } | undefined)?.groupTreeLevel),
+    );
     // Restore saved columns if present
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
     if (bmColumns && Array.isArray(bmColumns)) {
@@ -2472,7 +2483,7 @@ export function logoColumnApplies(types: CardType[], selectedTypeKeys: string[])
 }
 
 /**
- * Whether "Indent children under parents" applies to what is on screen — i.e.
+ * Whether "Parent" (the tree layer) applies to what is on screen — i.e.
  * whether any card type in view has a hierarchy at all. Same "applies to what
  * is in view" shape as `logoColumnApplies`: with no type filter every readable
  * type qualifies.

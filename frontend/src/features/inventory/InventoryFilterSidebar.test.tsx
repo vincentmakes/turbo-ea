@@ -1628,6 +1628,7 @@ describe("InventoryFilterSidebar — save dialog", () => {
         mineScope: "stakeholder",
         groupBy: "lifecycle",
         groupTree: false,
+        groupTreeLevel: null,
       },
       columns: ["core_type", "core_name", "attr_alias"],
       column_state: [{ colId: "core_name", width: 300 }],
@@ -1655,6 +1656,7 @@ describe("InventoryFilterSidebar — save dialog", () => {
     expect(body.column_filter_model).toBeNull();
     expect((body.filters as Record<string, unknown>).groupBy).toBeNull();
     expect((body.filters as Record<string, unknown>).groupTree).toBe(false);
+    expect((body.filters as Record<string, unknown>).groupTreeLevel).toBeNull();
   });
 
   it("saves the indent-children option beside the grouping", async () => {
@@ -1668,6 +1670,45 @@ describe("InventoryFilterSidebar — save dialog", () => {
     const body = mockApi.callsOf("post")[0].body as { filters: Record<string, unknown> };
     expect(body.filters.groupTree).toBe(true);
     expect(body.filters.groupBy).toBeNull();
+    expect(body.filters.groupTreeLevel).toBeNull();
+  });
+
+  it("saves the chosen tree level beside the parent option", async () => {
+    mockApi.on("post", "/bookmarks", { id: "bm-new" });
+    await renderSidebar({ groupBy: "lifecycle", groupTree: true, groupTreeLevel: 2 });
+    fireEvent.click(screen.getByRole("button", { name: /Save view/ }));
+    const name = within(screen.getByRole("dialog")).getByLabelText("View name");
+    fireEvent.change(name, { target: { value: "Tree L2" } });
+    fireEvent.keyDown(name, { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as { filters: Record<string, unknown> };
+    expect(body.filters.groupTree).toBe(true);
+    expect(body.filters.groupTreeLevel).toBe(2);
+  });
+
+  it("restores the tree level from a view, null for legacy or invalid levels", async () => {
+    const levelView = makeBookmark({
+      id: "bm-level",
+      name: "Level View",
+      filters: { types: ["BusinessCapability"], groupBy: null, groupTree: true, groupTreeLevel: 1 },
+    });
+    const badView = makeBookmark({
+      id: "bm-bad",
+      name: "Bad Level",
+      filters: { types: ["BusinessCapability"], groupTree: true, groupTreeLevel: 0 },
+    });
+    mockApi.on("get", "/bookmarks", [levelView, badView, MY_VIEW]);
+    const onGroupTreeLevelChange = vi.fn();
+    await renderSidebar({ onGroupTreeLevelChange });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Level View/ }));
+    expect(onGroupTreeLevelChange).toHaveBeenLastCalledWith(1);
+    fireEvent.click(screen.getByRole("button", { name: /My App View/ }));
+    expect(onGroupTreeLevelChange).toHaveBeenLastCalledWith(null);
+    fireEvent.click(screen.getByRole("button", { name: /Level View/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bad Level/ }));
+    expect(onGroupTreeLevelChange).toHaveBeenLastCalledWith(null);
+    expect(onGroupTreeLevelChange).toHaveBeenCalledTimes(4);
   });
 
   it("restores the indent-children option from a view, off for views saved without it", async () => {

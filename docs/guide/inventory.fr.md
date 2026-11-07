@@ -172,12 +172,13 @@ Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'élém
 
 ### Indenter les enfants sous leurs parents { #group-by-parents }
 
-Cochez **Indenter les enfants sous leurs parents** en haut du menu **Regrouper par** pour afficher les fiches sous forme d'arbre : chaque parent en premier, ses enfants indentés en dessous. L'option fonctionne seule (toute la grille devient un seul arbre) ou en plus d'un regroupement (chaque groupe devient son propre arbre). Le menu reste ouvert quand vous la cochez, ce qui permet de choisir un regroupement juste après.
+Cochez **Parent** en haut du menu **Regrouper par** pour afficher les fiches sous forme d'arbre : chaque parent en premier, ses enfants indentés en dessous. L'option fonctionne seule (toute la grille devient un seul arbre) ou en plus d'un regroupement (chaque groupe devient son propre arbre). Le menu reste ouvert quand vous la cochez, ce qui permet de choisir un regroupement juste après.
 
 ![Inventaire avec les enfants indentés sous leurs parents](../assets/img/fr/98c_inventaire_regroupement_parents.png)
 
 - Une fiche ne quitte jamais son groupe. Un enfant dont le parent se trouve dans un autre groupe, est masqué par un filtre de colonne ou n'est pas chargé démarre sa propre branche, avec ses ancêtres manquants affichés en gris avant son nom (par exemple *SAP S/4HANA / SAP FI /* devant le nom du module). Les décomptes des groupes, la case à cocher de l'en-tête et la modification en masse correspondent donc toujours au contenu du groupe.
-- Cliquez sur le chevron avant le nom d'un parent pour masquer ou afficher sa branche. Un parent réduit compte toujours ses fiches masquées dans le nombre d'éléments et dans l'en-tête du groupe. Les branches réduites ne sont pas mémorisées, et modifier un filtre de colonne les rouvre toutes.
+- Cliquez sur le chevron avant le nom d'un parent pour masquer ou afficher sa branche. Un parent réduit compte toujours ses fiches masquées dans le nombre d'éléments et dans l'en-tête du groupe. Les branches que vous réduisez avec le chevron ne sont pas mémorisées, et modifier un filtre de colonne les rouvre toutes ; effacer le dernier filtre de colonne ramène au niveau choisi avec le sélecteur.
+- Tant que la couche parent est activée, une paire **−** / **+** à côté du bouton Regrouper par ferme ou ouvre tout l'arbre un niveau à la fois. Le niveau choisi est mémorisé d'un rechargement à l'autre, enregistré dans les vues sauvegardées et partageable via `group_tree_level=<n>` ; le niveau affiché suit aussi ce que vous ouvrez et fermez à la main.
 - Le tri s'applique entre frères et sœurs : les parents sont triés, et les enfants de chaque parent sont triés en dessous de lui.
 - L'option n'est proposée que si un type de fiche affiché possède une hiérarchie. Elle est mémorisée d'un rechargement à l'autre, enregistrée dans les vues sauvegardées et partageable via le paramètre d'URL `group_tree=1`.
 - L'**export** suit l'ordre de l'arbre et omet les fiches situées dans des branches réduites, comme il le fait pour les groupes réduits.

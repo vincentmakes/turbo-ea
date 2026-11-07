@@ -15,7 +15,7 @@
  * passes exactly when the group has at least one visible member, so an
  * orphan header (or a headerless group) is impossible by construction.
  *
- * The optional parent/child TREE layer ("Indent children under parents")
+ * The optional parent/child TREE layer ("Parent" in the Group by menu)
  * lives here too: `buildTreeLayout` orders one group's members depth-first
  * and describes each row's depth / ancestor crumb in a side map, and
  * `forestOrder` re-applies that order after AG Grid sorts. Leaf rows are
@@ -411,4 +411,51 @@ export function buildTreeLayout<T extends { id: string }>(
   for (const root of roots) visit(root, 0, false);
   for (const m of members) if (!visited.has(m.id)) visit(m, 0, false);
   return { info, emitted, hidden };
+}
+
+/** Where the tree stands, level-wise: `max` is how many levels the tree has
+ * when fully open (deepest depth + 1; 1 with no rows), `current` how many of
+ * them are open — 1 + the run of depths 0, 1, … at which every parent is
+ * expanded. A depth with no parents counts as open. "Everything collapsed"
+ * is level 1 and "everything open" is level `max`. */
+export function treeLevelOf(info: ReadonlyMap<string, TreeInfo>): {
+  current: number;
+  max: number;
+} {
+  let deepest = 0;
+  const collapsedAt = new Set<number>();
+  for (const v of info.values()) {
+    if (v.depth > deepest) deepest = v.depth;
+    if (v.hasChildren && v.collapsed) collapsedAt.add(v.depth);
+  }
+  const max = deepest + 1;
+  let current = 1;
+  while (current < max && !collapsedAt.has(current - 1)) current++;
+  return { current, max };
+}
+
+/** The collapsed-parent set that shows exactly `level` levels: every parent
+ * at depth >= level - 1. `level` is clamped to [1, max], so level `max` (or
+ * deeper) collapses nothing. */
+export function collapsedParentsForLevel(
+  info: ReadonlyMap<string, TreeInfo>,
+  level: number,
+): Set<string> {
+  const { max } = treeLevelOf(info);
+  const clamped = Math.min(Math.max(Math.floor(level), 1), max);
+  const out = new Set<string>();
+  for (const [id, v] of info) if (v.hasChildren && v.depth >= clamped - 1) out.add(id);
+  return out;
+}
+
+/** A persisted / URL tree level, validated: a positive integer, else null
+ * (fully open). Accepts the raw URL string as well as a stored number. */
+export function normalizeTreeLevel(value: unknown): number | null {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d+$/.test(value.trim())
+        ? Number(value.trim())
+        : NaN;
+  return Number.isInteger(n) && n >= 1 ? n : null;
 }

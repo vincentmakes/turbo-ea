@@ -62,11 +62,13 @@ import LogoCell, {
   INVENTORY_LOGO_ROW_HEIGHT,
 } from "./LogoCell";
 import {
+  normalizeTreeLevel,
   type GroupAxis,
   type GroupedRow,
   type TreeAccess,
   type TreeInfo,
 } from "@/components/grid/rowGrouping";
+import TreeLevelStepper from "@/components/grid/TreeLevelStepper";
 import {
   GroupByMenuButton,
   useRowGrouping,
@@ -364,7 +366,7 @@ type InventoryRow = GroupedRow<Card>;
 const TREE_INDENT_PX = 20;
 
 /**
- * The "Indent children under parents" frame around a Name cell: indentation,
+ * The tree-layer (Group by › Parent) frame around a Name cell: indentation,
  * a chevron on parents (an empty slot on leaves so names align), and — on a
  * root whose parent is shown elsewhere or not at all — the muted chain of its
  * missing ancestors before its own name. Names are resolved here, at render
@@ -852,8 +854,11 @@ interface InventoryPrefs {
   // Active group-by axis in wire format ("subtype" | "lifecycle" |
   // "approval_status" | "attr_<fieldKey>"), or null for no grouping.
   groupBy?: string | null;
-  // "Indent children under parents" in the Group by menu.
+  // "Parent" in the Group by menu (the parent/child tree layer).
   groupTree?: boolean;
+  // The tree level chosen with the level stepper (1 = every parent
+  // collapsed); null or absent = fully open.
+  groupTreeLevel?: number | null;
 }
 
 function loadPrefs(): InventoryPrefs | null {
@@ -1040,7 +1045,7 @@ export default function InventoryPage() {
     if (fromUrl) return fromUrl;
     return urlHasFilterParams(searchParams) ? null : (savedPrefsRef.current?.groupBy ?? null);
   });
-  // "Indent children under parents" — same precedence as the axis: a URL that
+  // "Parent" (the tree layer) — same precedence as the axis: a URL that
   // carries any grouping (`group_by` or `group_tree`) wins outright, else the
   // saved preference unless the URL is a filtered deep-link.
   const [groupTree, setGroupTree] = useState<boolean>(() => {
@@ -1048,6 +1053,21 @@ export default function InventoryPage() {
       return searchParams.get("group_tree") === "1";
     }
     return urlHasFilterParams(searchParams) ? false : !!savedPrefsRef.current?.groupTree;
+  });
+  // The tree level chosen with the stepper (null = fully open). Same
+  // precedence again, with `group_tree_level` counting as a grouping param.
+  // Anything but a positive integer reads as null.
+  const [groupTreeLevel, setGroupTreeLevel] = useState<number | null>(() => {
+    if (
+      searchParams.has("group_by") ||
+      searchParams.has("group_tree") ||
+      searchParams.has("group_tree_level")
+    ) {
+      return normalizeTreeLevel(searchParams.get("group_tree_level"));
+    }
+    return urlHasFilterParams(searchParams)
+      ? null
+      : normalizeTreeLevel(savedPrefsRef.current?.groupTreeLevel);
   });
   // ?expand_group=<key> — the report group the user clicked. Consumed once by
   // the grouping hook: that group lands expanded, all others collapsed.
@@ -1693,6 +1713,7 @@ export default function InventoryPage() {
       coreTagsMerged: true,
       groupBy,
       groupTree,
+      groupTreeLevel,
     });
   }, [
     filters,
@@ -1704,6 +1725,7 @@ export default function InventoryPage() {
     columnFilterModel,
     groupBy,
     groupTree,
+    groupTreeLevel,
   ]);
 
   // Free-text search is debounced; every other filter stays instant. Typing
@@ -2072,7 +2094,7 @@ export default function InventoryPage() {
   }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.origins, filters.eolStatuses, eolOf, filters.linkTypes, filters.dataQualityBands, filters.attributes, filters.relations, filters.tagIds, relationsMap, relTypeGroupMap, relatedRefsOf, tagGroups]);
 
   // --- Grouped row data (shared hook — see components/grid/useRowGrouping) ---
-  // "Indent children under parents" is only offered while a type in view has
+  // "Parent" (the tree layer) is only offered while a type in view has
   // a hierarchy; the preference itself is kept while it is not offered.
   const treeApplies = useMemo(
     () => treeGroupingApplies(readableTypes, filters.types),
@@ -2081,7 +2103,9 @@ export default function InventoryPage() {
   const treeActive = groupTree && treeApplies;
   // Lookups reach every loaded card — also those outside the group or hidden
   // by a filter — so a re-rooted child can name its missing ancestors.
-  const treeAccess = useMemo<TreeAccess<Card> & { refreshColumns: string[] }>(
+  const treeAccess = useMemo<
+    TreeAccess<Card> & { refreshColumns: string[]; level: number | null }
+  >(
     () => ({
       parentIdOf: (c) => c.parent_id,
       lookup: (id) => {
@@ -2089,8 +2113,9 @@ export default function InventoryPage() {
         return c ? { name: c.name, parentId: c.parent_id } : undefined;
       },
       refreshColumns: ["core_name"],
+      level: groupTreeLevel,
     }),
-    [cardsById],
+    [cardsById, groupTreeLevel],
   );
   const grouping = useRowGrouping<Card>(gridRef, {
     rows: filteredData,
@@ -4338,6 +4363,8 @@ export default function InventoryPage() {
             onGroupByChange={setGroupBy}
             groupTree={groupTree}
             onGroupTreeChange={setGroupTree}
+            groupTreeLevel={groupTreeLevel}
+            onGroupTreeLevelChange={setGroupTreeLevel}
           />
         </Drawer>
       ) : (
@@ -4378,6 +4405,8 @@ export default function InventoryPage() {
           onGroupByChange={setGroupBy}
           groupTree={groupTree}
           onGroupTreeChange={setGroupTree}
+          groupTreeLevel={groupTreeLevel}
+          onGroupTreeLevelChange={setGroupTreeLevel}
         />
       )}
 
@@ -4403,6 +4432,13 @@ export default function InventoryPage() {
             compact={isMobile}
             tree={treeApplies ? { enabled: groupTree, onChange: setGroupTree } : undefined}
           />
+          {grouping.treeActive && grouping.treeLevel && grouping.treeLevel.max > 1 && (
+            <TreeLevelStepper
+              current={grouping.treeLevel.current}
+              max={grouping.treeLevel.max}
+              onChange={setGroupTreeLevel}
+            />
+          )}
           <Box sx={{ flex: 1 }} />
           {isMobile ? (
             <>

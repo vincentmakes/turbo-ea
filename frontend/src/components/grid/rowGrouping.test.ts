@@ -4,14 +4,18 @@ import {
   NOT_SET_KEY,
   buildGroupedRows,
   buildTreeLayout,
+  collapsedParentsForLevel,
   forestOrder,
   collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
+  normalizeTreeLevel,
   resolveVocabColor,
+  treeLevelOf,
   type GroupAxis,
   type GroupedRow,
   type TreeAccess,
+  type TreeInfo,
 } from "./rowGrouping";
 
 interface Row {
@@ -245,7 +249,7 @@ describe("resolveVocabColor", () => {
 
 
 // ---------------------------------------------------------------------------
-// Tree layer ("Indent children under parents")
+// Tree layer ("Parent" in the Group by menu)
 // ---------------------------------------------------------------------------
 
 interface TRow {
@@ -535,5 +539,120 @@ describe("glueGroups with a tree", () => {
     const nodes: { data?: GroupedRow<TRow> }[] = [node(tr("c", "p")), {}, node(tr("p"))];
     glueGroups(nodes, null, (r) => r.parent);
     expect(nodes.map((n) => n.data?.id ?? "-")).toEqual(["-", "p", "c"]);
+  });
+});
+
+describe("treeLevelOf / collapsedParentsForLevel", () => {
+  // p > c > g, p > c2, q (leaf root); s > sc in the same set.
+  const rows = [tr("p"), tr("c", "p"), tr("g", "c"), tr("c2", "p"), tr("q"), tr("s"), tr("sc", "s")];
+  const laid = (collapsed: string[]) =>
+    buildTreeLayout(rows, accessOver(rows), null, new Set(collapsed)).info;
+  const info = (entries: [string, Partial<TreeInfo>][]) =>
+    new Map<string, TreeInfo>(
+      entries.map(([id, v]) => [
+        id,
+        {
+          depth: 0,
+          crumbIds: [],
+          crumbTruncated: false,
+          hasChildren: false,
+          collapsed: false,
+          hiddenDescendants: 0,
+          ...v,
+        },
+      ]),
+    );
+  const sorted = (s: Set<string>) => [...s].sort();
+
+  it("is level 1 of 1 with no rows and with flat rows", () => {
+    expect(treeLevelOf(new Map())).toEqual({ current: 1, max: 1 });
+    const flat = [tr("a"), tr("b")];
+    expect(treeLevelOf(buildTreeLayout(flat, accessOver(flat), null, new Set()).info)).toEqual({
+      current: 1,
+      max: 1,
+    });
+  });
+
+  it("is 2 of 2 for two levels all open", () => {
+    const two = [tr("p"), tr("c", "p")];
+    expect(treeLevelOf(buildTreeLayout(two, accessOver(two), null, new Set()).info)).toEqual({
+      current: 2,
+      max: 2,
+    });
+  });
+
+  it("is max when everything is open", () => {
+    expect(treeLevelOf(laid([]))).toEqual({ current: 3, max: 3 });
+  });
+
+  it("stops at the first depth holding a collapsed parent", () => {
+    // One depth-0 parent collapsed: level 1, and the hidden grandchild g
+    // still counts towards max.
+    expect(treeLevelOf(laid(["s"]))).toEqual({ current: 1, max: 3 });
+    expect(treeLevelOf(laid(["p"]))).toEqual({ current: 1, max: 3 });
+    // Depth 0 open, one depth-1 parent collapsed: level 2.
+    expect(treeLevelOf(laid(["c"]))).toEqual({ current: 2, max: 3 });
+  });
+
+  it("counts a depth with no parents as open", () => {
+    // Depth 1 has no parent at all; the collapsed parent sits at depth 2.
+    const m = info([
+      ["a", { depth: 0, hasChildren: true }],
+      ["b", { depth: 1 }],
+      ["x", { depth: 2, hasChildren: true, collapsed: true }],
+      ["y", { depth: 3 }],
+    ]);
+    expect(treeLevelOf(m)).toEqual({ current: 3, max: 4 });
+    // A collapsed flag on a row without children does not count.
+    const leafOnly = info([
+      ["a", { depth: 0, hasChildren: true }],
+      ["b", { depth: 1, collapsed: true }],
+    ]);
+    expect(treeLevelOf(leafOnly)).toEqual({ current: 2, max: 2 });
+  });
+
+  it("collapsedParentsForLevel: level 1 collapses every parent, max collapses none", () => {
+    const m = laid([]);
+    expect(sorted(collapsedParentsForLevel(m, 1))).toEqual(["c", "p", "s"]);
+    expect(collapsedParentsForLevel(m, 3).size).toBe(0);
+  });
+
+  it("collapsedParentsForLevel: a middle level collapses parents at depth >= level - 1 only", () => {
+    const m = laid([]);
+    expect(sorted(collapsedParentsForLevel(m, 2))).toEqual(["c"]);
+    // Leaves are never included.
+    for (const leaf of ["g", "c2", "q", "sc"]) {
+      expect(collapsedParentsForLevel(m, 1).has(leaf)).toBe(false);
+    }
+  });
+
+  it("collapsedParentsForLevel clamps below 1 and above max", () => {
+    const m = laid([]);
+    expect(sorted(collapsedParentsForLevel(m, 0))).toEqual(["c", "p", "s"]);
+    expect(sorted(collapsedParentsForLevel(m, -5))).toEqual(["c", "p", "s"]);
+    expect(collapsedParentsForLevel(m, 99).size).toBe(0);
+    expect(collapsedParentsForLevel(new Map(), 1).size).toBe(0);
+  });
+
+  it("round-trips: the set for a level reads back as that level", () => {
+    for (const level of [1, 2, 3]) {
+      const set = collapsedParentsForLevel(laid([]), level);
+      expect(treeLevelOf(laid([...set])).current).toBe(level);
+    }
+  });
+});
+
+describe("normalizeTreeLevel", () => {
+  it("keeps positive integers from numbers and URL strings", () => {
+    expect(normalizeTreeLevel(1)).toBe(1);
+    expect(normalizeTreeLevel(4)).toBe(4);
+    expect(normalizeTreeLevel("2")).toBe(2);
+    expect(normalizeTreeLevel(" 3 ")).toBe(3);
+  });
+
+  it("treats anything else as null", () => {
+    for (const bad of [0, -1, 1.5, NaN, Infinity, "0", "abc", "1.5", "-2", "", null, undefined, true, {}]) {
+      expect(normalizeTreeLevel(bad)).toBeNull();
+    }
   });
 });

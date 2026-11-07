@@ -27,9 +27,11 @@ import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
   buildTreeLayout,
+  collapsedParentsForLevel,
   collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
+  treeLevelOf,
   type GroupAxis,
   type GroupedRow,
   type GroupHeaderAnchor,
@@ -504,14 +506,18 @@ export interface UseRowGroupingOptions<T extends { id: string }> {
    */
   initialFocusGroup?: string | null;
   /**
-   * Opt-in parent/child tree layer ("Indent children under parents"),
+   * Opt-in parent/child tree layer ("Parent" in the Group by menu),
    * cumulative with the axis grouping and also usable without one. Null or
    * undefined keeps the grid exactly as it is without the tree. Pass a stable
    * object (memoised) — its identity is a rebuild key. `refreshColumns` names
    * the columns whose cells render tree info (forced to refresh when the tree
    * info changes, because AG Grid does not re-render an unchanged row object).
+   * `level` is the chosen tree level (1 = every parent collapsed; null =
+   * fully open): it is re-applied on a new row list, an axis change, the tree
+   * being switched on and the last column filter being cleared. Chevron
+   * toggles stay session-only on top of it.
    */
-  tree?: (TreeAccess<T> & { refreshColumns?: string[] }) | null;
+  tree?: (TreeAccess<T> & { refreshColumns?: string[]; level?: number | null }) | null;
 }
 
 /** Same members, regardless of order. */
@@ -563,16 +569,16 @@ export function useRowGrouping<T extends { id: string }>(
     setCollapsed((prev) => (prev.size > 0 ? new Set() : prev));
   }, [activeAxis?.key]);
 
-  // Collapsed tree parents — session-only too, and reset whenever the axis
-  // changes or the tree is switched on/off (a branch collapsed in one layout
-  // means nothing in the next).
+  // Collapsed tree parents — chevron toggles are session-only; the chosen
+  // level (`tree.level`) is re-applied below whenever the layout starts over.
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(() => new Set());
   const collapsedParentsRef = useRef(collapsedParents);
   collapsedParentsRef.current = collapsedParents;
   const treeOn = !!tree;
-  useEffect(() => {
-    setCollapsedParents((prev) => (prev.size > 0 ? new Set() : prev));
-  }, [activeAxis?.key, treeOn]);
+  const treeLevelOpt = tree?.level ?? null;
+  // Bumped when the last column filter is cleared, so the level is re-applied
+  // against the layout rebuilt without the filter.
+  const [levelRev, setLevelRev] = useState(0);
 
   // One-shot deep-link focus: rows load asynchronously (and attribute axes
   // only resolve once the metamodel arrives), so the seeding waits for both
@@ -641,6 +647,25 @@ export function useRowGrouping<T extends { id: string }>(
   // Read by the (stable) context getter and the refresh logic below.
   const treeInfoRef = useRef(treeInfo);
   treeInfoRef.current = treeInfo;
+
+  // Apply the chosen level on a new row list, an axis change, the tree being
+  // switched on/off and a cleared filter. Depth and hasChildren do not depend
+  // on the collapsed set, so this render's tree info is valid to read. An
+  // active column filter keeps every branch open (hidden rows cannot be
+  // filter-tested); clearing it re-applies the level via levelRev.
+  useEffect(() => {
+    void levelRev;
+    if (visibleIdsRef.current !== null) return;
+    const info = treeInfoRef.current;
+    setCollapsedParents((prev) => {
+      if (treeLevelOpt == null || !info) return prev.size > 0 ? new Set() : prev;
+      const next = collapsedParentsForLevel(info, treeLevelOpt);
+      return sameIdSet(next, prev) ? prev : next;
+    });
+  }, [rows, treeLevelOpt, activeAxis?.key, treeOn, levelRev]);
+
+  /** Tree layer: the derived level ({current, max}); null when the tree is off. */
+  const treeLevel = useMemo(() => (treeInfo ? treeLevelOf(treeInfo) : null), [treeInfo]);
   const rowDataRef = useRef(rowData);
   rowDataRef.current = rowData;
   // The tree info map the grid's cells were last refreshed for.
@@ -804,6 +829,8 @@ export function useRowGrouping<T extends { id: string }>(
       if (visibleIdsRef.current) {
         visibleIdsRef.current = null;
         setVisRev((v) => v + 1);
+        // Back to the saved view: re-apply the chosen tree level.
+        setLevelRev((v) => v + 1);
       }
       return;
     }
@@ -927,6 +954,9 @@ export function useRowGrouping<T extends { id: string }>(
     getTreeInfo,
     /** Whether the tree layer is on. */
     treeActive: treeOn,
+    /** Tree layer: `{ current, max }` levels, derived from what is open (so a
+     * chevron toggle shows at once); null when the tree is off. */
+    treeLevel,
     /** Spread into the grid wrapper's `sx` — the sticky bar positions against it. */
     sx: rowGroupingSx,
     /** Render inside the grid wrapper, after `<AgGridReact>`. */
@@ -946,7 +976,7 @@ export function useRowGrouping<T extends { id: string }>(
 /**
  * The "Group by" picker every grouped grid shares: a toolbar button (icon-only
  * in `compact` mode) opening a menu of None + the grid's axes. With `tree`, the
- * menu ends with an "Indent children under parents" checkbox item that toggles
+ * menu starts with a "Parent" checkbox item that toggles
  * the parent/child layer — alone or on top of an axis — without closing.
  */
 export function GroupByMenuButton({

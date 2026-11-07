@@ -70,7 +70,7 @@ describe("GroupByMenuButton", () => {
     render(<Harness onTree={onTree} />);
     const menu = openMenu();
     const item = within(menu).getByRole("menuitemcheckbox", {
-      name: "Indent children under parents",
+      name: "Parent",
     });
     expect(item).toHaveAttribute("aria-checked", "false");
     fireEvent.click(item);
@@ -160,7 +160,7 @@ describe("GroupByMenuButton", () => {
     fireEvent.click(button);
     expect(
       within(screen.getByRole("menu")).getByRole("menuitemcheckbox", {
-        name: "Indent children under parents",
+        name: "Parent",
       }),
     ).toBeInTheDocument();
   });
