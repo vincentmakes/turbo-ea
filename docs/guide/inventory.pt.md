@@ -172,7 +172,7 @@ Clique em **Agrupar por** na barra de ferramentas (ao lado da contagem de itens)
 
 ### Recuar os filhos sob os pais { #group-by-parents }
 
-Marque **Recuar os filhos sob os pais** no fim do menu **Agrupar por** para mostrar as fichas como uma árvore: primeiro cada pai e, por baixo, os seus filhos recuados. Funciona sozinha (toda a grelha passa a ser uma única árvore) ou sobre qualquer agrupamento (cada grupo passa a ser a sua própria árvore). O menu permanece aberto ao marcá-la, para poder escolher um agrupamento logo a seguir.
+Marque **Recuar os filhos sob os pais** no topo do menu **Agrupar por** para mostrar as fichas como uma árvore: primeiro cada pai e, por baixo, os seus filhos recuados. Funciona sozinha (toda a grelha passa a ser uma única árvore) ou sobre qualquer agrupamento (cada grupo passa a ser a sua própria árvore). O menu permanece aberto ao marcá-la, para poder escolher um agrupamento logo a seguir.
 
 ![Inventário com os filhos recuados sob os pais](../assets/img/pt/98c_inventario_agrupamento_pais.png)
 

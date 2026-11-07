@@ -734,7 +734,7 @@ describe("InventoryPage indent children under parents", () => {
     expect(ctx().getTreeInfo(HR.id)).toMatchObject({ depth: 1, crumbIds: [] });
     expect(ctx().getTreeInfo(ERP.id)).toMatchObject({ depth: 0, hasChildren: true });
     await waitFor(() => expect(prefs().groupTree).toBe(true));
-    expect(groupByButton()).toHaveTextContent("Group by: Parents");
+    expect(groupByButton()).toHaveTextContent("Group by: Parent");
     expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-group-tree", "true");
   });
 
@@ -762,7 +762,7 @@ describe("InventoryPage indent children under parents", () => {
   it("an axis plus group_tree=1 turns both on", async () => {
     renderInventory("/inventory?type=Application&group_by=subtype&group_tree=1");
     await waitForRows(6);
-    expect(groupByButton()).toHaveTextContent("Group by: Subtype · Parents");
+    expect(groupByButton()).toHaveTextContent("Group by: Subtype · Parent");
     // HR is in another subtype group than ERP: it stays in its own group as a
     // root, naming its parent.
     expect(ctx().getTreeInfo(HR.id)).toMatchObject({ depth: 0, crumbIds: [ERP.id] });

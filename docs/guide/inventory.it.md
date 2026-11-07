@@ -172,7 +172,7 @@ Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio 
 
 ### Rientrare i figli sotto i genitori { #group-by-parents }
 
-Spunta **Rientra i figli sotto i genitori** in fondo al menu **Raggruppa per** per mostrare le schede come un albero: prima ogni genitore, con i suoi figli rientrati sotto di esso. Funziona da sola (l'intera griglia diventa un unico albero) o sopra qualsiasi raggruppamento (ogni gruppo diventa un albero a sé). Il menu resta aperto quando la spunti, così puoi scegliere un raggruppamento subito dopo.
+Spunta **Rientra i figli sotto i genitori** in cima al menu **Raggruppa per** per mostrare le schede come un albero: prima ogni genitore, con i suoi figli rientrati sotto di esso. Funziona da sola (l'intera griglia diventa un unico albero) o sopra qualsiasi raggruppamento (ogni gruppo diventa un albero a sé). Il menu resta aperto quando la spunti, così puoi scegliere un raggruppamento subito dopo.
 
 ![Inventario con i figli rientrati sotto i genitori](../assets/img/it/98c_inventario_raggruppamento_genitori.png)
 

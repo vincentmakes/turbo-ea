@@ -174,7 +174,7 @@ Click **Group by** in the toolbar (next to the item count) to organise the grid 
 
 ### Indenting children under parents { #group-by-parents }
 
-Tick **Indent children under parents** at the bottom of the **Group by** menu to show cards as a tree: each parent first, its children indented beneath it. It works on its own (the whole grid becomes one tree) or on top of any grouping (each group becomes its own tree). The menu stays open when you tick it, so you can pick a grouping straight after.
+Tick **Indent children under parents** at the top of the **Group by** menu to show cards as a tree: each parent first, its children indented beneath it. It works on its own (the whole grid becomes one tree) or on top of any grouping (each group becomes its own tree). The menu stays open when you tick it, so you can pick a grouping straight after.
 
 ![Inventory indented under parents](../assets/img/en/98c_inventory_group_by_parents.png)
 

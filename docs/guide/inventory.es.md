@@ -172,7 +172,7 @@ Haga clic en **Agrupar por** en la barra de herramientas (junto al recuento de e
 
 ### Sangrar los hijos bajo sus padres { #group-by-parents }
 
-Marque **Sangrar los hijos bajo sus padres** al final del menú **Agrupar por** para mostrar las fichas como un árbol: primero cada padre y debajo, sangrados, sus hijos. Funciona por sí sola (toda la cuadrícula se convierte en un único árbol) o sobre cualquier agrupación (cada grupo se convierte en su propio árbol). El menú permanece abierto al marcarla, de modo que puede elegir una agrupación justo después.
+Marque **Sangrar los hijos bajo sus padres** en la parte superior del menú **Agrupar por** para mostrar las fichas como un árbol: primero cada padre y debajo, sangrados, sus hijos. Funciona por sí sola (toda la cuadrícula se convierte en un único árbol) o sobre cualquier agrupación (cada grupo se convierte en su propio árbol). El menú permanece abierto al marcarla, de modo que puede elegir una agrupación justo después.
 
 ![Inventario con los hijos sangrados bajo sus padres](../assets/img/es/98c_inventario_agrupacion_padres.png)
 

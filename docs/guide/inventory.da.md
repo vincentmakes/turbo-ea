@@ -174,7 +174,7 @@ Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af element
 
 ### Indryk børn under forældre { #group-by-parents }
 
-Sæt kryds ved **Indryk børn under forældre** nederst i menuen **Gruppér efter** for at vise kortene som et træ: hver forælder først og dens børn indrykket nedenunder. Den virker alene (hele gitteret bliver ét træ) eller oven på en vilkårlig gruppering (hver gruppe bliver sit eget træ). Menuen forbliver åben, når du sætter krydset, så du kan vælge en gruppering lige bagefter.
+Sæt kryds ved **Indryk børn under forældre** øverst i menuen **Gruppér efter** for at vise kortene som et træ: hver forælder først og dens børn indrykket nedenunder. Den virker alene (hele gitteret bliver ét træ) eller oven på en vilkårlig gruppering (hver gruppe bliver sit eget træ). Menuen forbliver åben, når du sætter krydset, så du kan vælge en gruppering lige bagefter.
 
 ![Lager med børn indrykket under forældre](../assets/img/da/98c_inventory_group_by_parents.png)
 

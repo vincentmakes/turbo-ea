@@ -172,7 +172,7 @@ Cliquez sur **Grouper par** dans la barre d'outils (à côté du nombre d'élém
 
 ### Indenter les enfants sous leurs parents { #group-by-parents }
 
-Cochez **Indenter les enfants sous leurs parents** en bas du menu **Regrouper par** pour afficher les fiches sous forme d'arbre : chaque parent en premier, ses enfants indentés en dessous. L'option fonctionne seule (toute la grille devient un seul arbre) ou en plus d'un regroupement (chaque groupe devient son propre arbre). Le menu reste ouvert quand vous la cochez, ce qui permet de choisir un regroupement juste après.
+Cochez **Indenter les enfants sous leurs parents** en haut du menu **Regrouper par** pour afficher les fiches sous forme d'arbre : chaque parent en premier, ses enfants indentés en dessous. L'option fonctionne seule (toute la grille devient un seul arbre) ou en plus d'un regroupement (chaque groupe devient son propre arbre). Le menu reste ouvert quand vous la cochez, ce qui permet de choisir un regroupement juste après.
 
 ![Inventaire avec les enfants indentés sous leurs parents](../assets/img/fr/98c_inventaire_regroupement_parents.png)
 

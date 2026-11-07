@@ -52,6 +52,19 @@ describe("GroupByMenuButton", () => {
     ]);
   });
 
+  it("puts the tree toggle first, above 'No grouping'", () => {
+    const { unmount } = render(<Harness />);
+    let items = Array.from(openMenu().querySelectorAll('[role^="menuitem"]'));
+    expect(items[0]).toHaveAttribute("role", "menuitemcheckbox");
+    expect(items[1]).toHaveAttribute("role", "menuitem");
+    expect(items[1]).toHaveTextContent("No grouping");
+    unmount();
+    render(<GroupByMenuButton axes={AXES} groupBy={null} onChange={() => {}} />);
+    items = Array.from(openMenu().querySelectorAll('[role^="menuitem"]'));
+    expect(items[0]).toHaveAttribute("role", "menuitem");
+    expect(items[0]).toHaveTextContent("No grouping");
+  });
+
   it("toggles the tree without closing the menu and reflects aria-checked", () => {
     const onTree = vi.fn();
     render(<Harness onTree={onTree} />);
@@ -89,8 +102,8 @@ describe("GroupByMenuButton", () => {
   it.each([
     [null, false, "Group by"],
     ["lifecycle", false, "Group by: Lifecycle"],
-    [null, true, "Group by: Parents"],
-    ["lifecycle", true, "Group by: Lifecycle · Parents"],
+    [null, true, "Group by: Parent"],
+    ["lifecycle", true, "Group by: Lifecycle · Parent"],
   ])("labels groupBy=%s tree=%s as %s", (groupBy, tree, label) => {
     render(
       <GroupByMenuButton

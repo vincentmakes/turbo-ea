@@ -172,7 +172,7 @@ Klicken Sie in der Symbolleiste auf **Gruppieren nach** (neben der Trefferanzahl
 
 ### Untergeordnete unter Übergeordneten einrücken { #group-by-parents }
 
-Aktivieren Sie unten im Menü **Gruppieren nach** das Kontrollkästchen **Untergeordnete unter Übergeordneten einrücken**, um die Karten als Baum anzuzeigen: zuerst jede übergeordnete Karte, darunter eingerückt ihre untergeordneten Karten. Die Option funktioniert allein (das ganze Raster wird zu einem Baum) oder zusätzlich zu jeder Gruppierung (jede Gruppe wird zu einem eigenen Baum). Das Menü bleibt beim Aktivieren geöffnet, sodass Sie direkt danach eine Gruppierung wählen können.
+Aktivieren Sie oben im Menü **Gruppieren nach** das Kontrollkästchen **Untergeordnete unter Übergeordneten einrücken**, um die Karten als Baum anzuzeigen: zuerst jede übergeordnete Karte, darunter eingerückt ihre untergeordneten Karten. Die Option funktioniert allein (das ganze Raster wird zu einem Baum) oder zusätzlich zu jeder Gruppierung (jede Gruppe wird zu einem eigenen Baum). Das Menü bleibt beim Aktivieren geöffnet, sodass Sie direkt danach eine Gruppierung wählen können.
 
 ![Inventar mit eingerückten Untergeordneten](../assets/img/de/98c_inventar_gruppierung_eltern.png)
 

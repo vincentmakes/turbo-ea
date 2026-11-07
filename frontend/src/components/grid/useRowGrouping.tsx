@@ -1006,6 +1006,27 @@ export function GroupByMenuButton({
         </Button>
       )}
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        {tree && (
+          // A toggle, not a choice, and first in the menu: it stays open so the
+          // user can pick an axis below (or watch the grid change) without
+          // reopening the menu.
+          <MenuItem
+            role="menuitemcheckbox"
+            aria-checked={treeEnabled}
+            onClick={() => tree.onChange(!treeEnabled)}
+          >
+            <Checkbox
+              size="small"
+              checked={treeEnabled}
+              tabIndex={-1}
+              disableRipple
+              inputProps={{ "aria-hidden": true }}
+              sx={{ p: 0, mr: 1 }}
+            />
+            {t("groupBy.indentChildren")}
+          </MenuItem>
+        )}
+        {tree && <Divider />}
         <MenuItem
           selected={!active}
           onClick={() => {
@@ -1028,26 +1049,6 @@ export function GroupByMenuButton({
             {a.label}
           </MenuItem>
         ))}
-        {tree && <Divider />}
-        {tree && (
-          // A toggle, not a choice: it stays open so the user can pick an axis
-          // next (or watch the grid change) without reopening the menu.
-          <MenuItem
-            role="menuitemcheckbox"
-            aria-checked={treeEnabled}
-            onClick={() => tree.onChange(!treeEnabled)}
-          >
-            <Checkbox
-              size="small"
-              checked={treeEnabled}
-              tabIndex={-1}
-              disableRipple
-              inputProps={{ "aria-hidden": true }}
-              sx={{ p: 0, mr: 1 }}
-            />
-            {t("groupBy.indentChildren")}
-          </MenuItem>
-        )}
       </Menu>
     </>
   );
