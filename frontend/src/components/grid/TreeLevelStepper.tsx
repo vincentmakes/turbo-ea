@@ -16,7 +16,7 @@ interface Props {
 const borderOf = (theme: Theme) => alpha(theme.palette.primary.main, 0.4);
 
 /**
- * The tree layer's per-level expand/collapse pill: `−` closes the deepest
+ * The tree layer's per-level expand/collapse control: `−` closes the deepest
  * open level, `+` opens the next one. No visible text — the level is named in
  * the tooltips and aria-labels only. Height matches the small outlined
  * Group by button it sits next to.
@@ -64,7 +64,9 @@ export default function TreeLevelStepper({ current, max, onChange }: Props) {
         height: 30,
         flexShrink: 0,
         border: `1px solid ${borderOf(theme)}`,
-        borderRadius: "999px",
+        // The toolbar's own radius: the stepper stands among outlined buttons
+        // of the same height, so it shares their shape rather than a pill's.
+        borderRadius: 1,
         overflow: "hidden",
       })}
     >
