@@ -203,23 +203,20 @@ export function edgeColors(
   };
 }
 
-/** The longest verb a line label shows before it is cut with an ellipsis. */
-export const MAX_EDGE_LABEL_CHARS = 24;
-
-export function truncateEdgeLabel(label: string): string {
-  return label.length > MAX_EDGE_LABEL_CHARS
-    ? label.slice(0, MAX_EDGE_LABEL_CHARS - 1) + "…"
-    : label;
-}
-
-/** The label box's estimated width: the verb, the flow arrow, and the count pill. */
-export function edgeLabelWidth(displayLabel: string, hasFlow: boolean, countText: string): number {
+/** The label box's estimated width: its longest line, the flow arrow, and the count pill. */
+export function edgeLabelWidth(lines: readonly string[], hasFlow: boolean, countText: string): number {
+  const longest = lines.reduce((m, l) => Math.max(m, l.length), 0);
   return (
-    displayLabel.length * 6.5 +
+    longest * 6.5 +
     16 +
     (hasFlow ? 17 : 0) +
     (countText ? countText.length * 7 + 14 : 0)
   );
+}
+
+/** The label box's height: one 14 px line inside 6 px of padding and border, plus 14 px a line after. */
+export function edgeLabelHeight(lines: readonly string[]): number {
+  return 20 + 14 * Math.max(0, lines.length - 1);
 }
 
 /**

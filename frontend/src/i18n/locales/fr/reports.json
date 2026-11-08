@@ -189,7 +189,7 @@
   "dependency.showRelationLabels": "Afficher les libellés de relation",
   "dependency.showRelationLabelsHint": "Afficher le verbe de chaque relation sur son trait (prend en charge, utilise, …). Désactivez-le pour un canevas plus lisible sur un paysage dense — les traits et leurs pointes de flèche montrent toujours ce qui est relié à quoi, et dans quel sens.",
   "dependency.showRelationValues": "Afficher les valeurs de relation",
-  "dependency.showRelationValuesHint": "Lorsqu'une relation porte une valeur qualifiante (par ex. Type de support «Principal»), elle s'affiche à côté du libellé, comme prend en charge [Principal]. Les relations sans valeur restent inchangées.",
+  "dependency.showRelationValuesHint": "Lorsqu'une relation porte une valeur qualifiante (par ex. Type de support «Principal»), elle s'affiche à côté du libellé, comme prend en charge [Principal]. Les détails oui/non cochés sont également listés, comme CRUD [Créer · Lire]. Les relations sans valeur restent inchangées.",
   "dependency.aggregateBy": "Regrouper les relations",
   "dependency.aggregateByHint": "Regroupe les fiches liées dans des cadres et trace une seule connexion entre deux cadres, portant le nombre de relations qu'elle représente. Les relations entre fiches d'un même cadre y restent tracées, et la fiche centrée reste isolée.",
   "dependency.aggregateBy_none": "Désactivé",

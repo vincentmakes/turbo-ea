@@ -25,9 +25,11 @@ import { render, screen, fireEvent, within, waitFor, act } from "@testing-librar
 import { MemoryRouter, useLocation } from "react-router";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import type { Node } from "@xyflow/react";
+import * as rf from "@xyflow/react";
 
 import LayeredDependencyView from "./LayeredDependencyView";
-import type { GNode, GEdge } from "./layeredDependencyLayout";
+import { LDV_NODE_W, type GNode, type GEdge } from "./layeredDependencyLayout";
+import { LANE_INSETS } from "./ldvLaneSizing";
 import {
   LDV_DEFAULT_SETTINGS,
   getLdvSettings,
@@ -52,7 +54,9 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   // The nodes the view last handed `<ReactFlow>`. A controlled flow's
   // `getNodes()` returns precisely this list, so the Create-diagram path
   // exports what the view built, not something the fake invented.
-  const live: { nodes: Node[] } = { nodes: [] };
+  const live: { nodes: Node[]; props?: ComponentProps<typeof actual.ReactFlow> } = {
+    nodes: [],
+  };
   const instance = {
     fitView: vi.fn(),
     zoomIn: vi.fn(),
@@ -63,6 +67,7 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   type NodeComponent = ComponentType<{ id: string; data: unknown }>;
   const ReactFlow = (props: ComponentProps<typeof actual.ReactFlow>) => {
     live.nodes = (props.nodes ?? []) as Node[];
+    live.props = props;
     return (
       <div data-testid="rf">
         {live.nodes.map((n) => {
@@ -94,6 +99,7 @@ vi.mock("@xyflow/react", async (importOriginal) => {
     },
     Handle: () => null,
     useReactFlow: () => instance,
+    __live: live,
   };
 });
 
@@ -498,5 +504,237 @@ describe("LayeredDependencyView canvas colours", () => {
     renderView();
     const band = within(screen.getByTestId("rf-controls")).getAllByText("", { selector: "div[aria-hidden]" })[0];
     expect(band).toHaveStyle({ borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  e) Lanes grow as a card is dragged against their edge (#1295)       */
+/* ------------------------------------------------------------------ */
+
+describe("LayeredDependencyView lane growth", () => {
+  type Live = { nodes: Node[]; props?: ComponentProps<typeof rf.ReactFlow> };
+  const live = () => (rf as unknown as { __live: Live }).__live;
+  const nodeById = (id: string) => live().nodes.find((n) => n.id === id)!;
+  const sizeOf = (n: Node) => ({
+    w: (n.width ?? (n.style?.width as number)) as number,
+    h: (n.height ?? (n.style?.height as number)) as number,
+  });
+
+  /** A whole drag, as React Flow runs it: `onNodeDragStart`, then for each
+   *  stop on the way a position change and `onNodeDrag`, then the release's
+   *  position change and `onNodeDragStop`. Each stop is given relative to the
+   *  card's box as it stood when the drag began; React Flow reports a moving
+   *  card in page coordinates, because the view takes it out of its box for
+   *  the drag. */
+  function drag(id: string, stops: { x: number; y: number }[]) {
+    const ev = new MouseEvent("mousemove");
+    const props = () => live().props!;
+    const box = nodeById(nodeById(id).parentId!).position;
+    act(() => {
+      props().onNodeDragStart!(ev, nodeById(id), [nodeById(id)]);
+    });
+    let last = nodeById(id).position;
+    for (const p of stops) {
+      last = { x: box.x + p.x, y: box.y + p.y };
+      const at = last;
+      act(() => {
+        props().onNodesChange!([{ id, type: "position", position: at, dragging: true }]);
+      });
+      act(() => {
+        props().onNodeDrag!(ev, nodeById(id), live().nodes);
+      });
+    }
+    act(() => {
+      props().onNodesChange!([{ id, type: "position", position: last, dragging: false }]);
+    });
+    act(() => {
+      props().onNodeDragStop!(ev, nodeById(id), [nodeById(id)]);
+    });
+  }
+  const dragTo = (id: string, position: { x: number; y: number }) => drag(id, [position]);
+
+  it("takes the dragged card out of its lane while it moves and puts it back on release", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane = nodeById(laneId);
+    const card = nodeById("app-1");
+    act(() => {
+      live().props!.onNodeDragStart!(new MouseEvent("mousedown"), card, [card]);
+    });
+    const out = nodeById("app-1");
+    expect(out.parentId).toBeUndefined();
+    expect(out.extent).toBeUndefined();
+    // Drawn above the cards and lanes it passes over.
+    expect(out.zIndex).toBeGreaterThan(1);
+    expect(out.position).toEqual({
+      x: lane.position.x + card.position.x,
+      y: lane.position.y + card.position.y,
+    });
+    act(() => {
+      live().props!.onNodeDragStop!(new MouseEvent("mouseup"), out, [out]);
+    });
+    const back = nodeById("app-1");
+    expect(back.parentId).toBe(laneId);
+    expect(back.extent).toBe("parent");
+    expect(back.position).toEqual(card.position);
+    expect(back.data).not.toHaveProperty("dragBoxId");
+    expect(back.zIndex).toBeUndefined();
+  });
+
+  it("follows a card out past the left edge and back within one drag", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = { ...nodeById("app-1").position };
+    // Out to 100 units left of the lane, the lane following each step, then home.
+    drag("app-1", [
+      { x: -40, y: card0.y },
+      { x: -100, y: card0.y },
+      { x: -40, y: card0.y },
+      card0,
+    ]);
+    const lane1 = nodeById(laneId);
+    expect(lane1.position).toEqual(lane0.position);
+    expect(sizeOf(lane1)).toEqual(sizeOf(lane0));
+    expect(nodeById("app-1").position).toEqual(card0);
+  });
+
+  it("keeps the lane's left edge with the card at the far end of the drag", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = { ...nodeById("app-1").position };
+    const ev = new MouseEvent("mousemove");
+    act(() => {
+      live().props!.onNodeDragStart!(ev, nodeById("app-1"), [nodeById("app-1")]);
+    });
+    for (const x of [-40, -100]) {
+      const at = { x: lane0.position.x + x, y: lane0.position.y + card0.y };
+      act(() => {
+        live().props!.onNodesChange!([{ id: "app-1", type: "position", position: at, dragging: true }]);
+      });
+      act(() => {
+        live().props!.onNodeDrag!(ev, nodeById("app-1"), live().nodes);
+      });
+      // The card never moves under the pointer: it is not shifted with the lane.
+      expect(nodeById("app-1").position).toEqual(at);
+      expect(nodeById(laneId).position.x).toBe(at.x - LANE_INSETS.left);
+    }
+  });
+
+  it("widens the lane when a card reaches its right edge, leaving the card in place", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    // React Flow clamps the card to the lane: it can at most touch the edge.
+    const x = before.w - LDV_NODE_W;
+    dragTo("app-1", { x, y: nodeById("app-1").position.y });
+
+    const after = sizeOf(nodeById(laneId));
+    expect(after.w).toBe(x + LDV_NODE_W + LANE_INSETS.right);
+    expect(after.h).toBe(before.h);
+    expect(nodeById("app-1").position.x).toBe(x);
+  });
+
+  it("grows a lane leftwards by moving it, so nothing on screen moves", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = nodeById("app-1");
+    const absX = lane0.position.x + 0;
+    dragTo("app-1", { x: 0, y: card0.position.y });
+
+    const lane1 = nodeById(laneId);
+    const card1 = nodeById("app-1");
+    expect(lane1.position.x).toBe(lane0.position.x - LANE_INSETS.left);
+    expect(card1.position.x).toBe(LANE_INSETS.left);
+    // Same absolute place as where React Flow left it.
+    expect(lane1.position.x + card1.position.x).toBe(absX);
+    expect(sizeOf(lane1).w).toBe(sizeOf(lane0).w + LANE_INSETS.left);
+  });
+
+  it("does nothing while the card stays inside the lane", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = nodeById(laneId);
+    const { x, y } = nodeById("app-1").position;
+    dragTo("app-1", { x, y });
+    expect(nodeById(laneId)).toBe(before);
+  });
+
+  it("shrinks the lane back to its laid-out width when the card is moved back", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    const start = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: before.w - LDV_NODE_W, y: start.y });
+    expect(sizeOf(nodeById(laneId)).w).toBeGreaterThan(before.w);
+
+    dragTo("app-1", start);
+    expect(sizeOf(nodeById(laneId))).toEqual(before);
+  });
+
+  it("brings a lane grown leftwards back to where it was, the card staying put on screen", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const size0 = sizeOf(lane0);
+    const card0 = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: 0, y: card0.y });
+    const grown = nodeById(laneId);
+    expect(grown.position.x).toBe(lane0.position.x - LANE_INSETS.left);
+
+    // The card's original screen position, relative to the moved lane.
+    const absX = lane0.position.x + card0.x;
+    dragTo("app-1", { x: absX - grown.position.x, y: card0.y });
+    const lane1 = nodeById(laneId);
+    expect(lane1.position).toEqual(lane0.position);
+    expect(sizeOf(lane1)).toEqual(size0);
+    expect(nodeById("app-1").position).toEqual(card0);
+  });
+
+  it("hands a lane shrunk back to Create diagram at its laid-out width", async () => {
+    mockApi.on("post", "/diagrams", { id: "diag-10" });
+    renderView({ canCreateDiagram: true });
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    const start = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: before.w - LDV_NODE_W, y: start.y });
+    dragTo("app-1", start);
+
+    fireEvent.click(screen.getByRole("button", { name: T.createDiagram }));
+    fireEvent.change(screen.getByLabelText(T.diagramName), { target: { value: "Shrunk" } });
+    fireEvent.keyDown(screen.getByLabelText(T.diagramName), { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post", "/diagrams")).toHaveLength(1));
+
+    const xml = (mockApi.callsOf("post", "/diagrams")[0].body as { data: { xml: string } }).data
+      .xml;
+    const laneWidths = [...xml.matchAll(/id="layer-\d+"[^>]*>\s*<mxGeometry[^>]*width="(\d+)"/g)].map(
+      (m) => Number(m[1]),
+    );
+    expect(laneWidths).toContain(before.w);
+    expect(laneWidths).not.toContain(before.w + LANE_INSETS.right);
+  });
+
+  it("hands the grown lane's size to Create diagram", async () => {
+    mockApi.on("post", "/diagrams", { id: "diag-9" });
+    renderView({ canCreateDiagram: true });
+    const laneId = nodeById("app-1").parentId!;
+    const lane = nodeById(laneId);
+    const x = sizeOf(lane).w - LDV_NODE_W;
+    dragTo("app-1", { x, y: nodeById("app-1").position.y });
+    const grownW = x + LDV_NODE_W + LANE_INSETS.right;
+
+    fireEvent.click(screen.getByRole("button", { name: T.createDiagram }));
+    fireEvent.change(screen.getByLabelText(T.diagramName), { target: { value: "Grown" } });
+    fireEvent.keyDown(screen.getByLabelText(T.diagramName), { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post", "/diagrams")).toHaveLength(1));
+
+    const xml = (mockApi.callsOf("post", "/diagrams")[0].body as { data: { xml: string } }).data
+      .xml;
+    const laneWidths = [...xml.matchAll(/id="layer-\d+"[^>]*>\s*<mxGeometry[^>]*width="(\d+)"/g)].map(
+      (m) => Number(m[1]),
+    );
+    expect(laneWidths).toContain(grownW);
   });
 });

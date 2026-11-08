@@ -189,7 +189,7 @@
   "dependency.showRelationLabels": "Show relationship labels",
   "dependency.showRelationLabelsHint": "Draw each relation's verb on its line (supports, uses, …). Turn it off for a cleaner canvas on a dense landscape — the lines and their arrowheads still show what connects to what, and in which direction.",
   "dependency.showRelationValues": "Show relationship values",
-  "dependency.showRelationValuesHint": "When a relation carries a qualifying value (e.g. Support Type «Leading»), show it next to the label, like supports [Leading]. Relations without a value are unchanged.",
+  "dependency.showRelationValuesHint": "When a relation carries a qualifying value (e.g. Support Type «Leading»), show it next to the label, like supports [Leading]. Ticked yes/no details are listed too, like CRUD [Create · Read]. Relations without a value are unchanged.",
   "dependency.aggregateBy": "Aggregate relations",
   "dependency.aggregateByHint": "Group the related cards into boxes and draw a single connector between any two boxes, labelled with how many relations it stands for. Relations between cards of the same box stay drawn inside it, and the card you are centered on stays on its own.",
   "dependency.aggregateBy_none": "Off",

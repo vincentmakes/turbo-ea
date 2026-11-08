@@ -107,4 +107,15 @@ describe("collectDiagramInputs — plain view", () => {
     expect(card.x).toBe(lane.position.x + child.position.x);
     expect(card.y).toBe(lane.position.y + child.position.y);
   });
+
+  it("writes a lane at its LIVE size once it grew or shrank (#1295)", () => {
+    const lane = flow.nodes.find((n) => n.type === "ldvGroup")!;
+    // React Flow's resizer (and the auto-grow) put the size on width/height,
+    // leaving the layout's style behind.
+    const grown = { ...lane, width: 1234, height: 567 };
+    const live = flow.nodes.map((n) => (n.id === lane.id ? grown : n)) as Node[];
+    const out = collectDiagramInputs(live, flow.edges);
+    const layerIdx = flow.nodes.filter((n) => n.type === "ldvGroup").indexOf(lane);
+    expect(out.layers[layerIdx]).toMatchObject({ w: 1234, h: 567 });
+  });
 });

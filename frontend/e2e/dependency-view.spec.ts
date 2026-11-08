@@ -61,3 +61,76 @@ test("shows a card's alias under its name once the Alias line is ticked", async 
     await request.patch(`/api/v1/cards/${demo.sapId}`, { data: { alias: null } });
   }
 });
+
+test("a layer box's left edge follows a card dragged out of it and back", async ({ page, demo }) => {
+  await gotoApp(page, `/reports/dependencies?center=${demo.sapId}`);
+  const centre = page.locator(`.react-flow__node[data-id="${demo.sapId}"]`);
+  await expect(centre).toBeVisible();
+
+  // The layer box a card sits in, found by geometry: the DOM does not carry
+  // React Flow's parentId, but a card is always drawn inside its box.
+  const laneOf = (cardId: string) =>
+    page.evaluate((id) => {
+      const card = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`);
+      if (!card) return null;
+      const c = card.getBoundingClientRect();
+      const cx = c.left + c.width / 2;
+      const cy = c.top + c.height / 2;
+      for (const lane of document.querySelectorAll<HTMLElement>(".react-flow__node-ldvGroup")) {
+        const r = lane.getBoundingClientRect();
+        if (cx > r.left && cx < r.right && cy > r.top && cy < r.bottom) return lane.dataset.id ?? null;
+      }
+      return null;
+    }, cardId);
+  await expect.poll(() => laneOf(demo.sapId)).not.toBeNull();
+  const lane = page.locator(`.react-flow__node[data-id="${await laneOf(demo.sapId)}"]`);
+
+  const laid = (await lane.boundingBox())!;
+  const start = (await centre.boundingBox())!;
+  const grab = { x: start.x + start.width / 2, y: start.y + start.height / 2 };
+  // Far enough that the card must leave the box on the left. 20 px a move is
+  // an ordinary hand's pace; it is also more than the box's inset at the
+  // fitted zoom, so every move presses the card against the edge, which is
+  // where React Flow's own copy of the card's position used to go stale and
+  // swallow the moves (the box stopped growing and the card lagged the pointer).
+  const out = Math.round(start.x - laid.x + 150);
+  const STEP = 20;
+
+  // React Flow starts a drag on the first move *past* its 1 px threshold and
+  // measures the grab from there, so open with two hand-sized nudges; a 20 px
+  // opener would leave the card 20 px behind the pointer for the whole drag.
+  const steps = (from: number, to: number) => {
+    const xs: number[] = [];
+    for (let dx = from; from < to ? dx < to : dx > to; dx += from < to ? STEP : -STEP) xs.push(dx);
+    return [...xs, to];
+  };
+  await page.mouse.move(grab.x, grab.y);
+  await page.mouse.down();
+  await page.mouse.move(grab.x - 1, grab.y);
+  await page.mouse.move(grab.x - 2, grab.y);
+  for (const dx of steps(2 + STEP, out)) await page.mouse.move(grab.x - dx, grab.y);
+
+  // Out of its box for the drag, the card is still drawn on top of the cards
+  // and boxes it crosses rather than sliding under them.
+  expect(Number(await centre.evaluate((n) => (n as HTMLElement).style.zIndex))).toBeGreaterThan(1);
+  // The card stays under the pointer, and the box's left edge went with it.
+  await expect
+    .poll(async () => Math.abs((await centre.boundingBox())!.x - (start.x - out)))
+    .toBeLessThan(3);
+  const grown = (await lane.boundingBox())!;
+  expect(grown.x).toBeLessThan(start.x - out);
+  expect(grown.x).toBeLessThan(laid.x - 100);
+  expect(Math.abs(grown.x + grown.width - (laid.x + laid.width))).toBeLessThan(2);
+
+  for (const dx of steps(out - STEP, 0)) await page.mouse.move(grab.x - dx, grab.y);
+  await page.mouse.up();
+
+  // Back in its box once released, at a child's ordinary stacking order.
+  await expect.poll(async () => Number(await centre.evaluate((n) => (n as HTMLElement).style.zIndex))).toBe(1);
+  // Back where it started: the box shrinks back to its laid-out rectangle.
+  await expect.poll(async () => Math.abs((await lane.boundingBox())!.x - laid.x)).toBeLessThan(1);
+  const back = (await lane.boundingBox())!;
+  expect(Math.abs(back.width - laid.width)).toBeLessThan(2);
+  const home = (await centre.boundingBox())!;
+  expect(Math.abs(home.x - start.x)).toBeLessThan(3);
+});

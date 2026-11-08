@@ -11,7 +11,7 @@ function node(
   id: string,
   type: string | undefined,
   position: { x: number; y: number },
-  extra: Partial<Pick<Node, "parentId" | "style">> = {},
+  extra: Partial<Pick<Node, "parentId" | "style" | "width" | "height">> = {},
 ): Node {
   return { id, type, position, data: {}, ...extra };
 }
@@ -100,6 +100,19 @@ describe("computeObstacles", () => {
     const lane = node("lane", "ldvGroup", { x: 10, y: 20 }, { style: { width: 500, height: 900 } });
     expect(computeObstacles([lane])).toEqual([
       { x1: 10, y1: 20, x2: 510, y2: 20 + GROUP_LABEL_STRIP_H },
+    ]);
+  });
+
+  it("follows a lane or box that fitted its cards, not the layout's size (#1295)", () => {
+    const lane = node("lane", "ldvGroup", { x: 10, y: 20 }, { style: { width: 500 }, width: 700 });
+    const box = node("box", "ldvCluster", { x: 0, y: 0 }, {
+      style: { width: 100, height: 50 },
+      width: 300,
+      height: 90,
+    });
+    expect(computeObstacles([lane, box])).toEqual([
+      { x1: 10, y1: 20, x2: 710, y2: 20 + GROUP_LABEL_STRIP_H },
+      { x1: 0, y1: 0, x2: 300, y2: 90 },
     ]);
   });
 

@@ -1,6 +1,7 @@
 import type { Node } from "@xyflow/react";
 import { absolutePosition } from "./ldvEdgeRouting";
 import { LDV_NODE_W, LDV_NODE_H } from "./layeredDependencyLayout";
+import { boxSize } from "./ldvLaneSizing";
 
 /**
  * Obstacle boxes (cards + group-label strips) that edge labels must avoid.
@@ -24,8 +25,7 @@ export function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
   const bounds: ObstacleBounds[] = [];
   for (const n of nodeList) {
     if (n.type === "ldvNode" && n.parentId) {
-      const w = (n.style?.width as number) ?? LDV_NODE_W;
-      const h = (n.style?.height as number) ?? LDV_NODE_H;
+      const { w, h } = boxSize(n, LDV_NODE_W, LDV_NODE_H);
       // Through the whole chain: in aggregate mode a card sits inside a type
       // box inside a lane, and one level of flattening puts its obstacle box
       // in the wrong place.
@@ -36,15 +36,15 @@ export function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
       // cross a box it does not belong to, and its count must not come to rest
       // inside one — a number floating among a box's cards reads as belonging
       // to them.
-      const w = (n.style?.width as number) ?? 0;
-      const h = (n.style?.height as number) ?? 0;
+      // Live size: a box refitted to its cards carries it on width/height.
+      const { w, h } = boxSize(n, 0, 0);
       const { x: ax, y: ay } = absolutePosition(n, byId);
       bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
     } else if (n.type === "ldvGroup") {
       // Group label strip across the top of the box.
       const gx = n.position.x;
       const gy = n.position.y;
-      const gw = (n.style?.width as number) ?? 0;
+      const gw = boxSize(n, 0, 0).w;
       bounds.push({ x1: gx, y1: gy, x2: gx + gw, y2: gy + GROUP_LABEL_STRIP_H });
     }
   }

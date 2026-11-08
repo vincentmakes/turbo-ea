@@ -189,7 +189,7 @@
   "dependency.showRelationLabels": "Vis relationsetiketter",
   "dependency.showRelationLabelsHint": "Vis hver relations udsagnsord på dens linje (understøtter, bruger, …). Slå det fra for et renere lærred i et tæt landskab — linjerne og deres pilespidser viser stadig, hvad der er forbundet med hvad, og i hvilken retning.",
   "dependency.showRelationValues": "Vis relationsværdier",
-  "dependency.showRelationValuesHint": "Når en relation har en kvalificerende værdi (f.eks. Supporttype «Førende»), vises den ved siden af etiketten, som understøtter [Førende]. Relationer uden værdi er uændrede.",
+  "dependency.showRelationValuesHint": "Når en relation har en kvalificerende værdi (f.eks. Supporttype «Førende»), vises den ved siden af etiketten, som understøtter [Førende]. Afkrydsede ja/nej-oplysninger vises også, som CRUD [Opret · Læs]. Relationer uden værdi er uændrede.",
   "dependency.aggregateBy": "Saml relationer",
   "dependency.aggregateByHint": "Samler de relaterede kort i kasser og tegner én forbindelse mellem to kasser, mærket med hvor mange relationer den står for. Relationer mellem kort i samme kasse tegnes stadig inde i den, og det centrerede kort står fortsat for sig selv.",
   "dependency.aggregateBy_none": "Fra",

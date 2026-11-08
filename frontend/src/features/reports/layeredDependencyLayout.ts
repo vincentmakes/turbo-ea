@@ -13,6 +13,8 @@ import type { Node, Edge } from "@xyflow/react";
 import { getCurrentPhase } from "@/components/LifecycleBadge";
 import type { CardType, RelationType, FieldOption } from "@/types";
 import type { TimelineChange } from "./timelineRange";
+import { relationAttributeSuffix } from "@/lib/relationAttributeBadges";
+import type { BoxBase } from "./ldvLaneSizing";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
 import {
   alignLanesX,
@@ -206,6 +208,8 @@ export interface LdvNodeData {
 export interface LdvGroupData {
   label: string;
   color: string;
+  /** The lane as the layout drew it, set once a drag refits it (`ldvLaneSizing.ts`). */
+  fitBase?: BoxBase;
   [key: string]: unknown;
 }
 
@@ -291,32 +295,24 @@ export function stripEdgeLabels(edges: Edge[]): Edge[] {
 /* ------------------------------------------------------------------ */
 
 /**
- * Build the bracketed suffix for a relation's single-select attribute value(s),
- * e.g. `" [Leading]"` or `" [Owner · Leading]"`. Returns undefined when the
- * relation has no displayable value. `flowDirection` is intentionally excluded —
- * it is shown as a direction arrow, not a bracketed value.
+ * Build the bracketed suffix an edge label carries when "Show relation values"
+ * is on, e.g. `" [Leading]"`, `" [Owner · Leading]"` or, for the CRUD flags,
+ * `" [Create · Read]"`. Every `single_select` value and every `boolean` flag
+ * that is switched on contributes its label — the very values card detail shows
+ * as badges (`relationAttributeBadges`), in schema order. Returns undefined when
+ * the relation has no displayable value. `flowDirection` is intentionally
+ * excluded — it is shown as a direction arrow, not a bracketed value.
  *
- * `resolveOptionLabel` localises an option to its display text (the caller binds
- * it to the current locale). Pure (no React) so it is unit-testable.
+ * `resolveOptionLabel` localises an option (or, for a flag, the field) to its
+ * display text; the caller binds it to the current locale. Pure (no React) so
+ * it is unit-testable.
  */
 export function relationValueSuffix(
   edge: GEdge,
   relTypeByKey: Map<string, RelationType>,
   resolveOptionLabel: (opt: FieldOption) => string,
 ): string | undefined {
-  const rt = relTypeByKey.get(edge.type);
-  const attrs = edge.attributes;
-  if (!rt || !attrs) return undefined;
-  const parts: string[] = [];
-  for (const field of rt.attributes_schema || []) {
-    if (field.type !== "single_select" || field.key === "flowDirection") continue;
-    const raw = attrs[field.key];
-    if (raw == null || raw === "") continue;
-    const opt = field.options?.find((o) => o.key === raw);
-    if (!opt) continue;
-    parts.push(resolveOptionLabel(opt));
-  }
-  return parts.length > 0 ? ` [${parts.join(" · ")}]` : undefined;
+  return relationAttributeSuffix(relTypeByKey.get(edge.type), edge.attributes, resolveOptionLabel);
 }
 
 export function buildLdvFlow(
@@ -325,8 +321,8 @@ export function buildLdvFlow(
   types: CardType[],
   /**
    * Optional resolver that returns a bracketed suffix for a relation's
-   * single-select attribute value(s), e.g. `" [Leading]"`. Returns undefined
-   * when the relation has no displayable value. When omitted, labels render
+   * attribute values (selects and ticked yes/no flags), e.g. `" [Leading]"`.
+   * Returns undefined when the relation has no displayable value. When omitted, labels render
    * exactly as before (label-only).
    */
   relValueResolver?: (edge: GEdge) => string | undefined,
@@ -537,7 +533,7 @@ export function buildLdvFlow(
     const tP = absPos.get(e.target);
     // Source→target preserved; flipped when target is above source visually
     const flipped = !!(sP && tP && tP.y < sP.y);
-    // Append the relation's single-select attribute value (e.g. " [Leading]").
+    // Append the relation's attribute values (e.g. " [Leading]", " [Create · Read]").
     const valueSuffix = relValueResolver?.(e) ?? "";
     // The direction is carried on `flowDirection` and rendered as a vector SVG
     // arrow next to the label by the edge component, so it survives image
