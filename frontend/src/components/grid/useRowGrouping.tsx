@@ -26,13 +26,19 @@ import { useIsRtl } from "@/hooks/useIsRtl";
 import { readableTextColor } from "@/lib/color";
 import {
   buildGroupedRows,
+  buildTreeLayout,
+  collapsedParentsForLevel,
   collapsedSetForFocus,
   glueGroups,
   groupKeyOn,
+  sameIdSet,
+  treeLevelOf,
   type GroupAxis,
   type GroupedRow,
   type GroupHeaderAnchor,
   type GroupInfo,
+  type TreeAccess,
+  type TreeInfo,
 } from "./rowGrouping";
 
 /** A group header's geometry plus the pixel span of its rows — the sticky
@@ -72,6 +78,11 @@ export interface GroupRowContext {
   getGroupMemberNodes: (key: string) => IRowNode[];
   /** Whether this grid has row selection — hides the header checkbox when not. */
   selectable: boolean;
+  /** Tree layer: a row's depth / ancestor crumb / collapse state, or undefined
+   * when the tree is off (cell renderers then render exactly as before). */
+  getTreeInfo?: (id: string) => TreeInfo | undefined;
+  /** Tree layer: collapse or expand one parent's branch. */
+  toggleParentCollapse?: (id: string) => void;
 }
 
 interface GroupHeaderRowProps {
@@ -132,13 +143,14 @@ export function GroupHeaderRow({ data, api, context }: GroupHeaderRowProps) {
 
   // A collapsed group has no member rows in the grid — fall back to the
   // pre-grid-filter count (grid filters auto-expand groups, so the two
-  // regimes never overlap).
-  const displayed = info.collapsed ? info.count : memberState.displayed;
+  // regimes never overlap). Members hidden under a collapsed tree parent are
+  // not grid rows either; add them back so a collapsed branch does not read
+  // as a filtered-down group ("3/10").
+  const shown = memberState.displayed + (info.treeHidden ?? 0);
+  const displayed = info.collapsed ? info.count : shown;
   const allSelected = memberState.selected > 0 && memberState.selected >= memberState.displayed;
   const countLabel =
-    !info.collapsed && memberState.displayed < info.count
-      ? `${memberState.displayed}/${info.count}`
-      : `${displayed}`;
+    !info.collapsed && shown < info.count ? `${shown}/${info.count}` : `${displayed}`;
 
   return (
     <Box
@@ -494,12 +506,32 @@ export interface UseRowGroupingOptions<T extends { id: string }> {
    * Later expand/collapse behaves as usual.
    */
   initialFocusGroup?: string | null;
+  /**
+   * Opt-in parent/child tree layer ("Parent" in the Group by menu),
+   * cumulative with the axis grouping and also usable without one. Null or
+   * undefined keeps the grid exactly as it is without the tree. Pass a stable
+   * object (memoised) — its identity is a rebuild key. `refreshColumns` names
+   * the columns whose cells render tree info (forced to refresh when the tree
+   * info changes, because AG Grid does not re-render an unchanged row object).
+   * `level` is the chosen tree level (1 = every parent collapsed; null =
+   * fully open): it is re-applied on a new row list, an axis change, the tree
+   * being switched on and the last column filter being cleared. Chevron
+   * toggles stay session-only on top of it.
+   */
+  tree?: (TreeAccess<T> & { refreshColumns?: string[]; level?: number | null }) | null;
 }
 
 export function useRowGrouping<T extends { id: string }>(
   // Accepts both untyped (AgGridReact) and row-typed (AgGridReact<T>) refs.
   gridRef: RefObject<AgGridReact<T> | AgGridReact | null>,
-  { rows, axes, groupBy, selectable = true, initialFocusGroup = null }: UseRowGroupingOptions<T>,
+  {
+    rows,
+    axes,
+    groupBy,
+    selectable = true,
+    initialFocusGroup = null,
+    tree: treeOption = null,
+  }: UseRowGroupingOptions<T>,
 ) {
   const { t } = useTranslation("common");
   const isRtl = useIsRtl();
@@ -510,14 +542,36 @@ export function useRowGrouping<T extends { id: string }>(
   );
   const activeAxisRef = useRef<GroupAxis<T> | null>(null);
   activeAxisRef.current = activeAxis;
+  const tree = treeOption ?? null;
+  const treeRef = useRef(tree);
+  treeRef.current = tree;
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  // The columns to refresh outlive the tree: switching it off must still
+  // repaint the cells that were showing indentation.
+  const refreshColumnsRef = useRef<string[] | undefined>(undefined);
+  if (tree) refreshColumnsRef.current = tree.refreshColumns;
 
   // Collapsed group keys — session-only by design (a transient reading aid).
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const collapsedRef = useRef(collapsed);
   collapsedRef.current = collapsed;
   useEffect(() => {
-    setCollapsed(new Set());
+    // Functional and identity-preserving when already empty: a fresh Set
+    // would rebuild the row list (and repaint tree cells) for nothing.
+    setCollapsed((prev) => (prev.size > 0 ? new Set() : prev));
   }, [activeAxis?.key]);
+
+  // Collapsed tree parents — chevron toggles are session-only; the chosen
+  // level (`tree.level`) is re-applied below whenever the layout starts over.
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(() => new Set());
+  const collapsedParentsRef = useRef(collapsedParents);
+  collapsedParentsRef.current = collapsedParents;
+  const treeOn = !!tree;
+  const treeLevelOpt = tree?.level ?? null;
+  // Bumped when the last column filter is cleared, so the level is re-applied
+  // against the layout rebuilt without the filter.
+  const [levelRev, setLevelRev] = useState(0);
 
   // One-shot deep-link focus: rows load asynchronously (and attribute axes
   // only resolve once the metamodel arrives), so the seeding waits for both
@@ -540,12 +594,77 @@ export function useRowGrouping<T extends { id: string }>(
   // header checkbox is clicked on a collapsed group (expand first, then
   // select), consumed in handleModelUpdated.
   const pendingSelectRef = useRef<string | null>(null);
+  // Tree layer: ids passing the active grid filters (null without a filter).
+  // A parent hidden by a filter cannot hold its children, so they re-root.
+  const visibleIdsRef = useRef<Set<string> | null>(null);
+  const [visRev, setVisRev] = useState(0);
 
-  const rowData = useMemo<GroupedRow<T>[]>(() => {
-    if (!activeAxis) return rows;
+  const { rowData, treeInfo } = useMemo<{
+    rowData: GroupedRow<T>[];
+    treeInfo: Map<string, TreeInfo> | null;
+  }>(() => {
     void repsRev; // reps live in a ref; the rev forces the rebuild
-    return buildGroupedRows(rows, activeAxis, collapsed, repsRef.current, t("groupBy.notSet"));
-  }, [rows, activeAxis, collapsed, repsRev, t]);
+    void visRev; // likewise the visible ids
+    if (!tree) {
+      if (!activeAxis) return { rowData: rows, treeInfo: null };
+      return {
+        rowData: buildGroupedRows(
+          rows,
+          activeAxis,
+          collapsed,
+          repsRef.current,
+          t("groupBy.notSet"),
+        ),
+        treeInfo: null,
+      };
+    }
+    const info = new Map<string, TreeInfo>();
+    const layout = (members: T[]) => {
+      const laid = buildTreeLayout(members, tree, visibleIdsRef.current, collapsedParents);
+      laid.info.forEach((v, k) => info.set(k, v));
+      return laid;
+    };
+    if (!activeAxis) return { rowData: layout(rows).emitted, treeInfo: info };
+    return {
+      rowData: buildGroupedRows(
+        rows,
+        activeAxis,
+        collapsed,
+        repsRef.current,
+        t("groupBy.notSet"),
+        layout,
+      ),
+      treeInfo: info,
+    };
+  }, [rows, activeAxis, collapsed, repsRev, visRev, tree, collapsedParents, t]);
+  // Read by the (stable) context getter and the refresh logic below.
+  const treeInfoRef = useRef(treeInfo);
+  treeInfoRef.current = treeInfo;
+
+  // Apply the chosen level on a new row list, an axis change, the tree being
+  // switched on/off and a cleared filter. Depth and hasChildren do not depend
+  // on the collapsed set, so this render's tree info is valid to read. An
+  // active column filter keeps every branch open (hidden rows cannot be
+  // filter-tested); clearing it re-applies the level via levelRev.
+  useEffect(() => {
+    void levelRev;
+    if (visibleIdsRef.current !== null) return;
+    const info = treeInfoRef.current;
+    setCollapsedParents((prev) => {
+      if (treeLevelOpt == null || !info) return prev.size > 0 ? new Set() : prev;
+      const next = collapsedParentsForLevel(info, treeLevelOpt);
+      return sameIdSet(next, prev) ? prev : next;
+    });
+  }, [rows, treeLevelOpt, activeAxis?.key, treeOn, levelRev]);
+
+  /** Tree layer: the derived level ({current, max}); null when the tree is off. */
+  const treeLevel = useMemo(() => (treeInfo ? treeLevelOf(treeInfo) : null), [treeInfo]);
+  const rowDataRef = useRef(rowData);
+  rowDataRef.current = rowData;
+  // The tree info map the grid's cells were last refreshed for.
+  const refreshedInfoRef = useRef<Map<string, TreeInfo> | null>(null);
+  // The row list the visible ids were last computed against.
+  const visibleForRowDataRef = useRef<GroupedRow<T>[] | null>(null);
 
   const isGroupRow = useCallback(
     (data: GroupedRow<T> | null | undefined): boolean => !!data?.__group,
@@ -585,27 +704,103 @@ export function useRowGrouping<T extends { id: string }>(
     });
   }, []);
 
+  const toggleParentCollapse = useCallback((id: string) => {
+    setCollapsedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const getTreeInfo = useCallback((id: string) => treeInfoRef.current?.get(id), []);
+
   // Select/deselect every displayed member of a group. Members of a collapsed
-  // group have no grid rows, so selecting one expands it first and finishes in
-  // handleModelUpdated once the rows exist.
+  // group — or hidden under a collapsed tree parent — have no grid rows, so
+  // selecting expands what hides them first and finishes in handleModelUpdated
+  // once the rows exist.
   const selectGroup = useCallback(
     (key: string, select: boolean) => {
       const api = gridRef.current?.api;
       if (!api) return;
-      if (select && collapsedRef.current.has(key)) {
-        pendingSelectRef.current = key;
-        toggleGroupCollapse(key);
-        return;
+      if (select) {
+        let expanding = false;
+        const axis = activeAxisRef.current;
+        const parents = collapsedParentsRef.current;
+        if (treeRef.current && axis && parents.size > 0) {
+          const toOpen = rowsRef.current
+            .filter((r) => parents.has(r.id) && groupKeyOn(r, axis) === key)
+            .map((r) => r.id);
+          if (toOpen.length > 0) {
+            expanding = true;
+            setCollapsedParents((prev) => {
+              const next = new Set(prev);
+              for (const id of toOpen) next.delete(id);
+              return next;
+            });
+          }
+        }
+        if (collapsedRef.current.has(key)) {
+          expanding = true;
+          setCollapsed((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+        }
+        if (expanding) {
+          pendingSelectRef.current = key;
+          return;
+        }
       }
       api.setNodesSelected({ nodes: getGroupMemberNodes(key), newValue: select });
     },
-    [gridRef, getGroupMemberNodes, toggleGroupCollapse],
+    [gridRef, getGroupMemberNodes],
   );
 
   const context = useMemo<GroupRowContext>(
-    () => ({ toggleGroupCollapse, selectGroup, getGroupMemberNodes, selectable }),
-    [toggleGroupCollapse, selectGroup, getGroupMemberNodes, selectable],
+    () => ({
+      toggleGroupCollapse,
+      selectGroup,
+      getGroupMemberNodes,
+      selectable,
+      getTreeInfo,
+      toggleParentCollapse,
+    }),
+    [
+      toggleGroupCollapse,
+      selectGroup,
+      getGroupMemberNodes,
+      selectable,
+      getTreeInfo,
+      toggleParentCollapse,
+    ],
   );
+
+  /**
+   * Ids passing the grid filters, for the tree layer. Rows that are not in
+   * the grid model at all (hidden under a collapsed parent or group) cannot be
+   * tested, so they keep the membership they had — visible when no filter was
+   * active before. Dropping them would pop a collapsed parent's grandchildren
+   * out as roots.
+   */
+  const collectVisibleIds = useCallback((api: GridApi) => {
+    const inModel = new Set<string>();
+    api.forEachNode((n) => {
+      const d = n.data as GroupedRow<T> | undefined;
+      if (d && !d.__group) inModel.add(d.id);
+    });
+    const visible = new Set<string>();
+    api.forEachNodeAfterFilter((n) => {
+      const d = n.data as GroupedRow<T> | undefined;
+      if (d && !d.__group) visible.add(d.id);
+    });
+    const prev = visibleIdsRef.current;
+    for (const row of rowsRef.current) {
+      if (!inModel.has(row.id) && (!prev || prev.has(row.id))) visible.add(row.id);
+    }
+    return visible;
+  }, []);
 
   /**
    * Call from the grid's onFilterChanged (or chain inside your own handler).
@@ -617,37 +812,93 @@ export function useRowGrouping<T extends { id: string }>(
   const handleFilterChanged = useCallback(() => {
     const api = gridRef.current?.api;
     const axis = activeAxisRef.current;
-    if (!api || !axis) return;
+    const treeNow = treeRef.current;
+    if (!api || (!axis && !treeNow)) return;
     if (!api.isAnyFilterPresent()) {
       if (repsRef.current) {
         repsRef.current = null;
         setRepsRev((v) => v + 1);
       }
+      if (visibleIdsRef.current) {
+        visibleIdsRef.current = null;
+        setVisRev((v) => v + 1);
+        // Back to the saved view: re-apply the chosen tree level.
+        setLevelRev((v) => v + 1);
+      }
       return;
     }
-    if (collapsedRef.current.size > 0) setCollapsed(new Set());
-    const reps = new Map<string, T>();
-    api.forEachNodeAfterFilter((n) => {
-      const d = n.data as GroupedRow<T> | undefined;
-      if (d && !d.__group) {
-        const key = groupKeyOn(d, axis);
-        if (!reps.has(key)) reps.set(key, d);
-      }
-    });
-    repsRef.current = reps;
-    setRepsRev((v) => v + 1);
-  }, [gridRef]);
+    if (axis && collapsedRef.current.size > 0) setCollapsed(new Set());
+    // A collapsed branch's rows are not in the grid, so the filter cannot be
+    // tested against them: expand everything, as for groups. Their visibility
+    // is settled by handleModelUpdated once they are back in the model.
+    if (treeNow && collapsedParentsRef.current.size > 0) setCollapsedParents(new Set());
+    if (axis) {
+      const reps = new Map<string, T>();
+      api.forEachNodeAfterFilter((n) => {
+        const d = n.data as GroupedRow<T> | undefined;
+        if (d && !d.__group) {
+          const key = groupKeyOn(d, axis);
+          if (!reps.has(key)) reps.set(key, d);
+        }
+      });
+      repsRef.current = reps;
+      setRepsRev((v) => v + 1);
+    }
+    if (treeNow) {
+      visibleIdsRef.current = collectVisibleIds(api);
+      visibleForRowDataRef.current = rowDataRef.current;
+      setVisRev((v) => v + 1);
+    }
+  }, [gridRef, collectVisibleIds]);
 
   /** Call from the grid's onModelUpdated (or chain inside your own handler). */
   const handleModelUpdated = useCallback(() => {
     const api = gridRef.current?.api;
     if (!api) return;
+    // (a) Tree under a filter: a new row list (rows reloaded, a branch or
+    // group re-expanded after the filter changed) brings rows whose filter
+    // result was never seen. Settle the visible ids once per row list; a
+    // change rebuilds the layout, whose own model update finds nothing new.
+    if (treeRef.current && visibleForRowDataRef.current !== rowDataRef.current) {
+      visibleForRowDataRef.current = rowDataRef.current;
+      if (api.isAnyFilterPresent()) {
+        const next = collectVisibleIds(api);
+        if (!sameIdSet(next, visibleIdsRef.current)) {
+          visibleIdsRef.current = next;
+          setVisRev((v) => v + 1);
+        }
+      } else if (visibleIdsRef.current) {
+        visibleIdsRef.current = null;
+        setVisRev((v) => v + 1);
+      }
+    }
+    // (b) Finish a header-checkbox selection that had to expand first.
     const pending = pendingSelectRef.current;
     if (pending) {
       pendingSelectRef.current = null;
       api.setNodesSelected({ nodes: getGroupMemberNodes(pending), newValue: true });
     }
-  }, [gridRef, getGroupMemberNodes]);
+    // (c) Repaint tree cells: a row whose object did not change is not
+    // re-rendered by AG Grid, so new depth / crumb info needs a forced refresh.
+    if (treeInfoRef.current !== refreshedInfoRef.current) {
+      refreshedInfoRef.current = treeInfoRef.current;
+      api.refreshCells({ columns: refreshColumnsRef.current, force: true });
+    }
+  }, [gridRef, getGroupMemberNodes, collectVisibleIds]);
+
+  // Fallback for (c): a tree info change that produces no model update (the
+  // grid may keep the same rows in the same order) still has to repaint.
+  // Cheap — refreshCells only touches rendered cells.
+  useEffect(() => {
+    const api = gridRef.current?.api;
+    if (!api || treeInfo === refreshedInfoRef.current) return;
+    refreshedInfoRef.current = treeInfo;
+    try {
+      api.refreshCells({ columns: refreshColumnsRef.current, force: true });
+    } catch {
+      // The grid may be mid-teardown; the next model update refreshes anyway.
+    }
+  }, [gridRef, treeInfo]);
 
   // Stable spreadable grid props. postSortRows re-glues each group header
   // above its members after every sort — headers are member clones, so AG
@@ -659,8 +910,13 @@ export function useRowGrouping<T extends { id: string }>(
       fullWidthCellRenderer: GroupHeaderRow,
       postSortRows: (params: { nodes: IRowNode[] }) => {
         const axis = activeAxisRef.current;
-        if (axis) {
-          glueGroups(params.nodes as unknown as { data?: GroupedRow<T> }[], axis);
+        const treeNow = treeRef.current;
+        if (axis || treeNow) {
+          glueGroups(
+            params.nodes as unknown as { data?: GroupedRow<T> }[],
+            axis,
+            treeNow?.parentIdOf,
+          );
         }
       },
       isRowSelectable: (node: IRowNode) => !(node.data as GroupedRow<T> | undefined)?.__group,
@@ -687,6 +943,13 @@ export function useRowGrouping<T extends { id: string }>(
     gridProps,
     handleFilterChanged,
     handleModelUpdated,
+    /** Tree layer: a row's depth / crumb / collapse state (undefined when off). */
+    getTreeInfo,
+    /** Whether the tree layer is on. */
+    treeActive: treeOn,
+    /** Tree layer: `{ current, max }` levels, derived from what is open (so a
+     * chevron toggle shows at once); null when the tree is off. */
+    treeLevel,
     /** Spread into the grid wrapper's `sx` — the sticky bar positions against it. */
     sx: rowGroupingSx,
     /** Render inside the grid wrapper, after `<AgGridReact>`. */
@@ -705,22 +968,40 @@ export function useRowGrouping<T extends { id: string }>(
 
 /**
  * The "Group by" picker every grouped grid shares: a toolbar button (icon-only
- * in `compact` mode) opening a menu of None + the grid's axes.
+ * in `compact` mode) opening a menu of None + the grid's axes. With `tree`, the
+ * menu starts with a "Parent" checkbox item that toggles
+ * the parent/child layer — alone or on top of an axis — without closing.
  */
 export function GroupByMenuButton({
   axes,
   groupBy,
   onChange,
   compact = false,
+  tree,
 }: {
   axes: Array<{ key: string; label: string }>;
   groupBy: string | null;
   onChange: (groupBy: string | null) => void;
   compact?: boolean;
+  /** Offer the tree option (omit on grids whose rows have no parents). */
+  tree?: { enabled: boolean; onChange: (enabled: boolean) => void };
 }) {
   const { t } = useTranslation("common");
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const active = groupBy ? axes.find((a) => a.key === groupBy) : undefined;
+  const treeEnabled = !!tree?.enabled;
+  const highlighted = !!active || treeEnabled;
+
+  let buttonLabel: string;
+  if (active && treeEnabled) {
+    buttonLabel = t("groupBy.buttonActiveParents", { label: active.label });
+  } else if (active) {
+    buttonLabel = t("groupBy.buttonActive", { label: active.label });
+  } else if (treeEnabled) {
+    buttonLabel = t("groupBy.buttonParents");
+  } else {
+    buttonLabel = t("groupBy.label");
+  }
 
   return (
     <>
@@ -728,7 +1009,7 @@ export function GroupByMenuButton({
         <Tooltip title={t("groupBy.label")}>
           <IconButton
             size="small"
-            color={active ? "primary" : "default"}
+            color={highlighted ? "primary" : "default"}
             onClick={(e) => setAnchor(e.currentTarget)}
           >
             <MaterialSymbol icon="workspaces" size={20} />
@@ -738,16 +1019,37 @@ export function GroupByMenuButton({
         <Button
           size="small"
           variant="outlined"
-          color={active ? "primary" : "inherit"}
+          color={highlighted ? "primary" : "inherit"}
           startIcon={<MaterialSymbol icon="workspaces" size={16} />}
           endIcon={<MaterialSymbol icon="arrow_drop_down" size={16} />}
           onClick={(e) => setAnchor(e.currentTarget)}
           sx={{ textTransform: "none" }}
         >
-          {active ? t("groupBy.buttonActive", { label: active.label }) : t("groupBy.label")}
+          {buttonLabel}
         </Button>
       )}
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+        {tree && (
+          // A toggle, not a choice, and first in the menu: it stays open so the
+          // user can pick an axis below (or watch the grid change) without
+          // reopening the menu.
+          <MenuItem
+            role="menuitemcheckbox"
+            aria-checked={treeEnabled}
+            onClick={() => tree.onChange(!treeEnabled)}
+          >
+            <Checkbox
+              size="small"
+              checked={treeEnabled}
+              tabIndex={-1}
+              disableRipple
+              inputProps={{ "aria-hidden": true }}
+              sx={{ p: 0, mr: 1 }}
+            />
+            {t("groupBy.indentChildren")}
+          </MenuItem>
+        )}
+        {tree && <Divider />}
         <MenuItem
           selected={!active}
           onClick={() => {

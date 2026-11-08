@@ -172,6 +172,19 @@ Klik på **Gruppér efter** i værktøjslinjen (ved siden af antallet af element
 - Afkrydsningsfeltet i overskriften vælger alle kort i gruppen: for at omklassificere en stak skal du folde **Ikke angivet** ud, markere overskriften og sætte værdien med [Masseredigering](#mass-edit). Der er bevidst ingen træk-og-slip — vælg og sæt fungerer ens på computer, tablet og telefon.
 - Sortering gælder inden for hver gruppe; grupperingen huskes efter genindlæsning, gemmes i gemte visninger og kan deles via URL-parameteren `group_by`.
 
+### Indryk børn under forældre { #group-by-parents }
+
+Sæt kryds ved **Forælder** øverst i menuen **Gruppér efter** for at vise kortene som et træ: hver forælder først og dens børn indrykket nedenunder. Den virker alene (hele gitteret bliver ét træ) eller oven på en vilkårlig gruppering (hver gruppe bliver sit eget træ). Menuen forbliver åben, når du sætter krydset, så du kan vælge en gruppering lige bagefter.
+
+![Lager med børn indrykket under forældre](../assets/img/da/98c_inventory_group_by_parents.png)
+
+- Et kort forlader aldrig sin egen gruppe. Et barn, hvis forælder ligger i en anden gruppe, er skjult af et kolonnefilter eller ikke er indlæst, starter sin egen gren, hvor de manglende forfædre vises i gråt før navnet (for eksempel *SAP S/4HANA / SAP FI /* før modulets navn). Gruppetællinger, afkrydsningsfeltet i overskriften og masseredigering svarer derfor altid til det, gruppen indeholder.
+- Klik på pilen foran en forælders navn for at skjule eller vise dens gren. En sammenfoldet forælder tæller stadig sine skjulte kort med i antallet af elementer og i gruppeoverskriften. Grene, du folder sammen med pilen, huskes ikke, og en ændring af et kolonnefilter åbner dem alle igen; når du rydder det sidste kolonnefilter, vender visningen tilbage til det niveau, du valgte med trinvælgeren.
+- Mens forældrelaget er slået til, lukker eller åbner et **−** / **+**-par ved siden af knappen Gruppér efter hele træet ét niveau ad gangen. Det valgte niveau huskes ved genindlæsning, gemmes i gemte visninger og kan deles med `group_tree_level=<n>`; det viste niveau følger også det, du åbner og lukker manuelt.
+- Sorteringen gælder blandt søskende: forældrene sorteres, og hver forælders børn sorteres under den.
+- Indstillingen tilbydes kun, når en korttype i visningen har et hierarki. Den huskes ved genindlæsning, gemmes i gemte visninger og kan deles med URL-parameteren `group_tree=1`.
+- **Eksport** følger trærækkefølgen og udelader kortene i sammenfoldede grene, som den også gør for sammenfoldede grupper.
+
 ## AI-beskrivelsesforslag { #ai-description-suggestions }
 
 Turbo EA kan bruge **AI til at generere en beskrivelse** for ethvert kort. Dette virker på både Opret kort-dialogen og eksisterende kortdetaljesider.

@@ -170,6 +170,19 @@ Fai clic su **Raggruppa per** nella barra degli strumenti (accanto al conteggio 
 - La casella di controllo nell'intestazione seleziona tutte le schede del gruppo: per riclassificare un lotto, espandi **Non impostato**, spunta l'intestazione e imposta il valore con la [Modifica di massa](#mass-edit). Non c'è volutamente alcun drag and drop: selezionare e impostare funziona allo stesso modo su desktop, tablet e telefono.
 - L'ordinamento si applica all'interno di ogni gruppo; il raggruppamento viene ricordato dopo un ricaricamento, salvato nelle viste salvate e condivisibile tramite il parametro URL `group_by`.
 
+### Rientrare i figli sotto i genitori { #group-by-parents }
+
+Spunta **Genitore** in cima al menu **Raggruppa per** per mostrare le schede come un albero: prima ogni genitore, con i suoi figli rientrati sotto di esso. Funziona da sola (l'intera griglia diventa un unico albero) o sopra qualsiasi raggruppamento (ogni gruppo diventa un albero a sé). Il menu resta aperto quando la spunti, così puoi scegliere un raggruppamento subito dopo.
+
+![Inventario con i figli rientrati sotto i genitori](../assets/img/it/98c_inventario_raggruppamento_genitori.png)
+
+- Una scheda non lascia mai il proprio gruppo. Un figlio il cui genitore si trova in un altro gruppo, è nascosto da un filtro di colonna o non è caricato inizia un proprio ramo, con gli antenati mancanti mostrati in grigio prima del suo nome (ad esempio *SAP S/4HANA / SAP FI /* prima del nome del modulo). I conteggi dei gruppi, la casella dell'intestazione e la modifica di massa corrispondono quindi sempre al contenuto del gruppo.
+- Fai clic sul chevron prima del nome di un genitore per nascondere o mostrare il suo ramo. Un genitore compresso continua a contare le schede nascoste nel numero di elementi e nell'intestazione del gruppo. I rami che comprimi con il chevron non vengono ricordati, e modificare un filtro di colonna li riapre tutti; cancellando l'ultimo filtro di colonna si torna al livello scelto con il selettore.
+- Mentre il livello dei genitori è attivo, una coppia **−** / **+** accanto al pulsante Raggruppa per chiude o apre l'intero albero un livello alla volta. Il livello scelto viene ricordato tra i ricaricamenti, salvato nelle viste salvate e condivisibile con `group_tree_level=<n>`; il livello mostrato segue anche ciò che apri e chiudi a mano.
+- L'ordinamento si applica tra fratelli: i genitori sono ordinati e, sotto ciascuno, i suoi figli.
+- L'opzione è offerta solo quando un tipo di scheda in vista ha una gerarchia. Viene ricordata tra i ricaricamenti, salvata nelle viste salvate e condivisibile con il parametro URL `group_tree=1`.
+- L'**esportazione** segue l'ordine dell'albero e omette le schede nei rami compressi, come fa per i gruppi compressi.
+
 ## Suggerimenti di descrizione AI { #ai-description-suggestions }
 
 Turbo EA può utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.

@@ -172,6 +172,19 @@ Click **Group by** in the toolbar (next to the item count) to organise the grid 
 - The header checkbox selects every card in the group, so reclassifying a batch is: expand **Not set**, tick the header, then [Mass Edit](#mass-edit) the value. There is deliberately no drag and drop — select and set works the same on desktop, tablet, and phone.
 - Sorting applies within each group, and the grouping is remembered across reloads, stored in saved views, and shareable via the `group_by` URL parameter.
 
+### Indenting children under parents { #group-by-parents }
+
+Tick **Parent** at the top of the **Group by** menu to show cards as a tree: each parent first, its children indented beneath it. It works on its own (the whole grid becomes one tree) or on top of any grouping (each group becomes its own tree). The menu stays open when you tick it, so you can pick a grouping straight after.
+
+![Inventory indented under parents](../assets/img/en/98c_inventory_group_by_parents.png)
+
+- A card never leaves its own group. A child whose parent sits in another group, is hidden by a column filter, or is not loaded starts its own branch, with its missing ancestors shown in grey before its name (for example *SAP S/4HANA / SAP FI /* before the module's name). Group counts, the header checkbox and Mass Edit therefore always match what the group holds.
+- Click the chevron before a parent's name to hide or show its branch. A collapsed parent still counts its hidden cards in the item count and the group header. Branches you collapse with the chevron are not remembered, and changing a column filter opens them all again; clearing the last column filter returns to the level you chose with the stepper.
+- While the parent layer is on, a **−** / **+** pair next to the Group by button closes or opens the whole tree one level at a time. The level you choose is remembered across reloads, stored in saved views and shareable with `group_tree_level=<n>`; the level shown also follows what you open and close by hand.
+- Sorting applies among siblings: parents are sorted, and each parent's children are sorted beneath it.
+- The option is offered only when a card type in view has a hierarchy. It is remembered across reloads, stored in saved views, and can be shared with the `group_tree=1` URL parameter.
+- **Export** follows the tree order and leaves out the cards inside collapsed branches, as it does for collapsed groups.
+
 ## AI Description Suggestions { #ai-description-suggestions }
 
 Turbo EA can use **AI to generate a description** for any card. This works on both the Create Card dialog and existing card detail pages.
