@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [2.194.0] - 2026-11-08
 
 ### Added
-- **Layer boxes in the Layered Dependency View grow with their cards**: a layer box (and a box of grouped relations) grows by itself as you drag a card against its edge, so cards can be moved beyond where the box first ended; Create diagram keeps the size ([#1295](https://github.com/vincentmakes/turbo-ea/issues/1295)).
+- **Layer boxes in the Layered Dependency View follow their cards**: a layer box (and a box of grouped relations) grows by itself as you drag a card against its edge, so cards can be moved beyond where the box first ended, and shrinks back as you move the card back, never below its original size; Create diagram keeps the size ([#1295](https://github.com/vincentmakes/turbo-ea/issues/1295)).
 
 ### Changed
 - **Relation values include yes/no details**: with "Show relationship values" on, the Layered Dependency View lists every ticked yes/no detail after the verb, so a CRUD relation reads *CRUD [Create · Read]* instead of a bare *CRUD* ([#1285](https://github.com/vincentmakes/turbo-ea/issues/1285)).

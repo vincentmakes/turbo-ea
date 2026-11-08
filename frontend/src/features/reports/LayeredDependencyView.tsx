@@ -106,7 +106,7 @@ import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
-import { growParentForDrag } from "./ldvLaneSizing";
+import { fitParentForDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
   hoveredNeighborsOf,
@@ -1632,15 +1632,16 @@ function LayeredDependencyInner({
   }, [cardDisplayData, setNodes]);
 
   // A card dragged against the edge of its layer lane (or aggregate box) grows
-  // the box so the card can keep going (#1295). Cards keep `extent: "parent"`:
-  // React Flow clamps each move to the box as it then stands, and the box grows
-  // by its inset whenever the card comes within it — so the next move has room
-  // again. `growParentForDrag` returns the same array when nothing changes.
-  // Like a drag, a grown or resized box lasts until the view is re-laid out.
+  // the box so the card can keep going, and moving it back shrinks the box
+  // again, never below its laid-out size (#1295). Cards keep `extent: "parent"`:
+  // React Flow clamps each move to the box as it then stands, and the box is
+  // refitted on every move — so the next move has room again.
+  // `fitParentForDrag` returns the same array when nothing changes (a lane
+  // being dragged, a card with no box), so React drops the update. Like a
+  // drag, a refitted box lasts until the view is re-laid out.
   const handleNodeDrag = useCallback(
     (_: unknown, node: Node) => {
-      if (node.type !== "ldvNode" || !node.parentId) return;
-      setNodes((prev) => growParentForDrag(prev, node.id));
+      setNodes((prev) => fitParentForDrag(prev, node.id));
     },
     [setNodes],
   );

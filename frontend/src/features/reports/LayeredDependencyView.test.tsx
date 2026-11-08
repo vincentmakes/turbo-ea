@@ -562,13 +562,67 @@ describe("LayeredDependencyView lane growth", () => {
     expect(sizeOf(lane1).w).toBe(sizeOf(lane0).w + LANE_INSETS.left);
   });
 
-  it("does nothing while the card stays inside, and never shrinks the lane", () => {
+  it("does nothing while the card stays inside the lane", () => {
     renderView();
     const laneId = nodeById("app-1").parentId!;
     const before = nodeById(laneId);
     const { x, y } = nodeById("app-1").position;
     dragTo("app-1", { x, y });
     expect(nodeById(laneId)).toBe(before);
+  });
+
+  it("shrinks the lane back to its laid-out width when the card is moved back", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    const start = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: before.w - LDV_NODE_W, y: start.y });
+    expect(sizeOf(nodeById(laneId)).w).toBeGreaterThan(before.w);
+
+    dragTo("app-1", start);
+    expect(sizeOf(nodeById(laneId))).toEqual(before);
+  });
+
+  it("brings a lane grown leftwards back to where it was, the card staying put on screen", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const size0 = sizeOf(lane0);
+    const card0 = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: 0, y: card0.y });
+    const grown = nodeById(laneId);
+    expect(grown.position.x).toBe(lane0.position.x - LANE_INSETS.left);
+
+    // The card's original screen position, relative to the moved lane.
+    const absX = lane0.position.x + card0.x;
+    dragTo("app-1", { x: absX - grown.position.x, y: card0.y });
+    const lane1 = nodeById(laneId);
+    expect(lane1.position).toEqual(lane0.position);
+    expect(sizeOf(lane1)).toEqual(size0);
+    expect(nodeById("app-1").position).toEqual(card0);
+  });
+
+  it("hands a lane shrunk back to Create diagram at its laid-out width", async () => {
+    mockApi.on("post", "/diagrams", { id: "diag-10" });
+    renderView({ canCreateDiagram: true });
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    const start = { ...nodeById("app-1").position };
+    dragTo("app-1", { x: before.w - LDV_NODE_W, y: start.y });
+    dragTo("app-1", start);
+
+    fireEvent.click(screen.getByRole("button", { name: T.createDiagram }));
+    fireEvent.change(screen.getByLabelText(T.diagramName), { target: { value: "Shrunk" } });
+    fireEvent.keyDown(screen.getByLabelText(T.diagramName), { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post", "/diagrams")).toHaveLength(1));
+
+    const xml = (mockApi.callsOf("post", "/diagrams")[0].body as { data: { xml: string } }).data
+      .xml;
+    const laneWidths = [...xml.matchAll(/id="layer-\d+"[^>]*>\s*<mxGeometry[^>]*width="(\d+)"/g)].map(
+      (m) => Number(m[1]),
+    );
+    expect(laneWidths).toContain(before.w);
+    expect(laneWidths).not.toContain(before.w + LANE_INSETS.right);
   });
 
   it("hands the grown lane's size to Create diagram", async () => {

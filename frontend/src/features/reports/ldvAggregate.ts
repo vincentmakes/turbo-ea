@@ -63,6 +63,7 @@ import {
   type OrientedEdge,
 } from "./ldvEdgeRouting";
 import { CARD_SIZE, type NodeSize } from "./ldvHandles";
+import type { BoxBase } from "./ldvLaneSizing";
 
 /** What the related cards are grouped by. `"none"` is the plain card-per-node view. */
 export type LdvAggregateBy = "none" | "layer" | "type" | "subtype";
@@ -89,6 +90,8 @@ export const CONNECTOR_SEP = 22;
 export interface LdvClusterData {
   /** Stable id of the group — also the React Flow node id. */
   groupKey: string;
+  /** The box as the layout drew it, set once a drag refits it (`ldvLaneSizing.ts`). */
+  fitBase?: BoxBase;
   /** Fallback title. The renderer prefers the metamodel resolvers below. */
   label: string;
   color: string;

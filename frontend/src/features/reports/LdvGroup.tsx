@@ -11,8 +11,9 @@ import type { LdvGroupData } from "./layeredDependencyLayout";
  * colour, titled with the layer's name. Its cards are its React Flow children,
  * clamped inside it by `extent: "parent"`.
  *
- * It grows by itself as a card is dragged against an edge (#1295): the view
- * runs `growParentForDrag` (`ldvLaneSizing.ts`) on every drag move. There is
+ * It grows as a card is dragged against an edge and shrinks back as the card
+ * is moved back, never below its laid-out size (#1295): the view runs
+ * `fitParentForDrag` (`ldvLaneSizing.ts`) on every drag move. There is
  * deliberately no manual resize handle.
  *
  * A file of its own, like `LdvCluster`, because `LayeredDependencyView`

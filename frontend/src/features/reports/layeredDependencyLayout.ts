@@ -14,6 +14,7 @@ import { getCurrentPhase } from "@/components/LifecycleBadge";
 import type { CardType, RelationType, FieldOption } from "@/types";
 import type { TimelineChange } from "./timelineRange";
 import { relationAttributeSuffix } from "@/lib/relationAttributeBadges";
+import type { BoxBase } from "./ldvLaneSizing";
 import { LDV_NODE_W, LDV_NODE_H } from "./ldvHandles";
 import {
   alignLanesX,
@@ -207,6 +208,8 @@ export interface LdvNodeData {
 export interface LdvGroupData {
   label: string;
   color: string;
+  /** The lane as the layout drew it, set once a drag refits it (`ldvLaneSizing.ts`). */
+  fitBase?: BoxBase;
   [key: string]: unknown;
 }
 

@@ -1,23 +1,34 @@
 /**
- * Layer lanes and aggregate boxes that grow with their cards (#1295).
+ * Layer lanes and aggregate boxes that fit their cards (#1295).
  *
  * A layer lane (`ldvGroup`) and an aggregate box (`ldvCluster`) are React Flow
  * parents whose cards are children with `extent: "parent"`, so React Flow
  * clamps a dragged card inside its box. The box therefore has to grow *before*
- * the card reaches its edge: while a card is dragged, the view calls
- * {@link growParentForDrag}, which enlarges the box whenever the card comes
- * within the box's inset of an edge. React Flow keeps clamping — just against
- * the larger box on the next pointer move — so `extent` stays in force and a
- * card can never escape its layer; the box simply follows it outward. Boxes
- * never shrink, and there is deliberately no manual resize handle.
+ * the card reaches its edge: on every drag move the view calls
+ * {@link fitParentForDrag}, which refits the box to the union of two
+ * rectangles — the box as the layout drew it (its {@link BoxBase}) and the
+ * bounding box of all its cards plus the box's insets. React Flow keeps
+ * clamping, against the refitted box on the next pointer move, so `extent`
+ * stays in force and a card can never escape its layer.
  *
- * Growing past the LEFT or TOP edge moves the box and shifts every child the
- * other way by the same amount, so nothing moves on screen except the border —
- * exactly what React Flow's own `expandParent` does, but with the inset kept,
- * so a card never ends up flush against the border or under the lane's title.
+ * So a box grows as a card is dragged against its edge and shrinks back as the
+ * card is moved back, but never below its laid-out size: each lane carries
+ * `DRAG_ROOM` of spare width on purpose, which a tight fit would take away the
+ * moment any card was touched. Every card of the box counts, so pulling one
+ * card back never cuts off another one dragged out earlier. There is
+ * deliberately no manual resize handle.
+ *
+ * Moving the origin (growing past the LEFT or TOP edge, or shrinking back from
+ * it) moves the box and shifts every child the other way by the same amount,
+ * so nothing moves on screen except the border.
+ *
+ * The laid-out rectangle is stored on the box itself (`data.fitBase`), relative
+ * to the box's own origin, because a box can be dragged: its layout coordinates
+ * stop meaning anything once it has moved. A re-layout or Reset view rebuilds
+ * the nodes and drops it.
  *
  * Pure (no React) so the arithmetic is unit-tested; the live box size is read
- * through {@link boxSize}, the one place that knows a grown node carries its
+ * through {@link boxSize}, the one place that knows a refitted node carries its
  * size on `width`/`height` as well as on `style`.
  */
 import type { Node } from "@xyflow/react";
@@ -46,10 +57,26 @@ export interface BoxSize {
   height: number;
 }
 
-/** What growing a box takes: how far its origin moves left/up, and its new size. */
-export interface BoxGrowth extends BoxSize {
+/**
+ * What refitting a box takes: how far its origin moves, and its new size.
+ * `dx`/`dy` are signed: positive moves the origin left/up (the box grows past
+ * its left/top edge), negative moves it back right/down.
+ */
+export interface BoxFit extends BoxSize {
   dx: number;
   dy: number;
+}
+
+/**
+ * The box as the layout drew it, relative to the box's current origin: the
+ * floor a refit never goes below. It starts at (0, 0) with the laid-out size
+ * and is offset by every move of the origin, so it stays put on screen.
+ */
+export interface BoxBase {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 /** A layer lane: the layout's own padding on three sides, the title strip on top. */
@@ -71,7 +98,7 @@ export function insetsFor(type: string | undefined): BoxInsets | undefined {
 }
 
 /**
- * A node's current size. `width`/`height` first — where {@link applyBoxGrowth}
+ * A node's current size. `width`/`height` first — where {@link applyBoxFit}
  * writes, and where React Flow itself puts a measured size — then the size the
  * layout put on `style`, then the fallback.
  */
@@ -83,35 +110,49 @@ export function boxSize(n: Node, fallbackW: number, fallbackH: number): { w: num
 }
 
 /**
- * The box a card needs, or null when it already fits. `child` is relative to
- * the box; the result grows the box so the card sits at least `insets` inside
- * every edge — moving the origin left/up (`dx`/`dy`) when the card crossed the
- * left/top inset, widening/heightening it when it crossed the right/bottom one.
- * Never smaller than the box already is.
+ * The box that holds `base` and every child with its insets, or null when the
+ * box already is that box. Everything is relative to the box's current origin;
+ * the low edges round down and the high edges up, so a card at a fractional
+ * drag position always fits.
  */
-export function growBoxToFit(
-  child: ChildRect,
-  box: BoxSize,
+export function fitBox(
+  children: ChildRect[],
+  base: BoxBase,
   insets: BoxInsets,
-): BoxGrowth | null {
-  const dx = Math.max(0, Math.ceil(insets.left - child.x));
-  const dy = Math.max(0, Math.ceil(insets.top - child.y));
-  const width = Math.max(box.width + dx, Math.ceil(child.x + dx + child.w + insets.right));
-  const height = Math.max(box.height + dy, Math.ceil(child.y + dy + child.h + insets.bottom));
-  if (dx === 0 && dy === 0 && width === box.width && height === box.height) return null;
-  return { dx, dy, width, height };
+  current: BoxSize,
+): BoxFit | null {
+  let lowX = base.x;
+  let lowY = base.y;
+  let highX = base.x + base.w;
+  let highY = base.y + base.h;
+  for (const c of children) {
+    lowX = Math.min(lowX, c.x - insets.left);
+    lowY = Math.min(lowY, c.y - insets.top);
+    highX = Math.max(highX, c.x + c.w + insets.right);
+    highY = Math.max(highY, c.y + c.h + insets.bottom);
+  }
+  const x0 = Math.floor(lowX);
+  const y0 = Math.floor(lowY);
+  const width = Math.ceil(highX) - x0;
+  const height = Math.ceil(highY) - y0;
+  if (x0 === 0 && y0 === 0 && width === current.width && height === current.height) return null;
+  // `0 - x` rather than `-x`: negating a zero origin gives -0, which would
+  // then leak into node positions.
+  return { dx: 0 - x0, dy: 0 - y0, width, height };
 }
 
 /**
- * Apply a growth to the node list: the box moves by (-dx, -dy) and takes its
+ * Apply a refit to the node list: the box moves by (-dx, -dy) and takes its
  * new size, and every child of the box moves by (+dx, +dy) so it stays where
  * it was on screen. The size goes on `width`/`height`, on `measured` (so React
  * Flow clamps against the new box on the very next pointer move instead of
  * waiting for its ResizeObserver) and on `style` (which the layout's own
- * readers use). Nodes that do not change keep their identity.
+ * readers use); `base`, offset by the same move, goes on `data.fitBase`.
+ * Nodes that do not change keep their identity.
  */
-export function applyBoxGrowth(nodes: Node[], boxId: string, growth: BoxGrowth): Node[] {
-  const { dx, dy, width, height } = growth;
+export function applyBoxFit(nodes: Node[], boxId: string, fit: BoxFit, base: BoxBase): Node[] {
+  const { dx, dy, width, height } = fit;
+  const fitBase: BoxBase = { x: base.x + dx, y: base.y + dy, w: base.w, h: base.h };
   return nodes.map((n) => {
     if (n.id === boxId) {
       return {
@@ -121,6 +162,7 @@ export function applyBoxGrowth(nodes: Node[], boxId: string, growth: BoxGrowth):
         height,
         measured: { width, height },
         style: { ...n.style, width, height },
+        data: { ...n.data, fitBase },
       };
     }
     if (n.parentId === boxId && (dx !== 0 || dy !== 0)) {
@@ -131,24 +173,31 @@ export function applyBoxGrowth(nodes: Node[], boxId: string, growth: BoxGrowth):
 }
 
 /**
- * What the view runs on every drag move of a card: grow the card's box when the
- * card has come within the box's inset of an edge. Returns the very array it
- * was given when nothing has to change, so a drag inside the box costs no
- * re-render. A card with no parent (the centred card of an aggregate view) or a
- * parent that is not a box is left alone.
+ * What the view runs on every drag move of a card: refit the card's box to its
+ * laid-out rectangle plus all its cards. Returns the very array it was given
+ * when nothing has to change, so a drag inside the box costs no re-render. A
+ * card with no parent (the centred card of an aggregate view) or a parent that
+ * is not a box is left alone.
  */
-export function growParentForDrag(nodes: Node[], cardId: string): Node[] {
+export function fitParentForDrag(nodes: Node[], cardId: string): Node[] {
   const card = nodes.find((n) => n.id === cardId);
   if (!card?.parentId) return nodes;
   const box = nodes.find((n) => n.id === card.parentId);
   const insets = insetsFor(box?.type);
   if (!box || !insets) return nodes;
   const size = boxSize(box, 0, 0);
-  const cardSize = boxSize(card, LDV_NODE_W, LDV_NODE_H);
-  const growth = growBoxToFit(
-    { x: card.position.x, y: card.position.y, w: cardSize.w, h: cardSize.h },
-    { width: size.w, height: size.h },
-    insets,
-  );
-  return growth ? applyBoxGrowth(nodes, box.id, growth) : nodes;
+  const base = (box.data as { fitBase?: BoxBase }).fitBase ?? {
+    x: 0,
+    y: 0,
+    w: size.w,
+    h: size.h,
+  };
+  const children: ChildRect[] = [];
+  for (const n of nodes) {
+    if (n.parentId !== box.id) continue;
+    const s = boxSize(n, LDV_NODE_W, LDV_NODE_H);
+    children.push({ x: n.position.x, y: n.position.y, w: s.w, h: s.h });
+  }
+  const fit = fitBox(children, base, insets, { width: size.w, height: size.h });
+  return fit ? applyBoxFit(nodes, box.id, fit, base) : nodes;
 }
