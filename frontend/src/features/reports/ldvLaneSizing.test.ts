@@ -9,10 +9,13 @@ import {
   applyBoxFit,
   boxSize,
   CLUSTER_INSETS,
+  detachForDrag,
+  dragIds,
   fitBox,
   fitParentForDrag,
   insetsFor,
   LANE_INSETS,
+  reattachAfterDrag,
   type BoxBase,
   type BoxInsets,
 } from "./ldvLaneSizing";
@@ -393,5 +396,156 @@ describe("fitParentForDrag", () => {
       { id: "c", type: "ldvNode", parentId: "p", position: { x: 50, y: 50 }, data: {} },
     ];
     expect(fitParentForDrag(nodes, "c")).toBe(nodes);
+  });
+});
+
+/* A dragged card is taken out of its box for the drag: React Flow keeps its own
+ * copy of a dragged node's position relative to the parent, and moving the
+ * box's origin under it made that copy stale (moves were swallowed). */
+
+const dragBoxIdOf = (n: Node) => (n.data as { dragBoxId?: string }).dragBoxId;
+
+describe("dragIds", () => {
+  const n = (id: string): Node => ({ id, position: { x: 0, y: 0 }, data: {} });
+
+  it("takes every node React Flow drags together", () => {
+    expect(dragIds(n("a"), [n("a"), n("b")])).toEqual(["a", "b"]);
+  });
+
+  it("falls back to the grabbed node when it is handed no list, or an empty one", () => {
+    expect(dragIds(n("a"), undefined)).toEqual(["a"]);
+    expect(dragIds(n("a"), [])).toEqual(["a"]);
+  });
+});
+
+describe("detachForDrag", () => {
+  it("takes a card out of its box at the same place on screen", () => {
+    const nodes = lane();
+    const out = detachForDrag(nodes, ["c1"]);
+    const c1 = at(out, "c1");
+    expect(c1.parentId).toBeUndefined();
+    expect(c1.extent).toBeUndefined();
+    // Box (100, 50) + card (40, 60).
+    expect(c1.position).toEqual({ x: 140, y: 110 });
+    expect(dragBoxIdOf(c1)).toBe("group:A");
+    // Everything else is untouched.
+    expect(at(out, "c2")).toBe(at(nodes, "c2"));
+    expect(out[0]).toBe(nodes[0]);
+  });
+
+  it("takes out every card of a multi-card drag", () => {
+    const out = detachForDrag(lane(), ["c1", "c2"]);
+    expect(dragBoxIdOf(at(out, "c1"))).toBe("group:A");
+    expect(at(out, "c2").position).toEqual({ x: 350, y: 110 });
+  });
+
+  it("returns the very same array when nothing is a card in a box", () => {
+    const nodes = lane();
+    // A box being dragged, and an id that is not in the list.
+    expect(detachForDrag(nodes, ["group:A", "missing"])).toBe(nodes);
+  });
+
+  it("leaves a card whose parent is missing, is not a box, or is itself nested", () => {
+    const nodes: Node[] = [
+      { id: "p", type: "somethingElse", position: { x: 0, y: 0 }, data: {} },
+      { id: "nested", type: "ldvGroup", parentId: "p", position: { x: 5, y: 5 }, data: {} },
+      { id: "a", type: "ldvNode", parentId: "gone", position: { x: 1, y: 1 }, data: {} },
+      { id: "b", type: "ldvNode", parentId: "p", position: { x: 2, y: 2 }, data: {} },
+      { id: "c", type: "ldvNode", parentId: "nested", position: { x: 3, y: 3 }, data: {} },
+    ];
+    expect(detachForDrag(nodes, ["a", "b", "c"])).toBe(nodes);
+  });
+});
+
+describe("fitParentForDrag with a card taken out of its box", () => {
+  it("grows past the left edge without moving the dragged card", () => {
+    let nodes = detachForDrag(lane(), ["c1"]);
+    // Ten units left of the box on screen.
+    nodes = moveTo(nodes, "c1", 90, 110);
+    const out = fitParentForDrag(nodes, "c1");
+    expect(out[0].position).toEqual({ x: 90 - PAD, y: 50 });
+    expect(out[0].width).toBe(500 + 10 + PAD);
+    expect(baseOf(out[0])).toEqual({ x: 10 + PAD, y: 0, w: 500, h: 200 });
+    // The dragged card is not a child, so it stays where the pointer put it…
+    expect(at(out, "c1").position).toEqual({ x: 90, y: 110 });
+    // …while the card still in the box shifts so it stays put on screen.
+    expect(at(out, "c2").position).toEqual({ x: 250 + 10 + PAD, y: 60 });
+  });
+
+  it("counts the dragged card at its place relative to the box", () => {
+    let nodes = detachForDrag(lane(), ["c2"]);
+    // Past the right edge: page 100 + 500 - card width + 30.
+    nodes = moveTo(nodes, "c2", 100 + 500 - LDV_NODE_W + 30, 110);
+    const out = fitParentForDrag(nodes, "c2");
+    expect(out[0].position).toEqual({ x: 100, y: 50 });
+    expect(out[0].width).toBe(500 + 30 + PAD);
+  });
+
+  it("does not count a card taken out of another box", () => {
+    const nodes = detachForDrag(lane(), ["c1"]).map((n) =>
+      n.id === "c1" ? { ...n, position: { x: -500, y: 110 }, data: { dragBoxId: "other" } } : n,
+    );
+    expect(fitParentForDrag(nodes, "c2")).toBe(nodes);
+  });
+
+  it("shrinks back as the dragged card returns, never moving it", () => {
+    let nodes = detachForDrag(lane(), ["c1"]);
+    nodes = fitParentForDrag(moveTo(nodes, "c1", 0, 110), "c1");
+    expect(nodes[0].position.x).toBe(0 - PAD);
+    nodes = fitParentForDrag(moveTo(nodes, "c1", 140, 110), "c1");
+    expect(nodes[0].position).toEqual({ x: 100, y: 50 });
+    expect(nodes[0].width).toBe(500);
+    expect(at(nodes, "c1").position).toEqual({ x: 140, y: 110 });
+    expect(at(nodes, "c2").position).toEqual({ x: 250, y: 60 });
+  });
+});
+
+describe("reattachAfterDrag", () => {
+  it("puts a card back exactly as it was taken out", () => {
+    const back = reattachAfterDrag(detachForDrag(lane(), ["c1"]), ["c1"]);
+    expect(back).toEqual(lane());
+    expect(dragBoxIdOf(at(back, "c1"))).toBeUndefined();
+    expect(at(back, "c1").data).not.toHaveProperty("dragBoxId");
+  });
+
+  it("puts the card back relative to the box as it now stands", () => {
+    let nodes = detachForDrag(lane(), ["c1"]);
+    nodes = fitParentForDrag(moveTo(nodes, "c1", 90, 110), "c1");
+    const back = reattachAfterDrag(nodes, ["c1"]);
+    const c1 = at(back, "c1");
+    expect(c1.parentId).toBe("group:A");
+    expect(c1.extent).toBe("parent");
+    // The box moved to x 90 - PAD, so the card sits PAD in from its left edge.
+    expect(c1.position).toEqual({ x: PAD, y: 60 });
+    expect(back[0].position).toEqual({ x: 90 - PAD, y: 50 });
+  });
+
+  it("refits the box once more for the card's final place", () => {
+    // Released past the right edge with no drag move in between.
+    const nodes = moveTo(detachForDrag(lane(), ["c2"]), "c2", 100 + 500 - LDV_NODE_W + 30, 110);
+    const back = reattachAfterDrag(nodes, ["c2"]);
+    expect(back[0].width).toBe(500 + 30 + PAD);
+    expect(at(back, "c2").position).toEqual({ x: 500 - LDV_NODE_W + 30, y: 60 });
+  });
+
+  it("only puts back the cards it is given", () => {
+    const back = reattachAfterDrag(detachForDrag(lane(), ["c1", "c2"]), ["c1"]);
+    expect(at(back, "c1").parentId).toBe("group:A");
+    expect(at(back, "c2").parentId).toBeUndefined();
+    expect(dragBoxIdOf(at(back, "c2"))).toBe("group:A");
+  });
+
+  it("only drops the marker when the box has gone", () => {
+    const nodes = detachForDrag(lane(), ["c1"]).filter((n) => n.id !== "group:A");
+    const back = reattachAfterDrag(nodes, ["c1"]);
+    const c1 = at(back, "c1");
+    expect(c1.parentId).toBeUndefined();
+    expect(c1.position).toEqual({ x: 140, y: 110 });
+    expect(c1.data).not.toHaveProperty("dragBoxId");
+  });
+
+  it("returns the very same array when no card was taken out", () => {
+    const nodes = lane();
+    expect(reattachAfterDrag(nodes, ["c1", "group:A", "missing"])).toBe(nodes);
   });
 });

@@ -520,16 +520,104 @@ describe("LayeredDependencyView lane growth", () => {
     h: (n.height ?? (n.style?.height as number)) as number,
   });
 
-  /** What React Flow does on a drag move: apply the (clamped) position, then
-   *  call `onNodeDrag` with the moved card. */
-  function dragTo(id: string, position: { x: number; y: number }) {
+  /** A whole drag, as React Flow runs it: `onNodeDragStart`, then for each
+   *  stop on the way a position change and `onNodeDrag`, then the release's
+   *  position change and `onNodeDragStop`. Each stop is given relative to the
+   *  card's box as it stood when the drag began; React Flow reports a moving
+   *  card in page coordinates, because the view takes it out of its box for
+   *  the drag. */
+  function drag(id: string, stops: { x: number; y: number }[]) {
+    const ev = new MouseEvent("mousemove");
+    const props = () => live().props!;
+    const box = nodeById(nodeById(id).parentId!).position;
     act(() => {
-      live().props!.onNodesChange!([{ id, type: "position", position, dragging: true }]);
+      props().onNodeDragStart!(ev, nodeById(id), [nodeById(id)]);
+    });
+    let last = nodeById(id).position;
+    for (const p of stops) {
+      last = { x: box.x + p.x, y: box.y + p.y };
+      const at = last;
+      act(() => {
+        props().onNodesChange!([{ id, type: "position", position: at, dragging: true }]);
+      });
+      act(() => {
+        props().onNodeDrag!(ev, nodeById(id), live().nodes);
+      });
+    }
+    act(() => {
+      props().onNodesChange!([{ id, type: "position", position: last, dragging: false }]);
     });
     act(() => {
-      live().props!.onNodeDrag!(new MouseEvent("mousemove"), nodeById(id), live().nodes);
+      props().onNodeDragStop!(ev, nodeById(id), [nodeById(id)]);
     });
   }
+  const dragTo = (id: string, position: { x: number; y: number }) => drag(id, [position]);
+
+  it("takes the dragged card out of its lane while it moves and puts it back on release", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane = nodeById(laneId);
+    const card = nodeById("app-1");
+    act(() => {
+      live().props!.onNodeDragStart!(new MouseEvent("mousedown"), card, [card]);
+    });
+    const out = nodeById("app-1");
+    expect(out.parentId).toBeUndefined();
+    expect(out.extent).toBeUndefined();
+    expect(out.position).toEqual({
+      x: lane.position.x + card.position.x,
+      y: lane.position.y + card.position.y,
+    });
+    act(() => {
+      live().props!.onNodeDragStop!(new MouseEvent("mouseup"), out, [out]);
+    });
+    const back = nodeById("app-1");
+    expect(back.parentId).toBe(laneId);
+    expect(back.extent).toBe("parent");
+    expect(back.position).toEqual(card.position);
+    expect(back.data).not.toHaveProperty("dragBoxId");
+  });
+
+  it("follows a card out past the left edge and back within one drag", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = { ...nodeById("app-1").position };
+    // Out to 100 units left of the lane, the lane following each step, then home.
+    drag("app-1", [
+      { x: -40, y: card0.y },
+      { x: -100, y: card0.y },
+      { x: -40, y: card0.y },
+      card0,
+    ]);
+    const lane1 = nodeById(laneId);
+    expect(lane1.position).toEqual(lane0.position);
+    expect(sizeOf(lane1)).toEqual(sizeOf(lane0));
+    expect(nodeById("app-1").position).toEqual(card0);
+  });
+
+  it("keeps the lane's left edge with the card at the far end of the drag", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = { ...nodeById("app-1").position };
+    const ev = new MouseEvent("mousemove");
+    act(() => {
+      live().props!.onNodeDragStart!(ev, nodeById("app-1"), [nodeById("app-1")]);
+    });
+    for (const x of [-40, -100]) {
+      const at = { x: lane0.position.x + x, y: lane0.position.y + card0.y };
+      act(() => {
+        live().props!.onNodesChange!([{ id: "app-1", type: "position", position: at, dragging: true }]);
+      });
+      act(() => {
+        live().props!.onNodeDrag!(ev, nodeById("app-1"), live().nodes);
+      });
+      // The card never moves under the pointer: it is not shifted with the lane.
+      expect(nodeById("app-1").position).toEqual(at);
+      expect(nodeById(laneId).position.x).toBe(at.x - LANE_INSETS.left);
+    }
+  });
 
   it("widens the lane when a card reaches its right edge, leaving the card in place", () => {
     renderView();

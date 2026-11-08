@@ -2,16 +2,13 @@
  * Layer lanes and aggregate boxes that fit their cards (#1295).
  *
  * A layer lane (`ldvGroup`) and an aggregate box (`ldvCluster`) are React Flow
- * parents whose cards are children with `extent: "parent"`, so React Flow
- * clamps a dragged card inside its box. The box therefore has to grow *before*
- * the card reaches its edge: on every drag move the view calls
- * {@link fitParentForDrag}, which refits the box to the union of two
+ * parents whose cards are children with `extent: "parent"`. On every drag move
+ * the view calls {@link fitParentForDrag}, which refits the box to the union of two
  * rectangles — the box as the layout drew it (its {@link BoxBase}) and the
- * bounding box of all its cards plus the box's insets. React Flow keeps
- * clamping, against the refitted box on the next pointer move, so `extent`
- * stays in force and a card can never escape its layer.
+ * bounding box of all its cards plus the box's insets — the card being
+ * dragged included, so the box follows it wherever it goes.
  *
- * So a box grows as a card is dragged against its edge and shrinks back as the
+ * So a box grows as a card is dragged past its edge and shrinks back as the
  * card is moved back, but never below its laid-out size: each lane carries
  * `DRAG_ROOM` of spare width on purpose, which a tight fit would take away the
  * moment any card was touched. Every card of the box counts, so pulling one
@@ -21,6 +18,19 @@
  * Moving the origin (growing past the LEFT or TOP edge, or shrinking back from
  * it) moves the box and shifts every child the other way by the same amount,
  * so nothing moves on screen except the border.
+ *
+ * The card being dragged is the exception, and is not a child while it moves.
+ * React Flow keeps its own copy of a dragged node's position relative to its
+ * parent, emits a move only when the new relative position differs from that
+ * copy, and writes the copy back on release. Shifting the card under it when
+ * the origin moves made the copy stale: a card pressed against the left edge
+ * read relative x 0 on every move, equal to the copy, so no move was emitted
+ * and the box stopped growing, and on release the card jumped by however far
+ * the origin had moved. So {@link detachForDrag} takes each dragged card out of
+ * its box at drag start (page position, no parent, the box remembered in
+ * `data.dragBoxId`), the refits count it without shifting it, and
+ * {@link reattachAfterDrag} puts it back when the drag ends. A page position
+ * does not depend on where the box is, so the copy cannot go stale.
  *
  * The laid-out rectangle is stored on the box itself (`data.fitBase`), relative
  * to the box's own origin, because a box can be dragged: its layout coordinates
@@ -172,17 +182,63 @@ export function applyBoxFit(nodes: Node[], boxId: string, fit: BoxFit, base: Box
   });
 }
 
+/** What a card carries in `data` while it is dragged out of its box. */
+interface DragData {
+  dragBoxId?: string;
+}
+
+const dragBoxIdOf = (n: Node): string | undefined => (n.data as DragData).dragBoxId;
+
+/**
+ * The ids a drag moves: every node React Flow hands the drag handlers (a
+ * selection drags together), or the grabbed node alone when it hands none.
+ */
+export function dragIds(node: Node, dragged: readonly Node[] | undefined): string[] {
+  return dragged && dragged.length > 0 ? dragged.map((n) => n.id) : [node.id];
+}
+
+/**
+ * Take every dragged card out of the box it sits in, for the length of the
+ * drag (see the module comment for why). The card keeps its place on screen:
+ * its position becomes the box's position plus its own, which is its page
+ * position because boxes are top-level. Nodes that are not cards in a box —
+ * a box itself, the centred card of an aggregate view — are left alone, and
+ * the very array comes back when nothing was taken out.
+ */
+export function detachForDrag(nodes: Node[], ids: readonly string[]): Node[] {
+  const dragged = new Set(ids);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  let changed = false;
+  const out = nodes.map((n) => {
+    if (!dragged.has(n.id) || !n.parentId) return n;
+    const box = byId.get(n.parentId);
+    if (!box || box.parentId || !insetsFor(box.type)) return n;
+    changed = true;
+    return {
+      ...n,
+      parentId: undefined,
+      extent: undefined,
+      position: { x: box.position.x + n.position.x, y: box.position.y + n.position.y },
+      data: { ...n.data, dragBoxId: box.id },
+    };
+  });
+  return changed ? out : nodes;
+}
+
 /**
  * What the view runs on every drag move of a card: refit the card's box to its
  * laid-out rectangle plus all its cards. Returns the very array it was given
  * when nothing has to change, so a drag inside the box costs no re-render. A
- * card with no parent (the centred card of an aggregate view) or a parent that
- * is not a box is left alone.
+ * card with no box (the centred card of an aggregate view) or whose parent is
+ * not a box is left alone. A card dragged out of its box by
+ * {@link detachForDrag} counts at its page position minus the box's, and is
+ * not shifted when the origin moves: it is not a child of the box.
  */
 export function fitParentForDrag(nodes: Node[], cardId: string): Node[] {
   const card = nodes.find((n) => n.id === cardId);
-  if (!card?.parentId) return nodes;
-  const box = nodes.find((n) => n.id === card.parentId);
+  const boxId = card?.parentId ?? (card && dragBoxIdOf(card));
+  if (!boxId) return nodes;
+  const box = nodes.find((n) => n.id === boxId);
   const insets = insetsFor(box?.type);
   if (!box || !insets) return nodes;
   const size = boxSize(box, 0, 0);
@@ -194,10 +250,54 @@ export function fitParentForDrag(nodes: Node[], cardId: string): Node[] {
   };
   const children: ChildRect[] = [];
   for (const n of nodes) {
-    if (n.parentId !== box.id) continue;
+    let x: number;
+    let y: number;
+    if (n.parentId === box.id) {
+      x = n.position.x;
+      y = n.position.y;
+    } else if (!n.parentId && dragBoxIdOf(n) === box.id) {
+      x = n.position.x - box.position.x;
+      y = n.position.y - box.position.y;
+    } else {
+      continue;
+    }
     const s = boxSize(n, LDV_NODE_W, LDV_NODE_H);
-    children.push({ x: n.position.x, y: n.position.y, w: s.w, h: s.h });
+    children.push({ x, y, w: s.w, h: s.h });
   }
   const fit = fitBox(children, base, insets, { width: size.w, height: size.h });
   return fit ? applyBoxFit(nodes, box.id, fit, base) : nodes;
+}
+
+/**
+ * Put every card {@link detachForDrag} took out back into its box when the
+ * drag ends — `parentId`, `extent: "parent"` and a position relative to the
+ * box again, with the same place on screen — and refit each box once more for
+ * the card's final position. A card whose box has gone (the view was re-laid
+ * out mid-drag) only loses the marker.
+ */
+export function reattachAfterDrag(nodes: Node[], ids: readonly string[]): Node[] {
+  const dragged = new Set(ids);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const back: string[] = [];
+  let changed = false;
+  let out = nodes.map((n) => {
+    const boxId = dragged.has(n.id) && !n.parentId ? dragBoxIdOf(n) : undefined;
+    if (!boxId) return n;
+    changed = true;
+    const data: Record<string, unknown> = { ...n.data };
+    delete data.dragBoxId;
+    const box = byId.get(boxId);
+    if (!box) return { ...n, data };
+    back.push(n.id);
+    return {
+      ...n,
+      parentId: box.id,
+      extent: "parent" as const,
+      position: { x: n.position.x - box.position.x, y: n.position.y - box.position.y },
+      data,
+    };
+  });
+  if (!changed) return nodes;
+  for (const id of back) out = fitParentForDrag(out, id);
+  return out;
 }

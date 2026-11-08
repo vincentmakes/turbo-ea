@@ -106,7 +106,7 @@ import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
-import { fitParentForDrag } from "./ldvLaneSizing";
+import { detachForDrag, dragIds, fitParentForDrag, reattachAfterDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
   hoveredNeighborsOf,
@@ -1631,17 +1631,31 @@ function LayeredDependencyInner({
     );
   }, [cardDisplayData, setNodes]);
 
-  // A card dragged against the edge of its layer lane (or aggregate box) grows
-  // the box so the card can keep going, and moving it back shrinks the box
-  // again, never below its laid-out size (#1295). Cards keep `extent: "parent"`:
-  // React Flow clamps each move to the box as it then stands, and the box is
-  // refitted on every move — so the next move has room again.
-  // `fitParentForDrag` returns the same array when nothing changes (a lane
-  // being dragged, a card with no box), so React drops the update. Like a
-  // drag, a refitted box lasts until the view is re-laid out.
+  // A card dragged past the edge of its layer lane (or aggregate box) grows
+  // the box so it follows the card, and moving it back shrinks the box again,
+  // never below its laid-out size (#1295). For the length of the drag each
+  // dragged card is taken out of its box and moves in page coordinates
+  // (`detachForDrag`): React Flow keeps its own copy of a dragged card's
+  // position relative to its parent, and moving the box's left or top edge
+  // under it made that copy stale, so moves were swallowed and the box stopped
+  // following (see ldvLaneSizing.ts). `fitParentForDrag` returns the same array
+  // when nothing changes, so React drops the update. Like a drag, a refitted
+  // box lasts until the view is re-laid out.
+  const handleNodeDragStart = useCallback(
+    (_: unknown, node: Node, dragged?: Node[]) => {
+      setNodes((prev) => detachForDrag(prev, dragIds(node, dragged)));
+    },
+    [setNodes],
+  );
   const handleNodeDrag = useCallback(
     (_: unknown, node: Node) => {
       setNodes((prev) => fitParentForDrag(prev, node.id));
+    },
+    [setNodes],
+  );
+  const handleNodeDragStop = useCallback(
+    (_: unknown, node: Node, dragged?: Node[]) => {
+      setNodes((prev) => reattachAfterDrag(prev, dragIds(node, dragged)));
     },
     [setNodes],
   );
@@ -1941,8 +1955,9 @@ function LayeredDependencyInner({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
+          onNodeDragStart={handleNodeDragStart}
           onNodeDrag={handleNodeDrag}
-          onNodeDragStop={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
