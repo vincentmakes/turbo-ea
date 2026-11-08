@@ -110,6 +110,9 @@ test("a layer box's left edge follows a card dragged out of it and back", async 
   await page.mouse.move(grab.x - 2, grab.y);
   for (const dx of steps(2 + STEP, out)) await page.mouse.move(grab.x - dx, grab.y);
 
+  // Out of its box for the drag, the card is still drawn on top of the cards
+  // and boxes it crosses rather than sliding under them.
+  expect(Number(await centre.evaluate((n) => (n as HTMLElement).style.zIndex))).toBeGreaterThan(1);
   // The card stays under the pointer, and the box's left edge went with it.
   await expect
     .poll(async () => Math.abs((await centre.boundingBox())!.x - (start.x - out)))
@@ -122,6 +125,8 @@ test("a layer box's left edge follows a card dragged out of it and back", async 
   for (const dx of steps(out - STEP, 0)) await page.mouse.move(grab.x - dx, grab.y);
   await page.mouse.up();
 
+  // Back in its box once released, at a child's ordinary stacking order.
+  await expect.poll(async () => Number(await centre.evaluate((n) => (n as HTMLElement).style.zIndex))).toBe(1);
   // Back where it started: the box shrinks back to its laid-out rectangle.
   await expect.poll(async () => Math.abs((await lane.boundingBox())!.x - laid.x)).toBeLessThan(1);
   const back = (await lane.boundingBox())!;

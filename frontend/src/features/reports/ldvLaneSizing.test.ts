@@ -10,6 +10,7 @@ import {
   boxSize,
   CLUSTER_INSETS,
   detachForDrag,
+  DRAGGED_CARD_Z,
   dragIds,
   fitBox,
   fitParentForDrag,
@@ -167,7 +168,7 @@ describe("insets", () => {
 describe("boxSize", () => {
   const base: Node = { id: "n", position: { x: 0, y: 0 }, data: {} };
 
-  it("prefers width/height, where a resize writes", () => {
+  it("prefers width/height, where a refit writes", () => {
     expect(boxSize({ ...base, width: 5, height: 6, style: { width: 1, height: 2 } }, 9, 9)).toEqual(
       { w: 5, h: 6 },
     );
@@ -428,6 +429,9 @@ describe("detachForDrag", () => {
     // Box (100, 50) + card (40, 60).
     expect(c1.position).toEqual({ x: 140, y: 110 });
     expect(dragBoxIdOf(c1)).toBe("group:A");
+    // Above every card still in a box (z 1) and every box (z 0).
+    expect(DRAGGED_CARD_Z).toBe(1000);
+    expect(c1.zIndex).toBe(DRAGGED_CARD_Z);
     // Everything else is untouched.
     expect(at(out, "c2")).toBe(at(nodes, "c2"));
     expect(out[0]).toBe(nodes[0]);
@@ -506,6 +510,7 @@ describe("reattachAfterDrag", () => {
     expect(back).toEqual(lane());
     expect(dragBoxIdOf(at(back, "c1"))).toBeUndefined();
     expect(at(back, "c1").data).not.toHaveProperty("dragBoxId");
+    expect(at(back, "c1").zIndex).toBeUndefined();
   });
 
   it("puts the card back relative to the box as it now stands", () => {
@@ -533,6 +538,7 @@ describe("reattachAfterDrag", () => {
     expect(at(back, "c1").parentId).toBe("group:A");
     expect(at(back, "c2").parentId).toBeUndefined();
     expect(dragBoxIdOf(at(back, "c2"))).toBe("group:A");
+    expect(at(back, "c2").zIndex).toBe(DRAGGED_CARD_Z);
   });
 
   it("only drops the marker when the box has gone", () => {
@@ -542,6 +548,7 @@ describe("reattachAfterDrag", () => {
     expect(c1.parentId).toBeUndefined();
     expect(c1.position).toEqual({ x: 140, y: 110 });
     expect(c1.data).not.toHaveProperty("dragBoxId");
+    expect(c1.zIndex).toBeUndefined();
   });
 
   it("returns the very same array when no card was taken out", () => {

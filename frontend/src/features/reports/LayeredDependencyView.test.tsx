@@ -564,6 +564,8 @@ describe("LayeredDependencyView lane growth", () => {
     const out = nodeById("app-1");
     expect(out.parentId).toBeUndefined();
     expect(out.extent).toBeUndefined();
+    // Drawn above the cards and lanes it passes over.
+    expect(out.zIndex).toBeGreaterThan(1);
     expect(out.position).toEqual({
       x: lane.position.x + card.position.x,
       y: lane.position.y + card.position.y,
@@ -576,6 +578,7 @@ describe("LayeredDependencyView lane growth", () => {
     expect(back.extent).toBe("parent");
     expect(back.position).toEqual(card.position);
     expect(back.data).not.toHaveProperty("dragBoxId");
+    expect(back.zIndex).toBeUndefined();
   });
 
   it("follows a card out past the left edge and back within one drag", () => {

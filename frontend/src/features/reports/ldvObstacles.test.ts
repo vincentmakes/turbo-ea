@@ -103,7 +103,7 @@ describe("computeObstacles", () => {
     ]);
   });
 
-  it("follows a lane or box the reader resized, not the layout's size (#1295)", () => {
+  it("follows a lane or box that fitted its cards, not the layout's size (#1295)", () => {
     const lane = node("lane", "ldvGroup", { x: 10, y: 20 }, { style: { width: 500 }, width: 700 });
     const box = node("box", "ldvCluster", { x: 0, y: 0 }, {
       style: { width: 100, height: 50 },

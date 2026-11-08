@@ -46,8 +46,9 @@ export interface CollectOptions {
   typeRow?: (d: LdvNodeData) => CardDetailLine;
 }
 
-/** The node's LIVE size: a lane or box the reader resized, or that grew as a
- *  card was dragged against its edge (#1295), carries it on `width`/`height`. */
+/** The node's LIVE size: a lane or box that grew or shrank as a card was
+ *  dragged past its edge (#1295) carries it on `width`/`height`, where
+ *  `applyBoxFit` writes it. */
 function sizeOf(n: Node): { w: number; h: number } {
   return boxSize(n, LDV_NODE_W, LDV_NODE_H);
 }

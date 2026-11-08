@@ -8,6 +8,7 @@ import {
   createContext,
   useContext,
 } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -1648,9 +1649,12 @@ function LayeredDependencyInner({
   // following (see ldvLaneSizing.ts). `fitParentForDrag` returns the same array
   // when nothing changes, so React drops the update. Like a drag, a refitted
   // box lasts until the view is re-laid out.
+  // Committed synchronously: React Flow works out each move against the
+  // card's parent as its store holds it, so the detach must be there before
+  // the next pointer move arrives, not whenever React next renders.
   const handleNodeDragStart = useCallback(
     (_: unknown, node: Node, dragged?: Node[]) => {
-      setNodes((prev) => detachForDrag(prev, dragIds(node, dragged)));
+      flushSync(() => setNodes((prev) => detachForDrag(prev, dragIds(node, dragged))));
     },
     [setNodes],
   );

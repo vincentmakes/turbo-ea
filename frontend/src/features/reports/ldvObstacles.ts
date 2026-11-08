@@ -36,7 +36,7 @@ export function computeObstacles(nodeList: Node[]): ObstacleBounds[] {
       // cross a box it does not belong to, and its count must not come to rest
       // inside one — a number floating among a box's cards reads as belonging
       // to them.
-      // Live size: a resized or auto-grown box carries it on width/height.
+      // Live size: a box refitted to its cards carries it on width/height.
       const { w, h } = boxSize(n, 0, 0);
       const { x: ax, y: ay } = absolutePosition(n, byId);
       bounds.push({ x1: ax, y1: ay, x2: ax + w, y2: ay + h });
