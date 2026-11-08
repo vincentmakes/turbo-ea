@@ -273,7 +273,7 @@ export function hasEditableRelationAttributes(relationType: RelationType | undef
   );
 }
 
-// Lifted into a leaf module so the Layered Dependency View's edge labels and
-// the diagram editor's expansion labels read the same values card detail
-// shows as badges; re-exported here for the existing importers.
-export { relationAttributeBadges, type RelationAttributeBadge } from "@/lib/relationAttributeBadges";
+// Lifted into a leaf module so the Layered Dependency View's edge labels read
+// the same values card detail shows as badges; re-exported here for the
+// existing importers.
+export { relationAttributeBadges } from "@/lib/relationAttributeBadges";
