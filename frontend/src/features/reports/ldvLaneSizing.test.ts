@@ -99,6 +99,40 @@ describe("fitBox", () => {
     });
   });
 
+  it("moves the origin even when the size stays the same", () => {
+    // The base sits 6 px in from the origin and the box is already the base's
+    // size: the box must slide right by 6, not be reported unchanged.
+    expect(fitBox([card(106, 50)], { x: 6, y: 0, w: 400, h: 300 }, INSETS, BOX)).toEqual({
+      dx: -6,
+      dy: 0,
+      width: 400,
+      height: 300,
+    });
+    expect(fitBox([card(50, 90)], { x: 0, y: 30, w: 400, h: 300 }, INSETS, BOX)).toEqual({
+      dx: 0,
+      dy: -30,
+      width: 400,
+      height: 300,
+    });
+  });
+
+  it("reports a change in one dimension alone", () => {
+    // Only the height is off: the width matches and the origin stays.
+    expect(fitBox([card(10, 30)], BASE, INSETS, { width: 400, height: 280 })).toEqual({
+      dx: 0,
+      dy: 0,
+      width: 400,
+      height: 300,
+    });
+    // Only the width is off.
+    expect(fitBox([card(10, 30)], BASE, INSETS, { width: 380, height: 300 })).toEqual({
+      dx: 0,
+      dy: 0,
+      width: 400,
+      height: 300,
+    });
+  });
+
   it("rounds outward to whole pixels", () => {
     expect(fitBox([card(300.4, 50)], BASE, INSETS, BOX)!.width).toBe(421);
     expect(fitBox([card(9.5, 50)], BASE, INSETS, BOX)).toEqual({ dx: 1, dy: 0, width: 401, height: 300 });
@@ -217,6 +251,20 @@ describe("applyBoxFit", () => {
     expect(out[2].position).toEqual({ x: 243, y: 57 });
   });
 
+  it("moves the children for a vertical-only shift", () => {
+    const nodes = lane();
+    const out = applyBoxFit(nodes, "group:A", { dx: 0, dy: 5, width: 500, height: 205 }, {
+      x: 0,
+      y: 0,
+      w: 500,
+      h: 200,
+    });
+    expect(out[0].position).toEqual({ x: 100, y: 45 });
+    expect(baseOf(out[0])).toEqual({ x: 0, y: 5, w: 500, h: 200 });
+    expect(out[1].position).toEqual({ x: 40, y: 65 });
+    expect(out[2].position).toEqual({ x: 250, y: 65 });
+  });
+
   it("leaves the children untouched when the origin stays put", () => {
     const nodes = lane();
     const out = applyBoxFit(nodes, "group:A", { dx: 0, dy: 0, width: 600, height: 200 }, {
@@ -330,6 +378,13 @@ describe("fitParentForDrag", () => {
     const withCentre = [...nodes, centred];
     expect(fitParentForDrag(withCentre, "centre")).toBe(withCentre);
     expect(fitParentForDrag(nodes, "missing")).toBe(nodes);
+  });
+
+  it("ignores a card whose parent is missing from the list", () => {
+    const nodes: Node[] = [
+      { id: "c", type: "ldvNode", parentId: "gone", position: { x: 50, y: 50 }, data: {} },
+    ];
+    expect(fitParentForDrag(nodes, "c")).toBe(nodes);
   });
 
   it("ignores a parent that is not a box", () => {
