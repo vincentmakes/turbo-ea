@@ -189,7 +189,7 @@
   "dependency.showRelationLabels": "Beziehungsbeschriftungen anzeigen",
   "dependency.showRelationLabelsHint": "Das Verb jeder Beziehung auf ihrer Linie anzeigen (unterstützt, nutzt, …). Für eine aufgeräumtere Zeichenfläche in dichten Landschaften ausschalten — Linien und Pfeilspitzen zeigen weiterhin, was womit und in welcher Richtung verbunden ist.",
   "dependency.showRelationValues": "Beziehungswerte anzeigen",
-  "dependency.showRelationValuesHint": "Wenn eine Beziehung einen qualifizierenden Wert trägt (z. B. Unterstützungstyp «Führend»), wird er neben dem Label angezeigt, etwa unterstützt [Führend]. Beziehungen ohne Wert bleiben unverändert.",
+  "dependency.showRelationValuesHint": "Wenn eine Beziehung einen qualifizierenden Wert trägt (z. B. Unterstützungstyp «Führend»), wird er neben dem Label angezeigt, etwa unterstützt [Führend]. Angehakte Ja/Nein-Angaben werden ebenfalls aufgeführt, etwa CRUD [Erstellen · Lesen]. Beziehungen ohne Wert bleiben unverändert.",
   "dependency.aggregateBy": "Beziehungen bündeln",
   "dependency.aggregateByHint": "Fasst die verbundenen Karten in Kästen zusammen und zeichnet zwischen zwei Kästen eine einzige Verbindung, beschriftet mit der Anzahl der Beziehungen, für die sie steht. Beziehungen zwischen Karten desselben Kastens bleiben darin gezeichnet, und die zentrierte Karte steht weiterhin für sich.",
   "dependency.aggregateBy_none": "Aus",

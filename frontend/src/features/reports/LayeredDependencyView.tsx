@@ -51,6 +51,7 @@ import LdvShowOnCard from "./LdvShowOnCard";
 import LdvTypeFilter from "./LdvTypeFilter";
 import LdvAggregateSelect from "./LdvAggregateSelect";
 import LdvCluster from "./LdvCluster";
+import LdvGroup from "./LdvGroup";
 import LdvLineStyleSelect from "./LdvLineStyleSelect";
 import {
   ReactFlow,
@@ -97,7 +98,6 @@ import {
   type GNode,
   type GEdge,
   type LdvNodeData,
-  type LdvGroupData,
   type LdvEdgeData,
 } from "./layeredDependencyLayout";
 import { LDV_HANDLE_SPECS } from "./ldvHandles";
@@ -106,6 +106,7 @@ import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
+import { growParentForDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
   hoveredNeighborsOf,
@@ -716,45 +717,7 @@ export const LdvNode = memo(({ data }: NodeProps<Node<LdvNodeData>>) => {
 });
 LdvNode.displayName = "LdvNode";
 
-/* ------------------------------------------------------------------ */
-/*  Custom Layered Dependency View Group (layer boundary)              */
-/* ------------------------------------------------------------------ */
-
-const LdvGroup = memo(({ data }: NodeProps<Node<LdvGroupData>>) => {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === "dark";
-  const accent = readableTypeColor(data.color, isDark);
-
-  return (
-    <Box
-      sx={{
-        width: "100%",
-        height: "100%",
-        border: `1.5px dashed ${accent}`,
-        borderRadius: "12px",
-        bgcolor: isDark
-          ? alpha(theme.palette.common.white, 0.02)
-          : alpha(theme.palette.common.black, 0.012),
-        position: "relative",
-      }}
-    >
-      <Typography
-        variant="subtitle2"
-        sx={{
-          position: "absolute",
-          top: 8,
-          left: 14,
-          fontWeight: 700,
-          color: accent,
-          fontSize: "0.8rem",
-        }}
-      >
-        {data.label}
-      </Typography>
-    </Box>
-  );
-});
-LdvGroup.displayName = "LdvGroup";
+/* The layer lane (`ldvGroup`) lives in LdvGroup.tsx, beside LdvCluster. */
 
 /* ------------------------------------------------------------------ */
 /*  Custom Layered Dependency View Edge (smoothstep + hover highlight) */
@@ -1167,8 +1130,9 @@ function LayeredDependencyInner({
     [lifecycleFiltered, hiddenTypes, centerId],
   );
 
-  /* ---- Resolve a relation's single-select attribute value(s) into a
-         bracketed label suffix (e.g. " [Leading]"), using the metamodel's
+  /* ---- Resolve a relation's attribute values — single-select values and
+         ticked yes/no flags — into a bracketed label suffix (e.g. " [Leading]",
+         " [Create · Read]"), using the metamodel's
          relation-type attribute schemas. flowDirection is excluded — it is
          shown as a direction arrow, not a bracket. ---- */
   const relValueResolver = useCallback(
@@ -1667,6 +1631,20 @@ function LayeredDependencyInner({
     );
   }, [cardDisplayData, setNodes]);
 
+  // A card dragged against the edge of its layer lane (or aggregate box) grows
+  // the box so the card can keep going (#1295). Cards keep `extent: "parent"`:
+  // React Flow clamps each move to the box as it then stands, and the box grows
+  // by its inset whenever the card comes within it — so the next move has room
+  // again. `growParentForDrag` returns the same array when nothing changes.
+  // Like a drag, a grown or resized box lasts until the view is re-laid out.
+  const handleNodeDrag = useCallback(
+    (_: unknown, node: Node) => {
+      if (node.type !== "ldvNode" || !node.parentId) return;
+      setNodes((prev) => growParentForDrag(prev, node.id));
+    },
+    [setNodes],
+  );
+
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
     if (modeRef.current === "highlight") setHoveredNode(null);
@@ -1962,6 +1940,8 @@ function LayeredDependencyInner({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDrag}
           onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}

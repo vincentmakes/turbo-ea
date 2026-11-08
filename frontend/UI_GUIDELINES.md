@@ -468,6 +468,8 @@ Cards are grouped into swim-lane boundaries representing the four metamodel laye
 
 Layer order is invariant. Layer color = `LAYER_COLORS[layer]` from `theme/tokens.ts`.
 
+**A lane (and an aggregate box) grows with its cards** (#1295). Cards keep `extent: "parent"`, so React Flow clamps a dragged card to its box; the view's `onNodeDrag` runs `growParentForDrag` (`ldvLaneSizing.ts`), which enlarges the box whenever the card comes within the box's inset (`LANE_INSETS` / `CLUSTER_INSETS`) of an edge — React Flow then clamps the next move against the larger box. Growing past the left or top edge moves the box and shifts its children the other way, so nothing moves on screen but the border. The new size goes on `width`/`height` *and* `measured` *and* `style`, so the clamp sees it on the very next move and every reader agrees; read a box's live size through `boxSize`, never `style.width` alone. Boxes never shrink, and there is deliberately **no manual resize handle**: a size the user drags by hand would last only until the view is re-laid out, like a card position, and the handles were chrome on every lane. Like a drag, a grown size lasts until the view is re-laid out; Create diagram takes the live size.
+
 **Nodes**
 
 | Property | Convention |

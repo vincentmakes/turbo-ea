@@ -273,69 +273,7 @@ export function hasEditableRelationAttributes(relationType: RelationType | undef
   );
 }
 
-export interface RelationAttributeBadge {
-  fieldKey: string;
-  fieldLabel: string;
-  fieldTranslations?: { [k: string]: string };
-  optionKey: string;
-  optionLabel: string;
-  optionTranslations?: { [k: string]: string };
-  color?: string;
-  /**
-   * True for a `boolean` dimension that is switched on. A flag has no option
-   * entity, so `optionLabel` mirrors the field label — callers that print
-   * "field: value" should print just the label for these.
-   */
-  isFlag?: boolean;
-}
-
-/**
- * Generic counterpart to {@link flowDirectionBadge}: returns EVERY attribute
- * that carries a value — `single_select` values (other than `flowDirection`,
- * which renders as a directional icon) and `boolean` flags that are on — so the
- * caller can render one labelled chip each (e.g. both `usageType` and
- * `criticality` on a BusinessProcess→Application relation, or the flags on a
- * CRUD-style relation). Labels are returned raw (with their `translations`) so
- * the caller resolves them with the locale-aware label resolver. Returns an
- * empty array when nothing is set.
- */
-export function relationAttributeBadges(
-  relationType: RelationType | undefined,
-  attributes: RelationAttributes | undefined,
-): RelationAttributeBadge[] {
-  if (!relationType) return [];
-  const badges: RelationAttributeBadge[] = [];
-  for (const field of relationType.attributes_schema ?? []) {
-    if (field.key === "flowDirection") continue;
-    const v = attributes?.[field.key];
-
-    if (field.type === "boolean") {
-      if (v !== true) continue;
-      badges.push({
-        fieldKey: field.key,
-        fieldLabel: field.label,
-        fieldTranslations: field.translations,
-        optionKey: "true",
-        optionLabel: field.label,
-        optionTranslations: field.translations,
-        isFlag: true,
-      });
-      continue;
-    }
-
-    if (field.type !== "single_select") continue;
-    if (typeof v !== "string" || !v) continue;
-    const opt = (field.options ?? []).find((o) => o.key === v);
-    if (!opt) continue;
-    badges.push({
-      fieldKey: field.key,
-      fieldLabel: field.label,
-      fieldTranslations: field.translations,
-      optionKey: opt.key,
-      optionLabel: opt.label,
-      optionTranslations: opt.translations,
-      color: opt.color,
-    });
-  }
-  return badges;
-}
+// Lifted into a leaf module so the Layered Dependency View's edge labels and
+// the diagram editor's expansion labels read the same values card detail
+// shows as badges; re-exported here for the existing importers.
+export { relationAttributeBadges, type RelationAttributeBadge } from "@/lib/relationAttributeBadges";

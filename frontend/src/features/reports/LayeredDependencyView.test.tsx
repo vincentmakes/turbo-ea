@@ -25,9 +25,11 @@ import { render, screen, fireEvent, within, waitFor, act } from "@testing-librar
 import { MemoryRouter, useLocation } from "react-router";
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import type { Node } from "@xyflow/react";
+import * as rf from "@xyflow/react";
 
 import LayeredDependencyView from "./LayeredDependencyView";
-import type { GNode, GEdge } from "./layeredDependencyLayout";
+import { LDV_NODE_W, type GNode, type GEdge } from "./layeredDependencyLayout";
+import { LANE_INSETS } from "./ldvLaneSizing";
 import {
   LDV_DEFAULT_SETTINGS,
   getLdvSettings,
@@ -52,7 +54,9 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   // The nodes the view last handed `<ReactFlow>`. A controlled flow's
   // `getNodes()` returns precisely this list, so the Create-diagram path
   // exports what the view built, not something the fake invented.
-  const live: { nodes: Node[] } = { nodes: [] };
+  const live: { nodes: Node[]; props?: ComponentProps<typeof actual.ReactFlow> } = {
+    nodes: [],
+  };
   const instance = {
     fitView: vi.fn(),
     zoomIn: vi.fn(),
@@ -63,6 +67,7 @@ vi.mock("@xyflow/react", async (importOriginal) => {
   type NodeComponent = ComponentType<{ id: string; data: unknown }>;
   const ReactFlow = (props: ComponentProps<typeof actual.ReactFlow>) => {
     live.nodes = (props.nodes ?? []) as Node[];
+    live.props = props;
     return (
       <div data-testid="rf">
         {live.nodes.map((n) => {
@@ -94,6 +99,7 @@ vi.mock("@xyflow/react", async (importOriginal) => {
     },
     Handle: () => null,
     useReactFlow: () => instance,
+    __live: live,
   };
 });
 
@@ -498,5 +504,92 @@ describe("LayeredDependencyView canvas colours", () => {
     renderView();
     const band = within(screen.getByTestId("rf-controls")).getAllByText("", { selector: "div[aria-hidden]" })[0];
     expect(band).toHaveStyle({ borderTop: `1px solid ${DIVIDER}`, borderBottom: `1px solid ${DIVIDER}` });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  e) Lanes grow as a card is dragged against their edge (#1295)       */
+/* ------------------------------------------------------------------ */
+
+describe("LayeredDependencyView lane growth", () => {
+  type Live = { nodes: Node[]; props?: ComponentProps<typeof rf.ReactFlow> };
+  const live = () => (rf as unknown as { __live: Live }).__live;
+  const nodeById = (id: string) => live().nodes.find((n) => n.id === id)!;
+  const sizeOf = (n: Node) => ({
+    w: (n.width ?? (n.style?.width as number)) as number,
+    h: (n.height ?? (n.style?.height as number)) as number,
+  });
+
+  /** What React Flow does on a drag move: apply the (clamped) position, then
+   *  call `onNodeDrag` with the moved card. */
+  function dragTo(id: string, position: { x: number; y: number }) {
+    act(() => {
+      live().props!.onNodesChange!([{ id, type: "position", position, dragging: true }]);
+    });
+    act(() => {
+      live().props!.onNodeDrag!(new MouseEvent("mousemove"), nodeById(id), live().nodes);
+    });
+  }
+
+  it("widens the lane when a card reaches its right edge, leaving the card in place", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = sizeOf(nodeById(laneId));
+    // React Flow clamps the card to the lane: it can at most touch the edge.
+    const x = before.w - LDV_NODE_W;
+    dragTo("app-1", { x, y: nodeById("app-1").position.y });
+
+    const after = sizeOf(nodeById(laneId));
+    expect(after.w).toBe(x + LDV_NODE_W + LANE_INSETS.right);
+    expect(after.h).toBe(before.h);
+    expect(nodeById("app-1").position.x).toBe(x);
+  });
+
+  it("grows a lane leftwards by moving it, so nothing on screen moves", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const lane0 = nodeById(laneId);
+    const card0 = nodeById("app-1");
+    const absX = lane0.position.x + 0;
+    dragTo("app-1", { x: 0, y: card0.position.y });
+
+    const lane1 = nodeById(laneId);
+    const card1 = nodeById("app-1");
+    expect(lane1.position.x).toBe(lane0.position.x - LANE_INSETS.left);
+    expect(card1.position.x).toBe(LANE_INSETS.left);
+    // Same absolute place as where React Flow left it.
+    expect(lane1.position.x + card1.position.x).toBe(absX);
+    expect(sizeOf(lane1).w).toBe(sizeOf(lane0).w + LANE_INSETS.left);
+  });
+
+  it("does nothing while the card stays inside, and never shrinks the lane", () => {
+    renderView();
+    const laneId = nodeById("app-1").parentId!;
+    const before = nodeById(laneId);
+    const { x, y } = nodeById("app-1").position;
+    dragTo("app-1", { x, y });
+    expect(nodeById(laneId)).toBe(before);
+  });
+
+  it("hands the grown lane's size to Create diagram", async () => {
+    mockApi.on("post", "/diagrams", { id: "diag-9" });
+    renderView({ canCreateDiagram: true });
+    const laneId = nodeById("app-1").parentId!;
+    const lane = nodeById(laneId);
+    const x = sizeOf(lane).w - LDV_NODE_W;
+    dragTo("app-1", { x, y: nodeById("app-1").position.y });
+    const grownW = x + LDV_NODE_W + LANE_INSETS.right;
+
+    fireEvent.click(screen.getByRole("button", { name: T.createDiagram }));
+    fireEvent.change(screen.getByLabelText(T.diagramName), { target: { value: "Grown" } });
+    fireEvent.keyDown(screen.getByLabelText(T.diagramName), { key: "Enter" });
+    await waitFor(() => expect(mockApi.callsOf("post", "/diagrams")).toHaveLength(1));
+
+    const xml = (mockApi.callsOf("post", "/diagrams")[0].body as { data: { xml: string } }).data
+      .xml;
+    const laneWidths = [...xml.matchAll(/id="layer-\d+"[^>]*>\s*<mxGeometry[^>]*width="(\d+)"/g)].map(
+      (m) => Number(m[1]),
+    );
+    expect(laneWidths).toContain(grownW);
   });
 });

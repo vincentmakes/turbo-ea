@@ -29,6 +29,7 @@ import {
   type LdvClusterData,
 } from "./layeredDependencyLayout";
 import { absolutePosition, exportRoute, type XY } from "./ldvEdgeRouting";
+import { boxSize } from "./ldvLaneSizing";
 
 export interface DiagramInputs {
   cards: DiagramCardInput[];
@@ -45,11 +46,10 @@ export interface CollectOptions {
   typeRow?: (d: LdvNodeData) => CardDetailLine;
 }
 
+/** The node's LIVE size: a lane or box the reader resized, or that grew as a
+ *  card was dragged against its edge (#1295), carries it on `width`/`height`. */
 function sizeOf(n: Node): { w: number; h: number } {
-  return {
-    w: (n.style?.width as number) ?? LDV_NODE_W,
-    h: (n.style?.height as number) ?? LDV_NODE_H,
-  };
+  return boxSize(n, LDV_NODE_W, LDV_NODE_H);
 }
 
 /**

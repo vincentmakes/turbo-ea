@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.194.0] - 2026-11-08
+
+### Added
+- **Layer boxes in the Layered Dependency View grow with their cards**: a layer box (and a box of grouped relations) grows by itself as you drag a card against its edge, so cards can be moved beyond where the box first ended; Create diagram keeps the size ([#1295](https://github.com/vincentmakes/turbo-ea/issues/1295)).
+
+### Changed
+- **Relation values include yes/no details**: with "Show relationship values" on, the Layered Dependency View lists every ticked yes/no detail after the verb, so a CRUD relation reads *CRUD [Create · Read]* instead of a bare *CRUD* ([#1285](https://github.com/vincentmakes/turbo-ea/issues/1285)).
+
 ## [2.193.0] - 2026-11-06
 
 ### Added
@@ -314,6 +322,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Changing which fields a subtype hides now re-scores the type's existing cards straight away, instead of leaving their data quality stale until each one is next edited.
 - Saving a subtype template, a field, a section, the card layout or the data-quality weights in the card-type editor now shows that it is saving and cannot be sent twice (the subtype template dialog used to need two clicks to close), a failed save is reported where you made it, and re-scoring a type's cards after such a change is much faster on large landscapes.
+
 
 ## [2.174.0] - 2026-10-21
 
