@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Relation values include yes/no details**: with "Show relationship values" on, the Layered Dependency View lists every ticked yes/no detail after the verb, so a CRUD relation reads *CRUD [Create · Read]* instead of a bare *CRUD* ([#1285](https://github.com/vincentmakes/turbo-ea/issues/1285)).
+- **Long relation labels wrap instead of being cut off** in the Layered Dependency View: a label too long for one line continues on a second line, the values below the verb, so *is supported by [Create · Read · Update · Delete]* reads in full.
 
 ## [2.193.0] - 2026-11-06
 

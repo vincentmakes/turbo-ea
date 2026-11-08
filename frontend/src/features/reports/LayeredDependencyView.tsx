@@ -106,6 +106,7 @@ import { absolutePosition } from "./ldvEdgeRouting";
 import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
+import { wrapEdgeLabel } from "./ldvEdgeLabel";
 import { detachForDrag, dragIds, fitParentForDrag, reattachAfterDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
@@ -135,6 +136,7 @@ import {
   DOT_INSET,
   edgeColors,
   edgeIsActive,
+  edgeLabelHeight,
   edgeLabelWidth,
   edgeStrokeWidth,
   exportFileName,
@@ -149,7 +151,6 @@ import {
   placeEdgeLabel,
   safeTypeColor,
   touchesHovered,
-  truncateEdgeLabel,
   typeIconPlacement,
   type InteractionMode,
 } from "./ldvViewModel";
@@ -854,10 +855,14 @@ const LdvEdgeComponent = memo(
     // verb, and with the verbs hidden the count is all the line has left to say.
     const mergedCount = edgeData?.count;
     const countText = mergedCount !== undefined ? String(mergedCount) : "";
-    const displayLabel = truncateEdgeLabel(label);
+    // A long label wraps (verb, then its attribute values) instead of being
+    // cut off; joined with newlines and drawn with `white-space: pre`.
+    const labelLines = useMemo(() => wrapEdgeLabel(label), [label]);
+    const displayLabel = labelLines.join("\n");
     // A connector's count is a filled pill beside the verb, wider than the
     // bracketed text it replaces.
-    const labelW = edgeLabelWidth(displayLabel, Boolean(flowDir), countText);
+    const labelW = edgeLabelWidth(labelLines, Boolean(flowDir), countText);
+    const labelH = edgeLabelHeight(labelLines);
     // A connector standing for N relations is ONE heavy solid line, never the
     // dotted idle style — a 1.2 px dotted line is what the eye reads as several
     // thin lines running together, which is the picture aggregating exists to
@@ -875,9 +880,9 @@ const LdvEdgeComponent = memo(
         return { x: pt.x, y: pt.y };
       };
       setLabelPos(
-        placeEdgeLabel(at, labelT, { width: labelW, height: 20, margin: 6 }, obstacleBounds),
+        placeEdgeLabel(at, labelT, { width: labelW, height: labelH, margin: 6 }, obstacleBounds),
       );
-    }, [path, labelT, label, countText, obstacleBounds, labelW]);
+    }, [path, labelT, label, countText, obstacleBounds, labelW, labelH]);
 
     const finalLx = labelPos?.x ?? lx;
     const finalLy = labelPos?.y ?? ly;
@@ -942,7 +947,9 @@ const LdvEdgeComponent = memo(
               }}
             >
               {flowDir && <LdvDirectionArrow dir={flowDir} />}
-              {displayLabel && <span>{displayLabel}</span>}
+              {displayLabel && (
+                <span style={{ whiteSpace: "pre", textAlign: "center" }}>{displayLabel}</span>
+              )}
               {isConnector && (
                 // The count as a filled pill in the line's own colour: the one
                 // number a merged connector exists to carry, readable at
