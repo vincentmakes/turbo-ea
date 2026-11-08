@@ -108,6 +108,7 @@ import { buildRoundedOrthPath } from "./ldvChannels";
 import { ldvFocusRing } from "./ldvFocusRing";
 import { computeObstacles, type ObstacleBounds } from "./ldvObstacles";
 import { wrapEdgeLabel } from "./ldvEdgeLabel";
+import LdvEdgeLabelText from "./LdvEdgeLabelText";
 import { detachForDrag, dragIds, fitParentForDrag, reattachAfterDrag } from "./ldvLaneSizing";
 import {
   clusterMembersOf,
@@ -857,9 +858,8 @@ const LdvEdgeComponent = memo(
     const mergedCount = edgeData?.count;
     const countText = mergedCount !== undefined ? String(mergedCount) : "";
     // A long label wraps (verb, then its attribute values) instead of being
-    // cut off; joined with newlines and drawn with `white-space: pre`.
+    // cut off; `LdvEdgeLabelText` draws the lines one under the other.
     const labelLines = useMemo(() => wrapEdgeLabel(label), [label]);
-    const displayLabel = labelLines.join("\n");
     // A connector's count is a filled pill beside the verb, wider than the
     // bracketed text it replaces.
     const labelW = edgeLabelWidth(labelLines, Boolean(flowDir), countText);
@@ -948,9 +948,7 @@ const LdvEdgeComponent = memo(
               }}
             >
               {flowDir && <LdvDirectionArrow dir={flowDir} />}
-              {displayLabel && (
-                <span style={{ whiteSpace: "pre", textAlign: "center" }}>{displayLabel}</span>
-              )}
+              <LdvEdgeLabelText lines={labelLines} />
               {isConnector && (
                 // The count as a filled pill in the line's own colour: the one
                 // number a merged connector exists to carry, readable at
@@ -1656,18 +1654,21 @@ function LayeredDependencyInner({
     (_: unknown, node: Node, dragged?: Node[]) => {
       flushSync(() => setNodes((prev) => detachForDrag(prev, dragIds(node, dragged))));
     },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
     [setNodes],
   );
   const handleNodeDrag = useCallback(
     (_: unknown, node: Node) => {
       setNodes((prev) => fitParentForDrag(prev, node.id));
     },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
     [setNodes],
   );
   const handleNodeDragStop = useCallback(
     (_: unknown, node: Node, dragged?: Node[]) => {
       setNodes((prev) => reattachAfterDrag(prev, dragIds(node, dragged)));
     },
+    // Stryker disable next-line ArrayDeclaration: setNodes is stable for the life of the view
     [setNodes],
   );
 

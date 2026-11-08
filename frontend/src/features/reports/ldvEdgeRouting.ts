@@ -32,7 +32,7 @@ import {
   type ChannelSpacing,
 } from "./ldvChannels";
 import type { Node } from "@xyflow/react";
-import { wrapEdgeLabel } from "./ldvEdgeLabel";
+import { edgeLabelRouteWidth } from "./ldvEdgeLabel";
 
 export interface XY {
   x: number;
@@ -903,8 +903,7 @@ export function routeLdvEdges(
     if (!oriented[i].relLabel) continue;
     if (!absPos.has(oriented[i].source) || !absPos.has(oriented[i].target)) continue;
     const { sx, sy, tx, ty } = endpoints[i];
-    const longest = wrapEdgeLabel(oriented[i].relLabel).reduce((m, l) => Math.max(m, l.length), 0);
-    const labelW = longest * 5.8 + 12;
+    const labelW = edgeLabelRouteWidth(oriented[i].relLabel);
 
     // Try current labelT; if it overlaps a node, try shifting toward 0.5
     let t = labelTs[i];

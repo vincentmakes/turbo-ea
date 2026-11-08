@@ -188,7 +188,9 @@ interface DragData {
   dragBoxId?: string;
 }
 
-const dragBoxIdOf = (n: Node): string | undefined => (n.data as DragData).dragBoxId;
+function dragBoxIdOf(n: Node): string | undefined {
+  return (n.data as DragData).dragBoxId;
+}
 
 /**
  * The stacking order of a card while it is dragged out of its box. React Flow
@@ -249,7 +251,7 @@ export function detachForDrag(nodes: Node[], ids: readonly string[]): Node[] {
 export function fitParentForDrag(nodes: Node[], cardId: string): Node[] {
   const card = nodes.find((n) => n.id === cardId);
   const boxId = card?.parentId ?? (card && dragBoxIdOf(card));
-  if (!boxId) return nodes;
+  // No node's id is undefined, so a card without a box finds none here.
   const box = nodes.find((n) => n.id === boxId);
   const insets = insetsFor(box?.type);
   if (!box || !insets) return nodes;
@@ -290,6 +292,7 @@ export function fitParentForDrag(nodes: Node[], cardId: string): Node[] {
 export function reattachAfterDrag(nodes: Node[], ids: readonly string[]): Node[] {
   const dragged = new Set(ids);
   const byId = new Map(nodes.map((n) => [n.id, n]));
+  // Stryker disable next-line ArrayDeclaration: refitting an id that names no node returns the nodes unchanged
   const back: string[] = [];
   let changed = false;
   let out = nodes.map((n) => {

@@ -23,6 +23,7 @@ export function wrapEdgeLabel(label: string): string[] {
   if (!label) return [];
   if (label.length <= EDGE_LABEL_LINE_CHARS) return [label];
   const cut = label.indexOf(" [");
+  // Stryker disable next-line EqualityOperator: a label opening with " [" splits into an empty first part, which wraps to no lines, so >= 0 draws the same lines
   const parts = cut > 0 ? [label.slice(0, cut), label.slice(cut + 1)] : [label];
   const lines = parts.flatMap(wrapWords);
   if (lines.length <= MAX_EDGE_LABEL_LINES) return lines;
@@ -42,13 +43,15 @@ function wrapWords(text: string): string[] {
   const lines: string[] = [];
   let line = "";
   for (let word of words) {
+    // A word longer than a line is split into line-sized pieces. Once split,
+    // `line` is empty, so a piece-less remainder ("") changes nothing below.
+    // Stryker disable next-line EqualityOperator: a word of exactly one line lands on a line of its own either way
     while (word.length > EDGE_LABEL_LINE_CHARS) {
       if (line) lines.push(line);
       line = "";
       lines.push(word.slice(0, EDGE_LABEL_LINE_CHARS));
       word = word.slice(EDGE_LABEL_LINE_CHARS);
     }
-    if (!word) continue;
     if (!line) line = word;
     else if (line.length + 1 + word.length <= EDGE_LABEL_LINE_CHARS) line += " " + word;
     else {
@@ -58,4 +61,19 @@ function wrapWords(text: string): string[] {
   }
   if (line) lines.push(line);
   return lines;
+}
+
+/** The length of a label's longest line once wrapped. */
+export function longestEdgeLabelLine(label: string): number {
+  return wrapEdgeLabel(label).reduce((m, l) => Math.max(m, l.length), 0);
+}
+
+/**
+ * The edge router's estimate of a label's width, which it uses to nudge a
+ * label off the cards: 5.8 px a character of the longest line, plus 12 px of
+ * padding. Coarser than the renderer's own `edgeLabelWidth`, on purpose — the
+ * router runs before any label is drawn.
+ */
+export function edgeLabelRouteWidth(label: string): number {
+  return longestEdgeLabelLine(label) * 5.8 + 12;
 }
