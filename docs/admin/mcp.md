@@ -356,7 +356,7 @@ Example — Organizations using an active Application that an Initiative with st
 }
 ```
 
-In the inventory, a view saved this way shows its chain as a readable path above the grid and is marked as generated via MCP. Its query can be changed only through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`); in the web UI its owner can still rename it, change its sharing and OData setting, adjust the column layout, or delete it.
+In the inventory, a view saved this way shows its chain as a readable path above the grid and is marked as generated via MCP. Its query can be changed only through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can still rename it, change its sharing and OData setting, adjust the column layout, or delete it.
 
 Limitations:
 

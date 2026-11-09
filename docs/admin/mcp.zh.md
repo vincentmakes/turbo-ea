@@ -356,7 +356,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 }
 ```
 
-在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并标记为通过 MCP 生成。其查询只能通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`）；在网页界面中，其所有者仍可重命名、更改共享和 OData 设置、调整列布局或删除它。
+在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并标记为通过 MCP 生成。其查询只能通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者仍可重命名、更改共享和 OData 设置、调整列布局或删除它。
 
 限制：
 

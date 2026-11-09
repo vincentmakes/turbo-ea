@@ -239,10 +239,25 @@ _VIEW_HINT = (
 _VIEW_REJECTIONS = {403: "view_not_editable", 404: "view_not_found"}
 
 
-def _view_rejection(exc: httpx.HTTPStatusError) -> dict | None:
+_VISIBILITY_HINT = (
+    "Only the view's owner can change its visibility, and making it public or "
+    "shared also needs the bookmarks.share permission. Call again without "
+    "visibility to keep the view's current one."
+)
+
+
+def _view_rejection(exc: httpx.HTTPStatusError, *, visibility: str = "") -> dict | None:
     """``view_not_editable`` / ``view_not_found`` for a 403 / 404 from the
-    update of a saved view, else None — the agent's ``view_id`` to fix."""
-    code = _VIEW_REJECTIONS.get(exc.response.status_code)
+    update of a saved view, else None — the agent's ``view_id`` to fix.
+
+    A 403 on an update that also asked for a new ``visibility`` is the
+    owner-only / ``bookmarks.share`` rule, not the view: the preview already
+    confirmed the caller may edit it, so the agent is told to drop the
+    argument rather than to pick another view."""
+    status = exc.response.status_code
+    if status == 403 and visibility:
+        return {"error": "visibility_not_allowed", "hint": _VISIBILITY_HINT}
+    code = _VIEW_REJECTIONS.get(status)
     return {"error": code, "hint": _VIEW_HINT} if code else None
 
 
@@ -3892,7 +3907,9 @@ async def save_inventory_view(
             start type changes, which resets the view's filters and grouping
             (they belonged to the old type).
         visibility: "private", "public" (needs the ``bookmarks.share``
-            permission) or "shared". Empty (default) means "private" for a
+            permission) or "shared"; on an update only the owner may change
+            it (else ``visibility_not_allowed``: call again without it).
+            Empty (default) means "private" for a
             new view and "keep as is" for an update.
         columns: Optional grid column keys to show (omitted: unchanged on
             an update).
@@ -3983,7 +4000,9 @@ async def save_inventory_view(
             else:
                 saved = await client.post("/bookmarks", json=payload)
         except httpx.HTTPStatusError as exc:
-            rejection = _query_rejection(exc) or (_view_rejection(exc) if view_id else None)
+            rejection = _query_rejection(exc) or (
+                _view_rejection(exc, visibility=visibility) if view_id else None
+            )
             if rejection is None:
                 raise
             batch.summary = {"status": "rejected", "error": rejection["error"]}

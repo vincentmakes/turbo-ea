@@ -1166,6 +1166,31 @@ class TestSaveInventoryView:
         )
 
     @pytest.mark.asyncio
+    async def test_commit_refused_for_visibility_names_the_argument(self, fake_token):
+        backend = _ViewBackend(patch_error=_http_error(403, "Only the owner can change visibility"))
+        out = await backend.run(
+            name="Orgs", query=_VIEW_QUERY, view_id="v-7", visibility="public", dry_run=False
+        )
+        assert out == {
+            "error": "visibility_not_allowed",
+            "hint": server._VISIBILITY_HINT,
+            "batch_id": "B-1",
+        }
+        assert backend.calls[-1] == (
+            "post",
+            "/mutation-batches/B-1/commit",
+            {"summary": {"status": "rejected", "error": "visibility_not_allowed"}},
+        )
+
+    @pytest.mark.asyncio
+    async def test_commit_404_with_visibility_is_still_view_not_found(self, fake_token):
+        backend = _ViewBackend(patch_error=_http_error(404, "gone"))
+        out = await backend.run(
+            name="Orgs", query=_VIEW_QUERY, view_id="v-7", visibility="public", dry_run=False
+        )
+        assert out == {"error": "view_not_found", "hint": _VIEW_HINT, "batch_id": "B-1"}
+
+    @pytest.mark.asyncio
     async def test_a_refused_create_is_not_a_view_error(self, fake_token):
         import httpx
 
