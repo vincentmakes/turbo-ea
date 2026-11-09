@@ -51,7 +51,7 @@ export interface CompactPathOptions {
   locale?: string;
   /** Prefix for a negated hop (`inventory:queryView.hasNo`). */
   hasNo?: string;
-  /** The word joining OR alternatives (`inventory:queryView.or`). */
+  /** The word joining OR alternatives, in capitals (`inventory:queryView.connectiveOr`). */
   or: string;
 }
 
@@ -59,9 +59,10 @@ export interface CompactPathOptions {
  * One line naming the chain: "Organization › uses Application › is affected
  * by Initiative". Each level shows the hop its row continues with (the first
  * of an OR group, else the first hop). AND hops beside it add "+N"; an OR
- * group of two reads "uses Application or is affected by Initiative", a
- * larger one "+N (or)". A type or relation type missing from the metamodel
- * shows the query's own key — the only name there is for it.
+ * group of two reads "uses Application OR is affected by Initiative", a
+ * larger one "+N (OR)" — the word the strip's connector shows. A type or
+ * relation type missing from the metamodel shows the query's own key — the
+ * only name there is for it.
  */
 export function compactPath(query: CardQuery, opts: CompactPathOptions): string {
   const { types, relationTypes, locale, hasNo, or } = opts;

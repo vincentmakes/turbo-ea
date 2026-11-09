@@ -5,10 +5,10 @@
  * addressed by its `NodePath` from the start card; every operation changes
  * the one node a path names and copies the nodes above it.
  *
- * The strip draws the tree as rows (`rows`): each row is a chain that follows
- * a node's continuation hop (`related_any[0]` when the node has an OR group,
- * else `related[0]`), and every other hop of a node opens a row of its own
- * below, starting under that node.
+ * The strip draws the tree as lines (`rows`): each row is a chain that
+ * follows a node's continuation hop (`related_any[0]` when the node has an OR
+ * group, else `related[0]`), and every other hop of a node opens a row of its
+ * own below, starting under that node and joined to it by a connector.
  */
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import { expandSides, sideKey } from "@/lib/relationSort";
@@ -49,10 +49,8 @@ export interface QueryRowNode {
   hop: CardQueryHop | null;
 }
 
-/** One row of the strip: a chain of nodes starting in column `depth`. */
+/** One line of the strip: a chain of nodes, the first row or a branch below a node. */
 export interface QueryRow {
-  /** The column of the row's first node (its path length). */
-  depth: number;
   /** The node the row branches from; null for the first row. */
   parentPath: NodePath | null;
   /** How the row's first hop joins its parent; null for the first row. */
@@ -130,12 +128,14 @@ function branchSteps(node: QueryNode): { step: PathStep; connective: Connective 
 }
 
 /**
- * The query as the strip's rows. Row 0 is the start card and its chain of
- * continuation hops. Every other hop of a node opens a row anchored one
- * column right of that node, holding the hop and its own chain. Rows are
- * listed depth-first: each row is followed by the rows that branch from its
- * nodes, the last node's first, so a branch row sits right below the node it
- * hangs from.
+ * The query as the strip's lines. Row 0 is the start card and its chain of
+ * continuation hops. Every other hop of a node opens a row of its own,
+ * holding the hop and its own chain, drawn below and starting under that
+ * node. Rows are listed depth-first: each row is followed by the rows that
+ * branch from its nodes, the last node's first, so a branch row sits right
+ * below the row it hangs from. The builder offers its pluses on the last row
+ * only, so a query it made grows as a stack downward; every line of one an
+ * assistant wrote is listed the same way.
  */
 export function rows(query: CardQuery): QueryRow[] {
   const out: QueryRow[] = [];
@@ -145,7 +145,7 @@ export function rows(query: CardQuery): QueryRow[] {
     parentPath: NodePath | null,
     connective: Connective | null,
   ) => {
-    const row: QueryRow = { depth: path.length, parentPath, connective, nodes: [] };
+    const row: QueryRow = { parentPath, connective, nodes: [] };
     out.push(row);
     let p = path;
     let h = hop;

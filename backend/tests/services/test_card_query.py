@@ -2004,6 +2004,19 @@ class TestOrSemantics:
         assert await _names(db, raw([at_risk, calls_on])) == {"Corp"}
         assert await _names(db, raw([on_track, calls_on])) == set()
 
+    async def test_an_explicit_today_reaches_every_branch_of_an_or(self, db, land):
+        """Sixty days ago Alpha (Corp's app) read as ``plan``; today it is
+        ``active``. The OR's other branch (a micro app: Team's Beta) does not
+        depend on the date. With the dated branch first and then last, only a
+        ``today`` that reaches every branch keeps Corp on the earlier day."""
+        early = TODAY - timedelta(days=60)
+        planned = _hop(USES, "Application", where={"lifecycle_phase": ["plan"]})
+        micro = _hop(USES, "Application", where={"subtype": ["micro"]})
+        for branches in ([planned, micro], [micro, planned]):
+            raw = _q("Organization", any_=branches)
+            assert await _names_on(db, raw, early) == {"Corp", "Team"}
+            assert await _names(db, raw) == {"Team"}
+
     async def test_negate_inside_an_or(self, db, land):
         none = _hop(USES, "Application", negate=True)
         micro = _hop(USES, "Application", where={"subtype": ["micro"]})

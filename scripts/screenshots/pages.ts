@@ -2663,8 +2663,9 @@ export const DOC_PAGES: PageDef[] = [
   {
     id: "98f_inventory_query_branch",
     // The same query view in the builder, with an OR branch added under the
-    // start card: the circled plus, "Or…", then the first relation offered.
-    // The new branch shows as a row below, "or" on its first connector.
+    // start card: the circled plus, OR, then the first relation offered. The
+    // branch shows as a new line below, joined by a connector from the arrow
+    // after the card and carrying the OR badge.
     route: "/inventory?view={{bookmarkId:mcpQueryView}}",
     waitFor: '[data-testid="query-path-strip"]',
     actions: [
@@ -2672,7 +2673,7 @@ export const DOC_PAGES: PageDef[] = [
       { type: "wait", ms: 800 },
       { type: "click", selector: '[data-testid="query-path-branch"]' },
       { type: "wait", ms: 400 },
-      { type: "click", selector: menuItemSelector(...i18nLabels("inventory:queryView.branchOr")) },
+      { type: "click", selector: menuItemSelector(...i18nLabels("inventory:queryView.connectiveOr")) },
       { type: "wait", ms: 400 },
       // The relation menu's items carry the target type's icon; the
       // And/Or menu's do not.

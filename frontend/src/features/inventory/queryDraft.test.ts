@@ -90,7 +90,6 @@ describe("rows", () => {
   it("reads a linear chain as one row", () => {
     expect(rows(CHAIN)).toEqual([
       {
-        depth: 0,
         parentPath: null,
         connective: null,
         nodes: [
@@ -101,14 +100,13 @@ describe("rows", () => {
       },
     ]);
     expect(rows({ type: "" })).toEqual([
-      { depth: 0, parentPath: null, connective: null, nodes: [{ path: [], hop: null }] },
+      { parentPath: null, connective: null, nodes: [{ path: [], hop: null }] },
     ]);
   });
 
   it("opens an and row under the start card for A and B", () => {
     expect(rows(BRANCHED)).toEqual([
       {
-        depth: 0,
         parentPath: null,
         connective: null,
         nodes: [
@@ -117,7 +115,6 @@ describe("rows", () => {
         ],
       },
       {
-        depth: 1,
         parentPath: [],
         connective: "and",
         nodes: [
@@ -133,7 +130,6 @@ describe("rows", () => {
   it("continues with the first OR hop and opens an or row for the second", () => {
     expect(rows(OR_QUERY)).toEqual([
       {
-        depth: 0,
         parentPath: null,
         connective: null,
         nodes: [
@@ -142,7 +138,6 @@ describe("rows", () => {
         ],
       },
       {
-        depth: 1,
         parentPath: [],
         connective: "or",
         nodes: [{ path: [O(1)], hop: { relation: "relOrgToBC", type: "BusinessCapability" } }],
@@ -159,14 +154,16 @@ describe("rows", () => {
         { relation: "c", type: "Z" },
       ],
     };
-    expect(rows(q).map((r) => [r.connective, r.nodes.map((n) => n.hop?.type ?? "start")])).toEqual([
+    expect(
+      rows(q).map((r) => [r.connective, r.nodes.map((n) => n.hop?.type ?? "start")]),
+    ).toEqual([
       [null, ["start", "Y"]],
       ["or", ["Z"]],
       ["and", ["X"]],
     ]);
   });
 
-  it("anchors a branch two levels down at depth 2, its own chain on its row", () => {
+  it("hangs a branch two levels down from its node, its own chain on its row", () => {
     const q: CardQuery = {
       type: "Organization",
       related: [
@@ -186,17 +183,15 @@ describe("rows", () => {
       ],
     };
     expect(
-      rows(q).map(({ depth, parentPath, connective, nodes }) => ({
-        depth,
+      rows(q).map(({ parentPath, connective, nodes }) => ({
         parentPath,
         connective,
         paths: nodes.map((n) => n.path),
       })),
     ).toEqual([
-      { depth: 0, parentPath: null, connective: null, paths: [[], [R()], [R(), R()]] },
+      { parentPath: null, connective: null, paths: [[], [R()], [R(), R()]] },
       // The last node's branches come first, so a row sits right below its parent.
       {
-        depth: 2,
         parentPath: [R()],
         connective: "and",
         paths: [
@@ -204,7 +199,74 @@ describe("rows", () => {
           [R(), R(1), R()],
         ],
       },
-      { depth: 1, parentPath: [], connective: "and", paths: [[R(1)]] },
+      { parentPath: [], connective: "and", paths: [[R(1)]] },
+    ]);
+  });
+
+  it("reads a builder-made stack as one line per branch, each with the next below it", () => {
+    // Organization → Application, OR a second Application under it, AND an
+    // Initiative under that one's Application: three lines, a straight stack.
+    const q: CardQuery = {
+      type: "Organization",
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          related_any: [
+            { relation: "relInitiativeToApp", type: "Initiative" },
+            {
+              relation: "relAppToITC",
+              type: "ITComponent",
+              related: [
+                { relation: "relItc", type: "Platform" },
+                { relation: "relItc2", type: "Server" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      rows(q).map((r) => ({
+        parentPath: r.parentPath,
+        connective: r.connective,
+        types: r.nodes.map((n) => n.hop?.type ?? "start"),
+      })),
+    ).toEqual([
+      {
+        parentPath: null,
+        connective: null,
+        types: ["start", "Application", "Initiative"],
+      },
+      {
+        parentPath: [R()],
+        connective: "or",
+        types: ["ITComponent", "Platform"],
+      },
+      { parentPath: [R(), O(1)], connective: "and", types: ["Server"] },
+    ]);
+  });
+
+  it("lists every branch from one card in order, one line each, siblings last-added last", () => {
+    const q: CardQuery = {
+      type: "A",
+      related: [
+        { relation: "a", type: "X" },
+        { relation: "b", type: "Y" },
+        { relation: "c", type: "Z" },
+      ],
+    };
+    expect(rows(q).map((r) => [r.parentPath, r.connective, r.nodes[0].hop?.type ?? "start"])).toEqual([
+      [null, null, "start"],
+      [[], "and", "Y"],
+      [[], "and", "Z"],
+    ]);
+    // Three OR alternatives: the first continues the line, the others below in order.
+    const or: CardQuery = { type: "A", related_any: q.related };
+    expect(rows(or).map((r) => [r.parentPath, r.connective, r.nodes[r.nodes.length - 1].hop?.type])).toEqual([
+      [null, null, "X"],
+      [[], "or", "Y"],
+      [[], "or", "Z"],
     ]);
   });
 });

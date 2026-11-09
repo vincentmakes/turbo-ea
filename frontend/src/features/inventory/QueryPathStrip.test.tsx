@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { stubRectsBySelector, type RectLike } from "@/test/dom";
 import {
   makeCardType,
   makeField,
@@ -308,11 +309,14 @@ describe("QueryPathStrip — view mode", () => {
     expect(screen.queryByText("affects")).not.toBeInTheDocument();
   });
 
-  it("prefixes a negated hop with has no and joins sibling hops with and", () => {
+  it("prefixes a negated hop with has no, a sibling hop on its own AND line", () => {
     render(<QueryPathStrip view={VIEW} onLeave={() => {}} />);
     const hops = screen.getAllByTestId("query-path-hop");
     expect(within(hops[2]).getByText("has no uses")).toBeInTheDocument();
-    expect(screen.getAllByText("and")).toHaveLength(1);
+    expect(screen.getAllByTestId("query-path-connective").map((c) => c.textContent)).toEqual(["AND"]);
+    const lines = screen.getAllByTestId("query-path-row");
+    expect(lines).toHaveLength(2);
+    expect(lines[1]).toContainElement(hops[2]);
     expect(screen.getAllByText(/has no/)).toHaveLength(1);
   });
 
@@ -376,7 +380,7 @@ describe("QueryPathStrip — view mode", () => {
 });
 
 describe("QueryPathStrip — edit mode", () => {
-  it("keeps the header out of the sideways-scrolling grid, so it never scrolls away", () => {
+  it("keeps the header out of the query's lines", () => {
     const { unmount } = renderEditor({
       query: {
         type: "Application",
@@ -390,19 +394,20 @@ describe("QueryPathStrip — edit mode", () => {
       },
       viewId: null,
     });
-    const grid = screen.getByTestId("query-path-grid");
-    expect(getComputedStyle(grid).overflowX).toBe("auto");
+    const lines = screen.getByTestId("query-path-lines");
+    expect(screen.queryByTestId("query-path-grid")).not.toBeInTheDocument();
     for (const id of ["query-path-save", "query-path-cancel"]) {
       const button = screen.getByTestId(id);
-      expect(grid).not.toContainElement(button);
+      expect(lines).not.toContainElement(button);
       expect(screen.getByTestId("query-path-strip")).toContainElement(button);
     }
     unmount();
 
     render(<QueryPathStrip view={VIEW} canEdit onLeave={() => {}} />);
-    const viewGrid = screen.getByTestId("query-path-grid");
-    expect(viewGrid).not.toContainElement(screen.getByTestId("query-path-edit"));
-    expect(viewGrid).not.toContainElement(screen.getByTestId("query-path-leave"));
+    const viewLines = screen.getByTestId("query-path-lines");
+    expect(viewLines).not.toContainElement(screen.getByTestId("query-path-edit"));
+    expect(viewLines).not.toContainElement(screen.getByTestId("query-path-leave"));
+    expect(viewLines).toContainElement(screen.getAllByTestId("query-path-row")[0]);
   });
 
   it("titles a new draft and an edited view, with Save and Cancel", () => {
@@ -741,6 +746,7 @@ describe("QueryPathStrip — specific cards", () => {
       "Cards: Alpha, Sales Org",
       "Change Initiative",
       "Cards: Initiative X",
+      "AND",
       "Business App",
       "Cards: (hidden card), (unknown card)",
     ]);
@@ -823,108 +829,127 @@ describe("QueryPathStrip — specific cards", () => {
   });
 });
 
+
 describe("QueryPathStrip — branches", () => {
   const TO_ORG = { relation: "relOrgToApp", type: "Organization" };
   const TO_INIT = { relation: "relInitiativeToApp", type: "Initiative" };
+  const TO_APP = { relation: "relOrgToApp", type: "Application" };
   const view = (query: ActiveQuery["query"]): ActiveQuery => ({ ...VIEW, query });
-  const rowTexts = () =>
-    screen.getAllByTestId("query-path-row").map((row) =>
-      Array.from(row.children)
-        .map((cell) => cell.textContent)
-        .join(" | "),
-    );
+  const lines = () => screen.getAllByTestId("query-path-row");
+  const lineTexts = () => lines().map((row) => row.textContent);
+  const connectives = () =>
+    lines().map((row) => within(row).queryByTestId("query-path-connective")?.textContent ?? null);
+  /** How many sibling pluses (under the badge) each line shows. */
+  const siblingPluses = () =>
+    lines().map((row) => within(row).queryAllByTestId("query-path-branch-sibling").length);
+  /** How many circled pluses each line shows. */
+  const plusesPerLine = () =>
+    lines().map((row) => within(row).queryAllByTestId("query-path-branch").length);
+  /**
+   * For each origin marker, the hop whose arrow it sits under (its index among
+   * every hop of the strip): the origin card's continuation hop, never a card.
+   */
+  const markedArrows = () => {
+    const hops = screen.queryAllByTestId("query-path-hop");
+    return screen.queryAllByTestId("query-path-branch-origin").map((m) => {
+      expect(m.parentElement).toHaveAttribute("data-testid", "query-path-arrow");
+      expect(m.closest('[data-testid="query-path-card"]')).toBeNull();
+      return hops.indexOf(m.closest('[data-testid="query-path-hop"]') as HTMLElement);
+    });
+  };
 
-  it("reads an MCP query A and B as two rows, and on the second", () => {
-    const query = view({ type: "Application", related: [TO_ORG, TO_INIT] });
-    render(<QueryPathStrip view={query} onLeave={() => {}} />);
-    expect(rowTexts()).toEqual([
-      "appsBusiness App | arrow_forwardis used bycorporate_fareOrg Unit",
-      "subdirectory_arrow_right | andarrow_forwardis affected byappsChange Initiative",
+  it("reads an MCP query A and B as two lines, AND opening the second", () => {
+    render(<QueryPathStrip view={view({ type: "Application", related: [TO_ORG, TO_INIT] })} onLeave={() => {}} />);
+    expect(lineTexts()).toEqual([
+      "appsBusiness Apparrow_forwardis used bycorporate_fareOrg Unit",
+      "ANDarrow_forwardis affected byappsChange Initiative",
     ]);
-    const [first, second] = screen.getAllByTestId("query-path-row");
-    expect(within(first).queryByText("and")).not.toBeInTheDocument();
-    expect(within(second).getByText("and")).toBeInTheDocument();
-    expect(within(second).getByTestId("query-path-branch-marker")).toBeInTheDocument();
-    expect(screen.queryByText("or")).not.toBeInTheDocument();
+    expect(connectives()).toEqual([null, "AND"]);
+    const badge = screen.getByTestId("query-path-connective");
+    expect(badge).toHaveClass("MuiChip-colorPrimary");
+    expect(badge).toHaveClass("MuiChip-filled");
+    // The start point is drawn, not written: a marker under the arrow after
+    // the start card, no second copy of the card on the branch line.
+    expect(markedArrows()).toEqual([0]);
+    expect(within(lines()[1]).queryByText("Business App")).not.toBeInTheDocument();
+    const connector = screen.getByTestId("query-path-connector");
+    expect(connector).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByTestId("query-path-lines")).toContainElement(connector);
+    expect(lines()[0]).not.toContainElement(connector);
   });
 
-  it("reads an MCP query A or B with or on the second row", () => {
-    const query = view({ type: "Application", related_any: [TO_ORG, TO_INIT] });
-    render(<QueryPathStrip view={query} onLeave={() => {}} />);
-    expect(rowTexts()).toEqual([
-      "appsBusiness App | arrow_forwardis used bycorporate_fareOrg Unit",
-      "subdirectory_arrow_right | orarrow_forwardis affected byappsChange Initiative",
-    ]);
-    expect(screen.queryByText("and")).not.toBeInTheDocument();
-  });
-
-  it("lays the rows on a grid one column per depth, a branch starting under its parent", () => {
+  it("reads an MCP query A or B with OR opening the second line", () => {
     render(
-      <QueryPathStrip
-        view={view({ type: "Application", related: [{ ...TO_ORG, related: [TO_ORG] }, TO_INIT] })}
-        onLeave={() => {}}
-      />,
+      <QueryPathStrip view={view({ type: "Application", related_any: [TO_ORG, TO_INIT] })} onLeave={() => {}} />,
     );
-    const grid = screen.getByTestId("query-path-grid");
-    expect(grid).toHaveStyle({ display: "grid", gridTemplateColumns: "repeat(3, max-content)" });
-    const marker = screen.getByTestId("query-path-branch-marker");
-    expect(marker).toHaveStyle({ gridRow: "2", gridColumn: "1" });
-    const hops = screen.getAllByTestId("query-path-hop");
-    expect(
-      hops.map((h) => {
-        const style = getComputedStyle(h);
-        return [style.gridRow, style.gridColumn];
-      }),
-    ).toEqual([
-      ["1", "2"],
-      ["1", "3"],
-      ["2", "2"],
+    expect(lineTexts()).toEqual([
+      "appsBusiness Apparrow_forwardis used bycorporate_fareOrg Unit",
+      "ORarrow_forwardis affected byappsChange Initiative",
     ]);
-    const start = screen.getAllByTestId("query-path-row")[0].children[0];
-    expect(start).toHaveTextContent("Business App");
-    expect(getComputedStyle(start)).toMatchObject({ gridRow: "1", gridColumn: "1" });
+    expect(screen.getByTestId("query-path-connective")).toHaveClass("MuiChip-colorSecondary");
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+    // View mode: verbs as italic text, no controls at all.
+    expect(screen.queryByTestId("query-path-verb")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-branch")).not.toBeInTheDocument();
+    expect(screen.getByText("is affected by")).toHaveStyle({ fontStyle: "italic" });
   });
 
-  it("flips the branch corner arrow right to left", () => {
-    const query = view({ type: "Application", related: [TO_ORG, TO_INIT] });
-    const corner = () =>
-      within(screen.getByTestId("query-path-branch-marker")).getByText("subdirectory_arrow_right");
-    const { unmount } = render(<QueryPathStrip view={query} onLeave={() => {}} />);
-    expect(corner().style.transform).toBe("");
+  it("renders every line of an MCP query with two branches on one card, a connector each", () => {
+    const query = {
+      type: "Application",
+      related: [
+        { ...TO_ORG, related: [TO_APP] },
+        { ...TO_INIT, related: [{ relation: "relInitiativeToApp", type: "Application" }] },
+        { relation: "relAppToApp__out", type: "Application", related: [TO_ORG] },
+      ],
+    };
+    const { unmount } = render(<QueryPathStrip view={view(query)} onLeave={() => {}} />);
+    expect(connectives()).toEqual([null, "AND", "AND"]);
+    expect(screen.getAllByTestId("query-path-connector")).toHaveLength(2);
+    // Both lines hang from the start card: one marker on its arrow, two connectors.
+    expect(markedArrows()).toEqual([0]);
     unmount();
-    hookState.isRtl = true;
-    render(<QueryPathStrip view={query} onLeave={() => {}} />);
-    expect(corner().style.transform).toBe("scaleX(-1)");
+
+    // In edit mode only the bottom line offers pluses: under each of its
+    // cards that has a hop, and under its badge.
+    renderEditor({ query, viewId: null });
+    expect(plusesPerLine()).toEqual([0, 0, 1]);
+    expect(within(lines()[2]).getByTestId("query-path-branch").closest('[data-testid="query-path-card"]'))
+      .toHaveTextContent("Business App");
+    expect(siblingPluses()).toEqual([0, 0, 1]);
   });
 
   it("shows the plus under every card that has a hop, below the depth cap", () => {
     const { unmount } = renderEditor({
-      query: {
-        type: "Application",
-        related: [{ ...TO_ORG, related: [{ relation: "relOrgToApp", type: "Application" }] }],
-      },
+      query: { type: "Application", related: [{ ...TO_ORG, related: [TO_APP] }] },
       viewId: null,
     });
     const plus = screen.getAllByTestId("query-path-branch");
     expect(plus).toHaveLength(2);
     expect(plus[0]).toHaveAttribute("aria-label", "Add a branch");
-    // The row's last card has no hop yet: nothing to branch beside.
+    // A large circled plus in the primary colour.
+    expect(within(plus[0]).getByText("add_circle")).toHaveStyle({ fontSize: "24px" });
+    expect(plus[0]).toHaveClass("MuiIconButton-colorPrimary");
+    // The plus sits under its card pill, inside the card's stack, never under a condition.
+    for (const p of plus) {
+      expect(p.closest('[data-testid="query-path-card"]')).not.toBeNull();
+    }
+    for (const chip of screen.getAllByTestId("query-path-add-condition")) {
+      expect(chip.closest('[data-testid="query-path-card"]')).toBeNull();
+    }
+    // The line's last card has no hop yet: nothing to branch beside.
     const hopHasPlus = screen
       .getAllByTestId("query-path-hop")
       .map((h) => within(h).queryByTestId("query-path-branch") != null);
     expect(hopHasPlus).toEqual([true, false]);
+    expect(screen.queryByTestId("query-path-branch-origin")).not.toBeInTheDocument();
     unmount();
 
     // A third hop sits at the depth cap: no plus under it, no + relation after it.
     renderEditor({
       query: {
         type: "Application",
-        related: [
-          {
-            ...TO_ORG,
-            related: [{ relation: "relOrgToApp", type: "Application", related: [TO_INIT] }],
-          },
-        ],
+        related: [{ ...TO_ORG, related: [{ ...TO_APP, related: [TO_INIT] }] }],
       },
       viewId: null,
     });
@@ -941,16 +966,16 @@ describe("QueryPathStrip — branches", () => {
       query: { type: "Application", related: hops(10), related_any: hops(2) },
       viewId: null,
     });
-    expect(screen.getAllByTestId("query-path-row")).toHaveLength(12);
+    expect(lines()).toHaveLength(12);
     expect(screen.queryByTestId("query-path-branch")).not.toBeInTheDocument();
     expect(screen.queryByTestId("query-path-add-hop")).not.toBeInTheDocument();
   });
 
-  it("adds an AND branch: plus, And also…, then the relation", () => {
+  it("offers exactly AND and OR under the plus, then the relation", () => {
     const { last } = renderEditor({ query: { type: "Application", related: [TO_ORG] }, viewId: null });
     fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
-    expect(menuLabels()).toEqual(["And also…", "Or…"]);
-    pick("And also…");
+    expect(menuLabels()).toEqual(["AND", "OR"]);
+    pick("AND");
     expect(menuLabels()).toEqual([
       "is used by Org Unit",
       "is affected by Change Initiative",
@@ -962,10 +987,12 @@ describe("QueryPathStrip — branches", () => {
       query: { type: "Application", related: [TO_ORG, TO_INIT] },
       viewId: null,
     });
-    expect(rowTexts()[1]).toContain("andarrow_forwardis affected byappsChange Initiative");
+    expect(lineTexts()[1]).toBe(
+      "ANDadd_circlearrow_forwardis affected byappsChange Initiativefilter_altConditionaddRelation",
+    );
   });
 
-  it("adds an OR branch, moving the row's hop into related_any with it", () => {
+  it("adds an OR branch, moving the line's hop into related_any with it", () => {
     const { last } = renderEditor({
       query: {
         type: "Application",
@@ -973,13 +1000,17 @@ describe("QueryPathStrip — branches", () => {
       },
       viewId: "bm-q",
     });
-    fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
-    pick("Or…");
+    // The MCP AND line below the start card leaves the first line without a plus.
+    expect(plusesPerLine()).toEqual([0, 0]);
+    fireEvent.click(screen.getByText("is affected by"));
+    pick("Remove this hop");
+    expect(plusesPerLine()).toEqual([1]);
+    fireEvent.click(screen.getByTestId("query-path-branch"));
+    pick("OR");
     pick("calls Business App");
     expect(last()).toEqual({
       query: {
         type: "Application",
-        related: [TO_INIT],
         related_any: [
           { ...TO_ORG, where: { approval_status: ["DRAFT"] } },
           { relation: "relAppToApp__out", type: "Application" },
@@ -987,10 +1018,168 @@ describe("QueryPathStrip — branches", () => {
       },
       viewId: "bm-q",
     });
-    const connectives = screen
-      .getAllByTestId("query-path-row")
-      .map((r) => within(r).queryByText(/^(and|or)$/)?.textContent ?? null);
-    expect(connectives).toEqual([null, "or", "and"]);
+    expect(connectives()).toEqual([null, "OR"]);
+  });
+
+  it("builds a stack: the pluses move down a line per branch, and Remove this hop brings them back", () => {
+    const start = { type: "Application", related: [{ ...TO_ORG, related: [TO_APP] }] };
+    const { last } = renderEditor({ query: start, viewId: null });
+    expect(plusesPerLine()).toEqual([2]);
+    expect(screen.queryByTestId("query-path-connector")).not.toBeInTheDocument();
+
+    // OR under Org Unit: a new line below, every plus on the first line gone.
+    fireEvent.click(screen.getAllByTestId("query-path-branch")[1]);
+    pick("OR");
+    expect(menuLabels()).toEqual(["uses Business App"]);
+    pick("uses Business App");
+    expect(connectives()).toEqual([null, "OR"]);
+    expect(plusesPerLine()).toEqual([0, 0]);
+    // The marker sits on the arrow after Org Unit (the first line's second hop).
+    expect(markedArrows()).toEqual([1]);
+    expect(within(lines()[0]).getByTestId("query-path-branch-origin")).toBeInTheDocument();
+    expect(screen.getAllByTestId("query-path-connector")).toHaveLength(1);
+
+    // Continue the new line, and its card takes the plus.
+    fireEvent.click(within(lines()[1]).getByTestId("query-path-add-hop"));
+    pick("is affected by Change Initiative");
+    expect(plusesPerLine()).toEqual([0, 1]);
+
+    // AND under that card: a third line, the pluses gone from the second.
+    fireEvent.click(within(lines()[1]).getByTestId("query-path-branch"));
+    pick("AND");
+    pick("calls Business App");
+    expect(connectives()).toEqual([null, "OR", "AND"]);
+    expect(plusesPerLine()).toEqual([0, 0, 0]);
+    expect(markedArrows()).toEqual([1, 3]);
+    expect(screen.getAllByTestId("query-path-connector")).toHaveLength(2);
+    expect(last().query).toEqual({
+      type: "Application",
+      related: [
+        {
+          ...TO_ORG,
+          related_any: [
+            TO_APP,
+            {
+              ...TO_APP,
+              related: [TO_INIT, { relation: "relAppToApp__out", type: "Application" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Remove this hop on the OR line's first hop: the line and the one below
+    // it go, the first line's pluses come back, and so does the draft.
+    fireEvent.click(within(lines()[1]).getAllByTestId("query-path-verb")[0]);
+    pick("Remove this hop");
+    expect(last().query).toEqual(start);
+    expect(lines()).toHaveLength(1);
+    expect(plusesPerLine()).toEqual([2]);
+    expect(screen.queryByTestId("query-path-branch-origin")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-connector")).not.toBeInTheDocument();
+  });
+
+  it("adds another OR branch from the same point with the plus under the badge", () => {
+    const CALLS = { relation: "relAppToApp__out", type: "Application" };
+    const CALLED = { relation: "relAppToApp__in", type: "Application" };
+    const { last } = renderEditor({
+      query: { type: "Organization", related: [{ ...TO_APP, related: [TO_INIT] }] },
+      viewId: null,
+    });
+    // The main line alone is the bottom line: card pluses, no badge, no sibling plus.
+    expect(plusesPerLine()).toEqual([2]);
+    expect(siblingPluses()).toEqual([0]);
+    fireEvent.click(screen.getAllByTestId("query-path-branch")[1]);
+    pick("OR");
+    pick("calls Business App");
+    expect(siblingPluses()).toEqual([0, 1]);
+    const sibling = screen.getByTestId("query-path-branch-sibling");
+    expect(sibling).toHaveAttribute("aria-label", "Add another OR branch");
+    expect(sibling).toHaveClass("MuiIconButton-colorPrimary");
+    expect(within(sibling).getByText("add_circle")).toHaveStyle({ fontSize: "24px" });
+    // Under the badge, not under a card.
+    expect(sibling.parentElement).toContainElement(within(lines()[1]).getByTestId("query-path-connective"));
+    expect(sibling.closest('[data-testid="query-path-card"]')).toBeNull();
+
+    // Straight to the relations of the card the line hangs from: no AND / OR question.
+    fireEvent.click(sibling);
+    expect(menuLabels()).toEqual([
+      "is used by Org Unit",
+      "is affected by Change Initiative",
+      "calls Business App",
+      "is called by Business App",
+    ]);
+    pick("is called by Business App");
+    expect(last().query).toEqual({
+      type: "Organization",
+      related: [{ ...TO_APP, related_any: [TO_INIT, CALLS, CALLED] }],
+    });
+    expect(connectives()).toEqual([null, "OR", "OR"]);
+    // Only the new bottom line offers pluses; both lines leave the same arrow.
+    expect(siblingPluses()).toEqual([0, 0, 1]);
+    expect(plusesPerLine()).toEqual([0, 0, 0]);
+    expect(markedArrows()).toEqual([1]);
+    expect(screen.getAllByTestId("query-path-connector")).toHaveLength(2);
+
+    // Removing a middle sibling keeps the OR group of the other two.
+    fireEvent.click(within(lines()[1]).getByTestId("query-path-verb"));
+    pick("Remove this hop");
+    expect(last().query).toEqual({
+      type: "Organization",
+      related: [{ ...TO_APP, related_any: [TO_INIT, CALLED] }],
+    });
+    expect(siblingPluses()).toEqual([0, 1]);
+
+    // Removing the last one folds the group: the main line is the bottom line again.
+    fireEvent.click(within(lines()[1]).getByTestId("query-path-verb"));
+    pick("Remove this hop");
+    expect(last().query).toEqual({ type: "Organization", related: [{ ...TO_APP, related: [TO_INIT] }] });
+    expect(plusesPerLine()).toEqual([2]);
+    expect(siblingPluses()).toEqual([0]);
+  });
+
+  it("adds another AND branch beside the others from the plus under an AND badge", () => {
+    const { last } = renderEditor({ query: { type: "Application", related: [TO_ORG, TO_INIT] }, viewId: null });
+    const sibling = screen.getByTestId("query-path-branch-sibling");
+    expect(sibling).toHaveAttribute("aria-label", "Add another AND branch");
+    fireEvent.click(sibling);
+    pick("calls Business App");
+    expect(last().query).toEqual({
+      type: "Application",
+      related: [TO_ORG, TO_INIT, { relation: "relAppToApp__out", type: "Application" }],
+    });
+    expect(connectives()).toEqual([null, "AND", "AND"]);
+    expect(siblingPluses()).toEqual([0, 0, 1]);
+    // Removing the bottom line hands the pluses to the line above it.
+    fireEvent.click(within(lines()[2]).getByTestId("query-path-verb"));
+    pick("Remove this hop");
+    expect(siblingPluses()).toEqual([0, 1]);
+  });
+
+  it("hides the plus under the badge once the group holds ten branches", () => {
+    const hops = (n: number) =>
+      Array.from({ length: n }, () => ({ relation: "relAppToApp__out", type: "Application" }));
+    const { unmount } = renderEditor({ query: { type: "Application", related_any: hops(9) }, viewId: null });
+    expect(screen.getAllByTestId("query-path-branch-sibling")).toHaveLength(1);
+    unmount();
+    renderEditor({ query: { type: "Application", related_any: hops(10) }, viewId: null });
+    expect(lines()).toHaveLength(10);
+    expect(screen.queryByTestId("query-path-branch-sibling")).not.toBeInTheDocument();
+  });
+
+  it("shows no plus at all in view mode", () => {
+    render(
+      <QueryPathStrip
+        view={view({
+          type: "Application",
+          related_any: [TO_ORG, TO_INIT, { relation: "relAppToApp__out", type: "Application" }],
+        })}
+        onLeave={() => {}}
+      />,
+    );
+    expect(connectives()).toEqual([null, "OR", "OR"]);
+    expect(screen.queryByTestId("query-path-branch-sibling")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-branch")).not.toBeInTheDocument();
   });
 
   it("shows no plus under a card with no hop; + relation still adds its first hop", () => {
@@ -1003,13 +1192,10 @@ describe("QueryPathStrip — branches", () => {
     expect(menuLabels()).toEqual(["uses Business App"]);
     pick("uses Business App");
     expect(last()).toEqual({
-      query: {
-        type: "Application",
-        related: [{ ...TO_ORG, related: [{ relation: "relOrgToApp", type: "Application" }] }],
-      },
+      query: { type: "Application", related: [{ ...TO_ORG, related: [TO_APP] }] },
       viewId: null,
     });
-    expect(screen.getAllByTestId("query-path-row")).toHaveLength(1);
+    expect(lines()).toHaveLength(1);
   });
 
   it("removes an OR branch and folds the survivor back into related", () => {
@@ -1022,11 +1208,323 @@ describe("QueryPathStrip — branches", () => {
     fireEvent.click(verbs[1]);
     pick("Remove this hop");
     expect(last()).toEqual({ query: { type: "Application", related: [TO_ORG] }, viewId: null });
-    expect(screen.getAllByTestId("query-path-row")).toHaveLength(1);
+    expect(lines()).toHaveLength(1);
   });
 
   it("says an or needs two branches when a save is refused for it", () => {
     renderEditor({ query: { type: "Application" }, viewId: null }, { error: "or_needs_two" });
     expect(screen.getByRole("alert")).toHaveTextContent("An 'or' needs at least two branches.");
+  });
+});
+
+describe("QueryPathStrip — connector geometry", () => {
+  const TO_ORG = { relation: "relOrgToApp", type: "Organization" };
+  const TO_INIT = { relation: "relInitiativeToApp", type: "Initiative" };
+  const OR_VIEW: ActiveQuery = { ...VIEW, query: { type: "Application", related_any: [TO_ORG, TO_INIT] } };
+  const LINES = '[data-testid="query-path-lines"]';
+  // The arrow after the origin card (its first match): the marker sits under it.
+  const ARROW = '[data-testid="query-path-arrow"]';
+  const BADGE = '[data-testid="query-path-connective"]';
+  let restore: (() => void) | null = null;
+  const stub = (map: Record<string, RectLike[]>) => {
+    restore?.();
+    restore = stubRectsBySelector(map);
+  };
+  afterEach(() => {
+    restore?.();
+    restore = null;
+  });
+
+  const branchLine = () => screen.getAllByTestId("query-path-row")[1];
+  const segments = () => screen.getAllByTestId("query-path-connector-segment");
+  const styleOf = (el: HTMLElement) => {
+    const s = el.style;
+    return {
+      left: s.left,
+      right: s.right,
+      top: s.top,
+      width: s.width,
+      height: s.height,
+      borderLeft: s.borderLeft,
+      borderRight: s.borderRight,
+      borderBottom: s.borderBottom,
+      borderBottomLeftRadius: s.borderBottomLeftRadius,
+      borderBottomRightRadius: s.borderBottomRightRadius,
+    };
+  };
+  const LINE = "2px solid currentcolor";
+  const NONE = {
+    left: "",
+    right: "",
+    borderLeft: "",
+    borderRight: "",
+    borderBottom: "",
+    borderBottomLeftRadius: "",
+    borderBottomRightRadius: "",
+  };
+
+  it("starts the line under its card and turns the drop into the badge", () => {
+    // The arrow's centre sits 14px into the lines, its marker's bottom 38px down;
+    // the badge starts 30px in, between 50px and 70px down.
+    stub({
+      [LINES]: [{ x: 100, y: 50, width: 800, height: 100 }],
+      [ARROW]: [{ x: 110, y: 80, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 130, y: 100, width: 30, height: 20 }],
+    });
+    render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+    expect(screen.getAllByTestId("query-path-row")[0].getAttribute("style")).toBeNull();
+    expect(branchLine().style.marginLeft).toBe("14px");
+    expect(branchLine().style.paddingLeft).toBe("12px");
+    expect(branchLine().style.marginRight).toBe("");
+    expect(segments()).toHaveLength(1);
+    expect(styleOf(segments()[0])).toEqual({
+      ...NONE,
+      left: "14px",
+      top: "38px",
+      width: "16px",
+      height: "22px",
+      borderLeft: LINE,
+      borderBottom: LINE,
+      borderBottomLeftRadius: "6px",
+    });
+    expect(screen.getByTestId("query-path-connector")).toHaveStyle({ position: "absolute" });
+    // The marker under the arrow, not under the card.
+    expect(screen.getAllByTestId("query-path-arrow")[0]).toContainElement(
+      screen.getByTestId("query-path-branch-origin"),
+    );
+  });
+
+  it("drops straight past a long verb wrapped beside its own arrow", () => {
+    // The origin's arrow and verb reach 50px below the marker; another
+    // hop's arrow and verb there would be in the way.
+    const rects = (heads: RectLike[]) => ({
+      [LINES]: [{ x: 100, y: 50, width: 800, height: 200 }],
+      [ARROW]: [{ x: 110, y: 80, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 130, y: 140, width: 30, height: 20 }],
+      ['[data-testid="query-path-hop-head"]']: heads,
+    });
+    const tall = { x: 105, y: 56, width: 200, height: 82 };
+    stub(rects([tall, {}]));
+    const { unmount } = render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+    expect(segments().map((el) => el.style.left)).toEqual(["14px"]);
+    unmount();
+    stub(rects([{}, tall]));
+    render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+    expect(segments().map((el) => el.style.left)).toEqual(["-6px", "-6px"]);
+  });
+
+  it("mirrors the line and the connector right to left", () => {
+    hookState.isRtl = true;
+    // The same picture mirrored: 14px in from the right edge (at 900).
+    stub({
+      [LINES]: [{ x: 100, y: 50, width: 800, height: 100 }],
+      [ARROW]: [{ x: 882, y: 80, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 840, y: 100, width: 30, height: 20 }],
+    });
+    render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+    expect(branchLine().style.marginRight).toBe("14px");
+    expect(branchLine().style.paddingRight).toBe("12px");
+    expect(branchLine().style.marginLeft).toBe("");
+    expect(styleOf(segments()[0])).toEqual({
+      ...NONE,
+      right: "14px",
+      top: "38px",
+      width: "16px",
+      height: "22px",
+      borderRight: LINE,
+      borderBottom: LINE,
+      borderBottomRightRadius: "6px",
+    });
+  });
+
+  it("pulls the line back on a narrow strip and turns the connector above it", () => {
+    // A 300px strip leaves 60px for the start (300 - 240); the arrow is at 200.
+    stub({
+      [LINES]: [{ x: 0, y: 0, width: 300, height: 100 }],
+      [ARROW]: [{ x: 196, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 72, y: 60, width: 30, height: 20 }],
+    });
+    render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+    expect(branchLine().style.marginLeft).toBe("60px");
+    expect(segments().map(styleOf)).toEqual([
+      {
+        ...NONE,
+        left: "84px",
+        top: "38px",
+        width: "116px",
+        height: "11px",
+        borderRight: LINE,
+        borderBottom: LINE,
+        borderBottomRightRadius: "6px",
+      },
+      { ...NONE, left: "84px", top: "49px", width: "0px", height: "11px", borderLeft: LINE },
+    ]);
+  });
+
+  it("enters a pulled-back line's badge from above, its own stack (with the plus) no obstacle", () => {
+    // Edit mode: the badge's stack holds the plus under it, reaching across the way in.
+    stub({
+      [LINES]: [{ x: 0, y: 0, width: 300, height: 140 }],
+      [ARROW]: [{ x: 196, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 72, y: 60, width: 30, height: 20 }],
+      ['[data-testid="query-path-connective-stack"]']: [{ x: 72, y: 58, width: 30, height: 50 }],
+    });
+    renderEditor({ query: OR_VIEW.query, viewId: null });
+    expect(screen.getByTestId("query-path-branch-sibling")).toBeInTheDocument();
+    expect(segments().map((el) => [el.style.left, el.style.top])).toEqual([
+      ["84px", "38px"],
+      ["84px", "49px"],
+    ]);
+  });
+
+  /** Edit mode, with one box of the first line sitting in the way down from the arrow. */
+  function renderBlocked(selector: string) {
+    stub({
+      [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+      [ARROW]: [{ x: 10, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 30, y: 80, width: 30, height: 20 }],
+      [selector]: [{ x: 0, y: 44, width: 120, height: 24 }, {}],
+    });
+    renderEditor({ query: OR_VIEW.query, viewId: null });
+  }
+  const GUTTER_ROUTE = [
+    {
+      ...NONE,
+      left: "-6px",
+      top: "38px",
+      width: "20px",
+      height: "3px",
+      borderRight: LINE,
+      borderBottom: LINE,
+      borderBottomRightRadius: "6px",
+    },
+    {
+      ...NONE,
+      left: "-6px",
+      top: "41px",
+      width: "36px",
+      height: "49px",
+      borderLeft: LINE,
+      borderBottom: LINE,
+      borderBottomLeftRadius: "6px",
+    },
+  ];
+
+  it("routes the connector round a wrapped chip of the card's own line, by the gutter", () => {
+    renderBlocked('[data-testid="query-path-add-condition"]');
+    expect(segments().map(styleOf)).toEqual(GUTTER_ROUTE);
+  });
+
+  it("routes round a chip that ends the line too", () => {
+    renderBlocked('[data-testid="query-path-add-hop"]');
+    expect(segments().map(styleOf)).toEqual(GUTTER_ROUTE);
+  });
+
+  it("measures again once the icon font has loaded, and stops listening when it goes", async () => {
+    let fontsReady: () => void = () => {};
+    const listeners = new Map<string, () => void>();
+    const fonts = {
+      ready: new Promise<void>((resolve) => {
+        fontsReady = resolve;
+      }),
+      addEventListener: vi.fn((type: string, fn: () => void) => listeners.set(type, fn)),
+      removeEventListener: vi.fn(),
+    };
+    Object.defineProperty(document, "fonts", { value: fonts, configurable: true });
+    const at = (x: number) => ({
+      [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+      [ARROW]: [{ x, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: x + 20, y: 60, width: 30, height: 20 }],
+    });
+    try {
+      stub(at(10));
+      const { unmount } = render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+      expect(segments()[0].style.left).toBe("14px");
+      // The symbols font arrives: the arrow moves without the strip resizing.
+      stub(at(50));
+      await act(async () => {
+        fontsReady();
+        await fonts.ready;
+      });
+      expect(segments()[0].style.left).toBe("54px");
+      stub(at(90));
+      act(() => listeners.get("loadingdone")!());
+      expect(segments()[0].style.left).toBe("94px");
+      expect(fonts.removeEventListener).not.toHaveBeenCalled();
+      unmount();
+      expect(fonts.removeEventListener).toHaveBeenCalledWith("loadingdone", listeners.get("loadingdone"));
+    } finally {
+      delete (document as unknown as Record<string, unknown>).fonts;
+    }
+  });
+
+  it("measures when the lines change, not on every render", () => {
+    stub({
+      [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+      [ARROW]: [{ x: 10, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 30, y: 60, width: 30, height: 20 }],
+    });
+    const spy = vi.spyOn(Element.prototype, "getBoundingClientRect");
+    const onLeave = () => {};
+    const measures = () =>
+      spy.mock.contexts.filter((el) => (el as Element).getAttribute("data-testid") === "query-path-lines")
+        .length;
+    try {
+      const { rerender } = render(<QueryPathStrip view={OR_VIEW} onLeave={onLeave} />);
+      const settled = measures();
+      expect(settled).toBeGreaterThan(0);
+      rerender(<QueryPathStrip view={OR_VIEW} onLeave={onLeave} />);
+      rerender(<QueryPathStrip view={OR_VIEW} onLeave={onLeave} />);
+      expect(measures()).toBe(settled);
+      rerender(<QueryPathStrip view={{ ...OR_VIEW, query: { ...OR_VIEW.query } }} onLeave={onLeave} />);
+      expect(measures()).toBeGreaterThan(settled);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("measures again when the strip is resized, and stops watching when it goes", () => {
+    let fire: () => void = () => {};
+    const observed: Element[] = [];
+    const disconnect = vi.fn();
+    class CapturingResizeObserver {
+      constructor(cb: () => void) {
+        fire = cb;
+      }
+      observe(el: Element) {
+        observed.push(el);
+      }
+      unobserve() {}
+      disconnect = disconnect;
+    }
+    const had = "ResizeObserver" in globalThis;
+    const previous = (globalThis as Record<string, unknown>).ResizeObserver;
+    (globalThis as Record<string, unknown>).ResizeObserver = CapturingResizeObserver;
+    try {
+      stub({
+        [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+        [ARROW]: [{ x: 10, y: 30, width: 8, height: 8 }, {}],
+        [BADGE]: [{ x: 30, y: 60, width: 30, height: 20 }],
+      });
+      const { unmount } = render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
+      expect(observed).toEqual([screen.getByTestId("query-path-lines")]);
+      expect(segments()[0].style.left).toBe("14px");
+
+      // A wider window moves the card; nothing re-renders the strip but the observer.
+      stub({
+        [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+        [ARROW]: [{ x: 50, y: 30, width: 8, height: 8 }, {}],
+        [BADGE]: [{ x: 70, y: 60, width: 30, height: 20 }],
+      });
+      act(() => fire());
+      expect(segments()[0].style.left).toBe("54px");
+      expect(branchLine().style.marginLeft).toBe("54px");
+      expect(disconnect).not.toHaveBeenCalled();
+      unmount();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally {
+      if (had) (globalThis as Record<string, unknown>).ResizeObserver = previous;
+      else delete (globalThis as Record<string, unknown>).ResizeObserver;
+    }
   });
 });

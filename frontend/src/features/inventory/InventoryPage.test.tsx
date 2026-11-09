@@ -3527,7 +3527,7 @@ describe("InventoryPage query builder", () => {
       pickMenu("supports Objective");
       await waitFor(() => expect(lastQuery()).toEqual({ type: "Application", related: [TO_OBJ] }));
       fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
-      pickMenu("And also…");
+      pickMenu("AND");
       pickMenu("calls Application");
       await waitFor(() =>
         expect(lastQuery()).toEqual({ type: "Application", related: [TO_OBJ, CALLS] }),
@@ -3555,7 +3555,7 @@ describe("InventoryPage query builder", () => {
       renderPage();
       fireEvent.click(await screen.findByTestId("query-path-edit"));
       fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
-      pickMenu("Or…");
+      pickMenu("OR");
       pickMenu("supports Objective");
       await waitFor(() => expect(lastQuery()).toEqual(OR_QUERY));
       fireEvent.click(screen.getByTestId("query-path-save"));
