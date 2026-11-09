@@ -318,7 +318,7 @@ Il server espone 20 strumenti di scrittura, ciascuno annotato come **additivo** 
 
 `query_cards` risponde in una sola chiamata a una domanda che concatena relazioni — «Organizzazioni che usano un'Applicazione con ciclo di vita Attivo, influenzata da un'Iniziativa con stato In linea» — e `save_inventory_view` conserva la stessa query come vista di inventario salvata. La vista memorizza la query, non i suoi risultati: l'inventario la riesegue ogni volta che qualcuno apre la vista, così l'elenco resta aggiornato.
 
-Una query è un piccolo oggetto JSON composto **solo da chiavi** — chiavi di tipo di card, di tipo di relazione, di campo e di opzione così come le restituiscono `list_card_types` e `get_relation_types`, più gli id dei tag di `list_tag_groups`; mai etichette né id di card:
+Una query è un piccolo oggetto JSON composto **solo da chiavi** — chiavi di tipo di card, di tipo di relazione, di campo e di opzione così come le restituiscono `list_card_types` e `get_relation_types`; id di card solo sotto `where.cards` e id di tag solo sotto `where.tags`; mai etichette:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Un salto corrisponde quando **una qualsiasi** card correlata di quel tipo soddisfa il suo `where` (e i suoi salti annidati). `negate: true` lo trasforma in «**non** ha nessuna card di questo tipo».
 - I salti affiancati allo stesso livello devono corrispondere tutti (AND); i valori all'interno di un elenco sono alternative (OR).
 - `<key>__out` e `<key>__in` scelgono un lato di un tipo di relazione che collega un tipo di card a sé stesso (la card è l'origine o la destinazione). Altrimenti basta la chiave semplice.
 - `tags` accetta id di tag da `list_tag_groups`, raggruppati per gruppo di tag: una card deve avere almeno uno dei tag elencati di **ogni** gruppo indicato (alternative all'interno di un gruppo, AND tra i gruppi). Un tag il cui gruppo non si applica al tipo di card di quel salto viene rifiutato con `tag_not_for_type`; un id sconosciuto con `unknown_tag`.
-- Le card correlate contano solo se sono attive e l'utente può leggerle: una card che l'utente non può vedere interrompe la catena, esattamente come nell'interfaccia web.
+- `cards` vincola quel nodo alle card elencate (alternative): prendi i loro id da `search_cards` o `resolve_card_refs`. Ognuna dovrebbe essere una card del tipo proprio del nodo. L'esecuzione di una query non verifica le scelte: un id che non indica alcuna card, una card di un altro tipo o una card che l'utente non può leggere semplicemente non corrisponde a nulla. Il salvataggio di una vista le verifica e rifiuta una scelta simile con `unknown_card`. Una card archiviata non corrisponde a nulla in un salto. `include_descendants: true` estende ogni scelta a tutte le card sottostanti tramite il legame di parentela (sotto-capacità, organizzazioni figlie); impostato senza `cards` viene rifiutato con `descendants_without_cards`, e su un tipo di card senza gerarchia con `descendants_without_hierarchy`. Un id di card o di tag in qualsiasi altro punto della query viene rifiutato con `query_holds_an_id`.
+- Le card correlate contano solo se sono attive e l'utente può leggerle: una card che l'utente non può vedere interrompe la catena, esattamente come nell'interfaccia web. Quando una vista viene salvata, chi scrive non può vincolare una card che gli è nascosta (`unknown_card`); un collaboratore che modifica una vista condivisa con lui mantiene le scelte che contiene già, anche quelle che non può leggere. Un lettore che apre una vista le cui scelte includono una card a lui nascosta non viene rifiutato: le scelte nascoste semplicemente non corrispondono a nulla.
 
 Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'Iniziativa con stato *On Track*:
 
@@ -364,7 +367,7 @@ Nell'inventario, una vista salvata in questo modo mostra la sua catena come perc
 Limitazioni:
 
 - Al massimo **3 livelli** di `related`, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
-- Nessuna condizione su card specifiche (i tag sono supportati).
+- Al massimo **50** card scelte per condizione.
 - Un attributo di testo corrisponde al suo valore **esattamente** — non esiste corrispondenza parziale né senza distinzione tra maiuscole e minuscole.
 - **`rollback_batch` non può annullare una vista salvata.** Salvare una vista registra un batch di mutazioni ma non pubblica alcun evento che il rollback possa invertire; elimina una vista indesiderata dalle Viste salvate dell'inventario.
 

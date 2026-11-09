@@ -300,15 +300,20 @@ async def _seed_every_blob(db, user):
                 user_id=user.id,
                 name="Cloud apps",
                 filters={"tagIds": [str(tag.id)]},
-                # A multi-hop query naming the tag at the start card and a hop.
+                # A multi-hop query naming the tag and a picked card at the
+                # start card and at a hop.
                 query={
                     "type": "Application",
-                    "where": {"tags": [str(tag.id)]},
+                    "where": {
+                        "tags": [str(tag.id)],
+                        "cards": [str(crm.id)],
+                        "include_descendants": True,
+                    },
                     "related": [
                         {
                             "relation": "relAppToOrg",
                             "type": "Organization",
-                            "where": {"tags": [str(tag.id)]},
+                            "where": {"tags": [str(tag.id)], "cards": [str(org.id)]},
                         }
                     ],
                 },
@@ -383,14 +388,19 @@ async def test_no_source_id_survives_a_cross_instance_import(db):
     assert version.draft_element_links["t1"]["data_object_id"] is None
     new_tag = (await db.execute(select(Tag).where(Tag.name == "Cloud"))).scalar_one()
     bookmark = (await db.execute(select(Bookmark))).scalar_one()
+    new_org = await _by_name(db, "Sales", "Organization")
     assert bookmark.query == {
         "type": "Application",
-        "where": {"tags": [str(new_tag.id)]},
+        "where": {
+            "tags": [str(new_tag.id)],
+            "cards": [str(new_crm.id)],
+            "include_descendants": True,
+        },
         "related": [
             {
                 "relation": "relAppToOrg",
                 "type": "Organization",
-                "where": {"tags": [str(new_tag.id)]},
+                "where": {"tags": [str(new_tag.id)], "cards": [str(new_org.id)]},
             }
         ],
     }

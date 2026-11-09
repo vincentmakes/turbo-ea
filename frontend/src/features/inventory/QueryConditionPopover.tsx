@@ -1,14 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Popover from "@mui/material/Popover";
+import Switch from "@mui/material/Switch";
+import CardMultiPicker, { type PickedCard } from "@/components/CardMultiPicker";
 import FilterSelect from "@/components/FilterSelect";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
 import { facetOptions } from "@/lib/fieldFacets";
 import type { CardType, FieldDef, TagGroup } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, LIFECYCLE_PHASES } from "./InventoryFilterSidebar";
-import { facetToLifecycle, lifecycleToFacet, type ConditionKind } from "./queryDraft";
+import {
+  cardNameLabel,
+  facetToLifecycle,
+  lifecycleToFacet,
+  type ConditionKind,
+} from "./queryDraft";
+import type { CardNameEntry } from "./useCardNames";
 
 interface Props {
   /** The chip the editor opens from; null keeps it closed. */
@@ -19,6 +31,11 @@ interface Props {
   kind: ConditionKind;
   values: string[];
   tagGroups: TagGroup[];
+  /** Names of the picked cards (a cards condition), resolved by the strip. */
+  cardNames: Map<string, CardNameEntry>;
+  /** "Include sub-cards" on a cards condition. */
+  includeDescendants: boolean;
+  onIncludeDescendantsChange: (on: boolean) => void;
   onChange: (values: string[]) => void;
 }
 
@@ -30,7 +47,8 @@ function fieldOf(type: CardType | undefined, key: string): FieldDef | undefined 
  * The value editor of one condition chip in the query builder: the same
  * controls the inventory's facets use — a `FilterSelect` for lifecycle,
  * subtype, approval status and select / boolean fields, the `TagPicker` for
- * tags — so a condition is picked exactly like a filter.
+ * tags — so a condition is picked exactly like a filter. Specific cards are
+ * picked in the shared `CardMultiPicker`, opened from the popover.
  */
 export default function QueryConditionPopover({
   anchorEl,
@@ -39,6 +57,9 @@ export default function QueryConditionPopover({
   kind,
   values,
   tagGroups,
+  cardNames,
+  includeDescendants,
+  onIncludeDescendantsChange,
   onChange,
 }: Props) {
   // A field condition whose field the type no longer has (a stale query) has
@@ -57,7 +78,16 @@ export default function QueryConditionPopover({
       anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
     >
       <Box data-testid="query-condition-popover" sx={{ p: 1.5, minWidth: 240, maxWidth: 360 }}>
-        <Editor type={type} kind={kind} values={values} tagGroups={tagGroups} onChange={onChange} />
+        <Editor
+          type={type}
+          kind={kind}
+          values={values}
+          tagGroups={tagGroups}
+          cardNames={cardNames}
+          includeDescendants={includeDescendants}
+          onIncludeDescendantsChange={onIncludeDescendantsChange}
+          onChange={onChange}
+        />
       </Box>
     </Popover>
   );
@@ -68,12 +98,28 @@ function Editor({
   kind,
   values,
   tagGroups,
+  cardNames,
+  includeDescendants,
+  onIncludeDescendantsChange,
   onChange,
 }: Omit<Props, "anchorEl" | "onClose">) {
   const { t } = useTranslation(["inventory", "common", "cards"]);
   const stLabel = useSubtypeLabel();
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
+
+  if (kind === "cards") {
+    return (
+      <CardsPanel
+        type={type}
+        values={values}
+        cardNames={cardNames}
+        includeDescendants={includeDescendants}
+        onIncludeDescendantsChange={onIncludeDescendantsChange}
+        onChange={onChange}
+      />
+    );
+  }
 
   if (kind === "tags") {
     return (
@@ -134,5 +180,93 @@ function Editor({
       value={values}
       onChange={onChange}
     />
+  );
+}
+
+/**
+ * The cards condition: the picked cards as removable chips, a button that
+ * opens the shared multi-card picker on the node's type, and — on a type with
+ * a hierarchy — the "Include sub-cards" switch. The picker is a dialog nested
+ * in the popover, so the popover (and the empty condition it edits) stays
+ * open while the user picks.
+ */
+function CardsPanel({
+  type,
+  values,
+  cardNames,
+  includeDescendants,
+  onIncludeDescendantsChange,
+  onChange,
+}: Pick<
+  Props,
+  "type" | "values" | "cardNames" | "includeDescendants" | "onIncludeDescendantsChange" | "onChange"
+>) {
+  const { t } = useTranslation("inventory");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const labels = {
+    hiddenCard: t("queryView.hiddenCard"),
+    unknownCard: t("queryView.unknownCard"),
+  };
+  const labelOf = (id: string) => cardNameLabel(cardNames.get(id), id, labels);
+  // Every current pick seeds the picker's basket, so a hidden or unknown
+  // card shows its label there rather than a blank chip.
+  const picked: PickedCard[] = values.map((id) => {
+    const entry = cardNames.get(id);
+    return entry?.kind === "card"
+      ? { id, name: entry.name, type: entry.type }
+      : { id, name: labelOf(id), type: type?.key ?? "" };
+  });
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      {values.length > 0 && (
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+          {values.map((id) => (
+            <Chip
+              key={id}
+              size="small"
+              data-testid="query-cards-chip"
+              label={labelOf(id)}
+              onDelete={() => onChange(values.filter((v) => v !== id))}
+            />
+          ))}
+        </Box>
+      )}
+      <Button
+        size="small"
+        variant="outlined"
+        data-testid="query-cards-pick"
+        startIcon={<MaterialSymbol icon="checklist" size={16} />}
+        onClick={() => setPickerOpen((o) => !o)}
+        sx={{ alignSelf: "flex-start", textTransform: "none" }}
+      >
+        {t("queryView.pickCards")}
+      </Button>
+      {type?.has_hierarchy && (
+        <FormControlLabel
+          control={
+            <Switch
+              size="small"
+              data-testid="query-cards-subcards"
+              checked={includeDescendants}
+              onChange={(e) => onIncludeDescendantsChange(e.target.checked)}
+            />
+          }
+          label={t("queryView.includeSubCards")}
+        />
+      )}
+      <CardMultiPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        types={type?.key}
+        value={values}
+        mode="multi"
+        initialOptions={picked}
+        title={t("queryView.pickCards")}
+        onChange={(ids) => {
+          onChange(ids);
+          setPickerOpen(false);
+        }}
+      />
+    </Box>
   );
 }

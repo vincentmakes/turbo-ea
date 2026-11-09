@@ -278,8 +278,8 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     active Application which an in-flight Initiative affects") and previews
     exactly what ``save_inventory_view`` would save. The query is keys only
     — card type, relation type, field and option keys from
-    ``list_card_types`` / ``get_relation_types``, plus tag ids under
-    ``where.tags``; never a card id or a label.
+    ``list_card_types`` / ``get_relation_types``; card ids only under
+    ``where.cards``, tag ids only under ``where.tags``; never a label.
 
     Grammar (at most 3 levels of ``related``, 10 hops per level, 12 hops in
     the whole tree)::
@@ -291,7 +291,8 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
                      subtype?: [subtypeKey], approval_status?: [status],
                      attributes?: {fieldKey: [optionKey | "true" | "false"
                                               | text | "__empty__"]},
-                     tags?: [tag id]}
+                     tags?: [tag id],
+                     cards?: [card id], include_descendants?: bool}
 
     A hop matches when ANY related card of that type passes its ``where``
     (and its own nested hops); ``negate: true`` means NO such card. Sibling
@@ -304,8 +305,20 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     at least one of the listed tags from every group named (OR within a
     group, AND across groups); a tag whose group does not apply to the
     hop's card type is refused ``tag_not_for_type``, an unknown id
-    ``unknown_tag``. Tag ids — the only ids the grammar takes — come from
-    ``list_tag_groups``.
+    ``unknown_tag``. Tag ids come from ``list_tag_groups``.
+
+    ``cards`` pins the node to those cards (OR): take the ids from
+    ``search_cards`` or ``resolve_card_refs``. Each should be a card of the
+    node's own type: this read does not check the picks, so an id naming no
+    card, a card of another type or a card you cannot read simply matches
+    nothing (``save_inventory_view`` refuses those ``unknown_card``). An
+    archived pick matches nothing at a hop. ``include_descendants: true``
+    widens each pick to every card beneath it through the parent link
+    (sub-capabilities, child organizations); set without ``cards`` it is
+    refused ``descendants_without_cards``, and on a card type without a
+    hierarchy ``descendants_without_hierarchy``. At most 50 ids per list. Card and tag ids
+    are the only ids the grammar takes; an id anywhere else is refused
+    ``query_holds_an_id``.
 
     Example — Organizations using an active Application that an Initiative
     with status "onTrack" affects (Application is the target of
@@ -3937,7 +3950,11 @@ async def save_inventory_view(
     Args:
         name: The view's name.
         query: A CardQuery (see ``query_cards``). Its ``type`` becomes the
-            view's card type.
+            view's card type. A ``where.cards`` pick that names no card, a
+            card of another type or a card you cannot read is refused
+            ``unknown_card``, so nobody saves a view naming a card hidden from
+            them. Editing a view shared with you keeps the picks it already
+            holds even when you cannot read them.
         view_id: Update this existing view (from ``list_inventory_views``)
             instead of creating a new one — only one ``list_inventory_views``
             shows with ``can_edit`` true (else ``view_not_found`` /

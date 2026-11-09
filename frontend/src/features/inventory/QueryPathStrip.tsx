@@ -43,19 +43,23 @@ import QueryConditionPopover from "./QueryConditionPopover";
 import {
   MAX_CHAIN_DEPTH,
   appendHop,
+  cardsChipLabel,
   chainNodes,
   conditionValues,
   draftProblem,
+  pickedCardIds,
   relationChoices,
   removeCondition,
   removeHopAt,
   setCondition,
+  setIncludeDescendants,
   setStartType,
   tagChipsByGroup,
   toggleNegate,
   type ConditionKind,
 } from "./queryDraft";
 import { tagGroupApplies } from "@/lib/tagGroups";
+import { useCardNames, type CardNameEntry } from "./useCardNames";
 
 interface Props {
   /** The query view in force, or null. */
@@ -100,12 +104,15 @@ export default function QueryPathStrip({
   saving = false,
   error = null,
 }: Props) {
+  // Picked cards are named once for the whole strip, every node at once.
+  const cardNames = useCardNames(pickedCardIds(draft?.query ?? view?.query ?? { type: "" }));
   if (draft) {
     return (
       <EditStrip
         draft={draft}
         viewName={view && view.viewId === draft.viewId ? view.name : null}
         tagGroups={tagGroups}
+        cardNames={cardNames}
         onDraftChange={onDraftChange}
         onSave={onSave}
         onCancel={onCancel}
@@ -116,7 +123,14 @@ export default function QueryPathStrip({
   }
   if (!view) return null;
   return (
-    <ViewStrip view={view} canEdit={canEdit} tagGroups={tagGroups} onLeave={onLeave} onEdit={onEdit} />
+    <ViewStrip
+      view={view}
+      canEdit={canEdit}
+      tagGroups={tagGroups}
+      cardNames={cardNames}
+      onLeave={onLeave}
+      onEdit={onEdit}
+    />
   );
 }
 
@@ -135,12 +149,14 @@ function ViewStrip({
   view,
   canEdit,
   tagGroups,
+  cardNames,
   onLeave,
   onEdit,
 }: {
   view: ActiveQuery;
   canEdit: boolean;
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
   onLeave: () => void;
   onEdit: () => void;
 }) {
@@ -188,6 +204,7 @@ function ViewStrip({
           types={types}
           relationTypes={relationTypes}
           tagGroups={tagGroups}
+          cardNames={cardNames}
         />
       </Box>
     </Paper>
@@ -229,6 +246,7 @@ function QueryNode({
   types,
   relationTypes,
   tagGroups,
+  cardNames,
 }: {
   typeKey: string;
   where?: CardQueryWhere;
@@ -236,9 +254,10 @@ function QueryNode({
   types: CardType[];
   relationTypes: RelationType[];
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
 }) {
   const type = types.find((ct) => ct.key === typeKey);
-  const items = useConditionItems(type, where, tagGroups);
+  const items = useConditionItems(type, where, tagGroups, cardNames);
   return (
     <>
       <TypeChip type={type} typeKey={typeKey} />
@@ -251,6 +270,7 @@ function QueryNode({
         types={types}
         relationTypes={relationTypes}
         tagGroups={tagGroups}
+        cardNames={cardNames}
       />
     </>
   );
@@ -263,6 +283,7 @@ function ReadOnlyHops({
   types,
   relationTypes,
   tagGroups,
+  cardNames,
   leadingAnd = false,
 }: {
   fromType: string;
@@ -270,6 +291,7 @@ function ReadOnlyHops({
   types: CardType[];
   relationTypes: RelationType[];
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
   /** Join the first hop with "and" too (hops beside a chain hop). */
   leadingAnd?: boolean;
 }) {
@@ -298,6 +320,7 @@ function ReadOnlyHops({
                 types={types}
                 relationTypes={relationTypes}
                 tagGroups={tagGroups}
+                cardNames={cardNames}
               />
             </Box>
           </Fragment>
@@ -321,6 +344,7 @@ function useConditionItems(
   type: CardType | undefined,
   where: CardQueryWhere | undefined,
   tagGroups: TagGroup[],
+  cardNames: Map<string, CardNameEntry>,
 ): ConditionItem[] {
   const { t } = useTranslation(["inventory", "common"]);
   const fieldLabel = useFieldLabel();
@@ -369,6 +393,18 @@ function useConditionItems(
       items.push({ key: `tags-${c.key}`, kind: "tags", label: c.label, tagIds: c.ids });
     }
   }
+  if (where.cards) {
+    items.push({
+      key: "cards",
+      kind: "cards",
+      label: cardsChipLabel(where.cards, cardNames, !!where.include_descendants, {
+        cardsLabel: t("inventory:queryView.cardsLabel"),
+        hiddenCard: t("inventory:queryView.hiddenCard"),
+        unknownCard: t("inventory:queryView.unknownCard"),
+        subCards: t("inventory:queryView.subCards"),
+      }),
+    });
+  }
   const fields = fieldsOf(type);
   for (const [fieldKey, raw] of Object.entries(where.attributes ?? {})) {
     const field = fields.find((f) => f.key === fieldKey);
@@ -398,6 +434,7 @@ function EditStrip({
   draft,
   viewName,
   tagGroups,
+  cardNames,
   onDraftChange,
   onSave,
   onCancel,
@@ -407,6 +444,7 @@ function EditStrip({
   draft: QueryDraft;
   viewName: string | null;
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
   onDraftChange: (draft: QueryDraft) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -444,7 +482,12 @@ function EditStrip({
         </Button>
       </Box>
       <Box sx={ROW_SX}>
-        <EditChain query={draft.query} tagGroups={tagGroups} onChange={onChange} />
+        <EditChain
+          query={draft.query}
+          tagGroups={tagGroups}
+          cardNames={cardNames}
+          onChange={onChange}
+        />
       </Box>
       {error && (
         <Typography variant="caption" color="error" role="alert">
@@ -466,10 +509,12 @@ interface OpenCondition {
 function EditChain({
   query,
   tagGroups,
+  cardNames,
   onChange,
 }: {
   query: CardQuery;
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
   onChange: (query: CardQuery) => void;
 }) {
   const { i18n } = useTranslation();
@@ -522,6 +567,7 @@ function EditChain({
                 typeKey={node.type}
                 where={node.where}
                 tagGroups={tagGroups}
+                cardNames={cardNames}
                 onOpen={(anchor, kind) => setOpen({ anchor, index: i, kind })}
                 onRemove={(kind) => onChange(removeCondition(query, i, kind))}
                 onSetTags={(ids) =>
@@ -544,6 +590,7 @@ function EditChain({
                 types={types}
                 relationTypes={relationTypes}
                 tagGroups={tagGroups}
+                cardNames={cardNames}
                 leadingAnd
               />
             )}
@@ -566,6 +613,9 @@ function EditChain({
           kind={open.kind}
           values={conditionValues(openNode.where, open.kind) ?? []}
           tagGroups={tagGroups}
+          cardNames={cardNames}
+          includeDescendants={!!openNode.where?.include_descendants}
+          onIncludeDescendantsChange={(on) => onChange(setIncludeDescendants(query, open.index, on))}
           onChange={(values) => onChange(setCondition(query, open.index, open.kind, values))}
         />
       )}
@@ -748,6 +798,7 @@ function EditConditions({
   typeKey,
   where,
   tagGroups,
+  cardNames,
   onOpen,
   onRemove,
   onSetTags,
@@ -757,6 +808,7 @@ function EditConditions({
   typeKey: string;
   where: CardQueryWhere | undefined;
   tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
   onOpen: (anchor: HTMLElement, kind: ConditionKind) => void;
   onRemove: (kind: ConditionKind) => void;
   onSetTags: (ids: string[]) => void;
@@ -764,7 +816,7 @@ function EditConditions({
 }) {
   const { t } = useTranslation(["inventory", "common"]);
   const fieldLabel = useFieldLabel();
-  const items = useConditionItems(type, where, tagGroups);
+  const items = useConditionItems(type, where, tagGroups, cardNames);
   const menu = useMenu();
 
   const taken = new Set(items.map((c) => kindKey(c.kind)));
@@ -778,6 +830,7 @@ function EditConditions({
   if (tagGroups.some((g) => g.tags.length > 0 && tagGroupApplies(g, typeKey))) {
     offer("tags", t("inventory:filter.tags"));
   }
+  offer("cards", t("inventory:queryView.conditionCards"));
   for (const f of pickFacetFields(type?.fields_schema ?? [])) {
     offer({ attribute: f.key }, fieldLabel(f));
   }

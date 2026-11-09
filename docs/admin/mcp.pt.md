@@ -318,7 +318,7 @@ O servidor expõe 20 ferramentas de escrita, cada uma anotada como **aditiva** (
 
 `query_cards` responde em uma única chamada a uma pergunta que encadeia relações — «Organizações que usam uma Aplicação cujo ciclo de vida é Ativo, afetada por uma Iniciativa com status No prazo» — e `save_inventory_view` mantém a mesma consulta como visualização de inventário salva. A visualização armazena a consulta, não os seus resultados: o inventário a executa novamente toda vez que alguém abre a visualização, de modo que a lista permanece atual.
 
-Uma consulta é um pequeno objeto JSON formado **somente por chaves** — chaves de tipo de card, de tipo de relação, de campo e de opção como `list_card_types` e `get_relation_types` as retornam, mais os ids de tag de `list_tag_groups`; nunca rótulos nem ids de card:
+Uma consulta é um pequeno objeto JSON formado **somente por chaves** — chaves de tipo de card, de tipo de relação, de campo e de opção como `list_card_types` e `get_relation_types` as retornam; ids de card apenas em `where.cards` e ids de tag apenas em `where.tags`; nunca rótulos:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
 - Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
 - `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
 - `tags` recebe ids de tag de `list_tag_groups`, agrupados por grupo de tags: um card deve ter pelo menos uma das tags listadas de **cada** grupo citado (alternativas dentro de um grupo, E entre grupos). Uma tag cujo grupo não se aplica ao tipo de card desse salto é recusada com `tag_not_for_type`; um id desconhecido, com `unknown_tag`.
-- Os cards relacionados só contam se estiverem ativos e o usuário puder lê-los: um card que o usuário não pode ver interrompe a cadeia, exatamente como na interface web.
+- `cards` fixa esse nó nos cards listados (alternativas): obtenha os ids em `search_cards` ou `resolve_card_refs`. Cada um deve ser um card do tipo próprio do nó. Executar uma consulta não verifica as escolhas: um id que não nomeia nenhum card, um card de outro tipo ou um card que o usuário não pode ler simplesmente não corresponde a nada. Salvar uma visualização as verifica e recusa uma escolha assim com `unknown_card`. Um card arquivado não corresponde a nada em um salto. `include_descendants: true` amplia cada escolha a todos os cards abaixo dela pelo vínculo de pai (subcapacidades, organizações filhas); definido sem `cards`, é recusado com `descendants_without_cards`, e em um tipo de card sem hierarquia com `descendants_without_hierarchy`. Um id de card ou de tag em qualquer outro lugar da consulta é recusado com `query_holds_an_id`.
+- Os cards relacionados só contam se estiverem ativos e o usuário puder lê-los: um card que o usuário não pode ver interrompe a cadeia, exatamente como na interface web. Ao salvar uma visualização, quem escreve não pode fixar um card oculto para si (`unknown_card`); um colaborador que edita uma visualização compartilhada com ele mantém as escolhas que ela já contém, mesmo as que não pode ler. Um leitor que abre uma visualização cujas escolhas incluem um card oculto para ele não é recusado: as escolhas ocultas simplesmente não correspondem a nada.
 
 Exemplo — Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status *On Track*:
 
@@ -364,7 +367,7 @@ No inventário, uma visualização salva dessa forma mostra a sua cadeia como um
 Limitações:
 
 - No máximo **3 níveis** de `related`, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
-- Sem condições sobre cards específicos (as tags são suportadas).
+- No máximo **50** cards escolhidos por condição.
 - Um atributo de texto corresponde ao seu valor **exatamente** — não há correspondência parcial nem sem distinção de maiúsculas e minúsculas.
 - **`rollback_batch` não pode desfazer uma visualização salva.** Salvar uma visualização registra um lote de mutações, mas não publica nenhum evento que a reversão possa desfazer; exclua uma visualização indesejada em Visualizações salvas do inventário.
 

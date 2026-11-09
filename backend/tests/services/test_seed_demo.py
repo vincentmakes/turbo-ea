@@ -788,6 +788,7 @@ class TestExtrasDemoData:
                 key=t["key"],
                 fields_schema=t.get("fields_schema", []),
                 subtypes=t.get("subtypes", []),
+                has_hierarchy=t.get("has_hierarchy", False),
                 is_hidden=False,
             )
             for t in META_TYPES
@@ -805,7 +806,9 @@ class TestExtrasDemoData:
         assert [bm["name"] for bm in query_views] == ["Organizations using active apps in flight"]
         for bm in query_views:
             query = parse_card_query(bm["query"])
-            root = _resolve_node(query.type, query.where, query.related, types, relation_types, {})
+            root = _resolve_node(
+                query.type, query.where, query.related, types, relation_types, {}, None
+            )
             assert root.type == bm["card_type"]
             assert view_fields_for_query(query, bm["card_type"], bm["filters"]) == (
                 bm["card_type"],

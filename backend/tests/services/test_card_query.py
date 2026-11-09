@@ -9,6 +9,7 @@ database; ``TestParse`` / ``TestQueryProblem`` / ``TestViewFields`` /
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -27,9 +28,11 @@ from app.services.card_query import (
     CardQueryError,
     base_view_filters,
     compile_card_query,
+    names_cards,
     parse_card_query,
     query_problem,
     resolve_card_query,
+    stored_card_ids,
     stored_query,
     view_fields_for_query,
     view_patch,
@@ -120,6 +123,15 @@ async def _code(db, raw: dict) -> str:
     return exc.value.code
 
 
+async def _write_code(db, raw: dict, scope: CardReadScope | None = None) -> str:
+    """The code a *write* path (a writer's scope given) answers ``raw`` with."""
+    with pytest.raises(CardQueryError) as exc:
+        await resolve_card_query(
+            db, parse_card_query(raw), read_scope=scope or CardReadScope.everything()
+        )
+    return exc.value.code
+
+
 def _parse_code(raw) -> str:
     with pytest.raises(CardQueryError) as exc:
         parse_card_query(raw)
@@ -144,16 +156,19 @@ async def land(db):
     - Zed uses Old (archived, active), which Rocket affects;
     - Solo uses nothing.
     Alpha calls Beta (self-referencing ``appCallsApp``). ``Ghost`` is a hidden
-    type with a relation type from Organization.
+    type with a relation type from Organization. Organization and Application
+    are hierarchical (``has_hierarchy``), Initiative is not.
 
     Tags: group Domain (every type) holds Finance (on Alpha) and Sales (on
     Beta); Tier (Application only) holds Gold (on Alpha and Gamma); OrgOnly
     (Organization only) holds Hq (on Corp); Open (restricted to ``[]``, i.e.
     every type) holds Any (on no card).
     """
-    await create_card_type(db, key="Organization")
-    await create_card_type(db, key="Application", fields_schema=APP_FIELDS, subtypes=SUBTYPES)
-    await create_card_type(db, key="Initiative", fields_schema=INIT_FIELDS)
+    await create_card_type(db, key="Organization", has_hierarchy=True)
+    await create_card_type(
+        db, key="Application", fields_schema=APP_FIELDS, subtypes=SUBTYPES, has_hierarchy=True
+    )
+    await create_card_type(db, key="Initiative", fields_schema=INIT_FIELDS, has_hierarchy=False)
     await create_card_type(db, key="Ghost", is_hidden=True)
     await create_relation_type(
         db, key="orgUsesApp", source_type_key="Organization", target_type_key="Application"
@@ -1018,6 +1033,485 @@ class TestHopSemantics:
         clauses = await compile_card_query(db, query, CardReadScope.everything(), start)
         rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
         assert set(rows.scalars().all()) == {"Corp", "Team", "Lone"}
+
+
+# ---------------------------------------------------------------------------
+# Specific cards (``where.cards``, ``include_descendants``)
+# ---------------------------------------------------------------------------
+
+#: Two arbitrary UUIDs, standing for card ids in the structural tests.
+CARD_1 = "2d9f1c80-3b3e-4c74-9dac-5e4f30b1c0da"
+CARD_2 = "3e0a2d91-4c4f-4d85-8ebd-6f5041c2d1eb"
+
+
+class TestCardPickStructure:
+    def _problem(self, raw: dict) -> str | None:
+        return query_problem(CardQuery.model_validate(raw))
+
+    def test_card_ids_are_kept_verbatim_at_every_node(self):
+        raw = _q(
+            "A",
+            _hop("r", "B", where={"cards": [CARD_2.upper(), CARD_1]}),
+            where={"cards": [CARD_1], "include_descendants": True, "tags": [TAG_1]},
+        )
+        assert self._problem(raw) is None
+        assert stored_query(parse_card_query(raw)) == raw
+
+    def test_include_descendants_off_is_left_out_of_the_stored_query(self):
+        raw = _q("A", where={"cards": [CARD_1], "include_descendants": False})
+        assert stored_query(parse_card_query(raw)) == _q("A", where={"cards": [CARD_1]})
+        assert parse_card_query(raw).where.include_descendants is False
+
+    def test_fifty_cards_are_accepted(self):
+        cards = [str(uuid.UUID(int=i + 1)) for i in range(50)]
+        assert parse_card_query(_q("A", where={"cards": cards})).where.cards == cards
+
+    def test_fifty_one_cards_are_a_shape_error(self):
+        cards = [str(uuid.UUID(int=i + 1)) for i in range(51)]
+        assert _parse_code(_q("A", where={"cards": cards})) == "invalid_query"
+
+    @pytest.mark.parametrize(
+        "where",
+        [{"cards": CARD_1}, {"cards": [CARD_1], "include_descendants": [True]}],
+    )
+    def test_shape_errors(self, where):
+        assert _parse_code(_q("A", where=where)) == "invalid_query"
+
+    def test_an_empty_card_list_is_empty_values(self):
+        assert self._problem(_q("A", where={"cards": []})) == "empty_values"
+        assert _parse_code(_q("A", where={"cards": []})) == "empty_values"
+
+    def test_an_empty_card_list_with_the_flag_is_empty_values(self):
+        raw = _q("A", where={"cards": [], "include_descendants": True})
+        assert self._problem(raw) == "empty_values"
+
+    def test_the_flag_without_cards(self):
+        raw = _q("A", where={"include_descendants": True})
+        assert self._problem(raw) == "descendants_without_cards"
+        assert _parse_code(raw) == "descendants_without_cards"
+
+    def test_the_flag_without_cards_at_a_nested_hop(self):
+        raw = _q(
+            "A",
+            _hop("r", "B", _hop("r", "C", where={"tags": [TAG_1], "include_descendants": True})),
+            where={"cards": [CARD_1], "include_descendants": True},
+        )
+        assert self._problem(raw) == "descendants_without_cards"
+
+    def test_the_flag_off_without_cards_is_fine(self):
+        assert self._problem(_q("A", where={"include_descendants": False})) is None
+
+    def test_a_uuid_in_an_attribute_beside_cards_still_holds_an_id(self):
+        raw = _q("A", where={"cards": [CARD_1], "attributes": {"code": [CARD_2]}})
+        assert self._problem(raw) == "query_holds_an_id"
+
+    def test_a_uuid_in_a_subtype_at_a_hop_beside_cards_still_holds_an_id(self):
+        raw = _q("A", _hop("r", "B", where={"subtype": [CARD_2]}), where={"cards": [CARD_1]})
+        assert self._problem(raw) == "query_holds_an_id"
+
+    def test_a_uuid_as_a_hop_key_beside_cards_still_holds_an_id(self):
+        raw = _q("A", _hop(CARD_2, "B", where={"cards": [CARD_1]}))
+        assert self._problem(raw) == "query_holds_an_id"
+
+    def test_an_attribute_named_cards_is_no_card_list(self):
+        raw = _q("A", where={"attributes": {"cards": [CARD_1]}})
+        assert self._problem(raw) == "query_holds_an_id"
+
+
+class TestQueryCardIds:
+    def test_names_cards(self):
+        assert names_cards(parse_card_query(_q("A", where={"cards": [CARD_1]}))) is True
+        nested = _q("A", _hop("r", "B", _hop("s", "C", where={"cards": [CARD_2]})))
+        assert names_cards(parse_card_query(nested)) is True
+        assert names_cards(parse_card_query(_q("A", _hop("r", "B")))) is False
+        tags = _q("A", where={"tags": [TAG_1], "subtype": ["x"]})
+        assert names_cards(parse_card_query(tags)) is False
+
+    def test_stored_card_ids_walks_every_node(self):
+        stored = _q(
+            "A",
+            _hop("r", "B", _hop("s", "C", where={"cards": [CARD_2.upper()]})),
+            where={"cards": [CARD_1, "junk"], "tags": [TAG_1]},
+        )
+        assert stored_card_ids(stored) == {uuid.UUID(CARD_1), uuid.UUID(CARD_2)}
+
+    @pytest.mark.parametrize(
+        "stored",
+        [
+            None,
+            "junk",
+            {"type": "A"},
+            {"type": "A", "where": "junk", "related": "junk"},
+            {"type": "A", "where": {"cards": "junk"}},
+            {"type": "A", "related": ["junk", None, {"where": None}]},
+        ],
+    )
+    def test_stored_card_ids_tolerates_a_malformed_query(self, stored):
+        assert stored_card_ids(stored) == set()
+
+
+@pytest.fixture
+async def picks(db, land):
+    """On top of ``land``: Child (under Corp) uses Alpha, Grand (under Child)
+    uses Module; the application Suite is the parent of Module, which Team also
+    uses; nobody uses Suite itself. Returns ``{name: card id as text}`` for
+    every card."""
+    corp = land["orgs"]["Corp"]
+    child = await create_card(db, card_type="Organization", name="Child", parent_id=corp.id)
+    grand = await create_card(db, card_type="Organization", name="Grand", parent_id=child.id)
+    suite = await create_card(db, name="Suite", lifecycle={"active": PAST})
+    module = await create_card(db, name="Module", parent_id=suite.id)
+    for org, app in (
+        (child, land["alpha"]),
+        (grand, module),
+        (land["orgs"]["Team"], module),
+    ):
+        await create_relation(db, type_key=USES, source_id=org.id, target_id=app.id)
+    rows = await db.execute(select(Card.name, Card.id))
+    return {name: str(card_id) for name, card_id in rows.all()}
+
+
+PICK_ORGS = ALL_ORGS | {"Child", "Grand"}
+
+
+async def _reader_scope(db, denied: str) -> CardReadScope:
+    """The scope of a reader whose role denies View on ``denied``."""
+    await create_role(db, key="r", label="R", permissions={"inventory.view": True})
+    reader = await create_user(db, email="r@t.com", role="r")
+    await _deny(db, denied, "r")
+    return await CardReadScope.load(db, reader)
+
+
+class TestCardPickResolve:
+    async def test_picks_resolve_deduplicated_in_order(self, db, picks):
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                where={
+                    "cards": [picks["Beta"], picks["Alpha"], picks["Beta"].upper()],
+                    "include_descendants": True,
+                },
+            ),
+            where={"cards": [picks["Corp"]]},
+        )
+        root = await resolve_card_query(db, parse_card_query(raw))
+        assert root.card_ids == [uuid.UUID(picks["Corp"])]
+        assert root.include_descendants is False
+        app = root.hops[0].node
+        assert app.card_ids == [uuid.UUID(picks["Beta"]), uuid.UUID(picks["Alpha"])]
+        assert app.include_descendants is True
+
+    async def test_a_node_without_cards_has_none(self, db, picks):
+        root = await resolve_card_query(db, parse_card_query(_q("Organization")))
+        assert root.card_ids == []
+        assert root.include_descendants is False
+
+    async def test_an_archived_pick_resolves(self, db, picks):
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Old"]]}))
+        root = await resolve_card_query(db, parse_card_query(raw))
+        assert root.hops[0].node.card_ids == [uuid.UUID(picks["Old"])]
+
+    async def test_a_card_that_does_not_exist(self, db, picks):
+        raw = _q("Organization", where={"cards": [picks["Corp"], CARD_1]})
+        assert await _write_code(db, raw) == "unknown_card"
+
+    async def test_a_card_that_is_no_uuid(self, db, picks):
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": ["Alpha"]}))
+        assert await _write_code(db, raw) == "unknown_card"
+
+    async def test_a_card_of_another_type(self, db, picks):
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Corp"]]}))
+        assert await _write_code(db, raw) == "unknown_card"
+
+    async def test_a_card_of_a_hidden_type_at_a_visible_node(self, db, picks):
+        raw = _q("Organization", where={"cards": [picks["Spook"]]})
+        assert await _write_code(db, raw) == "unknown_card"
+
+    async def test_a_card_hidden_from_the_writer_is_unknown(self, db, picks):
+        scope = await _reader_scope(db, "Application")
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"]]}),
+            where={"cards": [picks["Corp"]]},
+        )
+        query = parse_card_query(raw)
+        with pytest.raises(CardQueryError) as exc:
+            await resolve_card_query(db, query, read_scope=scope)
+        assert exc.value.code == "unknown_card"
+        # Without a scope — the evaluation paths — the same query resolves.
+        root = await resolve_card_query(db, query)
+        assert root.hops[0].node.card_ids == [uuid.UUID(picks["Alpha"])]
+
+    async def test_a_card_readable_by_the_writer_resolves_with_their_scope(self, db, picks):
+        scope = await _reader_scope(db, "Application")
+        raw = _q("Organization", where={"cards": [picks["Corp"], picks["Team"]]})
+        root = await resolve_card_query(db, parse_card_query(raw), read_scope=scope)
+        assert root.card_ids == [uuid.UUID(picks["Corp"]), uuid.UUID(picks["Team"])]
+
+    async def test_a_stakeholder_reads_a_card_of_a_denied_type(self, db, picks):
+        scope = dataclasses.replace(
+            await _reader_scope(db, "Application"),
+            stakeholder_card_ids=frozenset({uuid.UUID(picks["Alpha"])}),
+        )
+        ok = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Alpha"]]}))
+        root = await resolve_card_query(db, parse_card_query(ok), read_scope=scope)
+        assert root.hops[0].node.card_ids == [uuid.UUID(picks["Alpha"])]
+        hidden = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Beta"]]}))
+        with pytest.raises(CardQueryError) as exc:
+            await resolve_card_query(db, parse_card_query(hidden), read_scope=scope)
+        assert exc.value.code == "unknown_card"
+
+    async def _statements(self, db, monkeypatch, raw, scope=None) -> list[str]:
+        seen: list[str] = []
+        execute = db.execute
+
+        async def spy(statement, *args, **kwargs):
+            seen.append(str(statement))
+            return await execute(statement, *args, **kwargs)
+
+        monkeypatch.setattr(db, "execute", spy)
+        await resolve_card_query(db, parse_card_query(raw), read_scope=scope)
+        return seen
+
+    async def test_a_query_naming_no_card_loads_no_card(self, db, picks, monkeypatch):
+        raw = _q("Organization", _hop(USES, "Application", where={"subtype": ["micro"]}))
+        for scope in (None, CardReadScope.everything()):
+            seen = await self._statements(db, monkeypatch, raw, scope)
+            assert len(seen) == 2
+            assert not [s for s in seen if "FROM cards" in s]
+            monkeypatch.undo()
+
+    async def test_the_evaluation_path_loads_no_card_even_with_picks(self, db, picks, monkeypatch):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"], CARD_1]}),
+            where={"cards": [picks["Corp"]]},
+        )
+        seen = await self._statements(db, monkeypatch, raw)
+        assert len(seen) == 2
+        assert not [s for s in seen if "FROM cards" in s]
+
+    async def test_every_card_in_the_tree_loads_in_one_query(self, db, picks, monkeypatch):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"], picks["Beta"]]}),
+            where={"cards": [picks["Corp"]]},
+        )
+        seen = await self._statements(db, monkeypatch, raw, CardReadScope.everything())
+        assert len(seen) == 3
+        loads = [s for s in seen if "FROM cards" in s]
+        assert len(loads) == 1
+        assert "status" not in loads[0]
+
+    @pytest.mark.parametrize("pick", ["missing", "not-a-uuid", "Corp", "Spook"])
+    async def test_the_evaluation_path_checks_no_pick(self, db, picks, pick):
+        """No scope, no check: the pick is kept (a non-UUID dropped) and it
+        is SQL that matches nothing."""
+        value = {"missing": CARD_1, "not-a-uuid": "Alpha"}.get(pick) or picks[pick]
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [value]}))
+        root = await resolve_card_query(db, parse_card_query(raw))
+        expected = [] if pick == "not-a-uuid" else [uuid.UUID(value)]
+        assert root.hops[0].node.card_ids == expected
+
+    async def test_a_trusted_pick_skips_the_scope_check_only(self, db, picks):
+        scope = await _reader_scope(db, "Application")
+        alpha = uuid.UUID(picks["Alpha"])
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Alpha"]]}))
+        root = await resolve_card_query(
+            db, parse_card_query(raw), read_scope=scope, trusted_card_ids=[alpha]
+        )
+        assert root.hops[0].node.card_ids == [alpha]
+        # Another hidden pick beside it is still refused.
+        both = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"], picks["Beta"]]}),
+        )
+        with pytest.raises(CardQueryError) as exc:
+            await resolve_card_query(
+                db, parse_card_query(both), read_scope=scope, trusted_card_ids=[alpha]
+            )
+        assert exc.value.code == "unknown_card"
+        # Trust never excuses a missing card or one of another type.
+        for value in (CARD_1, picks["Corp"]):
+            bad = _q("Organization", _hop(USES, "Application", where={"cards": [value]}))
+            with pytest.raises(CardQueryError) as exc:
+                await resolve_card_query(
+                    db,
+                    parse_card_query(bad),
+                    read_scope=scope,
+                    trusted_card_ids=[uuid.UUID(value)],
+                )
+            assert exc.value.code == "unknown_card"
+
+
+class TestDescendantsNeedAHierarchy:
+    async def test_on_a_type_without_hierarchy(self, db, picks):
+        raw = _q(
+            "Application",
+            _hop(
+                AFFECTS,
+                "Initiative",
+                where={"cards": [picks["Rocket"]], "include_descendants": True},
+            ),
+        )
+        assert await _code(db, raw) == "descendants_without_hierarchy"
+        assert await _write_code(db, raw) == "descendants_without_hierarchy"
+
+    async def test_on_an_application_once_it_has_no_hierarchy(self, db, picks):
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.has_hierarchy = False
+        await db.flush()
+        raw = _q(
+            "Organization",
+            _hop(
+                USES, "Application", where={"cards": [picks["Suite"]], "include_descendants": True}
+            ),
+        )
+        assert await _code(db, raw) == "descendants_without_hierarchy"
+        # Without the flag the same pick resolves.
+        off = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Suite"]]}))
+        root = await resolve_card_query(db, parse_card_query(off))
+        assert root.hops[0].node.card_ids == [uuid.UUID(picks["Suite"])]
+
+    async def test_on_the_start_card(self, db, picks):
+        ct = (await db.execute(select(CardType).where(CardType.key == "Organization"))).scalar_one()
+        ct.has_hierarchy = False
+        await db.flush()
+        raw = _q("Organization", where={"cards": [picks["Corp"]], "include_descendants": True})
+        assert await _code(db, raw) == "descendants_without_hierarchy"
+
+    async def test_on_a_hierarchical_type_resolves(self, db, picks):
+        raw = _q("Organization", where={"cards": [picks["Corp"]], "include_descendants": True})
+        root = await resolve_card_query(db, parse_card_query(raw))
+        assert root.include_descendants is True
+        assert root.card_ids == [uuid.UUID(picks["Corp"])]
+
+
+class TestCardPickSemantics:
+    async def test_orgs_using_one_of_the_picked_apps(self, db, picks):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"], picks["Beta"]]}),
+        )
+        assert await _names(db, raw) == {"Corp", "Team", "Child"}
+
+    async def test_a_pick_on_the_start_card(self, db, picks):
+        raw = _q("Organization", where={"cards": [picks["Corp"], picks["Zed"]]})
+        assert await _names(db, raw) == {"Corp", "Zed"}
+
+    async def test_a_start_pick_meets_the_chain(self, db, picks):
+        """Zed uses only the archived Old."""
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application"),
+            where={"cards": [picks["Corp"], picks["Zed"]]},
+        )
+        assert await _names(db, raw) == {"Corp"}
+
+    async def test_include_descendants_at_the_start(self, db, picks):
+        on = _q("Organization", where={"cards": [picks["Corp"]], "include_descendants": True})
+        assert await _names(db, on) == {"Corp", "Child", "Grand"}
+        off = _q("Organization", where={"cards": [picks["Corp"]]})
+        assert await _names(db, off) == {"Corp"}
+
+    async def test_include_descendants_from_a_middle_card(self, db, picks):
+        raw = _q("Organization", where={"cards": [picks["Child"]], "include_descendants": True})
+        assert await _names(db, raw) == {"Child", "Grand"}
+
+    async def test_include_descendants_at_a_hop(self, db, picks):
+        on = _q(
+            "Organization",
+            _hop(
+                USES, "Application", where={"cards": [picks["Suite"]], "include_descendants": True}
+            ),
+        )
+        assert await _names(db, on) == {"Team", "Grand"}
+        off = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Suite"]]}))
+        assert await _names(db, off) == set()
+
+    async def test_two_flagged_nodes_in_one_tree(self, db, picks):
+        """Corp's subtree is {Corp, Child, Grand}; Suite's users (through
+        Module) are {Team, Grand}: only Grand is in both."""
+        raw = _q(
+            "Organization",
+            _hop(
+                USES, "Application", where={"cards": [picks["Suite"]], "include_descendants": True}
+            ),
+            where={"cards": [picks["Corp"]], "include_descendants": True},
+        )
+        assert await _names(db, raw) == {"Grand"}
+
+    async def test_an_archived_pick_at_a_hop_matches_nothing(self, db, picks):
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Old"]]}))
+        assert await _names(db, raw) == set()
+
+    async def test_negate_with_cards(self, db, picks):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"cards": [picks["Alpha"]]}, negate=True),
+        )
+        assert await _names(db, raw) == PICK_ORGS - {"Corp", "Child"}
+
+    async def test_cards_and_another_condition_are_and(self, db, picks):
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                where={"cards": [picks["Alpha"], picks["Beta"]], "lifecycle_phase": ["plan"]},
+            ),
+        )
+        assert await _names(db, raw) == {"Team"}
+
+    async def test_a_pick_hidden_from_the_reader_narrows_by_the_hop_scope(self, db, picks):
+        scope = await _reader_scope(db, "Application")
+        raw = _q("Organization", _hop(USES, "Application", where={"cards": [picks["Alpha"]]}))
+        assert await _names(db, raw, scope) == set()
+        assert await _names(db, raw) == {"Corp", "Child"}
+
+    async def test_unknown_wrong_type_and_hidden_picks_read_alike(self, db, picks):
+        """No existence oracle: for a reader who cannot see Applications, a
+        pick naming no card, a card of another type and a hidden card give
+        the same answer — and at the start card, the same narrowed rows."""
+        scope = await _reader_scope(db, "Application")
+        answers = {}
+        for label, value in (
+            ("missing", CARD_1),
+            ("wrong type", picks["Corp"]),
+            ("hidden", picks["Alpha"]),
+            ("no uuid", "Alpha"),
+        ):
+            hop = _q("Organization", _hop(USES, "Application", where={"cards": [value]}))
+            negated = _q(
+                "Organization", _hop(USES, "Application", where={"cards": [value]}, negate=True)
+            )
+            answers[label] = (await _names(db, hop, scope), await _names(db, negated, scope))
+        assert all(a == (set(), PICK_ORGS) for a in answers.values())
+
+    async def test_unknown_and_wrong_type_start_picks_narrow_to_the_known_ones(self, db, picks):
+        for extra in (CARD_1, picks["Alpha"], "Alpha"):
+            raw = _q("Organization", where={"cards": [picks["Team"], extra]})
+            assert await _names(db, raw) == {"Team"}
+        for lone in (CARD_1, picks["Alpha"], "Alpha"):
+            raw = _q("Organization", where={"cards": [lone], "include_descendants": True})
+            assert await _names(db, raw) == set()
+
+    async def test_cards_compile_against_an_alias(self, db, picks):
+        start = aliased(Card)
+        raw = _q(
+            "Organization",
+            _hop(
+                USES, "Application", where={"cards": [picks["Suite"]], "include_descendants": True}
+            ),
+            where={"cards": [picks["Child"], picks["Team"]], "include_descendants": True},
+        )
+        clauses = await compile_card_query(
+            db, parse_card_query(raw), CardReadScope.everything(), start
+        )
+        rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Team", "Grand"}
 
 
 # ---------------------------------------------------------------------------

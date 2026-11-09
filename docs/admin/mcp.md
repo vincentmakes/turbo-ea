@@ -318,7 +318,7 @@ The server exposes 20 write tools, each annotated as **additive** (creates or ex
 
 `query_cards` answers a question that chains relations — "Organizations that use an Application whose lifecycle is Active, which is affected by an Initiative with status On Track" — in one call, and `save_inventory_view` keeps the same query as a saved inventory view. The view stores the query, not its results: the inventory runs it again every time someone opens the view, so the list stays current.
 
-A query is a small JSON object made of **keys only** — card type, relation type, field and option keys as `list_card_types` and `get_relation_types` return them, plus tag ids from `list_tag_groups`; never labels or card ids:
+A query is a small JSON object made of **keys only** — card type, relation type, field and option keys as `list_card_types` and `get_relation_types` return them; card ids only under `where.cards` and tag ids only under `where.tags`; never labels:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
 - Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
 - `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
 - `tags` takes tag ids from `list_tag_groups`, grouped by tag group: a card must carry at least one of the listed tags from **every** group named (alternatives within a group, AND across groups). A tag whose group does not apply to that hop's card type is refused with `tag_not_for_type`; an unknown id with `unknown_tag`.
-- Related cards count only when they are active and the user may read them: a card the user cannot see breaks the chain, exactly as it does in the web UI.
+- `cards` pins that node to the listed cards (alternatives): take their ids from `search_cards` or `resolve_card_refs`. Each should be a card of the node's own type. Running a query does not check the picks: an id that names no card, a card of another type or a card the user cannot read simply matches nothing. Saving a view does check them, and refuses such a pick with `unknown_card`. An archived card matches nothing at a hop. `include_descendants: true` widens each pick to every card beneath it through the parent link (sub-capabilities, child organizations); set without `cards` it is refused with `descendants_without_cards`, and on a card type that has no hierarchy with `descendants_without_hierarchy`. A card or tag id anywhere else in the query is refused with `query_holds_an_id`.
+- Related cards count only when they are active and the user may read them: a card the user cannot see breaks the chain, exactly as it does in the web UI. When a view is saved, a writer cannot pin a card hidden from them (`unknown_card`); a collaborator editing a view shared with them keeps the picks it already holds, even ones they cannot read. A reader opening a view whose picks include a card hidden from them is not refused — the hidden picks simply match nothing.
 
 Example — Organizations using an active Application that an Initiative with status *On Track* affects:
 
@@ -364,7 +367,7 @@ In the inventory, a view saved this way shows its chain as a readable path above
 Limitations:
 
 - At most **3 levels** of `related`, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side and nested together). A longer query is refused with `too_many_hops`.
-- No conditions on specific cards (tags are supported).
+- At most **50** picked cards per condition.
 - A text attribute matches its value **exactly** — there is no partial or case-insensitive match.
 - **`rollback_batch` cannot undo a saved view.** Saving a view records a mutation batch but publishes no event for the rollback to reverse; delete an unwanted view from the inventory's Saved Views instead.
 

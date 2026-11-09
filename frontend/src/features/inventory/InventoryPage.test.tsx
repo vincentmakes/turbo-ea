@@ -2647,7 +2647,7 @@ describe("InventoryPage query views", () => {
     expect(first.get("type")).toBe("Application");
 
     const strip = await screen.findByTestId("query-path-strip");
-    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    expect(await within(strip).findByText("Apps on live tech")).toBeInTheDocument();
     expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
   });
 
@@ -2718,7 +2718,7 @@ describe("InventoryPage query views", () => {
     renderWithLocation("/inventory?view=bm-q&group_by=lifecycle");
 
     const strip = await screen.findByTestId("query-path-strip");
-    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    expect(await within(strip).findByText("Apps on live tech")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith(
       "/bookmarks",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
@@ -2824,7 +2824,7 @@ describe("InventoryPage query views", () => {
     );
     renderWithLocation("/inventory?view=bm-missing");
     const strip = await screen.findByTestId("query-path-strip");
-    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    expect(await within(strip).findByText("Apps on live tech")).toBeInTheDocument();
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
     expect(JSON.parse(paramsOf(cardUrls()[0]).get("query")!)).toEqual(QUERY);
   });
@@ -2883,8 +2883,8 @@ describe("InventoryPage query views", () => {
     mockBookmarks([queryBookmark({ name: "Apps on retiring tech", query: NEW_QUERY })]);
     renderInventory();
     const strip = await screen.findByTestId("query-path-strip");
-    expect(within(strip).getByText("Apps on retiring tech")).toBeInTheDocument();
-    expect(within(strip).getByText(/Phase Out/)).toBeInTheDocument();
+    expect(await within(strip).findByText("Apps on retiring tech")).toBeInTheDocument();
+    expect(await within(strip).findByText(/Phase Out/)).toBeInTheDocument();
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
     expect(cardUrls().map((u) => JSON.parse(paramsOf(u).get("query")!))).toEqual(
       cardUrls().map(() => NEW_QUERY),

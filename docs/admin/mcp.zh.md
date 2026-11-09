@@ -318,7 +318,7 @@ MCP 服务器提供 **55 个工具**，分为两组：**35 个读取工具** 用
 
 `query_cards` 可以在一次调用中回答链式关系的问题——「使用生命周期为 Active 的应用程序、且该应用程序受状态为 On Track 的举措影响的组织」——而 `save_inventory_view` 会把同一查询保存为已保存的清单视图。视图保存的是查询而非结果：每次有人打开视图时，清单都会重新运行它，因此列表始终是最新的。
 
-查询是一个**仅由键**组成的小型 JSON 对象——卡片类型、关系类型、字段和选项的键，与 `list_card_types` 和 `get_relation_types` 返回的一致，以及来自 `list_tag_groups` 的标签 id；绝不使用标签文本或卡片 id：
+查询是一个**仅由键**组成的小型 JSON 对象——卡片类型、关系类型、字段和选项的键，与 `list_card_types` 和 `get_relation_types` 返回的一致；卡片 id 仅可出现在 `where.cards` 下，标签 id 仅可出现在 `where.tags` 下；绝不使用标签文本：
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - 当该类型的**任意一张**相关卡片满足其 `where`（及其自身嵌套的跳）时，该跳即匹配。`negate: true` 会将其变为「**没有**这样的卡片」。
 - 同一层级并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
 - `<key>__out` 和 `<key>__in` 用于选择把某卡片类型与自身相连的关系类型的一侧（该卡片是源或目标）。其他情况下使用普通键即可。
 - `tags` 接受来自 `list_tag_groups` 的标签 id，并按标签组分组：卡片必须在所列出的**每个**标签组中至少带有其中一个标签（组内为备选，组间为与）。若某标签所属的标签组不适用于该跳的卡片类型，会被拒绝并返回 `tag_not_for_type`；未知 id 则返回 `unknown_tag`。
-- 相关卡片仅在处于活动状态且用户有权读取时才计入：用户看不到的卡片会使链断开，与网页界面中的行为完全一致。
+- `cards` 将该节点固定到所列卡片（备选项）：其 id 取自 `search_cards` 或 `resolve_card_refs`。每张应为该节点自身类型的卡片。运行查询时不会检查这些选择：不对应任何卡片的 id、其他类型的卡片，或用户无权读取的卡片，只是不匹配任何内容。保存视图时则会检查，并以 `unknown_card` 拒绝这样的选择。已归档的卡片在跳中不匹配任何内容。`include_descendants: true` 会通过父级链接把每个选择扩展到其下的所有卡片（子能力、下级组织）；未设置 `cards` 时设置它会被 `descendants_without_cards` 拒绝，在没有层级的卡片类型上则被 `descendants_without_hierarchy` 拒绝。查询中其他任何位置出现的卡片 id 或标签 id 都会被 `query_holds_an_id` 拒绝。
+- 相关卡片仅在处于活动状态且用户有权读取时才计入：用户看不到的卡片会使链断开，与网页界面中的行为完全一致。保存视图时，有写入权限的用户无法固定对其隐藏的卡片（`unknown_card`）；编辑他人共享给自己的视图的协作者会保留其中已有的选择，即使其无权读取。读者打开一个所选卡片中包含对其隐藏的卡片的视图时不会被拒绝——被隐藏的选择只是不匹配任何内容。
 
 示例——使用某个活动应用程序、且该应用程序受状态为 *On Track* 的举措影响的组织：
 
@@ -364,7 +367,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 限制：
 
 - `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
-- 不支持针对特定卡片的条件（支持标签）。
+- 每个条件最多选择 **50** 张卡片。
 - 文本属性与其值**完全**匹配——不支持部分匹配或不区分大小写的匹配。
 - **`rollback_batch` 无法撤销已保存的视图。** 保存视图会记录一个变更批次，但不会发布可供回滚撤销的事件；请在清单的「已保存视图」中删除不需要的视图。
 

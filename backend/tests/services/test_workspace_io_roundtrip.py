@@ -680,6 +680,71 @@ async def test_bookmark_query_tags_follow_the_tag_and_an_unknown_one_is_dropped(
     }
 
 
+async def test_bookmark_query_cards_follow_the_card_and_an_unknown_one_is_dropped(db):
+    """A query view picking a card lands on the card's *new* id after the card
+    is re-created on import; a card id the bundle does not carry is dropped,
+    and ``include_descendants`` goes with a ``cards`` list left empty."""
+    from app.models.bookmark import Bookmark
+
+    user = await create_user(db, email="bm-qc@test.com", role="admin")
+    await create_card_type(db, key="Organization", label="Organization")
+    await create_card_type(db, key="Application", label="Application")
+    org = await create_card(db, card_type="Organization", name="Picked Org QC", user_id=user.id)
+    app = await create_card(db, card_type="Application", name="Picked App QC", user_id=user.id)
+    unknown = "12345678-1234-4234-8234-123456789abd"
+    bm = Bookmark(
+        user_id=user.id,
+        name="Picked Query View",
+        card_type="Organization",
+        filters={"types": ["Organization"]},
+        query={
+            "type": "Organization",
+            "where": {"cards": [str(org.id)], "include_descendants": True},
+            "related": [
+                {
+                    "relation": "relOrgToApp",
+                    "type": "Application",
+                    "where": {"cards": [unknown], "include_descendants": True},
+                },
+                {
+                    "relation": "relOrgToApp",
+                    "type": "Application",
+                    "where": {"cards": [unknown, str(app.id)]},
+                },
+            ],
+        },
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id, old_ids = bm.id, {org.id, app.id}
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.execute(delete(Card).where(Card.id.in_(old_ids)))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    new_org = (await db.execute(select(Card).where(Card.name == "Picked Org QC"))).scalar_one()
+    new_app = (await db.execute(select(Card).where(Card.name == "Picked App QC"))).scalar_one()
+    assert {new_org.id, new_app.id}.isdisjoint(old_ids)
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.query == {
+        "type": "Organization",
+        "where": {"cards": [str(new_org.id)], "include_descendants": True},
+        "related": [
+            {"relation": "relOrgToApp", "type": "Application"},
+            {
+                "relation": "relOrgToApp",
+                "type": "Application",
+                "where": {"cards": [str(new_app.id)]},
+            },
+        ],
+    }
+
+
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

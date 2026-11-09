@@ -791,6 +791,10 @@ export interface CardQueryWhere {
   attributes?: Record<string, string[]>;
   /** Tag ids: any tag of one tag group (OR), every group named (AND). */
   tags?: string[];
+  /** Card ids of the node's own type (at most 50): the node is one of these. */
+  cards?: string[];
+  /** A picked card also covers its descendants (`parent_id`); needs `cards`. */
+  include_descendants?: boolean;
 }
 
 /** One hop of a `CardQuery`: an EXISTS (or, with `negate`, NOT EXISTS) over a

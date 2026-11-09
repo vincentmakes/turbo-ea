@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { makeRelationType, makeTag, makeTagGroup } from "@/test/fixtures/metamodel";
 import type { CardQuery } from "@/types";
+import type { CardNameEntry } from "./useCardNames";
 import {
   MAX_CHAIN_DEPTH,
   appendHop,
+  cardNameLabel,
+  cardsChipLabel,
   chainNodes,
   conditionValues,
   draftProblem,
   facetToLifecycle,
   lifecycleToFacet,
+  pickedCardIds,
   rebuildChain,
   relationChoices,
   removeCondition,
   removeHopAt,
   setCondition,
+  setIncludeDescendants,
   setStartType,
   tagChipsByGroup,
   toggleNegate,
@@ -220,6 +225,11 @@ describe("draftProblem", () => {
     expect(draftProblem({ type: "", where: { subtype: [] } })).toBe("empty_type");
     expect(draftProblem({ type: "A", where: { subtype: [] } })).toBe("empty_values");
     expect(draftProblem({ type: "A", where: { tags: [] } })).toBe("empty_values");
+    expect(draftProblem({ type: "A", where: { cards: [] } })).toBe("empty_values");
+    expect(
+      draftProblem({ type: "A", related: [{ relation: "r", type: "B", where: { cards: [] } }] }),
+    ).toBe("empty_values");
+    expect(draftProblem({ type: "A", where: { cards: ["c1"] } })).toBeNull();
     expect(draftProblem({ type: "A", where: { attributes: { f: [] } } })).toBe("empty_values");
     expect(
       draftProblem({
@@ -280,5 +290,101 @@ describe("tagChipsByGroup", () => {
       { key: "__unknown__", label: "(unknown tag)", ids: ["gone"] },
     ]);
     expect(tagChipsByGroup([], [domain], "x")).toEqual([]);
+  });
+});
+
+describe("cards condition", () => {
+  it("sets picked cards on a node and reads them back", () => {
+    const q = setCondition(CHAIN, 1, "cards", ["a1", "a2"]);
+    expect(q.related![0].where).toEqual({ lifecycle_phase: ["active"], cards: ["a1", "a2"] });
+    expect(conditionValues(q.related![0].where, "cards")).toEqual(["a1", "a2"]);
+    expect(q.where).toEqual(CHAIN.where);
+  });
+
+  it("drops Include sub-cards with the cards it qualifies", () => {
+    const q: CardQuery = {
+      type: "Organization",
+      where: { approval_status: ["APPROVED"], cards: ["o1"], include_descendants: true },
+    };
+    expect(removeCondition(q, 0, "cards").where).toEqual({ approval_status: ["APPROVED"] });
+    const alone: CardQuery = { type: "Organization", where: { cards: ["o1"], include_descendants: true } };
+    expect(removeCondition(alone, 0, "cards")).toEqual({ type: "Organization" });
+    // Another condition's removal leaves the flag alone.
+    expect(removeCondition(q, 0, "approval_status").where).toEqual({
+      cards: ["o1"],
+      include_descendants: true,
+    });
+  });
+
+  it("turns Include sub-cards on and off, only where cards are picked", () => {
+    const picked = setCondition(CHAIN, 1, "cards", ["a1"]);
+    const on = setIncludeDescendants(picked, 1, true);
+    expect(on.related![0].where).toEqual({
+      lifecycle_phase: ["active"],
+      cards: ["a1"],
+      include_descendants: true,
+    });
+    expect(on.related![0].related).toEqual(CHAIN.related![0].related);
+    const off = setIncludeDescendants(on, 1, false);
+    expect(off.related![0].where).toEqual({ lifecycle_phase: ["active"], cards: ["a1"] });
+    expect(off).toEqual(picked);
+    // No picked cards on the node (or no such node): nothing changes.
+    expect(setIncludeDescendants(CHAIN, 1, true)).toBe(CHAIN);
+    expect(setIncludeDescendants(CHAIN, 0, true)).toBe(CHAIN);
+    expect(setIncludeDescendants(picked, 5, true)).toBe(picked);
+  });
+
+  it("collects the picked ids of every node, branches included, deduped in order", () => {
+    const q: CardQuery = {
+      type: "Organization",
+      where: { cards: ["o1", "o2"] },
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          where: { cards: ["a1", "o2"] },
+          related: [{ relation: "relInitiativeToApp", type: "Initiative", where: { cards: ["i1"] } }],
+        },
+        { relation: "relOrgToBC", type: "BusinessCapability", where: { cards: ["b1", "a1"] } },
+      ],
+    };
+    expect(pickedCardIds(q)).toEqual(["o1", "o2", "a1", "i1", "b1"]);
+    expect(pickedCardIds(CHAIN)).toEqual([]);
+    expect(pickedCardIds({ type: "" })).toEqual([]);
+  });
+
+  it("names one picked card: id while loading, hidden / unknown label, else its name", () => {
+    const labels = { hiddenCard: "(hidden card)", unknownCard: "(unknown card)" };
+    expect(cardNameLabel(undefined, "id-1", labels)).toBe("id-1");
+    expect(cardNameLabel({ kind: "hidden" }, "id-2", labels)).toBe("(hidden card)");
+    expect(cardNameLabel({ kind: "unknown" }, "id-3", labels)).toBe("(unknown card)");
+    expect(cardNameLabel({ kind: "card", name: "Alpha", type: "Application" }, "id-4", labels)).toBe(
+      "Alpha",
+    );
+  });
+
+  it("labels the chip with up to three names, +N, and the sub-cards suffix", () => {
+    const labels = {
+      cardsLabel: "Cards",
+      hiddenCard: "(hidden card)",
+      unknownCard: "(unknown card)",
+      subCards: "sub-cards",
+    };
+    const names = new Map<string, CardNameEntry>([
+      ["a", { kind: "card", name: "Alpha", type: "Application" }],
+      ["b", { kind: "card", name: "Beta", type: "Application" }],
+      ["h", { kind: "hidden" }],
+      ["u", { kind: "unknown" }],
+    ]);
+    expect(cardsChipLabel([], names, false, labels)).toBe("Cards");
+    expect(cardsChipLabel([], names, true, labels)).toBe("Cards · sub-cards");
+    expect(cardsChipLabel(["a", "b", "h"], names, false, labels)).toBe(
+      "Cards: Alpha, Beta, (hidden card)",
+    );
+    expect(cardsChipLabel(["a", "b", "u", "loading"], names, true, labels)).toBe(
+      "Cards: Alpha, Beta, (unknown card) +1 · sub-cards",
+    );
+    expect(cardsChipLabel(["loading", "a"], names, false, labels)).toBe("Cards: loading, Alpha");
+    expect(cardsChipLabel(["a", "b", "h"], names, false, labels, 2)).toBe("Cards: Alpha, Beta +1");
   });
 });

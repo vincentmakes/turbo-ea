@@ -318,7 +318,7 @@ Der Server stellt 20 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (
 
 `query_cards` beantwortet eine Frage, die Beziehungen verkettet — „Organisationen, die eine Anwendung nutzen, deren Lebenszyklus Aktiv ist und von einer Initiative mit dem Status Im Plan betroffen ist" — in einem Aufruf, und `save_inventory_view` behält dieselbe Abfrage als gespeicherte Inventaransicht. Die Ansicht speichert die Abfrage, nicht ihre Ergebnisse: Das Inventar führt sie bei jedem Öffnen der Ansicht erneut aus, sodass die Liste aktuell bleibt.
 
-Eine Abfrage ist ein kleines JSON-Objekt, das **ausschließlich aus Schlüsseln** besteht — Kartentyp-, Beziehungstyp-, Feld- und Optionsschlüssel, wie `list_card_types` und `get_relation_types` sie liefern, dazu Tag-IDs aus `list_tag_groups`; niemals Bezeichnungen oder Karten-IDs:
+Eine Abfrage ist ein kleines JSON-Objekt, das **ausschließlich aus Schlüsseln** besteht — Kartentyp-, Beziehungstyp-, Feld- und Optionsschlüssel, wie `list_card_types` und `get_relation_types` sie liefern; Karten-IDs nur unter `where.cards` und Tag-IDs nur unter `where.tags`; niemals Bezeichnungen:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Ein Schritt trifft zu, wenn **irgendeine** verbundene Karte dieses Typs ihr `where` erfüllt (und ihre eigenen verschachtelten Schritte). `negate: true` macht daraus „hat **keine** solche Karte".
 - Schritte nebeneinander auf einer Ebene müssen alle zutreffen (UND); die Werte innerhalb einer Liste sind Alternativen (ODER).
 - `<key>__out` und `<key>__in` wählen eine Seite eines Beziehungstyps, der einen Kartentyp mit sich selbst verbindet (die Karte ist Quelle oder Ziel). Sonst genügt der einfache Schlüssel.
 - `tags` nimmt Tag-IDs aus `list_tag_groups`, nach Tag-Gruppe gruppiert: Eine Karte muss aus **jeder** genannten Gruppe mindestens eines der aufgeführten Tags tragen (Alternativen innerhalb einer Gruppe, UND über Gruppen hinweg). Ein Tag, dessen Gruppe für den Kartentyp dieses Schritts nicht gilt, wird mit `tag_not_for_type` abgelehnt; eine unbekannte ID mit `unknown_tag`.
-- Verbundene Karten zählen nur, wenn sie aktiv sind und der Benutzer sie lesen darf: Eine Karte, die der Benutzer nicht sehen darf, unterbricht die Kette — genau wie in der Weboberfläche.
+- `cards` legt diesen Knoten auf die aufgeführten Karten fest (Alternativen): Ihre IDs stammen aus `search_cards` oder `resolve_card_refs`. Jede sollte eine Karte des eigenen Typs des Knotens sein. Das Ausführen einer Abfrage prüft die Auswahl nicht: Eine ID, die keine Karte benennt, eine Karte eines anderen Typs oder eine Karte, die der Benutzer nicht lesen darf, trifft schlicht nichts. Das Speichern einer Ansicht prüft sie dagegen und lehnt eine solche Auswahl mit `unknown_card` ab. Eine archivierte Karte trifft bei einem Schritt nichts. `include_descendants: true` weitet jede Auswahl auf alle Karten darunter über die Eltern-Verknüpfung aus (Unter-Fähigkeiten, untergeordnete Organisationen); ohne `cards` gesetzt wird es mit `descendants_without_cards` abgelehnt, bei einem Kartentyp ohne Hierarchie mit `descendants_without_hierarchy`. Eine Karten- oder Tag-ID an jeder anderen Stelle der Abfrage wird mit `query_holds_an_id` abgelehnt.
+- Verbundene Karten zählen nur, wenn sie aktiv sind und der Benutzer sie lesen darf: Eine Karte, die der Benutzer nicht sehen darf, unterbricht die Kette — genau wie in der Weboberfläche. Beim Speichern einer Ansicht kann ein Schreibender keine Karte festlegen, die für ihn verborgen ist (`unknown_card`); ein Mitarbeitender, der eine mit ihm geteilte Ansicht bearbeitet, behält die bereits enthaltenen Auswahlen, auch solche, die er nicht lesen kann. Ein Lesender, der eine Ansicht öffnet, deren Auswahl eine für ihn verborgene Karte enthält, wird nicht abgelehnt — die verborgenen Auswahlen treffen schlicht nichts.
 
 Beispiel — Organisationen, die eine aktive Anwendung nutzen, von der eine Initiative mit dem Status *On Track* betroffen ist:
 
@@ -364,7 +367,7 @@ Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad übe
 Einschränkungen:
 
 - Höchstens **3 Ebenen** von `related`, höchstens 10 Schritte nebeneinander auf einer Ebene und höchstens **12 Schritte in der gesamten Abfrage** (nebeneinander und verschachtelt zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
-- Keine Bedingungen für bestimmte Karten (Tags werden unterstützt).
+- Höchstens **50** ausgewählte Karten pro Bedingung.
 - Ein Textattribut stimmt **exakt** mit seinem Wert überein — es gibt keinen Teil- oder Groß-/Kleinschreibung-unabhängigen Abgleich.
 - **`rollback_batch` kann eine gespeicherte Ansicht nicht rückgängig machen.** Das Speichern einer Ansicht erfasst einen Mutations-Batch, veröffentlicht aber kein Ereignis, das der Rollback umkehren könnte; löschen Sie eine unerwünschte Ansicht stattdessen unter „Gespeicherte Ansichten" im Inventar.
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import {
   makeCardType,
   makeField,
@@ -11,8 +11,35 @@ import {
   makeTag,
   makeTagGroup,
 } from "@/test/fixtures/metamodel";
-import type { ActiveQuery, QueryDraft, TagGroup, User } from "@/types";
+import type { ActiveQuery, Card, QueryDraft, TagGroup, User } from "@/types";
 import QueryPathStrip from "./QueryPathStrip";
+
+vi.mock("@/api/cardsByIds", () => ({ fetchCardsByIdsDetailed: vi.fn() }));
+// The picker is a whole card browser; the strip only needs what it applies.
+vi.mock("@/components/CardMultiPicker", () => ({
+  default: (props: {
+    open: boolean;
+    types?: string | string[];
+    onChange: (ids: string[], picked: { id: string; name: string; type: string }[]) => void;
+  }) =>
+    props.open ? (
+      <button
+        data-testid="card-multi-picker"
+        data-types={String(props.types)}
+        onClick={() =>
+          props.onChange(
+            ["app-1", "app-2"],
+            [
+              { id: "app-1", name: "Alpha", type: "Application" },
+              { id: "app-2", name: "Beta", type: "Application" },
+            ],
+          )
+        }
+      >
+        apply-picker
+      </button>
+    ) : null,
+}));
 
 vi.mock("@/hooks/useMetamodel", () => import("@/test/hooks").then((m) => m.useMetamodelModule()));
 vi.mock("@/hooks/useIsRtl", () => import("@/test/hooks").then((m) => m.useIsRtlModule()));
@@ -24,9 +51,17 @@ vi.mock("@/hooks/AuthContext", async () => {
 });
 
 import { hookState, withMetamodel } from "@/test/hooks";
+import { fetchCardsByIdsDetailed } from "@/api/cardsByIds";
+
+const fetchCards = vi.mocked(fetchCardsByIdsDetailed);
 
 // Labels deliberately differ from keys, so a key leaking into the strip fails.
-const ORG = makeCardType({ key: "Organization", label: "Org Unit", icon: "corporate_fare" });
+const ORG = makeCardType({
+  key: "Organization",
+  label: "Org Unit",
+  icon: "corporate_fare",
+  has_hierarchy: true,
+});
 const APP = makeCardType({
   key: "Application",
   label: "Business App",
@@ -152,6 +187,8 @@ const VIEW: ActiveQuery = {
 };
 
 beforeEach(() => {
+  fetchCards.mockReset();
+  fetchCards.mockResolvedValue({ cards: [], withheldIds: [] });
   hookState.reset();
   hookState.auth.user = MEMBER;
   withMetamodel(
@@ -456,7 +493,13 @@ describe("QueryPathStrip — edit mode", () => {
   it("offers each condition once, subtypes and tags only where they apply", () => {
     renderEditor({ query: { type: "Initiative", where: { approval_status: ["DRAFT"] } }, viewId: null });
     fireEvent.click(screen.getByTestId("query-path-add-condition"));
-    expect(menuLabels()).toEqual(["Lifecycle", "Subtype", "Tags", "Delivery Status"]);
+    expect(menuLabels()).toEqual([
+      "Lifecycle",
+      "Subtype",
+      "Tags",
+      "Specific cards",
+      "Delivery Status",
+    ]);
   });
 
   it("leaves out tags when no group with tags applies to the type", () => {
@@ -465,6 +508,7 @@ describe("QueryPathStrip — edit mode", () => {
     expect(menuLabels()).toEqual([
       "Lifecycle",
       "Approval Status",
+      "Specific cards",
       "Business Criticality",
       "Cloud hosted",
     ]);
@@ -564,5 +608,139 @@ describe("QueryPathStrip — edit mode", () => {
     unmount();
     renderEditor({ query: { type: "Application" }, viewId: null }, { error: "brand_new_code" });
     expect(screen.getByRole("alert")).toHaveTextContent("brand_new_code");
+  });
+});
+
+describe("QueryPathStrip — specific cards", () => {
+  const card = (id: string, name: string, type = "Application") => ({ id, name, type }) as Card;
+
+  const PICKED: ActiveQuery = {
+    viewId: "bm-c",
+    name: "Picked",
+    createdVia: "web",
+    query: {
+      type: "Organization",
+      where: { cards: ["o1", "o2", "o3", "o4"], include_descendants: true },
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          where: { cards: ["a1", "o2"] },
+          related: [{ relation: "relInitiativeToApp", type: "Initiative", where: { cards: ["i1"] } }],
+        },
+        { relation: "relOrgToApp", type: "Application", where: { cards: ["a2", "gone"] } },
+      ],
+    },
+  };
+
+  const chipLabels = () =>
+    Array.from(screen.getByTestId("query-path-strip").querySelectorAll(".MuiChip-label")).map(
+      (el) => el.textContent,
+    );
+
+  it("names every node's picks with one fetch for the union", async () => {
+    fetchCards.mockResolvedValue({
+      cards: [
+        card("o1", "Corp", "Organization"),
+        card("o2", "Sales Org", "Organization"),
+        card("o3", "Zed", "Organization"),
+        card("o4", "Yonder", "Organization"),
+        card("a1", "Alpha"),
+        card("i1", "Initiative X", "Initiative"),
+      ],
+      withheldIds: ["a2"],
+    });
+    render(<QueryPathStrip view={PICKED} onLeave={() => {}} />);
+    await waitFor(() =>
+      expect(screen.getByText("Cards: Corp, Sales Org, Zed +1 · sub-cards")).toBeInTheDocument(),
+    );
+    expect(fetchCards).toHaveBeenCalledTimes(1);
+    expect(fetchCards.mock.calls[0][0]).toEqual(["a1", "a2", "gone", "i1", "o1", "o2", "o3", "o4"]);
+    expect(chipLabels()).toEqual([
+      "Org Unit",
+      "Cards: Corp, Sales Org, Zed +1 · sub-cards",
+      "Business App",
+      "Cards: Alpha, Sales Org",
+      "Change Initiative",
+      "Cards: Initiative X",
+      "Business App",
+      "Cards: (hidden card), (unknown card)",
+    ]);
+  });
+
+  it("shows the ids while the names load, and fetches nothing without picks", async () => {
+    fetchCards.mockReturnValue(new Promise(() => {}));
+    const { unmount } = render(
+      <QueryPathStrip
+        view={{ ...PICKED, query: { type: "Application", where: { cards: ["a1"] } } }}
+        onLeave={() => {}}
+      />,
+    );
+    expect(screen.getByText("Cards: a1")).toBeInTheDocument();
+    unmount();
+    fetchCards.mockClear();
+
+    render(<QueryPathStrip view={VIEW} onLeave={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Org Unit")).toBeInTheDocument());
+    expect(fetchCards).not.toHaveBeenCalled();
+  });
+
+  it("adds the condition, picks cards in the picker, and writes them to the draft", async () => {
+    fetchCards.mockResolvedValue({ cards: [card("app-1", "Alpha"), card("app-2", "Beta")], withheldIds: [] });
+    const { drafts, last } = renderEditor({
+      query: { type: "Organization", related: [{ relation: "relOrgToApp", type: "Application" }] },
+      viewId: null,
+    });
+    addCondition("Specific cards", 1);
+    expect(last().query.related![0].where).toEqual({ cards: [] });
+    expect(drafts).toHaveLength(1);
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+    // Application has no hierarchy here: no sub-cards switch.
+    expect(screen.queryByTestId("query-cards-subcards")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("query-cards-pick"));
+    expect(screen.getByTestId("card-multi-picker")).toHaveAttribute("data-types", "Application");
+    fireEvent.click(screen.getByTestId("card-multi-picker"));
+    expect(last()).toEqual({
+      query: {
+        type: "Organization",
+        related: [{ relation: "relOrgToApp", type: "Application", where: { cards: ["app-1", "app-2"] } }],
+      },
+      viewId: null,
+    });
+    expect(screen.getByTestId("query-path-save")).toBeEnabled();
+    await waitFor(() =>
+      expect(screen.getAllByText("Cards: Alpha, Beta", { selector: ".MuiChip-label" })).toHaveLength(1),
+    );
+    expect(fetchCards).toHaveBeenCalledTimes(1);
+    expect(fetchCards.mock.calls[0][0]).toEqual(["app-1", "app-2"]);
+    expect(screen.getAllByTestId("query-cards-chip").map((c) => c.textContent)).toEqual([
+      "Alpha",
+      "Beta",
+    ]);
+  });
+
+  it("turns Include sub-cards on for a hierarchy type and drops it with the condition", () => {
+    const { last } = renderEditor({
+      query: { type: "Organization", where: { cards: ["o1"] } },
+      viewId: null,
+    });
+    fireEvent.click(screen.getByText("Cards: o1"));
+    fireEvent.click(within(screen.getByTestId("query-cards-subcards")).getByRole("checkbox"));
+    expect(last().query).toEqual({
+      type: "Organization",
+      where: { cards: ["o1"], include_descendants: true },
+    });
+    expect(screen.getByText("Cards: o1 · sub-cards", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    deleteChip("Cards: o1 · sub-cards");
+    expect(last().query).toEqual({ type: "Organization" });
+  });
+
+  it("drops a cards condition closed before anything was picked", () => {
+    const { last } = renderEditor({ query: { type: "Organization" }, viewId: null });
+    addCondition("Specific cards");
+    expect(screen.getByText("Cards", { selector: ".MuiChip-label" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    expect(last()).toEqual({ query: { type: "Organization" }, viewId: null });
   });
 });

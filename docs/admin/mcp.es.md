@@ -318,7 +318,7 @@ El servidor expone 20 herramientas de escritura, cada una anotada como **aditiva
 
 `query_cards` responde en una sola llamada a una pregunta que encadena relaciones — «Organizaciones que usan una Aplicación cuyo ciclo de vida es Activo y a la que afecta una Iniciativa con estado En plazo» — y `save_inventory_view` conserva la misma consulta como vista de inventario guardada. La vista almacena la consulta, no sus resultados: el inventario la vuelve a ejecutar cada vez que alguien abre la vista, de modo que la lista se mantiene actualizada.
 
-Una consulta es un pequeño objeto JSON formado **solo por claves** — claves de tipo de ficha, de tipo de relación, de campo y de opción tal como las devuelven `list_card_types` y `get_relation_types`, además de los ids de etiqueta de `list_tag_groups`; nunca etiquetas ni identificadores de ficha:
+Una consulta es un pequeño objeto JSON formado **solo por claves** — claves de tipo de ficha, de tipo de relación, de campo y de opción tal como las devuelven `list_card_types` y `get_relation_types`; ids de ficha solo bajo `where.cards` e ids de etiqueta solo bajo `where.tags`; nunca etiquetas de texto:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Un salto coincide cuando **cualquier** ficha relacionada de ese tipo cumple su `where` (y sus propios saltos anidados). `negate: true` lo convierte en «**no** tiene ninguna ficha así».
 - Los saltos en paralelo en un mismo nivel deben coincidir todos (Y); los valores dentro de una lista son alternativas (O).
 - `<key>__out` y `<key>__in` eligen un lado de un tipo de relación que enlaza un tipo de ficha consigo mismo (la ficha es el origen o el destino). En los demás casos basta la clave simple.
 - `tags` recibe ids de etiqueta de `list_tag_groups`, agrupados por grupo de etiquetas: una ficha debe llevar al menos una de las etiquetas indicadas de **cada** grupo mencionado (alternativas dentro de un grupo, Y entre grupos). Una etiqueta cuyo grupo no se aplica al tipo de ficha de ese salto se rechaza con `tag_not_for_type`; un id desconocido, con `unknown_tag`.
-- Las fichas relacionadas solo cuentan si están activas y el usuario puede leerlas: una ficha que el usuario no puede ver rompe la cadena, exactamente como en la interfaz web.
+- `cards` fija ese nodo a las fichas indicadas (alternativas): tome sus ids de `search_cards` o `resolve_card_refs`. Cada una debería ser una ficha del tipo propio del nodo. Ejecutar una consulta no comprueba las selecciones: un id que no nombra ninguna ficha, una ficha de otro tipo o una ficha que el usuario no puede leer simplemente no coincide con nada. Guardar una vista sí las comprueba y rechaza una selección así con `unknown_card`. Una ficha archivada no coincide con nada en un salto. `include_descendants: true` amplía cada selección a todas las fichas que cuelgan de ella mediante el vínculo de padre (subcapacidades, organizaciones hijas); si se indica sin `cards`, se rechaza con `descendants_without_cards`, y en un tipo de ficha sin jerarquía con `descendants_without_hierarchy`. Un id de ficha o de etiqueta en cualquier otro lugar de la consulta se rechaza con `query_holds_an_id`.
+- Las fichas relacionadas solo cuentan si están activas y el usuario puede leerlas: una ficha que el usuario no puede ver rompe la cadena, exactamente como en la interfaz web. Al guardar una vista, un usuario con permiso de escritura no puede fijar una ficha que le está oculta (`unknown_card`); un colaborador que edita una vista compartida con él conserva las selecciones que ya contiene, incluso las que no puede leer. Un lector que abre una vista cuyas selecciones incluyen una ficha que le está oculta no es rechazado: las selecciones ocultas simplemente no coinciden con nada.
 
 Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una Iniciativa con estado *On Track*:
 
@@ -364,7 +367,7 @@ En el inventario, una vista guardada así muestra su cadena como una ruta legibl
 Limitaciones:
 
 - Como máximo **3 niveles** de `related`, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
-- Sin condiciones sobre fichas concretas (las etiquetas sí se admiten).
+- Como máximo **50** fichas seleccionadas por condición.
 - Un atributo de texto coincide **exactamente** con su valor — no hay coincidencia parcial ni insensible a mayúsculas.
 - **`rollback_batch` no puede deshacer una vista guardada.** Guardar una vista registra un lote de mutaciones pero no publica ningún evento que la reversión pueda deshacer; elimine una vista no deseada desde las Vistas guardadas del inventario.
 

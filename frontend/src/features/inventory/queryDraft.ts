@@ -9,6 +9,7 @@
 import { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import { expandSides, sideKey } from "@/lib/relationSort";
 import type { CardQuery, CardQueryHop, CardQueryWhere, RelationType, TagGroup } from "@/types";
+import type { CardNameEntry } from "./useCardNames";
 
 /** The most hops a chain may hold below its start card (the backend's MAX_DEPTH). */
 export const MAX_CHAIN_DEPTH = 3;
@@ -33,6 +34,7 @@ export type ConditionKind =
   | "subtype"
   | "approval_status"
   | "tags"
+  | "cards"
   | { attribute: string };
 
 /** Why a draft cannot be saved (or sent), or null when it can. */
@@ -147,6 +149,8 @@ function withCondition(
     next[kind] = values;
   } else {
     delete next[kind];
+    // "Include sub-cards" qualifies the picked cards; it goes with them.
+    if (kind === "cards") delete next.include_descendants;
   }
   return Object.keys(next).length > 0 ? next : undefined;
 }
@@ -177,6 +181,21 @@ export function removeCondition(query: CardQuery, index: number, kind: Condition
   return mapNode(query, index, (n) => setWhere(n, withCondition(n.where, kind, null)));
 }
 
+/**
+ * Turns "Include sub-cards" on or off for node `index`. A no-op on a node
+ * without picked cards: the flag means nothing (and is refused) without them.
+ */
+export function setIncludeDescendants(query: CardQuery, index: number, on: boolean): CardQuery {
+  const node = chainNodes(query)[index];
+  if (!node?.where?.cards) return query;
+  return mapNode(query, index, (n) => {
+    const where: CardQueryWhere = { ...n.where };
+    if (on) where.include_descendants = true;
+    else delete where.include_descendants;
+    return setWhere(n, where);
+  });
+}
+
 /** Lifecycle values as the facet control holds them (`none` → the empty key). */
 export function lifecycleToFacet(values: string[]): string[] {
   return values.map((v) => (v === LIFECYCLE_NONE ? EMPTY_FILTER_KEY : v));
@@ -194,6 +213,7 @@ function whereHasEmptyList(where: CardQueryWhere | undefined): boolean {
     where.subtype,
     where.approval_status,
     where.tags,
+    where.cards,
     ...Object.values(where.attributes ?? {}),
   ];
   return lists.some((l) => l !== undefined && l.length === 0);
@@ -271,4 +291,67 @@ export function tagChipsByGroup(
   }));
   if (unknown.length > 0) chips.push({ key: "__unknown__", label: unknownLabel, ids: unknown });
   return chips;
+}
+
+/**
+ * Every card id the query picks, on every node — branch hops beside the chain
+ * included — deduped in the order they first appear (start node first, then
+ * each node's hops depth-first).
+ */
+export function pickedCardIds(query: CardQuery): string[] {
+  const seen = new Set<string>();
+  const visit = (where: CardQueryWhere | undefined, hops: CardQueryHop[] | undefined) => {
+    for (const id of where?.cards ?? []) seen.add(id);
+    for (const hop of hops ?? []) visit(hop.where, hop.related);
+  };
+  visit(query.where, query.related);
+  return [...seen];
+}
+
+/** The translated words `cardsChipLabel` puts together. */
+export interface CardsChipLabels {
+  /** The condition's name, "Cards". */
+  cardsLabel: string;
+  hiddenCard: string;
+  unknownCard: string;
+  /** The suffix naming "Include sub-cards", "sub-cards". */
+  subCards: string;
+}
+
+/**
+ * What one picked card is called wherever the query names it (the strip's
+ * chip, the cards editor's chips, the picker's basket): its id while it is
+ * still loading, the "(hidden card)" / "(unknown card)" label when it is
+ * withheld from the reader or gone, else its name.
+ */
+export function cardNameLabel(
+  entry: CardNameEntry | undefined,
+  id: string,
+  labels: Pick<CardsChipLabels, "hiddenCard" | "unknownCard">,
+): string {
+  if (!entry) return id;
+  if (entry.kind === "card") return entry.name;
+  return entry.kind === "hidden" ? labels.hiddenCard : labels.unknownCard;
+}
+
+/**
+ * A cards condition as one chip label: `"Cards: A, B, C +N"`, plus
+ * `" · sub-cards"` when the picks cover their descendants. A card still
+ * loading shows its id; one withheld from the reader, or gone, says so.
+ */
+export function cardsChipLabel(
+  ids: string[],
+  names: Map<string, CardNameEntry>,
+  includeDescendants: boolean,
+  labels: CardsChipLabels,
+  max = 3,
+): string {
+  let label = labels.cardsLabel;
+  if (ids.length > 0) {
+    const shown = ids.slice(0, max).map((id) => cardNameLabel(names.get(id), id, labels));
+    label += `: ${shown.join(", ")}`;
+    if (ids.length > max) label += ` +${ids.length - max}`;
+  }
+  if (includeDescendants) label += ` · ${labels.subCards}`;
+  return label;
 }

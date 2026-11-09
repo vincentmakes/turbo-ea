@@ -740,56 +740,91 @@ def rewrite_portal_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTall
     return tally
 
 
-def rewrite_card_query_tags(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
-    """A saved view's multi-hop ``query`` (``card_query.CardQuery``) with the
-    tag ids under ``where.tags`` translated, at the start card and every hop.
+def _map_query_ids(values: list[Any], kind: str, ids: IdMap, tally: RewriteTally) -> list[str]:
+    """``values`` through the ``kind`` id map; an id it does not know is
+    counted ``unresolved`` and dropped."""
+    kept: list[str] = []
+    for value in values:
+        target = ids.lookup(kind, value)
+        if target is None:
+            tally.bump(UNRESOLVED)
+            continue
+        if target != canonical_uuid(value):
+            tally.bump(REMAPPED)
+        kept.append(target)
+    return kept
 
-    The tags are the grammar's only ids (everything else is a metamodel key).
-    A tag id the map does not know — or a value that is no id at all — is
-    counted ``unresolved`` and **dropped**, not kept: the target would refuse
-    the whole view on open (``unknown_tag``), while a dropped tag only widens
-    that one hop. A ``tags`` list left empty is removed, and a ``where`` left
-    empty with it. Not ``replace_mapped_ids``: that walk can neither count an
-    unknown id nor drop it. Anything malformed comes back untouched.
+
+def rewrite_card_query_ids(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """A saved view's multi-hop ``query`` (``card_query.CardQuery``) with the
+    ids under ``where.tags`` (the tag map) and ``where.cards`` (the card map)
+    translated, at the start card and every hop.
+
+    Those are the grammar's only ids (everything else is a metamodel key). An
+    id the map does not know — or a value that is no id at all — is counted
+    ``unresolved`` and **dropped**, not kept: kept, it would point at nothing
+    on the target. A list left empty is removed — for ``cards`` together with
+    ``include_descendants``, which needs it — and a ``where`` left empty with
+    it. What that does to the view depends on the hop, and the rule is that
+    the view may widen but never silently narrow: a dropped pick on a
+    positive hop (or the start card) only loosens that node's condition,
+    while a **negated** hop whose ``cards`` lose every pick is removed whole,
+    subtree included — left in place it would read "has no card of that type
+    at all", far narrower than "has none of these cards". Not
+    ``replace_mapped_ids``: that walk can neither count an unknown id nor
+    drop it. Anything malformed comes back untouched.
     """
+    return _rewrite_query_node(node, ids, tally, is_hop=False)
+
+
+#: A hop ``_rewrite_query_node`` removes from its parent's ``related``.
+_DROP = object()
+
+
+def _rewrite_query_node(node: Any, ids: IdMap, tally: RewriteTally, *, is_hop: bool) -> Any:
+    """``node`` rewritten, or ``_DROP`` for a negated hop left with no pick."""
     if not isinstance(node, dict):
         return node
     out = dict(node)
     where = out.get("where")
-    if isinstance(where, dict) and isinstance(where.get("tags"), list):
-        kept: list[str] = []
-        for value in where["tags"]:
-            target = ids.lookup(TAGS, value)
-            if target is None:
-                tally.bump(UNRESOLVED)
-                continue
-            if target != canonical_uuid(value):
-                tally.bump(REMAPPED)
-            kept.append(target)
+    if isinstance(where, dict) and any(isinstance(where.get(k), list) for k in ("tags", "cards")):
         new_where = dict(where)
-        if kept:
-            new_where["tags"] = kept
-        else:
-            del new_where["tags"]
+        for key, kind in (("tags", TAGS), ("cards", CARDS)):
+            if not isinstance(where.get(key), list):
+                continue
+            kept = _map_query_ids(where[key], kind, ids, tally)
+            if kept:
+                new_where[key] = kept
+                continue
+            if key == "cards" and is_hop and out.get("negate") is True:
+                return _DROP
+            del new_where[key]
+            if key == "cards":
+                new_where.pop("include_descendants", None)
         if new_where:
             out["where"] = new_where
         else:
             del out["where"]
     related = out.get("related")
     if isinstance(related, list):
-        out["related"] = [rewrite_card_query_tags(hop, ids, tally) for hop in related]
+        hops = [_rewrite_query_node(hop, ids, tally, is_hop=True) for hop in related]
+        kept_hops = [hop for hop in hops if hop is not _DROP]
+        if kept_hops or not related:
+            out["related"] = kept_hops
+        else:
+            del out["related"]
     return out
 
 
 def rewrite_bookmark_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
     """A bookmark's relation filters hold card *names*, which travel as they
-    are; its tag filter holds ids, and so does its multi-hop ``query`` (tag ids
-    only, ``rewrite_card_query_tags``)."""
+    are; its tag filter holds ids, and so does its multi-hop ``query`` (tag
+    and card ids, ``rewrite_card_query_ids``)."""
     tally = RewriteTally()
     if "filters" in kwargs:
         kwargs["filters"] = _rewrite_filter_keys(kwargs["filters"], (), ("tagIds",), ctx.ids, tally)
     if "query" in kwargs:
-        kwargs["query"] = rewrite_card_query_tags(kwargs["query"], ctx.ids, tally)
+        kwargs["query"] = rewrite_card_query_ids(kwargs["query"], ctx.ids, tally)
     return tally
 
 

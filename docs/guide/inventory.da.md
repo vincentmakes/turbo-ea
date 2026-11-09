@@ -241,7 +241,7 @@ En **forespørgselsvisning** er en gemt visning, hvis filtre er en **forespørgs
 
 1. Klik på startchippen (*Vælg en type*), og vælg den korttype, visningen lister.
 2. Klik på **+ relation** efter det sidste kort for at tilføje et led. Menuen lister hvert relationsverbum med den korttype, det fører til; en relation mellem kort af samme type tilbydes i begge retninger. En forespørgsel er en enkelt kæde på op til tre led.
-3. Klik på **+ betingelse** under et kort for at indsnævre det: **Livscyklus**, **Undertyper**, **Godkendelsesstatus**, **Tags** eller et valg- eller ja/nej-felt for den korttype. For tags matcher et kort, hvis det har et vilkårligt af de valgte tags i en gruppe, og det skal matche hver gruppe, du tilføjer; kun taggrupper, der gælder for den korttype, tilbydes.
+3. Klik på **+ betingelse** under et kort for at indsnævre det: **Livscyklus**, **Undertyper**, **Godkendelsesstatus**, **Tags**, **Bestemte kort** eller et valg- eller ja/nej-felt for den korttype. For tags matcher et kort, hvis det har et vilkårligt af de valgte tags i en gruppe, og det skal matche hver gruppe, du tilføjer; kun taggrupper, der gælder for den korttype, tilbydes. **Bestemte kort** åbner kortvælgeren for kort af den type, og trinnet matcher så kun de valgte kort; for en hierarkisk korttype får en kontakt **Medtag underkort** også kortene under hvert valg til at matche. Et valgt kort, du ikke kan se, vises som *(skjult kort)*.
 4. Klik på **Gem**. Den sædvanlige dialog til at gemme visninger åbnes med navn, synlighed, deling og OData-indstilling. **Annullér** kasserer forespørgslen.
 
 ![Opbygning af en forespørgselsvisning](../assets/img/da/98e_inventory_query_builder.png)

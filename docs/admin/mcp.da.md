@@ -318,7 +318,7 @@ Serveren eksponerer 20 skriveværktøjer, hver annoteret som **additiv** (oprett
 
 `query_cards` besvarer i ét kald et spørgsmål, der kæder relationer sammen — «Organisationer, der bruger en Applikation med livscyklus Aktiv, som berøres af et Initiativ med status On Track» — og `save_inventory_view` gemmer den samme forespørgsel som en gemt inventarvisning. Visningen gemmer forespørgslen, ikke dens resultater: Inventaret kører den igen, hver gang nogen åbner visningen, så listen altid er opdateret.
 
-En forespørgsel er et lille JSON-objekt, der består **udelukkende af nøgler** — nøgler til korttype, relationstype, felt og valgmulighed, som `list_card_types` og `get_relation_types` returnerer dem, samt tag-id'er fra `list_tag_groups`; aldrig etiketter eller kort-id'er:
+En forespørgsel er et lille JSON-objekt, der består **udelukkende af nøgler** — nøgler til korttype, relationstype, felt og valgmulighed, som `list_card_types` og `get_relation_types` returnerer dem; kort-id'er kun under `where.cards` og tag-id'er kun under `where.tags`; aldrig etiketter:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Et led matcher, når **et vilkårligt** relateret kort af den type opfylder sit `where` (og sine egne indlejrede led). `negate: true` gør det til «har **intet** sådant kort».
 - Led side om side på samme niveau skal alle matche (OG); værdierne i én liste er alternativer (ELLER).
 - `<key>__out` og `<key>__in` vælger en side af en relationstype, der forbinder en korttype med sig selv (kortet er kilden eller målet). Ellers er den almindelige nøgle nok.
 - `tags` tager tag-id'er fra `list_tag_groups`, grupperet efter taggruppe: Et kort skal bære mindst ét af de anførte tags fra **hver** nævnt gruppe (alternativer inden for en gruppe, OG på tværs af grupper). Et tag, hvis gruppe ikke gælder for ledets korttype, afvises med `tag_not_for_type`; et ukendt id med `unknown_tag`.
-- Relaterede kort tæller kun med, når de er aktive, og brugeren må læse dem: Et kort, brugeren ikke kan se, bryder kæden, præcis som i webgrænsefladen.
+- `cards` fastlåser den node til de anførte kort (alternativer): tag deres id'er fra `search_cards` eller `resolve_card_refs`. Hvert skal være et kort af nodens egen type. Kørsel af en forespørgsel kontrollerer ikke valgene: et id, der ikke navngiver noget kort, et kort af en anden type eller et kort, brugeren ikke må læse, matcher blot ingenting. Gemning af en visning kontrollerer dem og afviser et sådant valg med `unknown_card`. Et arkiveret kort matcher ingenting i et led. `include_descendants: true` udvider hvert valg til alle kort under det via forælderlinket (underkapabiliteter, underordnede organisationer); sat uden `cards` afvises det med `descendants_without_cards`, og på en korttype uden hierarki med `descendants_without_hierarchy`. Et kort- eller tag-id andre steder i forespørgslen afvises med `query_holds_an_id`.
+- Relaterede kort tæller kun med, når de er aktive, og brugeren må læse dem: Et kort, brugeren ikke kan se, bryder kæden, præcis som i webgrænsefladen. Når en visning gemmes, kan en skriver ikke fastlåse et kort, der er skjult for vedkommende (`unknown_card`); en samarbejdspartner, der redigerer en visning delt med vedkommende, beholder de valg, den allerede rummer, også dem vedkommende ikke kan læse. En læser, der åbner en visning, hvis valg inkluderer et kort skjult for vedkommende, afvises ikke — de skjulte valg matcher blot ingenting.
 
 Eksempel — Organisationer, der bruger en aktiv Applikation, som berøres af et Initiativ med status *On Track*:
 
@@ -364,7 +367,7 @@ I inventaret viser en visning, der er gemt på denne måde, sin kæde som en læ
 Begrænsninger:
 
 - Højst **3 niveauer** af `related`, højst 10 led side om side på ét niveau og højst **12 led i hele forespørgslen** (side om side og indlejrede tilsammen). En længere forespørgsel afvises med `too_many_hops`.
-- Ingen betingelser på bestemte kort (tags understøttes).
+- Højst **50** valgte kort pr. betingelse.
 - En tekstattribut matcher sin værdi **præcist** — der er ingen delvis eller store/små-bogstavs-uafhængig matchning.
 - **`rollback_batch` kan ikke fortryde en gemt visning.** Når en visning gemmes, registreres en mutationsbatch, men der udsendes ingen hændelse, som tilbagerulningen kan vende; slet en uønsket visning fra inventarets Gemte visninger i stedet.
 

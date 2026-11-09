@@ -26,10 +26,10 @@ Reads only; never commits.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
-from sqlalchemy import ColumnElement, Text, and_, exists, false, func, not_, or_, select
+from sqlalchemy import CTE, ColumnElement, Text, and_, exists, false, func, not_, or_, select
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -305,17 +305,23 @@ def tag_conditions(
 # ---------------------------------------------------------------------------
 
 
+def descendant_cte(roots: Sequence[uuid.UUID]) -> CTE:
+    """A recursive CTE whose ``id`` column is every card beneath ``roots``,
+    any depth, any status — the roots themselves excluded. Anonymous, so two
+    of them can sit in one statement."""
+    # UNION, not UNION ALL: a card already reached is not walked again, which
+    # is also what stops a parent cycle a bad import might have written.
+    tree = select(Card.id).where(Card.parent_id.in_(list(roots))).cte(recursive=True)
+    child = aliased(Card)
+    return tree.union(select(child.id).where(child.parent_id == tree.c.id))
+
+
 async def descendant_ids(db: AsyncSession, roots: Iterable[uuid.UUID]) -> set[uuid.UUID]:
     """Every card beneath ``roots``, any depth, any status."""
     root_list = list(roots)
     if not root_list:
         return set()
-    # UNION, not UNION ALL: a card already reached is not walked again, which
-    # is also what stops a parent cycle a bad import might have written.
-    tree = select(Card.id).where(Card.parent_id.in_(root_list)).cte(recursive=True)
-    child = aliased(Card)
-    tree = tree.union(select(child.id).where(child.parent_id == tree.c.id))
-    rows = await db.execute(select(tree.c.id))
+    rows = await db.execute(select(descendant_cte(root_list).c.id))
     return set(rows.scalars().all())
 
 

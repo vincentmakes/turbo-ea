@@ -318,7 +318,7 @@ Le serveur expose 20 outils d'écriture, chacun annoté comme **additif** (crée
 
 `query_cards` répond en un seul appel à une question qui enchaîne des relations — « Organisations qui utilisent une Application dont le cycle de vie est Actif, affectée par une Initiative dont le statut est Dans les temps » — et `save_inventory_view` conserve la même requête comme vue d'inventaire enregistrée. La vue stocke la requête, pas ses résultats : l'inventaire la réexécute à chaque ouverture de la vue, de sorte que la liste reste à jour.
 
-Une requête est un petit objet JSON composé **uniquement de clés** — clés de type de fiche, de type de relation, de champ et d'option telles que les renvoient `list_card_types` et `get_relation_types`, ainsi que les identifiants de tag fournis par `list_tag_groups` ; jamais des libellés ni des identifiants de fiche :
+Une requête est un petit objet JSON composé **uniquement de clés** — clés de type de fiche, de type de relation, de champ et d'option telles que les renvoient `list_card_types` et `get_relation_types`; des identifiants de fiche uniquement sous `where.cards` et des identifiants de tag uniquement sous `where.tags` ; jamais des libellés :
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -328,14 +328,17 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               subtype?: [subtype key],
               approval_status?: [status],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
-              tags?: [tag id] }
+              tags?: [tag id],
+              cards?: [card id],
+              include_descendants?: true|false }
 ```
 
 - Un saut correspond lorsque **n'importe quelle** fiche liée de ce type satisfait son `where` (et ses propres sauts imbriqués). `negate: true` le transforme en « n'a **aucune** fiche de ce type ».
 - Les sauts côte à côte à un même niveau doivent tous correspondre (ET) ; les valeurs d'une même liste sont des alternatives (OU).
 - `<key>__out` et `<key>__in` choisissent un côté d'un type de relation qui relie un type de fiche à lui-même (la fiche est la source, ou la cible). Sinon, la clé simple suffit.
 - `tags` prend des identifiants de tag issus de `list_tag_groups`, regroupés par groupe de tags : une fiche doit porter au moins un des tags listés de **chaque** groupe nommé (alternatives au sein d'un groupe, ET entre les groupes). Un tag dont le groupe ne s'applique pas au type de fiche de ce saut est refusé avec `tag_not_for_type` ; un identifiant inconnu avec `unknown_tag`.
-- Les fiches liées ne comptent que si elles sont actives et que l'utilisateur peut les lire : une fiche que l'utilisateur ne peut pas voir rompt la chaîne, exactement comme dans l'interface web.
+- `cards` épingle ce nœud aux fiches listées (alternatives) : prenez leurs identifiants dans `search_cards` ou `resolve_card_refs`. Chacune doit être une fiche du type propre au nœud. L'exécution d'une requête ne vérifie pas ces choix : un identifiant qui ne désigne aucune fiche, une fiche d'un autre type ou une fiche que l'utilisateur ne peut pas lire ne correspond simplement à rien. L'enregistrement d'une vue les vérifie, lui, et refuse un tel choix avec `unknown_card`. Une fiche archivée ne correspond à rien à un saut. `include_descendants: true` étend chaque choix à toutes les fiches situées en dessous par le lien parent (sous-capacités, organisations enfants) ; défini sans `cards`, il est refusé avec `descendants_without_cards`, et sur un type de fiche sans hiérarchie avec `descendants_without_hierarchy`. Un identifiant de fiche ou de tag ailleurs dans la requête est refusé avec `query_holds_an_id`.
+- Les fiches liées ne comptent que si elles sont actives et que l'utilisateur peut les lire : une fiche que l'utilisateur ne peut pas voir rompt la chaîne, exactement comme dans l'interface web. Lors de l'enregistrement d'une vue, un rédacteur ne peut pas épingler une fiche qui lui est masquée (`unknown_card`) ; un collaborateur qui modifie une vue partagée avec lui conserve les choix qu'elle contient déjà, même ceux qu'il ne peut pas lire. Un lecteur qui ouvre une vue dont les choix incluent une fiche qui lui est masquée n'est pas refusé — les choix masqués ne correspondent simplement à rien.
 
 Exemple — Organisations qui utilisent une Application active affectée par une Initiative dont le statut est *On Track* :
 
@@ -364,7 +367,7 @@ Dans l'inventaire, une vue enregistrée ainsi affiche sa chaîne sous forme de c
 Limites :
 
 - Au plus **3 niveaux** de `related`, au plus 10 sauts côte à côte à un même niveau, et au plus **12 sauts dans l'ensemble de la requête** (côte à côte et imbriqués confondus). Une requête plus longue est refusée avec `too_many_hops`.
-- Aucune condition sur des fiches précises (les tags sont pris en charge).
+- Au plus **50** fiches choisies par condition.
 - Un attribut texte correspond à sa valeur **exactement** — il n'y a pas de correspondance partielle ni insensible à la casse.
 - **`rollback_batch` ne peut pas annuler une vue enregistrée.** L'enregistrement d'une vue crée un lot de modifications mais ne publie aucun événement que l'annulation pourrait inverser ; supprimez une vue indésirable depuis les Vues enregistrées de l'inventaire.
 

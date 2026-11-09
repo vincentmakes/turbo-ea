@@ -241,7 +241,7 @@ A **query view** is a saved view whose filters are a **multi-hop query** — a c
 
 1. Click the start chip (*Choose a type*) and pick the card type the view lists.
 2. Click **+ relation** after the last card to add a hop. The menu lists each relation verb with the card type it leads to; a relation between cards of the same type is offered in both directions. A query is a single chain of up to three hops.
-3. Click **+ condition** under any card to narrow it down: **Lifecycle**, **Subtype**, **Approval status**, **Tags**, or a select or yes/no field of that card type. For tags, a card matches when it has any of the chosen tags of a group, and it must match every group you add; only tag groups that apply to that card type are offered.
+3. Click **+ condition** under any card to narrow it down: **Lifecycle**, **Subtype**, **Approval status**, **Tags**, **Specific cards**, or a select or yes/no field of that card type. For tags, a card matches when it has any of the chosen tags of a group, and it must match every group you add; only tag groups that apply to that card type are offered. **Specific cards** opens the card picker for cards of that type, and the step then matches only the cards you picked; for a hierarchical card type an **Include sub-cards** switch also matches the cards beneath each pick. A picked card you cannot see shows as *(hidden card)*.
 4. Click **Save**. The usual save-view dialog opens for the name, visibility, sharing and OData setting. **Cancel** discards the query.
 
 ![Building a query view](../assets/img/en/98e_inventory_query_builder.png)

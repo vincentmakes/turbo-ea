@@ -13,8 +13,11 @@ from sqlalchemy import select
 from app.core.permissions import VIEWER_PERMISSIONS
 from app.models.bookmark import Bookmark
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.services.card_query import base_view_filters
+from app.services.card_read_scope import CardReadScope
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -372,9 +375,9 @@ ORG_QUERY = {
 async def query_env(db, bm_env):
     """Corp uses Alpha, which Rocket affects; Team uses Beta, which nothing
     affects; Solo uses nothing."""
-    await create_card_type(db, key="Organization", label="Organization")
-    await create_card_type(db, key="Application", label="Application")
-    await create_card_type(db, key="Initiative", label="Initiative")
+    await create_card_type(db, key="Organization", label="Organization", has_hierarchy=True)
+    await create_card_type(db, key="Application", label="Application", has_hierarchy=True)
+    await create_card_type(db, key="Initiative", label="Initiative", has_hierarchy=False)
     await create_relation_type(
         db, key="orgUsesApp", source_type_key="Organization", target_type_key="Application"
     )
@@ -660,3 +663,224 @@ class TestQueryViewTags:
             assert resp.status_code == 200
             assert [row["name"] for row in resp.json()["value"]] == names
             assert resp.json()["@odata.count"] == 1
+
+
+async def _card_ids(db) -> dict[str, str]:
+    rows = await db.execute(select(Card.name, Card.id))
+    return {name: str(card_id) for name, card_id in rows.all()}
+
+
+def _cards_query(app_ids: list[str], **where) -> dict:
+    """Organizations that use one of the Applications ``app_ids``."""
+    return {
+        "type": "Organization",
+        "related": [
+            {
+                "relation": "orgUsesApp",
+                "type": "Application",
+                "where": {"cards": app_ids, **where},
+            }
+        ],
+    }
+
+
+async def _deny_viewer(db, type_key: str) -> None:
+    ct = (await db.execute(select(CardType).where(CardType.key == type_key))).scalar_one()
+    ct.role_permissions = {"viewer": {"inventory.view": False}}
+    await db.flush()
+    PermissionService.invalidate_type_permission_cache()
+
+
+class TestQueryViewCards:
+    async def test_create_stores_the_cards_and_the_flag_verbatim(self, client, db, query_env):
+        ids = await _card_ids(db)
+        query = {
+            **_cards_query([ids["Beta"], ids["Alpha"]], include_descendants=True),
+            "where": {"cards": [ids["Corp"]]},
+        }
+        resp = await _create(client, query_env["admin"], query=query)
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["query"] == query
+        stored = await db.get(Bookmark, uuid.UUID(resp.json()["id"]))
+        assert stored.query == query
+
+    @pytest.mark.parametrize("pick", ["missing", "Corp", "not-a-uuid"])
+    async def test_an_unknown_or_wrong_type_card_is_refused(self, client, db, query_env, pick):
+        ids = await _card_ids(db)
+        value = {"missing": str(uuid.uuid4()), "Corp": ids["Corp"]}.get(pick, pick)
+        resp = await _create(client, query_env["admin"], query=_cards_query([value]))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card"
+
+    async def test_the_flag_without_cards_is_refused(self, client, db, query_env):
+        query = {"type": "Organization", "where": {"include_descendants": True}}
+        resp = await _create(client, query_env["admin"], query=query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "descendants_without_cards"
+
+    async def test_a_writer_cannot_pin_a_card_hidden_from_them(self, client, db, query_env):
+        ids = await _card_ids(db)
+        await _deny_viewer(db, "Application")
+        viewer = query_env["viewer"]
+        resp = await _create(client, viewer, query=_cards_query([ids["Alpha"]]))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card"
+        assert "Alpha" not in resp.text
+        # Control: a card they can read is accepted, and so is the hidden one
+        # for the admin.
+        ok = {"type": "Organization", "where": {"cards": [ids["Corp"]]}}
+        assert (await _create(client, viewer, query=ok)).status_code == 201
+        admin = await _create(client, query_env["admin"], query=_cards_query([ids["Alpha"]]))
+        assert admin.status_code == 201
+
+    async def test_a_patch_cannot_pin_a_card_hidden_from_the_writer(self, client, db, query_env):
+        ids = await _card_ids(db)
+        await _deny_viewer(db, "Application")
+        viewer = query_env["viewer"]
+        bm_id = (await _create(client, viewer, query={"type": "Organization", "where": {}})).json()[
+            "id"
+        ]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": _cards_query([ids["Alpha"]])},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card"
+        ok = {"type": "Organization", "where": {"cards": [ids["Team"]]}}
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": ok}, headers=auth_headers(viewer)
+        )
+        assert patched.status_code == 200
+        assert patched.json()["query"] == ok
+
+    async def test_odata_feed_applies_the_cards(self, client, db, query_env):
+        ids = await _card_ids(db)
+        admin = query_env["admin"]
+        for picked, names in (
+            (["Beta"], ["Team"]),
+            (["Alpha", "Beta"], ["Corp", "Team"]),
+        ):
+            query = _cards_query([ids[n] for n in picked])
+            bm_id = (await _create(client, admin, query=query, odata_enabled=True)).json()["id"]
+            resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+            assert resp.status_code == 200
+            assert [row["name"] for row in resp.json()["value"]] == names
+            assert resp.json()["@odata.count"] == len(names)
+
+    async def test_odata_feed_applies_a_start_pick(self, client, db, query_env):
+        ids = await _card_ids(db)
+        admin = query_env["admin"]
+        query = {"type": "Organization", "where": {"cards": [ids["Solo"], ids["Team"]]}}
+        bm_id = (await _create(client, admin, query=query, odata_enabled=True)).json()["id"]
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+        assert [row["name"] for row in resp.json()["value"]] == ["Solo", "Team"]
+
+
+class TestQueryViewCollaborators:
+    """A ``can_edit`` collaborator who cannot read the owner's pick can still
+    edit the view around it, but cannot add a pick hidden from them."""
+
+    async def _shared_view(self, client, db, query_env):
+        ids = await _card_ids(db)
+        await create_role(
+            db,
+            key="collab",
+            label="Collab",
+            permissions={
+                "inventory.view": True,
+                "bookmarks.manage": True,
+                "bookmarks.share": True,
+            },
+        )
+        collab = await create_user(db, email="collab@test.com", role="collab")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Application"))).scalar_one()
+        ct.role_permissions = {"collab": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+        resp = await _create(
+            client,
+            query_env["admin"],
+            query=_cards_query([ids["Alpha"]]),
+            visibility="shared",
+            shared_with=[{"user_id": str(collab.id), "can_edit": True}],
+        )
+        assert resp.status_code == 201, resp.text
+        return ids, collab, resp.json()["id"]
+
+    async def test_keeps_the_owners_hidden_pick_while_editing(self, client, db, query_env):
+        ids, collab, bm_id = await self._shared_view(client, db, query_env)
+        query = _cards_query([ids["Alpha"]], lifecycle_phase=["active"])
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": query}, headers=auth_headers(collab)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["query"] == query
+        stored = await db.get(Bookmark, uuid.UUID(bm_id))
+        assert stored.query == query
+
+    async def test_cannot_add_a_new_hidden_pick(self, client, db, query_env):
+        ids, collab, bm_id = await self._shared_view(client, db, query_env)
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": _cards_query([ids["Alpha"], ids["Beta"]])},
+            headers=auth_headers(collab),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card"
+        assert "Beta" not in resp.text
+
+    async def test_the_owners_pick_is_trusted_only_where_it_names_a_card(
+        self, client, db, query_env
+    ):
+        """Trust skips the read check, never the type check: the owner's
+        Application pick moved to the Organization start is refused."""
+        ids, collab, bm_id = await self._shared_view(client, db, query_env)
+        moved = {"type": "Organization", "where": {"cards": [ids["Alpha"]]}}
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": moved}, headers=auth_headers(collab)
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card"
+
+
+class TestQueryViewScopeLoad:
+    """The writer's read scope is loaded only for a query that picks a card."""
+
+    @pytest.fixture
+    def loads(self, monkeypatch):
+        calls: list[object] = []
+        load = CardReadScope.load
+
+        async def spy(db, user, *args, **kwargs):
+            calls.append(user)
+            return await load(db, user, *args, **kwargs)
+
+        monkeypatch.setattr(CardReadScope, "load", spy)
+        return calls
+
+    async def test_a_tag_query_loads_no_scope(self, client, db, tag_env, loads):
+        admin = tag_env["admin"]
+        resp = await _create(client, admin, query=_tag_query(tag_env["tags"]["Gold"]))
+        assert resp.status_code == 201, resp.text
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{resp.json()['id']}",
+            json={"query": _tag_query(tag_env["tags"]["Silver"])},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200, patched.text
+        assert loads == []
+
+    async def test_a_cards_query_loads_the_scope(self, client, db, query_env, loads):
+        ids = await _card_ids(db)
+        admin = query_env["admin"]
+        resp = await _create(client, admin, query=_cards_query([ids["Alpha"]]))
+        assert resp.status_code == 201, resp.text
+        assert len(loads) == 1
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{resp.json()['id']}",
+            json={"query": _cards_query([ids["Beta"]])},
+            headers=auth_headers(admin),
+        )
+        assert patched.status_code == 200, patched.text
+        assert len(loads) == 2

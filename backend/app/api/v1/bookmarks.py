@@ -18,13 +18,15 @@ from app.services.card_query import (
     CardQuery,
     CardQueryError,
     compile_card_query,
+    names_cards,
     parse_card_query,
     resolve_card_query,
+    stored_card_ids,
     stored_query,
     view_fields_for_query,
     view_patch,
 )
-from app.services.card_read_scope import require_inventory_browse
+from app.services.card_read_scope import CardReadScope, require_inventory_browse
 from app.services.card_search import card_search_filter
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.permission_service import PermissionService
@@ -51,11 +53,28 @@ async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark |
     return bm
 
 
-async def _checked_query(db: AsyncSession, raw: dict) -> CardQuery:
-    """``raw`` as a query the metamodel can answer; 400 with the code if not."""
+async def _checked_query(
+    db: AsyncSession, raw: dict, user: User, *, stored: object = None
+) -> CardQuery:
+    """``raw`` as a query the metamodel can answer; 400 with the code if not.
+
+    A card picked in the query must exist, be of its node's type and be one
+    the writer can read (``unknown_card`` otherwise), so nobody pins a hidden
+    card. The picks already in ``stored`` — the view's current query, on an
+    edit — skip the read check, so a collaborator editing a shared view keeps
+    the owner's picks they cannot see. The writer's scope is loaded only when
+    the query picks a card at all."""
     try:
         query = parse_card_query(raw)
-        await resolve_card_query(db, query)
+        if names_cards(query):
+            await resolve_card_query(
+                db,
+                query,
+                read_scope=await CardReadScope.load(db, user),
+                trusted_card_ids=stored_card_ids(stored),
+            )
+        else:
+            await resolve_card_query(db, query)
     except CardQueryError as exc:
         raise HTTPException(400, exc.code) from exc
     return query
@@ -278,7 +297,7 @@ async def create_bookmark(
 
     card_type, filters, query = body.card_type, body.filters, None
     if body.query is not None:
-        parsed = await _checked_query(db, body.query)
+        parsed = await _checked_query(db, body.query, user)
         try:
             card_type, filters = view_fields_for_query(parsed, card_type, filters)
         except CardQueryError as exc:
@@ -374,7 +393,7 @@ async def update_bookmark(
 
     new_query = None
     if data.get("query") is not None:
-        new_query = await _checked_query(db, data["query"])
+        new_query = await _checked_query(db, data["query"], user, stored=bm.query)
     try:
         data = view_patch(
             data,

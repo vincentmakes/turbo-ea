@@ -5,10 +5,11 @@ A ``CardQuery`` names a start card type, an optional condition on the start
 card, and a tree of **hops** — each a relation type (one side of it), the card
 type at the far end, a condition on that far card and further hops from it.
 The grammar holds metamodel **keys** (card type, relation type, field, option
-keys) and, as the one exception, **tag ids** — never a card id. A query stored
-on a saved inventory view (``bookmarks.query``) therefore survives a workspace
-transfer: its keys verbatim, its tag ids through the transfer's tag id map
-(``workspace_io.remap.rewrite_card_query_tags``). It is authored through the
+keys) and two kinds of id, each in one place only: **tag ids** under
+``where.tags`` and **card ids** under ``where.cards``. A query stored on a
+saved inventory view (``bookmarks.query``) therefore survives a workspace
+transfer: its keys verbatim, its tag and card ids through the transfer's id
+maps (``workspace_io.remap.rewrite_card_query_ids``). It is authored through the
 MCP server or the inventory's query builder and evaluated here on every
 read — ``GET /cards?query=`` and the bookmark OData feed — so a saved view
 stays dynamic.
@@ -38,13 +39,29 @@ Semantics, decided once here and nowhere else:
   (``tag_not_for_type``); a ``None`` or empty restriction means every type.
   There is no "(empty)" for tags in v1: it would need a tag *group* id, which
   has no transfer map.
+- ``where.cards`` pins the node to specific cards (OR among them), each of the
+  node's card type. With ``include_descendants`` a pick also covers every card
+  beneath it through ``parent_id``, any depth (the reports' "Include
+  sub-cards"); the flag needs a hierarchical card type (``has_hierarchy``),
+  ``descendants_without_hierarchy`` otherwise. An archived pick is accepted
+  and simply matches nothing at a hop, where the related card must be ACTIVE.
+- The picks are checked **only when a view is saved** (``resolve_card_query``
+  given the writer's ``read_scope``): a pick that names no card, a card of
+  another type, or one the writer cannot read is refused with one code,
+  ``unknown_card``. The evaluation paths (``GET /cards?query=``, the OData
+  feed) resolve without a scope and issue no card query at all: an unknown,
+  wrong-type or hidden pick simply matches nothing in SQL, so comparing two
+  answers never confirms that a hidden card exists. A reader opening a shared
+  view that names a card hidden from them gets the view narrowed by the hop's
+  read scope, not a 400.
 
 Limits: at most ``MAX_DEPTH`` (3) hops below the start card, ``MAX_HOPS``
 (10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops in the whole
 tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
-any one condition list (``tags`` included). A UUID anywhere but in a
-``where.tags`` list is refused (``query_holds_an_id``), so a card id can never
-be stored.
+any one condition list (``tags`` and ``cards`` included). A UUID anywhere
+but in a ``where.tags`` or ``where.cards`` list is refused
+(``query_holds_an_id``), so an id never hides in a key, a subtype or a field
+value.
 
 Structural rules (``query_problem``) and metamodel rules
 (``resolve_card_query``) are plain functions answering a 400 code, so the
@@ -57,7 +74,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Annotated, Any
@@ -84,6 +101,7 @@ from app.services.lifecycle import PHASE_CHRONOLOGICAL, current_lifecycle_phase_
 from app.services.portal_card_filters import (
     EMPTY_KEY,
     attribute_condition,
+    descendant_cte,
     field_types,
     subtype_condition,
     tag_conditions,
@@ -117,7 +135,9 @@ _Value = Annotated[str, Field(max_length=_KEY_CHARS)]
 class CardWhere(BaseModel):
     """A condition on one card. Each list is OR within itself; the keys AND.
 
-    ``tags`` holds tag ids — OR within a tag group, AND across groups."""
+    ``tags`` holds tag ids — OR within a tag group, AND across groups.
+    ``cards`` holds card ids of the node's type; ``include_descendants`` widens
+    each to the cards beneath it."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -126,6 +146,8 @@ class CardWhere(BaseModel):
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     attributes: dict[_Value, list[_Value]] | None = Field(None, max_length=20)
     tags: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    cards: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    include_descendants: bool = False
 
 
 class CardHop(BaseModel):
@@ -213,26 +235,58 @@ def _wheres(query: CardQuery) -> list[CardWhere]:
     return out
 
 
+def names_cards(query: CardQuery) -> bool:
+    """Whether any node of ``query`` pins cards (``where.cards``)."""
+    return any(where.cards for where in _wheres(query))
+
+
+def stored_card_ids(stored: Any) -> set[uuid.UUID]:
+    """Every card id under ``where.cards`` at any node of a *stored* query
+    (``bookmarks.query``), read tolerantly: a malformed node or value is
+    skipped, never an error — the stored query may predate a rule."""
+    out: set[uuid.UUID] = set()
+    pending = [stored]
+    while pending:
+        node = pending.pop()
+        if not isinstance(node, Mapping):
+            continue
+        where = node.get("where")
+        cards = where.get("cards") if isinstance(where, Mapping) else None
+        if isinstance(cards, list):
+            out.update(uuids(cards))
+        related = node.get("related")
+        if isinstance(related, list):
+            pending.extend(related)
+    return out
+
+
 def _where_problem(where: CardWhere) -> str | None:
     lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
+    lists.append(where.cards)
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
+    if where.include_descendants and where.cards is None:
+        return "descendants_without_cards"
     if any(p not in LIFECYCLE_PHASES for p in where.lifecycle_phase or []):
         return "unknown_phase"
     return None
 
 
-def _without_tags(node: Mapping[str, Any]) -> dict[str, Any]:
-    """A dumped query node with every ``where.tags`` removed, at every depth —
-    the tag ids are the grammar's one legitimate UUID."""
+#: The ``where`` keys whose values are ids: the grammar's only legitimate UUIDs.
+_ID_KEYS = ("tags", "cards")
+
+
+def _without_ids(node: Mapping[str, Any]) -> dict[str, Any]:
+    """A dumped query node with every ``where.tags`` and ``where.cards``
+    removed, at every depth — the grammar's only legitimate UUIDs."""
     out = dict(node)
     where = out.get("where")
     if isinstance(where, Mapping):
-        out["where"] = {k: v for k, v in where.items() if k != "tags"}
+        out["where"] = {k: v for k, v in where.items() if k not in _ID_KEYS}
     related = out.get("related")
     if isinstance(related, list):
-        out["related"] = [_without_tags(h) for h in related]
+        out["related"] = [_without_ids(h) for h in related]
     return out
 
 
@@ -241,17 +295,18 @@ def query_problem(query: CardQuery) -> str | None:
 
     ``too_deep`` past ``MAX_DEPTH`` hops; ``too_many_hops`` past
     ``MAX_TOTAL_HOPS`` hops in the whole tree; ``query_holds_an_id`` for a UUID
-    anywhere but a ``where.tags`` list (a card id has no place in a saved view,
-    which must transfer between workspaces); ``empty_values``
-    for an empty value list (a condition that can match nothing is a mistake,
-    not a filter); ``unknown_phase`` for a lifecycle phase outside
+    anywhere but a ``where.tags`` or ``where.cards`` list (only those ids have
+    a transfer map); ``empty_values`` for an empty value list (a condition
+    that can match nothing is a mistake, not a filter);
+    ``descendants_without_cards`` for ``include_descendants`` with no
+    ``cards``; ``unknown_phase`` for a lifecycle phase outside
     ``LIFECYCLE_PHASES``.
     """
     if _depth(query.related) > MAX_DEPTH:
         return "too_deep"
     if _hop_count(query.related) > MAX_TOTAL_HOPS:
         return "too_many_hops"
-    if contains_uuid(_without_tags(query.model_dump())):
+    if contains_uuid(_without_ids(query.model_dump())):
         return "query_holds_an_id"
     for where in _wheres(query):
         problem = _where_problem(where)
@@ -275,6 +330,10 @@ class ResolvedNode:
     hops: list[ResolvedHop] = field(default_factory=list)
     #: ``where.tags`` as ``{tag group id: [tag id, ...]}``.
     tag_groups: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
+    #: ``where.cards`` as parsed ids, deduplicated in order.
+    card_ids: list[uuid.UUID] = field(default_factory=list)
+    #: ``where.include_descendants``.
+    include_descendants: bool = False
 
 
 @dataclass
@@ -342,6 +401,47 @@ def _tag_groups(
     return groups
 
 
+@dataclass(frozen=True)
+class _CardCheck:
+    """What the write paths check the picks against: ``cards`` the picked
+    cards as ``{id: type key}``, ``read_scope`` the writer's, and
+    ``trusted`` the ids exempt from the scope check (the picks a shared view
+    already held when a collaborator edits it)."""
+
+    cards: Mapping[uuid.UUID, str]
+    read_scope: CardReadScope
+    trusted: frozenset[uuid.UUID]
+
+
+def _card_ids(where: CardWhere | None, type_key: str, check: _CardCheck | None) -> list[uuid.UUID]:
+    """``where.cards`` as ids, deduplicated in order.
+
+    Without ``check`` (the evaluation paths) nothing is checked: a value that
+    is no UUID is left out, and an id naming no card, a card of another type
+    or a hidden one is kept and matches nothing in SQL.
+
+    With ``check``: ``unknown_card`` for a value that is not a UUID, names no
+    card, names a card of another type than ``type_key``, or names a card the
+    writer's scope cannot read in inventory mode (unless it is ``trusted``).
+    One code for all four, so the answer never confirms a hidden card
+    exists."""
+    out: list[uuid.UUID] = []
+    for value in (where.cards if where is not None else None) or []:
+        parsed = uuids([value])
+        card_id = parsed[0] if parsed else None
+        if check is not None:
+            card_type = check.cards.get(card_id) if card_id is not None else None
+            if card_id is None or card_type != type_key:
+                raise CardQueryError("unknown_card")
+            if card_id not in check.trusted and not check.read_scope.readable(
+                card_id, card_type, mode="inventory"
+            ):
+                raise CardQueryError("unknown_card")
+        if card_id is not None and card_id not in out:
+            out.append(card_id)
+    return out
+
+
 def _resolve_node(
     type_key: str,
     where: CardWhere | None,
@@ -349,12 +449,17 @@ def _resolve_node(
     types: Mapping[str, Any],
     relation_types: Mapping[str, Any],
     tags: Mapping[uuid.UUID, _TagInfo],
+    check: _CardCheck | None,
 ) -> ResolvedNode:
     card_type = types.get(type_key)
     if card_type is None or card_type.is_hidden:
         raise CardQueryError("unknown_card_type")
     node = ResolvedNode(type_key, where, _check_where(where, card_type))
+    node.include_descendants = where is not None and where.include_descendants
+    if node.include_descendants and not card_type.has_hierarchy:
+        raise CardQueryError("descendants_without_hierarchy")
     node.tag_groups = _tag_groups(where, type_key, tags)
+    node.card_ids = _card_ids(where, type_key, check)
     for hop in hops or []:
         try:
             side = resolve_side(
@@ -364,12 +469,18 @@ def _resolve_node(
             raise CardQueryError(exc.code) from exc
         if _other_end(relation_types[side.relation_type], side) != hop.type:
             raise CardQueryError("hop_type_mismatch")
-        child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types, tags)
+        child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types, tags, check)
         node.hops.append(ResolvedHop(side, hop.negate, child))
     return node
 
 
-async def resolve_card_query(db: AsyncSession, query: CardQuery) -> ResolvedNode:
+async def resolve_card_query(
+    db: AsyncSession,
+    query: CardQuery,
+    *,
+    read_scope: CardReadScope | None = None,
+    trusted_card_ids: Collection[uuid.UUID] = (),
+) -> ResolvedNode:
     """``query`` checked against the metamodel, as the tree ``compile`` walks.
 
     Codes: ``unknown_card_type`` (missing or hidden, at the start or a hop),
@@ -378,10 +489,23 @@ async def resolve_card_query(db: AsyncSession, query: CardQuery) -> ResolvedNode
     (a bare key on a self-referencing type), ``hop_type_mismatch`` (the hop's
     type is not at the relation's far end), ``unknown_subtype``,
     ``unknown_field``, ``unknown_option``, ``unknown_tag`` and
-    ``tag_not_for_type`` (see ``_tag_groups``).
+    ``tag_not_for_type`` (see ``_tag_groups``), ``descendants_without_hierarchy``
+    (``include_descendants`` on a card type without ``has_hierarchy``),
+    ``unknown_card`` (see ``_card_ids``; write paths only).
 
-    The tags the whole tree names are loaded in one query, and none is issued
-    for a query naming no tag.
+    ``read_scope`` is the *writer's* scope, given only when a view is saved:
+    then, and only then, the picks are checked — each must exist, be of its
+    node's type and be readable by the writer (``unknown_card`` otherwise), so
+    nobody pins a card hidden from them. ``trusted_card_ids`` are exempt from
+    the *scope* check alone (existence and type still hold): the picks a
+    shared view already held, so a collaborator who cannot read the owner's
+    pick can still edit the view around it. The evaluation paths resolve
+    without a scope and run no card query at all — an unknown, wrong-type or
+    hidden pick matches nothing in SQL — so no answer is an existence oracle.
+
+    The tags the whole tree names are loaded in one query, the picked cards
+    (write paths only) in another (any status: an archived pick is allowed),
+    and neither is issued for a query naming none.
 
     ``query`` comes from ``parse_card_query``, the one place the structural
     rules (``query_problem``) run; they are not checked again here.
@@ -397,7 +521,15 @@ async def resolve_card_query(db: AsyncSession, query: CardQuery) -> ResolvedNode
             .where(Tag.id.in_(tag_ids))
         )
         tags = {tag_id: (group_id, restrict) for tag_id, group_id, restrict in rows.all()}
-    return _resolve_node(query.type, query.where, query.related, types, relation_types, tags)
+    check = None
+    if read_scope is not None:
+        card_ids = uuids(v for where in _wheres(query) for v in where.cards or [])
+        cards: dict[uuid.UUID, str] = {}
+        if card_ids:
+            rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
+            cards = {card_id: type_key for card_id, type_key in rows.all()}
+        check = _CardCheck(cards, read_scope, frozenset(trusted_card_ids))
+    return _resolve_node(query.type, query.where, query.related, types, relation_types, tags, check)
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +556,15 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
         clauses.append(card.approval_status.in_(where.approval_status))
     for key, values in sorted((where.attributes or {}).items()):
         clauses.append(attribute_condition(key, values, node.field_types.get(key), card=card))
+    if where.cards is not None:
+        # ``where.cards``, not ``node.card_ids``: on the evaluation path a pick
+        # that is no UUID is left out of the ids, and a list left empty must
+        # still match nothing rather than drop the condition.
+        picked = card.id.in_(node.card_ids)
+        if node.include_descendants and node.card_ids:
+            below = descendant_cte(node.card_ids)
+            picked = or_(picked, card.id.in_(select(below.c.id)))
+        clauses.append(picked)
     clauses.extend(tag_conditions(node.tag_groups, card=card))
     return clauses
 
