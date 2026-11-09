@@ -90,65 +90,149 @@ export function routeIsClear(route: ConnectorSegment[], boxes: ConnectorBox[]): 
   return route.every((segment) => !boxes.some((box) => crosses(segment, box)));
 }
 
+/** How far a jogged drop keeps from the chips it passes. */
+const CLEARANCE = 6;
+
+/** A branch line's start (its inline offset in the lines) and the connector drawn to it. */
+export interface BranchRoute {
+  start: number;
+  segments: ConnectorSegment[];
+}
+
 /**
- * The connector from `origin` to `badge`, the first of these shapes that
- * crosses none of `boxes`:
- * - the badge lies ahead of the marker (the line starts under its arrow):
- *   one corner, down to the badge's middle, then along into it;
- * - the line was pulled back on a narrow strip: the connector turns in the
- *   gap above the line, back to just inside the badge's leading edge and
- *   down onto it;
- * - otherwise (the origin's line wraps and goes on below it, or the turn
- *   would cut through chips) it turns in the gap under the origin's row of
- *   chips — below the tallest of them — back to the gutter in the strip's
- *   padding, down it, and along into the badge.
- * The box holding the origin's own arrow is never in the way: a long verb
- * beside the arrow may wrap below it.
+ * Where a branch line starts and the connector into its badge, the first of
+ * these that crosses none of `boxes`:
+ * - straight: the line starts under the origin's arrow (`branchLineOffset`)
+ *   and the connector drops into its badge — one corner, or, on a line
+ *   pulled back on a narrow strip, a turn in the gap above the line;
+ * - a jog: when chips sit under the arrow (its line wraps), the connector
+ *   runs along the gap under the arrow's row of chips to the nearest clear
+ *   spot after the arrow, drops there, and the line starts under it — or,
+ *   when that leaves the line less than `MIN_LINE_WIDTH`, the nearest clear
+ *   spot before the arrow;
+ * - the gutter: back along that gap to the strip's padding, down it, and
+ *   along into the badge.
+ *
+ * `boxes` are the chips of the lines above the branch line only — they do
+ * not move when the branch line does, so the start found here is the one
+ * the next measurement finds again. The box holding the origin's own arrow
+ * is never in the way: a long verb beside the arrow may wrap below it.
+ * `badge` gives the top and bottom of the line's badge, which its start does
+ * not change; the badge sits `CONNECTOR_STUB` after the start.
  */
-export function connectorSegments(
+export function branchRoute(
   origin: ConnectorOrigin,
-  badge: ConnectorBadge,
-  boxes: ConnectorBox[] = [],
-): ConnectorSegment[] {
+  badge: Pick<ConnectorBadge, "top" | "bottom">,
+  boxes: ConnectorBox[],
+  containerWidth: number,
+): BranchRoute {
   const others = boxes.filter((b) => b.origin !== origin.key);
   const middle = Math.round((badge.top + badge.bottom) / 2);
-  const direct: ConnectorSegment[] =
-    badge.start > origin.x
-      ? [
-          {
-            start: origin.x,
-            top: origin.bottom,
-            width: badge.start - origin.x,
-            height: middle - origin.bottom,
-            side: "start",
-            bottom: true,
-          },
-        ]
-      : pulledBack(origin, badge);
-  if (routeIsClear(direct, others)) return direct;
+  const at = (start: number): ConnectorBadge => ({ ...badge, start: start + CONNECTOR_STUB });
+  const start = branchLineOffset(origin.x, containerWidth);
+  const straight =
+    at(start).start > origin.x ? corner(origin, at(start), middle) : pulledBack(origin, at(start));
+  if (routeIsClear(straight, others)) return { start, segments: straight };
   // The origin's row of chips: every box beside the arrow, top to bottom.
   const row = others.filter((b) => b.top < origin.bottom && b.bottom > origin.top);
   const turn = Math.max(origin.bottom, ...row.map((b) => b.bottom)) + GUTTER_DROP;
+  const inTheWay = others.filter((b) => b.top < middle && b.bottom > turn);
+  for (const x of [clearX(origin.x, inTheWay, 1), clearX(origin.x, inTheWay, -1)]) {
+    if (x < 0 || x > containerWidth - MIN_LINE_WIDTH) continue;
+    const jog = jogged(origin, turn, x, at(x), middle);
+    if (routeIsClear(jog, others)) return { start: x, segments: jog };
+  }
+  return {
+    start,
+    segments: [
+      {
+        start: CONNECTOR_GUTTER,
+        top: origin.bottom,
+        width: origin.x - CONNECTOR_GUTTER,
+        height: turn - origin.bottom,
+        side: "end",
+        bottom: true,
+      },
+      {
+        start: CONNECTOR_GUTTER,
+        top: turn,
+        width: at(start).start - CONNECTOR_GUTTER,
+        height: middle - turn,
+        side: "start",
+        bottom: true,
+      },
+    ],
+  };
+}
+
+/**
+ * The nearest spot from `x`, after it (`step` 1) or before it (-1), that
+ * keeps `CLEARANCE` from every box of `boxes`.
+ */
+function clearX(x: number, boxes: ConnectorBox[], step: 1 | -1): number {
+  let at = x;
+  for (;;) {
+    const hits = boxes.filter((b) => b.start - CLEARANCE <= at && b.end + CLEARANCE >= at);
+    if (hits.length === 0) return at;
+    at =
+      step === 1
+        ? Math.max(...hits.map((b) => b.end + CLEARANCE + 1))
+        : Math.min(...hits.map((b) => b.start - CLEARANCE - 1));
+  }
+}
+
+/** Down from the marker to the badge's middle, then along into it. */
+function corner(origin: ConnectorOrigin, badge: ConnectorBadge, middle: number): ConnectorSegment[] {
   return [
     {
-      start: CONNECTOR_GUTTER,
+      start: origin.x,
       top: origin.bottom,
-      width: origin.x - CONNECTOR_GUTTER,
-      height: turn - origin.bottom,
-      side: "end",
-      bottom: true,
-    },
-    {
-      start: CONNECTOR_GUTTER,
-      top: turn,
-      width: badge.start - CONNECTOR_GUTTER,
-      height: middle - turn,
+      width: badge.start - origin.x,
+      height: middle - origin.bottom,
       side: "start",
       bottom: true,
     },
   ];
 }
 
+/** Down from the marker into the gap at `turn`, along it to `x`, down there and into the badge. */
+function jogged(
+  origin: ConnectorOrigin,
+  turn: number,
+  x: number,
+  badge: ConnectorBadge,
+  middle: number,
+): ConnectorSegment[] {
+  const run: ConnectorSegment =
+    x >= origin.x
+      ? {
+          start: origin.x,
+          top: origin.bottom,
+          width: x - origin.x,
+          height: turn - origin.bottom,
+          side: "start",
+          bottom: true,
+        }
+      : {
+          start: x,
+          top: origin.bottom,
+          width: origin.x - x,
+          height: turn - origin.bottom,
+          side: "end",
+          bottom: true,
+        };
+  return [
+    run,
+    {
+      start: x,
+      top: turn,
+      width: badge.start - x,
+      height: middle - turn,
+      side: "start",
+      bottom: true,
+    },
+  ];
+}
 /** The way into a badge that starts before the marker: turning in the gap above its line. */
 function pulledBack(origin: ConnectorOrigin, badge: ConnectorBadge): ConnectorSegment[] {
   const turn = Math.round((origin.bottom + badge.top) / 2);

@@ -47,8 +47,7 @@ import type {
 } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, EMPTY_VALUE } from "./InventoryFilterSidebar";
 import {
-  branchLineOffset,
-  connectorSegments,
+  branchRoute,
   CONNECTOR_STUB,
   type ConnectorBox,
   type ConnectorSegment,
@@ -501,26 +500,21 @@ function useBranchLayout(branches: BranchLine[], isRtl: boolean, content: unknow
     const topOf = (r: DOMRect) => Math.round(r.top - box.top);
     const bottomOf = (r: DOMRect) => Math.round(r.bottom - box.top);
     const arrows = Array.from(origins.current);
-    // Every chip and every arrow with its verb, of every line: a node's box
+    // Every chip and every arrow with its verb, line by line: a node's box
     // only groups its pieces (`display: contents`), so its children are the
     // line's items. The item holding an origin's arrow says so.
-    const items = Array.from(
+    const lines = Array.from(
       container.querySelectorAll<HTMLElement>('[data-testid="query-path-row"]'),
-    )
-      .flatMap((row) => Array.from(row.children))
-      .flatMap((el) => (el.hasAttribute("data-query-node") ? Array.from(el.children) : [el]))
-      .map((el) => {
-        const r = el.getBoundingClientRect();
-        const origin = arrows.find(([, arrow]) => el.contains(arrow))?.[0];
-        const box: ConnectorBox = {
-          start: startOf(r),
-          end: endOf(r),
-          top: topOf(r),
-          bottom: bottomOf(r),
-          origin,
-        };
-        return { el, box };
-      });
+    );
+    const items = lines.map((line) =>
+      Array.from(line.children)
+        .flatMap((el) => (el.hasAttribute("data-query-node") ? Array.from(el.children) : [el]))
+        .map((el): ConnectorBox => {
+          const r = el.getBoundingClientRect();
+          const origin = arrows.find(([, arrow]) => el.contains(arrow))?.[0];
+          return { start: startOf(r), end: endOf(r), top: topOf(r), bottom: bottomOf(r), origin };
+        }),
+    );
     const next: Record<string, LineLayout> = {};
     for (const { key, originKey } of branchesRef.current) {
       const arrow = origins.current.get(originKey);
@@ -534,16 +528,15 @@ function useBranchLayout(branches: BranchLine[], isRtl: boolean, content: unknow
         top: topOf(a),
         bottom: bottomOf(a),
       };
-      const end = { start: startOf(b), top: topOf(b), bottom: bottomOf(b) };
-      next[key] = {
-        offset: branchLineOffset(origin.x, Math.round(box.width)),
-        // The badge's own item (with the plus under it) is where the connector ends.
-        segments: connectorSegments(
-          origin,
-          end,
-          items.filter((item) => !item.el.contains(badge)).map((item) => item.box),
-        ),
-      };
+      // Only the lines above this one: they stay put wherever this line starts.
+      const above = items.slice(0, lines.findIndex((line) => line.contains(badge))).flat();
+      const route = branchRoute(
+        origin,
+        { top: topOf(b), bottom: bottomOf(b) },
+        above,
+        Math.round(box.width),
+      );
+      next[key] = { offset: route.start, segments: route.segments };
     }
     setLayout((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
   }, [isRtl]);
@@ -756,8 +749,7 @@ const CONNECTOR_LINE = "2px solid currentColor";
 /**
  * The drawn joint between a branch line and its origin card: a drop from the
  * marker under the arrow after that card, turning into the line's badge
- * (`connectorSegments`). Purely
- * visual — the badge itself names the operator.
+ * (`branchRoute`). Purely visual — the badge itself names the operator.
  */
 function BranchConnector({ segments, isRtl }: { segments: ConnectorSegment[]; isRtl: boolean }) {
   const [startSide, endSide] = isRtl ? (["Right", "Left"] as const) : (["Left", "Right"] as const);

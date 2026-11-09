@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   branchLineOffset,
   CONNECTOR_GUTTER,
+  branchRoute,
   CONNECTOR_STUB,
-  connectorSegments,
   MIN_LINE_WIDTH,
   routeIsClear,
   type ConnectorSegment,
@@ -71,92 +71,133 @@ describe("routeIsClear", () => {
   });
 });
 
-describe("connectorSegments", () => {
+describe("branchRoute", () => {
   /** The arrow after card "o": its centre `x`, 36px tall down to its marker's `bottom`. */
   const at = (x: number, bottom: number) => ({ key: "o", x, top: bottom - 36, bottom });
+  const box = (start: number, end: number, top: number, bottom: number) => ({ start, end, top, bottom });
+  /** A badge between 90px and 110px down: its middle at 100px. */
+  const BADGE = { top: 90, bottom: 110 };
 
-  it("draws one corner when the badge lies ahead of the marker", () => {
+  it("starts the line under the arrow and drops into its badge, one corner", () => {
     expect(CONNECTOR_STUB).toBe(12);
-    expect(connectorSegments(at(100, 40), { start: 112, top: 90, bottom: 110 })).toEqual([
-      { start: 100, top: 40, width: 12, height: 60, side: "start", bottom: true },
-    ]);
+    expect(branchRoute(at(100, 40), BADGE, [], 800)).toEqual({
+      start: 100,
+      segments: [{ start: 100, top: 40, width: 12, height: 60, side: "start", bottom: true }],
+    });
     // The badge's middle rounds to a whole pixel.
-    expect(connectorSegments(at(100, 40), { start: 101, top: 90, bottom: 109 })).toEqual([
-      { start: 100, top: 40, width: 1, height: 60, side: "start", bottom: true },
-    ]);
+    expect(branchRoute(at(100, 40), { top: 90, bottom: 109 }, [], 800).segments[0].height).toBe(60);
+    // Boxes beside the drop change nothing.
+    expect(branchRoute(at(100, 40), BADGE, [box(120, 200, 50, 74)], 800).start).toBe(100);
   });
 
   it("turns in the gap above a pulled-back line, entering the badge from the top", () => {
-    expect(connectorSegments(at(200, 38), { start: 72, top: 60, bottom: 80 })).toEqual([
-      { start: 84, top: 38, width: 116, height: 11, side: "end", bottom: true },
-      { start: 84, top: 49, width: 0, height: 11, side: "start", bottom: false },
-    ]);
-    // A badge at the marker itself: the turn rounds, and the way in stays under the marker.
-    expect(connectorSegments(at(100, 40), { start: 100, top: 61, bottom: 81 })).toEqual([
-      { start: 100, top: 40, width: 0, height: 11, side: "end", bottom: true },
-      { start: 100, top: 51, width: 0, height: 10, side: "start", bottom: false },
-    ]);
+    // 300px leaves the line 60px in; its badge at 72px.
+    expect(branchRoute(at(200, 38), { top: 60, bottom: 80 }, [], 300)).toEqual({
+      start: 60,
+      segments: [
+        { start: 84, top: 38, width: 116, height: 11, side: "end", bottom: true },
+        { start: 84, top: 49, width: 0, height: 11, side: "start", bottom: false },
+      ],
+    });
+    // A badge right at the arrow: the turn rounds, and the way in stays under it.
+    expect(branchRoute(at(100, 40), { top: 61, bottom: 81 }, [], 328)).toEqual({
+      start: 88,
+      segments: [
+        { start: 100, top: 40, width: 0, height: 11, side: "end", bottom: true },
+        { start: 100, top: 51, width: 0, height: 10, side: "start", bottom: false },
+      ],
+    });
   });
 
-  it("goes round by the gutter when the way down or the turn crosses a box", () => {
+  it("jogs to the nearest clear spot after the arrow when chips sit under it", () => {
+    // The arrow's line wraps: a chip from 50px to 150px sits under it.
+    const wrapped = [box(50, 150, 50, 74)];
+    expect(branchRoute(at(100, 40), BADGE, wrapped, 800)).toEqual({
+      start: 157,
+      segments: [
+        { start: 100, top: 40, width: 57, height: 3, side: "start", bottom: true },
+        { start: 157, top: 43, width: 12, height: 57, side: "start", bottom: true },
+      ],
+    });
+    // Two chips side by side, the second within clearance of the first: past both.
+    expect(branchRoute(at(100, 40), BADGE, [...wrapped, box(160, 220, 80, 88)], 800).start).toBe(227);
+    // Exactly the room the line needs is enough.
+    expect(branchRoute(at(100, 40), BADGE, wrapped, 157 + MIN_LINE_WIDTH).start).toBe(157);
+  });
+
+  it("jogs back before the arrow when the spot after it leaves the line too little room", () => {
+    const wrapped = [box(50, 150, 50, 74)];
+    expect(branchRoute(at(100, 40), BADGE, wrapped, 156 + MIN_LINE_WIDTH)).toEqual({
+      start: 43,
+      segments: [
+        { start: 43, top: 40, width: 57, height: 3, side: "end", bottom: true },
+        { start: 43, top: 43, width: 12, height: 57, side: "start", bottom: true },
+      ],
+    });
+    // A clear spot right at the strip's start will do.
+    expect(branchRoute(at(100, 40), BADGE, [box(7, 150, 50, 74)], 380).start).toBe(0);
+  });
+
+  it("skips a jog whose run along the gap would cut a chip", () => {
+    // A chip ending right on the gap, after the arrow: the run right cuts it,
+    // the run left does not.
+    const cut = [box(50, 150, 50, 74), box(120, 130, 41, 43)];
+    expect(branchRoute(at(100, 40), BADGE, cut, 800).start).toBe(43);
+  });
+
+  it("goes round by the gutter when neither way is clear", () => {
     expect(CONNECTOR_GUTTER).toBe(-6);
-    const wrapped = [{ start: 80, end: 120, top: 50, bottom: 74 }];
-    expect(connectorSegments(at(100, 40), { start: 112, top: 90, bottom: 110 }, wrapped)).toEqual([
-      { start: -6, top: 40, width: 106, height: 3, side: "end", bottom: true },
-      { start: -6, top: 43, width: 118, height: 57, side: "start", bottom: true },
-    ]);
-    // A pulled-back line whose turn would cut through a chip.
-    const onTheTurn = [{ start: 120, end: 160, top: 40, bottom: 60 }];
-    expect(connectorSegments(at(200, 38), { start: 72, top: 60, bottom: 81 }, onTheTurn)).toEqual([
-      { start: -6, top: 38, width: 206, height: 3, side: "end", bottom: true },
-      { start: -6, top: 41, width: 78, height: 30, side: "start", bottom: true },
-    ]);
-    // Boxes off both ways keep the direct shapes.
-    const aside = [{ start: 300, end: 340, top: 40, bottom: 60 }];
-    expect(connectorSegments(at(100, 40), { start: 112, top: 90, bottom: 110 }, aside)).toHaveLength(1);
-    expect(connectorSegments(at(200, 38), { start: 72, top: 60, bottom: 80 }, aside)).toEqual(
-      connectorSegments(at(200, 38), { start: 72, top: 60, bottom: 80 }),
-    );
+    // Under the arrow from the strip's start on, with no room after it.
+    expect(branchRoute(at(100, 40), BADGE, [box(0, 150, 50, 74)], 380)).toEqual({
+      start: 100,
+      segments: [
+        { start: -6, top: 40, width: 106, height: 3, side: "end", bottom: true },
+        { start: -6, top: 43, width: 118, height: 57, side: "start", bottom: true },
+      ],
+    });
+    // A pulled-back line whose turn would cut a chip, with no clear spot either way.
+    const onTheTurn = [box(120, 160, 40, 60), box(0, 300, 45, 55)];
+    expect(branchRoute(at(200, 38), { top: 60, bottom: 81 }, onTheTurn, 300)).toEqual({
+      start: 60,
+      segments: [
+        { start: -6, top: 38, width: 206, height: 3, side: "end", bottom: true },
+        { start: -6, top: 41, width: 78, height: 30, side: "start", bottom: true },
+      ],
+    });
   });
 
   it("never takes the box holding its own arrow for an obstacle", () => {
     // The arrow with a verb wrapped to two lines beside it: the box reaches
     // below the marker, across the drop.
     const own = { start: 90, end: 260, top: 4, bottom: 52, origin: "o" };
-    expect(connectorSegments(at(100, 40), { start: 112, top: 90, bottom: 110 }, [own])).toEqual([
-      { start: 100, top: 40, width: 12, height: 60, side: "start", bottom: true },
-    ]);
-    // Another branch's arrow box, or one naming no origin, is in the way.
+    expect(branchRoute(at(100, 40), BADGE, [own], 800)).toEqual({
+      start: 100,
+      segments: [{ start: 100, top: 40, width: 12, height: 60, side: "start", bottom: true }],
+    });
+    // Another branch's arrow box, or one naming no origin, is in the way all
+    // round: the connector goes by the gutter.
     for (const other of [{ ...own, origin: "p" }, { ...own, origin: undefined }]) {
-      expect(
-        connectorSegments(at(100, 40), { start: 112, top: 90, bottom: 110 }, [other])[0].start,
-      ).toBe(-6);
+      expect(branchRoute(at(100, 40), BADGE, [other], 800).segments.map((g) => g.start)).toEqual([
+        -6, -6,
+      ]);
     }
   });
 
-  it("turns toward the gutter below the tallest chip of the origin's row", () => {
-    const badge = { start: 112, top: 90, bottom: 110 };
-    const blocker = { start: 80, end: 120, top: 60, bottom: 84 };
-    const route = (row: { start: number; end: number; top: number; bottom: number }[]) =>
-      connectorSegments(at(100, 40), badge, [blocker, ...row]);
+  it("runs along the gap below the tallest chip of the arrow's row", () => {
+    const wrapped = box(50, 150, 60, 84);
     // A two-line verb earlier on the row reaches 50px down, below the marker.
-    expect(route([{ start: 10, end: 60, top: 4, bottom: 50 }])).toEqual([
-      { start: -6, top: 40, width: 106, height: 13, side: "end", bottom: true },
-      { start: -6, top: 53, width: 118, height: 47, side: "start", bottom: true },
+    expect(branchRoute(at(100, 40), BADGE, [wrapped, box(10, 40, 4, 50)], 800).segments).toEqual([
+      { start: 100, top: 40, width: 57, height: 13, side: "start", bottom: true },
+      { start: 157, top: 53, width: 12, height: 47, side: "start", bottom: true },
     ]);
     // Boxes off the row count for nothing: one ending where the arrow starts,
-    // one (past the drop) starting where the marker ends.
-    const above = { start: 10, end: 60, top: -40, bottom: 4 };
-    const below = { start: 150, end: 200, top: 40, bottom: 58 };
-    expect(route([above, below])[0]).toEqual({
-      start: -6,
-      top: 40,
-      width: 106,
-      height: 3,
-      side: "end",
-      bottom: true,
-    });
-    // A row box that only reaches the marker's bottom leaves the turn where it was.
-    expect(route([{ start: 10, end: 60, top: 5, bottom: 40 }])[0].height).toBe(3);
+    // one (past the jog) starting where the marker ends.
+    const above = box(10, 60, -40, 4);
+    const below = box(300, 340, 40, 58);
+    expect(branchRoute(at(100, 40), BADGE, [wrapped, above, below], 800).segments[0].height).toBe(3);
+    // A row box that only reaches the marker's bottom leaves the run where it was.
+    expect(
+      branchRoute(at(100, 40), BADGE, [wrapped, box(10, 40, 5, 40)], 800).segments[0].height,
+    ).toBe(3);
   });
 });

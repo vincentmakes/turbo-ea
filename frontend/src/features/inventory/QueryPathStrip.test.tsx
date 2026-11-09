@@ -1269,7 +1269,7 @@ describe("QueryPathStrip — connector geometry", () => {
     stub({
       [LINES]: [{ x: 100, y: 50, width: 800, height: 100 }],
       [ARROW]: [{ x: 110, y: 80, width: 8, height: 8 }, {}],
-      [BADGE]: [{ x: 130, y: 100, width: 30, height: 20 }],
+      [BADGE]: [{ x: 126, y: 100, width: 30, height: 20 }],
     });
     render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
     expect(screen.getAllByTestId("query-path-row")[0].getAttribute("style")).toBeNull();
@@ -1281,7 +1281,7 @@ describe("QueryPathStrip — connector geometry", () => {
       ...NONE,
       left: "14px",
       top: "38px",
-      width: "16px",
+      width: "12px",
       height: "22px",
       borderLeft: LINE,
       borderBottom: LINE,
@@ -1297,18 +1297,19 @@ describe("QueryPathStrip — connector geometry", () => {
   it("drops straight past a long verb wrapped beside its own arrow", () => {
     // The origin's arrow and verb reach 50px below the marker; another
     // hop's arrow and verb there would be in the way.
-    const rects = (heads: RectLike[]) => ({
+    const rects = (selector: string, boxes: RectLike[]) => ({
       [LINES]: [{ x: 100, y: 50, width: 800, height: 200 }],
       [ARROW]: [{ x: 110, y: 80, width: 8, height: 8 }, {}],
-      [BADGE]: [{ x: 130, y: 140, width: 30, height: 20 }],
-      ['[data-testid="query-path-hop-head"]']: heads,
+      [BADGE]: [{ x: 126, y: 140, width: 30, height: 20 }],
+      [selector]: boxes,
     });
     const tall = { x: 105, y: 56, width: 200, height: 82 };
-    stub(rects([tall, {}]));
+    stub(rects('[data-testid="query-path-hop-head"]', [tall, {}]));
     const { unmount } = render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
     expect(segments().map((el) => el.style.left)).toEqual(["14px"]);
     unmount();
-    stub(rects([{}, tall]));
+    // The same box as the start card's stack, beside the arrow: in the way all round.
+    stub(rects('[data-testid="query-path-card"]', [tall, {}, {}]));
     render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
     expect(segments().map((el) => el.style.left)).toEqual(["-6px", "-6px"]);
   });
@@ -1319,7 +1320,7 @@ describe("QueryPathStrip — connector geometry", () => {
     stub({
       [LINES]: [{ x: 100, y: 50, width: 800, height: 100 }],
       [ARROW]: [{ x: 882, y: 80, width: 8, height: 8 }, {}],
-      [BADGE]: [{ x: 840, y: 100, width: 30, height: 20 }],
+      [BADGE]: [{ x: 844, y: 100, width: 30, height: 20 }],
     });
     render(<QueryPathStrip view={OR_VIEW} onLeave={() => {}} />);
     expect(branchLine().style.marginRight).toBe("14px");
@@ -1329,7 +1330,7 @@ describe("QueryPathStrip — connector geometry", () => {
       ...NONE,
       right: "14px",
       top: "38px",
-      width: "16px",
+      width: "12px",
       height: "22px",
       borderRight: LINE,
       borderBottom: LINE,
@@ -1377,7 +1378,7 @@ describe("QueryPathStrip — connector geometry", () => {
     ]);
   });
 
-  /** Edit mode, with one box of the first line sitting in the way down from the arrow. */
+  /** Edit mode, with one box of the first line sitting in the way down from the arrow (at 14px). */
   function renderBlocked(selector: string) {
     stub({
       [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
@@ -1387,22 +1388,25 @@ describe("QueryPathStrip — connector geometry", () => {
     });
     renderEditor({ query: OR_VIEW.query, viewId: null });
   }
-  const GUTTER_ROUTE = [
+  // The chip spans 0–120px, 44–68px down: the drop jogs along the gap
+  // under the arrow's row to 127px (its end plus clearance) and the line
+  // starts there.
+  const JOG_ROUTE = [
     {
       ...NONE,
-      left: "-6px",
+      left: "14px",
       top: "38px",
-      width: "20px",
+      width: "113px",
       height: "3px",
-      borderRight: LINE,
+      borderLeft: LINE,
       borderBottom: LINE,
-      borderBottomRightRadius: "6px",
+      borderBottomLeftRadius: "6px",
     },
     {
       ...NONE,
-      left: "-6px",
+      left: "127px",
       top: "41px",
-      width: "36px",
+      width: "12px",
       height: "49px",
       borderLeft: LINE,
       borderBottom: LINE,
@@ -1410,14 +1414,41 @@ describe("QueryPathStrip — connector geometry", () => {
     },
   ];
 
-  it("routes the connector round a wrapped chip of the card's own line, by the gutter", () => {
+  it("jogs round a wrapped chip of the card's own line, the line starting after it", () => {
     renderBlocked('[data-testid="query-path-add-condition"]');
-    expect(segments().map(styleOf)).toEqual(GUTTER_ROUTE);
+    expect(segments().map(styleOf)).toEqual(JOG_ROUTE);
+    expect(branchLine().style.marginLeft).toBe("127px");
   });
 
-  it("routes round a chip that ends the line too", () => {
+  it("jogs round a chip that ends the line too", () => {
     renderBlocked('[data-testid="query-path-add-hop"]');
-    expect(segments().map(styleOf)).toEqual(GUTTER_ROUTE);
+    expect(segments().map(styleOf)).toEqual(JOG_ROUTE);
+    expect(branchLine().style.marginLeft).toBe("127px");
+  });
+
+  it("jogs the other way right to left", () => {
+    hookState.isRtl = true;
+    // The edit-mode picture above, mirrored in an 800px strip.
+    stub({
+      [LINES]: [{ x: 0, y: 0, width: 800, height: 100 }],
+      [ARROW]: [{ x: 782, y: 30, width: 8, height: 8 }, {}],
+      [BADGE]: [{ x: 631, y: 80, width: 30, height: 20 }],
+      ['[data-testid="query-path-add-condition"]']: [{ x: 680, y: 44, width: 120, height: 24 }, {}],
+    });
+    renderEditor({ query: OR_VIEW.query, viewId: null });
+    expect(branchLine().style.marginRight).toBe("127px");
+    expect(branchLine().style.marginLeft).toBe("");
+    expect(segments().map(styleOf)).toEqual(
+      JOG_ROUTE.map(({ left, borderLeft, borderBottomLeftRadius, ...rest }) => ({
+        ...rest,
+        right: left,
+        borderRight: borderLeft,
+        borderBottomRightRadius: borderBottomLeftRadius,
+        left: "",
+        borderLeft: "",
+        borderBottomLeftRadius: "",
+      })),
+    );
   });
 
   it("measures again once the icon font has loaded, and stops listening when it goes", async () => {
