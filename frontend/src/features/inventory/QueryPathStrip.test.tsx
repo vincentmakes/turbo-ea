@@ -376,6 +376,35 @@ describe("QueryPathStrip — view mode", () => {
 });
 
 describe("QueryPathStrip — edit mode", () => {
+  it("keeps the header out of the sideways-scrolling grid, so it never scrolls away", () => {
+    const { unmount } = renderEditor({
+      query: {
+        type: "Application",
+        related: [
+          {
+            relation: "relOrgToApp",
+            type: "Organization",
+            related: [{ relation: "relOrgToApp", type: "Application" }],
+          },
+        ],
+      },
+      viewId: null,
+    });
+    const grid = screen.getByTestId("query-path-grid");
+    expect(getComputedStyle(grid).overflowX).toBe("auto");
+    for (const id of ["query-path-save", "query-path-cancel"]) {
+      const button = screen.getByTestId(id);
+      expect(grid).not.toContainElement(button);
+      expect(screen.getByTestId("query-path-strip")).toContainElement(button);
+    }
+    unmount();
+
+    render(<QueryPathStrip view={VIEW} canEdit onLeave={() => {}} />);
+    const viewGrid = screen.getByTestId("query-path-grid");
+    expect(viewGrid).not.toContainElement(screen.getByTestId("query-path-edit"));
+    expect(viewGrid).not.toContainElement(screen.getByTestId("query-path-leave"));
+  });
+
   it("titles a new draft and an edited view, with Save and Cancel", () => {
     const onSave = vi.fn();
     const onCancel = vi.fn();
@@ -466,7 +495,8 @@ describe("QueryPathStrip — edit mode", () => {
   it("negates a hop and removes it with everything after it", () => {
     const { last } = renderEditor({ query: VIEW.query, viewId: "bm-q" });
     const verbs = screen.getAllByTestId("query-path-verb");
-    expect(verbs.map((v) => v.textContent)).toEqual(["uses", "is affected by"]);
+    // The MCP branch beside the chain is a row of its own, editable too.
+    expect(verbs.map((v) => v.textContent)).toEqual(["uses", "is affected by", "has no uses"]);
     fireEvent.click(verbs[1]);
     pick("has no");
     expect(last().query.related![0].related![0]).toEqual({
@@ -487,8 +517,11 @@ describe("QueryPathStrip — edit mode", () => {
       },
       viewId: "bm-q",
     });
-    // The MCP branch beside the chain moved into it.
-    expect(screen.getAllByTestId("query-path-verb")).toHaveLength(1);
+    // The branch beside the chain now continues the first row.
+    expect(screen.getAllByTestId("query-path-verb").map((v) => v.textContent)).toEqual([
+      "has no uses",
+    ]);
+    expect(screen.getAllByTestId("query-path-row")).toHaveLength(1);
   });
 
   it("offers each condition once, subtypes and tags only where they apply", () => {
@@ -787,5 +820,213 @@ describe("QueryPathStrip — specific cards", () => {
     expect(screen.getByText("Cards", { selector: ".MuiChip-label" })).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
     expect(last()).toEqual({ query: { type: "Organization" }, viewId: null });
+  });
+});
+
+describe("QueryPathStrip — branches", () => {
+  const TO_ORG = { relation: "relOrgToApp", type: "Organization" };
+  const TO_INIT = { relation: "relInitiativeToApp", type: "Initiative" };
+  const view = (query: ActiveQuery["query"]): ActiveQuery => ({ ...VIEW, query });
+  const rowTexts = () =>
+    screen.getAllByTestId("query-path-row").map((row) =>
+      Array.from(row.children)
+        .map((cell) => cell.textContent)
+        .join(" | "),
+    );
+
+  it("reads an MCP query A and B as two rows, and on the second", () => {
+    const query = view({ type: "Application", related: [TO_ORG, TO_INIT] });
+    render(<QueryPathStrip view={query} onLeave={() => {}} />);
+    expect(rowTexts()).toEqual([
+      "appsBusiness App | arrow_forwardis used bycorporate_fareOrg Unit",
+      "subdirectory_arrow_right | andarrow_forwardis affected byappsChange Initiative",
+    ]);
+    const [first, second] = screen.getAllByTestId("query-path-row");
+    expect(within(first).queryByText("and")).not.toBeInTheDocument();
+    expect(within(second).getByText("and")).toBeInTheDocument();
+    expect(within(second).getByTestId("query-path-branch-marker")).toBeInTheDocument();
+    expect(screen.queryByText("or")).not.toBeInTheDocument();
+  });
+
+  it("reads an MCP query A or B with or on the second row", () => {
+    const query = view({ type: "Application", related_any: [TO_ORG, TO_INIT] });
+    render(<QueryPathStrip view={query} onLeave={() => {}} />);
+    expect(rowTexts()).toEqual([
+      "appsBusiness App | arrow_forwardis used bycorporate_fareOrg Unit",
+      "subdirectory_arrow_right | orarrow_forwardis affected byappsChange Initiative",
+    ]);
+    expect(screen.queryByText("and")).not.toBeInTheDocument();
+  });
+
+  it("lays the rows on a grid one column per depth, a branch starting under its parent", () => {
+    render(
+      <QueryPathStrip
+        view={view({ type: "Application", related: [{ ...TO_ORG, related: [TO_ORG] }, TO_INIT] })}
+        onLeave={() => {}}
+      />,
+    );
+    const grid = screen.getByTestId("query-path-grid");
+    expect(grid).toHaveStyle({ display: "grid", gridTemplateColumns: "repeat(3, max-content)" });
+    const marker = screen.getByTestId("query-path-branch-marker");
+    expect(marker).toHaveStyle({ gridRow: "2", gridColumn: "1" });
+    const hops = screen.getAllByTestId("query-path-hop");
+    expect(
+      hops.map((h) => {
+        const style = getComputedStyle(h);
+        return [style.gridRow, style.gridColumn];
+      }),
+    ).toEqual([
+      ["1", "2"],
+      ["1", "3"],
+      ["2", "2"],
+    ]);
+    const start = screen.getAllByTestId("query-path-row")[0].children[0];
+    expect(start).toHaveTextContent("Business App");
+    expect(getComputedStyle(start)).toMatchObject({ gridRow: "1", gridColumn: "1" });
+  });
+
+  it("flips the branch corner arrow right to left", () => {
+    const query = view({ type: "Application", related: [TO_ORG, TO_INIT] });
+    const corner = () =>
+      within(screen.getByTestId("query-path-branch-marker")).getByText("subdirectory_arrow_right");
+    const { unmount } = render(<QueryPathStrip view={query} onLeave={() => {}} />);
+    expect(corner().style.transform).toBe("");
+    unmount();
+    hookState.isRtl = true;
+    render(<QueryPathStrip view={query} onLeave={() => {}} />);
+    expect(corner().style.transform).toBe("scaleX(-1)");
+  });
+
+  it("shows the plus under every card that has a hop, below the depth cap", () => {
+    const { unmount } = renderEditor({
+      query: {
+        type: "Application",
+        related: [{ ...TO_ORG, related: [{ relation: "relOrgToApp", type: "Application" }] }],
+      },
+      viewId: null,
+    });
+    const plus = screen.getAllByTestId("query-path-branch");
+    expect(plus).toHaveLength(2);
+    expect(plus[0]).toHaveAttribute("aria-label", "Add a branch");
+    // The row's last card has no hop yet: nothing to branch beside.
+    const hopHasPlus = screen
+      .getAllByTestId("query-path-hop")
+      .map((h) => within(h).queryByTestId("query-path-branch") != null);
+    expect(hopHasPlus).toEqual([true, false]);
+    unmount();
+
+    // A third hop sits at the depth cap: no plus under it, no + relation after it.
+    renderEditor({
+      query: {
+        type: "Application",
+        related: [
+          {
+            ...TO_ORG,
+            related: [{ relation: "relOrgToApp", type: "Application", related: [TO_INIT] }],
+          },
+        ],
+      },
+      viewId: null,
+    });
+    expect(screen.getAllByTestId("query-path-branch")).toHaveLength(3);
+    const third = screen.getAllByTestId("query-path-hop")[2];
+    expect(within(third).queryByTestId("query-path-branch")).toBeNull();
+    expect(screen.queryByTestId("query-path-add-hop")).not.toBeInTheDocument();
+  });
+
+  it("hides every plus at 12 hops in the tree", () => {
+    const hops = (n: number) =>
+      Array.from({ length: n }, () => ({ relation: "relAppToApp__out", type: "Application" }));
+    renderEditor({
+      query: { type: "Application", related: hops(10), related_any: hops(2) },
+      viewId: null,
+    });
+    expect(screen.getAllByTestId("query-path-row")).toHaveLength(12);
+    expect(screen.queryByTestId("query-path-branch")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-add-hop")).not.toBeInTheDocument();
+  });
+
+  it("adds an AND branch: plus, And also…, then the relation", () => {
+    const { last } = renderEditor({ query: { type: "Application", related: [TO_ORG] }, viewId: null });
+    fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
+    expect(menuLabels()).toEqual(["And also…", "Or…"]);
+    pick("And also…");
+    expect(menuLabels()).toEqual([
+      "is used by Org Unit",
+      "is affected by Change Initiative",
+      "calls Business App",
+      "is called by Business App",
+    ]);
+    pick("is affected by Change Initiative");
+    expect(last()).toEqual({
+      query: { type: "Application", related: [TO_ORG, TO_INIT] },
+      viewId: null,
+    });
+    expect(rowTexts()[1]).toContain("andarrow_forwardis affected byappsChange Initiative");
+  });
+
+  it("adds an OR branch, moving the row's hop into related_any with it", () => {
+    const { last } = renderEditor({
+      query: {
+        type: "Application",
+        related: [{ ...TO_ORG, where: { approval_status: ["DRAFT"] } }, TO_INIT],
+      },
+      viewId: "bm-q",
+    });
+    fireEvent.click(screen.getAllByTestId("query-path-branch")[0]);
+    pick("Or…");
+    pick("calls Business App");
+    expect(last()).toEqual({
+      query: {
+        type: "Application",
+        related: [TO_INIT],
+        related_any: [
+          { ...TO_ORG, where: { approval_status: ["DRAFT"] } },
+          { relation: "relAppToApp__out", type: "Application" },
+        ],
+      },
+      viewId: "bm-q",
+    });
+    const connectives = screen
+      .getAllByTestId("query-path-row")
+      .map((r) => within(r).queryByText(/^(and|or)$/)?.textContent ?? null);
+    expect(connectives).toEqual([null, "or", "and"]);
+  });
+
+  it("shows no plus under a card with no hop; + relation still adds its first hop", () => {
+    const { last } = renderEditor({ query: { type: "Application", related: [TO_ORG] }, viewId: null });
+    // Org Unit has no hop yet: no plus under it, the start card's plus only.
+    const orgCell = screen.getByTestId("query-path-hop");
+    expect(within(orgCell).queryByTestId("query-path-branch")).toBeNull();
+    expect(screen.getAllByTestId("query-path-branch")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("query-path-add-hop"));
+    expect(menuLabels()).toEqual(["uses Business App"]);
+    pick("uses Business App");
+    expect(last()).toEqual({
+      query: {
+        type: "Application",
+        related: [{ ...TO_ORG, related: [{ relation: "relOrgToApp", type: "Application" }] }],
+      },
+      viewId: null,
+    });
+    expect(screen.getAllByTestId("query-path-row")).toHaveLength(1);
+  });
+
+  it("removes an OR branch and folds the survivor back into related", () => {
+    const { last } = renderEditor({
+      query: { type: "Application", related_any: [TO_ORG, TO_INIT] },
+      viewId: null,
+    });
+    const verbs = screen.getAllByTestId("query-path-verb");
+    expect(verbs.map((v) => v.textContent)).toEqual(["is used by", "is affected by"]);
+    fireEvent.click(verbs[1]);
+    pick("Remove this hop");
+    expect(last()).toEqual({ query: { type: "Application", related: [TO_ORG] }, viewId: null });
+    expect(screen.getAllByTestId("query-path-row")).toHaveLength(1);
+  });
+
+  it("says an or needs two branches when a save is refused for it", () => {
+    renderEditor({ query: { type: "Application" }, viewId: null }, { error: "or_needs_two" });
+    expect(screen.getByRole("alert")).toHaveTextContent("An 'or' needs at least two branches.");
   });
 });

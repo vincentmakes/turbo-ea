@@ -321,9 +321,9 @@ Serveren eksponerer 20 skriveværktøjer, hver annoteret som **additiv** (oprett
 En forespørgsel er et lille JSON-objekt, der består **udelukkende af nøgler** — nøgler til korttype, relationstype, felt og valgmulighed, som `list_card_types` og `get_relation_types` returnerer dem; kort-id'er kun under `where.cards` og tag-id'er kun under `where.tags`; aldrig etiketter:
 
 ```text
-CardQuery = { type, where?, related?: [Hop] }
+CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,7 +335,8 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Et led matcher, når **et vilkårligt** relateret kort af den type opfylder sit `where` (og sine egne indlejrede led). `negate: true` gør det til «har **intet** sådant kort».
-- Led side om side på samme niveau skal alle matche (OG); værdierne i én liste er alternativer (ELLER).
+- Led side om side i `related` skal alle matche (OG); værdierne i én liste er alternativer (ELLER).
+- Led i `related_any` er alternativer: mindst ét af dem skal matche, oven i hvert led i `related` ved siden af — `A og B og (C eller D)`. `negate` virker også inde i `related_any`. Et `related_any` kræver mindst to led; et med færre afvises med `or_needs_two`.
 - `<key>__out` og `<key>__in` vælger en side af en relationstype, der forbinder en korttype med sig selv (kortet er kilden eller målet). Ellers er den almindelige nøgle nok.
 - `data_quality_band` matcher et korts datakvalitetsscore efter bånd, som filteret Datakvalitet i inventaret: `complete` (80 og derover), `partial` (fra og med 40 til, men ikke med, 80) eller `minimal` (under 40). Enhver anden værdi afvises med `unknown_band`.
 - `tags` tager tag-id'er fra `list_tag_groups`, grupperet efter taggruppe: Et kort skal bære mindst ét af de anførte tags fra **hver** nævnt gruppe (alternativer inden for en gruppe, OG på tværs af grupper). Et tag, hvis gruppe ikke gælder for ledets korttype, afvises med `tag_not_for_type`; et ukendt id med `unknown_tag`.
@@ -364,11 +365,24 @@ Eksempel — Organisationer, der bruger en aktiv Applikation, som berøres af et
 }
 ```
 
+Eksempel — Applikationer, som en Organisation bruger **eller** som et Initiativ berører (Applikationen er målet for begge relationstyper):
+
+```json
+{
+  "type": "Application",
+  "related_any": [
+    { "relation": "relOrgToApp", "type": "Organization" },
+    { "relation": "relInitiativeToApp", "type": "Initiative" }
+  ]
+}
+```
+
 I inventaret viser en visning, der er gemt på denne måde, sin kæde som en læsbar sti over gitteret med en note om, at den er oprettet via MCP. Dens forespørgsel kan ændres i inventaret (blyanten på stistrimlen) eller via `save_inventory_view` (angiv visningens id fra `list_inventory_views` som `view_id`; opdateringen erstatter navn og forespørgsel, ændrer synlighed og kolonner kun når de angives, og bevarer den gruppering og det layout, der er sat i webgrænsefladen — medmindre den nye forespørgsel starter fra en anden korttype, hvilket nulstiller visningens filtre og gruppering, da de hørte til den gamle type; en visning, du ikke kan redigere, afvises med `view_not_found` eller `view_not_editable`; en ændring af synlighed, som du ikke må foretage (kun ejeren kan ændre den, og offentlig eller delt kræver `bookmarks.share`), afvises med `visibility_not_allowed`); i webgrænsefladen kan dens ejer også omdøbe den, ændre dens deling og OData-indstilling, justere kolonnelayoutet eller slette den.
 
 Begrænsninger:
 
-- Højst **3 niveauer** af `related`, højst 10 led side om side på ét niveau og højst **12 led i hele forespørgslen** (side om side og indlejrede tilsammen). En længere forespørgsel afvises med `too_many_hops`.
+- Højst **3 niveauer** af led (gennem både `related` og `related_any`), højst 10 led i én `related`- eller `related_any`-liste og højst **12 led i hele forespørgslen** (begge lister, side om side og indlejret samlet). En længere forespørgsel afvises med `too_many_hops`.
+- Én gruppe af alternativer pr. kort: `(A eller B) og (C eller D)` under samme kort kan ikke udtrykkes — `related_any` rummer én ELLER-gruppe ved siden af OG-leddene.
 - Højst **50** valgte kort pr. betingelse.
 - En tekstattribut matcher sin værdi **præcist** — der er ingen delvis eller store/små-bogstavs-uafhængig matchning.
 - **`rollback_batch` kan ikke fortryde en gemt visning.** Når en visning gemmes, registreres en mutationsbatch, men der udsendes ingen hændelse, som tilbagerulningen kan vende; slet en uønsket visning fra inventarets Gemte visninger i stedet.

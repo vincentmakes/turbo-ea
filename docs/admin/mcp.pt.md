@@ -321,9 +321,9 @@ O servidor expõe 20 ferramentas de escrita, cada uma anotada como **aditiva** (
 Uma consulta é um pequeno objeto JSON formado **somente por chaves** — chaves de tipo de card, de tipo de relação, de campo e de opção como `list_card_types` e `get_relation_types` as retornam; ids de card apenas em `where.cards` e ids de tag apenas em `where.tags`; nunca rótulos:
 
 ```text
-CardQuery = { type, where?, related?: [Hop] }
+CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,7 +335,8 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
-- Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
+- Os saltos lado a lado em `related` devem todos corresponder (E); os valores dentro de uma lista são alternativas (OU).
+- Os saltos em `related_any` são alternativas: pelo menos um deles deve corresponder, além de cada salto em `related` ao lado — `A e B e (C ou D)`. `negate` também funciona dentro de `related_any`. Um `related_any` precisa de pelo menos dois saltos; um com menos é recusado com `or_needs_two`.
 - `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
 - `data_quality_band` faz corresponder a pontuação de qualidade dos dados de um card por faixa, como o filtro Qualidade dos dados do inventário: `complete` (80 ou mais), `partial` (de 40 inclusive até 80 exclusive) ou `minimal` (abaixo de 40). Qualquer outro valor é recusado com `unknown_band`.
 - `tags` recebe ids de tag de `list_tag_groups`, agrupados por grupo de tags: um card deve ter pelo menos uma das tags listadas de **cada** grupo citado (alternativas dentro de um grupo, E entre grupos). Uma tag cujo grupo não se aplica ao tipo de card desse salto é recusada com `tag_not_for_type`; um id desconhecido, com `unknown_tag`.
@@ -364,11 +365,24 @@ Exemplo — Organizações que usam uma Aplicação ativa afetada por uma Inicia
 }
 ```
 
+Exemplo — Aplicações que uma Organização usa **ou** que uma Iniciativa afeta (a Aplicação é o destino dos dois tipos de relação):
+
+```json
+{
+  "type": "Application",
+  "related_any": [
+    { "relation": "relOrgToApp", "type": "Organization" },
+    { "relation": "relInitiativeToApp", "type": "Initiative" }
+  ]
+}
+```
+
 No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade com uma nota de que foi criada via MCP. A sua consulta pode ser alterada no inventário (o lápis na faixa do caminho) ou por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outro tipo de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam ao tipo anterior; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`; uma alteração de visibilidade que você não pode fazer (só o proprietário pode alterá-la, e pública ou compartilhada exige `bookmarks.share`) é recusada com `visibility_not_allowed`); na interface web, o seu proprietário também pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
 
 Limitações:
 
-- No máximo **3 níveis** de `related`, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
+- No máximo **3 níveis** de saltos (por `related` e `related_any` em conjunto), no máximo 10 saltos em uma lista `related` ou `related_any` e no máximo **12 saltos na consulta inteira** (as duas listas, lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
+- Um único grupo de alternativas por ficha: `(A ou B) e (C ou D)` sob a mesma ficha não pode ser expresso — `related_any` contém um único grupo OU ao lado dos saltos E.
 - No máximo **50** cards escolhidos por condição.
 - Um atributo de texto corresponde ao seu valor **exatamente** — não há correspondência parcial nem sem distinção de maiúsculas e minúsculas.
 - **`rollback_batch` não pode desfazer uma visualização salva.** Salvar uma visualização registra um lote de mutações, mas não publica nenhum evento que a reversão possa desfazer; exclua uma visualização indesejada em Visualizações salvas do inventário.

@@ -321,9 +321,9 @@ Le serveur expose 20 outils d'écriture, chacun annoté comme **additif** (crée
 Une requête est un petit objet JSON composé **uniquement de clés** — clés de type de fiche, de type de relation, de champ et d'option telles que les renvoient `list_card_types` et `get_relation_types`; des identifiants de fiche uniquement sous `where.cards` et des identifiants de tag uniquement sous `where.tags` ; jamais des libellés :
 
 ```text
-CardQuery = { type, where?, related?: [Hop] }
+CardQuery = { type, where?, related?: [Hop], related_any?: [Hop] }
 Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
-              type, where?, negate?: true|false, related?: [Hop] }
+              type, where?, negate?: true|false, related?: [Hop], related_any?: [Hop] }
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
@@ -335,7 +335,8 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 ```
 
 - Un saut correspond lorsque **n'importe quelle** fiche liée de ce type satisfait son `where` (et ses propres sauts imbriqués). `negate: true` le transforme en « n'a **aucune** fiche de ce type ».
-- Les sauts côte à côte à un même niveau doivent tous correspondre (ET) ; les valeurs d'une même liste sont des alternatives (OU).
+- Les sauts côte à côte dans `related` doivent tous correspondre (ET) ; les valeurs d'une même liste sont des alternatives (OU).
+- Les sauts de `related_any` sont des alternatives : au moins l'un d'eux doit correspondre, en plus de chaque saut de `related` à ses côtés — `A et B et (C ou D)`. `negate` fonctionne aussi dans `related_any`. Un `related_any` exige au moins deux sauts ; un `related_any` plus court est refusé avec `or_needs_two`.
 - `<key>__out` et `<key>__in` choisissent un côté d'un type de relation qui relie un type de fiche à lui-même (la fiche est la source, ou la cible). Sinon, la clé simple suffit.
 - `data_quality_band` fait correspondre le score de qualité des données d'une fiche par tranche, comme le filtre Qualité des données de l'inventaire : `complete` (80 et plus), `partial` (de 40 inclus à 80 exclu) ou `minimal` (moins de 40). Toute autre valeur est refusée avec `unknown_band`.
 - `tags` prend des identifiants de tag issus de `list_tag_groups`, regroupés par groupe de tags : une fiche doit porter au moins un des tags listés de **chaque** groupe nommé (alternatives au sein d'un groupe, ET entre les groupes). Un tag dont le groupe ne s'applique pas au type de fiche de ce saut est refusé avec `tag_not_for_type` ; un identifiant inconnu avec `unknown_tag`.
@@ -364,11 +365,24 @@ Exemple — Organisations qui utilisent une Application active affectée par une
 }
 ```
 
+Exemple — Applications qu'une Organisation utilise **ou** qu'une Initiative affecte (l'Application est la cible des deux types de relation) :
+
+```json
+{
+  "type": "Application",
+  "related_any": [
+    { "relation": "relOrgToApp", "type": "Organization" },
+    { "relation": "relInitiativeToApp", "type": "Initiative" }
+  ]
+}
+```
+
 Dans l'inventaire, une vue enregistrée ainsi affiche sa chaîne sous forme de chemin lisible au-dessus de la grille avec une note indiquant qu'elle a été créée via MCP. Sa requête peut être modifiée dans l'inventaire (le crayon de la bande de chemin) ou par `save_inventory_view` (transmettez l'identifiant de la vue, obtenu avec `list_inventory_views`, comme `view_id` ; la mise à jour remplace le nom et la requête, ne change la visibilité et les colonnes que si elles sont transmises, et conserve le regroupement et la disposition définis dans l'interface web — sauf si la nouvelle requête part d'un autre type de fiche, ce qui réinitialise les filtres et le regroupement de la vue, car ils appartenaient à l'ancien type ; une vue que vous ne pouvez pas modifier est refusée avec `view_not_found` ou `view_not_editable` ; un changement de visibilité qui ne vous est pas permis (seul le propriétaire peut la modifier, et publique ou partagée exige `bookmarks.share`) est refusé avec `visibility_not_allowed`) ; dans l'interface web, son propriétaire peut aussi la renommer, modifier son partage et son réglage OData, ajuster la disposition des colonnes ou la supprimer.
 
 Limites :
 
-- Au plus **3 niveaux** de `related`, au plus 10 sauts côte à côte à un même niveau, et au plus **12 sauts dans l'ensemble de la requête** (côte à côte et imbriqués confondus). Une requête plus longue est refusée avec `too_many_hops`.
+- Au plus **3 niveaux** de sauts (via `related` et `related_any` indifféremment), au plus 10 sauts dans une même liste `related` ou `related_any`, et au plus **12 sauts dans toute la requête** (les deux listes, côte à côte et imbriqués ensemble). Une requête plus longue est refusée avec `too_many_hops`.
+- Un seul groupe d'alternatives par fiche : `(A ou B) et (C ou D)` sous la même fiche ne peut pas être exprimé — `related_any` contient un seul groupe OU à côté des sauts ET.
 - Au plus **50** fiches choisies par condition.
 - Un attribut texte correspond à sa valeur **exactement** — il n'y a pas de correspondance partielle ni insensible à la casse.
 - **`rollback_batch` ne peut pas annuler une vue enregistrée.** L'enregistrement d'une vue crée un lot de modifications mais ne publie aucun événement que l'annulation pourrait inverser ; supprimez une vue indésirable depuis les Vues enregistrées de l'inventaire.

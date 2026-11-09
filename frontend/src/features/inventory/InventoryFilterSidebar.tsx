@@ -2552,6 +2552,7 @@ function BookmarkListItem({
                   relationTypes,
                   locale: i18n.language,
                   hasNo: t("inventory:queryView.hasNo"),
+                  or: t("inventory:queryView.or"),
                 })}
               </span>
             </Tooltip>

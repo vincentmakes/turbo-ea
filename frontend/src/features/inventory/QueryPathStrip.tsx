@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type MouseEvent } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -31,34 +31,39 @@ import { pickFacetFields } from "@/lib/fieldFacets";
 import type {
   ActiveQuery,
   CardQuery,
-  CardQueryHop,
   CardQueryWhere,
   CardType,
   FieldDef,
   QueryDraft,
-  RelationType,
   TagGroup,
 } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, EMPTY_VALUE } from "./InventoryFilterSidebar";
 import { hopRelationType, hopVerb } from "./queryPath";
 import QueryConditionPopover from "./QueryConditionPopover";
 import {
-  MAX_CHAIN_DEPTH,
-  appendHop,
+  addBranch,
+  appendHopAt,
+  canAppend,
+  canBranch,
   cardsChipLabel,
-  chainNodes,
   conditionValues,
   draftProblem,
+  nodeAt,
   pickedCardIds,
   relationChoices,
   removeCondition,
   removeHopAt,
+  rows,
   setCondition,
   setIncludeDescendants,
   setStartType,
   tagChipsByGroup,
   toggleNegate,
   type ConditionKind,
+  type Connective,
+  type NodePath,
+  type QueryRow,
+  type RelationChoice,
 } from "./queryDraft";
 import { tagGroupApplies } from "@/lib/tagGroups";
 import { useCardNames, type CardNameEntry } from "./useCardNames";
@@ -87,11 +92,13 @@ const NOOP = () => {};
 
 /**
  * The strip above the inventory grid while a query view is applied or being
- * built. In view mode it names the view and reads the chain as a path — each
- * card type with its conditions, then per hop an arrow, the relation verb
- * read from the side under view, and the next type. In edit mode the same
- * path becomes the builder: the start type, each verb and each condition is a
- * chip that opens its editor, and the grid below is the live preview.
+ * built. In view mode it names the view and reads the query as a grid of
+ * rows — each card type with its conditions, then per hop an arrow, the
+ * relation verb read from the side under view, and the next type; a branch
+ * ("and" / "or") is a row of its own starting under the card it hangs from.
+ * In edit mode the same grid becomes the builder: the start type, each verb
+ * and each condition is a chip that opens its editor, a circled plus under a
+ * card adds a branch, and the grid below is the live preview.
  */
 export default function QueryPathStrip({
   view,
@@ -136,16 +143,22 @@ export default function QueryPathStrip({
   );
 }
 
+/**
+ * The strip never grows past its container: the grid scrolls sideways on its
+ * own (`query-path-grid`), so the header row above it — title, Save, Cancel,
+ * ×, pencil — stays on screen however wide the query gets.
+ */
 const STRIP_SX = {
   mb: 1,
   px: 1.5,
   py: 1,
   flexShrink: 0,
+  minWidth: 0,
+  maxWidth: "100%",
   display: "flex",
   flexDirection: "column",
   gap: 0.75,
 } as const;
-const ROW_SX = { display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" } as const;
 
 function ViewStrip({
   view,
@@ -163,7 +176,6 @@ function ViewStrip({
   onEdit: () => void;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
-  const { types, relationTypes } = useMetamodel();
   return (
     <Paper variant="outlined" data-testid="query-path-strip" sx={STRIP_SX}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -198,17 +210,7 @@ function ViewStrip({
           <MaterialSymbol icon="close" size={18} />
         </IconButton>
       </Box>
-      <Box sx={ROW_SX}>
-        <QueryNode
-          typeKey={view.query.type}
-          where={view.query.where}
-          hops={view.query.related ?? []}
-          types={types}
-          relationTypes={relationTypes}
-          tagGroups={tagGroups}
-          cardNames={cardNames}
-        />
-      </Box>
+      <QueryGrid query={view.query} tagGroups={tagGroups} cardNames={cardNames} />
     </Paper>
   );
 }
@@ -241,97 +243,6 @@ function TypeChip({ type, typeKey }: { type: CardType | undefined; typeKey: stri
   );
 }
 
-function QueryNode({
-  typeKey,
-  where,
-  hops,
-  types,
-  relationTypes,
-  tagGroups,
-  cardNames,
-}: {
-  typeKey: string;
-  where?: CardQueryWhere;
-  hops: CardQueryHop[];
-  types: CardType[];
-  relationTypes: RelationType[];
-  tagGroups: TagGroup[];
-  cardNames: Map<string, CardNameEntry>;
-}) {
-  const type = types.find((ct) => ct.key === typeKey);
-  const items = useConditionItems(type, where, tagGroups, cardNames);
-  return (
-    <>
-      <TypeChip type={type} typeKey={typeKey} />
-      {items.map((c) => (
-        <Chip key={c.key} size="small" variant="outlined" label={c.label} />
-      ))}
-      <ReadOnlyHops
-        fromType={typeKey}
-        hops={hops}
-        types={types}
-        relationTypes={relationTypes}
-        tagGroups={tagGroups}
-        cardNames={cardNames}
-      />
-    </>
-  );
-}
-
-/** Hops rendered as text: an arrow, the verb, the nested node; siblings joined by "and". */
-function ReadOnlyHops({
-  fromType,
-  hops,
-  types,
-  relationTypes,
-  tagGroups,
-  cardNames,
-  leadingAnd = false,
-}: {
-  fromType: string;
-  hops: CardQueryHop[];
-  types: CardType[];
-  relationTypes: RelationType[];
-  tagGroups: TagGroup[];
-  cardNames: Map<string, CardNameEntry>;
-  /** Join the first hop with "and" too (hops beside a chain hop). */
-  leadingAnd?: boolean;
-}) {
-  const { t, i18n } = useTranslation(["inventory", "common"]);
-  return (
-    <>
-      {hops.map((hop, i) => {
-        const rt = hopRelationType(hop, relationTypes);
-        const verb = hopVerb(rt, fromType, i18n.language, hop.relation) || hop.relation;
-        return (
-          <Fragment key={`${hop.relation}-${hop.type}-${i}`}>
-            {(i > 0 || leadingAnd) && (
-              <Typography variant="body2" color="text.secondary">
-                {t("inventory:queryView.and")}
-              </Typography>
-            )}
-            <Box data-testid="query-path-hop" sx={{ display: "contents" }}>
-              <Arrow />
-              <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                {hop.negate ? `${t("inventory:queryView.hasNo")} ${verb}` : verb}
-              </Typography>
-              <QueryNode
-                typeKey={hop.type}
-                where={hop.where}
-                hops={hop.related ?? []}
-                types={types}
-                relationTypes={relationTypes}
-                tagGroups={tagGroups}
-                cardNames={cardNames}
-              />
-            </Box>
-          </Fragment>
-        );
-      })}
-    </>
-  );
-}
-
 /** One condition chip of a node. A tags condition gives one chip per tag group. */
 interface ConditionItem {
   key: string;
@@ -341,18 +252,23 @@ interface ConditionItem {
   tagIds?: string[];
 }
 
-/** The condition chips of a node: `label: value, value` (`label` alone while still empty). */
+/**
+ * The condition chips of a node: `label: value, value` (`label` alone while
+ * still empty). None while `enabled` is false — a caller that shows no chips
+ * still calls the hook, but skips the work.
+ */
 function useConditionItems(
   type: CardType | undefined,
   where: CardQueryWhere | undefined,
   tagGroups: TagGroup[],
   cardNames: Map<string, CardNameEntry>,
+  enabled = true,
 ): ConditionItem[] {
   const { t } = useTranslation(["inventory", "common"]);
   const fieldLabel = useFieldLabel();
   const optLabel = useOptionLabel();
   const stLabel = useSubtypeLabel();
-  if (!where) return [];
+  if (!enabled || !where) return [];
   const empty = t("inventory:filter.emptyValue");
   const items: ConditionItem[] = [];
   const labelOf = (name: string, values: string[]) =>
@@ -494,14 +410,12 @@ function EditStrip({
           {t("common:actions.save")}
         </Button>
       </Box>
-      <Box sx={ROW_SX}>
-        <EditChain
-          query={draft.query}
-          tagGroups={tagGroups}
-          cardNames={cardNames}
-          onChange={onChange}
-        />
-      </Box>
+      <QueryGrid
+        query={draft.query}
+        tagGroups={tagGroups}
+        cardNames={cardNames}
+        onChange={onChange}
+      />
       {error && (
         <Typography variant="caption" color="error" role="alert">
           {t(`inventory:queryView.error.${error}`, { defaultValue: error })}
@@ -515,11 +429,27 @@ const kindKey = (kind: ConditionKind) => (typeof kind === "object" ? `attr:${kin
 
 interface OpenCondition {
   anchor: HTMLElement;
-  index: number;
+  path: NodePath;
   kind: ConditionKind;
 }
 
-function EditChain({
+/** A stable key for a node's path ("root", "r0", "r0.o1", …). */
+const pathKey = (path: NodePath) =>
+  path.map((s) => `${s.list === "related" ? "r" : "o"}${s.index}`).join(".") || "root";
+
+/** Can the `+ relation` chip continue this row from its last node? */
+function rowAppendable(query: CardQuery, row: QueryRow): boolean {
+  return canAppend(query, row.nodes[row.nodes.length - 1].path);
+}
+
+/**
+ * The query as a grid: one grid row per branch row, one column per depth.
+ * A cell stacks a node's connector (connective, arrow, verb), its type chip,
+ * its conditions and — in edit mode — its `+ condition` chip and branch plus.
+ * A branch row leaves its parent's columns empty but for a faint corner arrow
+ * in the parent's column. Editable when `onChange` is given.
+ */
+function QueryGrid({
   query,
   tagGroups,
   cardNames,
@@ -528,97 +458,94 @@ function EditChain({
   query: CardQuery;
   tagGroups: TagGroup[];
   cardNames: Map<string, CardNameEntry>;
-  onChange: (query: CardQuery) => void;
+  onChange?: (query: CardQuery) => void;
 }) {
-  const { i18n } = useTranslation();
-  const { types, relationTypes } = useMetamodel();
+  const { types } = useMetamodel();
+  const isRtl = useIsRtl();
   const readable = useReadableCardTypes();
-  const offered = useMemo(() => readable.filter((ct) => !ct.is_hidden), [readable]);
+  // The start chip's type menu: edit mode only, worked out once for the grid.
+  const editing = !!onChange;
+  const offered = useMemo(
+    () => (editing ? readable.filter((ct) => !ct.is_hidden) : []),
+    [editing, readable],
+  );
   const [open, setOpen] = useState<OpenCondition | null>(null);
-  const nodes = chainNodes(query);
-  const last = nodes.length - 1;
+  const allRows = rows(query);
+  const appendable = allRows.map((row) => !!onChange && rowAppendable(query, row));
+  const columns = Math.max(
+    ...allRows.map((row, r) => row.depth + row.nodes.length + (appendable[r] ? 1 : 0)),
+  );
 
-  const openNode = open ? nodes[open.index] : undefined;
+  const openNode = open ? nodeAt(query, open.path) : undefined;
   const closeCondition = () => {
-    if (open && openNode && conditionValues(openNode.where, open.kind)?.length === 0) {
-      onChange(removeCondition(query, open.index, open.kind));
+    if (open && openNode && onChange && conditionValues(openNode.where, open.kind)?.length === 0) {
+      onChange(removeCondition(query, open.path, open.kind));
     }
     setOpen(null);
   };
 
   return (
-    <>
-      {nodes.map((node, i) => {
-        const type = types.find((ct) => ct.key === node.type);
-        const prevType = i > 0 ? nodes[i - 1].type : "";
-        const rt = node.relation ? hopRelationType({ relation: node.relation }, relationTypes) : undefined;
-        const verb =
-          (node.relation && hopVerb(rt, prevType, i18n.language, node.relation)) || node.relation || "";
+    <Box
+      data-testid="query-path-grid"
+      sx={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${columns}, max-content)`,
+        columnGap: 1.5,
+        rowGap: 1,
+        alignItems: "start",
+        overflowX: "auto",
+        maxWidth: "100%",
+      }}
+    >
+      {allRows.map((row, r) => {
+        const gridRow = r + 1;
+        const last = row.nodes[row.nodes.length - 1];
         return (
-          <Fragment key={i}>
-            {i === 0 ? (
-              <StartTypeChip
-                typeKey={node.type}
-                types={offered}
-                onPick={(key) => onChange(setStartType(query, key))}
-              />
-            ) : (
-              <Box data-testid="query-path-hop" sx={{ display: "contents" }}>
-                <Arrow />
-                <VerbChip
-                  verb={verb}
-                  negate={!!node.negate}
-                  onToggleNegate={() => onChange(toggleNegate(query, i))}
-                  onRemove={() => onChange(removeHopAt(query, i))}
+          <Box key={pathKey(row.nodes[0].path)} data-testid="query-path-row" sx={{ display: "contents" }}>
+            {row.parentPath && (
+              <Box
+                data-testid="query-path-branch-marker"
+                sx={{ gridRow, gridColumn: row.depth, color: "text.disabled", pt: 0.25 }}
+              >
+                <MaterialSymbol
+                  icon="subdirectory_arrow_right"
+                  size={18}
+                  style={{ transform: isRtl ? "scaleX(-1)" : undefined }}
                 />
-                <TypeChip type={type} typeKey={node.type} />
               </Box>
             )}
-            {node.type && (
-              <EditConditions
-                type={type}
-                typeKey={node.type}
-                where={node.where}
-                tagGroups={tagGroups}
-                cardNames={cardNames}
-                onOpen={(anchor, kind) => setOpen({ anchor, index: i, kind })}
-                onRemove={(kind) => onChange(removeCondition(query, i, kind))}
-                onSetTags={(ids) =>
-                  onChange(
-                    ids.length > 0
-                      ? setCondition(query, i, "tags", ids)
-                      : removeCondition(query, i, "tags"),
-                  )
-                }
-                onAdd={(anchor, kind) => {
-                  onChange(setCondition(query, i, kind, []));
-                  setOpen({ anchor, index: i, kind });
-                }}
-              />
+            {row.nodes.map((rn, i) => {
+              const prev = i > 0 ? row.nodes[i - 1].path : row.parentPath;
+              const fromType = prev ? (nodeAt(query, prev)?.type ?? "") : "";
+              return (
+                <NodeCell
+                  key={pathKey(rn.path)}
+                  query={query}
+                  path={rn.path}
+                  fromType={fromType}
+                  connective={i === 0 ? row.connective : null}
+                  gridRow={gridRow}
+                  gridColumn={row.depth + i + 1}
+                  offered={offered}
+                  tagGroups={tagGroups}
+                  cardNames={cardNames}
+                  onChange={onChange}
+                  onOpenCondition={(anchor, kind) => setOpen({ anchor, path: rn.path, kind })}
+                />
+              );
+            })}
+            {appendable[r] && onChange && (
+              <Box sx={{ gridRow, gridColumn: row.depth + row.nodes.length + 1 }}>
+                <AddHopChip
+                  fromType={nodeAt(query, last.path)?.type ?? ""}
+                  onPick={(relation, type) => onChange(appendHopAt(query, last.path, relation, type))}
+                />
+              </Box>
             )}
-            {node.extra && (
-              <ReadOnlyHops
-                fromType={node.type}
-                hops={node.extra}
-                types={types}
-                relationTypes={relationTypes}
-                tagGroups={tagGroups}
-                cardNames={cardNames}
-                leadingAnd
-              />
-            )}
-            {i === last && node.type && last < MAX_CHAIN_DEPTH && (
-              <AddHopChip
-                fromType={node.type}
-                types={offered}
-                relationTypes={relationTypes}
-                onPick={(relation, type) => onChange(appendHop(query, relation, type))}
-              />
-            )}
-          </Fragment>
+          </Box>
         );
       })}
-      {open && openNode && (
+      {open && openNode && onChange && (
         <QueryConditionPopover
           anchorEl={open.anchor}
           onClose={closeCondition}
@@ -628,10 +555,186 @@ function EditChain({
           tagGroups={tagGroups}
           cardNames={cardNames}
           includeDescendants={!!openNode.where?.include_descendants}
-          onIncludeDescendantsChange={(on) => onChange(setIncludeDescendants(query, open.index, on))}
-          onChange={(values) => onChange(setCondition(query, open.index, open.kind, values))}
+          onIncludeDescendantsChange={(on) => onChange(setIncludeDescendants(query, open.path, on))}
+          onChange={(values) => onChange(setCondition(query, open.path, open.kind, values))}
         />
       )}
+    </Box>
+  );
+}
+
+/** The height of a connector line, so every type chip of a grid row lines up. */
+const CONNECTOR_HEIGHT = 24;
+
+/** One node of the grid: its connector, its type, its conditions and (editing) its plus. */
+function NodeCell({
+  query,
+  path,
+  fromType,
+  connective,
+  gridRow,
+  gridColumn,
+  offered,
+  tagGroups,
+  cardNames,
+  onChange,
+  onOpenCondition,
+}: {
+  query: CardQuery;
+  path: NodePath;
+  /** The type of the node this hop leaves (empty for the start card). */
+  fromType: string;
+  /** "and" / "or" before a branch row's first hop. */
+  connective: Connective | null;
+  gridRow: number;
+  gridColumn: number;
+  /** The types the start chip offers (edit mode). */
+  offered: CardType[];
+  tagGroups: TagGroup[];
+  cardNames: Map<string, CardNameEntry>;
+  onChange?: (query: CardQuery) => void;
+  onOpenCondition: (anchor: HTMLElement, kind: ConditionKind) => void;
+}) {
+  const { t, i18n } = useTranslation(["inventory", "common"]);
+  const { types, relationTypes } = useMetamodel();
+  const node = nodeAt(query, path);
+  const typeKey = node?.type ?? "";
+  const type = types.find((ct) => ct.key === typeKey);
+  // View mode shows these chips; edit mode's `EditConditions` works out its own.
+  const items = useConditionItems(type, node?.where, tagGroups, cardNames, !onChange);
+  const hop = path.length > 0 && node && "relation" in node ? node : null;
+  const rt = hop ? hopRelationType(hop, relationTypes) : undefined;
+  const verb = hop ? hopVerb(rt, fromType, i18n.language, hop.relation) || hop.relation : "";
+
+  return (
+    <Box
+      data-testid={hop ? "query-path-hop" : undefined}
+      sx={{
+        gridRow,
+        gridColumn,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: 0.5,
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, minHeight: CONNECTOR_HEIGHT }}>
+        {connective && (
+          <Typography variant="body2" color="text.secondary">
+            {t(`inventory:queryView.${connective}`)}
+          </Typography>
+        )}
+        {hop && <Arrow />}
+        {hop &&
+          (onChange ? (
+            <VerbChip
+              verb={verb}
+              negate={!!hop.negate}
+              onToggleNegate={() => onChange(toggleNegate(query, path))}
+              onRemove={() => onChange(removeHopAt(query, path))}
+            />
+          ) : (
+            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+              {hop.negate ? `${t("inventory:queryView.hasNo")} ${verb}` : verb}
+            </Typography>
+          ))}
+      </Box>
+      {onChange && !hop ? (
+        <StartTypeChip
+          typeKey={typeKey}
+          types={offered}
+          onPick={(key) => onChange(setStartType(query, key))}
+        />
+      ) : (
+        <TypeChip type={type} typeKey={typeKey} />
+      )}
+      {!onChange &&
+        items.map((c) => <Chip key={c.key} size="small" variant="outlined" label={c.label} />)}
+      {onChange && typeKey && (
+        <EditConditions
+          type={type}
+          typeKey={typeKey}
+          where={node?.where}
+          tagGroups={tagGroups}
+          cardNames={cardNames}
+          onOpen={onOpenCondition}
+          onRemove={(kind) => onChange(removeCondition(query, path, kind))}
+          onSetTags={(ids) =>
+            onChange(
+              ids.length > 0
+                ? setCondition(query, path, "tags", ids)
+                : removeCondition(query, path, "tags"),
+            )
+          }
+          onAdd={(anchor, kind) => {
+            onChange(setCondition(query, path, kind, []));
+            onOpenCondition(anchor, kind);
+          }}
+        />
+      )}
+      {onChange && canBranch(query, path) && (
+        <BranchButton query={query} path={path} typeKey={typeKey} onChange={onChange} />
+      )}
+    </Box>
+  );
+}
+
+/**
+ * The circled plus under a card that already has a hop: "And also…" /
+ * "Or…", then the relation. A card with no hop shows none (`canBranch`) —
+ * its first hop is the `+ relation` chip's.
+ */
+function BranchButton({
+  query,
+  path,
+  typeKey,
+  onChange,
+}: {
+  query: CardQuery;
+  path: NodePath;
+  typeKey: string;
+  onChange: (query: CardQuery) => void;
+}) {
+  const { t } = useTranslation("inventory");
+  const options = useRelationOptions(typeKey);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [step, setStep] = useState<"connective" | Connective>("connective");
+  if (options.length === 0) return null;
+  const close = () => setAnchor(null);
+  const choose = (connective: Connective) => setStep(connective);
+  return (
+    <>
+      <Tooltip title={t("queryView.addBranch")}>
+        <IconButton
+          size="small"
+          aria-label={t("queryView.addBranch")}
+          data-testid="query-path-branch"
+          onClick={(e) => {
+            setStep("connective");
+            setAnchor(e.currentTarget);
+          }}
+          sx={{ p: 0.25 }}
+        >
+          <MaterialSymbol icon="add_circle" size={18} />
+        </IconButton>
+      </Tooltip>
+      <Menu anchorEl={anchor} open={anchor != null && step === "connective"} onClose={close}>
+        <MenuItem disabled={!canBranch(query, path, "and")} onClick={() => choose("and")}>
+          {t("queryView.branchAnd")}
+        </MenuItem>
+        <MenuItem disabled={!canBranch(query, path, "or")} onClick={() => choose("or")}>
+          {t("queryView.branchOr")}
+        </MenuItem>
+      </Menu>
+      <RelationMenu
+        anchor={anchor != null && step !== "connective" ? anchor : null}
+        options={options}
+        onClose={close}
+        onPick={(relation, type) => {
+          close();
+          if (step !== "connective") onChange(addBranch(query, path, step, relation, type));
+        }}
+      />
     </>
   );
 }
@@ -751,30 +854,72 @@ function VerbChip({
   );
 }
 
-function AddHopChip({
-  fromType,
-  types,
-  relationTypes,
-  onPick,
-}: {
-  fromType: string;
-  types: CardType[];
-  relationTypes: RelationType[];
-  onPick: (relation: string, type: string) => void;
-}) {
-  const { t, i18n } = useTranslation("inventory");
+/** A relation a hop can follow, with its menu label and the type it reaches. */
+interface RelationOption extends RelationChoice {
+  label: string;
+  other: CardType;
+}
+
+/** Every visible relation a node of `fromType` can follow to a readable, visible type. */
+function useRelationOptions(fromType: string): RelationOption[] {
+  const { i18n } = useTranslation();
   const typeLabel = useTypeLabel();
-  const menu = useMenu();
-  const choices = relationChoices(
+  const { relationTypes } = useMetamodel();
+  const readable = useReadableCardTypes();
+  return relationChoices(
     fromType,
     relationTypes.filter((rt) => !rt.is_hidden),
   ).flatMap((c) => {
-    const other = types.find((ct) => ct.key === c.otherType);
+    const other = readable.find((ct) => ct.key === c.otherType && !ct.is_hidden);
     if (!other) return [];
     const verb = relationLabel(c.rt, i18n.language, !c.isSource);
     return [{ ...c, label: `${verb} ${typeLabel(other)}`, other }];
   });
-  if (choices.length === 0) return null;
+}
+
+/** The relation chooser the `+ relation` chip and the branch plus share. */
+function RelationMenu({
+  anchor,
+  options,
+  onClose,
+  onPick,
+}: {
+  anchor: HTMLElement | null;
+  options: RelationOption[];
+  onClose: () => void;
+  onPick: (relation: string, type: string) => void;
+}) {
+  return (
+    <Menu anchorEl={anchor} open={anchor != null} onClose={onClose}>
+      {options.map((c) => (
+        <MenuItem
+          key={`${c.key}-${c.isSource}`}
+          onClick={() => {
+            onClose();
+            onPick(c.key, c.otherType);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon={c.other.icon} size={18} color={c.other.color} />
+          </ListItemIcon>
+          <ListItemText>{c.label}</ListItemText>
+        </MenuItem>
+      ))}
+    </Menu>
+  );
+}
+
+function AddHopChip({
+  fromType,
+  onPick,
+}: {
+  fromType: string;
+  onPick: (relation: string, type: string) => void;
+}) {
+  const { t } = useTranslation("inventory");
+  const menu = useMenu();
+  const options = useRelationOptions(fromType);
+  if (options.length === 0) return null;
   return (
     <>
       <Chip
@@ -786,22 +931,7 @@ function AddHopChip({
         onClick={menu.open}
         sx={{ borderStyle: "dashed" }}
       />
-      <Menu anchorEl={menu.anchor} open={menu.anchor != null} onClose={menu.close}>
-        {choices.map((c) => (
-          <MenuItem
-            key={`${c.key}-${c.isSource}`}
-            onClick={() => {
-              menu.close();
-              onPick(c.key, c.otherType);
-            }}
-          >
-            <ListItemIcon>
-              <MaterialSymbol icon={c.other.icon} size={18} color={c.other.color} />
-            </ListItemIcon>
-            <ListItemText>{c.label}</ListItemText>
-          </MenuItem>
-        ))}
-      </Menu>
+      <RelationMenu anchor={menu.anchor} options={options} onClose={menu.close} onPick={onPick} />
     </>
   );
 }

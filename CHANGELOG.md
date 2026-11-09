@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.196.0] - 2026-11-09
+
+### Added
+- Query views can branch with *and* / *or*: add a branch with the plus under a card in the inventory query builder (or through MCP with `related_any`); branches show as rows in the query strip and read as "verb A or verb B" in the Views list.
+
 ## [2.195.0] - 2026-11-09
 
 ### Added

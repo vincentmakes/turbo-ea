@@ -250,6 +250,17 @@ While you build, the grid filters live and the toolbar count shows how many card
 
 **Changing hops and conditions.** Click a hop's verb chip for its menu: **has no** turns the hop into a requirement that the card has **no** such relation, and **Remove this hop** removes it together with every hop after it. Click a condition chip to change its values, or its **×** to remove it.
 
+**Branches.** A query does not have to be a single chain. In the builder, a card that already has a hop shows a circled plus (*Add a branch*) under it. Click it and choose:
+
+- **And also…** — the card must **also** have this relation, as well as the one already there.
+- **Or…** — the card matches if it has **either** the relation in the row above **or** this one.
+
+Then pick the relation as usual. The new branch appears as a row of its own below, starting under the card it branches from, with *and* or *or* on its first connector. The first **Or** under a card moves that card's existing continuation into an OR group with the new branch, so *or* always reads "either the row above or this branch"; another **Or** under the same card joins that group, and **And also** adds a branch that must exist as well. For example, *Applications that use an IT Component and are affected by an Initiative with status On Track or by an Initiative with status At Risk* is the Application card with three rows: *uses IT Component*, *is affected by Initiative* (On Track) and, marked *or*, *is affected by Initiative* (At Risk). A card can hold an AND branch and one OR group, but not two OR groups: *(A or B) and (C or D)* under the same card cannot be built.
+
+![Adding a branch to a query view](../assets/img/en/98f_inventory_query_branch.png)
+
+Within a branch, hops chain as before: **+ relation** at the end of a row continues that row, and **+ condition** works on every card. **Remove this hop** removes the branch from that hop onward; an OR group left with a single branch becomes a plain hop again. A query can go at most three hops deep, a group can hold up to ten branches, and the whole query up to twelve hops; the plus disappears once a limit is reached. A saved view shows its branches in the same rows when it is not being edited, so a branching query written by an AI assistant reads the same way. In the Views list, an OR group reads *verb A or verb B* in the view's compact path.
+
 **Editing a saved query view.** When a query view is open, the strip shows its path: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*), with each card's conditions underneath. If you own the view or have edit rights on it, a **pencil** in the strip switches it to the same builder; **Save** updates the view. The **×** button (*Leave this view*) returns to the normal inventory. **Save Current View** while a query view is open saves a new query view with the same query.
 
 **Views created by an AI assistant.** An assistant connected through the [MCP server](../admin/mcp.md) can create query views too. Such a view shows an **MCP** chip and a *Created via MCP* note in its strip, and a robot badge in the Views list; it is edited like any other query view. In the Views list every query view carries a small query-view badge (a cube; the robot badge when an assistant created it) and its compact path (*Organization › uses Application › is affected by Initiative*) as its second line.

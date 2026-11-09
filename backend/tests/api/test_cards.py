@@ -1199,6 +1199,27 @@ class TestQueryParam:
         assert resp.status_code == 400
         assert resp.json()["detail"] == code
 
+    async def test_or_branches(self, client, db, chain):
+        """Corp's app has an on-track initiative, Solo uses nothing; Team's
+        app has only an at-risk one."""
+        query = {
+            "type": "Organization",
+            "related_any": [
+                {"relation": "orgUsesApp", "type": "Application", "negate": True},
+                self.CHAIN["related"][0],
+            ],
+        }
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Solo"]
+        assert resp.json()["total"] == 2
+
+    async def test_an_or_of_one_is_refused(self, client, db, chain):
+        query = {"type": "Organization", "related_any": [CHAIN_HOP]}
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "or_needs_two"
+
     async def test_a_data_quality_band_at_a_hop(self, client, db, chain):
         """Alpha (Corp's) scores 85, Beta (Team's) 50."""
         for name, score in (("Alpha", 85.0), ("Beta", 50.0)):

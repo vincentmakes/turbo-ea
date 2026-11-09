@@ -329,11 +329,14 @@ async def list_cards(
             "A multi-hop card query as JSON (metamodel keys, plus tag ids): "
             '`{"type": <card type>, "where"?: {...}, "related"?: [{"relation": '
             '<relation type, `__out` / `__in` on a self-referencing one>, "type": '
-            '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...]}]}`, '
+            '<card type>, "where"?: {...}, "negate"?: bool, "related"?: [...], '
+            '"related_any"?: [...]}], "related_any"?: [...]}`, '
             "where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, "
             "`attributes` value lists and `tags` (tag ids: any tag of a group, every "
             "group named). Keeps the cards of the start type with a "
-            "related card matching every hop (`negate`: with none); a related card "
+            "related card matching every hop (`negate`: with none) and, when "
+            "`related_any` is given, at least one of its hops (two or more, else "
+            "`or_needs_two`); a related card "
             "must be ACTIVE and readable by the caller. At most 3 hops deep, "
             "12 hops in all, 8000 characters. "
             "400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, "
