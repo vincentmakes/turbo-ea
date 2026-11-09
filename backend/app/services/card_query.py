@@ -413,6 +413,14 @@ class _CardCheck:
     trusted: frozenset[uuid.UUID]
 
 
+def _pick_readable(card_id: uuid.UUID, type_key: str, check: _CardCheck) -> bool:
+    """Whether the writer's scope reads the pick ``card_id`` (of ``type_key``)
+    in inventory mode — the mode of the inventory the view opens on
+    (``test_a_pick_needs_inventory_not_module_reading``)."""
+    # pragma: no mutate block, CardReadScope reads every mode but "module" as inventory
+    return check.read_scope.readable(card_id, type_key, mode="inventory")
+
+
 def _card_ids(where: CardWhere | None, type_key: str, check: _CardCheck | None) -> list[uuid.UUID]:
     """``where.cards`` as ids, deduplicated in order.
 
@@ -430,12 +438,9 @@ def _card_ids(where: CardWhere | None, type_key: str, check: _CardCheck | None) 
         parsed = uuids([value])
         card_id = parsed[0] if parsed else None
         if check is not None:
-            card_type = check.cards.get(card_id) if card_id is not None else None
-            if card_id is None or card_type != type_key:
+            if card_id is None or check.cards.get(card_id) != type_key:
                 raise CardQueryError("unknown_card")
-            if card_id not in check.trusted and not check.read_scope.readable(
-                card_id, card_type, mode="inventory"
-            ):
+            if card_id not in check.trusted and not _pick_readable(card_id, type_key, check):
                 raise CardQueryError("unknown_card")
         if card_id is not None and card_id not in out:
             out.append(card_id)
@@ -472,6 +477,26 @@ def _resolve_node(
         child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types, tags, check)
         node.hops.append(ResolvedHop(side, hop.negate, child))
     return node
+
+
+async def _load_tags(db: AsyncSession, tag_ids: list[uuid.UUID]) -> dict[uuid.UUID, _TagInfo]:
+    """The tags ``tag_ids`` as ``{id: _TagInfo}``; no query for none."""
+    if not tag_ids:
+        return {}
+    rows = await db.execute(
+        select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
+        .join(TagGroup)
+        .where(Tag.id.in_(tag_ids))
+    )
+    return {tag_id: (group_id, restrict) for tag_id, group_id, restrict in rows.all()}
+
+
+async def _load_card_types(db: AsyncSession, card_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The cards ``card_ids`` (any status) as ``{id: type key}``; no query for none."""
+    if not card_ids:
+        return {}
+    rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
+    return {card_id: type_key for card_id, type_key in rows.all()}
 
 
 async def resolve_card_query(
@@ -512,22 +537,11 @@ async def resolve_card_query(
     """
     types = {t.key: t for t in (await db.execute(select(CardType))).scalars().all()}
     relation_types = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
-    tag_ids = uuids(v for where in _wheres(query) for v in where.tags or [])
-    tags: dict[uuid.UUID, _TagInfo] = {}
-    if tag_ids:
-        rows = await db.execute(
-            select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
-            .join(TagGroup)
-            .where(Tag.id.in_(tag_ids))
-        )
-        tags = {tag_id: (group_id, restrict) for tag_id, group_id, restrict in rows.all()}
+    tags = await _load_tags(db, uuids(v for where in _wheres(query) for v in where.tags or []))
     check = None
     if read_scope is not None:
         card_ids = uuids(v for where in _wheres(query) for v in where.cards or [])
-        cards: dict[uuid.UUID, str] = {}
-        if card_ids:
-            rows = await db.execute(select(Card.id, Card.type).where(Card.id.in_(card_ids)))
-            cards = {card_id: type_key for card_id, type_key in rows.all()}
+        cards = await _load_card_types(db, card_ids)
         check = _CardCheck(cards, read_scope, frozenset(trusted_card_ids))
     return _resolve_node(query.type, query.where, query.related, types, relation_types, tags, check)
 
@@ -546,7 +560,9 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
     if where.lifecycle_phase:
         phase = current_lifecycle_phase_sql(card, today=today)
         real = [p for p in where.lifecycle_phase if p != NO_PHASE]
-        options = [phase.in_(real)] if real else []
+        options: list[Any] = []
+        if real:
+            options.append(phase.in_(real))
         if NO_PHASE in where.lifecycle_phase:
             options.append(phase.is_(None))
         clauses.append(or_(*options))
@@ -569,6 +585,14 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
     return clauses
 
 
+def _inventory_scope(read_scope: CardReadScope, card: Any) -> tuple[Any, ...]:
+    """``read_scope`` over a hop's far card ``card`` in inventory mode — the
+    mode of the inventory the query filters
+    (``test_a_hop_needs_inventory_not_module_reading``)."""
+    # pragma: no mutate block, CardReadScope reads every mode but "module" as inventory
+    return read_scope.where(card, mode="inventory")
+
+
 def _hop_condition(
     near: Any, hop: ResolvedHop, read_scope: CardReadScope, today: date | None
 ) -> Any:
@@ -582,7 +606,7 @@ def _hop_condition(
         other,
         other.type == hop.node.type,
         other.status == "ACTIVE",
-        *read_scope.where(other, mode="inventory"),
+        *_inventory_scope(read_scope, other),
         *_node_conditions(other, hop.node, read_scope, today),
     )
     return not_(condition) if hop.negate else condition
@@ -694,9 +718,9 @@ def view_patch(
     the old type, so ``filters`` is reset to ``base_view_filters``.
     """
     out = dict(data)
-    if "query" in data and data["query"] is None:
-        return out
     query = new_query
+    # A PATCH that sends ``query`` (``null`` included) never falls back to the
+    # stored one, so ``query: null`` reaches the early return below untouched.
     if query is None and "query" not in data and current_query is not None:
         query = parse_card_query(current_query)
     if query is None:

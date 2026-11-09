@@ -774,15 +774,16 @@ def rewrite_card_query_ids(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
     ``replace_mapped_ids``: that walk can neither count an unknown id nor
     drop it. Anything malformed comes back untouched.
     """
-    return _rewrite_query_node(node, ids, tally, is_hop=False)
+    return _rewrite_query_node(node, ids, tally)
 
 
 #: A hop ``_rewrite_query_node`` removes from its parent's ``related``.
 _DROP = object()
 
 
-def _rewrite_query_node(node: Any, ids: IdMap, tally: RewriteTally, *, is_hop: bool) -> Any:
-    """``node`` rewritten, or ``_DROP`` for a negated hop left with no pick."""
+def _rewrite_query_node(node: Any, ids: IdMap, tally: RewriteTally, *, is_hop: bool = False) -> Any:
+    """``node`` rewritten, or ``_DROP`` for a negated hop (``is_hop``; the start
+    card is none) left with no pick."""
     if not isinstance(node, dict):
         return node
     out = dict(node)

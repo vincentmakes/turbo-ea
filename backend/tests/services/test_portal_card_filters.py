@@ -419,6 +419,9 @@ class TestDescendantIds:
 
     async def test_every_depth_and_none_for_no_roots(self, db, land):
         leaf = await create_card(db, card_type="Organization", name="Leaf", parent_id=land.team.id)
+        # Another tree entirely: never beneath Corp.
+        other = await create_card(db, card_type="Organization", name="Other")
+        await create_card(db, card_type="Organization", name="Stray", parent_id=other.id)
         assert await pcf.descendant_ids(db, [land.corp.id]) == {land.team.id, leaf.id}
         assert await pcf.descendant_ids(db, []) == set()
 

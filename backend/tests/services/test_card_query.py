@@ -12,7 +12,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -143,6 +143,27 @@ async def _deny(db, type_key: str, role: str) -> None:
     ct.role_permissions = {role: {"inventory.view": False}}
     await db.flush()
     PermissionService.invalidate_type_permission_cache()
+
+
+#: A reader whose role holds a module permission but not ``inventory.view``,
+#: with no per-type cell: module mode reads every card, inventory mode none.
+MODULE_ONLY = CardReadScope(
+    role_key="module_only",
+    wildcard=False,
+    base_view=False,
+    denied_types=frozenset(),
+    allowed_types=frozenset(),
+    stakeholder_card_ids=frozenset(),
+)
+
+
+async def _names_on(db, raw: dict, today: date) -> set[str]:
+    """``_names`` with the query compiled as of ``today``."""
+    clauses = await compile_card_query(
+        db, parse_card_query(raw), CardReadScope.everything(), today=today
+    )
+    rows = await db.execute(select(Card.name).where(Card.status == "ACTIVE", *clauses))
+    return set(rows.scalars().all())
 
 
 @pytest.fixture
@@ -290,6 +311,9 @@ LIFECYCLES: list[dict | None] = [
     {"endOfLife": PAST, "active": FUTURE},
     {"plan": FUTURE, "active": PAST},
     {"plan": PAST, "active": TODAY.isoformat()},
+    # A timestamp on today's date: its DATE (the first ten characters) has
+    # arrived, though the full text sorts after "today".
+    {"plan": PAST, "active": f"{TODAY.isoformat()}T09:00:00"},
     {"plan": PAST, "active": TOMORROW},
     {"plan": "", "phaseIn": FUTURE},
 ]
@@ -346,6 +370,18 @@ class TestLifecycleSql:
         got = await _names(db, _q("Application", where={"lifecycle_phase": [phase]}))
         assert got == expected
 
+    async def test_an_explicit_today_reaches_the_start_card_and_every_hop(self, db, land):
+        """Sixty days ago Alpha's dates (thirty days ago) were all ahead, so it
+        read as ``plan``; today it is ``active``. ``today`` must reach the
+        start card's condition and a hop's alike."""
+        early = TODAY - timedelta(days=60)
+        start = _q("Application", where={"lifecycle_phase": ["plan"]})
+        assert await _names_on(db, start, early) == {"Alpha", "Beta"}
+        assert await _names(db, start) == {"Beta"}
+        hop = _q("Organization", _hop(USES, "Application", where={"lifecycle_phase": ["plan"]}))
+        assert await _names_on(db, hop, early) == {"Corp", "Team"}
+        assert await _names(db, hop) == {"Team"}
+
     async def test_where_several_phases_is_or(self, db):
         await create_card_type(db, key="Application")
         await create_card(db, name="p", lifecycle={"plan": FUTURE})
@@ -387,6 +423,30 @@ class TestParse:
         assert parse_card_query(raw).type == "Organization"
         compact = json.loads(raw)
         assert parse_card_query(compact).type == "Organization"
+
+    def _compact_sized(self, total: int) -> dict:
+        """A valid query object whose compact JSON is exactly ``total`` long."""
+        values = ["x" * 180] * 44
+
+        def size() -> int:
+            raw = _q("Organization", where={"attributes": {"code": values}})
+            return len(json.dumps(raw, separators=(",", ":")))
+
+        values[-1] = "x" * (180 - (size() - total))
+        assert size() == total
+        return _q("Organization", where={"attributes": {"code": values}})
+
+    def test_an_object_at_the_limit_is_accepted(self):
+        raw = self._compact_sized(MAX_QUERY_CHARS)
+        assert parse_card_query(raw).type == "Organization"
+
+    def test_an_object_one_past_the_limit(self):
+        assert _parse_code(self._compact_sized(MAX_QUERY_CHARS + 1)) == "query_too_long"
+
+    def test_the_error_carries_its_code_as_its_message(self):
+        exc = CardQueryError("query_too_long")
+        assert exc.code == "query_too_long"
+        assert str(exc) == "query_too_long"
 
     def test_one_past_the_limit(self):
         raw = self._sized(MAX_QUERY_CHARS + 1)
@@ -856,6 +916,45 @@ class TestHopSemantics:
             "Beta"
         }
 
+    async def test_another_relation_type_on_the_same_pair_is_not_the_hop(self, db, land):
+        """Solo *owns* Gamma but uses nothing: an ``orgOwnsApp`` row is no
+        ``orgUsesApp`` hop, though it joins the same two card types."""
+        await create_relation_type(
+            db, key="orgOwnsApp", source_type_key="Organization", target_type_key="Application"
+        )
+        gamma = (await db.execute(select(Card).where(Card.name == "Gamma"))).scalar_one()
+        await create_relation(
+            db, type_key="orgOwnsApp", source_id=land["orgs"]["Solo"].id, target_id=gamma.id
+        )
+        assert await _names(db, _q("Organization", _hop(USES, "Application"))) == {
+            "Corp",
+            "Team",
+            "Lone",
+        }
+        assert await _names(db, _q("Organization", _hop("orgOwnsApp", "Application"))) == {"Solo"}
+
+    async def test_a_relation_row_to_a_card_of_another_type_is_no_hop(self, db, land):
+        """A mis-typed ``orgUsesApp`` row (a bad import: Solo "uses" the
+        initiative Rocket) does not make Solo an organization using an
+        application."""
+        rocket = (await db.execute(select(Card).where(Card.name == "Rocket"))).scalar_one()
+        await create_relation(
+            db, type_key=USES, source_id=land["orgs"]["Solo"].id, target_id=rocket.id
+        )
+        assert await _names(db, _q("Organization", _hop(USES, "Application"))) == {
+            "Corp",
+            "Team",
+            "Lone",
+        }
+
+    async def test_a_hop_needs_inventory_not_module_reading(self, db, land):
+        """A hop's far card is read in inventory mode: a reader who may read
+        every card in module mode but none in the inventory gets no chain."""
+        raw = _q("Organization", _hop(USES, "Application"))
+        assert MODULE_ONLY.readable(land["alpha"].id, "Application", mode="module") is True
+        assert await _names(db, raw) == {"Corp", "Team", "Lone"}
+        assert await _names(db, raw, MODULE_ONLY) == set()
+
     async def test_reverse_side_of_a_cross_type_relation(self, db, land):
         raw = _q("Application", _hop(USES, "Organization"))
         assert await _names(db, raw) == {"Alpha", "Beta", "Gamma"}
@@ -1127,6 +1226,11 @@ class TestQueryCardIds:
         tags = _q("A", where={"tags": [TAG_1], "subtype": ["x"]})
         assert names_cards(parse_card_query(tags)) is False
 
+    def test_stored_card_ids_walks_past_a_malformed_node(self):
+        # The walk pops from the end: the junk hop is met first, the valid one after.
+        stored = {"type": "A", "related": [{"where": {"cards": [CARD_2]}}, "junk"]}
+        assert stored_card_ids(stored) == {uuid.UUID(CARD_2)}
+
     def test_stored_card_ids_walks_every_node(self):
         stored = _q(
             "A",
@@ -1315,6 +1419,17 @@ class TestCardPickResolve:
         expected = [] if pick == "not-a-uuid" else [uuid.UUID(value)]
         assert root.hops[0].node.card_ids == expected
 
+    async def test_a_pick_needs_inventory_not_module_reading(self, db, picks):
+        """A writer checks a pick in inventory mode: one who may read every card
+        in module mode but none in the inventory cannot pin a card."""
+        raw = _q("Organization", where={"cards": [picks["Corp"]]})
+        assert MODULE_ONLY.readable(uuid.UUID(picks["Corp"]), "Organization", mode="module")
+        assert await _write_code(db, raw, MODULE_ONLY) == "unknown_card"
+        resolved = await resolve_card_query(
+            db, parse_card_query(raw), read_scope=CardReadScope.everything()
+        )
+        assert resolved.card_ids == [uuid.UUID(picks["Corp"])]
+
     async def test_a_trusted_pick_skips_the_scope_check_only(self, db, picks):
         scope = await _reader_scope(db, "Application")
         alpha = uuid.UUID(picks["Alpha"])
@@ -1415,6 +1530,16 @@ class TestCardPickSemantics:
         assert await _names(db, on) == {"Corp", "Child", "Grand"}
         off = _q("Organization", where={"cards": [picks["Corp"]]})
         assert await _names(db, off) == {"Corp"}
+
+    async def test_include_descendants_stays_in_the_picked_tree(self, db, picks):
+        """Stray sits under Solo, in another tree: Corp's descendants never
+        include it."""
+        solo = uuid.UUID(picks["Solo"])
+        await create_card(db, card_type="Organization", name="Stray", parent_id=solo)
+        on = _q("Organization", where={"cards": [picks["Corp"]], "include_descendants": True})
+        assert await _names(db, on) == {"Corp", "Child", "Grand"}
+        around = _q("Organization", where={"cards": [picks["Solo"]], "include_descendants": True})
+        assert await _names(db, around) == {"Solo", "Stray"}
 
     async def test_include_descendants_from_a_middle_card(self, db, picks):
         raw = _q("Organization", where={"cards": [picks["Child"]], "include_descendants": True})
@@ -1645,6 +1770,20 @@ class TestViewPatch:
             current_filters={"types": ["Application", "Initiative"], "groupBy": "subtype"},
         )
         assert out["filters"] == {"types": ["Organization"], "groupBy": "subtype"}
+
+    def test_a_stored_card_type_alone_names_the_old_type(self):
+        """No ``filters.types`` stored: the view's ``card_type`` alone says it
+        was on Applications, so its facets go when the query starts at
+        Organization."""
+        new = parse_card_query(ORG_QUERY)
+        out = view_patch(
+            {"query": ORG_QUERY},
+            new_query=new,
+            current_query=None,
+            current_filters={"groupBy": "subtype"},
+            current_card_type="Application",
+        )
+        assert out["filters"] == base_view_filters("Organization")
 
     def test_sent_filters_win_over_the_reset(self):
         new = parse_card_query(ORG_QUERY)

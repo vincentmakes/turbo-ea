@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import String, and_, case, cast, func, literal
+from sqlalchemy import and_, case, cast, func, literal
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.models.card import Card
@@ -90,9 +90,9 @@ def current_lifecycle_phase_sql(card: Any = Card, *, today: date | None = None) 
     The UI only ever writes zero-padded ``YYYY-MM-DD``.
     """
     today_text = (today or datetime.now(timezone.utc).date()).isoformat()
-    # Bound as text and cast, so each literal is parsed as JSON rather than
-    # serialised again as a JSON string.
-    falsy = [cast(literal(value, String()), JSONB) for value in _JSON_FALSY]
+    # Bound as text (a Python ``str`` binds as one) and cast, so each literal
+    # is parsed as JSON rather than serialised again as a JSON string.
+    falsy = [cast(literal(value), JSONB) for value in _JSON_FALSY]
     whens: list[tuple[Any, str]] = []
     for phase in PHASE_PRECEDENCE:
         text = card.lifecycle[phase].astext
@@ -102,10 +102,11 @@ def current_lifecycle_phase_sql(card: Any = Card, *, today: date | None = None) 
                 phase,
             )
         )
+    # An absent key (or a NULL ``lifecycle``) is SQL NULL, and ``NULL NOT IN
+    # (...)`` is NULL, never true; a CASE without ELSE is NULL — "no phase".
     for phase in PHASE_CHRONOLOGICAL:
-        value = card.lifecycle[phase]
-        whens.append((and_(value.is_not(None), value.not_in(falsy)), phase))
-    return case(*whens, else_=None)
+        whens.append((card.lifecycle[phase].not_in(falsy), phase))
+    return case(*whens)
 
 
 def lifecycle_rank(lifecycle: dict | None) -> int:

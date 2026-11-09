@@ -159,3 +159,17 @@ def test_the_current_phase_reads_today_in_utc(monkeypatch):
 
     monkeypatch.setattr(lifecycle, "datetime", _UtcOnlyClock)
     assert current_lifecycle_phase({"phaseIn": "2025-01-01", "active": "2025-10-01"}) == "active"
+
+
+def test_the_sql_twin_reads_today_in_utc(monkeypatch):
+    """``current_lifecycle_phase_sql`` binds the same UTC "today" as its
+    Python twin, never the host's local date."""
+    from sqlalchemy.dialects import postgresql
+
+    from app.services import lifecycle
+
+    monkeypatch.setattr(lifecycle, "datetime", _UtcOnlyClock)
+    compiled = lifecycle.current_lifecycle_phase_sql().compile(dialect=postgresql.dialect())
+    bound = set(compiled.params.values())
+    assert "2025-10-01" in bound
+    assert "2025-09-30" not in bound
