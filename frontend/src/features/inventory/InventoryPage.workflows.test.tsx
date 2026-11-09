@@ -658,6 +658,40 @@ describe("InventoryPage loading and URL parameters", () => {
     await waitFor(() => expect(screen.queryByText("An error occurred")).toBeNull());
   });
 
+  it("shows the load error when the server rejects a query view, keeping its strip", async () => {
+    const query = { type: "Application", related: [{ relation: "relGone", type: "ITComponent" }] };
+    localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        activeQuery: { viewId: "bm-q", name: "Broken query", query },
+      }),
+    );
+    // The view is still saved, so the mount-time revalidation keeps it.
+    mockApi.on("get", /^\/bookmarks/, [
+      {
+        id: "bm-q",
+        name: "Broken query",
+        is_default: false,
+        visibility: "private",
+        odata_enabled: false,
+        owner_id: "u1",
+        is_owner: true,
+        can_edit: true,
+        query,
+      },
+    ]);
+    mockApi.fail("get", /^\/cards\?/, 400, "unknown_relation_type");
+    renderInventory();
+    expect(await screen.findByText("An error occurred")).toBeInTheDocument();
+    // The strip stays, so the user can leave the broken view.
+    const strip = screen.getByTestId("query-path-strip");
+    expect(strip).toHaveTextContent("Broken query");
+    const failed = mockApi.callsOf("get").filter((c) => c.path.startsWith("/cards?"));
+    expect(failed.length).toBeGreaterThan(0);
+    expect(failed.every((c) => c.path.includes("query="))).toBe(true);
+  });
+
   it("degrades to no stakeholder columns and empty relation cells when those fetches fail", async () => {
     mockApi.fail("get", /^\/stakeholder-roles/, 500);
     mockApi.fail("get", /^\/relations\?card_type=/, 500);

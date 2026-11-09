@@ -14,6 +14,16 @@ from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
+from app.services.card_query import (
+    CardQuery,
+    CardQueryError,
+    compile_card_query,
+    parse_card_query,
+    resolve_card_query,
+    stored_query,
+    view_fields_for_query,
+    view_patch,
+)
 from app.services.card_read_scope import require_inventory_browse
 from app.services.card_search import card_search_filter
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
@@ -39,6 +49,16 @@ async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark |
         owner_result = await db.execute(select(User).where(User.id == bm.user_id))
         bm._owner = owner_result.scalar_one_or_none()  # type: ignore[attr-defined]
     return bm
+
+
+async def _checked_query(db: AsyncSession, raw: dict) -> CardQuery:
+    """``raw`` as a query the metamodel can answer; 400 with the code if not."""
+    try:
+        query = parse_card_query(raw)
+        await resolve_card_query(db, query)
+    except CardQueryError as exc:
+        raise HTTPException(400, exc.code) from exc
+    return query
 
 
 async def _get_share_permissions(db: AsyncSession, bookmark_id: uuid.UUID) -> dict[uuid.UUID, bool]:
@@ -100,6 +120,9 @@ def _serialize(
         "can_edit": can_edit,
         "shared_with": shared_with_list,
         "created_at": bm.created_at.isoformat() if bm.created_at else None,
+        "query": bm.query,
+        "created_via": bm.created_via,
+        "updated_via": bm.updated_via,
     }
 
     if bm.odata_enabled and base_url:
@@ -253,11 +276,21 @@ async def create_bookmark(
             "bookmarks.odata",
         )
 
+    card_type, filters, query = body.card_type, body.filters, None
+    if body.query is not None:
+        parsed = await _checked_query(db, body.query)
+        try:
+            card_type, filters = view_fields_for_query(parsed, card_type, filters)
+        except CardQueryError as exc:
+            raise HTTPException(400, exc.code) from exc
+        query = stored_query(parsed)
+
     bm = Bookmark(
         user_id=user.id,
         name=body.name,
-        card_type=body.card_type,
-        filters=body.filters,
+        card_type=card_type,
+        filters=filters,
+        query=query,
         columns=body.columns,
         column_state=body.column_state,
         column_filter_model=body.column_filter_model,
@@ -338,6 +371,20 @@ async def update_bookmark(
             user,
             "bookmarks.odata",
         )
+
+    new_query = None
+    if data.get("query") is not None:
+        new_query = await _checked_query(db, data["query"])
+    try:
+        data = view_patch(
+            data,
+            new_query=new_query,
+            current_query=bm.query,
+            current_filters=bm.filters,
+            current_card_type=bm.card_type,
+        )
+    except CardQueryError as exc:
+        raise HTTPException(400, exc.code) from exc
 
     shared_with = data.pop("shared_with", None)
 
@@ -455,6 +502,14 @@ async def bookmark_odata_feed(
     dq_min = filters.get("dataQualityMin")
     if dq_min is not None:
         q = q.where(Card.data_quality >= dq_min)
+
+    # The view's multi-hop card query, evaluated for the caller.
+    if bm.query is not None:
+        try:
+            clauses = await compile_card_query(db, parse_card_query(bm.query), read_scope)
+        except CardQueryError as exc:
+            raise HTTPException(400, exc.code) from exc
+        q = q.where(*clauses)
 
     # Sorting from bookmark
     sort_config = bm.sort or {}

@@ -230,6 +230,29 @@ Saved views appear in the filter panel sidebar. Click any view to instantly appl
 - **Shared with Me** — Views others shared with you
 - **Public Views** — Views available to everyone
 
+### Views generated via MCP { #mcp-views }
+
+An AI assistant connected through the [MCP server](../admin/mcp.md) can save a view whose filters are a **multi-hop query** — a chain of relations with a condition at each step, such as *Organizations that use an active Application which an Initiative with status On Track affects*. The view stores the query, not its results: the server runs it again every time the view is opened, so the list always reflects the current landscape.
+
+![Inventory view generated via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+
+When such a view is open, a **path strip** above the grid shows what it selects:
+
+- An **MCP** chip and the view's name, followed by the note *Generated via MCP · editable only via MCP*. Hover the note for what you can still change here.
+- The **path**: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*). A step that requires a card to have **no** such relation reads *has no* before the verb.
+- Under each card type, the **conditions** it must meet — lifecycle phase, subtype, approval status or a field value.
+- A **×** button (*Leave this view*) that returns to the normal inventory.
+
+In the Saved Views list, a query view carries a robot badge and its compact path (*Organization › uses Application › is affected by Initiative*) as its second line.
+
+**What you can change in the web UI.** The view's owner can rename it, change its sharing and OData setting, update its layout (columns, column layout and grouping), or delete it. Its filters and the query itself change only through MCP: editing the view here never replaces them with the filter panel's, so ask the assistant to change or re-save it. **Save Current View** while a query view is open creates an ordinary view from the panel's filters, columns and sorting — the query is not copied into it, as the dialog notes.
+
+**Opening a view by link.** When an assistant saves a view it returns a link of the form `/inventory?view=<view id>`; opening it applies the saved view directly. The same link works for any saved view you can see.
+
+**OData.** A query view's OData feed returns the same cards as the inventory: the query is applied to the feed as well.
+
+For the query grammar, its limits and the MCP tools (`query_cards`, `list_inventory_views`, `save_inventory_view`), see [Multi-hop card queries](../admin/mcp.md#multi-hop-card-queries).
+
 ## Excel Import / Export { #excel-import }
 
 Inventory exports and imports use a **multi-sheet Excel workbook** that round-trips your landscape — cards across any number of types plus the relations between them — without ever requiring you to copy a UUID.

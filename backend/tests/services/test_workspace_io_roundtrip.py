@@ -571,6 +571,48 @@ async def test_bookmark_column_state_roundtrips(db):
     assert restored.columns == ["core_name", "core_type"]
 
 
+async def test_bookmark_query_and_provenance_roundtrip(db):
+    """A query view's card query (keys only) and its provenance pair survive
+    an export → delete → import round-trip by introspection, verbatim."""
+    from app.models.bookmark import Bookmark
+
+    user = await create_user(db, email="bm-q@test.com", role="admin")
+    query = {
+        "type": "Organization",
+        "related": [
+            {
+                "relation": "relOrgToApp",
+                "type": "Application",
+                "where": {"lifecycle_phase": ["active"]},
+            }
+        ],
+    }
+    bm = Bookmark(
+        user_id=user.id,
+        name="Query View",
+        card_type="Organization",
+        filters={"types": ["Organization"]},
+        query=query,
+        created_via="mcp",
+        updated_via="mcp",
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id = bm.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.query == query
+    assert restored.created_via == "mcp"
+
+
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

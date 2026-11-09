@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 from starlette.testclient import TestClient
 
@@ -413,3 +414,198 @@ class TestCardContextTools:
         with patcher:
             await server.get_card_documents("c-1")
         _assert_called_with(mock, "/cards/c-1/documents")
+
+
+def _status_error(code: int, body: dict) -> httpx.HTTPStatusError:
+    """What ``TurboEAClient`` raises for a non-2xx backend answer."""
+    request = httpx.Request("GET", "http://backend/api/v1/cards")
+    response = httpx.Response(code, json=body, request=request)
+    return httpx.HTTPStatusError(f"{code} Bad Request", request=request, response=response)
+
+
+_CHAIN = {
+    "type": "Organization",
+    "related": [
+        {
+            "relation": "relOrgToApp",
+            "type": "Application",
+            "where": {"lifecycle_phase": ["active"]},
+        }
+    ],
+}
+
+
+class TestQueryCards:
+    @pytest.mark.asyncio
+    async def test_sends_the_query_as_compact_json(self, fake_token):
+        patcher, mock = _patched_get({"items": [], "total": 0, "page": 2, "page_size": 7})
+        with patcher:
+            await server.query_cards(query=_CHAIN, page=2, page_size=7)
+        _assert_called_with(
+            mock,
+            "/cards",
+            params={
+                "query": json.dumps(_CHAIN, separators=(",", ":")),
+                "page": 2,
+                "page_size": 7,
+            },
+        )
+        assert " " not in mock.call_args.kwargs["params"]["query"]
+
+    @pytest.mark.asyncio
+    async def test_page_size_is_capped_at_100(self, fake_token):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.query_cards(query={"type": "Application"}, page_size=500)
+        assert mock.call_args.kwargs["params"]["page_size"] == 100
+
+    @pytest.mark.asyncio
+    async def test_page_size_at_100_is_kept(self, fake_token):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.query_cards(query={"type": "Application"}, page_size=100)
+        assert mock.call_args.kwargs["params"]["page_size"] == 100
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("page_size", "sent"), [(0, 1), (-5, 1), (1, 1)])
+    async def test_page_size_is_at_least_1(self, fake_token, page_size, sent):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.query_cards(query={"type": "Application"}, page_size=page_size)
+        assert mock.call_args.kwargs["params"]["page_size"] == sent
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("page", "sent"), [(0, 1), (-3, 1), (1, 1), (2, 2)])
+    async def test_page_is_at_least_1(self, fake_token, page, sent):
+        patcher, mock = _patched_get({"items": []})
+        with patcher:
+            await server.query_cards(query={"type": "Application"}, page=page)
+        assert mock.call_args.kwargs["params"]["page"] == sent
+
+    @pytest.mark.asyncio
+    async def test_a_validation_error_is_an_invalid_query(self, fake_token):
+        body = {"detail": [{"loc": ["query", "query"], "msg": "too long", "type": "x"}]}
+        mock = AsyncMock(side_effect=_status_error(422, body))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {
+            "error": "invalid_query",
+            "hint": "Check the keys with list_card_types and get_relation_types.",
+        }
+
+    @pytest.mark.asyncio
+    async def test_items_are_trimmed_to_the_listed_keys(self, fake_token):
+        card = {
+            "id": "c1",
+            "name": "Sales",
+            "type": "Organization",
+            "subtype": "BusinessUnit",
+            "approval_status": "APPROVED",
+            "lifecycle": {"active": "2024-01-01"},
+            "description": "long text",
+            "attributes": {"x": 1},
+        }
+        patcher, _ = _patched_get({"items": [card], "total": 1, "page": 1, "page_size": 20})
+        with patcher:
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {
+            "total": 1,
+            "page": 1,
+            "page_size": 20,
+            "items": [
+                {
+                    "id": "c1",
+                    "name": "Sales",
+                    "type": "Organization",
+                    "subtype": "BusinessUnit",
+                    "approval_status": "APPROVED",
+                    "lifecycle": {"active": "2024-01-01"},
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_rejected_query_returns_the_code_and_a_hint(self, fake_token):
+        mock = AsyncMock(side_effect=_status_error(400, {"detail": "unknown_relation_type"}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {
+            "error": "unknown_relation_type",
+            "hint": "Check the keys with list_card_types and get_relation_types.",
+        }
+
+    @pytest.mark.asyncio
+    async def test_a_detail_object_yields_its_code(self, fake_token):
+        body = {"detail": {"code": "too_deep", "message": "x"}}
+        mock = AsyncMock(side_effect=_status_error(400, body))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out["error"] == "too_deep"
+
+    @pytest.mark.asyncio
+    async def test_a_400_without_detail_is_an_invalid_query(self, fake_token):
+        mock = AsyncMock(side_effect=_status_error(400, {}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out["error"] == "invalid_query"
+
+    @pytest.mark.asyncio
+    async def test_other_errors_are_raised(self, fake_token):
+        mock = AsyncMock(side_effect=_status_error(403, {"detail": "Forbidden"}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            with pytest.raises(httpx.HTTPStatusError):
+                await server.query_cards(query=_CHAIN)
+
+    def test_requires_auth(self, monkeypatch):
+        import asyncio
+
+        monkeypatch.setattr(server, "_stdio_token", None)
+        assert "Not authenticated" in asyncio.run(server.query_cards(query=_CHAIN))
+
+
+class TestListInventoryViews:
+    @pytest.mark.asyncio
+    async def test_passes_the_query_and_origin_through(self, fake_token):
+        view = {
+            "id": "v1",
+            "name": "Orgs on active apps",
+            "card_type": "Organization",
+            "visibility": "public",
+            "is_owner": False,
+            "can_edit": True,
+            "owner_name": "Ada",
+            "query": _CHAIN,
+            "created_via": "mcp",
+            "filters": {"types": ["Organization"]},
+            "column_state": [{"colId": "name"}],
+            "shared_with": [{"user_id": "u2", "email": "b@example.com"}],
+        }
+        patcher, mock = _patched_get([view])
+        with patcher:
+            out = _parse(await server.list_inventory_views())
+        _assert_called_with(mock, "/bookmarks")
+        assert out == [
+            {
+                "id": "v1",
+                "name": "Orgs on active apps",
+                "card_type": "Organization",
+                "visibility": "public",
+                "is_owner": False,
+                "can_edit": True,
+                "owner_name": "Ada",
+                "query": _CHAIN,
+                "created_via": "mcp",
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_non_list_answer_is_an_empty_list(self, fake_token):
+        patcher, _ = _patched_get({})
+        with patcher:
+            assert _parse(await server.list_inventory_views()) == []
+
+    def test_requires_auth(self, monkeypatch):
+        import asyncio
+
+        monkeypatch.setattr(server, "_stdio_token", None)
+        assert "Not authenticated" in asyncio.run(server.list_inventory_views())

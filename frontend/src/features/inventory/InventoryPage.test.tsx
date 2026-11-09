@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 import { render, screen, waitFor, within, act } from "@testing-library/react";
 import { BOOLEAN_COLORS } from "@/theme/tokens";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import InventoryPage, {
   splitInventoryCellValues,
   inventoryPreviewTargets,
@@ -42,6 +42,7 @@ const EMPTY_FILTERS: Filters = {
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn(), patch: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  isAbortError: (err: unknown) => err instanceof Error && err.name === "AbortError",
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({
@@ -77,11 +78,13 @@ vi.mock("./InventoryFilterSidebar", async () => {
     default: ({
       filters,
       onFiltersChange,
+      externalActiveViewId,
     }: {
       filters: Record<string, unknown>;
       onFiltersChange: (f: Record<string, unknown>) => void;
+      externalActiveViewId?: string | null;
     }) => (
-      <div data-testid="filter-sidebar">
+      <div data-testid="filter-sidebar" data-external-view-id={externalActiveViewId ?? ""}>
         <button
           data-testid="apply-search"
           onClick={() => onFiltersChange({ ...filters, search: "SAP" })}
@@ -2519,5 +2522,417 @@ describe("InventoryPage header help", () => {
     } finally {
       await i18n.changeLanguage("en");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Query views — an MCP-authored multi-hop query the page sends to the server
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage query views", () => {
+  const QUERY = {
+    type: "Application",
+    related: [{ relation: "relAppToITC", type: "ITComponent", where: { lifecycle_phase: ["active"] } }],
+  };
+  const ACTIVE = { viewId: "bm-q", name: "Apps on live tech", query: QUERY, createdVia: "mcp" };
+
+  /** Every `/cards` URL the page requested, in order. */
+  const cardUrls = () =>
+    vi
+      .mocked(api.get)
+      .mock.calls.map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/cards?"));
+  const paramsOf = (url: string) => new URLSearchParams(url.split("?")[1]);
+  const prefs = () => JSON.parse(localStorage.getItem("turboea_inventory") ?? "{}");
+
+  function LocationProbe() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    return (
+      <>
+        <div data-testid="location">{location.search}</div>
+        <button data-testid="go-plain" onClick={() => navigate("/inventory")} />
+      </>
+    );
+  }
+
+  function renderWithLocation(path: string) {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <InventoryPage />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+  }
+
+  /** The saved query view behind ACTIVE, as `GET /bookmarks` returns it. */
+  const queryBookmark = (overrides: Record<string, unknown> = {}) => ({
+    id: "bm-q",
+    name: "Apps on live tech",
+    is_default: false,
+    visibility: "private",
+    odata_enabled: false,
+    owner_id: "u1",
+    is_owner: true,
+    can_edit: true,
+    query: QUERY,
+    created_via: "mcp",
+    filters: { types: ["Application"] },
+    ...overrides,
+  });
+
+  /** `/bookmarks` answers with `views` once `release()` is called. */
+  function mockBookmarks(views: unknown[], { deferred = false } = {}) {
+    let release: () => void = () => {};
+    const gate = deferred ? new Promise<void>((r) => (release = r)) : Promise.resolve();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return gate.then(() => views);
+      return Promise.resolve({});
+    });
+    return () => release();
+  }
+
+  beforeEach(() => {
+    // The persisted query view is still saved, unchanged.
+    mockBookmarks([queryBookmark()]);
+  });
+
+  it("sends a persisted query view with the very first card request and shows its strip", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const first = paramsOf(cardUrls()[0]);
+    expect(JSON.parse(first.get("query")!)).toEqual(QUERY);
+    expect(first.get("type")).toBe("Application");
+
+    const strip = await screen.findByTestId("query-path-strip");
+    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
+  });
+
+  it("leaving the view drops the query from the next request and from the prefs", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    await screen.findByTestId("query-path-strip");
+    await waitFor(() => expect(prefs().activeQuery).toEqual(ACTIVE));
+    const before = cardUrls().length;
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave this view" }));
+
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    const next = paramsOf(cardUrls()[cardUrls().length - 1]);
+    expect(next.has("query")).toBe(false);
+    // The facets stay: the start type is still selected.
+    expect(next.get("type")).toBe("Application");
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
+    await waitFor(() => expect(prefs().activeQuery).toBeNull());
+  });
+
+  it("ignores a persisted query when the URL carries its own filters", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory("/inventory?type=Objective");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(paramsOf(cardUrls()[0]).has("query")).toBe(false);
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+  });
+
+  it("applies a view from ?view=<id>, sends its query and drops the param", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/bookmarks"))
+        return Promise.resolve([
+          {
+            id: "bm-other",
+            name: "Other",
+            is_default: false,
+            visibility: "private",
+            odata_enabled: false,
+            owner_id: "u1",
+            is_owner: true,
+            can_edit: true,
+          },
+          {
+            id: "bm-q",
+            name: "Apps on live tech",
+            is_default: false,
+            visibility: "private",
+            odata_enabled: false,
+            owner_id: "u1",
+            is_owner: true,
+            can_edit: true,
+            query: QUERY,
+            created_via: "mcp",
+            filters: { types: ["Application"], groupBy: "subtype" },
+          },
+        ]);
+      return Promise.resolve([]);
+    });
+    renderWithLocation("/inventory?view=bm-q&group_by=lifecycle");
+
+    const strip = await screen.findByTestId("query-path-strip");
+    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith(
+      "/bookmarks",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    await waitFor(() => {
+      const withQuery = cardUrls().map(paramsOf).filter((p) => p.has("query"));
+      expect(withQuery.length).toBeGreaterThan(0);
+      expect(JSON.parse(withQuery[0].get("query")!)).toEqual(QUERY);
+      expect(withQuery[0].get("type")).toBe("Application");
+    });
+    // `view` leaves the URL; the other params stay.
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("?group_by=lifecycle"));
+    expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
+    await waitFor(() => expect(prefs().groupBy).toBe("subtype"));
+
+    // Leaving the view ends the link's highlight too.
+    await userEvent.click(screen.getByRole("button", { name: "Leave this view" }));
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
+  });
+
+  it("highlights a plain view from ?view=<id> without a query", async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/bookmarks"))
+        return Promise.resolve([
+          {
+            id: "bm-plain",
+            name: "Plain",
+            is_default: false,
+            visibility: "private",
+            odata_enabled: false,
+            owner_id: "u1",
+            is_owner: true,
+            can_edit: true,
+            filters: { types: ["Objective"] },
+          },
+        ]);
+      return Promise.resolve([]);
+    });
+    renderWithLocation("/inventory?view=bm-plain");
+    await waitFor(() =>
+      expect(screen.getByTestId("filter-sidebar")).toHaveAttribute(
+        "data-external-view-id",
+        "bm-plain",
+      ),
+    );
+    await waitFor(() => expect(cardUrls().some((u) => paramsOf(u).get("type") === "Objective")).toBe(true));
+    expect(cardUrls().some((u) => paramsOf(u).has("query"))).toBe(false);
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("location")).toBeEmptyDOMElement());
+  });
+
+  it("ignores an unknown ?view= id and still drops the param", async () => {
+    renderWithLocation("/inventory?view=bm-missing");
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some((c) => c[0] === "/bookmarks")).toBe(true),
+    );
+    await waitFor(() => expect(screen.getByTestId("location")).not.toHaveTextContent("view="));
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+    expect(cardUrls().some((u) => paramsOf(u).has("query"))).toBe(false);
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
+  });
+  it("sends the view's query with the very first card request of a ?view= link", async () => {
+    const release = mockBookmarks([queryBookmark()], { deferred: true });
+    renderWithLocation("/inventory?view=bm-q");
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some((c) => c[0] === "/bookmarks")).toBe(true),
+    );
+    // Nothing is fetched while the view resolves — not the whole inventory.
+    expect(cardUrls()).toEqual([]);
+    release();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const first = paramsOf(cardUrls()[0]);
+    expect(first.get("type")).toBe("Application");
+    expect(JSON.parse(first.get("query")!)).toEqual(QUERY);
+  });
+
+  it("falls back to the persisted filters when a ?view= id is unknown", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Objective"] }, groupBy: "lifecycle" }),
+    );
+    const release = mockBookmarks([queryBookmark()], { deferred: true });
+    renderWithLocation("/inventory?view=bm-missing");
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some((c) => c[0] === "/bookmarks")).toBe(true),
+    );
+    expect(cardUrls()).toEqual([]);
+    release();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(paramsOf(cardUrls()[0]).get("type")).toBe("Objective");
+    expect(cardUrls().some((u) => paramsOf(u).has("query"))).toBe(false);
+    await waitFor(() => expect(screen.getByTestId("location")).toBeEmptyDOMElement());
+    await waitFor(() => expect(prefs().filters.types).toEqual(["Objective"]));
+    expect(prefs().groupBy).toBe("lifecycle");
+  });
+
+  it("restores the persisted query view, revalidated, when a ?view= id is unknown", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderWithLocation("/inventory?view=bm-missing");
+    const strip = await screen.findByTestId("query-path-strip");
+    expect(within(strip).getByText("Apps on live tech")).toBeInTheDocument();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(JSON.parse(paramsOf(cardUrls()[0]).get("query")!)).toEqual(QUERY);
+  });
+
+  it("restores the persisted filters when the ?view= lookup fails", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Objective"] } }));
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/bookmarks")) return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+    renderWithLocation("/inventory?view=bm-q");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(paramsOf(cardUrls()[0]).get("type")).toBe("Objective");
+    await waitFor(() => expect(screen.getByTestId("location")).toBeEmptyDOMElement());
+  });
+
+  it("keeps a ?view= link's own filters when its view is unknown", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Objective"] } }));
+    renderWithLocation("/inventory?view=bm-missing&type=ITComponent");
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("?type=ITComponent"));
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(cardUrls().every((u) => paramsOf(u).get("type") === "ITComponent")).toBe(true);
+  });
+
+  it("leaves a persisted query view that was deleted before any card request", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    const release = mockBookmarks([], { deferred: true });
+    renderInventory();
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some((c) => c[0] === "/bookmarks")).toBe(true),
+    );
+    expect(cardUrls()).toEqual([]);
+    release();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const first = paramsOf(cardUrls()[0]);
+    expect(first.has("query")).toBe(false);
+    expect(first.get("type")).toBe("Application");
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
+    await waitFor(() => expect(prefs().activeQuery).toBeNull());
+  });
+
+  it("sends the re-saved query of a persisted query view with the first card request", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    const NEW_QUERY = {
+      type: "Application",
+      related: [{ relation: "relAppToITC", type: "ITComponent", where: { lifecycle_phase: ["phaseOut"] } }],
+    };
+    mockBookmarks([queryBookmark({ name: "Apps on retiring tech", query: NEW_QUERY })]);
+    renderInventory();
+    const strip = await screen.findByTestId("query-path-strip");
+    expect(within(strip).getByText("Apps on retiring tech")).toBeInTheDocument();
+    expect(within(strip).getByText(/Phase Out/)).toBeInTheDocument();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(cardUrls().map((u) => JSON.parse(paramsOf(u).get("query")!))).toEqual(
+      cardUrls().map(() => NEW_QUERY),
+    );
+  });
+
+  it("re-applies the view's filters when the re-saved query starts from another type", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    const NEW_QUERY = { type: "ITComponent", related: [] };
+    mockBookmarks([queryBookmark({ query: NEW_QUERY, filters: { types: ["ITComponent"] } })]);
+    renderInventory();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const first = paramsOf(cardUrls()[0]);
+    expect(first.get("type")).toBe("ITComponent");
+    expect(JSON.parse(first.get("query")!)).toEqual(NEW_QUERY);
+    expect(await screen.findByTestId("query-path-strip")).toBeInTheDocument();
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
+  });
+
+  it("keeps a persisted query view as is when the views cannot be read", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/bookmarks")) return Promise.reject(new Error("boom"));
+      return Promise.resolve([]);
+    });
+    renderInventory();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(JSON.parse(paramsOf(cardUrls()[0]).get("query")!)).toEqual(QUERY);
+    expect(await screen.findByTestId("query-path-strip")).toBeInTheDocument();
+  });
+
+  it("selecting another type leaves the query view", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    await screen.findByTestId("query-path-strip");
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "bm-q");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const before = cardUrls().length;
+
+    await userEvent.click(screen.getByTestId("select-itcomponent"));
+
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    // No request pairs the new type with the old view's query.
+    for (const url of cardUrls().slice(before)) {
+      const p = paramsOf(url);
+      expect(p.get("type")).toBe("ITComponent");
+      expect(p.has("query")).toBe(false);
+    }
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+    expect(screen.getByTestId("filter-sidebar")).toHaveAttribute("data-external-view-id", "");
+    await waitFor(() => expect(prefs().activeQuery).toBeNull());
+  });
+
+  it("re-selecting the start type alone keeps the query view", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+    renderInventory();
+    await screen.findByTestId("query-path-strip");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    await userEvent.click(screen.getByTestId("select-application"));
+    expect(screen.getByTestId("query-path-strip")).toBeInTheDocument();
+    expect(cardUrls().every((u) => paramsOf(u).has("query"))).toBe(true);
+  });
+  it("loads the inventory when the ?view= param leaves before its lookup finished", async () => {
+    mockBookmarks([queryBookmark()], { deferred: true });
+    renderWithLocation("/inventory?view=bm-q");
+    await waitFor(() =>
+      expect(vi.mocked(api.get).mock.calls.some((c) => c[0] === "/bookmarks")).toBe(true),
+    );
+    expect(cardUrls()).toEqual([]);
+    await userEvent.click(screen.getByTestId("go-plain"));
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(cardUrls().some((u) => paramsOf(u).has("query"))).toBe(false);
   });
 });

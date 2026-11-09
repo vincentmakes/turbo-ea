@@ -529,5 +529,5 @@ class TestFieldTypes:
             {"fields": None},
             {"fields": [{"key": "a", "type": "text"}, {"key": "b"}]},
         ]
-        assert pcf._field_types(schema) == {"a": "boolean", "b": ""}
-        assert pcf._field_types(None) == {}
+        assert pcf.field_types(schema) == {"a": "boolean", "b": ""}
+        assert pcf.field_types(None) == {}

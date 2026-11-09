@@ -308,6 +308,9 @@ class _Backend:
         }
 
     async def get(self, path, params=None):
+        if path == "/cards" and "query" in (params or {}):
+            # save_inventory_view's preview runs the query.
+            return {"items": [], "total": 0}
         if path == "/cards":
             ids = (params or {}).get("ids", "").split(",")
             return {
@@ -665,6 +668,7 @@ _BATCH_TOOLS_EXPECTED = [
     "create_risks",
     "create_soaw",
     "import_bpmn",
+    "save_inventory_view",
     "set_card_logos",
     "sign_adr",
     "transition_card_lifecycle",
@@ -714,6 +718,9 @@ _BATCH_TOOL_CALLS = {
         card_id="c1", body="hi", dry_run=dry_run
     ),
     "sign_adr": lambda dry_run: server.sign_adr(adr_id="a1", dry_run=dry_run),
+    "save_inventory_view": lambda dry_run: server.save_inventory_view(
+        name="V", query={"type": "Application"}, dry_run=dry_run
+    ),
     "create_adr": lambda dry_run: server.create_adr(
         title="t", sections=[{"heading": "Context", "body": "b"}], dry_run=dry_run
     ),

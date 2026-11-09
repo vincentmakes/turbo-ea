@@ -228,6 +228,29 @@ Visualizações salvas aparecem na barra lateral do painel de filtros. Clique em
 - **Compartilhadas Comigo** — Visualizações que outros compartilharam com você
 - **Visualizações Públicas** — Visualizações disponíveis para todos
 
+### Visualizações geradas via MCP { #mcp-views }
+
+Um assistente de IA conectado por meio do [servidor MCP](../admin/mcp.md) pode salvar uma visualização cujos filtros são uma **consulta de vários saltos** — uma cadeia de relações com uma condição em cada etapa, como *Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status On Track*. A visualização armazena a consulta, não os seus resultados: o servidor a executa novamente toda vez que a visualização é aberta, de modo que a lista sempre reflete o panorama atual.
+
+![Visualização de inventário gerada via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+
+Quando uma visualização assim está aberta, uma **faixa de caminho** acima da grade mostra o que ela seleciona:
+
+- Um chip **MCP** e o nome da visualização, seguidos da nota *Gerada via MCP · editável apenas via MCP*. Passe o ponteiro sobre a nota para ver o que ainda pode ser alterado aqui.
+- O **caminho**: os tipos de card como chips, unidos pelo verbo de relação que liga cada etapa (por exemplo *Organização → usa Aplicação → é afetada por Iniciativa*). Uma etapa que exige que um card **não** tenha nenhuma relação desse tipo lê-se *não tem* antes do verbo.
+- Sob cada tipo de card, as **condições** que ele deve cumprir — fase do ciclo de vida, subtipo, status de aprovação ou um valor de campo.
+- Um botão **×** (*Sair desta visualização*) que retorna ao inventário normal.
+
+Na lista de Visualizações salvas, uma visualização de consulta exibe um selo de robô e o seu caminho compacto (*Organização › usa Aplicação › é afetada por Iniciativa*) como segunda linha.
+
+**O que você pode alterar na interface web.** O proprietário da visualização pode renomeá-la, alterar o compartilhamento e a configuração OData, atualizar o layout (colunas, layout de colunas e agrupamento) ou excluí-la. Os seus filtros e a própria consulta mudam apenas via MCP: editar a visualização aqui nunca os substitui pelos do painel de filtros, portanto peça ao assistente que a altere ou a salve novamente. **Salvar visualização atual** enquanto uma visualização de consulta está aberta cria uma visualização comum a partir dos filtros, colunas e ordenação do painel — a consulta não é copiada para ela, como a caixa de diálogo informa.
+
+**Abrir uma visualização por link.** Quando um assistente salva uma visualização, ele retorna um link no formato `/inventory?view=<view id>`; abri-lo aplica diretamente a visualização salva. O mesmo link funciona para qualquer visualização salva que você possa ver.
+
+**OData.** O feed OData de uma visualização de consulta retorna os mesmos cards que o inventário: a consulta também é aplicada ao feed.
+
+Para a gramática das consultas, os seus limites e as ferramentas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), veja [Consultas de cards de vários saltos](../admin/mcp.md#multi-hop-card-queries).
+
 ## Importação / Exportação Excel { #excel-import }
 
 As importações e exportações do inventário usam uma **pasta de trabalho Excel com várias planilhas** que reconstrói uma sub-paisagem inteira — cards de qualquer número de tipos e as relações entre eles — sem nunca exigir a cópia de um UUID.

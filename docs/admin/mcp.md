@@ -183,26 +183,28 @@ In this mode, the server authenticates with email/password and refreshes the tok
 
 ## Available Capabilities
 
-The MCP server exposes **51 tools** across two groups: **32 read tools** that query EA data and **19 write tools** (14 additive, 5 destructive) that create and maintain cards, relations, diagrams, risks, ADRs and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
+The MCP server exposes **54 tools** across two groups: **34 read tools** that query EA data and **20 write tools** (15 additive, 5 destructive) that create and maintain cards, relations, diagrams, risks, ADRs, saved inventory views and more — including turning artifacts an AI tool has in its own context (spreadsheets, BPMN XML, DrawIO XML, documents, images) into structured EA data. Every tool carries MCP `ToolAnnotations` (read-only / destructive / idempotent hints) so connectors can surface destructiveness in their UI.
 
 ### Dry-run safety on writes
 
 Every write tool defaults to **`dry_run=true`**, and nothing is persisted until the AI tool calls it again with `dry_run=false` — which it should only do after the user has seen the preview and confirmed. This prevents an enthusiastic agent from quietly seeding hundreds of cards on a misinterpreted spreadsheet. The preview comes in one of two kinds:
 
 - **Verified by the backend.** Where the underlying endpoint supports a dry run, the backend runs every validator and resolver — permissions, card ids, what the user may read — builds the complete result, then **rolls the transaction back**. This covers cards (`create_cards_bulk`, `update_cards_bulk`), relations (`upsert_relations_bulk`) and diagrams (`create_diagram`, `update_diagram`). A diagram preview returns the card links the backend accepted, and for an update the exact change: renamed fields, card links added and removed, and whether the canvas changed.
-- **Built by the MCP server.** Where the endpoint has no dry run, the tool validates and translates its input and shows the exact payload a commit would send, without calling the write endpoint: `import_bpmn` (the draft → submit → approve walk; its flow-node counts are an estimate and the preview says `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (which shows each card's archive impact), and `set_card_logos` / `clear_card_logos` (which look up each card's type and current logo, and fetch every `image_url`).
+- **Built by the MCP server.** Where the endpoint has no dry run, the tool validates and translates its input and shows the exact payload a commit would send, without calling the write endpoint: `import_bpmn` (the draft → submit → approve walk; its flow-node counts are an estimate and the preview says `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (which runs the query and reports how many cards match, with a few sample names), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (which shows each card's archive impact), and `set_card_logos` / `clear_card_logos` (which look up each card's type and current logo, and fetch every `image_url`).
 
 Either way, the preview is recorded in the audit log as a dry-run batch, so an administrator can see what an agent proposed as well as what it committed.
 
 ### Read tools
 
-The server exposes 32 read tools grouped into eight clusters.
+The server exposes 34 read tools grouped into eight clusters.
 
 **Cards & metamodel**
 
 | Tool | Description |
 |------|-------------|
 | `search_cards` | Search and filter cards by type, status, or free text |
+| `query_cards` | Find cards through a chain of relations with a condition at each hop — see [Multi-hop card queries](#multi-hop-card-queries) |
+| `list_inventory_views` | List the saved inventory views you can see, with each view's query and the channel that created it |
 | `get_card` | Get full details of a card by UUID |
 | `get_card_relations` | Get all relations connected to a card |
 | `get_card_hierarchy` | Get ancestors and children of a card |
@@ -279,9 +281,9 @@ All tools are bound by the authenticated user's RBAC — a viewer will simply ge
 
 ### Write tools
 
-The server exposes 19 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
+The server exposes 20 write tools, each annotated as **additive** (creates or extends data) or **destructive** (modifies or removes existing data) so connectors can warn accordingly.
 
-**Additive (14)**
+**Additive (15)**
 
 | Tool | Description |
 |------|-------------|
@@ -297,6 +299,7 @@ The server exposes 19 write tools, each annotated as **additive** (creates or ex
 | `update_adr` | Update an ADR (title, sections, status, linked cards). |
 | `sign_adr` | Sign an ADR (requires the `adr.sign` permission; otherwise returns a UI deep-link to sign in the browser). |
 | `create_diagram` | Create a free-form DrawIO diagram with optional links to existing cards. |
+| `save_inventory_view` | Save a multi-hop card query as an inventory view (new, or replacing the query of one given by `view_id`). The inventory re-runs the query every time the view is opened; the response carries a link that opens it. An update changes only the name and the query, plus the visibility and columns when they are passed; the view's grouping and layout are kept. |
 | `import_bpmn` | Save a BPMN 2.0 XML diagram against an **existing** Business Process card. If no card matches the given name, the tool returns a `card_not_found` error pointing the agent at `create_cards_bulk` — this forces the agent to create the card explicitly with description, subtype and attributes first, instead of taking a shortcut that lands a sparse card. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
@@ -309,6 +312,58 @@ The server exposes 19 write tools, each annotated as **additive** (creates or ex
 | `update_diagram` | Replace a diagram's DrawIO XML, name, or card links. |
 | `rollback_batch` | Reverse the writes performed under a previous mutation batch — card, relation, risk, stakeholder-role, tag and draft-decision writes; todos and notifications are left in place. |
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
+
+### Multi-hop card queries
+
+`query_cards` answers a question that chains relations — "Organizations that use an Application whose lifecycle is Active, which is affected by an Initiative with status On Track" — in one call, and `save_inventory_view` keeps the same query as a saved inventory view. The view stores the query, not its results: the inventory runs it again every time someone opens the view, so the list stays current.
+
+A query is a small JSON object made of **keys only** — card type, relation type, field and option keys as `list_card_types` and `get_relation_types` return them, never labels or card ids:
+
+```text
+CardQuery = { type, where?, related?: [Hop] }
+Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
+              type, where?, negate?: true|false, related?: [Hop] }
+Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
+              subtype?: [subtype key],
+              approval_status?: [status],
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+```
+
+- A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
+- Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
+- `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
+- Related cards count only when they are active and the user may read them: a card the user cannot see breaks the chain, exactly as it does in the web UI.
+
+Example — Organizations using an active Application that an Initiative with status *On Track* affects:
+
+```json
+{
+  "type": "Organization",
+  "related": [
+    {
+      "relation": "relOrgToApp",
+      "type": "Application",
+      "where": { "lifecycle_phase": ["active"] },
+      "related": [
+        {
+          "relation": "relInitiativeToApp",
+          "type": "Initiative",
+          "where": { "attributes": { "initiativeStatus": ["onTrack"] } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+In the inventory, a view saved this way shows its chain as a readable path above the grid and is marked as generated via MCP. Its query can be changed only through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`); in the web UI its owner can still rename it, change its sharing and OData setting, adjust the column layout, or delete it.
+
+Limitations:
+
+- At most **3 levels** of `related`, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side and nested together). A longer query is refused with `too_many_hops`.
+- No conditions on **tags** and none on specific cards.
+- A text attribute matches its value **exactly** — there is no partial or case-insensitive match.
+- **`rollback_batch` cannot undo a saved view.** Saving a view records a mutation batch but publishes no event for the rollback to reverse; delete an unwanted view from the inventory's Saved Views instead.
 
 ### Artifact upload
 
@@ -328,7 +383,7 @@ Defense in depth on top of dry-run, so an LLM mishap can't cause mass damage:
 
 - **Per-call size caps.** The MCP write tools enforce a much smaller cap than the underlying Excel-importer endpoints: 200 rows for `create_cards_bulk`, 500 ops for `upsert_relations_bulk`. Big enough for any realistic single artifact upload, small enough that a dry-run preview is still scannable.
 - **No relation deletion by default.** `upsert_relations_bulk` refuses `action: "delete"` ops — to remove relations, use the web UI where the action is captured under the user's identity. Operators can opt in by setting `MCP_ALLOW_RELATION_DELETE=true`.
-- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 19 write tools without redeploying code. The 32 read tools keep working.
+- **Kill switch.** `MCP_WRITES_ENABLED=false` turns off all 20 write tools without redeploying code. The 34 read tools keep working.
 - **Logo fetching is allowlisted.** The built-in icon packs cannot cover every product a customer runs, and an assistant is often sandboxed with no route to the web, so `set_card_logos` accepts an `image_url` and the MCP server fetches it. Only `https`, only the hosts in `MCP_LOGO_FETCH_HOSTS`, only a public address, at most two redirects (each re-checked), at most 1 MB read as a stream, and the bytes must carry a real PNG/JPEG/WebP/GIF signature. The fetch happens at the MCP edge, never in the backend, and the image is then uploaded through the ordinary route — so a URL chosen by an LLM never reaches the process holding the database. `MCP_LOGO_FETCH_ENABLED=false` switches it off.
 - **Audit origin tag.** Every backend request from the MCP server carries an `X-Turbo-EA-Origin: mcp` header. Events emitted from those requests are tagged `origin: "mcp"` in the audit-log payload, so admins can filter MCP-driven writes out of the timeline distinct from web-UI actions.
 - **Mutation batches.** Every MCP write call — the preview as well as the commit — is one mutation batch in the audit log, opened before anything is written; every event emitted during the call is stamped with the batch id, and every write tool returns that `batch_id`. Admins (or the `get_change_history` tool) can reconstruct the full per-event diff of a commit from one id, and `rollback_batch` can reverse it — including deleting a diagram that `create_diagram` made, unless someone has published it since. A diagram update is reported as not reversible, because the previous canvas is not kept. Commits above `MCP_BATCH_CONFIRMATION_THRESHOLD` rows must pass back the one-shot `confirm_token` the prior dry-run returned. The backend checks it when the commit's batch opens, before anything is written: it must come from a dry-run of the same tool by the same user less than 15 minutes earlier, and it authorises a single commit. Every bulk write tool follows this preview → confirm cycle: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -371,7 +426,7 @@ The six guardrail environment variables on the MCP container:
 | Role | Access |
 |------|--------|
 | **Admin** | Configure MCP settings (`admin.mcp` permission). Full read + write through MCP. |
-| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
+| **All authenticated users** | Read access governed by their existing RBAC. Write tools require the matching backend permissions — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relations), `diagrams.manage` (diagrams), `bpm.edit` (BPMN), `risks.manage` (Risk Register), `comments.create` (comments), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (saved inventory views). |
 
 The `admin.mcp` permission controls who can manage MCP settings. It is only available to the Admin role by default. Custom roles can be granted this permission through the Roles administration page.
 

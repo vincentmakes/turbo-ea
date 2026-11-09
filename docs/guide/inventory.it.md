@@ -228,6 +228,29 @@ Le viste salvate appaiono nel pannello laterale dei filtri. Cliccate su qualsias
 - **Condivise con me** — Viste condivise da altri con voi
 - **Viste pubbliche** — Viste disponibili per tutti
 
+### Viste generate tramite MCP { #mcp-views }
+
+Un assistente IA connesso tramite il [server MCP](../admin/mcp.md) può salvare una vista i cui filtri sono una **query a più salti** — una catena di relazioni con una condizione a ogni passo, ad esempio *Organizzazioni che usano un'Applicazione attiva influenzata da un'Iniziativa con stato On Track*. La vista memorizza la query, non i suoi risultati: il server la riesegue ogni volta che la vista viene aperta, così l'elenco riflette sempre il panorama attuale.
+
+![Vista di inventario generata tramite MCP](../assets/img/en/98d_inventory_mcp_view.png)
+
+Quando una vista di questo tipo è aperta, una **barra del percorso** sopra la griglia mostra cosa seleziona:
+
+- Un chip **MCP** e il nome della vista, seguiti dalla nota *Generata tramite MCP · modificabile solo tramite MCP*. Passa il mouse sulla nota per vedere cosa puoi ancora modificare qui.
+- Il **percorso**: i tipi di card come chip, uniti dal verbo di relazione che collega ogni passo (ad esempio *Organizzazione → usa Applicazione → è influenzata da Iniziativa*). Un passo che richiede che una card **non** abbia alcuna relazione di questo tipo si legge *non ha* prima del verbo.
+- Sotto ogni tipo di card, le **condizioni** che deve soddisfare — fase del ciclo di vita, sottotipo, stato di approvazione o il valore di un campo.
+- Un pulsante **×** (*Esci da questa vista*) che riporta al normale inventario.
+
+Nell'elenco delle Viste salvate, una vista di query riporta un badge a forma di robot e il suo percorso compatto (*Organizzazione › usa Applicazione › è influenzata da Iniziativa*) come seconda riga.
+
+**Cosa puoi modificare nell'interfaccia web.** Il proprietario della vista può rinominarla, cambiarne la condivisione e l'impostazione OData, aggiornarne il layout (colonne, layout delle colonne e raggruppamento) o eliminarla. I suoi filtri e la query stessa cambiano solo tramite MCP: modificare qui la vista non li sostituisce mai con quelli del pannello filtri, quindi chiedi all'assistente di modificarla o di salvarla di nuovo. **Salva vista corrente** mentre è aperta una vista di query crea una vista ordinaria a partire da filtri, colonne e ordinamento del pannello — la query non viene copiata, come indica la finestra di dialogo.
+
+**Aprire una vista tramite link.** Quando un assistente salva una vista, restituisce un link della forma `/inventory?view=<view id>`; aprendolo si applica direttamente la vista salvata. Lo stesso link funziona per qualsiasi vista salvata che puoi vedere.
+
+**OData.** Il feed OData di una vista di query restituisce le stesse card dell'inventario: la query viene applicata anche al feed.
+
+Per la grammatica delle query, i suoi limiti e gli strumenti MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), vedi [Query di card a più salti](../admin/mcp.md#multi-hop-card-queries).
+
 ## Importazione / Esportazione Excel { #excel-import }
 
 Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro Excel a più fogli** che ricostruisce un intero sotto-paesaggio — schede di qualsiasi numero di tipi e le relazioni tra di esse — senza dover mai copiare un UUID.

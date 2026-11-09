@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.195.0] - 2026-11-09
+
+### Added
+- **Multi-hop query views in the inventory**: a saved view can carry a chain of relations with a condition at each step (lifecycle, subtype, field values, approval status) — such as *Organizations that use an active Application which an On Track Initiative affects* — and the server re-runs it every time the view opens; it is authored through the MCP server and shown above the grid as a readable path with an MCP notice ([#1366](https://github.com/vincentmakes/turbo-ea/discussions/1366)).
+- Three MCP tools, `query_cards`, `list_inventory_views` and `save_inventory_view`, answer multi-hop questions in one call and save the query as an inventory view.
+- A `/inventory?view=<id>` link opens a saved inventory view directly.
+
+### Fixed
+- A saved view's OData feed now returns only the cards its query selects.
+
 ## [2.194.0] - 2026-11-08
 
 ### Added

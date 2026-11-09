@@ -93,6 +93,10 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Bookmarks", "column_state"): KEYS,
     ("Bookmarks", "column_filter_model"): "grid filter values: names and option keys",
     ("Bookmarks", "sort"): KEYS,
+    ("Bookmarks", "query"): (
+        "keys-only card query grammar (type, relation, field, option keys), "
+        "validated to hold no UUID"
+    ),
     ("WebPortals", "description"): PROSE,
     ("WebPortals", "display_fields"): KEYS,
     ("WebPortals", "card_config"): KEYS,

@@ -7,6 +7,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.provenance import ProvenanceMixin
 
 # Association table for sharing bookmarks with specific users
 bookmark_shares = Table(
@@ -28,7 +29,7 @@ bookmark_shares = Table(
 )
 
 
-class Bookmark(Base, UUIDMixin, TimestampMixin):
+class Bookmark(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     __tablename__ = "bookmarks"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -51,5 +52,11 @@ class Bookmark(Base, UUIDMixin, TimestampMixin):
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="private")
     odata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # A multi-hop card query (``app/services/card_query.py``, ``CardQuery``)
+    # evaluated server-side on every open and by the OData feed. Keys only —
+    # card type, relation type, field and option keys, never a card id — so
+    # the view transfers between workspaces verbatim. Authored through the MCP
+    # server; NULL is a plain view.
+    query: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     shared_with_users = relationship("User", secondary=bookmark_shares, lazy="noload")

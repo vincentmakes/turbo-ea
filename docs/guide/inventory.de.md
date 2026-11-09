@@ -228,6 +228,29 @@ Gespeicherte Ansichten erscheinen in der Seitenleiste des Filterpanels. Klicken 
 - **Mit mir geteilt** — Ansichten, die andere mit Ihnen geteilt haben
 - **Öffentliche Ansichten** — Ansichten, die für alle verfügbar sind
 
+### Über MCP erzeugte Ansichten { #mcp-views }
+
+Ein über den [MCP-Server](../admin/mcp.md) verbundener KI-Assistent kann eine Ansicht speichern, deren Filter eine **mehrstufige Abfrage** sind — eine Kette von Beziehungen mit einer Bedingung an jedem Schritt, etwa *Organisationen, die eine aktive Anwendung nutzen, von der eine Initiative mit dem Status On Track betroffen ist*. Die Ansicht speichert die Abfrage, nicht ihre Ergebnisse: Der Server führt sie bei jedem Öffnen der Ansicht erneut aus, sodass die Liste stets die aktuelle Landschaft widerspiegelt.
+
+![Über MCP erzeugte Inventaransicht](../assets/img/en/98d_inventory_mcp_view.png)
+
+Ist eine solche Ansicht geöffnet, zeigt ein **Pfadstreifen** über dem Raster, was sie auswählt:
+
+- Ein **MCP**-Chip und der Name der Ansicht, gefolgt vom Hinweis *Über MCP erzeugt · nur über MCP bearbeitbar*. Fahren Sie mit der Maus über den Hinweis, um zu sehen, was Sie hier noch ändern können.
+- Der **Pfad**: die Kartentypen als Chips, verbunden durch das Beziehungsverb, das jeden Schritt verknüpft (zum Beispiel *Organisation → nutzt Anwendung → ist betroffen von Initiative*). Ein Schritt, der verlangt, dass eine Karte **keine** solche Beziehung hat, liest sich mit *hat kein* vor dem Verb.
+- Unter jedem Kartentyp die **Bedingungen**, die er erfüllen muss — Lebenszyklusphase, Untertyp, Genehmigungsstatus oder ein Feldwert.
+- Eine **×**-Schaltfläche (*Diese Ansicht verlassen*), die zum normalen Inventar zurückführt.
+
+In der Liste der gespeicherten Ansichten trägt eine Abfrageansicht ein Roboter-Symbol und ihren kompakten Pfad (*Organisation › nutzt Anwendung › ist betroffen von Initiative*) als zweite Zeile.
+
+**Was Sie in der Weboberfläche ändern können.** Der Eigentümer der Ansicht kann sie umbenennen, Freigabe und OData-Einstellung ändern, ihr Layout (Spalten, Spaltenlayout und Gruppierung) aktualisieren oder sie löschen. Ihre Filter und die Abfrage selbst ändern sich nur über MCP: Das Bearbeiten der Ansicht hier ersetzt sie nie durch die Filter des Filterpanels, bitten Sie also den Assistenten, sie zu ändern oder neu zu speichern. **Aktuelle Ansicht speichern** erstellt, während eine Abfrageansicht geöffnet ist, eine gewöhnliche Ansicht aus Filtern, Spalten und Sortierung des Panels — die Abfrage wird nicht in sie kopiert, wie der Dialog anmerkt.
+
+**Eine Ansicht per Link öffnen.** Speichert ein Assistent eine Ansicht, liefert er einen Link der Form `/inventory?view=<view id>`; beim Öffnen wird die gespeicherte Ansicht direkt angewendet. Derselbe Link funktioniert für jede gespeicherte Ansicht, die Sie sehen können.
+
+**OData.** Der OData-Feed einer Abfrageansicht liefert dieselben Karten wie das Inventar: Die Abfrage wird auch auf den Feed angewendet.
+
+Zur Abfragegrammatik, ihren Grenzen und den MCP-Werkzeugen (`query_cards`, `list_inventory_views`, `save_inventory_view`) siehe [Mehrstufige Kartenabfragen](../admin/mcp.md#multi-hop-card-queries).
+
 ## Excel-Import / -Export { #excel-import }
 
 Inventar-Exporte und -Importe nutzen eine **mehrblättrige Excel-Arbeitsmappe**, die Ihre Landschaft samt Beziehungen vollständig zurück- und wieder einlesen kann — ohne dass Sie jemals eine UUID kopieren müssen.

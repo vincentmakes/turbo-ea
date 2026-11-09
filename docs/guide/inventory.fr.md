@@ -228,6 +228,29 @@ Les vues sauvegardées apparaissent dans la barre latérale du panneau de filtre
 - **Partagées avec moi** -- Vues que d'autres ont partagées avec vous
 - **Vues publiques** -- Vues disponibles pour tous
 
+### Vues générées via MCP { #mcp-views }
+
+Un assistant IA connecté via le [serveur MCP](../admin/mcp.md) peut enregistrer une vue dont les filtres sont une **requête à plusieurs sauts** — une chaîne de relations avec une condition à chaque étape, par exemple *Organisations qui utilisent une Application active affectée par une Initiative dont le statut est On Track*. La vue stocke la requête, pas ses résultats : le serveur la réexécute à chaque ouverture de la vue, de sorte que la liste reflète toujours le paysage actuel.
+
+![Vue d'inventaire générée via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+
+Lorsqu'une telle vue est ouverte, un **bandeau de chemin** au-dessus de la grille montre ce qu'elle sélectionne :
+
+- Une pastille **MCP** et le nom de la vue, suivis de la mention *Générée via MCP · modifiable uniquement via MCP*. Survolez la mention pour voir ce que vous pouvez encore modifier ici.
+- Le **chemin** : les types de fiche sous forme de pastilles, reliés par le verbe de relation qui lie chaque étape (par exemple *Organisation → utilise Application → est affectée par Initiative*). Une étape qui exige qu'une fiche n'ait **aucune** relation de ce type se lit *n'a aucune* avant le verbe.
+- Sous chaque type de fiche, les **conditions** qu'il doit remplir — phase de cycle de vie, sous-type, statut d'approbation ou valeur d'un champ.
+- Un bouton **×** (*Quitter cette vue*) qui ramène à l'inventaire normal.
+
+Dans la liste des vues enregistrées, une vue de requête porte un badge robot et son chemin compact (*Organisation › utilise Application › est affectée par Initiative*) en seconde ligne.
+
+**Ce que vous pouvez modifier dans l'interface web.** Le propriétaire de la vue peut la renommer, modifier son partage et son réglage OData, mettre à jour sa disposition (colonnes, disposition des colonnes et regroupement) ou la supprimer. Ses filtres et la requête elle-même ne changent que via MCP : modifier la vue ici ne les remplace jamais par ceux du panneau de filtres ; demandez donc à l'assistant de la modifier ou de la réenregistrer. **Enregistrer la vue actuelle** pendant qu'une vue de requête est ouverte crée une vue ordinaire à partir des filtres, des colonnes et du tri du panneau — la requête n'y est pas copiée, comme l'indique la boîte de dialogue.
+
+**Ouvrir une vue par lien.** Lorsqu'un assistant enregistre une vue, il renvoie un lien de la forme `/inventory?view=<view id>` ; l'ouvrir applique directement la vue enregistrée. Le même lien fonctionne pour toute vue enregistrée que vous pouvez voir.
+
+**OData.** Le flux OData d'une vue de requête renvoie les mêmes fiches que l'inventaire : la requête est également appliquée au flux.
+
+Pour la grammaire des requêtes, ses limites et les outils MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), voir [Requêtes de fiches à plusieurs sauts](../admin/mcp.md#multi-hop-card-queries).
+
 ## Import / Export Excel { #excel-import }
 
 Les exports et imports d'inventaire utilisent un **classeur Excel multi-feuilles** qui restitue l'intégralité d'un sous-paysage — fiches de tous types et relations entre elles — sans jamais exiger de copier un UUID.

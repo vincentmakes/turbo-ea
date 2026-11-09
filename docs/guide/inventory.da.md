@@ -230,6 +230,29 @@ Gemte visninger vises i filterpanelets sidepanel. Klik på en visning for øjebl
 - **Shared with Me** — Visninger andre har delt med dig
 - **Public Views** — Visninger tilgængelige for alle
 
+### Visninger genereret via MCP { #mcp-views }
+
+En AI-assistent, der er forbundet via [MCP-serveren](../admin/mcp.md), kan gemme en visning, hvis filtre er en **forespørgsel med flere led** — en kæde af relationer med en betingelse i hvert trin, for eksempel *Organisationer, der bruger en aktiv Applikation, som berøres af et Initiativ med status On Track*. Visningen gemmer forespørgslen, ikke dens resultater: Serveren kører den igen, hver gang visningen åbnes, så listen altid afspejler det aktuelle landskab.
+
+![Inventarvisning genereret via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+
+Når en sådan visning er åben, viser en **stistribe** over gitteret, hvad den udvælger:
+
+- Et **MCP**-chip og visningens navn efterfulgt af noten *Genereret via MCP · kan kun redigeres via MCP*. Hold musen over noten for at se, hvad du stadig kan ændre her.
+- **Stien**: korttyperne som chips, forbundet af det relationsverbum, der knytter hvert trin sammen (for eksempel *Organisation → bruger Applikation → berøres af Initiativ*). Et trin, der kræver, at et kort **ikke** har nogen sådan relation, læses *har ingen* før verbet.
+- Under hver korttype de **betingelser**, den skal opfylde — livscyklusfase, undertype, godkendelsesstatus eller en feltværdi.
+- En **×**-knap (*Forlad denne visning*), der fører tilbage til det normale inventar.
+
+I listen over gemte visninger har en forespørgselsvisning et robotmærke og sin kompakte sti (*Organisation › bruger Applikation › berøres af Initiativ*) som anden linje.
+
+**Hvad du kan ændre i webgrænsefladen.** Visningens ejer kan omdøbe den, ændre dens deling og OData-indstilling, opdatere dens layout (kolonner, kolonnelayout og gruppering) eller slette den. Dens filtre og selve forespørgslen ændres kun via MCP: Redigering af visningen her erstatter dem aldrig med filterpanelets, så bed assistenten om at ændre eller gemme den igen. **Gem aktuel visning**, mens en forespørgselsvisning er åben, opretter en almindelig visning ud fra panelets filtre, kolonner og sortering — forespørgslen kopieres ikke med, som dialogen anfører.
+
+**Åbn en visning via et link.** Når en assistent gemmer en visning, returnerer den et link på formen `/inventory?view=<view id>`; når det åbnes, anvendes den gemte visning direkte. Det samme link virker for enhver gemt visning, du kan se.
+
+**OData.** En forespørgselsvisnings OData-feed returnerer de samme kort som inventaret: Forespørgslen anvendes også på feedet.
+
+Se [Forespørgsler på kort med flere led](../admin/mcp.md#multi-hop-card-queries) for forespørgselsgrammatikken, dens begrænsninger og MCP-værktøjerne (`query_cards`, `list_inventory_views`, `save_inventory_view`).
+
 ## Excel-import / -eksport { #excel-import }
 
 Lager-eksporter og -importer bruger en **Excel-projektmappe med flere ark**, der rund-tur dit landskab — kort på tværs af et hvilket som helst antal typer plus relationerne mellem dem — uden nogensinde at kræve, at du kopierer en UUID.

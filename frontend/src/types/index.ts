@@ -772,6 +772,49 @@ export interface Bookmark {
   shared_with?: BookmarkShareEntry[];
   odata_url?: string | null;
   created_at?: string;
+  /** A multi-hop condition authored through the MCP server and evaluated by
+   *  the backend on every open. The web UI never writes it: its presence is
+   *  what makes a view a read-only "query view" here. */
+  query?: CardQuery | null;
+  /** Channel the view was created / last changed through (`web`, `mcp`, …). */
+  created_via?: string | null;
+  updated_via?: string | null;
+}
+
+/** Per-node conditions of a `CardQuery` — keys only, never ids. */
+export interface CardQueryWhere {
+  /** Lifecycle phase keys (`plan` … `endOfLife`), or `none` for no lifecycle. */
+  lifecycle_phase?: string[];
+  subtype?: string[];
+  approval_status?: string[];
+  /** Field key → option keys / `"true"` / `"false"` / text / `"__empty__"`. */
+  attributes?: Record<string, string[]>;
+}
+
+/** One hop of a `CardQuery`: an EXISTS (or, with `negate`, NOT EXISTS) over a
+ *  relation type to cards of `type` that satisfy `where`. `relation` is a
+ *  relation type key, or `<key>__out` / `<key>__in` on a self-referencing type. */
+export interface CardQueryHop {
+  relation: string;
+  type: string;
+  where?: CardQueryWhere;
+  negate?: boolean;
+  related?: CardQueryHop[];
+}
+
+/** A server-evaluated multi-hop inventory condition (`GET /cards?query=`). */
+export interface CardQuery {
+  type: string;
+  where?: CardQueryWhere;
+  related?: CardQueryHop[];
+}
+
+/** The query view currently applied in the inventory. */
+export interface ActiveQuery {
+  viewId: string;
+  name: string;
+  query: CardQuery;
+  createdVia?: string | null;
 }
 
 export interface SavedReport {

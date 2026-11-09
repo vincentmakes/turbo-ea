@@ -5,12 +5,16 @@ These tests require a PostgreSQL test database and an HTTP test client.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.card_type import CardType
+from app.services.permission_service import PermissionService
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -1049,3 +1053,164 @@ class TestOrphanedAndStaleFilters:
     async def test_composes_with_the_type_filter(self, client, db, related):
         _, names = await self._names(client, related["admin"], "type=ITComponent&orphaned=true")
         assert names == []
+
+
+# ---------------------------------------------------------------------------
+# GET /cards?query=  (multi-hop card query)
+# ---------------------------------------------------------------------------
+
+
+class TestQueryParam:
+    """``?query=`` keeps the start cards with a chain of related cards matching
+    every hop (``services/card_query.py``)."""
+
+    CHAIN = {
+        "type": "Organization",
+        "related": [
+            {
+                "relation": "orgUsesApp",
+                "type": "Application",
+                "related": [
+                    {
+                        "relation": "initAffectsApp",
+                        "type": "Initiative",
+                        "where": {"attributes": {"initiativeStatus": ["onTrack"]}},
+                    }
+                ],
+            }
+        ],
+    }
+
+    async def _get(self, client, user, query, extra: str = ""):
+        return await client.get(
+            "/api/v1/cards",
+            params={"query": query if isinstance(query, str) else json.dumps(query)}
+            | dict(p.split("=") for p in extra.split("&") if p),
+            headers=auth_headers(user),
+        )
+
+    @pytest.fixture
+    async def chain(self, db, cards_env):
+        """Corp uses Alpha, which the on-track Rocket affects; Team uses Beta,
+        which the at-risk Drag affects; Solo uses nothing."""
+        await create_card_type(db, key="Organization", label="Organization")
+        await create_card_type(
+            db,
+            key="Initiative",
+            label="Initiative",
+            fields_schema=[
+                {
+                    "section": "Main",
+                    "fields": [
+                        {
+                            "key": "initiativeStatus",
+                            "type": "single_select",
+                            "options": [{"key": "onTrack"}, {"key": "atRisk"}],
+                        }
+                    ],
+                }
+            ],
+        )
+        await create_relation_type(
+            db, key="orgUsesApp", source_type_key="Organization", target_type_key="Application"
+        )
+        await create_relation_type(
+            db, key="initAffectsApp", source_type_key="Initiative", target_type_key="Application"
+        )
+        corp = await create_card(db, card_type="Organization", name="Corp")
+        team = await create_card(db, card_type="Organization", name="Team")
+        await create_card(db, card_type="Organization", name="Solo")
+        alpha = await create_card(db, name="Alpha")
+        beta = await create_card(db, name="Beta")
+        rocket = await create_card(
+            db,
+            card_type="Initiative",
+            name="Rocket Initiative",
+            attributes={"initiativeStatus": "onTrack"},
+        )
+        drag = await create_card(
+            db, card_type="Initiative", name="Drag", attributes={"initiativeStatus": "atRisk"}
+        )
+        await create_relation(db, type_key="orgUsesApp", source_id=corp.id, target_id=alpha.id)
+        await create_relation(db, type_key="orgUsesApp", source_id=team.id, target_id=beta.id)
+        await create_relation(
+            db, type_key="initAffectsApp", source_id=rocket.id, target_id=alpha.id
+        )
+        await create_relation(db, type_key="initAffectsApp", source_id=drag.id, target_id=beta.id)
+        return cards_env
+
+    async def test_keeps_the_chained_cards(self, client, db, chain):
+        resp = await self._get(client, chain["admin"], self.CHAIN)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp"]
+        assert data["total"] == len(data["items"]) == 1
+
+    async def test_one_hop_total_matches(self, client, db, chain):
+        one_hop = {"type": "Organization", "related": [CHAIN_HOP]}
+        resp = await self._get(client, chain["admin"], one_hop)
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp", "Team"]
+        assert data["total"] == 2
+
+    async def test_total_counts_past_the_page(self, client, db, chain):
+        one_hop = {"type": "Organization", "related": [CHAIN_HOP]}
+        resp = await self._get(client, chain["admin"], one_hop, "page_size=1")
+        data = resp.json()
+        assert [item["name"] for item in data["items"]] == ["Corp"]
+        assert data["total"] == 2
+
+    async def test_combines_with_type(self, client, db, chain):
+        resp = await self._get(client, chain["admin"], self.CHAIN, "type=Organization")
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        other = await self._get(client, chain["admin"], self.CHAIN, "type=Application")
+        assert other.status_code == 200
+        assert other.json()["items"] == []
+        assert other.json()["total"] == 0
+
+    async def test_requires_inventory_browse(self, client, db, chain):
+        await create_role(db, key="reports", label="Reports", permissions={})
+        user = await create_user(db, email="reports@test.com", role="reports")
+        resp = await self._get(client, user, self.CHAIN)
+        assert resp.status_code == 403
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ("{nope", "invalid_query_json"),
+            (json.dumps({"type": "Organization", "colour": "red"}), "invalid_query"),
+            (json.dumps({"type": "Nope"}), "unknown_card_type"),
+            (
+                json.dumps(
+                    {"type": "Organization", "related": [{"relation": "x", "type": "Application"}]}
+                ),
+                "unknown_relation_type",
+            ),
+            # One past the limit: the documented 400, not the parameter's 422.
+            ("x" * 8001, "query_too_long"),
+        ],
+    )
+    async def test_rejected_queries(self, client, db, chain, query, code):
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_a_restricted_reader_never_sees_through_a_denied_type(self, client, db, chain):
+        await create_role(db, key="r", label="R", permissions={"inventory.view": True})
+        reader = await create_user(db, email="r@test.com", role="r")
+        ct = (await db.execute(select(CardType).where(CardType.key == "Initiative"))).scalar_one()
+        ct.role_permissions = {"r": {"inventory.view": False}}
+        await db.flush()
+        PermissionService.invalidate_type_permission_cache()
+
+        resp = await self._get(client, reader, self.CHAIN)
+        assert resp.status_code == 200
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+        assert "Rocket Initiative" not in resp.text
+        # Control: the admin reaches Corp through the same chain.
+        admin_resp = await self._get(client, chain["admin"], self.CHAIN)
+        assert [item["name"] for item in admin_resp.json()["items"]] == ["Corp"]
+
+
+CHAIN_HOP = {"relation": "orgUsesApp", "type": "Application"}

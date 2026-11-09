@@ -183,26 +183,28 @@ Neste modo, o servidor se autentica com email/senha e renova o token automaticam
 
 ## Capacidades disponíveis
 
-O servidor MCP expõe **51 ferramentas** divididas em dois grupos: **32 ferramentas de leitura** que consultam dados de EA e **19 ferramentas de escrita** (14 aditivas, 5 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
+O servidor MCP expõe **54 ferramentas** divididas em dois grupos: **34 ferramentas de leitura** que consultam dados de EA e **20 ferramentas de escrita** (15 aditivas, 5 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs, visualizações de inventário salvas e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
 
 ### Segurança por execução simulada nas escritas
 
 Cada ferramenta de escrita usa por padrão **`dry_run=true`**, e nada é persistido até que a ferramenta de IA a chame novamente com `dry_run=false` — o que só deve fazer depois que o usuário tiver visto a prévia e confirmado. Isso impede que um agente afoito introduza silenciosamente centenas de cards a partir de uma planilha interpretada de forma errada. A prévia é de um de dois tipos:
 
 - **Verificada pelo backend.** Quando o endpoint subjacente oferece suporte a execução simulada, o backend executa cada validador e resolvedor — permissões, ids de cards, o que o usuário pode ler —, monta o resultado completo e então **reverte a transação**. Isso abrange cards (`create_cards_bulk`, `update_cards_bulk`), relações (`upsert_relations_bulk`) e diagramas (`create_diagram`, `update_diagram`). A prévia de um diagrama devolve os vínculos com cards que o backend aceitou e, numa atualização, a alteração exata: campos renomeados, vínculos com cards adicionados e removidos, e se o canvas mudou.
-- **Montada pelo servidor MCP.** Quando o endpoint não tem execução simulada, a ferramenta valida e traduz a entrada e mostra o payload exato que um commit enviaria, sem chamar o endpoint de escrita: `import_bpmn` (o percurso rascunho → envio → aprovação; as contagens de nós de fluxo são uma estimativa e a prévia indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que mostra o impacto do arquivamento de cada card) e `set_card_logos` / `clear_card_logos` (que consultam o tipo e o logotipo atual de cada card e baixam cada `image_url`).
+- **Montada pelo servidor MCP.** Quando o endpoint não tem execução simulada, a ferramenta valida e traduz a entrada e mostra o payload exato que um commit enviaria, sem chamar o endpoint de escrita: `import_bpmn` (o percurso rascunho → envio → aprovação; as contagens de nós de fluxo são uma estimativa e a prévia indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (que executa a consulta e informa quantos cards correspondem, com alguns nomes de exemplo), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que mostra o impacto do arquivamento de cada card) e `set_card_logos` / `clear_card_logos` (que consultam o tipo e o logotipo atual de cada card e baixam cada `image_url`).
 
 Nos dois casos, a prévia fica registrada no registro de auditoria como um lote de execução simulada, para que um administrador veja o que um agente propôs e também o que ele confirmou.
 
 ### Ferramentas de leitura
 
-O servidor expõe 32 ferramentas de leitura agrupadas em oito clusters.
+O servidor expõe 34 ferramentas de leitura agrupadas em oito clusters.
 
 **Cards & metamodelo**
 
 | Ferramenta | Descrição |
 |------------|-----------|
 | `search_cards` | Pesquisar e filtrar cards por tipo, status ou texto livre |
+| `query_cards` | Encontra cards através de uma cadeia de relações com uma condição em cada salto — veja [Consultas de cards de vários saltos](#multi-hop-card-queries) |
+| `list_inventory_views` | Lista as visualizações de inventário salvas que você pode ver, com a consulta de cada visualização e o canal que a criou |
 | `get_card` | Obter detalhes completos de um card por UUID |
 | `get_card_relations` | Obter todas as relações conectadas a um card |
 | `get_card_hierarchy` | Obter ancestrais e filhos de um card |
@@ -279,9 +281,9 @@ Todas as ferramentas respeitam o RBAC do usuário autenticado — um visualizado
 
 ### Ferramentas de escrita
 
-O servidor expõe 19 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
+O servidor expõe 20 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
 
-**Aditivas (14)**
+**Aditivas (15)**
 
 | Ferramenta | Descrição |
 |------------|-----------|
@@ -297,6 +299,7 @@ O servidor expõe 19 ferramentas de escrita, cada uma anotada como **aditiva** (
 | `update_adr` | Atualiza um ADR (título, seções, status, cards vinculados). |
 | `sign_adr` | Assina um ADR (requer a permissão `adr.sign`; caso contrário, retorna um deep-link da interface para assinar no navegador). |
 | `create_diagram` | Cria um diagrama DrawIO livre com vínculos opcionais a cards existentes. |
+| `save_inventory_view` | Salva uma consulta de cards de vários saltos como visualização de inventário (nova, ou substituindo a consulta de uma existente indicada por `view_id`). O inventário executa a consulta novamente toda vez que a visualização é aberta; a resposta traz um link que a abre. Uma atualização altera apenas o nome e a consulta, além da visibilidade e das colunas quando informadas; o agrupamento e o layout da visualização são mantidos. |
 | `import_bpmn` | Salva um diagrama BPMN 2.0 XML em um card de Processo de negócio **existente**. Se nenhum card corresponder ao nome fornecido, a ferramenta retorna um erro `card_not_found` que aponta o agente para `create_cards_bulk` — isso obriga a criação explícita do card com descrição, subtipo e atributos antes, em vez de um atalho que deixa um card pobre. |
 | `set_card_logos` | Set the custom logo on many cards at once — the bulk way to put product marks on an Application inventory. Three ways to supply the image, one per row: a built-in `icon_slug` (resolved server-side, nothing transferred), an `image_url` the MCP server downloads for you from an allowlisted icon host, or `image_base64` from the agent's own context. The packs are a shortcut, not the source of truth — a dry run lists the slugs they do not carry under `unknown_icon_slugs` **and** fetches every `image_url`, so a missing brand or a dead link is reported before anything is written rather than left as a logo nobody could set. `mime` is optional and sniffed from the bytes. PNG/JPEG/WebP/GIF only, 1 MB each. Each row echoes a sha256 so the caller can prove what landed. Use `clear_card_logos` to remove one. |
 
@@ -309,6 +312,58 @@ O servidor expõe 19 ferramentas de escrita, cada uma anotada como **aditiva** (
 | `update_diagram` | Substitui o XML DrawIO de um diagrama, o nome ou os vínculos a cards. |
 | `rollback_batch` | Reverte as gravações realizadas em um lote de mutação anterior. |
 | `clear_card_logos` | Remove the custom logo from cards, falling them back to their card-type icon. Recoverable — set it again to restore. |
+
+### Consultas de cards de vários saltos { #multi-hop-card-queries }
+
+`query_cards` responde em uma única chamada a uma pergunta que encadeia relações — «Organizações que usam uma Aplicação cujo ciclo de vida é Ativo, afetada por uma Iniciativa com status No prazo» — e `save_inventory_view` mantém a mesma consulta como visualização de inventário salva. A visualização armazena a consulta, não os seus resultados: o inventário a executa novamente toda vez que alguém abre a visualização, de modo que a lista permanece atual.
+
+Uma consulta é um pequeno objeto JSON formado **somente por chaves** — chaves de tipo de card, de tipo de relação, de campo e de opção como `list_card_types` e `get_relation_types` as retornam, nunca rótulos nem ids de card:
+
+```text
+CardQuery = { type, where?, related?: [Hop] }
+Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
+              type, where?, negate?: true|false, related?: [Hop] }
+Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
+              subtype?: [subtype key],
+              approval_status?: [status],
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+```
+
+- Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
+- Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
+- `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
+- Os cards relacionados só contam se estiverem ativos e o usuário puder lê-los: um card que o usuário não pode ver interrompe a cadeia, exatamente como na interface web.
+
+Exemplo — Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status *On Track*:
+
+```json
+{
+  "type": "Organization",
+  "related": [
+    {
+      "relation": "relOrgToApp",
+      "type": "Application",
+      "where": { "lifecycle_phase": ["active"] },
+      "related": [
+        {
+          "relation": "relInitiativeToApp",
+          "type": "Initiative",
+          "where": { "attributes": { "initiativeStatus": ["onTrack"] } }
+        }
+      ]
+    }
+  ]
+}
+```
+
+No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade e é marcada como gerada via MCP. A sua consulta só pode ser alterada por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outro tipo de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam ao tipo anterior; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`); na interface web, o seu proprietário ainda pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
+
+Limitações:
+
+- No máximo **3 níveis** de `related`, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
+- Sem condições sobre **tags** nem sobre cards específicos.
+- Um atributo de texto corresponde ao seu valor **exatamente** — não há correspondência parcial nem sem distinção de maiúsculas e minúsculas.
+- **`rollback_batch` não pode desfazer uma visualização salva.** Salvar uma visualização registra um lote de mutações, mas não publica nenhum evento que a reversão possa desfazer; exclua uma visualização indesejada em Visualizações salvas do inventário.
 
 ### Upload de artefatos
 
@@ -328,7 +383,7 @@ Defesa em profundidade além da execução simulada, para que um descuido do LLM
 
 - **Limite de tamanho por chamada.** As ferramentas de escrita MCP aplicam um limite muito menor que os endpoints subjacentes do importador Excel: 200 linhas para `create_cards_bulk`, 500 operações para `upsert_relations_bulk`. Grande o suficiente para qualquer carregamento realista de um único artefato, pequeno o suficiente para que uma prévia de execução simulada permaneça revisável.
 - **Sem exclusão de relações por padrão.** `upsert_relations_bulk` recusa operações `action: "delete"` — para remover relações, use a interface web onde a ação é registrada sob a identidade do usuário. Operadores podem habilitar definindo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 19 ferramentas de escrita sem reimplantar código. As 32 ferramentas de leitura continuam funcionando.
+- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 20 ferramentas de escrita sem reimplantar código. As 34 ferramentas de leitura continuam funcionando.
 - **O download de logótipos passa por uma lista de hosts permitidos.** Os pacotes de ícones incluídos não cobrem todos os produtos de um cliente, e um assistente está muitas vezes isolado sem acesso à web, por isso `set_card_logos` aceita um `image_url` que o servidor MCP vai buscar. Apenas `https`, apenas os hosts de `MCP_LOGO_FETCH_HOSTS`, apenas endereços públicos, no máximo dois redirecionamentos (cada um reverificado), no máximo 1 MB lido em streaming, e os bytes têm de trazer uma assinatura real de PNG/JPEG/WebP/GIF. O download acontece na borda MCP, nunca no backend, e a imagem é depois enviada pela via habitual: um URL escolhido por um LLM nunca chega ao processo que guarda a base de dados. `MCP_LOGO_FETCH_ENABLED=false` desliga tudo.
 - **Marcador de origem para auditoria.** Cada requisição backend do servidor MCP carrega um cabeçalho `X-Turbo-EA-Origin: mcp`. Eventos emitidos dessas requisições são marcados com `origin: "mcp"` no payload do log de auditoria, de forma que administradores possam filtrar gravações dirigidas por MCP fora da linha do tempo, separadas das ações da interface web.
 - **Lotes de mutação.** Cada chamada de escrita MCP — tanto a prévia quanto o commit — é um lote de mutação no registro de auditoria, aberto antes de qualquer gravação; cada evento emitido durante a chamada é marcado com o id do lote, e cada ferramenta de escrita devolve esse `batch_id`. Administradores (ou a ferramenta `get_change_history`) podem reconstruir o diff completo por evento de um commit a partir de um único id, e `rollback_batch` pode revertê-lo, inclusive excluindo um diagrama criado por `create_diagram`, a menos que alguém o tenha publicado desde então. Uma atualização de diagrama é informada como não reversível, porque o canvas anterior não é guardado. Commits acima de `MCP_BATCH_CONFIRMATION_THRESHOLD` linhas devem devolver o `confirm_token` de uso único retornado pela execução simulada anterior. O backend verifica-o ao abrir o lote do commit, antes de qualquer gravação: ele deve vir de uma execução simulada da mesma ferramenta, do mesmo usuário, há menos de 15 minutos, e autoriza um único commit. Todas as ferramentas de escrita em massa seguem este ciclo de prévia e confirmação: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -371,7 +426,7 @@ As seis variáveis de ambiente de salvaguarda no container MCP:
 | Papel | Acesso |
 |-------|--------|
 | **Administrador** | Configurar ajustes MCP (permissão `admin.mcp`). Acesso completo de leitura + escrita através do MCP. |
-| **Todos os usuários autenticados** | Acesso de leitura governado pelo seu RBAC existente. As ferramentas de escrita exigem as permissões backend correspondentes — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relações), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (Registro de riscos), `comments.create` (comentários), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs). |
+| **Todos os usuários autenticados** | Acesso de leitura governado pelo seu RBAC existente. As ferramentas de escrita exigem as permissões backend correspondentes — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relações), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (Registro de riscos), `comments.create` (comentários), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (visualizações de inventário salvas). |
 
 A permissão `admin.mcp` controla quem pode gerenciar as configurações de MCP. Está disponível apenas para o papel de Administrador por padrão. Papéis personalizados podem receber esta permissão através da página de administração de Papéis.
 

@@ -30,6 +30,7 @@ SCOPE_MARKERS = ("card_read_scope", "CardReadScope", "require_card_readable", "i
 # optional scope and must mention it.
 READ_SERVICES = (
     "services/card_lifecycle.py",
+    "services/card_query.py",
     "services/card_resolver.py",
     "services/ppm_portfolio_service.py",
     "services/process_map_service.py",

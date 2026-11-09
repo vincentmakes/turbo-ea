@@ -8,12 +8,17 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.relation_type import RelationType
+from app.services.card_query import base_view_filters
 from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -341,3 +346,235 @@ class TestBookmarkOdataFeed:
         assert resp.status_code == 200
         names = [row["name"] for row in resp.json()["value"]]
         assert names == ["Salesforce"]
+
+
+# ---------------------------------------------------------------
+# Query views (a multi-hop card query on a saved view)
+# ---------------------------------------------------------------
+
+ORG_QUERY = {
+    "type": "Organization",
+    "related": [
+        {
+            "relation": "orgUsesApp",
+            "type": "Application",
+            "related": [{"relation": "initAffectsApp", "type": "Initiative"}],
+        }
+    ],
+}
+
+
+@pytest.fixture
+async def query_env(db, bm_env):
+    """Corp uses Alpha, which Rocket affects; Team uses Beta, which nothing
+    affects; Solo uses nothing."""
+    await create_card_type(db, key="Organization", label="Organization")
+    await create_card_type(db, key="Application", label="Application")
+    await create_card_type(db, key="Initiative", label="Initiative")
+    await create_relation_type(
+        db, key="orgUsesApp", source_type_key="Organization", target_type_key="Application"
+    )
+    await create_relation_type(
+        db, key="initAffectsApp", source_type_key="Initiative", target_type_key="Application"
+    )
+    corp = await create_card(db, card_type="Organization", name="Corp")
+    team = await create_card(db, card_type="Organization", name="Team")
+    await create_card(db, card_type="Organization", name="Solo")
+    alpha = await create_card(db, card_type="Application", name="Alpha")
+    beta = await create_card(db, card_type="Application", name="Beta")
+    rocket = await create_card(db, card_type="Initiative", name="Rocket")
+    await create_relation(db, type_key="orgUsesApp", source_id=corp.id, target_id=alpha.id)
+    await create_relation(db, type_key="orgUsesApp", source_id=team.id, target_id=beta.id)
+    await create_relation(db, type_key="initAffectsApp", source_id=rocket.id, target_id=alpha.id)
+    return bm_env
+
+
+async def _create(client, user, **body):
+    payload = {"name": "Chain", **body}
+    return await client.post("/api/v1/bookmarks", json=payload, headers=auth_headers(user))
+
+
+class TestQueryViews:
+    async def test_create_with_a_query_pins_the_start_type(self, client, db, query_env):
+        resp = await _create(
+            client,
+            query_env["admin"],
+            card_type=None,
+            filters={"search": "", "groupBy": "subtype"},
+            query=ORG_QUERY,
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["query"] == ORG_QUERY
+        assert data["card_type"] == "Organization"
+        assert data["filters"] == {"search": "", "groupBy": "subtype", "types": ["Organization"]}
+
+    async def test_a_plain_view_has_no_query(self, client, db, query_env):
+        resp = await _create(client, query_env["admin"], card_type="Application")
+        assert resp.status_code == 201
+        assert resp.json()["query"] is None
+
+    async def test_the_mcp_origin_is_recorded(self, client, db, query_env):
+        resp = await client.post(
+            "/api/v1/bookmarks",
+            json={"name": "Chain", "query": ORG_QUERY},
+            headers={**auth_headers(query_env["admin"]), "X-Turbo-EA-Origin": "mcp"},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["created_via"] == "mcp"
+        assert resp.json()["updated_via"] == "mcp"
+
+    async def test_a_direct_call_is_recorded_as_api(self, client, db, query_env):
+        resp = await _create(client, query_env["admin"], query=ORG_QUERY)
+        assert resp.json()["created_via"] == "api"
+        bm_id = resp.json()["id"]
+        patched = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"name": "Renamed"},
+            headers={**auth_headers(query_env["admin"]), "X-Turbo-EA-Origin": "mcp"},
+        )
+        assert patched.json()["created_via"] == "api"
+        assert patched.json()["updated_via"] == "mcp"
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ({"type": "Organization", "colour": "red"}, "invalid_query"),
+            ({"type": "Nope"}, "unknown_card_type"),
+            (
+                {"type": "Organization", "related": [{"relation": "x", "type": "Application"}]},
+                "unknown_relation_type",
+            ),
+            (
+                {
+                    "type": "Organization",
+                    "where": {"attributes": {"code": ["0b7d9a6e-1f1c-4a52-9b8a-3c2d1e0f9a8b"]}},
+                },
+                "query_holds_an_id",
+            ),
+        ],
+    )
+    async def test_a_bad_query_is_refused(self, client, db, query_env, query, code):
+        resp = await _create(client, query_env["admin"], query=query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_a_contradicting_type_is_refused(self, client, db, query_env):
+        resp = await _create(
+            client,
+            query_env["admin"],
+            card_type="Organization",
+            filters={"types": ["Application"]},
+            query=ORG_QUERY,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "query_type_mismatch"
+        other = await _create(client, query_env["admin"], card_type="Application", query=ORG_QUERY)
+        assert other.status_code == 400
+        assert other.json()["detail"] == "query_type_mismatch"
+
+    async def test_patch_null_clears_the_query(self, client, db, query_env):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": None}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["query"] is None
+        assert resp.json()["card_type"] == "Organization"
+
+    async def test_patch_a_query_renormalises_the_stored_view(self, client, db, query_env):
+        admin = query_env["admin"]
+        created = await _create(
+            client,
+            admin,
+            card_type="Application",
+            filters={"types": ["Application"], "groupBy": "subtype"},
+        )
+        bm_id = created.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": ORG_QUERY}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["query"] == ORG_QUERY
+        assert data["card_type"] == "Organization"
+        # Another start type: the Application facets and grouping are reset.
+        assert data["filters"] == base_view_filters("Organization")
+
+    async def test_patch_a_query_on_the_same_type_keeps_the_facets(self, client, db, query_env):
+        admin = query_env["admin"]
+        created = await _create(
+            client,
+            admin,
+            card_type="Organization",
+            filters={"types": ["Organization"], "groupBy": "subtype", "groupTree": True},
+        )
+        bm_id = created.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": ORG_QUERY}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200
+        assert resp.json()["filters"] == {
+            "types": ["Organization"],
+            "groupBy": "subtype",
+            "groupTree": True,
+        }
+
+    async def test_patch_a_bad_query_is_refused(self, client, db, query_env):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": {"type": "Nope"}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_card_type"
+
+    async def test_patch_contradicting_filters_on_a_query_view(self, client, db, query_env):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"filters": {"types": ["Application"]}},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "query_type_mismatch"
+
+    async def test_patch_layout_on_a_query_view_keeps_it_in_sync(self, client, db, query_env):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY)).json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"filters": {"groupBy": "name"}, "name": "Renamed"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["filters"] == {"groupBy": "name", "types": ["Organization"]}
+        assert data["query"] == ORG_QUERY
+        assert data["name"] == "Renamed"
+
+    async def test_odata_feed_applies_the_query(self, client, db, query_env):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY, odata_enabled=True)).json()["id"]
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        assert [row["name"] for row in resp.json()["value"]] == ["Corp"]
+        assert resp.json()["@odata.count"] == 1
+
+    async def test_odata_feed_refuses_a_query_naming_a_deleted_relation_type(
+        self, client, db, query_env
+    ):
+        admin = query_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY, odata_enabled=True)).json()["id"]
+        rt = (
+            await db.execute(select(RelationType).where(RelationType.key == "initAffectsApp"))
+        ).scalar_one()
+        await db.delete(rt)
+        await db.flush()
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_relation_type"

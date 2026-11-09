@@ -950,21 +950,26 @@ def _side_columns(side: RelationSide) -> tuple[Any, Any]:
     return Relation.target_id, Relation.source_id
 
 
+def relation_exists(near_card: Any, side: RelationSide, other: Any, *conditions: Any) -> Any:
+    """``EXISTS`` a relation on ``side`` from ``near_card`` whose far end is
+    ``other`` (a fresh ``aliased(Card)``) meeting ``conditions`` — correlated
+    to ``near_card``. The one builder behind the dashboards' relation flags and
+    the multi-hop card query's hops (``card_query``)."""
+    mine, theirs = _side_columns(side)
+    return exists(
+        select(Relation.id)
+        .select_from(Relation)
+        .join(other, other.id == theirs)
+        .where(Relation.type == side.relation_type, mine == near_card.id, *conditions)
+    )
+
+
 def _related_exists(
     card: Any, side: RelationSide, resolved: ResolvedQuery, read_scope: CardReadScope
 ) -> Any:
     """``card`` has a relation on ``side`` whose other end is visible."""
     other = aliased(Card)
-    mine, theirs = _side_columns(side)
-    return exists(
-        select(Relation.id)
-        .join(other, other.id == theirs)
-        .where(
-            Relation.type == side.relation_type,
-            mine == card.id,
-            *_visible(other, resolved, read_scope),
-        )
-    )
+    return relation_exists(card, side, other, *_visible(other, resolved, read_scope))
 
 
 def flag_conditions(card: Any, resolved: ResolvedQuery, read_scope: CardReadScope) -> list[Any]:
