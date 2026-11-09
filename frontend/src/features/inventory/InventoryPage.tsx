@@ -45,6 +45,8 @@ import {
   activeQueryFromBookmark,
   bookmarkFilters,
   bookmarkGrouping,
+  emptyFilters,
+  hasActiveFacets,
   refreshActiveQuery,
 } from "./viewApply";
 import InventoryFilterSidebar, {
@@ -1050,6 +1052,18 @@ export default function InventoryPage() {
   const [queryDraft, setQueryDraft] = useState<QueryDraft | null>(null);
   const [draftSaving, setDraftSaving] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
+  // "New query view" over active filters asks first: it clears them.
+  const [startConfirmOpen, setStartConfirmOpen] = useState(false);
+  // What a new draft cleared (the sidebar facets and the grid's column
+  // filters), put back by its Cancel. Dropped, unrestored, whenever the draft
+  // ends any other way: saved, or replaced by a `?view=` link.
+  const draftRestoreRef = useRef<{
+    filters: Filters;
+    columnFilterModel: Record<string, unknown>;
+  } | null>(null);
+  useEffect(() => {
+    if (!queryDraft) draftRestoreRef.current = null;
+  }, [queryDraft]);
   // A new draft's query handed to the sidebar, whose save dialog names it.
   const [pendingSave, setPendingSave] = useState<CardQuery | null>(null);
   // Bumped after the page saved a view itself, so the sidebar reloads its list.
@@ -1995,16 +2009,44 @@ export default function InventoryPage() {
     );
   }, []);
 
+  const beginQueryDraft = useCallback(
+    (clearFilters: boolean) => {
+      // One selected type starts the draft; none or several leave the choice
+      // to the strip's type chooser.
+      const current = filtersRef.current;
+      const type = current.types.length === 1 ? current.types[0] : "";
+      if (clearFilters) {
+        // The grid shows exactly what the chain matches: every facet and
+        // column filter goes (Cancel puts them back), the start type stays.
+        draftRestoreRef.current = {
+          filters: current,
+          columnFilterModel: columnFilterModelRef.current,
+        };
+        setFilters({ ...emptyFilters(), types: type ? [type] : [] });
+        applyColumnFilters({});
+      } else if (type) {
+        pinStartType(type);
+      }
+      setQueryDraft({ query: { type }, viewId: null });
+      setDraftError(null);
+      setFilterDrawerOpen(false);
+    },
+    [pinStartType, applyColumnFilters],
+  );
+
   const startQueryDraft = useCallback(() => {
-    // One selected type starts the draft; none or several leave the choice to
-    // the strip's type chooser, and the filters alone until a type is chosen.
-    const { types: selected } = filtersRef.current;
-    const type = selected.length === 1 ? selected[0] : "";
-    if (type) pinStartType(type);
-    setQueryDraft({ query: { type }, viewId: null });
-    setDraftError(null);
-    setFilterDrawerOpen(false);
-  }, [pinStartType]);
+    // Nothing to lose → start straight away; otherwise confirm the clearing.
+    if (hasActiveFacets(filtersRef.current) || hasColumnFilters) {
+      setStartConfirmOpen(true);
+      return;
+    }
+    beginQueryDraft(false);
+  }, [hasColumnFilters, beginQueryDraft]);
+
+  const confirmStartQueryDraft = useCallback(() => {
+    setStartConfirmOpen(false);
+    beginQueryDraft(true);
+  }, [beginQueryDraft]);
 
   const editActiveQuery = useCallback(() => {
     if (!activeQuery) return;
@@ -2026,12 +2068,19 @@ export default function InventoryPage() {
   );
 
   const cancelDraft = useCallback(() => {
+    // A new draft that cleared the filters puts them back.
+    const restore = queryDraft?.viewId == null ? draftRestoreRef.current : null;
+    draftRestoreRef.current = null;
+    if (restore) {
+      setFilters(restore.filters);
+      applyColumnFilters(restore.columnFilterModel);
+    }
     setQueryDraft(null);
     setDraftError(null);
     setPendingSave(null);
     // Back to the view in force, on its own start type.
     if (activeQuery) pinStartType(activeQuery.query.type);
-  }, [activeQuery, pinStartType]);
+  }, [queryDraft, activeQuery, pinStartType, applyColumnFilters]);
 
   const saveDraft = useCallback(async () => {
     if (!queryDraft || draftProblem(queryDraft.query)) return;
@@ -4997,6 +5046,29 @@ export default function InventoryPage() {
           saving={draftSaving}
           error={draftError}
         />
+
+        <Dialog
+          open={startConfirmOpen}
+          onClose={() => setStartConfirmOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          data-testid="query-draft-confirm"
+        >
+          <DialogTitle>{t("queryView.startConfirmTitle")}</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2">{t("queryView.startConfirmBody")}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setStartConfirmOpen(false)}>{t("common:actions.cancel")}</Button>
+            <Button
+              variant="contained"
+              data-testid="query-draft-confirm-start"
+              onClick={confirmStartQueryDraft}
+            >
+              {t("queryView.startConfirmStart")}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* A failed load leaves the previous rows on screen behind the alert —
             blanking the grid would lose the user's context for no benefit. */}

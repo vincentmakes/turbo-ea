@@ -46,6 +46,7 @@ import {
   activeQueryFromBookmark,
   bookmarkFilters,
   bookmarkGrouping,
+  emptyFilters,
   isQueryView,
 } from "./viewApply";
 import { compactPath } from "./queryPath";
@@ -742,7 +743,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, filterSides]);
 
   const clearAll = () => {
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityBands: [], approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null, orphanedOnly: false, staleOnly: false, eolStatuses: [], linkTypes: [], origins: [] });
+    onFiltersChange(emptyFilters());
     // Clearing every filter also leaves a query view.
     onApplyQuery?.(null);
   };

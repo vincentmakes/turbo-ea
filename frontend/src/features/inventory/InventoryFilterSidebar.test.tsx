@@ -50,6 +50,7 @@ import {
   makeTagGroup,
 } from "@/test/fixtures/metamodel";
 import type { Bookmark, RelatedCardRef } from "@/types";
+import { emptyFilters } from "./viewApply";
 import { createTheme } from "@mui/material/styles";
 import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { EOL_STATUS_COLORS } from "@/lib/eol";
@@ -497,6 +498,8 @@ describe("InventoryFilterSidebar — search and scopes", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Clear all \(4\)/ }));
     expect(last()).toEqual(EMPTY_FILTERS);
+    // One definition of "no filters", shared with the page's new query view.
+    expect(last()).toEqual(emptyFilters());
     expect(screen.queryByRole("button", { name: /Clear all/ })).not.toBeInTheDocument();
   });
 });

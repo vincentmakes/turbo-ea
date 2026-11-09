@@ -69,7 +69,11 @@ vi.mock("ag-grid-react", () => import("@/test/agGridStub").then((m) => m.agGridR
 // visibility from them, and the export tests assert on the columns that
 // visibility produces, so a hand-written stand-in would test a grid nobody has.
 /** What the stubbed sidebar's `report-bookmarks` button hands the page. */
-const sidebarStub = vi.hoisted(() => ({ bookmarks: [] as unknown[] }));
+const sidebarStub = vi.hoisted(() => ({
+  bookmarks: [] as unknown[],
+  /** What the stubbed sidebar's `apply-query` button puts in force. */
+  query: null as unknown,
+}));
 
 vi.mock("./InventoryFilterSidebar", async () => {
   const actual =
@@ -91,6 +95,7 @@ vi.mock("./InventoryFilterSidebar", async () => {
       onToggleCollapse,
       typesLocked,
       draftQuery,
+      onApplyQuery,
     }: {
       filters: Record<string, unknown>;
       onFiltersChange: (f: Record<string, unknown>) => void;
@@ -104,6 +109,7 @@ vi.mock("./InventoryFilterSidebar", async () => {
       onToggleCollapse?: () => void;
       typesLocked?: boolean;
       draftQuery?: unknown;
+      onApplyQuery?: (query: unknown) => void;
     }) => (
       <div
         data-testid="filter-sidebar"
@@ -117,6 +123,7 @@ vi.mock("./InventoryFilterSidebar", async () => {
       >
         <button data-testid="toggle-collapse" onClick={() => onToggleCollapse?.()} />
         <button data-testid="start-query-draft" onClick={() => onStartQueryDraft?.()} />
+        <button data-testid="apply-query" onClick={() => onApplyQuery?.(sidebarStub.query)} />
         <button
           data-testid="report-bookmarks"
           onClick={() => onBookmarksLoaded?.(sidebarStub.bookmarks)}
@@ -191,6 +198,7 @@ import { AgGridReact } from "ag-grid-react";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
 import { exportCurrentViewToExcel } from "./excelExport";
+import { emptyFilters } from "./viewApply";
 import i18n from "@/i18n";
 
 /** Just the slice of a colDef the column tests assert on. */
@@ -3058,6 +3066,7 @@ describe("InventoryPage query builder", () => {
 
   beforeEach(() => {
     sidebarStub.bookmarks = [];
+    sidebarStub.query = null;
     mockBookmarks([queryBookmark()]);
   });
 
@@ -3081,7 +3090,7 @@ describe("InventoryPage query builder", () => {
     expect(prefs().activeQuery).toBeNull();
   });
 
-  it("leaves several selected types to the chooser, untouched until a type is picked", async () => {
+  it("clears several selected types once confirmed, leaving the start type to the chooser", async () => {
     localStorage.setItem(
       "turboea_inventory",
       JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application", "Objective"] } }),
@@ -3090,13 +3099,16 @@ describe("InventoryPage query builder", () => {
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
     const before = cardUrls().length;
     fireEvent.click(screen.getByTestId("start-query-draft"));
+    // Several types are a facet: starting asks first.
+    expect(await screen.findByTestId("query-draft-confirm")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("query-draft-confirm-start"));
     expect(await screen.findByText("Choose a type")).toBeInTheDocument();
     expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({ type: "" });
-    // The grid still loads, on the filters as they were and without a query.
+    // The grid still loads, on no type and without a query.
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
     expect(cardUrls().slice(before).some((u) => paramsOf(u).has("query"))).toBe(false);
     expect(lastCards().has("type")).toBe(false);
-    expect(prefs().filters.types).toEqual(["Application", "Objective"]);
+    await waitFor(() => expect(prefs().filters.types).toEqual([]));
 
     fireEvent.click(screen.getByTestId("query-path-start-type"));
     pickMenu("Objective");
@@ -3471,5 +3483,142 @@ describe("InventoryPage query builder", () => {
     expect(await screen.findByText("Apps on live tech")).toBeInTheDocument();
     expect(screen.queryByText("New query view")).not.toBeInTheDocument();
     await waitFor(() => expect(lastQuery()).toEqual(QUERY));
+  });
+
+  describe("clearing the filters for a new query view", () => {
+    const FACETED = {
+      ...EMPTY_FILTERS,
+      types: ["Application"],
+      search: "SAP",
+      lifecyclePhases: ["active"],
+      approvalStatuses: ["APPROVED"],
+      origins: [],
+    };
+    const COLUMN_MODEL = { name: { filterType: "text", type: "contains", filter: "pay" } };
+
+    it("starts straight away when no facet is active", async () => {
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application"] } }),
+      );
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      fireEvent.click(screen.getByTestId("start-query-draft"));
+      expect(await screen.findByText("New query view")).toBeInTheDocument();
+      expect(screen.queryByTestId("query-draft-confirm")).not.toBeInTheDocument();
+    });
+
+    it("asks first; Cancel keeps the filters and opens no draft", async () => {
+      localStorage.setItem("turboea_inventory", JSON.stringify({ filters: FACETED }));
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      fireEvent.click(screen.getByTestId("start-query-draft"));
+      const dialog = await screen.findByTestId("query-draft-confirm");
+      expect(within(dialog).getByText("Start a query view?")).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+      await waitFor(() =>
+        expect(screen.queryByTestId("query-draft-confirm")).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+      expect(prefs().filters).toEqual(FACETED);
+      expect(lastCards().get("search")).toBe("SAP");
+    });
+
+    it("clears every facet but the start type on Start, and Cancel on the strip restores them", async () => {
+      localStorage.setItem("turboea_inventory", JSON.stringify({ filters: FACETED }));
+      renderPage();
+      await waitFor(() => expect(lastCards().get("search")).toBe("SAP"));
+      expect(lastCards().get("approval_status")).toBe("APPROVED");
+      fireEvent.click(screen.getByTestId("start-query-draft"));
+      fireEvent.click(await screen.findByTestId("query-draft-confirm-start"));
+      expect(await screen.findByText("New query view")).toBeInTheDocument();
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      // The cleared search goes once its debounce settles.
+      await waitFor(() => expect(lastCards().has("search")).toBe(false));
+      expect([...lastCards().keys()].sort()).toEqual(["page_size", "query", "type"]);
+      expect(lastCards().get("type")).toBe("Application");
+      await waitFor(() =>
+        expect(prefs().filters).toEqual({ ...emptyFilters(), types: ["Application"] }),
+      );
+
+      const before = cardUrls().length;
+      fireEvent.click(screen.getByTestId("query-path-cancel"));
+      expect(screen.queryByText("New query view")).not.toBeInTheDocument();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+      await waitFor(() => expect(lastCards().get("search")).toBe("SAP"));
+      expect(lastCards().get("approval_status")).toBe("APPROVED");
+      expect(lastCards().has("query")).toBe(false);
+      await waitFor(() => expect(prefs().filters).toEqual(FACETED));
+    });
+
+    it("counts the grid's column filters, clears them on Start and restores them on Cancel", async () => {
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: { ...EMPTY_FILTERS, types: ["Application"] },
+          columnFilterModel: COLUMN_MODEL,
+        }),
+      );
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      fireEvent.click(screen.getByTestId("start-query-draft"));
+      fireEvent.click(await screen.findByTestId("query-draft-confirm-start"));
+      expect(await screen.findByText("New query view")).toBeInTheDocument();
+      await waitFor(() => expect(prefs().columnFilterModel).toEqual({}));
+      expect(prefs().filters.types).toEqual(["Application"]);
+
+      fireEvent.click(screen.getByTestId("query-path-cancel"));
+      await waitFor(() => expect(prefs().columnFilterModel).toEqual(COLUMN_MODEL));
+    });
+
+    it("does not restore the filters once the new view is saved", async () => {
+      localStorage.setItem("turboea_inventory", JSON.stringify({ filters: FACETED }));
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      fireEvent.click(screen.getByTestId("start-query-draft"));
+      fireEvent.click(await screen.findByTestId("query-draft-confirm-start"));
+      await screen.findByText("New query view");
+      fireEvent.click(screen.getByTestId("query-path-save"));
+      expect(JSON.parse(sidebar().getAttribute("data-pending-save")!)).toEqual({
+        type: "Application",
+      });
+      // The sidebar's save dialog puts the new view in force, ending the draft.
+      sidebarStub.query = { ...ACTIVE, query: { type: "Application" } };
+      fireEvent.click(screen.getByTestId("apply-query"));
+      expect(await screen.findByText("Apps on live tech")).toBeInTheDocument();
+      expect(screen.queryByText("New query view")).not.toBeInTheDocument();
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      await waitFor(() => expect(lastCards().has("search")).toBe(false));
+      expect(prefs().filters).toEqual({ ...emptyFilters(), types: ["Application"] });
+
+      // Editing it later and cancelling that edit brings nothing back either.
+      sidebarStub.bookmarks = [queryBookmark({ query: { type: "Application" } })];
+      fireEvent.click(screen.getByTestId("report-bookmarks"));
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      expect(screen.queryByTestId("query-draft-confirm")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByTestId("query-path-cancel"));
+      await waitFor(() => expect(screen.queryByText("Edit query view")).not.toBeInTheDocument());
+      expect(prefs().filters).toEqual({ ...emptyFilters(), types: ["Application"] });
+    });
+
+    it("never asks, nor clears, when the pencil edits a saved query view", async () => {
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: FACETED,
+          activeQuery: ACTIVE,
+          columnFilterModel: COLUMN_MODEL,
+        }),
+      );
+      renderPage();
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      expect(screen.getByText("Edit query view")).toBeInTheDocument();
+      expect(screen.queryByTestId("query-draft-confirm")).not.toBeInTheDocument();
+      await waitFor(() => expect(lastCards().get("search")).toBe("SAP"));
+      expect(prefs().filters).toEqual(FACETED);
+      expect(prefs().columnFilterModel).toEqual(COLUMN_MODEL);
+      fireEvent.click(screen.getByTestId("query-path-cancel"));
+      expect(prefs().filters).toEqual(FACETED);
+    });
   });
 });

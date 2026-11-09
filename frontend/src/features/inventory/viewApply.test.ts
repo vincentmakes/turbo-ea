@@ -4,6 +4,8 @@ import {
   activeQueryFromBookmark,
   bookmarkFilters,
   bookmarkGrouping,
+  emptyFilters,
+  hasActiveFacets,
   isQueryView,
   refreshActiveQuery,
 } from "./viewApply";
@@ -173,5 +175,55 @@ describe("refreshActiveQuery", () => {
     ]);
     expect(renamed).not.toBe(ACTIVE);
     expect(renamed).toEqual({ ...ACTIVE, name: "Renamed" });
+  });
+});
+
+describe("emptyFilters", () => {
+  it("clears every facet", () => {
+    expect(emptyFilters()).toEqual(EMPTY);
+  });
+
+  it("hands out a fresh object each call", () => {
+    const a = emptyFilters();
+    a.types.push("Application");
+    expect(emptyFilters().types).toEqual([]);
+  });
+});
+
+describe("hasActiveFacets", () => {
+  it("is false for no filters, and for a single selected type (the start type)", () => {
+    expect(hasActiveFacets(emptyFilters())).toBe(false);
+    expect(hasActiveFacets({ ...emptyFilters(), types: ["Application"] })).toBe(false);
+  });
+
+  it("is false for filters saved before the newer facets", () => {
+    const legacy = { ...emptyFilters() } as Partial<ReturnType<typeof emptyFilters>>;
+    delete legacy.origins;
+    delete legacy.linkTypes;
+    delete legacy.tagIds;
+    expect(hasActiveFacets(legacy as ReturnType<typeof emptyFilters>)).toBe(false);
+  });
+
+  it.each([
+    ["several types", { types: ["Application", "Objective"] }],
+    ["a search", { search: "SAP" }],
+    ["a subtype", { subtypes: ["Business"] }],
+    ["a lifecycle phase", { lifecyclePhases: ["active"] }],
+    ["a quality band", { dataQualityBands: ["low"] }],
+    ["an approval status", { approvalStatuses: ["APPROVED"] }],
+    ["archived only", { showArchived: true }],
+    ["an attribute", { attributes: { criticality: ["high"] } }],
+    ["a relation", { relations: { relAppToITC: ["SAP"] } }],
+    ["a tag", { tagIds: ["t1"] }],
+    ["my cards", { mineScope: "stakeholder" }],
+    ["orphaned only", { orphanedOnly: true }],
+    ["stale only", { staleOnly: true }],
+    ["an end-of-life status", { eolStatuses: ["eol"] }],
+    ["a link type", { linkTypes: ["parent"] }],
+    ["an origin", { origins: ["mcp"] }],
+  ])("is true for %s", (_label, facet) => {
+    expect(hasActiveFacets({ ...emptyFilters(), ...facet } as ReturnType<typeof emptyFilters>)).toBe(
+      true,
+    );
   });
 });

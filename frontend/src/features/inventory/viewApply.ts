@@ -92,3 +92,55 @@ export function refreshActiveQuery(aq: ActiveQuery, bookmarks: Bookmark[]): Acti
     fresh.name === aq.name && JSON.stringify(fresh.query) === JSON.stringify(aq.query);
   return unchanged ? aq : fresh;
 }
+
+/**
+ * The filters with every facet cleared — the one definition the sidebar's
+ * "Clear all" and the page's "New query view" (which clears the facets so the
+ * grid shows exactly what the chain matches) share.
+ */
+export function emptyFilters(): Filters {
+  return {
+    types: [],
+    search: "",
+    subtypes: [],
+    lifecyclePhases: [],
+    dataQualityBands: [],
+    approvalStatuses: [],
+    showArchived: false,
+    attributes: {},
+    relations: {},
+    tagIds: [],
+    mineScope: null,
+    orphanedOnly: false,
+    staleOnly: false,
+    eolStatuses: [],
+    linkTypes: [],
+    origins: [],
+  };
+}
+
+/**
+ * Whether any facet narrows the inventory beyond its start type. A single
+ * selected type is not a facet here: it is the type a new query view starts
+ * from, and stays selected. Several selected types are.
+ */
+export function hasActiveFacets(filters: Filters): boolean {
+  return (
+    filters.types.length > 1 ||
+    filters.search !== "" ||
+    filters.subtypes.length > 0 ||
+    filters.lifecyclePhases.length > 0 ||
+    filters.dataQualityBands.length > 0 ||
+    filters.approvalStatuses.length > 0 ||
+    filters.showArchived ||
+    Object.keys(filters.attributes).length > 0 ||
+    Object.keys(filters.relations || {}).length > 0 ||
+    (filters.tagIds?.length ?? 0) > 0 ||
+    filters.mineScope != null ||
+    filters.orphanedOnly ||
+    filters.staleOnly ||
+    filters.eolStatuses.length > 0 ||
+    (filters.linkTypes?.length ?? 0) > 0 ||
+    (filters.origins?.length ?? 0) > 0
+  );
+}
