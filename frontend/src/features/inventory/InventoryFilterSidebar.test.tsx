@@ -2062,23 +2062,27 @@ describe("InventoryFilterSidebar — query views", () => {
     expect(onApplyQuery).toHaveBeenCalledWith(null);
   });
 
-  it("marks a query view with the MCP badge and reads it as its path", async () => {
+  it("badges a query view by its origin and reads it as its path", async () => {
     mockApi.on("get", "/bookmarks", [QUERY_VIEW, MY_VIEW, SHARED_QUERY_VIEW]);
     await renderSidebar({ relationTypes: QUERY_REL_TYPES });
     openTab("Views");
     const row = screen.getByRole("button", { name: /Apps on live tech/ });
-    expect(within(row).getByRole("img", { name: "MCP query view" })).toBeInTheDocument();
+    // An assistant's view carries the robot, a view built here the path glyph.
+    expect(within(row).getByRole("img", { name: "Query view" })).toHaveTextContent(/^smart_toy$/);
     expect(row).toHaveTextContent("Application › uses IT Component +1");
     // An owned query view needs no owner tooltip.
     expect(within(row).queryByTitle(/^by /)).not.toBeInTheDocument();
 
     const plain = screen.getByRole("button", { name: /My App View/ });
-    expect(within(plain).queryByRole("img", { name: "MCP query view" })).not.toBeInTheDocument();
+    expect(within(plain).queryByRole("img", { name: "Query view" })).not.toBeInTheDocument();
     expect(plain).not.toHaveTextContent("›");
 
     // Someone else's query view keeps the path on the line; the owner moves
     // into a tooltip.
     const shared = screen.getByRole("button", { name: /Team query/ });
+    expect(within(shared).getByRole("img", { name: "Query view" })).toHaveTextContent(
+      /^account_tree$/,
+    );
     expect(shared).toHaveTextContent("Application › uses IT Component");
     expect(shared).not.toHaveTextContent("+1");
     expect(shared).not.toHaveTextContent("by Test Member");
@@ -2105,11 +2109,7 @@ describe("InventoryFilterSidebar — query views", () => {
     const row = screen.getByRole("button", { name: /Apps on live tech/ });
     fireEvent.click(within(row).getByRole("button", { name: "edit" }));
     const dialog = screen.getByRole("dialog");
-    expect(
-      within(dialog).getByText(
-        "The filters of this view are defined by its MCP query and can only be changed via MCP.",
-      ),
-    ).toBeInTheDocument();
+    expect(within(dialog).queryByText(/MCP/)).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/active filter/)).not.toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Renamed" } });
@@ -2139,7 +2139,7 @@ describe("InventoryFilterSidebar — query views", () => {
     expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(2);
   });
 
-  it("editing a plain view still saves the current facets, without the restriction note", async () => {
+  it("editing a plain view still saves the current facets", async () => {
     mockApi.on("get", "/bookmarks", [MY_VIEW]);
     mockApi.on("patch", "/bookmarks/bm-1", MY_VIEW);
     await renderSidebar({ initialFilters: { types: ["ITComponent"], search: "linux" } });
@@ -2150,7 +2150,6 @@ describe("InventoryFilterSidebar — query views", () => {
       }),
     );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).queryByText(/can only be changed via MCP/)).not.toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Update" }));
     await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
     expect(mockApi.callsOf("patch")[0].body).toMatchObject({
@@ -2182,36 +2181,235 @@ describe("InventoryFilterSidebar — query views", () => {
     expect(queryRow()).not.toHaveClass("Mui-selected");
   });
 
-  it("saves a plain view from Save current while a query view is in force, and says so", async () => {
+  it("saves a copy of the query view in force from Save current, query included", async () => {
     mockApi.on("get", "/bookmarks", [QUERY_VIEW]);
-    mockApi.on("post", "/bookmarks", { id: "bm-new" });
+    mockApi.on("post", "/bookmarks", { ...QUERY_VIEW, id: "bm-copy", name: "Copy", created_via: "web" });
+    const onApplyQuery = vi.fn();
     await renderSidebar({
       relationTypes: QUERY_REL_TYPES,
       externalActiveViewId: "bm-q",
+      onApplyQuery,
       initialFilters: { types: ["Application"], search: "erp" },
     });
-    openTab("Views");
-    const hint = "The active MCP query is not saved with a view created here.";
-    const button = screen.getByRole("button", { name: /Save current/ });
-    expect(button).toHaveAttribute("title", hint);
-    fireEvent.click(button);
-    const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(hint)).toBeInTheDocument();
-    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Copy" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
-    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
-    expect(body).not.toHaveProperty("query");
-    expect(body).toMatchObject({ name: "Copy", filters: { types: ["Application"], search: "erp" } });
-  });
-
-  it("says nothing about a query when the applied view is a plain one", async () => {
-    mockApi.on("get", "/bookmarks", [MY_VIEW]);
-    await renderSidebar({ externalActiveViewId: "bm-1" });
     openTab("Views");
     const button = screen.getByRole("button", { name: /Save current/ });
     expect(button.getAttribute("title") ?? "").toBe("");
     fireEvent.click(button);
-    expect(within(screen.getByRole("dialog")).queryByText(/MCP query/)).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByText(/MCP/)).not.toBeInTheDocument();
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Copy" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
+    expect(body.query).toEqual(VIEW_QUERY);
+    expect(body.card_type).toBe("Application");
+    expect(body).toMatchObject({ name: "Copy", filters: { types: ["Application"], search: "erp" } });
+    expect(onApplyQuery).toHaveBeenCalledTimes(1);
+    expect(onApplyQuery).toHaveBeenCalledWith({
+      viewId: "bm-copy",
+      name: "Copy",
+      query: VIEW_QUERY,
+      createdVia: "web",
+    });
+  });
+
+  it("saves a plain view from Save current when the applied view is a plain one", async () => {
+    mockApi.on("get", "/bookmarks", [MY_VIEW]);
+    mockApi.on("post", "/bookmarks", { ...MY_VIEW, id: "bm-new" });
+    const onApplyQuery = vi.fn();
+    await renderSidebar({
+      externalActiveViewId: "bm-1",
+      onApplyQuery,
+      initialFilters: { types: ["Application", "ITComponent"] },
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Save current/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Plain" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
+    expect(body).not.toHaveProperty("query");
+    expect(body.card_type).toBeUndefined();
+    expect(body).toMatchObject({ filters: { types: ["Application", "ITComponent"] } });
+    expect(onApplyQuery).not.toHaveBeenCalled();
+  });
+
+  it("offers New query view only to someone who may save views", async () => {
+    const onStartQueryDraft = vi.fn();
+    const { unmount } = await renderSidebar({ onStartQueryDraft });
+    openTab("Views");
+    expect(screen.queryByTestId("new-query-view")).not.toBeInTheDocument();
+    unmount();
+
+    await renderSidebar({ onStartQueryDraft, canManageBookmarks: true });
+    const button = screen.getByRole("button", { name: /New query view/ });
+    expect(button).toHaveAttribute("data-testid", "new-query-view");
+    expect(onStartQueryDraft).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    expect(onStartQueryDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the save dialog for a query built in the strip and saves it as a new query view", async () => {
+    const BUILT = { type: "ITComponent", where: { tags: ["tag-1"] } };
+    mockApi.on("post", "/bookmarks", (_path, body) => ({
+      ...makeBookmark({ id: "bm-built", name: "Built" }),
+      ...(body as object),
+      created_via: "web",
+    }));
+    const onPendingSaveHandled = vi.fn();
+    const onApplyQuery = vi.fn();
+    const props = {
+      onPendingSaveHandled,
+      onApplyQuery,
+      initialFilters: { types: ["ITComponent"], search: "linux" },
+    };
+    const { rerender } = await renderSidebar(props);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onPendingSaveHandled).not.toHaveBeenCalled();
+
+    rerender(<Harness {...props} pendingSave={BUILT} />);
+    const dialog = screen.getByRole("dialog");
+    expect(onPendingSaveHandled).toHaveBeenCalledTimes(1);
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Built" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
+    expect(body.query).toEqual(BUILT);
+    expect(body.card_type).toBe("ITComponent");
+    expect(body).toMatchObject({ name: "Built", filters: { types: ["ITComponent"], search: "linux" } });
+    expect(onApplyQuery).toHaveBeenCalledWith({
+      viewId: "bm-built",
+      name: "Built",
+      query: BUILT,
+      createdVia: "web",
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(2);
+  });
+
+  it("forgets a strip query whose save dialog was cancelled", async () => {
+    mockApi.on("post", "/bookmarks", { id: "bm-x" });
+    const props = { initialFilters: { types: ["ITComponent"] } };
+    const { rerender } = await renderSidebar(props);
+    rerender(<Harness {...props} pendingSave={{ type: "ITComponent" }} />);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Save current/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Plain" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    expect(mockApi.callsOf("post")[0].body).not.toHaveProperty("query");
+  });
+
+  it("saves the draft open in the strip from Save current, not the view in force", async () => {
+    const DRAFT = { type: "Application", where: { lifecycle_phase: ["active"] } };
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW]);
+    mockApi.on("post", "/bookmarks", (_path, body) => ({
+      ...makeBookmark({ id: "bm-draft", name: "From draft" }),
+      ...(body as object),
+      created_via: "web",
+    }));
+    const onApplyQuery = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      draftQuery: DRAFT,
+      onApplyQuery,
+      initialFilters: { types: ["Application"] },
+    });
+    openTab("Views");
+    const button = screen.getByRole("button", { name: /Save current/ });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), {
+      target: { value: "From draft" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    const body = mockApi.callsOf("post")[0].body as Record<string, unknown>;
+    expect(body.query).toEqual(DRAFT);
+    expect(body.card_type).toBe("Application");
+    expect(onApplyQuery).toHaveBeenCalledTimes(1);
+    expect(onApplyQuery).toHaveBeenCalledWith({
+      viewId: "bm-draft",
+      name: "From draft",
+      query: DRAFT,
+      createdVia: "web",
+    });
+  });
+
+  it.each([
+    ["without a type", { type: "" }],
+    ["with a condition still empty", { type: "Application", where: { lifecycle_phase: [] } }],
+  ])("holds both save buttons while the draft is %s", async (_label, draft) => {
+    await renderSidebar({ draftQuery: draft, initialFilters: { types: ["Application"] } });
+    const saveView = screen.getByTestId("save-view");
+    expect(saveView).toBeDisabled();
+    fireEvent.mouseOver(saveView.parentElement as HTMLElement);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Finish the query first");
+
+    openTab("Views");
+    const saveCurrent = screen.getByRole("button", { name: /Save current/ });
+    expect(saveCurrent).toBeDisabled();
+    fireEvent.click(saveCurrent);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("leaves the save buttons alone without a draft or with a finished one", async () => {
+    const { unmount } = await renderSidebar();
+    expect(screen.getByTestId("save-view")).toBeEnabled();
+    unmount();
+    await renderSidebar({ draftQuery: { type: "Application" } });
+    expect(screen.getByTestId("save-view")).toBeEnabled();
+    openTab("Views");
+    expect(screen.getByRole("button", { name: /Save current/ })).toBeEnabled();
+  });
+
+  it("locks the Types facet while a query draft is open", async () => {
+    const { changes } = await renderSidebar({
+      typesLocked: true,
+      initialFilters: { types: ["Application"] },
+    });
+    const locked = screen.getAllByTestId("type-facet-locked");
+    expect(locked.length).toBeGreaterThan(0);
+    const row = screen.getByText("IT Component").closest(".MuiListItemButton-root") as HTMLElement;
+    expect(row).toHaveClass("Mui-disabled");
+    const boxes = locked.map((el) => el.querySelector("input[type=checkbox]") as HTMLInputElement);
+    expect(boxes.every((b) => b.disabled)).toBe(true);
+    fireEvent.click(screen.getByText("IT Component"));
+    expect(changes).toHaveLength(0);
+    fireEvent.mouseOver(locked[0]);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Close the query editor to change the type",
+    );
+  });
+
+  it("leaves the Types facet open without a draft", async () => {
+    const { last } = await renderSidebar({ initialFilters: { types: ["Application"] } });
+    expect(screen.queryByTestId("type-facet-locked")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("IT Component"));
+    expect(last().types).toEqual(["Application", "ITComponent"]);
+  });
+
+  it("hands every loaded list to the page and reloads when the page bumps the revision", async () => {
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW, MY_VIEW]);
+    const onBookmarksLoaded = vi.fn();
+    const { rerender } = await renderSidebar({ onBookmarksLoaded });
+    expect(onBookmarksLoaded).toHaveBeenCalledTimes(1);
+    expect(onBookmarksLoaded).toHaveBeenLastCalledWith([QUERY_VIEW, MY_VIEW]);
+
+    rerender(<Harness onBookmarksLoaded={onBookmarksLoaded} bookmarksRevision={0} />);
+    await act(async () => {});
+    expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(1);
+
+    mockApi.on("get", "/bookmarks", [MY_VIEW]);
+    rerender(<Harness onBookmarksLoaded={onBookmarksLoaded} bookmarksRevision={1} />);
+    await waitFor(() => expect(onBookmarksLoaded).toHaveBeenCalledTimes(2));
+    expect(onBookmarksLoaded).toHaveBeenLastCalledWith([MY_VIEW]);
+    expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(2);
   });
 });

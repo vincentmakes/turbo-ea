@@ -278,7 +278,8 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     active Application which an in-flight Initiative affects") and previews
     exactly what ``save_inventory_view`` would save. The query is keys only
     — card type, relation type, field and option keys from
-    ``list_card_types`` / ``get_relation_types``; never a card id or a label.
+    ``list_card_types`` / ``get_relation_types``, plus tag ids under
+    ``where.tags``; never a card id or a label.
 
     Grammar (at most 3 levels of ``related``, 10 hops per level, 12 hops in
     the whole tree)::
@@ -289,7 +290,8 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
         Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
                      subtype?: [subtypeKey], approval_status?: [status],
                      attributes?: {fieldKey: [optionKey | "true" | "false"
-                                              | text | "__empty__"]}}
+                                              | text | "__empty__"]},
+                     tags?: [tag id]}
 
     A hop matches when ANY related card of that type passes its ``where``
     (and its own nested hops); ``negate: true`` means NO such card. Sibling
@@ -298,7 +300,12 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     type to itself (the card is the source / the target). Related cards must
     be active and readable by you; one you cannot read breaks the chain.
     Text attributes match exactly. An unknown ``approval_status`` value
-    simply matches nothing.
+    simply matches nothing. ``tags`` are grouped by tag group: a card needs
+    at least one of the listed tags from every group named (OR within a
+    group, AND across groups); a tag whose group does not apply to the
+    hop's card type is refused ``tag_not_for_type``, an unknown id
+    ``unknown_tag``. Tag ids — the only ids the grammar takes — come from
+    ``list_tag_groups``.
 
     Example — Organizations using an active Application that an Initiative
     with status "onTrack" affects (Application is the target of
@@ -439,6 +446,40 @@ async def list_card_types() -> str:
     client = TurboEAClient(token)
     data = await client.get("/metamodel/types")
     return _fmt(data)
+
+
+# What ``list_tag_groups`` keeps from each tag group and from each of its tags.
+_TAG_GROUP_KEYS = ("id", "name", "mode", "restrict_to_types")
+_TAG_KEYS = ("id", "name", "color")
+
+
+@mcp.tool(annotations=_READ_ANNOT)
+async def list_tag_groups() -> str:
+    """List the tag groups and their tags.
+
+    The tag ids are what ``query_cards`` and ``save_inventory_view`` take
+    under ``where.tags``. A group applies only to the card types in its
+    ``restrict_to_types``; null or empty means every card type. ``mode`` is
+    "single" (a card carries at most one tag of the group) or "multi".
+
+    Returns: JSON list of ``{id, name, mode, restrict_to_types, tags: [{id,
+    name, color}]}``.
+    """
+    token = await _get_current_token()
+    if not token:
+        return "Error: Not authenticated. Please reconnect."
+    client = TurboEAClient(token)
+    data = await client.get("/tag-groups")
+    groups = data if isinstance(data, list) else []
+    return _fmt(
+        [
+            {
+                **{k: group.get(k) for k in _TAG_GROUP_KEYS},
+                "tags": [{k: tag.get(k) for k in _TAG_KEYS} for tag in group.get("tags") or []],
+            }
+            for group in groups
+        ]
+    )
 
 
 @mcp.tool(annotations=_READ_ANNOT)
@@ -3889,10 +3930,9 @@ async def save_inventory_view(
 
     The view stores the query, not its results: the inventory re-runs it on
     every open, so the list stays current. In the web UI it shows the chain
-    as a readable path and is marked as generated via MCP; its query can be
-    changed only through this tool (the web UI can rename it, change its
-    sharing and its column layout, or delete it). Write and test the query
-    with ``query_cards`` first — the grammar is documented there.
+    as a readable path; its query can be changed here or in the inventory's
+    query builder. Write and test the query with ``query_cards`` first — the
+    grammar is documented there.
 
     Args:
         name: The view's name.

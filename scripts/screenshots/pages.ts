@@ -2622,8 +2622,8 @@ export const DOC_PAGES: PageDef[] = [
   },
   {
     id: "98d_inventory_mcp_view",
-    // A saved view whose filters are a multi-hop query written through MCP:
-    // the path strip above the grid shows the chain and the MCP notice.
+    // A saved view whose filters are a multi-hop query (the demo one was
+    // created through MCP): the path strip above the grid shows the chain.
     route: "/inventory?view={{bookmarkId:mcpQueryView}}",
     waitFor: '[data-testid="query-path-strip"]',
     actions: [{ type: "wait", ms: 1200 }],
@@ -2636,6 +2636,28 @@ export const DOC_PAGES: PageDef[] = [
       pt: "98d_inventario_visao_mcp",
       zh: "98d_inventory_mcp_view",
       ru: "98d_inventarizatsiya_predstavlenie_mcp",
+    },
+  },
+  {
+    id: "98e_inventory_query_builder",
+    // The same query view switched into the in-place query builder via the
+    // pencil on the path strip. The demo view is owned by the demo admin the
+    // capture logs in as, so the pencil is shown.
+    route: "/inventory?view={{bookmarkId:mcpQueryView}}",
+    waitFor: '[data-testid="query-path-strip"]',
+    actions: [
+      { type: "click", selector: '[data-testid="query-path-edit"]' },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "98e_inventory_query_builder",
+      de: "98e_inventar_abfrage_editor",
+      fr: "98e_inventaire_editeur_requete",
+      es: "98e_inventario_editor_consulta",
+      it: "98e_inventario_editor_query",
+      pt: "98e_inventario_editor_consulta",
+      zh: "98e_inventory_query_builder",
+      ru: "98e_inventarizatsiya_konstruktor_zaprosa",
     },
   },
 

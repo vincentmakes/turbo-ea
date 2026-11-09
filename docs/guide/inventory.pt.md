@@ -228,28 +228,35 @@ Visualizações salvas aparecem na barra lateral do painel de filtros. Clique em
 - **Compartilhadas Comigo** — Visualizações que outros compartilharam com você
 - **Visualizações Públicas** — Visualizações disponíveis para todos
 
-### Visualizações geradas via MCP { #mcp-views }
+### Visualizações de consulta { #query-views }
+<a id="mcp-views"></a>
 
-Um assistente de IA conectado por meio do [servidor MCP](../admin/mcp.md) pode salvar uma visualização cujos filtros são uma **consulta de vários saltos** — uma cadeia de relações com uma condição em cada etapa, como *Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status On Track*. A visualização armazena a consulta, não os seus resultados: o servidor a executa novamente toda vez que a visualização é aberta, de modo que a lista sempre reflete o panorama atual.
+Uma **visualização de consulta** é uma visualização salva cujos filtros são uma **consulta de vários saltos** — uma cadeia de relações com condições em cada etapa, como *Organizações que usam uma Aplicação ativa afetada por uma Iniciativa com status On Track*. A visualização guarda a consulta, não os seus resultados: ela é executada novamente sempre que a visualização é aberta, de modo que a lista reflete sempre o panorama atual.
 
-![Visualização de inventário gerada via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+![Uma visualização de consulta no inventário](../assets/img/pt/98d_inventario_visao_mcp.png)
 
-Quando uma visualização assim está aberta, uma **faixa de caminho** acima da grade mostra o que ela seleciona:
+**Criar uma visualização de consulta.** Na aba **Visualizações** da barra lateral de filtros, clique em **Nova visualização de consulta** ao lado de *Salvar atual* (exibido para quem pode gerir visualizações). A faixa acima da grade abre-se como um construtor de consultas:
 
-- Um chip **MCP** e o nome da visualização, seguidos da nota *Gerada via MCP · editável apenas via MCP*. Passe o ponteiro sobre a nota para ver o que ainda pode ser alterado aqui.
-- O **caminho**: os tipos de card como chips, unidos pelo verbo de relação que liga cada etapa (por exemplo *Organização → usa Aplicação → é afetada por Iniciativa*). Uma etapa que exige que um card **não** tenha nenhuma relação desse tipo lê-se *não tem* antes do verbo.
-- Sob cada tipo de card, as **condições** que ele deve cumprir — fase do ciclo de vida, subtipo, status de aprovação ou um valor de campo.
-- Um botão **×** (*Sair desta visualização*) que retorna ao inventário normal.
+1. Clique no chip inicial (*Escolher um tipo*) e escolha o tipo de card que a visualização lista.
+2. Clique em **+ relação** após o último card para adicionar um salto. O menu lista cada verbo de relação com o tipo de card para o qual leva; uma relação entre cards do mesmo tipo é oferecida nos dois sentidos. Uma consulta é uma única cadeia de até três saltos.
+3. Clique em **+ condição** sob qualquer card para restringi-lo: **Ciclo de vida**, **Subtipos**, **Status de aprovação**, **Etiquetas**, ou um campo de seleção ou sim/não desse tipo de card. Para etiquetas, um card corresponde se tiver qualquer uma das etiquetas escolhidas de um grupo, e deve corresponder a cada grupo adicionado; só são oferecidos os grupos de etiquetas que se aplicam a esse tipo de card.
+4. Clique em **Salvar**. Abre-se a caixa de diálogo habitual de salvar visualização para o nome, a visibilidade, o compartilhamento e a configuração OData. **Cancelar** descarta a consulta.
 
-Na lista de Visualizações salvas, uma visualização de consulta exibe um selo de robô e o seu caminho compacto (*Organização › usa Aplicação › é afetada por Iniciativa*) como segunda linha.
+![Criação de uma visualização de consulta](../assets/img/pt/98e_inventario_editor_consulta.png)
 
-**O que você pode alterar na interface web.** O proprietário da visualização pode renomeá-la, alterar o compartilhamento e a configuração OData, atualizar o layout (colunas, layout de colunas e agrupamento) ou excluí-la. Os seus filtros e a própria consulta mudam apenas via MCP: editar a visualização aqui nunca os substitui pelos do painel de filtros, portanto peça ao assistente que a altere ou a salve novamente. **Salvar visualização atual** enquanto uma visualização de consulta está aberta cria uma visualização comum a partir dos filtros, colunas e ordenação do painel — a consulta não é copiada para ela, como a caixa de diálogo informa.
+Enquanto você constrói, a grade filtra em tempo real e o contador da barra de ferramentas mostra quantos cards correspondem, de modo que você vê o efeito de cada salto e condição antes de salvar.
 
-**Abrir uma visualização por link.** Quando um assistente salva uma visualização, ele retorna um link no formato `/inventory?view=<view id>`; abri-lo aplica diretamente a visualização salva. O mesmo link funciona para qualquer visualização salva que você possa ver.
+**Alterar saltos e condições.** Clique no chip de verbo de um salto para abrir o seu menu: **não tem** transforma o salto no requisito de que o card **não** tenha nenhuma relação assim, e **Remover este salto** remove-o junto com todos os saltos seguintes. Clique num chip de condição para alterar os seus valores, ou no seu **×** para removê-lo.
 
-**OData.** O feed OData de uma visualização de consulta retorna os mesmos cards que o inventário: a consulta também é aplicada ao feed.
+**Editar uma visualização de consulta salva.** Quando uma visualização de consulta está aberta, a faixa mostra o seu caminho: os tipos de card como chips, unidos pelo verbo de relação que liga cada etapa (por exemplo *Organização → usa Aplicação → é afetada por Iniciativa*), com as condições de cada card abaixo. Se você é o proprietário da visualização ou tem direitos de edição sobre ela, um **lápis** na faixa a muda para o mesmo construtor; **Salvar** atualiza a visualização. O botão **×** (*Sair desta visualização*) volta ao inventário normal. **Salvar visualização atual** enquanto uma visualização de consulta está aberta salva uma nova visualização de consulta com a mesma consulta.
 
-Para a gramática das consultas, os seus limites e as ferramentas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), veja [Consultas de cards de vários saltos](../admin/mcp.md#multi-hop-card-queries).
+**Visualizações criadas por um assistente de IA.** Um assistente conectado pelo [servidor MCP](../admin/mcp.md) também pode criar visualizações de consulta. Uma visualização assim mostra um chip **MCP** e a nota *Criada via MCP* na sua faixa, e um selo de robô na lista de visualizações; é editada como qualquer outra visualização de consulta. Na lista de visualizações, cada visualização de consulta traz um pequeno selo de árvore (o selo de robô quando foi criada por um assistente) e o seu caminho compacto (*Organização › usa Aplicação › é afetada por Iniciativa*) como segunda linha.
+
+**Abrir uma visualização por link.** Quando um assistente salva uma visualização, devolve um link no formato `/inventory?view=<view id>`; abri-lo aplica diretamente a visualização salva. O mesmo link funciona para qualquer visualização salva que você possa ver.
+
+**OData.** O feed OData de uma visualização de consulta devolve os mesmos cards que o inventário: a consulta também é aplicada ao feed.
+
+Para a gramática de consultas, os seus limites e as ferramentas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), consulte [Consultas de cards de vários saltos](../admin/mcp.md#multi-hop-card-queries).
 
 ## Importação / Exportação Excel { #excel-import }
 

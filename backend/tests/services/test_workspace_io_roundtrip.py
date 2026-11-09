@@ -613,6 +613,73 @@ async def test_bookmark_query_and_provenance_roundtrip(db):
     assert restored.created_via == "mcp"
 
 
+async def test_bookmark_query_tags_follow_the_tag_and_an_unknown_one_is_dropped(db):
+    """A query view naming a tag lands on the tag's *new* id after the tag is
+    re-created on import; a tag id the bundle does not carry is dropped (it
+    would refuse the view on open), and a ``where`` left empty goes with it."""
+    from app.models.bookmark import Bookmark
+    from app.models.tag import Tag, TagGroup
+
+    user = await create_user(db, email="bm-qt@test.com", role="admin")
+    group = TagGroup(name="Hosting QT", mode="multi")
+    db.add(group)
+    await db.flush()
+    tag = Tag(tag_group_id=group.id, name="Cloud QT")
+    db.add(tag)
+    await db.flush()
+    unknown = "12345678-1234-4234-8234-123456789abc"
+    bm = Bookmark(
+        user_id=user.id,
+        name="Tagged Query View",
+        card_type="Organization",
+        filters={"types": ["Organization"]},
+        query={
+            "type": "Organization",
+            "related": [
+                {
+                    "relation": "relOrgToApp",
+                    "type": "Application",
+                    "where": {"tags": [str(tag.id), unknown], "lifecycle_phase": ["active"]},
+                    "related": [
+                        {
+                            "relation": "relAppToITC",
+                            "type": "ITComponent",
+                            "where": {"tags": [unknown]},
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    db.add(bm)
+    await db.flush()
+    bm_id, old_tag_id = bm.id, tag.id
+
+    raw = await build_bundle(db)
+
+    await db.execute(delete(Bookmark).where(Bookmark.id == bm_id))
+    await db.execute(delete(TagGroup).where(TagGroup.id == group.id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    new_tag = (await db.execute(select(Tag).where(Tag.name == "Cloud QT"))).scalar_one()
+    assert new_tag.id != old_tag_id
+    restored = (await db.execute(select(Bookmark).where(Bookmark.id == bm_id))).scalar_one()
+    assert restored.query == {
+        "type": "Organization",
+        "related": [
+            {
+                "relation": "relOrgToApp",
+                "type": "Application",
+                "where": {"tags": [str(new_tag.id)], "lifecycle_phase": ["active"]},
+                "related": [{"relation": "relAppToITC", "type": "ITComponent"}],
+            }
+        ],
+    }
+
+
 async def test_resource_types_roundtrip(db):
     """A custom link type / file category survives an export → delete →
     import round-trip, keyed by (kind, key)."""

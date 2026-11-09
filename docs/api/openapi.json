@@ -24654,7 +24654,7 @@
             }
           },
           {
-            "description": "A multi-hop card query as JSON (keys only): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status` and `attributes` value lists. Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. At most 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+            "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `attributes` value lists and `tags` (tag ids: any tag of a group, every group named). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. At most 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
             "in": "query",
             "name": "query",
             "required": false,
@@ -24667,7 +24667,7 @@
                   "type": "null"
                 }
               ],
-              "description": "A multi-hop card query as JSON (keys only): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status` and `attributes` value lists. Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. At most 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
+              "description": "A multi-hop card query as JSON (metamodel keys, plus tag ids): `{\"type\": <card type>, \"where\"?: {...}, \"related\"?: [{\"relation\": <relation type, `__out` / `__in` on a self-referencing one>, \"type\": <card type>, \"where\"?: {...}, \"negate\"?: bool, \"related\"?: [...]}]}`, where `where` takes `lifecycle_phase`, `subtype`, `approval_status`, `attributes` value lists and `tags` (tag ids: any tag of a group, every group named). Keeps the cards of the start type with a related card matching every hop (`negate`: with none); a related card must be ACTIVE and readable by the caller. At most 3 hops deep, 12 hops in all, 8000 characters. 400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, `unknown_card_type`, `unknown_relation_type`, \u2026) when it cannot be answered.",
               "title": "Query"
             }
           },

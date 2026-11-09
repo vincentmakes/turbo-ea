@@ -275,7 +275,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         Bookmark,
         user_fk_columns=("user_id",),
         rewrite=remap.rewrite_bookmark_row,
-        id_bearing_columns=("filters",),
+        id_bearing_columns=("filters", "query"),
     ),
     EntitySection(
         "WebPortals",

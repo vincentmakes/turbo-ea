@@ -590,6 +590,29 @@ async def create_relation(db, *, type_key="app_to_itc", source_id=None, target_i
     return rel
 
 
+async def create_tag_group(db, *, name="Group", mode="multi", restrict_to_types=None, **kwargs):
+    """Insert a tag group. ``restrict_to_types`` ``None`` (or ``[]``) means
+    every card type."""
+    from app.models.tag import TagGroup
+
+    group = TagGroup(name=name, mode=mode, restrict_to_types=restrict_to_types, **kwargs)
+    db.add(group)
+    await db.flush()
+    return group
+
+
+async def create_tag(db, *, group, name="Tag", cards=(), **kwargs):
+    """Insert a tag in ``group`` and put it on each of ``cards``."""
+    from app.models.tag import CardTag, Tag
+
+    tag = Tag(tag_group_id=group.id, name=name, **kwargs)
+    db.add(tag)
+    await db.flush()
+    db.add_all([CardTag(card_id=card.id, tag_id=tag.id) for card in cards])
+    await db.flush()
+    return tag
+
+
 async def create_stakeholder_role_def(
     db,
     *,

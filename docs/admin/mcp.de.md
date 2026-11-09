@@ -183,7 +183,7 @@ In diesem Modus authentifiziert sich der Server mit E-Mail/Passwort und erneuert
 
 ## Verfügbare Funktionen
 
-Der MCP-Server stellt **54 Werkzeuge** in zwei Gruppen bereit: **34 Lese-Werkzeuge** zur Abfrage von EA-Daten und **20 Schreib-Werkzeuge** (15 additiv, 5 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs, gespeicherte Inventaransichten und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
+Der MCP-Server stellt **55 Werkzeuge** in zwei Gruppen bereit: **35 Lese-Werkzeuge** zur Abfrage von EA-Daten und **20 Schreib-Werkzeuge** (15 additiv, 5 destruktiv), die Karten, Beziehungen, Diagramme, Risiken, ADRs, gespeicherte Inventaransichten und mehr erstellen und pflegen — einschließlich der Umwandlung von Artefakten, die ein KI-Werkzeug in seinem eigenen Kontext hat (Tabellen, BPMN-XML, DrawIO-XML, Dokumente, Bilder), in strukturierte EA-Daten. Jedes Werkzeug trägt MCP-`ToolAnnotations` (Hinweise auf schreibgeschützt / destruktiv / idempotent), sodass Konnektoren die Destruktivität in ihrer Oberfläche anzeigen können.
 
 ### Sicherheit beim Schreiben durch Trockenlauf
 
@@ -196,7 +196,7 @@ In beiden Fällen wird die Vorschau im Audit-Log als Trockenlauf-Batch aufgezeic
 
 ### Lese-Werkzeuge
 
-Der Server stellt 34 Lese-Werkzeuge in acht Gruppen bereit.
+Der Server stellt 35 Lese-Werkzeuge in acht Gruppen bereit.
 
 **Karten & Metamodell**
 
@@ -210,6 +210,7 @@ Der Server stellt 34 Lese-Werkzeuge in acht Gruppen bereit.
 | `get_card_hierarchy` | Vorfahren und Kinder einer Karte abrufen |
 | `list_card_types` | Alle Kartentypen im Metamodell auflisten; das Feld `category` jedes Typs ist der Schlüssel seiner Kategorie (Architekturebene) |
 | `get_relation_types` | Beziehungstypen auflisten, optional nach Kartentyp gefiltert |
+| `list_tag_groups` | Die Tag-Gruppen (mit den Kartentypen, für die jede gilt) und ihre Tags auflisten; die Tag-IDs sind das, was `query_cards` und `save_inventory_view` unter `where.tags` erwarten |
 | `resolve_card_refs` | Vorvalidiert namensbasierte Karten-Referenzen (Name → UUID) vor einem Bulk-Import — löst nur auf, schreibt niemals |
 | `analyze_impact` | Abhängigkeits-Wirkungsradius-Analyse für eine geplante Änderung an einer Karte |
 
@@ -317,7 +318,7 @@ Der Server stellt 20 Schreib-Werkzeuge bereit, jedes annotiert als **additiv** (
 
 `query_cards` beantwortet eine Frage, die Beziehungen verkettet — „Organisationen, die eine Anwendung nutzen, deren Lebenszyklus Aktiv ist und von einer Initiative mit dem Status Im Plan betroffen ist" — in einem Aufruf, und `save_inventory_view` behält dieselbe Abfrage als gespeicherte Inventaransicht. Die Ansicht speichert die Abfrage, nicht ihre Ergebnisse: Das Inventar führt sie bei jedem Öffnen der Ansicht erneut aus, sodass die Liste aktuell bleibt.
 
-Eine Abfrage ist ein kleines JSON-Objekt, das **ausschließlich aus Schlüsseln** besteht — Kartentyp-, Beziehungstyp-, Feld- und Optionsschlüssel, wie `list_card_types` und `get_relation_types` sie liefern, niemals Bezeichnungen oder Karten-IDs:
+Eine Abfrage ist ein kleines JSON-Objekt, das **ausschließlich aus Schlüsseln** besteht — Kartentyp-, Beziehungstyp-, Feld- und Optionsschlüssel, wie `list_card_types` und `get_relation_types` sie liefern, dazu Tag-IDs aus `list_tag_groups`; niemals Bezeichnungen oder Karten-IDs:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -326,12 +327,14 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
-              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id] }
 ```
 
 - Ein Schritt trifft zu, wenn **irgendeine** verbundene Karte dieses Typs ihr `where` erfüllt (und ihre eigenen verschachtelten Schritte). `negate: true` macht daraus „hat **keine** solche Karte".
 - Schritte nebeneinander auf einer Ebene müssen alle zutreffen (UND); die Werte innerhalb einer Liste sind Alternativen (ODER).
 - `<key>__out` und `<key>__in` wählen eine Seite eines Beziehungstyps, der einen Kartentyp mit sich selbst verbindet (die Karte ist Quelle oder Ziel). Sonst genügt der einfache Schlüssel.
+- `tags` nimmt Tag-IDs aus `list_tag_groups`, nach Tag-Gruppe gruppiert: Eine Karte muss aus **jeder** genannten Gruppe mindestens eines der aufgeführten Tags tragen (Alternativen innerhalb einer Gruppe, UND über Gruppen hinweg). Ein Tag, dessen Gruppe für den Kartentyp dieses Schritts nicht gilt, wird mit `tag_not_for_type` abgelehnt; eine unbekannte ID mit `unknown_tag`.
 - Verbundene Karten zählen nur, wenn sie aktiv sind und der Benutzer sie lesen darf: Eine Karte, die der Benutzer nicht sehen darf, unterbricht die Kette — genau wie in der Weboberfläche.
 
 Beispiel — Organisationen, die eine aktive Anwendung nutzen, von der eine Initiative mit dem Status *On Track* betroffen ist:
@@ -356,12 +359,12 @@ Beispiel — Organisationen, die eine aktive Anwendung nutzen, von der eine Init
 }
 ```
 
-Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad über dem Raster und ist als über MCP erzeugt gekennzeichnet. Ihre Abfrage lässt sich nur über `save_inventory_view` ändern (die ID der Ansicht aus `list_inventory_views` als `view_id` übergeben; die Aktualisierung ersetzt Name und Abfrage, ändert Sichtbarkeit und Spalten nur, wenn sie übergeben werden, und behält die in der Weboberfläche festgelegte Gruppierung und das Layout — es sei denn, die neue Abfrage beginnt bei einem anderen Kartentyp: Dann werden Filter und Gruppierung der Ansicht zurückgesetzt, da sie zum alten Typ gehörten; eine Ansicht, die Sie nicht bearbeiten dürfen, wird mit `view_not_found` oder `view_not_editable` abgelehnt; eine Sichtbarkeitsänderung, die Ihnen nicht zusteht (nur der Eigentümer kann sie ändern, und öffentlich oder geteilt erfordert `bookmarks.share`), wird mit `visibility_not_allowed` abgelehnt); in der Weboberfläche kann ihr Eigentümer sie weiterhin umbenennen, Freigabe und OData-Einstellung ändern, das Spaltenlayout anpassen oder sie löschen.
+Im Inventar zeigt eine so gespeicherte Ansicht ihre Kette als lesbaren Pfad über dem Raster mit einem Hinweis, dass sie über MCP erstellt wurde. Ihre Abfrage lässt sich im Inventar (der Stift im Pfadstreifen) oder über `save_inventory_view` ändern (die ID der Ansicht aus `list_inventory_views` als `view_id` übergeben; die Aktualisierung ersetzt Name und Abfrage, ändert Sichtbarkeit und Spalten nur, wenn sie übergeben werden, und behält die in der Weboberfläche festgelegte Gruppierung und das Layout — es sei denn, die neue Abfrage beginnt bei einem anderen Kartentyp: Dann werden Filter und Gruppierung der Ansicht zurückgesetzt, da sie zum alten Typ gehörten; eine Ansicht, die Sie nicht bearbeiten dürfen, wird mit `view_not_found` oder `view_not_editable` abgelehnt; eine Sichtbarkeitsänderung, die Ihnen nicht zusteht (nur der Eigentümer kann sie ändern, und öffentlich oder geteilt erfordert `bookmarks.share`), wird mit `visibility_not_allowed` abgelehnt); in der Weboberfläche kann ihr Eigentümer sie auch umbenennen, Freigabe und OData-Einstellung ändern, das Spaltenlayout anpassen oder sie löschen.
 
 Einschränkungen:
 
 - Höchstens **3 Ebenen** von `related`, höchstens 10 Schritte nebeneinander auf einer Ebene und höchstens **12 Schritte in der gesamten Abfrage** (nebeneinander und verschachtelt zusammen). Eine längere Abfrage wird mit `too_many_hops` abgelehnt.
-- Keine Bedingungen für **Tags** und keine für bestimmte Karten.
+- Keine Bedingungen für bestimmte Karten (Tags werden unterstützt).
 - Ein Textattribut stimmt **exakt** mit seinem Wert überein — es gibt keinen Teil- oder Groß-/Kleinschreibung-unabhängigen Abgleich.
 - **`rollback_batch` kann eine gespeicherte Ansicht nicht rückgängig machen.** Das Speichern einer Ansicht erfasst einen Mutations-Batch, veröffentlicht aber kein Ereignis, das der Rollback umkehren könnte; löschen Sie eine unerwünschte Ansicht stattdessen unter „Gespeicherte Ansichten" im Inventar.
 
@@ -383,7 +386,7 @@ Verteidigung in der Tiefe zusätzlich zum Trockenlauf, damit ein Fehlverhalten d
 
 - **Größenbegrenzung pro Aufruf.** Die MCP-Schreib-Werkzeuge erzwingen eine wesentlich kleinere Obergrenze als die zugrunde liegenden Excel-Import-Endpunkte: 200 Zeilen für `create_cards_bulk`, 500 Operationen für `upsert_relations_bulk`. Groß genug für jeden realistischen Einzel-Artefakt-Upload, klein genug, dass eine Trockenlauf-Vorschau überprüfbar bleibt.
 - **Standardmäßig keine Löschung von Beziehungen.** `upsert_relations_bulk` lehnt `action: "delete"`-Operationen ab — um Beziehungen zu entfernen, ist die Weboberfläche zu verwenden, wo die Aktion unter der Identität des Benutzers erfasst wird. Operatoren können dies aktivieren, indem sie `MCP_ALLOW_RELATION_DELETE=true` setzen.
-- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 20 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 34 Lese-Werkzeuge funktionieren weiter.
+- **Notausschalter.** `MCP_WRITES_ENABLED=false` schaltet alle 20 Schreib-Werkzeuge aus, ohne dass Code neu bereitgestellt werden muss. Die 35 Lese-Werkzeuge funktionieren weiter.
 - **Logo-Abruf nur von erlaubten Hosts.** Die mitgelieferten Icon-Pakete können nicht jedes Produkt abdecken, und ein Assistent hat oft keinen Zugang zum Web, daher akzeptiert `set_card_logos` eine `image_url`, die der MCP-Server abruft. Nur `https`, nur Hosts aus `MCP_LOGO_FETCH_HOSTS`, nur öffentliche Adressen, höchstens zwei Weiterleitungen (jede erneut geprüft), höchstens 1 MB als Stream gelesen, und die Bytes müssen eine echte PNG/JPEG/WebP/GIF-Signatur tragen. Der Abruf erfolgt am MCP-Rand, nie im Backend, und das Bild wird anschließend über den normalen Weg hochgeladen — eine von einem LLM gewählte URL erreicht also nie den Prozess mit der Datenbank. `MCP_LOGO_FETCH_ENABLED=false` schaltet dies ab.
 - **Audit-Herkunfts-Marker.** Jede Backend-Anfrage vom MCP-Server trägt einen `X-Turbo-EA-Origin: mcp`-Header. Ereignisse, die aus diesen Anfragen emittiert werden, werden im Audit-Log-Payload mit `origin: "mcp"` markiert, sodass Administratoren MCP-gesteuerte Schreibvorgänge getrennt von Web-UI-Aktionen aus der Zeitleiste filtern können.
 - **Mutations-Batches.** Jeder MCP-Schreibaufruf — die Vorschau ebenso wie der Commit — ist ein Mutations-Batch im Audit-Log und wird geöffnet, bevor etwas geschrieben wird; jedes während des Aufrufs emittierte Ereignis wird mit der Batch-ID gestempelt, und jedes Schreibwerkzeug gibt diese `batch_id` zurück. Administratoren (oder das Werkzeug `get_change_history`) können aus einer einzigen ID den vollständigen Ereignis-Diff eines Commits rekonstruieren, und `rollback_batch` kann ihn rückgängig machen — auch das Löschen eines Diagramms, das `create_diagram` angelegt hat, sofern es inzwischen niemand veröffentlicht hat. Eine Diagrammaktualisierung wird als nicht umkehrbar gemeldet, weil die vorherige Zeichenfläche nicht aufbewahrt wird. Commits oberhalb von `MCP_BATCH_CONFIRMATION_THRESHOLD` Zeilen müssen das einmalige `confirm_token` zurückgeben, das der vorherige Trockenlauf geliefert hat. Das Backend prüft es beim Öffnen des Commit-Batches, bevor etwas geschrieben wird: Es muss von einem Trockenlauf desselben Werkzeugs durch denselben Benutzer stammen, höchstens 15 Minuten alt sein, und es gibt genau einen Commit frei. Jedes Bulk-Schreibwerkzeug folgt diesem Zyklus aus Vorschau und Bestätigung: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.

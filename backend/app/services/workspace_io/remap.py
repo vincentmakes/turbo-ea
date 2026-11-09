@@ -740,12 +740,56 @@ def rewrite_portal_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTall
     return tally
 
 
+def rewrite_card_query_tags(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """A saved view's multi-hop ``query`` (``card_query.CardQuery``) with the
+    tag ids under ``where.tags`` translated, at the start card and every hop.
+
+    The tags are the grammar's only ids (everything else is a metamodel key).
+    A tag id the map does not know — or a value that is no id at all — is
+    counted ``unresolved`` and **dropped**, not kept: the target would refuse
+    the whole view on open (``unknown_tag``), while a dropped tag only widens
+    that one hop. A ``tags`` list left empty is removed, and a ``where`` left
+    empty with it. Not ``replace_mapped_ids``: that walk can neither count an
+    unknown id nor drop it. Anything malformed comes back untouched.
+    """
+    if not isinstance(node, dict):
+        return node
+    out = dict(node)
+    where = out.get("where")
+    if isinstance(where, dict) and isinstance(where.get("tags"), list):
+        kept: list[str] = []
+        for value in where["tags"]:
+            target = ids.lookup(TAGS, value)
+            if target is None:
+                tally.bump(UNRESOLVED)
+                continue
+            if target != canonical_uuid(value):
+                tally.bump(REMAPPED)
+            kept.append(target)
+        new_where = dict(where)
+        if kept:
+            new_where["tags"] = kept
+        else:
+            del new_where["tags"]
+        if new_where:
+            out["where"] = new_where
+        else:
+            del out["where"]
+    related = out.get("related")
+    if isinstance(related, list):
+        out["related"] = [rewrite_card_query_tags(hop, ids, tally) for hop in related]
+    return out
+
+
 def rewrite_bookmark_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
     """A bookmark's relation filters hold card *names*, which travel as they
-    are; only its tag filter holds ids."""
+    are; its tag filter holds ids, and so does its multi-hop ``query`` (tag ids
+    only, ``rewrite_card_query_tags``)."""
     tally = RewriteTally()
     if "filters" in kwargs:
         kwargs["filters"] = _rewrite_filter_keys(kwargs["filters"], (), ("tagIds",), ctx.ids, tally)
+    if "query" in kwargs:
+        kwargs["query"] = rewrite_card_query_tags(kwargs["query"], ctx.ids, tally)
     return tally
 
 

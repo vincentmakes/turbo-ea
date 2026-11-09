@@ -287,11 +287,14 @@ def relation_subtype_condition(
     return or_(_related(outgoing=True, where=where), _related(outgoing=False, where=where))
 
 
-def tag_conditions(groups: Mapping[uuid.UUID, list[uuid.UUID]]) -> list[ColumnElement[bool]]:
-    """One condition per tag group: any picked tag of the group (OR within a
-    group), every group with a pick required (AND across groups)."""
+def tag_conditions(
+    groups: Mapping[uuid.UUID, list[uuid.UUID]], *, card=Card
+) -> list[ColumnElement[bool]]:
+    """One condition per tag group over ``card`` (``Card`` or an alias): any
+    picked tag of the group (OR within a group), every group with a pick
+    required (AND across groups)."""
     return [
-        Card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(tag_ids)))
+        card.id.in_(select(CardTag.card_id).where(CardTag.tag_id.in_(tag_ids)))
         for tag_ids in groups.values()
         if tag_ids
     ]

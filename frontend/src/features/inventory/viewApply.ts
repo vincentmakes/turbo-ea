@@ -15,8 +15,9 @@ export interface ViewGrouping {
   groupTreeLevel: number | null;
 }
 
-/** A view whose filters are a server-evaluated multi-hop query. The web UI
- *  never writes `query`, so its presence alone drives the read-only behaviour. */
+/** A view whose filters are a server-evaluated multi-hop query. Its query is
+ *  edited in the page's path strip (and by an MCP assistant); the sidebar's
+ *  metadata dialog never sends it, so `query` alone marks a query view. */
 export function isQueryView(bm: Bookmark): boolean {
   return bm.query != null;
 }

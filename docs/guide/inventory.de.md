@@ -228,28 +228,35 @@ Gespeicherte Ansichten erscheinen in der Seitenleiste des Filterpanels. Klicken 
 - **Mit mir geteilt** — Ansichten, die andere mit Ihnen geteilt haben
 - **Öffentliche Ansichten** — Ansichten, die für alle verfügbar sind
 
-### Über MCP erzeugte Ansichten { #mcp-views }
+### Abfrageansichten { #query-views }
+<a id="mcp-views"></a>
 
-Ein über den [MCP-Server](../admin/mcp.md) verbundener KI-Assistent kann eine Ansicht speichern, deren Filter eine **mehrstufige Abfrage** sind — eine Kette von Beziehungen mit einer Bedingung an jedem Schritt, etwa *Organisationen, die eine aktive Anwendung nutzen, von der eine Initiative mit dem Status On Track betroffen ist*. Die Ansicht speichert die Abfrage, nicht ihre Ergebnisse: Der Server führt sie bei jedem Öffnen der Ansicht erneut aus, sodass die Liste stets die aktuelle Landschaft widerspiegelt.
+Eine **Abfrageansicht** ist eine gespeicherte Ansicht, deren Filter eine **mehrstufige Abfrage** sind — eine Kette von Beziehungen mit Bedingungen an jedem Schritt, etwa *Organisationen, die eine aktive Anwendung nutzen, von der eine Initiative mit dem Status On Track betroffen ist*. Die Ansicht speichert die Abfrage, nicht ihre Ergebnisse: Sie wird bei jedem Öffnen der Ansicht erneut ausgeführt, sodass die Liste stets die aktuelle Landschaft widerspiegelt.
 
-![Über MCP erzeugte Inventaransicht](../assets/img/en/98d_inventory_mcp_view.png)
+![Eine Abfrageansicht im Inventar](../assets/img/de/98d_inventar_mcp_ansicht.png)
 
-Ist eine solche Ansicht geöffnet, zeigt ein **Pfadstreifen** über dem Raster, was sie auswählt:
+**Eine Abfrageansicht erstellen.** Klicken Sie im Tab **Ansichten** der Filter-Seitenleiste neben *Aktuelle speichern* auf **Neue Abfrageansicht** (sichtbar für alle, die Ansichten verwalten dürfen). Der Streifen über dem Raster öffnet sich als Abfrage-Editor:
 
-- Ein **MCP**-Chip und der Name der Ansicht, gefolgt vom Hinweis *Über MCP erzeugt · nur über MCP bearbeitbar*. Fahren Sie mit der Maus über den Hinweis, um zu sehen, was Sie hier noch ändern können.
-- Der **Pfad**: die Kartentypen als Chips, verbunden durch das Beziehungsverb, das jeden Schritt verknüpft (zum Beispiel *Organisation → nutzt Anwendung → ist betroffen von Initiative*). Ein Schritt, der verlangt, dass eine Karte **keine** solche Beziehung hat, liest sich mit *hat kein* vor dem Verb.
-- Unter jedem Kartentyp die **Bedingungen**, die er erfüllen muss — Lebenszyklusphase, Untertyp, Genehmigungsstatus oder ein Feldwert.
-- Eine **×**-Schaltfläche (*Diese Ansicht verlassen*), die zum normalen Inventar zurückführt.
+1. Klicken Sie auf den Start-Chip (*Typ wählen*) und wählen Sie den Kartentyp, den die Ansicht auflistet.
+2. Klicken Sie nach der letzten Karte auf **+ Beziehung**, um einen Schritt hinzuzufügen. Das Menü listet jedes Beziehungsverb mit dem Kartentyp, zu dem es führt; eine Beziehung zwischen Karten desselben Typs wird in beide Richtungen angeboten. Eine Abfrage ist eine einzelne Kette mit bis zu drei Schritten.
+3. Klicken Sie unter einer beliebigen Karte auf **+ Bedingung**, um sie einzugrenzen: **Lebenszyklus**, **Subtyp**, **Genehmigungsstatus**, **Tags** oder ein Auswahl- bzw. Ja/Nein-Feld dieses Kartentyps. Bei Tags passt eine Karte, wenn sie irgendeines der gewählten Tags einer Gruppe trägt, und sie muss jede hinzugefügte Gruppe erfüllen; angeboten werden nur Tag-Gruppen, die für diesen Kartentyp gelten.
+4. Klicken Sie auf **Speichern**. Es öffnet sich der übliche Dialog zum Speichern einer Ansicht für Name, Sichtbarkeit, Freigabe und OData-Einstellung. **Abbrechen** verwirft die Abfrage.
 
-In der Liste der gespeicherten Ansichten trägt eine Abfrageansicht ein Roboter-Symbol und ihren kompakten Pfad (*Organisation › nutzt Anwendung › ist betroffen von Initiative*) als zweite Zeile.
+![Eine Abfrageansicht erstellen](../assets/img/de/98e_inventar_abfrage_editor.png)
 
-**Was Sie in der Weboberfläche ändern können.** Der Eigentümer der Ansicht kann sie umbenennen, Freigabe und OData-Einstellung ändern, ihr Layout (Spalten, Spaltenlayout und Gruppierung) aktualisieren oder sie löschen. Ihre Filter und die Abfrage selbst ändern sich nur über MCP: Das Bearbeiten der Ansicht hier ersetzt sie nie durch die Filter des Filterpanels, bitten Sie also den Assistenten, sie zu ändern oder neu zu speichern. **Aktuelle Ansicht speichern** erstellt, während eine Abfrageansicht geöffnet ist, eine gewöhnliche Ansicht aus Filtern, Spalten und Sortierung des Panels — die Abfrage wird nicht in sie kopiert, wie der Dialog anmerkt.
+Während Sie aufbauen, filtert das Raster live und der Zähler in der Symbolleiste zeigt, wie viele Karten passen, sodass Sie die Wirkung jedes Schritts und jeder Bedingung vor dem Speichern sehen.
+
+**Schritte und Bedingungen ändern.** Klicken Sie auf den Verb-Chip eines Schritts, um sein Menü zu öffnen: **hat kein** macht aus dem Schritt die Anforderung, dass die Karte **keine** solche Beziehung hat, und **Diesen Schritt entfernen** entfernt ihn samt allen folgenden Schritten. Klicken Sie auf einen Bedingungs-Chip, um seine Werte zu ändern, oder auf sein **×**, um ihn zu entfernen.
+
+**Eine gespeicherte Abfrageansicht bearbeiten.** Ist eine Abfrageansicht geöffnet, zeigt der Streifen ihren Pfad: die Kartentypen als Chips, verbunden durch das Beziehungsverb, das jeden Schritt verknüpft (zum Beispiel *Organisation → nutzt Anwendung → ist betroffen von Initiative*), mit den Bedingungen jeder Karte darunter. Wenn Sie die Ansicht besitzen oder Bearbeitungsrechte darauf haben, schaltet ein **Stift** im Streifen auf denselben Editor um; **Speichern** aktualisiert die Ansicht. Die **×**-Schaltfläche (*Diese Ansicht verlassen*) führt zum normalen Inventar zurück. **Aktuelle Ansicht speichern** speichert, während eine Abfrageansicht geöffnet ist, eine neue Abfrageansicht mit derselben Abfrage.
+
+**Von einem KI-Assistenten erstellte Ansichten.** Ein über den [MCP-Server](../admin/mcp.md) verbundener Assistent kann ebenfalls Abfrageansichten erstellen. Eine solche Ansicht zeigt in ihrem Streifen einen **MCP**-Chip und den Hinweis *Über MCP erstellt* sowie in der Ansichtenliste ein Roboter-Symbol; sie wird wie jede andere Abfrageansicht bearbeitet. In der Ansichtenliste trägt jede Abfrageansicht ein kleines Baum-Symbol (das Roboter-Symbol, wenn ein Assistent sie erstellt hat) und ihren kompakten Pfad (*Organisation › nutzt Anwendung › ist betroffen von Initiative*) als zweite Zeile.
 
 **Eine Ansicht per Link öffnen.** Speichert ein Assistent eine Ansicht, liefert er einen Link der Form `/inventory?view=<view id>`; beim Öffnen wird die gespeicherte Ansicht direkt angewendet. Derselbe Link funktioniert für jede gespeicherte Ansicht, die Sie sehen können.
 
 **OData.** Der OData-Feed einer Abfrageansicht liefert dieselben Karten wie das Inventar: Die Abfrage wird auch auf den Feed angewendet.
 
-Zur Abfragegrammatik, ihren Grenzen und den MCP-Werkzeugen (`query_cards`, `list_inventory_views`, `save_inventory_view`) siehe [Mehrstufige Kartenabfragen](../admin/mcp.md#multi-hop-card-queries).
+Zur Abfragegrammatik, ihren Grenzen und den MCP-Werkzeugen (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`) siehe [Mehrstufige Kartenabfragen](../admin/mcp.md#multi-hop-card-queries).
 
 ## Excel-Import / -Export { #excel-import }
 

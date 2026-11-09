@@ -11,6 +11,8 @@ import pytest
 from sqlalchemy import select
 
 from app.core.permissions import VIEWER_PERMISSIONS
+from app.models.bookmark import Bookmark
+from app.models.card import Card
 from app.models.relation_type import RelationType
 from app.services.card_query import base_view_filters
 from tests.conftest import (
@@ -20,6 +22,8 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_tag,
+    create_tag_group,
     create_user,
 )
 
@@ -578,3 +582,81 @@ class TestQueryViews:
         resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
         assert resp.status_code == 400
         assert resp.json()["detail"] == "unknown_relation_type"
+
+
+@pytest.fixture
+async def tag_env(db, query_env):
+    """On top of ``query_env``: Alpha carries Gold, Beta carries Silver (group
+    Tier, Application only); group Hq (Organization only) holds Main."""
+    apps = {
+        c.name: c
+        for c in (await db.execute(select(Card).where(Card.type == "Application"))).scalars()
+    }
+    tier = await create_tag_group(db, name="Tier", restrict_to_types=["Application"])
+    hq = await create_tag_group(db, name="Hq", restrict_to_types=["Organization"])
+    tags = {
+        "Gold": await create_tag(db, group=tier, name="Gold", cards=[apps["Alpha"]]),
+        "Silver": await create_tag(db, group=tier, name="Silver", cards=[apps["Beta"]]),
+        "Main": await create_tag(db, group=hq, name="Main"),
+    }
+    return {**query_env, "tags": {k: str(v.id) for k, v in tags.items()}}
+
+
+def _tag_query(*tag_ids: str) -> dict:
+    """Organizations that use an Application carrying any of ``tag_ids``."""
+    return {
+        "type": "Organization",
+        "related": [
+            {"relation": "orgUsesApp", "type": "Application", "where": {"tags": list(tag_ids)}}
+        ],
+    }
+
+
+class TestQueryViewTags:
+    async def test_create_stores_the_tags_verbatim(self, client, db, tag_env):
+        query = _tag_query(tag_env["tags"]["Silver"], tag_env["tags"]["Gold"])
+        resp = await _create(client, tag_env["admin"], query=query)
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["query"] == query
+        stored = await db.get(Bookmark, uuid.UUID(resp.json()["id"]))
+        assert stored.query == query
+
+    async def test_a_tag_of_a_group_for_other_types_is_refused(self, client, db, tag_env):
+        resp = await _create(client, tag_env["admin"], query=_tag_query(tag_env["tags"]["Main"]))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "tag_not_for_type"
+
+    async def test_an_unknown_tag_is_refused(self, client, db, tag_env):
+        resp = await _create(client, tag_env["admin"], query=_tag_query(str(uuid.uuid4())))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_tag"
+
+    async def test_patch_to_a_tag_query_is_checked(self, client, db, tag_env):
+        admin = tag_env["admin"]
+        bm_id = (await _create(client, admin, query=ORG_QUERY)).json()["id"]
+        bad = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": _tag_query(tag_env["tags"]["Main"])},
+            headers=auth_headers(admin),
+        )
+        assert bad.status_code == 400
+        assert bad.json()["detail"] == "tag_not_for_type"
+        query = _tag_query(tag_env["tags"]["Gold"])
+        ok = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": query}, headers=auth_headers(admin)
+        )
+        assert ok.status_code == 200
+        assert ok.json()["query"] == query
+
+    async def test_odata_feed_applies_the_tags(self, client, db, tag_env):
+        admin = tag_env["admin"]
+        for tag, names in (("Silver", ["Team"]), ("Gold", ["Corp"])):
+            bm_id = (
+                await _create(
+                    client, admin, query=_tag_query(tag_env["tags"][tag]), odata_enabled=True
+                )
+            ).json()["id"]
+            resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+            assert resp.status_code == 200
+            assert [row["name"] for row in resp.json()["value"]] == names
+            assert resp.json()["@odata.count"] == 1

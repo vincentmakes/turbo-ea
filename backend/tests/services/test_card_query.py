@@ -10,6 +10,7 @@ database; ``TestParse`` / ``TestQueryProblem`` / ``TestViewFields`` /
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -42,6 +43,8 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_tag,
+    create_tag_group,
     create_user,
 )
 
@@ -142,6 +145,11 @@ async def land(db):
     - Solo uses nothing.
     Alpha calls Beta (self-referencing ``appCallsApp``). ``Ghost`` is a hidden
     type with a relation type from Organization.
+
+    Tags: group Domain (every type) holds Finance (on Alpha) and Sales (on
+    Beta); Tier (Application only) holds Gold (on Alpha and Gamma); OrgOnly
+    (Organization only) holds Hq (on Corp); Open (restricted to ``[]``, i.e.
+    every type) holds Any (on no card).
     """
     await create_card_type(db, key="Organization")
     await create_card_type(db, key="Application", fields_schema=APP_FIELDS, subtypes=SUBTYPES)
@@ -202,7 +210,30 @@ async def land(db):
         await create_relation(db, type_key="initAffectsApp", source_id=init.id, target_id=app.id)
     await create_relation(db, type_key="appCallsApp", source_id=alpha.id, target_id=beta.id)
     await create_relation(db, type_key="orgToGhost", source_id=orgs["Solo"].id, target_id=ghost.id)
-    return {"orgs": orgs, "alpha": alpha, "beta": beta}
+
+    domain = await create_tag_group(db, name="Domain")
+    tier = await create_tag_group(db, name="Tier", restrict_to_types=["Application"])
+    org_only = await create_tag_group(db, name="OrgOnly", restrict_to_types=["Organization"])
+    open_group = await create_tag_group(db, name="Open", restrict_to_types=[])
+    tags = {
+        "Finance": await create_tag(db, group=domain, name="Finance", cards=[alpha]),
+        "Sales": await create_tag(db, group=domain, name="Sales", cards=[beta]),
+        "Gold": await create_tag(db, group=tier, name="Gold", cards=[alpha, gamma]),
+        "Hq": await create_tag(db, group=org_only, name="Hq", cards=[orgs["Corp"]]),
+        "Any": await create_tag(db, group=open_group, name="Any"),
+    }
+    groups = {"Domain": domain, "Tier": tier, "OrgOnly": org_only, "Open": open_group}
+    return {"orgs": orgs, "alpha": alpha, "beta": beta, "tags": tags, "groups": groups}
+
+
+def _tags(land, *names: str) -> list[str]:
+    """The ids of the ``land`` tags ``names``, as a query holds them."""
+    return [str(land["tags"][n].id) for n in names]
+
+
+#: Two arbitrary UUIDs, standing for tag ids in the structural tests.
+TAG_1 = "0b7d9a6e-1f1c-4a52-9b8a-3c2d1e0f9a8b"
+TAG_2 = "1c8e0b7f-2a2d-4b63-8c9b-4d3e2f1a0b9c"
 
 
 ALL_ORGS = {"Corp", "Team", "Lone", "Zed", "Solo"}
@@ -381,6 +412,21 @@ class TestParse:
             "related": [{"relation": USES, "type": "Application"}],
         }
 
+    def test_fifty_tags_are_accepted(self):
+        tags = [str(uuid.UUID(int=i + 1)) for i in range(50)]
+        assert parse_card_query(_q("A", where={"tags": tags})).where.tags == tags
+
+    def test_fifty_one_tags_are_a_shape_error(self):
+        tags = [str(uuid.UUID(int=i + 1)) for i in range(51)]
+        assert _parse_code(_q("A", where={"tags": tags})) == "invalid_query"
+
+    def test_a_tag_list_must_be_a_list(self):
+        assert _parse_code(_q("A", where={"tags": TAG_1})) == "invalid_query"
+
+    def test_stored_query_keeps_tags(self):
+        raw = _q("A", _hop("r", "B", where={"tags": [TAG_2]}), where={"tags": [TAG_1]})
+        assert stored_query(parse_card_query(raw)) == raw
+
     def test_stored_query_keeps_negate(self):
         raw = _q("Organization", _hop(USES, "Application", negate=True))
         assert stored_query(parse_card_query(raw))["related"][0]["negate"] is True
@@ -441,6 +487,7 @@ class TestQueryProblem:
             {"subtype": []},
             {"approval_status": []},
             {"attributes": {"code": []}},
+            {"tags": []},
         ],
     )
     def test_empty_values(self, where):
@@ -449,6 +496,45 @@ class TestQueryProblem:
     def test_empty_values_at_a_hop(self):
         raw = _q("A", _hop("r", "B", _hop("r", "C", where={"subtype": []})))
         assert self._problem(raw) == "empty_values"
+
+    def test_tag_ids_are_the_one_uuid_allowed(self):
+        raw = _q(
+            "A",
+            _hop("r", "B", _hop("r", "C", where={"tags": [TAG_2, TAG_1]})),
+            where={"tags": [TAG_1]},
+        )
+        assert self._problem(raw) is None
+        assert parse_card_query(raw).where.tags == [TAG_1]
+
+    def test_a_card_id_beside_tags_still_holds_an_id(self):
+        raw = _q("A", where={"tags": [TAG_1], "attributes": {"code": [TAG_2]}})
+        assert self._problem(raw) == "query_holds_an_id"
+
+    def test_a_card_id_at_a_hop_beside_tags_still_holds_an_id(self):
+        raw = _q(
+            "A",
+            _hop("r", "B", where={"subtype": [TAG_2]}),
+            where={"tags": [TAG_1]},
+        )
+        assert self._problem(raw) == "query_holds_an_id"
+        nested = _q(
+            "A",
+            _hop(
+                "r",
+                "B",
+                _hop("r", "C", where={"tags": [TAG_1]}),
+                where={"approval_status": [TAG_2]},
+            ),
+        )
+        assert self._problem(nested) == "query_holds_an_id"
+
+    def test_an_attribute_named_tags_is_no_tag_list(self):
+        raw = _q("A", where={"attributes": {"tags": [TAG_1]}})
+        assert self._problem(raw) == "query_holds_an_id"
+
+    def test_a_uuid_as_a_hop_key_still_holds_an_id(self):
+        raw = _q("A", _hop(TAG_2, "B", where={"tags": [TAG_1]}))
+        assert self._problem(raw) == "query_holds_an_id"
 
     def test_unknown_phase(self):
         assert self._problem(_q("A", where={"lifecycle_phase": ["retired"]})) == "unknown_phase"
@@ -574,6 +660,94 @@ class TestResolve:
     async def test_unknown_boolean_value(self, db, land):
         raw = _q("Application", where={"attributes": {"cloud": ["yes"]}})
         assert await _code(db, raw) == "unknown_option"
+
+    async def test_tag_groups_group_the_tags_and_drop_repeats(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                where={"tags": _tags(land, "Finance", "Gold", "Sales", "Finance")},
+            ),
+            where={"tags": _tags(land, "Hq", "Any")},
+        )
+        root = await resolve_card_query(db, parse_card_query(raw))
+        t, g = land["tags"], land["groups"]
+        assert root.tag_groups == {g["OrgOnly"].id: [t["Hq"].id], g["Open"].id: [t["Any"].id]}
+        assert root.hops[0].node.tag_groups == {
+            g["Domain"].id: [t["Finance"].id, t["Sales"].id],
+            g["Tier"].id: [t["Gold"].id],
+        }
+
+    async def test_a_node_without_tags_has_no_tag_groups(self, db, land):
+        raw = _q("Organization", _hop(USES, "Application", where={"tags": _tags(land, "Gold")}))
+        root = await resolve_card_query(db, parse_card_query(raw))
+        assert root.tag_groups == {}
+        assert root.hops[0].node.tag_groups == {
+            land["groups"]["Tier"].id: [land["tags"]["Gold"].id]
+        }
+
+    async def test_an_upper_case_tag_id_resolves(self, db, land):
+        raw = _q("Organization", where={"tags": [str(land["tags"]["Hq"].id).upper()]})
+        root = await resolve_card_query(db, parse_card_query(raw))
+        assert root.tag_groups == {land["groups"]["OrgOnly"].id: [land["tags"]["Hq"].id]}
+
+    async def test_unknown_tag(self, db, land):
+        raw = _q("Organization", where={"tags": [*_tags(land, "Hq"), TAG_1]})
+        assert await _code(db, raw) == "unknown_tag"
+
+    async def test_a_tag_that_is_no_uuid_is_unknown(self, db, land):
+        raw = _q("Organization", _hop(USES, "Application", where={"tags": ["Finance"]}))
+        assert await _code(db, raw) == "unknown_tag"
+
+    async def test_unknown_tag_at_a_nested_hop(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", _hop(AFFECTS, "Initiative", where={"tags": [TAG_2]})),
+        )
+        assert await _code(db, raw) == "unknown_tag"
+
+    async def test_tag_not_for_type_at_the_start(self, db, land):
+        raw = _q("Organization", where={"tags": _tags(land, "Gold")})
+        assert await _code(db, raw) == "tag_not_for_type"
+
+    async def test_tag_not_for_type_at_a_hop(self, db, land):
+        raw = _q("Organization", _hop(USES, "Application", where={"tags": _tags(land, "Hq")}))
+        assert await _code(db, raw) == "tag_not_for_type"
+
+    async def test_an_open_or_empty_restriction_is_every_type(self, db, land):
+        for type_key in ("Organization", "Application", "Initiative"):
+            raw = _q(type_key, where={"tags": _tags(land, "Finance", "Any")})
+            root = await resolve_card_query(db, parse_card_query(raw))
+            assert len(root.tag_groups) == 2
+
+    async def _statements(self, db, monkeypatch, raw) -> list[str]:
+        seen: list[str] = []
+        execute = db.execute
+
+        async def spy(statement, *args, **kwargs):
+            seen.append(str(statement))
+            return await execute(statement, *args, **kwargs)
+
+        monkeypatch.setattr(db, "execute", spy)
+        await resolve_card_query(db, parse_card_query(raw))
+        return seen
+
+    async def test_a_tagless_query_loads_no_tag(self, db, land, monkeypatch):
+        raw = _q("Organization", _hop(USES, "Application", where={"subtype": ["micro"]}))
+        seen = await self._statements(db, monkeypatch, raw)
+        assert len(seen) == 2
+        assert not [s for s in seen if "tag" in s]
+
+    async def test_every_tag_in_the_tree_loads_in_one_query(self, db, land, monkeypatch):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Gold")}),
+            where={"tags": _tags(land, "Hq")},
+        )
+        seen = await self._statements(db, monkeypatch, raw)
+        assert len(seen) == 3
+        assert len([s for s in seen if "tag_groups" in s]) == 1
 
     async def test_unknown_option_at_a_nested_hop(self, db, land):
         raw = _q(
@@ -771,6 +945,72 @@ class TestHopSemantics:
             where={"lifecycle_phase": ["active"], "approval_status": ["DRAFT"]},
         )
         assert await _names(db, raw) == {"Gamma"}
+
+    async def test_tags_in_one_group_are_or(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Finance", "Sales")}),
+        )
+        assert await _names(db, raw) == {"Corp", "Team"}
+
+    async def test_tags_across_groups_are_and(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Finance", "Gold")}),
+        )
+        assert await _names(db, raw) == {"Corp"}
+
+    async def test_one_tag(self, db, land):
+        raw = _q("Organization", _hop(USES, "Application", where={"tags": _tags(land, "Gold")}))
+        assert await _names(db, raw) == {"Corp", "Lone"}
+
+    async def test_tags_and_another_condition_are_and(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(
+                USES,
+                "Application",
+                where={"tags": _tags(land, "Finance", "Sales"), "lifecycle_phase": ["plan"]},
+            ),
+        )
+        assert await _names(db, raw) == {"Team"}
+
+    async def test_tags_on_the_start_card(self, db, land):
+        assert await _names(db, _q("Organization", where={"tags": _tags(land, "Hq")})) == {"Corp"}
+        raw = _q("Application", where={"tags": _tags(land, "Gold")})
+        assert await _names(db, raw) == {"Alpha", "Gamma"}
+
+    async def test_a_tag_no_card_carries_matches_nothing(self, db, land):
+        assert await _names(db, _q("Organization", where={"tags": _tags(land, "Any")})) == set()
+
+    async def test_negated_hop_with_tags(self, db, land):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Gold")}, negate=True),
+        )
+        assert await _names(db, raw) == {"Team", "Zed", "Solo"}
+
+    async def test_tags_compile_against_an_alias(self, db, land):
+        start = aliased(Card)
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Sales", "Finance")}),
+            where={"tags": _tags(land, "Hq")},
+        )
+        clauses = await compile_card_query(
+            db, parse_card_query(raw), CardReadScope.everything(), start
+        )
+        rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Corp"}
+        no_start_tag = _q(
+            "Organization",
+            _hop(USES, "Application", where={"tags": _tags(land, "Sales", "Finance")}),
+        )
+        clauses = await compile_card_query(
+            db, parse_card_query(no_start_tag), CardReadScope.everything(), start
+        )
+        rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Corp", "Team"}
 
     async def test_compiles_against_an_alias(self, db, land):
         start = aliased(Card)

@@ -228,28 +228,35 @@ Las vistas guardadas aparecen en el panel lateral de filtros. Haga clic en cualq
 - **Compartidas conmigo** — Vistas que otros compartieron con usted
 - **Vistas Públicas** — Vistas disponibles para todos
 
-### Vistas generadas mediante MCP { #mcp-views }
+### Vistas de consulta { #query-views }
+<a id="mcp-views"></a>
 
-Un asistente de IA conectado a través del [servidor MCP](../admin/mcp.md) puede guardar una vista cuyos filtros son una **consulta de varios saltos** — una cadena de relaciones con una condición en cada paso, como *Organizaciones que usan una Aplicación activa a la que afecta una Iniciativa con estado On Track*. La vista almacena la consulta, no sus resultados: el servidor la vuelve a ejecutar cada vez que se abre la vista, de modo que la lista siempre refleja el panorama actual.
+Una **vista de consulta** es una vista guardada cuyos filtros son una **consulta de varios saltos** — una cadena de relaciones con condiciones en cada paso, como *Organizaciones que usan una Aplicación activa afectada por una Iniciativa con estado On Track*. La vista guarda la consulta, no sus resultados: se vuelve a ejecutar cada vez que se abre la vista, de modo que la lista siempre refleja el panorama actual.
 
-![Vista de inventario generada mediante MCP](../assets/img/en/98d_inventory_mcp_view.png)
+![Una vista de consulta en el inventario](../assets/img/es/98d_inventario_vista_mcp.png)
 
-Cuando una vista así está abierta, una **franja de ruta** sobre la cuadrícula muestra lo que selecciona:
+**Crear una vista de consulta.** En la pestaña **Vistas** de la barra lateral de filtros, haga clic en **Nueva vista de consulta** junto a *Guardar actual* (se muestra a quien pueda gestionar vistas). La tira sobre la cuadrícula se abre como un generador de consultas:
 
-- Un chip **MCP** y el nombre de la vista, seguidos de la nota *Generada mediante MCP · editable solo mediante MCP*. Pase el cursor sobre la nota para ver qué puede seguir cambiando aquí.
-- La **ruta**: los tipos de ficha como chips, unidos por el verbo de relación que enlaza cada paso (por ejemplo *Organización → usa Aplicación → es afectada por Iniciativa*). Un paso que exige que una ficha **no** tenga ninguna relación así se lee *no tiene* antes del verbo.
-- Bajo cada tipo de ficha, las **condiciones** que debe cumplir — fase del ciclo de vida, subtipo, estado de aprobación o un valor de campo.
-- Un botón **×** (*Salir de esta vista*) que devuelve al inventario normal.
+1. Haga clic en la pastilla inicial (*Elegir un tipo*) y elija el tipo de ficha que lista la vista.
+2. Haga clic en **+ relación** después de la última ficha para añadir un salto. El menú lista cada verbo de relación con el tipo de ficha al que lleva; una relación entre fichas del mismo tipo se ofrece en ambos sentidos. Una consulta es una única cadena de hasta tres saltos.
+3. Haga clic en **+ condición** bajo cualquier ficha para acotarla: **Ciclo de vida**, **Subtipos**, **Estado de aprobación**, **Etiquetas**, o un campo de selección o de sí/no de ese tipo de ficha. Con las etiquetas, una ficha coincide si tiene cualquiera de las etiquetas elegidas de un grupo, y debe coincidir con cada grupo que añada; solo se ofrecen los grupos de etiquetas que se aplican a ese tipo de ficha.
+4. Haga clic en **Guardar**. Se abre el diálogo habitual de guardar vista para el nombre, la visibilidad, el uso compartido y el ajuste OData. **Cancelar** descarta la consulta.
 
-En la lista de Vistas guardadas, una vista de consulta lleva una insignia de robot y su ruta compacta (*Organización › usa Aplicación › es afectada por Iniciativa*) como segunda línea.
+![Creación de una vista de consulta](../assets/img/es/98e_inventario_editor_consulta.png)
 
-**Qué puede cambiar en la interfaz web.** El propietario de la vista puede renombrarla, cambiar su uso compartido y su ajuste OData, actualizar su diseño (columnas, diseño de columnas y agrupación) o eliminarla. Sus filtros y la propia consulta solo cambian mediante MCP: editar la vista aquí nunca los sustituye por los del panel de filtros, así que pida al asistente que la modifique o la vuelva a guardar. **Guardar vista actual** mientras hay una vista de consulta abierta crea una vista ordinaria a partir de los filtros, las columnas y la ordenación del panel — la consulta no se copia en ella, como indica el cuadro de diálogo.
+Mientras construye, la cuadrícula se filtra en directo y el contador de la barra de herramientas muestra cuántas fichas coinciden, de modo que ve el efecto de cada salto y condición antes de guardar.
 
-**Abrir una vista mediante un enlace.** Cuando un asistente guarda una vista, devuelve un enlace de la forma `/inventory?view=<view id>`; al abrirlo se aplica directamente la vista guardada. El mismo enlace funciona para cualquier vista guardada que pueda ver.
+**Cambiar saltos y condiciones.** Haga clic en la pastilla de verbo de un salto para abrir su menú: **no tiene** convierte el salto en el requisito de que la ficha **no** tenga ninguna relación así, y **Quitar este salto** lo elimina junto con todos los saltos posteriores. Haga clic en una pastilla de condición para cambiar sus valores, o en su **×** para quitarla.
+
+**Editar una vista de consulta guardada.** Cuando hay una vista de consulta abierta, la tira muestra su ruta: los tipos de ficha como pastillas, unidos por el verbo de relación que enlaza cada paso (por ejemplo *Organización → usa Aplicación → es afectada por Iniciativa*), con las condiciones de cada ficha debajo. Si es el propietario de la vista o tiene derechos de edición sobre ella, un **lápiz** en la tira la cambia al mismo generador; **Guardar** actualiza la vista. El botón **×** (*Salir de esta vista*) vuelve al inventario normal. **Guardar vista actual** mientras hay una vista de consulta abierta guarda una nueva vista de consulta con la misma consulta.
+
+**Vistas creadas por un asistente de IA.** Un asistente conectado mediante el [servidor MCP](../admin/mcp.md) también puede crear vistas de consulta. Una vista así muestra una pastilla **MCP** y la nota *Creada mediante MCP* en su tira, y una insignia de robot en la lista de vistas; se edita como cualquier otra vista de consulta. En la lista de vistas, cada vista de consulta lleva una pequeña insignia de árbol (la insignia de robot cuando la creó un asistente) y su ruta compacta (*Organización › usa Aplicación › es afectada por Iniciativa*) como segunda línea.
+
+**Abrir una vista mediante enlace.** Cuando un asistente guarda una vista, devuelve un enlace con la forma `/inventory?view=<view id>`; al abrirlo se aplica directamente la vista guardada. El mismo enlace funciona para cualquier vista guardada que pueda ver.
 
 **OData.** El feed OData de una vista de consulta devuelve las mismas fichas que el inventario: la consulta también se aplica al feed.
 
-Para la gramática de las consultas, sus límites y las herramientas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), véase [Consultas de fichas de varios saltos](../admin/mcp.md#multi-hop-card-queries).
+Para la gramática de consultas, sus límites y las herramientas MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), consulte [Consultas de fichas de varios saltos](../admin/mcp.md#multi-hop-card-queries).
 
 ## Importación / Exportación Excel { #excel-import }
 

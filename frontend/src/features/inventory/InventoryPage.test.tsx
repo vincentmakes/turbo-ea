@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ReactElement } from "react";
-import { render, screen, waitFor, within, act } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within, act } from "@testing-library/react";
 import { BOOLEAN_COLORS } from "@/theme/tokens";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
@@ -68,6 +68,9 @@ vi.mock("ag-grid-react", () => import("@/test/agGridStub").then((m) => m.agGridR
 // tagsToFilterText, …) are the real ones — the page derives its default column
 // visibility from them, and the export tests assert on the columns that
 // visibility produces, so a hand-written stand-in would test a grid nobody has.
+/** What the stubbed sidebar's `report-bookmarks` button hands the page. */
+const sidebarStub = vi.hoisted(() => ({ bookmarks: [] as unknown[] }));
+
 vi.mock("./InventoryFilterSidebar", async () => {
   const actual =
     await vi.importActual<typeof import("./InventoryFilterSidebar")>(
@@ -79,12 +82,45 @@ vi.mock("./InventoryFilterSidebar", async () => {
       filters,
       onFiltersChange,
       externalActiveViewId,
+      canManageBookmarks,
+      onStartQueryDraft,
+      pendingSave,
+      onBookmarksLoaded,
+      bookmarksRevision,
+      collapsed,
+      onToggleCollapse,
+      typesLocked,
+      draftQuery,
     }: {
       filters: Record<string, unknown>;
       onFiltersChange: (f: Record<string, unknown>) => void;
       externalActiveViewId?: string | null;
+      canManageBookmarks?: boolean;
+      onStartQueryDraft?: () => void;
+      pendingSave?: unknown;
+      onBookmarksLoaded?: (bookmarks: unknown[]) => void;
+      bookmarksRevision?: number;
+      collapsed?: boolean;
+      onToggleCollapse?: () => void;
+      typesLocked?: boolean;
+      draftQuery?: unknown;
     }) => (
-      <div data-testid="filter-sidebar" data-external-view-id={externalActiveViewId ?? ""}>
+      <div
+        data-testid="filter-sidebar"
+        data-external-view-id={externalActiveViewId ?? ""}
+        data-pending-save={pendingSave ? JSON.stringify(pendingSave) : ""}
+        data-can-manage-bookmarks={String(!!canManageBookmarks)}
+        data-bookmarks-revision={String(bookmarksRevision ?? "")}
+        data-collapsed={String(!!collapsed)}
+        data-types-locked={String(!!typesLocked)}
+        data-draft-query={draftQuery ? JSON.stringify(draftQuery) : ""}
+      >
+        <button data-testid="toggle-collapse" onClick={() => onToggleCollapse?.()} />
+        <button data-testid="start-query-draft" onClick={() => onStartQueryDraft?.()} />
+        <button
+          data-testid="report-bookmarks"
+          onClick={() => onBookmarksLoaded?.(sidebarStub.bookmarks)}
+        />
         <button
           data-testid="apply-search"
           onClick={() => onFiltersChange({ ...filters, search: "SAP" })}
@@ -2934,5 +2970,446 @@ describe("InventoryPage query views", () => {
     await userEvent.click(screen.getByTestId("go-plain"));
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
     expect(cardUrls().some((u) => paramsOf(u).has("query"))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Query builder — the path strip in edit mode, with the grid as live preview
+// ---------------------------------------------------------------------------
+
+describe("InventoryPage query builder", () => {
+  const QUERY = {
+    type: "Application",
+    related: [{ relation: "relAppToITC", type: "ITComponent", where: { lifecycle_phase: ["active"] } }],
+  };
+  const ACTIVE = { viewId: "bm-q", name: "Apps on live tech", query: QUERY, createdVia: "mcp" };
+  const queryBookmark = (overrides: Record<string, unknown> = {}) => ({
+    id: "bm-q",
+    name: "Apps on live tech",
+    is_default: false,
+    visibility: "private",
+    odata_enabled: false,
+    owner_id: "u1",
+    is_owner: true,
+    can_edit: true,
+    query: QUERY,
+    created_via: "mcp",
+    filters: { types: ["Application"] },
+    ...overrides,
+  });
+
+  const cardUrls = () =>
+    vi
+      .mocked(api.get)
+      .mock.calls.map((c) => c[0] as string)
+      .filter((p) => p.startsWith("/cards?"));
+  const paramsOf = (url: string) => new URLSearchParams(url.split("?")[1]);
+  const lastCards = () => paramsOf(cardUrls()[cardUrls().length - 1]);
+  const lastQuery = () => {
+    const q = lastCards().get("query");
+    return q ? JSON.parse(q) : null;
+  };
+  const prefs = () => JSON.parse(localStorage.getItem("turboea_inventory") ?? "{}");
+  const sidebar = () => screen.getByTestId("filter-sidebar");
+
+  function LocationProbe() {
+    const navigate = useNavigate();
+    return <button data-testid="go-view" onClick={() => navigate("/inventory?view=bm-q")} />;
+  }
+
+  function renderPage(path = "/inventory") {
+    return render(
+      <MemoryRouter initialEntries={[path]}>
+        <InventoryPage />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+  }
+
+  function mockBookmarks(views: unknown[]) {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path.startsWith("/cards")) return Promise.resolve(MOCK_CARDS);
+      if (path.startsWith("/relations")) return Promise.resolve([]);
+      if (path.startsWith("/bookmarks")) return Promise.resolve(views);
+      if (path.startsWith("/tag-groups")) return Promise.resolve([]);
+      return Promise.resolve({});
+    });
+  }
+
+  function persistActiveView() {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { types: ["Application"] }, activeQuery: ACTIVE }),
+    );
+  }
+
+  function pickMenu(label: string) {
+    fireEvent.click(within(screen.getByRole("menu")).getByText(label));
+  }
+
+  /** Adds an Active lifecycle condition to the start node. */
+  async function addActiveLifecycle() {
+    fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+    pickMenu("Lifecycle");
+    const popover = await screen.findByTestId("query-condition-popover");
+    fireEvent.mouseDown(within(popover).getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "Active" }));
+  }
+
+  beforeEach(() => {
+    sidebarStub.bookmarks = [];
+    mockBookmarks([queryBookmark()]);
+  });
+
+  it("starts a new query view on the one selected type", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application"] } }),
+    );
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(sidebar()).toHaveAttribute("data-can-manage-bookmarks", "true");
+    expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    expect(await screen.findByText("New query view")).toBeInTheDocument();
+    expect(screen.getByTestId("query-path-start-type")).toHaveTextContent("Application");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+    expect(lastCards().get("type")).toBe("Application");
+    await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+    // A draft is never persisted.
+    expect(prefs().activeQuery).toBeNull();
+  });
+
+  it("leaves several selected types to the chooser, untouched until a type is picked", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({ filters: { ...EMPTY_FILTERS, types: ["Application", "Objective"] } }),
+    );
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const before = cardUrls().length;
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    expect(await screen.findByText("Choose a type")).toBeInTheDocument();
+    expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({ type: "" });
+    // The grid still loads, on the filters as they were and without a query.
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    expect(cardUrls().slice(before).some((u) => paramsOf(u).has("query"))).toBe(false);
+    expect(lastCards().has("type")).toBe(false);
+    expect(prefs().filters.types).toEqual(["Application", "Objective"]);
+
+    fireEvent.click(screen.getByTestId("query-path-start-type"));
+    pickMenu("Objective");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Objective" }));
+    expect(lastCards().get("type")).toBe("Objective");
+    await waitFor(() => expect(prefs().filters.types).toEqual(["Objective"]));
+    expect(screen.getByText("New query view")).toBeInTheDocument();
+  });
+
+  it("keeps loading a draft without a type, on the ordinary filters only", async () => {
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    const before = cardUrls().length;
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    expect(await screen.findByText("Choose a type")).toBeInTheDocument();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    expect(lastCards().has("query")).toBe(false);
+    expect(lastCards().has("type")).toBe(false);
+
+    fireEvent.click(screen.getByTestId("query-path-start-type"));
+    pickMenu("Objective");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Objective" }));
+    expect(lastCards().get("type")).toBe("Objective");
+    expect(screen.getByText("New query view")).toBeInTheDocument();
+  });
+
+  it("keeps loading while a condition is still empty: the start type pinned, no query", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+    const before = cardUrls().length;
+    fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
+    pickMenu("Lifecycle");
+    await screen.findByTestId("query-condition-popover");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    expect(lastCards().has("query")).toBe(false);
+    expect(lastCards().get("type")).toBe("Application");
+  });
+
+  it("expands a collapsed sidebar to name a new draft", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("toggle-collapse"));
+    expect(sidebar()).toHaveAttribute("data-collapsed", "true");
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await screen.findByText("New query view");
+    fireEvent.click(screen.getByTestId("query-path-save"));
+    expect(sidebar()).toHaveAttribute("data-collapsed", "false");
+    expect(JSON.parse(sidebar().getAttribute("data-pending-save")!)).toEqual({
+      type: "Application",
+    });
+  });
+
+  it("locks the sidebar's Types facet and hands it the draft while one is open", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(sidebar()).toHaveAttribute("data-types-locked", "false");
+    expect(sidebar()).toHaveAttribute("data-draft-query", "");
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await screen.findByText("New query view");
+    expect(sidebar()).toHaveAttribute("data-types-locked", "true");
+    expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({
+      type: "Application",
+    });
+    fireEvent.click(screen.getByTestId("query-path-cancel"));
+    expect(sidebar()).toHaveAttribute("data-types-locked", "false");
+    expect(sidebar()).toHaveAttribute("data-draft-query", "");
+  });
+
+  it("previews every complete change of the draft, never a half-filled condition", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+    await addActiveLifecycle();
+    await waitFor(() =>
+      expect(lastQuery()).toEqual({ type: "Application", where: { lifecycle_phase: ["active"] } }),
+    );
+    expect(cardUrls().some((u) => u.includes(encodeURIComponent('"lifecycle_phase":[]')))).toBe(false);
+  });
+
+  it("moves the start type in the same render, so the draft survives it", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await screen.findByText("New query view");
+    fireEvent.click(screen.getByTestId("query-path-start-type"));
+    pickMenu("Objective");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Objective" }));
+    expect(screen.getByText("New query view")).toBeInTheDocument();
+    for (const url of cardUrls().filter((u) => paramsOf(u).has("query"))) {
+      const p = paramsOf(url);
+      expect(p.get("type")).toBe(JSON.parse(p.get("query")!).type);
+    }
+  });
+
+  it("hands a new draft to the sidebar to name and save", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await addActiveLifecycle();
+    expect(sidebar()).toHaveAttribute("data-pending-save", "");
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    fireEvent.click(screen.getByTestId("query-path-save"));
+    expect(JSON.parse(sidebar().getAttribute("data-pending-save")!)).toEqual({
+      type: "Application",
+      where: { lifecycle_phase: ["active"] },
+    });
+    expect(api.patch).not.toHaveBeenCalled();
+    // Still building until the sidebar's save puts the new view in force.
+    expect(screen.getByText("New query view")).toBeInTheDocument();
+  });
+
+  it("saves an edited view in place and puts the saved query in force", async () => {
+    persistActiveView();
+    const NEW_QUERY = { ...QUERY, where: { lifecycle_phase: ["active"] } };
+    vi.mocked(api.patch).mockResolvedValue(queryBookmark({ query: NEW_QUERY, name: "Renamed" }));
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    expect(screen.getByText("Edit query view")).toBeInTheDocument();
+    expect(sidebar()).toHaveAttribute("data-bookmarks-revision", "0");
+    await addActiveLifecycle();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    fireEvent.click(screen.getByTestId("query-path-save"));
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", {
+      query: NEW_QUERY,
+      card_type: "Application",
+    });
+    expect(await screen.findByText("Renamed")).toBeInTheDocument();
+    expect(screen.queryByText("Edit query view")).not.toBeInTheDocument();
+    await waitFor(() => expect(lastQuery()).toEqual(NEW_QUERY));
+    expect(sidebar()).toHaveAttribute("data-bookmarks-revision", "1");
+    await waitFor(() =>
+      expect(prefs().activeQuery).toEqual({
+        viewId: "bm-q",
+        name: "Renamed",
+        query: NEW_QUERY,
+        createdVia: "mcp",
+      }),
+    );
+  });
+
+  it("re-applies the saved view's filters after a save that moved the start type", async () => {
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: { types: ["Application"], approvalStatuses: ["APPROVED"], lifecyclePhases: ["active"] },
+        activeQuery: ACTIVE,
+      }),
+    );
+    const SAVED_QUERY = { type: "Objective" };
+    vi.mocked(api.patch).mockResolvedValue(
+      queryBookmark({ query: SAVED_QUERY, filters: { types: ["Objective"], groupBy: null } }),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    await waitFor(() => expect(lastCards().get("approval_status")).toBe("APPROVED"));
+    fireEvent.click(screen.getByTestId("query-path-start-type"));
+    pickMenu("Objective");
+    await waitFor(() => expect(lastQuery()).toEqual(SAVED_QUERY));
+    // The type toggle keeps the facets that are not type-specific.
+    expect(lastCards().get("approval_status")).toBe("APPROVED");
+    fireEvent.click(screen.getByTestId("query-path-save"));
+
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(lastCards().has("approval_status")).toBe(false));
+    expect(lastCards().get("type")).toBe("Objective");
+    expect(lastQuery()).toEqual(SAVED_QUERY);
+    await waitFor(() => expect(prefs().filters.lifecyclePhases).toEqual([]));
+    expect(prefs().filters.approvalStatuses).toEqual([]);
+    expect(prefs().filters.types).toEqual(["Objective"]);
+  });
+
+  it("shows why a save was refused and stays in the builder", async () => {
+    persistActiveView();
+    vi.mocked(api.patch).mockRejectedValue(
+      Object.assign(new Error("Bad request"), { status: 400, detail: "tag_not_for_type" }),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    fireEvent.click(screen.getByTestId("query-path-save"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "A tag in this query belongs to a tag group that does not apply to its card type.",
+    );
+    expect(screen.getByText("Edit query view")).toBeInTheDocument();
+    expect(sidebar()).toHaveAttribute("data-bookmarks-revision", "0");
+    expect(prefs().activeQuery).toEqual(ACTIVE);
+  });
+
+  it("names a refusal without a code by its message", async () => {
+    persistActiveView();
+    vi.mocked(api.patch).mockRejectedValue(new Error("Network down"));
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    fireEvent.click(screen.getByTestId("query-path-save"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Network down");
+  });
+
+  it("cancels an edit back to the view in force, on its own start type", async () => {
+    persistActiveView();
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    fireEvent.click(screen.getByTestId("query-path-start-type"));
+    pickMenu("Objective");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Objective" }));
+
+    fireEvent.click(screen.getByTestId("query-path-cancel"));
+    expect(screen.queryByText("Edit query view")).not.toBeInTheDocument();
+    expect(screen.getByText("Apps on live tech")).toBeInTheDocument();
+    await waitFor(() => expect(lastQuery()).toEqual(QUERY));
+    expect(lastCards().get("type")).toBe("Application");
+    expect(sidebar()).toHaveAttribute("data-external-view-id", "bm-q");
+  });
+
+  it("shows the pencil only on a view the user may edit, from either bookmark list", async () => {
+    persistActiveView();
+    mockBookmarks([queryBookmark({ is_owner: false, can_edit: false })]);
+    renderPage();
+    await screen.findByText("Apps on live tech");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(screen.queryByTestId("query-path-edit")).not.toBeInTheDocument();
+
+    // Shared with edit rights, as the sidebar's list says.
+    sidebarStub.bookmarks = [queryBookmark({ is_owner: false, can_edit: true })];
+    fireEvent.click(screen.getByTestId("report-bookmarks"));
+    expect(screen.getByTestId("query-path-edit")).toBeInTheDocument();
+
+    sidebarStub.bookmarks = [];
+    fireEvent.click(screen.getByTestId("report-bookmarks"));
+    expect(screen.queryByTestId("query-path-edit")).not.toBeInTheDocument();
+  });
+
+  it("shows no pencil without bookmarks.manage, even on a view shared with edit rights", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: "u2", email: "v@test.com", display_name: "V", role: "viewer", permissions: { "inventory.view": true } },
+      loading: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      ssoCallback: vi.fn(),
+      setPassword: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>);
+    persistActiveView();
+    mockBookmarks([queryBookmark({ is_owner: false, can_edit: true })]);
+    renderPage();
+    await screen.findByText("Apps on live tech");
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(screen.queryByTestId("query-path-edit")).not.toBeInTheDocument();
+    sidebarStub.bookmarks = [queryBookmark({ is_owner: true, can_edit: true })];
+    fireEvent.click(screen.getByTestId("report-bookmarks"));
+    expect(screen.queryByTestId("query-path-edit")).not.toBeInTheDocument();
+  });
+
+  it("does not offer view management without bookmarks.manage", async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: "u2", email: "v@test.com", display_name: "V", role: "viewer", permissions: { "inventory.view": true } },
+      loading: false,
+      login: vi.fn(),
+      register: vi.fn(),
+      logout: vi.fn(),
+      ssoCallback: vi.fn(),
+      setPassword: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>);
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    expect(sidebar()).toHaveAttribute("data-can-manage-bookmarks", "false");
+  });
+
+  it("a type change from outside the facet leaves an open draft as it is", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await screen.findByText("New query view");
+    await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+    const before = cardUrls().length;
+    fireEvent.click(screen.getByTestId("select-objective"));
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    expect(screen.getByText("New query view")).toBeInTheDocument();
+    // Still the draft's preview, on its own start type.
+    expect(lastQuery()).toEqual({ type: "Application" });
+    expect(lastCards().get("type")).toBe("Application");
+  });
+
+  it("selecting another type still leaves a query view in force", async () => {
+    persistActiveView();
+    renderPage();
+    await screen.findByText("Apps on live tech");
+    await waitFor(() => expect(lastQuery()).toEqual(QUERY));
+    fireEvent.click(screen.getByTestId("select-objective"));
+    await waitFor(() => expect(screen.queryByTestId("query-path-strip")).not.toBeInTheDocument());
+    await waitFor(() => expect(lastCards().get("type")).toBe("Objective"));
+    expect(lastCards().has("query")).toBe(false);
+  });
+
+  it("a ?view= link resolving replaces the draft", async () => {
+    localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
+    renderPage();
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByTestId("start-query-draft"));
+    await screen.findByText("New query view");
+    fireEvent.click(screen.getByTestId("go-view"));
+    expect(await screen.findByText("Apps on live tech")).toBeInTheDocument();
+    expect(screen.queryByText("New query view")).not.toBeInTheDocument();
+    await waitFor(() => expect(lastQuery()).toEqual(QUERY));
   });
 });

@@ -183,7 +183,7 @@ In questa modalità, il server si autentica con email/password e rinnova il toke
 
 ## Funzionalità disponibili
 
-Il server MCP espone **54 strumenti** suddivisi in due gruppi: **34 strumenti di lettura** che interrogano i dati EA e **20 strumenti di scrittura** (15 additivi, 5 distruttivi) che creano e mantengono card, relazioni, diagrammi, rischi, ADR, viste di inventario salvate e altro ancora — inclusa la trasformazione degli artefatti che uno strumento di IA ha nel proprio contesto (fogli di calcolo, BPMN XML, DrawIO XML, documenti, immagini) in dati EA strutturati. Ogni strumento porta `ToolAnnotations` MCP (indicazioni di sola lettura / distruttivo / idempotente) in modo che i connettori possano evidenziare la distruttività nella loro interfaccia.
+Il server MCP espone **55 strumenti** suddivisi in due gruppi: **35 strumenti di lettura** che interrogano i dati EA e **20 strumenti di scrittura** (15 additivi, 5 distruttivi) che creano e mantengono card, relazioni, diagrammi, rischi, ADR, viste di inventario salvate e altro ancora — inclusa la trasformazione degli artefatti che uno strumento di IA ha nel proprio contesto (fogli di calcolo, BPMN XML, DrawIO XML, documenti, immagini) in dati EA strutturati. Ogni strumento porta `ToolAnnotations` MCP (indicazioni di sola lettura / distruttivo / idempotente) in modo che i connettori possano evidenziare la distruttività nella loro interfaccia.
 
 ### Sicurezza tramite esecuzione di prova nelle scritture
 
@@ -196,7 +196,7 @@ In entrambi i casi l'anteprima viene registrata nel registro di audit come batch
 
 ### Strumenti di lettura
 
-Il server espone 34 strumenti di lettura raggruppati in otto cluster.
+Il server espone 35 strumenti di lettura raggruppati in otto cluster.
 
 **Card & metamodello**
 
@@ -210,6 +210,7 @@ Il server espone 34 strumenti di lettura raggruppati in otto cluster.
 | `get_card_hierarchy` | Ottenere antenati e figli di una card |
 | `list_card_types` | Elencare tutti i tipi di card nel metamodello; il campo `category` di ogni tipo è la chiave della sua categoria (livello architetturale) |
 | `get_relation_types` | Elencare i tipi di relazione, con filtro opzionale per tipo di card |
+| `list_tag_groups` | Elencare i gruppi di tag (con i tipi di card a cui si applica ciascuno) e i loro tag; gli id dei tag sono ciò che `query_cards` e `save_inventory_view` accettano in `where.tags` |
 | `resolve_card_refs` | Pre-validare i riferimenti alle card basati sul nome (nome → UUID) prima di un'importazione di massa — risolve soltanto, non scrive mai |
 | `analyze_impact` | Analisi del raggio d'impatto delle dipendenze per una modifica proposta a una card |
 
@@ -317,7 +318,7 @@ Il server espone 20 strumenti di scrittura, ciascuno annotato come **additivo** 
 
 `query_cards` risponde in una sola chiamata a una domanda che concatena relazioni — «Organizzazioni che usano un'Applicazione con ciclo di vita Attivo, influenzata da un'Iniziativa con stato In linea» — e `save_inventory_view` conserva la stessa query come vista di inventario salvata. La vista memorizza la query, non i suoi risultati: l'inventario la riesegue ogni volta che qualcuno apre la vista, così l'elenco resta aggiornato.
 
-Una query è un piccolo oggetto JSON composto **solo da chiavi** — chiavi di tipo di card, di tipo di relazione, di campo e di opzione così come le restituiscono `list_card_types` e `get_relation_types`, mai etichette né id di card:
+Una query è un piccolo oggetto JSON composto **solo da chiavi** — chiavi di tipo di card, di tipo di relazione, di campo e di opzione così come le restituiscono `list_card_types` e `get_relation_types`, più gli id dei tag di `list_tag_groups`; mai etichette né id di card:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -326,12 +327,14 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
-              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id] }
 ```
 
 - Un salto corrisponde quando **una qualsiasi** card correlata di quel tipo soddisfa il suo `where` (e i suoi salti annidati). `negate: true` lo trasforma in «**non** ha nessuna card di questo tipo».
 - I salti affiancati allo stesso livello devono corrispondere tutti (AND); i valori all'interno di un elenco sono alternative (OR).
 - `<key>__out` e `<key>__in` scelgono un lato di un tipo di relazione che collega un tipo di card a sé stesso (la card è l'origine o la destinazione). Altrimenti basta la chiave semplice.
+- `tags` accetta id di tag da `list_tag_groups`, raggruppati per gruppo di tag: una card deve avere almeno uno dei tag elencati di **ogni** gruppo indicato (alternative all'interno di un gruppo, AND tra i gruppi). Un tag il cui gruppo non si applica al tipo di card di quel salto viene rifiutato con `tag_not_for_type`; un id sconosciuto con `unknown_tag`.
 - Le card correlate contano solo se sono attive e l'utente può leggerle: una card che l'utente non può vedere interrompe la catena, esattamente come nell'interfaccia web.
 
 Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'Iniziativa con stato *On Track*:
@@ -356,12 +359,12 @@ Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'In
 }
 ```
 
-Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia ed è contrassegnata come generata tramite MCP. La sua query può essere modificata solo tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da un altro tipo di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano al tipo precedente; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può comunque rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
+Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da un altro tipo di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano al tipo precedente; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
 
 Limitazioni:
 
 - Al massimo **3 livelli** di `related`, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
-- Nessuna condizione sui **tag** né su card specifiche.
+- Nessuna condizione su card specifiche (i tag sono supportati).
 - Un attributo di testo corrisponde al suo valore **esattamente** — non esiste corrispondenza parziale né senza distinzione tra maiuscole e minuscole.
 - **`rollback_batch` non può annullare una vista salvata.** Salvare una vista registra un batch di mutazioni ma non pubblica alcun evento che il rollback possa invertire; elimina una vista indesiderata dalle Viste salvate dell'inventario.
 
@@ -383,7 +386,7 @@ Difesa in profondità sopra l'esecuzione di prova, in modo che un errore del LLM
 
 - **Limite di dimensione per chiamata.** Gli strumenti di scrittura MCP applicano un limite molto più piccolo rispetto agli endpoint sottostanti dell'importatore Excel: 200 righe per `create_cards_bulk`, 500 operazioni per `upsert_relations_bulk`. Sufficientemente grande per qualsiasi caricamento realistico di un singolo artefatto, sufficientemente piccolo perché un'anteprima di esecuzione di prova rimanga visionabile.
 - **Nessuna eliminazione di relazioni per impostazione predefinita.** `upsert_relations_bulk` rifiuta le operazioni `action: "delete"` — per rimuovere relazioni, utilizzare l'interfaccia web dove l'azione viene registrata sotto l'identità dell'utente. Gli operatori possono abilitarla impostando `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruttore di spegnimento.** `MCP_WRITES_ENABLED=false` disattiva tutti i 20 strumenti di scrittura senza ridistribuire codice. I 34 strumenti di lettura continuano a funzionare.
+- **Interruttore di spegnimento.** `MCP_WRITES_ENABLED=false` disattiva tutti i 20 strumenti di scrittura senza ridistribuire codice. I 35 strumenti di lettura continuano a funzionare.
 - **Il download dei loghi passa da una lista di host consentiti.** I pacchetti di icone inclusi non possono coprire ogni prodotto di un cliente, e un assistente è spesso isolato senza accesso al web: perciò `set_card_logos` accetta un `image_url` che il server MCP scarica. Solo `https`, solo gli host di `MCP_LOGO_FETCH_HOSTS`, solo indirizzi pubblici, al massimo due reindirizzamenti (ricontrollati ogni volta), al massimo 1 MB letto in streaming, e i byte devono portare una vera firma PNG/JPEG/WebP/GIF. Il download avviene al bordo MCP, mai nel backend, e l'immagine viene poi caricata per la via ordinaria: un URL scelto da un LLM non raggiunge mai il processo che detiene il database. `MCP_LOGO_FETCH_ENABLED=false` lo disattiva.
 - **Etichetta di origine per l'audit.** Ogni richiesta al backend dal server MCP porta un'intestazione `X-Turbo-EA-Origin: mcp`. Gli eventi emessi da queste richieste vengono etichettati con `origin: "mcp"` nel payload del log di audit, in modo che gli amministratori possano filtrare le scritture guidate da MCP fuori dalla timeline, separate dalle azioni dell'interfaccia web.
 - **Batch di mutazione.** Ogni chiamata di scrittura MCP — sia l'anteprima sia il commit — è un batch di mutazione nel registro di audit, aperto prima che venga scritto qualsiasi dato; ogni evento emesso durante la chiamata viene marcato con l'id del batch, e ogni strumento di scrittura restituisce quel `batch_id`. Gli amministratori (o lo strumento `get_change_history`) possono ricostruire il diff completo per evento di un commit a partire da un singolo id, e `rollback_batch` può annullarlo, compresa l'eliminazione di un diagramma creato da `create_diagram`, a meno che nel frattempo qualcuno non lo abbia pubblicato. Un aggiornamento di diagramma viene segnalato come non reversibile, perché il canvas precedente non viene conservato. I commit che superano `MCP_BATCH_CONFIRMATION_THRESHOLD` righe devono restituire il `confirm_token` monouso fornito dalla precedente esecuzione di prova. Il backend lo verifica all'apertura del batch del commit, prima di qualsiasi scrittura: deve provenire da un'esecuzione di prova dello stesso strumento, dello stesso utente, di meno di 15 minuti prima, e autorizza un solo commit. Ogni strumento di scrittura massiva segue questo ciclo di anteprima e conferma: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.

@@ -12,15 +12,18 @@ export default function FilterSelect({
   options,
   value,
   onChange,
+  allowEmpty = true,
 }: {
   label: string;
   options: { key: string; label: string; color?: string }[];
   value: string[];
   onChange: (v: string[]) => void;
+  /** Offer the "(empty)" option (no value set). Off where "no value" cannot occur. */
+  allowEmpty?: boolean;
 }) {
   const { t } = useTranslation("common");
   const emptyOption = { key: EMPTY_FILTER_KEY, label: t("labels.empty"), color: undefined as string | undefined };
-  const allOptions = [emptyOption, ...options];
+  const allOptions = allowEmpty ? [emptyOption, ...options] : options;
 
   return (
     <Autocomplete

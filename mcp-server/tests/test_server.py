@@ -609,3 +609,68 @@ class TestListInventoryViews:
 
         monkeypatch.setattr(server, "_stdio_token", None)
         assert "Not authenticated" in asyncio.run(server.list_inventory_views())
+
+
+class TestListTagGroups:
+    @pytest.mark.asyncio
+    async def test_trims_groups_and_tags_to_the_listed_keys(self, fake_token):
+        group = {
+            "id": "g1",
+            "name": "Domain",
+            "description": "Business domain",
+            "mode": "multi",
+            "mandatory": True,
+            "restrict_to_types": ["Application", "Organization"],
+            "tags": [
+                {
+                    "id": "t1",
+                    "name": "Finance",
+                    "description": "Money",
+                    "color": "#123456",
+                    "tag_group_id": "g1",
+                },
+                {"id": "t2", "name": "Sales", "color": None, "tag_group_id": "g1"},
+            ],
+        }
+        patcher, mock = _patched_get([group])
+        with patcher:
+            out = _parse(await server.list_tag_groups())
+        _assert_called_with(mock, "/tag-groups")
+        assert out == [
+            {
+                "id": "g1",
+                "name": "Domain",
+                "mode": "multi",
+                "restrict_to_types": ["Application", "Organization"],
+                "tags": [
+                    {"id": "t1", "name": "Finance", "color": "#123456"},
+                    {"id": "t2", "name": "Sales", "color": None},
+                ],
+            }
+        ]
+
+    @pytest.mark.asyncio
+    async def test_an_unrestricted_group_and_a_tagless_group_pass_through(self, fake_token):
+        groups = [
+            {"id": "g1", "name": "Tier", "mode": "single", "restrict_to_types": None, "tags": []},
+            {"id": "g2", "name": "Empty", "mode": "multi", "restrict_to_types": []},
+        ]
+        patcher, _ = _patched_get(groups)
+        with patcher:
+            out = _parse(await server.list_tag_groups())
+        assert out == [
+            {"id": "g1", "name": "Tier", "mode": "single", "restrict_to_types": None, "tags": []},
+            {"id": "g2", "name": "Empty", "mode": "multi", "restrict_to_types": [], "tags": []},
+        ]
+
+    @pytest.mark.asyncio
+    async def test_a_non_list_answer_is_an_empty_list(self, fake_token):
+        patcher, _ = _patched_get({"detail": "odd"})
+        with patcher:
+            assert _parse(await server.list_tag_groups()) == []
+
+    def test_requires_auth(self, monkeypatch):
+        import asyncio
+
+        monkeypatch.setattr(server, "_stdio_token", None)
+        assert "Not authenticated" in asyncio.run(server.list_tag_groups())

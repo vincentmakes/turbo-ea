@@ -40,6 +40,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import QueryPathStrip from "./QueryPathStrip";
+import { draftProblem } from "./queryDraft";
 import {
   activeQueryFromBookmark,
   bookmarkFilters,
@@ -55,6 +56,7 @@ import InventoryFilterSidebar, {
   EOL_COLUMN_KEY,
   EMPTY_VALUE,
   eolColumnApplies,
+  filtersAfterTypeToggle,
   hierarchyLabelColumnApplies,
   logoColumnApplies,
   treeGroupingApplies,
@@ -208,7 +210,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { ActiveQuery, Bookmark, Card, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { ActiveQuery, Bookmark, Card, CardQuery, QueryDraft, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -950,6 +952,7 @@ export default function InventoryPage() {
   const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
   const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
+  const canManageBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.manage"]);
   const canViewCostsGlobally = !!(user?.permissions?.["*"] || user?.permissions?.["costs.view"]);
   const canManageStakeholders = !!(user?.permissions?.["*"] || user?.permissions?.["stakeholders.manage"]);
   const { symbol: currencySymbol } = useCurrency();
@@ -1042,11 +1045,41 @@ export default function InventoryPage() {
       searchParams.has("view") ||
       (!urlHasFilterParams(searchParams) && !!savedPrefsRef.current?.activeQuery),
   );
-  // A query view is evaluated against its start type, so it only holds while
-  // that type is the one selected; any other type selection leaves the view.
+  // The query view being built or edited in the path strip (never persisted:
+  // a reload drops an unsaved draft), with its save state.
+  const [queryDraft, setQueryDraft] = useState<QueryDraft | null>(null);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  // A new draft's query handed to the sidebar, whose save dialog names it.
+  const [pendingSave, setPendingSave] = useState<CardQuery | null>(null);
+  // Bumped after the page saved a view itself, so the sidebar reloads its list.
+  const [bookmarksRevision, setBookmarksRevision] = useState(0);
+  // The saved views the user can read, by id — from the page's own lookup and
+  // every list the sidebar loads. Says whether the view in force is editable.
+  const [bookmarkIndex, setBookmarkIndex] = useState<Map<string, Bookmark>>(() => new Map());
+  const indexBookmarks = useCallback((list: Bookmark[]) => {
+    setBookmarkIndex(new Map(list.map((b) => [b.id, b])));
+  }, []);
+  const activeBookmark = activeQuery ? bookmarkIndex.get(activeQuery.viewId) : undefined;
+  // Editing a view is saving one: it takes `bookmarks.manage` as well as the
+  // view's own owner / edit right.
+  const canEditActiveView =
+    canManageBookmarks && !!activeBookmark && (activeBookmark.is_owner || !!activeBookmark.can_edit);
+  // A draft still missing its type or a condition's values cannot be sent;
+  // the grid keeps loading without it meanwhile.
+  const draftUnsendable = queryDraft != null && draftProblem(queryDraft.query) != null;
+  // The query the cards are fetched with: the draft while one is open.
+  const sentQuery: CardQuery | null = queryDraft
+    ? draftUnsendable
+      ? null
+      : queryDraft.query
+    : (activeQuery?.query ?? null);
+  // A query is evaluated against its start type, so it only holds while that
+  // type is the one selected; any other type selection leaves the view (and
+  // cancels a draft). A draft without a type yet pins nothing.
+  const pinnedType = queryDraft?.query.type || activeQuery?.query.type;
   const queryMatchesTypes =
-    !activeQuery ||
-    (filters.types.length === 1 && filters.types[0] === activeQuery.query.type);
+    !pinnedType || (filters.types.length === 1 && filters.types[0] === pinnedType);
 
   // Sort model for AG Grid persistence
   const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
@@ -1765,17 +1798,19 @@ export default function InventoryPage() {
   const loadData = useCallback(async () => {
     // Wait for the opening view to resolve, and for a type change that left
     // the query view to clear it, rather than fetch what is about to change.
-    if (viewPending || !queryMatchesTypes) return;
+    // An open draft is never left that way, so it keeps loading.
+    if (viewPending || (!queryMatchesTypes && !queryDraft)) return;
     await cardsRequest.run(async ({ signal, isCurrent }) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
         if (filters.types.length === 1) params.set("type", filters.types[0]);
-        // A query view is evaluated by the server against its start type.
-        if (activeQuery) {
-          params.set("type", activeQuery.query.type);
-          params.set("query", JSON.stringify(activeQuery.query));
-        }
+        // A query is evaluated by the server against its start type, which
+        // stays pinned while a draft's condition is still being filled in
+        // (the draft without a type yet pins nothing).
+        const startType = queryDraft ? queryDraft.query.type : sentQuery?.type;
+        if (startType) params.set("type", startType);
+        if (sentQuery) params.set("query", JSON.stringify(sentQuery));
         if (debouncedSearch) params.set("search", debouncedSearch);
         if (filters.approvalStatuses.length > 0) {
           params.set("approval_status", filters.approvalStatuses.join(","));
@@ -1818,7 +1853,8 @@ export default function InventoryPage() {
     cardsRequest,
     viewPending,
     queryMatchesTypes,
-    activeQuery,
+    queryDraft,
+    sentQuery,
     filters.types,
     debouncedSearch,
     filters.approvalStatuses,
@@ -1863,6 +1899,7 @@ export default function InventoryPage() {
       }
       if (!isCurrent()) return;
       queryToRevalidateRef.current = null;
+      if (bookmarks) indexBookmarks(bookmarks);
 
       // A persisted query view checked against the list (kept as is when the
       // list could not be read); re-applies the view's filters when its start
@@ -1900,6 +1937,8 @@ export default function InventoryPage() {
         applyColumnFilters(bm.column_filter_model ?? null);
         setActiveQuery(activeQueryFromBookmark(bm));
         setDeepLinkedViewId(bm.id);
+        // A view opened from a link replaces whatever was being built.
+        setQueryDraft(null);
       } else {
         // Unknown view: land where the user left off — unless the link also
         // carries its own filters or grouping, which still win.
@@ -1929,16 +1968,112 @@ export default function InventoryPage() {
     [viewParam],
   );
 
-  // Leaving (or replacing) a query view also ends the deep link's highlight.
+  // Leaving (or replacing) a query view also ends the deep link's highlight
+  // and whatever draft was open.
   const applyQuery = useCallback((query: ActiveQuery | null) => {
     setActiveQuery(query);
     setDeepLinkedViewId(null);
+    setQueryDraft(null);
+    setDraftError(null);
   }, []);
 
-  // Selecting any type but the view's start type leaves the query view.
+  // Selecting any type but the start type leaves the query view. An open
+  // draft is never dropped that way: the Types facet is locked while one is
+  // open, and a filter change from elsewhere leaves the draft as it is.
   useEffect(() => {
-    if (!queryMatchesTypes) applyQuery(null);
-  }, [queryMatchesTypes, applyQuery]);
+    if (!queryMatchesTypes && !queryDraft) applyQuery(null);
+  }, [queryMatchesTypes, queryDraft, applyQuery]);
+
+  // --- Query builder (the path strip in edit mode) ---------------------------
+
+  // Only the start type selected, the type-specific facets reset (as the
+  // sidebar's type toggle does) unless it already was.
+  const pinStartType = useCallback((type: string) => {
+    setFilters((f) =>
+      f.types.length === 1 && f.types[0] === type
+        ? f
+        : filtersAfterTypeToggle({ ...f, types: [] }, type),
+    );
+  }, []);
+
+  const startQueryDraft = useCallback(() => {
+    // One selected type starts the draft; none or several leave the choice to
+    // the strip's type chooser, and the filters alone until a type is chosen.
+    const { types: selected } = filtersRef.current;
+    const type = selected.length === 1 ? selected[0] : "";
+    if (type) pinStartType(type);
+    setQueryDraft({ query: { type }, viewId: null });
+    setDraftError(null);
+    setFilterDrawerOpen(false);
+  }, [pinStartType]);
+
+  const editActiveQuery = useCallback(() => {
+    if (!activeQuery) return;
+    setQueryDraft({ query: activeQuery.query, viewId: activeQuery.viewId });
+    setDraftError(null);
+  }, [activeQuery]);
+
+  const changeDraft = useCallback(
+    (next: QueryDraft) => {
+      // A new start type is selected in the same render, so the draft never
+      // looks like it left its type.
+      if (next.query.type && next.query.type !== queryDraft?.query.type) {
+        pinStartType(next.query.type);
+      }
+      setQueryDraft(next);
+      setDraftError(null);
+    },
+    [queryDraft, pinStartType],
+  );
+
+  const cancelDraft = useCallback(() => {
+    setQueryDraft(null);
+    setDraftError(null);
+    setPendingSave(null);
+    // Back to the view in force, on its own start type.
+    if (activeQuery) pinStartType(activeQuery.query.type);
+  }, [activeQuery, pinStartType]);
+
+  const saveDraft = useCallback(async () => {
+    if (!queryDraft || draftProblem(queryDraft.query)) return;
+    const { query, viewId } = queryDraft;
+    if (!viewId) {
+      // A new view is named and shared in the sidebar's save dialog, which
+      // only the open drawer / expanded sidebar renders.
+      if (isMobile) setFilterDrawerOpen(true);
+      else setSidebarCollapsed(false);
+      setPendingSave(query);
+      return;
+    }
+    setDraftSaving(true);
+    setDraftError(null);
+    try {
+      const saved = await api.patch<Bookmark>(`/bookmarks/${viewId}`, {
+        query,
+        card_type: query.type,
+      });
+      setBookmarkIndex((prev) => new Map(prev).set(saved.id, saved));
+      // A new start type reset the view's stored facets on the server: apply
+      // them as saved, so no facet of the old type lingers.
+      const nextFilters = bookmarkFilters(saved);
+      if (nextFilters) setFilters(nextFilters);
+      const grouping = bookmarkGrouping(saved);
+      setGroupBy(grouping.groupBy);
+      setGroupTree(grouping.groupTree);
+      setGroupTreeLevel(grouping.groupTreeLevel);
+      applyQuery(activeQueryFromBookmark(saved));
+      setBookmarksRevision((r) => r + 1);
+    } catch (err) {
+      const detail = (err as { detail?: unknown } | null)?.detail;
+      setDraftError(
+        typeof detail === "string" ? detail : err instanceof Error ? err.message : "error",
+      );
+    } finally {
+      setDraftSaving(false);
+    }
+  }, [queryDraft, isMobile, applyQuery]);
+
+  const clearPendingSave = useCallback(() => setPendingSave(null), []);
 
   // All relation type keys we need to fetch (including grouped duplicates)
   const allRelTypeKeys = useMemo(() => {
@@ -4509,6 +4644,14 @@ export default function InventoryPage() {
             onApplyQuery={applyQuery}
             externalActiveViewId={activeQuery?.viewId ?? deepLinkedViewId ?? null}
             relationTypes={relationTypes}
+            canManageBookmarks={canManageBookmarks}
+            onStartQueryDraft={startQueryDraft}
+            draftQuery={queryDraft?.query ?? null}
+            typesLocked={queryDraft != null}
+            pendingSave={pendingSave}
+            onPendingSaveHandled={clearPendingSave}
+            onBookmarksLoaded={indexBookmarks}
+            bookmarksRevision={bookmarksRevision}
           />
         </Drawer>
       ) : (
@@ -4554,6 +4697,14 @@ export default function InventoryPage() {
           onApplyQuery={applyQuery}
           externalActiveViewId={activeQuery?.viewId ?? deepLinkedViewId ?? null}
           relationTypes={relationTypes}
+          canManageBookmarks={canManageBookmarks}
+          onStartQueryDraft={startQueryDraft}
+          draftQuery={queryDraft?.query ?? null}
+          typesLocked={queryDraft != null}
+          pendingSave={pendingSave}
+          onPendingSaveHandled={clearPendingSave}
+          onBookmarksLoaded={indexBookmarks}
+          bookmarksRevision={bookmarksRevision}
         />
       )}
 
@@ -4834,7 +4985,19 @@ export default function InventoryPage() {
           </Box>
         )}
 
-        <QueryPathStrip view={activeQuery} onLeave={() => applyQuery(null)} />
+        <QueryPathStrip
+          view={activeQuery}
+          draft={queryDraft}
+          canEdit={canEditActiveView}
+          tagGroups={tagGroups}
+          onLeave={() => applyQuery(null)}
+          onEdit={editActiveQuery}
+          onDraftChange={changeDraft}
+          onSave={saveDraft}
+          onCancel={cancelDraft}
+          saving={draftSaving}
+          error={draftError}
+        />
 
         {/* A failed load leaves the previous rows on screen behind the alert —
             blanking the grid would lose the user's context for no benefit. */}

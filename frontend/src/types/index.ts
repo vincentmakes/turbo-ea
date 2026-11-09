@@ -781,7 +781,7 @@ export interface Bookmark {
   updated_via?: string | null;
 }
 
-/** Per-node conditions of a `CardQuery` — keys only, never ids. */
+/** Per-node conditions of a `CardQuery` — metamodel keys, plus tag ids. */
 export interface CardQueryWhere {
   /** Lifecycle phase keys (`plan` … `endOfLife`), or `none` for no lifecycle. */
   lifecycle_phase?: string[];
@@ -789,6 +789,8 @@ export interface CardQueryWhere {
   approval_status?: string[];
   /** Field key → option keys / `"true"` / `"false"` / text / `"__empty__"`. */
   attributes?: Record<string, string[]>;
+  /** Tag ids: any tag of one tag group (OR), every group named (AND). */
+  tags?: string[];
 }
 
 /** One hop of a `CardQuery`: an EXISTS (or, with `negate`, NOT EXISTS) over a
@@ -815,6 +817,13 @@ export interface ActiveQuery {
   name: string;
   query: CardQuery;
   createdVia?: string | null;
+}
+
+/** A query view being built or edited in the inventory's path strip. */
+export interface QueryDraft {
+  query: CardQuery;
+  /** The saved view being edited, or null for a new one. */
+  viewId: string | null;
 }
 
 export interface SavedReport {

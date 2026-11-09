@@ -48,8 +48,10 @@ import {
   isQueryView,
 } from "./viewApply";
 import { compactPath } from "./queryPath";
+import { draftProblem } from "./queryDraft";
 import type {
   ActiveQuery,
+  CardQuery,
   CardType,
   Bookmark,
   ColumnLayoutItem,
@@ -211,6 +213,31 @@ interface Props {
   externalActiveViewId?: string | null;
   /** Every relation type of the metamodel — names the hops of a query view. */
   relationTypes?: RelationType[];
+  /** May the user save views (`bookmarks.manage`)? Gates "New query view". */
+  canManageBookmarks?: boolean;
+  /** Starts a new query view in the page's path strip. */
+  onStartQueryDraft?: () => void;
+  /**
+   * A query built in the path strip, waiting to be saved as a new view: the
+   * sidebar opens its save dialog with the query attached, then reports back
+   * through `onPendingSaveHandled`.
+   */
+  pendingSave?: CardQuery | null;
+  onPendingSaveHandled?: () => void;
+  /**
+   * The query open in the path strip, if any: "Save current" saves it (a
+   * draft still missing a type or a value disables the save buttons).
+   */
+  draftQuery?: CardQuery | null;
+  /**
+   * Locks the Types facet: a query draft is open, and its start type is
+   * changed in the strip, never by the facet (which would drop the draft).
+   */
+  typesLocked?: boolean;
+  /** Every saved-view list the sidebar loads, so the page knows who may edit what. */
+  onBookmarksLoaded?: (bookmarks: Bookmark[]) => void;
+  /** Bumped by the page after it changed a view itself; reloads the list. */
+  bookmarksRevision?: number;
 }
 
 export const APPROVAL_STATUS_OPTIONS = [
@@ -467,6 +494,14 @@ export default function InventoryFilterSidebar({
   onApplyQuery,
   externalActiveViewId = null,
   relationTypes = [],
+  canManageBookmarks = false,
+  onStartQueryDraft,
+  pendingSave = null,
+  onPendingSaveHandled,
+  draftQuery = null,
+  typesLocked = false,
+  onBookmarksLoaded,
+  bookmarksRevision = 0,
 }: Props) {
   const { t, i18n } = useTranslation(["inventory", "common"]);
   // EOL status labels live in the reports namespace — the EOL report owns
@@ -531,11 +566,18 @@ export default function InventoryFilterSidebar({
   const [dialogSharedWith, setDialogSharedWith] = useState<(User & { can_edit?: boolean })[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
-  // Load bookmarks
+  // A query from the path strip that the open save dialog will attach.
+  const [pendingQuery, setPendingQuery] = useState<CardQuery | null>(null);
+
+  // Load bookmarks (and hand the list to the page, through a ref so a new
+  // callback identity never refetches).
+  const onBookmarksLoadedRef = useRef(onBookmarksLoaded);
+  onBookmarksLoadedRef.current = onBookmarksLoaded;
   const loadBookmarks = useCallback(async () => {
     try {
       const bms = await api.get<Bookmark[]>("/bookmarks");
       setBookmarks(bms);
+      onBookmarksLoadedRef.current?.(bms);
     } catch {
       // ignore
     }
@@ -543,7 +585,7 @@ export default function InventoryFilterSidebar({
 
   useEffect(() => {
     loadBookmarks();
-  }, [loadBookmarks]);
+  }, [loadBookmarks, bookmarksRevision]);
 
   // Card types bucketed by EA layer — see `lib/cardTypeOrder.ts`. The API
   // orders by `sort_order` alone, which only looks layered because the seed
@@ -743,8 +785,12 @@ export default function InventoryFilterSidebar({
     [bookmarks],
   );
 
-  // The query view in force, if the page has one: "Save current" then creates
-  // a plain view, which the dialog and the button say.
+  // The query view in force, if the page has one: "Save current" then saves
+  // a copy of it, query included.
+  // A draft in the strip that cannot be saved yet (no type, or a condition
+  // without values): "Save current" would save it, so it waits.
+  const draftUnfinished = draftQuery != null && draftProblem(draftQuery) != null;
+
   const activeQueryView = useMemo(
     () =>
       externalActiveViewId
@@ -752,18 +798,31 @@ export default function InventoryFilterSidebar({
         : null,
     [bookmarks, externalActiveViewId],
   );
-  const saveCurrentHint = activeQueryView ? t("inventory:queryView.saveWithoutQuery") : "";
-  const editingQueryView = editingBookmark != null && isQueryView(editingBookmark);
 
   /* ---- Views actions ---- */
 
-  const openCreateDialog = () => {
+  const openCreateDialog = (query: CardQuery | null = null) => {
+    setPendingQuery(query);
     setEditingBookmark(null);
     setViewName("");
     setDialogVisibility("private");
     setDialogOdata(false);
     setDialogSharedWith([]);
     setSaveDialogOpen(true);
+  };
+
+  // A query built in the path strip opens the save dialog with it attached.
+  useEffect(() => {
+    if (!pendingSave) return;
+    openCreateDialog(pendingSave);
+    onPendingSaveHandled?.();
+    // Only a new pending query opens the dialog.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSave]);
+
+  const closeSaveDialog = () => {
+    setSaveDialogOpen(false);
+    setPendingQuery(null);
   };
 
   const handleSaveView = async () => {
@@ -779,10 +838,10 @@ export default function InventoryFilterSidebar({
         columnFilterModel && Object.keys(columnFilterModel).length > 0 ? columnFilterModel : null,
     };
     if (editingBookmark && isQueryView(editingBookmark)) {
-      // A query view's filters belong to its MCP query: the web UI changes
-      // its name, sharing, OData and layout only. Its stored facets are sent
-      // back as they are, with just the grouping taken from the grid, and the
-      // query itself is never sent.
+      // A query view's query is edited in the path strip (the page saves
+      // it); this metadata dialog changes its name, sharing, OData and
+      // layout only. Its stored facets are sent back as they are, with just
+      // the grouping taken from the grid, and the query is never sent.
       await api.patch(`/bookmarks/${editingBookmark.id}`, {
         name: viewName.trim(),
         visibility: dialogVisibility,
@@ -802,11 +861,18 @@ export default function InventoryFilterSidebar({
       loadBookmarks();
       return;
     }
+    // A new view keeps the query handed over by the strip's Save, else the
+    // draft open in the strip, else the one in force.
+    const query = editingBookmark
+      ? null
+      : pendingQuery ?? draftQuery ?? activeQueryView?.query ?? null;
+    const viewTypes = query ? [query.type] : filters.types;
     const payload: Record<string, unknown> = {
       name: viewName.trim(),
-      card_type: filters.types.length === 1 ? filters.types[0] : undefined,
+      card_type: viewTypes.length === 1 ? viewTypes[0] : undefined,
+      ...(query ? { query } : {}),
       filters: {
-        types: filters.types,
+        types: viewTypes,
         search: filters.search,
         subtypes: filters.subtypes,
         lifecyclePhases: filters.lifecyclePhases,
@@ -836,9 +902,21 @@ export default function InventoryFilterSidebar({
     if (editingBookmark) {
       await api.patch(`/bookmarks/${editingBookmark.id}`, payload);
     } else {
-      await api.post("/bookmarks", payload);
+      const created = await api.post<Bookmark>("/bookmarks", payload);
+      if (query && created) {
+        // The new query view is the one in force from now on.
+        onApplyQuery?.(
+          activeQueryFromBookmark({
+            ...created,
+            name: created.name ?? viewName.trim(),
+            query: created.query ?? query,
+          }),
+        );
+        setActiveViewId(created.id);
+      }
     }
     setSaveDialogOpen(false);
+    setPendingQuery(null);
     setEditingBookmark(null);
     setViewName("");
     loadBookmarks();
@@ -1156,32 +1234,54 @@ export default function InventoryFilterSidebar({
                           {group.label ?? t("filter.typesUncategorized")}
                         </ListSubheader>
                       )}
-                      {group.types.map((t) => (
-                        <ListItemButton
-                          key={t.key}
-                          dense
-                          onClick={() => toggleType(t.key)}
-                          sx={{ py: 0.25, px: 1, borderRadius: 1 }}
-                        >
-                          <ListItemIcon sx={{ minWidth: 32 }}>
-                            <Checkbox
-                              size="small"
-                              checked={filters.types.includes(t.key)}
-                              disableRipple
-                              sx={{ p: 0 }}
-                            />
-                          </ListItemIcon>
-                          <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                          <ListItemText
-                            primary={typeLabel(t)}
-                            primaryTypographyProps={{
-                              fontSize: 14,
-                              ml: 0.75,
-                              noWrap: true,
+                      {group.types.map((ct) => {
+                        const row = (
+                          <ListItemButton
+                            key={ct.key}
+                            dense
+                            disabled={typesLocked}
+                            onClick={typesLocked ? undefined : () => toggleType(ct.key)}
+                            sx={{
+                              py: 0.25,
+                              px: 1,
+                              borderRadius: 1,
+                              // Locked while a query draft is open: still
+                              // readable, plainly not toggleable.
+                              ...(typesLocked ? { "&.Mui-disabled": { opacity: 0.7 } } : {}),
                             }}
-                          />
-                        </ListItemButton>
-                      ))}
+                          >
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                              <Checkbox
+                                size="small"
+                                checked={filters.types.includes(ct.key)}
+                                disabled={typesLocked}
+                                disableRipple
+                                sx={{ p: 0 }}
+                              />
+                            </ListItemIcon>
+                            <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
+                            <ListItemText
+                              primary={typeLabel(ct)}
+                              primaryTypographyProps={{
+                                fontSize: 14,
+                                ml: 0.75,
+                                noWrap: true,
+                              }}
+                            />
+                          </ListItemButton>
+                        );
+                        return typesLocked ? (
+                          <Tooltip
+                            key={ct.key}
+                            title={t("queryView.typesLockedHint")}
+                            placement="right"
+                          >
+                            <span data-testid="type-facet-locked">{row}</span>
+                          </Tooltip>
+                        ) : (
+                          row
+                        );
+                      })}
                     </Fragment>
                   ))}
                 </List>
@@ -1941,16 +2041,20 @@ export default function InventoryFilterSidebar({
                     {t("filter.clearAll", { count: activeCount })}
                   </Button>
                 )}
-                <Tooltip title={saveCurrentHint} describeChild>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={openCreateDialog}
-                    startIcon={<MaterialSymbol icon="bookmark_add" size={16} />}
-                    sx={{ textTransform: "none", fontSize: 13, ml: "auto" }}
-                  >
-                    {t("views.saveView")}
-                  </Button>
+                <Tooltip title={draftUnfinished ? t("queryView.finishDraftFirst") : ""}>
+                  <Box component="span" sx={{ ml: "auto" }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      data-testid="save-view"
+                      disabled={draftUnfinished}
+                      onClick={() => openCreateDialog()}
+                      startIcon={<MaterialSymbol icon="bookmark_add" size={16} />}
+                      sx={{ textTransform: "none", fontSize: 13 }}
+                    >
+                      {t("views.saveView")}
+                    </Button>
+                  </Box>
                 </Tooltip>
               </Box>
             </>
@@ -1987,16 +2091,33 @@ export default function InventoryFilterSidebar({
                 <Typography variant="body2" fontWeight={600} fontSize={14}>
                   {t("views.savedViews")}
                 </Typography>
-                <Tooltip title={saveCurrentHint} describeChild>
-                  <Button
-                    size="small"
-                    onClick={openCreateDialog}
-                    startIcon={<MaterialSymbol icon="add" size={16} />}
-                    sx={{ textTransform: "none", fontSize: 13 }}
-                  >
-                    {t("views.saveCurrent")}
-                  </Button>
-                </Tooltip>
+                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {canManageBookmarks && onStartQueryDraft && (
+                    <Button
+                      size="small"
+                      data-testid="new-query-view"
+                      onClick={onStartQueryDraft}
+                      startIcon={<MaterialSymbol icon="account_tree" size={16} />}
+                      sx={{ textTransform: "none", fontSize: 13 }}
+                    >
+                      {t("views.newQueryView")}
+                    </Button>
+                  )}
+                  <Tooltip title={draftUnfinished ? t("queryView.finishDraftFirst") : ""}>
+                    <span>
+                      <Button
+                        size="small"
+                        data-testid="save-current-view"
+                        disabled={draftUnfinished}
+                        onClick={() => openCreateDialog()}
+                        startIcon={<MaterialSymbol icon="add" size={16} />}
+                        sx={{ textTransform: "none", fontSize: 13 }}
+                      >
+                        {t("views.saveCurrent")}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Box>
 
               {bookmarks.length === 0 ? (
@@ -2099,7 +2220,7 @@ export default function InventoryFilterSidebar({
       {/* Save / Edit view dialog */}
       <Dialog
         open={saveDialogOpen}
-        onClose={() => setSaveDialogOpen(false)}
+        onClose={closeSaveDialog}
         maxWidth="sm"
         fullWidth
       >
@@ -2122,16 +2243,6 @@ export default function InventoryFilterSidebar({
           {!editingBookmark && activeCount > 0 && (
             <Typography variant="caption" color="text.secondary">
               {t("views.saveActiveFilters", { count: activeCount })}
-            </Typography>
-          )}
-          {!editingBookmark && activeQueryView && (
-            <Typography variant="caption" color="text.secondary">
-              {t("queryView.saveWithoutQuery")}
-            </Typography>
-          )}
-          {editingQueryView && (
-            <Typography variant="caption" color="text.secondary">
-              {t("queryView.editRestricted")}
             </Typography>
           )}
 
@@ -2275,7 +2386,7 @@ export default function InventoryFilterSidebar({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSaveDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button onClick={closeSaveDialog}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleSaveView}
@@ -2422,7 +2533,11 @@ function BookmarkListItem({
                 aria-label={t("inventory:queryView.badge")}
                 sx={{ display: "inline-flex" }}
               >
-                <MaterialSymbol icon="smart_toy" size={13} color={ORIGIN_META.mcp.color} />
+                {bm.created_via === "mcp" ? (
+                  <MaterialSymbol icon="smart_toy" size={13} color={ORIGIN_META.mcp.color} />
+                ) : (
+                  <MaterialSymbol icon="account_tree" size={13} />
+                )}
               </Box>
             )}
             {visIcon && <MaterialSymbol icon={visIcon} size={13} />}

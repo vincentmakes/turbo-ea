@@ -183,7 +183,7 @@ En este modo, el servidor se autentica con correo/contraseña y renueva el token
 
 ## Capacidades disponibles
 
-El servidor MCP expone **54 herramientas** repartidas en dos grupos: **34 herramientas de lectura** que consultan datos de EA y **20 herramientas de escritura** (15 aditivas, 5 destructivas) que crean y mantienen fichas, relaciones, diagramas, riesgos, ADRs, vistas de inventario guardadas y más — incluida la conversión de artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en datos EA estructurados. Cada herramienta lleva `ToolAnnotations` de MCP (indicaciones de solo lectura / destructiva / idempotente) para que los conectores puedan mostrar la destructividad en su interfaz.
+El servidor MCP expone **55 herramientas** repartidas en dos grupos: **35 herramientas de lectura** que consultan datos de EA y **20 herramientas de escritura** (15 aditivas, 5 destructivas) que crean y mantienen fichas, relaciones, diagramas, riesgos, ADRs, vistas de inventario guardadas y más — incluida la conversión de artefactos que una herramienta de IA tiene en su propio contexto (hojas de cálculo, BPMN XML, DrawIO XML, documentos, imágenes) en datos EA estructurados. Cada herramienta lleva `ToolAnnotations` de MCP (indicaciones de solo lectura / destructiva / idempotente) para que los conectores puedan mostrar la destructividad en su interfaz.
 
 ### Seguridad mediante ejecución en seco en las escrituras
 
@@ -196,7 +196,7 @@ En ambos casos, la vista previa queda registrada en el registro de auditoría co
 
 ### Herramientas de lectura
 
-El servidor expone 34 herramientas de lectura agrupadas en ocho clusters.
+El servidor expone 35 herramientas de lectura agrupadas en ocho clusters.
 
 **Fichas y metamodelo**
 
@@ -210,6 +210,7 @@ El servidor expone 34 herramientas de lectura agrupadas en ocho clusters.
 | `get_card_hierarchy` | Obtener ancestros e hijos de una ficha |
 | `list_card_types` | Listar todos los tipos de ficha del metamodelo; el campo `category` de cada tipo es la clave de su categoría (capa de arquitectura) |
 | `get_relation_types` | Listar tipos de relación, opcionalmente filtrados por tipo de ficha |
+| `list_tag_groups` | Listar los grupos de etiquetas (con los tipos de ficha a los que se aplica cada uno) y sus etiquetas; los ids de etiqueta son lo que `query_cards` y `save_inventory_view` reciben en `where.tags` |
 | `resolve_card_refs` | Prevalidar referencias de ficha basadas en nombre (nombre → UUID) antes de una importación masiva — solo resuelve, nunca escribe |
 | `analyze_impact` | Análisis del radio de impacto de dependencias para un cambio propuesto en una ficha |
 
@@ -317,7 +318,7 @@ El servidor expone 20 herramientas de escritura, cada una anotada como **aditiva
 
 `query_cards` responde en una sola llamada a una pregunta que encadena relaciones — «Organizaciones que usan una Aplicación cuyo ciclo de vida es Activo y a la que afecta una Iniciativa con estado En plazo» — y `save_inventory_view` conserva la misma consulta como vista de inventario guardada. La vista almacena la consulta, no sus resultados: el inventario la vuelve a ejecutar cada vez que alguien abre la vista, de modo que la lista se mantiene actualizada.
 
-Una consulta es un pequeño objeto JSON formado **solo por claves** — claves de tipo de ficha, de tipo de relación, de campo y de opción tal como las devuelven `list_card_types` y `get_relation_types`, nunca etiquetas ni identificadores de ficha:
+Una consulta es un pequeño objeto JSON formado **solo por claves** — claves de tipo de ficha, de tipo de relación, de campo y de opción tal como las devuelven `list_card_types` y `get_relation_types`, además de los ids de etiqueta de `list_tag_groups`; nunca etiquetas ni identificadores de ficha:
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -326,12 +327,14 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
-              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id] }
 ```
 
 - Un salto coincide cuando **cualquier** ficha relacionada de ese tipo cumple su `where` (y sus propios saltos anidados). `negate: true` lo convierte en «**no** tiene ninguna ficha así».
 - Los saltos en paralelo en un mismo nivel deben coincidir todos (Y); los valores dentro de una lista son alternativas (O).
 - `<key>__out` y `<key>__in` eligen un lado de un tipo de relación que enlaza un tipo de ficha consigo mismo (la ficha es el origen o el destino). En los demás casos basta la clave simple.
+- `tags` recibe ids de etiqueta de `list_tag_groups`, agrupados por grupo de etiquetas: una ficha debe llevar al menos una de las etiquetas indicadas de **cada** grupo mencionado (alternativas dentro de un grupo, Y entre grupos). Una etiqueta cuyo grupo no se aplica al tipo de ficha de ese salto se rechaza con `tag_not_for_type`; un id desconocido, con `unknown_tag`.
 - Las fichas relacionadas solo cuentan si están activas y el usuario puede leerlas: una ficha que el usuario no puede ver rompe la cadena, exactamente como en la interfaz web.
 
 Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una Iniciativa con estado *On Track*:
@@ -356,12 +359,12 @@ Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una I
 }
 ```
 
-En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula y se marca como generada mediante MCP. Su consulta solo puede cambiarse con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otro tipo de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían al tipo anterior; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario aún puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
+En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otro tipo de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían al tipo anterior; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
 
 Limitaciones:
 
 - Como máximo **3 niveles** de `related`, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
-- Sin condiciones sobre **etiquetas** (tags) ni sobre fichas concretas.
+- Sin condiciones sobre fichas concretas (las etiquetas sí se admiten).
 - Un atributo de texto coincide **exactamente** con su valor — no hay coincidencia parcial ni insensible a mayúsculas.
 - **`rollback_batch` no puede deshacer una vista guardada.** Guardar una vista registra un lote de mutaciones pero no publica ningún evento que la reversión pueda deshacer; elimine una vista no deseada desde las Vistas guardadas del inventario.
 
@@ -383,7 +386,7 @@ Defensa en profundidad sobre la ejecución en seco, para que un descuido del LLM
 
 - **Límite de tamaño por llamada.** Las herramientas de escritura MCP aplican un límite mucho menor que los endpoints subyacentes del importador de Excel: 200 filas para `create_cards_bulk`, 500 operaciones para `upsert_relations_bulk`. Suficientemente grandes para cualquier carga realista de un artefacto, suficientemente pequeñas para que una vista previa de ejecución en seco siga siendo revisable.
 - **Sin eliminación de relaciones por defecto.** `upsert_relations_bulk` rechaza operaciones `action: "delete"` — para eliminar relaciones, use la interfaz web donde la acción queda registrada bajo la identidad del usuario. Los operadores pueden activarlo estableciendo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las 20 herramientas de escritura sin redesplegar código. Las 34 herramientas de lectura siguen funcionando.
+- **Interruptor de apagado.** `MCP_WRITES_ENABLED=false` desactiva las 20 herramientas de escritura sin redesplegar código. Las 35 herramientas de lectura siguen funcionando.
 - **La descarga de logotipos está restringida a hosts permitidos.** Los paquetes de iconos incluidos no pueden cubrir todos los productos de un cliente, y un asistente suele estar aislado sin acceso a la web, así que `set_card_logos` acepta una `image_url` que descarga el servidor MCP. Solo `https`, solo los hosts de `MCP_LOGO_FETCH_HOSTS`, solo direcciones públicas, como máximo dos redirecciones (revisadas de nuevo cada una), como máximo 1 MB leído en streaming, y los bytes deben llevar una firma real de PNG/JPEG/WebP/GIF. La descarga ocurre en el borde MCP, nunca en el backend, y después la imagen se sube por la vía habitual: una URL elegida por un LLM nunca llega al proceso que guarda la base de datos. `MCP_LOGO_FETCH_ENABLED=false` lo desactiva.
 - **Etiqueta de origen para auditoría.** Cada solicitud al backend desde el servidor MCP lleva un encabezado `X-Turbo-EA-Origin: mcp`. Los eventos emitidos desde esas solicitudes se etiquetan con `origin: "mcp"` en el payload del registro de auditoría, de modo que los administradores pueden filtrar las escrituras impulsadas por MCP de la línea de tiempo, separadas de las acciones de la interfaz web.
 - **Lotes de mutación.** Cada llamada de escritura MCP —tanto la vista previa como el commit— es un lote de mutación en el registro de auditoría, abierto antes de escribir nada; cada evento emitido durante la llamada se sella con el id del lote, y cada herramienta de escritura devuelve ese `batch_id`. Los administradores (o la herramienta `get_change_history`) pueden reconstruir el diff completo, evento por evento, de un commit a partir de un solo id, y `rollback_batch` puede revertirlo, incluida la eliminación de un diagrama creado por `create_diagram`, salvo que alguien lo haya publicado desde entonces. Una actualización de diagrama se notifica como no reversible, porque no se conserva el lienzo anterior. Los commits que superan `MCP_BATCH_CONFIRMATION_THRESHOLD` filas deben devolver el `confirm_token` de un solo uso que entregó la ejecución en seco previa. El backend lo comprueba al abrir el lote del commit, antes de escribir nada: debe proceder de una ejecución en seco de la misma herramienta, del mismo usuario, hace menos de 15 minutos, y autoriza un único commit. Todas las herramientas de escritura masiva siguen este ciclo de vista previa y confirmación: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.

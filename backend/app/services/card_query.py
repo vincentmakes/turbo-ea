@@ -4,12 +4,14 @@ lifecycle is Active, which *is affected by* an Initiative on track".
 A ``CardQuery`` names a start card type, an optional condition on the start
 card, and a tree of **hops** — each a relation type (one side of it), the card
 type at the far end, a condition on that far card and further hops from it.
-The grammar is **keys only** (card type, relation type, field, option keys),
-never a card id, so a query stored on a saved inventory view
-(``bookmarks.query``) survives a workspace transfer verbatim, as a dashboards
-widget query does. It is authored through the MCP server and evaluated here on
-every read — ``GET /cards?query=`` and the bookmark OData feed — so a saved
-view stays dynamic.
+The grammar holds metamodel **keys** (card type, relation type, field, option
+keys) and, as the one exception, **tag ids** — never a card id. A query stored
+on a saved inventory view (``bookmarks.query``) therefore survives a workspace
+transfer: its keys verbatim, its tag ids through the transfer's tag id map
+(``workspace_io.remap.rewrite_card_query_tags``). It is authored through the
+MCP server or the inventory's query builder and evaluated here on every
+read — ``GET /cards?query=`` and the bookmark OData feed — so a saved view
+stays dynamic.
 
 Semantics, decided once here and nowhere else:
 
@@ -29,10 +31,20 @@ Semantics, decided once here and nowhere else:
 - Lifecycle phases are computed in SQL by ``current_lifecycle_phase_sql``,
   the twin of the Python ``current_lifecycle_phase`` every other surface
   shows; ``none`` is a card in no phase.
+- ``where.tags`` lists tag ids, grouped by tag group: any tag of a group (OR
+  within a group), every group named required (AND across groups) — the rule
+  the inventory's tag facet and the portals apply (``tag_conditions``). A tag
+  whose group is restricted to other card types than the node's is refused
+  (``tag_not_for_type``); a ``None`` or empty restriction means every type.
+  There is no "(empty)" for tags in v1: it would need a tag *group* id, which
+  has no transfer map.
 
 Limits: at most ``MAX_DEPTH`` (3) hops below the start card, ``MAX_HOPS``
 (10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops in the whole
-tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON.
+tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
+any one condition list (``tags`` included). A UUID anywhere but in a
+``where.tags`` list is refused (``query_holds_an_id``), so a card id can never
+be stored.
 
 Structural rules (``query_problem``) and metamodel rules
 (``resolve_card_query``) are plain functions answering a 400 code, so the
@@ -44,6 +56,7 @@ Reads only; never commits.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
@@ -57,6 +70,7 @@ from sqlalchemy.orm import aliased
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation_type import RelationType
+from app.models.tag import Tag, TagGroup
 from app.services.card_read_scope import CardReadScope
 from app.services.dashboard_query import (
     DashboardQueryError,
@@ -72,6 +86,8 @@ from app.services.portal_card_filters import (
     attribute_condition,
     field_types,
     subtype_condition,
+    tag_conditions,
+    uuids,
 )
 
 #: The longest query accepted, as compact JSON (``GET /cards?query=`` answers
@@ -99,7 +115,9 @@ _Value = Annotated[str, Field(max_length=_KEY_CHARS)]
 
 
 class CardWhere(BaseModel):
-    """A condition on one card. Each list is OR within itself; the keys AND."""
+    """A condition on one card. Each list is OR within itself; the keys AND.
+
+    ``tags`` holds tag ids — OR within a tag group, AND across groups."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -107,6 +125,7 @@ class CardWhere(BaseModel):
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     attributes: dict[_Value, list[_Value]] | None = Field(None, max_length=20)
+    tags: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
 
 
 class CardHop(BaseModel):
@@ -195,7 +214,7 @@ def _wheres(query: CardQuery) -> list[CardWhere]:
 
 
 def _where_problem(where: CardWhere) -> str | None:
-    lists = [where.lifecycle_phase, where.subtype, where.approval_status]
+    lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
@@ -204,12 +223,26 @@ def _where_problem(where: CardWhere) -> str | None:
     return None
 
 
+def _without_tags(node: Mapping[str, Any]) -> dict[str, Any]:
+    """A dumped query node with every ``where.tags`` removed, at every depth —
+    the tag ids are the grammar's one legitimate UUID."""
+    out = dict(node)
+    where = out.get("where")
+    if isinstance(where, Mapping):
+        out["where"] = {k: v for k, v in where.items() if k != "tags"}
+    related = out.get("related")
+    if isinstance(related, list):
+        out["related"] = [_without_tags(h) for h in related]
+    return out
+
+
 def query_problem(query: CardQuery) -> str | None:
     """A structural problem with ``query``, as a 400 code, or ``None``.
 
     ``too_deep`` past ``MAX_DEPTH`` hops; ``too_many_hops`` past
     ``MAX_TOTAL_HOPS`` hops in the whole tree; ``query_holds_an_id`` for a UUID
-    anywhere (a saved view must transfer between workspaces); ``empty_values``
+    anywhere but a ``where.tags`` list (a card id has no place in a saved view,
+    which must transfer between workspaces); ``empty_values``
     for an empty value list (a condition that can match nothing is a mistake,
     not a filter); ``unknown_phase`` for a lifecycle phase outside
     ``LIFECYCLE_PHASES``.
@@ -218,7 +251,7 @@ def query_problem(query: CardQuery) -> str | None:
         return "too_deep"
     if _hop_count(query.related) > MAX_TOTAL_HOPS:
         return "too_many_hops"
-    if contains_uuid(query.model_dump()):
+    if contains_uuid(_without_tags(query.model_dump())):
         return "query_holds_an_id"
     for where in _wheres(query):
         problem = _where_problem(where)
@@ -240,6 +273,8 @@ class ResolvedNode:
     where: CardWhere | None
     field_types: dict[str, str]
     hops: list[ResolvedHop] = field(default_factory=list)
+    #: ``where.tags`` as ``{tag group id: [tag id, ...]}``.
+    tag_groups: dict[uuid.UUID, list[uuid.UUID]] = field(default_factory=dict)
 
 
 @dataclass
@@ -279,17 +314,47 @@ def _check_where(where: CardWhere | None, card_type: Any) -> dict[str, str]:
     return types
 
 
+#: A tag as ``resolve_card_query`` loads it: ``(tag group id, the group's
+#: ``restrict_to_types``)``.
+_TagInfo = tuple[uuid.UUID, Any]
+
+
+def _tag_groups(
+    where: CardWhere | None, type_key: str, tags: Mapping[uuid.UUID, _TagInfo]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """``where.tags`` as ``{tag group id: [tag id, ...]}``.
+
+    ``unknown_tag`` for a value that is not a UUID or names no tag;
+    ``tag_not_for_type`` for a tag whose group is restricted to card types
+    other than ``type_key`` (a ``None`` or empty restriction is every type)."""
+    groups: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for value in (where.tags if where is not None else None) or []:
+        parsed = uuids([value])
+        info = tags.get(parsed[0]) if parsed else None
+        if info is None:
+            raise CardQueryError("unknown_tag")
+        group_id, restrict = info
+        if restrict and type_key not in restrict:
+            raise CardQueryError("tag_not_for_type")
+        picked = groups.setdefault(group_id, [])
+        if parsed[0] not in picked:
+            picked.append(parsed[0])
+    return groups
+
+
 def _resolve_node(
     type_key: str,
     where: CardWhere | None,
     hops: list[CardHop] | None,
     types: Mapping[str, Any],
     relation_types: Mapping[str, Any],
+    tags: Mapping[uuid.UUID, _TagInfo],
 ) -> ResolvedNode:
     card_type = types.get(type_key)
     if card_type is None or card_type.is_hidden:
         raise CardQueryError("unknown_card_type")
     node = ResolvedNode(type_key, where, _check_where(where, card_type))
+    node.tag_groups = _tag_groups(where, type_key, tags)
     for hop in hops or []:
         try:
             side = resolve_side(
@@ -299,7 +364,7 @@ def _resolve_node(
             raise CardQueryError(exc.code) from exc
         if _other_end(relation_types[side.relation_type], side) != hop.type:
             raise CardQueryError("hop_type_mismatch")
-        child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types)
+        child = _resolve_node(hop.type, hop.where, hop.related, types, relation_types, tags)
         node.hops.append(ResolvedHop(side, hop.negate, child))
     return node
 
@@ -312,14 +377,27 @@ async def resolve_card_query(db: AsyncSession, query: CardQuery) -> ResolvedNode
     type, or a side suffix on a cross-type relation), ``relation_side_required``
     (a bare key on a self-referencing type), ``hop_type_mismatch`` (the hop's
     type is not at the relation's far end), ``unknown_subtype``,
-    ``unknown_field`` and ``unknown_option``.
+    ``unknown_field``, ``unknown_option``, ``unknown_tag`` and
+    ``tag_not_for_type`` (see ``_tag_groups``).
+
+    The tags the whole tree names are loaded in one query, and none is issued
+    for a query naming no tag.
 
     ``query`` comes from ``parse_card_query``, the one place the structural
     rules (``query_problem``) run; they are not checked again here.
     """
     types = {t.key: t for t in (await db.execute(select(CardType))).scalars().all()}
     relation_types = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
-    return _resolve_node(query.type, query.where, query.related, types, relation_types)
+    tag_ids = uuids(v for where in _wheres(query) for v in where.tags or [])
+    tags: dict[uuid.UUID, _TagInfo] = {}
+    if tag_ids:
+        rows = await db.execute(
+            select(Tag.id, Tag.tag_group_id, TagGroup.restrict_to_types)
+            .join(TagGroup)
+            .where(Tag.id.in_(tag_ids))
+        )
+        tags = {tag_id: (group_id, restrict) for tag_id, group_id, restrict in rows.all()}
+    return _resolve_node(query.type, query.where, query.related, types, relation_types, tags)
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +424,7 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
         clauses.append(card.approval_status.in_(where.approval_status))
     for key, values in sorted((where.attributes or {}).items()):
         clauses.append(attribute_condition(key, values, node.field_types.get(key), card=card))
+    clauses.extend(tag_conditions(node.tag_groups, card=card))
     return clauses
 
 

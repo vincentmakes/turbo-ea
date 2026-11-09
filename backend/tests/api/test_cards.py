@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.card import Card
 from app.models.card_type import CardType
 from app.services.permission_service import PermissionService
 from tests.conftest import (
@@ -22,6 +23,8 @@ from tests.conftest import (
     create_relation,
     create_relation_type,
     create_role,
+    create_tag,
+    create_tag_group,
     create_user,
 )
 
@@ -1194,6 +1197,76 @@ class TestQueryParam:
         resp = await self._get(client, chain["admin"], query)
         assert resp.status_code == 400
         assert resp.json()["detail"] == code
+
+    @pytest.fixture
+    async def tagged(self, db, chain):
+        """On top of ``chain``: Alpha carries Gold, Beta carries Silver (group
+        Tier); group Hq (Organization only) holds Main, on Team."""
+        apps = {
+            c.name: c
+            for c in (await db.execute(select(Card).where(Card.type == "Application")))
+            .scalars()
+            .all()
+        }
+        team = (await db.execute(select(Card).where(Card.name == "Team"))).scalar_one()
+        tier = await create_tag_group(db, name="Tier")
+        hq = await create_tag_group(db, name="Hq", restrict_to_types=["Organization"])
+        tags = {
+            "Gold": await create_tag(db, group=tier, name="Gold", cards=[apps["Alpha"]]),
+            "Silver": await create_tag(db, group=tier, name="Silver", cards=[apps["Beta"]]),
+            "Main": await create_tag(db, group=hq, name="Main", cards=[team]),
+        }
+        return {**chain, "tags": {k: str(v.id) for k, v in tags.items()}}
+
+    async def test_tags_at_a_hop(self, client, db, tagged):
+        def query(*names: str) -> dict:
+            where = {"tags": [tagged["tags"][n] for n in names]}
+            return {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+
+        resp = await self._get(client, tagged["admin"], query("Silver"))
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+        assert resp.json()["total"] == 1
+        resp = await self._get(client, tagged["admin"], query("Silver", "Gold"))
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp", "Team"]
+
+    async def test_tags_on_the_start_card(self, client, db, tagged):
+        query = {"type": "Organization", "where": {"tags": [tagged["tags"]["Main"]]}}
+        resp = await self._get(client, tagged["admin"], query)
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+
+    @pytest.mark.parametrize(
+        ("where", "code"),
+        [
+            ({"tags": ["7a1d1c1e-0000-4000-8000-000000000001"]}, "unknown_tag"),
+            ({"tags": ["Gold"]}, "unknown_tag"),
+            ({"tags": []}, "empty_values"),
+        ],
+    )
+    async def test_rejected_tags(self, client, db, tagged, where, code):
+        query = {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_a_tag_of_a_group_for_other_types_is_refused(self, client, db, tagged):
+        query = {
+            "type": "Organization",
+            "related": [{**CHAIN_HOP, "where": {"tags": [tagged["tags"]["Main"]]}}],
+        }
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "tag_not_for_type"
+
+    async def test_a_card_id_beside_tags_is_still_refused(self, client, db, tagged):
+        alpha = (await db.execute(select(Card).where(Card.name == "Alpha"))).scalar_one()
+        query = {
+            "type": "Organization",
+            "where": {"tags": [tagged["tags"]["Main"]], "subtype": [str(alpha.id)]},
+        }
+        resp = await self._get(client, tagged["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "query_holds_an_id"
 
     async def test_a_restricted_reader_never_sees_through_a_denied_type(self, client, db, chain):
         await create_role(db, key="r", label="R", permissions={"inventory.view": True})

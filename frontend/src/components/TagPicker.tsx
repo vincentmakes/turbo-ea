@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import type { SxProps, Theme } from "@mui/material/styles";
 import type { TagGroup } from "@/types";
 import { readableTextColor } from "@/lib/color";
+import { tagGroupApplies } from "@/lib/tagGroups";
 
 interface TagOption {
   id: string;
@@ -51,12 +52,7 @@ export default function TagPicker({
   const applicableGroups = useMemo(
     () =>
       typeKey
-        ? groups.filter(
-            (g) =>
-              !g.restrict_to_types ||
-              g.restrict_to_types.length === 0 ||
-              g.restrict_to_types.includes(typeKey),
-          )
+        ? groups.filter((g) => tagGroupApplies(g, typeKey))
         : groups,
     [groups, typeKey],
   );

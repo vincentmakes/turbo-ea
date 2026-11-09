@@ -744,11 +744,126 @@ def test_a_portal_filter_id_is_translated_exactly_once():
     }
 
 
+OLD_TAG_2 = "eeeeeeee-0000-0000-0000-000000000002"
+NEW_TAG_2 = "ffffffff-0000-0000-0000-000000000002"
+UNKNOWN_TAG = "eeeeeeee-0000-0000-0000-000000000099"
+
+
+def _tag_ids() -> rm.IdMap:
+    ids = _ids()
+    ids.record(rm.TAGS, OLD_TAG_2, NEW_TAG_2)
+    return ids
+
+
+def test_query_tags_are_translated_at_every_node_and_an_unknown_one_dropped():
+    query = {
+        "type": "Organization",
+        "where": {"tags": [OLD_TAG.upper()], "subtype": ["bu"]},
+        "related": [
+            {
+                "relation": "relOrgToApp",
+                "type": "Application",
+                "where": {"tags": [UNKNOWN_TAG, OLD_TAG_2]},
+                "related": [
+                    {
+                        "relation": "relAppToITC",
+                        "type": "ITComponent",
+                        "where": {"lifecycle_phase": ["active"]},
+                    }
+                ],
+            }
+        ],
+    }
+    kw = {"name": "x", "query": query}
+    tally = rm.rewrite_bookmark_row(kw, _ctx(ids=_tag_ids()))
+    assert tally.counts == {rm.REMAPPED: 2, rm.UNRESOLVED: 1}
+    assert kw == {
+        "name": "x",
+        "query": {
+            "type": "Organization",
+            "where": {"tags": [NEW_TAG], "subtype": ["bu"]},
+            "related": [
+                {
+                    "relation": "relOrgToApp",
+                    "type": "Application",
+                    "where": {"tags": [NEW_TAG_2]},
+                    "related": [
+                        {
+                            "relation": "relAppToITC",
+                            "type": "ITComponent",
+                            "where": {"lifecycle_phase": ["active"]},
+                        }
+                    ],
+                }
+            ],
+        },
+    }
+    # The input is not mutated: the rewrite builds a new tree.
+    assert query["where"]["tags"] == [OLD_TAG.upper()]
+
+
+def test_a_query_tag_list_emptied_by_the_drop_goes_and_its_empty_where_with_it():
+    ids = _tag_ids()
+    tally = rm.RewriteTally()
+    out = rm.rewrite_card_query_tags(
+        {
+            "type": "Application",
+            "where": {"tags": [UNKNOWN_TAG, "not-an-id"]},
+            "related": [
+                {
+                    "relation": "relAppToITC",
+                    "type": "ITComponent",
+                    "where": {"tags": [UNKNOWN_TAG], "subtype": ["saas"]},
+                }
+            ],
+        },
+        ids,
+        tally,
+    )
+    assert out == {
+        "type": "Application",
+        "related": [
+            {"relation": "relAppToITC", "type": "ITComponent", "where": {"subtype": ["saas"]}}
+        ],
+    }
+    assert tally.counts == {rm.UNRESOLVED: 3}
+
+
+def test_a_query_tag_that_maps_to_itself_is_kept_and_not_counted():
+    ids = rm.IdMap()
+    ids.record(rm.TAGS, OLD_TAG, OLD_TAG)
+    tally = rm.RewriteTally()
+    out = rm.rewrite_card_query_tags({"type": "A", "where": {"tags": [OLD_TAG]}}, ids, tally)
+    assert out == {"type": "A", "where": {"tags": [OLD_TAG]}}
+    assert tally.counts == {}
+
+
+def test_a_query_with_no_tags_or_a_malformed_shape_is_untouched():
+    ids = _tag_ids()
+    for value in (
+        None,
+        "junk",
+        ["junk"],
+        {"type": "A"},
+        {"type": "A", "where": {"subtype": ["x"]}},
+        {"type": "A", "where": "junk", "related": "junk"},
+        {"type": "A", "where": {"tags": "junk"}},
+        {"type": "A", "related": ["junk", {"type": "B", "where": None}]},
+    ):
+        tally = rm.RewriteTally()
+        assert rm.rewrite_card_query_tags(value, ids, tally) == value
+        assert tally.counts == {}
+    kw = {"query": None, "filters": {"tagIds": [OLD_TAG]}}
+    rm.rewrite_bookmark_row(kw, _ctx())
+    assert kw == {"query": None, "filters": {"tagIds": [NEW_TAG]}}
+
+
 def test_filter_rows_without_their_column_or_with_junk_are_untouched():
     for fn, col in (
         (rm.rewrite_survey_row, "target_filters"),
         (rm.rewrite_portal_row, "filters"),
         (rm.rewrite_bookmark_row, "filters"),
+        (rm.rewrite_bookmark_row, "query"),
     ):
         kw = {"name": "x"}
         assert fn(kw, _ctx()).counts == {}

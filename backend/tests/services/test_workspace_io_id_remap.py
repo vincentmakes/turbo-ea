@@ -296,7 +296,23 @@ async def _seed_every_blob(db, user):
                     }
                 },
             ),
-            Bookmark(user_id=user.id, name="Cloud apps", filters={"tagIds": [str(tag.id)]}),
+            Bookmark(
+                user_id=user.id,
+                name="Cloud apps",
+                filters={"tagIds": [str(tag.id)]},
+                # A multi-hop query naming the tag at the start card and a hop.
+                query={
+                    "type": "Application",
+                    "where": {"tags": [str(tag.id)]},
+                    "related": [
+                        {
+                            "relation": "relAppToOrg",
+                            "type": "Organization",
+                            "where": {"tags": [str(tag.id)]},
+                        }
+                    ],
+                },
+            ),
             Todo(description="Review", card_id=crm.id, link=f"/cards/{crm.id}"),
             TurboLensComplianceFinding(
                 run_id=run.id,
@@ -365,6 +381,19 @@ async def test_no_source_id_survives_a_cross_instance_import(db):
     version = (await db.execute(select(ProcessFlowVersion))).scalar_one()
     assert version.draft_element_links["t1"]["application_id"] == str(new_crm.id)
     assert version.draft_element_links["t1"]["data_object_id"] is None
+    new_tag = (await db.execute(select(Tag).where(Tag.name == "Cloud"))).scalar_one()
+    bookmark = (await db.execute(select(Bookmark))).scalar_one()
+    assert bookmark.query == {
+        "type": "Application",
+        "where": {"tags": [str(new_tag.id)]},
+        "related": [
+            {
+                "relation": "relAppToOrg",
+                "type": "Organization",
+                "where": {"tags": [str(new_tag.id)]},
+            }
+        ],
+    }
 
 
 async def test_a_selective_run_over_module_sheets_still_translates(db):

@@ -93,10 +93,6 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Bookmarks", "column_state"): KEYS,
     ("Bookmarks", "column_filter_model"): "grid filter values: names and option keys",
     ("Bookmarks", "sort"): KEYS,
-    ("Bookmarks", "query"): (
-        "keys-only card query grammar (type, relation, field, option keys), "
-        "validated to hold no UUID"
-    ),
     ("WebPortals", "description"): PROSE,
     ("WebPortals", "display_fields"): KEYS,
     ("WebPortals", "card_config"): KEYS,
@@ -160,7 +156,7 @@ def test_the_sections_that_hold_ids_are_the_known_ones():
         "ProcessFlowVersions": ("bpmn_xml", "draft_element_links"),
         "ComplianceFindings": ("finding_key",),
         "SavedReports": ("config",),
-        "Bookmarks": ("filters",),
+        "Bookmarks": ("filters", "query"),
         "WebPortals": ("filters",),
         "Surveys": ("target_filters",),
         "SurveyResponses": ("responses",),

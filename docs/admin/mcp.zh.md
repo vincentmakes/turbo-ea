@@ -183,7 +183,7 @@ pip install ./mcp-server
 
 ## 可用功能
 
-MCP 服务器提供 **54 个工具**，分为两组：**34 个读取工具** 用于查询 EA 数据，**20 个写入工具**（15 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
+MCP 服务器提供 **55 个工具**，分为两组：**35 个读取工具** 用于查询 EA 数据，**20 个写入工具**（15 个增量型、5 个破坏型）用于创建和维护卡片、关系、图表、风险、ADR、已保存的清单视图等——包括将 AI 工具上下文中的工件（电子表格、BPMN XML、DrawIO XML、文档、图像）转换为结构化的 EA 数据。每个工具都带有 MCP `ToolAnnotations`（只读 / 破坏性 / 幂等提示），以便连接器在其界面中呈现破坏性程度。
 
 ### 写入操作的演练安全机制
 
@@ -196,7 +196,7 @@ MCP 服务器提供 **54 个工具**，分为两组：**34 个读取工具** 用
 
 ### 读取工具
 
-服务器以八个集群提供 34 个读取工具。
+服务器以八个集群提供 35 个读取工具。
 
 **卡片与元模型**
 
@@ -210,6 +210,7 @@ MCP 服务器提供 **54 个工具**，分为两组：**34 个读取工具** 用
 | `get_card_hierarchy` | 获取卡片的祖先和子级 |
 | `list_card_types` | 列出元模型中的所有卡片类型；每个类型的 `category` 是其分类（架构层）的键 |
 | `get_relation_types` | 列出关系类型，可按卡片类型筛选 |
+| `list_tag_groups` | 列出标签组（及每个标签组适用的卡片类型）及其标签；标签 id 即 `query_cards` 和 `save_inventory_view` 在 `where.tags` 下所接受的值 |
 | `resolve_card_refs` | 在批量导入之前预校验基于名称的卡片引用（名称 → UUID）——仅解析，从不写入 |
 | `analyze_impact` | 针对卡片的一项拟议变更进行依赖影响范围分析 |
 
@@ -317,7 +318,7 @@ MCP 服务器提供 **54 个工具**，分为两组：**34 个读取工具** 用
 
 `query_cards` 可以在一次调用中回答链式关系的问题——「使用生命周期为 Active 的应用程序、且该应用程序受状态为 On Track 的举措影响的组织」——而 `save_inventory_view` 会把同一查询保存为已保存的清单视图。视图保存的是查询而非结果：每次有人打开视图时，清单都会重新运行它，因此列表始终是最新的。
 
-查询是一个**仅由键**组成的小型 JSON 对象——卡片类型、关系类型、字段和选项的键，与 `list_card_types` 和 `get_relation_types` 返回的一致，绝不使用标签或卡片 id：
+查询是一个**仅由键**组成的小型 JSON 对象——卡片类型、关系类型、字段和选项的键，与 `list_card_types` 和 `get_relation_types` 返回的一致，以及来自 `list_tag_groups` 的标签 id；绝不使用标签文本或卡片 id：
 
 ```text
 CardQuery = { type, where?, related?: [Hop] }
@@ -326,12 +327,14 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
-              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] } }
+              attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
+              tags?: [tag id] }
 ```
 
 - 当该类型的**任意一张**相关卡片满足其 `where`（及其自身嵌套的跳）时，该跳即匹配。`negate: true` 会将其变为「**没有**这样的卡片」。
 - 同一层级并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
 - `<key>__out` 和 `<key>__in` 用于选择把某卡片类型与自身相连的关系类型的一侧（该卡片是源或目标）。其他情况下使用普通键即可。
+- `tags` 接受来自 `list_tag_groups` 的标签 id，并按标签组分组：卡片必须在所列出的**每个**标签组中至少带有其中一个标签（组内为备选，组间为与）。若某标签所属的标签组不适用于该跳的卡片类型，会被拒绝并返回 `tag_not_for_type`；未知 id 则返回 `unknown_tag`。
 - 相关卡片仅在处于活动状态且用户有权读取时才计入：用户看不到的卡片会使链断开，与网页界面中的行为完全一致。
 
 示例——使用某个活动应用程序、且该应用程序受状态为 *On Track* 的举措影响的组织：
@@ -356,12 +359,12 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 }
 ```
 
-在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并标记为通过 MCP 生成。其查询只能通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者仍可重命名、更改共享和 OData 设置、调整列布局或删除它。
+在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
 
 限制：
 
 - `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
-- 不支持针对**标签**的条件，也不支持针对特定卡片的条件。
+- 不支持针对特定卡片的条件（支持标签）。
 - 文本属性与其值**完全**匹配——不支持部分匹配或不区分大小写的匹配。
 - **`rollback_batch` 无法撤销已保存的视图。** 保存视图会记录一个变更批次，但不会发布可供回滚撤销的事件；请在清单的「已保存视图」中删除不需要的视图。
 
@@ -383,7 +386,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 
 - **每次调用的大小上限。** MCP 写入工具强制施加比底层 Excel 导入端点小得多的上限：`create_cards_bulk` 为 200 行，`upsert_relations_bulk` 为 500 次操作。足以应对任何实际的单一工件上传，又小到可以快速扫描演练预览。
 - **默认不允许删除关系。** `upsert_relations_bulk` 拒绝 `action: "delete"` 操作——若要删除关系，请使用 Web 界面，那里的操作会以用户身份被记录。运营者可通过设置 `MCP_ALLOW_RELATION_DELETE=true` 启用此功能。
-- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 20 个写入工具。34 个读取工具继续工作。
+- **紧急开关。** `MCP_WRITES_ENABLED=false` 可在无需重新部署代码的情况下关闭全部 20 个写入工具。35 个读取工具继续工作。
 - **徽标下载仅限白名单主机。** 内置图标包无法覆盖客户使用的每一款产品，而助手往往运行在无法访问外网的沙箱里，因此 `set_card_logos` 接受 `image_url`，由 MCP 服务器代为下载。仅限 `https`、仅限 `MCP_LOGO_FETCH_HOSTS` 中的主机、仅限公网地址，最多两次重定向（每次重新校验），最多以流式读取 1 MB，且字节必须带有真实的 PNG/JPEG/WebP/GIF 签名。下载发生在 MCP 边缘而非后端，随后图片经普通通道上传 —— 由大模型选定的 URL 永远不会抵达持有数据库的进程。`MCP_LOGO_FETCH_ENABLED=false` 可将其关闭。
 - **审计来源标记。** 来自 MCP 服务器的每个后端请求都携带 `X-Turbo-EA-Origin: mcp` 头。从这些请求发出的事件在审计日志载荷中被标记为 `origin: "mcp"`，以便管理员可以将 MCP 驱动的写入与 Web 界面操作分别从时间线中筛选出来。
 - **变更批次。** 每次 MCP 写入调用——无论是预览还是提交——都是审计日志中的一个变更批次，在任何写入发生之前打开；调用期间发出的每个事件都会被标记上批次 id，每个写入工具都会返回该 `batch_id`。管理员（或 `get_change_history` 工具）可以凭一个 id 重建某次提交的完整逐事件差异，而 `rollback_batch` 可以将其撤销——包括删除由 `create_diagram` 创建的图表，除非此后有人已将其发布。图表更新会被报告为不可撤销，因为之前的画布不会被保留。超过 `MCP_BATCH_CONFIRMATION_THRESHOLD` 行的提交必须回传先前演练返回的一次性 `confirm_token`。后端在提交的批次打开时、任何写入发生之前校验它：它必须来自同一用户在 15 分钟内对同一工具执行的演练，并且只能授权一次提交。所有批量写入工具都遵循这一「预览 → 确认」流程：`create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`。

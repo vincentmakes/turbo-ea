@@ -228,28 +228,35 @@ Les vues sauvegardées apparaissent dans la barre latérale du panneau de filtre
 - **Partagées avec moi** -- Vues que d'autres ont partagées avec vous
 - **Vues publiques** -- Vues disponibles pour tous
 
-### Vues générées via MCP { #mcp-views }
+### Vues de requête { #query-views }
+<a id="mcp-views"></a>
 
-Un assistant IA connecté via le [serveur MCP](../admin/mcp.md) peut enregistrer une vue dont les filtres sont une **requête à plusieurs sauts** — une chaîne de relations avec une condition à chaque étape, par exemple *Organisations qui utilisent une Application active affectée par une Initiative dont le statut est On Track*. La vue stocke la requête, pas ses résultats : le serveur la réexécute à chaque ouverture de la vue, de sorte que la liste reflète toujours le paysage actuel.
+Une **vue de requête** est une vue enregistrée dont les filtres sont une **requête à plusieurs sauts** — une chaîne de relations avec des conditions à chaque étape, par exemple *Organisations qui utilisent une Application active affectée par une Initiative dont le statut est On Track*. La vue stocke la requête, pas ses résultats : elle est réexécutée à chaque ouverture de la vue, de sorte que la liste reflète toujours le paysage actuel.
 
-![Vue d'inventaire générée via MCP](../assets/img/en/98d_inventory_mcp_view.png)
+![Une vue de requête dans l'inventaire](../assets/img/fr/98d_inventaire_vue_mcp.png)
 
-Lorsqu'une telle vue est ouverte, un **bandeau de chemin** au-dessus de la grille montre ce qu'elle sélectionne :
+**Créer une vue de requête.** Dans l'onglet **Vues** du panneau latéral des filtres, cliquez sur **Nouvelle vue de requête** à côté de *Enregistrer la vue actuelle* (affiché à toute personne autorisée à gérer les vues). Le bandeau au-dessus de la grille s'ouvre comme un générateur de requête :
 
-- Une pastille **MCP** et le nom de la vue, suivis de la mention *Générée via MCP · modifiable uniquement via MCP*. Survolez la mention pour voir ce que vous pouvez encore modifier ici.
-- Le **chemin** : les types de fiche sous forme de pastilles, reliés par le verbe de relation qui lie chaque étape (par exemple *Organisation → utilise Application → est affectée par Initiative*). Une étape qui exige qu'une fiche n'ait **aucune** relation de ce type se lit *n'a aucune* avant le verbe.
-- Sous chaque type de fiche, les **conditions** qu'il doit remplir — phase de cycle de vie, sous-type, statut d'approbation ou valeur d'un champ.
-- Un bouton **×** (*Quitter cette vue*) qui ramène à l'inventaire normal.
+1. Cliquez sur la pastille de départ (*Choisir un type*) et choisissez le type de fiche que la vue liste.
+2. Cliquez sur **+ relation** après la dernière fiche pour ajouter un saut. Le menu liste chaque verbe de relation avec le type de fiche vers lequel il mène ; une relation entre fiches du même type est proposée dans les deux sens. Une requête est une chaîne unique de trois sauts au plus.
+3. Cliquez sur **+ condition** sous une fiche pour la restreindre : **Cycle de vie**, **Sous-types**, **Statut d’approbation**, **Étiquettes**, ou un champ de sélection ou oui/non de ce type de fiche. Pour les étiquettes, une fiche correspond si elle porte l'une des étiquettes choisies d'un groupe, et elle doit correspondre à chaque groupe ajouté ; seuls les groupes d'étiquettes qui s'appliquent à ce type de fiche sont proposés.
+4. Cliquez sur **Enregistrer**. La boîte de dialogue habituelle d'enregistrement de vue s'ouvre pour le nom, la visibilité, le partage et le réglage OData. **Annuler** abandonne la requête.
 
-Dans la liste des vues enregistrées, une vue de requête porte un badge robot et son chemin compact (*Organisation › utilise Application › est affectée par Initiative*) en seconde ligne.
+![Créer une vue de requête](../assets/img/fr/98e_inventaire_editeur_requete.png)
 
-**Ce que vous pouvez modifier dans l'interface web.** Le propriétaire de la vue peut la renommer, modifier son partage et son réglage OData, mettre à jour sa disposition (colonnes, disposition des colonnes et regroupement) ou la supprimer. Ses filtres et la requête elle-même ne changent que via MCP : modifier la vue ici ne les remplace jamais par ceux du panneau de filtres ; demandez donc à l'assistant de la modifier ou de la réenregistrer. **Enregistrer la vue actuelle** pendant qu'une vue de requête est ouverte crée une vue ordinaire à partir des filtres, des colonnes et du tri du panneau — la requête n'y est pas copiée, comme l'indique la boîte de dialogue.
+Pendant la construction, la grille se filtre en direct et le compteur de la barre d'outils indique combien de fiches correspondent : vous voyez l'effet de chaque saut et de chaque condition avant d'enregistrer.
+
+**Modifier les sauts et les conditions.** Cliquez sur la pastille de verbe d'un saut pour ouvrir son menu : **n'a aucune** transforme le saut en exigence que la fiche n'ait **aucune** relation de ce type, et **Supprimer ce saut** le supprime avec tous les sauts qui le suivent. Cliquez sur une pastille de condition pour modifier ses valeurs, ou sur son **×** pour la supprimer.
+
+**Modifier une vue de requête enregistrée.** Lorsqu'une vue de requête est ouverte, le bandeau affiche son chemin : les types de fiche sous forme de pastilles, reliés par le verbe de relation qui lie chaque étape (par exemple *Organisation → utilise Application → est affectée par Initiative*), avec les conditions de chaque fiche en dessous. Si vous êtes propriétaire de la vue ou disposez de droits de modification sur elle, un **crayon** dans le bandeau la bascule vers le même générateur ; **Enregistrer** met à jour la vue. Le bouton **×** (*Quitter cette vue*) ramène à l'inventaire normal. **Enregistrer la vue actuelle** pendant qu'une vue de requête est ouverte enregistre une nouvelle vue de requête avec la même requête.
+
+**Vues créées par un assistant IA.** Un assistant connecté via le [serveur MCP](../admin/mcp.md) peut aussi créer des vues de requête. Une telle vue affiche une pastille **MCP** et la mention *Créée via MCP* dans son bandeau, ainsi qu'un badge robot dans la liste des vues ; elle se modifie comme n'importe quelle autre vue de requête. Dans la liste des vues, chaque vue de requête porte un petit badge arbre (le badge robot lorsqu'un assistant l'a créée) et son chemin compact (*Organisation › utilise Application › est affectée par Initiative*) en seconde ligne.
 
 **Ouvrir une vue par lien.** Lorsqu'un assistant enregistre une vue, il renvoie un lien de la forme `/inventory?view=<view id>` ; l'ouvrir applique directement la vue enregistrée. Le même lien fonctionne pour toute vue enregistrée que vous pouvez voir.
 
 **OData.** Le flux OData d'une vue de requête renvoie les mêmes fiches que l'inventaire : la requête est également appliquée au flux.
 
-Pour la grammaire des requêtes, ses limites et les outils MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`), voir [Requêtes de fiches à plusieurs sauts](../admin/mcp.md#multi-hop-card-queries).
+Pour la grammaire des requêtes, ses limites et les outils MCP (`query_cards`, `list_inventory_views`, `save_inventory_view`, `list_tag_groups`), voir [Requêtes de fiches à plusieurs sauts](../admin/mcp.md#multi-hop-card-queries).
 
 ## Import / Export Excel { #excel-import }
 
