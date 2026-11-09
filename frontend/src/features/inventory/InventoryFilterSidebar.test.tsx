@@ -2067,7 +2067,7 @@ describe("InventoryFilterSidebar — query views", () => {
     await renderSidebar({ relationTypes: QUERY_REL_TYPES });
     openTab("Views");
     const row = screen.getByRole("button", { name: /Apps on live tech/ });
-    // An assistant's view carries the robot, a view built here the path glyph.
+    // An assistant's view carries the robot, a view built here the query-view glyph.
     expect(within(row).getByRole("img", { name: "Query view" })).toHaveTextContent(/^smart_toy$/);
     expect(row).toHaveTextContent("Application › uses IT Component +1");
     // An owned query view needs no owner tooltip.
@@ -2081,7 +2081,7 @@ describe("InventoryFilterSidebar — query views", () => {
     // into a tooltip.
     const shared = screen.getByRole("button", { name: /Team query/ });
     expect(within(shared).getByRole("img", { name: "Query view" })).toHaveTextContent(
-      /^account_tree$/,
+      /^view_in_ar$/,
     );
     expect(shared).toHaveTextContent("Application › uses IT Component");
     expect(shared).not.toHaveTextContent("+1");
@@ -2245,6 +2245,17 @@ describe("InventoryFilterSidebar — query views", () => {
     await renderSidebar({ onStartQueryDraft, canManageBookmarks: true });
     const button = screen.getByRole("button", { name: /New query view/ });
     expect(button).toHaveAttribute("data-testid", "new-query-view");
+    expect(button).toHaveTextContent(/^view_in_ar/);
+    // Two-row header: the title stands alone, the actions sit on their own
+    // wrapping row, "Save current" first.
+    const title = screen.getByText("Saved Views");
+    const actions = screen.getByTestId("views-header-actions");
+    expect(actions).not.toContainElement(title);
+    expect(actions).toHaveStyle({ flexWrap: "wrap" });
+    expect(within(actions).getAllByRole("button").map((b) => b.dataset.testid)).toEqual([
+      "save-current-view",
+      "new-query-view",
+    ]);
     expect(onStartQueryDraft).not.toHaveBeenCalled();
     fireEvent.click(button);
     expect(onStartQueryDraft).toHaveBeenCalledTimes(1);

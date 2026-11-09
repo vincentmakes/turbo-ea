@@ -1,6 +1,7 @@
 import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
@@ -2080,45 +2081,40 @@ export default function InventoryFilterSidebar({
           ) : (
             /* ====================== VIEWS TAB ====================== */
             <>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  mb: 1,
-                }}
+              <Typography variant="body2" fontWeight={600} fontSize={14} noWrap>
+                {t("views.savedViews")}
+              </Typography>
+              <Stack
+                direction="row"
+                data-testid="views-header-actions"
+                sx={{ gap: 0.5, flexWrap: "wrap", alignItems: "center", mt: 0.5, mb: 1 }}
               >
-                <Typography variant="body2" fontWeight={600} fontSize={14}>
-                  {t("views.savedViews")}
-                </Typography>
-                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  {canManageBookmarks && onStartQueryDraft && (
+                <Tooltip title={draftUnfinished ? t("queryView.finishDraftFirst") : ""}>
+                  <span>
                     <Button
                       size="small"
-                      data-testid="new-query-view"
-                      onClick={onStartQueryDraft}
-                      startIcon={<MaterialSymbol icon="account_tree" size={16} />}
+                      data-testid="save-current-view"
+                      disabled={draftUnfinished}
+                      onClick={() => openCreateDialog()}
+                      startIcon={<MaterialSymbol icon="add" size={16} />}
                       sx={{ textTransform: "none", fontSize: 13 }}
                     >
-                      {t("views.newQueryView")}
+                      {t("views.saveCurrent")}
                     </Button>
-                  )}
-                  <Tooltip title={draftUnfinished ? t("queryView.finishDraftFirst") : ""}>
-                    <span>
-                      <Button
-                        size="small"
-                        data-testid="save-current-view"
-                        disabled={draftUnfinished}
-                        onClick={() => openCreateDialog()}
-                        startIcon={<MaterialSymbol icon="add" size={16} />}
-                        sx={{ textTransform: "none", fontSize: 13 }}
-                      >
-                        {t("views.saveCurrent")}
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </Box>
-              </Box>
+                  </span>
+                </Tooltip>
+                {canManageBookmarks && onStartQueryDraft && (
+                  <Button
+                    size="small"
+                    data-testid="new-query-view"
+                    onClick={onStartQueryDraft}
+                    startIcon={<MaterialSymbol icon="view_in_ar" size={16} />}
+                    sx={{ textTransform: "none", fontSize: 13 }}
+                  >
+                    {t("views.newQueryView")}
+                  </Button>
+                )}
+              </Stack>
 
               {bookmarks.length === 0 ? (
                 <Typography
@@ -2536,7 +2532,7 @@ function BookmarkListItem({
                 {bm.created_via === "mcp" ? (
                   <MaterialSymbol icon="smart_toy" size={13} color={ORIGIN_META.mcp.color} />
                 ) : (
-                  <MaterialSymbol icon="account_tree" size={13} />
+                  <MaterialSymbol icon="view_in_ar" size={13} />
                 )}
               </Box>
             )}

@@ -457,7 +457,7 @@ function EditStrip({
   return (
     <Paper variant="outlined" data-testid="query-path-strip" sx={STRIP_SX}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-        <MaterialSymbol icon="account_tree" size={18} />
+        <MaterialSymbol icon="view_in_ar" size={18} />
         <Typography variant="body2" fontWeight={600}>
           {draft.viewId ? t("inventory:queryView.editTitle") : t("inventory:queryView.newTitle")}
         </Typography>

@@ -384,6 +384,7 @@ describe("QueryPathStrip — edit mode", () => {
       { onSave, onCancel },
     );
     expect(screen.getByText("New query view")).toBeInTheDocument();
+    expect(screen.getByTestId("query-path-strip")).toHaveTextContent(/^view_in_ar/);
     expect(screen.queryByTestId("query-path-leave")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("query-path-save"));
     expect(onSave).toHaveBeenCalledTimes(1);
