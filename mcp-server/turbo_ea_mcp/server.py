@@ -225,7 +225,7 @@ def _query_rejection(exc: httpx.HTTPStatusError) -> dict | None:
     try:
         detail = exc.response.json().get("detail")
     except Exception:  # noqa: BLE001 — a non-JSON 400 still names a bad query
-        detail = None
+        return {"error": "invalid_query", "hint": _QUERY_HINT}
     if isinstance(detail, dict):
         detail = detail.get("code") or detail
     return {"error": detail or "invalid_query", "hint": _QUERY_HINT}

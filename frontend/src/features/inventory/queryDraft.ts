@@ -232,6 +232,51 @@ export function draftProblem(query: CardQuery): DraftProblem | null {
   return null;
 }
 
+/** A copy of `where` without its empty condition lists, or undefined when nothing is left. */
+function sendableWhere(where: CardQueryWhere | undefined): CardQueryWhere | undefined {
+  if (!where) return undefined;
+  const next: CardQueryWhere = {};
+  for (const kind of ["lifecycle_phase", "subtype", "approval_status", "tags", "cards"] as const) {
+    const values = where[kind];
+    if (values && values.length > 0) next[kind] = [...values];
+  }
+  const attributes: Record<string, string[]> = {};
+  for (const [key, values] of Object.entries(where.attributes ?? {})) {
+    if (values.length > 0) attributes[key] = [...values];
+  }
+  if (Object.keys(attributes).length > 0) next.attributes = attributes;
+  // "Include sub-cards" qualifies the picked cards; it goes with them.
+  if (next.cards && where.include_descendants !== undefined) {
+    next.include_descendants = where.include_descendants;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function sendableHop(hop: CardQueryHop): CardQueryHop {
+  const next: CardQueryHop = { relation: hop.relation, type: hop.type };
+  const where = sendableWhere(hop.where);
+  if (where) next.where = where;
+  if (hop.negate !== undefined) next.negate = hop.negate;
+  if (hop.related) next.related = hop.related.map(sendableHop);
+  return next;
+}
+
+/**
+ * The part of a draft the grid can preview while it is being edited: a copy
+ * with every condition still waiting for values left out (and "Include
+ * sub-cards" with an emptied cards condition), on every node. Null while the
+ * draft has no start type. An empty condition is the one being filled in, so
+ * it narrows nothing yet — it must not widen the preview to the whole type.
+ */
+export function sendableQuery(query: CardQuery): CardQuery | null {
+  if (!query.type) return null;
+  const next: CardQuery = { type: query.type };
+  const where = sendableWhere(query.where);
+  if (where) next.where = where;
+  if (query.related) next.related = query.related.map(sendableHop);
+  return next;
+}
+
 /** One relation a hop can follow from a node of `type`. */
 export interface RelationChoice {
   /** The hop's `relation`: the bare key, or `__out` / `__in` on a self-referencing type. */

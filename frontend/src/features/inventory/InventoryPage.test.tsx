@@ -3123,19 +3123,79 @@ describe("InventoryPage query builder", () => {
     expect(screen.getByText("New query view")).toBeInTheDocument();
   });
 
-  it("keeps loading while a condition is still empty: the start type pinned, no query", async () => {
+  it("previews the chain without a condition still empty, the start type pinned", async () => {
     localStorage.setItem("turboea_inventory", JSON.stringify({ filters: { types: ["Application"] } }));
     renderPage();
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
     fireEvent.click(screen.getByTestId("start-query-draft"));
-    await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+    await addActiveLifecycle();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    await waitFor(() =>
+      expect(lastQuery()).toEqual({ type: "Application", where: { lifecycle_phase: ["active"] } }),
+    );
     const before = cardUrls().length;
+    // A second, empty condition: the draft holds it, the preview leaves it out.
     fireEvent.click(screen.getAllByTestId("query-path-add-condition")[0]);
-    pickMenu("Lifecycle");
+    pickMenu("Subtype");
     await screen.findByTestId("query-condition-popover");
+    expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({
+      type: "Application",
+      where: { lifecycle_phase: ["active"], subtype: [] },
+    });
     await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
-    expect(lastCards().has("query")).toBe(false);
+    for (const url of cardUrls().slice(before)) {
+      const p = paramsOf(url);
+      expect(JSON.parse(p.get("query")!)).toEqual({
+        type: "Application",
+        where: { lifecycle_phase: ["active"] },
+      });
+      expect(p.get("type")).toBe("Application");
+    }
+  });
+
+  it("previews a hop whose cards condition was emptied without it or its sub-cards flag", async () => {
+    const HOP_QUERY = {
+      type: "Application",
+      related: [
+        {
+          relation: "relAppToITC",
+          type: "ITComponent",
+          where: { cards: ["itc-1"], include_descendants: true, lifecycle_phase: ["active"] },
+        },
+      ],
+    };
+    localStorage.setItem(
+      "turboea_inventory",
+      JSON.stringify({
+        filters: { types: ["Application"] },
+        activeQuery: { ...ACTIVE, query: HOP_QUERY },
+      }),
+    );
+    mockBookmarks([queryBookmark({ query: HOP_QUERY })]);
+    renderPage();
+    fireEvent.click(await screen.findByTestId("query-path-edit"));
+    await waitFor(() => expect(lastQuery()).toEqual(HOP_QUERY));
+    const before = cardUrls().length;
+    fireEvent.click(screen.getByText(/sub-cards/));
+    const chip = await screen.findByTestId("query-cards-chip");
+    fireEvent.click(chip.querySelector(".MuiChip-deleteIcon")!);
+    await waitFor(() =>
+      expect(JSON.parse(sidebar().getAttribute("data-draft-query")!).related[0].where).toEqual({
+        cards: [],
+        include_descendants: true,
+        lifecycle_phase: ["active"],
+      }),
+    );
+    await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+    expect(lastQuery()).toEqual({
+      type: "Application",
+      related: [
+        { relation: "relAppToITC", type: "ITComponent", where: { lifecycle_phase: ["active"] } },
+      ],
+    });
     expect(lastCards().get("type")).toBe("Application");
+    // The emptied condition's chip stays in the strip, for the user to fill.
+    expect(screen.getByTestId("query-condition-popover")).toBeInTheDocument();
   });
 
   it("expands a collapsed sidebar to name a new draft", async () => {

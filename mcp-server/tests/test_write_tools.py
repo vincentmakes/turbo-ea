@@ -1190,6 +1190,24 @@ class TestSaveInventoryView:
         )
         assert out == {"error": "view_not_found", "hint": _VIEW_HINT, "batch_id": "B-1"}
 
+    @pytest.mark.parametrize(
+        ("status", "code"), [(403, "view_not_editable"), (404, "view_not_found")]
+    )
+    def test_view_rejection_without_visibility_names_the_view(self, status, code):
+        # No ``visibility`` keyword: the default must mean "not asked for".
+        assert server._view_rejection(_http_error(status, "nope")) == {
+            "error": code,
+            "hint": server._VIEW_HINT,
+        }
+
+    def test_view_rejection_ignores_other_statuses(self):
+        assert server._view_rejection(_http_error(500, "boom")) is None
+
+    @pytest.mark.parametrize("views", [None, {"id": "v-1"}, "v-1"])
+    def test_view_problem_on_a_non_list_answer_is_view_not_found(self, views):
+        # Only a list is iterated: None would raise, a dict yields its keys.
+        assert server._view_problem(views, "v-1") == "view_not_found"
+
     @pytest.mark.asyncio
     async def test_a_refused_create_is_not_a_view_error(self, fake_token):
         import httpx

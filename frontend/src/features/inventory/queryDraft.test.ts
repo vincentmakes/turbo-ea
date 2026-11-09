@@ -17,6 +17,7 @@ import {
   relationChoices,
   removeCondition,
   removeHopAt,
+  sendableQuery,
   setCondition,
   setIncludeDescendants,
   setStartType,
@@ -240,6 +241,105 @@ describe("draftProblem", () => {
     expect(draftProblem({ type: "A", related: [{ relation: "r", type: "" }] })).toBe("empty_values");
     expect(draftProblem(CHAIN)).toBeNull();
     expect(draftProblem(BRANCHED)).toBeNull();
+  });
+});
+
+describe("sendableQuery", () => {
+  it("leaves out the empty condition lists on the start node, keeping the rest", () => {
+    const query: CardQuery = {
+      type: "A",
+      where: {
+        lifecycle_phase: [],
+        subtype: ["s1"],
+        approval_status: [],
+        tags: [],
+        attributes: { f: [], g: ["x"] },
+      },
+    };
+    expect(sendableQuery(query)).toEqual({
+      type: "A",
+      where: { subtype: ["s1"], attributes: { g: ["x"] } },
+    });
+  });
+
+  it("drops a where and an attributes map left with nothing", () => {
+    expect(
+      sendableQuery({ type: "A", where: { lifecycle_phase: [], attributes: { f: [] } } }),
+    ).toEqual({ type: "A" });
+  });
+
+  it("drops include_descendants with an emptied cards condition at a hop", () => {
+    const query: CardQuery = {
+      type: "A",
+      related: [
+        {
+          relation: "r",
+          type: "B",
+          negate: true,
+          where: { cards: [], include_descendants: true, lifecycle_phase: ["active"] },
+          related: [{ relation: "s", type: "C", where: { tags: [] } }],
+        },
+      ],
+    };
+    expect(sendableQuery(query)).toEqual({
+      type: "A",
+      related: [
+        {
+          relation: "r",
+          type: "B",
+          negate: true,
+          where: { lifecycle_phase: ["active"] },
+          related: [{ relation: "s", type: "C" }],
+        },
+      ],
+    });
+  });
+
+  it("keeps include_descendants with picked cards", () => {
+    expect(
+      sendableQuery({ type: "A", where: { cards: ["c1"], include_descendants: true } }),
+    ).toEqual({ type: "A", where: { cards: ["c1"], include_descendants: true } });
+  });
+
+  it("returns an equal copy of a query with nothing empty, branches included", () => {
+    expect(sendableQuery(CHAIN)).toEqual(CHAIN);
+    expect(sendableQuery(CHAIN)).not.toBe(CHAIN);
+    expect(sendableQuery(BRANCHED)).toEqual(BRANCHED);
+  });
+
+  it("keeps the branches beside the chain, emptied lists removed there too", () => {
+    const query: CardQuery = {
+      type: "A",
+      related: [
+        { relation: "r", type: "B", where: { subtype: ["x"] } },
+        { relation: "q", type: "D", where: { subtype: [] } },
+      ],
+    };
+    expect(sendableQuery(query)).toEqual({
+      type: "A",
+      related: [
+        { relation: "r", type: "B", where: { subtype: ["x"] } },
+        { relation: "q", type: "D" },
+      ],
+    });
+  });
+
+  it("is null without a start type", () => {
+    expect(sendableQuery({ type: "" })).toBeNull();
+    expect(sendableQuery({ type: "", where: { subtype: ["x"] } })).toBeNull();
+  });
+
+  it("does not mutate the query or share its lists", () => {
+    const query: CardQuery = {
+      type: "A",
+      where: { subtype: ["s1"], cards: [], include_descendants: true, attributes: { f: [] } },
+      related: [{ relation: "r", type: "B", where: { tags: [] } }],
+    };
+    const before = structuredClone(query);
+    const sent = sendableQuery(query)!;
+    expect(query).toEqual(before);
+    sent.where!.subtype!.push("s2");
+    expect(query.where!.subtype).toEqual(["s1"]);
   });
 });
 

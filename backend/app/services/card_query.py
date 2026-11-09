@@ -343,7 +343,7 @@ class ResolvedHop:
     node: ResolvedNode
 
 
-def _other_end(rel: Any, side: RelationSide) -> str:
+def _other_end(rel: RelationType, side: RelationSide) -> str:
     """The card type at the far end of ``side``."""
     return rel.target_type_key if side.card_is_source else rel.source_type_key
 

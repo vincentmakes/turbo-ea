@@ -550,6 +550,24 @@ class TestQueryCards:
         assert out["error"] == "invalid_query"
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "response",
+        [
+            httpx.Response(400, text="Bad Request"),
+            httpx.Response(400, json=["not", "an", "object"]),
+        ],
+        ids=["not-json", "json-list"],
+    )
+    async def test_a_400_without_a_readable_body_is_an_invalid_query(self, fake_token, response):
+        request = httpx.Request("GET", "http://backend/api/v1/cards")
+        response.request = request
+        error = httpx.HTTPStatusError("400 Bad Request", request=request, response=response)
+        mock = AsyncMock(side_effect=error)
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query=_CHAIN))
+        assert out == {"error": "invalid_query", "hint": server._QUERY_HINT}
+
+    @pytest.mark.asyncio
     async def test_other_errors_are_raised(self, fake_token):
         mock = AsyncMock(side_effect=_status_error(403, {"detail": "Forbidden"}))
         with patch.object(server.TurboEAClient, "get", mock):

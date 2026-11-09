@@ -40,7 +40,7 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import QueryPathStrip from "./QueryPathStrip";
-import { draftProblem } from "./queryDraft";
+import { draftProblem, sendableQuery } from "./queryDraft";
 import {
   activeQueryFromBookmark,
   bookmarkFilters,
@@ -1065,15 +1065,14 @@ export default function InventoryPage() {
   // view's own owner / edit right.
   const canEditActiveView =
     canManageBookmarks && !!activeBookmark && (activeBookmark.is_owner || !!activeBookmark.can_edit);
-  // A draft still missing its type or a condition's values cannot be sent;
-  // the grid keeps loading without it meanwhile.
-  const draftUnsendable = queryDraft != null && draftProblem(queryDraft.query) != null;
-  // The query the cards are fetched with: the draft while one is open.
-  const sentQuery: CardQuery | null = queryDraft
-    ? draftUnsendable
-      ? null
-      : queryDraft.query
-    : (activeQuery?.query ?? null);
+  // The query the cards are fetched with: the draft while one is open, less
+  // any condition still waiting for its values — that one narrows nothing
+  // yet, and dropping the whole query would widen the preview to every card
+  // of the type. A draft without a type sends no query (the grid keeps
+  // loading on the ordinary filters). Saving still needs `draftProblem` clear.
+  const draftQuery = queryDraft?.query;
+  const sentDraft = useMemo(() => (draftQuery ? sendableQuery(draftQuery) : null), [draftQuery]);
+  const sentQuery: CardQuery | null = queryDraft ? sentDraft : (activeQuery?.query ?? null);
   // A query is evaluated against its start type, so it only holds while that
   // type is the one selected; any other type selection leaves the view (and
   // cancels a draft). A draft without a type yet pins nothing.
