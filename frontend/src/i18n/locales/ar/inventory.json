@@ -254,6 +254,7 @@
   "queryView.error.unknown_card": "بطاقة في هذا الاستعلام غير موجودة أو غير مرئية لك.",
   "queryView.error.descendants_without_cards": "يحتاج «تضمين البطاقات الفرعية» إلى بطاقة واحدة مختارة على الأقل.",
   "queryView.error.descendants_without_hierarchy": "ينطبق «تضمين البطاقات الفرعية» فقط على أنواع البطاقات ذات التسلسل الهرمي.",
+  "queryView.error.unknown_band": "نطاق جودة بيانات غير معروف.",
   "views.newQueryView": "عرض استعلام جديد",
   "queryView.badge": "عرض استعلام MCP",
   "relation.currentRelations": "العلاقات الحالية",

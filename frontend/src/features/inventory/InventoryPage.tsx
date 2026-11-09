@@ -2011,27 +2011,22 @@ export default function InventoryPage() {
 
   const beginQueryDraft = useCallback(
     (clearFilters: boolean) => {
-      // One selected type starts the draft; none or several leave the choice
-      // to the strip's type chooser.
-      const current = filtersRef.current;
-      const type = current.types.length === 1 ? current.types[0] : "";
+      // A new draft always starts on the strip's type chooser.
       if (clearFilters) {
-        // The grid shows exactly what the chain matches: every facet and
-        // column filter goes (Cancel puts them back), the start type stays.
+        // The grid shows exactly what the chain matches: every facet, the
+        // selected type and every column filter go (Cancel puts them back).
         draftRestoreRef.current = {
-          filters: current,
+          filters: filtersRef.current,
           columnFilterModel: columnFilterModelRef.current,
         };
-        setFilters({ ...emptyFilters(), types: type ? [type] : [] });
+        setFilters(emptyFilters());
         applyColumnFilters({});
-      } else if (type) {
-        pinStartType(type);
       }
-      setQueryDraft({ query: { type }, viewId: null });
+      setQueryDraft({ query: { type: "" }, viewId: null });
       setDraftError(null);
       setFilterDrawerOpen(false);
     },
-    [pinStartType, applyColumnFilters],
+    [applyColumnFilters],
   );
 
   const startQueryDraft = useCallback(() => {

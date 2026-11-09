@@ -122,6 +122,15 @@ describe("QueryConditionPopover", () => {
     expect(onChange).toHaveBeenLastCalledWith(["APPROVED"]);
   });
 
+  it("offers the three data quality bands, no (empty), and emits their keys", () => {
+    const { onChange } = renderEditor("data_quality_band", ["complete"]);
+    const popover = screen.getByTestId("query-condition-popover");
+    expect(within(popover).getByText("Data Quality", { selector: "label" })).toBeInTheDocument();
+    expect(openOptions()).toEqual(["Complete (≥80%)", "Partial (40-79%)", "Minimal (<40%)"]);
+    fireEvent.click(screen.getByRole("option", { name: "Minimal (<40%)" }));
+    expect(onChange).toHaveBeenLastCalledWith(["complete", "minimal"]);
+  });
+
   it("offers Yes / No / (empty) for a boolean field and emits their keys", () => {
     const { onChange, rerender, onClose } = renderEditor({ attribute: "isCloud" });
     expect(openOptions()).toEqual(["(empty)", "Yes", "No"]);

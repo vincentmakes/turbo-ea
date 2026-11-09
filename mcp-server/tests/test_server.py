@@ -502,6 +502,7 @@ class TestQueryCards:
             "subtype": "BusinessUnit",
             "approval_status": "APPROVED",
             "lifecycle": {"active": "2024-01-01"},
+            "data_quality": 79.9,
             "description": "long text",
             "attributes": {"x": 1},
         }
@@ -520,6 +521,7 @@ class TestQueryCards:
                     "subtype": "BusinessUnit",
                     "approval_status": "APPROVED",
                     "lifecycle": {"active": "2024-01-01"},
+                    "data_quality": 79.9,
                 }
             ],
         }

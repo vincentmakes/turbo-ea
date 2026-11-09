@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "Et kort i denne forespørgsel findes ikke eller er ikke synligt for dig.",
   "queryView.error.descendants_without_cards": "«Medtag underkort» kræver mindst ét valgt kort.",
   "queryView.error.descendants_without_hierarchy": "«Medtag underkort» gælder kun for korttyper med et hierarki.",
+  "queryView.error.unknown_band": "Ukendt datakvalitetsbånd.",
   "views.newQueryView": "Ny forespørgselsvisning",
   "queryView.badge": "MCP-forespørgselsvisning",
   "relation.currentRelations": "Aktuelle relationer",

@@ -11,6 +11,7 @@ import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import TagPicker from "@/components/TagPicker";
 import { useFieldLabel, useOptionLabel, useSubtypeLabel } from "@/hooks/useResolveLabel";
+import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { facetOptions } from "@/lib/fieldFacets";
 import type { CardType, FieldDef, TagGroup } from "@/types";
 import { APPROVAL_STATUS_OPTIONS, LIFECYCLE_PHASES } from "./InventoryFilterSidebar";
@@ -46,7 +47,7 @@ function fieldOf(type: CardType | undefined, key: string): FieldDef | undefined 
 /**
  * The value editor of one condition chip in the query builder: the same
  * controls the inventory's facets use — a `FilterSelect` for lifecycle,
- * subtype, approval status and select / boolean fields, the `TagPicker` for
+ * subtype, approval status, data quality and select / boolean fields, the `TagPicker` for
  * tags — so a condition is picked exactly like a filter. Specific cards are
  * picked in the shared `CardMultiPicker`, opened from the popover.
  */
@@ -159,6 +160,21 @@ function Editor({
         label={t("inventory:columns.approvalStatus")}
         allowEmpty={false}
         options={APPROVAL_STATUS_OPTIONS.map((o) => ({ key: o.key, label: t(o.tKey), color: o.color }))}
+        value={values}
+        onChange={onChange}
+      />
+    );
+  }
+  if (kind === "data_quality_band") {
+    return (
+      <FilterSelect
+        label={t("inventory:filter.dataQuality")}
+        allowEmpty={false}
+        options={DATA_QUALITY_BANDS.map((b) => ({
+          key: b.key,
+          label: t(`inventory:${b.tKey}`),
+          color: b.color,
+        }))}
         value={values}
         onChange={onChange}
       />

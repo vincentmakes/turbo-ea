@@ -228,6 +228,7 @@
   "queryView.error.unknown_card": "Карточка в этом запросе не существует или не видна вам.",
   "queryView.error.descendants_without_cards": "«Включить дочерние карточки» требует хотя бы одну выбранную карточку.",
   "queryView.error.descendants_without_hierarchy": "«Включить дочерние карточки» применимо только к типам карточек с иерархией.",
+  "queryView.error.unknown_band": "Неизвестный диапазон качества данных.",
   "views.newQueryView": "Новое представление-запрос",
   "queryView.badge": "Представление-запрос MCP",
   "relation.currentRelations": "Текущие связи",

@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "此查询中的某张卡片不存在或对您不可见。",
   "queryView.error.descendants_without_cards": "「包含子卡片」至少需要选择一张卡片。",
   "queryView.error.descendants_without_hierarchy": "「包含子卡片」仅适用于具有层级结构的卡片类型。",
+  "queryView.error.unknown_band": "未知的数据质量档位。",
   "views.newQueryView": "新建查询视图",
   "queryView.badge": "MCP 查询视图",
   "relation.currentRelations": "当前关系",

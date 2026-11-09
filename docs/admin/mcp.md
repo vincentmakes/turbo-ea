@@ -327,6 +327,7 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
+              data_quality_band?: [complete | partial | minimal],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
@@ -336,6 +337,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 - A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
 - Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
 - `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
+- `data_quality_band` matches a card's data quality score by band, as the inventory's Data Quality filter does: `complete` (80 and above), `partial` (40 up to, but excluding, 80) or `minimal` (below 40). Any other value is refused with `unknown_band`.
 - `tags` takes tag ids from `list_tag_groups`, grouped by tag group: a card must carry at least one of the listed tags from **every** group named (alternatives within a group, AND across groups). A tag whose group does not apply to that hop's card type is refused with `tag_not_for_type`; an unknown id with `unknown_tag`.
 - `cards` pins that node to the listed cards (alternatives): take their ids from `search_cards` or `resolve_card_refs`. Each should be a card of the node's own type. Running a query does not check the picks: an id that names no card, a card of another type or a card the user cannot read simply matches nothing. Saving a view does check them, and refuses such a pick with `unknown_card`. An archived card matches nothing at a hop. `include_descendants: true` widens each pick to every card beneath it through the parent link (sub-capabilities, child organizations); set without `cards` it is refused with `descendants_without_cards`, and on a card type that has no hierarchy with `descendants_without_hierarchy`. A card or tag id anywhere else in the query is refused with `query_holds_an_id`.
 - Related cards count only when they are active and the user may read them: a card the user cannot see breaks the chain, exactly as it does in the web UI. When a view is saved, a writer cannot pin a card hidden from them (`unknown_card`); a collaborator editing a view shared with them keeps the picks it already holds, even ones they cannot read. A reader opening a view whose picks include a card hidden from them is not refused — the hidden picks simply match nothing.

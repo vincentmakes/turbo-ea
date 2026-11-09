@@ -498,6 +498,7 @@ describe("QueryPathStrip — edit mode", () => {
       "Specific cards",
       "Lifecycle",
       "Subtype",
+      "Data Quality",
       "Tags",
       "Delivery Status",
     ]);
@@ -527,6 +528,7 @@ describe("QueryPathStrip — edit mode", () => {
       "Specific cards",
       "Lifecycle",
       "Approval Status",
+      "Data Quality",
       "Business Criticality",
       "Cloud hosted",
     ]);
@@ -555,6 +557,31 @@ describe("QueryPathStrip — edit mode", () => {
     addCondition("Cloud hosted");
     chooseOption("No");
     expect(last().query.where).toEqual({ attributes: { criticality: ["high"], isCloud: ["false"] } });
+  });
+
+  it("adds a data quality condition, labels its chip and removes it with its ×", () => {
+    const { last } = renderEditor({ query: { type: "Application" }, viewId: null });
+    addCondition("Data Quality");
+    expect(last().query.where).toEqual({ data_quality_band: [] });
+    chooseOption("Partial (40-79%)");
+    expect(last().query.where).toEqual({ data_quality_band: ["partial"] });
+    chooseOption("Complete (≥80%)");
+    expect(last().query.where).toEqual({ data_quality_band: ["partial", "complete"] });
+    expect(screen.getByText("Data Quality: Partial (40-79%), Complete (≥80%)")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("query-condition-popover"), { key: "Escape" });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()).not.toContain("Data Quality");
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    deleteChip("Data Quality: Partial (40-79%), Complete (≥80%)");
+    expect(last()).toEqual({ query: { type: "Application" }, viewId: null });
+  });
+
+  it("labels a stored data quality condition, an unknown band by its key", () => {
+    renderEditor({
+      query: { type: "Application", where: { data_quality_band: ["minimal", "great"] } },
+      viewId: null,
+    });
+    expect(screen.getByText("Data Quality: Minimal (<40%), great")).toBeInTheDocument();
   });
 
   it("leaves (empty) out of the approval status editor", () => {

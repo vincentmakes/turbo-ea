@@ -196,7 +196,15 @@ async def search_cards(
 
 # The fields ``query_cards`` keeps from each card: enough to name, tell apart
 # and follow up on a match with ``get_card``, without the full card payload.
-_QUERY_ITEM_KEYS = ("id", "name", "type", "subtype", "approval_status", "lifecycle")
+_QUERY_ITEM_KEYS = (
+    "id",
+    "name",
+    "type",
+    "subtype",
+    "approval_status",
+    "lifecycle",
+    "data_quality",
+)
 _QUERY_HINT = "Check the keys with list_card_types and get_relation_types."
 
 
@@ -289,6 +297,7 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
                      type, where?, negate?: bool, related?: [Hop]}
         Where     = {lifecycle_phase?: [plan|phaseIn|active|phaseOut|endOfLife|none],
                      subtype?: [subtypeKey], approval_status?: [status],
+                     data_quality_band?: [complete|partial|minimal],
                      attributes?: {fieldKey: [optionKey | "true" | "false"
                                               | text | "__empty__"]},
                      tags?: [tag id],
@@ -301,7 +310,10 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
     type to itself (the card is the source / the target). Related cards must
     be active and readable by you; one you cannot read breaks the chain.
     Text attributes match exactly. An unknown ``approval_status`` value
-    simply matches nothing. ``tags`` are grouped by tag group: a card needs
+    simply matches nothing. ``data_quality_band`` is the data quality score
+    band (complete >= 80, partial 40 up to, but excluding, 80, minimal
+    < 40); any other value is
+    refused ``unknown_band``. ``tags`` are grouped by tag group: a card needs
     at least one of the listed tags from every group named (OR within a
     group, AND across groups); a tag whose group does not apply to the
     hop's card type is refused ``tag_not_for_type``, an unknown id
@@ -338,7 +350,8 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
         page_size: Results per page (default 20, max 100).
 
     Returns: JSON ``{total, page, page_size, items}``, each item trimmed to
-    ``id, name, type, subtype, approval_status, lifecycle``. A query the
+    ``id, name, type, subtype, approval_status, lifecycle, data_quality``
+    (the 0-100 score ``data_quality_band`` filters on). A query the
     backend rejects returns ``{error: <code>, hint}`` instead.
     """
     token = await _get_current_token()

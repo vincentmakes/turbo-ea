@@ -39,6 +39,11 @@ Semantics, decided once here and nowhere else:
   (``tag_not_for_type``); a ``None`` or empty restriction means every type.
   There is no "(empty)" for tags in v1: it would need a tag *group* id, which
   has no transfer map.
+- ``where.data_quality_band`` lists bands of the data-quality score
+  (``DQ_BAND_BOUNDS``: ``complete`` >= 80, ``partial`` 40 up to, but
+  excluding, 80, ``minimal`` < 40; OR among them), the report's and the
+  inventory facet's vocabulary. A card never scored holds 0; any other band
+  is ``unknown_band``.
 - ``where.cards`` pins the node to specific cards (OR among them), each of the
   node's card type. With ``include_descendants`` a pick also covers every card
   beneath it through ``parent_id``, any depth (the reports' "Include
@@ -58,10 +63,10 @@ Semantics, decided once here and nowhere else:
 Limits: at most ``MAX_DEPTH`` (3) hops below the start card, ``MAX_HOPS``
 (10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops in the whole
 tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
-any one condition list (``tags`` and ``cards`` included). A UUID anywhere
-but in a ``where.tags`` or ``where.cards`` list is refused
-(``query_holds_an_id``), so an id never hides in a key, a subtype or a field
-value.
+any one condition list (``tags``, ``cards`` and ``data_quality_band``
+included). A UUID anywhere but in a ``where.tags`` or ``where.cards`` list is
+refused (``query_holds_an_id``), so an id never hides in a key, a subtype or a
+field value.
 
 Structural rules (``query_problem``) and metamodel rules
 (``resolve_card_query``) are plain functions answering a 400 code, so the
@@ -97,6 +102,7 @@ from app.services.dashboard_query import (
     resolve_side,
 )
 from app.services.dashboard_service import contains_uuid
+from app.services.data_quality_bands import DQ_BAND_BOUNDS, dq_band_condition
 from app.services.lifecycle import PHASE_CHRONOLOGICAL, current_lifecycle_phase_sql
 from app.services.portal_card_filters import (
     EMPTY_KEY,
@@ -144,6 +150,7 @@ class CardWhere(BaseModel):
     lifecycle_phase: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     subtype: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     approval_status: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
+    data_quality_band: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     attributes: dict[_Value, list[_Value]] | None = Field(None, max_length=20)
     tags: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
     cards: list[_Value] | None = Field(None, max_length=_MAX_VALUES)
@@ -262,7 +269,7 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
 
 def _where_problem(where: CardWhere) -> str | None:
     lists = [where.lifecycle_phase, where.subtype, where.approval_status, where.tags]
-    lists.append(where.cards)
+    lists.extend((where.cards, where.data_quality_band))
     lists.extend((where.attributes or {}).values())
     if any(values is not None and not values for values in lists):
         return "empty_values"
@@ -270,6 +277,8 @@ def _where_problem(where: CardWhere) -> str | None:
         return "descendants_without_cards"
     if any(p not in LIFECYCLE_PHASES for p in where.lifecycle_phase or []):
         return "unknown_phase"
+    if any(b not in DQ_BAND_BOUNDS for b in where.data_quality_band or []):
+        return "unknown_band"
     return None
 
 
@@ -300,7 +309,8 @@ def query_problem(query: CardQuery) -> str | None:
     that can match nothing is a mistake, not a filter);
     ``descendants_without_cards`` for ``include_descendants`` with no
     ``cards``; ``unknown_phase`` for a lifecycle phase outside
-    ``LIFECYCLE_PHASES``.
+    ``LIFECYCLE_PHASES``; ``unknown_band`` for a data-quality band outside
+    ``DQ_BAND_BOUNDS``.
     """
     if _depth(query.related) > MAX_DEPTH:
         return "too_deep"
@@ -570,6 +580,8 @@ def where_conditions(card: Any, node: ResolvedNode, *, today: date | None = None
         clauses.append(subtype_condition(where.subtype, card=card))
     if where.approval_status:
         clauses.append(card.approval_status.in_(where.approval_status))
+    if where.data_quality_band:
+        clauses.append(dq_band_condition(where.data_quality_band, card=card))
     for key, values in sorted((where.attributes or {}).items()):
         clauses.append(attribute_condition(key, values, node.field_types.get(key), card=card))
     if where.cards is not None:

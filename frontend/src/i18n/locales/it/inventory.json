@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "Una card di questa query non esiste o non è visibile per te.",
   "queryView.error.descendants_without_cards": "«Includi le sotto-card» richiede almeno una card scelta.",
   "queryView.error.descendants_without_hierarchy": "«Includi le sotto-card» si applica solo ai tipi di card con una gerarchia.",
+  "queryView.error.unknown_band": "Fascia di qualità dei dati sconosciuta.",
   "views.newQueryView": "Nuova vista di query",
   "queryView.badge": "Vista di query MCP",
   "relation.currentRelations": "Relazioni correnti",

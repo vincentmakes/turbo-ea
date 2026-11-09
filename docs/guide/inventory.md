@@ -237,11 +237,11 @@ A **query view** is a saved view whose filters are a **multi-hop query** — a c
 
 ![A query view in the inventory](../assets/img/en/98d_inventory_mcp_view.png)
 
-**Building a query view.** In the **Views** tab of the filter sidebar, click **New query view** next to *Save current* (shown to anyone who may manage views). The strip above the grid opens as a query builder:
+**Building a query view.** In the **Views** tab of the filter sidebar, click **New query view** next to *Save current* (shown to anyone who may manage views). If any filter is active, the selected card type included, a confirmation asks before clearing them; **Cancel** on the draft puts them back. The strip above the grid opens as a query builder:
 
 1. Click the start chip (*Choose a type*) and pick the card type the view lists.
 2. Click **+ relation** after the last card to add a hop. The menu lists each relation verb with the card type it leads to; a relation between cards of the same type is offered in both directions. A query is a single chain of up to three hops.
-3. Click **+ condition** under any card to narrow it down: **Lifecycle**, **Subtype**, **Approval status**, **Tags**, **Specific cards**, or a select or yes/no field of that card type. For tags, a card matches when it has any of the chosen tags of a group, and it must match every group you add; only tag groups that apply to that card type are offered. **Specific cards** opens the card picker for cards of that type, and the step then matches only the cards you picked; for a hierarchical card type an **Include sub-cards** switch also matches the cards beneath each pick. A picked card you cannot see shows as *(hidden card)*.
+3. Click **+ condition** under any card to narrow it down: **Lifecycle**, **Subtype**, **Approval status**, **Data quality** (*Complete*, *Partial* or *Minimal*, the same bands as the sidebar filter), **Tags**, **Specific cards**, or a select or yes/no field of that card type. For tags, a card matches when it has any of the chosen tags of a group, and it must match every group you add; only tag groups that apply to that card type are offered. **Specific cards** opens the card picker for cards of that type, and the step then matches only the cards you picked; for a hierarchical card type an **Include sub-cards** switch also matches the cards beneath each pick. A picked card you cannot see shows as *(hidden card)*.
 4. Click **Save**. The usual save-view dialog opens for the name, visibility, sharing and OData setting. **Cancel** discards the query.
 
 ![Building a query view](../assets/img/en/98e_inventory_query_builder.png)

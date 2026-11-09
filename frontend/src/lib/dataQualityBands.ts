@@ -9,7 +9,8 @@
  * for one metric made "Partial" unexpressible in the inventory and made the
  * report's segments impossible to deep-link. The bands below are the report's,
  * and they are now what the inventory filters and groups by as well; the
- * backend's `_DQ_BAND_BOUNDS` in `api/v1/reports.py` mirrors them.
+ * backend's `DQ_BAND_BOUNDS` in `backend/app/services/data_quality_bands.py`
+ * mirrors them.
  */
 
 import { STATUS_COLORS } from "@/theme/tokens";

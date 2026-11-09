@@ -327,6 +327,7 @@ Hop       = { relation: "<relation type key>" | "<key>__out" | "<key>__in",
 Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife | none],
               subtype?: [subtype key],
               approval_status?: [status],
+              data_quality_band?: [complete | partial | minimal],
               attributes?: { field key: [option key | "true" | "false" | text | "__empty__"] },
               tags?: [tag id],
               cards?: [card id],
@@ -336,6 +337,7 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 - Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
 - Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
 - `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
+- `data_quality_band` faz corresponder a pontuação de qualidade dos dados de um card por faixa, como o filtro Qualidade dos dados do inventário: `complete` (80 ou mais), `partial` (de 40 inclusive até 80 exclusive) ou `minimal` (abaixo de 40). Qualquer outro valor é recusado com `unknown_band`.
 - `tags` recebe ids de tag de `list_tag_groups`, agrupados por grupo de tags: um card deve ter pelo menos uma das tags listadas de **cada** grupo citado (alternativas dentro de um grupo, E entre grupos). Uma tag cujo grupo não se aplica ao tipo de card desse salto é recusada com `tag_not_for_type`; um id desconhecido, com `unknown_tag`.
 - `cards` fixa esse nó nos cards listados (alternativas): obtenha os ids em `search_cards` ou `resolve_card_refs`. Cada um deve ser um card do tipo próprio do nó. Executar uma consulta não verifica as escolhas: um id que não nomeia nenhum card, um card de outro tipo ou um card que o usuário não pode ler simplesmente não corresponde a nada. Salvar uma visualização as verifica e recusa uma escolha assim com `unknown_card`. Um card arquivado não corresponde a nada em um salto. `include_descendants: true` amplia cada escolha a todos os cards abaixo dela pelo vínculo de pai (subcapacidades, organizações filhas); definido sem `cards`, é recusado com `descendants_without_cards`, e em um tipo de card sem hierarquia com `descendants_without_hierarchy`. Um id de card ou de tag em qualquer outro lugar da consulta é recusado com `query_holds_an_id`.
 - Os cards relacionados só contam se estiverem ativos e o usuário puder lê-los: um card que o usuário não pode ver interrompe a cadeia, exatamente como na interface web. Ao salvar uma visualização, quem escreve não pode fixar um card oculto para si (`unknown_card`); um colaborador que edita uma visualização compartilhada com ele mantém as escolhas que ela já contém, mesmo as que não pode ler. Um leitor que abre uma visualização cujas escolhas incluem um card oculto para ele não é recusado: as escolhas ocultas simplesmente não correspondem a nada.

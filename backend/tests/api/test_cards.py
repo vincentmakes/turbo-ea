@@ -1199,6 +1199,33 @@ class TestQueryParam:
         assert resp.status_code == 400
         assert resp.json()["detail"] == code
 
+    async def test_a_data_quality_band_at_a_hop(self, client, db, chain):
+        """Alpha (Corp's) scores 85, Beta (Team's) 50."""
+        for name, score in (("Alpha", 85.0), ("Beta", 50.0)):
+            card = (await db.execute(select(Card).where(Card.name == name))).scalar_one()
+            card.data_quality = score
+        await db.flush()
+
+        def query(*bands: str) -> dict:
+            where = {"data_quality_band": list(bands)}
+            return {"type": "Organization", "related": [{**CHAIN_HOP, "where": where}]}
+
+        resp = await self._get(client, chain["admin"], query("complete"))
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Corp"]
+        assert resp.json()["total"] == 1
+        resp = await self._get(client, chain["admin"], query("partial"))
+        assert [item["name"] for item in resp.json()["items"]] == ["Team"]
+        resp = await self._get(client, chain["admin"], query("minimal"))
+        assert resp.json()["items"] == []
+        assert resp.json()["total"] == 0
+
+    async def test_an_unknown_data_quality_band_is_refused(self, client, db, chain):
+        query = {"type": "Organization", "where": {"data_quality_band": ["good"]}}
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "unknown_band"
+
     @pytest.fixture
     async def tagged(self, db, chain):
         """On top of ``chain``: Alpha carries Gold, Beta carries Silver (group

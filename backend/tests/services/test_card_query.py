@@ -561,6 +561,7 @@ class TestQueryProblem:
             {"lifecycle_phase": []},
             {"subtype": []},
             {"approval_status": []},
+            {"data_quality_band": []},
             {"attributes": {"code": []}},
             {"tags": []},
         ],
@@ -624,6 +625,19 @@ class TestQueryProblem:
 
     def test_an_empty_where_is_fine(self):
         assert self._problem(_q("A", where={})) is None
+
+    def test_unknown_band(self):
+        assert self._problem(_q("A", where={"data_quality_band": ["good"]})) == "unknown_band"
+
+    def test_unknown_band_beside_a_known_one_at_a_hop(self):
+        raw = _q("A", _hop("r", "B", where={"data_quality_band": ["complete", "Complete"]}))
+        assert self._problem(raw) == "unknown_band"
+        assert _parse_code(raw) == "unknown_band"
+
+    def test_every_band_is_known(self):
+        raw = _q("A", where={"data_quality_band": ["complete", "partial", "minimal"]})
+        assert self._problem(raw) is None
+        assert parse_card_query(raw).where.data_quality_band == ["complete", "partial", "minimal"]
 
 
 # ---------------------------------------------------------------------------
@@ -1132,6 +1146,109 @@ class TestHopSemantics:
         clauses = await compile_card_query(db, query, CardReadScope.everything(), start)
         rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
         assert set(rows.scalars().all()) == {"Corp", "Team", "Lone"}
+
+
+# ---------------------------------------------------------------------------
+# Data-quality bands (``where.data_quality_band``)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def scores(db):
+    """Applications on each side of every band edge, and Organizations using
+    them: ``OrgMinimal`` uses ``Dq39``, ``OrgPartial`` uses ``Dq40``,
+    ``OrgComplete`` uses ``Dq80``, ``OrgArchived`` uses only the archived
+    ``Dq90``, ``OrgNone`` uses nothing. ``Unscored`` keeps the default score."""
+    await create_card_type(db, key="Organization")
+    await create_card_type(db, key="Application")
+    await create_relation_type(
+        db, key=USES, source_type_key="Organization", target_type_key="Application"
+    )
+    apps = {
+        name: await create_card(db, name=name, data_quality=score)
+        for name, score in (
+            ("Dq0", 0.0),
+            ("Dq39", 39.9),
+            ("Dq40", 40.0),
+            ("Dq79", 79.9),
+            ("Dq80", 80.0),
+        )
+    }
+    await create_card(db, name="Unscored")
+    apps["Dq90"] = await create_card(db, name="Dq90", data_quality=90.0, status="ARCHIVED")
+    for org, app in (
+        ("OrgMinimal", "Dq39"),
+        ("OrgPartial", "Dq40"),
+        ("OrgComplete", "Dq80"),
+        ("OrgArchived", "Dq90"),
+    ):
+        card = await create_card(db, card_type="Organization", name=org)
+        await create_relation(db, type_key=USES, source_id=card.id, target_id=apps[app].id)
+    await create_card(db, card_type="Organization", name="OrgNone")
+
+
+class TestDataQualityBand:
+    @pytest.mark.parametrize(
+        ("bands", "expected"),
+        [
+            (["complete"], {"Dq80"}),
+            (["partial"], {"Dq40", "Dq79"}),
+            (["minimal"], {"Dq0", "Dq39", "Unscored"}),
+            (["complete", "minimal"], {"Dq80", "Dq0", "Dq39", "Unscored"}),
+            (["partial", "complete"], {"Dq40", "Dq79", "Dq80"}),
+        ],
+    )
+    async def test_at_the_start_card(self, db, scores, bands, expected):
+        raw = _q("Application", where={"data_quality_band": bands})
+        assert await _names(db, raw) == expected
+
+    @pytest.mark.parametrize(
+        ("bands", "expected"),
+        [
+            (["complete"], {"OrgComplete"}),
+            (["partial"], {"OrgPartial"}),
+            (["minimal"], {"OrgMinimal"}),
+            (["minimal", "complete"], {"OrgMinimal", "OrgComplete"}),
+        ],
+    )
+    async def test_at_a_hop(self, db, scores, bands, expected):
+        raw = _q("Organization", _hop(USES, "Application", where={"data_quality_band": bands}))
+        assert await _names(db, raw) == expected
+
+    async def test_negated_at_a_hop(self, db, scores):
+        raw = _q(
+            "Organization",
+            _hop(USES, "Application", where={"data_quality_band": ["minimal"]}, negate=True),
+        )
+        assert await _names(db, raw) == {"OrgPartial", "OrgComplete", "OrgArchived", "OrgNone"}
+
+    async def test_ands_with_the_other_conditions(self, db, scores):
+        raw = _q("Application", where={"data_quality_band": ["partial"], "cards": []})
+        assert _parse_code(raw) == "empty_values"
+        both = _q(
+            "Application",
+            where={"data_quality_band": ["minimal"], "approval_status": ["DRAFT"]},
+        )
+        assert await _names(db, both) == {"Dq0", "Dq39", "Unscored"}
+        none = _q(
+            "Application",
+            where={"data_quality_band": ["minimal"], "approval_status": ["APPROVED"]},
+        )
+        assert await _names(db, none) == set()
+
+    async def test_compiles_against_an_alias(self, db, scores):
+        start = aliased(Card)
+        raw = _q("Application", where={"data_quality_band": ["partial"]})
+        clauses = await compile_card_query(
+            db, parse_card_query(raw), CardReadScope.everything(), start
+        )
+        rows = await db.execute(select(start.name).where(start.status == "ACTIVE", *clauses))
+        assert set(rows.scalars().all()) == {"Dq40", "Dq79"}
+
+    async def test_resolves_without_a_metamodel_lookup(self, db, scores):
+        raw = _q("Application", where={"data_quality_band": ["complete"]})
+        resolved = await resolve_card_query(db, parse_card_query(raw))
+        assert resolved.where.data_quality_band == ["complete"]
 
 
 # ---------------------------------------------------------------------------

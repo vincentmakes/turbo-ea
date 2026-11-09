@@ -191,9 +191,8 @@ describe("emptyFilters", () => {
 });
 
 describe("hasActiveFacets", () => {
-  it("is false for no filters, and for a single selected type (the start type)", () => {
+  it("is false for no filters", () => {
     expect(hasActiveFacets(emptyFilters())).toBe(false);
-    expect(hasActiveFacets({ ...emptyFilters(), types: ["Application"] })).toBe(false);
   });
 
   it("is false for filters saved before the newer facets", () => {
@@ -205,6 +204,7 @@ describe("hasActiveFacets", () => {
   });
 
   it.each([
+    ["a single selected type", { types: ["Application"] }],
     ["several types", { types: ["Application", "Objective"] }],
     ["a search", { search: "SAP" }],
     ["a subtype", { subtypes: ["Business"] }],

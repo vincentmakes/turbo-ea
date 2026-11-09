@@ -33,6 +33,7 @@ export type ConditionKind =
   | "lifecycle_phase"
   | "subtype"
   | "approval_status"
+  | "data_quality_band"
   | "tags"
   | "cards"
   | { attribute: string };
@@ -212,6 +213,7 @@ function whereHasEmptyList(where: CardQueryWhere | undefined): boolean {
     where.lifecycle_phase,
     where.subtype,
     where.approval_status,
+    where.data_quality_band,
     where.tags,
     where.cards,
     ...Object.values(where.attributes ?? {}),
@@ -236,7 +238,15 @@ export function draftProblem(query: CardQuery): DraftProblem | null {
 function sendableWhere(where: CardQueryWhere | undefined): CardQueryWhere | undefined {
   if (!where) return undefined;
   const next: CardQueryWhere = {};
-  for (const kind of ["lifecycle_phase", "subtype", "approval_status", "tags", "cards"] as const) {
+  const kinds = [
+    "lifecycle_phase",
+    "subtype",
+    "approval_status",
+    "data_quality_band",
+    "tags",
+    "cards",
+  ] as const;
+  for (const kind of kinds) {
     const values = where[kind];
     if (values && values.length > 0) next[kind] = [...values];
   }

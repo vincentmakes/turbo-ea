@@ -120,13 +120,13 @@ export function emptyFilters(): Filters {
 }
 
 /**
- * Whether any facet narrows the inventory beyond its start type. A single
- * selected type is not a facet here: it is the type a new query view starts
- * from, and stays selected. Several selected types are.
+ * Whether any facet narrows the inventory, a selected card type included:
+ * starting a new query view clears them all (after asking), and the start
+ * type is always chosen in the path strip.
  */
 export function hasActiveFacets(filters: Filters): boolean {
   return (
-    filters.types.length > 1 ||
+    filters.types.length > 0 ||
     filters.search !== "" ||
     filters.subtypes.length > 0 ||
     filters.lifecyclePhases.length > 0 ||

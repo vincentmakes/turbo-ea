@@ -787,6 +787,8 @@ export interface CardQueryWhere {
   lifecycle_phase?: string[];
   subtype?: string[];
   approval_status?: string[];
+  /** Data-quality bands (`complete` / `partial` / `minimal`, as `DATA_QUALITY_BANDS`). */
+  data_quality_band?: string[];
   /** Field key → option keys / `"true"` / `"false"` / text / `"__empty__"`. */
   attributes?: Record<string, string[]>;
   /** Tag ids: any tag of one tag group (OR), every group named (AND). */

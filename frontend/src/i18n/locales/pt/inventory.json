@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "Uma ficha desta consulta não existe ou não está visível para si.",
   "queryView.error.descendants_without_cards": "«Incluir subfichas» precisa de pelo menos uma ficha escolhida.",
   "queryView.error.descendants_without_hierarchy": "«Incluir subfichas» só se aplica a tipos de ficha com hierarquia.",
+  "queryView.error.unknown_band": "Faixa de qualidade de dados desconhecida.",
   "views.newQueryView": "Nova visualização de consulta",
   "queryView.badge": "Visualização de consulta MCP",
   "relation.currentRelations": "Relações atuais",

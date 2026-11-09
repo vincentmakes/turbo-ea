@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "Une fiche de cette requête n’existe pas ou ne vous est pas visible.",
   "queryView.error.descendants_without_cards": "« Inclure les sous-fiches » requiert au moins une fiche choisie.",
   "queryView.error.descendants_without_hierarchy": "« Inclure les sous-fiches » ne s’applique qu’aux types de fiche hiérarchiques.",
+  "queryView.error.unknown_band": "Tranche de qualité des données inconnue.",
   "views.newQueryView": "Nouvelle vue de requête",
   "queryView.badge": "Vue de requête MCP",
   "relation.currentRelations": "Relations actuelles",

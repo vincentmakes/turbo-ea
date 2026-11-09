@@ -202,6 +202,7 @@
   "queryView.error.unknown_card": "Eine Karte in dieser Abfrage existiert nicht oder ist für Sie nicht sichtbar.",
   "queryView.error.descendants_without_cards": "„Unterkarten einbeziehen“ braucht mindestens eine ausgewählte Karte.",
   "queryView.error.descendants_without_hierarchy": "„Unterkarten einbeziehen“ gilt nur für Kartentypen mit Hierarchie.",
+  "queryView.error.unknown_band": "Unbekanntes Datenqualitätsband.",
   "views.newQueryView": "Neue Abfrageansicht",
   "queryView.badge": "MCP-Abfrageansicht",
   "relation.currentRelations": "Aktuelle Beziehungen",

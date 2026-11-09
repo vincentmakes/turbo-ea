@@ -25,6 +25,7 @@ import {
   useSubtypeLabel,
   useTypeLabel,
 } from "@/hooks/useResolveLabel";
+import { DATA_QUALITY_BANDS } from "@/lib/dataQualityBands";
 import { getPhaseLabels } from "@/lib/lifecyclePhases";
 import { pickFacetFields } from "@/lib/fieldFacets";
 import type {
@@ -383,6 +384,17 @@ function useConditionItems(
       key: "approval",
       kind: "approval_status",
       label: labelOf(t("inventory:columns.approvalStatus"), values),
+    });
+  }
+  if (where.data_quality_band) {
+    const values = where.data_quality_band.map((k) => {
+      const band = DATA_QUALITY_BANDS.find((b) => b.key === k);
+      return band ? t(`inventory:${band.tKey}`) : k;
+    });
+    items.push({
+      key: "dataQuality",
+      kind: "data_quality_band",
+      label: labelOf(t("inventory:filter.dataQuality"), values),
     });
   }
   if (where.tags) {
@@ -832,6 +844,7 @@ function EditConditions({
   offer("lifecycle_phase", t("inventory:filter.lifecycle"));
   if ((type?.subtypes ?? []).length > 0) offer("subtype", t("common:labels.subtype"));
   offer("approval_status", t("inventory:columns.approvalStatus"));
+  offer("data_quality_band", t("inventory:filter.dataQuality"));
   if (tagGroups.some((g) => g.tags.length > 0 && tagGroupApplies(g, typeKey))) {
     offer("tags", t("inventory:filter.tags"));
   }

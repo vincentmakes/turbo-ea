@@ -199,6 +199,7 @@
   "queryView.error.unknown_card": "A card in this query does not exist or is not visible to you.",
   "queryView.error.descendants_without_cards": "Include sub-cards needs at least one picked card.",
   "queryView.error.descendants_without_hierarchy": "Include sub-cards only applies to card types with a hierarchy.",
+  "queryView.error.unknown_band": "Unknown data quality band.",
   "views.newQueryView": "New query view",
   "queryView.badge": "Query view",
   "queryView.startConfirmTitle": "Start a query view?",

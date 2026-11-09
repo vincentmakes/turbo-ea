@@ -153,6 +153,10 @@ describe("setCondition / removeCondition / conditionValues", () => {
     expect(setCondition(q, 0, "approval_status", ["DRAFT"]).where).toEqual({
       approval_status: ["DRAFT"],
     });
+    expect(setCondition(q, 0, "data_quality_band", ["partial", "minimal"])).toEqual({
+      type: "Application",
+      where: { data_quality_band: ["partial", "minimal"] },
+    });
     expect(setCondition(q, 0, "tags", ["t1"]).where).toEqual({ tags: ["t1"] });
     expect(setCondition(q, 0, { attribute: "criticality" }, ["high"]).where).toEqual({
       attributes: { criticality: ["high"] },
@@ -238,6 +242,8 @@ describe("draftProblem", () => {
         related: [{ relation: "r", type: "B", related: [{ relation: "s", type: "C", where: { approval_status: [] } }] }],
       }),
     ).toBe("empty_values");
+    expect(draftProblem({ type: "A", where: { data_quality_band: [] } })).toBe("empty_values");
+    expect(draftProblem({ type: "A", where: { data_quality_band: ["complete"] } })).toBeNull();
     expect(draftProblem({ type: "A", related: [{ relation: "r", type: "" }] })).toBe("empty_values");
     expect(draftProblem(CHAIN)).toBeNull();
     expect(draftProblem(BRANCHED)).toBeNull();
@@ -260,6 +266,18 @@ describe("sendableQuery", () => {
       type: "A",
       where: { subtype: ["s1"], attributes: { g: ["x"] } },
     });
+  });
+
+  it("keeps a filled data quality band condition and drops an empty one", () => {
+    expect(
+      sendableQuery({ type: "A", where: { data_quality_band: ["partial"], lifecycle_phase: [] } }),
+    ).toEqual({ type: "A", where: { data_quality_band: ["partial"] } });
+    expect(
+      sendableQuery({
+        type: "A",
+        related: [{ relation: "r", type: "B", where: { data_quality_band: [] } }],
+      }),
+    ).toEqual({ type: "A", related: [{ relation: "r", type: "B" }] });
   });
 
   it("drops a where and an attributes map left with nothing", () => {
@@ -399,6 +417,20 @@ describe("cards condition", () => {
     expect(q.related![0].where).toEqual({ lifecycle_phase: ["active"], cards: ["a1", "a2"] });
     expect(conditionValues(q.related![0].where, "cards")).toEqual(["a1", "a2"]);
     expect(q.where).toEqual(CHAIN.where);
+  });
+
+  it("reads and removes a data quality band condition, keeping the others", () => {
+    const q: CardQuery = {
+      type: "Application",
+      where: { data_quality_band: ["complete"], approval_status: ["APPROVED"] },
+    };
+    expect(conditionValues(q.where, "data_quality_band")).toEqual(["complete"]);
+    expect(removeCondition(q, 0, "data_quality_band")).toEqual({
+      type: "Application",
+      where: { approval_status: ["APPROVED"] },
+    });
+    const alone: CardQuery = { type: "Application", where: { data_quality_band: ["minimal"] } };
+    expect(removeCondition(alone, 0, "data_quality_band")).toEqual({ type: "Application" });
   });
 
   it("drops Include sub-cards with the cards it qualifies", () => {
