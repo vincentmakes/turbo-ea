@@ -495,21 +495,38 @@ describe("QueryPathStrip — edit mode", () => {
     renderEditor({ query: { type: "Initiative", where: { approval_status: ["DRAFT"] } }, viewId: null });
     fireEvent.click(screen.getByTestId("query-path-add-condition"));
     expect(menuLabels()).toEqual([
+      "Specific cards",
       "Lifecycle",
       "Subtype",
       "Tags",
-      "Specific cards",
       "Delivery Status",
     ]);
+  });
+
+  it("sets Specific cards apart with a divider, and drops it once cards are taken", () => {
+    const { unmount } = renderEditor({ query: { type: "Application" }, viewId: null });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    const menu = screen.getByRole("menu");
+    const separators = within(menu).getAllByRole("separator");
+    expect(separators).toHaveLength(1);
+    expect(separators[0].previousElementSibling).toHaveTextContent("Specific cards");
+    expect(separators[0].nextElementSibling).toHaveTextContent("Lifecycle");
+    unmount();
+
+    renderEditor({ query: { type: "Application", where: { cards: ["a1"] } }, viewId: null });
+    fireEvent.click(screen.getByTestId("query-path-add-condition"));
+    expect(menuLabels()[0]).toBe("Lifecycle");
+    expect(menuLabels()).not.toContain("Specific cards");
+    expect(within(screen.getByRole("menu")).queryByRole("separator")).not.toBeInTheDocument();
   });
 
   it("leaves out tags when no group with tags applies to the type", () => {
     renderEditor({ query: { type: "Application" }, viewId: null }, { tagGroups: [ORG_ONLY] });
     fireEvent.click(screen.getByTestId("query-path-add-condition"));
     expect(menuLabels()).toEqual([
+      "Specific cards",
       "Lifecycle",
       "Approval Status",
-      "Specific cards",
       "Business Criticality",
       "Cloud hosted",
     ]);

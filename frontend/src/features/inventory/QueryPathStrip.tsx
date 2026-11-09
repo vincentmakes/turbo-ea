@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
@@ -824,13 +825,16 @@ function EditConditions({
   const offer = (kind: ConditionKind, label: string) => {
     if (!taken.has(kindKey(kind))) offers.push({ kind, label });
   };
+  // "Specific cards" leads the menu, set apart by a divider from the
+  // condition kinds that filter on a card's own values.
+  offer("cards", t("inventory:queryView.conditionCards"));
+  const cardsLeads = offers.length === 1;
   offer("lifecycle_phase", t("inventory:filter.lifecycle"));
   if ((type?.subtypes ?? []).length > 0) offer("subtype", t("common:labels.subtype"));
   offer("approval_status", t("inventory:columns.approvalStatus"));
   if (tagGroups.some((g) => g.tags.length > 0 && tagGroupApplies(g, typeKey))) {
     offer("tags", t("inventory:filter.tags"));
   }
-  offer("cards", t("inventory:queryView.conditionCards"));
   for (const f of pickFacetFields(type?.fields_schema ?? [])) {
     offer({ attribute: f.key }, fieldLabel(f));
   }
@@ -867,18 +871,23 @@ function EditConditions({
         sx={{ borderStyle: "dashed" }}
       />
       <Menu anchorEl={menu.anchor} open={menu.anchor != null} onClose={menu.close}>
-        {offers.map((o) => (
-          <MenuItem
-            key={kindKey(o.kind)}
-            onClick={() => {
-              const anchor = menu.anchor;
-              menu.close();
-              if (anchor) onAdd(anchor, o.kind);
-            }}
-          >
-            {o.label}
-          </MenuItem>
-        ))}
+        {offers.flatMap((o, i) => {
+          const item = (
+            <MenuItem
+              key={kindKey(o.kind)}
+              onClick={() => {
+                const anchor = menu.anchor;
+                menu.close();
+                if (anchor) onAdd(anchor, o.kind);
+              }}
+            >
+              {o.label}
+            </MenuItem>
+          );
+          return i === 0 && cardsLeads && offers.length > 1
+            ? [item, <Divider key="cards-divider" />]
+            : [item];
+        })}
       </Menu>
     </>
   );
