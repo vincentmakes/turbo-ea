@@ -112,13 +112,6 @@ class TestClients:
 # ── Provider connection: error paths ──────────────────────────────────────
 
 
-def _status_error(code: int) -> httpx.HTTPStatusError:
-    request = httpx.Request("POST", "https://llm.test")
-    return httpx.HTTPStatusError(
-        str(code), request=request, response=httpx.Response(code, request=request)
-    )
-
-
 def _response(code: int, body: dict | None = None) -> httpx.Response:
     """What ``client.post`` really returns for a refused request: a response,
     not a raised ``HTTPStatusError``."""
@@ -156,8 +149,8 @@ class TestProviderConnectionErrors:
             (
                 "azure_openai",
                 "post",
-                _status_error(500),
-                "Cannot reach Azure OpenAI: HTTPStatusError",
+                [_response(500, {"error": {"message": "boom"}})],
+                r"Deployment 'm' refused the test request \(500\): boom",
             ),
             (
                 "azure_openai",
@@ -186,7 +179,12 @@ class TestProviderConnectionErrors:
         client.get = AsyncMock(return_value=resp)
         with patch("app.services.ai_service._get_llm_client", AsyncMock(return_value=client)):
             out = await check_provider_connection("https://llm.test/", provider_type="openai")
-        assert out == {"ok": True, "available_models": ["gpt-4o", "o3"], "model_found": False}
+        assert out == {
+            "ok": True,
+            "available_models": ["gpt-4o", "o3"],
+            "model_found": False,
+            "adjusted": [],
+        }
         assert client.get.call_args[0][0] == "https://llm.test/v1/models"
 
     async def test_anthropic_defaults_the_probe_model(self):

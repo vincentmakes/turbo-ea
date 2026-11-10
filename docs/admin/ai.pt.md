@@ -43,6 +43,12 @@ O resultado é exibido ao usuário com:
 
 Provedores comerciais requerem uma chave API, que é armazenada criptografada no banco de dados usando criptografia simétrica Fernet. O Amazon Bedrock é a exceção: autentica-se por padrão com o papel IAM do contentor, portanto não há chave a armazenar nem a rodar.
 
+### Servidores e gateways compatíveis com OpenAI
+
+O tipo de fornecedor **OpenAI** também funciona com qualquer servidor que fale a API Chat Completions da OpenAI — LM Studio, vLLM ou um gateway à frente deles — introduzindo o endereço desse servidor como **URL do fornecedor**.
+
+O Turbo EA pede a cada um desses fornecedores uma resposta JSON (`response_format`) com uma `temperature` baixa. Nem todos os servidores ou modelos aceitam ambos. Quando um fornecedor recusa um deles, o Turbo EA envia o pedido novamente sem esse parâmetro e lê a resposta a partir do texto do modelo, pelo que não há nada a configurar. **Testar ligação** envia o mesmo pedido que uma sugestão e indica qual o parâmetro, se algum, que o fornecedor recusou.
+
 ---
 
 ## Provedores de Busca
@@ -254,6 +260,7 @@ As chaves de permissão são `ai.suggest` e `ai.portfolio_insights`. Papéis per
 | Sugestões lentas | A velocidade de inferência do LLM depende do hardware (para Ollama) ou da latência de rede (para provedores comerciais). Modelos menores como `gemma3:4b` são mais rápidos que modelos maiores. |
 | Pontuações de confiança baixas | O LLM pode não encontrar informações relevantes suficientes via busca web. Tente um nome de card mais específico, ou considere usar Google Custom Search para melhores resultados. |
 | Teste de conexão falha | Verifique se a URL do provedor é acessível a partir do contêiner do backend. Para configurações Docker, certifique-se de que ambos os contêineres estão na mesma rede. |
+| Testar ligação indica que o fornecedor não aceita `response_format` ou `temperature` | Nada a corrigir: o fornecedor está a funcionar. O Turbo EA omite esse parâmetro de todos os pedidos que lhe envia. Sem `response_format`, a resposta depende de o modelo seguir a instrução de responder em JSON; se as sugestões vierem vazias, experimente um modelo mais capaz. |
 | «O fornecedor de IA rejeitou o pedido» | O fornecedor foi contactado mas recusou o pedido, e a mensagem indica o motivo (com um 401 ou 403, verifique a chave de API e o acesso ao modelo). Corrija o nome do modelo ou a definição do fornecedor indicada e clique em Testar Conexão: envia o mesmo pedido que uma sugestão, pelo que agora falha ou passa da mesma forma. |
 | O Bedrock devolve «AccessDeniedException» | Duas causas possíveis: falta ao papel IAM a permissão `bedrock:InvokeModel`, ou o acesso àquele modelo não foi ativado na consola do Bedrock. Verifique ambas. |
 | O Bedrock diz que o throughput on-demand não é suportado | O modelo só é acessível através de um perfil de inferência regional. Execute o teste de ligação e escolha um ID com prefixo `eu.`, `us.` ou `apac.`. |

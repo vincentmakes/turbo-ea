@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.198.2] - 2026-11-10
+
+### Fixed
+- AI suggestions work with OpenAI-compatible servers that refuse JSON mode or a custom temperature — LM Studio, and gateways in front of it such as Bionic — whatever form their error takes: the request is sent again without the refused parameter, with no setting to change ([#1372](https://github.com/vincentmakes/turbo-ea/discussions/1372)).
+- **Test Connection** for OpenAI-compatible and Azure OpenAI providers sends the same request a suggestion does, so it no longer passes while every suggestion is refused, and it names any parameter the provider does not accept.
+- An AI answer that wraps its JSON in a sentence or in the model's reasoning is read correctly instead of producing an empty suggestion.
+
 ## [2.198.1] - 2026-11-10
 
 ### Fixed

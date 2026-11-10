@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Select which card types show the AI suggest button. Leave all unchecked to enable for all types.",
   "settings.ai.testConnection": "Test Connection",
   "settings.ai.testSuccess": "Connection successful!",
+  "settings.ai.testSuccessAdjusted": "Connection successful. This provider does not accept {{params}}, so Turbo EA leaves it out of every request.",
   "settings.ai.testNoModel": "Connected, but model not found. Available: {{models}}",
   "settings.ai.modelPickerHelper": "Select a model from your provider. Use «Test Connection» to refresh the list.",
   "settings.ai.selectModel": "Select a model...",

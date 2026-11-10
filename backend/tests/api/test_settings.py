@@ -5,6 +5,9 @@ These tests require a PostgreSQL test database and an HTTP test client.
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
+import httpx
 import pytest
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
@@ -1252,6 +1255,91 @@ class TestAISettingsAzure:
             },
             headers=auth_headers(member),
         )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
+# POST /settings/ai/test — an OpenAI-compatible provider (#1372)
+# -------------------------------------------------------------------
+
+
+class TestAIConnectionTestOpenAICompatible:
+    """The connection test calls the model the way a suggestion does."""
+
+    PAYLOAD = {
+        "enabled": True,
+        "provider_type": "openai",
+        "provider_url": "https://bionic.test",
+        "api_key": "key",
+        "model": "google/gemma-4-e4b",
+        "enabled_types": [],
+        "portfolio_insights_enabled": False,
+    }
+
+    @staticmethod
+    def _provider(monkeypatch, chat_responses):
+        """A provider that lists the configured model and answers the chat
+        requests with ``chat_responses``, in order."""
+        from app.services import ai_service
+
+        request = httpx.Request("POST", "https://bionic.test/v1/chat/completions")
+        llm = AsyncMock()
+        llm.get = AsyncMock(
+            return_value=httpx.Response(
+                200, json={"data": [{"id": "google/gemma-4-e4b"}]}, request=request
+            )
+        )
+        llm.post = AsyncMock(
+            side_effect=[
+                httpx.Response(code, json=body, request=request) for code, body in chat_responses
+            ]
+        )
+        monkeypatch.setattr(ai_service, "_get_llm_client", AsyncMock(return_value=llm))
+        return llm
+
+    async def test_a_refused_json_mode_passes_and_is_reported(
+        self, client, db, settings_env, monkeypatch
+    ):
+        admin = settings_env["admin"]
+        await client.patch("/api/v1/settings/ai", json=self.PAYLOAD, headers=auth_headers(admin))
+        llm = self._provider(
+            monkeypatch,
+            [
+                (400, {"error": "'response_format.type' must be 'json_schema' or 'text'"}),
+                (200, {"choices": [{"message": {"content": '{"ok": true}'}}]}),
+            ],
+        )
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "ok": True,
+            "available_models": ["google/gemma-4-e4b"],
+            "model_found": True,
+            "adjusted": ["response_format"],
+        }
+        assert llm.post.await_count == 2
+        assert llm.post.call_args.kwargs["headers"]["Authorization"] == "Bearer key"
+
+    async def test_a_refusal_a_retry_cannot_fix_is_a_502_with_the_reason(
+        self, client, db, settings_env, monkeypatch
+    ):
+        admin = settings_env["admin"]
+        await client.patch("/api/v1/settings/ai", json=self.PAYLOAD, headers=auth_headers(admin))
+        llm = self._provider(monkeypatch, [(400, {"error": "The model has crashed"})])
+
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(admin))
+
+        assert resp.status_code == 502
+        assert resp.json()["detail"] == (
+            "Model 'google/gemma-4-e4b' refused the test request (400): The model has crashed"
+        )
+        assert llm.post.await_count == 1
+
+    async def test_a_member_may_not_run_it(self, client, db, settings_env):
+        member = settings_env["member"]
+        resp = await client.post("/api/v1/settings/ai/test", headers=auth_headers(member))
         assert resp.status_code == 403
 
 

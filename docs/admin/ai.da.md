@@ -43,6 +43,12 @@ Resultatet vises til brugeren med:
 
 Kommercielle udbydere kræver en API-nøgle, som gemmes krypteret i databasen ved hjælp af Fernet symmetrisk kryptering. Amazon Bedrock er undtagelsen: den godkendes som standard med containerens IAM-rolle, så der er ingen nøgle at gemme eller rotere.
 
+### OpenAI-kompatible servere og gateways
+
+Udbydertypen **OpenAI** virker også med enhver server, der taler OpenAI Chat Completions API — LM Studio, vLLM eller en gateway foran dem — ved at angive serverens adresse som **Udbyder-URL**.
+
+Turbo EA beder alle sådanne udbydere om et JSON-svar (`response_format`) ved en lav `temperature`. Ikke alle servere eller modeller accepterer begge dele. Når en udbyder afviser en af dem, sender Turbo EA forespørgslen igen uden den og læser svaret fra modellens tekst i stedet, så der er intet at konfigurere. **Test forbindelse** sender samme forespørgsel som et forslag og fortæller, hvilken parameter udbyderen eventuelt afviste.
+
 ---
 
 ## Søgeudbydere
@@ -268,6 +274,7 @@ Brugerdefinerede roller kan tildeles disse tilladelser gennem Roller-administrat
 | Langsomme forslag | LLM-inferenshastighed afhænger af hardware (for Ollama) eller netværkslatens (for kommercielle udbydere). Mindre modeller som `gemma3:4b` er hurtigere end større. |
 | Lave confidence-scores | LLM'en kan muligvis ikke finde nok relevant information via websøgning. Prøv et mere specifikt kortnavn, eller overvej at bruge Google Custom Search for bedre resultater. |
 | Forbindelsestest mislykkes | Bekræft, at udbyder-URL'en er tilgængelig fra backend-containeren. For Docker-opsætninger skal du sikre dig, at begge containere er på samme netværk. |
+| Test forbindelse siger, at udbyderen ikke accepterer `response_format` eller `temperature` | Intet at rette: udbyderen fungerer. Turbo EA udelader den parameter i alle forespørgsler til den. Uden `response_format` afhænger svaret af, at modellen følger instruktionen om at svare i JSON; hvis forslag kommer tilbage tomme, så prøv en mere kapabel model. |
 | «AI-udbyderen afviste anmodningen» | Udbyderen blev kontaktet, men afviste anmodningen, og meddelelsen angiver årsagen (ved 401 eller 403 skal du kontrollere API-nøglen og modeladgangen). Ret det modelnavn eller den udbyderindstilling, der nævnes, og klik derefter på Test forbindelse: den sender samme anmodning som et forslag og fejler eller lykkes derfor nu på samme måde. |
 | Bedrock returnerer «AccessDeniedException» | To mulige årsager: IAM-rollen mangler rettigheden `bedrock:InvokeModel`, eller modeladgang er ikke aktiveret for den model i Bedrock-konsollen. Tjek begge. |
 | Bedrock siger, at on-demand-gennemløb ikke understøttes | Modellen kan kun nås via en regional inferensprofil. Kør forbindelsestesten, og vælg et ID med præfikset `eu.`, `us.` eller `apac.`. |

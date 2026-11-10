@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "选择哪些卡片类型显示 AI 建议按钮。全部取消勾选则对所有类型启用。",
   "settings.ai.testConnection": "测试连接",
   "settings.ai.testSuccess": "连接成功！",
+  "settings.ai.testSuccessAdjusted": "连接成功。此提供商不接受 {{params}}，因此 Turbo EA 会在每个请求中省略它。",
   "settings.ai.testNoModel": "已连接，但未找到模型。可用模型：{{models}}",
   "settings.ai.modelPickerHelper": "从您的提供商选择一个模型。使用「测试连接」刷新列表。",
   "settings.ai.selectModel": "选择模型…",

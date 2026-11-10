@@ -806,6 +806,7 @@
   "settings.ai.enabledTypesHelper": "اختر أنواع البطاقات التي تُظهر زر اقتراح الذكاء الاصطناعي. اترك الكل دون تحديد للتفعيل لجميع الأنواع.",
   "settings.ai.testConnection": "اختبار الاتصال",
   "settings.ai.testSuccess": "نجح الاتصال!",
+  "settings.ai.testSuccessAdjusted": "تم الاتصال بنجاح. لا يقبل هذا المزوّد {{params}}، لذا يتجاهله Turbo EA في كل طلب.",
   "settings.ai.testNoModel": "تم الاتصال، لكن لم يتم العثور على النموذج. المتاح: {{models}}",
   "settings.ai.modelPickerHelper": "اختر نموذجًا من موفّرك. استخدم «اختبار الاتصال» لتحديث القائمة.",
   "settings.ai.selectModel": "اختر نموذجًا...",

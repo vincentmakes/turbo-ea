@@ -43,6 +43,12 @@ Il risultato viene mostrato all'utente con:
 
 I provider commerciali richiedono una chiave API, che viene memorizzata crittografata nel database utilizzando la crittografia simmetrica Fernet. Amazon Bedrock fa eccezione: si autentica per impostazione predefinita con il ruolo IAM del container, quindi non c'è alcuna chiave da memorizzare o ruotare.
 
+### Server e gateway compatibili con OpenAI
+
+Il tipo di provider **OpenAI** funziona anche con qualsiasi server che parli l'API Chat Completions di OpenAI — LM Studio, vLLM o un gateway davanti a essi — inserendo l'indirizzo di quel server come **URL del provider**.
+
+Turbo EA chiede a ciascuno di questi provider una risposta JSON (`response_format`) con una `temperature` bassa. Non tutti i server o i modelli accettano entrambi. Quando un provider ne rifiuta uno, Turbo EA invia di nuovo la richiesta senza di esso e legge la risposta dal testo del modello, quindi non c'è nulla da configurare. **Test connessione** invia la stessa richiesta di un suggerimento e indica quale parametro, se presente, il provider ha rifiutato.
+
 ---
 
 ## Provider di ricerca
@@ -254,6 +260,7 @@ Le chiavi dei permessi sono `ai.suggest` e `ai.portfolio_insights`. I ruoli pers
 | Suggerimenti lenti | La velocità di inferenza del LLM dipende dall'hardware (per Ollama) o dalla latenza di rete (per i provider commerciali). I modelli più piccoli come `gemma3:4b` sono più veloci di quelli più grandi. |
 | Punteggi di affidabilità bassi | Il LLM potrebbe non trovare abbastanza informazioni rilevanti tramite la ricerca web. Provate un nome di card più specifico, o considerate l'utilizzo di Google Custom Search per risultati migliori. |
 | Test connessione fallito | Verificate che l'URL del provider sia raggiungibile dal container backend. Per le configurazioni Docker, assicuratevi che entrambi i container siano sulla stessa rete. |
+| Test connessione indica che il provider non accetta `response_format` o `temperature` | Nulla da correggere: il provider funziona. Turbo EA omette quel parametro da ogni richiesta che gli invia. Senza `response_format`, la risposta dipende dal fatto che il modello segua l'istruzione di rispondere in JSON; se i suggerimenti tornano vuoti, provate un modello più capace. |
 | «Il provider di IA ha rifiutato la richiesta» | Il provider è stato raggiunto ma ha rifiutato la richiesta, e il messaggio ne riporta il motivo (con un 401 o un 403, controlla la chiave API e l'accesso al modello). Correggi il nome del modello o l'impostazione del provider indicata, poi fai clic su Test connessione: invia la stessa richiesta di un suggerimento, quindi ora fallisce o riesce allo stesso modo. |
 | Bedrock restituisce «AccessDeniedException» | Due cause possibili: al ruolo IAM manca il permesso `bedrock:InvokeModel`, oppure l'accesso a quel modello non è stato abilitato nella console Bedrock. Verificate entrambe. |
 | Bedrock segnala che il throughput on-demand non è supportato | Il modello è raggiungibile solo tramite un profilo di inferenza regionale. Eseguite il test di connessione e scegliete un ID con prefisso `eu.`, `us.` o `apac.`. |

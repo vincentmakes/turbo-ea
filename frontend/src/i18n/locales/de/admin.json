@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Wählen Sie, welche Kartentypen die KI-Vorschlagsfunktion anzeigen. Alle deaktiviert = für alle Typen aktiviert.",
   "settings.ai.testConnection": "Verbindung testen",
   "settings.ai.testSuccess": "Verbindung erfolgreich!",
+  "settings.ai.testSuccessAdjusted": "Verbindung erfolgreich. Dieser Anbieter akzeptiert {{params}} nicht, daher lässt Turbo EA es in jeder Anfrage weg.",
   "settings.ai.testNoModel": "Verbunden, aber Modell nicht gefunden. Verfügbar: {{models}}",
   "settings.ai.modelPickerHelper": "Wählen Sie ein Modell von Ihrem Anbieter. Verwenden Sie «Verbindung testen», um die Liste zu aktualisieren.",
   "settings.ai.selectModel": "Modell auswählen…",

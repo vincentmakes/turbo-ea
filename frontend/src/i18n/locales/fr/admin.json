@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Sélectionnez les types de fiches affichant le bouton de suggestion IA. Tout décoché = activé pour tous les types.",
   "settings.ai.testConnection": "Tester la connexion",
   "settings.ai.testSuccess": "Connexion réussie !",
+  "settings.ai.testSuccessAdjusted": "Connexion réussie. Ce fournisseur n'accepte pas {{params}} ; Turbo EA l'omet donc de chaque requête.",
   "settings.ai.testNoModel": "Connecté, mais modèle non trouvé. Disponibles : {{models}}",
   "settings.ai.modelPickerHelper": "Sélectionnez un modèle depuis votre fournisseur. Utilisez «Tester la connexion» pour rafraîchir la liste.",
   "settings.ai.selectModel": "Sélectionner un modèle…",

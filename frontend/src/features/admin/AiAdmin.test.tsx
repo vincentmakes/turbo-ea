@@ -160,6 +160,42 @@ describe("AiAdmin with Amazon Bedrock selected", () => {
   });
 });
 
+describe("AiAdmin connection test", () => {
+  async function runTest(result: Record<string, unknown>) {
+    const user = userEvent.setup();
+    await renderLoaded({ provider_type: "openai", provider_url: "https://bionic.test" });
+    vi.mocked(api.post).mockResolvedValue(result);
+    await user.click(screen.getByRole("button", { name: /test connection/i }));
+    expect(api.post).toHaveBeenCalledWith("/settings/ai/test");
+  }
+
+  it("names what the provider refused when the test had to leave it out", async () => {
+    await runTest({
+      ok: true,
+      available_models: ["google/gemma-4-e4b"],
+      model_found: true,
+      adjusted: ["response_format", "temperature"],
+    });
+
+    expect(
+      await screen.findByText(
+        "Connection successful. This provider does not accept response_format, temperature, " +
+          "so Turbo EA leaves it out of every request.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    ["nothing was refused", { adjusted: [] }],
+    ["the provider reports no adjustments", {}],
+  ])("reports a plain success when %s", async (_case, extra) => {
+    await runTest({ ok: true, available_models: ["m"], model_found: true, ...extra });
+
+    expect(await screen.findByText("Connection successful!")).toBeInTheDocument();
+    expect(screen.queryByText(/does not accept/)).not.toBeInTheDocument();
+  });
+});
+
 describe("AiAdmin keeps the other providers working", () => {
   it("hides the credentials field for Ollama", async () => {
     await renderLoaded();

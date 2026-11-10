@@ -43,6 +43,12 @@ Das Ergebnis wird dem Benutzer präsentiert mit:
 
 Kommerzielle Anbieter erfordern einen API-Schlüssel, der mit Fernet symmetrischer Verschlüsselung in der Datenbank verschlüsselt gespeichert wird. Amazon Bedrock ist die Ausnahme: Die Authentifizierung erfolgt standardmäßig über die IAM-Rolle des Containers, es muss also kein Schlüssel gespeichert oder rotiert werden.
 
+### OpenAI-kompatible Server und Gateways
+
+Der Anbietertyp **OpenAI** funktioniert auch mit jedem Server, der die OpenAI-Chat-Completions-API spricht – LM Studio, vLLM oder ein davorgeschaltetes Gateway –, indem Sie die Adresse dieses Servers als **Anbieter-URL** eingeben.
+
+Turbo EA fordert von jedem dieser Anbieter eine JSON-Antwort (`response_format`) bei niedriger `temperature` an. Nicht jeder Server oder jedes Modell akzeptiert beides. Lehnt ein Anbieter einen der Parameter ab, sendet Turbo EA die Anfrage ohne ihn erneut und liest die Antwort stattdessen aus dem Text des Modells; es ist also nichts zu konfigurieren. **Verbindung testen** sendet dieselbe Anfrage wie ein Vorschlag und teilt mit, welchen Parameter der Anbieter gegebenenfalls abgelehnt hat.
+
 ---
 
 ## Suchanbieter
@@ -254,6 +260,7 @@ Die Berechtigungsschlüssel sind `ai.suggest` und `ai.portfolio_insights`. Benut
 | Langsame Vorschläge | Die LLM-Inferenzgeschwindigkeit hängt von der Hardware ab (bei Ollama) oder der Netzwerklatenz (bei kommerziellen Anbietern). Kleinere Modelle wie `gemma3:4b` sind schneller als größere. |
 | Niedrige Konfidenzwerte | Das LLM findet möglicherweise nicht genügend relevante Informationen über die Websuche. Versuchen Sie einen spezifischeren Kartennamen oder erwägen Sie die Verwendung von Google Custom Search für bessere Ergebnisse. |
 | Verbindungstest schlägt fehl | Überprüfen Sie, ob die Anbieter-URL vom Backend-Container aus erreichbar ist. Bei Docker-Setups stellen Sie sicher, dass beide Container im selben Netzwerk sind. |
+| Der Verbindungstest meldet, dass der Anbieter `response_format` oder `temperature` nicht akzeptiert | Nichts zu beheben: Der Anbieter funktioniert. Turbo EA lässt diesen Parameter in jeder Anfrage an ihn weg. Ohne `response_format` hängt die Antwort davon ab, dass das Modell der Anweisung folgt, in JSON zu antworten; wenn Vorschläge leer zurückkommen, versuchen Sie ein leistungsfähigeres Modell. |
 | «Der KI-Anbieter hat die Anfrage abgelehnt» | Der Anbieter wurde erreicht, hat die Anfrage aber abgelehnt, und die Meldung nennt seinen Grund (bei 401 oder 403 prüfen Sie den API-Schlüssel und den Modellzugriff). Korrigieren Sie den genannten Modellnamen oder die genannte Anbietereinstellung und klicken Sie dann auf Verbindung testen: Der Test sendet dieselbe Anfrage wie ein Vorschlag und schlägt daher jetzt genauso fehl oder gelingt genauso. |
 | Bedrock meldet «AccessDeniedException» | Zwei mögliche Ursachen: Der IAM-Rolle fehlt die Berechtigung `bedrock:InvokeModel`, oder der Modellzugriff wurde für dieses Modell in der Bedrock-Konsole nicht aktiviert. Prüfen Sie beides. |
 | Bedrock meldet, dass On-Demand-Durchsatz nicht unterstützt wird | Das Modell ist nur über ein regionales Inferenzprofil erreichbar. Führen Sie den Verbindungstest aus und wählen Sie eine ID mit dem Präfix `eu.`, `us.` oder `apac.`. |
