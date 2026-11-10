@@ -789,3 +789,340 @@ describe("QueryPathStrip — specific cards", () => {
     expect(last()).toEqual({ query: { type: "Organization" }, viewId: null });
   });
 });
+
+describe("QueryPathStrip — stacked lines", () => {
+  const APP_LINE = {
+    type: "Application",
+    where: { lifecycle_phase: ["active"] },
+    related: [{ relation: "relInitiativeToApp", type: "Initiative" }],
+  };
+  const ORG_LINE = { type: "Organization", related: [{ relation: "relOrgToApp", type: "Application" }] };
+  /** The plan's mockup: an Application group with an AND line, OR an Organization line. */
+  const STACK = {
+    any_of: [{ all_of: [APP_LINE, { type: "Application" }] }, ORG_LINE],
+  };
+  const STACK_VIEW: ActiveQuery = { viewId: "bm-s", name: "Stack", createdVia: "web", query: STACK };
+
+  const lines = () => screen.getAllByTestId("query-line");
+  const chipsOf = (el: HTMLElement) =>
+    Array.from(el.querySelectorAll(".MuiChip-label")).map((c) => c.textContent);
+  const startChips = () => screen.getAllByTestId("query-path-start-type");
+
+  it("shows a plain query as one line, with no badge and no divider, in both modes", () => {
+    const { unmount } = render(<QueryPathStrip view={VIEW} onLeave={() => {}} />);
+    expect(lines()).toHaveLength(1);
+    expect(screen.queryByTestId("query-line-and")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-group-or")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-add-line")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-line-remove")).not.toBeInTheDocument();
+    unmount();
+
+    renderEditor({ query: { type: "Application" }, viewId: null });
+    expect(lines()).toHaveLength(1);
+    expect(screen.queryByTestId("query-line-and")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-group-or")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-line-remove")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("query-add-line")).toHaveLength(1);
+  });
+
+  it("reads a two-group stack in view mode, one AND row and one OR divider, no controls", () => {
+    render(<QueryPathStrip view={STACK_VIEW} onLeave={() => {}} />);
+    expect(lines().map(chipsOf)).toEqual([
+      ["Business App", "Lifecycle: Active", "Change Initiative"],
+      ["Business App"],
+      ["Org Unit", "Business App"],
+    ]);
+    expect(within(lines()[0]).getByText("is affected by")).toBeInTheDocument();
+    expect(within(lines()[2]).getByText("uses")).toBeInTheDocument();
+    const and = screen.getAllByTestId("query-line-and");
+    expect(and).toHaveLength(1);
+    expect(and[0]).toHaveTextContent(/^AND$/);
+    const or = screen.getAllByTestId("query-group-or");
+    expect(or).toHaveLength(1);
+    expect(or[0]).toHaveTextContent(/^OR$/);
+    expect(or[0]).toHaveClass("MuiDivider-root");
+    // The badges sit between the lines they join.
+    const strip = screen.getByTestId("query-path-strip");
+    const order = Array.from(
+      strip.querySelectorAll('[data-testid="query-line"], [data-testid="query-line-and"], [data-testid="query-group-or"]'),
+    ).map((el) => el.getAttribute("data-testid"));
+    expect(order).toEqual(["query-line", "query-line-and", "query-line", "query-group-or", "query-line"]);
+    expect(screen.queryByTestId("query-add-line")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-line-remove")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-path-add-hop")).not.toBeInTheDocument();
+  });
+
+  it("puts one plus under each group in edit mode, offering exactly AND and OR", () => {
+    renderEditor({ query: STACK, viewId: "bm-s" });
+    const plus = screen.getAllByTestId("query-add-line");
+    expect(plus).toHaveLength(2);
+    expect(plus[0]).toHaveAttribute("aria-label", "Add a query line");
+    expect(plus[0]).toHaveTextContent("add_circle");
+    // Under the group's last line: the AND line is before it, the OR after it.
+    const strip = screen.getByTestId("query-path-strip");
+    const order = Array.from(
+      strip.querySelectorAll('[data-testid="query-line"], [data-testid="query-add-line"], [data-testid="query-group-or"]'),
+    ).map((el) => el.getAttribute("data-testid"));
+    expect(order).toEqual(["query-line", "query-line", "query-add-line", "query-group-or", "query-line", "query-add-line"]);
+    fireEvent.click(plus[0]);
+    expect(menuLabels()).toEqual(["AND", "OR"]);
+  });
+
+  it("AND adds a line on the group's type: its start chip is fixed, the first line's locked", () => {
+    const { last } = renderEditor({ query: { type: "Application" }, viewId: null });
+    fireEvent.click(screen.getByTestId("query-add-line"));
+    pick("AND");
+    expect(last()).toEqual({
+      query: { all_of: [{ type: "Application" }, { type: "Application" }] },
+      viewId: null,
+    });
+    expect(lines()).toHaveLength(2);
+    expect(screen.getAllByTestId("query-line-and")).toHaveLength(1);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    const [first, fixed] = startChips();
+    expect(fixed).toHaveTextContent("Business App");
+    expect(fixed).toHaveAttribute("title", "An AND line starts from the same card type as its group");
+    expect(fixed).not.toHaveClass("Mui-disabled");
+    fireEvent.click(fixed);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    expect(first).toHaveClass("Mui-disabled");
+    expect(screen.getByTestId("query-path-start-type-locked")).toHaveAttribute(
+      "title",
+      "Remove the AND lines to change the card type",
+    );
+    fireEvent.click(first);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    // Still one plus: the group is one group.
+    expect(screen.getAllByTestId("query-add-line")).toHaveLength(1);
+  });
+
+  it("OR adds a group after its group, starting on the type chooser", () => {
+    const { last } = renderEditor({ query: STACK, viewId: "bm-s" });
+    fireEvent.click(screen.getAllByTestId("query-add-line")[0]);
+    pick("OR");
+    expect(last()).toEqual({
+      query: { any_of: [{ all_of: [APP_LINE, { type: "Application" }] }, { type: "" }, ORG_LINE] },
+      viewId: "bm-s",
+    });
+    expect(screen.getAllByTestId("query-group-or")).toHaveLength(2);
+    const chooser = startChips()[2];
+    expect(chooser).toHaveTextContent("Choose a type");
+    expect(chooser).not.toHaveClass("Mui-disabled");
+    expect(chooser).not.toHaveAttribute("title");
+    fireEvent.click(chooser);
+    pick("Org Unit");
+    expect(last().query).toEqual({
+      any_of: [{ all_of: [APP_LINE, { type: "Application" }] }, { type: "Organization" }, ORG_LINE],
+    });
+  });
+
+  it("does not offer AND while the group has no type", () => {
+    renderEditor({ query: { any_of: [{ type: "Application" }, { type: "" }] }, viewId: null });
+    fireEvent.click(screen.getAllByTestId("query-add-line")[1]);
+    const items = within(screen.getByRole("menu")).getAllByRole("menuitem");
+    expect(items[0]).toHaveAttribute("aria-disabled", "true");
+    expect(items[1]).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("edits a relation and a condition on line 2 only", () => {
+    const { last } = renderEditor({ query: { all_of: [{ type: "Application" }, { type: "Application" }] }, viewId: null });
+    fireEvent.click(screen.getAllByTestId("query-path-add-hop")[1]);
+    pick("is affected by Change Initiative");
+    expect(last()).toEqual({
+      query: {
+        all_of: [
+          { type: "Application" },
+          { type: "Application", related: [{ relation: "relInitiativeToApp", type: "Initiative" }] },
+        ],
+      },
+      viewId: null,
+    });
+    // Line 2's conditions: its start node is the second "+ Condition".
+    addCondition("Lifecycle", 1);
+    chooseOption("Active");
+    expect(last()).toEqual({
+      query: {
+        all_of: [
+          { type: "Application" },
+          {
+            type: "Application",
+            where: { lifecycle_phase: ["active"] },
+            related: [{ relation: "relInitiativeToApp", type: "Initiative" }],
+          },
+        ],
+      },
+      viewId: null,
+    });
+    expect(chipsOf(lines()[0])).toEqual(["Business App", "Condition", "Relation"]);
+  });
+
+  it("removes a line with its ×, a group with its last line, and hides × on a single line", () => {
+    const { last } = renderEditor({ query: STACK, viewId: "bm-s" });
+    const removes = screen.getAllByTestId("query-line-remove");
+    expect(removes).toHaveLength(3);
+    expect(removes[0]).toHaveAttribute("aria-label", "Remove this line");
+    fireEvent.click(removes[1]);
+    expect(last().query).toEqual({ any_of: [APP_LINE, ORG_LINE] });
+    expect(screen.queryByTestId("query-line-and")).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByTestId("query-line-remove")[1]);
+    expect(last().query).toEqual(APP_LINE);
+    expect(screen.queryByTestId("query-group-or")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("query-line-remove")).not.toBeInTheDocument();
+  });
+
+  it("hides the plus at 6 lines and + Relation at 12 relations", () => {
+    const six = { all_of: Array.from({ length: 6 }, () => ({ type: "Application" })) };
+    const { unmount } = renderEditor({ query: six, viewId: null });
+    expect(lines()).toHaveLength(6);
+    expect(screen.queryByTestId("query-add-line")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("query-path-add-hop")).toHaveLength(6);
+    unmount();
+
+    const hop = (type: string, related?: unknown[]) => ({ relation: "relAppToApp__out", type, ...(related ? { related } : {}) });
+    const three = { type: "Application", related: [hop("Application", [hop("Application", [hop("Application")])])] };
+    const full = { all_of: [three, three, three, { type: "Application", related: [hop("Application"), hop("Application"), hop("Application")] }] };
+    renderEditor({ query: full, viewId: null });
+    expect(screen.getAllByTestId("query-add-line")).toHaveLength(1);
+    expect(screen.queryByTestId("query-path-add-hop")).not.toBeInTheDocument();
+  });
+
+  it("offers + Relation while the stack is under 12 relations", () => {
+    const hop = (related?: unknown[]) => ({ relation: "relAppToApp__out", type: "Application", ...(related ? { related } : {}) });
+    const eleven = {
+      all_of: [
+        { type: "Application", related: [hop([hop([hop()])])] },
+        { type: "Application", related: [hop([hop([hop()])])] },
+        { type: "Application", related: [hop([hop([hop()])])] },
+        { type: "Application", related: [hop([hop()])] },
+      ],
+    };
+    renderEditor({ query: eleven, viewId: null });
+    expect(screen.getAllByTestId("query-path-add-hop")).toHaveLength(1);
+  });
+
+  it("disables Save while a line has no type", () => {
+    renderEditor({ query: { any_of: [{ type: "Application" }, { type: "" }] }, viewId: null });
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+  });
+
+  it("states a refused stack by its code", () => {
+    renderEditor({ query: STACK, viewId: "bm-s" }, { error: "too_many_lines" });
+    expect(screen.getByRole("alert")).toHaveTextContent(/^A view holds at most 6 query lines\.$/);
+  });
+
+  it("names every line's picks with one fetch", async () => {
+    fetchCards.mockResolvedValue({
+      cards: [{ id: "a1", name: "Alpha", type: "Application" } as Card, { id: "o1", name: "Corp", type: "Organization" } as Card],
+      withheldIds: [],
+    });
+    const view: ActiveQuery = {
+      ...STACK_VIEW,
+      query: {
+        any_of: [
+          { type: "Application", where: { cards: ["a1"] } },
+          { type: "Organization", where: { cards: ["o1"] } },
+        ],
+      },
+    };
+    render(<QueryPathStrip view={view} onLeave={() => {}} />);
+    await waitFor(() => expect(screen.getByText("Cards: Corp")).toBeInTheDocument());
+    expect(screen.getByText("Cards: Alpha")).toBeInTheDocument();
+    expect(fetchCards).toHaveBeenCalledTimes(1);
+    expect(fetchCards.mock.calls[0][0]).toEqual(["a1", "o1"]);
+  });
+
+  it("takes a removed line's open editor with it, not handing it to the next line", () => {
+    renderEditor({
+      query: {
+        all_of: [{ type: "Application" }, { type: "Application", where: { lifecycle_phase: ["active"] } }],
+      },
+      viewId: null,
+    });
+    addCondition("Lifecycle", 0);
+    expect(screen.getByTestId("query-condition-popover")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByTestId("query-line-remove")[0]);
+    expect(screen.queryByTestId("query-condition-popover")).not.toBeInTheDocument();
+    expect(lines()).toHaveLength(1);
+    expect(chipsOf(lines()[0])).toEqual(["Business App", "Lifecycle: Active", "Condition", "Relation"]);
+  });
+
+  it("keeps a line's editor open while other lines are added and removed", () => {
+    const { last } = renderEditor({ query: { any_of: [{ type: "Application" }, { type: "Organization" }] }, viewId: null });
+    // The Organization line's start node is the second "+ Condition".
+    addCondition("Lifecycle", 1);
+    expect(screen.getByTestId("query-condition-popover")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByTestId("query-add-line")[0]);
+    pick("AND");
+    expect(last().query).toEqual({
+      any_of: [
+        { all_of: [{ type: "Application" }, { type: "Application" }] },
+        { type: "Organization", where: { lifecycle_phase: [] } },
+      ],
+    });
+    expect(screen.getByTestId("query-condition-popover")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByTestId("query-line-remove")[1]);
+    expect(last().query).toEqual({
+      any_of: [{ type: "Application" }, { type: "Organization", where: { lifecycle_phase: [] } }],
+    });
+    expect(screen.getByTestId("query-condition-popover")).toBeInTheDocument();
+    // Still the Organization line's editor: a pick lands there.
+    chooseOption("Active");
+    expect(last().query).toEqual({
+      any_of: [{ type: "Application" }, { type: "Organization", where: { lifecycle_phase: ["active"] } }],
+    });
+  });
+
+  it("follows a draft replaced by one with another number of lines", () => {
+    const two = { query: { any_of: [{ type: "Application" }, { type: "Organization" }] }, viewId: null };
+    const three = {
+      query: { any_of: [{ all_of: [{ type: "Application" }, { type: "Application" }] }, { type: "Initiative" }] },
+      viewId: "bm-s",
+    };
+    const { rerender } = render(<QueryPathStrip view={null} draft={two} onLeave={() => {}} />);
+    expect(lines().map(chipsOf)).toEqual([
+      ["Business App", "Condition", "Relation"],
+      ["Org Unit", "Condition", "Relation"],
+    ]);
+    rerender(<QueryPathStrip view={null} draft={three} onLeave={() => {}} />);
+    expect(lines().map(chipsOf)).toEqual([
+      ["Business App", "Condition", "Relation"],
+      ["Business App", "Condition", "Relation"],
+      ["Change Initiative", "Condition", "Relation"],
+    ]);
+    expect(screen.getAllByTestId("query-line-remove")).toHaveLength(3);
+  });
+
+  it("states what an opened set breaks as a whole, a refused save first", () => {
+    const seven = { all_of: Array.from({ length: 7 }, () => ({ type: "Application" })) };
+    const { unmount } = renderEditor({ query: seven, viewId: "bm-s" });
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/^A view holds at most 6 query lines\.$/);
+    unmount();
+
+    const mixed = renderEditor({ query: { all_of: [{ type: "Application" }, { type: "Organization" }] }, viewId: "bm-s" });
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /^Every line of an AND group must start from the same card type\.$/,
+    );
+    mixed.unmount();
+
+    const hop = { relation: "relAppToApp__out", type: "Application" };
+    const many = { all_of: Array.from({ length: 5 }, () => ({ type: "Application", related: [hop, hop, hop] })) };
+    const third = renderEditor({ query: many, viewId: "bm-s" });
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /^A view holds at most 12 relations over all its lines\.$/,
+    );
+    third.unmount();
+
+    renderEditor({ query: seven, viewId: "bm-s" }, { error: "unknown_tag" });
+    expect(screen.getByRole("alert")).toHaveTextContent(/^A tag in this query no longer exists\.$/);
+  });
+
+  it("does not flag a line still being filled in", () => {
+    renderEditor({ query: { any_of: [{ type: "Application" }, { type: "" }] }, viewId: null });
+    expect(screen.getByTestId("query-path-save")).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});

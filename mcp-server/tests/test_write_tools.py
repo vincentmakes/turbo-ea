@@ -993,6 +993,20 @@ _VIEW_QUERY = {
     ],
 }
 _VIEW_QUERY_JSON = json.dumps(_VIEW_QUERY, separators=(",", ":"))
+_STACK_QUERY = {
+    "any_of": [
+        {
+            "all_of": [
+                {"type": "Application", "where": {"lifecycle_phase": ["active"]}},
+                {
+                    "type": "Application",
+                    "related": [{"relation": "relInitiativeToApp", "type": "Initiative"}],
+                },
+            ]
+        },
+        _VIEW_QUERY,
+    ]
+}
 
 
 class _ViewBackend:
@@ -1369,6 +1383,64 @@ class TestSaveInventoryView:
         out = await backend.run(name="Orgs", query=query)
         assert out["error"] == "invalid_query"
         assert backend.calls == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "query", [[], "x", {"all_of": "x"}, {"any_of": {"type": "A"}}, {"one_of": []}]
+    )
+    async def test_a_malformed_stack_is_refused(self, fake_token, query):
+        backend = _ViewBackend()
+        out = await backend.run(name="Orgs", query=query)
+        assert out["error"] == "invalid_query"
+        assert backend.calls == []
+
+    @pytest.mark.asyncio
+    async def test_preview_of_a_stack_needs_no_type(self, fake_token):
+        backend = _ViewBackend()
+        out = await backend.run(name="Mixed", query=_STACK_QUERY)
+        assert backend.calls[1] == (
+            "get",
+            "/cards",
+            {"query": json.dumps(_STACK_QUERY, separators=(",", ":")), "page_size": 5},
+        )
+        assert out["would_create"] == {
+            "name": "Mixed",
+            "query": _STACK_QUERY,
+            "visibility": "private",
+        }
+        assert out["matches"] == 12
+
+    @pytest.mark.asyncio
+    async def test_commit_of_a_stack_sends_no_type_fields(self, fake_token):
+        backend = _ViewBackend()
+        await backend.run(name="Mixed", query=_STACK_QUERY, columns=["name"], dry_run=False)
+        assert backend.calls[1] == (
+            "post",
+            "/bookmarks",
+            {
+                "name": "Mixed",
+                "query": _STACK_QUERY,
+                "visibility": "private",
+                "columns": ["name"],
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_to_an_all_of_sends_name_and_query(self, fake_token):
+        backend = _ViewBackend()
+        query = {"all_of": [_VIEW_QUERY, {"type": "Organization"}]}
+        await backend.run(name="Orgs", query=query, view_id="v-7", dry_run=False)
+        assert backend.calls[1] == ("patch", "/bookmarks/v-7", {"name": "Orgs", "query": query})
+
+    @pytest.mark.asyncio
+    async def test_a_rejected_stack_returns_the_code(self, fake_token):
+        backend = _ViewBackend(error=_http_400("any_of_needs_two"))
+        out = await backend.run(name="Mixed", query={"any_of": [_VIEW_QUERY]})
+        assert out == {
+            "error": "any_of_needs_two",
+            "hint": "Check the keys with list_card_types and get_relation_types.",
+            "batch_id": "B-1",
+        }
 
     def test_requires_auth(self, monkeypatch):
         monkeypatch.setattr(server, "_stdio_token", None)

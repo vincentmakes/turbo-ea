@@ -5,7 +5,8 @@
  */
 import { relationLabel, typeLabel } from "@/hooks/useResolveLabel";
 import { parseSideKey } from "@/lib/relationSort";
-import type { CardQuery, CardQueryHop, CardType, RelationType } from "@/types";
+import type { CardQuery, CardQueryHop, CardQuerySet, CardType, RelationType } from "@/types";
+import { linesOf } from "./querySet";
 
 /** Separator between the steps of a compact path. */
 export const PATH_SEPARATOR = " › ";
@@ -51,7 +52,14 @@ export interface CompactPathOptions {
   locale?: string;
   /** Prefix for a negated hop (`inventory:queryView.hasNo`). */
   hasNo?: string;
+  /** The word joining the lines of a group (`inventory:queryView.connectiveAnd`). */
+  and: string;
+  /** The word joining groups (`inventory:queryView.connectiveOr`). */
+  or: string;
 }
+
+/** The most lines `compactPath` spells out before "+N". */
+const SPELLED_LINES = 2;
 
 /**
  * One line naming the chain: "Organization › uses Application › is affected
@@ -59,7 +67,7 @@ export interface CompactPathOptions {
  * adds "+N" for the others. A type or relation type missing from the
  * metamodel shows the query's own key — the only name there is for it.
  */
-export function compactPath(query: CardQuery, opts: CompactPathOptions): string {
+function linePath(query: CardQuery, opts: CompactPathOptions): string {
   const { types, relationTypes, locale, hasNo } = opts;
   const nameOf = (key: string) => typeLabel(types.find((t) => t.key === key), locale) || key;
   const parts = [nameOf(query.type)];
@@ -76,4 +84,20 @@ export function compactPath(query: CardQuery, opts: CompactPathOptions): string 
     hops = hop.related ?? [];
   }
   return parts.join(PATH_SEPARATOR);
+}
+
+/**
+ * A view's query in one line: a single query reads as its chain (`linePath`);
+ * a stack joins its lines with the AND word inside a group and the OR word
+ * between groups, spelling out the first two lines and "+N" for the rest.
+ */
+export function compactPath(query: CardQuerySet, opts: CompactPathOptions): string {
+  const lines = linesOf(query);
+  let text = "";
+  for (const line of lines.slice(0, SPELLED_LINES)) {
+    if (line.connective) text += ` ${line.connective === "or" ? opts.or : opts.and} `;
+    text += linePath(line.query, opts);
+  }
+  if (lines.length > SPELLED_LINES) text += ` +${lines.length - SPELLED_LINES}`;
+  return text;
 }

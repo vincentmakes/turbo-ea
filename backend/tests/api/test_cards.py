@@ -1199,6 +1199,90 @@ class TestQueryParam:
         assert resp.status_code == 400
         assert resp.json()["detail"] == code
 
+    ON_TRACK_APP = {
+        "type": "Application",
+        "related": [
+            {
+                "relation": "initAffectsApp",
+                "type": "Initiative",
+                "where": {"attributes": {"initiativeStatus": ["onTrack"]}},
+            }
+        ],
+    }
+    ORG_LINE = {
+        "type": "Organization",
+        "related": [{"relation": "orgUsesApp", "type": "Application"}],
+    }
+
+    async def test_an_any_of_lists_two_card_types(self, client, db, chain):
+        query = {"any_of": [self.ON_TRACK_APP, self.ORG_LINE]}
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert {(item["type"], item["name"]) for item in data["items"]} == {
+            ("Application", "Alpha"),
+            ("Organization", "Corp"),
+            ("Organization", "Team"),
+        }
+        assert data["total"] == len(data["items"]) == 3
+
+    async def test_an_any_of_total_counts_past_the_page(self, client, db, chain):
+        query = {"any_of": [self.ON_TRACK_APP, self.ORG_LINE]}
+        resp = await self._get(client, chain["admin"], query, "page_size=1")
+        assert len(resp.json()["items"]) == 1
+        assert resp.json()["total"] == 3
+
+    async def test_an_all_of_keeps_the_intersection(self, client, db, chain):
+        used = {
+            "type": "Application",
+            "related": [{"relation": "orgUsesApp", "type": "Organization"}],
+        }
+        not_at_risk = {
+            "type": "Application",
+            "related": [
+                {
+                    "relation": "initAffectsApp",
+                    "type": "Initiative",
+                    "where": {"attributes": {"initiativeStatus": ["atRisk"]}},
+                    "negate": True,
+                }
+            ],
+        }
+        both = await self._get(client, chain["admin"], {"all_of": [used, not_at_risk]})
+        assert both.status_code == 200
+        assert [item["name"] for item in both.json()["items"]] == ["Alpha"]
+        assert both.json()["total"] == 1
+        alone = await self._get(client, chain["admin"], used)
+        assert [item["name"] for item in alone.json()["items"]] == ["Alpha", "Beta"]
+
+    async def test_a_stack_combines_with_type(self, client, db, chain):
+        query = {"any_of": [self.ON_TRACK_APP, self.ORG_LINE]}
+        resp = await self._get(client, chain["admin"], query, "type=Application")
+        assert resp.status_code == 200
+        assert [item["name"] for item in resp.json()["items"]] == ["Alpha"]
+        assert resp.json()["total"] == 1
+        orgs = await self._get(client, chain["admin"], query, "type=Organization")
+        assert [item["name"] for item in orgs.json()["items"]] == ["Corp", "Team"]
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ({"all_of": [{"type": "Organization"}]}, "all_of_needs_two"),
+            ({"any_of": [{"type": "Organization"}]}, "any_of_needs_two"),
+            (
+                {"all_of": [{"type": "Organization"}, {"type": "Application"}]},
+                "all_of_type_mismatch",
+            ),
+            ({"all_of": [{"type": "Organization"}] * 7}, "too_many_lines"),
+            ({"any_of": [{"any_of": [{"type": "A"}] * 2}, {"type": "A"}]}, "invalid_query"),
+            ({"any_of": [{"type": "Organization"}, {"type": "Nope"}]}, "unknown_card_type"),
+        ],
+    )
+    async def test_rejected_stacks(self, client, db, chain, query, code):
+        resp = await self._get(client, chain["admin"], query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
     async def test_a_data_quality_band_at_a_hop(self, client, db, chain):
         """Alpha (Corp's) scores 85, Beta (Team's) 50."""
         for name, score in (("Alpha", 85.0), ("Beta", 50.0)):

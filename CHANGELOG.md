@@ -5,10 +5,10 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.196.0] - 2026-11-09
+## [2.196.0] - 2026-11-10
 
 ### Added
-- Query views can branch with *and* / *or*: add a branch with the plus under a card in the inventory query builder (or through MCP with `related_any`); branches show as lines below the path, joined by an AND / OR connector, and read as "verb A OR verb B" in the Views list.
+- Query views can combine several query lines — AND within a group, OR between groups — so one view can list several card types, such as Applications and Organizations together; add a line with the plus in the inventory query builder, or through the MCP server with `all_of` / `any_of`.
 
 ## [2.195.0] - 2026-11-09
 

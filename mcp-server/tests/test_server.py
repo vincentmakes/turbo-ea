@@ -537,6 +537,36 @@ class TestQueryCards:
         }
 
     @pytest.mark.asyncio
+    async def test_a_stack_is_sent_as_compact_json(self, fake_token):
+        stack = {"any_of": [{"type": "Application"}, {"all_of": [_CHAIN, _CHAIN]}]}
+        patcher, mock = _patched_get({"items": [], "total": 0, "page": 1, "page_size": 20})
+        with patcher:
+            out = _parse(await server.query_cards(query=stack))
+        _assert_called_with(
+            mock,
+            "/cards",
+            params={
+                "query": json.dumps(stack, separators=(",", ":")),
+                "page": 1,
+                "page_size": 20,
+            },
+        )
+        assert out == {"total": 0, "page": 1, "page_size": 20, "items": []}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "code", ["all_of_needs_two", "all_of_type_mismatch", "any_of_needs_two", "too_many_lines"]
+    )
+    async def test_a_rejected_stack_returns_its_code(self, fake_token, code):
+        mock = AsyncMock(side_effect=_status_error(400, {"detail": code}))
+        with patch.object(server.TurboEAClient, "get", mock):
+            out = _parse(await server.query_cards(query={"any_of": [_CHAIN]}))
+        assert out == {
+            "error": code,
+            "hint": "Check the keys with list_card_types and get_relation_types.",
+        }
+
+    @pytest.mark.asyncio
     async def test_a_detail_object_yields_its_code(self, fake_token):
         body = {"detail": {"code": "too_deep", "message": "x"}}
         mock = AsyncMock(side_effect=_status_error(400, body))

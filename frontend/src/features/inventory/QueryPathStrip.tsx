@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type MouseEvent } from "react";
+import { Fragment, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -32,6 +32,7 @@ import type {
   ActiveQuery,
   CardQuery,
   CardQueryHop,
+  CardQuerySet,
   CardQueryWhere,
   CardType,
   FieldDef,
@@ -48,8 +49,6 @@ import {
   cardsChipLabel,
   chainNodes,
   conditionValues,
-  draftProblem,
-  pickedCardIds,
   relationChoices,
   removeCondition,
   removeHopAt,
@@ -60,6 +59,20 @@ import {
   toggleNegate,
   type ConditionKind,
 } from "./queryDraft";
+import {
+  addLine,
+  canAddHop,
+  canAddLine,
+  isSetLevelProblem,
+  lineCount,
+  linesOf,
+  pickedCardIdsOf,
+  removeLine,
+  setProblem,
+  updateLine,
+  type LineConnective,
+  type QueryLine,
+} from "./querySet";
 import { tagGroupApplies } from "@/lib/tagGroups";
 import { useCardNames, type CardNameEntry } from "./useCardNames";
 
@@ -106,8 +119,8 @@ export default function QueryPathStrip({
   saving = false,
   error = null,
 }: Props) {
-  // Picked cards are named once for the whole strip, every node at once.
-  const cardNames = useCardNames(pickedCardIds(draft?.query ?? view?.query ?? { type: "" }));
+  // Picked cards are named once for the whole strip, every line and node at once.
+  const cardNames = useCardNames(pickedCardIdsOf(draft?.query ?? view?.query ?? { type: "" }));
   if (draft) {
     return (
       <EditStrip
@@ -146,6 +159,55 @@ const STRIP_SX = {
   gap: 0.75,
 } as const;
 const ROW_SX = { display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" } as const;
+const BADGE_SX = { height: 20, fontSize: 11, fontWeight: 700, letterSpacing: 0.5 } as const;
+
+/**
+ * The query's lines one below the other: an AND badge on its own row between
+ * the lines of a group, a divider carrying an OR badge between groups, and
+ * `groupEnd` (edit mode's plus) under each group's last line. A plain query
+ * is one line with neither.
+ */
+function LineStack({
+  query,
+  lineKeys,
+  renderLine,
+  lineEnd,
+  groupEnd,
+}: {
+  query: CardQuerySet;
+  /** A stable key per line, in reading order (edit mode); else lines are keyed by place. */
+  lineKeys?: string[];
+  renderLine: (line: QueryLine) => ReactNode;
+  /** Beside the line, outside its wrapping chips (edit mode's ×). */
+  lineEnd?: (line: QueryLine) => ReactNode;
+  groupEnd?: (group: number) => ReactNode;
+}) {
+  const { t } = useTranslation("inventory");
+  const lines = linesOf(query);
+  return (
+    <>
+      {lines.map((l, k) => (
+        <Fragment key={lineKeys?.[k] ?? `${l.group}-${l.line}`}>
+          {l.connective === "and" && (
+            <Box data-testid="query-line-and">
+              <Chip size="small" color="primary" label={t("queryView.connectiveAnd")} sx={BADGE_SX} />
+            </Box>
+          )}
+          {l.connective === "or" && (
+            <Divider data-testid="query-group-or" sx={{ my: 0.5 }}>
+              <Chip size="small" color="secondary" label={t("queryView.connectiveOr")} sx={BADGE_SX} />
+            </Divider>
+          )}
+          <Box data-testid="query-line" sx={{ display: "flex", alignItems: "flex-start", gap: 0.5 }}>
+            <Box sx={{ ...ROW_SX, flex: 1, minWidth: 0 }}>{renderLine(l)}</Box>
+            {lineEnd?.(l)}
+          </Box>
+          {groupEnd && lines[k + 1]?.group !== l.group && groupEnd(l.group)}
+        </Fragment>
+      ))}
+    </>
+  );
+}
 
 function ViewStrip({
   view,
@@ -198,17 +260,20 @@ function ViewStrip({
           <MaterialSymbol icon="close" size={18} />
         </IconButton>
       </Box>
-      <Box sx={ROW_SX}>
-        <QueryNode
-          typeKey={view.query.type}
-          where={view.query.where}
-          hops={view.query.related ?? []}
-          types={types}
-          relationTypes={relationTypes}
-          tagGroups={tagGroups}
-          cardNames={cardNames}
-        />
-      </Box>
+      <LineStack
+        query={view.query}
+        renderLine={({ query }) => (
+          <QueryNode
+            typeKey={query.type}
+            where={query.where}
+            hops={query.related ?? []}
+            types={types}
+            relationTypes={relationTypes}
+            tagGroups={tagGroups}
+            cardNames={cardNames}
+          />
+        )}
+      />
     </Paper>
   );
 }
@@ -465,8 +530,15 @@ function EditStrip({
   error: string | null;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
-  const problem = draftProblem(draft.query);
-  const onChange = (query: CardQuery) => onDraftChange({ ...draft, query });
+  const problem = setProblem(draft.query);
+  const set = draft.query;
+  const onChange = (query: CardQuerySet) => onDraftChange({ ...draft, query });
+  const lineIds = useLineIds(lineCount(set));
+  const removable = lineCount(set) > 1;
+  // A refused save says why; otherwise what the set breaks as a whole (an
+  // MCP-written view opened here can), never a line still being filled in.
+  const shownError = error ?? (isSetLevelProblem(problem) ? problem : null);
+  const hopsLeft = canAddHop(set);
   return (
     <Paper variant="outlined" data-testid="query-path-strip" sx={STRIP_SX}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
@@ -494,21 +566,88 @@ function EditStrip({
           {t("common:actions.save")}
         </Button>
       </Box>
-      <Box sx={ROW_SX}>
-        <EditChain
-          query={draft.query}
-          tagGroups={tagGroups}
-          cardNames={cardNames}
-          onChange={onChange}
-        />
-      </Box>
-      {error && (
+      <LineStack
+        query={set}
+        lineKeys={lineIds.ids}
+        renderLine={(l) => (
+          <EditChain
+            query={l.query}
+            start={l.fixedType ? "fixed" : l.typeLocked ? "locked" : "choose"}
+            canAddHop={hopsLeft}
+            tagGroups={tagGroups}
+            cardNames={cardNames}
+            onChange={(q) => onChange(updateLine(set, l.group, l.line, q))}
+          />
+        )}
+        lineEnd={(l) =>
+          removable && (
+            <IconButton
+              size="small"
+              aria-label={t("inventory:queryView.removeLine")}
+              data-testid="query-line-remove"
+              onClick={() => {
+                lineIds.remove(flatIndex(set, l.group, l.line));
+                onChange(removeLine(set, l.group, l.line));
+              }}
+              sx={{ p: 0.25 }}
+            >
+              <MaterialSymbol icon="close" size={18} />
+            </IconButton>
+          )
+        }
+        groupEnd={(group) =>
+          canAddLine(set) && (
+            <AddLineButton
+              key={`add-${group}`}
+              canAnd={!!linesOf(set).find((l) => l.group === group)?.query.type}
+              onPick={(connective) => {
+                const next = addLine(set, group, connective);
+                if (next === set) return;
+                // Both connectives put the new line right after the group's last.
+                lineIds.insert(afterGroup(set, group));
+                onChange(next);
+              }}
+            />
+          )
+        }
+      />
+      {shownError && (
         <Typography variant="caption" color="error" role="alert">
-          {t(`inventory:queryView.error.${error}`, { defaultValue: error })}
+          {t(`inventory:queryView.error.${shownError}`, { defaultValue: shownError })}
         </Typography>
       )}
     </Paper>
   );
+}
+
+let lineSeq = 0;
+const newLineId = () => `line-${++lineSeq}`;
+
+/** A line's place in reading order. */
+function flatIndex(set: CardQuerySet, group: number, line: number): number {
+  return linesOf(set).findIndex((l) => l.group === group && l.line === line);
+}
+
+/** The reading-order index just after a group's last line. */
+function afterGroup(set: CardQuerySet, group: number): number {
+  return linesOf(set).filter((l) => l.group <= group).length;
+}
+
+/**
+ * A stable id per line, in reading order, so a removed line takes its own
+ * editor state with it instead of handing it to the line that moves up. Ids
+ * are made on mount and for an added line, dropped with a removed one, and
+ * made afresh whenever the count no longer matches (Cancel, another view).
+ */
+function useLineIds(count: number) {
+  const [kept, setKept] = useState<string[]>(() => Array.from({ length: count }, newLineId));
+  const fallback = useMemo(() => Array.from({ length: count }, newLineId), [count]);
+  const ids = kept.length === count ? kept : fallback;
+  return {
+    ids,
+    insert: (at: number) => setKept([...ids.slice(0, at), newLineId(), ...ids.slice(at)]),
+    remove: (at: number) => setKept(ids.filter((_, i) => i !== at)),
+  };
 }
 
 const kindKey = (kind: ConditionKind) => (typeof kind === "object" ? `attr:${kind.attribute}` : kind);
@@ -519,13 +658,57 @@ interface OpenCondition {
   kind: ConditionKind;
 }
 
+/** How a line's start chip behaves: a chooser, fixed (an AND line), or locked by AND lines. */
+type StartMode = "choose" | "fixed" | "locked";
+
+/** The circled plus under a group: AND adds a line to it, OR a group after it. */
+function AddLineButton({
+  canAnd,
+  onPick,
+}: {
+  /** The group has a card type yet (an AND line starts from it). */
+  canAnd: boolean;
+  onPick: (connective: LineConnective) => void;
+}) {
+  const { t } = useTranslation("inventory");
+  const menu = useMenu();
+  const pick = (connective: LineConnective) => {
+    menu.close();
+    onPick(connective);
+  };
+  return (
+    <Box>
+      <IconButton
+        color="primary"
+        aria-label={t("queryView.addLine")}
+        data-testid="query-add-line"
+        onClick={menu.open}
+        sx={{ p: 0.25 }}
+      >
+        <MaterialSymbol icon="add_circle" size={24} />
+      </IconButton>
+      <Menu anchorEl={menu.anchor} open={menu.anchor != null} onClose={menu.close}>
+        <MenuItem disabled={!canAnd} onClick={() => pick("and")}>
+          {t("queryView.connectiveAnd")}
+        </MenuItem>
+        <MenuItem onClick={() => pick("or")}>{t("queryView.connectiveOr")}</MenuItem>
+      </Menu>
+    </Box>
+  );
+}
+
 function EditChain({
   query,
+  start,
+  canAddHop: hopsLeft,
   tagGroups,
   cardNames,
   onChange,
 }: {
   query: CardQuery;
+  start: StartMode;
+  /** The set is under its relation cap: offer "+ Relation". */
+  canAddHop: boolean;
   tagGroups: TagGroup[];
   cardNames: Map<string, CardNameEntry>;
   onChange: (query: CardQuery) => void;
@@ -560,6 +743,7 @@ function EditChain({
               <StartTypeChip
                 typeKey={node.type}
                 types={offered}
+                mode={start}
                 onPick={(key) => onChange(setStartType(query, key))}
               />
             ) : (
@@ -607,7 +791,7 @@ function EditChain({
                 leadingAnd
               />
             )}
-            {i === last && node.type && last < MAX_CHAIN_DEPTH && (
+            {i === last && node.type && last < MAX_CHAIN_DEPTH && hopsLeft && (
               <AddHopChip
                 fromType={node.type}
                 types={offered}
@@ -648,10 +832,12 @@ function useMenu() {
 function StartTypeChip({
   typeKey,
   types,
+  mode,
   onPick,
 }: {
   typeKey: string;
   types: CardType[];
+  mode: StartMode;
   onPick: (key: string) => void;
 }) {
   const { t, i18n } = useTranslation("inventory");
@@ -662,23 +848,48 @@ function StartTypeChip({
     () => [...types].sort((a, b) => typeLabel(a).localeCompare(typeLabel(b), i18n.language)),
     [types, typeLabel, i18n.language],
   );
+  const chip = (
+    <Chip
+      size="small"
+      variant="outlined"
+      data-testid="query-path-start-type"
+      label={typeKey ? typeLabel(type) || typeKey : t("queryView.chooseType")}
+      icon={
+        type ? (
+          <MaterialSymbol icon={type.icon} size={16} color={type.color} />
+        ) : (
+          <MaterialSymbol icon="category" size={16} />
+        )
+      }
+      onClick={mode === "choose" ? menu.open : undefined}
+      disabled={mode === "locked"}
+      sx={{
+        fontWeight: 600,
+        borderColor: type?.color,
+        "& .MuiChip-icon": { ml: 0.5 },
+        // Locked, not gone: the type still holds (as the sidebar's locked types).
+        "&.Mui-disabled": { opacity: 0.7 },
+      }}
+    />
+  );
+  if (mode === "fixed") {
+    return (
+      <Tooltip title={t("queryView.sameCardHint")} describeChild>
+        {chip}
+      </Tooltip>
+    );
+  }
+  if (mode === "locked") {
+    // A disabled chip fires no events: the span carries the tooltip.
+    return (
+      <Tooltip title={t("queryView.typeLockedByAnd")} describeChild>
+        <span data-testid="query-path-start-type-locked">{chip}</span>
+      </Tooltip>
+    );
+  }
   return (
     <>
-      <Chip
-        size="small"
-        variant="outlined"
-        data-testid="query-path-start-type"
-        label={typeKey ? typeLabel(type) || typeKey : t("queryView.chooseType")}
-        icon={
-          type ? (
-            <MaterialSymbol icon={type.icon} size={16} color={type.color} />
-          ) : (
-            <MaterialSymbol icon="category" size={16} />
-          )
-        }
-        onClick={menu.open}
-        sx={{ fontWeight: 600, borderColor: type?.color, "& .MuiChip-icon": { ml: 0.5 } }}
-      />
+      {chip}
       <Menu anchorEl={menu.anchor} open={menu.anchor != null} onClose={menu.close}>
         {sorted.map((ct) => (
           <MenuItem

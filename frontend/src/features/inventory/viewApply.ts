@@ -7,6 +7,7 @@ import { normalizeTreeLevel } from "@/components/grid/rowGrouping";
 import { normalizeDataQualityFilter } from "@/lib/dataQualityBands";
 import type { ActiveQuery, Bookmark } from "@/types";
 import type { Filters } from "./InventoryFilterSidebar";
+import { startTypes } from "./querySet";
 
 /** The grouping a view restores (views saved before a feature restore it off). */
 export interface ViewGrouping {
@@ -26,16 +27,16 @@ export function isQueryView(bm: Bookmark): boolean {
  * The sidebar filters a view restores, field by field with a default for each
  * (views saved before a facet existed carry none). Null when the view stores
  * no filters payload at all, which leaves the current filters alone. A query
- * view always restores its start type as the one selected type, whatever its
- * stored payload says, because the query is evaluated against that type.
+ * view always restores its start types as the selected types, whatever its
+ * stored payload says, because the query is evaluated against those types.
  */
 export function bookmarkFilters(bm: Bookmark): Filters | null {
   const f = bm.filters as Partial<Filters> | undefined;
-  const startType = bm.query?.type;
-  if (!f && !startType) return null;
+  const queryTypes = bm.query ? startTypes(bm.query) : [];
+  if (!f && queryTypes.length === 0) return null;
   const src: Partial<Filters> = f ?? {};
   return {
-    types: startType ? [startType] : src.types || [],
+    types: queryTypes.length > 0 ? queryTypes : src.types || [],
     search: src.search || "",
     subtypes: src.subtypes || [],
     lifecyclePhases: src.lifecyclePhases || [],

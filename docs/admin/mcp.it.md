@@ -334,6 +334,18 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               include_descendants?: true|false }
 ```
 
+Le query possono anche essere **impilate**, così una vista combina più query complete:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**E**): una card viene elencata solo se corrisponde a ogni query dell'elenco. Le sue query partono tutte dallo stesso tipo di card (altrimenti `all_of_type_mismatch`) e ne servono almeno due (`all_of_needs_two`).
+- `any_of` (**O**): una card viene elencata se corrisponde a uno qualsiasi dei gruppi, ciascuno una query semplice o un `all_of`. Servono almeno due gruppi (`any_of_needs_two`). I gruppi possono partire da tipi di card diversi, quindi **una vista può elencare più tipi di card**; una vista così si apre su tutti, e la griglia mostra le colonne che hanno in comune.
+- Un `any_of` non può stare dentro un altro `any_of` né dentro un `all_of`, e un `all_of` contiene solo query semplici (`invalid_query`).
+- Le query di un `all_of` si incontrano solo sulla card iniziale: «usa un Componente IT in dismissione» E «è interessata da un'Iniziativa» possono riguardare due card collegate diverse. Per richiedere due cose alla **stessa** card collegata, metti entrambi i salti sulla stessa riga, affiancati sotto di essa.
+
 - Un salto corrisponde quando **una qualsiasi** card correlata di quel tipo soddisfa il suo `where` (e i suoi salti annidati). `negate: true` lo trasforma in «**non** ha nessuna card di questo tipo».
 - I salti affiancati allo stesso livello devono corrispondere tutti (AND); i valori all'interno di un elenco sono alternative (OR).
 - `<key>__out` e `<key>__in` scelgono un lato di un tipo di relazione che collega un tipo di card a sé stesso (la card è l'origine o la destinazione). Altrimenti basta la chiave semplice.
@@ -364,11 +376,44 @@ Esempio — Organizzazioni che usano un'Applicazione attiva influenzata da un'In
 }
 ```
 
-Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da un altro tipo di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano al tipo precedente; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
+Esempio — Applicazioni attive su tecnologia obsoleta interessate da un'Iniziativa, **oppure** le Organizzazioni che usano un'Applicazione (una vista che elenca due tipi di card):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+Nell'inventario, una vista salvata in questo modo mostra la sua catena come percorso leggibile sopra la griglia con una nota che indica che è stata creata tramite MCP. La sua query può essere modificata nell'inventario (la matita nella striscia del percorso) o tramite `save_inventory_view` (passa l'id della vista ottenuto da `list_inventory_views` come `view_id`; l'aggiornamento sostituisce nome e query, modifica visibilità e colonne solo se passate e mantiene il raggruppamento e il layout impostati nell'interfaccia web — a meno che la nuova query non parta da altri tipi di card, il che reimposta i filtri e il raggruppamento della vista, perché appartenevano ai precedenti; una vista che non puoi modificare viene rifiutata con `view_not_found` o `view_not_editable`; una modifica della visibilità che non ti è consentita (solo il proprietario può cambiarla, e pubblica o condivisa richiede `bookmarks.share`) viene rifiutata con `visibility_not_allowed`); nell'interfaccia web il suo proprietario può anche rinominarla, cambiarne la condivisione e l'impostazione OData, regolare il layout delle colonne o eliminarla.
 
 Limitazioni:
 
-- Al massimo **3 livelli** di `related`, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati e annidati insieme). Una query più lunga viene rifiutata con `too_many_hops`.
+- Al massimo **6 query** in una pila (`too_many_lines`); le query di un `all_of` condividono un solo tipo di card iniziale, mentre i gruppi di un `any_of` possono elencarne diversi.
+- Al massimo **3 livelli** di `related` in ogni query, al massimo 10 salti affiancati a un livello e al massimo **12 salti nell'intera query** (affiancati, annidati e su tutte le query di una pila insieme). Una query più lunga viene rifiutata con `too_many_hops`.
 - Al massimo **50** card scelte per condizione.
 - Un attributo di testo corrisponde al suo valore **esattamente** — non esiste corrispondenza parziale né senza distinzione tra maiuscole e minuscole.
 - **`rollback_batch` non può annullare una vista salvata.** Salvare una vista registra un batch di mutazioni ma non pubblica alcun evento che il rollback possa invertire; elimina una vista indesiderata dalle Viste salvate dell'inventario.

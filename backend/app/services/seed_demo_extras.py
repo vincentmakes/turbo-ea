@@ -812,6 +812,56 @@ BOOKMARK_DEFS: list[dict] = [
         # saved through MCP, so the inventory shows it as such.
         "created_via": "mcp",
     },
+    {
+        # A stacked query: an AND group of two Application lines, OR an
+        # Organization line — one view listing two card types, so it pins no
+        # single ``card_type`` and both start types in ``filters.types``.
+        "name": "Active apps on aging tech, and the organizations using apps",
+        "card_type": None,
+        "filters": {
+            "types": ["Application", "Organization"],
+            "search": "",
+            "subtypes": [],
+            "lifecyclePhases": [],
+            "dataQualityMin": None,
+            "approvalStatuses": [],
+            "showArchived": False,
+            "attributes": {},
+            "relations": {},
+            "tagIds": [],
+        },
+        "query": {
+            "any_of": [
+                {
+                    "all_of": [
+                        {
+                            "type": "Application",
+                            "where": {"lifecycle_phase": ["active"]},
+                            "related": [
+                                {
+                                    "relation": "relAppToITC",
+                                    "type": "ITComponent",
+                                    "where": {"lifecycle_phase": ["phaseOut", "endOfLife"]},
+                                }
+                            ],
+                        },
+                        {
+                            # Application is the target of relInitiativeToApp.
+                            "type": "Application",
+                            "related": [{"relation": "relInitiativeToApp", "type": "Initiative"}],
+                        },
+                    ]
+                },
+                {
+                    "type": "Organization",
+                    "related": [{"relation": "relOrgToApp", "type": "Application"}],
+                },
+            ]
+        },
+        "columns": ["core_type", "core_name", "core_path", "core_subtype", "core_lifecycle"],
+        "sort": {"field": "name", "direction": "asc"},
+        "visibility": "public",
+    },
 ]
 
 

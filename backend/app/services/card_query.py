@@ -29,6 +29,15 @@ Semantics, decided once here and nowhere else:
   cards, so the result never reveals a hidden card by its effect.
 - A self-referencing relation type names its side, ``<key>__out`` (the
   nearer card is the source) or ``<key>__in``; a cross-type one its bare key.
+- Queries **stack**. ``all_of`` lists two or more complete queries on ONE
+  start type, and a card must match every one (AND); ``any_of`` lists two or
+  more groups — each a plain query or an ``all_of`` — and a card is listed
+  when it matches any group (OR). The groups may start from different card
+  types, so one view can list several card types. Lines are combined on the
+  start card only: two lines of an ``all_of`` may reach two different middle
+  cards (sibling ``related`` hops on one line say "the same card"). Every
+  line is evaluated exactly like a plain query, read scope at each hop
+  included.
 - Lifecycle phases are computed in SQL by ``current_lifecycle_phase_sql``,
   the twin of the Python ``current_lifecycle_phase`` every other surface
   shows; ``none`` is a card in no phase.
@@ -60,9 +69,20 @@ Semantics, decided once here and nowhere else:
   view that names a card hidden from them gets the view narrowed by the hop's
   read scope, not a 400.
 
-Limits: at most ``MAX_DEPTH`` (3) hops below the start card, ``MAX_HOPS``
-(10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops in the whole
-tree, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
+Grammar (keys only; a plain ``CardQuery`` is a query of one line)::
+
+    Query = CardQuery | {all_of: [CardQuery, ...]} | {any_of: [Group, ...]}
+    Group = CardQuery | {all_of: [CardQuery, ...]}
+
+``any_of`` nests in nothing and ``all_of`` holds plain queries only (a shape
+error, ``invalid_query``); ``all_of`` needs two lines or more
+(``all_of_needs_two``) sharing one start type (``all_of_type_mismatch``),
+``any_of`` two groups or more (``any_of_needs_two``).
+
+Limits: at most ``MAX_LINES`` (6) lines in a stack (``too_many_lines``),
+``MAX_DEPTH`` (3) hops below the start card of each line, ``MAX_HOPS``
+(10) sibling hops at one level, ``MAX_TOTAL_HOPS`` (12) hops over all the
+lines, ``MAX_QUERY_CHARS`` (8000) characters of compact JSON, 50 values in
 any one condition list (``tags``, ``cards`` and ``data_quality_band``
 included). A UUID anywhere but in a ``where.tags`` or ``where.cards`` list is
 refused (``query_holds_an_id``), so an id never hides in a key, a subtype or a
@@ -79,13 +99,13 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
-from sqlalchemy import not_, or_, select
+from sqlalchemy import and_, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -122,8 +142,10 @@ MAX_DEPTH = 3
 #: Sibling hops at one level, at most.
 MAX_HOPS = 10
 #: Hops in the whole tree (siblings and nested), at most — each is one
-#: correlated ``EXISTS``.
+#: correlated ``EXISTS``. Counted over every line of a stack.
 MAX_TOTAL_HOPS = 12
+#: Lines (complete queries) in an ``all_of`` / ``any_of`` stack, at most.
+MAX_LINES = 6
 #: The lifecycle "phase" of a card with no phase.
 NO_PHASE = "none"
 LIFECYCLE_PHASES: tuple[str, ...] = (*PHASE_CHRONOLOGICAL, NO_PHASE)
@@ -182,6 +204,33 @@ class CardQuery(BaseModel):
     related: list[CardHop] | None = Field(None, max_length=MAX_HOPS)
 
 
+class CardQueryAll(BaseModel):
+    """Complete queries on one start type, AND-ed: a card matches every line."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    all_of: list[CardQuery]
+
+
+class CardQueryAny(BaseModel):
+    """Groups OR-ed: a card is listed when it matches any group."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    any_of: list[CardQuery | CardQueryAll]
+
+
+#: A query as a view stores it: one line, an AND stack or an OR of groups.
+CardQuerySet = CardQuery | CardQueryAll | CardQueryAny
+
+#: The model each top-level key parses as.
+_SET_MODELS: tuple[tuple[str, type[BaseModel]], ...] = (
+    ("type", CardQuery),
+    ("all_of", CardQueryAll),
+    ("any_of", CardQueryAny),
+)
+
+
 class CardQueryError(ValueError):
     """A query that cannot be answered. ``code`` is the 400 ``detail``."""
 
@@ -195,12 +244,21 @@ class CardQueryError(ValueError):
 # ---------------------------------------------------------------------------
 
 
-def parse_card_query(raw: str | Mapping[str, Any]) -> CardQuery:
+def _set_model(data: Any) -> type[BaseModel] | None:
+    """The model ``data`` parses as, chosen by its top-level key."""
+    if not isinstance(data, Mapping):
+        return None
+    return next((model for key, model in _SET_MODELS if key in data), None)
+
+
+def parse_card_query(raw: str | Mapping[str, Any]) -> CardQuerySet:
     """``raw`` — the JSON text of ``GET /cards?query=`` or a stored / posted
-    object — as a structurally valid ``CardQuery``.
+    object — as a structurally valid query: a ``CardQuery`` (a ``type`` key),
+    a ``CardQueryAll`` (``all_of``) or a ``CardQueryAny`` (``any_of``).
 
     Codes: ``query_too_long``, ``invalid_query_json``, ``invalid_query`` (the
-    shape) and every ``query_problem`` code.
+    shape, a top-level key that is none of the three included) and every
+    ``query_problem`` code.
     """
     if isinstance(raw, str):
         if len(raw) > MAX_QUERY_CHARS:
@@ -213,8 +271,11 @@ def parse_card_query(raw: str | Mapping[str, Any]) -> CardQuery:
         data = raw
         if len(json.dumps(data, separators=(",", ":"), default=str)) > MAX_QUERY_CHARS:
             raise CardQueryError("query_too_long")
+    model = _set_model(data)
+    if model is None:
+        raise CardQueryError("invalid_query")
     try:
-        query = CardQuery.model_validate(data)
+        query: CardQuerySet = model.model_validate(data)  # type: ignore[assignment]
     except ValidationError as exc:
         raise CardQueryError("invalid_query") from exc
     problem = query_problem(query)
@@ -242,15 +303,44 @@ def _wheres(query: CardQuery) -> list[CardWhere]:
     return out
 
 
-def names_cards(query: CardQuery) -> bool:
-    """Whether any node of ``query`` pins cards (``where.cards``)."""
-    return any(where.cards for where in _wheres(query))
+def query_groups(query: CardQuerySet) -> list[list[CardQuery]]:
+    """The OR groups of ``query``, each the list of its AND lines: a plain
+    query is one group of one line, an ``all_of`` one group of its lines."""
+    if isinstance(query, CardQuery):
+        return [[query]]
+    if isinstance(query, CardQueryAll):
+        return [list(query.all_of)]
+    return [[g] if isinstance(g, CardQuery) else list(g.all_of) for g in query.any_of]
+
+
+def query_lines(query: CardQuerySet) -> list[CardQuery]:
+    """Every line of ``query``, in order."""
+    return [line for group in query_groups(query) for line in group]
+
+
+def start_types(query: CardQuerySet) -> list[str]:
+    """The start card types of ``query``'s lines, distinct, in order."""
+    return list(dict.fromkeys(line.type for line in query_lines(query)))
+
+
+def _set_wheres(query: CardQuerySet) -> list[CardWhere]:
+    return [where for line in query_lines(query) for where in _wheres(line)]
+
+
+def names_cards(query: CardQuerySet) -> bool:
+    """Whether any node of any line of ``query`` pins cards (``where.cards``)."""
+    return any(where.cards for where in _set_wheres(query))
+
+
+#: The keys of a stored query node that hold further nodes: a node's hops,
+#: and the lines / groups of a stack.
+_NESTED_KEYS = ("related", "all_of", "any_of")
 
 
 def stored_card_ids(stored: Any) -> set[uuid.UUID]:
-    """Every card id under ``where.cards`` at any node of a *stored* query
-    (``bookmarks.query``), read tolerantly: a malformed node or value is
-    skipped, never an error — the stored query may predate a rule."""
+    """Every card id under ``where.cards`` at any node of any line of a
+    *stored* query (``bookmarks.query``), read tolerantly: a malformed node or
+    value is skipped, never an error — the stored query may predate a rule."""
     out: set[uuid.UUID] = set()
     pending = [stored]
     while pending:
@@ -261,9 +351,10 @@ def stored_card_ids(stored: Any) -> set[uuid.UUID]:
         cards = where.get("cards") if isinstance(where, Mapping) else None
         if isinstance(cards, list):
             out.update(uuids(cards))
-        related = node.get("related")
-        if isinstance(related, list):
-            pending.extend(related)
+        for key in _NESTED_KEYS:
+            nested = node.get(key)
+            if isinstance(nested, list):
+                pending.extend(nested)
     return out
 
 
@@ -299,8 +390,41 @@ def _without_ids(node: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
-def query_problem(query: CardQuery) -> str | None:
+def _all_ofs(query: CardQuerySet) -> list[CardQueryAll]:
+    """Every ``all_of`` of ``query``: itself, or the groups of its ``any_of``."""
+    if isinstance(query, CardQueryAll):
+        return [query]
+    if isinstance(query, CardQueryAny):
+        return [g for g in query.any_of if isinstance(g, CardQueryAll)]
+    return []
+
+
+def _stack_problem(query: CardQuerySet) -> str | None:
+    """The problems of a stack as a whole (none for a plain query)."""
+    if isinstance(query, CardQueryAny) and len(query.any_of) < 2:
+        return "any_of_needs_two"
+    if any(len(stack.all_of) < 2 for stack in _all_ofs(query)):
+        return "all_of_needs_two"
+    if any(len({line.type for line in group}) > 1 for group in query_groups(query)):
+        return "all_of_type_mismatch"
+    lines = query_lines(query)
+    if len(lines) > MAX_LINES:
+        return "too_many_lines"
+    if sum(_hop_count(line.related) for line in lines) > MAX_TOTAL_HOPS:
+        return "too_many_hops"
+    return None
+
+
+def query_problem(query: CardQuerySet) -> str | None:
     """A structural problem with ``query``, as a 400 code, or ``None``.
+
+    For a stack first: ``any_of_needs_two`` for an ``any_of`` of fewer than
+    two groups; ``all_of_needs_two`` for an ``all_of`` (at the top or inside
+    ``any_of``) of fewer than two lines; ``all_of_type_mismatch`` for an
+    ``all_of`` whose lines start from different card types;
+    ``too_many_lines`` past ``MAX_LINES`` lines in all; ``too_many_hops``
+    past ``MAX_TOTAL_HOPS`` hops over all the lines. Then, on every line in
+    order, the rules of a plain query:
 
     ``too_deep`` past ``MAX_DEPTH`` hops; ``too_many_hops`` past
     ``MAX_TOTAL_HOPS`` hops in the whole tree; ``query_holds_an_id`` for a UUID
@@ -312,6 +436,18 @@ def query_problem(query: CardQuery) -> str | None:
     ``LIFECYCLE_PHASES``; ``unknown_band`` for a data-quality band outside
     ``DQ_BAND_BOUNDS``.
     """
+    problem = _stack_problem(query)
+    if problem:
+        return problem
+    for line in query_lines(query):
+        problem = _line_problem(line)
+        if problem:
+            return problem
+    return None
+
+
+def _line_problem(query: CardQuery) -> str | None:
+    """``query_problem`` for one line."""
     if _depth(query.related) > MAX_DEPTH:
         return "too_deep"
     if _hop_count(query.related) > MAX_TOTAL_HOPS:
@@ -509,14 +645,36 @@ async def _load_card_types(db: AsyncSession, card_ids: list[uuid.UUID]) -> dict[
     return {card_id: type_key for card_id, type_key in rows.all()}
 
 
+def resolve_groups(
+    query: CardQuerySet,
+    types: Mapping[str, Any],
+    relation_types: Mapping[str, Any],
+    tags: Mapping[uuid.UUID, _TagInfo],
+    check: _CardCheck | None = None,
+) -> list[list[ResolvedNode]]:
+    """Every line of ``query`` resolved against loaded metamodel rows, in the
+    shape of ``query_groups`` — the pure core of ``resolve_card_query``."""
+    return [
+        [
+            _resolve_node(line.type, line.where, line.related, types, relation_types, tags, check)
+            for line in group
+        ]
+        for group in query_groups(query)
+    ]
+
+
 async def resolve_card_query(
     db: AsyncSession,
-    query: CardQuery,
+    query: CardQuerySet,
     *,
     read_scope: CardReadScope | None = None,
     trusted_card_ids: Collection[uuid.UUID] = (),
-) -> ResolvedNode:
-    """``query`` checked against the metamodel, as the tree ``compile`` walks.
+) -> list[list[ResolvedNode]]:
+    """``query`` checked against the metamodel, as the trees ``compile`` walks:
+    every line's start ``ResolvedNode``, grouped as ``query_groups`` groups
+    them (``[[and, ...], ...]``, OR between the groups; a plain query is
+    ``[[node]]``). Every line is checked by the rules below, and the first
+    failing line answers.
 
     Codes: ``unknown_card_type`` (missing or hidden, at the start or a hop),
     ``unknown_relation_type`` (missing, hidden, not touching the nearer card's
@@ -538,22 +696,23 @@ async def resolve_card_query(
     without a scope and run no card query at all — an unknown, wrong-type or
     hidden pick matches nothing in SQL — so no answer is an existence oracle.
 
-    The tags the whole tree names are loaded in one query, the picked cards
+    The tags every line names are loaded in one query, the picked cards
     (write paths only) in another (any status: an archived pick is allowed),
-    and neither is issued for a query naming none.
+    for the whole stack, and neither is issued for a query naming none.
 
     ``query`` comes from ``parse_card_query``, the one place the structural
     rules (``query_problem``) run; they are not checked again here.
     """
     types = {t.key: t for t in (await db.execute(select(CardType))).scalars().all()}
     relation_types = {rt.key: rt for rt in (await db.execute(select(RelationType))).scalars().all()}
-    tags = await _load_tags(db, uuids(v for where in _wheres(query) for v in where.tags or []))
+    wheres = _set_wheres(query)
+    tags = await _load_tags(db, uuids(v for where in wheres for v in where.tags or []))
     check = None
     if read_scope is not None:
-        card_ids = uuids(v for where in _wheres(query) for v in where.cards or [])
+        card_ids = uuids(v for where in wheres for v in where.cards or [])
         cards = await _load_card_types(db, card_ids)
         check = _CardCheck(cards, read_scope, frozenset(trusted_card_ids))
-    return _resolve_node(query.type, query.where, query.related, types, relation_types, tags, check)
+    return resolve_groups(query, types, relation_types, tags, check)
 
 
 # ---------------------------------------------------------------------------
@@ -633,22 +792,36 @@ def _node_conditions(
     ]
 
 
+def _group_condition(
+    card: Any, group: list[ResolvedNode], read_scope: CardReadScope, today: date | None
+) -> Any:
+    """One AND group over ``card``: the group's start type, then every
+    line's condition and hops."""
+    return and_(
+        card.type == group[0].type,
+        *(c for node in group for c in _node_conditions(card, node, read_scope, today)),
+    )
+
+
 async def compile_card_query(
     db: AsyncSession,
-    query: CardQuery,
+    query: CardQuerySet,
     read_scope: CardReadScope,
     card: Any = Card,
     *,
     today: date | None = None,
 ) -> list[Any]:
     """The conditions ``query`` (as ``parse_card_query`` returned it, so its
-    structure is not re-checked) puts on ``card`` — its type, its condition
-    and one ``EXISTS`` per hop — to splat into ``.where(*...)``. The caller
-    adds the start card's own status, hidden-type and read-scope rules, as
-    every card list already does. Raises ``CardQueryError`` (see
+    structure is not re-checked) puts on ``card``, to splat into
+    ``.where(*...)``: ONE clause, the group's ``AND(type, every line's
+    condition and one ``EXISTS`` per hop)`` for a plain query or an
+    ``all_of``, an ``OR`` over those groups for an ``any_of``. The caller adds
+    the start card's own status, hidden-type and read-scope rules, as every
+    card list already does. Raises ``CardQueryError`` (see
     ``resolve_card_query``)."""
-    root = await resolve_card_query(db, query)
-    return [card.type == root.type, *_node_conditions(card, root, read_scope, today)]
+    groups = await resolve_card_query(db, query)
+    conditions = [_group_condition(card, group, read_scope, today) for group in groups]
+    return conditions if len(conditions) == 1 else [or_(*conditions)]
 
 
 # ---------------------------------------------------------------------------
@@ -656,36 +829,50 @@ async def compile_card_query(
 # ---------------------------------------------------------------------------
 
 
-def view_fields_for_query(
-    query: CardQuery, card_type: str | None, filters: Mapping[str, Any] | None
-) -> tuple[str, dict[str, Any]]:
-    """The ``card_type`` and ``filters`` a saved view holding ``query`` stores:
-    both pinned to the start type, so the inventory opens on it.
+def _type_set(types: Any) -> set[str] | None:
+    """A stored ``filters.types`` as a set, ``None`` when it is not a list of
+    card type keys."""
+    if not isinstance(types, list) or not all(isinstance(t, str) for t in types):
+        return None
+    return set(types)
 
-    ``query_type_mismatch`` when the view already names another type — a
-    ``card_type`` other than the start, or a ``filters.types`` other than
-    exactly ``[start]``. Absent values are filled in.
+
+def view_fields_for_query(
+    query: CardQuerySet, card_type: str | None, filters: Mapping[str, Any] | None
+) -> tuple[str | None, dict[str, Any]]:
+    """The ``card_type`` and ``filters`` a saved view holding ``query`` stores,
+    pinned to its start types (``start_types``) so the inventory opens on
+    them: ``card_type`` the start type when there is exactly one, else
+    ``None``; ``filters.types`` every start type, in order.
+
+    ``query_type_mismatch`` when the view already names other types — a
+    ``card_type`` other than the one start type (any ``card_type`` when the
+    query starts from several), or a ``filters.types`` holding other types
+    than exactly the start types. Absent values are filled in.
     """
-    if card_type is not None and card_type != query.type:
+    starts = start_types(query)
+    single = starts[0] if len(starts) == 1 else None
+    if card_type is not None and card_type != single:
         raise CardQueryError("query_type_mismatch")
     out = dict(filters or {})
     types = out.get("types")
-    if types and types != [query.type]:
+    if types and _type_set(types) != set(starts):
         raise CardQueryError("query_type_mismatch")
-    out["types"] = [query.type]
-    return query.type, out
+    out["types"] = starts
+    return single, out
 
 
-def stored_query(query: CardQuery) -> dict[str, Any]:
-    """``query`` as a view stores and returns it: defaults left out."""
+def stored_query(query: CardQuerySet) -> dict[str, Any]:
+    """``query`` as a view stores and returns it, in the caller's shape
+    (a plain query, ``all_of`` or ``any_of``): defaults left out."""
     return query.model_dump(exclude_defaults=True)
 
 
-def base_view_filters(card_type: str) -> dict[str, Any]:
-    """The ``filters`` of a view on ``card_type`` with no facet set — the shape
-    the demo ``BOOKMARK_DEFS`` spell out."""
+def base_view_filters(card_types: str | Sequence[str]) -> dict[str, Any]:
+    """The ``filters`` of a view on ``card_types`` (one key or several) with
+    no facet set — the shape the demo ``BOOKMARK_DEFS`` spell out."""
     return {
-        "types": [card_type],
+        "types": [card_types] if isinstance(card_types, str) else list(card_types),
         "search": "",
         "subtypes": [],
         "lifecyclePhases": [],
@@ -698,19 +885,25 @@ def base_view_filters(card_type: str) -> dict[str, Any]:
     }
 
 
-def _stored_type(card_type: str | None, filters: Mapping[str, Any] | None) -> str | None:
-    """The one card type a stored view is on: its ``card_type``, else a lone
-    ``filters.types`` entry; ``None`` for a view on no single type."""
+def _stored_types(
+    card_type: str | None, filters: Mapping[str, Any] | None, *, query_view: bool
+) -> set[str] | None:
+    """The card types a stored view is on: its ``card_type``, else its
+    ``filters.types`` — a lone entry on any view, every entry on a query view
+    (``query_view``, whose ``filters.types`` are its start types); ``None``
+    for a plain view on no single type."""
     if card_type:
-        return card_type
-    types = (filters or {}).get("types")
-    return types[0] if isinstance(types, list) and len(types) == 1 else None
+        return {card_type}
+    types = _type_set((filters or {}).get("types"))
+    if types and (len(types) == 1 or query_view):
+        return types
+    return None
 
 
 def view_patch(
     data: Mapping[str, Any],
     *,
-    new_query: CardQuery | None,
+    new_query: CardQuerySet | None,
     current_query: Mapping[str, Any] | None,
     current_filters: Mapping[str, Any] | None,
     current_card_type: str | None = None,
@@ -721,13 +914,14 @@ def view_patch(
 
     ``query: null`` clears the query and touches nothing else. Otherwise, on a
     view that will hold a query — ``new_query``, else the one stored — the
-    ``card_type`` and ``filters.types`` are pinned to the start type on every
-    PATCH, so they can never drift from it: values the PATCH sends are checked
-    (``query_type_mismatch``). When the PATCH sends no ``filters``, the stored
-    ones are kept key by key with only ``types`` rewritten — unless the start
-    type moves away from the stored ``card_type``: the stored facets (and the
-    ``groupBy`` / ``groupTree`` / ``groupTreeLevel`` grouping axis) belong to
-    the old type, so ``filters`` is reset to ``base_view_filters``.
+    ``card_type`` and ``filters.types`` are pinned to the start types on every
+    PATCH (``view_fields_for_query``), so they can never drift from them:
+    values the PATCH sends are checked (``query_type_mismatch``). When the
+    PATCH sends no ``filters``, the stored ones are kept key by key with only
+    ``types`` rewritten — unless the set of start types moves away from the
+    set of types the view was on (``_stored_types``): the stored facets (and
+    the ``groupBy`` / ``groupTree`` / ``groupTreeLevel`` grouping axis) belong
+    to the old types, so ``filters`` is reset to ``base_view_filters``.
     """
     out = dict(data)
     query = new_query
@@ -737,10 +931,12 @@ def view_patch(
         query = parse_card_query(current_query)
     if query is None:
         return out
+    starts = start_types(query)
+    stored = _stored_types(current_card_type, current_filters, query_view=current_query is not None)
     if "filters" in data:
         filters = data["filters"]
-    elif _stored_type(current_card_type, current_filters) not in (None, query.type):
-        filters = base_view_filters(query.type)
+    elif stored not in (None, set(starts)):
+        filters = base_view_filters(starts)
     else:
         filters = {k: v for k, v in (current_filters or {}).items() if k != "types"}
     out["card_type"], out["filters"] = view_fields_for_query(query, data.get("card_type"), filters)

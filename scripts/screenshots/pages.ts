@@ -104,6 +104,10 @@ export const BOOKMARK_LOOKUPS = {
   // Public view carrying a multi-hop query, marked as saved through MCP —
   // seed_demo_extras.py. The 98d shot shows its path strip above the grid.
   mcpQueryView: "Organizations using active apps in flight",
+  // Public view carrying a stacked query (an Application AND group, OR an
+  // Organization line) — seed_demo_extras.py. The 98f shot opens it in the
+  // query builder.
+  stackedQueryView: "Active apps on aging tech, and the organizations using apps",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -2658,6 +2662,32 @@ export const DOC_PAGES: PageDef[] = [
       pt: "98e_inventario_editor_consulta",
       zh: "98e_inventory_query_builder",
       ru: "98e_inventarizatsiya_konstruktor_zaprosa",
+    },
+  },
+  {
+    id: "98f_inventory_query_stack",
+    // A view stacking several query lines (an Application AND group, OR an
+    // Organization group), opened in the query builder via the pencil so the
+    // AND markers, the OR divider and the per-group plus are shown.
+    route: "/inventory?view={{bookmarkId:stackedQueryView}}",
+    waitFor: '[data-testid="query-path-strip"]',
+    actions: [
+      { type: "click", selector: '[data-testid="query-path-edit"]' },
+      { type: "wait", ms: 800 },
+      // Sort by Type so the one matching Application is listed above the
+      // Organizations instead of below the fold (the view sorts by name).
+      { type: "click", selector: '.ag-header-cell[col-id="core_type"] .ag-header-cell-label' },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "98f_inventory_query_stack",
+      de: "98f_inventar_abfragen_kombiniert",
+      fr: "98f_inventaire_requetes_combinees",
+      es: "98f_inventario_consultas_combinadas",
+      it: "98f_inventario_query_combinate",
+      pt: "98f_inventario_consultas_combinadas",
+      zh: "98f_inventory_query_stack",
+      ru: "98f_inventarizatsiya_kombinirovannye_zaprosy",
     },
   },
 

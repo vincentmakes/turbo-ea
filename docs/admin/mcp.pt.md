@@ -334,6 +334,18 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               include_descendants?: true|false }
 ```
 
+As consultas também podem ser **empilhadas**, de modo que uma visualização combine várias consultas completas:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**E**): um card só é listado quando corresponde a todas as consultas da lista. Todas partem do mesmo tipo de card (caso contrário, `all_of_type_mismatch`), e são necessárias pelo menos duas (`all_of_needs_two`).
+- `any_of` (**OU**): um card é listado quando corresponde a qualquer um dos grupos, cada um uma consulta simples ou um `all_of`. São necessários pelo menos dois grupos (`any_of_needs_two`). Os grupos podem partir de tipos de card diferentes, então **uma visualização pode listar vários tipos de card**; uma visualização assim abre com todos eles, e a grade mostra as colunas que têm em comum.
+- Um `any_of` não pode ficar dentro de outro `any_of` nem de um `all_of`, e um `all_of` contém apenas consultas simples (`invalid_query`).
+- As consultas de um `all_of` encontram-se apenas no card inicial: «usa um Componente de TI em descontinuação» E «é afetada por uma Iniciativa» podem ser dois cards relacionados diferentes. Para exigir duas coisas do **mesmo** card relacionado, coloque os dois saltos numa só linha, lado a lado abaixo dela.
+
 - Um salto corresponde quando **qualquer** card relacionado desse tipo atende ao seu `where` (e aos seus próprios saltos aninhados). `negate: true` o transforma em «**não** tem nenhum card assim».
 - Saltos lado a lado no mesmo nível devem corresponder todos (E); os valores dentro de uma lista são alternativas (OU).
 - `<key>__out` e `<key>__in` escolhem um lado de um tipo de relação que liga um tipo de card a ele mesmo (o card é a origem ou o destino). Caso contrário, basta a chave simples.
@@ -364,11 +376,44 @@ Exemplo — Organizações que usam uma Aplicação ativa afetada por uma Inicia
 }
 ```
 
-No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade com uma nota de que foi criada via MCP. A sua consulta pode ser alterada no inventário (o lápis na faixa do caminho) ou por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outro tipo de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam ao tipo anterior; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`; uma alteração de visibilidade que você não pode fazer (só o proprietário pode alterá-la, e pública ou compartilhada exige `bookmarks.share`) é recusada com `visibility_not_allowed`); na interface web, o seu proprietário também pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
+Exemplo — Aplicações ativas em tecnologia envelhecida afetadas por uma Iniciativa, **ou** as Organizações que usam uma Aplicação (uma visualização que lista dois tipos de card):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+No inventário, uma visualização salva dessa forma mostra a sua cadeia como um caminho legível acima da grade com uma nota de que foi criada via MCP. A sua consulta pode ser alterada no inventário (o lápis na faixa do caminho) ou por `save_inventory_view` (passe o id da visualização obtido em `list_inventory_views` como `view_id`; a atualização substitui o nome e a consulta, altera a visibilidade e as colunas apenas quando informadas e mantém o agrupamento e o layout definidos na interface web — a menos que a nova consulta parta de outros tipos de card, o que redefine os filtros e o agrupamento da visualização, pois pertenciam aos anteriores; uma visualização que você não pode editar é recusada com `view_not_found` ou `view_not_editable`; uma alteração de visibilidade que você não pode fazer (só o proprietário pode alterá-la, e pública ou compartilhada exige `bookmarks.share`) é recusada com `visibility_not_allowed`); na interface web, o seu proprietário também pode renomeá-la, alterar o compartilhamento e a configuração OData, ajustar o layout de colunas ou excluí-la.
 
 Limitações:
 
-- No máximo **3 níveis** de `related`, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado e aninhados em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
+- No máximo **6 consultas** numa pilha (`too_many_lines`); as consultas de um `all_of` partilham um só tipo de card inicial, enquanto os grupos de um `any_of` podem listar vários.
+- No máximo **3 níveis** de `related` em cada consulta, no máximo 10 saltos lado a lado em um nível e no máximo **12 saltos em toda a consulta** (lado a lado, aninhados e em todas as consultas de uma pilha em conjunto). Uma consulta mais longa é recusada com `too_many_hops`.
 - No máximo **50** cards escolhidos por condição.
 - Um atributo de texto corresponde ao seu valor **exatamente** — não há correspondência parcial nem sem distinção de maiúsculas e minúsculas.
 - **`rollback_batch` não pode desfazer uma visualização salva.** Salvar uma visualização registra um lote de mutações, mas não publica nenhum evento que a reversão possa desfazer; exclua uma visualização indesejada em Visualizações salvas do inventário.

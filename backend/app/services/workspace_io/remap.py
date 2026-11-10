@@ -756,9 +756,20 @@ def _map_query_ids(values: list[Any], kind: str, ids: IdMap, tally: RewriteTally
 
 
 def rewrite_card_query_ids(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
-    """A saved view's multi-hop ``query`` (``card_query.CardQuery``) with the
-    ids under ``where.tags`` (the tag map) and ``where.cards`` (the card map)
-    translated, at the start card and every hop.
+    """A saved view's multi-hop ``query`` (``card_query.CardQuerySet``) with
+    the ids under ``where.tags`` (the tag map) and ``where.cards`` (the card
+    map) translated, at the start card and every hop of every line — a plain
+    query is one line, an ``all_of`` / ``any_of`` stack is walked line by
+    line (an ``any_of`` group may itself be an ``all_of``), each line under
+    the rules below. A line is never removed by the rewrite: the rules only
+    loosen a line, and removing one would change what the stack means.
+
+    One consequence is deliberate: when none of the cards picked on a line's
+    *start* card resolves, the line loses that condition and lists every card
+    of its type — exactly what a plain query view does — so inside an
+    ``any_of`` that group adds the whole type to the view. The view widens,
+    it never silently narrows, and the tally reports each id ``unresolved``
+    for the admin to follow up.
 
     Those are the grammar's only ids (everything else is a metamodel key). An
     id the map does not know — or a value that is no id at all — is counted
@@ -774,6 +785,11 @@ def rewrite_card_query_ids(node: Any, ids: IdMap, tally: RewriteTally) -> Any:
     ``replace_mapped_ids``: that walk can neither count an unknown id nor
     drop it. Anything malformed comes back untouched.
     """
+    if isinstance(node, dict):
+        for key in ("all_of", "any_of"):
+            if isinstance(node.get(key), list):
+                lines = [rewrite_card_query_ids(line, ids, tally) for line in node[key]]
+                return {**node, key: lines}
     return _rewrite_query_node(node, ids, tally)
 
 

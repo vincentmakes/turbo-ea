@@ -87,23 +87,26 @@ const CHAIN: CardQuery = {
   ],
 };
 
+/** The connective words, as `inventory:queryView.connectiveAnd` / `connectiveOr` give them. */
+const WORDS = { and: "AND", or: "OR" };
+
 describe("compactPath", () => {
   it("reads a chain as type › verb type › verb type", () => {
     expect(PATH_SEPARATOR).toBe(" › ");
-    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "en" })).toBe(
+    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "en", ...WORDS })).toBe(
       "Organization › uses Application › is affected by Initiative",
     );
   });
 
   it("resolves type and verb labels in the locale", () => {
-    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "de" })).toBe(
+    expect(compactPath(CHAIN, { types: TYPES, relationTypes: REL_TYPES, locale: "de", ...WORDS })).toBe(
       "Organisation › nutzt Application › is affected by Initiative",
     );
   });
 
   it("is just the start type for a query without hops", () => {
     expect(
-      compactPath({ type: "Application" }, { types: TYPES, relationTypes: REL_TYPES }),
+      compactPath({ type: "Application" }, { types: TYPES, relationTypes: REL_TYPES, ...WORDS }),
     ).toBe("Application");
   });
 
@@ -116,7 +119,7 @@ describe("compactPath", () => {
         { relation: "relInitiativeToApp", type: "Initiative" },
       ],
     };
-    expect(compactPath(branched, { types: TYPES, relationTypes: REL_TYPES, locale: "en" })).toBe(
+    expect(compactPath(branched, { types: TYPES, relationTypes: REL_TYPES, locale: "en", ...WORDS })).toBe(
       "Application › is called by Application +2",
     );
   });
@@ -126,7 +129,7 @@ describe("compactPath", () => {
       type: "Application",
       related: [{ relation: "relInitiativeToApp", type: "Initiative", negate: true }],
     };
-    const opts = { types: TYPES, relationTypes: REL_TYPES, locale: "en" };
+    const opts = { types: TYPES, relationTypes: REL_TYPES, locale: "en", ...WORDS };
     expect(compactPath(negated, { ...opts, hasNo: "has no" })).toBe(
       "Application › has no is affected by Initiative",
     );
@@ -138,8 +141,33 @@ describe("compactPath", () => {
       type: "Ghost",
       related: [{ relation: "relGone", type: "Phantom" }],
     };
-    expect(compactPath(unknown, { types: TYPES, relationTypes: REL_TYPES })).toBe(
+    expect(compactPath(unknown, { types: TYPES, relationTypes: REL_TYPES, ...WORDS })).toBe(
       "Ghost › relGone Phantom",
+    );
+  });
+
+  it("joins a group's lines with the AND word and groups with the OR word", () => {
+    const opts = { types: TYPES, relationTypes: REL_TYPES, locale: "en", and: "UND", or: "ODER" };
+    const app: CardQuery = {
+      type: "Application",
+      related: [{ relation: "relInitiativeToApp", type: "Initiative" }],
+    };
+    expect(compactPath({ all_of: [app, { type: "Application" }] }, opts)).toBe(
+      "Application › is affected by Initiative UND Application",
+    );
+    expect(compactPath({ any_of: [app, CHAIN] }, opts)).toBe(
+      "Application › is affected by Initiative ODER Organization › uses Application › is affected by Initiative",
+    );
+  });
+
+  it("spells out two lines and counts the rest as +N", () => {
+    const opts = { types: TYPES, relationTypes: REL_TYPES, locale: "en", ...WORDS };
+    const app: CardQuery = { type: "Application" };
+    expect(
+      compactPath({ any_of: [{ all_of: [app, app, app] }, { type: "Organization" }] }, opts),
+    ).toBe("Application AND Application +2");
+    expect(compactPath({ any_of: [app, { type: "Organization" }, { type: "Initiative" }] }, opts)).toBe(
+      "Application OR Organization +1",
     );
   });
 });

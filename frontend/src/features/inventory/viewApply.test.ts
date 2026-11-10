@@ -107,6 +107,29 @@ describe("bookmarkFilters", () => {
       types: ["Organization"],
     });
   });
+
+  it("selects every start type of a stacked query, in reading order", () => {
+    const stack = {
+      any_of: [
+        { all_of: [{ type: "Application" }, { type: "Application" }] },
+        QUERY,
+      ],
+    };
+    expect(
+      bookmarkFilters(bookmark({ query: stack, filters: { types: ["Application"] } })),
+    ).toEqual({ ...EMPTY, types: ["Application", "Organization"] });
+    expect(bookmarkFilters(bookmark({ query: stack }))).toEqual({
+      ...EMPTY,
+      types: ["Application", "Organization"],
+    });
+  });
+
+  it("keeps the stored types for a query naming no type yet", () => {
+    expect(
+      bookmarkFilters(bookmark({ query: { type: "" }, filters: { types: ["Application"] } })),
+    ).toEqual({ ...EMPTY, types: ["Application"] });
+    expect(bookmarkFilters(bookmark({ query: { type: "" } }))).toBeNull();
+  });
 });
 
 describe("bookmarkGrouping", () => {

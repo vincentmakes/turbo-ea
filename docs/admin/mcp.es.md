@@ -334,6 +334,18 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               include_descendants?: true|false }
 ```
 
+Las consultas también pueden **apilarse**, de modo que una vista combine varias consultas completas:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**Y**): una ficha se lista solo cuando cumple todas las consultas de la lista. Todas parten del mismo tipo de ficha (si no, `all_of_type_mismatch`), y hacen falta al menos dos (`all_of_needs_two`).
+- `any_of` (**O**): una ficha se lista cuando cumple cualquiera de los grupos, cada uno una consulta simple o un `all_of`. Hacen falta al menos dos grupos (`any_of_needs_two`). Los grupos pueden partir de tipos de ficha distintos, así que **una vista puede listar varios tipos de ficha**; una vista así se abre con todos ellos, y la cuadrícula muestra las columnas que tienen en común.
+- Un `any_of` no puede ir dentro de otro `any_of` ni de un `all_of`, y un `all_of` contiene solo consultas simples (`invalid_query`).
+- Las consultas de un `all_of` coinciden solo en la ficha inicial: «usa un Componente de TI en retirada» Y «es afectada por una Iniciativa» pueden ser dos fichas relacionadas distintas. Para exigir dos cosas de la **misma** ficha relacionada, ponga ambos saltos en una línea, uno junto a otro debajo de ella.
+
 - Un salto coincide cuando **cualquier** ficha relacionada de ese tipo cumple su `where` (y sus propios saltos anidados). `negate: true` lo convierte en «**no** tiene ninguna ficha así».
 - Los saltos en paralelo en un mismo nivel deben coincidir todos (Y); los valores dentro de una lista son alternativas (O).
 - `<key>__out` y `<key>__in` eligen un lado de un tipo de relación que enlaza un tipo de ficha consigo mismo (la ficha es el origen o el destino). En los demás casos basta la clave simple.
@@ -364,11 +376,44 @@ Ejemplo — Organizaciones que usan una Aplicación activa a la que afecta una I
 }
 ```
 
-En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otro tipo de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían al tipo anterior; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
+Ejemplo — Aplicaciones activas sobre tecnología envejecida que afecta una Iniciativa, **o** las Organizaciones que usan una Aplicación (una vista que lista dos tipos de ficha):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+En el inventario, una vista guardada así muestra su cadena como una ruta legible sobre la cuadrícula con una nota de que se creó mediante MCP. Su consulta puede cambiarse en el inventario (el lápiz de la tira de ruta) o con `save_inventory_view` (pase el id de la vista obtenido de `list_inventory_views` como `view_id`; la actualización sustituye el nombre y la consulta, cambia la visibilidad y las columnas solo cuando se indican, y conserva la agrupación y el diseño definidos en la interfaz web — salvo que la nueva consulta parta de otros tipos de ficha, lo que restablece los filtros y la agrupación de la vista, porque pertenecían a los anteriores; una vista que no puede editar se rechaza con `view_not_found` o `view_not_editable`; un cambio de visibilidad que no le está permitido (solo el propietario puede cambiarla, y pública o compartida requiere `bookmarks.share`) se rechaza con `visibility_not_allowed`); en la interfaz web su propietario también puede renombrarla, cambiar su uso compartido y su ajuste OData, modificar el diseño de columnas o eliminarla.
 
 Limitaciones:
 
-- Como máximo **3 niveles** de `related`, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo y anidados en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
+- Como máximo **6 consultas** en una pila (`too_many_lines`); las consultas de un `all_of` comparten un mismo tipo de ficha inicial, mientras que los grupos de un `any_of` pueden listar varios.
+- Como máximo **3 niveles** de `related` en cada consulta, como máximo 10 saltos en paralelo en un nivel y como máximo **12 saltos en toda la consulta** (en paralelo, anidados y sobre todas las consultas de una pila en conjunto). Una consulta más larga se rechaza con `too_many_hops`.
 - Como máximo **50** fichas seleccionadas por condición.
 - Un atributo de texto coincide **exactamente** con su valor — no hay coincidencia parcial ni insensible a mayúsculas.
 - **`rollback_batch` no puede deshacer una vista guardada.** Guardar una vista registra un lote de mutaciones pero no publica ningún evento que la reversión pueda deshacer; elimine una vista no deseada desde las Vistas guardadas del inventario.

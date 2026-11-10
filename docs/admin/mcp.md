@@ -334,6 +334,18 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               include_descendants?: true|false }
 ```
 
+Queries can also be **stacked**, so one view combines several complete queries:
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of` (**AND**): a card is listed only when it matches every query in the list. Its queries all start from the same card type (`all_of_type_mismatch` otherwise), and it needs at least two (`all_of_needs_two`).
+- `any_of` (**OR**): a card is listed when it matches any of the groups, each a plain query or an `all_of`. It needs at least two groups (`any_of_needs_two`). The groups may start from different card types, so **one view can list several card types**; such a view opens on all of them, and the grid shows the columns they have in common.
+- An `any_of` cannot sit inside another `any_of` or an `all_of`, and an `all_of` holds plain queries only (`invalid_query`).
+- The queries of an `all_of` meet on the start card only: "uses an IT Component that is phasing out" AND "is affected by an Initiative" may be two different related cards. To require two things of the **same** related card, put both hops on one line, side by side under it.
+
 - A hop matches when **any** related card of that type meets its `where` (and its own nested hops). `negate: true` turns it into "has **no** such card".
 - Hops side by side at one level must all match (AND); the values inside one list are alternatives (OR).
 - `<key>__out` and `<key>__in` pick a side of a relation type that links a card type to itself (the card is the source, or the target). Otherwise the plain key is enough.
@@ -364,11 +376,44 @@ Example — Organizations using an active Application that an Initiative with st
 }
 ```
 
-In the inventory, a view saved this way shows its chain as a readable path above the grid, with a note that it was created via MCP. Its query can be changed in the inventory (the pencil on the path strip) or through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from another card type, which resets the view's filters and grouping, since they belonged to the old type; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can also rename it, change its sharing and OData setting, adjust the column layout, or delete it.
+Example — active Applications on aging technology that an Initiative affects, **or** the Organizations using an Application (a view listing two card types):
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+In the inventory, a view saved this way shows its chain as a readable path above the grid, with a note that it was created via MCP. Its query can be changed in the inventory (the pencil on the path strip) or through `save_inventory_view` (pass the view's id from `list_inventory_views` as `view_id`; the update replaces the name and the query, changes visibility and columns only when they are passed, and keeps the grouping and layout set in the web UI — unless the new query starts from other card types, which resets the view's filters and grouping, since they belonged to the old ones; a view you cannot edit is refused with `view_not_found` or `view_not_editable`; a visibility change you may not make (only the owner can change it, and public or shared needs `bookmarks.share`) is refused with `visibility_not_allowed`); in the web UI its owner can also rename it, change its sharing and OData setting, adjust the column layout, or delete it.
 
 Limitations:
 
-- At most **3 levels** of `related`, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side and nested together). A longer query is refused with `too_many_hops`.
+- At most **6 queries** in a stack (`too_many_lines`); the queries of an `all_of` share one start card type, while the groups of an `any_of` may list several.
+- At most **3 levels** of `related` in each query, at most 10 hops side by side at one level, and at most **12 hops in the whole query** (side by side, nested and over every query of a stack together). A longer query is refused with `too_many_hops`.
 - At most **50** picked cards per condition.
 - A text attribute matches its value **exactly** — there is no partial or case-insensitive match.
 - **`rollback_batch` cannot undo a saved view.** Saving a view records a mutation batch but publishes no event for the rollback to reverse; delete an unwanted view from the inventory's Saved Views instead.

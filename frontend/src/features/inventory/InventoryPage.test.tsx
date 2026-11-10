@@ -3312,10 +3312,8 @@ describe("InventoryPage query builder", () => {
     fireEvent.click(screen.getByTestId("query-path-save"));
 
     await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
-    expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", {
-      query: NEW_QUERY,
-      card_type: "Application",
-    });
+    // Only the query: the server derives the view's type fields from it.
+    expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", { query: NEW_QUERY });
     expect(await screen.findByText("Renamed")).toBeInTheDocument();
     expect(screen.queryByText("Edit query view")).not.toBeInTheDocument();
     await waitFor(() => expect(lastQuery()).toEqual(NEW_QUERY));
@@ -3628,6 +3626,168 @@ describe("InventoryPage query builder", () => {
       expect(prefs().columnFilterModel).toEqual(COLUMN_MODEL);
       fireEvent.click(screen.getByTestId("query-path-cancel"));
       expect(prefs().filters).toEqual(FACETED);
+    });
+  });
+
+  describe("stacked lines", () => {
+    /** Adds a line under the group the `n`-th plus belongs to. */
+    function addLine(connective: "AND" | "OR", n = 0) {
+      fireEvent.click(screen.getAllByTestId("query-add-line")[n]);
+      pickMenu(connective);
+    }
+
+    it("a draft over two start types pins both and sends the whole query without a type", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      // The OR line has no type yet: it is left out of the preview.
+      expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({
+        any_of: [{ type: "Application" }, { type: "" }],
+      });
+      expect(screen.getByTestId("query-path-save")).toBeDisabled();
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      expect(lastCards().get("type")).toBe("Application");
+
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ any_of: [{ type: "Application" }, { type: "Objective" }] }),
+      );
+      expect(lastCards().has("type")).toBe(false);
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      expect(screen.getByTestId("query-path-save")).toBeEnabled();
+      // Still building: two types selected do not leave the draft.
+      expect(screen.getByText("New query view")).toBeInTheDocument();
+
+      // Removing the OR line pins the one type left.
+      fireEvent.click(screen.getAllByTestId("query-line-remove")[1]);
+      await waitFor(() => expect(lastQuery()).toEqual({ type: "Application" }));
+      expect(lastCards().get("type")).toBe("Application");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+    });
+
+    it("removing the draft's only typed line clears the selected type and sends no query", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+      const before = cardUrls().length;
+      fireEvent.click(screen.getAllByTestId("query-line-remove")[0]);
+      expect(JSON.parse(sidebar().getAttribute("data-draft-query")!)).toEqual({ type: "" });
+      expect(await screen.findByText("Choose a type")).toBeInTheDocument();
+      await waitFor(() => expect(prefs().filters.types).toEqual([]));
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(before));
+      expect(lastCards().has("type")).toBe(false);
+      expect(lastCards().has("query")).toBe(false);
+      // The single-type facets went with the type.
+      expect(prefs().filters).toMatchObject({ subtypes: [], attributes: {}, relations: {} });
+    });
+
+    it("a query over two start types sends no type, whatever type the filters still hold", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      // A type selection from elsewhere that has not caught up with the draft.
+      fireEvent.click(screen.getByTestId("select-application"));
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application"]));
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ any_of: [{ type: "Application" }, { type: "Objective" }] }),
+      );
+      expect(lastCards().has("type")).toBe(false);
+      expect(screen.getByText("New query view")).toBeInTheDocument();
+    });
+
+    it("a single-type AND group sends its type", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("AND");
+      await waitFor(() =>
+        expect(lastQuery()).toEqual({ all_of: [{ type: "Application" }, { type: "Application" }] }),
+      );
+      expect(lastCards().get("type")).toBe("Application");
+      expect(prefs().filters.types).toEqual(["Application"]);
+    });
+
+    it("hands a new stacked view to the sidebar's save dialog as it is", async () => {
+      renderPage();
+      await startDraftOn("Application");
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      fireEvent.click(screen.getByTestId("query-path-save"));
+      expect(JSON.parse(sidebar().getAttribute("data-pending-save")!)).toEqual({
+        any_of: [{ type: "Application" }, { type: "Objective" }],
+      });
+      expect(api.patch).not.toHaveBeenCalled();
+    });
+
+    it("saves an edited view's stack as its query only", async () => {
+      persistActiveView();
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      vi.mocked(api.patch).mockResolvedValue(
+        queryBookmark({ query: STACKED, filters: { types: ["Application", "Objective"] } }),
+      );
+      renderPage();
+      fireEvent.click(await screen.findByTestId("query-path-edit"));
+      addLine("OR");
+      fireEvent.click(screen.getAllByTestId("query-path-start-type")[1]);
+      pickMenu("Objective");
+      fireEvent.click(screen.getByTestId("query-path-save"));
+      await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(1));
+      expect(api.patch).toHaveBeenCalledWith("/bookmarks/bm-q", { query: STACKED });
+      await waitFor(() => expect(screen.queryByText("Edit query view")).not.toBeInTheDocument());
+      await waitFor(() => expect(lastQuery()).toEqual(STACKED));
+      expect(lastCards().has("type")).toBe(false);
+      expect(prefs().filters.types).toEqual(["Application", "Objective"]);
+    });
+
+    it("reopens a stored view over two types with both types selected", async () => {
+      const STACKED = { any_of: [{ all_of: [QUERY, { type: "Application" }] }, { type: "Objective" }] };
+      mockBookmarks([queryBookmark({ query: STACKED, filters: { types: ["Application"] } })]);
+      renderPage("/inventory?view=bm-q");
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      // No request goes out before the view is applied, and none with a type.
+      for (const url of cardUrls()) {
+        expect(JSON.parse(paramsOf(url).get("query")!)).toEqual(STACKED);
+        expect(paramsOf(url).has("type")).toBe(false);
+      }
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      expect(prefs().activeQuery.query).toEqual(STACKED);
+      expect(screen.getAllByTestId("query-line")).toHaveLength(3);
+    });
+
+    it("keeps a persisted stacked view whose two types are still selected, in any order", async () => {
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      mockBookmarks([queryBookmark({ query: STACKED })]);
+      localStorage.setItem(
+        "turboea_inventory",
+        JSON.stringify({
+          filters: { ...EMPTY_FILTERS, types: ["Objective", "Application"] },
+          activeQuery: { ...ACTIVE, query: STACKED },
+        }),
+      );
+      renderPage();
+      await waitFor(() => expect(cardUrls().length).toBeGreaterThan(0));
+      expect(JSON.parse(paramsOf(cardUrls()[0]).get("query")!)).toEqual(STACKED);
+      expect(await screen.findByTestId("query-path-strip")).toBeInTheDocument();
+      expect(prefs().activeQuery.query).toEqual(STACKED);
+      expect(prefs().filters.types).toEqual(["Objective", "Application"]);
+    });
+
+    it("re-applies a persisted view's filters when it was re-saved over other start types", async () => {
+      const STACKED = { any_of: [QUERY, { type: "Objective" }] };
+      mockBookmarks([
+        queryBookmark({ query: STACKED, filters: { types: ["Application", "Objective"] } }),
+      ]);
+      persistActiveView();
+      renderPage();
+      await waitFor(() => expect(prefs().activeQuery?.query).toEqual(STACKED));
+      await waitFor(() => expect(prefs().filters.types).toEqual(["Application", "Objective"]));
+      await waitFor(() => expect(lastQuery()).toEqual(STACKED));
+      expect(lastCards().has("type")).toBe(false);
     });
   });
 });

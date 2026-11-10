@@ -15,8 +15,8 @@ from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
 from app.services.card_query import (
-    CardQuery,
     CardQueryError,
+    CardQuerySet,
     compile_card_query,
     names_cards,
     parse_card_query,
@@ -55,10 +55,12 @@ async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark |
 
 async def _checked_query(
     db: AsyncSession, raw: dict, user: User, *, stored: object = None
-) -> CardQuery:
-    """``raw`` as a query the metamodel can answer; 400 with the code if not.
+) -> CardQuerySet:
+    """``raw`` — a plain query or an ``all_of`` / ``any_of`` stack — as a
+    query the metamodel can answer, every line checked; 400 with the code if
+    not.
 
-    A card picked in the query must exist, be of its node's type and be one
+    A card picked on any line of the query must exist, be of its node's type and be one
     the writer can read (``unknown_card`` otherwise), so nobody pins a hidden
     card. The picks already in ``stored`` — the view's current query, on an
     edit — skip the read check, so a collaborator editing a shared view keeps
@@ -522,7 +524,10 @@ async def bookmark_odata_feed(
     if dq_min is not None:
         q = q.where(Card.data_quality >= dq_min)
 
-    # The view's multi-hop card query, evaluated for the caller.
+    # The view's multi-hop card query, evaluated for the caller. A stack whose
+    # groups start from several card types lists them all: ``filters.types``
+    # holds every start type, and the compiled OR keeps each card to the
+    # group of its own type.
     if bm.query is not None:
         try:
             clauses = await compile_card_query(db, parse_card_query(bm.query), read_scope)

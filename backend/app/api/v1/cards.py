@@ -334,10 +334,16 @@ async def list_cards(
             "`attributes` value lists and `tags` (tag ids: any tag of a group, every "
             "group named). Keeps the cards of the start type with a "
             "related card matching every hop (`negate`: with none); a related card "
-            "must be ACTIVE and readable by the caller. At most 3 hops deep, "
-            "12 hops in all, 8000 characters. "
+            "must be ACTIVE and readable by the caller. Queries stack: "
+            '`{"all_of": [<query>, …]}` keeps the cards matching every query (AND; '
+            'two or more, one start type), `{"any_of": [<query or all_of>, …]}` the '
+            "cards matching any group (OR; two or more, the groups may start from "
+            "different card types, so the list can hold several types). At most 6 "
+            "queries in a stack, 3 hops deep, 12 hops in all, 8000 characters. "
             "400 with a code (`query_too_long`, `invalid_query_json`, `invalid_query`, "
-            "`unknown_card_type`, `unknown_relation_type`, …) when it cannot be answered."
+            "`all_of_needs_two`, `all_of_type_mismatch`, `any_of_needs_two`, "
+            "`too_many_lines`, `unknown_card_type`, `unknown_relation_type`, …) when it "
+            "cannot be answered."
         ),
     ),
     page: int = Query(1, ge=1),

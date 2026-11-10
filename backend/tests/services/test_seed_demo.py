@@ -18,7 +18,12 @@ from typing import Self
 import pytest
 
 import app.services.seed_demo as seed_demo_module
-from app.services.card_query import _resolve_node, parse_card_query, view_fields_for_query
+from app.services.card_query import (
+    parse_card_query,
+    resolve_groups,
+    start_types,
+    view_fields_for_query,
+)
 from app.services.lifecycle import current_lifecycle_phase
 from app.services.seed import RELATIONS as META_RELATIONS
 from app.services.seed import TYPES as META_TYPES
@@ -803,18 +808,28 @@ class TestExtrasDemoData:
             for r in META_RELATIONS
         }
         query_views = [bm for bm in BOOKMARK_DEFS if bm.get("query")]
-        assert [bm["name"] for bm in query_views] == ["Organizations using active apps in flight"]
+        assert [bm["name"] for bm in query_views] == [
+            "Organizations using active apps in flight",
+            "Active apps on aging tech, and the organizations using apps",
+        ]
         for bm in query_views:
             query = parse_card_query(bm["query"])
-            root = _resolve_node(
-                query.type, query.where, query.related, types, relation_types, {}, None
-            )
-            assert root.type == bm["card_type"]
+            groups = resolve_groups(query, types, relation_types, {}, None)
+            starts = start_types(query)
+            assert [group[0].type for group in groups] == starts
+            assert bm["card_type"] == (starts[0] if len(starts) == 1 else None)
             assert view_fields_for_query(query, bm["card_type"], bm["filters"]) == (
                 bm["card_type"],
                 bm["filters"],
             )
-            assert bm["created_via"] == "mcp"
+        assert [bm.get("created_via") for bm in query_views] == ["mcp", None]
+
+    def test_the_stacked_demo_view_lists_two_card_types(self):
+        stack = next(bm for bm in BOOKMARK_DEFS if "any_of" in (bm.get("query") or {}))
+        query = parse_card_query(stack["query"])
+        assert start_types(query) == ["Application", "Organization"]
+        assert stack["card_type"] is None
+        assert stack["filters"]["types"] == ["Application", "Organization"]
 
     def test_bookmark_query_view_matches_demo_cards(self):
         """The demo query view is not empty, nor every Organization: walking
@@ -838,6 +853,36 @@ class TestExtrasDemoData:
         all_orgs = {c["name"] for c in seed_demo_module.ORGANIZATIONS}
         assert orgs
         assert orgs < all_orgs
+
+    def test_the_stacked_demo_view_matches_demo_cards_of_both_types(self):
+        """Both groups of the stacked demo view list rows: the AND group finds
+        an active Application on a phasing-out IT Component that an
+        Initiative affects (and not every Application), the OR line the
+        Organizations that use an Application (and not every Organization)."""
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+
+        def ends(rel_type: str) -> list[tuple[dict, dict]]:
+            return [
+                (by_id[r["source_id"]], by_id[r["target_id"]])
+                for r in DEMO_RELATIONS
+                if r["type"] == rel_type
+            ]
+
+        on_aging = {
+            app["id"]
+            for app, itc in ends("relAppToITC")
+            if current_lifecycle_phase(app.get("lifecycle")) == "active"
+            and current_lifecycle_phase(itc.get("lifecycle")) in ("phaseOut", "endOfLife")
+        }
+        affected = {app["id"] for _init, app in ends("relInitiativeToApp")}
+        apps = {by_id[i]["name"] for i in on_aging & affected}
+        # The default IT Component dates roll over within a year, so other
+        # components may phase out too; .NET 8 under Opcenter always does.
+        assert "Siemens Opcenter" in apps
+        assert apps < {c["name"] for c in seed_demo_module.APPLICATIONS}
+        orgs = {org["name"] for org, _app in ends("relOrgToApp")}
+        assert orgs
+        assert orgs < {c["name"] for c in seed_demo_module.ORGANIZATIONS}
 
     def test_saved_report_configs_use_valid_keys(self):
         """Each saved report's `config` must only use keys the corresponding

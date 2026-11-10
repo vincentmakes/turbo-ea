@@ -799,7 +799,7 @@ class TestQueryViewCollaborators:
     """A ``can_edit`` collaborator who cannot read the owner's pick can still
     edit the view around it, but cannot add a pick hidden from them."""
 
-    async def _shared_view(self, client, db, query_env):
+    async def _shared_view(self, client, db, query_env, query=None):
         ids = await _card_ids(db)
         await create_role(
             db,
@@ -819,7 +819,7 @@ class TestQueryViewCollaborators:
         resp = await _create(
             client,
             query_env["admin"],
-            query=_cards_query([ids["Alpha"]]),
+            query=query(ids) if query else _cards_query([ids["Alpha"]]),
             visibility="shared",
             shared_with=[{"user_id": str(collab.id), "can_edit": True}],
         )
@@ -860,6 +860,29 @@ class TestQueryViewCollaborators:
         )
         assert resp.status_code == 400
         assert resp.json()["detail"] == "unknown_card"
+
+    async def test_keeps_the_owners_hidden_pick_on_a_later_line(self, client, db, query_env):
+        def stack(ids, **where):
+            return {
+                "any_of": [
+                    {"type": "Initiative"},
+                    _cards_query([ids["Alpha"]], **where),
+                ]
+            }
+
+        ids, collab, bm_id = await self._shared_view(client, db, query_env, stack)
+        edited = stack(ids, lifecycle_phase=["active"])
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": edited}, headers=auth_headers(collab)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["query"] == edited
+        added = {"any_of": [{"type": "Initiative"}, _cards_query([ids["Alpha"], ids["Beta"]])]}
+        refused = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": added}, headers=auth_headers(collab)
+        )
+        assert refused.status_code == 400
+        assert refused.json()["detail"] == "unknown_card"
 
 
 class TestQueryViewScopeLoad:
@@ -902,3 +925,151 @@ class TestQueryViewScopeLoad:
         )
         assert patched.status_code == 200, patched.text
         assert len(loads) == 2
+
+
+APP_AFFECTED = {
+    "type": "Application",
+    "related": [{"relation": "initAffectsApp", "type": "Initiative"}],
+}
+APP_USED = {
+    "type": "Application",
+    "related": [{"relation": "orgUsesApp", "type": "Organization"}],
+}
+ORG_USES = {
+    "type": "Organization",
+    "related": [{"relation": "orgUsesApp", "type": "Application"}],
+}
+TWO_TYPE_STACK = {"any_of": [APP_AFFECTED, ORG_USES]}
+
+
+class TestQueryViewStacks:
+    async def test_create_stores_the_stack_on_both_types(self, client, db, query_env):
+        resp = await _create(
+            client, query_env["admin"], filters={"groupBy": "subtype"}, query=TWO_TYPE_STACK
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+        assert data["query"] == TWO_TYPE_STACK
+        assert data["card_type"] is None
+        assert data["filters"] == {"groupBy": "subtype", "types": ["Application", "Organization"]}
+        stored = await db.get(Bookmark, uuid.UUID(data["id"]))
+        assert stored.query == TWO_TYPE_STACK
+        assert stored.card_type is None
+
+    async def test_a_single_type_all_of_sets_the_card_type(self, client, db, query_env):
+        query = {"all_of": [APP_AFFECTED, APP_USED]}
+        resp = await _create(client, query_env["admin"], query=query)
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["query"] == query
+        assert resp.json()["card_type"] == "Application"
+        assert resp.json()["filters"] == {"types": ["Application"]}
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"card_type": "Application"},
+            {"filters": {"types": ["Application"]}},
+            {"filters": {"types": ["Application", "Initiative"]}},
+        ],
+    )
+    async def test_a_contradicting_type_is_refused(self, client, db, query_env, body):
+        resp = await _create(client, query_env["admin"], query=TWO_TYPE_STACK, **body)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "query_type_mismatch"
+
+    @pytest.mark.parametrize(
+        ("query", "code"),
+        [
+            ({"any_of": [ORG_USES]}, "any_of_needs_two"),
+            ({"all_of": [ORG_USES, APP_USED]}, "all_of_type_mismatch"),
+            ({"any_of": [ORG_USES, {"type": "Nope"}]}, "unknown_card_type"),
+        ],
+    )
+    async def test_a_bad_stack_is_refused(self, client, db, query_env, query, code):
+        resp = await _create(client, query_env["admin"], query=query)
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == code
+
+    async def test_patch_from_one_type_to_two_resets_the_facets(self, client, db, query_env):
+        admin = query_env["admin"]
+        created = await _create(
+            client, admin, query=ORG_QUERY, filters={"types": ["Organization"], "groupBy": "x"}
+        )
+        bm_id = created.json()["id"]
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}",
+            json={"query": TWO_TYPE_STACK},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["query"] == TWO_TYPE_STACK
+        assert data["card_type"] is None
+        assert data["filters"] == base_view_filters(["Application", "Organization"])
+
+    async def test_patch_within_the_same_types_keeps_the_facets(self, client, db, query_env):
+        admin = query_env["admin"]
+        created = await _create(
+            client, admin, query=TWO_TYPE_STACK, filters={"groupBy": "x", "search": "a"}
+        )
+        bm_id = created.json()["id"]
+        swapped = {"any_of": [ORG_USES, APP_USED]}
+        resp = await client.patch(
+            f"/api/v1/bookmarks/{bm_id}", json={"query": swapped}, headers=auth_headers(admin)
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["filters"] == {
+            "groupBy": "x",
+            "search": "a",
+            "types": ["Organization", "Application"],
+        }
+        assert resp.json()["card_type"] is None
+
+    async def test_odata_feed_over_two_card_types(self, client, db, query_env):
+        admin = query_env["admin"]
+        created = await _create(client, admin, query=TWO_TYPE_STACK, odata_enabled=True)
+        bm_id = created.json()["id"]
+        resp = await client.get(f"/api/v1/bookmarks/{bm_id}/odata", headers=auth_headers(admin))
+        assert resp.status_code == 200
+        rows = resp.json()["value"]
+        assert [(row["type"], row["name"]) for row in rows] == [
+            ("Application", "Alpha"),
+            ("Organization", "Corp"),
+            ("Organization", "Team"),
+        ]
+        assert resp.json()["@odata.count"] == 3
+
+    async def test_odata_feed_of_an_and_group(self, client, db, query_env):
+        admin = query_env["admin"]
+        query = {"all_of": [APP_AFFECTED, APP_USED]}
+        created = await _create(client, admin, query=query, odata_enabled=True)
+        resp = await client.get(
+            f"/api/v1/bookmarks/{created.json()['id']}/odata", headers=auth_headers(admin)
+        )
+        assert [row["name"] for row in resp.json()["value"]] == ["Alpha"]
+        assert resp.json()["@odata.count"] == 1
+
+    async def test_odata_feed_hides_a_denied_groups_type(self, client, db, query_env):
+        """The viewer is denied Application: the feed of a public two-type
+        view lists only the Organizations, and none through a hidden app."""
+        admin = query_env["admin"]
+        created = await _create(
+            client, admin, query=TWO_TYPE_STACK, odata_enabled=True, visibility="public"
+        )
+        await _deny_viewer(db, "Application")
+        resp = await client.get(
+            f"/api/v1/bookmarks/{created.json()['id']}/odata",
+            headers=auth_headers(query_env["viewer"]),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["value"] == []
+        assert resp.json()["@odata.count"] == 0
+        org_only = {"any_of": [APP_AFFECTED, {"type": "Organization"}]}
+        other = await _create(
+            client, admin, query=org_only, odata_enabled=True, visibility="public"
+        )
+        resp = await client.get(
+            f"/api/v1/bookmarks/{other.json()['id']}/odata",
+            headers=auth_headers(query_env["viewer"]),
+        )
+        assert [row["name"] for row in resp.json()["value"]] == ["Corp", "Solo", "Team"]

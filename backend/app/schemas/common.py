@@ -297,8 +297,10 @@ class BookmarkCreate(BaseModel):
     visibility: str = "private"
     odata_enabled: bool = False
     shared_with: list[BookmarkShareEntry] | None = None
-    # A multi-hop card query (``app/services/card_query.py``); the view's
-    # ``card_type`` and ``filters.types`` are pinned to its start type.
+    # A multi-hop card query or an ``all_of`` / ``any_of`` stack of them
+    # (``app/services/card_query.py``); the view's ``card_type`` and
+    # ``filters.types`` are pinned to its start types (``card_type`` only when
+    # there is one).
     query: dict | None = None
 
 

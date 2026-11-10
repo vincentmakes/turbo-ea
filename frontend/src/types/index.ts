@@ -772,10 +772,11 @@ export interface Bookmark {
   shared_with?: BookmarkShareEntry[];
   odata_url?: string | null;
   created_at?: string;
-  /** A multi-hop condition authored through the MCP server and evaluated by
-   *  the backend on every open. The web UI never writes it: its presence is
-   *  what makes a view a read-only "query view" here. */
-  query?: CardQuery | null;
+  /** A query view's stacked query (a plain query, an `all_of` group or an
+   *  `any_of` of groups), evaluated by the backend on every open. Written by
+   *  the inventory's query builder and through the MCP server; its presence
+   *  is what makes a view a query view. */
+  query?: CardQuerySet | null;
   /** Channel the view was created / last changed through (`web`, `mcp`, …). */
   created_via?: string | null;
   updated_via?: string | null;
@@ -817,17 +818,33 @@ export interface CardQuery {
   related?: CardQueryHop[];
 }
 
+/** Lines of one start type a card must ALL match (2+ lines). */
+export interface CardQueryAll {
+  all_of: CardQuery[];
+}
+
+/** Groups whose results are added (2+ groups); a group may be one line. */
+export interface CardQueryAny {
+  any_of: (CardQuery | CardQueryAll)[];
+}
+
+/**
+ * What a query view holds: one query, an AND group of lines of one start
+ * type, or an OR of such groups (possibly over several start types).
+ */
+export type CardQuerySet = CardQuery | CardQueryAll | CardQueryAny;
+
 /** The query view currently applied in the inventory. */
 export interface ActiveQuery {
   viewId: string;
   name: string;
-  query: CardQuery;
+  query: CardQuerySet;
   createdVia?: string | null;
 }
 
 /** A query view being built or edited in the inventory's path strip. */
 export interface QueryDraft {
-  query: CardQuery;
+  query: CardQuerySet;
   /** The saved view being edited, or null for a new one. */
   viewId: string | null;
 }

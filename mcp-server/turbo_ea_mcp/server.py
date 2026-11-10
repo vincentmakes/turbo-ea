@@ -303,6 +303,23 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
                      tags?: [tag id],
                      cards?: [card id], include_descendants?: bool}
 
+    Queries stack (at most 6 lines in all, the 12-hop cap counted over every
+    line)::
+
+        Query = CardQuery | {all_of: [CardQuery, ...]} | {any_of: [Group, ...]}
+        Group = CardQuery | {all_of: [CardQuery, ...]}
+
+    ``all_of`` (AND): a card is listed only when it matches every query; two
+    or more queries, all starting from the same card type
+    (``all_of_needs_two``, ``all_of_type_mismatch``). ``any_of`` (OR): a card
+    is listed when it matches any group; two or more groups
+    (``any_of_needs_two``), which may start from different card types, so one
+    answer can list several types. More than 6 lines is ``too_many_lines``;
+    ``any_of`` nests in nothing and ``all_of`` holds plain queries only
+    (``invalid_query``). Lines meet on the start card only: two ``all_of``
+    lines may reach different related cards (sibling hops in one query say
+    "the same card").
+
     A hop matches when ANY related card of that type passes its ``where``
     (and its own nested hops); ``negate: true`` means NO such card. Sibling
     hops at one level are AND; values inside one list are OR. Use
@@ -344,8 +361,19 @@ async def query_cards(query: dict, page: int = 1, page_size: int = 20) -> str:
                                    "where": {"attributes":
                                              {"initiativeStatus": ["onTrack"]}}}]}]}
 
+    Example — active Applications that an Initiative affects, OR the
+    Organizations using any Application (two card types in one answer)::
+
+        {"any_of": [
+            {"all_of": [
+                {"type": "Application", "where": {"lifecycle_phase": ["active"]}},
+                {"type": "Application",
+                 "related": [{"relation": "relInitiativeToApp", "type": "Initiative"}]}]},
+            {"type": "Organization",
+             "related": [{"relation": "relOrgToApp", "type": "Application"}]}]}
+
     Args:
-        query: The CardQuery object above.
+        query: A CardQuery, or an ``all_of`` / ``any_of`` stack of them.
         page: Page number (default 1).
         page_size: Results per page (default 20, max 100).
 
@@ -3943,6 +3971,20 @@ async def create_diagram(
 _VIEW_VISIBILITIES = ("private", "public", "shared")
 
 
+def _query_start(query: object) -> str | None:
+    """A plain query's start card type, else None."""
+    start = query.get("type") if isinstance(query, dict) else None
+    return start if isinstance(start, str) else None
+
+
+def _is_query_stack(query: object) -> bool:
+    """Whether ``query`` is an ``all_of`` / ``any_of`` stack (its lines are
+    the backend's to check)."""
+    return isinstance(query, dict) and any(
+        isinstance(query.get(key), list) for key in ("all_of", "any_of")
+    )
+
+
 @mcp.tool(annotations=_WRITE_ADDITIVE_ANNOT)
 async def save_inventory_view(
     name: str,
@@ -3962,8 +4004,13 @@ async def save_inventory_view(
 
     Args:
         name: The view's name.
-        query: A CardQuery (see ``query_cards``). Its ``type`` becomes the
-            view's card type. A ``where.cards`` pick that names no card, a
+        query: A CardQuery, or an ``all_of`` / ``any_of`` stack of them (see
+            ``query_cards``: ``all_of`` lines are AND-ed and share one start
+            type, ``any_of`` groups are OR-ed and may start from different
+            types). The start types become the view's card types: a plain
+            query's ``type`` is its card type; for a stack the backend derives
+            them (one start type pins it, several leave the view on all of
+            them). A ``where.cards`` pick on any line that names no card, a
             card of another type or a card you cannot read is refused
             ``unknown_card``, so nobody saves a view naming a card hidden from
             them. Editing a view shared with you keeps the picks it already
@@ -3974,8 +4021,8 @@ async def save_inventory_view(
             ``view_not_editable``). Only the name and query are always
             replaced; visibility and columns change only when you pass them,
             and the owner's grouping and layout are kept — unless the query's
-            start type changes, which resets the view's filters and grouping
-            (they belonged to the old type).
+            start types change, which resets the view's filters and grouping
+            (they belonged to the old types).
         visibility: "private", "public" (needs the ``bookmarks.share``
             permission) or "shared"; on an update only the owner may change
             it (else ``visibility_not_allowed``: call again without it).
@@ -4005,21 +4052,29 @@ async def save_inventory_view(
                 "received": visibility,
             }
         )
-    if not isinstance(query, dict) or not isinstance(query.get("type"), str):
+    start = _query_start(query)
+    if start is None and not _is_query_stack(query):
         return _fmt(
             {
                 "error": "invalid_query",
-                "message": "query must be an object with a string 'type' (a card type key).",
+                "message": (
+                    "query must be an object with a string 'type' (a card type key), "
+                    "or an 'all_of' / 'any_of' list of such queries."
+                ),
                 "hint": _QUERY_HINT,
             }
         )
-    start = query["type"]
-    # An update sends only what the caller asked to change: the backend
-    # re-derives ``filters.types`` from the query, and leaving ``filters``
-    # out keeps the grouping the owner stored on the view.
-    payload: dict = {"name": name, "card_type": start, "query": query}
+    # A plain query names its one start type; a stack's start types are the
+    # backend's to derive (``card_type`` / ``filters.types``), and the stack
+    # itself is checked there. An update sends only what the caller asked to
+    # change: the backend re-derives ``filters.types`` from the query, and
+    # leaving ``filters`` out keeps the grouping the owner stored on the view.
+    payload: dict = {"name": name, "query": query}
+    if start is not None:
+        payload["card_type"] = start
     if not view_id:
-        payload["filters"] = {"types": [start]}
+        if start is not None:
+            payload["filters"] = {"types": [start]}
         payload["visibility"] = visibility or "private"
     elif visibility:
         payload["visibility"] = visibility

@@ -334,6 +334,18 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
               include_descendants?: true|false }
 ```
 
+查询也可以**堆叠**，使一个视图组合多个完整的查询：
+
+```text
+Query = CardQuery | { all_of: [CardQuery, …] } | { any_of: [Group, …] }
+Group = CardQuery | { all_of: [CardQuery, …] }
+```
+
+- `all_of`（**且**）：只有当卡片匹配列表中的每个查询时才会被列出。其中所有查询都从同一卡片类型开始（否则返回 `all_of_type_mismatch`），并且至少需要两个（`all_of_needs_two`）。
+- `any_of`（**或**）：只要卡片匹配任一分组即被列出，每个分组是一个普通查询或一个 `all_of`。至少需要两个分组（`any_of_needs_two`）。各分组可以从不同的卡片类型开始，因此**一个视图可以列出多种卡片类型**；这样的视图会在所有这些类型上打开，表格显示它们共有的列。
+- `any_of` 不能放在另一个 `any_of` 或 `all_of` 之内，而 `all_of` 只包含普通查询（`invalid_query`）。
+- `all_of` 的各个查询仅在起始卡片处汇合：「使用即将淘汰的 IT 组件」且「受到某个举措影响」可以指两张不同的相关卡片。若要对**同一**张相关卡片提出两项要求，请把两跳放在同一行，并排置于其下。
+
 - 当该类型的**任意一张**相关卡片满足其 `where`（及其自身嵌套的跳）时，该跳即匹配。`negate: true` 会将其变为「**没有**这样的卡片」。
 - 同一层级并列的跳必须全部匹配（与）；同一列表中的值是备选项（或）。
 - `<key>__out` 和 `<key>__in` 用于选择把某卡片类型与自身相连的关系类型的一侧（该卡片是源或目标）。其他情况下使用普通键即可。
@@ -364,11 +376,44 @@ Where     = { lifecycle_phase?: [plan | phaseIn | active | phaseOut | endOfLife 
 }
 ```
 
-在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从另一种卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
+示例——受某个举措影响、运行在老化技术上的活跃应用程序，**或**使用某个应用程序的组织（一个列出两种卡片类型的视图）：
+
+```json
+{
+  "any_of": [
+    {
+      "all_of": [
+        {
+          "type": "Application",
+          "where": { "lifecycle_phase": ["active"] },
+          "related": [
+            {
+              "relation": "relAppToITC",
+              "type": "ITComponent",
+              "where": { "lifecycle_phase": ["phaseOut", "endOfLife"] }
+            }
+          ]
+        },
+        {
+          "type": "Application",
+          "related": [{ "relation": "relInitiativeToApp", "type": "Initiative" }]
+        }
+      ]
+    },
+    {
+      "type": "Organization",
+      "related": [{ "relation": "relOrgToApp", "type": "Application" }]
+    }
+  ]
+}
+```
+
+在清单中，以这种方式保存的视图会在网格上方以可读路径显示其链，并附有说明其通过 MCP 创建的提示。其查询可在清单中更改（路径条上的铅笔图标），也可通过 `save_inventory_view` 更改（将 `list_inventory_views` 返回的视图 id 作为 `view_id` 传入；更新会替换名称和查询，仅在传入时更改可见性和列，并保留在网页界面中设置的分组和布局——除非新查询从其他卡片类型开始，此时视图的筛选条件和分组会被重置，因为它们属于旧类型；无法编辑的视图会被拒绝，并返回 `view_not_found` 或 `view_not_editable`；您无权进行的可见性更改（只有所有者可以更改，且设为公开或共享需要 `bookmarks.share` 权限）会被拒绝，并返回 `visibility_not_allowed`）；在网页界面中，其所有者也可重命名、更改共享和 OData 设置、调整列布局或删除它。
 
 限制：
 
-- `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列与嵌套合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
+- 一个堆叠最多 **6 个查询**（`too_many_lines`）；`all_of` 中的查询共用同一个起始卡片类型，而 `any_of` 的各分组可以列出多种。
+- 每个查询的 `related` 最多 **3 层**，同一层级最多并列 10 个跳，整个查询最多 **12 个跳**（并列、嵌套以及堆叠中所有查询合计）。更长的查询会被拒绝，并返回 `too_many_hops`。
 - 每个条件最多选择 **50** 张卡片。
 - 文本属性与其值**完全**匹配——不支持部分匹配或不区分大小写的匹配。
 - **`rollback_batch` 无法撤销已保存的视图。** 保存视图会记录一个变更批次，但不会发布可供回滚撤销的事件；请在清单的「已保存视图」中删除不需要的视图。
