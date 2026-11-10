@@ -35,6 +35,8 @@ from app.services.seed_demo import (
     BUSINESS_CONTEXTS,
     DATA_OBJECTS,
     DEMO_ADR_EXTRA_CARD_LINKS,
+    DEMO_ADR_REGISTER,
+    DEMO_ADR_REGISTER_CARD_LINKS,
     DEMO_ADRS_EXTRA,
     DEMO_SOAWS,
     INITIATIVES,
@@ -554,13 +556,19 @@ class TestExtraAdrsDemoData:
     def test_extra_adr_card_links_valid(self):
         """All card refs in DEMO_ADR_EXTRA_CARD_LINKS must exist in the demo data."""
         errors = []
-        for link in DEMO_ADR_EXTRA_CARD_LINKS:
+        for link in DEMO_ADR_EXTRA_CARD_LINKS + DEMO_ADR_REGISTER_CARD_LINKS:
             card_id = _id(link["card_ref"])
             if card_id not in _all_card_ids:
                 errors.append(
                     f"ADR card link: card_ref '{link['card_ref']}' not found in demo cards"
                 )
         assert not errors, "\n".join(errors)
+
+    def test_register_adrs_all_have_card_links(self):
+        """Every register decision is filed against at least one card."""
+        register_ids = {_id(d["ref"]) for d in DEMO_ADR_REGISTER}
+        linked = {_id(lnk["adr_ref"]) for lnk in DEMO_ADR_REGISTER_CARD_LINKS}
+        assert linked == register_ids
 
     def test_extra_adr_refs_match_links(self):
         """All extra ADR IDs must be referenced in the card links."""
@@ -580,11 +588,14 @@ class TestExtraAdrsDemoData:
         UI's signer chips and the signed-by filter facet) and each persona
         (display_name) must reuse the same id across all documents so the
         signed-by facet dedups to one entry per persona."""
-        from app.services.seed_demo import DEMO_ADRS
+        from datetime import date
 
+        from app.services.seed_demo import DEMO_ADRS, demo_register_decisions
+
+        register = demo_register_decisions(date(2026, 11, 10))
         persona_ids: dict[str, str] = {}
         errors = []
-        for doc in DEMO_ADRS + DEMO_ADRS_EXTRA + DEMO_SOAWS:
+        for doc in DEMO_ADRS + DEMO_ADRS_EXTRA + register + DEMO_SOAWS:
             ref = doc.get("reference_number") or doc.get("title")
             sigs = doc.get("signatories", [])
             ids = [s["user_id"] for s in sigs]

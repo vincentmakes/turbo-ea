@@ -227,6 +227,25 @@ describe("AdrFilterSidebar register filters", () => {
     expect(header).toHaveTextContent("Standing2");
   });
 
+  it("filters on the decided date range, last of the date sections, and counts it", () => {
+    const onChange = vi.fn();
+    const { unmount } = renderSidebar({ onFiltersChange: onChange });
+    fireEvent.click(screen.getByText("Date Decided"));
+    const from = screen.getAllByLabelText("From");
+    const to = screen.getAllByLabelText("To");
+    // Created, Modified, Signed, then Decided.
+    expect(from).toHaveLength(4);
+    fireEvent.change(from[3], { target: { value: "2025-01-01" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, dateDecidedFrom: "2025-01-01" });
+    fireEvent.change(to[3], { target: { value: "2025-12-31" } });
+    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_ADR_FILTERS, dateDecidedTo: "2025-12-31" });
+    unmount();
+
+    renderSidebar({ filters: { dateDecidedFrom: "2025-01-01", dateDecidedTo: "2025-12-31" } });
+    const header = screen.getByText("Date Decided").parentElement as HTMLElement;
+    expect(header).toHaveTextContent("Date Decided2");
+  });
+
   it("clears every filter, the new ones included", () => {
     const onChange = vi.fn();
     renderSidebar({

@@ -694,6 +694,7 @@ describe("DecisionsPanel — date bounds", () => {
       created_at: "2026-04-01",
       updated_at: "2026-04-02",
       signed_at: "2026-04-03",
+      decided_on: "2025-11-20",
     }),
     makeAdr({
       id: "b2",
@@ -701,11 +702,23 @@ describe("DecisionsPanel — date bounds", () => {
       created_at: "2026-04-10T23:59:59",
       updated_at: "2026-04-11T23:59:59",
       signed_at: "2026-04-12T23:59:59",
+      decided_on: "2026-04-12",
     }),
   ];
 
   beforeEach(() => {
     mockApi.on("get", "/adr", BOUNDARY);
+  });
+
+  it("filters on the decided date, both bounds inclusive", async () => {
+    const { user } = renderPanel();
+    await waitFor(() => expect(gridIds()).toBe("b1,b2"));
+    await applyFilters(user, { dateDecidedFrom: "2025-11-21" });
+    expect(gridIds()).toBe("b2");
+    await applyFilters(user, { dateDecidedFrom: "", dateDecidedTo: "2025-11-20" });
+    expect(gridIds()).toBe("b1");
+    await applyFilters(user, { dateDecidedFrom: "2026-04-12", dateDecidedTo: "2026-04-12" });
+    expect(gridIds()).toBe("b2");
   });
 
   it("includes a decision stamped exactly on a From date", async () => {

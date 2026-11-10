@@ -300,6 +300,7 @@
   "adr.filter.dateCreated": "Date Created",
   "adr.filter.dateModified": "Date Modified",
   "adr.filter.dateSigned": "Date Signed",
+  "adr.filter.dateDecided": "Date Decided",
   "adr.filter.from": "From",
   "adr.filter.to": "To",
   "adr.filter.clearAll": "Clear All",

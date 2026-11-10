@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import i18n from "@/i18n";
 import { STATUS_COLORS, brand } from "@/theme/tokens";
+import { fieldLabelKey, formatTarget } from "./securityLogDetails";
 import {
   SECURITY_CATEGORIES,
   SECURITY_OUTCOMES,
@@ -51,6 +52,25 @@ describe("SecurityLogTypes", () => {
     }
     for (const c of SECURITY_CATEGORIES) expect(i18n.exists(`admin:securityLog.categories.${c}`)).toBe(true);
     for (const o of SECURITY_OUTCOMES) expect(i18n.exists(`admin:securityLog.outcomes.${o}`)).toBe(true);
+  });
+
+  it("labels a decision recorded as decided, its target and its context fields", () => {
+    const t = i18n.getFixedT("en", "admin");
+    expect(t(actionLabelKey("admin.adr.recorded"))).toBe("Decision recorded as decided");
+    expect(
+      formatTarget(
+        {
+          target_type: "architecture_decision",
+          target_id: "00000000-0000-4000-8000-000000000001",
+          target_label: "ADR-012 · Rev 2 — Adopt Kafka",
+        },
+        (key, opts) => t(key, opts),
+      ),
+    ).toBe("Architecture decision · ADR-012 · Rev 2 — Adopt Kafka");
+    const field = (name: string) => t(fieldLabelKey(name, "architecture_decision"));
+    expect(field("decided_on")).toBe("Decided on");
+    expect(field("effective_from")).toBe("Effective from");
+    expect(field("decision_makers")).toBe("Decision makers");
   });
 
   it("colours categories and outcomes from the design tokens", () => {

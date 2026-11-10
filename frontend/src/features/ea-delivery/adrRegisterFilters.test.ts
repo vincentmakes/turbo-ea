@@ -86,9 +86,11 @@ describe("countActiveAdrFilters", () => {
           dateModifiedTo: "2026-02-28",
           dateSignedFrom: "2026-03-01",
           dateSignedTo: "2026-03-31",
+          dateDecidedFrom: "2025-01-01",
+          dateDecidedTo: "2025-12-31",
         }),
       ),
-    ).toBe(11);
+    ).toBe(13);
   });
 });
 
@@ -174,6 +176,26 @@ describe("filterAdrs", () => {
     expect(ids(filterAdrs(dated, f({ dateModifiedTo: "2026-02-10" })))).toEqual(["a"]);
     expect(ids(filterAdrs(dated, f({ dateSignedFrom: "2026-03-01" })))).toEqual(["a"]);
     expect(ids(filterAdrs(dated, f({ dateSignedTo: "2026-03-01" })))).toEqual([]);
+  });
+
+  it("filters on the decided date, which a recorded decision carries without a signing date", () => {
+    const decided = [
+      adr("recorded", { status: "signed", signed_at: null, decided_on: "2025-06-15" }),
+      adr("signed", { status: "signed", signed_at: "2026-03-05T10:00:00", decided_on: "2026-03-05" }),
+      adr("draft", { status: "draft", decided_on: null }),
+    ];
+    expect(ids(filterAdrs(decided, f({ dateDecidedFrom: "2025-06-15" })))).toEqual([
+      "recorded",
+      "signed",
+    ]);
+    expect(ids(filterAdrs(decided, f({ dateDecidedFrom: "2025-06-16" })))).toEqual(["signed"]);
+    expect(ids(filterAdrs(decided, f({ dateDecidedTo: "2025-06-15" })))).toEqual(["recorded"]);
+    expect(ids(filterAdrs(decided, f({ dateDecidedTo: "2025-06-14" })))).toEqual([]);
+    expect(
+      ids(filterAdrs(decided, f({ dateDecidedFrom: "2025-01-01", dateDecidedTo: "2025-12-31" }))),
+    ).toEqual(["recorded"]);
+    // The signing-date filter misses the recorded decision the decided filter finds.
+    expect(ids(filterAdrs(decided, f({ dateSignedFrom: "2025-01-01" })))).toEqual(["signed"]);
   });
 
   it("filters on who signed, ignoring pending signatories", () => {

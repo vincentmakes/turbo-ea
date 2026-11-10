@@ -331,6 +331,7 @@ export default function AdrFilterSidebar({
     dateCreated: false,
     dateModified: false,
     dateSigned: false,
+    dateDecided: false,
   });
 
   const [linkedCardSearch, setLinkedCardSearch] = useState("");
@@ -954,6 +955,36 @@ export default function AdrFilterSidebar({
                 label={t("adr.filter.to")}
                 value={filters.dateSignedTo}
                 onChange={(v) => setDateField("dateSignedTo", v)}
+              />
+            </Box>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Date Decided (signed and recorded decisions) ---- */}
+          {/* adr.filter.dateDecided = "Date Decided" */}
+          <SectionHeader
+            label={t("adr.filter.dateDecided")}
+            icon="gavel"
+            count={(filters.dateDecidedFrom ? 1 : 0) + (filters.dateDecidedTo ? 1 : 0)}
+            expanded={expandedSections.dateDecided}
+            onToggle={() => toggleSection("dateDecided")}
+          />
+          <Collapse in={expandedSections.dateDecided}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5, mt: 0.5 }}>
+              <DateField
+                size="small"
+                fullWidth
+                label={t("adr.filter.from")}
+                value={filters.dateDecidedFrom}
+                onChange={(v) => setDateField("dateDecidedFrom", v)}
+              />
+              <DateField
+                size="small"
+                fullWidth
+                label={t("adr.filter.to")}
+                value={filters.dateDecidedTo}
+                onChange={(v) => setDateField("dateDecidedTo", v)}
               />
             </Box>
           </Collapse>

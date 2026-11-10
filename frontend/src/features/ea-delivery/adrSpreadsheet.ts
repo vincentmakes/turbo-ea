@@ -90,7 +90,7 @@ export function adrRow(adr: ArchitectureDecision): (string | number)[] {
     day(adr.effective_from),
     day(adr.valid_until),
     names(adr.decision_makers),
-    // The list endpoint carries no participants: the cell stays empty then.
+    // Participants come with `include_content=true`, the export's fetch.
     names(adr.participants),
     ...LINK_COLUMNS.map((kind) => (adr.link_references?.[kind] ?? []).join("; ")),
   ];

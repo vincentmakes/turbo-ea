@@ -37,13 +37,21 @@ async def test_demo_seed_scores_match_canonical_scorer(db):
 
 async def test_demo_seed_stores_related_decisions_as_relates_links(db):
     from app.models.architecture_decision_link import ArchitectureDecisionLink
-    from app.services.seed_demo import DEMO_ADRS, DEMO_ADRS_EXTRA, demo_relates_links
+    from app.services.seed_demo import (
+        DEMO_ADR_REGISTER_LINKS,
+        DEMO_ADRS,
+        DEMO_ADRS_EXTRA,
+        _id,
+        demo_relates_links,
+    )
 
     await seed_metamodel(db)
     await seed_demo_data(db)
 
     links = (await db.execute(select(ArchitectureDecisionLink))).scalars().all()
-    assert sorted((lk.source_id, lk.target_id) for lk in links) == sorted(
+    relates = [(lk.source_id, lk.target_id) for lk in links if lk.kind == "relates"]
+    # The related references of the original decisions, plus the register's own.
+    assert sorted(relates) == sorted(
         demo_relates_links(DEMO_ADRS + DEMO_ADRS_EXTRA)
+        + [(_id(s), _id(t)) for s, t, kind, _ in DEMO_ADR_REGISTER_LINKS if kind == "relates"]
     )
-    assert {lk.kind for lk in links} == {"relates"}

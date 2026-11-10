@@ -183,9 +183,14 @@ def _adr_to_summary(
     *,
     register: ds.Register,
     people: dict[uuid.UUID, dict[str, list[dict]]],
+    with_participants: bool = False,
 ) -> dict:
-    """Lightweight dict for list endpoints."""
-    return {
+    """Lightweight dict for list endpoints.
+
+    ``with_participants`` adds the participants (the spreadsheet export reads
+    them); the plain list carries the decision makers only.
+    """
+    row = {
         "id": str(adr.id),
         "reference_number": adr.reference_number,
         "title": adr.title,
@@ -207,6 +212,9 @@ def _adr_to_summary(
         **adr_service.date_fields(adr),
         "decision_makers": people.get(adr.id, {}).get("decision_makers", []),
     }
+    if with_participants:
+        row["participants"] = people.get(adr.id, {}).get("participants", [])
+    return row
 
 
 async def _summaries(
@@ -216,6 +224,7 @@ async def _summaries(
     user: User,
     *,
     with_creators: bool = True,
+    with_participants: bool = False,
 ) -> list[dict]:
     """List rows for ``rows``: linked cards, creators and people in one query each."""
     adr_ids = [adr.id for adr in rows]
@@ -252,6 +261,7 @@ async def _summaries(
             creator_names.get(adr.created_by) if adr.created_by else None,
             register=register,
             people=people,
+            with_participants=with_participants,
         )
         for adr in rows
     ]
@@ -398,7 +408,7 @@ async def list_adrs(
         )
     ]
 
-    summaries = await _summaries(db, rows, register, user)
+    summaries = await _summaries(db, rows, register, user, with_participants=include_content)
     if include_content:
         for adr, summary in zip(rows, summaries, strict=True):
             summary["context"] = adr.context

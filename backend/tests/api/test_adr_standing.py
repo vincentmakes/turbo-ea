@@ -431,6 +431,9 @@ class TestPeople:
         row = (await _list(client, admin))[adr["id"]]
         assert row["decision_makers"] == adr["decision_makers"]
         assert "participants" not in row
+        exported = (await _list(client, admin, "?include_content=true"))[adr["id"]]
+        assert exported["participants"] == [{"user_id": None, "display_name": "Ops"}]
+        assert exported["decision_makers"] == adr["decision_makers"]
 
         resp = await client.patch(
             f"{URL}/{adr['id']}",
@@ -658,6 +661,7 @@ class TestQueryCount:
                     f"Decision {i}",
                     related_decisions=[target["id"]],
                     decision_makers=[{"name": f"Maker {i}"}, {"user_id": str(admin.id)}],
+                    participants=[{"name": f"Guest {i}"}],
                 )
 
         async def count() -> tuple[int, int]:
@@ -672,12 +676,16 @@ class TestQueryCount:
                 resp = await client.get(f"{URL}?include_content=true", headers=auth_headers(admin))
             finally:
                 sa_event.remove(bind, "before_cursor_execute", _record)
-            return len(statements), len(resp.json())
+            rows = resp.json()
+            guests = sorted(p["display_name"] for row in rows for p in row["participants"])
+            return len(statements), len(rows), guests
 
         await add(2)
-        few, rows_few = await count()
+        few, rows_few, guests_few = await count()
         await add(5)
-        many, rows_many = await count()
+        many, rows_many, guests_many = await count()
 
         assert (rows_few, rows_many) == (3, 8)
+        assert guests_few == ["Guest 0", "Guest 1"]
+        assert len(guests_many) == 7
         assert many == few

@@ -21,6 +21,9 @@ export interface AdrFilters {
   dateModifiedTo: string;
   dateSignedFrom: string;
   dateSignedTo: string;
+  /** The decided-on day (signed and recorded decisions alike). */
+  dateDecidedFrom: string;
+  dateDecidedTo: string;
   /** Keep the earlier revisions of a decision (off: current and open only). */
   showEarlierRevisions: boolean;
 }
@@ -37,6 +40,8 @@ export const EMPTY_ADR_FILTERS: AdrFilters = {
   dateModifiedTo: "",
   dateSignedFrom: "",
   dateSignedTo: "",
+  dateDecidedFrom: "",
+  dateDecidedTo: "",
   showEarlierRevisions: false,
 };
 
@@ -69,6 +74,8 @@ export function countActiveAdrFilters(filters: AdrFilters): number {
     (filters.dateModifiedTo ? 1 : 0) +
     (filters.dateSignedFrom ? 1 : 0) +
     (filters.dateSignedTo ? 1 : 0) +
+    (filters.dateDecidedFrom ? 1 : 0) +
+    (filters.dateDecidedTo ? 1 : 0) +
     (filters.showEarlierRevisions ? 1 : 0)
   );
 }
@@ -116,7 +123,7 @@ export function filterAdrs(
     );
   }
   const { dateCreatedFrom, dateCreatedTo, dateModifiedFrom, dateModifiedTo } = filters;
-  const { dateSignedFrom, dateSignedTo } = filters;
+  const { dateSignedFrom, dateSignedTo, dateDecidedFrom, dateDecidedTo } = filters;
   if (dateCreatedFrom || dateCreatedTo) {
     list = list.filter((a) => inDayRange(a.created_at, dateCreatedFrom, dateCreatedTo));
   }
@@ -125,6 +132,10 @@ export function filterAdrs(
   }
   if (dateSignedFrom || dateSignedTo) {
     list = list.filter((a) => inDayRange(a.signed_at, dateSignedFrom, dateSignedTo));
+  }
+  // A recorded decision has no signing date: the decided-on day is what dates it.
+  if (dateDecidedFrom || dateDecidedTo) {
+    list = list.filter((a) => inDayRange(a.decided_on, dateDecidedFrom, dateDecidedTo));
   }
   if (filters.signedBy.length > 0) {
     list = list.filter((a) =>

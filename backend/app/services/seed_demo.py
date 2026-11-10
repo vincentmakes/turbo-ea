@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 import zlib
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.architecture_decision_link import ArchitectureDecisionLink
+from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.soaw import SoAW
@@ -6495,6 +6497,416 @@ DEMO_ADR_EXTRA_CARD_LINKS = [
 ]
 
 # ---------------------------------------------------------------------------
+# The decision register  (ADR-008 through ADR-016, plus a second revision of
+# ADR-002 and ADR-004)
+# ---------------------------------------------------------------------------
+# Together with the decisions above these show every standing the register
+# derives: a two-revision chain (ADR-002), a replaced decision (ADR-008 by
+# ADR-009), an amendment consolidated into a revision (ADR-010 into ADR-004
+# Rev 2), an open amendment (ADR-011 on ADR-005), a revocation (ADR-013 of
+# ADR-012), an expired waiver (ADR-014), a scheduled decision (ADR-015) and a
+# decision recorded as decided (ADR-016).
+#
+# A day is either a fixed ``date`` (an old decision, whose standing no longer
+# depends on today) or an ``int``: days from the seeding day, negative in the
+# past. Every date a standing turns on (the scheduled start, the expiry) is
+# relative, so the demo does not rot. Signed decisions carry ``decided_on`` and
+# ``effective_from`` equal to their signing day unless stated otherwise.
+
+_DEMO_SIGNERS: dict[str, tuple[str, str]] = {
+    "CTO Office": ("demo-sig-cto-office", "cto@nexatech.demo"),
+    "Enterprise Architect": ("demo-sig-enterprise-architect", "ea@nexatech.demo"),
+    "CISO Office": ("demo-sig-ciso-office", "ciso@nexatech.demo"),
+    "Data Architecture Lead": ("demo-sig-data-architecture-lead", "data-arch@nexatech.demo"),
+}
+
+# Stands for the first admin in ``DEMO_ADR_PEOPLE``: a person linked to a user
+# when one exists at seeding time, left out otherwise.
+DEMO_ADMIN_PERSON = "@admin"
+
+DEMO_ADR_REGISTER = [
+    {
+        "ref": "adr_api_gateway_r2",
+        "parent": "adr_api_gateway",
+        "reference_number": "ADR-002",
+        "revision_number": 2,
+        "title": "Introduce Centralized API Gateway for External and Cross-Domain APIs",
+        "context": (
+            "<p>A year after the gateway went live, domain teams also expose APIs to "
+            "each other across business domains, with the same inconsistencies the "
+            "gateway removed for external consumers.</p>"
+        ),
+        "decision": (
+            "<p>Kong Gateway is the single entry point for every external API and for "
+            "every API consumed outside its own business domain. Calls inside one "
+            "domain stay on the service mesh.</p>"
+        ),
+        "consequences": (
+            "<p>Cross-domain APIs gain the gateway's authentication, quotas and "
+            "monitoring. Domain teams register shared APIs in the gateway catalogue.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Keep cross-domain calls on the mesh — rejected: no shared catalogue "
+            "or quota management.</p>"
+        ),
+        "change_summary": (
+            "Extends the gateway to APIs shared across business domains and names Kong "
+            "Gateway as the selected product."
+        ),
+        "signers": ["Enterprise Architect", "CTO Office"],
+        "signed": -120,
+    },
+    {
+        "ref": "adr_onprem_vmware",
+        "reference_number": "ADR-008",
+        "title": "Host Plant-Floor Applications on the Central VMware Cluster",
+        "context": (
+            "<p>Plant-floor applications run on ageing servers in each plant, each "
+            "patched and backed up differently.</p>"
+        ),
+        "decision": (
+            "<p>Plant-floor applications are consolidated onto the central VMware "
+            "cluster in the Stuttgart data centre.</p>"
+        ),
+        "consequences": (
+            "<p>One operating model for plant workloads; plants depend on the WAN "
+            "link to the data centre.</p>"
+        ),
+        "signers": ["CTO Office"],
+        "signed": date(2025, 3, 14),
+    },
+    {
+        "ref": "adr_edge_hci",
+        "reference_number": "ADR-009",
+        "title": "Run Plant-Floor Workloads on Azure Stack HCI at Each Site",
+        "context": (
+            "<p>Two WAN outages stopped production lines that depended on the central "
+            "VMware cluster (ADR-008). Plant workloads must keep running when a site "
+            "is cut off.</p>"
+        ),
+        "decision": (
+            "<p>Each plant runs its shop-floor workloads on a local Azure Stack HCI "
+            "cluster managed through Azure Arc. The central VMware cluster is "
+            "decommissioned site by site.</p>"
+        ),
+        "consequences": (
+            "<p>Production keeps running through a WAN outage. Each site needs local "
+            "hardware and a remote-hands contract.</p>"
+        ),
+        "signers": ["CTO Office", "Enterprise Architect"],
+        "signed": -150,
+    },
+    {
+        "ref": "adr_privileged_mfa",
+        "reference_number": "ADR-010",
+        "title": "Require Phishing-Resistant MFA for Privileged Access",
+        "context": (
+            "<p>A phishing campaign captured one-time codes from two administrators. "
+            "The Zero Trust decision (ADR-004) does not say how privileged users "
+            "authenticate.</p>"
+        ),
+        "decision": (
+            "<p>Every administrative account signs in with a FIDO2 security key. "
+            "One-time codes by SMS or app are no longer accepted for privileged "
+            "access.</p>"
+        ),
+        "consequences": (
+            "<p>Security keys are issued to about 120 administrators; break-glass "
+            "accounts keep sealed keys in the data-centre safe.</p>"
+        ),
+        "signers": ["CISO Office"],
+        "signed": -200,
+    },
+    {
+        "ref": "adr_zero_trust_r2",
+        "parent": "adr_zero_trust",
+        "reference_number": "ADR-004",
+        "revision_number": 2,
+        "title": "Adopt Zero Trust Network Architecture",
+        "context": (
+            "<p>NexaTech's perimeter-based security model is insufficient for the "
+            "hybrid cloud environment. ADR-010 has since set how privileged users "
+            "authenticate; this revision brings it into the decision text.</p>"
+        ),
+        "decision": (
+            "<p>Implement a Zero Trust architecture across all environments:</p>"
+            "<ul>"
+            "<li>All access requires identity verification (Azure Entra ID as IdP)</li>"
+            "<li>Micro-segmentation for east-west traffic using network policies</li>"
+            "<li>Continuous posture assessment for endpoints and workloads</li>"
+            "<li>Least-privilege access enforced via RBAC and just-in-time elevation; "
+            "privileged accounts sign in with FIDO2 security keys</li>"
+            "</ul>"
+        ),
+        "consequences": (
+            "<p>Stronger security posture across cloud and on-premises. All teams "
+            "adopt identity-based authentication for service-to-service calls.</p>"
+        ),
+        "change_summary": (
+            "Consolidates ADR-010: privileged accounts sign in with phishing-resistant "
+            "FIDO2 security keys."
+        ),
+        "signers": ["CISO Office", "Enterprise Architect"],
+        "signed": -60,
+    },
+    {
+        "ref": "adr_schema_compat",
+        "reference_number": "ADR-011",
+        "title": "Enforce Backward-Transitive Schema Compatibility on Kafka Topics",
+        "context": (
+            "<p>ADR-005 requires the Schema Registry to enforce compatibility but does "
+            "not name a mode. Two consumer outages followed schema changes that were "
+            "compatible only with the previous version.</p>"
+        ),
+        "decision": (
+            "<p>Every production Kafka topic uses the BACKWARD_TRANSITIVE "
+            "compatibility mode. Breaking changes go to a new, versioned topic.</p>"
+        ),
+        "consequences": (
+            "<p>Consumers can replay the full topic history. Producers plan breaking "
+            "changes as a topic migration.</p>"
+        ),
+        "signers": ["Data Architecture Lead", "Enterprise Architect"],
+        "signed": -30,
+    },
+    {
+        "ref": "adr_saas_threshold",
+        "reference_number": "ADR-012",
+        "title": "Allow Departmental SaaS Purchases Below EUR 5,000 Without Architecture Review",
+        "context": (
+            "<p>Small SaaS purchases waited weeks for an architecture review that "
+            "rarely changed the outcome.</p>"
+        ),
+        "decision": (
+            "<p>Departments may buy SaaS subscriptions below EUR 5,000 a year without "
+            "an architecture review, provided no customer data is stored.</p>"
+        ),
+        "consequences": "<p>Faster purchases; less visibility of the SaaS landscape.</p>",
+        "signers": ["CTO Office"],
+        "signed": -300,
+    },
+    {
+        "ref": "adr_saas_threshold_revoked",
+        "reference_number": "ADR-013",
+        "title": "Revoke the SaaS Purchase Exemption",
+        "context": (
+            "<p>Within a year the exemption led to 40 unmanaged SaaS tools, three of "
+            "them holding personal data outside the approved regions.</p>"
+        ),
+        "decision": (
+            "<p>ADR-012 is revoked. Every SaaS purchase goes through the light-weight "
+            "architecture intake, answered within five working days.</p>"
+        ),
+        "signers": ["CTO Office", "CISO Office"],
+        "signed": -20,
+    },
+    {
+        "ref": "adr_ws2012_waiver",
+        "reference_number": "ADR-014",
+        "title": "Time-Boxed Exception: Keep Windows Server 2012 R2 for MES Line 3",
+        "context": (
+            "<p>The line 3 controllers' vendor certified its software on Windows "
+            "Server 2012 R2 only; the certified upgrade was due within six months.</p>"
+        ),
+        "decision": (
+            "<p>Line 3 may keep its two Windows Server 2012 R2 hosts, isolated in their "
+            "own network segment, until the certified upgrade is installed.</p>"
+        ),
+        "consequences": (
+            "<p>Extended security updates are bought for the two hosts. The exception "
+            "ends on its valid-until date; a renewal is a new decision.</p>"
+        ),
+        "signers": ["CISO Office"],
+        "signed": -240,
+        "valid_until": -15,
+    },
+    {
+        "ref": "adr_as2_edi",
+        "reference_number": "ADR-015",
+        "title": "Replace FTP-Based EDI with AS2 Through the API Gateway",
+        "context": (
+            "<p>Suppliers still exchange EDI messages with SAP S/4HANA over plain FTP, "
+            "which fails the customer security audits.</p>"
+        ),
+        "decision": (
+            "<p>EDI exchanges move to AS2 behind the API gateway. The FTP endpoints "
+            "close when the new channel takes effect, after the supplier onboarding "
+            "window.</p>"
+        ),
+        "consequences": (
+            "<p>Encrypted, signed partner exchanges. Suppliers without AS2 use the "
+            "partner extranet upload instead.</p>"
+        ),
+        "signers": ["Enterprise Architect"],
+        "signed": -7,
+        "effective_from": 30,
+    },
+    {
+        "ref": "adr_azure_primary",
+        "reference_number": "ADR-016",
+        "title": "Select Microsoft Azure as the Primary Cloud Provider",
+        "context": (
+            "<p>The executive board chose the primary cloud provider during the 2025 "
+            "budget round, before decisions were kept in Turbo EA.</p>"
+        ),
+        "decision": (
+            "<p>Microsoft Azure is the primary cloud provider. AWS remains available "
+            "for workloads that need a service Azure does not offer.</p>"
+        ),
+        "consequences": (
+            "<p>Enterprise agreement and landing zones on Azure; ADR-001 builds on this choice.</p>"
+        ),
+        "recorded": True,
+        "decided_on": date(2025, 5, 20),
+    },
+]
+
+DEMO_ADR_REGISTER_LINKS = [
+    # (source, target, kind, note)
+    ("adr_api_gateway_r2", "adr_cloud_first", "relates", None),
+    ("adr_edge_hci", "adr_onprem_vmware", "replaces", None),
+    ("adr_edge_hci", "adr_cloud_first", "relates", None),
+    (
+        "adr_privileged_mfa",
+        "adr_zero_trust",
+        "amends",
+        "Least-privilege access: privileged accounts sign in with FIDO2 security keys.",
+    ),
+    ("adr_zero_trust_r2", "adr_privileged_mfa", "consolidates", None),
+    ("adr_zero_trust_r2", "adr_cloud_first", "relates", None),
+    (
+        "adr_schema_compat",
+        "adr_event_driven",
+        "amends",
+        "Schema Registry principle: names the compatibility mode.",
+    ),
+    ("adr_saas_threshold_revoked", "adr_saas_threshold", "revokes", None),
+    ("adr_as2_edi", "adr_api_gateway_r2", "relates", None),
+    ("adr_azure_primary", "adr_cloud_first", "relates", None),
+]
+
+DEMO_ADR_REGISTER_CARD_LINKS = [
+    # A revision carries its decision's card links, as revising does.
+    {"adr_ref": "adr_api_gateway_r2", "card_ref": "init_digital_program"},
+    {"adr_ref": "adr_api_gateway_r2", "card_ref": "app_kafka"},
+    {"adr_ref": "adr_zero_trust_r2", "card_ref": "init_zero_trust"},
+    {"adr_ref": "adr_zero_trust_r2", "card_ref": "init_cybersec_enhance"},
+    {"adr_ref": "adr_onprem_vmware", "card_ref": "app_opcenter"},
+    {"adr_ref": "adr_onprem_vmware", "card_ref": "itc_dell_r760"},
+    {"adr_ref": "adr_edge_hci", "card_ref": "app_opcenter"},
+    {"adr_ref": "adr_edge_hci", "card_ref": "itc_hpe_dl380"},
+    {"adr_ref": "adr_edge_hci", "card_ref": "init_mfg_excellence"},
+    {"adr_ref": "adr_privileged_mfa", "card_ref": "app_azure_ad"},
+    {"adr_ref": "adr_privileged_mfa", "card_ref": "init_zero_trust"},
+    {"adr_ref": "adr_schema_compat", "card_ref": "app_kafka"},
+    {"adr_ref": "adr_saas_threshold", "card_ref": "app_coupa"},
+    {"adr_ref": "adr_saas_threshold_revoked", "card_ref": "app_coupa"},
+    {"adr_ref": "adr_ws2012_waiver", "card_ref": "app_opcenter"},
+    {"adr_ref": "adr_ws2012_waiver", "card_ref": "itc_dell_r760"},
+    {"adr_ref": "adr_as2_edi", "card_ref": "app_sap_s4"},
+    {"adr_ref": "adr_as2_edi", "card_ref": "app_partner_extranet"},
+    {"adr_ref": "adr_as2_edi", "card_ref": "init_partner_channel"},
+    {"adr_ref": "adr_azure_primary", "card_ref": "app_nexacloud"},
+    {"adr_ref": "adr_azure_primary", "card_ref": "itc_azure_vm"},
+]
+
+DEMO_ADR_PEOPLE = [
+    # (decision, part, name) — DEMO_ADMIN_PERSON is the first admin, when there is one.
+    ("adr_api_gateway_r2", "decision_maker", "Architecture Review Board"),
+    ("adr_api_gateway_r2", "decision_maker", DEMO_ADMIN_PERSON),
+    ("adr_api_gateway_r2", "participant", "Integration Platform Team"),
+    ("adr_api_gateway_r2", "participant", "Security Office"),
+    ("adr_edge_hci", "decision_maker", "Architecture Review Board"),
+    ("adr_edge_hci", "participant", "Plant Operations Managers"),
+    ("adr_saas_threshold_revoked", "decision_maker", "Architecture Review Board"),
+    ("adr_saas_threshold_revoked", "decision_maker", DEMO_ADMIN_PERSON),
+    ("adr_saas_threshold_revoked", "participant", "Procurement"),
+    ("adr_azure_primary", "decision_maker", "Executive Board"),
+    ("adr_azure_primary", "decision_maker", "Chief Financial Officer"),
+    ("adr_azure_primary", "participant", DEMO_ADMIN_PERSON),
+    ("adr_azure_primary", "participant", "CTO Office"),
+]
+
+
+def _demo_day(spec: date | int, today: date) -> date:
+    """A fixed day, or ``spec`` days from ``today``."""
+    return spec if isinstance(spec, date) else today + timedelta(days=spec)
+
+
+def _demo_signatories(personas: list[str], day: date) -> list[dict]:
+    stamp = datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(hour=10)
+    return [
+        {
+            "user_id": _DEMO_SIGNERS[p][0],
+            "display_name": p,
+            "email": _DEMO_SIGNERS[p][1],
+            "status": "signed",
+            "signed_at": stamp.isoformat().replace("+00:00", "Z"),
+        }
+        for p in personas
+    ]
+
+
+def demo_register_decisions(today: date, *, recorded_by: uuid.UUID | None = None) -> list[dict]:
+    """The register decisions as ``ArchitectureDecision`` keyword arguments.
+
+    Signed ones carry their signatories, ``signed_at`` and the decided /
+    effective days; the recorded one has no signatories and no ``signed_at``.
+    """
+    rows: list[dict] = []
+    for d in DEMO_ADR_REGISTER:
+        row = {
+            "id": _id(d["ref"]),
+            "reference_number": d["reference_number"],
+            "revision_number": d.get("revision_number", 1),
+            "parent_id": _id(d["parent"]) if d.get("parent") else None,
+            "title": d["title"],
+            "status": "signed",
+            "context": d["context"],
+            "decision": d["decision"],
+            "consequences": d.get("consequences"),
+            "alternatives_considered": d.get("alternatives_considered"),
+            "change_summary": d.get("change_summary"),
+            "valid_until": (_demo_day(d["valid_until"], today) if "valid_until" in d else None),
+        }
+        if d.get("recorded"):
+            row.update(
+                signatories=[],
+                signed_at=None,
+                decided_on=d["decided_on"],
+                effective_from=d["decided_on"],
+                recorded_at=datetime.now(timezone.utc),
+                recorded_by=recorded_by,
+            )
+        else:
+            day = _demo_day(d["signed"], today)
+            row.update(
+                signatories=_demo_signatories(d["signers"], day),
+                signed_at=datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc).replace(
+                    hour=10
+                ),
+                decided_on=day,
+                effective_from=_demo_day(d.get("effective_from", d["signed"]), today),
+            )
+        rows.append(row)
+    return rows
+
+
+def with_lock_dates(adr_data: dict) -> dict:
+    """``adr_data`` with ``decided_on`` / ``effective_from`` set to its signing
+    day when it is signed and states neither (as the migration backfilled)."""
+    signed_at = adr_data.get("signed_at")
+    if adr_data.get("status") != "signed" or signed_at is None:
+        return adr_data
+    day = signed_at.astimezone(timezone.utc).date()
+    return {
+        **adr_data,
+        "decided_on": adr_data.get("decided_on") or day,
+        "effective_from": adr_data.get("effective_from") or day,
+    }
+
+
+# ---------------------------------------------------------------------------
 # SoAW demo documents
 # ---------------------------------------------------------------------------
 
@@ -7168,8 +7580,12 @@ def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
 SEEDER_KEY = "base"
 
 
-async def seed_demo_data(db: AsyncSession) -> dict:
-    """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists)."""
+async def seed_demo_data(db: AsyncSession, *, today: date | None = None) -> dict:
+    """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists).
+
+    ``today`` is the day the decision register's relative dates count from
+    (defaults to the current UTC day, the day standing is derived against).
+    """
     if await demo_seed_completed(db, SEEDER_KEY):
         return {"skipped": True, "reason": "already seeded"}
 
@@ -7250,12 +7666,19 @@ async def seed_demo_data(db: AsyncSession) -> dict:
     # created_by stays NULL there — the FK only accepts real users).
     from app.models.user import User
 
-    admin_result = await db.execute(select(User.id).where(User.role == "admin").limit(1))
-    admin_id = admin_result.scalar_one_or_none()
+    admin_result = await db.execute(
+        select(User.id, User.display_name).where(User.role == "admin").limit(1)
+    )
+    admin_row = admin_result.first()
+    admin_id = admin_row.id if admin_row else None
 
-    # Insert demo Architecture Decision Records
-    for adr_def in DEMO_ADRS + DEMO_ADRS_EXTRA:
-        adr_data = {k: v for k, v in adr_def.items() if k != "related_references"}
+    # Insert demo Architecture Decision Records (the register's revisions
+    # after the decisions they revise, so every parent row exists first).
+    register_day = today or datetime.now(timezone.utc).date()
+    for adr_data in [
+        with_lock_dates({k: v for k, v in adr_def.items() if k != "related_references"})
+        for adr_def in DEMO_ADRS + DEMO_ADRS_EXTRA
+    ] + demo_register_decisions(register_day, recorded_by=admin_id):
         if admin_id:
             adr_data["created_by"] = admin_id
         db.add(ArchitectureDecision(**adr_data))
@@ -7264,9 +7687,28 @@ async def seed_demo_data(db: AsyncSession) -> dict:
     # Related decisions are ``relates`` links, added once every decision exists.
     for source_id, target_id in demo_relates_links(DEMO_ADRS + DEMO_ADRS_EXTRA):
         db.add(ArchitectureDecisionLink(source_id=source_id, target_id=target_id, kind="relates"))
+    for source, target, kind, note in DEMO_ADR_REGISTER_LINKS:
+        db.add(
+            ArchitectureDecisionLink(
+                source_id=_id(source), target_id=_id(target), kind=kind, note=note
+            )
+        )
+    positions: dict[tuple[str, str], int] = {}
+    for adr_ref, part, (user_id, name) in demo_adr_people(admin_row):
+        position = positions.get((adr_ref, part), 0)
+        positions[(adr_ref, part)] = position + 1
+        db.add(
+            ArchitectureDecisionPerson(
+                architecture_decision_id=_id(adr_ref),
+                part=part,
+                user_id=user_id,
+                name=name,
+                position=position,
+            )
+        )
     await db.flush()
 
-    for link_def in DEMO_ADR_CARD_LINKS + DEMO_ADR_EXTRA_CARD_LINKS:
+    for link_def in DEMO_ADR_CARD_LINKS + DEMO_ADR_EXTRA_CARD_LINKS + DEMO_ADR_REGISTER_CARD_LINKS:
         db.add(
             ArchitectureDecisionCard(
                 architecture_decision_id=_id(link_def["adr_ref"]),
@@ -7311,10 +7753,25 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         "cards": len(all_fs),
         "relations": len(RELATIONS),
         "tag_groups": len(TAG_GROUPS),
-        "adrs": len(DEMO_ADRS) + len(DEMO_ADRS_EXTRA),
+        "adrs": len(DEMO_ADRS) + len(DEMO_ADRS_EXTRA) + len(DEMO_ADR_REGISTER),
         "soaws": len(DEMO_SOAWS),
         "risks": risk_count,
     }
+
+
+def demo_adr_people(admin: Any = None) -> list[tuple[str, str, tuple[uuid.UUID | None, str]]]:
+    """``DEMO_ADR_PEOPLE`` as ``(decision ref, part, (user_id, name))``.
+
+    The admin placeholder becomes ``admin`` (a row with ``id`` and
+    ``display_name``), or is left out when no admin exists yet.
+    """
+    people: list[tuple[str, str, tuple[uuid.UUID | None, str]]] = []
+    for adr_ref, part, name in DEMO_ADR_PEOPLE:
+        if name != DEMO_ADMIN_PERSON:
+            people.append((adr_ref, part, (None, name)))
+        elif admin is not None:
+            people.append((adr_ref, part, (admin.id, admin.display_name)))
+    return people
 
 
 def demo_relates_links(adr_defs: list[dict]) -> list[tuple[uuid.UUID, uuid.UUID]]:
