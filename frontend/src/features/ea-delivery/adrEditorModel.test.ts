@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { DecisionLinks, DecisionRevision } from "@/types";
+import type { ArchitectureDecision, DecisionLinks, DecisionRevision } from "@/types";
 import {
   buildSavePayload,
   canRecord,
   chainIds,
+  contentFromDetail,
   currentRevisionId,
   editorAccess,
   linksFromDetail,
   linksPayload,
+  storedPayload,
   type EditorContent,
 } from "./adrEditorModel";
 
@@ -234,5 +236,109 @@ describe("currentRevisionId", () => {
     expect(currentRevisionId({ id: "r4", is_current: false, revisions })).toBe("r2");
     expect(currentRevisionId({ id: "r4", revisions: [REV("r3", 3, "signed", "scheduled")] })).toBeNull();
     expect(currentRevisionId({ id: "r4", is_earlier_revision: true, revisions: [] })).toBeNull();
+  });
+});
+
+const DETAIL: ArchitectureDecision = {
+  id: "adr-1",
+  reference_number: "ADR-001",
+  title: "Adopt Kafka",
+  status: "draft",
+  context: "<p>c</p>",
+  decision: null,
+  consequences: "<p>q</p>",
+  alternatives_considered: null,
+  related_decisions: [],
+  created_by: null,
+  signatories: [],
+  signed_at: null,
+  revision_number: 1,
+  parent_id: null,
+  created_at: null,
+  updated_at: null,
+};
+
+describe("contentFromDetail", () => {
+  it("fills every field, missing ones as empty", () => {
+    expect(contentFromDetail(DETAIL)).toEqual({
+      title: "Adopt Kafka",
+      context: "<p>c</p>",
+      decision: "",
+      consequences: "<p>q</p>",
+      alternatives: "",
+      decidedOn: "",
+      effectiveFrom: "",
+      validUntil: "",
+      decisionMakers: [],
+      participants: [],
+      links: [],
+      changeSummary: "",
+    });
+  });
+
+  it("carries dates, people, outgoing links and the change summary", () => {
+    const maker = { user_id: "u1", display_name: "Ada" };
+    const guest = { user_id: null, name: "Bob" };
+    const out = contentFromDetail({
+      ...DETAIL,
+      alternatives_considered: "<p>a</p>",
+      decision: "<p>d</p>",
+      decided_on: "2026-01-02",
+      effective_from: "2026-02-03",
+      valid_until: "2027-01-01",
+      decision_makers: [maker],
+      participants: [guest] as never,
+      change_summary: "why",
+      links: {
+        outgoing: [
+          {
+            id: "l1",
+            kind: "amends",
+            note: "n",
+            decision: { id: "t", reference_number: "ADR-002", revision_number: 1, title: "x" },
+          },
+        ],
+        incoming: [],
+      },
+    });
+    expect(out).toEqual({
+      title: "Adopt Kafka",
+      context: "<p>c</p>",
+      decision: "<p>d</p>",
+      consequences: "<p>q</p>",
+      alternatives: "<p>a</p>",
+      decidedOn: "2026-01-02",
+      effectiveFrom: "2026-02-03",
+      validUntil: "2027-01-01",
+      decisionMakers: [maker],
+      participants: [guest],
+      links: [{ decision_id: "t", kind: "amends", note: "n" }],
+      changeSummary: "why",
+    });
+  });
+});
+
+describe("storedPayload", () => {
+  it("is the save payload for the detail, without a change summary on a first revision", () => {
+    expect(storedPayload({ ...DETAIL, change_summary: "ignored" })).toEqual({
+      title: "Adopt Kafka",
+      context: "<p>c</p>",
+      decision: null,
+      consequences: "<p>q</p>",
+      alternatives_considered: null,
+      decided_on: null,
+      effective_from: null,
+      valid_until: null,
+      decision_makers: [],
+      participants: [],
+      links: [],
+    });
+  });
+
+  it("carries the change summary on a revision", () => {
+    expect(storedPayload({ ...DETAIL, parent_id: "p", change_summary: " why " })).toMatchObject({
+      change_summary: "why",
+    });
+    expect(storedPayload({ ...DETAIL, parent_id: "p" }).change_summary).toBeNull();
   });
 });

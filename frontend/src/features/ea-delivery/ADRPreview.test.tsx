@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ArchitectureDecision } from "@/types";
 
 vi.mock("@/api/client", () => ({
@@ -487,5 +487,67 @@ describe("ADRPreview — decision register", () => {
     expect(await screen.findByTestId("panel")).toHaveTextContent("true|in_force|true");
     expect(screen.getByTestId("hdr")).toHaveTextContent("true|in_force|true");
     expect(screen.getByTestId("ftr")).toHaveTextContent("in_force|true");
+  });
+});
+
+describe("ADRPreview — revision navigation race", () => {
+  function GoTo({ to }: { to: string }) {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate(to)}>
+        go
+      </button>
+    );
+  }
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  function renderRace(first: Promise<unknown>, second: Promise<unknown>) {
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === "/adr/adr-1") return (await first) as never;
+      if (path === "/adr/adr-2") return (await second) as never;
+      return {} as never;
+    });
+    render(
+      <MemoryRouter initialEntries={["/ea-delivery/adr/adr-1/preview"]}>
+        <Routes>
+          <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
+        </Routes>
+        <GoTo to="/ea-delivery/adr/adr-2/preview" />
+      </MemoryRouter>,
+    );
+  }
+
+  it("a late reply for the revision just left is ignored", async () => {
+    const first = deferred<ArchitectureDecision>();
+    const second = deferred<ArchitectureDecision>();
+    renderRace(first.promise, second.promise);
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-2", expect.anything()));
+    second.resolve({ ...adr, id: "adr-2", title: "Revision two" });
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.resolve({ ...adr, title: "Revision one (late)" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Revision one (late)")).toBeNull();
+  });
+
+  it("a late failure for the revision just left shows no error", async () => {
+    const first = deferred<ArchitectureDecision>();
+    renderRace(first.promise, Promise.resolve({ ...adr, id: "adr-2", title: "Revision two" }));
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.reject(new Error("gone"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.queryByText("gone")).toBeNull();
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -20,6 +20,7 @@ import { SoawBanners } from "./DecisionBanners";
 import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
 import { soawCurrentRevisionId } from "./soawEditorState";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { SoAW, SoAWSectionData } from "@/types";
@@ -56,21 +57,24 @@ export default function SoAWPreview() {
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
-    const load = async () => {
+  // Re-keyed on in-page revision navigation: only the latest load may fill
+  // the page, so a late reply for the revision just left is dropped.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
       setLoading(true);
+      setError("");
       try {
-        const data = await api.get<SoAW>(`/soaw/${id}`);
-        setSoaw(data);
+        const data = await api.get<SoAW>(`/soaw/${id}`, { signal });
+        if (isCurrent()) setSoaw(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
+        if (isCurrent()) setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    };
-    load();
-  }, [id]);
+    },
+    [id],
+  );
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(

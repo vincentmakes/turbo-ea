@@ -85,6 +85,33 @@ export function buildSavePayload(content: EditorContent, isRevision: boolean): S
   return payload;
 }
 
+/** The editor's content as a decision detail fills it (load, and every action reply). */
+export function contentFromDetail(adr: ArchitectureDecision): EditorContent {
+  return {
+    title: adr.title,
+    context: adr.context || "",
+    decision: adr.decision || "",
+    consequences: adr.consequences || "",
+    alternatives: adr.alternatives_considered || "",
+    decidedOn: adr.decided_on || "",
+    effectiveFrom: adr.effective_from || "",
+    validUntil: adr.valid_until || "",
+    decisionMakers: adr.decision_makers || [],
+    participants: adr.participants || [],
+    links: linksFromDetail(adr.links),
+    changeSummary: adr.change_summary || "",
+  };
+}
+
+/**
+ * What the server holds, as the payload Save would send for it: the baseline
+ * the editor compares its live payload with to know whether it has edits to
+ * save before a workflow step (request signatures, record as decided).
+ */
+export function storedPayload(adr: ArchitectureDecision): SavePayload {
+  return buildSavePayload(contentFromDetail(adr), Boolean(adr.parent_id));
+}
+
 /** What a status allows on the editor page. */
 export interface EditorAccess {
   /** Content (text, dates, people, links, change summary, files, Save) is read-only. */

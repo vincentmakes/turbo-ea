@@ -139,6 +139,7 @@
   "editor.sigPending": "Pending",
   "editor.sigSignedAt": "Signed: {{date}}",
   "editor.savedSuccessfully": "Saved successfully",
+  "editor.initiativeLinkSaved": "Initiative link saved",
   "editor.documentNameRequired": "Document name is required",
   "editor.signatureRequestsSent": "Signature requests sent",
   "editor.documentFullySigned": "Document fully signed",

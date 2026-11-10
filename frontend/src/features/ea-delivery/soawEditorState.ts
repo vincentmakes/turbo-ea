@@ -3,7 +3,8 @@
  * each status, which workflow actions a status offers, and how a refused
  * revise reads. Kept out of the component so each rule has a direct test.
  */
-import type { SoAW } from "@/types";
+import type { SoAW, SoAWSectionData } from "@/types";
+import { buildDefaultSections } from "./soawTemplate";
 
 /** What the editor holds for a save. */
 export interface SoawEditorFields {
@@ -25,6 +26,103 @@ export function soawSavePayload(
 ): SoawEditorFields | Pick<SoawEditorFields, "initiative_id"> {
   if (status === "in_review") return { initiative_id: fields.initiative_id };
   return fields;
+}
+
+/** A section the author added, kept beside the template sections. */
+export interface SoawCustomSection {
+  id: string;
+  title: string;
+  content: string;
+  insertAfter: string;
+}
+
+/** What the editor holds for a document. */
+export interface SoawEditorState {
+  name: string;
+  /** "" for no initiative (the select's empty value). */
+  initiativeId: string;
+  docInfo: SoAW["document_info"];
+  versionHistory: SoAW["version_history"];
+  /** Template sections only, merged over the template's defaults. */
+  sections: Record<string, SoAWSectionData>;
+  customSections: SoawCustomSection[];
+}
+
+export const EMPTY_DOC_INFO: SoAW["document_info"] = {
+  prepared_by: "",
+  reviewed_by: "",
+  review_date: "",
+};
+
+export const EMPTY_VERSION_ROW: SoAW["version_history"][number] = {
+  version: "",
+  date: "",
+  revised_by: "",
+  description: "",
+};
+
+/**
+ * The editor state for a document as the server returned it (load, and every
+ * action reply). Stored sections are merged over the template defaults, so a
+ * template section added later still appears; `custom_*` keys become custom
+ * sections. A document without document info or version history gets the
+ * empty defaults, so nothing from a previously shown document lingers.
+ */
+export function soawStateFromLoaded(data: SoAW): SoawEditorState {
+  const sections: Record<string, SoAWSectionData> = { ...buildDefaultSections() };
+  const customSections: SoawCustomSection[] = [];
+  for (const [key, val] of Object.entries(data.sections ?? {})) {
+    if (key.startsWith("custom_")) {
+      const extra = val as SoAWSectionData & { title?: string; insertAfter?: string };
+      customSections.push({
+        id: key,
+        title: extra.title ?? key,
+        content: val.content,
+        insertAfter: extra.insertAfter ?? "",
+      });
+    } else {
+      sections[key] = { ...sections[key], ...val };
+    }
+  }
+  return {
+    name: data.name,
+    initiativeId: data.initiative_id ?? "",
+    docInfo: data.document_info ?? { ...EMPTY_DOC_INFO },
+    versionHistory: data.version_history?.length
+      ? data.version_history
+      : [{ ...EMPTY_VERSION_ROW }],
+    sections,
+    customSections,
+  };
+}
+
+/** The fields a save sends for an editor state: custom sections fold back into `sections`. */
+export function soawEditorFields(state: SoawEditorState): SoawEditorFields {
+  const sections: Record<string, unknown> = { ...state.sections };
+  for (const cs of state.customSections) {
+    sections[cs.id] = {
+      content: cs.content,
+      hidden: false,
+      title: cs.title,
+      insertAfter: cs.insertAfter,
+    };
+  }
+  return {
+    name: state.name.trim(),
+    initiative_id: state.initiativeId || null,
+    document_info: state.docInfo,
+    version_history: state.versionHistory,
+    sections,
+  };
+}
+
+/**
+ * Whether Save is offered: never on a signed document; in review only when
+ * the initiative link (the one thing review leaves editable) was changed.
+ */
+export function canSaveSoaw(status: string, initiativeChanged: boolean): boolean {
+  if (status === "signed") return false;
+  return status !== "in_review" || initiativeChanged;
 }
 
 /** Signatures can be requested on a draft or an approved document only. */

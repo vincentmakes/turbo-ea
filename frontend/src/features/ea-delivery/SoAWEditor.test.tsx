@@ -675,8 +675,8 @@ describe("SoAWEditor — signatures", () => {
       signatories: [PENDING_U2],
       revision_number: 2,
     });
-    // Whatever the response carries, a rejection no longer moves the number.
-    mockApi.on("post", "/soaw/s1/reject", { ...SOAW, status: "draft", signatories: [], revision_number: 3 });
+    // A rejection does not move the number; the page shows the reply's.
+    mockApi.on("post", "/soaw/s1/reject", { ...SOAW, status: "draft", signatories: [], revision_number: 2 });
     renderEdit();
     await waitForLoaded();
 
@@ -690,7 +690,7 @@ describe("SoAWEditor — signatures", () => {
     expect(await screen.findByText(t("editor.documentRejected"))).toBeInTheDocument();
     expect(mockApi.callsOf("post", "/soaw/s1/reject")[0].body).toEqual({ comment: "Scope unclear" });
     expect(screen.getByText(t("editor.revisionLabel", { number: 2 }))).toBeInTheDocument();
-    expect(screen.queryByText(t("editor.revisionLabel", { number: 3 }))).not.toBeInTheDocument();
+    expect(screen.getByText(t("status.draft"))).toBeInTheDocument();
     await waitFor(() => expect(dialog).not.toBeInTheDocument());
   });
 
@@ -846,17 +846,41 @@ describe("SoAWEditor — in review", () => {
     // The initiative link is filing, not content.
     const initiative = within(docInfoPaper()).getByRole("combobox");
     expect(initiative).not.toHaveAttribute("aria-disabled", "true");
-    expect(saveButton()).toBeEnabled();
+    // Nothing to save until the link changes.
+    expect(queryButton(t("editor.save"))).not.toBeInTheDocument();
   });
 
-  it("saves only the initiative link while in review", async () => {
+  it("offers Save only once the initiative link changed, sends it alone and says so", async () => {
     mockApi.on("get", "/soaw/s1", IN_REVIEW);
+    mockApi.on("patch", "/soaw/s1", (_p, body) => ({ ...IN_REVIEW, ...(body as object) }));
     renderEdit();
     await waitForLoaded();
+    expect(queryButton(t("editor.save"))).not.toBeInTheDocument();
+
+    fireEvent.mouseDown(within(docInfoPaper()).getByRole("combobox"));
+    fireEvent.click(within(await openListbox()).getByText(tc("labels.none")));
+    expect(screen.getAllByText(t("editor.save"), { selector: "button" })).toHaveLength(2);
 
     fireEvent.click(saveButton());
     await waitFor(() => expect(mockApi.callsOf("patch", "/soaw/s1")).toHaveLength(1));
-    expect(lastBody("patch", "/soaw/s1")).toEqual({ initiative_id: INITIATIVE.id });
+    expect(lastBody("patch", "/soaw/s1")).toEqual({ initiative_id: null });
+    expect(await screen.findByText("Initiative link saved")).toBeInTheDocument();
+    expect(screen.queryByText(t("editor.savedSuccessfully"))).not.toBeInTheDocument();
+    // The reply is the stored state again: nothing left to save.
+    await waitFor(() => expect(queryButton(t("editor.save"))).not.toBeInTheDocument());
+  });
+
+  it("choosing the stored initiative again hides Save", async () => {
+    mockApi.on("get", "/soaw/s1", IN_REVIEW);
+    renderEdit();
+    await waitForLoaded();
+    fireEvent.mouseDown(within(docInfoPaper()).getByRole("combobox"));
+    fireEvent.click(within(await openListbox()).getByText(tc("labels.none")));
+    expect(saveButton()).toBeInTheDocument();
+    fireEvent.mouseDown(within(docInfoPaper()).getByRole("combobox"));
+    fireEvent.click(within(await openListbox()).getByText(INITIATIVE.name));
+    expect(queryButton(t("editor.save"))).not.toBeInTheDocument();
+    expect(mockApi.callsOf("patch", "/soaw/s1")).toHaveLength(0);
   });
 
   it("offers Request signatures on an approved document, which stays editable", async () => {

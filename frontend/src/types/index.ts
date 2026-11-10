@@ -2990,6 +2990,8 @@ export interface AdrImportItem {
   card_names: string[];
   related_references: string[];
   status?: string;
+  /** Picks among several rows of one reference: the highest is imported. */
+  revision_number?: number | string;
 }
 
 export type RecurrenceUnit = "none" | "days" | "weeks" | "months" | "years";

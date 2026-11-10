@@ -183,6 +183,7 @@ describe("exportAdrsToXlsx", () => {
         reference_number: "ADR-007",
         title: "Adopt Kafka",
         status: "signed",
+        revision_number: "2",
         context: "<p>Batch is slow</p>",
         decision: "<p>Stream events</p>",
         consequences: "<ul><li>Faster</li><li>New platform</li></ul>",
@@ -194,6 +195,23 @@ describe("exportAdrsToXlsx", () => {
 });
 
 describe("parseAdrWorkbook", () => {
+  it("sends a row's revision number, so the backend imports the latest of a reference", () => {
+    const items = parseAdrWorkbook(
+      sheetBuffer([
+        ["reference_number", "title", "revision_number"],
+        ["ADR-012", "Rev one", "1"],
+        ["ADR-012", "Rev two", "2"],
+        ["ADR-013", "No revision", ""],
+      ]),
+    );
+    expect(items).toEqual([
+      { row_index: 1, reference_number: "ADR-012", title: "Rev one", revision_number: "1", card_names: [], related_references: [] },
+      { row_index: 2, reference_number: "ADR-012", title: "Rev two", revision_number: "2", card_names: [], related_references: [] },
+      { row_index: 3, reference_number: "ADR-013", title: "No revision", card_names: [], related_references: [] },
+    ]);
+    expect("revision_number" in items[2]).toBe(false);
+  });
+
   it("ignores the register columns: an import creates drafts only", () => {
     const [item] = parseAdrWorkbook(
       sheetBuffer([

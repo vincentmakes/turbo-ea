@@ -4,8 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 
 import DecisionPicker, {
+  DECISION_OPTIONS_MAX_AGE_MS,
   DECISION_PICKER_PATH,
+  cachedDecisionOptions,
+  fetchDecisionOptions,
   filterAndRankDecisions,
+  invalidateDecisionOptions,
   type DecisionPickerValue,
 } from "./DecisionPicker";
 import type { ArchitectureDecision } from "@/types";
@@ -65,6 +69,7 @@ function Harness(props: Partial<React.ComponentProps<typeof DecisionPicker>> & {
 
 describe("DecisionPicker", () => {
   beforeEach(() => {
+    invalidateDecisionOptions();
     vi.mocked(api.get).mockReset();
   });
 
@@ -166,5 +171,118 @@ describe("filterAndRankDecisions", () => {
 
   it("matches the reference exactly", () => {
     expect(filterAndRankDecisions(opts, "adr-012").map((o) => o.id)).toEqual(["1"]);
+  });
+});
+
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe("DecisionPicker — one shared register fetch", () => {
+  beforeEach(() => {
+    invalidateDecisionOptions();
+    vi.mocked(api.get).mockReset();
+  });
+
+  it("eight pickers opened one after the other send one request", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    const user = userEvent.setup();
+    render(
+      <>
+        {Array.from({ length: 8 }, (_, i) => (
+          <Harness key={i} label={`Decision ${i}`} />
+        ))}
+      </>,
+    );
+    for (let i = 0; i < 8; i += 1) {
+      await user.click(screen.getByLabelText(`Decision ${i}`));
+      const listbox = await screen.findByRole("listbox");
+      expect(within(listbox).getAllByRole("option")).toHaveLength(3);
+      await user.keyboard("{Escape}");
+    }
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.get).mock.calls[0]).toEqual(["/adr?include_earlier=false"]);
+  });
+
+  it("concurrent callers share the request in flight, and the result fills the cache", async () => {
+    const pending = deferred<typeof ROWS>();
+    vi.mocked(api.get).mockReturnValue(pending.promise as never);
+    const first = fetchDecisionOptions(1_000);
+    const second = fetchDecisionOptions(1_000);
+    expect(second).toBe(first);
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(cachedDecisionOptions()).toBeNull();
+    pending.resolve(ROWS);
+    await expect(first).resolves.toBe(ROWS);
+    expect(cachedDecisionOptions()).toBe(ROWS);
+  });
+
+  it("answers from the cache inside the window and refetches once it has passed", async () => {
+    vi.mocked(api.get).mockResolvedValueOnce(ROWS as never);
+    await fetchDecisionOptions(1_000);
+    await expect(fetchDecisionOptions(1_000 + DECISION_OPTIONS_MAX_AGE_MS - 1)).resolves.toBe(ROWS);
+    expect(api.get).toHaveBeenCalledTimes(1);
+
+    const fresh = [...ROWS, adr({ id: "d", reference_number: "ADR-011", title: "Created a moment ago" })];
+    vi.mocked(api.get).mockResolvedValueOnce(fresh as never);
+    await expect(fetchDecisionOptions(1_000 + DECISION_OPTIONS_MAX_AGE_MS)).resolves.toBe(fresh);
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(cachedDecisionOptions()).toBe(fresh);
+  });
+
+  it("invalidating drops the cache and a request in flight, which no longer fills it", async () => {
+    const stale = deferred<typeof ROWS>();
+    vi.mocked(api.get).mockReturnValueOnce(stale.promise as never);
+    const old = fetchDecisionOptions(1_000);
+    invalidateDecisionOptions();
+    vi.mocked(api.get).mockResolvedValueOnce([ROWS[0]] as never);
+    await expect(fetchDecisionOptions(1_000)).resolves.toEqual([ROWS[0]]);
+    expect(api.get).toHaveBeenCalledTimes(2);
+    stale.resolve(ROWS);
+    await old;
+    expect(cachedDecisionOptions()).toEqual([ROWS[0]]);
+  });
+
+  it("a failed fetch caches nothing and the next open tries again", async () => {
+    vi.mocked(api.get).mockRejectedValueOnce(new Error("down"));
+    await expect(fetchDecisionOptions(1_000)).rejects.toThrow("down");
+    expect(cachedDecisionOptions()).toBeNull();
+    vi.mocked(api.get).mockResolvedValueOnce(ROWS as never);
+    await expect(fetchDecisionOptions(1_000)).resolves.toBe(ROWS);
+    expect(api.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("a picker mounted after the fetch shows the cached rows without a request", async () => {
+    vi.mocked(api.get).mockResolvedValue(ROWS);
+    await fetchDecisionOptions();
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByLabelText("Decision"));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option")).toHaveLength(3);
+    expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("an opened picker whose cache went stale shows it at once, then the refetched rows", async () => {
+    vi.mocked(api.get).mockResolvedValueOnce(ROWS as never);
+    // Cached long ago: stale on the next open.
+    await fetchDecisionOptions(0);
+    const refetch = deferred<ArchitectureDecision[]>();
+    vi.mocked(api.get).mockReturnValueOnce(refetch.promise as never);
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.click(screen.getByLabelText("Decision"));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option")).toHaveLength(3);
+    expect(api.get).toHaveBeenCalledTimes(2);
+    refetch.resolve([...ROWS, adr({ id: "d", reference_number: "ADR-011", title: "Created a moment ago" })]);
+    expect(await within(listbox).findByText("Created a moment ago")).toBeInTheDocument();
+    expect(within(listbox).getAllByRole("option")).toHaveLength(4);
   });
 });

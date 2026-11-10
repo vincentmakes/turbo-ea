@@ -42,12 +42,16 @@ import {
   buildSavePayload,
   canRecord,
   chainIds,
+  contentFromDetail,
   currentRevisionId,
   editorAccess,
-  linksFromDetail,
+  storedPayload,
+  type SavePayload,
 } from "./adrEditorModel";
+import { hasUnsavedEdits } from "./editorDirty";
 import { api, ApiError } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
@@ -84,6 +88,15 @@ export default function ADREditor() {
   const [detail, setDetail] = useState<ArchitectureDecision | null>(null);
   // Bumped to load the record again (a save refused because it was locked).
   const [reloadKey, setReloadKey] = useState(0);
+  // What the server holds, as the payload Save would send for it: compared
+  // with the live payload to know whether there are edits to save first.
+  const storedRef = useRef<SavePayload | null>(null);
+  // The decision this page shows now: a reply for another one (the user moved
+  // to another revision while it was in flight) is not applied.
+  const idRef = useRef(id);
+  useEffect(() => {
+    idRef.current = id;
+  }, [id]);
 
   // ADR state
   const [title, setTitle] = useState("");
@@ -172,41 +185,59 @@ export default function ADREditor() {
       .catch(() => {});
   }, []);
 
-  // Every field from a decision as the server returned it (load, record).
+  // Every field from a decision as the server returned it. The ONE path for
+  // the detail: the load and every action whose reply is the detail (save,
+  // request signatures, sign, recall, reject, record) go through it, so the
+  // links block, banners, standing chip and revise menu never go stale.
   const applyLoaded = useCallback((adr: ArchitectureDecision) => {
+    const content = contentFromDetail(adr);
     loadedRef.current = adr;
+    storedRef.current = storedPayload(adr);
     setDetail(adr);
-    setTitle(adr.title);
+    setTitle(content.title);
     setStatus(adr.status);
-    setContext(adr.context || "");
-    setDecision(adr.decision || "");
-    setConsequences(adr.consequences || "");
-    setAlternatives(adr.alternatives_considered || "");
+    setContext(content.context);
+    setDecision(content.decision);
+    setConsequences(content.consequences);
+    setAlternatives(content.alternatives);
     setReferenceNumber(adr.reference_number);
     setRevisionNumber(adr.revision_number);
     setSignatories(adr.signatories || []);
     setSignedAt(adr.signed_at);
     setAttributes(adr.attributes || {});
     setLinkedCards(adr.linked_cards || []);
-    setDecidedOn(adr.decided_on || "");
-    setEffectiveFrom(adr.effective_from || "");
-    setValidUntil(adr.valid_until || "");
-    setDecisionMakers(adr.decision_makers || []);
-    setParticipants(adr.participants || []);
-    setLinks(linksFromDetail(adr.links));
-    setChangeSummary(adr.change_summary || "");
+    setDecidedOn(content.decidedOn);
+    setEffectiveFrom(content.effectiveFrom);
+    setValidUntil(content.validUntil);
+    setDecisionMakers(content.decisionMakers);
+    setParticipants(content.participants);
+    setLinks(content.links);
+    setChangeSummary(content.changeSummary);
   }, []);
 
-  // Load existing ADR
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    api
-      .get<ArchitectureDecision>(`/adr/${id}`)
-      .then(applyLoaded)
-      .catch(() => setError(t("adr.editor.error.loadFailed")))
-      .finally(() => setLoading(false));
-  }, [id, t, applyLoaded, reloadKey]);
+  // An action's reply, applied only while the page still shows that decision.
+  const applyReply = (adr: ArchitectureDecision | null | undefined) => {
+    if (adr && adr.id === idRef.current) applyLoaded(adr);
+  };
+
+  // Load existing ADR. Re-keyed on in-page revision navigation: only the
+  // latest load may fill the page (a late reply for the revision just left
+  // would otherwise show, and be saved over, the one now open).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const adr = await api.get<ArchitectureDecision>(`/adr/${id}`, { signal });
+        if (isCurrent()) applyLoaded(adr);
+      } catch {
+        if (isCurrent()) setError(t("adr.editor.error.loadFailed"));
+      } finally {
+        if (isCurrent()) setLoading(false);
+      }
+    },
+    [id, reloadKey],
+  );
 
   // Save
   // Exports read the editor's live state, unsaved edits included — the SoAW
@@ -270,45 +301,64 @@ export default function ADREditor() {
       isRevision,
     );
 
-  const handleSave = async () => {
+  // Edits the server does not hold yet (always true on a new decision).
+  const hasEdits = () => hasUnsavedEdits(savePayload(), storedRef.current);
+
+  // Saves the editor; true when it saved. Errors are shown here.
+  const saveEdits = async (): Promise<boolean> => {
     if (!title.trim()) {
       setError(t("adr.editor.titleRequired"));
-      return;
+      return false;
     }
-    await save.run(async () => {
-    setSaving(true);
-    try {
-      const payload = savePayload();
-      if (isNew) {
-        const created = await api.post<ArchitectureDecision>("/adr", payload);
-        navigate(`/ea-delivery/adr/${created.id}`, { replace: true });
-        setSnackbar(t("adr.editor.savedSuccessfully"));
-      } else {
-        await api.patch(`/adr/${id}`, payload);
-        setSnackbar(t("adr.editor.savedSuccessfully"));
+    const saved = await save.run(async () => {
+      setSaving(true);
+      try {
+        const payload = savePayload();
+        if (isNew) {
+          const created = await api.post<ArchitectureDecision>("/adr", payload);
+          navigate(`/ea-delivery/adr/${created.id}`, { replace: true });
+        } else {
+          applyReply(await api.patch<ArchitectureDecision>(`/adr/${id}`, payload));
+        }
+        return true;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) {
+          // Locked meanwhile (sent for review elsewhere): show what it now is.
+          setError(t("adr.editor.error.locked"));
+          setReloadKey((k) => k + 1);
+        } else {
+          setError(problemMessage(err, t) ?? t("adr.editor.error.saveFailed"));
+        }
+        return false;
+      } finally {
+        setSaving(false);
       }
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 403) {
-        // Locked meanwhile (sent for review elsewhere): show what it now is.
-        setError(t("adr.editor.error.locked"));
-        setReloadKey((k) => k + 1);
-      } else {
-        setError(problemMessage(err, t) ?? t("adr.editor.error.saveFailed"));
-      }
-    } finally {
-      setSaving(false);
-    }
     });
+    return saved === true;
   };
 
-  // Record as decided saves the pending edits first: the backend checks the
-  // decision makers it holds, not the ones on screen.
+  const handleSave = async () => {
+    if (await saveEdits()) setSnackbar(t("adr.editor.savedSuccessfully"));
+  };
+
+  // Requesting signatures locks the decision, and the server sends what it
+  // holds for review: pending edits are saved first, and the dialog opens only
+  // once they are (a failed save shows its error and opens nothing).
+  const openRequestSignatures = async () => {
+    if (hasEdits() && !(await saveEdits())) return;
+    setSignDialogOpen(true);
+  };
+
+  // Record as decided saves pending edits first too: the backend checks the
+  // decision makers it holds, not the ones on screen. A failure throws, and
+  // the dialog shows it without recording.
   const saveBeforeRecord = async () => {
-    await api.patch(`/adr/${id}`, savePayload());
+    if (!hasEdits()) return;
+    applyReply(await api.patch<ArchitectureDecision>(`/adr/${id}`, savePayload()));
   };
 
   const handleRecorded = (adr: ArchitectureDecision) => {
-    applyLoaded(adr);
+    applyReply(adr);
     setRecordOpen(false);
     setSnackbar(t("adr.record.done"));
   };
@@ -353,8 +403,7 @@ export default function ADREditor() {
         `/adr/${id}/request-signatures`,
         { user_ids: userIds },
       );
-      setSignatories(updated.signatories || []);
-      setStatus(updated.status);
+      applyReply(updated);
       setSignDialogOpen(false);
       setSnackbar(t("adr.editor.signatureRequestsSent"));
     } catch (err) {
@@ -375,9 +424,7 @@ export default function ADREditor() {
           `/adr/${id}/sign`,
           {},
         );
-        setSignatories(updated.signatories || []);
-        setStatus(updated.status);
-        setSignedAt(updated.signed_at);
+        applyReply(updated);
         setSnackbar(
           updated.status === "signed"
             ? t("adr.editor.documentFullySigned")
@@ -397,8 +444,7 @@ export default function ADREditor() {
         `/adr/${id}/recall-signatures`,
         {},
       );
-      setSignatories(updated.signatories || []);
-      setStatus(updated.status);
+      applyReply(updated);
       setSnackbar(t("adr.editor.signaturesRecalled"));
     } catch {
       setError(t("adr.editor.error.recallFailed"));
@@ -416,9 +462,7 @@ export default function ADREditor() {
         `/adr/${id}/reject`,
         { comment: rejectComment.trim() },
       );
-      setSignatories(updated.signatories || []);
-      setStatus(updated.status);
-      setRevisionNumber(updated.revision_number);
+      applyReply(updated);
       setRejectDialogOpen(false);
       setRejectComment("");
       setSnackbar(t("adr.editor.documentRejected"));
@@ -656,7 +700,8 @@ export default function ADREditor() {
           <Button
             variant="outlined"
             startIcon={<MaterialSymbol icon="send" size={18} />}
-            onClick={() => setSignDialogOpen(true)}
+            onClick={openRequestSignatures}
+            disabled={saving}
             sx={{ textTransform: "none" }}
           >
             {t("adr.editor.requestSignatures")}

@@ -116,6 +116,9 @@ export function parseAdrWorkbook(buffer: ArrayBuffer): AdrImportItem[] {
     };
     if (row.reference_number) item.reference_number = row.reference_number;
     if (row.status) item.status = row.status;
+    // Several rows of one reference (an export with revisions): the backend
+    // imports the one with the highest revision number.
+    if (row.revision_number) item.revision_number = row.revision_number;
     for (const section of SECTIONS) {
       const html = plainTextToHtml(row[section]);
       if (html) item[section] = html;

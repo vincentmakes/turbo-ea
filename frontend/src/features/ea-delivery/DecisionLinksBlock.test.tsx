@@ -10,6 +10,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
+import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 import type { ArchitectureDecision, DecisionLinkInput, DecisionLinks } from "@/types";
 import DecisionLinksBlock, {
   MANUAL_LINK_KINDS,
@@ -95,6 +96,7 @@ const LINKS: DecisionLinks = {
 };
 
 beforeEach(() => {
+  invalidateDecisionOptions();
   vi.mocked(api.get).mockReset();
   vi.mocked(api.get).mockResolvedValue(REGISTER as never);
 });
@@ -213,7 +215,7 @@ describe("editable", () => {
     expect(onValue).toHaveBeenLastCalledWith([{ decision_id: "", kind: "relates", note: null }]);
 
     await user.click(screen.getByLabelText("Decision"));
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr?include_earlier=false", expect.anything()));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr?include_earlier=false"));
     const listbox = await screen.findByRole("listbox");
     // The decision itself is never offered.
     expect(within(listbox).queryByText("Title self")).toBeNull();

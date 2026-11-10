@@ -43,14 +43,23 @@ import { SoawBanners, soawHref } from "./DecisionBanners";
 import RevisionStrip, { soawRevisionItems } from "./RevisionStrip";
 import { isLocked } from "./decisionStanding";
 import {
+  EMPTY_DOC_INFO,
+  EMPTY_VERSION_ROW,
   canRequestSoawSignatures,
   canReviseSoaw,
+  canSaveSoaw,
   reviseRefusal,
   soawCurrentRevisionId,
+  soawEditorFields,
   soawSavePayload,
+  soawStateFromLoaded,
+  type SoawCustomSection,
+  type SoawEditorFields,
 } from "./soawEditorState";
+import { hasUnsavedEdits } from "./editorDirty";
 import { api } from "@/api/client";
 import { useSubmitOnce } from "@/hooks/useSubmitOnce";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import type { Card, SoAW, SoAWSectionData, SoAWSignatory } from "@/types";
@@ -82,25 +91,14 @@ export default function SoAWEditor() {
   usePageSubject(name);
   const [initiativeId, setInitiativeId] = useState("");
   const [status, setStatus] = useState("draft");
-  const [docInfo, setDocInfo] = useState({
-    prepared_by: "",
-    reviewed_by: "",
-    review_date: "",
-  });
-  const [versionHistory, setVersionHistory] = useState<
-    { version: string; date: string; revised_by: string; description: string }[]
-  >([{ version: "", date: "", revised_by: "", description: "" }]);
+  const [docInfo, setDocInfo] = useState<SoAW["document_info"]>(EMPTY_DOC_INFO);
+  const [versionHistory, setVersionHistory] = useState<SoAW["version_history"]>([
+    EMPTY_VERSION_ROW,
+  ]);
   const [sections, setSections] = useState<Record<string, SoAWSectionData>>(
     buildDefaultSections,
   );
-  const [customSections, setCustomSections] = useState<
-    {
-      id: string;
-      title: string;
-      content: string;
-      insertAfter: string;
-    }[]
-  >([]);
+  const [customSections, setCustomSections] = useState<SoawCustomSection[]>([]);
 
   // UI state
   const [initiatives, setInitiatives] = useState<Card[]>([]);
@@ -117,6 +115,9 @@ export default function SoAWEditor() {
   // A revise refused because a revision is already being drafted.
   const [existingRevisionId, setExistingRevisionId] = useState<string | null>(null);
   const soawIdRef = useRef<string | null>(id ?? null);
+  // What the server holds, as the fields a save would send for it: compared
+  // with the live fields to know whether there are edits to save first.
+  const storedRef = useRef<SoawEditorFields | null>(null);
 
   // Keep ref in sync when route param changes (e.g. after revision navigation)
   useEffect(() => {
@@ -174,61 +175,51 @@ export default function SoAWEditor() {
     loadCurrentUser();
   }, []);
 
-  useEffect(() => {
-    if (!id) return;
-    const load = async () => {
+  // Every field from a document as the server returned it. The ONE path for
+  // the detail: the load and every action whose reply is the document (save,
+  // request signatures, sign, recall, reject) go through it.
+  const applyLoaded = useCallback((data: SoAW) => {
+    const state = soawStateFromLoaded(data);
+    storedRef.current = soawEditorFields(state);
+    setDetail(data);
+    setName(state.name);
+    setInitiativeId(state.initiativeId);
+    setStatus(data.status);
+    setDocInfo(state.docInfo);
+    setVersionHistory(state.versionHistory);
+    setSections(state.sections);
+    setCustomSections(state.customSections);
+    setSignatories(data.signatories ?? []);
+    setSignedAt(data.signed_at);
+    setRevisionNumber(data.revision_number ?? 1);
+    setCreatedVia(data.created_via ?? null);
+  }, []);
+
+  // An action's reply, applied only while the page still shows that document.
+  const applyReply = (data: SoAW | null | undefined) => {
+    if (data && data.id === soawIdRef.current) applyLoaded(data);
+  };
+
+  // Re-keyed on in-page revision navigation: only the latest load may fill
+  // the page (a late reply for the revision just left would otherwise show,
+  // and be saved over, the one now open).
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
       setLoading(true);
       try {
-        const data = await api.get<SoAW>(`/soaw/${id}`);
-        setDetail(data);
+        const data = await api.get<SoAW>(`/soaw/${id}`, { signal });
+        if (!isCurrent()) return;
+        applyLoaded(data);
         setExistingRevisionId(null);
-        setName(data.name);
-        setInitiativeId(data.initiative_id ?? "");
-        setStatus(data.status);
-        if (data.document_info) setDocInfo(data.document_info);
-        if (data.version_history?.length) setVersionHistory(data.version_history);
-        setSignatories(data.signatories ?? []);
-        setSignedAt(data.signed_at);
-        setRevisionNumber(data.revision_number ?? 1);
-        setCreatedVia(data.created_via ?? null);
-
-        // Merge persisted sections with template defaults so new template
-        // sections added later still appear.
-        const defaults = buildDefaultSections();
-        const merged = { ...defaults };
-        const persistedSections = data.sections ?? {};
-
-        // Separate template sections from custom sections
-        for (const [key, val] of Object.entries(persistedSections)) {
-          if (key.startsWith("custom_")) {
-            // Re-hydrate custom sections
-            setCustomSections((prev) => {
-              const exists = prev.some((c) => c.id === key);
-              if (exists) return prev;
-              return [
-                ...prev,
-                {
-                  id: key,
-                  title: (val as SoAWSectionData & { title?: string }).title ?? key,
-                  content: val.content,
-                  insertAfter:
-                    (val as SoAWSectionData & { insertAfter?: string }).insertAfter ?? "",
-                },
-              ];
-            });
-          } else {
-            merged[key] = { ...merged[key], ...val };
-          }
-        }
-        setSections(merged);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
+        if (isCurrent()) setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    };
-    load();
-  }, [id]);
+    },
+    [id],
+  );
 
   // ── section update helpers ─────────────────────────────────────────────
 
@@ -297,53 +288,67 @@ export default function SoAWEditor() {
   // One save at a time: a second click before the first answered would
   // create the document twice.
   const save = useSubmitOnce();
-  const handleSave = async () => {
+
+  const editorFields = () =>
+    soawEditorFields({ name, initiativeId, docInfo, versionHistory, sections, customSections });
+
+  // Edits the server does not hold yet (always true on a new document).
+  const hasEdits = () => hasUnsavedEdits(editorFields(), storedRef.current);
+
+  // In review only the initiative link can change, and Save is offered only
+  // when it did.
+  const initiativeChanged = (initiativeId || null) !== (detail?.initiative_id ?? null);
+  const showSave = canSaveSoaw(status, initiativeChanged);
+
+  // Saves the editor; true when it saved. Errors are shown here.
+  const saveEdits = async (): Promise<boolean> => {
     if (!name.trim()) {
       setError(t("editor.documentNameRequired"));
-      return;
+      return false;
     }
-    await save.run(async () => {
-    setSaving(true);
-    setError("");
-    try {
-      // Merge custom sections into the sections record for persistence
-      const allSections: Record<string, unknown> = { ...sections };
-      for (const cs of customSections) {
-        allSections[cs.id] = {
-          content: cs.content,
-          hidden: false,
-          title: cs.title,
-          insertAfter: cs.insertAfter,
-        };
+    const saved = await save.run(async () => {
+      setSaving(true);
+      setError("");
+      try {
+        // In review only the initiative link is sent: the content is locked.
+        const payload = soawSavePayload(status, editorFields());
+        if (soawIdRef.current) {
+          applyReply(await api.patch<SoAW>(`/soaw/${soawIdRef.current}`, payload));
+        } else {
+          const created = await api.post<SoAW>("/soaw", payload);
+          soawIdRef.current = created.id;
+          // Route to the saved record so `id` resolves: the header, the
+          // Preview and Request-signatures buttons and the `?action=` deep
+          // links all key off it. A bare `history.replaceState` left the
+          // editor in its "new document" shape until a reload.
+          navigate(`/ea-delivery/soaw/${created.id}`, { replace: true });
+        }
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("editor.error.saveFailed"));
+        return false;
+      } finally {
+        setSaving(false);
       }
-
-      // In review only the initiative link is sent: the content is locked.
-      const payload = soawSavePayload(status, {
-        name: name.trim(),
-        initiative_id: initiativeId || null,
-        document_info: docInfo,
-        version_history: versionHistory,
-        sections: allSections,
-      });
-
-      if (soawIdRef.current) {
-        await api.patch(`/soaw/${soawIdRef.current}`, payload);
-      } else {
-        const created = await api.post<SoAW>("/soaw", payload);
-        soawIdRef.current = created.id;
-        // Route to the saved record so `id` resolves: the header, the
-        // Preview and Request-signatures buttons and the `?action=` deep
-        // links all key off it. A bare `history.replaceState` left the
-        // editor in its "new document" shape until a reload.
-        navigate(`/ea-delivery/soaw/${created.id}`, { replace: true });
-      }
-      setSnack(t("editor.savedSuccessfully"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t("editor.error.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
     });
+    return saved === true;
+  };
+
+  const handleSave = async () => {
+    const savedStatus = status;
+    if (!(await saveEdits())) return;
+    // In review the save sent the initiative link alone: say so.
+    setSnack(
+      savedStatus === "in_review" ? t("editor.initiativeLinkSaved") : t("editor.savedSuccessfully"),
+    );
+  };
+
+  // Requesting signatures locks the document and the server sends what it
+  // holds for review: pending edits are saved first, and the dialog opens
+  // only once they are (a failed save shows its error and opens nothing).
+  const openRequestSignatures = async () => {
+    if (hasEdits() && !(await saveEdits())) return;
+    setSignDialogOpen(true);
   };
 
   // ── signing helpers ────────────────────────────────────────────────────
@@ -357,8 +362,7 @@ export default function SoAWEditor() {
         `/soaw/${soawIdRef.current}/request-signatures`,
         { user_ids: userIds },
       );
-      setSignatories(data.signatories ?? []);
-      setStatus(data.status);
+      applyReply(data);
       setSignDialogOpen(false);
       setSnack(t("editor.signatureRequestsSent"));
     } catch (e) {
@@ -374,9 +378,7 @@ export default function SoAWEditor() {
     setError("");
     try {
       const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/sign`);
-      setSignatories(data.signatories ?? []);
-      setStatus(data.status);
-      setSignedAt(data.signed_at);
+      applyReply(data);
       setSnack(data.status === "signed" ? t("editor.documentFullySigned") : t("editor.signatureRecorded"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("editor.error.signFailed"));
@@ -393,8 +395,7 @@ export default function SoAWEditor() {
       const data = await api.post<SoAW>(
         `/soaw/${soawIdRef.current}/recall-signatures`,
       );
-      setStatus(data.status);
-      setSignatories(data.signatories ?? []);
+      applyReply(data);
       setSnack(t("editor.signaturesRecalled"));
     } catch (e) {
       setError(
@@ -414,8 +415,7 @@ export default function SoAWEditor() {
         `/soaw/${soawIdRef.current}/reject`,
         { comment: rejectComment.trim() },
       );
-      setStatus(data.status);
-      setSignatories(data.signatories ?? []);
+      applyReply(data);
       setRejectDialogOpen(false);
       setRejectComment("");
       setSnack(t("editor.documentRejected"));
@@ -610,7 +610,7 @@ export default function SoAWEditor() {
             {t("editor.word")}
           </Button>
         ))}
-        {!isSigned && (
+        {showSave && (
           <Button
             variant="contained"
             size="small"
@@ -629,7 +629,8 @@ export default function SoAWEditor() {
             variant="outlined"
             startIcon={<MaterialSymbol icon="draw" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => setSignDialogOpen(true)}
+            disabled={saving}
+            onClick={openRequestSignatures}
           >
             {t("editor.requestSignatures")}
           </Button>
@@ -1266,7 +1267,7 @@ export default function SoAWEditor() {
         >
           {t("common:actions.back")}
         </Button>
-        {!isSigned && (
+        {showSave && (
           <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="save" size={18} />}

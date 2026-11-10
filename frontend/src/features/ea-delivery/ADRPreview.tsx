@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router";
 import { sanitizeRichHtml } from "@/lib/richHtml";
@@ -17,6 +17,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import LinkifiedText from "@/components/LinkifiedText";
 import { api } from "@/api/client";
+import { useAbortableEffect } from "@/hooks/useLatestRequest";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { usePageSubject } from "@/hooks/usePageTitle";
 import { useAuth } from "@/hooks/useAuth";
@@ -55,20 +56,24 @@ export default function ADRPreview() {
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
+  // Re-keyed on in-page revision navigation: only the latest load may fill
+  // the page, so a late reply for the revision just left is dropped.
+  useAbortableEffect(
+    async ({ signal, isCurrent }) => {
+      if (!id) return;
       setLoading(true);
+      setError("");
       try {
-        const data = await api.get<ArchitectureDecision>(`/adr/${id}`);
-        setAdr(data);
+        const data = await api.get<ArchitectureDecision>(`/adr/${id}`, { signal });
+        if (isCurrent()) setAdr(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : t("adr.editor.error.loadFailed"));
+        if (isCurrent()) setError(e instanceof Error ? e.message : t("adr.editor.error.loadFailed"));
       } finally {
-        setLoading(false);
+        if (isCurrent()) setLoading(false);
       }
-    })();
-  }, [id]);
+    },
+    [id],
+  );
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(

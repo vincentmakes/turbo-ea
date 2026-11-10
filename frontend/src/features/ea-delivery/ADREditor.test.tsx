@@ -252,7 +252,7 @@ describe("ADREditor — new decision", () => {
       }),
     );
     // Lands on the created record, which loads it.
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-new"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-new", expect.anything()));
   });
 
   it("reports a failed create", async () => {
@@ -316,7 +316,7 @@ describe("ADREditor — draft actions", () => {
       path === "/adr/adr-1/duplicate" ? { ...base, id: "adr-copy" } : {},
     );
     await userEvent.click(screen.getByRole("button", { name: /Duplicate/ }));
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-copy"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-copy", expect.anything()));
   });
 
   it("reports a failed duplicate", async () => {
@@ -490,7 +490,7 @@ describe("ADREditor — signed decision", () => {
     await userEvent.click(screen.getByRole("button", { name: /Revise/ }));
     await userEvent.click(screen.getByRole("menuitem", { name: /Revise this decision/ }));
     expect(api.post).toHaveBeenCalledWith("/adr/adr-1/revise", {});
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-rev"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-rev", expect.anything()));
   });
 
   it("reports a failed revision", async () => {
@@ -897,7 +897,7 @@ describe("ADREditor — decision register", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Create consolidated revision" }));
     expect(api.post).toHaveBeenCalledWith("/adr/adr-1/revise", { consolidates: ["m1", "m2"] });
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-cons"));
+    await waitFor(() => expect(api.get).toHaveBeenCalledWith("/adr/adr-cons", expect.anything()));
     expect(await screen.findByText("New revision created")).toBeInTheDocument();
   });
 
@@ -978,6 +978,8 @@ describe("ADREditor — decision register", () => {
     await renderLoaded({ ...base, decision_makers: [ADA] }, (path) =>
       path === "/adr/adr-1/record" ? recorded : {},
     );
+    // An unsaved edit: it has to reach the server before the record does.
+    await userEvent.type(screen.getByLabelText("Title"), " now");
     await userEvent.click(screen.getByRole("button", { name: /Record as decided/ }));
     const dialog = within(await screen.findByRole("dialog"));
     fireEvent.change(dialog.getByTestId("record-decided-on"), { target: { value: "2026-01-15" } });
@@ -988,7 +990,10 @@ describe("ADREditor — decision register", () => {
     // The pending edits went first, so the backend sees the decision makers on screen.
     expect(api.patch).toHaveBeenCalledWith(
       "/adr/adr-1",
-      expect.objectContaining({ decision_makers: [{ user_id: "u1" }] }),
+      expect.objectContaining({ title: "Adopt event bus now", decision_makers: [{ user_id: "u1" }] }),
+    );
+    expect(vi.mocked(api.patch).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(api.post).mock.invocationCallOrder[0],
     );
     expect(await screen.findByText("Decision recorded")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

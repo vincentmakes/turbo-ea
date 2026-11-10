@@ -34,6 +34,7 @@ import { api } from "@/api/client";
 import { createTheme } from "@mui/material/styles";
 import { STATUS_COLORS } from "@/theme/tokens";
 import AdrsTab from "./AdrsTab";
+import { invalidateDecisionOptions } from "@/components/DecisionPicker";
 
 const CARD_ID = "card-123";
 const BY_CARD = `/adr/by-card/${CARD_ID}?include_earlier=false`;
@@ -66,6 +67,7 @@ function renderTab(canManageAdrLinks = true) {
 }
 
 beforeEach(() => {
+  invalidateDecisionOptions();
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
     if (url === BY_CARD) return Promise.resolve(mockAdrs);

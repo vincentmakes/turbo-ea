@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
+import { useNavigate } from "react-router";
 import type { SoAW, SoAWSectionData } from "@/types";
 
 vi.mock("@/api/client", () => import("@/test/apiMock").then((m) => m.apiClientModule()));
@@ -372,5 +373,66 @@ describe("SoAWPreview — colours", () => {
     await screen.findByRole("heading", { name: SOAW.name });
     // The heading glyph comes first; a signed signatory repeats "verified" below it.
     expect(within(signatureBlock()).getAllByText(icon)[0]).toHaveStyle({ color });
+  });
+});
+
+describe("SoAWPreview — revision navigation race", () => {
+  function GoTo() {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate("/ea-delivery/soaw/s2/preview")}>
+        go
+      </button>
+    );
+  }
+
+  function deferred<T>() {
+    let resolve!: (v: T) => void;
+    let reject!: (e: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  function renderRace(first: Promise<SoAW>, second: Promise<SoAW>) {
+    mockApi.on("get", "/soaw/s1", () => first);
+    mockApi.on("get", "/soaw/s2", () => second);
+    return renderWithProviders(
+      <>
+        <SoAWPreview />
+        <GoTo />
+      </>,
+      {
+        route: "/ea-delivery/soaw/s1/preview",
+        routes: [{ path: "/ea-delivery/soaw/:id/preview" }],
+      },
+    );
+  }
+
+  it("a late reply for the revision just left is ignored", async () => {
+    const first = deferred<SoAW>();
+    const second = deferred<SoAW>();
+    const { user } = renderRace(first.promise, second.promise);
+    await user.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(mockApi.callsOf("get", "/soaw/s2")).toHaveLength(1));
+    second.resolve({ ...SOAW, id: "s2", name: "Revision two" });
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.resolve({ ...SOAW, name: "Revision one (late)" });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Revision one (late)")).toBeNull();
+  });
+
+  it("a late failure for the revision just left shows no error", async () => {
+    const first = deferred<SoAW>();
+    const { user } = renderRace(first.promise, Promise.resolve({ ...SOAW, id: "s2", name: "Revision two" }));
+    await user.click(screen.getByRole("button", { name: "go" }));
+    expect((await screen.findAllByText("Revision two")).length).toBeGreaterThan(0);
+    first.reject(new Error("gone"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(screen.queryByText("gone")).toBeNull();
+    expect(screen.getAllByText("Revision two").length).toBeGreaterThan(0);
   });
 });
