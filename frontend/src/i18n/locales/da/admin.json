@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Vælg, hvilke korttyper der viser AI-forslagsknappen. Lad alle være umarkerede for at aktivere for alle typer.",
   "settings.ai.testConnection": "Test forbindelse",
   "settings.ai.testSuccess": "Forbindelse lykkedes!",
+  "settings.ai.testSuccessAdjusted": "Forbindelsen lykkedes. Denne udbyder accepterer ikke {{params}}, så Turbo EA udelader det fra hver forespørgsel.",
   "settings.ai.testNoModel": "Forbundet, men model ikke fundet. Tilgængelige: {{models}}",
   "settings.ai.modelPickerHelper": "Vælg en model fra din udbyder. Brug «Test forbindelse» for at opdatere listen.",
   "settings.ai.selectModel": "Vælg en model...",

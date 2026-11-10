@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Seleccione qué tipos de tarjetas muestran el botón de sugerencia IA. Todos desmarcados = habilitado para todos los tipos.",
   "settings.ai.testConnection": "Probar conexión",
   "settings.ai.testSuccess": "¡Conexión exitosa!",
+  "settings.ai.testSuccessAdjusted": "Conexión correcta. Este proveedor no acepta {{params}}, por lo que Turbo EA lo omite en todas las solicitudes.",
   "settings.ai.testNoModel": "Conectado, pero modelo no encontrado. Disponibles: {{models}}",
   "settings.ai.modelPickerHelper": "Seleccione un modelo de su proveedor. Use «Probar conexión» para actualizar la lista.",
   "settings.ai.selectModel": "Seleccionar un modelo…",

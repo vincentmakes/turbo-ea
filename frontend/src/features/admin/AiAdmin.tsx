@@ -20,6 +20,15 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { AI_PROVIDER_TYPES, providerUi } from "./aiProviderUi";
 import { useTheme } from "@mui/material/styles";
 
+/** `POST /settings/ai/test`. `adjusted` lists the optional request parameters
+ *  the provider refused; only the Chat Completions providers report it. */
+interface AiConnectionTestResult {
+  ok: boolean;
+  available_models: string[];
+  model_found: boolean;
+  adjusted?: string[];
+}
+
 interface AiSettings {
   enabled: boolean;
   provider_type: string;
@@ -114,12 +123,16 @@ export default function AiAdmin() {
     setTestingAi(true);
     setError("");
     try {
-      const res = await api.post<{ ok: boolean; available_models: string[]; model_found: boolean }>(
-        "/settings/ai/test",
-      );
+      const res = await api.post<AiConnectionTestResult>("/settings/ai/test");
       setAiAvailableModels(res.available_models);
       if (res.model_found) {
-        setSnack(t("settings.ai.testSuccess"));
+        // The test asks for what a suggestion asks for; a provider that
+        // refused part of it still works, and the admin is told which part.
+        setSnack(
+          res.adjusted?.length
+            ? t("settings.ai.testSuccessAdjusted", { params: res.adjusted.join(", ") })
+            : t("settings.ai.testSuccess"),
+        );
       } else if (res.available_models.length > 0) {
         setSnack(
           t("settings.ai.testNoModel", { models: res.available_models.slice(0, 5).join(", ") }),

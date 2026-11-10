@@ -43,6 +43,12 @@ The result is displayed to the user with:
 
 Commercial providers require an API key, which is stored encrypted in the database using Fernet symmetric encryption. Amazon Bedrock is the exception: it authenticates with the IAM role of the container by default, so there is no key to store or rotate.
 
+### OpenAI-compatible servers and gateways
+
+The **OpenAI** provider type also works with any server that speaks the OpenAI Chat Completions API — LM Studio, vLLM, or a gateway in front of them — by entering that server's address as the **Provider URL**.
+
+Turbo EA asks every such provider for a JSON answer (`response_format`) at a low `temperature`. Not every server or model accepts both. When a provider refuses one of them, Turbo EA sends the request again without it and reads the answer from the model's text instead, so there is nothing to configure. **Test Connection** makes the same request a suggestion does and tells you which parameter, if any, the provider refused.
+
 ---
 
 ## Search Providers
@@ -271,6 +277,7 @@ Custom roles can be granted these permissions through the Roles administration p
 | "The AI provider rejected the request" | The provider was reached but refused the request, and the message carries its reason (with a 401 or 403, check the API key and the model access instead). Correct the model name or the provider setting it names, then click Test Connection: it sends the same request a suggestion does, so it now fails or passes the same way. |
 | Bedrock returns "AccessDeniedException" | Two different causes: the IAM role is missing the `bedrock:InvokeModel` permission, or model access has not been enabled for that model in the Bedrock console. Check both. |
 | Bedrock says on-demand throughput is not supported | The model is only reachable through a regional inference profile. Run Test Connection and pick an ID prefixed `eu.`, `us.` or `apac.`. |
+| Test Connection says the provider does not accept `response_format` or `temperature` | Nothing to fix: the provider is working. Turbo EA leaves that parameter out of every request to it. Without `response_format` the answer depends on the model following the instruction to reply in JSON, so if suggestions come back empty, try a more capable model. |
 | OpenAI refuses a model with 403 | The key is valid, but the OpenAI project may not call that model. Test Connection sends a short request to the configured model and shows OpenAI's own reason. Grant the project access to the model (or complete organization verification) in the OpenAI dashboard, or pick another model. |
 
 ---

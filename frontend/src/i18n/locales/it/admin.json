@@ -690,6 +690,7 @@
   "settings.ai.enabledTypesHelper": "Seleziona quali tipi di schede mostrano il pulsante suggerimento IA. Tutti deselezionati = abilitato per tutti i tipi.",
   "settings.ai.testConnection": "Testa connessione",
   "settings.ai.testSuccess": "Connessione riuscita!",
+  "settings.ai.testSuccessAdjusted": "Connessione riuscita. Questo provider non accetta {{params}}, quindi Turbo EA lo omette da ogni richiesta.",
   "settings.ai.testNoModel": "Connesso, ma modello non trovato. Disponibili: {{models}}",
   "settings.ai.modelPickerHelper": "Seleziona un modello dal tuo fornitore. Usa «Test connessione» per aggiornare l’elenco.",
   "settings.ai.selectModel": "Seleziona un modello…",

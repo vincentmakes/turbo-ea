@@ -43,6 +43,12 @@ Le résultat est affiché à l'utilisateur avec :
 
 Les fournisseurs commerciaux nécessitent une clé API, qui est stockée chiffrée dans la base de données en utilisant le chiffrement symétrique Fernet. Amazon Bedrock fait exception : l'authentification utilise par défaut le rôle IAM du conteneur, il n'y a donc aucune clé à stocker ni à renouveler.
 
+### Serveurs et passerelles compatibles OpenAI
+
+Le type de fournisseur **OpenAI** fonctionne aussi avec tout serveur qui parle l'API Chat Completions d'OpenAI — LM Studio, vLLM, ou une passerelle placée devant eux — en saisissant l'adresse de ce serveur comme **URL du fournisseur**.
+
+Turbo EA demande à chacun de ces fournisseurs une réponse JSON (`response_format`) avec une `temperature` basse. Tous les serveurs ou modèles n'acceptent pas les deux. Lorsqu'un fournisseur en refuse un, Turbo EA renvoie la requête sans ce paramètre et lit la réponse dans le texte du modèle ; il n'y a donc rien à configurer. **Tester la connexion** envoie la même requête qu'une suggestion et indique quel paramètre, le cas échéant, le fournisseur a refusé.
+
 ---
 
 ## Fournisseurs de recherche
@@ -254,6 +260,7 @@ Les clés de permission sont `ai.suggest` et `ai.portfolio_insights`. Les rôles
 | Suggestions lentes | La vitesse d'inférence LLM dépend du matériel (pour Ollama) ou de la latence réseau (pour les fournisseurs commerciaux). Les modèles plus petits comme `gemma3:4b` sont plus rapides que les plus grands. |
 | Scores de confiance faibles | Le LLM peut ne pas trouver suffisamment d'informations pertinentes via la recherche web. Essayez un nom de fiche plus spécifique, ou envisagez d'utiliser Google Custom Search pour de meilleurs résultats. |
 | Le test de connexion échoue | Vérifiez que l'URL du fournisseur est accessible depuis le conteneur backend. Pour les configurations Docker, assurez-vous que les deux conteneurs sont sur le même réseau. |
+| Le test de connexion indique que le fournisseur n'accepte pas `response_format` ou `temperature` | Rien à corriger : le fournisseur fonctionne. Turbo EA omet ce paramètre de chaque requête qui lui est adressée. Sans `response_format`, la réponse dépend du respect par le modèle de la consigne de répondre en JSON ; si les suggestions reviennent vides, essayez un modèle plus performant. |
 | «Le fournisseur d'IA a rejeté la requête» | Le fournisseur a été joint mais a refusé la requête, et le message en indique la raison (avec un 401 ou un 403, vérifiez la clé API et l'accès au modèle). Corrigez le nom du modèle ou le paramètre du fournisseur indiqué, puis cliquez sur Tester la connexion : le test envoie la même requête qu'une suggestion et échoue ou réussit donc désormais de la même façon. |
 | Bedrock renvoie «AccessDeniedException» | Deux causes possibles : le rôle IAM n'a pas la permission `bedrock:InvokeModel`, ou l'accès au modèle n'a pas été activé dans la console Bedrock. Vérifiez les deux. |
 | Bedrock indique que le débit à la demande n'est pas pris en charge | Le modèle n'est accessible que via un profil d'inférence régional. Lancez le test de connexion et choisissez un ID préfixé `eu.`, `us.` ou `apac.`. |
