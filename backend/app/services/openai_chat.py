@@ -104,14 +104,12 @@ def _error_object(body: Any) -> dict[str, Any]:
     return error if isinstance(error, dict) else {}
 
 
-def _refusal_text(body: Any, text: str) -> str:
+def _refusal_text(body: Any) -> str:
     """Every string a refusal carries, whatever envelope it came in.
 
     Values only, never keys: a server that echoes the request back would
     otherwise name every parameter the payload has.
     """
-    if body is None:
-        return text
     parts: list[str] = []
     stack = [body]
     while stack:
@@ -139,14 +137,13 @@ def refused_param(
     payload: dict[str, Any],
     body: Any,
     tried: frozenset[str] = frozenset(),
-    text: str = "",
 ) -> str | None:
     """The optional parameter of ``payload`` a refusal objects to, if any.
 
-    ``body`` is the parsed error response, ``text`` the raw one for a server
-    that did not answer in JSON. ``None`` means the error is not one a retry
-    can fix: no optional parameter named, one the payload does not carry, or
-    one already adapted in ``tried`` — which is what stops the two output-cap
+    ``body`` is the parsed error response, or its raw text from a server that
+    did not answer in JSON. ``None`` means the error is not one a retry can
+    fix: no optional parameter named, one the payload does not carry, or one
+    already adapted in ``tried`` — which is what stops the two output-cap
     names swapping forever.
 
     An error that fills OpenAI's ``error.param`` is judged on that alone, and
@@ -162,7 +159,7 @@ def refused_param(
         # OpenAI names a nested field by its path: ``response_format.type``.
         root = param.split(".")[0]
         return root if _adaptable(payload, root, tried) else None
-    refusal = _refusal_text(body, text)
+    refusal = _refusal_text(body)
     for name in _OPTIONAL:
         if _adaptable(payload, name, tried) and _NAMED[name].search(refusal):
             return name
@@ -215,7 +212,7 @@ async def post_chat_traced(
     tried: list[str] = []
     while resp.status_code in _REFUSAL_STATUSES and len(tried) < MAX_ADAPTATIONS:
         body = _json_or_none(resp)
-        param = refused_param(payload, body, frozenset(tried), resp.text if body is None else "")
+        param = refused_param(payload, resp.text if body is None else body, frozenset(tried))
         if param is None:
             break
         tried.append(param)

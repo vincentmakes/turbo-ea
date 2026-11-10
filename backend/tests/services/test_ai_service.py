@@ -19,6 +19,7 @@ from app.services.ai_service import (
     _get_llm_item_description,
     _get_search_suffix,
     _parse_llm_content,
+    _probe_chat_payload,
     _search_duckduckgo,
     _search_google,
     _search_searxng,
@@ -747,6 +748,10 @@ class TestParseLlmContent:
         answer = '<THINK>{"a": 1}</THINK>{"description": "kept"}<think>{"b": 2}</think>'
         assert _parse_llm_content(answer) == {"description": "kept"}
 
+    def test_reasoning_is_removed_not_replaced(self):
+        answer = '{"description": "before<think>hidden</think>after"}'
+        assert _parse_llm_content(answer) == {"description": "beforeafter"}
+
     def test_a_fence_wins_over_the_braces_around_it(self):
         answer = 'Of the form {key: value}:\n```json\n{"description": "fenced"}\n```\n{end}'
         assert _parse_llm_content(answer) == {"description": "fenced"}
@@ -763,19 +768,18 @@ class TestParseLlmContent:
         used to raise a ``TypeError``."""
         caplog.set_level("WARNING", logger="turboea.ai")
         assert _parse_llm_content(content) == {}
-        assert "LLM returned no text content" in caplog.text
+        assert caplog.messages == ["LLM returned no text content"]
 
     @pytest.mark.parametrize("content", ['["a", "b"]', '"just a string"', "42", "null"])
     def test_json_that_is_not_an_object_is_empty(self, content, caplog):
         caplog.set_level("WARNING", logger="turboea.ai")
         assert _parse_llm_content(content) == {}
-        assert f"LLM returned non-JSON content: {content}" in caplog.text
+        assert caplog.messages == [f"LLM returned non-JSON content: {content}"]
 
     def test_the_logged_answer_is_cut(self, caplog):
         caplog.set_level("WARNING", logger="turboea.ai")
         assert _parse_llm_content("x" * 300) == {}
-        assert "LLM returned non-JSON content: " + "x" * 200 in caplog.text
-        assert "x" * 201 not in caplog.text
+        assert caplog.messages == ["LLM returned non-JSON content: " + "x" * 200]
 
 
 # ---------------------------------------------------------------------------
@@ -1288,6 +1292,29 @@ class TestSuggestMetadataAlwaysSearches:
 # ---------------------------------------------------------------------------
 # check_provider_connection
 # ---------------------------------------------------------------------------
+
+
+class TestProbeChatPayload:
+    """The connection test asks for what a card suggestion asks for (#1372)."""
+
+    MESSAGES = [{"role": "user", "content": 'Reply with this JSON object: {"ok": true}'}]
+
+    def test_openai_names_the_model(self):
+        assert _probe_chat_payload("gpt-6.1-sol") == {
+            "model": "gpt-6.1-sol",
+            "messages": self.MESSAGES,
+            "max_completion_tokens": 16,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
+
+    def test_azure_names_no_model(self):
+        assert _probe_chat_payload(None) == {
+            "messages": self.MESSAGES,
+            "max_completion_tokens": 16,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
 
 
 class TestProviderConnection:

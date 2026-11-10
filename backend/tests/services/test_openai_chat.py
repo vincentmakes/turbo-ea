@@ -275,10 +275,9 @@ class TestRefusedParam:
         assert refused_param(payload, body) == "max_tokens"
         assert refused_param(payload, body, frozenset({"max_completion_tokens"})) is None
 
-    def test_the_raw_text_is_read_only_without_a_json_body(self):
-        assert refused_param(self.BASE, None, frozenset(), "bad field: top_p") == "top_p"
-        assert refused_param(self.BASE, None) is None
-        assert refused_param(self.BASE, {"error": "nope"}, frozenset(), "bad field: top_p") is None
+    @pytest.mark.parametrize("body", [None, 7, 0.5, True, [None, 3], {"error": None}])
+    def test_a_body_that_holds_no_text_names_nothing(self, body):
+        assert refused_param(self.BASE, body) is None
 
     def test_adapting_from_text_drops_or_renames(self):
         assert adapt_payload(self.BASE, LM_STUDIO) == {
@@ -397,7 +396,17 @@ class TestPostChat:
         assert resp.status_code == 200
         assert _sent(client)[-1] == {"model": "m", "messages": MSGS, "max_tokens": 5}
 
-    async def test_retries_stop_at_the_cap(self):
+    async def test_a_successful_answer_that_mentions_a_parameter_is_not_a_refusal(self):
+        """Only a refusal status is searched: a model may well write the word."""
+        answered = _resp(200, {"choices": [{"message": {"content": "the temperature is fine"}}]})
+        client = _client(answered)
+        payload = build_chat_payload("m", MSGS, temperature=0.1)
+        resp, dropped = await post_chat_traced(client, "u", headers={}, payload=payload)
+        assert resp is answered
+        assert dropped == ()
+        assert client.post.await_count == 1
+
+    async def test_the_cap_ends_the_retries_and_what_was_dropped_is_still_reported(self):
         assert MAX_ADAPTATIONS == 3
         client = _client(
             _refusal("max_completion_tokens"),
@@ -413,9 +422,10 @@ class TestPostChat:
             "top_p": 0.5,
             "response_format": {"type": "json_object"},
         }
-        resp = await post_chat(client, "u", headers={}, payload=payload)
+        resp, dropped = await post_chat_traced(client, "u", headers={}, payload=payload)
         assert resp.status_code == 400
         assert client.post.await_count == 4
+        assert dropped == ("temperature", "top_p")
         assert _sent(client)[-1] == {
             "model": "m",
             "messages": MSGS,
