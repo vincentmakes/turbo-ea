@@ -162,7 +162,10 @@ async def on_workflow(
 
     ``signatories`` is kept (as ``[{user_id, display_name}]``) on a
     ``sent_for_review`` row only; ``note`` is the reason of a rejection or the
-    signer's note.
+    signer's note. A ``rejected`` step by a person also opens a ``rejection``
+    thread in the discussion (an empty reason gives an empty body), and a
+    ``signature`` with a note adds a ``sign_note`` comment, so neither is lost
+    on a recall.
     """
     check_step(doc_kind, step)
     actor_id, actor_name = await _actor(db, user)
@@ -176,6 +179,19 @@ async def on_workflow(
     )
     db.add(entry)
     await db.flush()
+    if isinstance(user, User) and (step == "rejected" or (step == "signature" and note)):
+        # A rejection opens a thread carrying the reason; a signing note becomes
+        # a comment. Imported here: the discussion service builds on this module.
+        from app.services import document_discussion_service as discussion
+
+        await discussion.add_system_comment(
+            db,
+            doc_kind,
+            doc,
+            kind=discussion.REJECTION if step == "rejected" else discussion.SIGN_NOTE,
+            user=user,
+            text=note,
+        )
     return entry
 
 
@@ -233,17 +249,6 @@ def is_signatory(signatories: Iterable[Any] | None, user_id: uuid.UUID) -> bool:
     return any(
         isinstance(entry, Mapping) and entry.get("user_id") == wanted for entry in signatories or ()
     )
-
-
-def comment_capabilities(*, may_comment: bool, may_moderate: bool, signatory: bool) -> dict:
-    """``{comment, moderate}``: a signatory may always comment; moderating is
-    the document's edit permission."""
-    return {"comment": may_comment or signatory, "moderate": may_moderate}
-
-
-def discussion_payload(can: dict) -> dict[str, Any]:
-    """The discussion of a document: no thread is stored yet."""
-    return {"can": can, "open_count": 0, "threads": []}
 
 
 def history_entry_payload(entry: DocumentHistoryEntry, actor_display_name: str | None) -> dict:

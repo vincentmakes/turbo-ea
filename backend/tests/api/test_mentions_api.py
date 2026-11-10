@@ -55,7 +55,12 @@ async def env(db):
         db,
         key="soaw_only",
         label="SoAW only",
-        permissions={"soaw.view": True, "soaw.manage": True, "inventory.view": True},
+        permissions={
+            "soaw.view": True,
+            "soaw.manage": True,
+            "soaw.comment": True,
+            "inventory.view": True,
+        },
     )
     await create_card_type(db, key="Application", label="Application")
     await create_card_type(db, key="Secret", label="Secret")
@@ -528,6 +533,146 @@ class TestMentionedIn:
             f"/api/v1/mentions/decisions/{uuid.uuid4()}", headers=env["h"]["admin"]
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Comments: resolved per reader, tokens scoped to the comment (R4, R10)
+# ---------------------------------------------------------------------------
+
+
+def resolved(kind: str, mention_id, label: str) -> str:
+    return f'<span data-type="mention" data-kind="{kind}" data-id="{mention_id}">{label}</span>'
+
+
+class TestComments:
+    async def _comment(self, client, env, base, body, who="admin", status=201, **extra):
+        resp = await client.post(
+            f"{base}/comments", json={"body": body, **extra}, headers=env["h"][who]
+        )
+        assert resp.status_code == status, resp.text
+        return resp.json()
+
+    async def test_a_hidden_card_reads_restricted_in_a_comment(self, client, env):
+        hid, vid = env["hidden"].id, env["visible"].id
+        adr = await _adr(client, env)
+        base = f"{ADR}/{adr['id']}"
+        body = f"<p>{span('card', hid)} {span('card', vid)}</p>"
+        thread = await self._comment(client, env, base, body)
+        assert thread["body"] == (
+            f"<p>{resolved('card', hid, '@' + HIDDEN)} {resolved('card', vid, '@Billing')}</p>"
+        )
+        resp = await client.get(f"{base}/comments", headers=env["h"]["reader"])
+        (read,) = resp.json()["threads"]
+        # The token is the COMMENT's, not the decision's.
+        assert read["body"] == (
+            f"<p>{restricted(thread['id'], 'card', hid)} {resolved('card', vid, '@Billing')}</p>"
+        )
+        _no_leak(env, resp.text)
+
+    async def test_a_decision_mention_is_restricted_without_adr_view(self, client, env):
+        target = await _adr(client, env, title="Use Postgres")
+        soaw = await _soaw(client, env, "<p>x</p>")
+        base = f"{SOAW}/{soaw['id']}"
+        thread = await self._comment(client, env, base, span("decision", target["id"]))
+        as_admin = (await client.get(f"{base}/comments", headers=env["h"]["admin"])).json()
+        assert as_admin["threads"][0]["body"] == resolved(
+            "decision", target["id"], f"{target['reference_number']} Use Postgres"
+        )
+        as_soawer = await client.get(f"{base}/comments", headers=env["h"]["soawer"])
+        assert as_soawer.json()["threads"][0]["body"] == restricted(
+            thread["id"], "decision", target["id"]
+        )
+        # And a writer without adr.view may not add one.
+        resp = await client.post(
+            f"{base}/comments",
+            json={"body": span("decision", target["id"])},
+            headers=env["h"]["soawer"],
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (404, "Decision not found")
+
+    async def test_a_writer_may_not_mention_a_card_they_cannot_read(self, client, env, db):
+        adr = await _adr(client, env)
+        resp = await client.post(
+            f"{ADR}/{adr['id']}/comments",
+            json={"body": span("card", env["hidden"].id)},
+            headers=env["h"]["reader"],
+        )
+        assert (resp.status_code, resp.json()["detail"]) == (404, "Card not found")
+        assert (await db.execute(select(DocumentComment))).scalars().all() == []
+
+    async def test_a_restricted_chip_copied_into_a_new_comment_is_dropped(self, client, env, db):
+        hid = env["hidden"].id
+        adr = await _adr(client, env, decision=f"<p>{span('card', hid)}</p>")
+        as_reader = (await client.get(f"{ADR}/{adr['id']}", headers=env["h"]["reader"])).json()
+        chip = restricted(adr["id"], "card", hid)
+        assert chip in as_reader["decision"]
+        thread = await self._comment(
+            client, env, f"{ADR}/{adr['id']}", f"<p>See {chip}</p>", who="reader"
+        )
+        assert thread["body"] == "<p>See </p>"
+        stored = await db.get(DocumentComment, uuid.UUID(thread["id"]))
+        assert stored.body == "<p>See </p>"
+
+    async def test_editing_keeps_a_hidden_mention(self, client, env, db):
+        hid = env["hidden"].id
+        adr = await _adr(client, env)
+        base = f"{ADR}/{adr['id']}"
+        comment = DocumentComment(
+            architecture_decision_id=uuid.UUID(adr["id"]),
+            author_id=env["users"]["reader"].id,
+            author_name="Rex",
+            body=f"<p>Old {span('card', hid)}</p>",
+        )
+        db.add(comment)
+        await db.commit()
+        chip = restricted(comment.id, "card", hid)
+        reply = await self._comment(
+            client, env, base, "<p>A reply</p>", who="reader", parent_id=str(comment.id)
+        )
+        assert reply["body"] == f"<p>Old {chip}</p>"
+        _no_leak(env, str(reply))
+        resp = await client.patch(
+            f"{base}/comments/{comment.id}",
+            json={"body": f"<p>New {chip}</p>"},
+            headers=env["h"]["reader"],
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["body"] == f"<p>New {chip}</p>"
+        _no_leak(env, resp.text)
+        await db.refresh(comment)
+        assert comment.body == f"<p>New {span('card', hid)}</p>"
+        # A token from another scope (the decision's) is dropped on edit.
+        foreign = restricted(adr["id"], "card", hid)
+        resp = await client.patch(
+            f"{base}/comments/{comment.id}",
+            json={"body": f"<p>Again {foreign}</p>"},
+            headers=env["h"]["reader"],
+        )
+        assert resp.json()["body"] == "<p>Again </p>"
+        resolved_resp = await client.post(
+            f"{base}/comments/{comment.id}/resolve", headers=env["h"]["reader"]
+        )
+        assert resolved_resp.status_code == 200, resolved_resp.text
+        _no_leak(env, resolved_resp.text)
+
+    async def test_non_get_responses_never_leak(self, client, env, db):
+        hid = env["hidden"].id
+        adr = await _adr(client, env)
+        base = f"{ADR}/{adr['id']}"
+        top = await self._comment(client, env, base, f"<p>{span('card', hid)}</p>")
+        responses = [
+            await client.post(
+                f"{base}/comments",
+                json={"body": "<p>reply</p>", "parent_id": top["id"]},
+                headers=env["h"]["reader"],
+            ),
+            await client.post(f"{base}/comments/{top['id']}/resolve", headers=env["h"]["reader"]),
+            await client.post(f"{base}/comments/{top['id']}/reopen", headers=env["h"]["reader"]),
+        ]
+        for resp in responses:
+            assert resp.status_code in (200, 201), resp.text
+            _no_leak(env, resp.text)
+            assert resp.json()["body"] == f"<p>{restricted(top['id'], 'card', hid)}</p>"
 
 
 # ---------------------------------------------------------------------------

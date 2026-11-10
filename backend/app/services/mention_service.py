@@ -310,7 +310,8 @@ async def check_new_mentions(
     system: bool,
 ) -> None:
     """Refuse (404) a new mention whose target does not exist or, for a user
-    writer, that the writer may not read. One query per kind present."""
+    writer, that the writer may not read (a card in module mode; a decision
+    without ``adr.view``). A person must exist. One query per kind present."""
     card_ids = {uuid.UUID(mid) for kind, mid in mentions if kind == "card"}
     decision_ids = {uuid.UUID(mid) for kind, mid in mentions if kind == "decision"}
     if card_ids:
@@ -340,6 +341,14 @@ async def check_new_mentions(
         )
         if found != decision_ids:
             raise MentionRefused(404, "Decision not found")
+    user_ids = {uuid.UUID(mid) for kind, mid in mentions if kind == "user"}
+    if user_ids:
+        # People are mentioned in comments only; anyone may name any user.
+        people = set(
+            (await db.execute(select(User.id).where(User.id.in_(user_ids)))).scalars().all()
+        )
+        if people != user_ids:
+            raise MentionRefused(404, "User not found")
 
 
 async def normalise_for_write(

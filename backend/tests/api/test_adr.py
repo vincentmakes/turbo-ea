@@ -525,9 +525,11 @@ class TestSignWorkflow:
         assert data["status"] == "signed"
         assert data["signed_at"] is not None
 
-    async def test_sign_with_comment_stores_it_on_signatory(self, client, db, adr_env):
+    async def test_sign_with_comment_keeps_it_in_the_discussion(self, client, db, adr_env):
         # The optional comment body used to be posted to a body-less
-        # endpoint and silently dropped (#802 audit).
+        # endpoint and silently dropped (#802 audit). It then lived on the
+        # signatory entry, where a recall wiped it; it is now a ``sign_note``
+        # comment and the note of the signature timeline row.
         admin = adr_env["admin"]
         member = adr_env["member"]
 
@@ -548,7 +550,19 @@ class TestSignWorkflow:
         assert resp.status_code == 200
         sig = resp.json()["signatories"][0]
         assert sig["status"] == "signed"
-        assert sig["comment"] == "Approved with reservations about cost."
+        assert "comment" not in sig
+        threads = (
+            await client.get(f"/api/v1/adr/{adr_id}/comments", headers=auth_headers(admin))
+        ).json()["threads"]
+        assert [(t["kind"], t["body"], t["author_name"]) for t in threads] == [
+            ("sign_note", "<p>Approved with reservations about cost.</p>", member.display_name)
+        ]
+        history = (
+            await client.get(f"/api/v1/adr/{adr_id}/history", headers=auth_headers(admin))
+        ).json()["entries"]
+        assert [(e["kind"], e["note"]) for e in history if e["kind"] == "signature"] == [
+            ("signature", "Approved with reservations about cost.")
+        ]
 
     async def test_sign_rejects_unknown_body_field(self, client, db, adr_env):
         admin = adr_env["admin"]

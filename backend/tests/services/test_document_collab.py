@@ -90,27 +90,7 @@ def test_is_signatory():
     assert collab.is_signatory([], U1) is False
 
 
-@pytest.mark.parametrize(
-    "may_comment, may_moderate, signatory, expected",
-    [
-        (True, True, False, {"comment": True, "moderate": True}),
-        (False, False, True, {"comment": True, "moderate": False}),
-        (False, True, False, {"comment": False, "moderate": True}),
-        (False, False, False, {"comment": False, "moderate": False}),
-    ],
-)
-def test_comment_capabilities(may_comment, may_moderate, signatory, expected):
-    assert (
-        collab.comment_capabilities(
-            may_comment=may_comment, may_moderate=may_moderate, signatory=signatory
-        )
-        == expected
-    )
-
-
-def test_empty_payloads():
-    can = {"comment": True, "moderate": False}
-    assert collab.discussion_payload(can) == {"can": can, "open_count": 0, "threads": []}
+def test_history_payload():
     assert collab.history_payload([{"id": "x"}], can_view_versions=False) == {
         "can_view_versions": False,
         "entries": [{"id": "x"}],

@@ -11,9 +11,10 @@ The static scan (``tests/services/test_card_read_scope_guard.py``) proves a
 module considered the read scope; this proves the queries inside it apply it.
 A route whose path parameter this file cannot fill must be listed in
 ``UNMAPPED_PARAMS`` or skipped with a reason, so a new route forces a decision.
-The sentinel is also MENTIONED in the decision's text and in a SoAW section
-(``EXTRA_CALLS`` adds the list calls whose optional query parameters add
-text fields), so a serialiser that forgets to resolve mentions leaks it.
+The sentinel is also MENTIONED in the decision's text, in a SoAW section and
+in a comment in the discussion of each (``EXTRA_CALLS`` adds the list calls
+whose optional query parameters add text fields), so a serialiser that
+forgets to resolve mentions leaks it.
 
 Two controls keep the sweep honest: as admin the sentinel must show up on a
 good number of routes (so an empty sweep cannot pass vacuously), and a second
@@ -158,6 +159,9 @@ async def world(db, client):
         "/api/v1/soaw",
         {"name": "Plan", "sections": {"1.1": {"content": f"<p>Scope: {mention}</p>"}}},
     )
+    # The discussion of each mentions it too: the comments GET resolves it per reader.
+    comment = await post(f"/api/v1/adr/{adr['id']}/comments", {"body": f"<p>{mention}</p>"})
+    await post(f"/api/v1/soaw/{soaw['id']}/comments", {"body": f"<p>On {mention}</p>"})
     risk = await post(
         "/api/v1/risks", {"title": "Risk", "card_ids": [anchor["id"], sentinel["id"]]}
     )
@@ -197,6 +201,7 @@ async def world(db, client):
             "card_id": anchor["id"],
             "adr_id": adr["id"],
             "soaw_id": soaw["id"],
+            "comment_id": comment["id"],
             "risk_id": risk["id"],
             "diagram_id": diagram["id"],
             "bm_id": bookmark["id"],

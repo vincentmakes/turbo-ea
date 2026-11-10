@@ -15,6 +15,7 @@ from app.models.soaw import SoAW
 from app.models.todo import Todo
 from app.models.user import User
 from app.services import document_collab, notification_service, soaw_service
+from app.services import document_discussion_service as discussion
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -56,7 +57,16 @@ class SignatureRequest(BaseModel):
 
 
 class RejectRequest(BaseModel):
+    # The reason, which also opens the rejection thread (and the history row's note).
     comment: str = Field(max_length=4000)
+
+
+class SignRequest(BaseModel):
+    # Optional signing note: a ``sign_note`` comment in the discussion and the
+    # note of the ``signature`` timeline row. An absent body signs without one.
+    note: str | None = Field(default=None, max_length=2000)
+
+    model_config = {"extra": "forbid"}
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +103,15 @@ async def _render(db: AsyncSession, payloads: list[dict], user: User) -> list[di
     )
 
 
+async def _detail_fields(db: AsyncSession, s: SoAW) -> dict:
+    """What a single-SoAW response adds to a list row: the open-thread count."""
+    return {"open_thread_count": await discussion.open_thread_count(db, document_collab.SOAW, s.id)}
+
+
 async def _respond(db: AsyncSession, s: SoAW, user: User) -> dict:
     """One SoAW with its chain fields (one light chain query)."""
-    (rendered,) = await _render(db, [_row_to_dict(s, await soaw_service.load_chains(db))], user)
+    row = {**_row_to_dict(s, await soaw_service.load_chains(db)), **await _detail_fields(db, s)}
+    (rendered,) = await _render(db, [row], user)
     return rendered
 
 
@@ -182,7 +198,13 @@ async def get_soaw(
     chains = await soaw_service.load_chains(db)
     (rendered,) = await _render(
         db,
-        [{**_row_to_dict(s, chains), "revisions": soaw_service.revisions_payload(chains, s.id)}],
+        [
+            {
+                **_row_to_dict(s, chains),
+                "revisions": soaw_service.revisions_payload(chains, s.id),
+                **await _detail_fields(db, s),
+            }
+        ],
         user,
     )
     return rendered
@@ -337,6 +359,7 @@ async def request_signatures(
 @router.post("/{soaw_id}/sign")
 async def sign_soaw(
     soaw_id: str,
+    body: SignRequest | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -389,7 +412,9 @@ async def sign_soaw(
 
     s.signatories = signatories
     flag_modified(s, "signatories")
-    await document_collab.on_workflow(db, document_collab.SOAW, s, "signature", user=user)
+    await document_collab.on_workflow(
+        db, document_collab.SOAW, s, "signature", user=user, note=body.note if body else None
+    )
 
     # Check if all signatories have signed
     all_signed = all(sig["status"] == "signed" for sig in signatories)
@@ -522,9 +547,15 @@ async def reject_soaw(
     user: User = Depends(get_current_user),
 ):
     """Reject the SoAW as a signatory. Resets to draft (the revision number
-    stays: revisions count signed versions), clears all signatories, and
-    notifies the creator."""
-    await PermissionService.require_permission(db, user, "soaw.manage")
+    stays: revisions count signed versions), clears all signatories, notifies
+    the creator and opens a rejection thread carrying the reason.
+
+    Like signing: a signatory holding ``soaw.sign`` (or ``soaw.manage``)."""
+    can_sign = await PermissionService.check_permission(
+        db, user, "soaw.sign"
+    ) or await PermissionService.check_permission(db, user, "soaw.manage")
+    if not can_sign:
+        raise HTTPException(403, "Insufficient permissions")
     s = await _get_soaw(db, soaw_id)
 
     if s.status != "in_review":

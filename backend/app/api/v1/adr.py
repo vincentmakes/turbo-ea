@@ -41,6 +41,7 @@ from app.services import (
     notification_service,
 )
 from app.services import decision_standing as ds
+from app.services import document_discussion_service as discussion
 from app.services.attachment_upload import (
     content_disposition,
     read_validated_upload,
@@ -171,6 +172,7 @@ async def _adr_to_dict(
         "change_summary": adr.change_summary,
         "recorded_by": recorded_by,
         "files": await adr_file_service.list_files(db, adr.id),
+        "open_thread_count": await discussion.open_thread_count(db, document_collab.ADR, adr.id),
     }
     (rendered,) = await document_collab.render_doc(
         db, document_collab.ADR, [payload], user=user, read_scope=read_scope, register=register
@@ -835,8 +837,6 @@ async def sign_adr(
 
     mine["status"] = "signed"
     mine["signed_at"] = datetime.now(timezone.utc).isoformat()
-    if body and body.comment:
-        mine["comment"] = body.comment
 
     # Auto-close system todos
     sign_todos = await db.execute(
@@ -852,6 +852,8 @@ async def sign_adr(
 
     adr.signatories = signatories
     flag_modified(adr, "signatories")
+    # The note becomes a ``sign_note`` comment and the timeline row's note; it
+    # is no longer written into the signatory entry (where a recall wiped it).
     await document_collab.on_workflow(
         db, document_collab.ADR, adr, "signature", user=user, note=body.comment if body else None
     )
