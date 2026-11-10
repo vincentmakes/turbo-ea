@@ -568,6 +568,56 @@ class TestConflicts:
         forced = await execute_rollback(db, batch, actor.id, force=True)
         assert forced["forced"] is True
 
+    async def test_a_later_review_of_a_batch_created_decision_conflicts(self, client, db, actor):
+        """The review events are stored (2.200.0), each in its request's
+        auto-batch: asking for and giving a signature on a decision an MCP
+        batch created is later work on that decision, so rolling the batch
+        back reports both requests as conflicts instead of silently deleting
+        a decision people have started to sign."""
+        from datetime import timedelta
+
+        from fastapi import HTTPException
+
+        from tests.conftest import auth_headers, create_role
+
+        await create_role(db, key="admin", label="Admin", permissions={"*": True})
+        batch = await _open_batch(db, actor)
+        with _InBatch(batch):
+            adr = await adr_service.create_decision(db, title="Batch ADR", created_by=actor.id)
+        adr_id = str(adr.id)
+
+        asked = await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(actor.id)]},
+            headers=auth_headers(actor),
+        )
+        assert asked.status_code == 200, asked.text
+        signed = await client.post(f"/api/v1/adr/{adr_id}/sign", headers=auth_headers(actor))
+        assert signed.status_code == 200, signed.text
+
+        later = {}
+        for event_type in ("adr.signatures_requested", "adr.signed"):
+            (event,) = (
+                (await db.execute(select(Event).where(Event.event_type == event_type)))
+                .scalars()
+                .all()
+            )
+            assert event.data["id"] == adr_id
+            later[event_type] = await db.get(MutationBatch, event.batch_id)
+        # ``created_at`` is transaction-constant in a test: order them by hand.
+        for offset, other in enumerate(later.values(), start=1):
+            other.created_at = batch.created_at + timedelta(seconds=offset)
+        await db.flush()
+
+        with pytest.raises(HTTPException) as exc:
+            await execute_rollback(db, batch, actor.id)
+        assert exc.value.status_code == 409
+        conflicts = sorted(exc.value.detail["conflicting_batches"], key=lambda c: c["created_at"])
+        assert [(c["batch_id"], c["touched_entities"]) for c in conflicts] == [
+            (str(later["adr.signatures_requested"].id), [adr_id]),
+            (str(later["adr.signed"].id), [adr_id]),
+        ]
+
 
 class TestSurveyRollback:
     """``survey.sent`` (one event per surveyed card) reverses as ONE close:

@@ -265,6 +265,39 @@ def card_update_sql(db):
     sa_event.remove(bind, "before_cursor_execute", _record)
 
 
+@pytest.fixture
+def publish_commit_log(db, monkeypatch):
+    """Record, in call order, every ``commit()`` of the shared test session and
+    every ``event_bus.publish``.
+
+    The ``get_db`` override hands each request the test's own session, so an
+    event flushed *after* the route's last commit is still readable by the test
+    and the defect "published after the commit, then rolled back when the
+    request's session closed" never shows in a plain assertion. This log makes
+    the order visible: entries are ``("commit",)`` and
+    ``("publish", event_type, persisted)``, ``persisted`` being whether the
+    call carried a ``db=`` session (only those write an ``Event`` row).
+    """
+    from app.services.event_bus import event_bus
+
+    log: list[tuple] = []
+    real_commit = db.commit
+    real_publish = event_bus.publish
+
+    async def _commit():
+        log.append(("commit",))
+        await real_commit()
+
+    async def _publish(event_type, data, *args, **kwargs):
+        session = kwargs.get("db", args[0] if args else None)
+        log.append(("publish", event_type, session is not None))
+        await real_publish(event_type, data, *args, **kwargs)
+
+    monkeypatch.setattr(db, "commit", _commit)
+    monkeypatch.setattr(event_bus, "publish", _publish)
+    return log
+
+
 # ---------------------------------------------------------------------------
 # Permission cache cleanup (autouse)
 # ---------------------------------------------------------------------------

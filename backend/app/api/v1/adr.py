@@ -729,9 +729,6 @@ async def request_signatures(
             data={"adr_id": adr_id, "adr_title": adr.title},
         )
 
-    await db.commit()
-    await db.refresh(adr)
-
     await event_bus.publish(
         "adr.signatures_requested",
         {
@@ -744,6 +741,8 @@ async def request_signatures(
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(adr)
 
     return await _detail(db, adr, user)
 
@@ -838,9 +837,6 @@ async def sign_adr(
                 data={"adr_id": adr_id, "adr_title": adr.title},
             )
 
-    await db.commit()
-    await db.refresh(adr)
-
     await event_bus.publish(
         "adr.signed",
         {
@@ -854,6 +850,8 @@ async def sign_adr(
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(adr)
 
     return await _detail(db, adr, user)
 
@@ -904,9 +902,6 @@ async def recall_adr_signatures(
     flag_modified(adr, "signatories")
     adr.status = "draft"
 
-    await db.commit()
-    await db.refresh(adr)
-
     await event_bus.publish(
         "adr.signatures_recalled",
         {
@@ -918,6 +913,8 @@ async def recall_adr_signatures(
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(adr)
 
     return await _detail(db, adr, user)
 
@@ -997,9 +994,6 @@ async def reject_adr(
     flag_modified(adr, "signatories")
     adr.status = "draft"
 
-    await db.commit()
-    await db.refresh(adr)
-
     await event_bus.publish(
         "adr.rejected",
         {
@@ -1008,11 +1002,12 @@ async def reject_adr(
             "revision_number": adr.revision_number,
             "title": adr.title,
             "rejector": user.display_name,
-            "comment": body.comment,
         },
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(adr)
 
     return await _detail(db, adr, user)
 
@@ -1297,9 +1292,8 @@ async def link_card(
         card_id=uuid.UUID(body.card_id),
     )
     db.add(link)
-    await db.commit()
-
     await _publish_adr_card_event(db, adr, "adr.linked", uuid.UUID(body.card_id), actor_id=user.id)
+    await db.commit()
     return await _detail(db, adr, user)
 
 
@@ -1312,8 +1306,8 @@ async def unlink_card(
 ):
     """Unlink an ADR from a card."""
     await PermissionService.require_permission(db, user, "adr.manage")
-    # Read the ADR up front — after the delete + commit its reference/title are
-    # still needed for the card-history event.
+    # Read the ADR up front: its reference and title go into the card-history
+    # event, published before the commit like every decision event.
     adr = await _get_adr(db, adr_id)
     # A link to a card hidden from the caller does not exist for them.
     await require_card_readable(db, user, uuid.UUID(card_id), mode="module")
@@ -1327,9 +1321,8 @@ async def unlink_card(
     if not link:
         raise HTTPException(404, "Link not found")
     await db.delete(link)
-    await db.commit()
-
     await _publish_adr_card_event(db, adr, "adr.unlinked", uuid.UUID(card_id), actor_id=user.id)
+    await db.commit()
 
 
 # ---------------------------------------------------------------------------

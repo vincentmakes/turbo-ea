@@ -125,6 +125,7 @@ from app.services.card_write_service import (
 )
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.data_quality import calc_data_quality, calc_data_quality_breakdown
+from app.services.document_event_scope import document_event_read_filters
 from app.services.event_bus import event_bus
 from app.services.lifecycle import lifecycle_rank
 from app.services.permission_service import PermissionService
@@ -3119,6 +3120,9 @@ async def get_history(
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))
         .where(*(() if peer_ok is None else (peer_ok,)))
+        # ``adr.linked`` / ``adr.unlinked`` name the decision: shown only to a
+        # reader who may open it.
+        .where(*await document_event_read_filters(db, user))
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .offset((page - 1) * page_size)

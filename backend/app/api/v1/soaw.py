@@ -278,9 +278,6 @@ async def request_signatures(
             },
         )
 
-    await db.commit()
-    await db.refresh(s)
-
     await event_bus.publish(
         "soaw.signatures_requested",
         {
@@ -292,6 +289,8 @@ async def request_signatures(
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(s)
 
     return await _respond(db, s)
 
@@ -395,9 +394,6 @@ async def sign_soaw(
                 },
             )
 
-    await db.commit()
-    await db.refresh(s)
-
     await event_bus.publish(
         "soaw.signed",
         {
@@ -410,6 +406,8 @@ async def sign_soaw(
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(s)
 
     return await _respond(db, s)
 
@@ -462,15 +460,14 @@ async def recall_signatures(
     flag_modified(s, "signatories")
     s.status = "draft"
 
-    await db.commit()
-    await db.refresh(s)
-
     await event_bus.publish(
         "soaw.signatures_recalled",
         {"id": soaw_id, "name": s.name, "revision_number": s.revision_number},
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(s)
 
     return await _respond(db, s)
 
@@ -548,9 +545,6 @@ async def reject_soaw(
     flag_modified(s, "signatories")
     s.status = "draft"
 
-    await db.commit()
-    await db.refresh(s)
-
     await event_bus.publish(
         "soaw.rejected",
         {
@@ -558,11 +552,12 @@ async def reject_soaw(
             "name": s.name,
             "revision_number": s.revision_number,
             "rejector": user.display_name,
-            "comment": body.comment,
         },
         db=db,
         user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(s)
 
     return await _respond(db, s)
 

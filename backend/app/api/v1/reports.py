@@ -57,6 +57,7 @@ from app.services.cost_attribution import (
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.cost_value import cost_value
 from app.services.data_quality_bands import DQ_BAND_BOUNDS, band_of, dq_band_condition
+from app.services.document_event_scope import document_event_read_filters
 from app.services.eol_custom_service import is_custom_product, load_custom_cycles
 from app.services.eol_service import (
     eol_status,
@@ -168,10 +169,12 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         # Recent Activity is landscape activity, card-less or not (a SoAW
         # signature, a rollback). ``ops.*`` events are operator actions on the
         # instance itself and would show a viewer what admins did, so they are
-        # the one family left out.
+        # the one family left out. Decision and SoAW events name the document,
+        # so they reach only a reader who may open it.
         .where(
             ~Event.event_type.startswith("ops.", autoescape=True),
             *event_read_filters(read_scope),
+            *await document_event_read_filters(db, user),
         )
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
@@ -579,7 +582,10 @@ async def admin_dashboard_summary(
     # ---- Recent system activity (50 events) ------------------------------
     sys_events_result = await db.execute(
         select(Event)
-        .where(*event_read_filters(await CardReadScope.load(db, user)))
+        .where(
+            *event_read_filters(await CardReadScope.load(db, user)),
+            *await document_event_read_filters(db, user),
+        )
         .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .limit(50)
