@@ -4,7 +4,8 @@ the generic :mod:`entities` engine.
 Listed in dependency order: a section's intra-module parents come first
 (``PpmWbs`` before ``PpmTask`` before ``PpmTaskComment``; ``Risk`` before
 ``RiskCard``/``RiskMitigationTask`` before the occurrences; ``ArchitectureDecision``
-before its card links; ``Survey`` before ``SurveyResponse``). Cards and relations
+before its card links, decision links, people and files, with the file contents
+before the files; ``Survey`` before ``SurveyResponse``). Cards and relations
 are applied earlier by the bespoke core sections, so card FKs always resolve.
 
 Deliberately absent: ``events``, ``mutation_batches`` and ``audit_log``. They are
@@ -20,6 +21,12 @@ import sqlalchemy as sa
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_file import (
+    ArchitectureDecisionFile,
+    ArchitectureDecisionFileContent,
+)
+from app.models.architecture_decision_link import ArchitectureDecisionLink
+from app.models.architecture_decision_person import ArchitectureDecisionPerson
 from app.models.bookmark import Bookmark
 from app.models.card_logo import CardLogo
 from app.models.comment import Comment
@@ -249,10 +256,24 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     EntitySection(
         "Adrs",
         ArchitectureDecision,
-        user_fk_columns=("created_by",),
+        user_fk_columns=("created_by", "recorded_by"),
         self_parent_column="parent_id",
     ),
     EntitySection("AdrCards", ArchitectureDecisionCard, card_fk_columns=("card_id",)),
+    # Decision-to-decision links: both ends are decision ids, preserved
+    # verbatim like every module PK, so they need no remap.
+    EntitySection("AdrLinks", ArchitectureDecisionLink),
+    # A person whose user has no match on the target keeps the stored name
+    # with user_id null (the FK is nullable).
+    EntitySection("AdrPeople", ArchitectureDecisionPerson, user_fk_columns=("user_id",)),
+    # The bytes before the file rows that point at them: one content row may
+    # be shared by the file rows of several revisions.
+    EntitySection(
+        "AdrFileContents",
+        ArchitectureDecisionFileContent,
+        asset_columns=(("data", "bytes", "bin"),),
+    ),
+    EntitySection("AdrFiles", ArchitectureDecisionFile, user_fk_columns=("created_by",)),
     EntitySection(
         "Soaws",
         SoAW,

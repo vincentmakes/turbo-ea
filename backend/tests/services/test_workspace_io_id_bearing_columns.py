@@ -83,6 +83,7 @@ ID_FREE_COLUMNS: dict[tuple[str, str], str] = {
     ("Adrs", "related_decisions"): MODULE_IDS,
     ("Adrs", "attributes"): "an extension's own ext.<key>.* bag; core cannot know its shape",
     ("Adrs", "signatories"): USER_IDS,
+    ("AdrFileContents", "data"): BINARY,
     ("Soaws", "document_info"): PROSE,
     ("Soaws", "version_history"): PROSE,
     ("Soaws", "sections"): PROSE,

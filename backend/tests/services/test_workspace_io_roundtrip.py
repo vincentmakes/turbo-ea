@@ -2404,3 +2404,279 @@ async def test_principles_roundtrip_and_are_numbered_by_the_target(db):
     assert rows["Target only"].reference_number == "P-007"
     assert rows["Cloud first"].reference_number == "P-008"
     assert rows["Cloud first"].rationale == "Elastic"
+
+
+async def _seed_decision_register(db):
+    """Two decisions: ADR-902 replaces ADR-901 (with a note), names a user and a
+    free-text person, and shares one file's bytes with ADR-901."""
+    from datetime import date, datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.architecture_decision_file import (
+        ArchitectureDecisionFile,
+        ArchitectureDecisionFileContent,
+    )
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.models.architecture_decision_person import ArchitectureDecisionPerson
+
+    admin = await create_user(db, email="adr-admin@test.com", role="admin")
+    maker = await create_user(db, email="adr-maker@test.com", role="admin")
+    old = ArchitectureDecision(
+        reference_number="ADR-901", title="Use one broker", status="signed", created_by=admin.id
+    )
+    new = ArchitectureDecision(
+        reference_number="ADR-902",
+        title="Use two brokers",
+        status="signed",
+        created_by=admin.id,
+        decided_on=date(2026, 3, 2),
+        effective_from=date(2026, 4, 1),
+        valid_until=date(2027, 3, 31),
+        change_summary="Split the broker",
+        recorded_by=maker.id,
+        recorded_at=datetime(2026, 3, 3, 9, 30, tzinfo=timezone.utc),
+    )
+    blob = b"%PDF-1.7\n" + b"minutes" * 300
+    content = ArchitectureDecisionFileContent(size=len(blob), data=blob)
+    db.add_all([old, new, content])
+    await db.flush()
+    db.add_all(
+        [
+            ArchitectureDecisionLink(
+                source_id=new.id, target_id=old.id, kind="replaces", note="§3 only"
+            ),
+            ArchitectureDecisionPerson(
+                architecture_decision_id=new.id,
+                role="decision_maker",
+                user_id=maker.id,
+                name="Uma Maker",
+                position=0,
+            ),
+            ArchitectureDecisionPerson(
+                architecture_decision_id=new.id,
+                role="participant",
+                user_id=None,
+                name="External Auditor",
+                position=1,
+            ),
+            ArchitectureDecisionFile(
+                architecture_decision_id=old.id,
+                content_id=content.id,
+                name="minutes.pdf",
+                mime_type="application/pdf",
+                size=len(blob),
+            ),
+            ArchitectureDecisionFile(
+                architecture_decision_id=new.id,
+                content_id=content.id,
+                name="minutes (copy).pdf",
+                mime_type="application/pdf",
+                size=len(blob),
+                created_by=maker.id,
+            ),
+        ]
+    )
+    await db.flush()
+    return admin, maker, old, new, content, blob
+
+
+ADR_SHEETS = ("Adrs", "AdrLinks", "AdrPeople", "AdrFileContents", "AdrFiles")
+
+
+def _adr_counts(result) -> dict[str, tuple[int, int, int, int]]:
+    by_sheet = {s.sheet: s for s in result.sections}
+    return {
+        sheet: (
+            by_sheet[sheet].created,
+            by_sheet[sheet].skipped,
+            by_sheet[sheet].conflict,
+            by_sheet[sheet].failed,
+        )
+        for sheet in ADR_SHEETS
+    }
+
+
+async def test_decision_register_roundtrips_and_reimports_as_all_skip(db, tmp_path):
+    """Links (with their note), people (a user and a free-text name), dates,
+    the recorder and a file whose bytes two decisions share survive export →
+    delete → re-import from disk; importing the same bundle again changes
+    nothing."""
+    from datetime import date, datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.architecture_decision_file import (
+        ArchitectureDecisionFile,
+        ArchitectureDecisionFileContent,
+    )
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.models.architecture_decision_person import ArchitectureDecisionPerson
+
+    admin, maker, old, new, content, blob = await _seed_decision_register(db)
+    old_id, new_id, content_id = old.id, new.id, content.id
+
+    raw = await build_bundle(db)
+    # One asset for the shared bytes, not one per file row.
+    _, _, assets = bundle_io.unpack(raw)
+    assert sorted(p for p in assets if p.startswith("AdrFileContents/")) == [
+        f"AdrFileContents/{content_id}__data.bin"
+    ]
+    assert assets[f"AdrFileContents/{content_id}__data.bin"] == blob
+    # User FKs travel as e-mail addresses, never as this instance's user ids.
+    exported = {r["reference_number"]: r for r in parse_bundle(raw).rows("Adrs")}
+    assert "recorded_by" not in exported["ADR-902"]
+    assert exported["ADR-902"]["recorded_by__email"] == "adr-maker@test.com"
+    assert exported["ADR-901"].get("recorded_by__email") is None
+    people_rows = parse_bundle(raw).rows("AdrPeople")
+    assert sorted((r["name"], r.get("user_id__email")) for r in people_rows) == [
+        ("External Auditor", None),
+        ("Uma Maker", "adr-maker@test.com"),
+    ]
+    assert all("user_id" not in r for r in people_rows)
+
+    # Same instance: every row already exists, so it is all-skip.
+    same = await apply_bundle(db, parse_bundle(raw), admin)
+    assert same.total_failed == 0, same.as_dict()
+    assert _adr_counts(same) == {
+        "Adrs": (0, 2, 0, 0),
+        "AdrLinks": (0, 1, 0, 0),
+        "AdrPeople": (0, 2, 0, 0),
+        "AdrFileContents": (0, 1, 0, 0),
+        "AdrFiles": (0, 2, 0, 0),
+    }
+
+    # Wipe the register; the decisions cascade to links, people and files,
+    # and the content goes once nothing points at it.
+    await db.execute(delete(ArchitectureDecision))
+    await db.execute(delete(ArchitectureDecisionFileContent))
+    await db.flush()
+    db.expunge_all()
+
+    path = tmp_path / "workspace.zip"
+    path.write_bytes(raw)
+    with parse_bundle(path) as bundle:
+        result = await apply_bundle(db, bundle, admin)
+    assert result.total_failed == 0, result.as_dict()
+    assert _adr_counts(result) == {
+        "Adrs": (2, 0, 0, 0),
+        "AdrLinks": (1, 0, 0, 0),
+        "AdrPeople": (2, 0, 0, 0),
+        "AdrFileContents": (1, 0, 0, 0),
+        "AdrFiles": (2, 0, 0, 0),
+    }
+
+    restored = (
+        await db.execute(select(ArchitectureDecision).where(ArchitectureDecision.id == new_id))
+    ).scalar_one()
+    assert restored.reference_number == "ADR-902"
+    assert restored.decided_on == date(2026, 3, 2)
+    assert restored.effective_from == date(2026, 4, 1)
+    assert restored.valid_until == date(2027, 3, 31)
+    assert restored.change_summary == "Split the broker"
+    assert restored.recorded_by == maker.id  # remapped by email
+    assert restored.recorded_at == datetime(2026, 3, 3, 9, 30, tzinfo=timezone.utc)
+    assert restored.created_by == admin.id
+
+    links = (await db.execute(select(ArchitectureDecisionLink))).scalars().all()
+    assert [(lk.source_id, lk.target_id, lk.kind, lk.note) for lk in links] == [
+        (new_id, old_id, "replaces", "§3 only")
+    ]
+
+    people = (
+        (
+            await db.execute(
+                select(ArchitectureDecisionPerson).order_by(ArchitectureDecisionPerson.position)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [
+        (p.architecture_decision_id, p.role, p.user_id, p.name, p.position) for p in people
+    ] == [
+        (new_id, "decision_maker", maker.id, "Uma Maker", 0),
+        (new_id, "participant", None, "External Auditor", 1),
+    ]
+
+    contents = (
+        await db.execute(
+            select(
+                ArchitectureDecisionFileContent.id,
+                ArchitectureDecisionFileContent.size,
+                ArchitectureDecisionFileContent.data,
+            )
+        )
+    ).all()
+    assert [(c.id, c.size, c.data) for c in contents] == [(content_id, len(blob), blob)]
+
+    files = (
+        (await db.execute(select(ArchitectureDecisionFile).order_by(ArchitectureDecisionFile.name)))
+        .scalars()
+        .all()
+    )
+    assert [
+        (f.architecture_decision_id, f.content_id, f.name, f.mime_type, f.size, f.created_by)
+        for f in files
+    ] == [
+        (new_id, content_id, "minutes (copy).pdf", "application/pdf", len(blob), maker.id),
+        (old_id, content_id, "minutes.pdf", "application/pdf", len(blob), None),
+    ]
+
+    # And once more: the re-imported register is left exactly as it is.
+    again = await apply_bundle(db, parse_bundle(raw), admin)
+    assert again.total_failed == 0, again.as_dict()
+    assert _adr_counts(again) == {
+        "Adrs": (0, 2, 0, 0),
+        "AdrLinks": (0, 1, 0, 0),
+        "AdrPeople": (0, 2, 0, 0),
+        "AdrFileContents": (0, 1, 0, 0),
+        "AdrFiles": (0, 2, 0, 0),
+    }
+
+
+async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(db):
+    """A bundle naming a person by a user the target does not have (and no
+    Users sheet to create one) lands the person with the stored name and no
+    user, rather than skipping the row."""
+    from app.models.architecture_decision_person import ArchitectureDecisionPerson
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="adr-importer@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    adr_id = "8a1c2f34-0000-4000-8000-0000000000a1"
+    person_id = "8a1c2f34-0000-4000-8000-0000000000b1"
+    adr_row = {c: None for c in sections["Adrs"].header()} | {
+        "id": adr_id,
+        "reference_number": "ADR-950",
+        "title": "Ghost-made decision",
+        "status": "draft",
+        "revision_number": 1,
+        "attributes": "{}",
+        "created_by__email": "ghost@nowhere.example",
+        "recorded_by__email": "ghost@nowhere.example",
+    }
+    person_row = {c: None for c in sections["AdrPeople"].header()} | {
+        "id": person_id,
+        "architecture_decision_id": adr_id,
+        "role": "decision_maker",
+        "name": "Gil Ghost",
+        "position": 0,
+        "user_id__email": "ghost@nowhere.example",
+    }
+    raw = _make_bundle(
+        {
+            "Adrs": (tuple(sections["Adrs"].header()), frozenset(), [adr_row]),
+            "AdrPeople": (tuple(sections["AdrPeople"].header()), frozenset(), [person_row]),
+        }
+    )
+
+    result = await apply_bundle(db, parse_bundle(raw), importer)
+    assert result.total_failed == 0, result.as_dict()
+    people = next(s for s in result.sections if s.sheet == "AdrPeople")
+    assert (people.created, people.conflict) == (1, 0)
+
+    person = (await db.execute(select(ArchitectureDecisionPerson))).scalar_one()
+    assert str(person.id) == person_id
+    assert str(person.architecture_decision_id) == adr_id
+    assert person.user_id is None
+    assert person.name == "Gil Ghost"
+    assert person.role == "decision_maker"

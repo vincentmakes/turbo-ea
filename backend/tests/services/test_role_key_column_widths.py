@@ -40,6 +40,9 @@ ROLE_KEY_LENGTH = 50
 # A new column here needs its reason; a column that does store a roles.key is
 # found by ``_role_named_columns`` and must be as wide as ``roles.key``.
 NOT_A_ROLE_KEY: dict[tuple[str, str], str] = {
+    ("architecture_decision_people", "role"): (
+        "a person's part in a decision (decision_maker, participant), not an app role"
+    ),
     ("risk_cards", "role"): "a card's part in a risk (affected, …), not an app role",
     ("stakeholders", "role"): "a stakeholder_role_definitions.key, its own 50-wide registry",
 }
