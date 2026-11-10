@@ -12,7 +12,9 @@ import pytest
 from sqlalchemy import select
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
+from app.models.event import Event
 from app.models.notification import Notification
+from app.models.soaw import SoAW
 from app.models.todo import Todo
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
@@ -205,7 +207,7 @@ class TestReject:
         )
         assert resp.status_code == 403
 
-    async def test_reject_bumps_the_revision_and_notifies_everyone_else(self, client, db, env):
+    async def test_reject_keeps_the_revision_and_notifies_everyone_else(self, client, db, env):
         doc = await _create(client, env["admin"])
         assert doc["revision_number"] == 1
         await _request(client, env["admin"], doc["id"], [env["one"], env["two"]])
@@ -218,7 +220,8 @@ class TestReject:
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "draft" and body["signatories"] == []
-        assert body["revision_number"] == 2
+        # Rejections do not bump the revision: revisions count signed versions.
+        assert body["revision_number"] == 1
         assert await _open_sign_todos(db) == []
         (creator_note,) = await _notifications(db, env["admin"], "soaw_rejected")
         assert creator_note.message == 'One rejected "Cloud Migration SoAW": Scope is wrong'
@@ -317,3 +320,449 @@ class TestUpdateGuards:
             f"{SOAW}?initiative_id={env['initiative'].id}", headers=auth_headers(env["admin"])
         )
         assert [r["id"] for r in resp.json()] == [linked["id"]]
+
+
+# ---------------------------------------------------------------------------
+# Revision parity with decisions: chain guard, chain fields, review lock
+# ---------------------------------------------------------------------------
+
+
+async def _signed(client, env, name="Doc") -> dict:
+    doc = await _create(client, env["admin"], name=name)
+    await _request(client, env["admin"], doc["id"], [env["one"]])
+    resp = await client.post(f"{SOAW}/{doc['id']}/sign", headers=auth_headers(env["one"]))
+    assert resp.json()["status"] == "signed"
+    return resp.json()
+
+
+async def _revise(client, env, soaw_id):
+    return await client.post(f"{SOAW}/{soaw_id}/revise", headers=auth_headers(env["admin"]))
+
+
+async def _sign(client, env, soaw_id) -> dict:
+    await _request(client, env["admin"], soaw_id, [env["one"]])
+    resp = await client.post(f"{SOAW}/{soaw_id}/sign", headers=auth_headers(env["one"]))
+    assert resp.json()["status"] == "signed"
+    return resp.json()
+
+
+def _by_id(rows: list[dict]) -> dict[str, dict]:
+    return {r["id"]: r for r in rows}
+
+
+class TestReviseGuard:
+    async def test_second_revise_is_409_until_the_open_revision_is_signed(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        assert second["revision_number"] == 2
+
+        again = await _revise(client, env, first["id"])
+        assert again.status_code == 409
+        assert again.json()["detail"] == {
+            "error": "open_revision_exists",
+            "revision_id": second["id"],
+        }
+
+        await _sign(client, env, second["id"])
+        stale = await _revise(client, env, first["id"])
+        assert stale.status_code == 409
+        assert stale.json()["detail"] == {"error": "not_revisable", "reason": "not_latest"}
+
+        third = await _revise(client, env, second["id"])
+        assert third.status_code == 200
+        assert third.json()["revision_number"] == 3
+        assert third.json()["parent_id"] == second["id"]
+
+    async def test_a_draft_revision_cannot_be_revised(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        resp = await _revise(client, env, second["id"])
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Only signed documents can be revised"
+
+    async def test_numbering_follows_the_chain_maximum_after_a_legacy_gap(self, client, db, env):
+        # Before rejections stopped bumping, a chain could read 1, 3.
+        root = SoAW(name="Legacy", status="signed", revision_number=1, created_by=env["admin"].id)
+        db.add(root)
+        await db.flush()
+        tip = SoAW(
+            name="Legacy",
+            status="signed",
+            revision_number=3,
+            parent_id=root.id,
+            created_by=env["admin"].id,
+        )
+        db.add(tip)
+        await db.flush()
+
+        resp = await _revise(client, env, str(tip.id))
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["revision_number"] == 4
+        assert body["parent_id"] == str(tip.id)
+        assert body["status"] == "draft"
+
+    async def test_revise_copies_the_content_and_answers_with_chain_fields(self, client, db, env):
+        doc = await _create(
+            client,
+            env["admin"],
+            name="Copy",
+            initiative_id=str(env["initiative"].id),
+            sections={"scope": "v1"},
+            version_history=[{"version": "1.0"}],
+        )
+        await _sign(client, env, doc["id"])
+        resp = await _revise(client, env, doc["id"])
+        body = resp.json()
+        assert body["name"] == "Copy"
+        assert body["initiative_id"] == str(env["initiative"].id)
+        assert body["sections"] == {"scope": "v1"}
+        assert body["document_info"] == {"version": "1.0"}
+        assert body["version_history"] == [{"version": "1.0"}]
+        assert body["created_by"] == str(env["admin"].id)
+        assert body["signatories"] == []
+        assert body["is_current"] is False
+        assert body["is_earlier_revision"] is False
+        assert body["superseded_by"] is None
+        assert body["open_revision"] is None
+
+    async def test_viewer_cannot_revise(self, client, db, env):
+        first = await _signed(client, env)
+        resp = await client.post(
+            f"{SOAW}/{first['id']}/revise", headers=auth_headers(env["viewer"])
+        )
+        assert resp.status_code == 403
+
+
+class TestChainFields:
+    async def test_a_single_draft_is_current(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        assert doc["is_current"] is True
+        assert doc["is_earlier_revision"] is False
+        assert doc["superseded_by"] is None
+        assert doc["open_revision"] is None
+
+    async def test_list_and_detail_while_a_revision_is_open(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+
+        rows = _by_id((await client.get(SOAW, headers=auth_headers(env["admin"]))).json())
+        assert rows[first["id"]]["is_current"] is True
+        assert rows[first["id"]]["is_earlier_revision"] is False
+        assert rows[first["id"]]["superseded_by"] is None
+        assert rows[first["id"]]["open_revision"] == {
+            "id": second["id"],
+            "name": "Doc",
+            "revision_number": 2,
+            "status": "draft",
+        }
+        assert rows[second["id"]]["is_current"] is False
+        assert rows[second["id"]]["is_earlier_revision"] is False
+        assert rows[second["id"]]["superseded_by"] is None
+        assert rows[second["id"]]["open_revision"] is None
+
+        detail = (
+            await client.get(f"{SOAW}/{first['id']}", headers=auth_headers(env["admin"]))
+        ).json()
+        assert detail["open_revision"]["id"] == second["id"]
+        assert detail["revisions"] == [
+            {
+                "id": first["id"],
+                "name": "Doc",
+                "revision_number": 1,
+                "status": "signed",
+                "signed_at": first["signed_at"],
+            },
+            {
+                "id": second["id"],
+                "name": "Doc",
+                "revision_number": 2,
+                "status": "draft",
+                "signed_at": None,
+            },
+        ]
+
+    async def test_list_and_detail_once_the_revision_is_signed(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        signed_second = await _sign(client, env, second["id"])
+
+        rows = _by_id((await client.get(SOAW, headers=auth_headers(env["viewer"]))).json())
+        assert rows[first["id"]]["is_current"] is False
+        assert rows[first["id"]]["is_earlier_revision"] is True
+        assert rows[first["id"]]["superseded_by"] == {
+            "id": second["id"],
+            "name": "Doc",
+            "revision_number": 2,
+        }
+        assert rows[first["id"]]["open_revision"] is None
+        assert rows[second["id"]]["is_current"] is True
+        assert rows[second["id"]]["superseded_by"] is None
+
+        detail = (
+            await client.get(f"{SOAW}/{second['id']}", headers=auth_headers(env["viewer"]))
+        ).json()
+        assert detail["is_current"] is True
+        assert [(r["id"], r["status"]) for r in detail["revisions"]] == [
+            (first["id"], "signed"),
+            (second["id"], "signed"),
+        ]
+        assert detail["revisions"][1]["signed_at"] == signed_second["signed_at"]
+
+    async def test_include_earlier_false_drops_only_earlier_revisions(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        other = await _create(client, env["admin"], name="Other")
+
+        open_ids = {
+            r["id"]
+            for r in (
+                await client.get(
+                    f"{SOAW}?include_earlier=false", headers=auth_headers(env["admin"])
+                )
+            ).json()
+        }
+        # The current revision and the open draft both stay.
+        assert open_ids == {first["id"], second["id"], other["id"]}
+
+        await _sign(client, env, second["id"])
+        current_ids = {
+            r["id"]
+            for r in (
+                await client.get(
+                    f"{SOAW}?include_earlier=false", headers=auth_headers(env["admin"])
+                )
+            ).json()
+        }
+        assert current_ids == {second["id"], other["id"]}
+        all_ids = {
+            r["id"] for r in (await client.get(SOAW, headers=auth_headers(env["admin"]))).json()
+        }
+        assert all_ids == {first["id"], second["id"], other["id"]}
+
+    async def test_revisions_listing_carries_chain_fields(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        await _sign(client, env, second["id"])
+        resp = await client.get(
+            f"{SOAW}/{second['id']}/revisions", headers=auth_headers(env["one"])
+        )
+        rows = resp.json()
+        assert [r["id"] for r in rows] == [first["id"], second["id"]]
+        assert [r["is_current"] for r in rows] == [False, True]
+        assert [r["is_earlier_revision"] for r in rows] == [True, False]
+        assert rows[0]["sections"] == {}
+
+    async def test_revisions_listing_survives_a_fork(self, client, db, env):
+        # Legacy data: two children of one parent. (A dangling parent cannot
+        # reach the database, the FK sets it NULL; the service tests cover it.)
+        root = SoAW(name="Fork", status="signed", revision_number=1, created_by=env["admin"].id)
+        db.add(root)
+        await db.flush()
+        a = SoAW(name="Fork", status="signed", revision_number=2, parent_id=root.id)
+        b = SoAW(name="Fork", status="draft", revision_number=3, parent_id=root.id)
+        db.add_all([a, b])
+        await db.flush()
+
+        for node in (root, a, b):
+            resp = await client.get(
+                f"{SOAW}/{node.id}/revisions", headers=auth_headers(env["admin"])
+            )
+            assert [r["id"] for r in resp.json()] == [str(root.id), str(a.id), str(b.id)]
+            assert [r["is_current"] for r in resp.json()] == [False, True, False]
+
+
+class TestReviewLock:
+    async def _in_review(self, client, env) -> dict:
+        doc = await _create(client, env["admin"], sections={"scope": "v1"})
+        return await _request(client, env["admin"], doc["id"], [env["one"]])
+
+    async def test_the_initiative_stays_editable_in_review(self, client, db, env):
+        doc = await self._in_review(client, env)
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}",
+            json={"initiative_id": str(env["initiative"].id)},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["initiative_id"] == str(env["initiative"].id)
+        assert resp.json()["status"] == "in_review"
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"name": "Renamed"},
+            {"sections": {"scope": "v2"}},
+            {"document_info": {"version": "2.0"}},
+            {"version_history": [{"version": "2.0"}]},
+            {"initiative_id": None, "name": "Renamed"},
+        ],
+    )
+    async def test_content_is_locked_in_review(self, client, db, env, change):
+        doc = await self._in_review(client, env)
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}", json=change, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == (
+            "A document in review is locked. Recall the signature requests to edit it."
+        )
+        after = (await client.get(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))).json()
+        assert after["name"] == "Cloud Migration SoAW"
+        assert after["sections"] == {"scope": "v1"}
+        assert after["document_info"] == {"version": "1.0"}
+
+    async def test_approved_is_refused_during_review(self, client, db, env):
+        doc = await self._in_review(client, env)
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"status": "approved"}, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 403
+        after = (await client.get(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))).json()
+        assert after["status"] == "in_review"
+
+    async def test_a_draft_can_be_approved_edited_and_sent(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        approved = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"status": "approved"}, headers=auth_headers(env["admin"])
+        )
+        assert approved.status_code == 200 and approved.json()["status"] == "approved"
+        edited = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"name": "Still open"}, headers=auth_headers(env["admin"])
+        )
+        assert edited.status_code == 200 and edited.json()["name"] == "Still open"
+        sent = await _request(client, env["admin"], doc["id"], [env["one"]])
+        assert sent["status"] == "in_review"
+
+    async def test_signatures_cannot_be_requested_again_in_review(self, client, db, env):
+        doc = await self._in_review(client, env)
+        resp = await client.post(
+            f"{SOAW}/{doc['id']}/request-signatures",
+            json={"user_ids": [str(env["two"].id)]},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == {"error": "not_requestable"}
+        after = (await client.get(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))).json()
+        assert [s["user_id"] for s in after["signatories"]] == [str(env["one"].id)]
+        assert [t.assigned_to for t in await _open_sign_todos(db)] == [env["one"].id]
+
+    async def test_recall_then_edit_works(self, client, db, env):
+        doc = await self._in_review(client, env)
+        await client.post(
+            f"{SOAW}/{doc['id']}/recall-signatures", headers=auth_headers(env["admin"])
+        )
+        resp = await client.patch(
+            f"{SOAW}/{doc['id']}", json={"name": "Renamed"}, headers=auth_headers(env["admin"])
+        )
+        assert resp.status_code == 200 and resp.json()["name"] == "Renamed"
+
+
+class TestDeleteDraftsOnly:
+    async def test_a_draft_can_be_deleted(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 204
+        gone = await client.get(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert gone.status_code == 404
+
+    async def test_in_review_cannot_be_deleted(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await _request(client, env["admin"], doc["id"], [env["one"]])
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Only draft documents can be deleted"
+        still = await client.get(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert still.status_code == 200
+
+    async def test_signed_cannot_be_deleted(self, client, db, env):
+        doc = await _signed(client, env)
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "Only draft documents can be deleted"
+
+    async def test_approved_cannot_be_deleted(self, client, db, env):
+        doc = await _create(client, env["admin"])
+        await client.patch(
+            f"{SOAW}/{doc['id']}", json={"status": "approved"}, headers=auth_headers(env["admin"])
+        )
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["admin"]))
+        assert resp.status_code == 400
+
+    async def test_viewer_is_refused_before_the_status_check(self, client, db, env):
+        doc = await _signed(client, env)
+        resp = await client.delete(f"{SOAW}/{doc['id']}", headers=auth_headers(env["viewer"]))
+        assert resp.status_code == 403
+
+
+class TestRevisionTexts:
+    async def test_a_second_revision_is_named_with_its_revision(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        await _request(client, env["admin"], second["id"], [env["two"]])
+
+        (todo,) = await _open_sign_todos(db)
+        assert todo.description == 'Sign SoAW: "Doc (Rev 2)"'
+        assert todo.link == f"/ea-delivery/soaw/{second['id']}"
+        notes = await _notifications(db, env["two"], "soaw_sign_requested")
+        assert [n.message for n in notes] == ['Ada requested your signature on "Doc (Rev 2)"']
+        assert notes[0].data == {
+            "soaw_id": second["id"],
+            "soaw_name": "Doc",
+            "revision_number": 2,
+        }
+        events = (
+            await db.execute(select(Event).where(Event.event_type == "soaw.signatures_requested"))
+        ).scalars()
+        payloads = [e.data for e in events if e.data["id"] == second["id"]]
+        assert payloads == [
+            {"id": second["id"], "name": "Doc", "revision_number": 2, "signatory_count": 1}
+        ]
+
+    async def test_a_first_revision_is_named_plainly(self, client, db, env):
+        doc = await _create(client, env["admin"], name="Plain")
+        await _request(client, env["admin"], doc["id"], [env["one"]])
+        (todo,) = await _open_sign_todos(db)
+        assert todo.description == 'Sign SoAW: "Plain"'
+
+    async def test_signing_closes_only_the_todo_of_this_document(self, client, db, env):
+        # Two documents with the same name: matching by name closed both.
+        a = await _create(client, env["admin"], name="Twin")
+        b = await _create(client, env["admin"], name="Twin")
+        await _request(client, env["admin"], a["id"], [env["one"]])
+        await _request(client, env["admin"], b["id"], [env["one"]])
+        await client.post(f"{SOAW}/{a['id']}/sign", headers=auth_headers(env["one"]))
+        assert [t.link for t in await _open_sign_todos(db)] == [f"/ea-delivery/soaw/{b['id']}"]
+
+    async def test_recall_and_reject_close_only_this_documents_todos(self, client, db, env):
+        a = await _create(client, env["admin"], name="Twin")
+        b = await _create(client, env["admin"], name="Twin")
+        c = await _create(client, env["admin"], name="Twin")
+        for doc in (a, b, c):
+            await _request(client, env["admin"], doc["id"], [env["one"]])
+        await client.post(f"{SOAW}/{a['id']}/recall-signatures", headers=auth_headers(env["admin"]))
+        await client.post(
+            f"{SOAW}/{b['id']}/reject", json={"comment": "no"}, headers=auth_headers(env["one"])
+        )
+        assert [t.link for t in await _open_sign_todos(db)] == [f"/ea-delivery/soaw/{c['id']}"]
+
+    async def test_signature_and_rejection_texts_carry_the_revision(self, client, db, env):
+        first = await _signed(client, env)
+        second = (await _revise(client, env, first["id"])).json()
+        await _request(client, env["admin"], second["id"], [env["one"], env["two"]])
+        await client.post(f"{SOAW}/{second['id']}/sign", headers=auth_headers(env["one"]))
+        signed_notes = await _notifications(db, env["admin"], "soaw_signed")
+        assert 'One signed "Doc (Rev 2)" (1/2)' in [n.message for n in signed_notes]
+
+        await client.post(
+            f"{SOAW}/{second['id']}/reject",
+            json={"comment": "Scope"},
+            headers=auth_headers(env["two"]),
+        )
+        (rejected,) = await _notifications(db, env["admin"], "soaw_rejected")
+        assert rejected.message == 'Two rejected "Doc (Rev 2)": Scope'
+        assert rejected.data["revision_number"] == 2
+        events = (
+            await db.execute(select(Event).where(Event.event_type == "soaw.rejected"))
+        ).scalars()
+        assert [e.data["revision_number"] for e in events] == [2]
