@@ -15,8 +15,8 @@ without touching the call sites again:
 * :func:`render_doc` — the response payloads of one request, as one batch
   (mentions are resolved for the reader here).
 
-``before_save``, ``after_save`` and ``render_doc`` change nothing yet. Every
-helper flushes and never commits: the caller owns the transaction.
+``after_save`` changes nothing yet. Every helper flushes and never commits:
+the caller owns the transaction.
 """
 
 from __future__ import annotations
@@ -33,6 +33,8 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.document_history import DocumentHistoryEntry
 from app.models.soaw import SoAW
 from app.models.user import User
+from app.services import decision_standing as ds
+from app.services import mention_service
 from app.services.card_read_scope import CardReadScope
 
 ADR = "adr"
@@ -53,12 +55,6 @@ WORKFLOW_STEPS: tuple[str, ...] = (
     "recalled",
     "recorded",
 )
-
-#: The text fields :func:`before_save` sees for each kind of document.
-TEXT_FIELDS: dict[str, tuple[str, ...]] = {
-    ADR: ("context", "decision", "consequences", "alternatives_considered"),
-    SOAW: ("sections",),
-}
 
 Document = ArchitectureDecision | SoAW
 
@@ -113,12 +109,27 @@ async def before_save(
     *,
     user: User | None,
     read_scope: CardReadScope | None,
+    copy: bool = False,
 ) -> dict[str, Any]:
     """The text fields to store for a create (``doc`` is ``None``) or an
-    update of ``doc``. ``user`` / ``read_scope`` are the writer's; both are
-    ``None`` for a system writer or a copy (revision, duplicate). Unchanged
-    for now."""
-    return incoming
+    update of ``doc``, their mentions checked and canonicalised
+    (:func:`mention_service.normalise_for_write`).
+
+    Three kinds of writer: a USER (``user`` set; ``read_scope`` is theirs, or
+    loaded when needed) — every new mention must be readable by them; a
+    SYSTEM writer (``user`` ``None``: the extension bridge, the TurboLens
+    commit) — existence only; a COPY (``copy=True``: a revision, a duplicate)
+    — canonicalised only. 404 on a refused mention."""
+    return await mention_service.normalise_for_write(
+        db,
+        doc_kind=doc_kind,
+        doc=doc,
+        incoming=incoming,
+        user=user,
+        read_scope=read_scope,
+        system=user is None and not copy,
+        copy=copy,
+    )
 
 
 async def after_save(
@@ -175,11 +186,21 @@ async def render_doc(
     *,
     user: User,
     read_scope: CardReadScope | None,
+    register: ds.Register | None = None,
 ) -> list[dict[str, Any]]:
     """The response payloads of one request as ``user`` reads them, in one
-    batch (``read_scope`` when the caller has it, loaded on demand otherwise).
-    Returned unchanged for now."""
-    return payloads
+    batch: every mention in their text resolved for the reader
+    (:func:`mention_service.resolve_for_reader`). ``read_scope`` and
+    ``register`` when the caller already holds them, loaded on demand
+    otherwise; no mention anywhere means no query and ``payloads`` itself."""
+    return await mention_service.resolve_for_reader(
+        db,
+        doc_kind=doc_kind,
+        payloads=payloads,
+        user=user,
+        read_scope=read_scope,
+        register=register,
+    )
 
 
 # --- reads behind the discussion, history and mentions routes ---------------------
@@ -257,8 +278,3 @@ async def history_entries(db: AsyncSession, doc_kind: str, doc_id: uuid.UUID) ->
 
 def history_payload(entries: list[dict], *, can_view_versions: bool) -> dict[str, Any]:
     return {"can_view_versions": can_view_versions, "entries": entries}
-
-
-def mentioned_in_payload() -> dict[str, list]:
-    """Where a document is mentioned: nothing is searched yet."""
-    return {"decisions": [], "soaws": []}

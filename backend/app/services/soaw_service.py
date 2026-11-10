@@ -267,6 +267,7 @@ async def create_revision(
         {"sections": copy.deepcopy(source.sections)},
         user=None,
         read_scope=None,
+        copy=True,
     )
     revision = SoAW(
         name=source.name,

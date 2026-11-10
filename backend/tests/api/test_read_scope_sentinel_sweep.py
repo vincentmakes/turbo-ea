@@ -11,6 +11,9 @@ The static scan (``tests/services/test_card_read_scope_guard.py``) proves a
 module considered the read scope; this proves the queries inside it apply it.
 A route whose path parameter this file cannot fill must be listed in
 ``UNMAPPED_PARAMS`` or skipped with a reason, so a new route forces a decision.
+The sentinel is also MENTIONED in the decision's text and in a SoAW section
+(``EXTRA_CALLS`` adds the list calls whose optional query parameters add
+text fields), so a serialiser that forgets to resolve mentions leaks it.
 
 Two controls keep the sweep honest: as admin the sentinel must show up on a
 good number of routes (so an empty sweep cannot pass vacuously), and a second
@@ -61,7 +64,6 @@ UNMAPPED_PARAMS = {
     "role_key": "metamodel config",
     "run_id": "analysis runs — none seeded",
     "slug": "public publications are out of scope by design",
-    "soaw_id": "SoAW — none seeded",
     "survey_id": "surveys are addressed by an admin — out of scope",
     "table": "ServiceNow admin",
     "task_id": "none seeded",
@@ -140,9 +142,21 @@ async def world(db, client):
         f"/api/v1/cards/{held['id']}/stakeholders",
         {"user_id": str(reader.id), "role": "responsible"},
     )
+    # A mention of the sentinel in the decision's text and in a SoAW section:
+    # each reader gets it resolved for them, a restricted one as a bare token.
+    mention = f'<span data-type="mention" data-kind="card" data-id="{sentinel["id"]}"></span>'
     adr = await post(
         "/api/v1/adr",
-        {"title": "Decision", "linked_card_ids": [anchor["id"], sentinel["id"]]},
+        {
+            "title": "Decision",
+            "linked_card_ids": [anchor["id"], sentinel["id"]],
+            "context": f"<p>Because of {mention}</p>",
+            "decision": f"<p>Retire {mention} and keep it in mind.</p>",
+        },
+    )
+    soaw = await post(
+        "/api/v1/soaw",
+        {"name": "Plan", "sections": {"1.1": {"content": f"<p>Scope: {mention}</p>"}}},
     )
     risk = await post(
         "/api/v1/risks", {"title": "Risk", "card_ids": [anchor["id"], sentinel["id"]]}
@@ -182,6 +196,7 @@ async def world(db, client):
         "ids": {
             "card_id": anchor["id"],
             "adr_id": adr["id"],
+            "soaw_id": soaw["id"],
             "risk_id": risk["id"],
             "diagram_id": diagram["id"],
             "bm_id": bookmark["id"],
@@ -192,6 +207,13 @@ async def world(db, client):
         "held_id": held["id"],
     }
 
+
+# GET calls the route walk cannot make on its own: an optional query
+# parameter that adds payload fields (the spreadsheet export's text).
+EXTRA_CALLS: tuple[tuple[str, dict[str, str]], ...] = (
+    ("/api/v1/adr", {"include_content": "true"}),
+    ("/api/v1/soaw", {"include_earlier": "true"}),
+)
 
 QUERY_FILL = {
     "types": "Application,Secret",
@@ -230,6 +252,10 @@ async def _sweep(app, client, db, user, ids) -> tuple[dict[str, str], list[str]]
             await db.rollback()
             continue
         bodies[path] = resp.text
+    for path, query in EXTRA_CALLS:
+        resp = await client.get(path, params=query, headers=headers)
+        assert resp.status_code == 200, (path, resp.text)
+        bodies[f"{path}?{'&'.join(f'{k}={v}' for k, v in query.items())}"] = resp.text
     return bodies, errors
 
 

@@ -168,6 +168,20 @@ class TestCreateDraft:
         assert row.created_by is None
         assert row.context == "Two billing systems"
 
+    async def test_a_mention_of_an_existing_card_is_kept(self, db, env):
+        """The bridge is a system writer: a mentioned card must exist, nothing more."""
+        load_registry(grants=["core.adr.write"])
+        card_id = env["active"].id
+        mention = f'<span data-type="mention" data-kind="card" data-id="{card_id}">@x</span>'
+        out = await ExtensionDecisions(KEY).create_draft(title="Mentions", decision=mention)
+        stored = await db.get(ArchitectureDecision, uuid.UUID(out.id))
+        assert stored.decision == (
+            f'<span data-type="mention" data-kind="card" data-id="{card_id}"></span>'
+        )
+        unknown = f'<span data-type="mention" data-kind="card" data-id="{uuid.uuid4()}"></span>'
+        with pytest.raises(ExtensionDataError, match="Card not found"):
+            await ExtensionDecisions(KEY).create_draft(title="Unknown", decision=unknown)
+
     async def test_status_is_never_a_parameter(self, db, env):
         load_registry(grants=["core.adr.write"])
         with pytest.raises(TypeError):

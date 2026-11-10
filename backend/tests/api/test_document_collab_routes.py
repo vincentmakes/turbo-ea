@@ -407,12 +407,20 @@ def spy(monkeypatch):
         for name in ("before_save", "after_save", "on_workflow", "render_doc")
     }
 
-    async def before_save(db, doc_kind, doc, incoming, *, user, read_scope):
+    async def before_save(db, doc_kind, doc, incoming, *, user, read_scope, copy=False):
         calls.append(
-            ("before_save", doc_kind, doc.id if doc else None, dict(incoming), user, read_scope)
+            (
+                "before_save",
+                doc_kind,
+                doc.id if doc else None,
+                dict(incoming),
+                user,
+                read_scope,
+                copy,
+            )
         )
         return await real["before_save"](
-            db, doc_kind, doc, incoming, user=user, read_scope=read_scope
+            db, doc_kind, doc, incoming, user=user, read_scope=read_scope, copy=copy
         )
 
     async def after_save(db, doc_kind, doc, *, user, was_draft, before):
@@ -425,9 +433,11 @@ def spy(monkeypatch):
         calls.append(("on_workflow", doc_kind, doc.id, step))
         return await real["on_workflow"](db, doc_kind, doc, step, **kw)
 
-    async def render_doc(db, doc_kind, payloads, *, user, read_scope):
+    async def render_doc(db, doc_kind, payloads, *, user, read_scope, register=None):
         calls.append(("render_doc", doc_kind, [p["id"] for p in payloads], payloads))
-        return await real["render_doc"](db, doc_kind, payloads, user=user, read_scope=read_scope)
+        return await real["render_doc"](
+            db, doc_kind, payloads, user=user, read_scope=read_scope, register=register
+        )
 
     for name, fn in (
         ("before_save", before_save),
@@ -524,11 +534,11 @@ class TestDecisionHooks:
             (uuid.UUID(dup["id"]), "created"),
         ]
         # The revision and the duplicate copy their text through before_save,
-        # with no writer scope (a copy is never re-checked).
+        # as copies with no writer scope (a copy is never re-checked).
         copies = _of(spy, "before_save")
-        assert [(c[1], c[2], c[4], c[5]) for c in copies] == [
-            ("adr", None, None, None),
-            ("adr", None, None, None),
+        assert [(c[1], c[2], c[4], c[5], c[6]) for c in copies] == [
+            ("adr", None, None, None, True),
+            ("adr", None, None, None, True),
         ]
         # One render per response.
         assert len(_of(spy, "render_doc")) == 8

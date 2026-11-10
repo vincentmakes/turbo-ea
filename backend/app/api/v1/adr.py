@@ -37,6 +37,7 @@ from app.services import (
     decision_link_service,
     decision_people_service,
     document_collab,
+    mention_service,
     notification_service,
 )
 from app.services import decision_standing as ds
@@ -172,7 +173,7 @@ async def _adr_to_dict(
         "files": await adr_file_service.list_files(db, adr.id),
     }
     (rendered,) = await document_collab.render_doc(
-        db, document_collab.ADR, [payload], user=user, read_scope=read_scope
+        db, document_collab.ADR, [payload], user=user, read_scope=read_scope, register=register
     )
     return rendered
 
@@ -298,7 +299,7 @@ async def _summaries(
             )
             summary["link_references"] = adr_service.link_references(register, adr.id)
     return await document_collab.render_doc(
-        db, document_collab.ADR, summaries, user=user, read_scope=read_scope
+        db, document_collab.ADR, summaries, user=user, read_scope=read_scope, register=register
     )
 
 
@@ -516,15 +517,17 @@ async def bulk_import_adrs(
     rolls back, so the dialog previews exactly what applying will do.
     """
     await PermissionService.require_permission(db, user, "adr.manage")
-    readable = (await CardReadScope.load(db, user)).where(Card, mode="module")
+    read_scope = await CardReadScope.load(db, user)
     dry_run_savepoint = await db.begin_nested() if body.dry_run else None
 
     outcomes = await adr_import_service.import_decision_rows(
         db,
         [adr_import_service.DecisionImportRow(**item.model_dump()) for item in body.items],
         created_by=user.id,
-        readable_cards=readable,
+        readable_cards=read_scope.where(Card, mode="module"),
         publish=not body.dry_run,
+        user=user,
+        read_scope=read_scope,
     )
     counts = {
         status: sum(1 for o in outcomes if o.status == status)
@@ -577,7 +580,7 @@ async def update_adr(
         adr,
         {
             field: getattr(body, field)
-            for field in document_collab.TEXT_FIELDS[document_collab.ADR]
+            for field in mention_service.text_fields_of(document_collab.ADR)
             if getattr(body, field) is not None
         },
         user=user,
@@ -1223,6 +1226,7 @@ async def list_revisions(
         [_adr_to_summary(r, register=register, people=people) for r in chain],
         user=user,
         read_scope=None,
+        register=register,
     )
 
 

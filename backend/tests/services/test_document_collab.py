@@ -41,10 +41,6 @@ def test_the_kinds_and_steps():
         "recalled",
         "recorded",
     )
-    assert collab.TEXT_FIELDS == {
-        "adr": ("context", "decision", "consequences", "alternatives_considered"),
-        "soaw": ("sections",),
-    }
 
 
 def test_owner_fields():
@@ -115,7 +111,6 @@ def test_comment_capabilities(may_comment, may_moderate, signatory, expected):
 def test_empty_payloads():
     can = {"comment": True, "moderate": False}
     assert collab.discussion_payload(can) == {"can": can, "open_count": 0, "threads": []}
-    assert collab.mentioned_in_payload() == {"decisions": [], "soaws": []}
     assert collab.history_payload([{"id": "x"}], can_view_versions=False) == {
         "can_view_versions": False,
         "entries": [{"id": "x"}],
@@ -233,7 +228,7 @@ async def test_on_workflow_refuses_an_unknown_step(db):
     assert await _rows(db) == []
 
 
-async def test_the_other_hooks_hand_back_what_they_got(db):
+async def test_the_hooks_hand_back_text_without_mentions_as_it_is(db):
     user = await create_user(db)
     adr = await _decision(db)
     incoming = {"decision": "<p>x</p>"}
@@ -242,7 +237,7 @@ async def test_the_other_hooks_hand_back_what_they_got(db):
         await collab.before_save(db, "adr", adr, incoming, user=user, read_scope=scope) is incoming
     )
     assert await collab.after_save(db, "adr", adr, user=user, was_draft=True, before=None) is None
-    payloads = [{"id": "x"}]
+    payloads = [{"id": "x", "decision": "<p>x</p>"}]
     assert await collab.render_doc(db, "adr", payloads, user=user, read_scope=None) is payloads
 
 

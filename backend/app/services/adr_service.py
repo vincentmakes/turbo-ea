@@ -114,6 +114,7 @@ async def create_decision(
     publish: bool = True,
     user: User | None = None,
     read_scope: CardReadScope | None = None,
+    copy: bool = False,
 ) -> ArchitectureDecision:
     """Insert a draft decision and its card links; flush, never commit.
 
@@ -130,9 +131,13 @@ async def create_decision(
     (:func:`decision_link_service.add_relates_links`). Callers that must
     refuse an unknown entry resolve it themselves and pass typed links.
 
-    The text goes through :func:`document_collab.before_save` (``user`` /
-    ``read_scope`` are the writer's; ``None`` for a system writer or a copy)
-    and the decision's timeline starts with a ``created`` row, so every path
+    The text goes through :func:`document_collab.before_save`: ``user`` /
+    ``read_scope`` are a user writer's (the route, the importer); without a
+    user the writer is a system one (the extension bridge, the TurboLens
+    commit: mentioned targets must exist); ``copy=True`` (a duplicate) carries
+    the mentions as they are. A refused mention raises
+    :class:`mention_service.MentionRefused` (404) before anything is written.
+    The decision's timeline starts with a ``created`` row, so every path
     that creates a decision — the route, the importer, the extension bridge,
     the TurboLens commit, a duplicate — gets one.
     """
@@ -148,6 +153,7 @@ async def create_decision(
         },
         user=user,
         read_scope=read_scope,
+        copy=copy,
     )
     adr = ArchitectureDecision(
         reference_number=await next_reference_number(db),
@@ -814,6 +820,7 @@ async def create_revision(
         },
         user=None,
         read_scope=None,
+        copy=True,
     )
     revision = ArchitectureDecision(
         reference_number=source.reference_number,
@@ -884,6 +891,7 @@ async def duplicate_decision(
         valid_until=original.valid_until,
         created_by=created_by,
         publish=False,
+        copy=True,
     )
     card_ids = await copy_decision_extras(db, original.id, dup.id)
     await _publish_created(db, dup, card_ids, user_id=created_by)

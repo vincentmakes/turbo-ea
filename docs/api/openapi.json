@@ -31739,6 +31739,47 @@
         ]
       }
     },
+    "/api/v1/mentions/cards/{card_id}": {
+      "get": {
+        "description": "``{decisions: [...], soaws: [...]}`` that mention the card.",
+        "operationId": "card_mentioned_in_api_v1_mentions_cards__card_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Card Mentioned In",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
     "/api/v1/mentions/decisions/{adr_id}": {
       "get": {
         "description": "``{decisions: [...], soaws: [...]}`` that mention the decision.",
