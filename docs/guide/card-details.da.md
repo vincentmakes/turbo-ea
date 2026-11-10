@@ -152,7 +152,7 @@ Ikonet **åbn i ny fane** i værktøjslinjen åbner den fulde [afhængighedsrapp
 
 Anvend tags fra de konfigurerede [tag-grupper](../admin/tags.md). Afhængigt af gruppe-tilstanden kan du vælge ét tag (single select) eller flere tags (multi select).
 
-### Resources-fane
+### Resources-fane {: #resources-tab }
 
 **Resources**-fanen konsoliderer al understøttende materiale for et kort:
 

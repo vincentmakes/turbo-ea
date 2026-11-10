@@ -43,7 +43,7 @@ La sotto-scheda **Sicurezza e amministrazione** elenca una voce per ogni azione 
 - blocchi dell'account dopo errori ripetuti;
 - registrazioni, e password impostate, reimpostate o cambiate;
 - assunzione di ruolo — un amministratore che avvia e interrompe **Visualizza come ruolo…**;
-- le azioni amministrative — modifiche a utenti, ruoli, impostazioni, metamodello, tag, calcoli, estensioni, importazioni, integrazioni, portali pubblici e diagrammi pubblicati, sondaggi e accesso dell'operatore (vedi [Azioni amministrative](#administrative-actions));
+- le azioni amministrative — modifiche a utenti, ruoli, impostazioni, metamodello, tag, calcoli, estensioni, importazioni, integrazioni, portali pubblici e diagrammi pubblicati, sondaggi, decisioni registrate come prese e accesso dell'operatore (vedi [Azioni amministrative](#administrative-actions));
 - le esportazioni di dati — le esportazioni CSV e JSON delle card, le esportazioni del workspace e quelle per un'altra piattaforma EA (vedi [Esportazioni di dati](#data-exports)) — e le esportazioni di questo stesso registro.
 
 ### Colonne
@@ -156,6 +156,7 @@ Un salvataggio che non cambia nulla non viene registrato, né lo è un utente ch
 | **Esposizione pubblica** | `admin.web_portal.created`, `.updated`, `.deleted`; `admin.diagram.published`, `.unpublished` | [Portali web](web-portals.md) e diagrammi pubblicati — tutto ciò che rende i dati raggiungibili senza un account |
 | **Dashboard della home page** | `admin.dashboard.created`, `.updated`, `.deleted`, `.duplicated`, `.reset` | [Dashboard](../guide/dashboard.md#customizing-dashboards) create, modificate, eliminate, duplicate o ripristinate ai valori predefiniti, con il nome, la descrizione, l'icona, la visibilità, l'ordine e i ruoli di accesso modificati; ogni widget aggiunto o rimosso è elencato per nome (lo spostamento o il ridimensionamento di un widget non viene registrato) |
 | **Sondaggi** | `admin.survey.sent`, `admin.survey.closed` | Un sondaggio inviato ai destinatari, o chiuso |
+| **Decisioni di architettura** | `admin.adr.recorded` | Una decisione presa al di fuori di Turbo EA e [registrata come presa](../guide/grc.md#recording-a-past-decision) senza firme, con le date «Decisa il» e «In vigore dal» e i suoi decisori |
 | **Accesso dell'operatore** | `admin.ops.rescue_access.granted`, `.revoked` | Accesso di emergenza concesso o revocato tramite l'[API operativa](ops-api.md), registrato accanto agli eventi `ops.*` esistenti |
 
 ### Esportazioni di dati { #data-exports }

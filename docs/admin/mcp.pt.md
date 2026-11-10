@@ -183,20 +183,20 @@ Neste modo, o servidor se autentica com email/senha e renova o token automaticam
 
 ## Capacidades disponíveis
 
-O servidor MCP expõe **55 ferramentas** divididas em dois grupos: **35 ferramentas de leitura** que consultam dados de EA e **20 ferramentas de escrita** (15 aditivas, 5 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs, visualizações de inventário salvas e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
+O servidor MCP expõe **56 ferramentas** divididas em dois grupos: **35 ferramentas de leitura** que consultam dados de EA e **21 ferramentas de escrita** (16 aditivas, 5 destrutivas) que criam e mantêm cards, relações, diagramas, riscos, ADRs, visualizações de inventário salvas e mais — incluindo transformar artefatos que uma ferramenta de IA tem no seu próprio contexto (planilhas, BPMN XML, DrawIO XML, documentos, imagens) em dados de EA estruturados. Cada ferramenta carrega `ToolAnnotations` MCP (indicações de somente leitura / destrutiva / idempotente) para que os conectores possam sinalizar a destrutividade na sua interface.
 
 ### Segurança por execução simulada nas escritas
 
 Cada ferramenta de escrita usa por padrão **`dry_run=true`**, e nada é persistido até que a ferramenta de IA a chame novamente com `dry_run=false` — o que só deve fazer depois que o usuário tiver visto a prévia e confirmado. Isso impede que um agente afoito introduza silenciosamente centenas de cards a partir de uma planilha interpretada de forma errada. A prévia é de um de dois tipos:
 
 - **Verificada pelo backend.** Quando o endpoint subjacente oferece suporte a execução simulada, o backend executa cada validador e resolvedor — permissões, ids de cards, o que o usuário pode ler —, monta o resultado completo e então **reverte a transação**. Isso abrange cards (`create_cards_bulk`, `update_cards_bulk`), relações (`upsert_relations_bulk`) e diagramas (`create_diagram`, `update_diagram`). A prévia de um diagrama devolve os vínculos com cards que o backend aceitou e, numa atualização, a alteração exata: campos renomeados, vínculos com cards adicionados e removidos, e se o canvas mudou.
-- **Montada pelo servidor MCP.** Quando o endpoint não tem execução simulada, a ferramenta valida e traduz a entrada e mostra o payload exato que um commit enviaria, sem chamar o endpoint de escrita: `import_bpmn` (o percurso rascunho → envio → aprovação; as contagens de nós de fluxo são uma estimativa e a prévia indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (que executa a consulta e informa quantos cards correspondem, com alguns nomes de exemplo), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que mostra o impacto do arquivamento de cada card) e `set_card_logos` / `clear_card_logos` (que consultam o tipo e o logotipo atual de cada card e baixam cada `image_url`).
+- **Montada pelo servidor MCP.** Quando o endpoint não tem execução simulada, a ferramenta valida e traduz a entrada e mostra o payload exato que um commit enviaria, sem chamar o endpoint de escrita: `import_bpmn` (o percurso rascunho → envio → aprovação; as contagens de nós de fluxo são uma estimativa e a prévia indica `verified: false`), `create_adr`, `update_adr`, `sign_adr`, `revise_adr` (que lê a decisão e indica o número de revisão que criaria, ou porque é que o backend recusaria), `create_soaw`, `add_card_comment`, `transition_card_lifecycle`, `save_inventory_view` (que executa a consulta e informa quantos cards correspondem, com alguns nomes de exemplo), `assign_stakeholders`, `create_risks`, `update_risks`, `archive_cards` (que mostra o impacto do arquivamento de cada card) e `set_card_logos` / `clear_card_logos` (que consultam o tipo e o logotipo atual de cada card e baixam cada `image_url`).
 
 Nos dois casos, a prévia fica registrada no registro de auditoria como um lote de execução simulada, para que um administrador veja o que um agente propôs e também o que ele confirmou.
 
 ### Ferramentas de leitura
 
-O servidor expõe 35 ferramentas de leitura agrupadas em oito clusters.
+O servidor expõe 35 ferramentas de leitura agrupadas em nove clusters.
 
 **Cards & metamodelo**
 
@@ -242,9 +242,9 @@ O servidor expõe 35 ferramentas de leitura agrupadas em oito clusters.
 | Ferramenta | Descrição |
 |------------|-----------|
 | `list_principles` | Princípios EA publicados (declaração, justificativa, implicações) |
-| `list_adrs` | Architecture Decision Records, filtráveis por iniciativa / status |
-| `get_adr` | ADR único com seções, cards vinculados e trilha de assinaturas |
-| `list_soaws` | Statements of Architecture Work de uma iniciativa |
+| `list_adrs` | Architecture Decision Records, filtráveis por iniciativa, status e vigência (`standing="in_force,amended"` lista as decisões em vigor). Mostra a revisão atual de cada decisão; `include_earlier` acrescenta as revisões anteriores |
+| `get_adr` | Revisão única de um ADR com seções, cards vinculados, trilha de assinaturas, vigência, ligações tipificadas a outras decisões, decisores e participantes, datas, revisões e nomes de ficheiros |
+| `list_soaws` | Statements of Architecture Work de uma iniciativa (revisões atuais; `include_earlier` acrescenta as anteriores) |
 
 **Relatórios**
 
@@ -282,9 +282,9 @@ Todas as ferramentas respeitam o RBAC do usuário autenticado — um visualizado
 
 ### Ferramentas de escrita
 
-O servidor expõe 20 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
+O servidor expõe 21 ferramentas de escrita, cada uma anotada como **aditiva** (cria ou estende dados) ou **destrutiva** (modifica ou remove dados existentes), para que os conectores possam alertar de acordo.
 
-**Aditivas (15)**
+**Aditivas (16)**
 
 | Ferramenta | Descrição |
 |------------|-----------|
@@ -296,9 +296,10 @@ O servidor expõe 20 ferramentas de escrita, cada uma anotada como **aditiva** (
 | `create_soaw` | Cria um Statement of Architecture Work para uma iniciativa. |
 | `assign_stakeholders` | Atribui ou remove papéis de stakeholder em cards. |
 | `update_cards_bulk` | Aplica patches no nível de campo em vários cards em uma única chamada. |
-| `create_adr` | Cria um Architecture Decision Record. |
-| `update_adr` | Atualiza um ADR (título, seções, status, cards vinculados). |
+| `create_adr` | Cria um Architecture Decision Record, com ligações tipificadas a outras decisões (`replaces`, `amends`, `revokes`, `relates`), decisores, participantes e datas. Substituir ou revogar uma decisão faz-se assim: uma nova decisão com uma ligação `replaces` / `revokes`, que produz efeito depois de assinada. |
+| `update_adr` | Atualiza um ADR em rascunho (título, seções, cards vinculados, ligações tipificadas, pessoas, datas, resumo das alterações). Uma decisão em revisão só aceita alterações aos cards vinculados, e uma decisão assinada nunca é editada. |
 | `sign_adr` | Assina um ADR (requer a permissão `adr.sign`; caso contrário, retorna um deep-link da interface para assinar no navegador). |
+| `revise_adr` | Inicia a revisão seguinte de um ADR assinado: um rascunho com a mesma referência e o número de revisão seguinte, consolidando opcionalmente decisões que o alteram. Recusado quando já está a ser redigida uma revisão, quando uma revisão posterior está assinada, ou quando a decisão foi revogada ou substituída. O registo de uma decisão passada como decidida continua a ser feito na interface web. |
 | `create_diagram` | Cria um diagrama DrawIO livre com vínculos opcionais a cards existentes. |
 | `save_inventory_view` | Salva uma consulta de cards de vários saltos como visualização de inventário (nova, ou substituindo a consulta de uma existente indicada por `view_id`). O inventário executa a consulta novamente toda vez que a visualização é aberta; a resposta traz um link que a abre. Uma atualização altera apenas o nome e a consulta, além da visibilidade e das colunas quando informadas; o agrupamento e o layout da visualização são mantidos. |
 | `import_bpmn` | Salva um diagrama BPMN 2.0 XML em um card de Processo de negócio **existente**. Se nenhum card corresponder ao nome fornecido, a ferramenta retorna um erro `card_not_found` que aponta o agente para `create_cards_bulk` — isso obriga a criação explícita do card com descrição, subtipo e atributos antes, em vez de um atalho que deixa um card pobre. |
@@ -440,7 +441,7 @@ Defesa em profundidade além da execução simulada, para que um descuido do LLM
 
 - **Limite de tamanho por chamada.** As ferramentas de escrita MCP aplicam um limite muito menor que os endpoints subjacentes do importador Excel: 200 linhas para `create_cards_bulk`, 500 operações para `upsert_relations_bulk`. Grande o suficiente para qualquer carregamento realista de um único artefato, pequeno o suficiente para que uma prévia de execução simulada permaneça revisável.
 - **Sem exclusão de relações por padrão.** `upsert_relations_bulk` recusa operações `action: "delete"` — para remover relações, use a interface web onde a ação é registrada sob a identidade do usuário. Operadores podem habilitar definindo `MCP_ALLOW_RELATION_DELETE=true`.
-- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 20 ferramentas de escrita sem reimplantar código. As 35 ferramentas de leitura continuam funcionando.
+- **Interruptor de desligamento.** `MCP_WRITES_ENABLED=false` desliga todas as 21 ferramentas de escrita sem reimplantar código. As 35 ferramentas de leitura continuam funcionando.
 - **O download de logótipos passa por uma lista de hosts permitidos.** Os pacotes de ícones incluídos não cobrem todos os produtos de um cliente, e um assistente está muitas vezes isolado sem acesso à web, por isso `set_card_logos` aceita um `image_url` que o servidor MCP vai buscar. Apenas `https`, apenas os hosts de `MCP_LOGO_FETCH_HOSTS`, apenas endereços públicos, no máximo dois redirecionamentos (cada um reverificado), no máximo 1 MB lido em streaming, e os bytes têm de trazer uma assinatura real de PNG/JPEG/WebP/GIF. O download acontece na borda MCP, nunca no backend, e a imagem é depois enviada pela via habitual: um URL escolhido por um LLM nunca chega ao processo que guarda a base de dados. `MCP_LOGO_FETCH_ENABLED=false` desliga tudo.
 - **Marcador de origem para auditoria.** Cada requisição backend do servidor MCP carrega um cabeçalho `X-Turbo-EA-Origin: mcp`. Eventos emitidos dessas requisições são marcados com `origin: "mcp"` no payload do log de auditoria, de forma que administradores possam filtrar gravações dirigidas por MCP fora da linha do tempo, separadas das ações da interface web.
 - **Lotes de mutação.** Cada chamada de escrita MCP — tanto a prévia quanto o commit — é um lote de mutação no registro de auditoria, aberto antes de qualquer gravação; cada evento emitido durante a chamada é marcado com o id do lote, e cada ferramenta de escrita devolve esse `batch_id`. Administradores (ou a ferramenta `get_change_history`) podem reconstruir o diff completo por evento de um commit a partir de um único id, e `rollback_batch` pode revertê-lo, inclusive excluindo um diagrama criado por `create_diagram`, a menos que alguém o tenha publicado desde então. Uma atualização de diagrama é informada como não reversível, porque o canvas anterior não é guardado. Commits acima de `MCP_BATCH_CONFIRMATION_THRESHOLD` linhas devem devolver o `confirm_token` de uso único retornado pela execução simulada anterior. O backend verifica-o ao abrir o lote do commit, antes de qualquer gravação: ele deve vir de uma execução simulada da mesma ferramenta, do mesmo usuário, há menos de 15 minutos, e autoriza um único commit. Todas as ferramentas de escrita em massa seguem este ciclo de prévia e confirmação: `create_cards_bulk`, `update_cards_bulk`, `archive_cards`, `upsert_relations_bulk`, `assign_stakeholders`, `create_risks`, `update_risks`, `set_card_logos`, `clear_card_logos`.
@@ -483,7 +484,7 @@ As seis variáveis de ambiente de salvaguarda no container MCP:
 | Papel | Acesso |
 |-------|--------|
 | **Administrador** | Configurar ajustes MCP (permissão `admin.mcp`). Acesso completo de leitura + escrita através do MCP. |
-| **Todos os usuários autenticados** | Acesso de leitura governado pelo seu RBAC existente. As ferramentas de escrita exigem as permissões backend correspondentes — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relações), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (Registro de riscos), `comments.create` (comentários), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.create` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (visualizações de inventário salvas). |
+| **Todos os usuários autenticados** | Acesso de leitura governado pelo seu RBAC existente. As ferramentas de escrita exigem as permissões backend correspondentes — `inventory.create` / `inventory.edit` / `inventory.archive` (cards), `relations.manage` (relações), `diagrams.manage` (diagramas), `bpm.edit` (BPMN), `risks.manage` (Registro de riscos), `comments.create` (comentários), `stakeholders.manage` (stakeholders), `soaw.create` (SoAW), `adr.manage` / `adr.sign` (ADRs), `bookmarks.manage` / `bookmarks.share` (visualizações de inventário salvas). |
 
 A permissão `admin.mcp` controla quem pode gerenciar as configurações de MCP. Está disponível apenas para o papel de Administrador por padrão. Papéis personalizados podem receber esta permissão através da página de administração de Papéis.
 
