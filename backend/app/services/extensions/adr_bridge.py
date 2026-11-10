@@ -29,6 +29,10 @@ Design invariants (mirroring ``todos_bridge`` and ``data_service``):
   stamping a user would lie about who decided. Honours the instance-wide
   ``EXTENSION_WRITES_ENABLED`` kill switch. No event is published on
   create, matching ``POST /adr``.
+* **Tolerant related decisions.** ``related_decisions`` entries that are a
+  decision id or a reference number become ``relates`` links; anything else
+  (a dict, an unknown id) is dropped silently, so an extension written
+  before the decision register keeps working.
 * **One writer.** The row itself comes from ``app.services.adr_service`` —
   the same generator and insert the REST route and the analysis commit flow
   use, so every path shares one reference-number sequence.

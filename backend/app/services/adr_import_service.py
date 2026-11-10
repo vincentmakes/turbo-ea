@@ -12,12 +12,13 @@ Cards are linked best-effort by exact name among the ACTIVE cards the importer
 may read, looked up once for the whole file; a missing, ambiguous, archived or
 hidden card is a warning, never a failure.
 Related decisions are resolved in a second pass, once every row exists, so a
-row may name a decision that appears later in the same file. Nothing here
-commits — the route owns the transaction and the dry-run rollback.
+row may name a decision that appears later in the same file, and are saved as
+``relates`` links. A reference already in the database names its chain's
+current revision. Nothing here commits — the route owns the transaction and
+the dry-run rollback.
 
-``related_reference_labels`` is the export side: ``related_decisions`` holds
-decision ids (the MCP and the import write ids; the demo seed writes
-references), and a spreadsheet shows references.
+``related_reference_labels`` is the export side: a decision's ``relates``
+links as the reference numbers a spreadsheet shows.
 """
 
 from __future__ import annotations
@@ -31,8 +32,10 @@ from sqlalchemy import ColumnElement, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.services import adr_service
+from app.services import decision_standing as ds
 
 TITLE_MAX_LENGTH = 500
 
@@ -121,12 +124,7 @@ async def import_decision_rows(
     publish: bool = True,
 ) -> list[DecisionImportOutcome]:
     """Create a draft decision per new row (see the module doc)."""
-    existing = {
-        ref.upper(): adr_id
-        for adr_id, ref in (
-            await db.execute(select(ArchitectureDecision.id, ArchitectureDecision.reference_number))
-        ).all()
-    }
+    existing = existing_references(await ds.load_register(db))
 
     cards = await _cards_by_name(
         db, {name for row in rows for name in _unique(row.card_names)}, readable_cards
@@ -196,68 +194,42 @@ async def import_decision_rows(
 
     # Second pass: every row now exists, so a reference to a later row resolves.
     for outcome, adr, row in created:
-        related: list[str] = []
+        linked: set[uuid.UUID] = set()
         for ref in _unique(row.related_references):
             key = ref.upper()
             target = file_refs.get(key) or existing.get(key)
             if target is None:
                 outcome.warnings.append(f"Related decision not found: {ref}")
-            elif target != adr.id and str(target) not in related:
-                related.append(str(target))
-        adr.related_decisions = related
+            elif target != adr.id and target not in linked:
+                linked.add(target)
+                db.add(
+                    ArchitectureDecisionLink(source_id=adr.id, target_id=target, kind=ds.RELATES)
+                )
     await db.flush()
 
     return outcomes
 
 
-async def related_reference_labels(
-    db: AsyncSession, decisions: Sequence[ArchitectureDecision]
-) -> dict[uuid.UUID, list[str]]:
-    """Each decision's ``related_decisions`` as reference numbers.
+def existing_references(register: ds.Register) -> dict[str, Any]:
+    """Each reference number (upper case) mapped to its chain's current revision.
 
-    An entry may be a decision id (MCP, import) or already a reference (the
-    demo seed); anything else — a dict link to an assessment, a dangling id —
-    is left out, since a spreadsheet column of references cannot express it.
+    A reference carried by rows of two different chains maps to the current
+    revision of the first chain in reference, revision order.
     """
-    candidates: set[str] = set()
-    for adr in decisions:
-        candidates.update(_string_entries(adr.related_decisions))
-    if not candidates:
-        return {adr.id: [] for adr in decisions}
-
-    ids = [uuid.UUID(c) for c in candidates if _is_uuid(c)]
-    refs = [c.upper() for c in candidates if not _is_uuid(c)]
-    found = (
-        await db.execute(
-            select(ArchitectureDecision.id, ArchitectureDecision.reference_number).where(
-                ArchitectureDecision.id.in_(ids) | ArchitectureDecision.reference_number.in_(refs)
-            )
-        )
-    ).all()
-    by_id = {str(adr_id): ref for adr_id, ref in found}
-    known_refs = {ref for _, ref in found}
-
-    labels: dict[uuid.UUID, list[str]] = {}
-    for adr in decisions:
-        out: list[str] = []
-        for entry in _string_entries(adr.related_decisions):
-            if _is_uuid(entry):
-                label = by_id.get(entry)
-            else:
-                label = entry.upper() if entry.upper() in known_refs else None
-            if label is not None and label not in out:
-                out.append(label)
-        labels[adr.id] = out
-    return labels
+    out: dict[str, Any] = {}
+    for row_id in sorted(register.ids(), key=lambda rid: _row_order(register, rid)):
+        key = register.row(row_id).reference_number.upper()
+        out.setdefault(key, register.chain(row_id).current.id)
+    return out
 
 
-def _string_entries(values: Any) -> list[str]:
-    return [v.strip() for v in (values or []) if isinstance(v, str) and v.strip()]
+def _row_order(register: ds.Register, row_id: Any) -> tuple[int, str]:
+    row = register.row(row_id)
+    return (row.revision_number, str(row.id))
 
 
-def _is_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-    except ValueError:
-        return False
-    return True
+def related_reference_labels(register: ds.Register, decision_id: Any) -> list[str]:
+    """The decision's ``relates`` links as reference numbers, deduplicated."""
+    return adr_service.reference_labels(
+        register, adr_service.outgoing_targets(register, decision_id, ds.RELATES)
+    )

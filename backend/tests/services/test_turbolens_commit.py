@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensAssessment
@@ -222,7 +223,8 @@ class TestExecuteCommit:
         assert adr.consequences == (
             "New cards introduced: 3\nNew relations created: 5\nNew capability: missing today"
         )
-        assert adr.related_decisions == [{"type": "assessment", "id": str(env["assessment"].id)}]
+        # The assessment is no longer stored on the decision as a related entry.
+        assert (await db.execute(select(ArchitectureDecisionLink))).scalars().all() == []
         assert adr.created_by == env["admin"].id
         linked = (
             await db.execute(

@@ -2447,14 +2447,14 @@ async def _seed_decision_register(db):
             ),
             ArchitectureDecisionPerson(
                 architecture_decision_id=new.id,
-                role="decision_maker",
+                part="decision_maker",
                 user_id=maker.id,
                 name="Uma Maker",
                 position=0,
             ),
             ArchitectureDecisionPerson(
                 architecture_decision_id=new.id,
-                role="participant",
+                part="participant",
                 user_id=None,
                 name="External Auditor",
                 position=1,
@@ -2591,7 +2591,7 @@ async def test_decision_register_roundtrips_and_reimports_as_all_skip(db, tmp_pa
         .all()
     )
     assert [
-        (p.architecture_decision_id, p.role, p.user_id, p.name, p.position) for p in people
+        (p.architecture_decision_id, p.part, p.user_id, p.name, p.position) for p in people
     ] == [
         (new_id, "decision_maker", maker.id, "Uma Maker", 0),
         (new_id, "participant", None, "External Auditor", 1),
@@ -2657,7 +2657,7 @@ async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(d
     person_row = {c: None for c in sections["AdrPeople"].header()} | {
         "id": person_id,
         "architecture_decision_id": adr_id,
-        "role": "decision_maker",
+        "part": "decision_maker",
         "name": "Gil Ghost",
         "position": 0,
         "user_id__email": "ghost@nowhere.example",
@@ -2679,4 +2679,4 @@ async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(d
     assert str(person.architecture_decision_id) == adr_id
     assert person.user_id is None
     assert person.name == "Gil Ghost"
-    assert person.role == "decision_maker"
+    assert person.part == "decision_maker"

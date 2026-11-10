@@ -26,7 +26,14 @@ from app.schemas.adr import (
     ADRSignRequest,
     ADRUpdate,
 )
-from app.services import adr_import_service, adr_service, notification_service
+from app.services import (
+    adr_import_service,
+    adr_service,
+    decision_link_service,
+    decision_people_service,
+    notification_service,
+)
+from app.services import decision_standing as ds
 from app.services.card_read_scope import CardReadScope, require_card_readable
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -55,9 +62,10 @@ async def _publish_adr_card_event(
         {
             "adr_id": str(adr.id),
             "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
             "title": adr.title,
             "status": adr.status,
-            "link": f"/ea-delivery/adr/{adr.id}",
+            "link": adr_service.decision_link(adr.id),
         },
         db=db,
         card_id=card_id,
@@ -76,11 +84,15 @@ async def _get_adr(db: AsyncSession, adr_id: str) -> ArchitectureDecision:
 
 
 async def _adr_to_dict(
-    db: AsyncSession, adr: ArchitectureDecision, read_scope: CardReadScope | None = None
+    db: AsyncSession,
+    adr: ArchitectureDecision,
+    register: ds.Register,
+    read_scope: CardReadScope | None = None,
 ) -> dict:
     """Convert an ADR model to a response dict, including linked cards and names.
 
-    ``read_scope`` leaves out linked cards hidden from the reader.
+    ``read_scope`` leaves out linked cards hidden from the reader. Standing,
+    links and revisions come from ``register``.
     """
     # Get creator name
     creator_name = None
@@ -102,6 +114,16 @@ async def _adr_to_dict(
     )
     linked_cards = [{"id": str(row.id), "name": row.name, "type": row.type} for row in result.all()]
 
+    people = (await decision_people_service.people_payload(db, [adr.id]))[adr.id]
+
+    recorded_by = None
+    if adr.recorded_by:
+        recorder = await db.get(User, adr.recorded_by)
+        recorded_by = {
+            "user_id": str(adr.recorded_by),
+            "display_name": recorder.display_name if recorder else None,
+        }
+
     return {
         "id": str(adr.id),
         "reference_number": adr.reference_number,
@@ -111,7 +133,9 @@ async def _adr_to_dict(
         "decision": adr.decision,
         "consequences": adr.consequences,
         "alternatives_considered": adr.alternatives_considered,
-        "related_decisions": adr.related_decisions or [],
+        "related_decisions": [
+            str(target) for target in adr_service.outgoing_targets(register, adr.id, ds.RELATES)
+        ],
         "attributes": adr.attributes or {},
         "created_by": str(adr.created_by) if adr.created_by else None,
         "creator_name": creator_name,
@@ -124,13 +148,30 @@ async def _adr_to_dict(
         "linked_cards": linked_cards,
         "created_at": adr.created_at.isoformat() if adr.created_at else None,
         "updated_at": adr.updated_at.isoformat() if adr.updated_at else None,
+        **adr_service.standing_fields(register, adr.id),
+        **adr_service.date_fields(adr),
+        "decision_makers": people["decision_makers"],
+        "participants": people["participants"],
+        "links": decision_link_service.links_payload(register, adr.id),
+        "revisions": adr_service.revisions_payload(register, adr.id),
+        "change_summary": adr.change_summary,
+        "recorded_by": recorded_by,
     }
+
+
+async def _detail(db: AsyncSession, adr: ArchitectureDecision, user: User) -> dict:
+    """The detail response for ``adr`` as ``user`` reads it."""
+    register = await ds.load_register(db)
+    return await _adr_to_dict(db, adr, register, await CardReadScope.load(db, user))
 
 
 def _adr_to_summary(
     adr: ArchitectureDecision,
     linked_cards: list[dict] | None = None,
     creator_name: str | None = None,
+    *,
+    register: ds.Register,
+    people: dict[uuid.UUID, dict[str, list[dict]]],
 ) -> dict:
     """Lightweight dict for list endpoints."""
     return {
@@ -151,7 +192,58 @@ def _adr_to_summary(
         "linked_cards": linked_cards or [],
         "created_at": adr.created_at.isoformat() if adr.created_at else None,
         "updated_at": adr.updated_at.isoformat() if adr.updated_at else None,
+        **adr_service.standing_fields(register, adr.id),
+        **adr_service.date_fields(adr),
+        "decision_makers": people.get(adr.id, {}).get("decision_makers", []),
     }
+
+
+async def _summaries(
+    db: AsyncSession,
+    rows: list[ArchitectureDecision],
+    register: ds.Register,
+    user: User,
+    *,
+    with_creators: bool = True,
+) -> list[dict]:
+    """List rows for ``rows``: linked cards, creators and people in one query each."""
+    adr_ids = [adr.id for adr in rows]
+    cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
+    if adr_ids:
+        cards_result = await db.execute(
+            select(
+                ArchitectureDecisionCard.architecture_decision_id,
+                Card.id,
+                Card.name,
+                Card.type,
+            )
+            .join(Card, ArchitectureDecisionCard.card_id == Card.id)
+            .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
+            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+        )
+        for row in cards_result.all():
+            cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
+
+    creator_names: dict[uuid.UUID, str] = {}
+    creator_ids = {adr.created_by for adr in rows if adr.created_by}
+    if with_creators and creator_ids:
+        users_result = await db.execute(
+            select(User.id, User.display_name).where(User.id.in_(creator_ids))
+        )
+        for uid, dname in users_result.all():
+            creator_names[uid] = dname
+
+    people = await decision_people_service.people_payload(db, adr_ids)
+    return [
+        _adr_to_summary(
+            adr,
+            cards_map.get(adr.id),
+            creator_names.get(adr.created_by) if adr.created_by else None,
+            register=register,
+            people=people,
+        )
+        for adr in rows
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -177,10 +269,17 @@ async def list_adrs(
         description="Also return every section's text and related decision references "
         "(the spreadsheet export)",
     ),
+    include_earlier: bool = Query(
+        True, description="Also list earlier revisions superseded inside their own chain"
+    ),
+    standing: str | None = Query(
+        None, description="Only decisions with this standing (comma-separated allowed)"
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.view")
+    standings = adr_service.parse_standing_filter(standing)
     stmt = select(ArchitectureDecision).order_by(ArchitectureDecision.updated_at.desc())
 
     # Track whether we already joined the junction table
@@ -268,51 +367,25 @@ async def list_adrs(
         stmt = stmt.distinct()
 
     result = await db.execute(stmt)
-    rows = result.scalars().all()
-
-    # Bulk-fetch linked cards for all ADRs
-    adr_ids = [adr.id for adr in rows]
-    cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
-    if adr_ids:
-        cards_result = await db.execute(
-            select(
-                ArchitectureDecisionCard.architecture_decision_id,
-                Card.id,
-                Card.name,
-                Card.type,
-            )
-            .join(Card, ArchitectureDecisionCard.card_id == Card.id)
-            .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
-            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+    register = await ds.load_register(db)
+    rows = [
+        adr
+        for adr in result.scalars().all()
+        if adr_service.keep_in_list(
+            register, adr.id, include_earlier=include_earlier, standings=standings
         )
-        for row in cards_result.all():
-            cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
-
-    # Bulk-fetch creator display names
-    creator_ids = {adr.created_by for adr in rows if adr.created_by}
-    creator_names: dict[uuid.UUID, str] = {}
-    if creator_ids:
-        users_result = await db.execute(
-            select(User.id, User.display_name).where(User.id.in_(creator_ids))
-        )
-        for uid, dname in users_result.all():
-            creator_names[uid] = dname
-
-    summaries = [
-        _adr_to_summary(
-            adr,
-            cards_map.get(adr.id),
-            creator_names.get(adr.created_by) if adr.created_by else None,
-        )
-        for adr in rows
     ]
+
+    summaries = await _summaries(db, rows, register, user)
     if include_content:
-        related = await adr_import_service.related_reference_labels(db, rows)
         for adr, summary in zip(rows, summaries, strict=True):
             summary["context"] = adr.context
             summary["consequences"] = adr.consequences
             summary["alternatives_considered"] = adr.alternatives_considered
-            summary["related_references"] = related.get(adr.id, [])
+            summary["related_references"] = adr_import_service.related_reference_labels(
+                register, adr.id
+            )
+            summary["link_references"] = adr_service.link_references(register, adr.id)
     return summaries
 
 
@@ -324,6 +397,13 @@ async def create_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
     card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
+    register = await ds.load_register(db)
+    adr_service.check_dates(
+        body.decided_on, body.effective_from, body.valid_until, today=register.today
+    )
+    wanted = decision_link_service.wanted_links(
+        register, None, links=body.links or [], related=body.related_decisions or []
+    )
     # The shared writer (also behind the analysis commit flow and the
     # extension decisions bridge) — one reference-number sequence for all.
     adr = await adr_service.create_decision(
@@ -333,13 +413,23 @@ async def create_adr(
         decision=body.decision,
         consequences=body.consequences,
         alternatives_considered=body.alternatives_considered,
-        related_decisions=body.related_decisions or [],
         linked_card_ids=card_ids,
         created_by=user.id,
+        decided_on=body.decided_on,
+        effective_from=body.effective_from,
+        valid_until=body.valid_until,
+        change_summary=body.change_summary,
+    )
+    await decision_link_service.replace_links(db, adr, wanted, register=register)
+    await decision_people_service.replace_people(
+        db,
+        adr,
+        decision_makers=body.decision_makers or [],
+        participants=body.participants or [],
     )
     await db.commit()
     await db.refresh(adr)
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.post("/bulk-import", response_model=ADRImportResponse)
@@ -396,7 +486,7 @@ async def get_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.view")
     adr = await _get_adr(db, adr_id)
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.patch("/{adr_id}")
@@ -422,9 +512,32 @@ async def update_adr(
         adr.consequences = body.consequences
     if body.alternatives_considered is not None:
         adr.alternatives_considered = body.alternatives_considered
-    if body.related_decisions is not None:
-        adr.related_decisions = body.related_decisions
-        flag_modified(adr, "related_decisions")
+    if body.links is not None and body.related_decisions is not None:
+        raise HTTPException(
+            400,
+            {
+                "error": "links_and_related_decisions",
+                "message": "Send either links or related_decisions, not both",
+            },
+        )
+    if body.links is not None or body.related_decisions is not None:
+        register = await ds.load_register(db)
+        wanted = decision_link_service.wanted_links(
+            register, adr.id, links=body.links, related=body.related_decisions or []
+        )
+        await decision_link_service.replace_links(db, adr, wanted, register=register)
+    for field in ("decided_on", "effective_from", "valid_until", "change_summary"):
+        if field in body.model_fields_set:
+            setattr(adr, field, getattr(body, field))
+    adr_service.check_dates(
+        adr.decided_on,
+        adr.effective_from,
+        adr.valid_until,
+        today=datetime.now(timezone.utc).date(),
+    )
+    await decision_people_service.replace_people(
+        db, adr, decision_makers=body.decision_makers, participants=body.participants
+    )
     if body.attributes is not None:
         # Extension attributes bag: shallow-merge namespaced ``ext.*`` keys.
         # A key set to null is removed. Core owns no native ADR attributes, so
@@ -483,7 +596,7 @@ async def update_adr(
 
     await db.commit()
     await db.refresh(adr)
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.delete("/{adr_id}", status_code=204)
@@ -530,13 +643,14 @@ async def duplicate_adr(
         decision=original.decision,
         consequences=original.consequences,
         alternatives_considered=original.alternatives_considered,
-        related_decisions=original.related_decisions or [],
         attributes=dict(original.attributes or {}),
+        valid_until=original.valid_until,
         created_by=user.id,
     )
     db.add(dup)
     await db.commit()
     await db.refresh(dup)
+    await adr_service.copy_decision_extras(db, original.id, dup.id)
 
     # Copy card links
     result = await db.execute(
@@ -553,7 +667,7 @@ async def duplicate_adr(
         )
     await db.commit()
     await db.refresh(dup)
-    return await _adr_to_dict(db, dup, await CardReadScope.load(db, user))
+    return await _detail(db, dup, user)
 
 
 # ---------------------------------------------------------------------------
@@ -574,6 +688,10 @@ async def request_signatures(
 
     if adr.status == "signed":
         raise HTTPException(400, "Decision is already signed")
+
+    refusal = adr_service.lock_refusal(await ds.load_register(db), adr)
+    if refusal is not None:
+        raise HTTPException(409, refusal)
 
     signatories = []
     for uid_str in body.user_ids:
@@ -596,12 +714,13 @@ async def request_signatures(
     flag_modified(adr, "signatories")
     adr.status = "in_review"
 
+    label = adr_service.decision_label(adr)
     for sig in signatories:
         todo = Todo(
-            description=f'Sign ADR: "{adr.reference_number} — {adr.title}"',
+            description=f'Sign ADR: "{label}"',
             assigned_to=uuid.UUID(sig["user_id"]),
             created_by=user.id,
-            link=f"/ea-delivery/adr/{adr_id}",
+            link=adr_service.decision_link(adr.id),
             is_system=True,
         )
         db.add(todo)
@@ -612,10 +731,7 @@ async def request_signatures(
             actor_id=user.id,
             notif_type="adr_sign_requested",
             title="ADR Signature Requested",
-            message=(
-                f"{user.display_name} requested your signature on "
-                f'"{adr.reference_number} — {adr.title}"'
-            ),
+            message=f'{user.display_name} requested your signature on "{label}"',
             link=f"/ea-delivery/adr/{adr_id}",
             data={"adr_id": adr_id, "adr_title": adr.title},
         )
@@ -628,6 +744,7 @@ async def request_signatures(
         {
             "id": adr_id,
             "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
             "title": adr.title,
             "signatory_count": len(signatories),
         },
@@ -635,7 +752,7 @@ async def request_signatures(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.post("/{adr_id}/sign")
@@ -677,7 +794,7 @@ async def sign_adr(
             Todo.assigned_to == user.id,
             Todo.is_system == True,  # noqa: E712
             Todo.status == "open",
-            Todo.description.ilike(f"%Sign ADR%{adr.reference_number}%"),
+            Todo.link == adr_service.decision_link(adr.id),
         )
     )
     for t in sign_todos.scalars().all():
@@ -687,9 +804,18 @@ async def sign_adr(
     flag_modified(adr, "signatories")
 
     all_signed = all(sig["status"] == "signed" for sig in signatories)
+    label = adr_service.decision_label(adr)
     if all_signed:
+        # The chain may have been revoked or replaced since the request.
+        closed_by = ds.chain_closed_by(await ds.load_register(db), adr.id)
+        if closed_by is not None:
+            raise HTTPException(
+                409,
+                {"error": ds.CHAIN_CLOSED, "by": adr_service.ref_payload(closed_by)},
+            )
         adr.status = "signed"
         adr.signed_at = datetime.now(timezone.utc)
+        adr_service.apply_lock_dates(adr, adr.signed_at.date())
 
         if adr.created_by:
             await notification_service.create_notification(
@@ -698,7 +824,7 @@ async def sign_adr(
                 actor_id=user.id,
                 notif_type="adr_signed",
                 title="ADR Fully Signed",
-                message=(f'All signatories have signed "{adr.reference_number} — {adr.title}"'),
+                message=f'All signatories have signed "{label}"',
                 link=f"/ea-delivery/adr/{adr_id}/preview",
                 data={"adr_id": adr_id, "adr_title": adr.title},
             )
@@ -712,9 +838,7 @@ async def sign_adr(
                 notif_type="adr_signed",
                 title="ADR Signature Received",
                 message=(
-                    f"{user.display_name} signed "
-                    f'"{adr.reference_number} — {adr.title}" '
-                    f"({signed_count}/{len(signatories)})"
+                    f'{user.display_name} signed "{label}" ({signed_count}/{len(signatories)})'
                 ),
                 link=f"/ea-delivery/adr/{adr_id}",
                 data={"adr_id": adr_id, "adr_title": adr.title},
@@ -728,6 +852,7 @@ async def sign_adr(
         {
             "id": adr_id,
             "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
             "title": adr.title,
             "signer": user.display_name,
             "all_signed": all_signed,
@@ -736,7 +861,7 @@ async def sign_adr(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.post("/{adr_id}/recall-signatures")
@@ -758,7 +883,7 @@ async def recall_adr_signatures(
         select(Todo).where(
             Todo.is_system == True,  # noqa: E712
             Todo.status == "open",
-            Todo.description.ilike(f"%Sign ADR%{adr.reference_number}%"),
+            Todo.link == adr_service.decision_link(adr.id),
         )
     )
     for t in sign_todos.scalars().all():
@@ -775,7 +900,7 @@ async def recall_adr_signatures(
                 title="ADR Signature Request Recalled",
                 message=(
                     f"{user.display_name} recalled the signature request "
-                    f'for "{adr.reference_number} — {adr.title}"'
+                    f'for "{adr_service.decision_label(adr)}"'
                 ),
                 link=f"/ea-delivery/adr/{adr_id}",
                 data={"adr_id": adr_id, "adr_title": adr.title},
@@ -793,13 +918,14 @@ async def recall_adr_signatures(
         {
             "id": adr_id,
             "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
             "title": adr.title,
         },
         db=db,
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.post("/{adr_id}/reject")
@@ -826,7 +952,7 @@ async def reject_adr(
         select(Todo).where(
             Todo.is_system == True,  # noqa: E712
             Todo.status == "open",
-            Todo.description.ilike(f"%Sign ADR%{adr.reference_number}%"),
+            Todo.link == adr_service.decision_link(adr.id),
         )
     )
     for t in sign_todos.scalars().all():
@@ -841,8 +967,7 @@ async def reject_adr(
             notif_type="adr_rejected",
             title="ADR Rejected",
             message=(
-                f"{user.display_name} rejected "
-                f'"{adr.reference_number} — {adr.title}": {body.comment}'
+                f'{user.display_name} rejected "{adr_service.decision_label(adr)}": {body.comment}'
             ),
             link=f"/ea-delivery/adr/{adr_id}",
             data={
@@ -863,8 +988,7 @@ async def reject_adr(
                 title="ADR Rejected",
                 message=(
                     f"{user.display_name} rejected "
-                    f'"{adr.reference_number} — {adr.title}": '
-                    f"{body.comment}"
+                    f'"{adr_service.decision_label(adr)}": {body.comment}'
                 ),
                 link=f"/ea-delivery/adr/{adr_id}",
                 data={
@@ -887,6 +1011,7 @@ async def reject_adr(
         {
             "id": adr_id,
             "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
             "title": adr.title,
             "rejector": user.display_name,
             "comment": body.comment,
@@ -895,7 +1020,7 @@ async def reject_adr(
         user_id=user.id,
     )
 
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 # ---------------------------------------------------------------------------
@@ -924,8 +1049,8 @@ async def revise_adr(
         decision=adr.decision,
         consequences=adr.consequences,
         alternatives_considered=adr.alternatives_considered,
-        related_decisions=adr.related_decisions or [],
         attributes=dict(adr.attributes or {}),
+        valid_until=adr.valid_until,
         created_by=user.id,
         revision_number=adr.revision_number + 1,
         parent_id=adr.id,
@@ -933,6 +1058,7 @@ async def revise_adr(
     db.add(new_revision)
     await db.commit()
     await db.refresh(new_revision)
+    await adr_service.copy_decision_extras(db, adr.id, new_revision.id)
 
     # Copy card links from the original
     result = await db.execute(
@@ -950,7 +1076,7 @@ async def revise_adr(
     await db.commit()
     await db.refresh(new_revision)
 
-    return await _adr_to_dict(db, new_revision, await CardReadScope.load(db, user))
+    return await _detail(db, new_revision, user)
 
 
 @router.get("/{adr_id}/revisions")
@@ -975,7 +1101,7 @@ async def list_revisions(
         root = parent
 
     # Collect all revisions from root downward
-    revisions = [_adr_to_summary(root)]
+    chain = [root]
     current_id = root.id
     while True:
         result = await db.execute(
@@ -984,10 +1110,12 @@ async def list_revisions(
         child = result.scalar_one_or_none()
         if not child:
             break
-        revisions.append(_adr_to_summary(child))
+        chain.append(child)
         current_id = child.id
 
-    return revisions
+    register = await ds.load_register(db)
+    people = await decision_people_service.people_payload(db, [r.id for r in chain])
+    return [_adr_to_summary(r, register=register, people=people) for r in chain]
 
 
 # ---------------------------------------------------------------------------
@@ -1027,7 +1155,7 @@ async def link_card(
     await db.commit()
 
     await _publish_adr_card_event(db, adr, "adr.linked", uuid.UUID(body.card_id), actor_id=user.id)
-    return await _adr_to_dict(db, adr, await CardReadScope.load(db, user))
+    return await _detail(db, adr, user)
 
 
 @router.delete("/{adr_id}/cards/{card_id}", status_code=204)
@@ -1067,11 +1195,18 @@ async def unlink_card(
 @router.get("/by-card/{card_id}")
 async def list_adrs_for_card(
     card_id: str,
+    include_earlier: bool = Query(
+        True, description="Also list earlier revisions superseded inside their own chain"
+    ),
+    standing: str | None = Query(
+        None, description="Only decisions with this standing (comma-separated allowed)"
+    ),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Get all ADRs linked to a specific card."""
     await PermissionService.require_permission(db, user, "adr.view")
+    standings = adr_service.parse_standing_filter(standing)
     try:
         cid = uuid.UUID(card_id)
     except ValueError as exc:
@@ -1087,24 +1222,12 @@ async def list_adrs_for_card(
         .order_by(ArchitectureDecision.reference_number)
     )
     result = await db.execute(stmt)
-    rows = result.scalars().all()
-
-    # Bulk-fetch linked cards
-    adr_ids = [adr.id for adr in rows]
-    cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
-    if adr_ids:
-        cards_result = await db.execute(
-            select(
-                ArchitectureDecisionCard.architecture_decision_id,
-                Card.id,
-                Card.name,
-                Card.type,
-            )
-            .join(Card, ArchitectureDecisionCard.card_id == Card.id)
-            .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
-            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+    register = await ds.load_register(db)
+    rows = [
+        adr
+        for adr in result.scalars().all()
+        if adr_service.keep_in_list(
+            register, adr.id, include_earlier=include_earlier, standings=standings
         )
-        for row in cards_result.all():
-            cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
-
-    return [_adr_to_summary(adr, cards_map.get(adr.id)) for adr in rows]
+    ]
+    return await _summaries(db, rows, register, user, with_creators=False)

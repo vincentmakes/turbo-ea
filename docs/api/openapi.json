@@ -28,6 +28,18 @@
             ],
             "title": "Alternatives Considered"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -50,6 +62,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -60,6 +84,33 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
           },
           "linked_card_ids": {
             "anyOf": [
@@ -75,6 +126,36 @@
             ],
             "title": "Linked Card Ids"
           },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
+          },
           "related_decisions": {
             "default": [],
             "items": {
@@ -88,6 +169,18 @@
             "minLength": 1,
             "title": "Title",
             "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "required": [
@@ -322,6 +415,73 @@
         "title": "ADRImportResult",
         "type": "object"
       },
+      "ADRLinkIn": {
+        "additionalProperties": false,
+        "description": "One typed link from the decision being saved to another decision.",
+        "properties": {
+          "decision_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "kind": {
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Kind",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "required": [
+          "decision_id",
+          "kind"
+        ],
+        "title": "ADRLinkIn",
+        "type": "object"
+      },
+      "ADRPersonIn": {
+        "additionalProperties": false,
+        "description": "A decision maker or participant: a user of this instance, or a name.",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "title": "ADRPersonIn",
+        "type": "object"
+      },
       "ADRRejectRequest": {
         "properties": {
           "comment": {
@@ -408,6 +568,18 @@
             ],
             "title": "Attributes"
           },
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
           "consequences": {
             "anyOf": [
               {
@@ -430,6 +602,18 @@
             ],
             "title": "Context"
           },
+          "decided_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided On"
+          },
           "decision": {
             "anyOf": [
               {
@@ -440,6 +624,33 @@
               }
             ],
             "title": "Decision"
+          },
+          "decision_makers": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Makers"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
           },
           "linked_card_ids": {
             "anyOf": [
@@ -454,6 +665,36 @@
               }
             ],
             "title": "Linked Card Ids"
+          },
+          "links": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRLinkIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Links"
+          },
+          "participants": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ADRPersonIn"
+                },
+                "maxItems": 500,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participants"
           },
           "related_decisions": {
             "anyOf": [
@@ -492,6 +733,18 @@
               }
             ],
             "title": "Title"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
           }
         },
         "title": "ADRUpdate",
@@ -20869,6 +21122,36 @@
               "title": "Include Content",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
+            }
           }
         ],
         "responses": {
@@ -20988,6 +21271,36 @@
             "schema": {
               "title": "Card Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Also list earlier revisions superseded inside their own chain",
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Also list earlier revisions superseded inside their own chain",
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Only decisions with this standing (comma-separated allowed)",
+            "in": "query",
+            "name": "standing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only decisions with this standing (comma-separated allowed)",
+              "title": "Standing"
             }
           }
         ],

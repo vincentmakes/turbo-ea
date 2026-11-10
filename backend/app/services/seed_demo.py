@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.soaw import SoAW
@@ -6192,7 +6193,7 @@ DEMO_ADRS = [
             "2. Continue on-premises with hardware refresh — rejected due to cost "
             "trajectory.</p>"
         ),
-        "related_decisions": [],
+        "related_references": [],
         "signatories": [
             {
                 "user_id": "demo-sig-cto-office",
@@ -6230,7 +6231,7 @@ DEMO_ADRS = [
             "2. No gateway, enforce standards via code reviews — rejected as "
             "unenforceable at scale.</p>"
         ),
-        "related_decisions": ["ADR-001"],
+        "related_references": ["ADR-001"],
         "signatories": [
             {
                 "user_id": "demo-sig-enterprise-architect",
@@ -6267,7 +6268,7 @@ DEMO_ADRS = [
             "<p>1. MuleSoft — rejected due to budget constraints.<br>"
             "2. Custom middleware — rejected due to maintenance overhead.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-002"],
+        "related_references": ["ADR-001", "ADR-002"],
         "revision_number": 1,
     },
 ]
@@ -6322,7 +6323,7 @@ DEMO_ADRS_EXTRA = [
             "2. VPN-only remote access — rejected due to latency and scalability "
             "limitations.</p>"
         ),
-        "related_decisions": ["ADR-001"],
+        "related_references": ["ADR-001"],
         "signatories": [
             {
                 "user_id": "demo-sig-ciso-office",
@@ -6375,7 +6376,7 @@ DEMO_ADRS_EXTRA = [
             "2. AWS SNS/SQS — rejected to avoid cloud vendor lock-in for the "
             "messaging backbone.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-002"],
+        "related_references": ["ADR-001", "ADR-002"],
         "signatories": [
             {
                 "user_id": "demo-sig-cto-office",
@@ -6421,7 +6422,7 @@ DEMO_ADRS_EXTRA = [
             "2. Databricks Lakehouse — rejected as over-engineered for current "
             "analytics maturity level.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-005"],
+        "related_references": ["ADR-001", "ADR-005"],
         "signatories": [
             {
                 "user_id": "demo-sig-data-architecture-lead",
@@ -6473,7 +6474,7 @@ DEMO_ADRS_EXTRA = [
             "2. Serverless-first (Azure Functions) — rejected as not suitable "
             "for long-running manufacturing backend processes.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-004"],
+        "related_references": ["ADR-001", "ADR-004"],
         "revision_number": 1,
     },
 ]
@@ -7254,10 +7255,15 @@ async def seed_demo_data(db: AsyncSession) -> dict:
 
     # Insert demo Architecture Decision Records
     for adr_def in DEMO_ADRS + DEMO_ADRS_EXTRA:
-        adr_data = {k: v for k, v in adr_def.items()}
+        adr_data = {k: v for k, v in adr_def.items() if k != "related_references"}
         if admin_id:
             adr_data["created_by"] = admin_id
         db.add(ArchitectureDecision(**adr_data))
+    await db.flush()
+
+    # Related decisions are ``relates`` links, added once every decision exists.
+    for source_id, target_id in demo_relates_links(DEMO_ADRS + DEMO_ADRS_EXTRA):
+        db.add(ArchitectureDecisionLink(source_id=source_id, target_id=target_id, kind="relates"))
     await db.flush()
 
     for link_def in DEMO_ADR_CARD_LINKS + DEMO_ADR_EXTRA_CARD_LINKS:
@@ -7309,6 +7315,18 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         "soaws": len(DEMO_SOAWS),
         "risks": risk_count,
     }
+
+
+def demo_relates_links(adr_defs: list[dict]) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """The ``(source, target)`` id pairs of the demo decisions' related references."""
+    by_ref = {d["reference_number"]: d["id"] for d in adr_defs}
+    pairs: list[tuple[uuid.UUID, uuid.UUID]] = []
+    for d in adr_defs:
+        for ref in d.get("related_references", []):
+            target = by_ref.get(ref)
+            if target is not None and target != d["id"] and (d["id"], target) not in pairs:
+                pairs.append((d["id"], target))
+    return pairs
 
 
 async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:

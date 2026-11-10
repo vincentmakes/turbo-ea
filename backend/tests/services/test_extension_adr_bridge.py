@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.event import Event
 from app.models.mutation_batch import MutationBatch
 from app.services.extensions import adr_bridge as bridge_mod
@@ -247,17 +248,49 @@ class TestCreateDraft:
         assert events[0].card_id is None
         assert events[0].data["adr_id"] == out.id
 
-    async def test_related_decisions_passthrough(self, db, env):
+    async def test_related_decisions_become_relates_links_tolerantly(self, db, env):
+        """Resolvable strings become ``relates`` links; dicts and unknown ids are
+        dropped without failing the filing (SDK callers written before the
+        decision register keep working)."""
+        load_registry(grants=["core.adr.write"])
+        first = ArchitectureDecision(reference_number="ADR-001", title="First")
+        second = ArchitectureDecision(reference_number="ADR-002", title="Second")
+        db.add_all([first, second])
+        await db.flush()
+        out = await ExtensionDecisions(KEY).create_draft(
+            title="Related",
+            related_decisions=[
+                {"type": "scenario", "id": "s1"},
+                "adr-001",
+                str(second.id),
+                str(uuid.uuid4()),
+                "ADR-404",
+            ],
+        )
+        links = (
+            await db.execute(
+                select(ArchitectureDecisionLink.target_id, ArchitectureDecisionLink.kind).where(
+                    ArchitectureDecisionLink.source_id == uuid.UUID(out.id)
+                )
+            )
+        ).all()
+        assert sorted(links, key=lambda r: str(r[0])) == sorted(
+            [(first.id, "relates"), (second.id, "relates")], key=lambda r: str(r[0])
+        )
+
+    async def test_only_unresolvable_related_decisions_file_no_link(self, db, env):
         load_registry(grants=["core.adr.write"])
         out = await ExtensionDecisions(KEY).create_draft(
-            title="Related", related_decisions=[{"type": "scenario", "id": "s1"}]
+            title="Related", related_decisions=[{"type": "scenario", "id": "s1"}, "ADR-404"]
         )
-        row = (
+        links = (
             await db.execute(
-                select(ArchitectureDecision).where(ArchitectureDecision.id == uuid.UUID(out.id))
+                select(ArchitectureDecisionLink).where(
+                    ArchitectureDecisionLink.source_id == uuid.UUID(out.id)
+                )
             )
-        ).scalar_one()
-        assert row.related_decisions == [{"type": "scenario", "id": "s1"}]
+        ).all()
+        assert links == []
 
 
 class TestGet:

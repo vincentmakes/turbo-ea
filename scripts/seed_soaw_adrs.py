@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import (  # noqa: E402
 
 from app.models.architecture_decision import ArchitectureDecision  # noqa: E402
 from app.models.architecture_decision_card import ArchitectureDecisionCard  # noqa: E402
+from app.models.architecture_decision_link import ArchitectureDecisionLink  # noqa: E402
 from app.models.card import Card  # noqa: E402
 from app.models.soaw import SoAW  # noqa: E402
 from app.models.user import User  # noqa: E402
@@ -89,7 +90,7 @@ _ADRS = [
             "2. Continue on-premises with hardware refresh \u2014 rejected due to cost "
             "trajectory.</p>"
         ),
-        "related_decisions": [],
+        "related_references": [],
         "signatories": [
             {
                 "user_id": "demo-placeholder",
@@ -131,7 +132,7 @@ _ADRS = [
             "2. No gateway, enforce standards via code reviews \u2014 rejected as "
             "unenforceable at scale.</p>"
         ),
-        "related_decisions": ["ADR-001"],
+        "related_references": ["ADR-001"],
         "signatories": [
             {
                 "user_id": "demo-placeholder",
@@ -171,7 +172,7 @@ _ADRS = [
             "<p>1. MuleSoft \u2014 rejected due to budget constraints.<br>"
             "2. Custom middleware \u2014 rejected due to maintenance overhead.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-002"],
+        "related_references": ["ADR-001", "ADR-002"],
         "revision_number": 1,
         "card_names": [
             "SAP S/4HANA Migration",
@@ -209,7 +210,7 @@ _ADRS = [
             "2. VPN-only remote access \u2014 rejected due to latency and scalability "
             "limitations.</p>"
         ),
-        "related_decisions": ["ADR-001"],
+        "related_references": ["ADR-001"],
         "signatories": [
             {
                 "user_id": "demo-placeholder",
@@ -265,7 +266,7 @@ _ADRS = [
             "2. AWS SNS/SQS \u2014 rejected to avoid cloud vendor lock-in for the "
             "messaging backbone.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-002"],
+        "related_references": ["ADR-001", "ADR-002"],
         "signatories": [
             {
                 "user_id": "demo-placeholder",
@@ -314,7 +315,7 @@ _ADRS = [
             "2. Databricks Lakehouse \u2014 rejected as over-engineered for current "
             "analytics maturity level.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-005"],
+        "related_references": ["ADR-001", "ADR-005"],
         "signatories": [
             {
                 "user_id": "demo-placeholder",
@@ -369,7 +370,7 @@ _ADRS = [
             "2. Serverless-first (Azure Functions) \u2014 rejected as not suitable "
             "for long-running manufacturing backend processes.</p>"
         ),
-        "related_decisions": ["ADR-001", "ADR-004"],
+        "related_references": ["ADR-001", "ADR-004"],
         "revision_number": 1,
         "card_names": [
             "DevOps Pipeline Modernization",
@@ -813,9 +814,26 @@ async def seed(db: AsyncSession) -> dict:
     for adr_def in _ADRS:
         adr_id = uuid.uuid4()
         adr_id_by_ref[adr_def["reference_number"]] = adr_id
-        adr_data = {k: v for k, v in adr_def.items() if k != "card_names"}
+        adr_data = {
+            k: v for k, v in adr_def.items() if k not in ("card_names", "related_references")
+        }
         adr_data["id"] = adr_id
         db.add(ArchitectureDecision(**adr_data))
+    await db.flush()
+
+    # Related decisions are ``relates`` links, added once every decision exists.
+    for adr_def in _ADRS:
+        source_id = adr_id_by_ref[adr_def["reference_number"]]
+        targets: list[uuid.UUID] = []
+        for ref in adr_def.get("related_references", []):
+            target_id = adr_id_by_ref.get(ref)
+            if target_id is not None and target_id != source_id and target_id not in targets:
+                targets.append(target_id)
+                db.add(
+                    ArchitectureDecisionLink(
+                        source_id=source_id, target_id=target_id, kind="relates"
+                    )
+                )
     await db.flush()
 
     # Insert ADR-to-card links

@@ -13,7 +13,7 @@ from app.models.base import Base, UUIDMixin
 class ArchitectureDecisionPerson(Base, UUIDMixin):
     """A person named on an architecture decision.
 
-    ``role`` is ``decision_maker`` or ``participant``. ``user_id`` is set when
+    ``part`` is ``decision_maker`` or ``participant``. ``user_id`` is set when
     the person is a user of this instance; ``name`` is always stored as a
     snapshot, so a free-text person, a deleted user or a user who did not match
     on a workspace import still reads correctly.
@@ -27,7 +27,7 @@ class ArchitectureDecisionPerson(Base, UUIDMixin):
         nullable=False,
         index=True,
     )
-    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    part: Mapped[str] = mapped_column(String(20), nullable=False)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

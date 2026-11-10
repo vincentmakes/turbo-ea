@@ -432,7 +432,6 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         decision="\n".join(decision_parts) or None,
         consequences="\n".join(consequences_parts) or None,
         alternatives_considered=alternatives_text or None,
-        related_decisions=[{"type": "assessment", "id": assessment_id}],
         linked_card_ids=[initiative.id, *(uuid.UUID(c) for c in created_card_ids)],
         created_by=user_id,
     )

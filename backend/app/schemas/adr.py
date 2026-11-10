@@ -1,9 +1,36 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+class ADRLinkIn(BaseModel):
+    """One typed link from the decision being saved to another decision."""
+
+    # A decision id (that exact revision) or a reference number such as
+    # ``ADR-012`` (its chain's current revision).
+    decision_id: str = Field(..., min_length=1, max_length=100)
+    kind: str = Field(..., min_length=1, max_length=20)
+    note: str | None = Field(None, max_length=1000)
+
+    model_config = {"extra": "forbid"}
+
+
+class ADRPersonIn(BaseModel):
+    """A decision maker or participant: a user of this instance, or a name."""
+
+    user_id: str | None = None
+    name: str | None = Field(None, max_length=255)
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> ADRPersonIn:
+        if (self.user_id is None) == (self.name is None):
+            raise ValueError("Give exactly one of user_id and name")
+        return self
 
 
 class ADRCreate(BaseModel):
@@ -12,8 +39,16 @@ class ADRCreate(BaseModel):
     decision: str | None = None
     consequences: str | None = None
     alternatives_considered: str | None = None
+    # Decision ids or reference numbers, saved as ``relates`` links.
     related_decisions: list[str] = []
     linked_card_ids: list[str] | None = None
+    links: list[ADRLinkIn] | None = Field(None, max_length=500)
+    decision_makers: list[ADRPersonIn] | None = Field(None, max_length=500)
+    participants: list[ADRPersonIn] | None = Field(None, max_length=500)
+    decided_on: date | None = None
+    effective_from: date | None = None
+    valid_until: date | None = None
+    change_summary: str | None = Field(None, max_length=2000)
 
     # Unknown keys must fail loudly: silently-ignored extras caused the
     # ADR body/link loss in #800.
@@ -26,6 +61,7 @@ class ADRUpdate(BaseModel):
     decision: str | None = None
     consequences: str | None = None
     alternatives_considered: str | None = None
+    # Replaces the ``relates`` links only; hard links are left untouched.
     related_decisions: list[str] | None = None
     status: str | None = None
     # Extension attributes bag — top-level keys must be namespaced ``ext.*``.
@@ -34,6 +70,16 @@ class ADRUpdate(BaseModel):
     # Replace-set semantics: the full desired link list. None = leave links
     # unchanged; [] = remove all links.
     linked_card_ids: list[str] | None = None
+    # Replace-set semantics for each of these; omitted = unchanged. ``links``
+    # is the full typed set and cannot be sent with ``related_decisions``.
+    links: list[ADRLinkIn] | None = Field(None, max_length=500)
+    decision_makers: list[ADRPersonIn] | None = Field(None, max_length=500)
+    participants: list[ADRPersonIn] | None = Field(None, max_length=500)
+    # An explicit null clears a date or the change summary.
+    decided_on: date | None = None
+    effective_from: date | None = None
+    valid_until: date | None = None
+    change_summary: str | None = Field(None, max_length=2000)
 
     model_config = {"extra": "forbid"}
 
@@ -132,16 +178,3 @@ class ADRImportResponse(BaseModel):
     skipped: int
     failed: int
     dry_run: bool = False
-
-
-class FileAttachmentResponse(BaseModel):
-    id: str
-    card_id: str
-    name: str
-    mime_type: str
-    size: int
-    created_by: str | None = None
-    creator_name: str | None = None
-    created_at: datetime | None = None
-
-    model_config = {"from_attributes": True}

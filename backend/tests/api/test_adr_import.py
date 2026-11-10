@@ -12,6 +12,7 @@ from sqlalchemy import select
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card_type import CardType
 from app.models.event import Event
 from app.services.permission_service import PermissionService
@@ -204,18 +205,24 @@ class TestBulkImport:
         assert first["warnings"] == ["Related decision not found: ADR-404"]
         await db.rollback()
         rows = {d.reference_number: d for d in await _decisions(db)}
-        assert rows[first["reference_number"]].related_decisions == [
-            second["id"],
-            existing_id,
-        ]
+        links = (
+            await db.execute(
+                select(ArchitectureDecisionLink.target_id, ArchitectureDecisionLink.kind).where(
+                    ArchitectureDecisionLink.source_id == rows[first["reference_number"]].id
+                )
+            )
+        ).all()
+        assert sorted((str(t), k) for t, k in links) == sorted(
+            [(second["id"], "relates"), (existing_id, "relates")]
+        )
 
         listed = await client.get(
             "/api/v1/adr?include_content=true", headers=auth_headers(env["admin"])
         )
         by_ref = {a["reference_number"]: a for a in listed.json()}
         assert by_ref[first["reference_number"]]["related_references"] == [
-            second["reference_number"],
             "ADR-001",
+            second["reference_number"],
         ]
 
     async def test_a_hidden_card_reads_as_not_found(self, client, db, env):
@@ -255,6 +262,7 @@ class TestBulkImport:
 class TestIncludeContent:
     async def test_list_carries_sections_only_when_asked(self, client, env):
         headers = auth_headers(env["admin"])
+        first = (await client.post("/api/v1/adr", json={"title": "Target"}, headers=headers)).json()
         await client.post(
             "/api/v1/adr",
             json={
@@ -263,22 +271,39 @@ class TestIncludeContent:
                 "decision": "<p>d</p>",
                 "consequences": "<p>q</p>",
                 "alternatives_considered": "<p>a</p>",
-                "related_decisions": ["ADR-001", "not-a-decision"],
+                "related_decisions": ["ADR-001"],
             },
             headers=headers,
         )
 
-        plain = (await client.get("/api/v1/adr", headers=headers)).json()[0]
-        assert "context" not in plain
-        assert "related_references" not in plain
+        plain = {a["title"]: a for a in (await client.get("/api/v1/adr", headers=headers)).json()}
+        assert "context" not in plain["With content"]
+        assert "related_references" not in plain["With content"]
+        assert "link_references" not in plain["With content"]
 
-        full = (await client.get("/api/v1/adr?include_content=true", headers=headers)).json()[0]
+        listed = (await client.get("/api/v1/adr?include_content=true", headers=headers)).json()
+        full = {a["title"]: a for a in listed}["With content"]
         assert full["context"] == "<p>c</p>"
         assert full["decision"] == "<p>d</p>"
         assert full["consequences"] == "<p>q</p>"
         assert full["alternatives_considered"] == "<p>a</p>"
-        # A reference the decision itself holds resolves; an unknown entry is dropped.
-        assert full["related_references"] == ["ADR-001"]
+        assert full["related_references"] == [first["reference_number"]]
+        assert full["link_references"] == {
+            "replaces": [],
+            "amends": [],
+            "revokes": [],
+            "consolidates": [],
+        }
+
+    async def test_an_unknown_related_decision_is_a_404(self, client, env):
+        resp = await client.post(
+            "/api/v1/adr",
+            json={"title": "Dangling", "related_decisions": ["not-a-decision"]},
+            headers=auth_headers(env["admin"]),
+        )
+        assert resp.status_code == 404
+        assert resp.json()["detail"]["error"] == "decision_not_found"
+        assert resp.json()["detail"]["value"] == "not-a-decision"
 
     async def test_hidden_linked_cards_stay_out(self, client, db, env):
         secret = await create_card(db, card_type="Initiative", name="Secret programme")

@@ -166,7 +166,7 @@ def _create_tables() -> None:
         "architecture_decision_people",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         _decision_fk("architecture_decision_id"),
-        sa.Column("role", sa.String(length=20), nullable=False),
+        sa.Column("part", sa.String(length=20), nullable=False),
         _user_fk("user_id"),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False, server_default="0"),

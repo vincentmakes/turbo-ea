@@ -10,8 +10,8 @@ revoked.
 
 The core is pure: callers build :class:`DecisionRow` and :class:`LinkRow`
 values, and :func:`build_register` turns them into a :class:`Register` that
-answers per decision id. The database loader (``load_register(db)``) lives in
-this module too, beside the pure core it feeds.
+answers per decision id. The database loader (:func:`load_register`) lives in
+this module too, beside the pure core it feeds, and is its only database code.
 
 Definitions (chains come from :mod:`app.services.revision_chain`, built from
 ``parent_id`` only):
@@ -50,6 +50,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.services.revision_chain import (
     LOCKED_STATUS,
     Chain,
@@ -131,6 +136,7 @@ class LinkRow:
     kind: str
     created_at: datetime | None = None
     note: str | None = None
+    id: Any = None
 
 
 # --- outputs ----------------------------------------------------------------
@@ -220,6 +226,10 @@ class Register:
 
     def __getitem__(self, decision_id: Any) -> Standing:
         return self._standings[decision_id]
+
+    def ids(self) -> tuple[Any, ...]:
+        """Every decision id in the register."""
+        return tuple(self._rows)
 
     def get(self, decision_id: Any) -> Standing | None:
         return self._standings.get(decision_id)
@@ -459,6 +469,65 @@ def _upcoming(
             found.append((UpcomingChange(lk.kind, decision_ref(src), src.effective_from), src))
     found.sort(key=lambda item: (item[0].effective_from or date.min, _row_key(item[1])))
     return tuple(item[0] for item in found)
+
+
+# --- loading ----------------------------------------------------------------
+
+
+async def load_register(db: AsyncSession, *, today: date | None = None) -> Register:
+    """The register of every decision in the database, in two queries.
+
+    The only place this module touches the database: one query for the light
+    decision columns of the whole table, one for every link.
+    """
+    adr = ArchitectureDecision
+    decision_rows = await db.execute(
+        select(
+            adr.id,
+            adr.reference_number,
+            adr.revision_number,
+            adr.status,
+            adr.parent_id,
+            adr.created_at,
+            adr.title,
+            adr.decided_on,
+            adr.effective_from,
+            adr.valid_until,
+            adr.recorded_at,
+        )
+    )
+    decisions = [
+        DecisionRow(
+            id=r.id,
+            reference_number=r.reference_number,
+            revision_number=r.revision_number,
+            status=r.status,
+            parent_id=r.parent_id,
+            created_at=r.created_at,
+            title=r.title,
+            decided_on=r.decided_on,
+            effective_from=r.effective_from,
+            valid_until=r.valid_until,
+            recorded=r.recorded_at is not None,
+        )
+        for r in decision_rows.all()
+    ]
+    lnk = ArchitectureDecisionLink
+    link_rows = await db.execute(
+        select(lnk.id, lnk.source_id, lnk.target_id, lnk.kind, lnk.created_at, lnk.note)
+    )
+    links = [
+        LinkRow(
+            source_id=r.source_id,
+            target_id=r.target_id,
+            kind=r.kind,
+            created_at=r.created_at,
+            note=r.note,
+            id=r.id,
+        )
+        for r in link_rows.all()
+    ]
+    return build_register(decisions, links, today=today)
 
 
 # --- validation -------------------------------------------------------------
