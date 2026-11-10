@@ -12,7 +12,10 @@ import {
   isSetLevelProblem,
   lineCount,
   linesOf,
+  matchKeyAt,
+  matchNodes,
   pickedCardIdsOf,
+  pruneViaKeys,
   removeLine,
   sameTypeSet,
   sendableQuerySet,
@@ -358,5 +361,204 @@ describe("startFiltersOnEol", () => {
     expect(startFiltersOnEol({ type: "Application", where: { eol_status: [] } })).toBe(false);
     expect(startFiltersOnEol(null)).toBe(false);
     expect(startFiltersOnEol(undefined)).toBe(false);
+  });
+});
+
+describe("matchNodes", () => {
+  it("has no node for a missing query or a line without hops", () => {
+    expect(matchNodes(null)).toEqual([]);
+    expect(matchNodes(undefined)).toEqual([]);
+    expect(matchNodes({ type: "Application" })).toEqual([]);
+  });
+
+  it("keys a plain chain's hops after the first card, nested ones dot-joined", () => {
+    const q: CardQuery = {
+      type: "Organization",
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          where: { lifecycle_phase: ["active"] },
+          related: [{ relation: "relAppToITC", type: "ITComponent" }],
+        },
+      ],
+    };
+    expect(matchNodes(q)).toEqual([
+      {
+        key: "0:0",
+        line: 0,
+        type: "Application",
+        relation: "relOrgToApp",
+        startType: "Organization",
+        path: [{ relation: "relOrgToApp", type: "Application" }],
+        indices: [0],
+      },
+      {
+        key: "0:0.0",
+        line: 0,
+        type: "ITComponent",
+        relation: "relAppToITC",
+        startType: "Organization",
+        path: [
+          { relation: "relOrgToApp", type: "Application" },
+          { relation: "relAppToITC", type: "ITComponent" },
+        ],
+        indices: [0, 0],
+      },
+    ]);
+  });
+
+  it("numbers sibling hops by their place in `related`", () => {
+    const q: CardQuery = {
+      type: "Application",
+      related: [
+        {
+          relation: "relAppToITC",
+          type: "ITComponent",
+          related: [
+            { relation: "relProviderToITC", type: "Provider" },
+            { relation: "relITCToTech", type: "TechCategory" },
+          ],
+        },
+        { relation: "relAppToBC", type: "BusinessCapability" },
+      ],
+    };
+    expect(matchNodes(q).map((n) => [n.key, n.type])).toEqual([
+      ["0:0", "ITComponent"],
+      ["0:0.0", "Provider"],
+      ["0:0.1", "TechCategory"],
+      ["0:1", "BusinessCapability"],
+    ]);
+  });
+
+  it("leaves out a negated hop and everything below it, keeping later siblings' indices", () => {
+    const q: CardQuery = {
+      type: "Application",
+      related: [
+        {
+          relation: "relAppToITC",
+          type: "ITComponent",
+          negate: true,
+          related: [{ relation: "relProviderToITC", type: "Provider" }],
+        },
+        { relation: "relAppToBC", type: "BusinessCapability" },
+      ],
+    };
+    expect(matchNodes(q).map((n) => n.key)).toEqual(["0:1"]);
+  });
+
+  it("numbers all_of lines in order", () => {
+    expect(matchNodes({ all_of: [APP, APP2] }).map((n) => [n.key, n.line, n.type])).toEqual([
+      ["0:0", 0, "ITComponent"],
+      ["1:0", 1, "Initiative"],
+    ]);
+  });
+
+  it("numbers any_of lines consecutively across groups", () => {
+    expect(matchNodes(STACK).map((n) => [n.key, n.startType, n.type])).toEqual([
+      ["0:0", "Application", "ITComponent"],
+      ["1:0", "Application", "Initiative"],
+      ["2:0", "Organization", "Application"],
+    ]);
+  });
+});
+
+describe("matchKeyAt", () => {
+  const q: CardQuerySet = {
+    any_of: [
+      { type: "Application", related: [{ relation: "relAppToITC", type: "ITComponent" }] },
+      {
+        type: "Application",
+        related: [
+          {
+            relation: "relAppToITC",
+            type: "ITComponent",
+            negate: true,
+            related: [{ relation: "relProviderToITC", type: "Provider" }],
+          },
+          {
+            relation: "relAppToITC",
+            type: "ITComponent",
+            related: [{ relation: "relProviderToITC", type: "Provider" }],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("gives each node the key matchNodes gives it", () => {
+    const keyAt = matchKeyAt(q);
+    for (const node of matchNodes(q)) expect(keyAt(node.line, node.indices)).toBe(node.key);
+    expect(keyAt(1, [1, 0])).toBe("1:1.0");
+  });
+
+  it("has none for a first card, a has-no hop, a hop below one or a missing place", () => {
+    const keyAt = matchKeyAt(q);
+    expect(keyAt(0, [])).toBeNull();
+    expect(keyAt(1, [0])).toBeNull();
+    expect(keyAt(1, [0, 0])).toBeNull();
+    expect(keyAt(0, [1])).toBeNull();
+    expect(keyAt(2, [0])).toBeNull();
+    expect(matchKeyAt(null)(0, [0])).toBeNull();
+  });
+});
+
+describe("pruneViaKeys", () => {
+  const CHAIN: CardQuery = {
+    type: "Organization",
+    related: [
+      {
+        relation: "relOrgToApp",
+        type: "Application",
+        related: [{ relation: "relAppToITC", type: "ITComponent" }],
+      },
+    ],
+  };
+
+  it("keeps every key across a condition change, in order, without duplicates", () => {
+    const next: CardQuery = {
+      ...CHAIN,
+      where: { subtype: ["unit"] },
+      related: [{ ...CHAIN.related![0], where: { lifecycle_phase: ["endOfLife"] } }],
+    };
+    expect(pruneViaKeys(["0:0.0", "0:0", "0:0.0"], CHAIN, next)).toEqual(["0:0.0", "0:0"]);
+  });
+
+  it("drops the key of a removed step", () => {
+    const next: CardQuery = { ...CHAIN, related: [{ relation: "relOrgToApp", type: "Application" }] };
+    expect(pruneViaKeys(["0:0", "0:0.0"], CHAIN, next)).toEqual(["0:0"]);
+  });
+
+  it("drops a key whose step changed type or relation", () => {
+    const retyped: CardQuery = {
+      ...CHAIN,
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          related: [{ relation: "relAppToITC", type: "Interface" }],
+        },
+      ],
+    };
+    expect(pruneViaKeys(["0:0", "0:0.0"], CHAIN, retyped)).toEqual(["0:0"]);
+    const related: CardQuery = {
+      ...CHAIN,
+      related: [{ ...CHAIN.related![0], relation: "relOrgToAppOwns" }],
+    };
+    // The step above changed relation: both keys' chains differ now.
+    expect(pruneViaKeys(["0:0", "0:0.0"], CHAIN, related)).toEqual([]);
+  });
+
+  it("drops a key whose line changed start type, or that is negated now", () => {
+    expect(pruneViaKeys(["0:0"], CHAIN, { ...CHAIN, type: "Provider" })).toEqual([]);
+    const negated: CardQuery = { ...CHAIN, related: [{ ...CHAIN.related![0], negate: true }] };
+    expect(pruneViaKeys(["0:0", "0:0.0"], CHAIN, negated)).toEqual([]);
+  });
+
+  it("drops a key not in the previous query, and everything without one side", () => {
+    expect(pruneViaKeys(["0:1"], CHAIN, CHAIN)).toEqual([]);
+    expect(pruneViaKeys(["0:0"], null, CHAIN)).toEqual([]);
+    expect(pruneViaKeys(["0:0"], CHAIN, null)).toEqual([]);
+    expect(pruneViaKeys([], CHAIN, CHAIN)).toEqual([]);
   });
 });

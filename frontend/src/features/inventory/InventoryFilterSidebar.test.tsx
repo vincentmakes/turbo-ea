@@ -2494,3 +2494,297 @@ describe("InventoryFilterSidebar — query views", () => {
     expect(mockApi.callsOf("get", "/bookmarks")).toHaveLength(2);
   });
 });
+
+describe("InventoryFilterSidebar — matched-cards columns", () => {
+  const VIA_VIEW = makeBookmark({
+    ...QUERY_VIEW,
+    columns: ["core_type", "core_name", "via:0:0"],
+  });
+  const OTHER_VIA_VIEW = makeBookmark({
+    ...SHARED_QUERY_VIEW,
+    id: "bm-other",
+    name: "Other query",
+    is_owner: true,
+    can_edit: true,
+    columns: ["core_name", "via:0:0"],
+  });
+
+  it("applies the picker's columns without the via: entries and hands the view to the page", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    const onApplyViewViaColumns = vi.fn();
+    const { lastColumns } = await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      onApplyViewViaColumns,
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Apps on live tech/ }));
+    expect([...lastColumns()]).toEqual(["core_type", "core_name"]);
+    expect(onApplyViewViaColumns).toHaveBeenCalledTimes(1);
+    expect(onApplyViewViaColumns).toHaveBeenCalledWith(VIA_VIEW);
+  });
+
+  it("leaves the picker alone for a view storing only via: entries", async () => {
+    const onlyVia = makeBookmark({ ...QUERY_VIEW, columns: ["via:0:0"] });
+    mockApi.on("get", "/bookmarks", [onlyVia]);
+    const onApplyViewViaColumns = vi.fn();
+    const { columnChanges } = await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      onApplyViewViaColumns,
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Apps on live tech/ }));
+    expect(columnChanges).toHaveLength(0);
+    expect(onApplyViewViaColumns).toHaveBeenCalledWith(onlyVia);
+  });
+
+  it("a new view stores the via: entries the page gives for its query", async () => {
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW]);
+    mockApi.on("post", "/bookmarks", { ...QUERY_VIEW, id: "bm-copy", name: "Copy" });
+    const viaColumnsFor = vi.fn(() => ["via:0:0"]);
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor,
+      selectedColumns: new Set(["core_type", "core_name"]),
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Save current/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Copy" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(mockApi.callsOf("post")).toHaveLength(1));
+    expect(viaColumnsFor).toHaveBeenCalledWith(VIEW_QUERY);
+    expect((mockApi.callsOf("post")[0].body as { columns: string[] }).columns).toEqual([
+      "core_type",
+      "core_name",
+      "via:0:0",
+    ]);
+  });
+
+  it("updating the view in force stores the page's via: entries for its query", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-q", VIA_VIEW);
+    const viaColumnsFor = vi.fn(() => ["via:0:0"]);
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Apps on live tech/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect(viaColumnsFor).toHaveBeenCalledWith(VIEW_QUERY);
+    expect((mockApi.callsOf("patch")[0].body as { columns: string[] }).columns).toEqual([
+      "core_name",
+      "via:0:0",
+    ]);
+  });
+
+  it("updating another query view keeps its own via: entries", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW, OTHER_VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-other", OTHER_VIA_VIEW);
+    const viaColumnsFor = vi.fn(() => ["via:9:9"]);
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Other query/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect(viaColumnsFor).not.toHaveBeenCalled();
+    expect((mockApi.callsOf("patch")[0].body as { columns: string[] }).columns).toEqual([
+      "core_name",
+      "via:0:0",
+    ]);
+  });
+
+  const F_SAP = { filterType: "text", type: "contains", filter: "SAP" };
+  const F_ERP = { filterType: "text", type: "contains", filter: "ERP" };
+
+  it("applies a view's layout less the via: entries for steps it does not switch on", async () => {
+    const stale = makeBookmark({
+      ...QUERY_VIEW,
+      columns: ["core_name", "via:0:0", "via:0:1"],
+      column_filter_model: { core_name: F_ERP, "via:0:0": F_SAP, "via:0:1": F_SAP, "via:5:0": F_SAP },
+      column_state: [
+        { colId: "core_name", width: 300 },
+        { colId: "via:0:0", width: 120 },
+        { colId: "via:0:1", width: 140 },
+      ],
+    });
+    mockApi.on("get", "/bookmarks", [stale]);
+    const onApplyColumnState = vi.fn();
+    const onApplyColumnFilters = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      onApplyColumnState,
+      onApplyColumnFilters,
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Apps on live tech/ }));
+    // 0:1 is the "has no" hop, 5:0 no step at all: only 0:0 is on.
+    expect(onApplyColumnFilters).toHaveBeenCalledWith({ core_name: F_ERP, "via:0:0": F_SAP });
+    expect(onApplyColumnState).toHaveBeenCalledWith([
+      { colId: "core_name", width: 300 },
+      { colId: "via:0:0", width: 120 },
+    ]);
+  });
+
+  it("saves the grid's layout less the via: entries for steps the view does not keep", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-q", VIA_VIEW);
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => ["via:0:0"],
+      selectedColumns: new Set(["core_name"]),
+      columnFilterModel: { core_name: F_ERP, "via:0:0": F_SAP, "via:0:1": F_SAP },
+      columnState: [
+        { colId: "core_name", width: 300 },
+        { colId: "via:0:1", width: 140 },
+      ],
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Apps on live tech/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect(mockApi.callsOf("patch")[0].body).toMatchObject({
+      columns: ["core_name", "via:0:0"],
+      column_filter_model: { core_name: F_ERP, "via:0:0": F_SAP },
+      column_state: [{ colId: "core_name", width: 300 }],
+    });
+  });
+
+  it("a filter model left with nothing is saved as none", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-q", VIA_VIEW);
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => [],
+      selectedColumns: new Set(["core_name"]),
+      columnFilterModel: { "via:0:0": F_SAP },
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Apps on live tech/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect(mockApi.callsOf("patch")[0].body).toMatchObject({
+      columns: ["core_name"],
+      column_filter_model: null,
+      column_state: null,
+    });
+  });
+
+  it("updating the view in force re-anchors the page's columns on what was saved", async () => {
+    const saved = makeBookmark({ ...VIA_VIEW, columns: ["core_name", "via:0:0"] });
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-q", saved);
+    const onApplyViewViaColumns = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => ["via:0:0"],
+      onApplyViewViaColumns,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Apps on live tech/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(onApplyViewViaColumns).toHaveBeenCalledTimes(1));
+    expect(onApplyViewViaColumns).toHaveBeenCalledWith(saved);
+  });
+
+  it("updating the view in force with no answer re-anchors on what was sent", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-q", undefined);
+    const onApplyViewViaColumns = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => [],
+      onApplyViewViaColumns,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Apps on live tech/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(onApplyViewViaColumns).toHaveBeenCalledTimes(1));
+    expect(onApplyViewViaColumns).toHaveBeenCalledWith({ ...VIA_VIEW, columns: ["core_name"] });
+  });
+
+  it("updating another view leaves the page's columns alone", async () => {
+    mockApi.on("get", "/bookmarks", [VIA_VIEW, OTHER_VIA_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-other", OTHER_VIA_VIEW);
+    const onApplyViewViaColumns = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => ["via:0:0"],
+      onApplyViewViaColumns,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    const row = screen.getByRole("button", { name: /Other query/ });
+    fireEvent.click(within(row).getByRole("button", { name: "edit" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    await act(async () => {});
+    expect(onApplyViewViaColumns).not.toHaveBeenCalled();
+  });
+
+  it("a new query view is put in force anchored on the query and keys it was saved with", async () => {
+    mockApi.on("get", "/bookmarks", [QUERY_VIEW]);
+    mockApi.on("post", "/bookmarks", { ...QUERY_VIEW, id: "bm-copy", name: "Copy", columns: undefined });
+    const onApplyViewViaColumns = vi.fn();
+    const onApplyQuery = vi.fn();
+    await renderSidebar({
+      relationTypes: QUERY_REL_TYPES,
+      externalActiveViewId: "bm-q",
+      viaColumnsFor: () => ["via:0:0"],
+      onApplyViewViaColumns,
+      onApplyQuery,
+      selectedColumns: new Set(["core_name"]),
+    });
+    openTab("Views");
+    fireEvent.click(screen.getByRole("button", { name: /Save current/ }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("View name"), { target: { value: "Copy" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(onApplyViewViaColumns).toHaveBeenCalledTimes(1));
+    const anchored = onApplyViewViaColumns.mock.calls[0][0];
+    expect(anchored.id).toBe("bm-copy");
+    expect(anchored.query).toEqual(VIEW_QUERY);
+    expect(anchored.columns).toEqual(["core_name", "via:0:0"]);
+    expect(onApplyQuery).toHaveBeenLastCalledWith(expect.objectContaining({ viewId: "bm-copy" }));
+  });
+
+  it("updating a plain view stores no via: entries", async () => {
+    mockApi.on("get", "/bookmarks", [MY_VIEW]);
+    mockApi.on("patch", "/bookmarks/bm-1", MY_VIEW);
+    const viaColumnsFor = vi.fn(() => ["via:0:0"]);
+    await renderSidebar({ viaColumnsFor, selectedColumns: new Set(["core_name"]) });
+    openTab("Views");
+    fireEvent.click(
+      within(screen.getByRole("button", { name: /My App View/ })).getByRole("button", {
+        name: "edit",
+      }),
+    );
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Update" }));
+    await waitFor(() => expect(mockApi.callsOf("patch")).toHaveLength(1));
+    expect((mockApi.callsOf("patch")[0].body as { columns: string[] }).columns).toEqual([
+      "core_name",
+    ]);
+  });
+});

@@ -241,7 +241,31 @@ def test_an_eol_card_query_releases_the_request_session_first(module, func):
 
 
 @pytest.mark.source_scan
-@pytest.mark.parametrize("module", ["app/services/card_query.py", "app/services/eol_query.py"])
+def test_the_query_matches_route_releases_the_request_session_before_the_fetch():
+    """``POST /cards/query/matches`` evaluates the same card query, and its
+    EOL pair statuses are fetched from endoflife.date by
+    ``prepared.pair_statuses()`` — the route must commit after preparing and
+    before that fetch, exactly like ``GET /cards?query=``."""
+    body = _function_source("app/api/v1/cards.py", "card_query_matches_route")
+    prepare_at = body.find("await prepare_card_query(")
+    fetch_at = body.find("await prepared.pair_statuses(")
+    assert -1 < prepare_at < fetch_at, "the route must prepare, then fetch the statuses"
+    commit_at = body.rfind("await db.commit()", 0, fetch_at)
+    assert commit_at > prepare_at, (
+        "card_query_matches_route must `await db.commit()` between "
+        "prepare_card_query and prepared.pair_statuses."
+    )
+
+
+@pytest.mark.source_scan
+@pytest.mark.parametrize(
+    "module",
+    [
+        "app/services/card_query.py",
+        "app/services/eol_query.py",
+        "app/services/card_query_matches.py",
+    ],
+)
 def test_the_card_query_helpers_never_commit(module):
     """``prepare_card_query`` and the EOL helpers are handed the route's
     session: the route commits, they never do."""

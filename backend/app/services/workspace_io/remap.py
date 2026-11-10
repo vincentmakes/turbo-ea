@@ -836,13 +836,50 @@ def _rewrite_query_node(node: Any, ids: IdMap, tally: RewriteTally, *, is_hop: b
 def rewrite_bookmark_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
     """A bookmark's relation filters hold card *names*, which travel as they
     are; its tag filter holds ids, and so does its multi-hop ``query`` (tag
-    and card ids, ``rewrite_card_query_ids``)."""
+    and card ids, ``rewrite_card_query_ids``). A query that loses a hop drops
+    its ``via:`` columns here, on the create path; the heal path
+    (``entities.heal_row``) writes back only the id-bearing columns and leaves
+    ``columns`` alone, because it holds keys only and a stale ``via:`` entry
+    there at worst shows a column for a neighbouring step."""
     tally = RewriteTally()
     if "filters" in kwargs:
         kwargs["filters"] = _rewrite_filter_keys(kwargs["filters"], (), ("tagIds",), ctx.ids, tally)
     if "query" in kwargs:
+        before = query_hop_count(kwargs["query"])
         kwargs["query"] = rewrite_card_query_ids(kwargs["query"], ctx.ids, tally)
+        if query_hop_count(kwargs["query"]) != before and "columns" in kwargs:
+            kwargs["columns"] = without_via_columns(kwargs["columns"])
     return tally
+
+
+#: The prefix of a saved view's matched column (``via:<line>:<hop path>``,
+#: ``card_query_matches``): the cards behind a match at one step of the query.
+VIA_COLUMN_PREFIX = "via:"
+
+
+def query_hop_count(node: Any) -> int:
+    """The hops under every line of a *stored* query, read tolerantly (a
+    malformed node counts nothing)."""
+    if not isinstance(node, dict):
+        return 0
+    total = 0
+    for key in ("all_of", "any_of", "related"):
+        nested = node.get(key)
+        if not isinstance(nested, list):
+            continue
+        total += sum(query_hop_count(child) for child in nested)
+        if key == "related":
+            total += len(nested)
+    return total
+
+
+def without_via_columns(columns: Any) -> Any:
+    """A view's ``columns`` with every matched column (``via:…``) removed: once
+    the import drops a hop, the positions those keys name no longer hold.
+    Anything that is not a list comes back untouched."""
+    if not isinstance(columns, list):
+        return columns
+    return [c for c in columns if not (isinstance(c, str) and c.startswith(VIA_COLUMN_PREFIX))]
 
 
 # The key prefix the survey builder gives a stakeholder-role field (``sh:<role>``).

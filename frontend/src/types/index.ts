@@ -837,6 +837,34 @@ export interface CardQueryAny {
  */
 export type CardQuerySet = CardQuery | CardQueryAll | CardQueryAny;
 
+/** A card named in a matched-cards cell. */
+export interface CardQueryMatchCard {
+  id: string;
+  name: string;
+}
+
+/** The cards at one step of a query that made one row match (at most 100). */
+export interface CardQueryMatchCell {
+  cards: CardQueryMatchCard[];
+  /** More cards matched than the 100 listed. */
+  more: boolean;
+}
+
+/** `POST /cards/query/matches`: the switched-on steps of the sent query, for the loaded rows. */
+export interface CardQueryMatchesRequest {
+  /** Exactly the query the card list was sent. */
+  query: CardQuerySet;
+  /** Node keys (`"<line>:<hop path>"`, see `matchNodes`), at most 12. */
+  nodes: string[];
+  /** Ids of the rows loaded in the grid, at most 10,000. */
+  ids: string[];
+}
+
+/** Row id → node key → its cell; only non-empty cells are present. */
+export interface CardQueryMatchesResponse {
+  rows: Record<string, Record<string, CardQueryMatchCell>>;
+}
+
 /** The query view currently applied in the inventory. */
 export interface ActiveQuery {
   viewId: string;

@@ -48,6 +48,8 @@ from app.schemas.card import (
     CardDeleteRequest,
     CardDeleteResponse,
     CardListResponse,
+    CardQueryMatchesRequest,
+    CardQueryMatchesResponse,
     CardRefCandidate,
     CardRefResolveRequest,
     CardRefResolveResponse,
@@ -89,6 +91,7 @@ from app.services.card_query import (
     parse_card_query,
     prepare_card_query,
 )
+from app.services.card_query_matches import card_query_matches, match_nodes
 from app.services.card_read_scope import (
     CardReadScope,
     require_card_readable,
@@ -1126,6 +1129,38 @@ async def resolve_card_refs(
             )
         )
     return CardRefResolveResponse(results=results)
+
+
+@router.post("/query/matches", response_model=CardQueryMatchesResponse)
+async def card_query_matches_route(
+    body: CardQueryMatchesRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """The cards behind a match: for the rows `ids` that `query` lists, the
+    cards at each requested step (`nodes`) through which the row matches —
+    under the list's own rules (ACTIVE, readable related cards; sibling and
+    negated hops kept). Per row and node, distinct cards by name then id, the
+    first 100, `more` when a further one exists. Only non-empty cells; a
+    card the caller may not read never appears. Same permission as
+    `GET /cards`; a bad query answers the list's 400 / 403 codes, a bad node
+    key 400 `unknown_node`. A read, sent as POST for its body (like
+    `resolve-refs`)."""
+    read_scope = await require_inventory_browse(db, user)
+    try:
+        prepared = await prepare_card_query(db, user, parse_card_query(body.query))
+        targets = match_nodes(prepared.groups, body.nodes)
+        if prepared.needs_release:
+            # An EOL condition fetches cycles from endoflife.date: hand the
+            # connection back first (get_db would pin it for the round-trip).
+            await db.commit()
+        pair_statuses = await prepared.pair_statuses()
+    except CardQueryError as exc:
+        raise HTTPException(exc.status, exc.code) from exc
+    rows = await card_query_matches(
+        db, targets, list(dict.fromkeys(body.ids)), read_scope, pair_statuses=pair_statuses
+    )
+    return CardQueryMatchesResponse(rows=rows)
 
 
 @router.get("/counts", response_model=CardCountsResponse)

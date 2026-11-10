@@ -1435,3 +1435,88 @@ def test_an_or_group_whose_start_picks_all_vanish_lists_its_whole_type():
         ]
     }
     assert tally.counts == {rm.REMAPPED: 1, rm.UNRESOLVED: 1}
+
+
+# ── matched columns (``via:<line>:<hop path>``) ─────────────────────────────
+
+_VIA_COLUMNS = ["core_name", "via:0:1", "rel_Application", "via:1:0.0", 7]
+
+
+def _negated_pick_view(pick: str) -> dict:
+    """A view whose first hop is negated on ``pick``; ``via:0:1`` names the
+    positive hop after it."""
+    return {
+        "name": "v",
+        "columns": list(_VIA_COLUMNS),
+        "query": {
+            "any_of": [
+                {
+                    "type": "Organization",
+                    "related": [
+                        {
+                            "relation": "relOrgToApp",
+                            "type": "Application",
+                            "negate": True,
+                            "where": {"cards": [pick]},
+                        },
+                        {"relation": "relOrgToInit", "type": "Initiative"},
+                    ],
+                },
+                {
+                    "type": "Application",
+                    "related": [
+                        {
+                            "relation": "relAppToITC",
+                            "type": "ITComponent",
+                            "related": [{"relation": "relItcToItc__out", "type": "ITComponent"}],
+                        }
+                    ],
+                },
+            ]
+        },
+    }
+
+
+def test_a_dropped_hop_drops_the_views_matched_columns():
+    """Removing the negated hop shifts ``via:0:1`` onto index 0: every
+    matched column goes, the others stay in order."""
+    kw = _negated_pick_view(OLD_C)
+    rm.rewrite_bookmark_row(kw, _ctx())
+    assert [h["relation"] for h in kw["query"]["any_of"][0]["related"]] == ["relOrgToInit"]
+    assert kw["columns"] == ["core_name", "rel_Application", 7]
+
+
+def test_matched_columns_stay_when_no_hop_is_dropped():
+    kw = _negated_pick_view(OLD_A)
+    rm.rewrite_bookmark_row(kw, _ctx())
+    assert kw["query"]["any_of"][0]["related"][0]["where"] == {"cards": [NEW_A]}
+    assert kw["columns"] == _VIA_COLUMNS
+
+
+def test_a_dropped_hop_on_a_view_without_columns_adds_none():
+    kw = _negated_pick_view(OLD_C)
+    del kw["columns"]
+    rm.rewrite_bookmark_row(kw, _ctx())
+    assert "columns" not in kw
+
+
+@pytest.mark.parametrize(
+    ("query", "count"),
+    [
+        (None, 0),
+        ("x", 0),
+        ({"type": "A"}, 0),
+        ({"type": "A", "related": [{"type": "B"}, {"type": "C", "related": [{}]}]}, 3),
+        ({"all_of": [{"related": [{}]}, {"related": [{}, {}]}]}, 3),
+        ({"any_of": [{"all_of": [{"related": [{}]}]}, {"related": [{"related": [{}]}]}]}, 3),
+        ({"type": "A", "related": "x"}, 0),
+    ],
+)
+def test_query_hop_count(query, count):
+    assert rm.query_hop_count(query) == count
+
+
+def test_without_via_columns_leaves_anything_but_a_list():
+    assert rm.without_via_columns(None) is None
+    assert rm.without_via_columns({"via:0:0": 1}) == {"via:0:0": 1}
+    assert rm.without_via_columns(["via:0:0", "VIA:0:0", "x via:0:0"]) == ["VIA:0:0", "x via:0:0"]

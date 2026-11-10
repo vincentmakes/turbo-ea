@@ -24,6 +24,8 @@ from app.services.card_query import (
     start_types,
     view_fields_for_query,
 )
+from app.services.card_query_matches import match_nodes
+from app.services.eol_service import manual_eol_status
 from app.services.lifecycle import current_lifecycle_phase
 from app.services.seed import RELATIONS as META_RELATIONS
 from app.services.seed import TYPES as META_TYPES
@@ -756,6 +758,11 @@ class TestExtrasDemoData:
         errors = []
         for bm in BOOKMARK_DEFS:
             for col in bm.get("columns") or []:
+                # A matched column (``via:<line>:<hop path>``) belongs to a
+                # query view; its key is checked against the query in
+                # ``test_the_matched_columns_name_switchable_nodes``.
+                if bm.get("query") and col.startswith("via:"):
+                    continue
                 if not col.startswith(valid_prefixes):
                     errors.append(
                         f"Bookmark '{bm['name']}': column key '{col}' must "
@@ -794,6 +801,7 @@ class TestExtrasDemoData:
                 fields_schema=t.get("fields_schema", []),
                 subtypes=t.get("subtypes", []),
                 has_hierarchy=t.get("has_hierarchy", False),
+                section_config=t.get("section_config"),
                 is_hidden=False,
             )
             for t in META_TYPES
@@ -811,6 +819,7 @@ class TestExtrasDemoData:
         assert [bm["name"] for bm in query_views] == [
             "Organizations using active apps in flight",
             "Active apps on aging tech, and the organizations using apps",
+            "Organizations on applications with components at or near end of life",
         ]
         for bm in query_views:
             query = parse_card_query(bm["query"])
@@ -822,7 +831,93 @@ class TestExtrasDemoData:
                 bm["card_type"],
                 bm["filters"],
             )
-        assert [bm.get("created_via") for bm in query_views] == ["mcp", None]
+        assert [bm.get("created_via") for bm in query_views] == ["mcp", None, None]
+
+    def test_the_matched_columns_name_switchable_nodes(self):
+        """Every ``via:`` column of a demo view names a node its query really
+        has (``card_query_matches.match_node``): the end-of-life view shows its
+        Applications (``0:0``) and IT Components (``0:0.0``), in that order."""
+        types = {
+            t["key"]: SimpleNamespace(
+                key=t["key"],
+                fields_schema=t.get("fields_schema", []),
+                subtypes=t.get("subtypes", []),
+                has_hierarchy=t.get("has_hierarchy", False),
+                section_config=t.get("section_config"),
+                is_hidden=False,
+            )
+            for t in META_TYPES
+        }
+        relation_types = {
+            r["key"]: SimpleNamespace(
+                key=r["key"],
+                source_type_key=r["source_type_key"],
+                target_type_key=r["target_type_key"],
+                is_hidden=False,
+            )
+            for r in META_RELATIONS
+        }
+        matched: dict[str, list[tuple[str, str]]] = {}
+        for bm in BOOKMARK_DEFS:
+            keys = [c[len("via:") :] for c in bm.get("columns") or [] if c.startswith("via:")]
+            if not keys:
+                continue
+            groups = resolve_groups(parse_card_query(bm["query"]), types, relation_types, {}, None)
+            nodes = match_nodes(groups, keys)
+            matched[bm["name"]] = [(n.key, n.hops()[-1].node.type) for n in nodes]
+        assert matched == {
+            "Organizations on applications with components at or near end of life": [
+                ("0:0", "Application"),
+                ("0:0.0", "ITComponent"),
+            ]
+        }
+
+    def test_the_end_of_life_demo_view_matches_demo_cards(self):
+        """The matched-columns demo view lists three Organizations: walking the
+        demo relations in Python with the end-of-life status the query asks
+        for (``manual_eol_status``: the demo cards carry no endoflife.date
+        link) finds exactly these Organizations, Applications and IT
+        Components."""
+        view = next(
+            bm
+            for bm in BOOKMARK_DEFS
+            if bm["name"] == "Organizations on applications with components at or near end of life"
+        )
+        itc_hop = view["query"]["related"][0]["related"][0]
+        assert itc_hop["where"] == {"eol_status": ["eol", "approaching"]}
+        by_id = {c["id"]: c for c in _ALL_DEMO_CARDS}
+        assert not any(
+            (c.get("attributes") or {}).get("eol_product") for c in seed_demo_module.IT_COMPONENTS
+        )
+
+        def ends(rel_type: str) -> list[tuple[dict, dict]]:
+            return [
+                (by_id[r["source_id"]], by_id[r["target_id"]])
+                for r in DEMO_RELATIONS
+                if r["type"] == rel_type
+            ]
+
+        components: dict[str, set[str]] = {}
+        for app, itc in ends("relAppToITC"):
+            if manual_eol_status(itc.get("lifecycle")) in itc_hop["where"]["eol_status"]:
+                components.setdefault(app["name"], set()).add(itc["name"])
+        matches: dict[str, dict[str, set[str]]] = {}
+        for org, app in ends("relOrgToApp"):
+            if app["name"] in components:
+                row = matches.setdefault(org["name"], {"apps": set(), "itcs": set()})
+                row["apps"].add(app["name"])
+                row["itcs"] |= components[app["name"]]
+        assert matches == {
+            "Engineering Division": {
+                "apps": {"PTC Windchill"},
+                "itcs": {"Windchill File Vault Server"},
+            },
+            "Manufacturing Division": {"apps": {"Siemens Opcenter"}, "itcs": {".NET 8"}},
+            "Sales & Marketing": {
+                "apps": {"SalesTrack CRM", "Sales Contact Workbook"},
+                "itcs": {"SalesTrack Oracle Database", "Sales File Server"},
+            },
+        }
 
     def test_the_stacked_demo_view_lists_two_card_types(self):
         stack = next(bm for bm in BOOKMARK_DEFS if "any_of" in (bm.get("query") or {}))

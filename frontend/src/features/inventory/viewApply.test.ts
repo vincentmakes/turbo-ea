@@ -6,8 +6,15 @@ import {
   bookmarkGrouping,
   emptyFilters,
   hasActiveFacets,
+  bookmarkViaColumns,
   isQueryView,
+  isViaColumnId,
   refreshActiveQuery,
+  splitViewColumns,
+  stripViaIds,
+  stripViaLayout,
+  VIA_COLUMN_PREFIX,
+  viaColumnId,
 } from "./viewApply";
 
 function bookmark(overrides: Partial<Bookmark> = {}): Bookmark {
@@ -248,5 +255,111 @@ describe("hasActiveFacets", () => {
     expect(hasActiveFacets({ ...emptyFilters(), ...facet } as ReturnType<typeof emptyFilters>)).toBe(
       true,
     );
+  });
+});
+
+describe("matched-cards columns in a view's columns", () => {
+  it("names a column via:<key>", () => {
+    expect(VIA_COLUMN_PREFIX).toBe("via:");
+    expect(viaColumnId("0:1.2")).toBe("via:0:1.2");
+    expect(isViaColumnId("via:0:0")).toBe(true);
+    expect(isViaColumnId("core_name")).toBe(false);
+    expect(isViaColumnId("rel_via:0")).toBe(false);
+  });
+
+  it("splits the picker's keys from the via keys, deduped, in order", () => {
+    expect(
+      splitViewColumns(["core_name", "via:0:1", "attr_x", "via:0:0", "via:0:1", "via:"]),
+    ).toEqual({ columns: ["core_name", "attr_x"], via: ["0:1", "0:0"] });
+    expect(splitViewColumns(undefined)).toEqual({ columns: [], via: [] });
+    expect(splitViewColumns(null)).toEqual({ columns: [], via: [] });
+    expect(splitViewColumns(["core_name", 3 as unknown as string])).toEqual({
+      columns: ["core_name"],
+      via: [],
+    });
+  });
+
+  it("restores only the via keys the view's query still holds", () => {
+    const chain: CardQuery = {
+      type: "Organization",
+      related: [
+        {
+          relation: "relOrgToApp",
+          type: "Application",
+          related: [{ relation: "relAppToITC", type: "ITComponent" }],
+        },
+      ],
+    };
+    expect(
+      bookmarkViaColumns(
+        bookmark({ query: chain, columns: ["core_name", "via:0:0.0", "via:0:3", "via:0:0"] }),
+      ),
+    ).toEqual(["0:0.0", "0:0"]);
+  });
+
+  it("restores none for a plain view or a view without via entries", () => {
+    expect(bookmarkViaColumns(bookmark({ columns: ["via:0:0"] }))).toEqual([]);
+    expect(bookmarkViaColumns(bookmark({ query: QUERY, columns: ["core_name"] }))).toEqual([]);
+    expect(bookmarkViaColumns(bookmark({ query: QUERY }))).toEqual([]);
+  });
+});
+
+describe("stripViaLayout", () => {
+  const model = {
+    attr_cost: { filterType: "number", type: "greaterThan", filter: 5 },
+    "via:0:0": { filterType: "text", type: "contains", filter: "SAP" },
+    "via:0:1": { filterType: "text", type: "contains", filter: "Linux" },
+  };
+  const state = [
+    { colId: "core_name", width: 200 },
+    { colId: "via:0:0", width: 300, sort: "asc" as const, pinned: "left" as const },
+    { colId: "via:0:1", width: 120 },
+  ];
+
+  it("drops every via: entry whose key is not switched on, and nothing else", () => {
+    expect(stripViaLayout(model, state, ["0:1"])).toEqual({
+      filterModel: {
+        attr_cost: model.attr_cost,
+        "via:0:1": model["via:0:1"],
+      },
+      columnState: [
+        { colId: "core_name", width: 200 },
+        { colId: "via:0:1", width: 120 },
+      ],
+    });
+    expect(stripViaLayout(model, state, [])).toEqual({
+      filterModel: { attr_cost: model.attr_cost },
+      columnState: [{ colId: "core_name", width: 200 }],
+    });
+  });
+
+  it("returns the inputs themselves when nothing is stale", () => {
+    const out = stripViaLayout(model, state, ["0:0", "0:1"]);
+    expect(out.filterModel).toBe(model);
+    expect(out.columnState).toBe(state);
+    const plain = { attr_cost: model.attr_cost };
+    expect(stripViaLayout(plain, [state[0]], []).filterModel).toBe(plain);
+  });
+
+  it("leaves a missing model or state missing", () => {
+    expect(stripViaLayout(null, undefined, ["0:0"])).toEqual({
+      filterModel: null,
+      columnState: undefined,
+    });
+    expect(stripViaLayout(undefined, null, [])).toEqual({
+      filterModel: undefined,
+      columnState: null,
+    });
+  });
+});
+
+describe("stripViaIds", () => {
+  it("keeps plain ids and the switched-on via: ids, in order", () => {
+    expect(stripViaIds(["via:0:1", "core_name", "via:0:0", "attr_cost"], ["0:0"])).toEqual([
+      "core_name",
+      "via:0:0",
+      "attr_cost",
+    ]);
+    expect(stripViaIds(["via:0:0"], [])).toEqual([]);
   });
 });

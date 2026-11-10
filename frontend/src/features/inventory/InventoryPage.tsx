@@ -40,14 +40,32 @@ import CreateCardDialog from "@/components/CreateCardDialog";
 import CardPicker, { type CardOption } from "@/components/CardPicker";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import QueryPathStrip from "./QueryPathStrip";
-import { sameTypeSet, sendableQuerySet, setProblem, startFiltersOnEol, startTypes } from "./querySet";
+import {
+  matchNodes,
+  pruneViaKeys,
+  sameTypeSet,
+  sendableQuerySet,
+  setProblem,
+  startFiltersOnEol,
+  startTypes,
+  type MatchNode,
+} from "./querySet";
+import { PATH_SEPARATOR, hopRelationType, hopVerb } from "./queryPath";
+import { NAMES_SEPARATOR, VIA_MORE_MARK, viaCellText } from "./matchedCells";
 import {
   activeQueryFromBookmark,
   bookmarkFilters,
   bookmarkGrouping,
+  bookmarkViaColumns,
   emptyFilters,
   hasActiveFacets,
+  isViaColumnId,
   refreshActiveQuery,
+  splitViewColumns,
+  stripViaIds,
+  stripViaLayout,
+  VIA_COLUMN_PREFIX,
+  viaColumnId,
 } from "./viewApply";
 import InventoryFilterSidebar, {
   APPROVAL_STATUS_OPTIONS,
@@ -212,7 +230,7 @@ import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import MultiSelectCellEditor from "@/features/inventory/MultiSelectCellEditor";
 import ParentCellEditor from "@/features/inventory/ParentCellEditor";
 import StakeholdersCellEditor from "@/features/inventory/StakeholdersCellEditor";
-import type { ActiveQuery, Bookmark, Card, CardQuerySet, QueryDraft, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
+import type { ActiveQuery, Bookmark, Card, CardQueryMatchCell, CardQueryMatchesRequest, CardQueryMatchesResponse, CardQuerySet, QueryDraft, CardListResponse, EolCardStatus, EolCardStatusResponse, CardType, ColumnLayoutItem, FieldDef, FieldOption, RelatedCardRef, Relation, RelationType, StakeholderRef, StakeholderRoleOption, TagGroup, TagRef } from "@/types";
 import { gridThemeDark, gridThemeLight } from "@/lib/agGridSetup";
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
@@ -498,6 +516,63 @@ function urlHasFilterParams(searchParams: URLSearchParams): boolean {
   );
 }
 
+/**
+ * The read-only face of a cell naming cards (a relation column outside grid
+ * edit, a matched-cards column): the type's icon, then the names on one
+ * ellipsised line, `title` (else the text) as the native tooltip. An empty
+ * cell is blank, or a faint "…" while its data is still loading (an empty cell
+ * would read as "none").
+ */
+function readOnlyNamesCell({
+  type,
+  text,
+  title,
+  pending,
+  pendingTitle,
+}: {
+  type: CardType | undefined;
+  text: string;
+  title?: string;
+  pending: boolean;
+  pendingTitle: string;
+}): ReactNode {
+  if (!text) {
+    if (!pending) return "";
+    return (
+      <span style={{ opacity: 0.5 }} title={pendingTitle}>
+        …
+      </span>
+    );
+  }
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0.5,
+        overflow: "hidden",
+      }}
+    >
+      {type && <MaterialSymbol icon={type.icon} size={14} color={type.color} />}
+      <Typography
+        variant="body2"
+        sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        title={title ?? text}
+      >
+        {text}
+      </Typography>
+    </Box>
+  );
+}
+
+/** Matched-cards keys and the query they were switched on for (see `viaKeys`). */
+interface ViaSelection {
+  query: CardQuerySet | null;
+  keys: string[];
+}
+const NO_VIA_SELECTION: ViaSelection = { query: null, keys: [] };
+const NO_KEYS: string[] = [];
+
 /** How many chips a multi-valued cell shows before collapsing into "+N". */
 const CHIP_CELL_MAX = 3;
 
@@ -508,6 +583,7 @@ const CHIP_CELL_MAX = 3;
  *   core_name    → the row's own card
  *   core_parent  → its immediate parent
  *   rel_<type>   → every related card behind the cell
+ *   via:<node>   → the matched cards the cell lists (a query view's step)
  *
  * Every other column names none: `core_path` is a joined ancestor chain rather
  * than one card, and the stakeholder columns name *users*.
@@ -526,6 +602,8 @@ export function inventoryPreviewTargets(
     /** Metamodel lookup — a row wears its card type's icon and colour. */
     typeGlyph: (typeKey: string) => { icon?: string; color?: string };
     locale: string;
+    /** A matched-cards cell and its step's card type, or null when the row has none. */
+    viaCellOf?: (cardId: string, key: string) => { cell: CardQueryMatchCell; typeKey: string } | null;
   },
 ): CellPickTarget[] {
   const card = ctx.data;
@@ -560,6 +638,14 @@ export function inventoryPreviewTargets(
       .sort((a, b) => a.name.localeCompare(b.name, deps.locale, { sensitivity: "base" }))
       .slice(0, MAX_SPLIT_VALUES)
       .map((ref) => target(ref.id, ref.name, ref.type || otherTypeKey));
+  }
+  if (isViaColumnId(ctx.colId)) {
+    // Already distinct and in the cell's order (by name, then id).
+    const found = deps.viaCellOf?.(card.id, ctx.colId.slice(VIA_COLUMN_PREFIX.length));
+    if (!found) return [];
+    return found.cell.cards
+      .slice(0, MAX_SPLIT_VALUES)
+      .map((c) => target(c.id, c.name, found.typeKey));
   }
   return [];
 }
@@ -671,6 +757,8 @@ export function isInventoryFillable(colId: string, colDef: { field?: string }): 
   if (colId === "core_name") return false;
   if (colId === LOGO_COLUMN_KEY) return false;
   if (colId.startsWith("rel_")) return false;
+  // A query view's matched cards are read-only: what the chain found.
+  if (isViaColumnId(colId)) return false;
   // AG Grid's own selection / controls column, and anything with no field to
   // persist through (Path, Data Quality, …).
   if (colId.startsWith("ag-Grid-")) return false;
@@ -700,8 +788,9 @@ export function currentFieldValue(card: Card, field: string): unknown {
 /**
  * Split a multi-valued cell into its values for the context menu's per-value
  * filter stage. Separators follow what each column's valueGetter/formatter
- * joins with: tags and multi-select attributes use ", ", relation and
- * stakeholder columns use "; ". Multi-select attribute cells display option
+ * joins with: tags and multi-select attributes use ", ", relation,
+ * stakeholder and matched-cards columns use "; " (a matched-cards cell cut at
+ * its first hundred names ends in a "…" value, which names no card). Multi-select attribute cells display option
  * labels but filter on raw keys, so labels come from the display text and
  * filters from the raw array value. Exported for tests.
  */
@@ -719,13 +808,15 @@ export function splitInventoryCellValues(
   const sep =
     ctx.colId === "core_tags"
       ? ", "
-      : ctx.colId.startsWith("rel_") || ctx.colId.startsWith("stakeholder_")
+      : ctx.colId.startsWith("rel_") ||
+          ctx.colId.startsWith("stakeholder_") ||
+          isViaColumnId(ctx.colId)
         ? "; "
         : null;
   if (!sep || !ctx.displayValue) return null;
   return ctx.displayValue
     .split(sep)
-    .filter(Boolean)
+    .filter((v) => v && !(v === VIA_MORE_MARK && isViaColumnId(ctx.colId)))
     .map((v) => ({ label: v, filter: v }));
 }
 
@@ -1113,6 +1204,73 @@ export default function InventoryPage() {
   const pinnedTypes = draftTypes.length > 0 ? draftTypes : activeTypes;
   const queryMatchesTypes = pinnedTypes.length === 0 || sameTypeSet(filters.types, pinnedTypes);
 
+  // --- Matched-cards columns (`via:<node key>`) -------------------------------
+  // The steps of the view in force whose matched cards show in a column,
+  // switched on and off by clicking a type pill on the strip. Owned by the
+  // page and kept apart from `selectedColumns` on purpose: they mean something
+  // only for the query they were switched on for, so the selection itself
+  // never reaches the local prefs (`columns`), the column picker's counts or
+  // its Reset, and never follows the user into another view. A saved view
+  // stores them in its `columns` as `via:<key>`, split back out whenever a
+  // view is applied.
+  //
+  // A switched-on column is otherwise a grid column like any other: its
+  // width, sort, filter, place and freeze live in the grid's state and are
+  // persisted with it (local prefs and a view's `column_state` /
+  // `column_filter_model`). What never stays is a `via:` entry for a step
+  // that is not switched on (`stripViaLayout`): the effect after
+  // `applyColumnFilters` drops them from the live state (filter model,
+  // layout, sort, order, freeze — and so from the local prefs) whenever
+  // `viaKeys` changes, which covers a pill switched off, a step a query edit
+  // dropped, a view applied from the sidebar (which strips its layout as it
+  // applies it too) or a link, and a reload; and every save sends the stored
+  // layout cleaned the same way. So a column switched on later, or another
+  // step that takes the key, starts clean.
+  //
+  // The keys are held with the query they were picked on; the keys in force
+  // are those that still name the same step of the applied query
+  // (`pruneViaKeys`), so editing an unrelated condition keeps a column and
+  // removing or re-typing its step drops it, with no effect to sequence.
+  const [viaSelection, setViaSelection] = useState<ViaSelection>(NO_VIA_SELECTION);
+  const activeViaNodes = useMemo(
+    () => (activeQuery ? matchNodes(activeQuery.query) : []),
+    [activeQuery],
+  );
+  const viaKeys = useMemo(
+    () =>
+      activeQuery && viaSelection.query
+        ? pruneViaKeys(viaSelection.keys, viaSelection.query, activeQuery.query)
+        : NO_KEYS,
+    [activeQuery, viaSelection],
+  );
+  // Hidden, not cleared, while a draft is open: the grid previews the draft.
+  const shownViaKeys = queryDraft ? NO_KEYS : viaKeys;
+  // The column a pill just switched on, scrolled into view once it exists.
+  const viaScrollRef = useRef<string | null>(null);
+  const toggleViaColumn = useCallback(
+    (key: string) => {
+      if (!activeQuery) return;
+      const on = viaKeys.includes(key);
+      setViaSelection({
+        query: activeQuery.query,
+        keys: on ? viaKeys.filter((k) => k !== key) : [...viaKeys, key],
+      });
+      viaScrollRef.current = on ? null : viaColumnId(key);
+    },
+    [activeQuery, viaKeys],
+  );
+  // A view's own matched-cards columns (none for a plain view, or one saved without).
+  const applyViewViaColumns = useCallback((bm: Bookmark) => {
+    setViaSelection(bm.query ? { query: bm.query, keys: bookmarkViaColumns(bm) } : NO_VIA_SELECTION);
+  }, []);
+  // The `via:` entries a view saved now should store for `query`: the keys in
+  // force that name the same step there (none without a view in force).
+  const viaColumnsFor = useCallback(
+    (query: CardQuerySet | null): string[] =>
+      query && activeQuery ? pruneViaKeys(viaKeys, activeQuery.query, query).map(viaColumnId) : [],
+    [activeQuery, viaKeys],
+  );
+
   // Sort model for AG Grid persistence
   const [sortModel, setSortModel] = useState<{ colId: string; sort: string }[]>(
     () => savedPrefsRef.current?.sortModel || [],
@@ -1162,6 +1320,11 @@ export default function InventoryPage() {
   );
 
   const [data, setData] = useState<Card[]>([]);
+  // The query `data` was loaded for (`JSON.stringify` of the query sent, or
+  // of null), set together with `data`: in the render where a view or its
+  // query changes, `data` still holds the previous query's rows, and the
+  // matched-cards fetch waits until the rows of the query in force land.
+  const [dataQueryKey, setDataQueryKey] = useState<string | null>(null);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -1379,6 +1542,38 @@ export default function InventoryPage() {
     setColumnFilterModel(next);
     setFilterNonce((n) => n + 1);
   }, []);
+
+  // A step that leaves `viaKeys` (its pill switched off, its view left, a
+  // query edit that dropped or re-typed it) takes its column's filter, sort,
+  // width, place and freeze with it, so switching it on again — or another
+  // step taking the key — starts clean. Waits for the opening view to
+  // resolve: until then no key is on, and the persisted layout of the view's
+  // own columns must survive the reload.
+  useEffect(() => {
+    if (viewPending) return;
+    const stripped = stripViaLayout(
+      columnFilterModelRef.current,
+      columnStateRef.current,
+      viaKeys,
+    );
+    // A stale entry the restore effects may still apply in this same pass
+    // names a column the grid does not hold (its step is off), which AG Grid
+    // ignores; the next pass applies the stripped state.
+    if (stripped.filterModel !== columnFilterModelRef.current) {
+      setColumnFilterModel(stripped.filterModel ?? {});
+    }
+    if (stripped.columnState !== columnStateRef.current) {
+      setColumnState(stripped.columnState ?? undefined);
+    }
+    const strip = <T,>(prev: T[], idOf: (item: T) => string): T[] => {
+      const kept = new Set(stripViaIds(prev.map(idOf), viaKeys));
+      const next = prev.filter((item) => kept.has(idOf(item)));
+      return next.length === prev.length ? prev : next;
+    };
+    setSortModel((prev) => strip(prev, (s) => s.colId));
+    setColumnOrder((prev) => strip(prev, (id) => id));
+    setFrozenColumns((prev) => strip(prev, (id) => id));
+  }, [viaKeys, viewPending]);
 
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
 
@@ -1887,6 +2082,7 @@ export default function InventoryPage() {
         const res = await api.get<CardListResponse>(`/cards?${params}`, { signal });
         if (!isCurrent()) return; // superseded — the newer request owns the grid
         setData(res.items);
+        setDataQueryKey(JSON.stringify(sentQuery ?? null));
         setTotal(res.total);
         setLoadError(false);
         setQueryRefusal(null);
@@ -1897,6 +2093,7 @@ export default function InventoryPage() {
           // Not a failed load: the query is refused for this reader, so it
           // matches nothing they may see — no stale rows behind the message.
           setData([]);
+          setDataQueryKey(JSON.stringify(sentQuery ?? null));
           setTotal(0);
           setLoadError(false);
           setQueryRefusal(refusal);
@@ -1929,6 +2126,18 @@ export default function InventoryPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Bumped by every write made on the page (an inline or bulk edit, a fill,
+  // an archive, a delete, a relation edit, an import): any of them can change
+  // which cards a row matches through, so the matched-cards columns ask
+  // again. A search or facet change is no write and does not bump it.
+  const [viaNonce, setViaNonce] = useState(0);
+  const refreshMatches = useCallback(() => setViaNonce((n) => n + 1), []);
+  /** `loadData()` after a write on the page, the matched cards included. */
+  const reloadAfterWrite = useCallback(() => {
+    refreshMatches();
+    return loadData();
+  }, [refreshMatches, loadData]);
 
   // `?view=<saved view id>` (the link the MCP server hands back for a saved
   // query view): apply that view exactly as the sidebar does, then drop the
@@ -1969,6 +2178,9 @@ export default function InventoryPage() {
         const fresh = saved && bookmarks ? refreshActiveQuery(saved, bookmarks) : saved;
         setActiveQuery(fresh);
         if (!fresh) setDeepLinkedViewId(null);
+        // The view reopens with the matched-cards columns it was saved with.
+        const freshView = fresh ? bookmarks?.find((b) => b.id === fresh.viewId) : undefined;
+        if (freshView) applyViewViaColumns(freshView);
         if (fresh && saved && !sameTypeSet(startTypes(fresh.query), startTypes(saved.query))) {
           const bm = bookmarks?.find((b) => b.id === fresh.viewId);
           const nextFilters = bm ? bookmarkFilters(bm) : null;
@@ -1990,13 +2202,20 @@ export default function InventoryPage() {
         setGroupBy(grouping.groupBy);
         setGroupTree(grouping.groupTree);
         setGroupTreeLevel(grouping.groupTreeLevel);
-        if (Array.isArray(bm.columns) && bm.columns.length > 0) {
-          setSelectedColumns(new Set(bm.columns));
+        // The picker's columns only; `via:` entries are the matched-cards
+        // columns, which the page holds apart.
+        const viewColumns = splitViewColumns(bm.columns).columns;
+        if (viewColumns.length > 0) {
+          setSelectedColumns(new Set(viewColumns));
           setColumnsInitialized(true);
         }
+        // Any `via:` entry of its layout for a step it does not switch on is
+        // dropped by the effect after `applyColumnFilters`, which runs with
+        // this view's keys before the restore effects read the layout.
         applyColumnLayout(bm.column_state && bm.column_state.length > 0 ? bm.column_state : null);
         applyColumnFilters(bm.column_filter_model ?? null);
         setActiveQuery(activeQueryFromBookmark(bm));
+        applyViewViaColumns(bm);
         setDeepLinkedViewId(bm.id);
         // A view opened from a link replaces whatever was being built.
         setQueryDraft(null);
@@ -2033,6 +2252,9 @@ export default function InventoryPage() {
   // and whatever draft was open.
   const applyQuery = useCallback((query: ActiveQuery | null) => {
     setActiveQuery(query);
+    // Leaving a view drops its matched-cards columns; a view applied from
+    // the sidebar brings its own right after (`applyViewViaColumns`).
+    if (!query) setViaSelection(NO_VIA_SELECTION);
     setDeepLinkedViewId(null);
     setQueryDraft(null);
     setDraftError(null);
@@ -2144,8 +2366,27 @@ export default function InventoryPage() {
     setDraftError(null);
     try {
       // The server derives `card_type` and `filters.types` from the query's
-      // start types, so only the query is sent.
-      const saved = await api.patch<Bookmark>(`/bookmarks/${viewId}`, { query });
+      // start types, so only the query is sent — and the view's columns when
+      // it holds matched-cards columns or some are on: they name steps of the
+      // query, so they follow it (the view's other columns are sent back as
+      // stored), and so does the stored layout, less every `via:` entry for a
+      // step not kept. A draft always edits the view in force (`viewId` is
+      // `activeQuery.viewId`), whose switched-on steps `viaColumnsFor` reads.
+      const body: Record<string, unknown> = { query };
+      const stored = bookmarkIndex.get(viewId);
+      const nextVia = viaColumnsFor(query);
+      const nextKeys = splitViewColumns(nextVia).via;
+      const storedColumns = splitViewColumns(stored?.columns);
+      if (stored && (storedColumns.via.length > 0 || nextVia.length > 0)) {
+        body.columns = [...storedColumns.columns, ...nextVia];
+        const layout = stripViaLayout(stored.column_filter_model, stored.column_state, nextKeys);
+        body.column_filter_model =
+          layout.filterModel && Object.keys(layout.filterModel).length > 0
+            ? layout.filterModel
+            : null;
+        body.column_state = layout.columnState ?? null;
+      }
+      const saved = await api.patch<Bookmark>(`/bookmarks/${viewId}`, body);
       setBookmarkIndex((prev) => new Map(prev).set(saved.id, saved));
       // New start types reset the view's stored facets on the server: apply
       // them as saved, so no facet of the old types lingers.
@@ -2156,6 +2397,11 @@ export default function InventoryPage() {
       setGroupTree(grouping.groupTree);
       setGroupTreeLevel(grouping.groupTreeLevel);
       applyQuery(activeQueryFromBookmark(saved));
+      // Re-anchor the switched-on steps on the query just saved, with the
+      // keys just saved: a later edit is pruned against this query, not the
+      // one a pill was first clicked on (which would bring back a key this
+      // save dropped).
+      setViaSelection({ query: saved.query ?? query, keys: nextKeys });
       setBookmarksRevision((r) => r + 1);
     } catch (err) {
       const detail = (err as { detail?: unknown } | null)?.detail;
@@ -2165,7 +2411,7 @@ export default function InventoryPage() {
     } finally {
       setDraftSaving(false);
     }
-  }, [queryDraft, isMobile, applyQuery]);
+  }, [queryDraft, isMobile, applyQuery, bookmarkIndex, viaColumnsFor]);
 
   const clearPendingSave = useCallback(() => setPendingSave(null), []);
 
@@ -2282,6 +2528,91 @@ export default function InventoryPage() {
   useEffect(() => {
     fetchRelations();
   }, [fetchRelations]);
+
+  // A relation edited through a relation cell: the relation columns and the
+  // matched cards (the rows are not reloaded for it).
+  const handleRelationsChanged = useCallback(() => {
+    fetchRelations();
+    refreshMatches();
+  }, [fetchRelations, refreshMatches]);
+
+  // --- Matched cards for the switched-on steps ------------------------------
+  // One `POST /cards/query/matches` for every switched-on step and every
+  // loaded row. Like the relations above it is deliberately NOT refetched on
+  // every `data` change (a search keystroke, a facet toggle): only when the
+  // query or the switched-on steps change, when rows appear that the last
+  // answer did not cover, after a write on the page (`viaNonce`), or after a
+  // failed request. Rows that went away are still in it.
+  const [viaMatches, setViaMatches] = useState<CardQueryMatchesResponse["rows"]>({});
+  const [viaLoading, setViaLoading] = useState(false);
+  const [viaFailed, setViaFailed] = useState(false);
+  const viaRequest = useLatestRequest();
+  // The in-flight fetch, so "Export current view" can await it.
+  const viaInflightRef = useRef<Promise<void> | null>(null);
+  // What the matches in hand answer: the query and steps sent, and the rows.
+  const viaFetchedRef = useRef<{ signature: string; ids: Set<string> } | null>(null);
+  const viaQuery = queryDraft ? null : (activeQuery?.query ?? null);
+  useEffect(() => {
+    if (!viaQuery || shownViaKeys.length === 0) {
+      // Nothing switched on (or a draft open): drop what was fetched, so a
+      // column switched on later never shows another query's answer.
+      if (viaFetchedRef.current) {
+        viaRequest.cancel();
+        viaInflightRef.current = null;
+        viaFetchedRef.current = null;
+        setViaMatches({});
+        setViaLoading(false);
+        setViaFailed(false);
+      }
+      return;
+    }
+    // The rows of this query are still on their way; ask once they are here.
+    // `data` can also still be the previous query's rows in the render where
+    // the query changed, before their reload started: asking then would send
+    // the new query with the old ids, and ask again a moment later.
+    if (loading || dataQueryKey !== JSON.stringify(viaQuery)) return;
+    const ids = data.map((c) => c.id);
+    // `viaNonce` moves after a write on the page, which can change any match.
+    const signature = JSON.stringify([viaQuery, shownViaKeys, viaNonce]);
+    const fetched = viaFetchedRef.current;
+    if (fetched && fetched.signature === signature && ids.every((id) => fetched.ids.has(id))) {
+      return;
+    }
+    viaFetchedRef.current = { signature, ids: new Set(ids) };
+    if (ids.length === 0) {
+      // No rows, nothing to ask (the endpoint takes at least one id): an
+      // empty answer, not a failure.
+      viaRequest.cancel();
+      viaInflightRef.current = null;
+      setViaMatches({});
+      setViaLoading(false);
+      setViaFailed(false);
+      return;
+    }
+    const body: CardQueryMatchesRequest = { query: viaQuery, nodes: shownViaKeys, ids };
+    setViaLoading(true);
+    const run = viaRequest.run(async ({ isCurrent }) => {
+      try {
+        const res = await api.post<CardQueryMatchesResponse>("/cards/query/matches", body);
+        if (!isCurrent()) return;
+        setViaMatches(res?.rows ?? {});
+        setViaFailed(false);
+      } catch {
+        if (!isCurrent()) return;
+        // Like a failed relations fetch: the cells stay empty, and the
+        // column header says why rather than a dialog in the way. Nothing
+        // is recorded as fetched, so the next run (new rows, a write on the
+        // page) asks again. Only the current run gets here, and only a run
+        // that sent a request is ever current, so the record is this one's.
+        viaFetchedRef.current = null;
+        setViaMatches({});
+        setViaFailed(true);
+      }
+      setViaLoading(false);
+      viaInflightRef.current = null;
+    });
+    viaInflightRef.current = run;
+  }, [viaQuery, shownViaKeys, data, dataQueryKey, loading, viaNonce, viaRequest]);
 
   // Pre-computed hierarchy display paths (id → "Parent / Child").
   // Built once from raw API data; completely detached from the mutable row objects
@@ -2525,8 +2856,13 @@ export default function InventoryPage() {
           return { icon: ct?.icon, color: ct?.color };
         },
         locale: i18n.language,
+        viaCellOf: (cardId, key) => {
+          const cell = viaMatches[cardId]?.[key];
+          const node = activeViaNodes.find((n) => n.key === key);
+          return cell && node ? { cell, typeKey: node.type } : null;
+        },
       }),
-    [relatedRefsOf, types, i18n.language],
+    [relatedRefsOf, types, i18n.language, viaMatches, activeViaNodes],
   );
 
   const cellMenu = useCellContextMenu<InventoryRow>(gridRef, {
@@ -2642,7 +2978,7 @@ export default function InventoryPage() {
     const field = event.colDef.field!;
     try {
       const { needsReload } = await persistCellValue(card, field, event.newValue, event.oldValue);
-      if (needsReload) loadData();
+      if (needsReload) reloadAfterWrite();
     } catch (err) {
       // The server owns the rules — a cycle or name collision on a re-parent, a
       // cleared required attribute, a per-card permission denial. Surface the
@@ -2706,10 +3042,10 @@ export default function InventoryPage() {
         });
       });
 
-      loadData();
+      reloadAfterWrite();
       return { succeeded, failures };
     },
-    [persistCellValue, cellEditFallback, loadData],
+    [persistCellValue, cellEditFallback, reloadAfterWrite],
   );
 
   // Excel-style drag-fill, live only in grid-edit mode. Borrows the freeze
@@ -2733,7 +3069,7 @@ export default function InventoryPage() {
     lifecycle?: Record<string, string>;
   }): Promise<string> => {
     const card = await api.post<Card>("/cards", createData);
-    loadData();
+    reloadAfterWrite();
     return card.id;
   };
 
@@ -2842,6 +3178,14 @@ export default function InventoryPage() {
       } catch {
         // A failed relation fetch already degrades to an empty map; export
         // what we have rather than blocking the download.
+      }
+    }
+    // The matched-cards columns read from their own fetch: the same wait.
+    if (viaInflightRef.current) {
+      try {
+        await viaInflightRef.current;
+      } catch {
+        // A failed fetch leaves the cells empty; export them as they are.
       }
     }
     const api = gridRef.current?.api;
@@ -3122,7 +3466,7 @@ export default function InventoryPage() {
         });
 
         // Always reload — successful approves committed server-side.
-        await loadData();
+        await reloadAfterWrite();
 
         if (blockers.length === 0) {
           setMassEditOpen(false);
@@ -3253,7 +3597,7 @@ export default function InventoryPage() {
             message: status.firstError ?? t("massEdit.failed"),
           });
         }
-        await loadData();
+        await reloadAfterWrite();
         await fetchRelations();
         if (blockers.length === 0) {
           setMassEditOpen(false);
@@ -3300,7 +3644,7 @@ export default function InventoryPage() {
             message: r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
           });
         });
-        await loadData();
+        await reloadAfterWrite();
         if (blockers.length === 0) {
           setMassEditOpen(false);
           setMassEditField("");
@@ -3352,7 +3696,7 @@ export default function InventoryPage() {
               r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
           });
         });
-        await loadData();
+        await reloadAfterWrite();
         if (blockers.length === 0) {
           setMassEditOpen(false);
           setMassEditField("");
@@ -3392,7 +3736,7 @@ export default function InventoryPage() {
               r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
           });
         });
-        await loadData();
+        await reloadAfterWrite();
         if (blockers.length === 0) {
           setMassEditOpen(false);
           setMassEditField("");
@@ -3407,7 +3751,7 @@ export default function InventoryPage() {
       setMassEditOpen(false);
       setMassEditField("");
       setMassEditValue("");
-      loadData();
+      reloadAfterWrite();
     } catch (e) {
       setMassEditError(e instanceof Error ? e.message : t("massEdit.failed"));
     } finally {
@@ -3419,22 +3763,57 @@ export default function InventoryPage() {
     setMassArchiveOpen(false);
     setSelectedIds([]);
     gridRef.current?.api?.deselectAll();
-    loadData();
+    reloadAfterWrite();
   };
 
   const handleMassDeleteConfirmed = () => {
     setMassDeleteOpen(false);
     setSelectedIds([]);
     gridRef.current?.api?.deselectAll();
-    loadData();
+    reloadAfterWrite();
   };
 
   const handleMassRestoreConfirmed = () => {
     setMassRestoreOpen(false);
     setSelectedIds([]);
     gridRef.current?.api?.deselectAll();
-    loadData();
+    reloadAfterWrite();
   };
+
+  // One column per switched-on step, in the order switched on: its header
+  // ("<Type> · matched", numbered when two steps share a type) and the path
+  // from the row's card to the step, read with the relation verbs.
+  const viaColumnInfo = useMemo(() => {
+    const byKey = new Map(activeViaNodes.map((n) => [n.key, n]));
+    const shown = shownViaKeys
+      .map((k) => byKey.get(k))
+      .filter((n): n is MatchNode => n !== undefined);
+    const nameOf = (key: string) => typeLabel(types.find((ct) => ct.key === key)) || key;
+    return shown.map((node) => {
+      const type = types.find((ct) => ct.key === node.type);
+      const label = nameOf(node.type);
+      const sameType = shown.filter((n) => n.type === node.type);
+      const header =
+        sameType.length > 1
+          ? t("queryMatches.headerNumbered", { type: label, n: sameType.indexOf(node) + 1 })
+          : t("queryMatches.header", { type: label });
+      const parts = [nameOf(node.startType)];
+      let from = node.startType;
+      for (const step of node.path) {
+        const rt = hopRelationType(step, relationTypes);
+        const verb = hopVerb(rt, from, i18n.language, step.relation) || step.relation;
+        parts.push(`${verb} ${nameOf(step.type)}`);
+        from = step.type;
+      }
+      return {
+        key: node.key,
+        colId: viaColumnId(node.key),
+        type,
+        header,
+        tooltip: t("queryMatches.headerTooltip", { type: label, path: parts.join(PATH_SEPARATOR) }),
+      };
+    });
+  }, [activeViaNodes, shownViaKeys, types, relationTypes, typeLabel, t, i18n.language]);
 
   const columnDefs = useMemo<ColDef[]>(() => {
     // ── Display text for "Export current view" ──────────────────────────────
@@ -4158,7 +4537,7 @@ export default function InventoryPage() {
           // exactly as they always have.
           [...new Set(relatedRefsOf(p.data?.id, otherTypeKey).map((r) => r.name))]
             .sort((a, b) => a.localeCompare(b, i18n.language, { sensitivity: "base" }))
-            .join("; "),
+            .join(NAMES_SEPARATOR),
         cellRenderer: (p: { value: string; data: Card }) => {
           if (gridEditMode) {
             return (
@@ -4203,37 +4582,14 @@ export default function InventoryPage() {
               </Box>
             );
           }
-          if (!p.value) {
-            // Distinguish "still loading" from "no relations" — an empty cell
-            // during the fetch window reads as missing data.
-            if (!relationsLoading) return "";
-            return (
-              <span style={{ opacity: 0.5 }} title={t("columns.relationsLoading")}>
-                …
-              </span>
-            );
-          }
-          return (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                overflow: "hidden",
-              }}
-            >
-              {otherType && (
-                <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} />
-              )}
-              <Typography
-                variant="body2"
-                sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                title={p.value}
-              >
-                {p.value}
-              </Typography>
-            </Box>
-          );
+          // Distinguish "still loading" from "no relations" — an empty cell
+          // during the fetch window reads as missing data.
+          return readOnlyNamesCell({
+            type: otherType,
+            text: p.value,
+            pending: relationsLoading,
+            pendingTitle: t("columns.relationsLoading"),
+          });
         },
       });
     }
@@ -4378,8 +4734,45 @@ export default function InventoryPage() {
       ? cols
       : cols.filter((c) => c.colId !== LOGO_COLUMN_KEY);
 
-    return gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
-  }, [columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
+    const ordered = gridColumnOrder.applyOrder(columnFreeze.applyFrozen(applicable));
+
+    // Matched-cards columns sit right after Name, in the order they were
+    // switched on. They are placed after the stored order is applied and are
+    // not movable, so they never enter the column-order preference (they
+    // belong to the view, not to the user's layout); freezing works as on
+    // any column.
+    if (viaColumnInfo.length === 0) return ordered;
+    const failedHint = viaFailed ? ` ${t("queryMatches.loadFailed")}` : "";
+    const viaCols: ColDef[] = viaColumnInfo.map((info) => ({
+      colId: info.colId,
+      headerName: info.header,
+      headerTooltip: `${info.tooltip}${failedHint}`,
+      width: 220,
+      suppressMovable: true,
+      cellDataType: "text",
+      filter: "agTextColumnFilter",
+      // The cell's text is its value: sort, filter and export read it as shown.
+      valueGetter: (p: { data?: Card }) =>
+        viaCellText(p.data?.id ? viaMatches[p.data.id]?.[info.key] : undefined),
+      cellRenderer: (p: { value?: string; data?: Card }) => {
+        const cell = p.data?.id ? viaMatches[p.data.id]?.[info.key] : undefined;
+        const names = (cell?.cards ?? []).map((c) => c.name).join(NAMES_SEPARATOR);
+        return readOnlyNamesCell({
+          type: info.type,
+          text: p.value ?? "",
+          title: cell?.more
+            ? t("queryMatches.cellTitleMore", { names, count: cell.cards.length })
+            : names,
+          pending: viaLoading,
+          pendingTitle: t("queryMatches.loading"),
+        });
+      },
+    }));
+    const at = ordered.findIndex((c) => colIdOf(c) === "core_name");
+    const out = ordered.slice();
+    out.splice(at + 1, 0, ...columnFreeze.applyFrozen(viaCols));
+    return out;
+  }, [viaColumnInfo, viaMatches, viaLoading, viaFailed, columnFreeze, gridColumnOrder, types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeObjGroupMap, relatedRefsOf, relationsLoading, selectedType, parentPaths, cardsById, parentNameOf, descendantIndex, filters.showArchived, selectedColumns, userNameMap, t, i18n.language, formatDate, formatDateTime, originLabel, canViewCostsGlobally, canManageStakeholders, canEditLogos, logoColumnAvailable, openLogoMenu, tagGroups, stakeholderRoles, typeLabel, fieldHelp, roleDescription, eolColumnAvailable, eolColumnForced, eolOf, eolLoading, tReports, calculatedKeys, treeActive]);
 
   // Feeds the Columns tab's "Column order" section: only the columns actually
   // on screen, built from the grid's own defs. On this page that matters twice
@@ -4396,6 +4789,17 @@ export default function InventoryPage() {
         })),
     [columnDefs],
   );
+
+  // A matched-cards column just switched on is scrolled into view once the
+  // grid holds it (a wide grid would otherwise add it off screen).
+  useEffect(() => {
+    const colId = viaScrollRef.current;
+    if (!colId) return;
+    const gridApi = gridRef.current?.api;
+    if (!gridApi?.getColumn(colId)) return;
+    viaScrollRef.current = null;
+    gridApi.ensureColumnVisible(colId);
+  }, [columnDefs]);
 
   // Restore the saved column layout (order/width/pinning/sort) onto the grid.
   // Keyed on `columnDefs` so it re-applies each time the column *set* changes —
@@ -4746,6 +5150,8 @@ export default function InventoryPage() {
             onPendingSaveHandled={clearPendingSave}
             onBookmarksLoaded={indexBookmarks}
             bookmarksRevision={bookmarksRevision}
+            viaColumnsFor={viaColumnsFor}
+            onApplyViewViaColumns={applyViewViaColumns}
           />
         </Drawer>
       ) : (
@@ -4799,6 +5205,8 @@ export default function InventoryPage() {
           onPendingSaveHandled={clearPendingSave}
           onBookmarksLoaded={indexBookmarks}
           bookmarksRevision={bookmarksRevision}
+          viaColumnsFor={viaColumnsFor}
+          onApplyViewViaColumns={applyViewViaColumns}
         />
       )}
 
@@ -5093,6 +5501,8 @@ export default function InventoryPage() {
           error={draftError}
           queryError={queryRefusal}
           canViewEol={canViewEol}
+          matchedKeys={viaKeys}
+          onToggleMatched={toggleViaColumn}
         />
 
         <Dialog
@@ -5449,7 +5859,7 @@ export default function InventoryPage() {
       <ImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onComplete={loadData}
+        onComplete={reloadAfterWrite}
         existingCards={data}
         allTypes={types}
         relationTypes={relationTypes}
@@ -5472,7 +5882,7 @@ export default function InventoryPage() {
           cardName={relEditFsName}
           relationTypes={relEditRelTypes}
           selectedType={selectedType}
-          onRelationsChanged={fetchRelations}
+          onRelationsChanged={handleRelationsChanged}
         />
       )}
     </Box>

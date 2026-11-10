@@ -7,7 +7,7 @@ import { normalizeTreeLevel } from "@/components/grid/rowGrouping";
 import { normalizeDataQualityFilter } from "@/lib/dataQualityBands";
 import type { ActiveQuery, Bookmark } from "@/types";
 import type { Filters } from "./InventoryFilterSidebar";
-import { startTypes } from "./querySet";
+import { pruneViaKeys, startTypes } from "./querySet";
 
 /** The grouping a view restores (views saved before a feature restore it off). */
 export interface ViewGrouping {
@@ -66,6 +66,84 @@ export function bookmarkGrouping(bm: Bookmark): ViewGrouping {
     groupTree: !!f?.groupTree,
     groupTreeLevel: normalizeTreeLevel(f?.groupTreeLevel),
   };
+}
+
+/**
+ * Prefix of a matched-cards column in a view's stored `columns`: `via:<node
+ * key>` (see `matchNodes`). These columns belong to the page, never to the
+ * column picker's selection, so they are split out on every read of a view's
+ * columns and added back only when a view is saved.
+ */
+export const VIA_COLUMN_PREFIX = "via:";
+
+/** The grid colId (and stored column entry) of a matched-cards column. */
+export function viaColumnId(key: string): string {
+  return `${VIA_COLUMN_PREFIX}${key}`;
+}
+
+/** Is `colId` a matched-cards column? */
+export function isViaColumnId(colId: string): boolean {
+  return colId.startsWith(VIA_COLUMN_PREFIX);
+}
+
+/** A view's stored columns split into the picker's column keys and the matched-cards node keys. */
+export function splitViewColumns(columns: readonly string[] | null | undefined): {
+  columns: string[];
+  via: string[];
+} {
+  const plain: string[] = [];
+  const via: string[] = [];
+  for (const c of columns ?? []) {
+    if (typeof c !== "string") continue;
+    if (isViaColumnId(c)) {
+      const key = c.slice(VIA_COLUMN_PREFIX.length);
+      if (key && !via.includes(key)) via.push(key);
+    } else plain.push(c);
+  }
+  return { columns: plain, via };
+}
+
+/**
+ * The matched-cards columns a view switches on: its `via:` entries whose
+ * step its query still holds (a plain view has none).
+ */
+export function bookmarkViaColumns(bm: Bookmark): string[] {
+  if (!bm.query) return [];
+  const { via } = splitViewColumns(bm.columns);
+  return pruneViaKeys(via, bm.query, bm.query);
+}
+
+/**
+ * A view's (or the grid's) column filter model and column state with every
+ * matched-cards entry (`via:<key>`) removed whose key is not in `keys`, the
+ * steps switched on. A `via:` column means a step of one query: an entry for
+ * a step that is off, or that a query edit dropped or re-typed, would hand
+ * its filter, sort, width and freeze to whatever column takes that key next.
+ * Plain columns are left alone; null / undefined stay as they are, and an
+ * input with nothing to remove is returned as is.
+ */
+export function stripViaLayout<L extends { colId: string }>(
+  filterModel: Record<string, unknown> | null | undefined,
+  columnState: readonly L[] | null | undefined,
+  keys: readonly string[],
+): { filterModel: Record<string, unknown> | null | undefined; columnState: L[] | null | undefined } {
+  const keep = new Set(keys.map(viaColumnId));
+  const stale = (colId: string) => isViaColumnId(colId) && !keep.has(colId);
+  let model = filterModel;
+  if (filterModel && Object.keys(filterModel).some(stale)) {
+    model = Object.fromEntries(Object.entries(filterModel).filter(([colId]) => !stale(colId)));
+  }
+  let state = columnState as L[] | null | undefined;
+  if (columnState && columnState.some((c) => stale(c.colId))) {
+    state = columnState.filter((c) => !stale(c.colId));
+  }
+  return { filterModel: model, columnState: state };
+}
+
+/** The colIds of `ids` that are not a stale matched-cards column (see `stripViaLayout`). */
+export function stripViaIds(ids: readonly string[], keys: readonly string[]): string[] {
+  const keep = new Set(keys.map(viaColumnId));
+  return ids.filter((id) => !isViaColumnId(id) || keep.has(id));
 }
 
 /** The active query a view puts in force, or null for a plain view. */

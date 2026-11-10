@@ -269,6 +269,23 @@ A view holds at most **six** query lines, **twelve** relations over all its line
 
 **Editing a saved query view.** When a query view is open, the strip shows its path: the card types as chips, joined by the relation verb that links each step (for example *Organization → uses Application → is affected by Initiative*), with each card's conditions underneath. A view with several lines shows the same stack, with its AND markers and OR dividers, without the editing controls. If you own the view or have edit rights on it, a **pencil** in the strip switches it to the same builder; **Save** updates the view. The **×** button (*Leave this view*) returns to the normal inventory. **Save Current View** while a query view is open saves a new query view with the same query.
 
+#### Seeing the cards behind a match { #query-view-matches }
+
+A query view lists only the first card of its query. To see which cards further along the chain made a row match, click their card type in the query string. In *Organizations that use an Application that uses an IT Component at or near end of life*, click **Application** and a column lists, for each Organization, the Applications through which it matches; click **IT Component** and another column lists the qualifying IT Components. Click the card type again to remove its column.
+
+![A query view with its matched columns](../assets/img/en/98g_inventory_query_matches.png)
+
+- **How a switch looks.** A card type you can click shows a pointer and the tooltip *Show these in a column*. Once its column is on, the chip is filled in the card type's colour and carries a small column icon; its tooltip reads *Hide the column*.
+- **Which card types are switches.** Every card type after the first of its line. The first card type of a line is not one, because its cards are the rows, and neither is a card type behind **has no**, which stands for a missing relation. In a view with several lines, the card types of every line are switches; with **OR**, a row shows cards only for the lines it matches. The switches are not available while you edit the query, and the columns are hidden until you save or cancel.
+- **Where the column appears.** Right after **Name**, titled with the card type and *matched* — for example *Application · matched* — so it is not mistaken for the Application relation column, which lists every related Application. When two steps have the same card type, the titles are numbered. Hover the title to see the path the column follows.
+- **What a cell shows.** The names of the matching cards, separated by semicolons; hover the cell for the full list. A cell lists at most **100** names; a longer list ends with *…* and its tooltip says that the first 100 are shown. You can sort and filter the column like a text column, and **Export current view** includes it.
+- **Every card along the chain, not who leads to whom.** A row lists every matching card at that step: all the qualifying Applications of the Organization and all the qualifying IT Components of those Applications. It does not show which IT Component belongs to which Application. To list the IT Components themselves, one per row, write the query starting from IT Component instead.
+- **Saved with the view.** The columns you switch on are saved with the view (the **pencil** in the Views list, then **Update**), so they are back when you open it again. Editing the query keeps a column while its step is still there, and removes it when you remove that step or change its card type.
+
+You only see cards you are allowed to see: a card hidden from you is never named in a cell, and a row that matches only through hidden cards is not listed.
+
+The demo view *Organizations on applications with components at or near end of life* opens with both columns on.
+
 **Views created by an AI assistant.** An assistant connected through the [MCP server](../admin/mcp.md) can create query views too. Such a view shows an **MCP** chip and a *Created via MCP* note in its strip, and a robot badge in the Views list; it is edited like any other query view. In the Views list every query view carries a small query-view badge (a cube; the robot badge when an assistant created it) and its compact path (*Organization › uses Application › is affected by Initiative*) as its second line; a stacked view reads *… AND … OR …*. When the view has conditions, their number follows the path (*… › is affected by Initiative · 2 conditions*).
 
 **Opening a view by link.** When an assistant saves a view it returns a link of the form `/inventory?view=<view id>`; opening it applies the saved view directly. The same link works for any saved view you can see.

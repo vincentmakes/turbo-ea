@@ -46,8 +46,12 @@ import {
   activeQueryFromBookmark,
   bookmarkFilters,
   bookmarkGrouping,
+  bookmarkViaColumns,
   emptyFilters,
   isQueryView,
+  splitViewColumns,
+  stripViaLayout,
+  viaColumnId,
 } from "./viewApply";
 import { compactPath } from "./queryPath";
 import { setProblem, startTypes } from "./querySet";
@@ -240,6 +244,14 @@ interface Props {
   onBookmarksLoaded?: (bookmarks: Bookmark[]) => void;
   /** Bumped by the page after it changed a view itself; reloads the list. */
   bookmarksRevision?: number;
+  /**
+   * The matched-cards columns (`via:<key>` entries) a view saved now with
+   * `query` stores: the page's switched-on steps that name the same step of
+   * that query. They are not part of `selectedColumns`.
+   */
+  viaColumnsFor?: (query: CardQuerySet | null) => string[];
+  /** Applying a view switches its matched-cards columns on (none for a view without). */
+  onApplyViewViaColumns?: (bm: Bookmark) => void;
 }
 
 export const APPROVAL_STATUS_OPTIONS = [
@@ -504,6 +516,8 @@ export default function InventoryFilterSidebar({
   typesLocked = false,
   onBookmarksLoaded,
   bookmarksRevision = 0,
+  viaColumnsFor,
+  onApplyViewViaColumns,
 }: Props) {
   const { t, i18n } = useTranslation(["inventory", "common"]);
   // EOL status labels live in the reports namespace — the EOL report owns
@@ -833,18 +847,44 @@ export default function InventoryFilterSidebar({
       dialogVisibility === "shared"
         ? dialogSharedWith.map((u) => ({ user_id: u.id, can_edit: u.can_edit ?? false }))
         : null;
+    // A new view keeps the query handed over by the strip's Save, else the
+    // draft open in the strip, else the one in force.
+    const query = editingBookmark
+      ? null
+      : pendingQuery ?? draftQuery ?? activeQueryView?.query ?? null;
+    // The matched-cards columns ride in `columns` as `via:<key>` beside the
+    // picker's keys. The view in force (or a new one from it) takes the ones
+    // switched on; another view being edited keeps its own.
+    let viaColumns: string[];
+    if (!editingBookmark) viaColumns = viaColumnsFor?.(query) ?? [];
+    else if (editingBookmark.id === activeQueryView?.id) {
+      viaColumns = viaColumnsFor?.(editingBookmark.query ?? null) ?? [];
+    } else {
+      viaColumns = editingBookmark.query
+        ? splitViewColumns(editingBookmark.columns).via.map(viaColumnId)
+        : [];
+    }
+    // The grid's layout less every `via:` entry for a step the view does
+    // not keep (a column switched off, or one of another view's steps).
+    const cleaned = stripViaLayout(
+      columnFilterModel,
+      columnState,
+      splitViewColumns(viaColumns).via,
+    );
     const layout = {
-      columns: Array.from(selectedColumns),
-      column_state: columnState ?? null,
+      columns: [...Array.from(selectedColumns), ...viaColumns],
+      column_state: cleaned.columnState ?? null,
       column_filter_model:
-        columnFilterModel && Object.keys(columnFilterModel).length > 0 ? columnFilterModel : null,
+        cleaned.filterModel && Object.keys(cleaned.filterModel).length > 0
+          ? cleaned.filterModel
+          : null,
     };
     if (editingBookmark && isQueryView(editingBookmark)) {
       // A query view's query is edited in the path strip (the page saves
       // it); this metadata dialog changes its name, sharing, OData and
       // layout only. Its stored facets are sent back as they are, with just
       // the grouping taken from the grid, and the query is never sent.
-      await api.patch(`/bookmarks/${editingBookmark.id}`, {
+      const updated = await api.patch<Bookmark>(`/bookmarks/${editingBookmark.id}`, {
         name: viewName.trim(),
         visibility: dialogVisibility,
         odata_enabled: dialogOdata,
@@ -857,17 +897,17 @@ export default function InventoryFilterSidebar({
           groupTreeLevel: groupTreeLevel ?? null,
         },
       });
+      // The view in force re-anchors its matched-cards columns on what was
+      // just saved (see the page's `saveDraft`).
+      if (editingBookmark.id === activeQueryView?.id) {
+        onApplyViewViaColumns?.(updated ?? { ...editingBookmark, columns: layout.columns });
+      }
       setSaveDialogOpen(false);
       setEditingBookmark(null);
       setViewName("");
       loadBookmarks();
       return;
     }
-    // A new view keeps the query handed over by the strip's Save, else the
-    // draft open in the strip, else the one in force.
-    const query = editingBookmark
-      ? null
-      : pendingQuery ?? draftQuery ?? activeQueryView?.query ?? null;
     // A query is evaluated against its start types (an OR may hold several);
     // `card_type` names the one there is, else none.
     const viewTypes = query ? startTypes(query) : filters.types;
@@ -908,14 +948,17 @@ export default function InventoryFilterSidebar({
     } else {
       const created = await api.post<Bookmark>("/bookmarks", payload);
       if (query && created) {
-        // The new query view is the one in force from now on.
-        onApplyQuery?.(
-          activeQueryFromBookmark({
-            ...created,
-            name: created.name ?? viewName.trim(),
-            query: created.query ?? query,
-          }),
-        );
+        // The new query view is the one in force from now on, its
+        // matched-cards columns anchored on the query and keys it was saved
+        // with.
+        const inForce: Bookmark = {
+          ...created,
+          name: created.name ?? viewName.trim(),
+          query: created.query ?? query,
+          columns: created.columns ?? layout.columns,
+        };
+        onApplyQuery?.(activeQueryFromBookmark(inForce));
+        onApplyViewViaColumns?.(inForce);
         setActiveViewId(created.id);
       }
     }
@@ -936,22 +979,32 @@ export default function InventoryFilterSidebar({
     onGroupByChange?.(grouping.groupBy);
     onGroupTreeChange?.(grouping.groupTree);
     onGroupTreeLevelChange?.(grouping.groupTreeLevel);
-    // Restore saved columns if present
+    // Restore saved columns if present. `via:` entries are the view's
+    // matched-cards columns, which the page holds apart from the picker.
     const bmColumns = (bm as unknown as Record<string, unknown>).columns as string[] | undefined;
     if (bmColumns && Array.isArray(bmColumns)) {
-      onSelectedColumnsChange(new Set(bmColumns));
+      const { columns: pickerColumns, via } = splitViewColumns(bmColumns);
+      if (pickerColumns.length > 0 || via.length === 0) {
+        onSelectedColumnsChange(new Set(pickerColumns));
+      }
     }
+    onApplyViewViaColumns?.(bm);
+    // The view's stored layout less any `via:` entry for a step it does not
+    // switch on, so a stale one never lands on another column.
+    const stored = stripViaLayout(
+      bm.column_filter_model as Record<string, unknown> | undefined,
+      bm.column_state as ColumnLayoutItem[] | undefined,
+      bookmarkViaColumns(bm),
+    );
     // Restore the saved column layout (order/width/pinning). Applied after the
     // visibility set above so the grid's columnDefs have rebuilt first.
     if (onApplyColumnState) {
-      const layout = (bm.column_state as ColumnLayoutItem[] | undefined) ?? null;
+      const layout = stored.columnState ?? null;
       onApplyColumnState(layout && layout.length > 0 ? layout : null);
     }
     // Restore the view's saved AG Grid column filters (null clears them, which
     // also covers pre-feature views that never stored a filter model).
-    onApplyColumnFilters?.(
-      (bm.column_filter_model as Record<string, unknown> | undefined) ?? null,
-    );
+    onApplyColumnFilters?.(stored.filterModel ?? null);
     // Mark this view active so it stays highlighted (and survives a refresh).
     setActiveViewId(bm.id);
     // Stay on the Views tab so the user can switch between views quickly.
