@@ -196,7 +196,7 @@ Either way, the preview is recorded in the audit log as a dry-run batch, so an a
 
 ### Read tools
 
-The server exposes 35 read tools grouped into eight clusters.
+The server exposes 35 read tools grouped into nine clusters.
 
 **Cards & metamodel**
 
