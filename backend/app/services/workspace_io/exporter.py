@@ -160,6 +160,10 @@ RELATION_SHEET_COLUMNS = (
     "target_card_id",
 )
 TAG_SHEET_COLUMNS = (*TAG_COLUMNS, schema.SOURCE_ID_COLUMN)
+# Users are matched by e-mail on import, never by id; the id is carried so the
+# user ids held inside rich text (mentions) and signatory lists can follow
+# their user (2.200.0).
+USER_SHEET_COLUMNS = (*USER_COLUMNS, schema.SOURCE_ID_COLUMN)
 
 _MIME_EXT = {
     "image/png": "png",
@@ -265,9 +269,12 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     users = (await db.execute(select(User))).scalars().all()
     _emit(
         schema.SHEET_USERS,
-        USER_COLUMNS,
+        USER_SHEET_COLUMNS,
         frozenset(),
-        [{c: getattr(u, c) for c in USER_COLUMNS} for u in users],
+        [
+            {**{c: getattr(u, c) for c in USER_COLUMNS}, schema.SOURCE_ID_COLUMN: str(u.id)}
+            for u in users
+        ],
     )
 
     # --- Settings (secrets stripped) ------------------------------------

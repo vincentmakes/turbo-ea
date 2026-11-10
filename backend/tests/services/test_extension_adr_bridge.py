@@ -394,3 +394,25 @@ class TestSessionDiscipline:
         src = Path(bridge_mod.__file__).read_text(encoding="utf-8")
         assert "async with async_session() as db" in src
         assert "Depends(" not in src
+
+
+class TestTimeline:
+    async def test_a_filed_draft_opens_its_timeline(self, db, env):
+        from app.models.document_history import DocumentHistoryEntry
+
+        load_registry(grants=["core.adr.write"])
+        out = await ExtensionDecisions(KEY).create_draft(title="Timeline")
+        rows = (
+            (
+                await db.execute(
+                    select(DocumentHistoryEntry).where(
+                        DocumentHistoryEntry.architecture_decision_id == uuid.UUID(out.id)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(r.kind, r.actor_id, r.actor_name, r.via) for r in rows] == [
+            ("created", None, None, "ext")
+        ]

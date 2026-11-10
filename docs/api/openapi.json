@@ -528,6 +528,7 @@
       "ADRRejectRequest": {
         "properties": {
           "comment": {
+            "maxLength": 4000,
             "title": "Comment",
             "type": "string"
           }
@@ -13598,6 +13599,7 @@
       "RejectRequest": {
         "properties": {
           "comment": {
+            "maxLength": 4000,
             "title": "Comment",
             "type": "string"
           }
@@ -21670,6 +21672,47 @@
         ]
       }
     },
+    "/api/v1/adr/{adr_id}/comments": {
+      "get": {
+        "description": "The decision's discussion: ``{can: {comment, moderate}, open_count, threads}``.",
+        "operationId": "list_adr_comments_api_v1_adr__adr_id__comments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr Comments",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
     "/api/v1/adr/{adr_id}/duplicate": {
       "post": {
         "description": "Duplicate an ADR as a new draft with a new reference number.",
@@ -21893,6 +21936,47 @@
         "summary": "Download Adr File",
         "tags": [
           "adr"
+        ]
+      }
+    },
+    "/api/v1/adr/{adr_id}/history": {
+      "get": {
+        "description": "The decision's timeline: ``{can_view_versions, entries}`` in order.",
+        "operationId": "list_adr_history_api_v1_adr__adr_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Adr History",
+        "tags": [
+          "document-collaboration"
         ]
       }
     },
@@ -31652,6 +31736,47 @@
         "summary": "Download File Attachment",
         "tags": [
           "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/mentions/decisions/{adr_id}": {
+      "get": {
+        "description": "``{decisions: [...], soaws: [...]}`` that mention the decision.",
+        "operationId": "decision_mentioned_in_api_v1_mentions_decisions__adr_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "adr_id",
+            "required": true,
+            "schema": {
+              "title": "Adr Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decision Mentioned In",
+        "tags": [
+          "document-collaboration"
         ]
       }
     },
@@ -43654,6 +43779,88 @@
         "summary": "Update Soaw",
         "tags": [
           "soaw"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/comments": {
+      "get": {
+        "description": "The SoAW's discussion: ``{can: {comment, moderate}, open_count, threads}``.",
+        "operationId": "list_soaw_comments_api_v1_soaw__soaw_id__comments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Soaw Comments",
+        "tags": [
+          "document-collaboration"
+        ]
+      }
+    },
+    "/api/v1/soaw/{soaw_id}/history": {
+      "get": {
+        "description": "The SoAW's timeline: ``{can_view_versions, entries}`` in order.",
+        "operationId": "list_soaw_history_api_v1_soaw__soaw_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "soaw_id",
+            "required": true,
+            "schema": {
+              "title": "Soaw Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Soaw History",
+        "tags": [
+          "document-collaboration"
         ]
       }
     },

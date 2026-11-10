@@ -38,12 +38,14 @@ from typing import Any
 
 import defusedxml.ElementTree as ET  # noqa: N817
 
+from app.services import mention_markup
 from app.services.drawio_refs import extract_card_refs
 
 CARDS = "cards"
 RELATIONS = "relations"
 TAGS = "tags"
-KINDS = (CARDS, RELATIONS, TAGS)
+USERS = "users"
+KINDS = (CARDS, RELATIONS, TAGS, USERS)
 
 # Counter keys on :class:`RewriteTally` — stable identifiers the import
 # preview translates (``workspaceTransfer.report.ref.<key>``).
@@ -86,6 +88,10 @@ class IdMap:
     cards: dict[str, str] = field(default_factory=dict)
     relations: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
+    # Users are matched by e-mail; the Users sheet's ``source_id`` (2.200.0)
+    # maps the ids rich text and signatory lists hold. Empty for an older
+    # bundle, which leaves those ids as they were.
+    users: dict[str, str] = field(default_factory=dict)
 
     def table(self, kind: str) -> dict[str, str]:
         if kind == CARDS:
@@ -94,6 +100,8 @@ class IdMap:
             return self.relations
         if kind == TAGS:
             return self.tags
+        if kind == USERS:
+            return self.users
         raise ValueError(f"Unknown id kind {kind!r}")
 
     def record(self, kind: str, source: Any, target: Any) -> None:
@@ -997,4 +1005,134 @@ def refresh_finding_key_row(kwargs: dict[str, Any], ctx: RemapContext) -> Rewrit
     if new_key != kwargs["finding_key"]:
         kwargs["finding_key"] = new_key
         tally.bump(REMAPPED)
+    return tally
+
+
+# ---------------------------------------------------------------------------
+# Decisions, SoAWs and their discussion and history: mentions in rich text
+# ---------------------------------------------------------------------------
+
+ADR_TEXT_COLUMNS = ("context", "decision", "consequences", "alternatives_considered")
+
+
+def rewrite_mention_html(html: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """Translate the ids of the mention spans in one rich-text value.
+
+    A card mention follows its card, a user mention its user (by the Users
+    sheet's ``source_id``); a decision keeps its id — decisions preserve
+    their primary keys like every module row. Not a string → untouched.
+    """
+    if not isinstance(html, str):
+        return html
+
+    def _mapping(kind: str, mention_id: str) -> str | None:
+        if kind == "card":
+            return ids.cards.get(mention_id)
+        if kind == "user":
+            return ids.users.get(mention_id)
+        return mention_id
+
+    rewritten, remapped, unresolved = mention_markup.map_ids(html, _mapping)
+    if remapped:
+        tally.bump(REMAPPED, remapped)
+    if unresolved:
+        tally.bump(UNRESOLVED, unresolved)
+    return rewritten
+
+
+def rewrite_signatories(signatories: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """``[{user_id, …}]`` with each ``user_id`` through the users map; any
+    other shape comes back untouched."""
+    if not isinstance(signatories, list):
+        return signatories
+    out = []
+    for entry in signatories:
+        if isinstance(entry, dict) and "user_id" in entry:
+            entry = {**entry, "user_id": map_id(entry["user_id"], ids.users, tally)}
+        out.append(entry)
+    return out
+
+
+def _rewrite_strings(value: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """Every string anywhere inside a JSON value through
+    :func:`rewrite_mention_html` (only mention spans can change)."""
+    if isinstance(value, dict):
+        return {k: _rewrite_strings(v, ids, tally) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rewrite_strings(v, ids, tally) for v in value]
+    return rewrite_mention_html(value, ids, tally)
+
+
+def rewrite_soaw_sections(sections: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """``sections[*]["content"]`` through :func:`rewrite_mention_html`, the
+    custom ones included; a section whose content is not a string (a table,
+    the TOGAF grid) is plain text and stays."""
+    if not isinstance(sections, dict):
+        return sections
+    out: dict[str, Any] = {}
+    for key, section in sections.items():
+        if isinstance(section, dict) and isinstance(section.get("content"), str):
+            section = {**section, "content": rewrite_mention_html(section["content"], ids, tally)}
+        out[key] = section
+    return out
+
+
+def _rewrite_people(people: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """A snapshot's people — a list of ``{user_id?, name}`` or a ``{part:
+    [...]}`` map of such lists — with each ``user_id`` through the users map."""
+    if isinstance(people, dict):
+        return {k: _rewrite_people(v, ids, tally) for k, v in people.items()}
+    if not isinstance(people, list):
+        return people
+    out = []
+    for person in people:
+        if isinstance(person, dict) and person.get("user_id") is not None:
+            person = {**person, "user_id": map_id(person["user_id"], ids.users, tally)}
+        out.append(person)
+    return out
+
+
+def rewrite_history_content(content: Any, ids: IdMap, tally: RewriteTally) -> Any:
+    """A history snapshot: the mention ids in every HTML string and the user
+    id of every person under ``people``."""
+    if not isinstance(content, dict):
+        return content
+    out = _rewrite_strings({k: v for k, v in content.items() if k != "people"}, ids, tally)
+    if "people" in content:
+        out["people"] = _rewrite_people(content["people"], ids, tally)
+    return out
+
+
+def rewrite_adr_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    tally = RewriteTally()
+    for col in ADR_TEXT_COLUMNS:
+        if col in kwargs:
+            kwargs[col] = rewrite_mention_html(kwargs[col], ctx.ids, tally)
+    if "signatories" in kwargs:
+        kwargs["signatories"] = rewrite_signatories(kwargs["signatories"], ctx.ids, tally)
+    return tally
+
+
+def rewrite_soaw_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    tally = RewriteTally()
+    if "sections" in kwargs:
+        kwargs["sections"] = rewrite_soaw_sections(kwargs["sections"], ctx.ids, tally)
+    if "signatories" in kwargs:
+        kwargs["signatories"] = rewrite_signatories(kwargs["signatories"], ctx.ids, tally)
+    return tally
+
+
+def rewrite_document_comment_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    tally = RewriteTally()
+    if "body" in kwargs:
+        kwargs["body"] = rewrite_mention_html(kwargs["body"], ctx.ids, tally)
+    return tally
+
+
+def rewrite_document_history_row(kwargs: dict[str, Any], ctx: RemapContext) -> RewriteTally:
+    tally = RewriteTally()
+    if "content" in kwargs:
+        kwargs["content"] = rewrite_history_content(kwargs["content"], ctx.ids, tally)
+    if "signatories" in kwargs:
+        kwargs["signatories"] = rewrite_signatories(kwargs["signatories"], ctx.ids, tally)
     return tally

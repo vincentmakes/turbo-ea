@@ -25,7 +25,13 @@ pytestmark = pytest.mark.source_scan
 
 # Route modules whose handlers are scanned. Add a module here when it gains
 # routes that publish persisted events.
-MODULES = ("adr.py", "soaw.py")
+MODULES = (
+    "adr.py",
+    "soaw.py",
+    "document_comments.py",
+    "document_history.py",
+    "mentions.py",
+)
 
 # Helpers that publish a persisted event themselves.
 PUBLISHING_HELPERS = frozenset({"_publish_adr_card_event"})
@@ -88,7 +94,14 @@ def test_the_scanned_modules_have_handlers_that_publish():
         source = (API_V1 / module).read_text(encoding="utf-8")
         tree = ast.parse(source)
         publishing[module] = sum(1 for node in ast.walk(tree) if _persisted_publish(node))
-    assert publishing == {"adr.py": 8, "soaw.py": 4}
+    # The collaboration modules publish nothing yet; the comment routes will.
+    assert publishing == {
+        "adr.py": 8,
+        "soaw.py": 4,
+        "document_comments.py": 0,
+        "document_history.py": 0,
+        "mentions.py": 0,
+    }
 
 
 # ── the scan bites ──────────────────────────────────────────────────────────

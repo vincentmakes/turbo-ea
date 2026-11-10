@@ -168,6 +168,25 @@ async def _relations(db) -> set[tuple[str, uuid.UUID, uuid.UUID]]:
 
 
 class TestExecuteCommit:
+    async def test_the_decision_opens_its_timeline(self, db, env):
+        from app.models.document_history import DocumentHistoryEntry
+
+        out = await execute_commit(db, str(env["run"].id), env["data"])
+        rows = (
+            (
+                await db.execute(
+                    select(DocumentHistoryEntry).where(
+                        DocumentHistoryEntry.architecture_decision_id == uuid.UUID(out["adr_id"])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert [(r.kind, r.actor_id, r.actor_name) for r in rows] == [
+            ("created", env["admin"].id, env["admin"].display_name)
+        ]
+
     async def test_creates_the_initiative_cards_relations_and_adr(self, db, env):
         out = await execute_commit(db, str(env["run"].id), env["data"])
         cards = await _cards(db)

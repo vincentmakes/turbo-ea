@@ -23,6 +23,8 @@ from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup, diagram_group_members
 from app.models.document import Document
+from app.models.document_comment import DocumentComment
+from app.models.document_history import DocumentHistoryEntry
 from app.models.ea_principle import EAPrinciple
 from app.models.eol_custom_cycle import EolCustomCycle
 from app.models.eol_custom_product import EolCustomProduct
@@ -128,6 +130,8 @@ __all__ = [
     "ExtensionLicense",
     "ExtensionSchemaVersion",
     "Document",
+    "DocumentComment",
+    "DocumentHistoryEntry",
     "EAPrinciple",
     "Bookmark",
     "Calculation",

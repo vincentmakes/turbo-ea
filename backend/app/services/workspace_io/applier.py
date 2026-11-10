@@ -263,7 +263,7 @@ async def _run(
         ),
         (schema.SHEET_TAG_GROUPS, _apply_tag_groups),
         (schema.SHEET_TAGS, functools.partial(_apply_tags, id_map=id_map)),
-        (schema.SHEET_USERS, _apply_users),
+        (schema.SHEET_USERS, functools.partial(_apply_users, id_map=id_map)),
         (schema.SHEET_SETTINGS, _apply_settings),
         (schema.SHEET_CARDS, _make_cards_applier(user, id_map)),
         (schema.SHEET_CARD_TAGS, functools.partial(_apply_card_tags, id_map=id_map)),
@@ -530,6 +530,20 @@ async def _load_remap_context(
             rm.TAGS,
             lambda row: tag_index.get((row.get("group_name"), row.get("name"))),
         )
+
+    # A selective run that did not apply the Users sheet still maps the users
+    # the target already has, by e-mail.
+    user_ids = {
+        email.lower(): uid
+        for email, uid in (await db.execute(select(User.email, User.id))).all()
+        if email
+    }
+    rm.backfill(
+        bundle.rows(schema.SHEET_USERS),
+        id_map,
+        rm.USERS,
+        lambda row: user_ids.get(str(row.get("email") or "").strip().lower()),
+    )
 
     ctx.legacy = not rm.bundle_carries_source_ids(card_rows)
     if ctx.legacy and "ProcessElements" in sheets:
@@ -937,21 +951,35 @@ async def _apply_tags(
 # ---------------------------------------------------------------------------
 
 
-async def _apply_users(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
+async def _apply_users(
+    db,
+    bundle: WorkspaceBundle,
+    sr: SectionResult,
+    dry_run: bool,
+    *,
+    id_map: rm.IdMap | None = None,
+) -> None:
+    """Create the users the target lacks (matched by e-mail) and record where
+    every bundle user's id landed — created or matched, in a dry run too — so
+    the user ids inside rich text and signatory lists can follow (2.200.0).
+    A bundle without ``source_id`` records nothing."""
+    ids = id_map if id_map is not None else rm.IdMap()
     valid_roles = {r for (r,) in (await db.execute(select(Role.key))).all()}
-    existing = {u.email.lower() for u in (await db.execute(select(User))).scalars().all()}
+    existing = {u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()}
     for row in bundle.rows(schema.SHEET_USERS):
         email = (row.get("email") or "").strip()
         if not email:
             sr.failed += 1
             continue
         if email.lower() in existing:
+            ids.record(rm.USERS, row.get(schema.SOURCE_ID_COLUMN), existing[email.lower()])
             sr.skip("user_exists")
             continue
         role = row.get("role")
         if role not in valid_roles:
             role = _SAFE_SYNTHETIC_ROLE
         user = User(
+            id=uuid.uuid4(),
             email=email,
             display_name=row.get("display_name") or email,
             role=role,
@@ -960,7 +988,8 @@ async def _apply_users(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: 
             locale=row.get("locale") or "en",
         )
         db.add(user)
-        existing.add(email.lower())
+        existing[email.lower()] = user.id
+        ids.record(rm.USERS, row.get(schema.SOURCE_ID_COLUMN), user.id)
         sr.created += 1
     await db.flush()
 

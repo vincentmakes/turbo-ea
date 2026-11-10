@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models.soaw import SoAW
 from app.models.todo import Todo
 from app.models.user import User
-from app.services import notification_service, soaw_service
+from app.services import document_collab, notification_service, soaw_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -56,7 +56,7 @@ class SignatureRequest(BaseModel):
 
 
 class RejectRequest(BaseModel):
-    comment: str
+    comment: str = Field(max_length=4000)
 
 
 # ---------------------------------------------------------------------------
@@ -86,9 +86,17 @@ def _row_to_dict(s: SoAW, chains: soaw_service.SoAWChains) -> dict:
     }
 
 
-async def _respond(db: AsyncSession, s: SoAW) -> dict:
+async def _render(db: AsyncSession, payloads: list[dict], user: User) -> list[dict]:
+    """The response rows of one request as ``user`` reads them, in one batch."""
+    return await document_collab.render_doc(
+        db, document_collab.SOAW, payloads, user=user, read_scope=None
+    )
+
+
+async def _respond(db: AsyncSession, s: SoAW, user: User) -> dict:
     """One SoAW with its chain fields (one light chain query)."""
-    return _row_to_dict(s, await soaw_service.load_chains(db))
+    (rendered,) = await _render(db, [_row_to_dict(s, await soaw_service.load_chains(db))], user)
+    return rendered
 
 
 def _refuse(refusal: tuple[int, object] | None) -> None:
@@ -124,7 +132,11 @@ async def list_soaws(
     rows = result.scalars().all()
     chains = await soaw_service.load_chains(db)
     out = [_row_to_dict(s, chains) for s in rows]
-    return [r for r in out if soaw_service.keep_in_list(r, include_earlier=include_earlier)]
+    return await _render(
+        db,
+        [r for r in out if soaw_service.keep_in_list(r, include_earlier=include_earlier)],
+        user,
+    )
 
 
 @router.post("", status_code=201)
@@ -134,19 +146,29 @@ async def create_soaw(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "soaw.manage")
+    text = await document_collab.before_save(
+        db,
+        document_collab.SOAW,
+        None,
+        {"sections": body.sections or {}},
+        user=user,
+        read_scope=None,
+    )
     s = SoAW(
         name=body.name,
         initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
         status=body.status,
         document_info=body.document_info or {},
         version_history=body.version_history or [],
-        sections=body.sections or {},
+        sections=text["sections"],
         created_by=user.id,
     )
     db.add(s)
+    await db.flush()
+    await document_collab.on_workflow(db, document_collab.SOAW, s, "created", user=user)
     await db.commit()
     await db.refresh(s)
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.get("/{soaw_id}")
@@ -158,10 +180,12 @@ async def get_soaw(
     await PermissionService.require_permission(db, user, "soaw.view")
     s = await _get_soaw(db, soaw_id)
     chains = await soaw_service.load_chains(db)
-    return {
-        **_row_to_dict(s, chains),
-        "revisions": soaw_service.revisions_payload(chains, s.id),
-    }
+    (rendered,) = await _render(
+        db,
+        [{**_row_to_dict(s, chains), "revisions": soaw_service.revisions_payload(chains, s.id)}],
+        user,
+    )
+    return rendered
 
 
 @router.patch("/{soaw_id}")
@@ -177,6 +201,7 @@ async def update_soaw(
     # Signed: no edit at all. Status moves with their own endpoint: 400. In
     # review: only the initiative (filing) may change.
     _refuse(soaw_service.update_refusal(s.status, body.status, body.model_fields_set))
+    was_draft = s.status == soaw_service.DRAFT
 
     if body.name is not None:
         s.name = body.name
@@ -189,10 +214,21 @@ async def update_soaw(
     if body.version_history is not None:
         s.version_history = body.version_history
     if body.sections is not None:
-        s.sections = body.sections
+        text = await document_collab.before_save(
+            db,
+            document_collab.SOAW,
+            s,
+            {"sections": body.sections},
+            user=user,
+            read_scope=None,
+        )
+        s.sections = text["sections"]
+    await document_collab.after_save(
+        db, document_collab.SOAW, s, user=user, was_draft=was_draft, before=None
+    )
     await db.commit()
     await db.refresh(s)
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.delete("/{soaw_id}", status_code=204)
@@ -249,6 +285,9 @@ async def request_signatures(
     s.signatories = signatories
     flag_modified(s, "signatories")
     s.status = "in_review"
+    await document_collab.on_workflow(
+        db, document_collab.SOAW, s, "sent_for_review", user=user, signatories=signatories
+    )
 
     # Create a todo for each signatory
     for sig in signatories:
@@ -292,7 +331,7 @@ async def request_signatures(
     await db.commit()
     await db.refresh(s)
 
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.post("/{soaw_id}/sign")
@@ -350,12 +389,14 @@ async def sign_soaw(
 
     s.signatories = signatories
     flag_modified(s, "signatories")
+    await document_collab.on_workflow(db, document_collab.SOAW, s, "signature", user=user)
 
     # Check if all signatories have signed
     all_signed = all(sig["status"] == "signed" for sig in signatories)
     if all_signed:
         s.status = "signed"
         s.signed_at = datetime.now(timezone.utc)
+        await document_collab.on_workflow(db, document_collab.SOAW, s, "signed", user=user)
 
         # Notify creator that the document is fully signed
         if s.created_by:
@@ -409,7 +450,7 @@ async def sign_soaw(
     await db.commit()
     await db.refresh(s)
 
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.post("/{soaw_id}/recall-signatures")
@@ -459,6 +500,7 @@ async def recall_signatures(
     s.signatories = []
     flag_modified(s, "signatories")
     s.status = "draft"
+    await document_collab.on_workflow(db, document_collab.SOAW, s, "recalled", user=user)
 
     await event_bus.publish(
         "soaw.signatures_recalled",
@@ -469,7 +511,7 @@ async def recall_signatures(
     await db.commit()
     await db.refresh(s)
 
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.post("/{soaw_id}/reject")
@@ -544,6 +586,9 @@ async def reject_soaw(
     s.signatories = []
     flag_modified(s, "signatories")
     s.status = "draft"
+    await document_collab.on_workflow(
+        db, document_collab.SOAW, s, "rejected", user=user, note=body.comment
+    )
 
     await event_bus.publish(
         "soaw.rejected",
@@ -559,7 +604,7 @@ async def reject_soaw(
     await db.commit()
     await db.refresh(s)
 
-    return await _respond(db, s)
+    return await _respond(db, s, user)
 
 
 @router.post("/{soaw_id}/revise")
@@ -582,7 +627,7 @@ async def revise_soaw(
     await db.commit()
     await db.refresh(new_revision)
 
-    return await _respond(db, new_revision)
+    return await _respond(db, new_revision, user)
 
 
 # ---------------------------------------------------------------------------
@@ -604,4 +649,4 @@ async def list_revisions(
     ids = soaw_service.chain_ids(chains, s.id)
     result = await db.execute(select(SoAW).where(SoAW.id.in_(ids)))
     by_id = {row.id: row for row in result.scalars().all()}
-    return [_row_to_dict(by_id[i], chains) for i in ids if i in by_id]
+    return await _render(db, [_row_to_dict(by_id[i], chains) for i in ids if i in by_id], user)

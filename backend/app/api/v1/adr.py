@@ -36,6 +36,7 @@ from app.services import (
     audit_log,
     decision_link_service,
     decision_people_service,
+    document_collab,
     notification_service,
 )
 from app.services import decision_standing as ds
@@ -97,12 +98,14 @@ async def _adr_to_dict(
     db: AsyncSession,
     adr: ArchitectureDecision,
     register: ds.Register,
+    user: User,
     read_scope: CardReadScope | None = None,
 ) -> dict:
     """Convert an ADR model to a response dict, including linked cards and names.
 
     ``read_scope`` leaves out linked cards hidden from the reader. Standing,
-    links and revisions come from ``register``.
+    links and revisions come from ``register``. The payload goes through
+    :func:`document_collab.render_doc` for ``user``.
     """
     # Get creator name
     creator_name = None
@@ -134,7 +137,7 @@ async def _adr_to_dict(
             "display_name": recorder.display_name if recorder else None,
         }
 
-    return {
+    payload = {
         "id": str(adr.id),
         "reference_number": adr.reference_number,
         "title": adr.title,
@@ -168,12 +171,24 @@ async def _adr_to_dict(
         "recorded_by": recorded_by,
         "files": await adr_file_service.list_files(db, adr.id),
     }
+    (rendered,) = await document_collab.render_doc(
+        db, document_collab.ADR, [payload], user=user, read_scope=read_scope
+    )
+    return rendered
 
 
-async def _detail(db: AsyncSession, adr: ArchitectureDecision, user: User) -> dict:
-    """The detail response for ``adr`` as ``user`` reads it."""
+async def _detail(
+    db: AsyncSession,
+    adr: ArchitectureDecision,
+    user: User,
+    read_scope: CardReadScope | None = None,
+) -> dict:
+    """The detail response for ``adr`` as ``user`` reads it (``read_scope``
+    when the route already loaded it)."""
     register = await ds.load_register(db)
-    return await _adr_to_dict(db, adr, register, await CardReadScope.load(db, user))
+    if read_scope is None:
+        read_scope = await CardReadScope.load(db, user)
+    return await _adr_to_dict(db, adr, register, user, read_scope)
 
 
 def _adr_to_summary(
@@ -225,11 +240,19 @@ async def _summaries(
     *,
     with_creators: bool = True,
     with_participants: bool = False,
+    with_content: bool = False,
 ) -> list[dict]:
-    """List rows for ``rows``: linked cards, creators and people in one query each."""
+    """List rows for ``rows``: linked cards, creators and people in one query each.
+
+    ``with_content`` adds every section's text and the related references
+    (the spreadsheet export). The rows go through
+    :func:`document_collab.render_doc` as one batch.
+    """
     adr_ids = [adr.id for adr in rows]
     cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
+    read_scope: CardReadScope | None = None
     if adr_ids:
+        read_scope = await CardReadScope.load(db, user)
         cards_result = await db.execute(
             select(
                 ArchitectureDecisionCard.architecture_decision_id,
@@ -239,7 +262,7 @@ async def _summaries(
             )
             .join(Card, ArchitectureDecisionCard.card_id == Card.id)
             .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
-            .where(*(await CardReadScope.load(db, user)).where(Card, mode="module"))
+            .where(*read_scope.where(Card, mode="module"))
         )
         for row in cards_result.all():
             cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
@@ -254,7 +277,7 @@ async def _summaries(
             creator_names[uid] = dname
 
     people = await decision_people_service.people_payload(db, adr_ids)
-    return [
+    summaries = [
         _adr_to_summary(
             adr,
             cards_map.get(adr.id),
@@ -265,6 +288,18 @@ async def _summaries(
         )
         for adr in rows
     ]
+    if with_content:
+        for adr, summary in zip(rows, summaries, strict=True):
+            summary["context"] = adr.context
+            summary["consequences"] = adr.consequences
+            summary["alternatives_considered"] = adr.alternatives_considered
+            summary["related_references"] = adr_import_service.related_reference_labels(
+                register, adr.id
+            )
+            summary["link_references"] = adr_service.link_references(register, adr.id)
+    return await document_collab.render_doc(
+        db, document_collab.ADR, summaries, user=user, read_scope=read_scope
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -408,17 +443,14 @@ async def list_adrs(
         )
     ]
 
-    summaries = await _summaries(db, rows, register, user, with_participants=include_content)
-    if include_content:
-        for adr, summary in zip(rows, summaries, strict=True):
-            summary["context"] = adr.context
-            summary["consequences"] = adr.consequences
-            summary["alternatives_considered"] = adr.alternatives_considered
-            summary["related_references"] = adr_import_service.related_reference_labels(
-                register, adr.id
-            )
-            summary["link_references"] = adr_service.link_references(register, adr.id)
-    return summaries
+    return await _summaries(
+        db,
+        rows,
+        register,
+        user,
+        with_participants=include_content,
+        with_content=include_content,
+    )
 
 
 @router.post("", status_code=201)
@@ -428,6 +460,7 @@ async def create_adr(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
+    read_scope = await CardReadScope.load(db, user)
     card_ids = await adr_service.resolve_card_ids(db, body.linked_card_ids or [])
     register = await ds.load_register(db)
     adr_service.check_dates(
@@ -451,6 +484,8 @@ async def create_adr(
         effective_from=body.effective_from,
         valid_until=body.valid_until,
         change_summary=body.change_summary,
+        user=user,
+        read_scope=read_scope,
     )
     await decision_link_service.replace_links(db, adr, wanted, register=register)
     await decision_people_service.replace_people(
@@ -461,7 +496,7 @@ async def create_adr(
     )
     await db.commit()
     await db.refresh(adr)
-    return await _detail(db, adr, user)
+    return await _detail(db, adr, user, read_scope)
 
 
 @router.post("/bulk-import", response_model=ADRImportResponse)
@@ -531,17 +566,25 @@ async def update_adr(
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
     adr_service.check_editable(adr.status, body.status, body.model_fields_set)
+    read_scope = await CardReadScope.load(db, user)
+    was_draft = adr.status == "draft"
 
     if body.title is not None:
         adr.title = body.title
-    if body.context is not None:
-        adr.context = body.context
-    if body.decision is not None:
-        adr.decision = body.decision
-    if body.consequences is not None:
-        adr.consequences = body.consequences
-    if body.alternatives_considered is not None:
-        adr.alternatives_considered = body.alternatives_considered
+    text = await document_collab.before_save(
+        db,
+        document_collab.ADR,
+        adr,
+        {
+            field: getattr(body, field)
+            for field in document_collab.TEXT_FIELDS[document_collab.ADR]
+            if getattr(body, field) is not None
+        },
+        user=user,
+        read_scope=read_scope,
+    )
+    for field, value in text.items():
+        setattr(adr, field, value)
     if body.links is not None and body.related_decisions is not None:
         raise HTTPException(
             400,
@@ -589,7 +632,6 @@ async def update_adr(
         adr.status = body.status
 
     if body.linked_card_ids is not None:
-        read_scope = await CardReadScope.load(db, user)
         desired = set(await adr_service.resolve_card_ids(db, body.linked_card_ids))
         if await read_scope.hidden_card_ids(db, desired, mode="module"):
             raise HTTPException(404, "Card not found")
@@ -612,9 +654,12 @@ async def update_adr(
                 )
             )
 
+    await document_collab.after_save(
+        db, document_collab.ADR, adr, user=user, was_draft=was_draft, before=None
+    )
     await db.commit()
     await db.refresh(adr)
-    return await _detail(db, adr, user)
+    return await _detail(db, adr, user, read_scope)
 
 
 @router.delete("/{adr_id}", status_code=204)
@@ -706,6 +751,9 @@ async def request_signatures(
     adr.signatories = signatories
     flag_modified(adr, "signatories")
     adr.status = "in_review"
+    await document_collab.on_workflow(
+        db, document_collab.ADR, adr, "sent_for_review", user=user, signatories=signatories
+    )
 
     label = adr_service.decision_label(adr)
     for sig in signatories:
@@ -801,12 +849,16 @@ async def sign_adr(
 
     adr.signatories = signatories
     flag_modified(adr, "signatories")
+    await document_collab.on_workflow(
+        db, document_collab.ADR, adr, "signature", user=user, note=body.comment if body else None
+    )
 
     all_signed = all(sig["status"] == "signed" for sig in signatories)
     label = adr_service.decision_label(adr)
     if all_signed and register is not None:
         adr.status = "signed"
         adr.signed_at = datetime.now(timezone.utc)
+        await document_collab.on_workflow(db, document_collab.ADR, adr, "signed", user=user)
         adr_service.apply_lock_dates(adr, adr.signed_at.date())
         await adr_service.notify_standing_changed(db, adr, register, actor_id=user.id)
 
@@ -901,6 +953,7 @@ async def recall_adr_signatures(
     adr.signatories = []
     flag_modified(adr, "signatories")
     adr.status = "draft"
+    await document_collab.on_workflow(db, document_collab.ADR, adr, "recalled", user=user)
 
     await event_bus.publish(
         "adr.signatures_recalled",
@@ -993,6 +1046,9 @@ async def reject_adr(
     adr.signatories = []
     flag_modified(adr, "signatories")
     adr.status = "draft"
+    await document_collab.on_workflow(
+        db, document_collab.ADR, adr, "rejected", user=user, note=body.comment
+    )
 
     await event_bus.publish(
         "adr.rejected",
@@ -1082,6 +1138,7 @@ async def record_adr(
         recorded_by=user.id,
         now=datetime.now(timezone.utc),
     )
+    await document_collab.on_workflow(db, document_collab.ADR, adr, "recorded", user=user)
 
     await adr_service.notify_standing_changed(db, adr, register, actor_id=user.id)
     await _audit_recorded(db, user, adr, [m["display_name"] or "" for m in makers])
@@ -1160,7 +1217,13 @@ async def list_revisions(
     by_id = {r.id: r for r in rows.scalars().all()}
     chain = [by_id[i] for i in ids if i in by_id]
     people = await decision_people_service.people_payload(db, ids)
-    return [_adr_to_summary(r, register=register, people=people) for r in chain]
+    return await document_collab.render_doc(
+        db,
+        document_collab.ADR,
+        [_adr_to_summary(r, register=register, people=people) for r in chain],
+        user=user,
+        read_scope=None,
+    )
 
 
 # ---------------------------------------------------------------------------

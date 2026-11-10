@@ -119,7 +119,8 @@ class ADRRecordRequest(BaseModel):
 
 
 class ADRRejectRequest(BaseModel):
-    comment: str
+    # The reason, which also opens the rejection thread (and the history row's note).
+    comment: str = Field(max_length=4000)
 
 
 class ADRCardLink(BaseModel):

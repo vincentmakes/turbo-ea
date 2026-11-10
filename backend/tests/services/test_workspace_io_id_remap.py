@@ -798,3 +798,309 @@ async def test_a_bundle_carries_every_rows_own_id(db):
     assert (card_tag_row["card_ref"], card_tag_row["card_id"]) == ("CRM", str(crm.id))
     (dc_row,) = bundle.rows("DiagramCards")
     assert (dc_row["card_ref"], dc_row["card_id"]) == ("CRM", str(crm.id))
+
+
+# ── decisions, SoAWs, their discussion and history (2.200.0) ───────────────
+
+
+def _mention(kind: str, mention_id) -> str:
+    return f'<span data-type="mention" data-kind="{kind}" data-id="{mention_id}"></span>'
+
+
+async def _seed_documents(db, admin):
+    """A decision, a SoAW, a discussion and a timeline that name a card and a
+    user (Ada) — the ids a transfer to another instance must translate."""
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_comment import DocumentComment
+    from app.models.document_history import DocumentHistoryEntry
+    from app.models.soaw import SoAW
+
+    ada = await create_user(db, email="ada@test.com", role="admin", display_name="Ada")
+    await _metamodel(db)
+    crm = await create_card(db, name="CRM", user_id=admin.id)
+    decision = ArchitectureDecision(
+        reference_number="ADR-001",
+        title="Use CRM",
+        status="in_review",
+        decision=f"<p>Adopt {_mention('card', crm.id)} owned by {_mention('user', ada.id)}</p>",
+        context="<p>plain</p>",
+        signatories=[
+            {
+                "user_id": str(ada.id),
+                "display_name": "Ada",
+                "email": "ada@test.com",
+                "status": "pending",
+                "signed_at": None,
+            }
+        ],
+        created_by=admin.id,
+    )
+    soaw = SoAW(
+        name="Plan",
+        sections={"1.1": {"content": f"<p>{_mention('card', crm.id)}</p>", "hidden": False}},
+        signatories=[],
+        created_by=admin.id,
+    )
+    db.add_all([decision, soaw])
+    await db.flush()
+    top = DocumentComment(
+        architecture_decision_id=decision.id,
+        author_id=admin.id,
+        author_name="Admin",
+        body=f"<p>{_mention('user', ada.id)} please check {_mention('card', crm.id)}</p>",
+        section="decision",
+        resolved_by=ada.id,
+    )
+    db.add(top)
+    await db.flush()
+    reply = DocumentComment(
+        architecture_decision_id=decision.id,
+        parent_id=top.id,
+        author_id=ada.id,
+        author_name="Ada",
+        body="<p>Done</p>",
+    )
+    db.add(reply)
+    for kind, extra in (
+        ("created", {}),
+        (
+            "save",
+            {
+                "content": {
+                    "decision": f"<p>{_mention('card', crm.id)}</p>",
+                    "people": {"decision_makers": [{"user_id": str(ada.id), "name": "Ada"}]},
+                }
+            },
+        ),
+        ("sent_for_review", {"signatories": [{"user_id": str(ada.id), "display_name": "Ada"}]}),
+        ("recalled", {}),
+    ):
+        db.add(
+            DocumentHistoryEntry(
+                architecture_decision_id=decision.id,
+                kind=kind,
+                actor_id=ada.id,
+                actor_name="Ada",
+                **extra,
+            )
+        )
+        await db.flush()
+    db.add(DocumentHistoryEntry(soaw_id=soaw.id, kind="created", actor_id=admin.id))
+    await db.flush()
+    return {
+        "ada": ada,
+        "crm": crm,
+        "decision_id": decision.id,
+        "soaw_id": soaw.id,
+        "top_id": top.id,
+        "reply_id": reply.id,
+    }
+
+
+async def _wipe_with_documents(db, ada_id) -> None:
+    """Wipe the inventory and the documents, and give Ada a new id: the
+    target knows her by e-mail only."""
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_comment import DocumentComment
+    from app.models.document_history import DocumentHistoryEntry
+    from app.models.soaw import SoAW
+    from app.models.user import User
+
+    for model in (DocumentHistoryEntry, DocumentComment, ArchitectureDecision, SoAW):
+        await db.execute(delete(model))
+    await _wipe(db)
+    await db.execute(delete(User).where(User.id == ada_id))
+    await db.flush()
+
+
+async def test_mentions_signatories_discussion_and_history_follow_cards_and_users(db):
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_comment import DocumentComment
+    from app.models.document_history import DocumentHistoryEntry
+    from app.models.soaw import SoAW
+
+    admin = await create_user(db, email="importer@test.com", role="admin", display_name="Admin")
+    seeded = await _seed_documents(db, admin)
+    old_ada, old_crm = seeded["ada"].id, seeded["crm"].id
+
+    raw = await build_bundle(db)
+    await _wipe_with_documents(db, old_ada)
+    new_ada = await create_user(db, email="ada@test.com", role="admin", display_name="Ada")
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    assert result.total_failed == 0 and result.total_conflict == 0, result.as_dict()
+
+    new_crm = await _by_name(db, "CRM")
+    assert new_crm.id != old_crm and new_ada.id != old_ada
+
+    decision = (
+        await db.execute(
+            select(ArchitectureDecision).where(ArchitectureDecision.id == seeded["decision_id"])
+        )
+    ).scalar_one()
+    assert decision.decision == (
+        f"<p>Adopt {_mention('card', new_crm.id)} owned by {_mention('user', new_ada.id)}</p>"
+    )
+    assert decision.context == "<p>plain</p>"
+    assert decision.signatories == [
+        {
+            "user_id": str(new_ada.id),
+            "display_name": "Ada",
+            "email": "ada@test.com",
+            "status": "pending",
+            "signed_at": None,
+        }
+    ]
+    assert decision.created_by == admin.id
+    assert _section(result, "Adrs").references == {"remapped": 3}
+
+    soaw = (await db.execute(select(SoAW).where(SoAW.id == seeded["soaw_id"]))).scalar_one()
+    assert soaw.sections == {
+        "1.1": {"content": f"<p>{_mention('card', new_crm.id)}</p>", "hidden": False}
+    }
+    assert _section(result, "Soaws").references == {"remapped": 1}
+
+    comments = {c.id: c for c in (await db.execute(select(DocumentComment))).scalars().all()}
+    top, reply = comments[seeded["top_id"]], comments[seeded["reply_id"]]
+    assert top.body == (
+        f"<p>{_mention('user', new_ada.id)} please check {_mention('card', new_crm.id)}</p>"
+    )
+    assert (top.author_id, top.resolved_by, top.section) == (admin.id, new_ada.id, "decision")
+    assert (reply.parent_id, reply.author_id, reply.body) == (top.id, new_ada.id, "<p>Done</p>")
+    assert top.architecture_decision_id == seeded["decision_id"]
+    assert _section(result, "DocumentComments").references == {"remapped": 2}
+
+    history = (
+        (
+            await db.execute(
+                select(DocumentHistoryEntry)
+                .where(DocumentHistoryEntry.architecture_decision_id == seeded["decision_id"])
+                .order_by(DocumentHistoryEntry.seq)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [h.kind for h in history] == ["created", "save", "sent_for_review", "recalled"]
+    assert all(h.actor_id == new_ada.id for h in history)
+    assert history[1].content == {
+        "decision": f"<p>{_mention('card', new_crm.id)}</p>",
+        "people": {"decision_makers": [{"user_id": str(new_ada.id), "name": "Ada"}]},
+    }
+    assert history[2].signatories == [{"user_id": str(new_ada.id), "display_name": "Ada"}]
+    soaw_history = (
+        await db.execute(
+            select(DocumentHistoryEntry).where(DocumentHistoryEntry.soaw_id == seeded["soaw_id"])
+        )
+    ).scalar_one()
+    assert (soaw_history.kind, soaw_history.actor_id) == ("created", admin.id)
+    assert _section(result, "DocumentHistory").references == {"remapped": 3}
+
+
+async def test_the_timeline_keeps_its_order_whatever_the_ids(db):
+    """The sheet is written in ``seq`` order and applied in sheet order, so the
+    target's fresh ``seq`` values follow the source's — even where the row
+    ids sort the other way."""
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.document_history import DocumentHistoryEntry
+
+    admin = await create_user(db, email="order@test.com", role="admin")
+    decision = ArchitectureDecision(reference_number="ADR-009", title="Order")
+    db.add(decision)
+    await db.flush()
+    kinds = ["created", "save", "sent_for_review", "signature", "signed"]
+    ids = sorted((uuid.uuid4() for _ in kinds), reverse=True)
+    for entry_id, kind in zip(ids, kinds, strict=True):
+        db.add(DocumentHistoryEntry(id=entry_id, architecture_decision_id=decision.id, kind=kind))
+        await db.flush()
+
+    bundle = parse_bundle(await build_bundle(db))
+    assert [r["kind"] for r in bundle.rows("DocumentHistory")] == kinds
+    assert all("seq" not in r for r in bundle.rows("DocumentHistory"))
+    await db.execute(delete(DocumentHistoryEntry))
+    await db.flush()
+
+    result = await apply_bundle(db, bundle, admin)
+    assert _section(result, "DocumentHistory").created == 5
+    rows = (
+        (await db.execute(select(DocumentHistoryEntry).order_by(DocumentHistoryEntry.seq)))
+        .scalars()
+        .all()
+    )
+    assert [(r.id, r.kind) for r in rows] == list(zip(ids, kinds, strict=True))
+
+
+async def test_documents_reimported_into_the_same_instance_are_all_skip(db):
+    admin = await create_user(db, email="again@test.com", role="admin", display_name="Admin")
+    await _seed_documents(db, admin)
+
+    raw = await build_bundle(db)
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    totals = result.as_dict()["totals"]
+    assert totals["created"] == 0 and totals["updated"] == 0, result.as_dict()
+    assert all(not s.references for s in result.sections)
+    for sheet, count in (
+        ("Adrs", 1),
+        ("Soaws", 1),
+        ("DocumentComments", 2),
+        ("DocumentHistory", 5),
+    ):
+        assert _section(result, sheet).skip_reasons == {"already_present": count}
+
+
+async def test_the_users_sheet_carries_each_users_own_id(db):
+    ada = await create_user(db, email="ada@test.com", display_name="Ada")
+    bundle = parse_bundle(await build_bundle(db))
+    (row,) = bundle.rows(schema.SHEET_USERS)
+    assert (row["email"], row["source_id"]) == ("ada@test.com", str(ada.id))
+
+
+async def test_the_users_pass_maps_created_and_matched_users_even_in_a_dry_run(db):
+    from app.services.workspace_io import applier
+    from app.services.workspace_io import remap as rm
+    from app.services.workspace_io.bundle import WorkspaceBundle
+
+    known = await create_user(db, email="known@test.com")
+    old_known, old_new = str(uuid.uuid4()), str(uuid.uuid4())
+    rows = [
+        {"email": "KNOWN@test.com", "display_name": "K", "source_id": old_known},
+        {"email": "fresh@test.com", "display_name": "F", "source_id": old_new},
+        {"email": "legacy@test.com", "display_name": "L"},
+    ]
+    bundle = WorkspaceBundle(manifest={}, sheets={schema.SHEET_USERS: rows}, assets={})
+    ids = rm.IdMap()
+    sr = applier.SectionResult(sheet=schema.SHEET_USERS)
+    await applier._apply_users(db, bundle, sr, True, id_map=ids)
+    from app.models.user import User
+
+    fresh = (await db.execute(select(User).where(User.email == "fresh@test.com"))).scalar_one()
+    assert ids.users == {old_known: str(known.id), old_new: str(fresh.id)}
+    assert (sr.created, sr.skip_reasons) == (2, {"user_exists": 1})
+
+
+async def test_an_older_bundle_without_user_ids_leaves_user_mentions_alone(db):
+    """A bundle written before the Users sheet carried ``source_id``: the
+    user ids cannot be translated, so they stay as they were (and say so)."""
+    from app.models.architecture_decision import ArchitectureDecision
+
+    admin = await create_user(db, email="importer@test.com", role="admin", display_name="Admin")
+    seeded = await _seed_documents(db, admin)
+    old_ada = seeded["ada"].id
+
+    bundle = parse_bundle(await build_bundle(db))
+    for row in bundle.rows(schema.SHEET_USERS):
+        del row["source_id"]
+    await _wipe_with_documents(db, old_ada)
+    await create_user(db, email="ada@test.com", role="admin", display_name="Ada")
+    result = await apply_bundle(db, bundle, admin)
+    assert result.total_failed == 0 and result.total_conflict == 0, result.as_dict()
+    new_crm = await _by_name(db, "CRM")
+    decision = (
+        await db.execute(
+            select(ArchitectureDecision).where(ArchitectureDecision.id == seeded["decision_id"])
+        )
+    ).scalar_one()
+    assert decision.decision == (
+        f"<p>Adopt {_mention('card', new_crm.id)} owned by {_mention('user', old_ada)}</p>"
+    )
+    assert decision.signatories[0]["user_id"] == str(old_ada)
+    assert _section(result, "Adrs").references == {"remapped": 1, "unresolved": 2}

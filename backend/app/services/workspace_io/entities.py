@@ -88,6 +88,10 @@ class EntitySection:
     # only analysis runs referenced by a compliance finding). Import is
     # unaffected — whatever rows are in the bundle are applied.
     export_where: Any = None
+    # Optional ORDER BY for the export (e.g. a timeline's ``seq``). Rows are
+    # inserted in sheet order on import, so this order is what the target's
+    # own identity values follow.
+    export_order_by: tuple[Any, ...] = ()
     # Translates the card / relation / tag ids a row holds inside its value
     # columns from the source instance's to the target's (#1246). Runs on the
     # row's import kwargs — card FKs already resolved — just before insert.
@@ -232,6 +236,8 @@ async def export_entity_section(
             stmt = stmt.options(sa.orm.undefer(attr))
     if section.export_where is not None:
         stmt = stmt.where(section.export_where)
+    if section.export_order_by:
+        stmt = stmt.order_by(*section.export_order_by)
     objs: list[Any] = list((await db.execute(stmt)).scalars().all())
     value_cols = section.value_columns()
     pk0 = section.pk_columns()[0]

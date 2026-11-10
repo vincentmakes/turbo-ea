@@ -39,14 +39,17 @@ from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.architecture_decision_file import ArchitectureDecisionFile
 from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
+from app.models.user import User
 from app.services import (
     adr_file_service,
     decision_link_service,
     decision_people_service,
+    document_collab,
     notification_service,
 )
 from app.services import decision_standing as ds
 from app.services import revision_chain as rc
+from app.services.card_read_scope import CardReadScope
 from app.services.event_bus import event_bus
 
 _REFERENCE_RE = re.compile(r"^ADR-(\d+)$", re.IGNORECASE)
@@ -109,6 +112,8 @@ async def create_decision(
     valid_until: date | None = None,
     change_summary: str | None = None,
     publish: bool = True,
+    user: User | None = None,
+    read_scope: CardReadScope | None = None,
 ) -> ArchitectureDecision:
     """Insert a draft decision and its card links; flush, never commit.
 
@@ -124,14 +129,33 @@ async def create_decision(
     number becomes a ``relates`` link; anything else is dropped silently
     (:func:`decision_link_service.add_relates_links`). Callers that must
     refuse an unknown entry resolve it themselves and pass typed links.
+
+    The text goes through :func:`document_collab.before_save` (``user`` /
+    ``read_scope`` are the writer's; ``None`` for a system writer or a copy)
+    and the decision's timeline starts with a ``created`` row, so every path
+    that creates a decision — the route, the importer, the extension bridge,
+    the TurboLens commit, a duplicate — gets one.
     """
+    text = await document_collab.before_save(
+        db,
+        document_collab.ADR,
+        None,
+        {
+            "context": context,
+            "decision": decision,
+            "consequences": consequences,
+            "alternatives_considered": alternatives_considered,
+        },
+        user=user,
+        read_scope=read_scope,
+    )
     adr = ArchitectureDecision(
         reference_number=await next_reference_number(db),
         title=title,
-        context=context,
-        decision=decision,
-        consequences=consequences,
-        alternatives_considered=alternatives_considered,
+        context=text["context"],
+        decision=text["decision"],
+        consequences=text["consequences"],
+        alternatives_considered=text["alternatives_considered"],
         attributes=dict(attributes or {}),
         created_by=created_by,
         decided_on=decided_on,
@@ -148,6 +172,9 @@ async def create_decision(
         seen.add(cid)
         db.add(ArchitectureDecisionCard(architecture_decision_id=adr.id, card_id=cid))
     await db.flush()
+    await document_collab.on_workflow(
+        db, document_collab.ADR, adr, "created", user=user if user is not None else created_by
+    )
     if any(isinstance(entry, str) for entry in related_decisions or ()):
         await decision_link_service.add_relates_links(
             db, adr, related_decisions or (), register=await ds.load_register(db)
@@ -774,15 +801,29 @@ async def create_revision(
         if problems:
             raise decision_link_service.link_error(problems, link.target_id)
 
+    # A copy: its mentions are carried as they are, never re-checked.
+    text = await document_collab.before_save(
+        db,
+        document_collab.ADR,
+        None,
+        {
+            "context": source.context,
+            "decision": source.decision,
+            "consequences": source.consequences,
+            "alternatives_considered": source.alternatives_considered,
+        },
+        user=None,
+        read_scope=None,
+    )
     revision = ArchitectureDecision(
         reference_number=source.reference_number,
         revision_number=rc.next_revision_number(register.chain(source.id)),
         parent_id=source.id,
         title=source.title,
-        context=source.context,
-        decision=source.decision,
-        consequences=source.consequences,
-        alternatives_considered=source.alternatives_considered,
+        context=text["context"],
+        decision=text["decision"],
+        consequences=text["consequences"],
+        alternatives_considered=text["alternatives_considered"],
         attributes=dict(source.attributes or {}),
         valid_until=source.valid_until,
         change_summary=change_summary,
@@ -790,6 +831,7 @@ async def create_revision(
     )
     db.add(revision)
     await db.flush()
+    await document_collab.on_workflow(db, document_collab.ADR, revision, "revised", user=created_by)
     card_ids = await copy_decision_extras(db, source.id, revision.id)
     carried = {
         lk.target_id: lk

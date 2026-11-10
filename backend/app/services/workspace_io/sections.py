@@ -34,6 +34,8 @@ from app.models.diagram import Diagram
 from app.models.diagram_favorite import DiagramFavorite
 from app.models.diagram_group import DiagramGroup
 from app.models.document import Document
+from app.models.document_comment import DocumentComment
+from app.models.document_history import DocumentHistoryEntry
 from app.models.file_attachment import FileAttachment
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -258,6 +260,16 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         ArchitectureDecision,
         user_fk_columns=("created_by", "recorded_by"),
         self_parent_column="parent_id",
+        # Mention spans name cards and users in the four text sections; the
+        # signatories name users.
+        rewrite=remap.rewrite_adr_row,
+        id_bearing_columns=(
+            "context",
+            "decision",
+            "consequences",
+            "alternatives_considered",
+            "signatories",
+        ),
     ),
     EntitySection("AdrCards", ArchitectureDecisionCard, card_fk_columns=("card_id",)),
     # Decision-to-decision links: both ends are decision ids, preserved
@@ -280,6 +292,30 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("initiative_id",),
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
+        # Mention spans in each section's rich text; signatories name users.
+        rewrite=remap.rewrite_soaw_row,
+        id_bearing_columns=("sections", "signatories"),
+    ),
+    # The discussion and the timeline of decisions and SoAWs, after both
+    # owners. A reply's parent is a preserved PK, placed before it.
+    EntitySection(
+        "DocumentComments",
+        DocumentComment,
+        user_fk_columns=("author_id", "resolved_by"),
+        self_parent_column="parent_id",
+        rewrite=remap.rewrite_document_comment_row,
+        id_bearing_columns=("body",),
+    ),
+    # ``seq`` is an identity the target assigns: never carried. Exported in
+    # ``seq`` order and inserted in sheet order, so the timeline keeps it.
+    EntitySection(
+        "DocumentHistory",
+        DocumentHistoryEntry,
+        user_fk_columns=("actor_id",),
+        exclude_columns=("seq",),
+        export_order_by=(DocumentHistoryEntry.seq,),
+        rewrite=remap.rewrite_document_history_row,
+        id_bearing_columns=("content", "signatories"),
     ),
     # --- Saved views + surveys -------------------------------------------
     # Report scopes and filters, survey targets, portal and bookmark tag
