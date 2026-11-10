@@ -8,7 +8,12 @@ from __future__ import annotations
 
 import uuid
 
-from app.services.decision_links_legacy import plan_relates_links
+from app.services.decision_links_legacy import (
+    LEGACY_COLUMN,
+    decode_related_cell,
+    plan_bundle_links,
+    plan_relates_links,
+)
 
 A = uuid.UUID("00000000-0000-4000-8000-00000000000a")
 B = uuid.UUID("00000000-0000-4000-8000-00000000000b")
@@ -90,3 +95,64 @@ def test_pairs_come_in_row_then_entry_order_and_keep_the_given_ids():
         (str(C), str(A)),
         (str(A), str(C)),
     ]
+
+
+# --- Older workspace bundles ---------------------------------------------------
+
+
+def test_decode_related_cell():
+    assert decode_related_cell('["ADR-001", "x"]') == ["ADR-001", "x"]
+    assert decode_related_cell("null") is None
+    assert decode_related_cell("") is None
+    assert decode_related_cell("   ") is None
+    assert decode_related_cell("not json") is None
+    assert decode_related_cell(None) is None
+    assert decode_related_cell(["already"]) == ["already"]
+
+
+def _sheet(*rows):
+    return [{"id": str(i), "reference_number": ref, LEGACY_COLUMN: cell} for i, ref, cell in rows]
+
+
+def test_bundle_links_resolve_through_the_bundle_rows():
+    rows = _sheet(
+        (A, "ADR-001", f'["ADR-002", "{C}", "ADR-404", {{"id": "{B}"}}]'),
+        (B, "ADR-002", '["ADR-001"]'),
+        (C, "ADR-003", None),
+    )
+    assert plan_bundle_links(
+        rows, created_ids=[A, B, C], present_ids=[A, B, C], existing_pairs=[]
+    ) == [(A, B), (A, C), (B, A)]
+
+
+def test_only_created_sources_present_targets_and_new_pairs_are_kept():
+    rows = _sheet(
+        (A, "ADR-001", '["ADR-002", "ADR-003"]'),
+        (B, "ADR-002", '["ADR-001"]'),
+        (C, "ADR-003", '["ADR-001"]'),
+    )
+    # B pre-existed (not created); C failed to import (not present); A -> B is
+    # already linked; the reverse pair B -> A would be a separate link.
+    assert (
+        plan_bundle_links(
+            rows,
+            created_ids={str(A)},
+            present_ids=[A, B],
+            existing_pairs=[(A, B)],
+        )
+        == []
+    )
+    assert plan_bundle_links(
+        rows, created_ids=[A, B], present_ids=[A, B], existing_pairs=[(B, C)]
+    ) == [(A, B), (B, A)]
+
+
+def test_a_row_whose_id_is_not_a_uuid_is_ignored():
+    rows = [
+        {"id": "not-a-uuid", "reference_number": "ADR-009", LEGACY_COLUMN: '["ADR-001"]'},
+        {"id": None, "reference_number": "ADR-008", LEGACY_COLUMN: '["ADR-001"]'},
+        *_sheet((A, "ADR-001", '["ADR-009"]'), (B, "ADR-002", '["ADR-001"]')),
+    ]
+    out = plan_bundle_links(rows, created_ids=[A, B], present_ids=[A, B], existing_pairs=[])
+    assert out == [(B, A)]
+    assert all(isinstance(i, uuid.UUID) for pair in out for i in pair)

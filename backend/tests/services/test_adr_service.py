@@ -61,6 +61,21 @@ class TestReferenceNumbers:
         await db.flush()
         assert await adr_service.next_reference_number(db) == "ADR-1001"
 
+    async def test_a_reference_shared_by_several_revisions_counts_once(self, db):
+        first = ArchitectureDecision(reference_number="ADR-004", title="Rev 1", status="signed")
+        db.add(first)
+        await db.flush()
+        db.add_all(
+            [
+                ArchitectureDecision(
+                    reference_number="ADR-004", title="Rev 2", revision_number=2, parent_id=first.id
+                ),
+                ArchitectureDecision(reference_number="ADR-002", title="Other"),
+            ]
+        )
+        await db.flush()
+        assert await adr_service.next_reference_number(db) == "ADR-005"
+
 
 class TestCreateDecision:
     async def test_flushes_row_and_links_without_commit(self, db, cards):
@@ -478,3 +493,238 @@ class TestCopyDecisionExtras:
         assert await _links(db, copy.id) == [(target.id, "relates", None)]
         people = await decision_people_service.people_payload(db, [copy.id])
         assert people[copy.id]["decision_makers"] == [{"user_id": None, "display_name": "Board"}]
+
+
+class TestCheckEditable:
+    def _code(self, current, new=None, fields=()):
+        try:
+            adr_service.check_editable(current, new, fields)
+        except HTTPException as exc:
+            return exc.status_code, exc.detail
+        return None
+
+    def test_a_draft_takes_any_field(self):
+        assert self._code("draft", None, {"title", "links", "attributes"}) is None
+        assert self._code("draft", "draft", {"status"}) is None
+
+    def test_a_signed_decision_is_403_before_any_status_check(self):
+        assert self._code("signed", "in_review", {"status"}) == (
+            403,
+            "Cannot edit a signed decision. Create a new revision instead.",
+        )
+        assert self._code("signed", None, {"linked_card_ids"})[0] == 403
+
+    def test_workflow_statuses_are_400_whatever_the_state(self):
+        assert self._code("draft", "signed", {"status"}) == (
+            400,
+            "Use the sign endpoint to sign a decision",
+        )
+        assert self._code("in_review", "in_review", {"status", "title"}) == (
+            400,
+            "Use the request-signatures endpoint to send for review",
+        )
+        assert self._code("in_review", "draft", {"status", "title"}) == (
+            400,
+            "Use the recall-signatures endpoint to reset to draft",
+        )
+
+    def test_in_review_only_card_links_pass(self):
+        assert self._code("in_review", None, {"linked_card_ids"}) is None
+        assert self._code("in_review", None, set()) is None
+        locked = (403, "Cannot edit a decision in review. Recall the signatures to edit it.")
+        assert self._code("in_review", None, {"linked_card_ids", "title"}) == locked
+        assert self._code("in_review", "archived", {"status"}) == locked
+        assert self._code("in_review", None, {"attributes"}) == locked
+
+
+class TestReviseRefusal:
+    def _register(self, rows, links=()):
+        return ds.build_register(rows, list(links), today=TODAY)
+
+    def _adr(self, n):
+        return ArchitectureDecision(id=uuid.UUID(int=n), reference_number="ADR-001", title="T")
+
+    def test_the_latest_signed_revision_may_be_revised(self):
+        register = self._register([_row(1, "ADR-001"), _row(2, "ADR-001", rev=2, parent=1)])
+        assert adr_service.revise_refusal_detail(register, self._adr(2)) is None
+
+    def test_an_open_revision_is_named(self):
+        register = self._register(
+            [
+                _row(1, "ADR-001"),
+                _row(2, "ADR-001", rev=2, parent=1, status="draft"),
+            ]
+        )
+        assert adr_service.revise_refusal_detail(register, self._adr(1)) == {
+            "error": "open_revision_exists",
+            "revision_id": str(uuid.UUID(int=2)),
+        }
+
+    def test_a_superseded_revision_is_not_the_latest(self):
+        register = self._register([_row(1, "ADR-001"), _row(2, "ADR-001", rev=2, parent=1)])
+        assert adr_service.revise_refusal_detail(register, self._adr(1)) == {
+            "error": "not_revisable",
+            "reason": "not_latest",
+        }
+
+    def test_a_closed_chain_names_its_closer_and_an_expired_one_stays_revisable(self):
+        rows = [
+            _row(1, "ADR-001"),
+            _row(3, "ADR-003"),
+            _row(4, "ADR-004", valid_until=TODAY - timedelta(days=1)),
+        ]
+        links = [ds.LinkRow(uuid.UUID(int=3), uuid.UUID(int=1), "replaces")]
+        register = self._register(rows, links)
+        assert adr_service.revise_refusal_detail(register, self._adr(1)) == {
+            "error": "not_revisable",
+            "by": _ref(3, "ADR-003"),
+        }
+        assert register[uuid.UUID(int=4)].standing == "expired"
+        assert adr_service.revise_refusal_detail(register, self._adr(4)) is None
+
+
+class TestCreateRevision:
+    async def test_flushes_without_commit_and_numbers_from_the_chain(self, db, cards):
+        source = await adr_service.create_decision(
+            db,
+            title="Source",
+            context="ctx",
+            decision="dec",
+            consequences="cons",
+            alternatives_considered="alt",
+            attributes={"ext.x.k": 1},
+            linked_card_ids=[cards["b"].id, cards["a"].id],
+            valid_until=date(2099, 1, 1),
+            decided_on=date(2026, 1, 2),
+            effective_from=date(2026, 1, 3),
+            change_summary="old summary",
+            publish=False,
+        )
+        source.status = "signed"
+        await db.flush()
+
+        revision = await adr_service.create_revision(
+            db,
+            source,
+            created_by=None,
+            register=await ds.load_register(db),
+            change_summary="new summary",
+        )
+
+        assert (
+            revision.reference_number,
+            revision.revision_number,
+            revision.parent_id,
+            revision.status,
+        ) == (source.reference_number, 2, source.id, "draft")
+        assert (
+            revision.title,
+            revision.context,
+            revision.decision,
+            revision.consequences,
+            revision.alternatives_considered,
+            revision.attributes,
+        ) == ("Source", "ctx", "dec", "cons", "alt", {"ext.x.k": 1})
+        assert (
+            revision.valid_until,
+            revision.decided_on,
+            revision.effective_from,
+            revision.change_summary,
+        ) == (date(2099, 1, 1), None, None, "new summary")
+        linked = await db.execute(
+            select(ArchitectureDecisionCard.card_id)
+            .where(ArchitectureDecisionCard.architecture_decision_id == revision.id)
+            .order_by(ArchitectureDecisionCard.card_id)
+        )
+        assert linked.scalars().all() == sorted([cards["a"].id, cards["b"].id])
+        event = (
+            await db.execute(
+                select(Event).where(
+                    Event.event_type == "adr.created",
+                    Event.data["adr_id"].astext == str(revision.id),
+                )
+            )
+        ).scalar_one()
+        assert event.data["revision_of"] == str(source.id)
+        assert sorted(event.data["linked_card_ids"]) == sorted(
+            [str(cards["a"].id), str(cards["b"].id)]
+        )
+
+    async def test_a_carried_relates_to_the_amender_becomes_the_consolidation(self, db):
+        source = await adr_service.create_decision(db, title="Amended", publish=False)
+        source.status = "signed"
+        amender = await adr_service.create_decision(db, title="Amender", publish=False)
+        amender.status = "signed"
+        await db.flush()
+        db.add_all(
+            [
+                ArchitectureDecisionLink(source_id=amender.id, target_id=source.id, kind="amends"),
+                ArchitectureDecisionLink(source_id=source.id, target_id=amender.id, kind="relates"),
+            ]
+        )
+        await db.flush()
+
+        revision = await adr_service.create_revision(
+            db,
+            source,
+            created_by=None,
+            register=await ds.load_register(db),
+            consolidates=[str(amender.id)],
+        )
+
+        assert await _links(db, revision.id) == [(amender.id, "consolidates", None)]
+
+    async def test_the_same_amender_twice_is_a_duplicate_target(self, db):
+        source = await adr_service.create_decision(db, title="Amended", publish=False)
+        source.status = "signed"
+        amender = await adr_service.create_decision(db, title="Amender", publish=False)
+        amender.status = "signed"
+        await db.flush()
+        db.add(ArchitectureDecisionLink(source_id=amender.id, target_id=source.id, kind="amends"))
+        await db.flush()
+
+        with pytest.raises(HTTPException) as exc:
+            await adr_service.create_revision(
+                db,
+                source,
+                created_by=None,
+                register=await ds.load_register(db),
+                consolidates=[str(amender.id), amender.reference_number],
+            )
+        assert exc.value.status_code == 400
+        assert exc.value.detail["error"] == "duplicate_target"
+
+
+class TestDuplicateDecision:
+    async def test_new_reference_no_parent_one_event(self, db, cards):
+        original = await adr_service.create_decision(
+            db,
+            title="Original",
+            attributes={"ext.x.k": 2},
+            linked_card_ids=[cards["a"].id],
+            valid_until=date(2099, 1, 1),
+            decided_on=date(2026, 1, 2),
+            publish=False,
+        )
+
+        dup = await adr_service.duplicate_decision(db, original, created_by=None)
+
+        assert (dup.reference_number, dup.revision_number, dup.parent_id, dup.title) == (
+            "ADR-002",
+            1,
+            None,
+            "Original (copy)",
+        )
+        assert (dup.attributes, dup.valid_until, dup.decided_on) == (
+            {"ext.x.k": 2},
+            date(2099, 1, 1),
+            None,
+        )
+        events = (
+            (await db.execute(select(Event).where(Event.event_type == "adr.created")))
+            .scalars()
+            .all()
+        )
+        assert [(e.data["adr_id"], e.data["linked_card_ids"]) for e in events] == [
+            (str(dup.id), [str(cards["a"].id)])
+        ]

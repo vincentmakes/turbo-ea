@@ -22,7 +22,8 @@ Inverse operations (the ``_INVERSES`` table is the single list):
 - ``stakeholder.added`` / ``stakeholder.removed`` / ``stakeholder.role_changed``
   → remove / re-assign / restore the role, then rescore the card.
 - ``tag.added`` / ``tag.removed`` → remove / re-add the tag, then rescore.
-- ``adr.created`` → delete the decision while it is still a draft.
+- ``adr.created`` → delete the decision while it is still a draft (a created
+  revision included: it is a draft carrying ``revision_of``).
 - ``todo.created`` **by an extension** (``data["ext"]`` set — a rule or a
   sync wrote it) → delete the todo while it is still open. A person's own
   todo is a request to a person and stays; so does one already completed,
@@ -78,6 +79,7 @@ from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag
 from app.models.todo import Todo
+from app.services import adr_service
 from app.services.event_bus import event_bus
 from app.services.mutation_batch_service import batch_to_dict, create_batch
 
@@ -220,7 +222,11 @@ def _plan_adr_created(event: Event, data: dict) -> dict[str, Any]:
     adr_id = data.get("adr_id") or data.get("id")
     if not adr_id:
         return _unsupported(event, "adr.created carries no decision id")
-    return {"op": "delete_adr", "adr_id": adr_id, "detail": data.get("reference_number") or ""}
+    reference = data.get("reference_number") or ""
+    revision = data.get("revision_number")
+    # A revision shares its decision's reference: name the revision too.
+    detail = adr_service.reference_label(reference, revision) if reference else ""
+    return {"op": "delete_adr", "adr_id": adr_id, "detail": detail}
 
 
 def _plan_diagram_created(event: Event, data: dict) -> dict[str, Any]:

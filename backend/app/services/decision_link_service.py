@@ -189,7 +189,7 @@ def _field(entry: Any, key: str) -> Any:
     return getattr(entry, key, None)
 
 
-def _resolve_or_404(register: ds.Register, value: Any) -> uuid.UUID:
+def resolve_or_404(register: ds.Register, value: Any) -> uuid.UUID:
     target = resolve_in_register(register, value)
     if target is None:
         raise HTTPException(
@@ -227,7 +227,7 @@ def wanted_links(
     else:
         wanted = [
             WantedLink(
-                _resolve_or_404(register, _field(entry, "decision_id")),
+                resolve_or_404(register, _field(entry, "decision_id")),
                 str(_field(entry, "kind")),
                 _field(entry, "note"),
             )
@@ -236,7 +236,7 @@ def wanted_links(
     notes = {lk.target_id: lk.note for lk in current if lk.kind == ds.RELATES}
     held = {link.target_id for link in wanted}
     for value in related:
-        target = _resolve_or_404(register, value)
+        target = resolve_or_404(register, value)
         if target in held:
             continue
         held.add(target)

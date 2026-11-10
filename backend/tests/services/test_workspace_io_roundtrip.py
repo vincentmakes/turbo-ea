@@ -2680,3 +2680,234 @@ async def test_a_decision_person_whose_user_has_no_match_keeps_the_stored_name(d
     assert person.user_id is None
     assert person.name == "Gil Ghost"
     assert person.part == "decision_maker"
+
+
+async def test_a_revision_chain_sharing_one_reference_roundtrips(db):
+    """Revision 1 (signed) and revision 2 (a draft pointing back at it) carry
+    one reference; both survive export → wipe → import, and a second import
+    is all-skip."""
+    from datetime import datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+
+    admin = await create_user(db, email="chain-admin@test.com", role="admin")
+    rev1 = ArchitectureDecision(
+        reference_number="ADR-930",
+        title="Broker",
+        status="signed",
+        signed_at=datetime(2026, 2, 1, 10, tzinfo=timezone.utc),
+        created_by=admin.id,
+    )
+    db.add(rev1)
+    await db.flush()
+    rev2 = ArchitectureDecision(
+        reference_number="ADR-930",
+        title="Broker",
+        status="draft",
+        revision_number=2,
+        parent_id=rev1.id,
+        change_summary="Second broker",
+        created_by=admin.id,
+    )
+    db.add(rev2)
+    await db.flush()
+    rev1_id, rev2_id = rev1.id, rev2.id
+
+    raw = await build_bundle(db)
+    exported = parse_bundle(raw).rows("Adrs")
+    assert sorted((r["reference_number"], r["revision_number"]) for r in exported) == [
+        ("ADR-930", 1),
+        ("ADR-930", 2),
+    ]
+    assert "related_decisions" not in exported[0]
+
+    await db.execute(delete(ArchitectureDecision))
+    await db.flush()
+    db.expunge_all()
+
+    result = await apply_bundle(db, parse_bundle(raw), admin)
+    assert result.total_failed == 0, result.as_dict()
+    adrs = next(s for s in result.sections if s.sheet == "Adrs")
+    assert (adrs.created, adrs.skipped, adrs.conflict) == (2, 0, 0)
+    rows = (
+        (
+            await db.execute(
+                select(ArchitectureDecision).order_by(ArchitectureDecision.revision_number)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert [
+        (r.id, r.reference_number, r.revision_number, r.status, r.parent_id, r.change_summary)
+        for r in rows
+    ] == [
+        (rev1_id, "ADR-930", 1, "signed", None, None),
+        (rev2_id, "ADR-930", 2, "draft", rev1_id, "Second broker"),
+    ]
+
+    again = await apply_bundle(db, parse_bundle(raw), admin)
+    adrs = next(s for s in again.sections if s.sheet == "Adrs")
+    assert (adrs.created, adrs.skipped) == (0, 2)
+
+
+def _legacy_adr_bundle(sections, rows):
+    """A bundle as an instance before the decision register exported it: the
+    Adrs sheet still carries ``related_decisions`` and none of the new columns."""
+    header = tuple(
+        c
+        for c in sections["Adrs"].header()
+        if c
+        not in {
+            "decided_on",
+            "effective_from",
+            "valid_until",
+            "change_summary",
+            "recorded_by__email",
+            "recorded_at",
+        }
+    ) + ("related_decisions",)
+    return _make_bundle({"Adrs": (header, frozenset({"related_decisions"}), rows)})
+
+
+async def test_an_older_bundle_turns_related_decisions_into_links_and_dates(db):
+    """A pre-register bundle: each ``related_decisions`` entry naming a decision
+    of the bundle becomes a ``relates`` link (dict, dangling and self entries
+    dropped), a signed decision takes its dates from ``signed_at``, the dry run
+    counts what the apply does, and a re-import changes nothing."""
+    from datetime import date
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="legacy-importer@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    a_id = "8a1c2f34-0000-4000-8000-0000000000c1"
+    b_id = "8a1c2f34-0000-4000-8000-0000000000c2"
+    c_id = "8a1c2f34-0000-4000-8000-0000000000c3"
+
+    def row(adr_id, ref, status, related, signed_at=None):
+        return {
+            "id": adr_id,
+            "reference_number": ref,
+            "title": f"Legacy {ref}",
+            "status": status,
+            "revision_number": 1,
+            "attributes": {},
+            "signatories": [],
+            "signed_at": signed_at,
+            "related_decisions": related,
+        }
+
+    raw = _legacy_adr_bundle(
+        sections,
+        [
+            row(
+                a_id,
+                "ADR-801",
+                "signed",
+                ["adr-802", c_id, "ADR-801", {"type": "assessment", "id": b_id}, "ADR-999"],
+                signed_at="2026-03-04T23:30:00+00:00",
+            ),
+            row(b_id, "ADR-802", "draft", [a_id]),
+            row(c_id, "ADR-803", "draft", None),
+        ],
+    )
+
+    preview = await diff_bundle(db, parse_bundle(raw), importer)
+    links_preview = next(s for s in preview.sections if s.sheet == "AdrLinks")
+    assert (links_preview.created, links_preview.skipped) == (3, 0)
+    assert (await db.execute(select(ArchitectureDecision))).scalars().all() == []
+
+    result = await apply_bundle(db, parse_bundle(raw), importer)
+    assert result.total_failed == 0, result.as_dict()
+    adrs = next(s for s in result.sections if s.sheet == "Adrs")
+    links_sr = next(s for s in result.sections if s.sheet == "AdrLinks")
+    assert (adrs.created, links_sr.created) == (3, links_preview.created)
+
+    links = (
+        await db.execute(
+            select(
+                ArchitectureDecisionLink.source_id,
+                ArchitectureDecisionLink.target_id,
+                ArchitectureDecisionLink.kind,
+            )
+        )
+    ).all()
+    assert sorted((str(s), str(t), k) for s, t, k in links) == sorted(
+        [
+            (a_id, b_id, "relates"),
+            (a_id, c_id, "relates"),
+            (b_id, a_id, "relates"),
+        ]
+    )
+    by_ref = {
+        r.reference_number: r
+        for r in (await db.execute(select(ArchitectureDecision))).scalars().all()
+    }
+    signed = by_ref["ADR-801"]
+    assert (signed.decided_on, signed.effective_from) == (date(2026, 3, 4), date(2026, 3, 4))
+    assert (by_ref["ADR-802"].decided_on, by_ref["ADR-802"].effective_from) == (None, None)
+
+    again = await apply_bundle(db, parse_bundle(raw), importer)
+    links_sr = next(s for s in again.sections if s.sheet == "AdrLinks")
+    adrs = next(s for s in again.sections if s.sheet == "Adrs")
+    assert (adrs.created, adrs.skipped, links_sr.created) == (0, 3, 0)
+    assert len((await db.execute(select(ArchitectureDecisionLink))).all()) == 3
+
+
+async def test_an_older_bundle_keeps_dates_already_set_and_links_only_what_it_created(db):
+    """A decision already on the target is not given links by an older bundle,
+    and a signed decision's own dates are kept."""
+    from datetime import date, datetime, timezone
+
+    from app.models.architecture_decision import ArchitectureDecision
+    from app.models.architecture_decision_link import ArchitectureDecisionLink
+    from app.services.workspace_io.sections import ENTITY_SECTIONS
+
+    importer = await create_user(db, email="legacy-importer2@test.com", role="admin")
+    sections = {s.sheet: s for s in ENTITY_SECTIONS}
+    existing = ArchitectureDecision(reference_number="ADR-811", title="Here already")
+    db.add(existing)
+    await db.flush()
+    new_id = "8a1c2f34-0000-4000-8000-0000000000d2"
+    header_row = {c: None for c in sections["Adrs"].header()}
+    rows = [
+        header_row
+        | {
+            "id": str(existing.id),
+            "reference_number": "ADR-811",
+            "title": "Here already",
+            "status": "draft",
+            "revision_number": 1,
+            "attributes": {},
+            "related_decisions": ["ADR-812"],
+        },
+        header_row
+        | {
+            "id": new_id,
+            "reference_number": "ADR-812",
+            "title": "Arrives",
+            "status": "signed",
+            "revision_number": 1,
+            "attributes": {},
+            "signed_at": "2026-05-06T08:00:00+00:00",
+            "decided_on": "2026-01-01",
+            "related_decisions": "not json",
+        },
+    ]
+    header = tuple(sections["Adrs"].header()) + ("related_decisions",)
+    raw = _make_bundle({"Adrs": (header, frozenset({"related_decisions", "attributes"}), rows)})
+
+    result = await apply_bundle(db, parse_bundle(raw), importer)
+
+    assert result.total_failed == 0, result.as_dict()
+    assert (await db.execute(select(ArchitectureDecisionLink))).all() == []
+    arrived = (
+        await db.execute(
+            select(ArchitectureDecision).where(ArchitectureDecision.reference_number == "ADR-812")
+        )
+    ).scalar_one()
+    assert (arrived.decided_on, arrived.effective_from) == (date(2026, 1, 1), date(2026, 5, 6))
+    assert arrived.signed_at == datetime(2026, 5, 6, 8, tzinfo=timezone.utc)

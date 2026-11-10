@@ -172,6 +172,55 @@ async def test_an_existing_reference_skips_to_its_chain_current_revision(db):
     )
 
 
+async def test_a_reference_shared_by_a_chain_resolves_to_its_current_revision(db):
+    """Revisions keep their decision's reference: a file row naming it is
+    skipped onto the current revision, and a related reference links to it."""
+    rev1 = ArchitectureDecision(
+        reference_number="ADR-001", title="Rev 1", status="signed", revision_number=1
+    )
+    db.add(rev1)
+    await db.flush()
+    rev2 = ArchitectureDecision(
+        reference_number="ADR-001",
+        title="Rev 2",
+        status="signed",
+        revision_number=2,
+        parent_id=rev1.id,
+    )
+    db.add(rev2)
+    await db.flush()
+    draft = ArchitectureDecision(
+        reference_number="ADR-001",
+        title="Rev 3",
+        status="draft",
+        revision_number=3,
+        parent_id=rev2.id,
+    )
+    db.add(draft)
+    await db.flush()
+
+    skipped, created = await svc.import_decision_rows(
+        db,
+        [
+            Row(row_index=0, title="Again", reference_number="ADR-001"),
+            Row(row_index=1, title="New", related_references=["adr-001"]),
+        ],
+        created_by=None,
+    )
+
+    assert (skipped.status, skipped.id, skipped.reference_number) == (
+        "skipped",
+        str(rev2.id),
+        "ADR-001",
+    )
+    assert (created.status, created.reference_number, created.warnings) == (
+        "created",
+        "ADR-002",
+        [],
+    )
+    assert await _relates(db, uuid.UUID(created.id)) == [rev2.id]
+
+
 async def test_cards_link_once_and_unknown_names_warn(db):
     await create_card_type(db, key="Application", label="Application")
     billing = await create_card(db, card_type="Application", name="Billing")

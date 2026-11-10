@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,8 +14,13 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     """Architecture Decision Record (ADR) — documents key architecture decisions."""
 
     __tablename__ = "architecture_decisions"
+    # A revision keeps its decision's reference: the reference and the
+    # revision number are unique together (migration 168).
+    __table_args__ = (
+        UniqueConstraint("reference_number", "revision_number", name="uq_adr_reference_revision"),
+    )
 
-    reference_number: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    reference_number: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="draft")
     # Statuses: draft, in_review, signed
@@ -24,7 +29,6 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin, ProvenanceMixin):
     decision: Mapped[str | None] = mapped_column(Text)
     consequences: Mapped[str | None] = mapped_column(Text)
     alternatives_considered: Mapped[str | None] = mapped_column(Text)
-    related_decisions: Mapped[list | None] = mapped_column(JSONB, default=list)
 
     # Extension attributes bag. ADRs are not cards, so extensions cannot use the
     # metamodel field-contribution capability here; instead they stash their own

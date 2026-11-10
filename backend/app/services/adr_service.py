@@ -34,9 +34,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
+from app.models.architecture_decision_file import ArchitectureDecisionFile
+from app.models.architecture_decision_link import ArchitectureDecisionLink
 from app.models.card import Card
 from app.services import decision_link_service, decision_people_service
 from app.services import decision_standing as ds
+from app.services import revision_chain as rc
 from app.services.event_bus import event_bus
 
 _REFERENCE_RE = re.compile(r"^ADR-(\d+)$", re.IGNORECASE)
@@ -48,7 +51,8 @@ async def next_reference_number(db: AsyncSession) -> str:
     The highest number is found numerically — a string ``max()`` answers
     ``ADR-999`` forever once ``ADR-1000`` exists, and every create after that
     collides on the unique constraint. A reference in another format is
-    ignored.
+    ignored. Revisions share their decision's reference, so a reference held
+    by several rows counts once.
     """
     result = await db.execute(select(ArchitectureDecision.reference_number))
     highest = 0
@@ -143,19 +147,7 @@ async def create_decision(
         )
     if not publish:
         return adr
-    await event_bus.publish(
-        "adr.created",
-        {
-            "adr_id": str(adr.id),
-            "reference_number": adr.reference_number,
-            "revision_number": adr.revision_number,
-            "title": adr.title,
-            "status": adr.status,
-            "linked_card_ids": [str(cid) for cid in seen],
-        },
-        db=db,
-        user_id=created_by,
-    )
+    await _publish_created(db, adr, list(seen), user_id=created_by)
     return adr
 
 
@@ -369,6 +361,34 @@ def lock_refusal(register: ds.Register, adr: ArchitectureDecision) -> dict[str, 
     return detail
 
 
+#: What a PATCH may still change while a decision is in review: card links are
+#: filing, not content.
+EDITABLE_IN_REVIEW: frozenset[str] = frozenset({"linked_card_ids"})
+
+
+def check_editable(current_status: str, new_status: str | None, fields: Iterable[str]) -> None:
+    """Refuse a PATCH the decision's status does not allow.
+
+    A signed decision is never edited (403). A ``status`` value that names a
+    workflow step is a 400 pointing at its endpoint. In review, only
+    :data:`EDITABLE_IN_REVIEW` may change: anything else is a 403 telling the
+    caller to recall the signatures first.
+    """
+    if current_status == ds.LOCKED_STATUS:
+        raise HTTPException(403, "Cannot edit a signed decision. Create a new revision instead.")
+    if new_status == ds.LOCKED_STATUS:
+        raise HTTPException(400, "Use the sign endpoint to sign a decision")
+    if new_status == "in_review":
+        raise HTTPException(400, "Use the request-signatures endpoint to send for review")
+    if new_status == "draft" and current_status == "in_review":
+        raise HTTPException(400, "Use the recall-signatures endpoint to reset to draft")
+    if current_status == "in_review" and set(fields) - EDITABLE_IN_REVIEW:
+        raise HTTPException(
+            403,
+            "Cannot edit a decision in review. Recall the signatures to edit it.",
+        )
+
+
 def apply_lock_dates(adr: ArchitectureDecision, signed_on: date) -> None:
     """Fill an empty ``decided_on`` / ``effective_from`` with the signing date."""
     if adr.decided_on is None:
@@ -380,7 +400,232 @@ def apply_lock_dates(adr: ArchitectureDecision, signed_on: date) -> None:
 # --- revise and duplicate -----------------------------------------------------
 
 
-async def copy_decision_extras(db: AsyncSession, source_id: uuid.UUID, new_id: uuid.UUID) -> None:
-    """Carry ``relates`` links and people from one decision onto a new one; flush."""
+async def copy_decision_extras(
+    db: AsyncSession, source_id: uuid.UUID, new_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Carry what a revision or a duplicate inherits from ``source_id`` onto
+    ``new_id``: the ``relates`` links, the people, the card links and the file
+    pointers (the bytes are shared, never copied); flush. Returns the linked
+    card ids."""
     await decision_link_service.copy_relates_links(db, source_id, new_id)
     await decision_people_service.copy_people(db, source_id, new_id)
+    card_ids = await copy_card_links(db, source_id, new_id)
+    await copy_file_pointers(db, source_id, new_id)
+    return card_ids
+
+
+async def copy_card_links(
+    db: AsyncSession, source_id: uuid.UUID, new_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Link ``new_id`` to every card ``source_id`` is linked to; flush. Returns the card ids."""
+    card_ids = list(
+        (
+            await db.execute(
+                select(ArchitectureDecisionCard.card_id)
+                .where(ArchitectureDecisionCard.architecture_decision_id == source_id)
+                .order_by(ArchitectureDecisionCard.card_id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for card_id in card_ids:
+        db.add(ArchitectureDecisionCard(architecture_decision_id=new_id, card_id=card_id))
+    await db.flush()
+    return card_ids
+
+
+async def copy_file_pointers(db: AsyncSession, source_id: uuid.UUID, new_id: uuid.UUID) -> int:
+    """Give ``new_id`` a file row for each file of ``source_id``, pointing at the
+    same bytes (``content_id``), never copying them; flush. Returns the count."""
+    files = (
+        (
+            await db.execute(
+                select(ArchitectureDecisionFile)
+                .where(ArchitectureDecisionFile.architecture_decision_id == source_id)
+                .order_by(ArchitectureDecisionFile.created_at, ArchitectureDecisionFile.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for f in files:
+        db.add(
+            ArchitectureDecisionFile(
+                architecture_decision_id=new_id,
+                content_id=f.content_id,
+                name=f.name,
+                mime_type=f.mime_type,
+                size=f.size,
+                created_by=f.created_by,
+            )
+        )
+    await db.flush()
+    return len(files)
+
+
+async def _publish_created(
+    db: AsyncSession,
+    adr: ArchitectureDecision,
+    card_ids: Sequence[uuid.UUID],
+    *,
+    user_id: uuid.UUID | None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    await event_bus.publish(
+        "adr.created",
+        {
+            "adr_id": str(adr.id),
+            "reference_number": adr.reference_number,
+            "revision_number": adr.revision_number,
+            "title": adr.title,
+            "status": adr.status,
+            "linked_card_ids": [str(cid) for cid in card_ids],
+            **(extra or {}),
+        },
+        db=db,
+        user_id=user_id,
+    )
+
+
+def revise_refusal_detail(
+    register: ds.Register, source: ArchitectureDecision
+) -> dict[str, Any] | None:
+    """Why ``source`` may not be revised now, as a 409 detail, or ``None``.
+
+    An unsigned decision is not answered here (the route keeps its 400). A
+    chain that already holds an unsigned revision names it
+    (``open_revision_exists``); a signed revision ordered after ``source``
+    makes it ``not_latest``; a chain revoked or replaced by another decision
+    is not revisable ``by`` that decision. Expired and amended decisions stay
+    revisable.
+    """
+    chain = register.chain(source.id)
+    reason = rc.revise_refusal(chain, source.id)
+    if reason == "open_revision_exists":
+        open_nodes = [n for n in chain.nodes if not rc.is_locked(n) and n.id != source.id]
+        return {"error": "open_revision_exists", "revision_id": str(open_nodes[-1].id)}
+    if reason == "not_latest":
+        return {"error": "not_revisable", "reason": "not_latest"}
+    closed_by = ds.chain_closed_by(register, source.id)
+    if closed_by is not None:
+        return {"error": "not_revisable", "by": ref_payload(closed_by)}
+    return None
+
+
+async def create_revision(
+    db: AsyncSession,
+    source: ArchitectureDecision,
+    *,
+    created_by: uuid.UUID | None,
+    register: ds.Register,
+    consolidates: Sequence[Any] = (),
+    change_summary: str | None = None,
+) -> ArchitectureDecision:
+    """Insert the next revision of ``source`` as a draft; flush, never commit.
+
+    The revision keeps ``source``'s reference, takes the chain's highest
+    revision number + 1 and points back at ``source``. It carries the text,
+    the extension attributes, the card links, the ``relates`` links, the people,
+    the file pointers and ``valid_until``; it does not carry ``decided_on``,
+    ``effective_from``, the signatories, the recorded stamp, the hard links nor
+    the change summary (``change_summary`` is the new revision's own). Each
+    entry of ``consolidates`` (a decision id or a reference) becomes a
+    ``consolidates`` link, validated like any link (400 on a problem, 404 for
+    an unknown entry). Publishes ``adr.created`` with ``revision_of``, so a
+    mutation batch that revised can be rolled back.
+
+    The caller has checked that ``source`` may be revised
+    (:func:`revise_refusal_detail`).
+    """
+    wanted = [
+        decision_link_service.WantedLink(
+            decision_link_service.resolve_or_404(register, value), ds.CONSOLIDATES
+        )
+        for value in consolidates
+    ]
+    seen: set[uuid.UUID] = set()
+    for link in wanted:
+        if link.target_id in seen:
+            raise decision_link_service.link_error(
+                [decision_link_service.DUPLICATE_TARGET], link.target_id
+            )
+        seen.add(link.target_id)
+        problems = ds.validate_link_draft(
+            register, None, link.target_id, ds.CONSOLIDATES, source_parent_id=source.id
+        )
+        if problems:
+            raise decision_link_service.link_error(problems, link.target_id)
+
+    revision = ArchitectureDecision(
+        reference_number=source.reference_number,
+        revision_number=rc.next_revision_number(register.chain(source.id)),
+        parent_id=source.id,
+        title=source.title,
+        context=source.context,
+        decision=source.decision,
+        consequences=source.consequences,
+        alternatives_considered=source.alternatives_considered,
+        attributes=dict(source.attributes or {}),
+        valid_until=source.valid_until,
+        change_summary=change_summary,
+        created_by=created_by,
+    )
+    db.add(revision)
+    await db.flush()
+    card_ids = await copy_decision_extras(db, source.id, revision.id)
+    carried = {
+        lk.target_id: lk
+        for lk in (
+            await db.execute(
+                select(ArchitectureDecisionLink).where(
+                    ArchitectureDecisionLink.source_id == revision.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    }
+    for link in wanted:
+        held = carried.get(link.target_id)
+        if held is not None:
+            # A carried ``relates`` to the amender becomes the consolidation.
+            held.kind = ds.CONSOLIDATES
+        else:
+            db.add(
+                ArchitectureDecisionLink(
+                    source_id=revision.id, target_id=link.target_id, kind=ds.CONSOLIDATES
+                )
+            )
+    await db.flush()
+    await _publish_created(
+        db, revision, card_ids, user_id=created_by, extra={"revision_of": str(source.id)}
+    )
+    return revision
+
+
+async def duplicate_decision(
+    db: AsyncSession, original: ArchitectureDecision, *, created_by: uuid.UUID | None
+) -> ArchitectureDecision:
+    """A new draft decision copied from ``original``; flush, never commit.
+
+    A new reference, revision 1, no parent. Carries the text, the extension
+    attributes, ``valid_until``, the card links, the ``relates`` links, the
+    people and the file pointers; not the dates, the signatories nor the hard
+    links. Publishes one ``adr.created``.
+    """
+    dup = await create_decision(
+        db,
+        title=f"{original.title} (copy)",
+        context=original.context,
+        decision=original.decision,
+        consequences=original.consequences,
+        alternatives_considered=original.alternatives_considered,
+        attributes=dict(original.attributes or {}),
+        valid_until=original.valid_until,
+        created_by=created_by,
+        publish=False,
+    )
+    card_ids = await copy_decision_extras(db, original.id, dup.id)
+    await _publish_created(db, dup, card_ids, user_id=created_by)
+    return dup

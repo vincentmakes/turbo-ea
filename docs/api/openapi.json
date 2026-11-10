@@ -495,6 +495,34 @@
         "title": "ADRRejectRequest",
         "type": "object"
       },
+      "ADRReviseRequest": {
+        "additionalProperties": false,
+        "description": "Optional body of ``POST /adr/{id}/revise``.",
+        "properties": {
+          "change_summary": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Summary"
+          },
+          "consolidates": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Consolidates",
+            "type": "array"
+          }
+        },
+        "title": "ADRReviseRequest",
+        "type": "object"
+      },
       "ADRSignRequest": {
         "additionalProperties": false,
         "properties": {
@@ -21631,7 +21659,7 @@
     },
     "/api/v1/adr/{adr_id}/reject": {
       "post": {
-        "description": "Reject the ADR as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the ADR as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, and\nnotifies the creator.",
         "operationId": "reject_adr_api_v1_adr__adr_id__reject_post",
         "parameters": [
           {
@@ -21733,7 +21761,7 @@
     },
     "/api/v1/adr/{adr_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed ADR.",
+        "description": "Create the next revision of a signed ADR: same reference, next number.\n\n409 when the chain already has a revision being drafted, when a later\nrevision is signed, or when another decision revoked or replaced it.",
         "operationId": "revise_adr_api_v1_adr__adr_id__revise_post",
         "parameters": [
           {
@@ -21746,6 +21774,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ADRReviseRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
@@ -21774,7 +21819,7 @@
     },
     "/api/v1/adr/{adr_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this ADR.",
+        "description": "List all revisions in the chain for this ADR, in chain order.",
         "operationId": "list_revisions_api_v1_adr__adr_id__revisions_get",
         "parameters": [
           {
@@ -43085,6 +43130,16 @@
               ],
               "title": "Initiative Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "include_earlier",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Earlier",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -43314,7 +43369,7 @@
     },
     "/api/v1/soaw/{soaw_id}/reject": {
       "post": {
-        "description": "Reject the SoAW as a signatory. Resets to draft, increments revision\nnumber, clears all signatories, and notifies the creator.",
+        "description": "Reject the SoAW as a signatory. Resets to draft (the revision number\nstays: revisions count signed versions), clears all signatories, and\nnotifies the creator.",
         "operationId": "reject_soaw_api_v1_soaw__soaw_id__reject_post",
         "parameters": [
           {
@@ -43416,7 +43471,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revise": {
       "post": {
-        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, with an incremented\nrevision number and parent_id pointing to the original.",
+        "description": "Create a new revision of a signed SoAW. Copies the document content\ninto a new draft linked to the same initiative, numbered after the chain's\nhighest revision, with parent_id pointing to the original. Refused (409)\nwhile the chain already has an unsigned revision, and on a signed revision\nthat a later signed revision superseded.",
         "operationId": "revise_soaw_api_v1_soaw__soaw_id__revise_post",
         "parameters": [
           {
@@ -43457,7 +43512,7 @@
     },
     "/api/v1/soaw/{soaw_id}/revisions": {
       "get": {
-        "description": "List all revisions in the chain for this SoAW (traverses parent_id).",
+        "description": "List all revisions in the chain for this SoAW, in chain order (fork-safe;\na dangling parent is a root).",
         "operationId": "list_revisions_api_v1_soaw__soaw_id__revisions_get",
         "parameters": [
           {

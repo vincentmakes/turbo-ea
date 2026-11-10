@@ -7,13 +7,15 @@ or a dict pointing at something that is not a decision (a TurboLens
 assessment). Only the first two name a decision.
 
 :func:`plan_relates_links` is the one place that reads that list, for a bundle
-exported before the register (the workspace importer's older-bundle step).
+exported before the register (the workspace importer's older-bundle step,
+:func:`plan_bundle_links`).
 Migration 167 carries its own copy of the same function: a migration must not
 import app code that changes later, and app code must not import a migration.
 """
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Iterable
 from typing import Any
@@ -71,3 +73,64 @@ def plan_relates_links(rows: Iterable[tuple[Any, Any, Any]]) -> list[tuple[Any, 
             seen.add(key)
             pairs.append((row_id, target))
     return pairs
+
+
+# --- Older workspace bundles ----------------------------------------------------
+
+#: The ``Adrs`` sheet column a bundle exported before the register carries.
+LEGACY_COLUMN = "related_decisions"
+
+
+def decode_related_cell(cell: Any) -> Any:
+    """A ``related_decisions`` cell as the list it held.
+
+    The exporter wrote the JSONB column as JSON text; a cell that is not valid
+    JSON (or empty) yields ``None``, which plans no link. A value that is
+    already decoded is returned as it is.
+    """
+    if not isinstance(cell, str):
+        return cell
+    if not cell.strip():
+        return None
+    try:
+        return json.loads(cell)
+    except ValueError:
+        return None
+
+
+def plan_bundle_links(
+    rows: Iterable[dict[str, Any]],
+    *,
+    created_ids: Iterable[Any],
+    present_ids: Iterable[Any],
+    existing_pairs: Iterable[tuple[Any, Any]],
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """The ``relates`` links an older bundle's ``Adrs`` rows still owe.
+
+    ``rows`` are the sheet's raw rows (``id``, ``reference_number`` and the
+    legacy ``related_decisions`` cell). Entries resolve through the bundle's
+    own rows (:func:`plan_relates_links`). A pair is kept only when its source
+    is a decision this import created (``created_ids``), its target exists on
+    the target instance (``present_ids``) and no link of any kind runs from the
+    source to the target yet (``existing_pairs``). Ids come out as
+    ``uuid.UUID``; a row whose id is not a UUID is ignored.
+    """
+    parsed: list[tuple[uuid.UUID, Any, Any]] = []
+    for row in rows:
+        try:
+            row_id = uuid.UUID(str(row.get("id")))
+        except ValueError:
+            continue
+        parsed.append(
+            (row_id, row.get("reference_number"), decode_related_cell(row.get(LEGACY_COLUMN)))
+        )
+    created = {str(i) for i in created_ids}
+    present = {str(i) for i in present_ids}
+    held = {(str(s), str(t)) for s, t in existing_pairs}
+    return [
+        (source, target)
+        for source, target in plan_relates_links(parsed)
+        if str(source) in created
+        and str(target) in present
+        and (str(source), str(target)) not in held
+    ]

@@ -22,6 +22,7 @@ from app.schemas.adr import (
     ADRImportResponse,
     ADRImportResult,
     ADRRejectRequest,
+    ADRReviseRequest,
     ADRSignatureRequest,
     ADRSignRequest,
     ADRUpdate,
@@ -498,9 +499,7 @@ async def update_adr(
 ):
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
-
-    if adr.status == "signed":
-        raise HTTPException(403, "Cannot edit a signed decision. Create a new revision instead.")
+    adr_service.check_editable(adr.status, body.status, body.model_fields_set)
 
     if body.title is not None:
         adr.title = body.title
@@ -556,18 +555,6 @@ async def update_adr(
         adr.attributes = merged
         flag_modified(adr, "attributes")
     if body.status is not None:
-        if body.status == "signed":
-            raise HTTPException(400, "Use the sign endpoint to sign a decision")
-        if body.status == "in_review":
-            raise HTTPException(
-                400,
-                "Use the request-signatures endpoint to send for review",
-            )
-        if body.status == "draft" and adr.status == "in_review":
-            raise HTTPException(
-                400,
-                "Use the recall-signatures endpoint to reset to draft",
-            )
         adr.status = body.status
 
     if body.linked_card_ids is not None:
@@ -635,36 +622,7 @@ async def duplicate_adr(
     """Duplicate an ADR as a new draft with a new reference number."""
     await PermissionService.require_permission(db, user, "adr.manage")
     original = await _get_adr(db, adr_id)
-    ref_num = await adr_service.next_reference_number(db)
-    dup = ArchitectureDecision(
-        reference_number=ref_num,
-        title=f"{original.title} (copy)",
-        context=original.context,
-        decision=original.decision,
-        consequences=original.consequences,
-        alternatives_considered=original.alternatives_considered,
-        attributes=dict(original.attributes or {}),
-        valid_until=original.valid_until,
-        created_by=user.id,
-    )
-    db.add(dup)
-    await db.commit()
-    await db.refresh(dup)
-    await adr_service.copy_decision_extras(db, original.id, dup.id)
-
-    # Copy card links
-    result = await db.execute(
-        select(ArchitectureDecisionCard).where(
-            ArchitectureDecisionCard.architecture_decision_id == original.id
-        )
-    )
-    for link in result.scalars().all():
-        db.add(
-            ArchitectureDecisionCard(
-                architecture_decision_id=dup.id,
-                card_id=link.card_id,
-            )
-        )
+    dup = await adr_service.duplicate_decision(db, original, created_by=user.id)
     await db.commit()
     await db.refresh(dup)
     return await _detail(db, dup, user)
@@ -688,6 +646,10 @@ async def request_signatures(
 
     if adr.status == "signed":
         raise HTTPException(400, "Decision is already signed")
+    if adr.status != "draft":
+        # A second request during review would reset the signatures already
+        # given and send everyone a second to-do.
+        raise HTTPException(409, {"error": "not_draft"})
 
     refusal = adr_service.lock_refusal(await ds.load_register(db), adr)
     if refusal is not None:
@@ -935,8 +897,9 @@ async def reject_adr(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Reject the ADR as a signatory. Resets to draft, increments revision
-    number, clears all signatories, and notifies the creator."""
+    """Reject the ADR as a signatory. Resets to draft (the revision number
+    stays: revisions count signed versions), clears all signatories, and
+    notifies the creator."""
     await PermissionService.require_permission(db, user, "adr.sign")
     adr = await _get_adr(db, adr_id)
 
@@ -1001,7 +964,6 @@ async def reject_adr(
     adr.signatories = []
     flag_modified(adr, "signatories")
     adr.status = "draft"
-    adr.revision_number += 1
 
     await db.commit()
     await db.refresh(adr)
@@ -1031,51 +993,36 @@ async def reject_adr(
 @router.post("/{adr_id}/revise")
 async def revise_adr(
     adr_id: str,
+    body: ADRReviseRequest | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Create a new revision of a signed ADR."""
+    """Create the next revision of a signed ADR: same reference, next number.
+
+    409 when the chain already has a revision being drafted, when a later
+    revision is signed, or when another decision revoked or replaced it.
+    """
     await PermissionService.require_permission(db, user, "adr.manage")
     adr = await _get_adr(db, adr_id)
 
     if adr.status != "signed":
         raise HTTPException(400, "Only signed decisions can be revised")
+    register = await ds.load_register(db)
+    refusal = adr_service.revise_refusal_detail(register, adr)
+    if refusal is not None:
+        raise HTTPException(409, refusal)
 
-    ref_num = await adr_service.next_reference_number(db)
-    new_revision = ArchitectureDecision(
-        reference_number=ref_num,
-        title=adr.title,
-        context=adr.context,
-        decision=adr.decision,
-        consequences=adr.consequences,
-        alternatives_considered=adr.alternatives_considered,
-        attributes=dict(adr.attributes or {}),
-        valid_until=adr.valid_until,
+    body = body or ADRReviseRequest()
+    new_revision = await adr_service.create_revision(
+        db,
+        adr,
         created_by=user.id,
-        revision_number=adr.revision_number + 1,
-        parent_id=adr.id,
+        register=register,
+        consolidates=body.consolidates,
+        change_summary=body.change_summary,
     )
-    db.add(new_revision)
     await db.commit()
     await db.refresh(new_revision)
-    await adr_service.copy_decision_extras(db, adr.id, new_revision.id)
-
-    # Copy card links from the original
-    result = await db.execute(
-        select(ArchitectureDecisionCard).where(
-            ArchitectureDecisionCard.architecture_decision_id == adr.id
-        )
-    )
-    for link in result.scalars().all():
-        db.add(
-            ArchitectureDecisionCard(
-                architecture_decision_id=new_revision.id,
-                card_id=link.card_id,
-            )
-        )
-    await db.commit()
-    await db.refresh(new_revision)
-
     return await _detail(db, new_revision, user)
 
 
@@ -1085,36 +1032,16 @@ async def list_revisions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """List all revisions in the chain for this ADR."""
+    """List all revisions in the chain for this ADR, in chain order."""
     await PermissionService.require_permission(db, user, "adr.view")
     adr = await _get_adr(db, adr_id)
 
-    # Walk up to the root
-    root = adr
-    while root.parent_id:
-        result = await db.execute(
-            select(ArchitectureDecision).where(ArchitectureDecision.id == root.parent_id)
-        )
-        parent = result.scalar_one_or_none()
-        if not parent:
-            break
-        root = parent
-
-    # Collect all revisions from root downward
-    chain = [root]
-    current_id = root.id
-    while True:
-        result = await db.execute(
-            select(ArchitectureDecision).where(ArchitectureDecision.parent_id == current_id)
-        )
-        child = result.scalar_one_or_none()
-        if not child:
-            break
-        chain.append(child)
-        current_id = child.id
-
     register = await ds.load_register(db)
-    people = await decision_people_service.people_payload(db, [r.id for r in chain])
+    ids = [node.id for node in register.chain(adr.id).nodes]
+    rows = await db.execute(select(ArchitectureDecision).where(ArchitectureDecision.id.in_(ids)))
+    by_id = {r.id: r for r in rows.scalars().all()}
+    chain = [by_id[i] for i in ids if i in by_id]
+    people = await decision_people_service.people_payload(db, ids)
     return [_adr_to_summary(r, register=register, people=people) for r in chain]
 
 

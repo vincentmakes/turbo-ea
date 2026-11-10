@@ -97,6 +97,17 @@ class ADRSignRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
 
+class ADRReviseRequest(BaseModel):
+    """Optional body of ``POST /adr/{id}/revise``."""
+
+    # Decision ids or reference numbers of the amending decisions this
+    # revision consolidates; each becomes a ``consolidates`` link.
+    consolidates: list[str] = Field(default_factory=list, max_length=100)
+    change_summary: str | None = Field(None, max_length=2000)
+
+    model_config = {"extra": "forbid"}
+
+
 class ADRRejectRequest(BaseModel):
     comment: str
 
@@ -122,7 +133,6 @@ class ADRResponse(BaseModel):
     decision: str | None = None
     consequences: str | None = None
     alternatives_considered: str | None = None
-    related_decisions: list[str] = []
     attributes: dict = {}
     created_by: str | None = None
     creator_name: str | None = None
